@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
+import { getStaticMapImageUrl } from "@/lib/map-utils";
 import { buildZineMapScene, type ZineMapCue } from "../map-doodle-scene";
 
 export function RoughEdgeFilter() {
@@ -332,42 +333,78 @@ export function MapDoodle({
   const approachStartX = scene.oceanSide === "left" ? 30 : 370;
   const approachEndX = scene.oceanSide === "left" ? markerX - 18 : markerX + 18;
   const locationFontSize = locationName.length > 18 ? 15 : locationName.length > 14 ? 17 : 20;
+  const mapUrl = lat != null && lon != null
+    ? getStaticMapImageUrl(lat, lon, {
+        width: 800,
+        height: 480,
+        zoom: 15,
+      })
+    : null;
+  const hasRealMap = mapUrl != null && !mapUrl.startsWith("data:image");
+
   return (
-    <div style={{ position: "relative", width: "100%", height, background: "#EBDFC2", overflow: "hidden" }} aria-hidden>
+    <div
+      style={{ position: "relative", width: "100%", height, background: "#EBDFC2", overflow: "hidden" }}
+      role="img"
+      aria-label={`Map showing ${beachName || locationName} at its actual location`}
+    >
+      {hasRealMap && (
+        // eslint-disable-next-line @next/next/no-img-element -- static map providers are already optimized and can fall back independently
+        <img
+          src={mapUrl}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{ filter: "sepia(0.16) saturate(0.72) contrast(1.08)", opacity: 0.88 }}
+        />
+      )}
       <svg viewBox="0 0 400 240" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
         <pattern id={scene.patternId} x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
           <circle cx="3" cy="3" r="1.1" fill="#7FA7B8" opacity="0.55" />
         </pattern>
-        <path d={scene.oceanPath} fill="#C9D8DD" />
-        <path d={scene.oceanPath} fill={`url(#${scene.patternId})`} />
-        <path d={scene.landPath} fill="#EBDFC2" />
-        <path d={scene.coastPath} stroke="#11100D" strokeWidth="2" fill="none" filter="url(#zine-rough-edge)" />
-        <g stroke="#11100D" strokeWidth="0.6" opacity="0.55">
-          {scene.gridLines.map((path) => (
-            <path key={path} d={path} />
-          ))}
-        </g>
-        <g transform={scene.cueTransform} data-testid={`zine-map-cue-${scene.cue}`}>
-          <MapCue cue={scene.cue} />
-        </g>
-        <g transform={`translate(${markerX},${markerY})`}>
-          <circle r="14" fill="none" stroke="#11100D" strokeWidth="2" filter="url(#zine-rough-edge)" />
-          <path d="M-7,-7 L7,7 M-7,7 L7,-7" stroke="#11100D" strokeWidth="2.2" strokeLinecap="round" />
-        </g>
-        <g stroke="#0B3A75" strokeWidth="1.6" fill="none" strokeDasharray="3,3">
-          <path d={`M${approachStartX},${markerY - 30} C${approachStartX - 18},${markerY - 25} ${approachEndX},${markerY - 28} ${approachEndX},${markerY - 12}`} />
-          <path d={`M${approachStartX},${markerY + 30} C${approachStartX - 18},${markerY + 25} ${approachEndX},${markerY + 28} ${approachEndX},${markerY + 12}`} />
-        </g>
-        <path d={`M${approachEndX},${markerY - 17} L${markerX},${markerY - 12} L${approachEndX},${markerY - 7}`} stroke="#0B3A75" strokeWidth="1.6" fill="none" />
-        <path d={`M${approachEndX},${markerY + 7} L${markerX},${markerY + 12} L${approachEndX},${markerY + 17}`} stroke="#0B3A75" strokeWidth="1.6" fill="none" />
+        {hasRealMap ? (
+          <>
+            <rect width="400" height="240" fill={`url(#${scene.patternId})`} opacity="0.18" />
+            <circle cx="200" cy="120" r="16" fill="none" stroke="#11100D" strokeWidth="2.5" filter="url(#zine-rough-edge)" />
+            <path d="M192,112 L208,128 M192,128 L208,112" stroke="#11100D" strokeWidth="2.4" strokeLinecap="round" />
+          </>
+        ) : (
+          <>
+            <path d={scene.oceanPath} fill="#C9D8DD" />
+            <path d={scene.oceanPath} fill={`url(#${scene.patternId})`} />
+            <path d={scene.landPath} fill="#EBDFC2" />
+            <path d={scene.coastPath} stroke="#11100D" strokeWidth="2" fill="none" filter="url(#zine-rough-edge)" />
+            <g stroke="#11100D" strokeWidth="0.6" opacity="0.55">
+              {scene.gridLines.map((path) => (
+                <path key={path} d={path} />
+              ))}
+            </g>
+            <g transform={scene.cueTransform} data-testid={`zine-map-cue-${scene.cue}`}>
+              <MapCue cue={scene.cue} />
+            </g>
+            <g transform={`translate(${markerX},${markerY})`}>
+              <circle r="14" fill="none" stroke="#11100D" strokeWidth="2" filter="url(#zine-rough-edge)" />
+              <path d="M-7,-7 L7,7 M-7,7 L7,-7" stroke="#11100D" strokeWidth="2.2" strokeLinecap="round" />
+            </g>
+            <g stroke="#0B3A75" strokeWidth="1.6" fill="none" strokeDasharray="3,3">
+              <path d={`M${approachStartX},${markerY - 30} C${approachStartX - 18},${markerY - 25} ${approachEndX},${markerY - 28} ${approachEndX},${markerY - 12}`} />
+              <path d={`M${approachStartX},${markerY + 30} C${approachStartX - 18},${markerY + 25} ${approachEndX},${markerY + 28} ${approachEndX},${markerY + 12}`} />
+            </g>
+            <path d={`M${approachEndX},${markerY - 17} L${markerX},${markerY - 12} L${approachEndX},${markerY - 7}`} stroke="#0B3A75" strokeWidth="1.6" fill="none" />
+            <path d={`M${approachEndX},${markerY + 7} L${markerX},${markerY + 12} L${approachEndX},${markerY + 17}`} stroke="#0B3A75" strokeWidth="1.6" fill="none" />
+          </>
+        )}
         <text
-          x={scene.label.x}
-          y={scene.label.y}
+          x={hasRealMap ? 302 : scene.label.x}
+          y={hasRealMap ? 214 : scene.label.y}
           fontFamily="var(--font-handwritten), cursive"
           fontSize={locationFontSize}
           fill="#11100D"
           fontWeight="700"
           textAnchor="middle"
+          paintOrder="stroke"
+          stroke="#F4EBD8"
+          strokeWidth={hasRealMap ? 4 : 0}
+          strokeLinejoin="round"
         >
           {locationName}
         </text>
