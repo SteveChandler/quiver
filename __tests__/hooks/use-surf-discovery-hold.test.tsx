@@ -261,6 +261,194 @@ describe("useSurfDiscovery major-event hold precedence", () => {
     expect(result.current.hasRecommendations).toBe(false);
   });
 
+  it("waits out authority that outlasts the max timer delay, then revalidates", async () => {
+    const maxTimerDelayMs = 2_147_483_647;
+    jest.useFakeTimers().setSystemTime(new Date("2026-07-19T12:00:00.000Z"));
+    const allowed = discoveryResponse(
+      { state: "available", holdEpoch: "clear" },
+      1,
+    );
+    // 30 days of authority — longer than a timer can hold in one hop.
+    const grantedMs = 30 * 24 * 60 * 60 * 1000;
+    allowed.sessionDecision!.expiresAt = new Date(
+      Date.parse(allowed.sessionDecision!.createdAt) + grantedMs,
+    ).toISOString();
+    const held = discoveryResponse(
+      { state: "none", reasonCode: "major_event_hold", holdEpoch: "active-hold" },
+      1,
+    );
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: serialized(allowed) }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: serialized(held) }),
+      });
+
+    const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
+
+    await waitFor(() => expect(result.current.hasRecommendations).toBe(true));
+
+    // First hop: authority is still live, so nothing may be revalidated yet.
+    act(() => {
+      jest.advanceTimersByTime(maxTimerDelayMs);
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(result.current.hasRecommendations).toBe(true);
+
+    // Past the granted window the re-armed timer must still fire, and the hold
+    // that comes back must be what wins.
+    await act(async () => {
+      jest.advanceTimersByTime(grantedMs - maxTimerDelayMs);
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(result.current.discovery?.recommendationAvailability?.state).toBe(
+      "none",
+    );
+    expect(result.current.hasRecommendations).toBe(false);
+  });
+
+  it("bounds authority by the server-authored lifetime when the client clock lags", async () => {
+    // Client clock 30 days behind the server: a normal 15-minute decision would
+    // otherwise look like 30 days of authority.
+    jest.useFakeTimers().setSystemTime(new Date("2026-06-19T12:00:00.000Z"));
+    const allowed = discoveryResponse(
+      { state: "available", holdEpoch: "clear" },
+      1,
+    );
+    allowed.sessionDecision!.createdAt = "2026-07-19T12:00:00.000Z";
+    allowed.sessionDecision!.expiresAt = "2026-07-19T12:15:00.000Z";
+    const held = discoveryResponse(
+      { state: "none", reasonCode: "major_event_hold", holdEpoch: "active-hold" },
+      1,
+    );
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: serialized(allowed) }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: serialized(held) }),
+      });
+
+    const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
+
+    await waitFor(() => expect(result.current.hasRecommendations).toBe(true));
+    await act(async () => {
+      jest.advanceTimersByTime(15 * 60 * 1000 + 1);
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(result.current.discovery?.recommendationAvailability?.state).toBe(
+      "none",
+    );
+    expect(result.current.hasRecommendations).toBe(false);
+  });
+
+  it("expires on schedule even if the clock is moved backward mid-session", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-07-19T12:00:00.000Z"));
+    const allowed = discoveryResponse(
+      { state: "available", holdEpoch: "clear" },
+      1,
+    );
+    allowed.sessionDecision!.expiresAt = "2026-07-19T12:15:00.000Z";
+    const held = discoveryResponse(
+      { state: "none", reasonCode: "major_event_hold", holdEpoch: "active-hold" },
+      1,
+    );
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: serialized(allowed) }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: serialized(held) }),
+      });
+
+    const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
+
+    await waitFor(() => expect(result.current.hasRecommendations).toBe(true));
+
+    // Clock yanked 30 days backward after the timer was armed.
+    jest.setSystemTime(new Date("2026-06-19T12:00:00.000Z"));
+    await act(async () => {
+      jest.advanceTimersByTime(15 * 60 * 1000 + 1);
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(result.current.hasRecommendations).toBe(false);
+  });
+
+  it("does not extend authority when a hop fires late", async () => {
+    const maxTimerDelayMs = 2_147_483_647;
+    jest.useFakeTimers().setSystemTime(new Date("2026-07-19T12:00:00.000Z"));
+    const allowed = discoveryResponse(
+      { state: "available", holdEpoch: "clear" },
+      1,
+    );
+    const grantedMs = 30 * 24 * 60 * 60 * 1000;
+    allowed.sessionDecision!.expiresAt = new Date(
+      Date.parse(allowed.sessionDecision!.createdAt) + grantedMs,
+    ).toISOString();
+    const held = discoveryResponse(
+      { state: "none", reasonCode: "major_event_hold", holdEpoch: "active-hold" },
+      1,
+    );
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: serialized(allowed) }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: serialized(held) }),
+      });
+
+    const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
+
+    await waitFor(() => expect(result.current.hasRecommendations).toBe(true));
+
+    // Tab suspended: the wall clock runs past the whole grant before the first
+    // hop is delivered. The delayed hop must expire, not re-arm the remainder.
+    jest.setSystemTime(new Date(Date.now() + grantedMs));
+    await act(async () => {
+      jest.advanceTimersByTime(maxTimerDelayMs);
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(result.current.hasRecommendations).toBe(false);
+  });
+
+  it("stays fail-closed when the decision carries an unreadable createdAt", async () => {
+    const allowed = discoveryResponse(
+      { state: "available", holdEpoch: "clear" },
+      1,
+    );
+    allowed.sessionDecision!.createdAt = "not-a-timestamp";
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: serialized(allowed) }),
+    });
+
+    const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // The projection now rejects an unreadable createdAt at the boundary, so
+    // the surface is emptied like every other invalid decision (previously the
+    // hook's expiry effect caught this one render later via reset()).
+    expect(result.current.discovery?.recommendations ?? []).toEqual([]);
+    expect(result.current.hasRecommendations).toBe(false);
+    expect(
+      Object.keys(window.localStorage).filter((key) =>
+        key.includes("surf-discovery"),
+      ),
+    ).toEqual([]);
+  });
+
   it("revalidates a visible session and replaces a prior positive with explicit none", async () => {
     const allowed = discoveryResponse(
       { state: "available", holdEpoch: "before-hold" },
