@@ -14,6 +14,9 @@ export interface ActivityFeedProps {
   items: ActivityItem[];
 }
 
+const INK = "#11100D";
+const STAMP_BLUE = "#0B3A75";
+
 function AvatarCircle({
   initial,
   type,
@@ -21,16 +24,14 @@ function AvatarCircle({
   initial: string;
   type: "session" | "intel";
 }) {
-  const bgClass =
-    type === "session" ? "bg-[#3A4499]" : "bg-[#F78E42]/20";
-  const textClass =
-    type === "session" ? "text-[#FDB84B]" : "text-[#F78E42]";
-
+  // `.circled` is the zine's hand-drawn ring — the same mark used for
+  // numbered callouts elsewhere in the guide.
   return (
     <div
-      className={`flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded-full ${bgClass}`}
+      className="circled flex-shrink-0"
+      style={{ color: type === "session" ? STAMP_BLUE : "#C2410C" }}
     >
-      <span className={`text-sm font-bold ${textClass}`}>{initial}</span>
+      {initial}
     </div>
   );
 }
@@ -38,37 +39,71 @@ function AvatarCircle({
 export function ActivityFeed({ items }: ActivityFeedProps) {
   return (
     <div>
-      <h2 className="font-heading mb-3 text-lg font-semibold text-white">
-        Activity
-      </h2>
+      <h2 className="label-black mb-4">Activity</h2>
 
       {items.length === 0 ? (
-        <div className="noise-texture rounded-xl border border-[#404C92] bg-[#2D357D] p-5 text-center">
-          <p className="text-high text-sm font-semibold mb-1">Intel board&apos;s empty</p>
-          <p className="text-medium text-xs">
+        <div
+          className="px-5 py-6 text-center"
+          style={{
+            background: "#F0E5CC",
+            boxShadow: "2px 3px 0 rgba(0,0,0,0.16)",
+          }}
+        >
+          <p
+            className="mb-1"
+            style={{
+              fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+              fontSize: 16,
+              textTransform: "uppercase",
+              color: INK,
+            }}
+          >
+            Intel board&apos;s empty
+          </p>
+          <p className="text-xs" style={{ color: INK, opacity: 0.68 }}>
             Be the first to drop some intel.
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {items.map((item) => (
+        <div className="flex flex-col">
+          {items.map((item, i) => (
             <div
               key={item.id}
-              className="flex items-center gap-3 rounded-xl border border-[#404C92] bg-[#2D357D] p-4"
+              className="flex items-center gap-3 py-3"
+              style={
+                i > 0
+                  ? { borderTop: "1.5px dashed rgba(17,16,13,0.28)" }
+                  : undefined
+              }
             >
               <AvatarCircle initial={item.initial} type={item.type} />
 
               <div className="min-w-0 flex-1">
-                <p className="text-high text-sm">
-                  <span className="font-semibold text-white">
-                    {item.userName}
-                  </span>{" "}
-                  {item.action}
+                <p className="text-sm" style={{ color: INK }}>
+                  <span style={{ fontWeight: 700 }}>{item.userName}</span>{" "}
+                  <span style={{ opacity: 0.8 }}>{item.action}</span>
                 </p>
                 {item.content && (
-                  <p className="text-medium text-xs line-clamp-2 mt-0.5">{item.content}</p>
+                  <p
+                    className="mt-0.5 line-clamp-2 text-xs"
+                    style={{ color: INK, opacity: 0.72 }}
+                  >
+                    {item.content}
+                  </p>
                 )}
-                <p className="text-medium text-xs">{item.timeAgo}</p>
+                <p
+                  className="mt-0.5"
+                  style={{
+                    fontFamily: "var(--font-mono), monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: INK,
+                    opacity: 0.5,
+                  }}
+                >
+                  {item.timeAgo}
+                </p>
               </div>
             </div>
           ))}

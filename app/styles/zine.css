@@ -428,6 +428,29 @@
   .zine-tab .polaroid .cap { font-size: 18px; }
 }
 
+/* ─── Display type on zine headings ──────────────────────── */
+/* `globals.css` forces `--font-heading` onto every h1/h2/h3 under
+   `.theme-retro-dark` with `!important`, which beats even inline styles. That
+   silently drops zine headings back to Space Grotesk. Opting a heading into
+   `.zine-display` restores the zine face: two classes outrank the global
+   rule's one-class-one-element selector, so this wins on specificity. */
+.zine-tab .zine-display {
+  font-family: var(--f-rough) !important;
+  letter-spacing: -0.005em;
+}
+
+/* ─── Loading placeholder ────────────────────────────────── */
+/* Ink blocks that breathe rather than shimmer. A sweeping gradient fights
+   the paper grain underneath and reads as a rendering glitch; a slow opacity
+   cycle reads as an image still coming up in the tray. */
+.zine-tab .zine-developing {
+  animation: zine-develop 1.8s ease-in-out infinite;
+}
+@keyframes zine-develop {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
 /* ─── Reduced motion ─────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .zine-tab .rot-1,
@@ -437,6 +460,9 @@
   .zine-tab .rot-neg,
   .zine-tab .stamp-circle {
     transform: none;
+  }
+  .zine-tab .zine-developing {
+    animation: none;
   }
 }
 

@@ -39,27 +39,27 @@ describe("home page app-first landing shell", () => {
     delete process.env.APP_FIRST_LANDING_ENABLED;
   });
 
-  it("resolves first-touch platform server-side and keeps the SSR beach section", async () => {
+  it("keeps the SSR beach section and never reads request headers", () => {
+    // Reading the request's user-agent here opted the whole route out of
+    // static generation, so `export const revalidate` never applied and every
+    // visit re-rendered the page. Platform is now resolved client-side; if
+    // this page starts reading headers again the route silently goes dynamic.
     mockHeadersGet.mockReturnValue(IPHONE_UA);
 
-    render(await Home());
+    render(Home());
 
-    expect(screen.getByTestId("auth-aware-wrapper")).toHaveAttribute(
-      "data-platform",
-      "ios",
-    );
     expect(screen.getByTestId("auth-aware-wrapper")).toHaveAttribute(
       "data-app-first",
       "true",
     );
     expect(screen.getByTestId("landing-ssr-section")).toBeInTheDocument();
+    expect(mockHeadersGet).not.toHaveBeenCalled();
   });
 
-  it("passes the rollback flag state into the client wrapper", async () => {
+  it("passes the rollback flag state into the client wrapper", () => {
     process.env.APP_FIRST_LANDING_ENABLED = "false";
-    mockHeadersGet.mockReturnValue("desktop");
 
-    render(await Home());
+    render(Home());
 
     expect(screen.getByTestId("auth-aware-wrapper")).toHaveAttribute(
       "data-app-first",
