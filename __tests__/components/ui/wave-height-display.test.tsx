@@ -70,6 +70,8 @@ describe("WaveHeightDisplay", () => {
       const label = screen.getByTestId("wave-height-label");
       expect(label).toBeInTheDocument();
       expect(label).toHaveTextContent("Face height");
+      expect(label).toHaveClass("text-[#3F382E]");
+      expect(label).toHaveClass("font-medium");
       // 'Forecast height' must NOT be present
       expect(screen.queryByText("Forecast height")).toBeNull();
     });
