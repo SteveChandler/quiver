@@ -28,8 +28,13 @@ AS $$
 DECLARE
     target_lat DOUBLE PRECISION := input_lat;
     target_lng DOUBLE PRECISION := input_lng;
-    capped_distance INTEGER := LEAST(GREATEST(max_distance_meters, 0), 80467);
-    capped_limit INTEGER := LEAST(GREATEST(limit_count, 1), 50);
+    -- Ceilings bound the scan without clipping any real caller. 160934 m is
+    -- what native's use-nearest-beach and web's candidate-pool outer tier both
+    -- already request; clamping to 50 mi would silently return nothing for
+    -- users further than that from a break, in binaries already shipped.
+    -- 100 rows clears discovery's CANDIDATE_POOL_LIMIT of 60.
+    capped_distance INTEGER := LEAST(GREATEST(max_distance_meters, 0), 160934);
+    capped_limit INTEGER := LEAST(GREATEST(limit_count, 1), 100);
 BEGIN
     RETURN QUERY
     SELECT
@@ -75,6 +80,6 @@ GRANT EXECUTE ON FUNCTION public.get_nearby_beaches(DOUBLE PRECISION, DOUBLE PRE
 GRANT EXECUTE ON FUNCTION public.get_nearby_beaches(DOUBLE PRECISION, DOUBLE PRECISION, INTEGER, INTEGER) TO service_role;
 
 COMMENT ON FUNCTION public.get_nearby_beaches(DOUBLE PRECISION, DOUBLE PRECISION, INTEGER, INTEGER) IS
-'Returns at most 50 public, non-deleted beaches within at most 50 miles of the supplied coordinates.';
+'Returns at most 100 public, non-deleted beaches within at most 100 miles of the supplied coordinates. Defaults to 50 miles / 50 rows when the caller omits them.';
 
 COMMIT;
