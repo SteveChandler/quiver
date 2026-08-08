@@ -5,6 +5,8 @@ import {
   serializeEmbedMapEvent,
 } from "@/components/map/embed-map-bridge";
 import type { HourlySwellTimeline } from "@/app/api/forecasts/bulk/route";
+import type { MapSpotConditions } from "@/components/map/interactive-map";
+import type { Beach } from "@/types/database";
 
 let mockSearchParams = new URLSearchParams();
 let mockInteractiveMapProps: Record<string, unknown> = {};
@@ -147,6 +149,65 @@ describe("embed map bridge", () => {
     ).toBe(
       '{"type":"forecastTimeChanged","payload":{"index":42,"forecastAt":"2026-07-12T14:00:00.000Z"}}',
     );
+  });
+
+  it("posts an enriched spotSelected payload from the map's displayed conditions", async () => {
+    mockSearchParams = new URLSearchParams("lat=32.86&lon=-117.25");
+    const postMessage = jest.fn();
+    Object.defineProperty(window, "ReactNativeWebView", {
+      configurable: true,
+      value: { postMessage },
+    });
+    const { EmbedMapClient } = await import("@/app/embed/map/embed-map-client");
+    const beach = {
+      id: "beach-1",
+      name: "Blacks Beach",
+      lat: 32.88,
+      lon: -117.25,
+      slug: "blacks-beach",
+    } as Beach;
+    const conditions: MapSpotConditions = {
+      conditionSummary: "GOOD",
+      waveHeight: "2-3ft",
+      swellPeriod: "14s",
+      swellDirection: "WNW",
+      isCalibrated: false,
+      windSpeed: "6 mph",
+      windDirection: "W",
+      tideState: null,
+      tideHeight: null,
+    };
+
+    render(React.createElement(EmbedMapClient));
+
+    const onLocationClick = mockInteractiveMapProps.onLocationClick as
+      | ((selectedBeach: Beach, selectedConditions: MapSpotConditions) => void)
+      | undefined;
+    expect(onLocationClick).toEqual(expect.any(Function));
+
+    act(() => {
+      onLocationClick?.(beach, conditions);
+    });
+
+    expect(postMessage.mock.calls.map(([message]) => JSON.parse(message))).toContainEqual({
+      type: "spotSelected",
+      payload: {
+        beachId: "beach-1",
+        name: "Blacks Beach",
+        lat: 32.88,
+        lon: -117.25,
+        slug: "blacks-beach",
+        conditionSummary: "GOOD",
+        waveHeight: "2-3ft",
+        swellPeriod: "14s",
+        swellDirection: "WNW",
+        isCalibrated: false,
+        windSpeed: "6 mph",
+        windDirection: "W",
+        tideState: null,
+        tideHeight: null,
+      },
+    });
   });
 
   it("keeps legacy native forecast events index-only", async () => {

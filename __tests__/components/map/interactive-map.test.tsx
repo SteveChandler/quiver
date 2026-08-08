@@ -994,12 +994,94 @@ describe("InteractiveMap", () => {
       fireEvent.click(getBeachMarkerBadge(beach.id));
       expect(onLocationClick).toHaveBeenCalledTimes(1);
       expect(onLocationClick).toHaveBeenCalledWith(
-        expect.objectContaining({ id: beach.id })
+        expect.objectContaining({ id: beach.id }),
+        expect.objectContaining({ tideState: null, tideHeight: null }),
       );
       expect(calloutMarkerCallCount()).toBe(1);
 
       fireEvent.click(getBeachMarkerBadge(beach.id));
       expect(onLocationClick).toHaveBeenCalledTimes(1);
+    });
+
+    it("passes the displayed spot conditions to the embed host", async () => {
+      const { InteractiveMap } = await import(
+        "@/components/map/interactive-map"
+      );
+      const onLocationClick = jest.fn();
+      const onDisplayForecastsChange = jest.fn();
+      const partition = {
+        s1Dir: 280,
+        swellDirOm: 292.5,
+        s1PeriodS: 13.6,
+        s1HeightFt: 2.4,
+        s2Dir: null,
+        s2PeriodS: null,
+        s2HeightFt: null,
+        windDir: 270,
+        windMph: 5.6,
+      };
+      global.fetch = jest.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: {
+            forecasts: { [beach.id]: 2.4 },
+            displayForecasts: { [beach.id]: { label: "2-3ft" } },
+            waterTemps: {},
+            conditionScores: { [beach.id]: 82 },
+            conditionSummaries: { [beach.id]: "GOOD" },
+            isCalibrated: { [beach.id]: false },
+            swellPartitions: { [beach.id]: partition },
+            hourlySwellTimeline: {
+              timestamps: ["2026-07-10T20:00:00.000Z"],
+              partitionsByBeach: { [beach.id]: [partition] },
+              hasMore: false,
+              nextStart: null,
+            },
+          },
+        }),
+      })) as jest.Mock;
+
+      render(
+        <InteractiveMap
+          beaches={[beach]}
+          autoNavigateOnMarkerClick={false}
+          disableBeachClustering
+          markerDisplay="points"
+          showConditionsOnTap
+          swellTimelineMode="hourly"
+          swellTimelineIndex={0}
+          onDisplayForecastsChange={onDisplayForecastsChange}
+          onLocationClick={onLocationClick}
+        />
+      );
+
+      await waitFor(() => {
+        expect(onDisplayForecastsChange).toHaveBeenCalledWith(
+          expect.objectContaining({ get: expect.any(Function) }),
+        );
+        expect(getBeachMarkerBadge(beach.id)).toHaveAttribute(
+          "data-marker-badge",
+          "true",
+        );
+      });
+
+      fireEvent.click(getBeachMarkerBadge(beach.id));
+
+      expect(onLocationClick).toHaveBeenCalledWith(
+        expect.objectContaining({ id: beach.id }),
+        {
+          conditionSummary: "GOOD",
+          waveHeight: "2-3ft",
+          swellPeriod: "14s",
+          swellDirection: "WNW",
+          isCalibrated: false,
+          windSpeed: "6 mph",
+          windDirection: "W",
+          tideState: null,
+          tideHeight: null,
+        },
+      );
     });
   });
 

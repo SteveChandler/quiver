@@ -61,6 +61,7 @@ import type {
   SwellPartition,
 } from "@/app/api/forecasts/bulk/route";
 import {
+  degreesToCompass,
   SWELL_FIELD_PARTICLE_COLOR,
   SWELL_MAP_LEGEND_SURFACE,
   SWELL_MAP_SURFACE,
@@ -93,6 +94,11 @@ import type { CustomSpot } from "@/hooks/use-custom-spots";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import type { MapCameraCommand } from "@/components/map/map-camera-command";
+import {
+  formatSwellPeriod,
+  formatWaveHeightRange,
+  formatWindSpeed,
+} from "@/lib/formatters/surf-data";
 
 // Mapbox CSS is imported globally in app/globals.css
 
@@ -266,10 +272,73 @@ interface CapturedZoomLimits {
   maxZoom: number;
 }
 
+export interface MapSpotConditions {
+  conditionSummary: string | null;
+  waveHeight: string | null;
+  swellPeriod: string | null;
+  swellDirection: string | null;
+  isCalibrated: boolean | null;
+  windSpeed: string | null;
+  windDirection: string | null;
+  tideState: string | null;
+  tideHeight: string | null;
+}
+
+interface MapSpotConditionsContext {
+  partitionsMap: Map<string, SwellPartition>;
+  partitionsTimelineMap: Map<string, SwellPartition[]>;
+  timelineIndex: number;
+  waveHeightMap: Map<string, number | undefined>;
+  displayForecastMap: Map<string, ForecastDisplay | undefined>;
+  conditionSummaryMap: Map<string, ConditionSummary>;
+  isCalibratedMap: Map<string, boolean>;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function mapSpotConditions(
+  beachId: string,
+  context: MapSpotConditionsContext,
+): MapSpotConditions {
+  const partition = partitionAtTimelinePosition(
+    beachId,
+    context.timelineIndex,
+    context.partitionsTimelineMap,
+    context.partitionsMap,
+  );
+  const waveLabel = context.displayForecastMap.get(beachId)?.label?.trim();
+  const rawWaveHeight = context.waveHeightMap.get(beachId);
+  const swellDirection = partition?.swellDirOm ?? partition?.s1Dir;
+
+  return {
+    conditionSummary: context.conditionSummaryMap.get(beachId) ?? null,
+    waveHeight: waveLabel || (isFiniteNumber(rawWaveHeight)
+      ? formatWaveHeightRange(rawWaveHeight)
+      : null),
+    swellPeriod: isFiniteNumber(partition?.s1PeriodS) && partition.s1PeriodS > 0
+      ? formatSwellPeriod(partition.s1PeriodS)
+      : null,
+    swellDirection: isFiniteNumber(swellDirection)
+      ? degreesToCompass(swellDirection)
+      : null,
+    isCalibrated: context.isCalibratedMap.get(beachId) ?? null,
+    windSpeed: isFiniteNumber(partition?.windMph) && partition.windMph >= 0
+      ? formatWindSpeed(partition.windMph)
+      : null,
+    windDirection: isFiniteNumber(partition?.windDir)
+      ? degreesToCompass(partition.windDir)
+      : null,
+    tideState: null,
+    tideHeight: null,
+  };
+}
+
 interface InteractiveMapProps {
   initialCenter?: [number, number]; // [lat, lng]
   initialZoom?: number;
-  onLocationClick?: (beach: Beach) => void;
+  onLocationClick?: (beach: Beach, conditions: MapSpotConditions) => void;
   onMapClick?: (latlng: mapboxgl.LngLat) => void;
   cameraCommand?: MapCameraCommand | null;
   onUserCameraInteraction?: (interaction: {
@@ -479,6 +548,10 @@ export function InteractiveMap({
     stepsLen: 0,
     bounds: { west: -118, south: 32, east: -117, north: 33 },
     waterTempMap: new Map<string, string | undefined>(),
+    waveHeightMap: new Map<string, number | undefined>(),
+    displayForecastMap: new Map<string, ForecastDisplay | undefined>(),
+    conditionSummaryMap: new Map<string, ConditionSummary>(),
+    isCalibratedMap: new Map<string, boolean>(),
   });
   const beachPreviewCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -512,6 +585,7 @@ export function InteractiveMap({
   const [waterTempMap, setWaterTempMap] = useState<Map<string, string | undefined>>(new Map());
   const [conditionScoreMap, setConditionScoreMap] = useState<Map<string, number | undefined>>(new Map());
   const [conditionSummaryMap, setConditionSummaryMap] = useState<Map<string, ConditionSummary>>(new Map());
+  const [isCalibratedMap, setIsCalibratedMap] = useState<Map<string, boolean>>(new Map());
   const [partitionsMap, setPartitionsMap] = useState<Map<string, SwellPartition>>(new Map());
   const [partitionsTimelineMap, setPartitionsTimelineMap] = useState<
     Map<string, SwellPartition[]>
@@ -783,6 +857,10 @@ export function InteractiveMap({
       stepsLen: usesAbsoluteTimeline ? 1 : swellTimelineSteps.length,
       bounds: mapBounds || { west: -118, south: 32, east: -117, north: 33 },
       waterTempMap,
+      waveHeightMap,
+      displayForecastMap,
+      conditionSummaryMap,
+      isCalibratedMap,
     };
   }, [
     activeHourlyPartitionsMap,
@@ -791,12 +869,16 @@ export function InteractiveMap({
     isEmbedHourlyTimeline,
     isExpandableTimeline,
     mapBounds,
+    conditionSummaryMap,
+    displayForecastMap,
+    isCalibratedMap,
     partitionsMap,
     partitionsTimelineMap,
     swellFieldBeaches,
     swellTimelineIndex,
     swellTimelineSteps.length,
     waterTempMap,
+    waveHeightMap,
   ]);
 
   const trackTimelineAction = useCallback(
@@ -1211,11 +1293,17 @@ export function InteractiveMap({
               return;
             }
             showCalloutForBeach(beach);
-            onLocationClick?.(beach);
+            onLocationClick?.(
+              beach,
+              mapSpotConditions(beach.id, conditionsCtxRef.current),
+            );
             return;
           }
           removeActiveCallout();
-          onLocationClick?.(beach);
+          onLocationClick?.(
+            beach,
+            mapSpotConditions(beach.id, conditionsCtxRef.current),
+          );
         },
         router,
         autoNavigate: showConditionsOnTap ? false : autoNavigateOnMarkerClick,
@@ -1372,6 +1460,7 @@ export function InteractiveMap({
         setWaterTempMap(result.waterTempMap);
         setConditionScoreMap(result.conditionScoreMap);
         setConditionSummaryMap(result.conditionSummaryMap);
+        setIsCalibratedMap(result.isCalibratedMap);
         setPartitionsMap(result.partitionsMap);
         setPartitionsTimelineMap(result.partitionsTimelineMap);
         setSwellFieldBeaches(result.locations);

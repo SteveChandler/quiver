@@ -41,6 +41,8 @@ export interface BeachLoaderResult {
   conditionScoreMap: Map<string, number | undefined>;
   /** Map from beach ID to native-aligned condition summary */
   conditionSummaryMap: Map<string, ConditionSummary>;
+  /** Map from beach ID to whether the displayed height uses beach calibration */
+  isCalibratedMap: Map<string, boolean>;
   /** Map from beach ID to parsed swell/wind partition for the flow field */
   partitionsMap: Map<string, SwellPartition>;
   /** Map from beach ID to parsed swell/wind partitions by forecast timeline step */
@@ -209,6 +211,7 @@ export async function loadBeachesAndWaveHeights(
   const waterTempMap = new Map<string, string | undefined>();
   const conditionScoreMap = new Map<string, number | undefined>();
   const conditionSummaryMap = new Map<string, ConditionSummary>();
+  const isCalibratedMap = new Map<string, boolean>();
   const partitionsMap = new Map<string, SwellPartition>();
   const partitionsTimelineMap = new Map<string, SwellPartition[]>();
   let hourlySwellTimeline: HourlySwellTimeline | null = null;
@@ -296,6 +299,13 @@ export async function loadBeachesAndWaveHeights(
           }
         });
 
+        const calibrationStatuses = data?.data?.isCalibrated || {};
+        Object.entries(calibrationStatuses).forEach(([beachId, isCalibrated]) => {
+          if (typeof isCalibrated === "boolean") {
+            isCalibratedMap.set(beachId, isCalibrated);
+          }
+        });
+
         const swellPartitions = data?.data?.swellPartitions || {};
         Object.entries(swellPartitions).forEach(([beachId, partition]) => {
           if (partition && typeof partition === "object") {
@@ -340,6 +350,7 @@ export async function loadBeachesAndWaveHeights(
     waterTempMap,
     conditionScoreMap,
     conditionSummaryMap,
+    isCalibratedMap,
     partitionsMap,
     partitionsTimelineMap,
     hourlySwellTimeline,
