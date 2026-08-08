@@ -89,10 +89,13 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      # No env block: the equivalent prod-gate job runs green without Supabase
-      # credentials because the unit suite mocks its data layer.
+      # The unit suite mocks its data layer, but next/jest loads next.config.mjs,
+      # whose environment-validation hard-requires these two NEXT_PUBLIC_* values.
       - name: Run unit tests
         run: yarn test:unit
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
   build:
     name: Build
