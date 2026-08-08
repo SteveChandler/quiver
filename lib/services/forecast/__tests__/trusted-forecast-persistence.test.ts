@@ -676,7 +676,7 @@ describe("trusted forecast repository — reads fail closed", () => {
             error: { code: "57014", message: "canceling statement" },
           }),
         }),
-        ["trestles"],
+        ["lower-trestles"],
       ),
     ).rejects.toBeInstanceOf(TrustedForecastRepositoryError);
 
@@ -685,7 +685,7 @@ describe("trusted forecast repository — reads fail closed", () => {
         readStore({
           selectBeachIdsBySlug: async () => ({ data: [], error: null }),
         }),
-        ["trestles"],
+        ["lower-trestles"],
       ),
     ).resolves.toEqual(new Map());
   });
@@ -695,11 +695,11 @@ describe("trusted forecast repository — reads fail closed", () => {
       loadBeachIdsBySlug(
         readStore({
           selectBeachIdsBySlug: async () => ({
-            data: [{ id: "not-a-uuid", slug: "trestles" }],
+            data: [{ id: "not-a-uuid", slug: "lower-trestles" }],
             error: null,
           }),
         }),
-        ["trestles"],
+        ["lower-trestles"],
       ),
     ).rejects.toMatchObject({ code: "beach_row_invalid" });
   });

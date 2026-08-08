@@ -3,9 +3,9 @@
  *
  * Seaside emits `beach_id: null` on every row, so coverage is the ONLY bridge
  * from a source's `(scope_type, region_key, exposure)` triple to a Quiver
- * beach. A coverage table that matches nothing produces zero adjustments and no
- * error, which is why the assertions below are driven by the 196 REAL rows from
- * 21-01's shipped parsers rather than by anything authored here.
+ * beach. An unresolvable configured slug produces a named coverage error and a
+ * baseline fallback, which is why the assertions below are driven by the 196
+ * REAL rows from 21-01's shipped parsers rather than by anything authored here.
  *
  * Fixture provenance: every row read in this file comes verbatim from
  * `trusted-forecast-issues.real.json` (21-03's fixture, independently verified
@@ -214,6 +214,17 @@ describe("trusted forecast coverage — the live vocabulary resolves", () => {
     }
   });
 
+  it("every beachSlug is one verified against the live beaches table", () => {
+    // The feature shipped inert because both slugs were plausible and neither
+    // existed. Nothing else here can catch that: a wrong slug is well-typed,
+    // reads correctly, and only fails at run time against the real table.
+    const verified = new Set(["lower-trestles", "malibu-first-point-surfrider"]);
+    const unverified = TRUSTED_FORECAST_COVERAGE_DEFINITIONS.map(
+      (definition) => definition.beachSlug,
+    ).filter((beachSlug) => !verified.has(beachSlug));
+    expect(unverified).toEqual([]);
+  });
+
   it("no coverage entry's compatibleExposures silently excludes all of its own rows", () => {
     for (const definition of TRUSTED_FORECAST_COVERAGE_DEFINITIONS) {
       const acceptedKeys = new Set([
@@ -244,10 +255,10 @@ describe("trusted forecast coverage — the live vocabulary resolves", () => {
 
   it("a covered beach really produces a primary authority from real rows end to end", () => {
     const trestles = TRUSTED_FORECAST_COVERAGE_DEFINITIONS.find(
-      (definition) => definition.beachSlug === "trestles",
+      (definition) => definition.beachSlug === "lower-trestles",
     );
     expect(TRUSTED_FORECAST_COVERAGE_DEFINITIONS.map((d) => d.beachSlug)).toContain(
-      "trestles",
+      "lower-trestles",
     );
     const entry = definitionEntry(
       trestles as TrustedForecastCoverageDefinition,

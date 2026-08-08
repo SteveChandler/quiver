@@ -4,8 +4,8 @@
  * Seaside never resolves `beach_id` — every row it emits carries `null` — so
  * this table is the ONLY bridge from a source's
  * `(scope_type, region_key, exposure)` triple to a Quiver beach. Without it the
- * feature is inert: a coverage table that matches nothing produces zero
- * adjustments and no error.
+ * feature is inert. An unresolvable configured slug produces a named coverage
+ * error, and the builder serves baseline for that run.
  *
  * Two rules keep it honest:
  *  1. Entries are keyed by beach SLUG, resolved to `beach_id` at run time. An
@@ -138,7 +138,7 @@ export interface TrustedForecastCoverageDefinition {
 export const TRUSTED_FORECAST_COVERAGE_DEFINITIONS: readonly TrustedForecastCoverageDefinition[] =
   Object.freeze([
     Object.freeze({
-      beachSlug: "trestles",
+      beachSlug: "lower-trestles",
       localTimezone: "America/Los_Angeles",
       spotRegionKeys: Object.freeze(["trestles"]),
       regionalRegionKeys: Object.freeze(["socal"]),
@@ -149,10 +149,12 @@ export const TRUSTED_FORECAST_COVERAGE_DEFINITIONS: readonly TrustedForecastCove
         "exactly two sections, NNW and SSW; both appear as authority rows in " +
         "the captured chart. The socal index also emits a `dominant` " +
         "evidence-only row for this slug, which carries no height and is " +
-        "excluded on evidence class before exposure is consulted.",
+        "excluded on evidence class before exposure is consulted. The " +
+        "`lower-trestles` beach slug was verified against the live `beaches` " +
+        "table on 2026-08-08.",
     }),
     Object.freeze({
-      beachSlug: "malibu",
+      beachSlug: "malibu-first-point-surfrider",
       localTimezone: "America/Los_Angeles",
       spotRegionKeys: Object.freeze(["malibu"]),
       regionalRegionKeys: Object.freeze(["socal"]),
@@ -161,7 +163,10 @@ export const TRUSTED_FORECAST_COVERAGE_DEFINITIONS: readonly TrustedForecastCove
       note:
         "Same shape as trestles: the captured `malibu` socal spot chart emits " +
         "NNW and SSW authority rows, plus one `dominant` evidence-only index " +
-        "row.",
+        "row. The `malibu-first-point-surfrider` beach slug was verified " +
+        "against the live `beaches` table on 2026-08-08, and it was chosen " +
+        "over the duplicate `malibu-surfrider-first-point-malibu-ca` because " +
+        "it is the CDIP-198, terrain-calibrated row.",
     }),
   ]);
 

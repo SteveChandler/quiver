@@ -586,8 +586,8 @@ function trustedReadStore(
   const base: TrustedForecastReadStore = {
     selectBeachIdsBySlug: async () => ({
       data: [
-        { id: TRESTLES_BEACH_ID, slug: "trestles" },
-        { id: MALIBU_BEACH_ID, slug: "malibu" },
+        { id: TRESTLES_BEACH_ID, slug: "lower-trestles" },
+        { id: MALIBU_BEACH_ID, slug: "malibu-first-point-surfrider" },
       ],
       error: null,
     }),
@@ -1105,8 +1105,8 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     const readStore = trustedReadStore({
       selectBeachIdsBySlug: async () => ({
         data: [
-          { id: OTHER_BEACH_ID, slug: "trestles" },
-          { id: MALIBU_BEACH_ID, slug: "malibu" },
+          { id: OTHER_BEACH_ID, slug: "lower-trestles" },
+          { id: MALIBU_BEACH_ID, slug: "malibu-first-point-surfrider" },
         ],
         error: null,
       }),
