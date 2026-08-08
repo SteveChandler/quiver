@@ -10,14 +10,16 @@ const mockMapHandlers: Record<string, Array<(...args: unknown[]) => void>> = {};
 const mockRouterPush = jest.fn();
 const mockTrackSignupCtaClick = jest.fn();
 const mockTrackEvent = jest.fn();
+const mockLoadFavoriteBeaches = jest.fn().mockResolvedValue(new Set<string>());
 let mockUser: { id: string } | null = null;
 let mockMapCenter = { lat: 32.7493, lng: -117.2511 };
+let mockAutoLoadMap = true;
 
 jest.mock("mapbox-gl", () => ({
   Map: jest.fn(() => ({
     on: jest.fn((event: string, callback: (...args: unknown[]) => void) => {
       (mockMapHandlers[event] ??= []).push(callback);
-      if (event === "load") {
+      if (event === "load" && mockAutoLoadMap) {
         setTimeout(callback, 10);
       }
     }),
@@ -91,6 +93,10 @@ jest.mock("@/hooks/use-track-event", () => ({
   useTrackEvent: () => ({ track: mockTrackEvent }),
 }));
 
+jest.mock("@/components/map/map-favorites-loader", () => ({
+  loadFavoriteBeaches: (...args: unknown[]) => mockLoadFavoriteBeaches(...args),
+}));
+
 jest.mock("@/lib/utils/request-cache", () => ({
   createCachedMapFetch: jest.fn(() => jest.fn().mockResolvedValue({ data: [] })),
 }));
@@ -109,12 +115,17 @@ jest.mock("@/lib/utils/map-utilities", () => ({
 }));
 
 describe("InteractiveMap", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockMarkerInstances.length = 0;
     for (const key of Object.keys(mockMapHandlers)) delete mockMapHandlers[key];
     mockUser = null;
     mockMapCenter = { lat: 32.7493, lng: -117.2511 };
+    mockAutoLoadMap = true;
     delete (
       window as typeof window & {
         __quiverMapDebugCenter?: { lat: number; lon: number };
@@ -140,6 +151,8 @@ describe("InteractiveMap", () => {
 
   function getMapInstance(): {
     flyTo: jest.Mock;
+    easeTo: jest.Mock;
+    fitBounds: jest.Mock;
     getCenter: jest.Mock;
     setMaxBounds: jest.Mock;
     resize: jest.Mock;
@@ -147,6 +160,59 @@ describe("InteractiveMap", () => {
     const Map = require("mapbox-gl").Map;
     return Map.mock.results[Map.mock.results.length - 1].value;
   }
+
+  it("replaces the loading overlay with a retryable error after a fatal map failure", async () => {
+    mockAutoLoadMap = false;
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    const onMapLoadFailure = jest.fn();
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    render(<InteractiveMap beaches={[]} onMapLoadFailure={onMapLoadFailure} />);
+
+    act(() => {
+      mockMapHandlers.error[0]({ error: new Error("401 Unauthorized access token") });
+    });
+
+    expect(screen.getByTestId("map-error-overlay")).toHaveAttribute("role", "alert");
+    expect(screen.queryByTestId("map-loading-overlay")).not.toBeInTheDocument();
+    expect(onMapLoadFailure).toHaveBeenCalledWith("token_invalid");
+    const mapRegion = screen.getByRole("region", { hidden: true });
+    expect(mapRegion).toHaveAttribute("inert");
+    expect(mapRegion).toHaveAttribute("aria-hidden", "true");
+
+    const retryButton = screen.getByRole("button", { name: "Retry map" });
+    expect(retryButton).toHaveFocus();
+    act(() => mockMapHandlers.load[0]?.());
+    expect(screen.getByTestId("map-error-overlay")).toBeInTheDocument();
+    expect(retryButton).toHaveFocus();
+    fireEvent.click(retryButton);
+    const Map = require("mapbox-gl").Map;
+    await waitFor(() => expect(Map).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId("map-loading-overlay")).toHaveAttribute("role", "status");
+    act(() => mockMapHandlers.load.at(-1)?.());
+    await waitFor(() => expect(mapRegion).toHaveFocus());
+    expect(mapRegion).not.toHaveAttribute("inert");
+    expect(mapRegion).toHaveAttribute("aria-hidden", "false");
+    consoleError.mockRestore();
+  });
+
+  it("ends silent map loading with a retryable timeout state", async () => {
+    jest.useFakeTimers();
+    mockAutoLoadMap = false;
+    const onMapLoadFailure = jest.fn();
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    render(<InteractiveMap beaches={[]} onMapLoadFailure={onMapLoadFailure} />);
+
+    act(() => {
+      jest.advanceTimersByTime(15_000);
+    });
+
+    expect(screen.getByTestId("map-error-overlay")).toBeInTheDocument();
+    expect(onMapLoadFailure).toHaveBeenCalledWith("timeout");
+    act(() => mockMapHandlers.idle[0]?.());
+    expect(screen.getByTestId("map-error-overlay")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry map" })).toHaveFocus();
+    jest.useRealTimers();
+  });
 
   it("applies each camera command once and reports real camera gestures", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
@@ -257,6 +323,19 @@ describe("InteractiveMap", () => {
     await waitFor(() => expect(getMapInstance().resize).toHaveBeenCalled());
   });
 
+  it("gives Mapbox a dedicated empty container while React overlays stay outside it", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    render(<InteractiveMap beaches={[]} />);
+
+    const Map = require("mapbox-gl").Map;
+    await waitFor(() => expect(Map).toHaveBeenCalled());
+    const container = Map.mock.calls.at(-1)?.[0]?.container as HTMLElement;
+
+    expect(container).toHaveAttribute("aria-label", "Interactive surf map");
+    expect(container.childElementCount).toBe(0);
+    expect(screen.getByTestId("map-loading-overlay")).not.toBe(container);
+  });
+
   it("reports only a user gesture's final moveend center", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     const onUserCameraInteraction = jest.fn();
@@ -317,6 +396,49 @@ describe("InteractiveMap", () => {
     await waitFor(() => {
       expect(getMapInstance().setMaxBounds.mock.calls.at(-1)?.[0]).toBeNull();
     });
+  });
+
+  it("starts a replacement forecast load after a sub-threshold camera command", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { forecasts: {} } }),
+    }) as unknown as typeof fetch;
+    const beach = {
+      id: "san-diego",
+      name: "San Diego",
+      lat: 32.75,
+      lon: -117.25,
+    } as import("@/types/database").Beach;
+    const beaches = [beach];
+    const { rerender } = render(<InteractiveMap beaches={beaches} />);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+
+    act(() => mockMapHandlers.moveend[0]());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1_600));
+    });
+    const requestsBeforeCommand = (global.fetch as jest.Mock).mock.calls.length;
+
+    rerender(
+      <InteractiveMap
+        beaches={beaches}
+        cameraCommand={{
+          id: 7,
+          source: "region",
+          center: { lat: 32.754, lon: -117.247 },
+        }}
+      />,
+    );
+    await waitFor(() => expect(getMapInstance().flyTo).toHaveBeenCalled());
+    mockMapCenter = { lat: 32.754, lng: -117.247 };
+    act(() => mockMapHandlers.moveend[0]());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1_600));
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(requestsBeforeCommand + 1);
   });
 
   it("exposes the first validated absolute hourly envelope for an embed", async () => {
@@ -638,6 +760,10 @@ describe("InteractiveMap", () => {
     render(<InteractiveMap beaches={[]} customSpots={customSpots} />);
 
     await waitFor(() => {
+      expect(mockLoadFavoriteBeaches).toHaveBeenCalledWith("user-1");
+    });
+
+    await waitFor(() => {
       expect(getLastCustomSpotMarkerElement("spot-1")).toHaveAttribute(
         "data-testid",
         "custom-spot-marker",
@@ -676,6 +802,10 @@ describe("InteractiveMap", () => {
 
     mockUser = { id: "user-1" };
     rerender(<InteractiveMap beaches={[]} customSpots={customSpots} />);
+
+    await waitFor(() => {
+      expect(mockLoadFavoriteBeaches).toHaveBeenCalledWith("user-1");
+    });
 
     const Marker = require("mapbox-gl").Marker;
     const matchingCalls = Marker.mock.calls.filter(
@@ -1111,6 +1241,291 @@ describe("InteractiveMap", () => {
     };
   }
 
+  it("keeps the swell field in a truthful loading state until the initial forecast resolves", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    let resolveFetch: ((response: Response) => void) | null = null;
+    global.fetch = jest.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+
+    render(
+      <InteractiveMap
+        beaches={[
+          {
+            id: "beach-1",
+            name: "Mission Beach",
+            lat: 32.77,
+            lon: -117.25,
+          } as import("@/types/database").Beach,
+        ]}
+        showSwellField
+        swellTimelineMode="expandable-hourly"
+      />,
+    );
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    const requestUrl = String((global.fetch as jest.Mock).mock.calls[0][0]);
+    expect(requestUrl).toContain("timelineHours=48");
+    expect(screen.getByTestId("swell-field-loading-note")).toBeInTheDocument();
+    expect(screen.queryByTestId("swell-field-empty-note")).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveFetch?.({
+        ok: true,
+        status: 200,
+        json: async () =>
+          timelineResponse(
+            ["beach-1"],
+            "2026-07-10T20:00:00.000Z",
+            48,
+            false,
+          ),
+      } as Response);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("swell-field-loading-note")).not.toBeInTheDocument();
+      expect(screen.getByTestId("swell-field-empty-note")).toHaveAttribute(
+        "role",
+        "status",
+      );
+      expect(screen.getByTestId("swell-field-empty-note")).toHaveTextContent(
+        "No swell data for this forecast hour",
+      );
+      expect(screen.getByTestId("swell-field-empty-note")).toHaveStyle({
+        bottom: "12px",
+      });
+    });
+  });
+
+  it.each([
+    {
+      label: "a 500 response",
+      response: {
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      } as Response,
+    },
+    {
+      label: "a malformed hourly envelope",
+      response: {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: {
+            forecasts: {},
+            hourlySwellTimeline: {
+              timestamps: ["not-a-time"],
+              partitionsByBeach: { "beach-1": [] },
+              hasMore: false,
+              nextStart: null,
+            },
+          },
+        }),
+      } as Response,
+    },
+  ])("labels $label as unavailable instead of empty", async ({ response }) => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    global.fetch = jest.fn().mockResolvedValue(response);
+
+    render(
+      <InteractiveMap
+        beaches={[
+          {
+            id: "beach-1",
+            name: "Mission Beach",
+            lat: 32.77,
+            lon: -117.25,
+          } as import("@/types/database").Beach,
+        ]}
+        showSwellField
+        swellTimelineMode="expandable-hourly"
+      />,
+    );
+
+    expect(
+      await screen.findByTestId("swell-field-unavailable-note"),
+    ).toHaveAttribute("role", "status");
+    expect(screen.queryByTestId("swell-field-empty-note")).not.toBeInTheDocument();
+  });
+
+  it("aborts a stale forecast request before loading a replacement beach set", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const signals: AbortSignal[] = [];
+    global.fetch = jest.fn(
+      (input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((resolve, reject) => {
+          const signal = init?.signal;
+          if (signal) {
+            signals.push(signal);
+            signal.addEventListener(
+              "abort",
+              () => reject(new DOMException("Aborted", "AbortError")),
+              { once: true },
+            );
+          }
+          if (signals.length === 1) return;
+          const url = new URL(String(input), "https://example.test");
+          const ids = (url.searchParams.get("beachIds") ?? "")
+            .split(",")
+            .filter(Boolean);
+          resolve({
+            ok: true,
+            status: 200,
+            json: async () =>
+              timelineResponse(ids, "2026-07-10T20:00:00.000Z", 8, false),
+          } as Response);
+        }),
+    ) as unknown as typeof fetch;
+    const beach = (id: string) => ({
+      id,
+      name: id,
+      lat: 32.75,
+      lon: -117.25,
+    } as import("@/types/database").Beach);
+    const { rerender } = render(
+      <InteractiveMap
+        beaches={[beach("a")]}
+        swellTimelineMode="expandable-hourly"
+      />,
+    );
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <InteractiveMap
+        beaches={[beach("b")]}
+        swellTimelineMode="expandable-hourly"
+      />,
+    );
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    expect(signals[0].aborted).toBe(true);
+    expect(signals[1].aborted).toBe(false);
+  });
+
+  it("aborts and invalidates a stale forecast request when the region viewport changes", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const signals: AbortSignal[] = [];
+    global.fetch = jest.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal;
+          if (!signal) return;
+          signals.push(signal);
+          signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true },
+          );
+        }),
+    ) as unknown as typeof fetch;
+    const beach = {
+      id: "san-diego",
+      name: "San Diego",
+      lat: 32.75,
+      lon: -117.25,
+    } as import("@/types/database").Beach;
+    const { rerender } = render(
+      <InteractiveMap beaches={[beach]} swellTimelineMode="expandable-hourly" />,
+    );
+    await waitFor(() => expect(signals).toHaveLength(1));
+
+    rerender(
+      <InteractiveMap
+        beaches={[beach]}
+        swellTimelineMode="expandable-hourly"
+        regionViewport={{
+          region: "Oahu",
+          key: "oahu",
+          center: [21.28, -157.85],
+          zoom: 11,
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(signals[0].aborted).toBe(true));
+    expect(getMapInstance().easeTo).toHaveBeenCalledWith({
+      center: [-157.85, 21.28],
+      zoom: 11,
+      duration: 800,
+    });
+  });
+
+  it("removes the prior coast's swell state as soon as a new region is requested", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onHourlyTimelineLoaded = jest.fn();
+    const partition = {
+      s1Dir: 250,
+      s1PeriodS: 13,
+      s1HeightFt: 3,
+      s2Dir: null,
+      s2PeriodS: null,
+      s2HeightFt: null,
+      windDir: 280,
+      windMph: 6,
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          forecasts: {},
+          swellPartitions: { "san-diego": partition },
+          hourlySwellTimeline: {
+            timestamps: ["2026-07-10T20:00:00.000Z"],
+            partitionsByBeach: { "san-diego": [partition] },
+            hasMore: false,
+            nextStart: null,
+          },
+        },
+      }),
+    }) as unknown as typeof fetch;
+    const beach = {
+      id: "san-diego",
+      name: "San Diego",
+      lat: 32.75,
+      lon: -117.25,
+    } as import("@/types/database").Beach;
+    const { rerender } = render(
+      <InteractiveMap
+        beaches={[beach]}
+        showSwellField
+        swellTimelineMode="expandable-hourly"
+        onHourlyTimelineLoaded={onHourlyTimelineLoaded}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("swell-field-loading-note")).not.toBeInTheDocument();
+      expect(screen.getByTestId("swell-day-timeline")).toBeInTheDocument();
+    });
+
+    rerender(
+      <InteractiveMap
+        beaches={[beach]}
+        showSwellField
+        swellTimelineMode="expandable-hourly"
+        onHourlyTimelineLoaded={onHourlyTimelineLoaded}
+        regionViewport={{
+          region: "Oahu",
+          key: "oahu",
+          center: [21.28, -157.85],
+          zoom: 11,
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("swell-field-loading-note")).toBeInTheDocument();
+      expect(screen.queryByTestId("swell-day-timeline")).not.toBeInTheDocument();
+    });
+    expect(onHourlyTimelineLoaded).toHaveBeenLastCalledWith(null);
+  });
+
   it("reloads a same-count beach replacement but not stable equivalent ordering", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
@@ -1144,6 +1559,47 @@ describe("InteractiveMap", () => {
     );
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
     expect(String((global.fetch as jest.Mock).mock.calls[1][0])).toContain("beachIds=a%2Cc");
+  });
+
+  it("reloads the same viewport when the timeline focus beach changes", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), "https://example.test");
+      const ids = (url.searchParams.get("beachIds") ?? "").split(",").filter(Boolean);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => timelineResponse(ids, "2026-07-10T20:00:00.000Z", 8, false),
+      } as Response;
+    });
+    const beaches = Array.from({ length: 10 }, (_, index) => ({
+      id: `a${index}`,
+      name: `Beach ${index}`,
+      lat: 32.75,
+      lon: -117.25,
+    })) as import("@/types/database").Beach[];
+    const { rerender } = render(
+      <InteractiveMap
+        beaches={beaches}
+        swellTimelineMode="expandable-hourly"
+        timelineFocusBeachId="a0"
+      />,
+    );
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <InteractiveMap
+        beaches={beaches}
+        swellTimelineMode="expandable-hourly"
+        timelineFocusBeachId="a9"
+      />,
+    );
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    const firstUrl = new URL(String((global.fetch as jest.Mock).mock.calls[0][0]), "https://example.test");
+    const secondUrl = new URL(String((global.fetch as jest.Mock).mock.calls[1][0]), "https://example.test");
+    expect(firstUrl.searchParams.get("timelineBeachIds")?.split(",")).toContain("a0");
+    expect(secondUrl.searchParams.get("timelineBeachIds")?.split(",")).toContain("a9");
   });
 
   it("tracks bounded scrub, play, and pause actions with local-time horizon metadata and no tick spam", async () => {

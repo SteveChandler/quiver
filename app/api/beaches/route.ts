@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isAdmin, type AdminUser } from "@/lib/auth/admin";
+import { applyBeachCoordinateCorrection } from "@/lib/beach-coordinate-corrections";
 import {
   createCachedResponse,
   createSuccessResponse,
@@ -27,7 +28,7 @@ async function beachesHandler(request: NextRequest) {
     // Some environments still use legacy columns (location/region) and may not have slug/city/state.
     // Also, `updated_at` is not guaranteed on `public.beaches` (we do not select it here).
     const preferredSelect =
-      "id, name, slug, city, lat, lon, state, country, created_at";
+      "id, name, slug, city, lat, lon, timezone, state, country, created_at, break_type, skill_level, average_rating, review_count, description, crowd_tips, wave_tips, best_conditions_prose, seo_indexable, editorial_reviewed_at, editorial_sources";
     const legacySelect =
       "id, name, location, region, lat, lon, country, created_at";
 
@@ -74,7 +75,7 @@ async function beachesHandler(request: NextRequest) {
           typeof b.lon === "number" &&
           Number.isFinite(b.lon)
       )
-      .map((b: any) => ({
+      .map((b: any) => applyBeachCoordinateCorrection({
         ...b,
         city: b.city ?? b.location ?? null,
         state: b.state ?? b.region ?? null,

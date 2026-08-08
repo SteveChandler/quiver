@@ -31,6 +31,7 @@ export interface UseExpandableSwellTimelineArgs {
   timezone: string;
   loadChunk: (start: string, hours: number, signal: AbortSignal) => Promise<HourlySwellTimeline>;
   reducedMotion: boolean;
+  prefetchHours?: number;
   isFramePlayable?: (timeline: HourlySwellTimeline, index: number) => boolean;
 }
 
@@ -75,6 +76,37 @@ function parseTimestamp(timestamp: string | undefined): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+function capTimelineHorizon(
+  timeline: HourlySwellTimeline | null,
+  horizonHours: number,
+): HourlySwellTimeline | null {
+  if (!timeline || horizonHours <= 0 || timeline.timestamps.length === 0) {
+    return timeline;
+  }
+
+  const firstTimestamp = parseTimestamp(timeline.timestamps[0]);
+  const lastTimestamp = parseTimestamp(timeline.timestamps.at(-1));
+  if (firstTimestamp == null || lastTimestamp == null) return timeline;
+
+  const horizonEnd = firstTimestamp + horizonHours * HOUR_MS;
+  if (lastTimestamp < horizonEnd - HOUR_MS) return timeline;
+
+  const timestamps = timeline.timestamps.filter(
+    (timestamp) => Date.parse(timestamp) < horizonEnd,
+  );
+  return {
+    timestamps,
+    partitionsByBeach: Object.fromEntries(
+      Object.entries(timeline.partitionsByBeach).map(([beachId, partitions]) => [
+        beachId,
+        partitions.slice(0, timestamps.length),
+      ]),
+    ),
+    hasMore: false,
+    nextStart: null,
+  };
+}
+
 function timelineResetIdentity(timeline: HourlySwellTimeline | null): string {
   if (!timeline) return "empty";
 
@@ -96,8 +128,12 @@ export function useExpandableSwellTimeline({
   timezone,
   loadChunk,
   reducedMotion,
+  prefetchHours = 0,
   isFramePlayable = frameHasPartitions,
 }: UseExpandableSwellTimelineArgs): UseExpandableSwellTimelineResult {
+  const prefetchTargetHours = Number.isFinite(prefetchHours)
+    ? Math.max(0, Math.floor(prefetchHours))
+    : 0;
   const [timeline, setTimeline] = useState<HourlySwellTimeline | null>(initial);
   const [index, setIndexState] = useState(0);
   const [isPlaying, setPlayingState] = useState(false);
@@ -114,7 +150,11 @@ export function useExpandableSwellTimeline({
   const abortControllerRef = useRef<AbortController | null>(null);
   const requestGenerationRef = useRef(0);
   const isLoadingRef = useRef(false);
+  const backgroundPrefetchRequestedRef = useRef(false);
+  const lastRequestedHoursRef = useRef(CHUNK_HOURS);
   const playbackForecastTimeRef = useRef<number | null>(null);
+  const horizonHoursRef = useRef(prefetchTargetHours);
+  horizonHoursRef.current = prefetchTargetHours;
   const initialTimelineKey = useMemo(
     () => timelineResetIdentity(initial),
     [initial],
@@ -138,13 +178,18 @@ export function useExpandableSwellTimeline({
   useEffect(() => {
     const previousTimeline = timelineRef.current;
     const previousTimestamp = previousTimeline?.timestamps[indexRef.current];
-    const nextTimeline = initialRef.current;
+    const nextTimeline = capTimelineHorizon(
+      initialRef.current,
+      horizonHoursRef.current,
+    );
     const nextIndex = nearestTimestampIndex(nextTimeline?.timestamps ?? [], previousTimestamp);
 
     requestGenerationRef.current += 1;
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     isLoadingRef.current = false;
+    backgroundPrefetchRequestedRef.current = false;
+    lastRequestedHoursRef.current = CHUNK_HOURS;
     timelineRef.current = nextTimeline;
     indexRef.current = nextIndex;
     playbackForecastTimeRef.current = parseTimestamp(nextTimeline?.timestamps[nextIndex]);
@@ -164,7 +209,7 @@ export function useExpandableSwellTimeline({
     };
   }, [initialTimelineKey, scopeKey]);
 
-  const requestMore = useCallback(async (): Promise<void> => {
+  const requestMore = useCallback(async (requestedHours = CHUNK_HOURS): Promise<void> => {
     const current = timelineRef.current;
     if (!current || isLoadingRef.current || !current.hasMore) return;
 
@@ -185,7 +230,11 @@ export function useExpandableSwellTimeline({
     setError(null);
 
     try {
-      const incoming = await loadChunkRef.current(start, CHUNK_HOURS, controller.signal);
+      const hours = Number.isFinite(requestedHours)
+        ? Math.max(1, Math.floor(requestedHours))
+        : CHUNK_HOURS;
+      lastRequestedHoursRef.current = hours;
+      const incoming = await loadChunkRef.current(start, hours, controller.signal);
       if (
         controller.signal.aborted
         || requestGenerationRef.current !== requestGeneration
@@ -198,7 +247,10 @@ export function useExpandableSwellTimeline({
       if (!latest) return;
 
       const activeTimestamp = latest.timestamps[indexRef.current];
-      const merged = mergeHourlyTimeline(latest, incoming);
+      const merged = capTimelineHorizon(
+        mergeHourlyTimeline(latest, incoming),
+        horizonHoursRef.current,
+      )!;
       const nextIndex = nearestTimestampIndex(merged.timestamps, activeTimestamp);
       timelineRef.current = merged;
       indexRef.current = nextIndex;
@@ -230,11 +282,42 @@ export function useExpandableSwellTimeline({
 
   useEffect(() => {
     const current = timelineRef.current;
-    if (!current || !current.hasMore) return;
+    if (
+      !current
+      || prefetchTargetHours === 0
+      || !current.hasMore
+      || isLoadingMore
+      || error
+      || backgroundPrefetchRequestedRef.current
+    ) {
+      return;
+    }
+
+    const firstTimestamp = parseTimestamp(current.timestamps[0]);
+    const lastTimestamp = parseTimestamp(current.timestamps.at(-1));
+    const loadedHours = firstTimestamp != null && lastTimestamp != null
+      ? Math.max(0, Math.floor((lastTimestamp - firstTimestamp) / HOUR_MS) + 1)
+      : 0;
+    if (loadedHours >= prefetchTargetHours) return;
+
+    backgroundPrefetchRequestedRef.current = true;
+    void requestMore(prefetchTargetHours - loadedHours);
+  }, [
+    error,
+    isLoadingMore,
+    prefetchTargetHours,
+    requestMore,
+    scopeKey,
+    timeline,
+  ]);
+
+  useEffect(() => {
+    const current = timelineRef.current;
+    if (!current || !current.hasMore || error) return;
     if (index < Math.max(0, current.timestamps.length - PREFETCH_REMAINING_FRAMES)) return;
 
     void requestMore();
-  }, [index, initialTimelineKey, requestMore, scopeKey]);
+  }, [error, index, initialTimelineKey, requestMore, scopeKey]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -298,7 +381,7 @@ export function useExpandableSwellTimeline({
   }, [isPlaying, reducedMotion]);
 
   const retry = useCallback(() => {
-    void requestMore();
+    void requestMore(lastRequestedHoursRef.current);
   }, [requestMore]);
 
   const timestamps = useMemo(() => timeline?.timestamps ?? [], [timeline]);

@@ -13,10 +13,4 @@ export type ProfileDTO = {
   updated_at?: string | null;
   /** Timestamp when user completed onboarding wizard, null if not completed */
   onboarding_completed_at?: string | null;
-  wants_android_access?: boolean | null;
-  android_waitlist_joined_at?: string | null;
-  android_waitlist_source?: string | null;
-  android_waitlist_surface?: string | null;
-  android_waitlist_placement?: string | null;
 };
-

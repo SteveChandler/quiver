@@ -39,15 +39,6 @@ export const PROFILE_NOTIFICATION_FIELDS = [
   'notif_xp_updates',
 ] as const;
 
-/** Android launch waitlist state */
-export const PROFILE_ANDROID_WAITLIST_FIELDS = [
-  'wants_android_access',
-  'android_waitlist_joined_at',
-  'android_waitlist_source',
-  'android_waitlist_surface',
-  'android_waitlist_placement',
-] as const;
-
 /**
  * Every profile column currently readable through the public profile surface.
  * Analytics consent is intentionally absent and is available only through the
@@ -57,10 +48,6 @@ export const PROFILE_PUBLIC_FIELDS = [
   'activity_level',
   'analytics_exclusion_reason',
   'analytics_is_real_user',
-  'android_waitlist_joined_at',
-  'android_waitlist_placement',
-  'android_waitlist_source',
-  'android_waitlist_surface',
   'avatar_url',
   'bio',
   'created_at',
@@ -112,7 +99,6 @@ export const PROFILE_PUBLIC_FIELDS = [
   'timezone',
   'trust_score',
   'updated_at',
-  'wants_android_access',
   'wind_comfort',
 ] as const;
 
@@ -131,7 +117,6 @@ export const PROFILE_FULL_SELECT = [
   ...PROFILE_CORE_FIELDS,
   ...PROFILE_PREFERENCE_FIELDS,
   ...PROFILE_NOTIFICATION_FIELDS,
-  ...PROFILE_ANDROID_WAITLIST_FIELDS,
   'home_beach:beaches!profiles_home_beach_id_fkey(id, name)',
 ].join(',\n        ');
 

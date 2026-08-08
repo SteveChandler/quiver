@@ -806,7 +806,7 @@ export interface MapReadyMetadata {
 /** Metadata for map_load_failed events */
 export interface MapLoadFailedMetadata {
   /** Short error category — do not include user-provided strings */
-  error_type: 'token_invalid' | 'network' | 'webgl_unsupported' | 'tile_error' | 'unknown';
+  error_type: 'token_invalid' | 'network' | 'webgl_unsupported' | 'tile_error' | 'timeout' | 'unknown';
   /** Time from mount to failure, in ms */
   time_to_failure_ms?: number;
 }
