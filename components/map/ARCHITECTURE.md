@@ -197,6 +197,16 @@ const populateLocations = async (lat: number, lng: number) => {
 };
 ```
 
+### **Embedded Native Selection Contract**
+
+`EmbedMapEvent`'s `spotSelected` payload is additive because installed native
+clients may consume older shapes. Its required fields remain `beachId`, `name`,
+`lat`, and `lon`; `slug`, `conditionSummary`, `waveHeight`, `swellPeriod`,
+`swellDirection`, `isCalibrated`, `windSpeed`, `windDirection`, `tideState`, and
+`tideHeight` are optional and nullable. Display metrics come from the same bulk
+forecast maps and active swell/wind partition used by the marker and conditions
+callout. The embed does not retain tide readings, so its tide fields remain null.
+
 ## **COMPONENT RESPONSIBILITIES**
 
 ### **MapContent** (Primary Container)

@@ -45,6 +45,14 @@ export type EmbedMapEvent =
         lon: number;
         slug?: string | null;
         conditionSummary?: string | null;
+        waveHeight?: string | null;
+        swellPeriod?: string | null;
+        swellDirection?: string | null;
+        isCalibrated?: boolean | null;
+        windSpeed?: string | null;
+        windDirection?: string | null;
+        tideState?: string | null;
+        tideHeight?: string | null;
       };
     }
   | { type: "clusterSelected"; payload: { clusterId: number; lat: number; lon: number } }
