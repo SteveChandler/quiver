@@ -58,7 +58,9 @@ test.describe('Guest Smoke: Critical Pages', () => {
     ).toHaveAttribute('href', iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN));
     await expect(
       page.getByRole('link', { name: /get the android beta/i }).first(),
-    ).toHaveAttribute('href', '/android-beta');
+      // The CTA carries waitlist attribution (source/surface/placement), which
+      // varies per placement — assert the route, not the query string.
+    ).toHaveAttribute('href', /^\/android-beta(\?|$)/);
     await expect(page.getByText(/home-break finder/i)).toHaveCount(0);
 
     // Page should have substantive content
