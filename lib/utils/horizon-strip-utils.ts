@@ -102,7 +102,7 @@ export const TIER_COLOR_HEX: Record<ConditionTier, string> = {
   great: "#f59e0b",
   good: "#10b981",
   fair: "#60a5fa",
-  marginal: "#e2e8f0",
+  marginal: "#7F96AD",
 };
 
 /**
