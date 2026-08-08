@@ -14,6 +14,13 @@ import type { SurfDiscoveryResponse, TimeSlot } from "@/types/personalization";
 const MAX_TIMEOUT_DELAY_MS = 2_147_483_647;
 
 /**
+ * How close together two resume signals must be to count as one tab switch.
+ * `focus` and `visibilitychange` fire within a frame of each other; anything
+ * beyond this is treated as a separate resume that earns its own recheck.
+ */
+const RESUME_COALESCE_MS = 1_000;
+
+/**
  * Options for useSurfDiscovery hook
  */
 interface UseSurfDiscoveryOptions {
@@ -287,6 +294,7 @@ export function useSurfDiscovery(
 
   const resumeRevalidationRef = useRef<Promise<unknown> | null>(null);
   const resumeRevalidationQueuedRef = useRef(false);
+  const resumeStartedAtRef = useRef(0);
   const [resumeRevalidationPending, setResumeRevalidationPending] =
     useState(false);
 
@@ -303,6 +311,7 @@ export function useSurfDiscovery(
 
     resumeRevalidationQueuedRef.current = false;
     setResumeRevalidationPending(true);
+    resumeStartedAtRef.current = Date.now();
     const pending = refreshDiscovery();
     resumeRevalidationRef.current = pending;
     const settle = () => {
@@ -319,7 +328,25 @@ export function useSurfDiscovery(
     if (!enabled || !immediate || !user) return;
 
     setResumeRevalidationPending(true);
-    if (loading || resumeRevalidationRef.current) {
+
+    if (resumeRevalidationRef.current) {
+      // One tab switch raises `focus` and `visibilitychange` back to back, and
+      // firing a request for each doubled load on an uncacheable route. Those
+      // paired events describe the same resume, so collapse them.
+      //
+      // Anything arriving after that pairing window is a genuinely separate
+      // resume, and the in-flight request cannot answer for it: the server may
+      // have already read hold state before whatever changed. Dropping it
+      // would lose a recheck, so queue it — a duplicate request is the cheap
+      // failure here, a stale positive call is not.
+      if (Date.now() - resumeStartedAtRef.current <= RESUME_COALESCE_MS) return;
+      resumeRevalidationQueuedRef.current = true;
+      return;
+    }
+    if (loading) {
+      // Work that started BEFORE this resume (the initial fetch, or an options
+      // refresh) can predate whatever changed while the tab was away, so it
+      // cannot stand in for a recheck either.
       resumeRevalidationQueuedRef.current = true;
       return;
     }
