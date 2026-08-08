@@ -78,11 +78,14 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      # Same env contract as main-gate's unit-tests job (see the comment there).
       - name: Run unit tests
         run: yarn test:unit --bail=5
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: "https://www.quiversurf.app"
+          SUPABASE_SERVICE_ROLE_KEY: "gate-unit-tests-placeholder"
 
   build:
     name: Build

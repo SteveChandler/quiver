@@ -90,12 +90,19 @@ jobs:
         run: yarn install --frozen-lockfile
 
       # The unit suite mocks its data layer, but next/jest loads next.config.mjs,
-      # whose environment-validation hard-requires these two NEXT_PUBLIC_* values.
+      # whose environment-validation hard-requires the two NEXT_PUBLIC_SUPABASE_*
+      # values — and the jest setup fails any test that emits an unexpected
+      # console.warn, so the "SITE_URL not set" / "SERVICE_ROLE_KEY not
+      # configured" warnings must not fire either. The service-role key is a
+      # placeholder on purpose: presence silences the warning and nothing in the
+      # unit suite talks to Supabase.
       - name: Run unit tests
         run: yarn test:unit
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: "https://www.quiversurf.app"
+          SUPABASE_SERVICE_ROLE_KEY: "gate-unit-tests-placeholder"
 
   build:
     name: Build
