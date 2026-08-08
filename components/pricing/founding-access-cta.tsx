@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { useCallback } from "react";
 
 import { AndroidWaitlistCta } from "@/components/pricing/android-waitlist-cta";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
-import { useProfileContext } from "@/context/profile-context";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { ANDROID_WAITLIST_CTA } from "@/lib/constants/android-waitlist";
 import { cn } from "@/lib/utils";
 
@@ -24,9 +25,33 @@ export function FoundingAccessCta({
   variant = "default",
 }: FoundingAccessCtaProps) {
   const { user, isLoading } = useAuth();
-  const { profile } = useProfileContext();
   const isCompact = variant === "compact";
-  const hasJoinedAndroidWaitlist = Boolean(profile?.wants_android_access);
+  const fetchWaitlistStatus = useCallback(async (): Promise<boolean> => {
+    if (!user?.id) return false;
+
+    const response = await fetch("/api/android-beta/status", {
+      cache: "no-store",
+    });
+    const body = await response.json().catch(() => null);
+
+    if (!response.ok || !body?.success) {
+      throw new Error("Failed to load Android waitlist status");
+    }
+
+    return Boolean(body.data?.hasJoinedAndroidWaitlist);
+  }, [user?.id]);
+  const {
+    data: hasJoinedAndroidWaitlist,
+    loading: isWaitlistStatusLoading,
+  } = useDataFetcher(fetchWaitlistStatus, {
+    skip: isLoading || !user,
+    initialData: false,
+  });
+  const signedInStatusCopy = isWaitlistStatusLoading
+    ? "Checking your Android beta signup…"
+    : hasJoinedAndroidWaitlist
+      ? "Your earlier Android beta signup is recorded."
+      : "Open the Android beta instructions to get started.";
 
   if (!isLoading && user) {
     if (isCompact) {
@@ -44,9 +69,7 @@ export function FoundingAccessCta({
               You&apos;re signed in.
             </p>
             <p className="mt-1 text-xs leading-5 text-[#4B4030]">
-              {hasJoinedAndroidWaitlist
-                ? "Your earlier Android beta signup is recorded."
-                : "Open the Android beta instructions to get started."}
+              {signedInStatusCopy}
             </p>
             <AndroidWaitlistCta
               source={source}
@@ -74,9 +97,7 @@ export function FoundingAccessCta({
           <div>
             <p className="font-semibold text-white">You&apos;re signed in.</p>
             <p className="mt-1 text-sm leading-6 text-white/65">
-              {hasJoinedAndroidWaitlist
-                ? "Your earlier Android beta signup is recorded."
-                : "Open the Android beta instructions to get started."}
+              {signedInStatusCopy}
             </p>
           </div>
         </div>

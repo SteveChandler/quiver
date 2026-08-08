@@ -1,18 +1,17 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 
 import { FoundingAccessCta } from "@/components/pricing/founding-access-cta";
 import { useAuth } from "@/context/auth-context";
-import { useProfileContext } from "@/context/profile-context";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { ANDROID_BETA_LANDING_PATH } from "@/lib/constants/app-store";
 
 jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(),
 }));
 
-jest.mock("@/context/profile-context", () => ({
-  useProfileContext: jest.fn(),
+jest.mock("@/hooks/use-data-fetcher", () => ({
+  useDataFetcher: jest.fn(),
 }));
 
 jest.mock("@/components/pricing/android-waitlist-cta", () => ({
@@ -40,21 +39,9 @@ jest.mock("@/components/pricing/android-waitlist-cta", () => ({
 }));
 
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
-const mockUseProfileContext = useProfileContext as jest.MockedFunction<
-  typeof useProfileContext
+const mockUseDataFetcher = useDataFetcher as jest.MockedFunction<
+  typeof useDataFetcher
 >;
-const mockRefreshProfile = jest.fn();
-
-function mockProfileContext(profile: Record<string, unknown> | null = null) {
-  mockUseProfileContext.mockReturnValue({
-    profile: profile as any,
-    homeBeach: null,
-    isLoading: false,
-    error: null,
-    updateProfile: jest.fn(),
-    refreshProfile: mockRefreshProfile,
-  });
-}
 
 function mockAnonymousUser() {
   mockUseAuth.mockReturnValue({
@@ -86,7 +73,15 @@ describe("FoundingAccessCta", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAnonymousUser();
-    mockProfileContext();
+    mockUseDataFetcher.mockReturnValue({
+      data: false,
+      loading: false,
+      error: null,
+      refetch: jest.fn(),
+      retry: jest.fn(),
+      reset: jest.fn(),
+      invalidateCache: jest.fn(),
+    });
   });
 
   it("renders the guided Android beta handoff for anonymous users", () => {
@@ -157,10 +152,14 @@ describe("FoundingAccessCta", () => {
 
   it("shows persisted Android beta status for signed-in users who already joined", () => {
     mockSignedInUser();
-    mockProfileContext({
-      id: "user-1",
-      wants_android_access: true,
-      android_waitlist_joined_at: "2026-05-25T20:00:00.000Z",
+    mockUseDataFetcher.mockReturnValue({
+      data: true,
+      loading: false,
+      error: null,
+      refetch: jest.fn(),
+      retry: jest.fn(),
+      reset: jest.fn(),
+      invalidateCache: jest.fn(),
     });
 
     render(<FoundingAccessCta source="plans-test" surface="plans" />);
@@ -181,19 +180,14 @@ describe("FoundingAccessCta", () => {
     ).toBeInTheDocument();
   });
 
-  it("does not mutate the profile when opening the public handoff", async () => {
-    const user = userEvent.setup();
+  it("loads canonical status only for signed-in users", () => {
     mockSignedInUser();
-    mockProfileContext({ id: "user-1", wants_android_access: false });
 
     render(<FoundingAccessCta source="plans-test" surface="plans" />);
 
-    const link = screen.getByRole("link", {
-      name: /view android beta steps/i,
+    expect(mockUseDataFetcher).toHaveBeenCalledWith(expect.any(Function), {
+      skip: false,
+      initialData: false,
     });
-    link.addEventListener("click", (event) => event.preventDefault());
-    await user.click(link);
-
-    expect(mockRefreshProfile).not.toHaveBeenCalled();
   });
 });

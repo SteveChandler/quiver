@@ -331,6 +331,11 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: "/tiktok",
+        destination: "/pbsc?utm_source=tiktok&utm_medium=bio",
+        permanent: false,
+      },
+      {
         source: "/settings",
         destination: "/profile?openSettings=true",
         permanent: false, // 302 for flexibility

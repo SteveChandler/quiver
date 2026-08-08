@@ -34,11 +34,6 @@ interface ProfileDetails {
   notif_follows: boolean | null;
   notif_reminders: boolean | null;
   notif_xp_updates: boolean | null;
-  wants_android_access: boolean | null;
-  android_waitlist_joined_at: string | null;
-  android_waitlist_source: string | null;
-  android_waitlist_surface: string | null;
-  android_waitlist_placement: string | null;
   home_beach: { id: string; name: string } | null;
 }
 
@@ -171,13 +166,6 @@ const profileHandler = withAuth(
         notif_follows: details?.notif_follows ?? true,
         notif_reminders: details?.notif_reminders ?? true,
         notif_xp_updates: details?.notif_xp_updates ?? true,
-        // Android waitlist state
-        wants_android_access: details?.wants_android_access ?? false,
-        android_waitlist_joined_at:
-          details?.android_waitlist_joined_at ?? null,
-        android_waitlist_source: details?.android_waitlist_source ?? null,
-        android_waitlist_surface: details?.android_waitlist_surface ?? null,
-        android_waitlist_placement: details?.android_waitlist_placement ?? null,
         // Onboarding tracking
         onboarding_completed_at: details?.onboarding_completed_at ?? null,
         ...sessionStats,

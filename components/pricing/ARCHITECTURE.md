@@ -31,9 +31,10 @@ Pricing components render the public `/plans` native-app availability surface. T
   routing anonymous and authenticated visitors to `/android-beta` with source,
   surface, placement, auth-state, and destination analytics.
 - `/android-beta` owns the ordered Google Group → Play opt-in → install
-  instructions and required Google-account email capture. Existing profile/lead
-  records remain available for prior enrollment fulfillment, while new handoffs
-  are tied to the captured visitor session.
+  instructions and required Google-account email capture. Canonical
+  `android_waitlist_entries` records own enrollment state, while
+  `android_beta_leads` remains the sendable-address book. Signed-in CTA status
+  is read through the private, no-store `/api/android-beta/status` endpoint.
 - Once the handoff is unlocked, `/android-beta` requests a short-lived,
   single-use attributed Play Store link. The browser sends only the bounded
   source, surface, placement, and campaign dimensions; identity is not bound to
