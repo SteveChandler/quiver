@@ -1,5 +1,7 @@
 export {};
 
+import { normalizedEmailSha256 } from "@/lib/android-tester-roster/waitlist";
+
 const mockUpsert = jest.fn();
 const mockLeadSelect = jest.fn();
 const mockLeadMaybeSingle = jest.fn();
@@ -12,6 +14,7 @@ const mockResetEqEmail = jest.fn();
 const mockResetEqClaimedAt = jest.fn();
 const mockInsert = jest.fn();
 const mockRpc = jest.fn();
+let mockAuthUser: { id: string } | null = null;
 const mockFrom = jest.fn((table: string) => {
   if (table === "android_beta_leads") {
     return {
@@ -37,6 +40,8 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
+  withAuth: (handler: any) => (request: any) =>
+    handler(request, { user: mockAuthUser }),
   withBotBlockingAndRateLimit: (handler: any) => handler,
   withErrorHandler: (handler: any) => handler,
 }));
@@ -64,6 +69,7 @@ function buildRequest(body: unknown): any {
 describe("POST /api/android-beta/leads", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAuthUser = null;
     mockUpsert.mockReturnValue({ select: mockLeadSelect });
     mockLeadSelect.mockReturnValue({ maybeSingle: mockLeadMaybeSingle });
     mockLeadMaybeSingle.mockResolvedValue({
@@ -129,13 +135,19 @@ describe("POST /api/android-beta/leads", () => {
     expect(mockLeadMaybeSingle).toHaveBeenCalled();
     expect(mockRpc).toHaveBeenCalledWith(
       "resolve_android_waitlist_entry",
-      expect.objectContaining({
+      {
         p_user_id: null,
-        p_normalized_email_sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        p_normalized_email_sha256: normalizedEmailSha256(
+          "surfer@example.com",
+        ),
         p_roster_entry_id: null,
         p_source_kind: "anonymous_lead",
         p_source_id: "30000000-0000-4000-8000-000000000003",
-      }),
+        p_source: "features-hero-android-waitlist",
+        p_surface: "features-page",
+        p_placement: "hero_secondary",
+        p_observed_at: expect.any(String),
+      },
     );
     expect(sendAndroidBetaInstructionsEmail).toHaveBeenCalledWith(
       "surfer@example.com",
@@ -161,6 +173,31 @@ describe("POST /api/android-beta/leads", () => {
         placement: "hero_secondary",
       },
     });
+  });
+
+  it("associates the canonical entry with an authenticated requester", async () => {
+    mockAuthUser = { id: "20000000-0000-4000-8000-000000000002" };
+    const { POST } = await import("@/app/api/android-beta/leads/route");
+
+    const response = await POST(
+      buildRequest({
+        email: "surfer@example.com",
+        source: "android-beta",
+        surface: "android-beta",
+        placement: "email_gate",
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      emailSent: true,
+    });
+    expect(mockRpc).toHaveBeenCalledWith(
+      "resolve_android_waitlist_entry",
+      expect.objectContaining({
+        p_user_id: "20000000-0000-4000-8000-000000000002",
+      }),
+    );
   });
 
   it("skips duplicate instruction emails after a lead was already sent", async () => {
@@ -220,11 +257,14 @@ describe("POST /api/android-beta/leads", () => {
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
-  it("fails closed before sending instructions when canonical resolution fails", async () => {
+  it("keeps the signup successful when canonical resolution fails", async () => {
     mockRpc.mockResolvedValue({
       data: null,
       error: { message: "resolver unavailable" },
     });
+    const consoleWarnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => {});
     const { sendAndroidBetaInstructionsEmail } =
       await import("@/lib/mailer/android-beta");
     const { POST } = await import("@/app/api/android-beta/leads/route");
@@ -239,9 +279,16 @@ describe("POST /api/android-beta/leads", () => {
     );
 
     await expect(response.json()).resolves.toEqual({
-      success: false,
-      error: "save_failed",
+      success: true,
+      emailSent: true,
     });
-    expect(sendAndroidBetaInstructionsEmail).not.toHaveBeenCalled();
+    expect(sendAndroidBetaInstructionsEmail).toHaveBeenCalledWith(
+      "surfer@example.com",
+    );
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "android-beta/leads: failed to register canonical waitlist entry:",
+      expect.any(Error),
+    );
+    consoleWarnSpy.mockRestore();
   });
 });

@@ -32,17 +32,9 @@ export type Session = Database['public']['Tables']['sessions']['Row']
 export type SessionInsert = Database['public']['Tables']['sessions']['Insert']
 export type SessionUpdate = Database['public']['Tables']['sessions']['Update']
 
-export interface AndroidWaitlistProfileFields {
-  wants_android_access?: boolean | null
-  android_waitlist_joined_at?: string | null
-  android_waitlist_source?: string | null
-  android_waitlist_surface?: string | null
-  android_waitlist_placement?: string | null
-}
-
-export type Profile = Database['public']['Tables']['profiles']['Row'] & AndroidWaitlistProfileFields
+export type Profile = Database['public']['Tables']['profiles']['Row']
 export type ProfileInsert = Database['public']['Tables']['profiles']['Insert']
-export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'] & AndroidWaitlistProfileFields
+export type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
 
 export type IntelPost = Database['public']['Tables']['intel_posts']['Row']
 export type IntelPostInsert = Database['public']['Tables']['intel_posts']['Insert']

@@ -8,7 +8,10 @@ import { sendAndroidBetaInstructionsEmail } from "../lib/mailer/android-beta";
 
 interface LeadRecipient {
   email: string;
-  source: "android_beta_leads" | "profiles";
+}
+
+interface CanonicalWaitlistRow {
+  android_waitlist_source_links: Array<{ source_id: string }>;
 }
 
 interface EmailClaim {
@@ -40,23 +43,10 @@ function normalizeEmail(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
 }
 
-async function ensureLeadRow(supabase: any, email: string): Promise<void> {
-  const { error } = await supabase
-    .from("android_beta_leads")
-    .upsert(
-      {
-        email,
-        source: "profile_android_access",
-        surface: "script",
-        placement: "bulk_android_beta_email",
-      },
-      { onConflict: "email", ignoreDuplicates: true },
-    );
-
-  if (error) throw error;
-}
-
-async function claimEmail(supabase: any, email: string): Promise<EmailClaim | null> {
+async function claimEmail(
+  supabase: any,
+  email: string,
+): Promise<EmailClaim | null> {
   const claimedAt = new Date().toISOString();
   const { data, error } = await supabase
     .from("android_beta_leads")
@@ -103,43 +93,55 @@ export async function main(): Promise<void> {
     requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
   );
 
-  const { data: leadRows, error: leadError } = await supabase
-    .from("android_beta_leads")
-    .select("email")
-    .is("instructions_sent_at", null)
-    .order("created_at", { ascending: true })
+  const { data: canonicalRows, error: canonicalError } = await supabase
+    .from("android_waitlist_entries")
+    .select("id, android_waitlist_source_links!inner(source_id)")
+    .eq("android_waitlist_source_links.source_kind", "anonymous_lead")
+    .order("first_joined_at", { ascending: true })
     .limit(limit);
 
-  if (leadError) throw leadError;
+  if (canonicalError) throw canonicalError;
 
-  const { data: profileRows, error: profileError } = await supabase
-    .from("profiles")
-    .select("email")
-    .eq("wants_android_access", true)
-    .not("email", "is", null)
-    .limit(limit);
+  const leadIds = Array.from(
+    new Set(
+      ((canonicalRows ?? []) as CanonicalWaitlistRow[]).flatMap((row) =>
+        row.android_waitlist_source_links.map((link) => link.source_id),
+      ),
+    ),
+  );
 
-  if (profileError) throw profileError;
+  let leadRows: Array<{ email: string | null }> = [];
+  if (leadIds.length > 0) {
+    const { data, error } = await supabase
+      .from("android_beta_leads")
+      .select("email")
+      .in("id", leadIds)
+      .is("instructions_sent_at", null)
+      .order("created_at", { ascending: true })
+      .limit(limit);
+
+    if (error) throw error;
+    leadRows = data ?? [];
+  }
 
   const recipients = new Map<string, LeadRecipient>();
-  for (const row of leadRows ?? []) {
+  for (const row of leadRows) {
     const email = normalizeEmail(row.email);
-    if (email) recipients.set(email, { email, source: "android_beta_leads" });
-  }
-  for (const row of profileRows ?? []) {
-    const email = normalizeEmail(row.email);
-    if (email && !recipients.has(email)) {
-      recipients.set(email, { email, source: "profiles" });
-    }
+    if (email) recipients.set(email, { email });
   }
 
   const recipientList = Array.from(recipients.values());
-  console.log(JSON.stringify({
-    mode: shouldSend ? "send" : "dry-run",
-    recipients: recipientList.length,
-    fromLeads: recipientList.filter((item) => item.source === "android_beta_leads").length,
-    fromProfiles: recipientList.filter((item) => item.source === "profiles").length,
-  }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        mode: shouldSend ? "send" : "dry-run",
+        canonicalEntries: canonicalRows?.length ?? 0,
+        recipients: recipientList.length,
+      },
+      null,
+      2,
+    ),
+  );
 
   if (!shouldSend) {
     console.log("Dry run only. Re-run with --send to email these recipients.");
@@ -147,10 +149,6 @@ export async function main(): Promise<void> {
   }
 
   for (const recipient of recipientList) {
-    if (recipient.source === "profiles") {
-      await ensureLeadRow(supabase, recipient.email);
-    }
-
     const claim = await claimEmail(supabase, recipient.email);
     if (!claim) {
       console.log("Skipped Android beta email; instructions already sent", {
