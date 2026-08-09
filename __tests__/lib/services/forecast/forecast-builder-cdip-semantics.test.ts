@@ -16,6 +16,7 @@
  * end-to-end transform actually runs.
  */
 
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import {
   ForecastBuilder,
   hasCalibrationLoss,
@@ -237,6 +238,13 @@ afterEach(() => {
 });
 
 describe("hasCalibrationLoss", () => {
+  // Phase 21: the trusted layer resolves coverage beach slugs through the
+  // shared service-role mock, which answers nothing here, so it reports
+  // coverage as unavailable once and serves baseline. Declared, not silenced.
+  // Registered inside the describe so it runs before jest.setup's own check.
+  afterEach(() => {
+    expectConsoleErrors([/trusted_forecast_coverage_unavailable/]);
+  });
   it("flags a calibrated beach that lost calibration on some slots", () => {
     expect(
       hasCalibrationLoss({
@@ -272,6 +280,13 @@ describe("hasCalibrationLoss", () => {
 });
 
 describe("resolveCdipNowcastPoint", () => {
+  // Phase 21: the trusted layer resolves coverage beach slugs through the
+  // shared service-role mock, which answers nothing here, so it reports
+  // coverage as unavailable once and serves baseline. Declared, not silenced.
+  // Registered inside the describe so it runs before jest.setup's own check.
+  afterEach(() => {
+    expectConsoleErrors([/trusted_forecast_coverage_unavailable/]);
+  });
   it("returns the latest point for the legacy now slot", () => {
     expect(
       resolveCdipNowcastPoint({
@@ -402,6 +417,13 @@ describe("resolveCdipNowcastPoint", () => {
 });
 
 describe("ForecastBuilder CDIP height semantics", () => {
+  // Phase 21: the trusted layer resolves coverage beach slugs through the
+  // shared service-role mock, which answers nothing here, so it reports
+  // coverage as unavailable once and serves baseline. Declared, not silenced.
+  // Registered inside the describe so it runs before jest.setup's own check.
+  afterEach(() => {
+    expectConsoleErrors([/trusted_forecast_coverage_unavailable/]);
+  });
   test("CDIP + WaveWatch components: wave_height follows CDIP Hs × calibrated bucket, not NOAA component sum", async () => {
     const builder = makeBuilder();
     const cdipHsFt = 2.0;

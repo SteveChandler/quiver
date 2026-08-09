@@ -1,5 +1,6 @@
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
 import { fetchBeachForecasts } from "@/lib/utils/forecast-server-utils";
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import { FORECAST_CONSTANTS, TOTAL_FORECASTS } from "@/types/forecast";
 
 // Mock the Supabase client
@@ -255,6 +256,10 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
       // (starting at noon and generating 96 forecasts can span 13 calendar days)
       expect(uniqueDates.size).toBeGreaterThanOrEqual(FORECAST_CONSTANTS.DAYS);
       expect(uniqueDates.size).toBeLessThanOrEqual(FORECAST_CONSTANTS.DAYS + 1);
+
+      // Phase 21 trusted-forecast coverage is inert-by-design until its
+      // coverage slugs land; the builder logs this until then.
+      expectConsoleErrors([/trusted_forecast_coverage_unavailable/]);
     });
 
     it("should generate forecasts every 3 hours", async () => {
