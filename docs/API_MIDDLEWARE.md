@@ -926,4 +926,300 @@ import type {
 
 ---
 
-**For technical architecture details, see `/docs/API_MIDDLEWARE_REFERENCE.md`**
+**Technical architecture details are in the [Technical Reference Appendix](#technical-reference-appendix) below.**
+
+## Technical Reference Appendix
+
+This appendix consolidates the former API middleware technical reference into
+the developer guide. The guide above remains the day-to-day entry point; this
+section records implementation, typing, performance, security, compatibility,
+and extension details.
+
+### Architecture principles
+
+The middleware system uses composable higher-order functions (HOFs) to wrap
+Next.js route handlers with protection layers:
+
+1. Single responsibility: each HOF handles one concern.
+2. Composability: protections can be combined declaratively.
+3. Backward compatibility: existing `withAuth` signatures continue to work.
+4. Type safety: handler context is fully typed.
+5. Developer experience: the API has clear defaults and readable usage.
+6. Performance: failed checks exit early with minimal overhead.
+
+### Next.js 15+ route-param compatibility
+
+In Next.js 15+, route-handler `params` is a Promise. Accessing `params.id`
+before awaiting it returns an undefined value. The `withAuth`,
+`createApiHandler`, and `withProtection` wrappers resolve params before passing
+them to handlers.
+
+The route context accepts both forms:
+
+~~~typescript
+interface RouteContext {
+  params: Record<string, string> | Promise<Record<string, string>>;
+}
+~~~
+
+Handler context always receives resolved params:
+
+~~~typescript
+interface AuthenticatedContext {
+  params: Record<string, string>;
+  user: User;
+  supabase: SupabaseClient<Database>;
+}
+~~~
+
+Correct usage:
+
+~~~typescript
+import { withAuth, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
+
+async function handler(
+  request: NextRequest,
+  { user, supabase, params }: AuthenticatedContext
+) {
+  const sessionId = params.id;
+  const { data } = await supabase
+    .from("sessions")
+    .select("*")
+    .eq("id", sessionId)
+    .eq("user_id", user.id)
+    .single();
+  return createSuccessResponse({ session: data });
+}
+
+export const GET = withAuth(handler);
+~~~
+
+Do not access params outside the wrapper or manually await and re-wrap the
+handler; both patterns duplicate or bypass the wrapper's resolution logic.
+
+The implementation points are `lib/middleware/api-wrappers/types.ts`,
+`auth-wrapper.ts`, and `index.ts`, which define and export `ResolvedParams` and
+`OptionalAuthContext`.
+
+### Protection combinations
+
+| Pattern | Bot blocking | Rate limiting | Auth | Error handling | Example |
+| --- | --- | --- | --- | --- | --- |
+| Public read | Yes | Yes | No | Yes | Beach list, forecast data |
+| Public search | Yes | Yes (strict) | No | Yes | Beach search |
+| Auth required | No | Yes (lenient) | Required | Yes | Dashboard, settings |
+| Auth write | No | Yes (strict) | Required | Yes | Session, comment |
+| Optional auth | Yes | Yes (adaptive) | Optional | Yes | Public profile |
+| Image proxy | Yes | Yes (very strict) | No | Yes | SSRF-sensitive proxy |
+| AI endpoint | Yes | Yes (strict) | Optional | Yes | Recommendations |
+
+### Type definitions
+
+The shared types are defined in `lib/middleware/api-wrappers/types.ts`:
+
+~~~typescript
+export type RouteHandler = (
+  request: NextRequest,
+  context?: RouteContext
+) => Promise<NextResponse>;
+
+export interface RouteContext {
+  params: Record<string, string> | Promise<Record<string, string>>;
+}
+
+export type ResolvedParams = Record<string, string>;
+
+export interface AuthenticatedContext {
+  params: ResolvedParams;
+  user: User;
+  supabase: SupabaseClient<Database>;
+}
+
+export interface OptionalAuthContext {
+  params: ResolvedParams;
+  user: User | null;
+  supabase: SupabaseClient<Database>;
+}
+~~~
+
+The option types expose required or optional auth, a rate-limit key or
+auth-aware keys, bot blocking, and error-handling configuration. The wrapper
+signatures are:
+
+~~~typescript
+withAuth(handler, options?): RouteHandler
+withErrorHandler(handler, options?): RouteHandler
+withBotBlocking(handler, options?): RouteHandler
+withRateLimit(handler, options): RouteHandler
+withBotBlockingAndRateLimit(handler, optionsOrKey): RouteHandler
+withProtection(handler, options?): RouteHandler
+~~~
+
+### Internal composition
+
+`withProtection` applies wrappers from the inside out so requests execute in
+this order:
+
+~~~text
+Request -> Bot Blocking -> Rate Limiting -> Authentication
+        -> Error Handling -> Handler
+~~~
+
+The implementation first wraps the handler with error handling, then auth,
+then rate limiting, and finally bot blocking as the outermost layer. This
+ensures bots are rejected without state lookup, rate limits are checked before
+auth, and the handler receives resolved context.
+
+### Performance characteristics
+
+| Layer | Typical latency | Early exit |
+| --- | --- | --- |
+| Bot blocking | ~0.1ms | 403 |
+| Rate limiting | ~1ms | 429 |
+| Params resolution | ~0ms | No |
+| Authentication | ~5-10ms | 401 |
+| Error handling | Negligible | No |
+| Total overhead | ~6-11ms | — |
+
+Optimization strategies are early exits, cached rate-limiters, Supabase client
+caching, lazy evaluation for disabled protections, and awaiting params only
+when the context actually contains a Promise.
+
+### Context and error flow
+
+Authenticated context contains a guaranteed user, a Supabase client, and
+resolved params. Optional-auth context contains a nullable user and the same
+resolved params. Any layer can return its standard status: authentication
+failure 401, rate limit 429, bot detection 403, or handler failure 500 through
+the error handler. Standard error responses include a success flag, a
+user-facing error, and a timestamp.
+
+### Rate-limiting architecture
+
+Client identification checks `x-vercel-forwarded-for`, then `x-real-ip`, then
+`x-forwarded-for`, and finally uses `unknown`. A cached singleton is selected
+per rate-limit key. The limiter checks burst, per-minute, and per-hour windows;
+allowed requests are recorded, and rejected requests return 429 with
+`Retry-After`.
+
+The failure policy is fail closed: an unexpected limiter or infrastructure
+error returns 503 Service Unavailable with a `Retry-After` header rather than
+silently bypassing protection.
+
+Auth-aware rate limiting selects a public or authenticated key after checking
+auth status:
+
+~~~typescript
+export const GET = withProtection(handler, {
+  auth: { required: false },
+  rateLimit: {
+    authAware: {
+      publicLimitKey: "public-default",
+      authenticatedLimitKey: "authenticated-default"
+    }
+  }
+});
+~~~
+
+### Bot-blocking architecture
+
+Bot blocking lowercases the User-Agent and matches known substrings such as
+bot, crawler, spider, scraper, googlebot, bingbot, yandexbot, curl, wget, and
+python-requests. It returns 403 immediately for a match. It is fastest when
+first, prevents bots from consuming rate-limit quota, and reduces downstream
+load.
+
+Enable bot blocking for public, computationally expensive, valuable, or
+scrapeable endpoints. Skip it for authenticated endpoints, intentional bot
+endpoints such as sitemap/robots, and legitimate automation such as webhooks.
+
+### Type safety
+
+Required-auth handlers receive `AuthenticatedContext`, where `user.id` is
+non-null. Optional-auth handlers receive `OptionalAuthContext`, where callers
+must null-check `user?.id`. No-auth handlers receive the base route context.
+Params are always resolved at the handler boundary.
+
+### Security considerations
+
+The protection stack is defense in depth:
+
+1. Bot blocking rejects automated traffic.
+2. Rate limiting prevents abuse and resource exhaustion.
+3. Authentication establishes identity and permissions.
+4. Error handling avoids leaking implementation details.
+
+The reference implementation documents these response headers:
+
+~~~text
+X-RateLimit-Limit
+X-RateLimit-Remaining
+X-RateLimit-Reset
+Retry-After (on 429)
+~~~
+
+### Backward compatibility
+
+The migration path is intentionally gradual:
+
+1. Dual support: old imports and signatures work while new imports are
+   preferred.
+2. Soft deprecation: add JSDoc deprecation tags and warnings after callers are
+   migrated.
+3. Hard deprecation: remove old imports and overloads only after all routes are
+   migrated.
+
+`withBotBlockingAndRateLimit` accepts both the legacy string key and the new
+options object:
+
+~~~typescript
+withBotBlockingAndRateLimit(handler, "public-default");
+withBotBlockingAndRateLimit(handler, { key: "public-default" });
+~~~
+
+### Testing architecture
+
+Unit coverage should verify each wrapper independently:
+
+- `withAuth`: required/optional access, context injection, auth errors, Promise
+  params, and non-Promise params.
+- `withRateLimit`: allowed requests, exceeded limits, Retry-After, and reset.
+- `withBotBlocking`: known bots, legitimate agents, and 403 responses.
+- `withProtection`: composition order, enabled protections, context propagation,
+  and dynamic route params.
+
+Integration coverage should exercise public full protection, authenticated
+rate-limited routes, optional auth with adaptive limits, consistent errors, and
+dynamic route params.
+
+### File organization
+
+~~~text
+lib/middleware/
+  api-wrappers/
+    index.ts
+    types.ts
+    auth-wrapper.ts
+    error-handler.ts
+    rate-limit-wrapper.ts
+    protection-wrappers.ts
+    validation-helpers.ts
+    ownership-helpers.ts
+    response-utils.ts
+  bot-blocker.ts
+  rate-limiter.ts
+~~~
+
+`rate-limiter.ts` is the compatibility layer that re-exports the canonical
+wrapper implementation. The wrapper index is the preferred import location.
+
+### Future extensibility
+
+Potential wrapper types are CORS, request validation, response caching,
+logging/telemetry, feature flags, and A/B testing. New wrappers should accept
+a handler and options, preserve the same context/response contracts, and be
+added to the unified wrapper only when the behavior is well-defined.
+
+Open questions are whether to enforce maximum wrapper depth, add wrapper usage
+telemetry, and warn in development for deprecated signatures or suboptimal
+wrapper order.

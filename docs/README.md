@@ -12,7 +12,6 @@ This is the first stop for AI coding sessions and human contributors. Prefer the
 - [`COORDINATE_CONVENTIONS.md`](COORDINATE_CONVENTIONS.md) - coordinate naming rules and mapping pitfalls.
 - [`../package.json`](../package.json) - authoritative scripts and dependency versions.
 - [`../e2e/README.md`](../e2e/README.md) - Playwright conventions when browser coverage is relevant.
-- [`MARKDOWN_INVENTORY.md`](MARKDOWN_INVENTORY.md) - full tracked markdown inventory and classification snapshot.
 
 ## Long-Running Goal / Spec Trackers
 
@@ -46,6 +45,7 @@ This is the first stop for AI coding sessions and human contributors. Prefer the
 - [`archive/retired-2026-05-31/`](archive/retired-2026-05-31/) - retired March/Q1 strategy docs and completed implementation guides. Each file has a retirement header and replacement link.
 - [`archive/history-2026-05-31/`](archive/history-2026-05-31/) - full pre-cleanup histories for compressed active trackers.
 - [`../.planning/archive/2026-05-31-doc-cleanup/`](../.planning/archive/2026-05-31-doc-cleanup/) - full pre-cleanup `.planning` tracker histories.
+- [`../.planning/archive/2026-08-07-shipped/MARKDOWN_INVENTORY.md`](../.planning/archive/2026-08-07-shipped/MARKDOWN_INVENTORY.md) - archived generated Markdown inventory snapshot.
 - [`superpowers/plans/`](superpowers/plans/) and [`superpowers/specs/`](superpowers/specs/) - historical implementation plans/specs. Do not load by default; use only when investigating a specific completed slice.
 - [`postmortems/`](postmortems/), [`investigations/`](investigations/), [`reports/`](reports/), [`analysis/`](analysis/), and [`market-intelligence/`](market-intelligence/) - historical context unless a task names one directly.
 - [`../supabase/scratch/`](../supabase/scratch/) - migration scratch/history; use only when auditing a specific migration lineage.
@@ -78,4 +78,4 @@ Current tracked markdown snapshot after this cleanup:
 - Historical/archive: dated plans/specs/reports, Supabase scratch notes, and retired PMF/acquisition docs.
 - Unknown/needs human review: large older specs and research files listed above.
 
-See [`MARKDOWN_INVENTORY.md`](MARKDOWN_INVENTORY.md) for the full per-file classification snapshot.
+The generated Markdown inventory is archived with the shipped planning material; use `git ls-files '*.md'` for a current inventory.

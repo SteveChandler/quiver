@@ -98,7 +98,7 @@ describe("map condition summaries", () => {
     expect(badge.textContent).toBe("");
     expect(badge).toHaveAttribute("data-marker-gradient", markerGradient);
     expect(markerGradient).toContain("linear-gradient");
-    expect(badge).toHaveStyle({ width: "40px", height: "40px" });
+    expect(badge).toHaveStyle({ width: "44px", height: "44px" });
     expect(visual).toHaveStyle({
       width: "15px",
       height: "15px",
@@ -127,7 +127,7 @@ describe("map condition summaries", () => {
     expect(badge.textContent).toBe("");
     expect(badge).toHaveAttribute("data-marker-gradient", markerGradient);
     expect(markerGradient).toContain("linear-gradient");
-    expect(badge).toHaveStyle({ width: "40px", height: "40px" });
+    expect(badge).toHaveStyle({ width: "44px", height: "44px" });
     expect(visual).toHaveStyle({
       width: "15px",
       height: "15px",

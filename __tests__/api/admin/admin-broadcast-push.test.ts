@@ -14,13 +14,6 @@ jest.mock("@/lib/notifications/enqueue", () => ({
   enqueueNotification: (...args: unknown[]) => mockEnqueueNotification(...args),
 }));
 
-// Defensive: catch a regression that wires direct FCM back into the route.
-const mockBroadcastToActiveUsers = jest.fn();
-jest.mock("@/lib/services/broadcast-push", () => ({
-  broadcastToActiveUsers: (...args: unknown[]) =>
-    mockBroadcastToActiveUsers(...args),
-}));
-
 const mockSelect = jest.fn();
 const mockFrom = jest.fn(() => ({ select: mockSelect }));
 const mockServiceRole = { from: mockFrom };
@@ -107,8 +100,6 @@ describe("/api/admin/broadcast-push (Phase 5i — pipeline path)", () => {
         }),
       );
     }
-    // Phase 5i regression guard: route never calls direct FCM.
-    expect(mockBroadcastToActiveUsers).not.toHaveBeenCalled();
   });
 
   it("counts duplicate / invalid / failed enqueue outcomes separately", async () => {

@@ -12,6 +12,10 @@
  * @module magic-hour/direction-utils
  */
 
+import { normalizeAngle } from "@/lib/domains/shared/angle-utils";
+
+export { normalizeAngle };
+
 /**
  * Calculates the circular angular difference between two directions.
  *
@@ -30,25 +34,6 @@
 export function circularAngleDiff(angle1: number, angle2: number): number {
   const diff = Math.abs(angle1 - angle2);
   return diff > 180 ? 360 - diff : diff;
-}
-
-/**
- * Normalizes angle to 0-360 range.
- *
- * Handles negative angles and angles > 360 correctly using
- * the modulo operation with adjustment for negative values.
- *
- * @param angle - Any angle in degrees (can be negative or > 360)
- * @returns Normalized angle in 0-360 range
- *
- * @example
- * normalizeAngle(370)  // Returns 10
- * normalizeAngle(-10)  // Returns 350
- * normalizeAngle(720)  // Returns 0
- * normalizeAngle(-370) // Returns 350
- */
-export function normalizeAngle(angle: number): number {
-  return ((angle % 360) + 360) % 360;
 }
 
 /**

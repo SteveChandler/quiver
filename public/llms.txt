@@ -1,6 +1,6 @@
 # Quiver
 
-> ML-powered surf forecast and community platform for US coasts, Hawaii, and Baja California.
+> Personal surf forecast and community platform for US coasts, Hawaii, and Baja California.
 
 ## About
 
@@ -18,7 +18,7 @@ Quiver is a free surf forecasting platform that applies per-beach XGBoost bias c
 - Community: share sessions and photos, follow local surfers, post crowd and condition reports
 - Spot Discovery: 350+ intent-based guide pages for finding breaks by style, skill level, or wave type
 - Mobile Apps: native iOS and Android apps with push condition alerts and GPS-based recommendations
-- Forecast Accuracy: public accuracy tracking showing how ML predictions compare to observed buoy readings
+- Forecast Methodology: public explanation of buoy checks, wave-height definitions, and comparison limits
 
 ## Coverage Areas
 
@@ -53,7 +53,7 @@ Quiver is a free surf forecasting platform that applies per-beach XGBoost bias c
 - Forecast Hub: https://www.quiversurf.app/forecast
 - Free Surf Reports: https://www.quiversurf.app/free-surf-reports
 - Surf Map: https://www.quiversurf.app/map
-- Forecast Accuracy: https://www.quiversurf.app/forecast-accuracy
+- Forecast Accuracy Methodology: https://www.quiversurf.app/forecast-accuracy
 
 ## Learn: Priority Surf Knowledge Targets
 

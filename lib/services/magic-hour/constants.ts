@@ -8,6 +8,8 @@
 
 import type { WeightConfig } from "./types";
 
+export { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
+
 /**
  * Direction map for parsing cardinal/intercardinal directions to degrees.
  * Used by parseWindDirection to convert strings like "NNE" to 22.5 degrees.
@@ -69,8 +71,3 @@ export const DAYLIGHT_END_HOUR = 20;
  * Default time window for Magic Hour search (48 hours in milliseconds).
  */
 export const DEFAULT_SEARCH_WINDOW_MS = 48 * 60 * 60 * 1000;
-
-/**
- * Default timezone for beach locations if not specified.
- */
-export const DEFAULT_TIMEZONE = "America/Los_Angeles";

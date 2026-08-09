@@ -7,6 +7,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 import { classifyWindDirection } from '@/lib/utils/wind-classification';
 
+export { formatWaveRange } from '@/lib/utils/wave-formatters';
+
 export interface RegionalForecastData {
   region: 'norcal' | 'central' | 'socal';
   primaryBeach: {
@@ -56,15 +58,6 @@ const REGIONAL_BEACHES = {
     { search: 'Sunset Cliffs', city: 'San Diego' },
   ],
 };
-
-/**
- * Legacy formatting functions for backwards compatibility
- */
-export function formatWaveRange(heightFt: number): string {
-  const lower = Math.max(0, Math.floor(heightFt - 0.5));
-  const upper = Math.ceil(heightFt + 0.5);
-  return lower + '-' + upper + 'ft';
-}
 
 export function formatWindDescription(speedKts: number, direction: string): string {
   if (speedKts <= 3) return 'glassy conditions';

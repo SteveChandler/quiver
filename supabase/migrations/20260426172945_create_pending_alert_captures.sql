@@ -12,7 +12,7 @@
 -- lib/alerts/presets.ts buildConditions() output. Parity is enforced by
 -- a Jest test (__tests__/lib/alerts/rpc-preset-parity.test.ts).
 --
--- Spec: docs/superpowers/specs/2026-04-25-alerts-engine-fix-and-anon-capture-design.md sections 5 + 6.
+-- Spec: docs/archive/superpowers/specs/2026-04-25-alerts-engine-fix-and-anon-capture-design.md sections 5 + 6.
 
 BEGIN;
 

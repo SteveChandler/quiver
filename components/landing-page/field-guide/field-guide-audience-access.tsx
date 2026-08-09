@@ -47,7 +47,7 @@ export function FieldGuideAudienceAccess(): ReactElement {
           id="field-guide-access-heading"
           className="mt-5 font-[var(--font-zine-display)] text-4xl uppercase leading-[1.02] text-[#11100D] sm:text-5xl"
         >
-          One surf app. Pro when you need the sharper call.
+          One surf app. Go Pro when it’s time to lock in.
         </h2>
         <p className="mx-auto mt-4 max-w-2xl font-mono text-sm leading-relaxed text-[#11100D]/70 sm:text-base">
           Public forecast data is free forever. Upgrade for board-aware picks,

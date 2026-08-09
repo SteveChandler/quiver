@@ -35,6 +35,7 @@ describe("buildRootStructuredDataGraph", () => {
     const graphTypes = graph.map((node) => (node as any)["@type"]);
     expect(graphTypes).toContain("Organization");
     expect(graphTypes).toContain("WebSite");
+    expect(graphTypes).not.toContain("SoftwareApplication");
 
     // Ensure the root holds the context (cleaner + more compatible).
     expect((graph[0] as any)["@context"]).toBeUndefined();
@@ -57,24 +58,17 @@ describe("SEO_CONFIG structured data", () => {
     expect(org.operatingSystem).toBeUndefined();
   });
 
-  it("keeps application properties on SoftwareApplication schema", () => {
-    const software = SEO_CONFIG.structuredData.softwareApplication as any;
-
-    expect(software["@type"]).toBe("SoftwareApplication");
-    expect(software.applicationCategory).toBe("Sports & Recreation");
-    expect(software.operatingSystem).toBe("Web, iOS, Android");
-  });
-
   it("WebSite includes SearchAction for sitelinks search box", () => {
     const website = SEO_CONFIG.structuredData.website as any;
     expect(website["@type"]).toBe("WebSite");
-    expect(website.potentialAction).toBeDefined();
-    expect(website.potentialAction["@type"]).toBe("SearchAction");
+    expect(website.potentialAction).toMatchObject({
+      "@type": "SearchAction",
+    });
   });
 });
 
 describe("BeachPageStructuredData", () => {
-  it("splits Place and SportsActivityLocation without address on the activity schema", () => {
+  it("emits a Place without triggering LocalBusiness rich-result validation", () => {
     const { container } = render(
       createElement(BeachPageStructuredData, {
         beachName: "Banyans",
@@ -92,10 +86,7 @@ describe("BeachPageStructuredData", () => {
     const scripts = [...container.querySelectorAll('script[type="application/ld+json"]')]
       .map((script) => JSON.parse(script.textContent ?? "{}"));
     const place = scripts.find((schema) => schema["@type"] === "Place");
-    const activity = scripts.find(
-      (schema) => schema["@type"] === "SportsActivityLocation",
-    );
-
+    expect(scripts).toHaveLength(1);
     expect(place).toMatchObject({
       "@type": "Place",
       address: {
@@ -104,12 +95,15 @@ describe("BeachPageStructuredData", () => {
         addressRegion: "HI",
         addressCountry: "US",
       },
+      amenityFeature: [
+        {
+          "@type": "LocationFeatureSpecification",
+          name: "Parking",
+          value: true,
+        },
+      ],
     });
-    expect(activity).toMatchObject({
-      "@type": "SportsActivityLocation",
-      sport: "Surfing",
-    });
-    expect(activity.address).toBeUndefined();
-    expect(JSON.stringify(scripts)).not.toContain('"@type":["Place","SportsActivityLocation"]');
+    expect(JSON.stringify(scripts)).not.toContain("SportsActivityLocation");
+    expect(JSON.stringify(scripts)).not.toContain('"sport"');
   });
 });

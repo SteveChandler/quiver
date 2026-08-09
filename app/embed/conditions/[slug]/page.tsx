@@ -3,6 +3,8 @@ import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { getFreshForecastFromCache } from "@/lib/utils/forecast-server-utils";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
+import { formatBeachDateTime } from "@/lib/utils/date-time";
+import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import type { ConditionsData } from "@/types/conditions";
 import { EmbedConditionsWidget } from "./embed-conditions-widget";
 
@@ -25,9 +27,18 @@ export default async function EmbedConditionsPage({
 
   // Fetch current forecast
   let currentConditions: ConditionsData = {};
+  let forecastStatus: "fresh" | "stale" | "unavailable" = "unavailable";
+  let staleAsOf: string | undefined;
   try {
-    const result = await getFreshForecastFromCache(beach.id, 2);
-    if (result?.forecasts?.length) {
+    const result = await getFreshForecastFromCache(beach.id, 24, {
+      allowStale: true,
+      maxStaleHours: 24,
+    });
+    if (
+      result.metadata.cached &&
+      !result.metadata.missing &&
+      result.forecasts.length > 0
+    ) {
       // Use the most recent forecast as "current conditions"
       const now = Date.now();
       const sorted = [...result.forecasts].sort((a, b) => {
@@ -38,10 +49,29 @@ export default async function EmbedConditionsPage({
       const closest = sorted[0];
       if (closest) {
         currentConditions = forecastToConditionsData(closest);
+        forecastStatus = result.metadata.stale ? "stale" : "fresh";
+
+        if (result.metadata.stale && result.metadata.lastUpdated) {
+          const timezone = resolveBeachTimezone(beach.timezone);
+          const updatedDate = formatBeachDateTime(
+            result.metadata.lastUpdated,
+            timezone,
+            "EEE, MMM d"
+          );
+          const updatedTime = formatBeachDateTime(
+            result.metadata.lastUpdated,
+            timezone,
+            "h:mm a"
+          );
+          staleAsOf = `${updatedDate} at ${updatedTime}`;
+        }
       }
     }
-  } catch {
-    // Render with empty data
+  } catch (error) {
+    console.warn(
+      `[EmbedConditionsPage] Failed to load forecast for beach ${slug}:`,
+      error
+    );
   }
 
   const siteUrl =
@@ -57,6 +87,8 @@ export default async function EmbedConditionsPage({
       beachUrl={beachUrl}
       slug={slug}
       conditions={currentConditions}
+      status={forecastStatus}
+      staleAsOf={staleAsOf}
       theme={theme === "dark" ? "dark" : "light"}
     />
   );

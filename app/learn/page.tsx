@@ -40,7 +40,7 @@ const CROSS_LINKS: {
   {
     href: "/forecast-accuracy",
     label: "Forecast Accuracy",
-    desc: "See how our ML corrections perform",
+    desc: "See the method, ground truth, and limits",
     sticker: "spotSwellMatch",
   },
   {

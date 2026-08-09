@@ -7,7 +7,7 @@
 -- Solution: Add covering indexes to eliminate heap lookups in LATERAL subqueries
 -- Expected improvement: 16s → 8-10s refresh time
 --
--- Reference: docs/investigations/2026-01-20-query-performance-investigation.md
+-- Reference: docs/research/2026-01-20-query-performance-investigation.md
 
 -- Covering index for tide lookups in MV refresh
 -- Includes tide_height_m to avoid heap lookup after index scan

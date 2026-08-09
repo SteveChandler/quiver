@@ -1,6 +1,6 @@
 # Surf Zone Intelligence — Phase A (Tier-1 Numeric Spine) — Codex Implementation Plan
 
-> **Spec:** `docs/superpowers/specs/2026-06-20-surf-zone-intelligence-design.md`. Read it first.
+> **Spec:** `docs/archive/superpowers/specs/2026-06-20-surf-zone-intelligence-design.md`. Read it first.
 > **Executor:** Codex, cold. Every path/column/helper below is verified against the repo at HEAD.
 > **Run from:** repo root `quiver/`. **No commits, no push.** Work off committed `main` — the working tree is dirty with an unrelated native-scoring refactor; do not stage or sweep it in.
 

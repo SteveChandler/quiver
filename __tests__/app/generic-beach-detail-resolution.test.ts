@@ -23,6 +23,14 @@ jest.mock("@/actions/beach/beach-query-actions", () => ({
   getBeachesBySlug: jest.fn(),
 }));
 
+// The page reads the user agent to decide whether the iPhone Safari banner owns
+// the install ask (app/[intent]/[city]/[beachSlug]/page.tsx, added in #497).
+// Without this mock `headers()` throws "called outside a request scope" and every
+// case in this suite fails before reaching its assertion.
+jest.mock("next/headers", () => ({
+  headers: jest.fn(async () => new Headers()),
+}));
+
 jest.mock("next/navigation", () => ({
   notFound: jest.fn(() => {
     const err = new Error("NEXT_NOT_FOUND");
@@ -61,10 +69,6 @@ jest.mock("@/app/beach/[slug]/beach-detail-client", () => ({
   BeachDetailClient: () => null,
 }));
 
-jest.mock("@/components/spots/spot-surf-report", () => ({
-  SpotSurfReportStream: () => null,
-}));
-
 jest.mock("@/components/seo/structured-data", () => ({
   BeachPageStructuredData: () => null,
 }));
@@ -75,10 +79,6 @@ jest.mock("@/components/seo/breadcrumb-schema", () => ({
 
 jest.mock("@/components/seo/faq-schema", () => ({
   FAQSchema: () => null,
-}));
-
-jest.mock("@/components/seo/review-schema", () => ({
-  ReviewSchema: () => null,
 }));
 
 jest.mock("@/components/seo/web-page-schema", () => ({
@@ -97,10 +97,6 @@ jest.mock("@/components/beach-detail/related-guides-section", () => ({
   RelatedGuidesSection: () => null,
 }));
 
-jest.mock("@/components/beach-detail/optimal-conditions-section", () => ({
-  OptimalConditionsSection: () => null,
-}));
-
 jest.mock("@/components/ui/sticky-signup-bar", () => ({
   StickySignupBar: () => null,
 }));
@@ -115,13 +111,6 @@ jest.mock("@/actions/beach/beach-location-actions", () => ({
     data: [],
   }),
   getAllCitiesWithBeachSkills: jest.fn(),
-}));
-
-jest.mock("@/actions/beach-review-actions", () => ({
-  getBeachReviews: jest.fn().mockResolvedValue({
-    success: true,
-    data: [],
-  }),
 }));
 
 // Prevent real Supabase client creation in CI (no env vars)

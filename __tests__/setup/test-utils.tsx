@@ -288,15 +288,6 @@ export const createMockReviewStats = (beachIds: string[]) =>
     {}
   );
 
-// Reusable mock for useMultipleBeachReviews
-export const createMockUseMultipleBeachReviews = (overrides = {}) => ({
-  reviewStats: {},
-  loading: false,
-  error: null,
-  refresh: jest.fn(),
-  ...overrides,
-});
-
 // Common mock setups
 export const mockMapUtils = () => ({
   getStaticMapImageUrl: jest.fn(() => "http://example.com/map.jpg"),

@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactElement,
+} from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Activity, Clock3, Gauge, Waves, Wind } from "lucide-react";
 
@@ -128,6 +135,7 @@ function getModeById(id: ReadingModeId): ReadingMode {
 
 export function MapLearningPanel(): ReactElement {
   const [activeModeId, setActiveModeId] = useState<ReadingModeId>("buoy");
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [activeMetricIndex, setActiveMetricIndex] = useState(0);
   const { track } = useTrackEvent();
   const qrTracked = useRef(false);
@@ -173,6 +181,27 @@ export function MapLearningPanel(): ReactElement {
     });
   }
 
+  function handleModeKeyDown(
+    event: KeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ): void {
+    const lastIndex = READING_MODES.length - 1;
+    const nextIndex = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? lastIndex
+        : event.key === "ArrowRight" || event.key === "ArrowDown"
+          ? (index + 1) % READING_MODES.length
+          : event.key === "ArrowLeft" || event.key === "ArrowUp"
+            ? (index - 1 + READING_MODES.length) % READING_MODES.length
+            : null;
+    if (nextIndex === null) return;
+
+    event.preventDefault();
+    selectMode(READING_MODES[nextIndex].id);
+    tabRefs.current[nextIndex]?.focus();
+  }
+
   return (
     <aside
       data-testid="map-learning-panel"
@@ -198,16 +227,21 @@ export function MapLearningPanel(): ReactElement {
           role="tablist"
           aria-label="Forecast reading layers"
         >
-          {READING_MODES.map(({ id, shortLabel, Icon }) => {
+          {READING_MODES.map(({ id, shortLabel, Icon }, index) => {
             const active = id === activeMode.id;
             return (
               <button
                 key={id}
+                ref={(node) => { tabRefs.current[index] = node; }}
                 type="button"
                 role="tab"
+                id={`map-learning-tab-${id}`}
+                aria-controls={`map-learning-panel-${id}`}
                 aria-selected={active}
+                tabIndex={active ? 0 : -1}
                 data-testid={`map-learning-mode-${id}`}
                 onClick={() => selectMode(id)}
+                onKeyDown={(event) => handleModeKeyDown(event, index)}
                 className={cn(
                   "inline-flex min-h-12 items-center justify-center gap-2 border-2 border-[#11100D] px-2 font-mono text-xs font-black uppercase tracking-[0.08em] shadow-[2px_3px_0_rgba(17,16,13,0.18)] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]",
                   active
@@ -224,7 +258,8 @@ export function MapLearningPanel(): ReactElement {
 
         <section
           role="tabpanel"
-          aria-label={activeMode.label}
+          id={`map-learning-panel-${activeMode.id}`}
+          aria-labelledby={`map-learning-tab-${activeMode.id}`}
           className="space-y-4 border-2 border-[#11100D] bg-[#F5EEDC] p-4 shadow-[4px_6px_0_rgba(17,16,13,0.16)]"
         >
           <div className="flex items-start gap-3">
@@ -328,7 +363,7 @@ export function MapLearningPanel(): ReactElement {
             </p>
             <a
               href={QR_VALUE}
-              className="mt-3 inline-flex min-h-10 items-center justify-center bg-[#F78E42] px-4 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(245,238,220,0.2)] transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FDB84B]"
+              className="mt-3 inline-flex min-h-11 items-center justify-center bg-[#F78E42] px-4 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(245,238,220,0.2)] transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FDB84B]"
             >
               Get the app
             </a>

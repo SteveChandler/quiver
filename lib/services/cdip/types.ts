@@ -29,7 +29,8 @@ export type CDIPSkipReason =
   | "cdip_400"
   | "cdip_404"
   | "circuit_open"
-  | "cdip_unavailable";
+  | "cdip_unavailable"
+  | "trusted_forecast_failed";
 
 export interface CDIPFetchDiagnostic<TData> {
   data: TData | null;

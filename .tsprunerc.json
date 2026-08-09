@@ -1,8 +1,6 @@
 {
   "tsConfigPath": "tsconfig.json",
   "ignore": [
-    "**/index.ts",
-    "**/index.tsx",
     "**/*.stories.tsx",
     "**/__tests__/**",
     "**/setup/**",

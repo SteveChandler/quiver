@@ -75,7 +75,6 @@ import { getBeachTimezone, convertToLocalTime } from "@/lib/utils/timezone-utils
 | `beach-card-utils.ts` | Beach card data prep |
 | `beach-conditions-utils.ts` | Conditions formatting |
 | `beach-to-surfspot-transformer.ts` | Type transformations |
-| `nearest-beach.ts` | Proximity calculations |
 | `location-slug.ts` | Location slug utilities |
 | `distance-utils.ts` | Distance calculations |
 | `coordinate-parser.ts` | Coordinate parsing |
@@ -136,7 +135,6 @@ import { getBeachTimezone, convertToLocalTime } from "@/lib/utils/timezone-utils
 
 | File | Purpose |
 |------|---------|
-| `posts-utils.ts` | Post/feed utilities |
 | `intel-dedupe.ts` | Intel deduplication |
 | `spot-data-transformer.ts` | Spot data transforms |
 

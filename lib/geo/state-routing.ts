@@ -25,12 +25,12 @@ export const RESERVED_ONE_SEGMENT_SLUGS = new Set([
   "favicon.ico",
 ]);
 
-export function normalizeState(raw: string): string {
+export function normalizeStateSlug(raw: string): string {
   return (raw || "").trim().toLowerCase();
 }
 
 function toDbState(state: string): string {
-  return normalizeState(state).toUpperCase();
+  return normalizeStateSlug(state).toUpperCase();
 }
 
 const US_STATE_NAMES_BY_CODE: Record<string, string> = {
@@ -113,7 +113,6 @@ export function getStateDisplayNameFromSlug(stateSlug: string): string {
   const code = toDbState(stateSlug);
   return US_STATE_NAMES_BY_CODE[code] || code;
 }
-
 
 
 

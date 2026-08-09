@@ -1,6 +1,8 @@
 import { SupabaseMockBuilder } from "@/__tests__/setup/supabase-mock";
 import type { BeachReview, BeachReviewWithUser } from "@/types/database";
 
+const mockGetBeachByIdFromDb = jest.fn();
+
 // Create a mock Supabase client using the builder
 const mockSupabaseBuilder = new SupabaseMockBuilder();
 let mockSupabaseClient = mockSupabaseBuilder.build();
@@ -15,6 +17,10 @@ jest.mock("@/lib/supabase/server", () => ({
     Promise.resolve(mockSupabaseClient)
   ),
   createPublicReadClient: jest.fn(() => mockSupabaseClient),
+}));
+
+jest.mock("@/lib/services/beach-query-service", () => ({
+  getBeachByIdFromDb: (...args: unknown[]) => mockGetBeachByIdFromDb(...args),
 }));
 
 // Import after mocking
@@ -68,11 +74,23 @@ const mockReviews: BeachReviewWithUser[] = [
   },
 ];
 
+const canonicalBeach = {
+  id: "beach-1",
+  slug: "ocean-beach",
+  city: "San Diego",
+  state: "CA",
+  country: "USA",
+};
+
 describe("Beach Review Actions", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSupabaseBuilder.reset();
     mockSupabaseClient = mockSupabaseBuilder.build();
+    mockGetBeachByIdFromDb.mockResolvedValue({
+      success: true,
+      data: canonicalBeach,
+    });
   });
 
   describe("getBeachReviews", () => {
@@ -174,6 +192,9 @@ describe("Beach Review Actions", () => {
       expect(result.success).toBe(true);
       expect(result.data).toEqual(mockReviewWithUser);
       expect(revalidatePath).toHaveBeenCalledWith("/beach/beach-1");
+      expect(revalidatePath).toHaveBeenCalledWith(
+        "/ca/san-diego/ocean-beach",
+      );
       expect(revalidatePath).toHaveBeenCalledWith("/map");
     });
 
@@ -207,6 +228,11 @@ describe("Beach Review Actions", () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(updatedReview);
+      expect(revalidatePath).toHaveBeenCalledWith("/beach/beach-1");
+      expect(revalidatePath).toHaveBeenCalledWith(
+        "/ca/san-diego/ocean-beach",
+      );
+      expect(revalidatePath).toHaveBeenCalledWith("/map");
     });
 
     it("should handle update errors", async () => {
@@ -231,6 +257,29 @@ describe("Beach Review Actions", () => {
 
       expect(result.success).toBe(true);
       expect(revalidatePath).toHaveBeenCalledWith("/beach/beach-1");
+      expect(revalidatePath).toHaveBeenCalledWith(
+        "/ca/san-diego/ocean-beach",
+      );
+      expect(revalidatePath).toHaveBeenCalledWith("/map");
+    });
+
+    it("preserves legacy invalidation when canonical lookup fails", async () => {
+      mockSupabaseClient = mockSupabaseBuilder
+        .withDelete("beach-1", null)
+        .build();
+      mockGetBeachByIdFromDb.mockResolvedValue({
+        success: false,
+        error: "lookup failed",
+      });
+
+      const result = await deleteBeachReview("review-1");
+
+      expect(result.success).toBe(true);
+      expect(revalidatePath).toHaveBeenCalledWith("/beach/beach-1");
+      expect(revalidatePath).toHaveBeenCalledWith("/map");
+      expect(revalidatePath).not.toHaveBeenCalledWith(
+        "/ca/san-diego/ocean-beach",
+      );
     });
 
     it("should handle review not found", async () => {

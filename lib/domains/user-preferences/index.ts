@@ -20,6 +20,7 @@ export type { SkillLevel, SkillWaveRanges } from './skill-level';
 export {
   DEFAULT_SKILL_LEVEL,
   SKILL_LEVELS,
+  parseBeachSkillRequirement,
   parseSkillLevel,
   getSkillLevelOrDefault,
   SKILL_WAVE_RANGES,

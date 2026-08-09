@@ -46,9 +46,12 @@ describe('profile constants', () => {
       expect(PROFILE_FULL_SELECT).toContain('onboarding_completed_at');
     });
 
-    it('should include Android waitlist fields for signed-in CTA state', () => {
-      expect(PROFILE_FULL_SELECT).toContain('wants_android_access');
-      expect(PROFILE_FULL_SELECT).toContain('android_waitlist_joined_at');
+    it('should not read retired Android waitlist profile fields', () => {
+      expect(PROFILE_FULL_SELECT).not.toContain('wants_android_access');
+      expect(PROFILE_FULL_SELECT).not.toContain('android_waitlist_joined_at');
+      expect(PROFILE_FULL_SELECT).not.toContain('android_waitlist_source');
+      expect(PROFILE_FULL_SELECT).not.toContain('android_waitlist_surface');
+      expect(PROFILE_FULL_SELECT).not.toContain('android_waitlist_placement');
     });
   });
 

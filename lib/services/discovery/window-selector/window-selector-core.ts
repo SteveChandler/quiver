@@ -27,7 +27,7 @@ import type {
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import type { RideabilityBand } from '@/lib/domains/rideability';
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
-import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils';
+import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
 import { createContextLogger } from '@/lib/logger';
 import { resolveForecastTime, localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 
@@ -706,9 +706,7 @@ export function selectBestWindows(
     return [];
   }
 
-  const beachTz =
-    (actualBeach as { timezone?: string | null }).timezone ||
-    getTimezoneFromCoords(actualBeach.lat || 0, actualBeach.lon || 0);
+  const beachTz = resolveBeachTimezone(actualBeach.timezone);
 
   // Helper: get local date string for beach timezone
   const getLocalDateStrForBeach = (time: Date): string => getLocalDateStr(time, beachTz);

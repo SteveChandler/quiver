@@ -67,6 +67,7 @@ type ForecastRow = {
   wind_speed: string | null;
   wind_direction: string | null;
   wind_direction_deg: number | null;
+  water_temp: string | null;
   tide_height: string | null;
   tide_status: string | null;
   confidence_score: number | null;
@@ -246,6 +247,7 @@ function forecastRow(
     tide_status: "Rising",
     confidence_score: 80,
     data_source: "NOAA_NWS",
+    water_temp: null,
   };
 }
 
@@ -299,7 +301,6 @@ function mockBulkQueries(options: {
   forecastRows?: ForecastRow[] | null;
   forecastError?: { message: string } | null;
   beachRows?: BeachRow[] | null;
-  waterRows?: Array<{ beach_id: string; water_temp: string | null }> | null;
 } = {}) {
   const forecastRows = options.forecastRows ?? [];
   const beachRows =
@@ -315,17 +316,8 @@ function mockBulkQueries(options: {
     data: beachRows,
     error: null,
   });
-  const waterChain = queryChain({
-    data: options.waterRows ?? [],
-    error: null,
-  });
-
-  let enhancedForecastCalls = 0;
   mockSupabaseClient.from = jest.fn((table: string) => {
-    if (table === "enhanced_forecasts") {
-      enhancedForecastCalls += 1;
-      return enhancedForecastCalls === 1 ? forecastChain : waterChain;
-    }
+    if (table === "enhanced_forecasts") return forecastChain;
     if (table === "beaches") return beachChain;
     return queryChain({ data: null, error: null });
   }) as any;
@@ -575,9 +567,10 @@ describe("GET /api/forecasts/bulk", () => {
   });
 
   it("returns water temps and calibration status in the envelope", async () => {
+    const currentRow = forecastRow(BEACH_ONE_ID, "4.5");
+    currentRow.water_temp = "63";
     mockBulkQueries({
-      forecastRows: [forecastRow(BEACH_ONE_ID, "4.5")],
-      waterRows: [{ beach_id: BEACH_ONE_ID, water_temp: "63" }],
+      forecastRows: [currentRow],
       beachRows: [beachRow(BEACH_ONE_ID, { shoaling_factors: { "270": 1.05 } })],
     });
 
@@ -592,6 +585,11 @@ describe("GET /api/forecasts/bulk", () => {
     expect(result.data.waterTemps).toEqual({ [BEACH_ONE_ID]: "63" });
     expect(result.data.isCalibrated).toEqual({ [BEACH_ONE_ID]: true });
     expect(result.data.conditionSummaries).toEqual({ [BEACH_ONE_ID]: "GOOD" });
+    expect(
+      (mockSupabaseClient.from as jest.Mock).mock.calls.filter(
+        ([table]) => table === "enhanced_forecasts",
+      ),
+    ).toHaveLength(1);
   });
 
   it("fails closed when hold resolution is unavailable without hiding physical forecasts", async () => {

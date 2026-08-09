@@ -180,11 +180,12 @@ test.describe("Phase 20 guest Session Intelligence app links and QA", () => {
       await expectJsonLd(page);
       await expect(
         page.getByRole("heading", {
-          name: "More accurate than Surfline. Twice as sharp as NOAA.",
+          name: "Offshore wave height is not breaking face height.",
         })
       ).toBeVisible();
-      await expect(page.getByText(/NOAA baseline/i).first()).toBeVisible();
-      await expect(page.getByText("WINNER")).toBeVisible();
+      await expect(
+        page.getByText("No same-sample comparison. No accuracy ranking.")
+      ).toBeVisible();
       await expectNoHorizontalOverflow(page);
     });
 

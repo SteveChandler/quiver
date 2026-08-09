@@ -168,6 +168,9 @@ export function createWaveHeightBadge(
     const canHover =
       typeof window !== "undefined" &&
       window.matchMedia("(hover: hover)").matches;
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // Create wrapper element that Mapbox will position
     const wrapper = document.createElement("div");
@@ -197,7 +200,7 @@ export function createWaveHeightBadge(
         border: 3px solid #F78E42;
         border-radius: 50%;
         pointer-events: none;
-        animation: pulse 2s infinite;
+        animation: ${reducedMotion ? "none" : "pulse 2s infinite"};
       `;
       wrapper.appendChild(selectionRing);
     }
@@ -213,8 +216,8 @@ export function createWaveHeightBadge(
     badge.setAttribute("data-marker-badge", "true");
     badge.setAttribute("data-marker-gradient", markerGradient);
     badge.style.cssText = `
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
       padding: 0;
       cursor: pointer;
@@ -239,7 +242,7 @@ export function createWaveHeightBadge(
       background: ${markerGradient};
       pointer-events: none;
       transform-origin: center;
-      transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+      transition: ${reducedMotion ? "none" : "all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1)"};
       transform: scale(${isSelected ? "1.7" : isHovered ? "1.45" : "1"});
       box-shadow: ${
         isSelected

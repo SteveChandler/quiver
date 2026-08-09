@@ -2,7 +2,7 @@
 
 -- Add 'daily_check_in' to alert_rules.preset_type. This is a deliberately
 -- loose validation preset that proves the engine end-to-end. See
--- docs/superpowers/specs/2026-04-25-alerts-engine-fix-and-anon-capture-design.md
+-- docs/archive/superpowers/specs/2026-04-25-alerts-engine-fix-and-anon-capture-design.md
 -- section A3.
 
 BEGIN;

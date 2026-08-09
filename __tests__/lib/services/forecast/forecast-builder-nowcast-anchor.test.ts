@@ -12,6 +12,7 @@
  * to reality than the forecast. Swells don't swing 100% in 6h.
  */
 
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import { ForecastBuilder, shouldApplyNowcastAnchor } from "@/lib/services/forecast/forecast-builder";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
@@ -37,6 +38,13 @@ function makeAnchor(overrides: Partial<NowcastAnchor> = {}): NowcastAnchor {
 }
 
 describe("shouldApplyNowcastAnchor", () => {
+  // Phase 21: the trusted layer resolves coverage beach slugs through the
+  // shared service-role mock, which answers nothing here, so it reports
+  // coverage as unavailable once and serves baseline. Declared, not silenced.
+  // Registered inside the describe so it runs before jest.setup's own check.
+  afterEach(() => {
+    expectConsoleErrors([/trusted_forecast_coverage_unavailable/]);
+  });
   test("false when beach.features is null", () => {
     expect(
       shouldApplyNowcastAnchor({
@@ -164,6 +172,13 @@ describe("shouldApplyNowcastAnchor", () => {
  * flag-on and flag-off paths, driven by the anchor input when on.
  */
 describe("ForecastBuilder nowcast anchor output", () => {
+  // Phase 21: the trusted layer resolves coverage beach slugs through the
+  // shared service-role mock, which answers nothing here, so it reports
+  // coverage as unavailable once and serves baseline. Declared, not silenced.
+  // Registered inside the describe so it runs before jest.setup's own check.
+  afterEach(() => {
+    expectConsoleErrors([/trusted_forecast_coverage_unavailable/]);
+  });
   const NOAA_HS_M = 2.8; // ghost-swell-like NOAA forecast
   const ANCHOR_HS_M = 0.6; // observed ground truth, much lower
 

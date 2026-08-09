@@ -4,7 +4,7 @@
 
 Quiver web app: Next.js 16, React 19, TypeScript, Tailwind, Radix UI, Supabase, Playwright. App Router code in `app/`; shared UI in `components/`; server actions in `actions/`; business logic in `lib/`; hooks in `hooks/`; types in `types/`; assets in `public/`; migrations in `supabase/migrations/`; Jest tests in `__tests__/`; Playwright specs in `e2e/`.
 
-**49 `ARCHITECTURE.md` files exist throughout the codebase.** Read the nearest relevant one before editing a directory; use `docs/ARCHITECTURE.md` as the top-level index.
+**58 `ARCHITECTURE.md` files exist throughout the codebase.** Read the nearest relevant one before editing a directory; use `docs/ARCHITECTURE.md` as the top-level index.
 
 ## Build, Test, and Development Commands
 
@@ -81,6 +81,8 @@ OAuth signup changes (Apple, Google) require validation on **real iOS Safari** b
 GitHub Actions minutes are exhausted and repo Actions are disabled as of 2026-05-06. Treat remote CI as unavailable. Before pushing to `main`, run the local gate and report exact commands/results. Do not push if local checks fail, and do not re-enable or rerun GitHub Actions unless the user explicitly asks.
 
 Local push gate: `source ~/.nvm/nvm.sh && nvm use 22`, then `yarn typecheck` and `yarn test:unit --bail=0`. Add scoped ESLint for touched files, targeted Playwright, and `VERCEL_ENV=preview yarn build` when the change affects browser behavior, routing, Next config, env-gated build behavior, or release readiness.
+
+Dead-code ratchet: when adding or removing components/hooks/lib modules, also run `yarn deadcode` (knip; needs the unit-test env vars). It is a ratchet, not a hard gate: do not introduce NEW unused files or exports beyond the recorded baseline (6 unused files as of 2026-08-07 — all deliberate holds: the map prototype trio kept for quiver#489, check-in-form, and the personalization-milestones hook + its messaging dependency; see `dev/handoffs/cleanup-20260807/`). Scripts are declared as knip entries; if you add a new CLI script it is covered automatically.
 
 The configured prod-gate workflow mirrors TypeScript, lint, Jest, build, and Playwright smoke coverage: `yarn tsc --noEmit`, `yarn lint`, `yarn test:unit --bail=5`, `yarn build`, and `npx playwright test --grep @smoke --project=guest`. Because remote CI is not reliable here, reproduce the relevant parts locally before claiming release readiness.
 

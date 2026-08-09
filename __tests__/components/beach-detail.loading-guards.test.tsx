@@ -30,9 +30,6 @@ jest.mock("@/hooks/use-intel-data", () => ({
 jest.mock("@/components/favorite-button", () => ({
   FavoriteButton: () => <button data-testid="favorite-mock" />,
 }));
-jest.mock("@/components/home/HomeBeachBanner", () => ({
-  HomeBeachBanner: () => <div data-testid="home-beach-banner" />,
-}));
 jest.mock("@/components/beach-detail/beach-alert-cta", () => ({
   BeachAlertCta: ({ beachId, beachName, compact }: any) => (
     <button

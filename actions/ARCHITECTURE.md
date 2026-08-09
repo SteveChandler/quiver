@@ -32,7 +32,6 @@ export async function createPlannedSession(data: SessionInput, userId: string) {
       .insert({
         ...data,
         user_id: user.id,
-        profile_id: user.id,
         status: "planned",
       })
       .select()

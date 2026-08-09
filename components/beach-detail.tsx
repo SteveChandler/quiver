@@ -1190,7 +1190,7 @@ function BeachDetailContent({
         </DialogContent>
       </Dialog>
 
-      {/* Auth modal for HomeBeachBanner "Set Home Beach" click in publicMode.
+      {/* Auth modal for the "Set Home Beach" click in publicMode.
           BeachActions' Report Conditions and BeachAlertCta have their own
           inline modals with more specific source attribution. */}
       {publicMode && (

@@ -7,11 +7,8 @@ Community intel (conditions, hazards, parking, etc.). Provides a feed, map, filt
 ## Components
 
 - `intel-dashboard.tsx` — orchestrates map + feed views
-- `intel-feed.tsx` — list of posts with confirm/plan actions
-- `intel-map.tsx` — Mapbox-based visualization of posts
 - `intel-filters.tsx` — tag + radius filter controls
 - `intel-post-form.tsx` — create new intel
-- `intel-post-modal.tsx` — details with confirm and plan session
 
 ## Data Flow
 

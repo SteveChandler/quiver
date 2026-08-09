@@ -1,3 +1,4 @@
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import { ForecastBuilder } from "@/lib/services/forecast/forecast-builder";
 import type { ForecastInputs } from "@/lib/services/forecast/forecast-builder";
 import {
@@ -46,6 +47,13 @@ jest.mock("@/lib/services/noaa-wavewatch/gfs-wave-shadow", () => {
 });
 
 describe("ForecastBuilder", () => {
+  // Phase 21: the trusted layer resolves coverage beach slugs through the
+  // shared service-role mock, which answers nothing here, so it reports
+  // coverage as unavailable once and serves baseline. Declared, not silenced.
+  // Registered inside the describe so it runs before jest.setup's own check.
+  afterEach(() => {
+    expectConsoleErrors([/trusted_forecast_coverage_unavailable/]);
+  });
   const mockBeach: Beach = {
     id: "beach-1",
     name: "Test Beach",

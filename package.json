@@ -18,6 +18,7 @@
     "build:clean": "yarn clean:next && next build",
     "start": "next start",
     "lint": "eslint . --ignore-pattern '__tests__/**' --ignore-pattern 'e2e/**' --max-warnings=0",
+    "deadcode": "knip --no-progress",
     "lint:tests": "eslint __tests__/ e2e/ --max-warnings=1750",
     "lint:all": "yarn lint && yarn lint:tests",
     "test": "playwright test",

@@ -120,7 +120,7 @@ export async function GET(_request: NextRequest) {
                 maxWidth: 900,
               }}
             >
-              Surf Forecast Accuracy Report
+              How Surf Forecast Accuracy Is Measured
             </div>
             <div
               style={{
@@ -130,7 +130,7 @@ export async function GET(_request: NextRequest) {
                 display: 'flex',
               }}
             >
-              ML-Corrected Predictions vs NOAA Baseline
+              Buoy checks, wave-height definitions, and limits
             </div>
           </div>
 

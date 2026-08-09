@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
-import { getBeaches } from "@/actions/beach/beach-query-actions";
-import { StructuredData } from "@/components/seo/structured-data";
 import {
   SurfSchoolsZinePage,
   type BeachOption,
 } from "./_components/surf-schools-zine-page";
+import { validateInitialBeachSlug } from "@/components/embed-promo/beach-selection";
+import { getEmbedPromoBeachOptions } from "@/components/embed-promo/cached-beach-options";
+
+interface Props {
+  searchParams: Promise<{ beach?: string | string[] }>;
+}
 
 export const revalidate = 86400;
 
@@ -23,24 +27,12 @@ export const metadata: Metadata = buildPageMetadata({
   ],
 });
 
-export default async function ForSurfSchoolsPage() {
-  const response = await getBeaches();
-  const beaches: BeachOption[] =
-    response.success && response.data
-      ? response.data
-          .filter((b) => b.slug && b.name)
-          .map((b) => ({
-            name: b.name,
-            slug: b.slug!,
-            city: b.city,
-            state: b.state,
-          }))
-      : [];
+export default async function ForSurfSchoolsPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const beaches: BeachOption[] = await getEmbedPromoBeachOptions();
+  const initialSlug = validateInitialBeachSlug(beaches, params.beach);
 
   return (
-    <>
-      <StructuredData type="softwareApplication" />
-      <SurfSchoolsZinePage beaches={beaches} />
-    </>
+    <SurfSchoolsZinePage beaches={beaches} initialSlug={initialSlug} />
   );
 }

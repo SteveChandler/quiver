@@ -16,7 +16,6 @@ lib/constants/
 ├── features.ts                 # Feature flags and configurations
 ├── intel.ts                    # Community intel post configurations
 ├── map-presets.ts              # Map display presets and configurations
-├── mock-data.ts                # Development mock data
 ├── seo.ts                      # SEO metadata and configurations
 ├── session-form-constants.ts   # Session form configurations
 └── ui.ts                       # UI-related constants and themes

@@ -170,37 +170,6 @@ const SOURCE_LINKS: SourceLink[] = [
   },
 ];
 
-function SoftwareApplicationStructuredData(): ReactElement {
-  const data = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "Quiver Surf App",
-    applicationCategory: "SportsApplication",
-    operatingSystem: "iOS",
-    url: APP_STORE_URL,
-    description:
-      "Surf forecast app for beach-level calls, alerts, tides, session logging, similarity scores, board recommendations, and custom spots.",
-    offers: {
-      "@type": "AggregateOffer",
-      lowPrice: "0",
-      highPrice: "119.99",
-      priceCurrency: "USD",
-    },
-    publisher: {
-      "@type": "Organization",
-      name: "Quiver",
-      url: SITE_URL,
-    },
-  };
-
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
-  );
-}
-
 function ComparisonItemListStructuredData(): ReactElement {
   const data = {
     "@context": "https://schema.org",
@@ -243,7 +212,6 @@ export default function BestSurfForecastAppPage(): ReactElement {
         url={PAGE_URL}
         dateModified={CHECKED_ON_ISO}
       />
-      <SoftwareApplicationStructuredData />
       <ComparisonItemListStructuredData />
 
       <ZineSurface
@@ -307,7 +275,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
                 href="/forecast-accuracy"
                 className="inline-flex w-fit items-center justify-center gap-2 rounded-sm border-2 border-[#F78E42] bg-[#F78E42] px-4 py-3 font-heading text-xs font-black uppercase tracking-[0.1em] text-[#11100D] shadow-[4px_4px_0_rgba(247,142,66,0.24)] transition-transform hover:-translate-y-0.5"
               >
-                Audit Quiver accuracy
+                Read the accuracy method
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
             </div>
@@ -424,7 +392,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
                   href="/forecast-accuracy"
                   className="inline-flex items-center gap-2 font-bold text-[#252D6B] underline-offset-4 hover:text-[#9E5010] hover:underline"
                 >
-                  Check public forecast accuracy
+                  Read the forecast accuracy method
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Link>
               </div>

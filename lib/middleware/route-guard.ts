@@ -21,6 +21,8 @@ export interface RouteClassification {
 }
 
 export class RouteGuard {
+  private static readonly STATIC_ASSET_PATH_PATTERN = /\.[^/]+$/;
+
   // Define paths that require authentication
   // Note: /forecast, /beach, /map are now public for SEO and user acquisition
   // /sessions/new requires auth to create sessions, but /sessions/:id is public for sharing
@@ -105,11 +107,15 @@ export class RouteGuard {
     }
 
     // Skip any file with an extension (images, fonts, etc.)
-    if (pathname.includes(".") && !pathname.endsWith("/")) {
+    if (this.isStaticAssetPath(pathname)) {
       return true;
     }
 
     return false;
+  }
+
+  static isStaticAssetPath(pathname: string): boolean {
+    return this.STATIC_ASSET_PATH_PATTERN.test(pathname);
   }
 
   /**

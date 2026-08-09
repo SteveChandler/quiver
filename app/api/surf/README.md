@@ -52,7 +52,7 @@ curl "http://localhost:3000/api/surf?beach=Ocean%20Beach"
   "beach": "Ocean Beach",
   "coords": {
     "lat": 32.7507,
-    "lng": -117.254
+    "lon": -117.254
   },
   "forecast": {
     "wave_height": "3-4 ft",

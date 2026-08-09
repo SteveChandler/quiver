@@ -24,6 +24,7 @@ export type EmbedMapCommand =
   | { type: "setLayer"; payload: { layerId: EmbedMapSwellLayerId } }
   | { type: "setForecastTime"; payload: { index: number } }
   | { type: "setSelectedSpot"; payload: { beachId: string; lat?: number; lon?: number } }
+  | { type: "focusSelectedSpot"; payload: { beachId: string } }
   | { type: "startPlacement"; payload?: EmbedMapCoordinate }
   | { type: "cancelPlacement"; payload?: Record<string, never> }
   | { type: "confirmPlacement"; payload?: Record<string, never> }
@@ -45,6 +46,14 @@ export type EmbedMapEvent =
         lon: number;
         slug?: string | null;
         conditionSummary?: string | null;
+        waveHeight?: string | null;
+        swellPeriod?: string | null;
+        swellDirection?: string | null;
+        isCalibrated?: boolean | null;
+        windSpeed?: string | null;
+        windDirection?: string | null;
+        tideState?: string | null;
+        tideHeight?: string | null;
       };
     }
   | { type: "clusterSelected"; payload: { clusterId: number; lat: number; lon: number } }
@@ -162,6 +171,13 @@ export function parseEmbedMapCommand(
           ...(lat !== null ? { lat } : {}),
           ...(lon !== null ? { lon } : {}),
         },
+      };
+    }
+    case "focusSelectedSpot": {
+      if (!isRecord(payload) || typeof payload.beachId !== "string") return null;
+      return {
+        type: "focusSelectedSpot",
+        payload: { beachId: payload.beachId },
       };
     }
     case "startPlacement": {

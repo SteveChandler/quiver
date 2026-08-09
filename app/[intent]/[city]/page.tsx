@@ -90,8 +90,9 @@ import {
 } from "@/lib/seo/indexability";
 import { ReviewedCityEditorialSection } from "@/components/seo/reviewed-city-editorial-section";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// Hold transitions explicitly revalidate every affected intent path.
+export const dynamic = "force-static";
+export const revalidate = 3600;
 
 /**
  * Try to resolve a city slug with automatic state suffix detection.
@@ -202,7 +203,7 @@ const STATE_INTENT_SLUG_ALIASES: Record<string, string> = {
 /** Intents that may return zero beaches and should noindex at state level when empty */
 const NOINDEX_WHEN_EMPTY_INTENTS = new Set(["beginner", "longboard", "least-crowded"]);
 
-// NOTE: generateStaticParams is not used; hold-sensitive pages render on demand.
+// NOTE: generateStaticParams is not used; pages render on demand and use ISR.
 // State-level routes (e.g., /beginner/ca) are handled by the dynamic catch-all.
 
 interface IntentPageParams {

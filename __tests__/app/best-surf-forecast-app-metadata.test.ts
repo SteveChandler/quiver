@@ -26,7 +26,7 @@ describe("Best surf forecast app SEO page", () => {
     expect(source).toContain("Surf Captain");
     expect(source).toContain("https://surfcaptain.com/faq");
     expect(source).toContain('"@type": "ItemList"');
-    expect(source).toContain('"@type": "SoftwareApplication"');
+    expect(source).not.toContain('"@type": "SoftwareApplication"');
   });
 
   it("is reciprocally linked from the Surfline comparison page", () => {

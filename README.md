@@ -15,7 +15,7 @@ Quiver is a full-stack surf tracking application that combines session logging, 
 
 **Key Features:**
 
-- 📱 **Mobile-First**: Native iOS and Android apps (Capacitor)
+- 📱 **Mobile-Ready**: Installable PWA with a responsive web experience
 - 🌐 **Web Platform**: Full-featured web application
 - 🔮 **Smart Forecasting**: Multi-source forecast aggregation (NOAA, NDBC, CDIP)
 - 📊 **Session Tracking**: Log sessions with photos, ratings, and conditions
@@ -89,7 +89,7 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 
 | Document                                                                  | Description                                                             |
 | ------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **[System Architecture Guide](docs/architecture/SYSTEM_ARCHITECTURE.md)** | Complete system overview, design decisions, and architecture principles |
+| **[System Architecture Guide](docs/ARCHITECTURE.md)** | Complete system overview, design decisions, and architecture principles |
 | **[API Documentation](docs/architecture/API_DOCUMENTATION.md)**           | Complete REST API reference with examples                               |
 | **[ARCHITECTURE.md](docs/ARCHITECTURE.md)**                               | Top-level index to all architecture documentation                       |
 
@@ -138,9 +138,8 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 
 ### Mobile
 
-- **Framework**: Capacitor 7
-- **Platforms**: iOS, Android
-- **Native Features**: Camera, Geolocation, Push Notifications
+- **Web**: Installable PWA with responsive layouts, camera access, geolocation, and web push
+- **Native app**: Maintained separately; this repository has no Capacitor dependency
 
 ### Infrastructure
 
@@ -207,12 +206,6 @@ supabase db push         # Push migrations to remote
 supabase db pull         # Pull schema from remote
 supabase gen types typescript --project-id <id> > types/database.ts
 
-# Mobile
-yarn build:ios           # Build iOS app
-yarn build:android       # Build Android app
-npx cap sync             # Sync web assets to mobile
-npx cap open ios         # Open in Xcode
-npx cap open android     # Open in Android Studio
 ```
 
 ### Development Workflow

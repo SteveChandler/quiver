@@ -7,6 +7,7 @@ import type mapboxgl from "mapbox-gl";
 import type { Beach } from "@/types/database";
 import type { HourlySwellTimeline } from "@/app/api/forecasts/bulk/route";
 import type { SwellLayerId } from "@/components/map/swell-map-theme";
+import type { MapSpotConditions } from "@/components/map/interactive-map";
 import {
   parseEmbedMapCommand,
   serializeEmbedMapEvent,
@@ -122,6 +123,17 @@ function EmbedMapLoading() {
 
 function renderHealthStatus(fps: number): "ok" | "degraded" {
   return fps >= DEGRADED_FPS_THRESHOLD ? "ok" : "degraded";
+}
+
+export function focusEmbedBeachMarker(beachId: string): boolean {
+  const markers = document.querySelectorAll<HTMLElement>('[data-testid="beach-marker"]');
+  const marker = Array.from(markers).find(
+    (candidate) => candidate.getAttribute("data-beach-id") === beachId,
+  );
+  const focusTarget = marker?.querySelector<HTMLElement>('[data-marker-badge="true"]') ?? marker;
+  if (!focusTarget) return false;
+  focusTarget.focus({ preventScroll: true });
+  return document.activeElement === focusTarget;
 }
 
 export function EmbedMapClient() {
@@ -321,6 +333,9 @@ export function EmbedMapClient() {
           );
           return;
         }
+        case "focusSelectedSpot":
+          focusEmbedBeachMarker(command.payload.beachId);
+          return;
         case "startPlacement": {
           const point = command.payload?.lat !== undefined && command.payload?.lon !== undefined
             ? command.payload
@@ -411,7 +426,7 @@ export function EmbedMapClient() {
   }, [postEvent]);
 
   const handleBeachSelect = useCallback(
-    (beach: Beach): void => {
+    (beach: Beach, conditions?: MapSpotConditions): void => {
       postEvent({
         type: "spotSelected",
         payload: {
@@ -420,6 +435,15 @@ export function EmbedMapClient() {
           lat: beach.lat ?? initialCenter.lat,
           lon: beach.lon ?? initialCenter.lon,
           slug: beach.slug,
+          conditionSummary: conditions?.conditionSummary ?? null,
+          waveHeight: conditions?.waveHeight ?? null,
+          swellPeriod: conditions?.swellPeriod ?? null,
+          swellDirection: conditions?.swellDirection ?? null,
+          isCalibrated: conditions?.isCalibrated ?? null,
+          windSpeed: conditions?.windSpeed ?? null,
+          windDirection: conditions?.windDirection ?? null,
+          tideState: conditions?.tideState ?? null,
+          tideHeight: conditions?.tideHeight ?? null,
         },
       });
     },

@@ -135,7 +135,7 @@ describe("QuiverFieldGuideLanding", () => {
     expect(audienceAccess).toHaveTextContent("custom spots");
     expect(
       screen.getByRole("heading", {
-        name: /one surf app\. pro when you need the sharper call/i,
+        name: /one surf app\. go pro when it’s time to lock in/i,
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /see plans/i })).toHaveAttribute(

@@ -16,7 +16,6 @@ components/map/
 ├── map-beach-loader.ts       # loadBeachesAndWaveHeights — beach resolution + wave height fetching
 ├── map-beach-preview-popup.ts # createBeachPreviewPopupContent — marker hover/tap forecast preview
 ├── swell-field/              # WebGL swell/wind field sampling, controls, and custom layer
-├── map-display.tsx            # Static map with wave height overlays
 ├── map-header.tsx            # Navigation header (legacy)
 └── nearby-beach-scroll.tsx   # Horizontal beach scroller (no longer used in MapView)
 ```
@@ -197,6 +196,16 @@ const populateLocations = async (lat: number, lng: number) => {
 };
 ```
 
+### **Embedded Native Selection Contract**
+
+`EmbedMapEvent`'s `spotSelected` payload is additive because installed native
+clients may consume older shapes. Its required fields remain `beachId`, `name`,
+`lat`, and `lon`; `slug`, `conditionSummary`, `waveHeight`, `swellPeriod`,
+`swellDirection`, `isCalibrated`, `windSpeed`, `windDirection`, `tideState`, and
+`tideHeight` are optional and nullable. Display metrics come from the same bulk
+forecast maps and active swell/wind partition used by the marker and conditions
+callout. The embed does not retain tide readings, so its tide fields remain null.
+
 ## **COMPONENT RESPONSIBILITIES**
 
 ### **MapContent** (Primary Container)
@@ -303,14 +312,6 @@ const handleMoveEnd = useCallback(
   [populateLocations, hasViewportChanged]
 );
 ```
-
-### **MapDisplay** (Static Alternative)
-
-- **Purpose**: Static map with wave height overlays (legacy)
-- **Features**:
-  - Static Mapbox image generation
-  - Wave height data integration
-  - Fallback for interactive map issues
 
 ### **BeachList** (Legacy Standalone List) - **Enhanced with Motion**
 

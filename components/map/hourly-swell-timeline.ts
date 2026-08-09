@@ -8,6 +8,8 @@ export interface TimelineDaySegment {
 }
 
 const dateTimeFormatterByTimezone = new Map<string, Intl.DateTimeFormat>();
+const HOUR_MS = 60 * 60 * 1000;
+const MAX_CALENDAR_HORIZON_HOURS = 14 * 24;
 
 function getDateTimeFormatter(timezone: string): Intl.DateTimeFormat {
   const cached = dateTimeFormatterByTimezone.get(timezone);
@@ -36,6 +38,22 @@ function part(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTyp
   return parts.find((item) => item.type === type)?.value ?? "";
 }
 
+function timelineDateIdentity(timestamp: string, timezone: string): {
+  key: string;
+  label: string;
+} {
+  const parts = dateTimeParts(timestamp, timezone);
+  const weekday = part(parts, "weekday");
+  const day = part(parts, "day");
+  const year = part(parts, "year");
+  const month = part(parts, "month");
+
+  return {
+    key: `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`,
+    label: `${weekday} ${day}`,
+  };
+}
+
 export function formatTimelineBubble(timestamp: string, timezone: string): string {
   const parts = dateTimeParts(timestamp, timezone);
   const weekday = part(parts, "weekday");
@@ -54,13 +72,7 @@ export function segmentTimelineDays(
   const segments: TimelineDaySegment[] = [];
 
   timestamps.forEach((timestamp, index) => {
-    const parts = dateTimeParts(timestamp, timezone);
-    const weekday = part(parts, "weekday");
-    const day = part(parts, "day");
-    const year = part(parts, "year");
-    const month = part(parts, "month");
-    const key = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-    const label = `${weekday} ${day}`;
+    const { key, label } = timelineDateIdentity(timestamp, timezone);
     const previous = segments.at(-1);
 
     if (previous?.key === key) {
@@ -77,6 +89,26 @@ export function segmentTimelineDays(
   });
 
   return segments;
+}
+
+export function calendarDayTimelineHours(
+  startTimestamp: string | undefined,
+  timezone: string,
+  dayCount: number,
+): number {
+  const startMs = Date.parse(startTimestamp ?? "");
+  if (!Number.isFinite(startMs) || dayCount <= 0) return 0;
+
+  const requestedDayCount = Math.floor(dayCount);
+  const localDates = new Set<string>();
+
+  for (let offsetHours = 0; offsetHours < MAX_CALENDAR_HORIZON_HOURS; offsetHours += 1) {
+    const timestamp = new Date(startMs + offsetHours * HOUR_MS).toISOString();
+    localDates.add(timelineDateIdentity(timestamp, timezone).key);
+    if (localDates.size > requestedDayCount) return offsetHours;
+  }
+
+  return MAX_CALENDAR_HORIZON_HOURS;
 }
 
 type PartitionsByTimestamp = Map<string, Map<string, SwellPartition | null>>;

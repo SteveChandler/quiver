@@ -6,6 +6,7 @@ import {
   generateBeachSubPageMetadata,
 } from "@/lib/utils/beach-sub-page-utils";
 
+export const dynamic = "force-static";
 export const revalidate = 3600;
 
 interface PageProps {

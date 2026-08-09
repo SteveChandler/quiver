@@ -591,6 +591,37 @@ describe("canonical session decision engine", () => {
     });
   });
 
+  it.each([
+    ["all", "beginner"],
+    ["beginner-intermediate", "intermediate"],
+    ["lower-intermediate", "intermediate"],
+    ["intermediate-advanced", "advanced"],
+    ["upper-intermediate", "intermediate"],
+  ])(
+    "accepts the canonical %s beach requirement for a %s surfer",
+    (beachSkillLevel, profileExperience) => {
+      const { buildCanonicalSessionDecision } = loadEngine();
+      const decision = buildCanonicalSessionDecision(
+        input(
+          [candidate({ beachSkillLevel })],
+          { profileExperience },
+        ),
+      ) as {
+        verdict: string;
+        reasonCode: string;
+        selection: { beachId: string } | null;
+        skillEligibility: { reasonCodes: string[] };
+      };
+
+      expect(decision.verdict).toBe("go");
+      expect(decision.reasonCode).toBe("selected_go");
+      expect(decision.selection?.beachId).toBe("blackies");
+      expect(decision.skillEligibility.reasonCodes).not.toContain(
+        "missing_beach_skill",
+      );
+    },
+  );
+
   it("preserves a P0-A explicit-none hold over every positive candidate", () => {
     const { buildCanonicalSessionDecision } = loadEngine();
     const decision = buildCanonicalSessionDecision(

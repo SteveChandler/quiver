@@ -6,8 +6,10 @@ import type {
 import { API_BATCH_CONFIG } from "@/lib/constants/ui";
 import { fetchInBatches } from "@/lib/utils/batch-fetch";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
+import { selectTimelineFieldBeachIds } from "@/components/map/timeline-beach-sampler";
 
 export type ConditionSummary = "GOOD" | "FAIR" | "CHECK" | "UNKNOWN";
+export type ForecastLoadStatus = "ready" | "empty" | "unavailable";
 
 const VALID_CONDITION_SUMMARIES = new Set<ConditionSummary>([
   "GOOD",
@@ -22,7 +24,11 @@ const VALID_CONDITION_SUMMARIES = new Set<ConditionSummary>([
  */
 export interface BeachLoaderDeps {
   /** Cached fetch function for the nearby beaches API */
-  fetchNearbyBeaches: (lat: number, lon: number) => Promise<any>;
+  fetchNearbyBeaches: (
+    lat: number,
+    lon: number,
+    signal?: AbortSignal,
+  ) => Promise<any>;
 }
 
 /**
@@ -41,25 +47,71 @@ export interface BeachLoaderResult {
   conditionScoreMap: Map<string, number | undefined>;
   /** Map from beach ID to native-aligned condition summary */
   conditionSummaryMap: Map<string, ConditionSummary>;
+  /** Map from beach ID to whether the displayed height uses beach calibration */
+  isCalibratedMap: Map<string, boolean>;
   /** Map from beach ID to parsed swell/wind partition for the flow field */
   partitionsMap: Map<string, SwellPartition>;
   /** Map from beach ID to parsed swell/wind partitions by forecast timeline step */
   partitionsTimelineMap: Map<string, SwellPartition[]>;
   /** Shared absolute-time envelope for the expandable public timeline. */
   hourlySwellTimeline: HourlySwellTimeline | null;
+  /** Spatially representative beaches used by the bounded timeline field query. */
+  hourlyTimelineBeachIds: string[];
+  /** Whether swell data loaded, was valid-but-empty, or could not be trusted. */
+  forecastStatus: ForecastLoadStatus;
 }
 
 export interface BeachLoaderOptions {
   timeline?: "hourly";
   timelineStart?: string;
   timelineHours?: number;
+  timelineFocusBeachId?: string | null;
+  signal?: AbortSignal;
 }
 
-function isSwellPartition(value: unknown): value is SwellPartition {
+const REQUIRED_SWELL_PARTITION_KEYS = [
+  "s1Dir",
+  "s1PeriodS",
+  "s1HeightFt",
+  "s2Dir",
+  "s2PeriodS",
+  "s2HeightFt",
+  "windDir",
+  "windMph",
+] as const satisfies ReadonlyArray<keyof SwellPartition>;
+
+function isFiniteNumberOrNull(value: unknown): value is number | null {
+  return value === null || (typeof value === "number" && Number.isFinite(value));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function isSwellPartition(value: unknown): value is SwellPartition {
+  if (!isRecord(value)) return false;
+
+  const partition = value as Record<string, unknown>;
+  if (
+    !REQUIRED_SWELL_PARTITION_KEYS.every(
+      (key) => key in partition && isFiniteNumberOrNull(partition[key]),
+    )
+  ) {
+    return false;
+  }
+
+  return (
+    !("swellDirOm" in partition) ||
+    isFiniteNumberOrNull(partition.swellDirOm)
+  );
+}
+
 const HOUR_MS = 60 * 60 * 1000;
+
+function assertNotAborted(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  throw new DOMException("The operation was aborted.", "AbortError");
+}
 
 function parseCanonicalUtcHour(value: unknown): number | null {
   if (typeof value !== "string") return null;
@@ -130,6 +182,15 @@ export function parseHourlySwellTimeline(
   };
 }
 
+function hourlySwellTimelineHasData(
+  timeline: HourlySwellTimeline | null,
+): boolean {
+  if (!timeline) return false;
+  return Object.values(timeline.partitionsByBeach).some((partitions) =>
+    partitions.some((partition) => partition !== null),
+  );
+}
+
 /**
  * Resolve which beaches to display and fetch their wave heights.
  *
@@ -159,14 +220,19 @@ export async function loadBeachesAndWaveHeights(
   let locations: Beach[] = [];
 
   // Use provided beaches prop first (filtered beaches from parent)
-  if (providedBeaches && providedBeaches.length > 0) {
+  if (providedBeaches !== undefined) {
     locations = providedBeaches.slice(0, 20);
   } else {
     // Fallback to API fetch when no beaches prop provided
     try {
-      const response = await deps.fetchNearbyBeaches(latitude, longitude);
+      const response = await deps.fetchNearbyBeaches(
+        latitude,
+        longitude,
+        options.signal,
+      );
       locations = (response?.data as Beach[]) || [];
     } catch (err) {
+      assertNotAborted(options.signal);
       console.warn("Nearby beaches API failed", err);
     }
 
@@ -175,6 +241,7 @@ export async function loadBeachesAndWaveHeights(
       try {
         const res = await fetch("/api/beaches", {
           headers: { Accept: "application/json" },
+          signal: options.signal,
         });
         if (res.ok) {
           const json = await res.json();
@@ -195,6 +262,7 @@ export async function loadBeachesAndWaveHeights(
             .slice(0, 20);
         }
       } catch (fallbackErr) {
+        assertNotAborted(options.signal);
         console.error("Public beaches list fetch failed", fallbackErr);
       }
     }
@@ -209,9 +277,19 @@ export async function loadBeachesAndWaveHeights(
   const waterTempMap = new Map<string, string | undefined>();
   const conditionScoreMap = new Map<string, number | undefined>();
   const conditionSummaryMap = new Map<string, ConditionSummary>();
+  const isCalibratedMap = new Map<string, boolean>();
   const partitionsMap = new Map<string, SwellPartition>();
   const partitionsTimelineMap = new Map<string, SwellPartition[]>();
   let hourlySwellTimeline: HourlySwellTimeline | null = null;
+  const hourlyTimelineBeachIds = options.timeline === "hourly"
+    ? selectTimelineFieldBeachIds(
+        locations,
+        { lat: latitude, lon: longitude },
+        undefined,
+        options.timelineFocusBeachId,
+      )
+    : [];
+  let forecastStatus: ForecastLoadStatus = "empty";
   const beachesForWaveData = locations;
 
   if (beachesForWaveData.length > 0) {
@@ -227,13 +305,15 @@ export async function loadBeachesAndWaveHeights(
           const searchParams = new URLSearchParams({ beachIds: batchIds.join(",") });
           if (options.timeline === "hourly") {
             searchParams.set("timeline", "hourly");
+            searchParams.set("timelineBeachIds", hourlyTimelineBeachIds.join(","));
             if (options.timelineStart) searchParams.set("timelineStart", options.timelineStart);
             if (options.timelineHours !== undefined) {
               searchParams.set("timelineHours", String(options.timelineHours));
             }
           }
           const response = await fetch(
-            `/api/forecasts/bulk?${searchParams.toString()}`
+            `/api/forecasts/bulk?${searchParams.toString()}`,
+            { signal: options.signal },
           );
           if (!response.ok) {
             if (response.status !== 400) {
@@ -245,13 +325,24 @@ export async function loadBeachesAndWaveHeights(
           }
           return {
             data: await response.json(),
-            expectedBeachIds: batchIds,
+            expectedBeachIds: options.timeline === "hourly"
+              ? hourlyTimelineBeachIds.filter((beachId) => batchIds.includes(beachId))
+              : batchIds,
           };
         },
         onBatchError: (error, batchIndex) => {
+          if (options.signal?.aborted) return;
           console.warn(`Wave height batch ${batchIndex} failed:`, error);
         },
       });
+      assertNotAborted(options.signal);
+
+      if (results.length === 0 && allBeachIds.length > 0) {
+        forecastStatus = "unavailable";
+      }
+
+      let invalidPartitionData = false;
+      let invalidHourlyTimeline = false;
 
       results.forEach(({ data, expectedBeachIds }) => {
         const forecasts = data?.data?.forecasts || {};
@@ -296,26 +387,48 @@ export async function loadBeachesAndWaveHeights(
           }
         });
 
-        const swellPartitions = data?.data?.swellPartitions || {};
-        Object.entries(swellPartitions).forEach(([beachId, partition]) => {
-          if (partition && typeof partition === "object") {
-            partitionsMap.set(beachId, partition as SwellPartition);
+        const calibrationStatuses = data?.data?.isCalibrated || {};
+        Object.entries(calibrationStatuses).forEach(([beachId, isCalibrated]) => {
+          if (typeof isCalibrated === "boolean") {
+            isCalibratedMap.set(beachId, isCalibrated);
           }
         });
 
-        const swellPartitionTimeline =
-          data?.data?.swellPartitionTimeline || {};
+        const rawSwellPartitions = data?.data?.swellPartitions;
+        if (rawSwellPartitions !== undefined && !isRecord(rawSwellPartitions)) {
+          invalidPartitionData = true;
+        }
+        const swellPartitions = isRecord(rawSwellPartitions)
+          ? rawSwellPartitions
+          : {};
+        Object.entries(swellPartitions).forEach(([beachId, partition]) => {
+          if (!isSwellPartition(partition)) {
+            invalidPartitionData = true;
+            return;
+          }
+          partitionsMap.set(beachId, partition);
+        });
+
+        const rawSwellPartitionTimeline = data?.data?.swellPartitionTimeline;
+        if (
+          rawSwellPartitionTimeline !== undefined &&
+          !isRecord(rawSwellPartitionTimeline)
+        ) {
+          invalidPartitionData = true;
+        }
+        const swellPartitionTimeline = isRecord(rawSwellPartitionTimeline)
+          ? rawSwellPartitionTimeline
+          : {};
         Object.entries(swellPartitionTimeline).forEach(
           ([beachId, partitions]) => {
-            if (Array.isArray(partitions)) {
-              partitionsTimelineMap.set(
-                beachId,
-                partitions.filter(
-                  (partition): partition is SwellPartition =>
-                    partition != null && typeof partition === "object"
-                ) as SwellPartition[]
-              );
+            if (
+              !Array.isArray(partitions) ||
+              partitions.some((partition) => !isSwellPartition(partition))
+            ) {
+              invalidPartitionData = true;
+              return;
             }
+            partitionsTimelineMap.set(beachId, partitions);
           }
         );
 
@@ -323,9 +436,29 @@ export async function loadBeachesAndWaveHeights(
           data?.data?.hourlySwellTimeline,
           expectedBeachIds,
         );
-        if (parsedHourlyTimeline) hourlySwellTimeline = parsedHourlyTimeline;
+        if (options.timeline === "hourly" && !parsedHourlyTimeline) {
+          invalidHourlyTimeline = true;
+        } else if (parsedHourlyTimeline) {
+          hourlySwellTimeline = parsedHourlyTimeline;
+        }
       });
+
+      if (invalidPartitionData || invalidHourlyTimeline) {
+        forecastStatus = "unavailable";
+      } else if (forecastStatus !== "unavailable") {
+        const hourlyTimelineHasData = hourlySwellTimelineHasData(
+          hourlySwellTimeline,
+        );
+        forecastStatus =
+          partitionsMap.size > 0 ||
+          partitionsTimelineMap.size > 0 ||
+          hourlyTimelineHasData
+            ? "ready"
+            : "empty";
+      }
     } catch (error) {
+      assertNotAborted(options.signal);
+      forecastStatus = "unavailable";
       console.warn("Failed to fetch bulk forecasts:", error);
     }
   }
@@ -340,9 +473,12 @@ export async function loadBeachesAndWaveHeights(
     waterTempMap,
     conditionScoreMap,
     conditionSummaryMap,
+    isCalibratedMap,
     partitionsMap,
     partitionsTimelineMap,
     hourlySwellTimeline,
+    hourlyTimelineBeachIds,
+    forecastStatus,
   };
 }
 

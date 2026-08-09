@@ -23,8 +23,10 @@ import { evaluateBeachForecastIndexability, applyIndexabilityToMetadata } from "
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
 
-// Force dynamic rendering - this page accesses cookies via Supabase client
-export const dynamic = "force-dynamic";
+// The route only reads public beach data; cache on demand instead of rendering
+// every crawler request from scratch.
+export const dynamic = "force-static";
+export const revalidate = 3600;
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -190,8 +192,6 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
           description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
           latitude={beach.lat || 0}
           longitude={beach.lon || 0}
-          rating={(beach as any).average_rating || undefined}
-          reviewCount={(beach as any).review_count || undefined}
           city={beach.city || undefined}
           state={beach.state || undefined}
           country={beach.country || undefined}

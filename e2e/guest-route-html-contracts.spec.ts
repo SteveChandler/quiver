@@ -126,7 +126,7 @@ function expectBeachMetaDescription(
 
 test.describe('Route HTML Contracts', () => {
   test.describe('Beach SEO metadata', () => {
-    test('/app/spot selected forecast links expose forecast-window social metadata', async ({
+    test('/app/spot ignores query-only forecast copy in social metadata', async ({
       request,
     }) => {
       const html = await getHtml(
@@ -137,14 +137,12 @@ test.describe('Route HTML Contracts', () => {
       const ogTitle = getMetaContent(html, { property: 'og:title' });
       const ogDescription = getMetaContent(html, { property: 'og:description' });
 
-      expect(ogTitle).toBe('204s 3:30-6:00 PM is lining up');
-      expect(ogDescription).toBe(
-        '204s 3:30-6:00 PM is lining up: 2-3 ft · 18s SSW · 7 mph SW · 3 ft, rising. Check it on Quiver.',
-      );
+      expect(ogTitle).toBe('Open Quiver Surf Window');
+      expect(ogDescription).toBe('Open this surf window in Quiver.');
       expect(ogImage).toContain('/api/og/forecast-window');
-      expect(ogImage).toContain('label=3%3A30-6%3A00');
-      expect(ogImage).toContain('conditions=2-3');
-      expect(ogImage).not.toContain('utm_');
+      expect(ogImage).toContain('slug=204s');
+      expect(ogImage).toContain('window=2026-06-04T22%3A30%3A00.000Z');
+      expect(ogImage).not.toMatch(/label=|conditions=|utm_/);
     });
 
     test('/beach/[slug] exposes social metadata without browser hydration', async ({ request }) => {
@@ -197,6 +195,31 @@ test.describe('Route HTML Contracts', () => {
   });
 
   test.describe('SEO infrastructure', () => {
+    test('nested static assets bypass international route validation', async ({ request }) => {
+      const assets = [
+        {
+          path: '/images/landing/swell-view-preview-v2.png',
+          contentType: 'image/png',
+        },
+        {
+          path: '/images/quiver-stickers/orange-tape.png',
+          contentType: 'image/png',
+        },
+        {
+          path: '/fonts/SpaceGrotesk/SpaceGrotesk-Bold.ttf',
+          contentType: 'font/ttf',
+        },
+      ];
+
+      for (const asset of assets) {
+        const response = await getResponse(request, asset.path);
+
+        expect(response.status()).toBe(200);
+        expect(response.headers()['content-type']).toContain(asset.contentType);
+        expect((await response.body()).length).toBeGreaterThan(1000);
+      }
+    });
+
     test('sitemap returns XML when available', async ({ request }) => {
       const response = await getResponse(request, '/sitemap.xml');
       const xml = await response.text();
@@ -207,8 +230,8 @@ test.describe('Route HTML Contracts', () => {
       expect(xml).toMatch(/<loc>https?:\/\/[^<]+\/download<\/loc>/);
       expect(xml).toMatch(/<loc>https?:\/\/[^<]+\/android-beta<\/loc>/);
       expect(xml).toMatch(/<loc>https?:\/\/[^<]+\/guides<\/loc>/);
-      expect(xml).not.toMatch(/<loc>https?:\/\/[^<]+\/support<\/loc>/);
-      expect(xml).not.toMatch(/<loc>https?:\/\/[^<]+\/data-deletion<\/loc>/);
+      expect(xml).toMatch(/<loc>https?:\/\/[^<]+\/support<\/loc>/);
+      expect(xml).toMatch(/<loc>https?:\/\/[^<]+\/data-deletion<\/loc>/);
       expect(xml).not.toMatch(/<loc>https?:\/\/[^<]+\/pbsc<\/loc>/);
     });
 
@@ -251,6 +274,62 @@ test.describe('Route HTML Contracts', () => {
   });
 
   test.describe('Redirect and status contracts', () => {
+    test('outreach embed aliases preserve query strings and reach live pages', async ({
+      request,
+    }) => {
+      const cases = [
+        {
+          source: '/embed-for-surf-schools',
+          sourceWithQuery: '/embed-for-surf-schools?source=school-outreach',
+          malformedSource: '/embed-for-surf-schools&source=school-outreach',
+          sourceWithTrailingSlash: '/embed-for-surf-schools/?source=school-outreach',
+          destination: '/for-surf-schools',
+          query: 'source=school-outreach',
+        },
+        {
+          source: '/embed-for-businesses',
+          sourceWithQuery: '/embed-for-businesses?source=business-outreach',
+          malformedSource: '/embed-for-businesses&source=business-outreach',
+          sourceWithTrailingSlash: '/embed-for-businesses/?source=business-outreach',
+          destination: '/for-businesses',
+          query: 'source=business-outreach',
+        },
+      ] as const;
+
+      for (const redirect of cases) {
+        const response = await getResponse(request, redirect.source, {
+          maxRedirects: 0,
+        });
+        const queryResponse = await getResponse(request, redirect.sourceWithQuery, {
+          maxRedirects: 0,
+        });
+        const malformedSourceResponse = await getResponse(
+          request,
+          redirect.malformedSource,
+          { maxRedirects: 0 },
+        );
+        const trailingSlashResponse = await getResponse(
+          request,
+          redirect.sourceWithTrailingSlash,
+        );
+
+        expect(response.status()).toBe(308);
+        expect(response.headers().location).toBe(redirect.destination);
+        expect(queryResponse.status()).toBe(308);
+        expect(queryResponse.headers().location).toBe(
+          `${redirect.destination}?${redirect.query}`,
+        );
+        expect(malformedSourceResponse.status()).toBe(308);
+        expect(malformedSourceResponse.headers().location).toBe(
+          `${redirect.destination}?${redirect.query}`,
+        );
+        expect(trailingSlashResponse.status()).toBe(200);
+        expect(trailingSlashResponse.url()).toContain(
+          `${redirect.destination}?${redirect.query}`,
+        );
+      }
+    });
+
     test('keyword alias redirects land on the canonical SEO pages', async ({
       request,
     }) => {

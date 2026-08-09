@@ -9,7 +9,7 @@ import {
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
 import { updateBeachForecast } from "@/lib/utils/forecast-server-utils";
-import { getStalenessDetails } from "@/lib/utils/forecast-service-utils";
+import { readLatestForecastMetadata } from "@/lib/utils/forecast-service-utils";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -19,6 +19,7 @@ export const maxDuration = 30;
 const QuerySchema = z.object({
   beachId: z.string().uuid({ message: "beachId must be a valid UUID" }),
   refresh: z.enum(["if-stale"]).optional(),
+  includeStale: z.enum(["1"]).optional(),
 });
 
 type CurrentForecastRow = EnhancedForecastEntity & {
@@ -32,6 +33,17 @@ type CurrentMetadata = {
   refreshAttempted: boolean;
   stale: boolean;
   missing: boolean;
+  /**
+   * Authoritative freshness state. Prefer this over `stale`/`missing`.
+   *
+   * fresh       — usable data within the staleness threshold
+   * stale       — usable data past the threshold. Render it WITH `lastUpdated`.
+   * unavailable — no usable data. Render an explicit empty state.
+   *
+   * `missing` is retained for pre-adoption native builds and currently also
+   * returns true for `stale`. It is corrected in a later phase.
+   */
+  availability: "fresh" | "stale" | "unavailable";
   dataSource: string | null;
   lastUpdated: string | null;
   reason: string | null;
@@ -58,46 +70,6 @@ async function readBeachExists(
 
   if (error) throw new Error(error.message);
   return Boolean(data);
-}
-
-async function readLatestMetadata(
-  supabase: AuthenticatedContext["supabase"],
-  beachId: string,
-): Promise<{
-  stale: boolean;
-  missing: boolean;
-  dataSource: string | null;
-  lastUpdated: string | null;
-  reason: string | null;
-}> {
-  const { data, error } = await supabase
-    .from("v_enhanced_forecast_latest")
-    .select("updated_at, data_source")
-    .eq("beach_id", beachId)
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-  if (!data?.updated_at) {
-    return {
-      stale: false,
-      missing: true,
-      dataSource: null,
-      lastUpdated: null,
-      reason: "No forecast data in cache",
-    };
-  }
-
-  const dataSource = data.data_source ?? null;
-  const details = getStalenessDetails(data.updated_at, dataSource);
-  return {
-    stale: details.isStale,
-    missing: false,
-    dataSource,
-    lastUpdated: data.updated_at,
-    reason: details.isStale
-      ? `Data is ${details.hoursSinceUpdate.toFixed(1)}h old (threshold: ${details.threshold}h)`
-      : null,
-  };
 }
 
 async function readLatestHourlyTide(
@@ -150,15 +122,22 @@ function buildMetadata(args: {
   refreshed: boolean;
   refreshAttempted: boolean;
   current: CurrentForecastRow | null;
-  freshness: Awaited<ReturnType<typeof readLatestMetadata>>;
+  freshness: Awaited<ReturnType<typeof readLatestForecastMetadata>>;
   refreshError?: string;
 }): CurrentMetadata {
   const unavailable = args.current == null || args.freshness.missing || args.freshness.stale;
+  const availability =
+    args.current == null || args.freshness.missing
+      ? "unavailable"
+      : args.freshness.stale
+        ? "stale"
+        : "fresh";
   return {
     refreshed: args.refreshed,
     refreshAttempted: args.refreshAttempted,
     stale: args.freshness.stale,
     missing: unavailable,
+    availability,
     dataSource: args.freshness.dataSource,
     lastUpdated: args.freshness.lastUpdated,
     reason: unavailable
@@ -176,10 +155,11 @@ async function currentForecastHandler(
   const validation = validateOrError(QuerySchema, {
     beachId: searchParams.get("beachId") ?? undefined,
     refresh: searchParams.get("refresh") ?? undefined,
+    includeStale: searchParams.get("includeStale") ?? undefined,
   });
   if ("error" in validation) return validation.error;
 
-  const { beachId, refresh } = validation.data;
+  const { beachId, refresh, includeStale } = validation.data;
   const beachExists = await readBeachExists(supabase, beachId);
   if (!beachExists) {
     return createErrorResponse("Beach not found", null, 404);
@@ -187,7 +167,7 @@ async function currentForecastHandler(
 
   const now = new Date();
   let current = await readCurrentRow(supabase, beachId, now);
-  let freshness = await readLatestMetadata(supabase, beachId);
+  let freshness = await readLatestForecastMetadata(supabase, beachId);
   const shouldRefresh = refresh === "if-stale" && (current == null || freshness.missing || freshness.stale);
   let refreshed = false;
   let refreshError: string | undefined;
@@ -197,7 +177,7 @@ async function currentForecastHandler(
       await updateBeachForecast(beachId);
       refreshed = true;
       current = await readCurrentRow(supabase, beachId, new Date());
-      freshness = await readLatestMetadata(supabase, beachId);
+      freshness = await readLatestForecastMetadata(supabase, beachId);
     } catch (error) {
       refreshError = error instanceof Error ? error.message : "Current conditions refresh failed";
       current = null;
@@ -211,7 +191,11 @@ async function currentForecastHandler(
     freshness,
     refreshError,
   });
-  const currentForDisplay = metadata.missing || metadata.stale ? null : current;
+  const shouldIncludeCurrent =
+    includeStale === "1"
+      ? metadata.availability !== "unavailable"
+      : !metadata.missing && !metadata.stale;
+  const currentForDisplay = shouldIncludeCurrent ? current : null;
   const response = createSuccessResponse({
     current: currentForDisplay,
     metadata,

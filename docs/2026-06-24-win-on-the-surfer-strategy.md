@@ -1,7 +1,7 @@
 # Win on the Surfer, Not the Number
 
 **Quiver product strategy · 2026-06-24**
-Companion docs: the Surf Zone Intelligence design (`docs/superpowers/specs/2026-06-20-surf-zone-intelligence-design.md`), the last-mile translation spec (`docs/superpowers/specs/2026-06-24-last-mile-translation-runtime-spec.md`), the native activation plans (`../quiver-native/plans/`).
+Companion docs: the Surf Zone Intelligence design (`docs/archive/superpowers/specs/2026-06-20-surf-zone-intelligence-design.md`), the last-mile translation spec (`docs/archive/superpowers/specs/2026-06-24-last-mile-translation-runtime-spec.md`), the native activation plans (`../quiver-native/plans/`).
 
 ## The call
 

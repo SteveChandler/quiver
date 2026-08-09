@@ -1,0 +1,132 @@
+name: Main Gate
+
+# Gates pull requests into `main`.
+#
+# Why this exists: on 2026-08-06 PR #497 merged to `main` with 4 failing tests in
+# __tests__/app/generic-beach-detail-resolution.test.ts and sat red until someone
+# happened to re-verify against the moved base. `prod-gate.yml` already ran these
+# checks, but only for pull requests into `prod` — `main` had no gate at all.
+#
+# Mirrors prod-gate's job structure deliberately. Smoke tests are intentionally
+# omitted: they run Playwright against the deployed dev environment, which tests a
+# deployment rather than the pull request, and needs a bypass token.
+
+on:
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: "22"
+
+concurrency:
+  group: main-gate-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: TypeScript Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "yarn"
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Type check
+        run: yarn typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "yarn"
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Lint
+        run: yarn lint
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "yarn"
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      # The unit suite mocks its data layer, but next/jest loads next.config.mjs,
+      # whose environment-validation hard-requires the two NEXT_PUBLIC_SUPABASE_*
+      # values — and the jest setup fails any test that emits an unexpected
+      # console.warn, so the "SITE_URL not set" / "SERVICE_ROLE_KEY not
+      # configured" warnings must not fire either. The service-role key is a
+      # placeholder on purpose: presence silences the warning and nothing in the
+      # unit suite talks to Supabase.
+      - name: Run unit tests
+        run: yarn test:unit
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
+          SUPABASE_SERVICE_ROLE_KEY: "gate-unit-tests-placeholder"
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "yarn"
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}

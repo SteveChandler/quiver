@@ -4,6 +4,8 @@ import { createSupabaseServerClient as createClient, createPublicReadClient } fr
 import type { BeachReview, BeachReviewWithUser } from "@/types/database";
 import { revalidatePath } from "next/cache";
 import { withErrorHandling, handleSupabaseError } from "@/lib/action-utils";
+import { getBeachByIdFromDb } from "@/lib/services/beach-query-service";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import {
   calculateReviewStats,
   calculateBeachAverageRatings,
@@ -17,6 +19,23 @@ async function trackXPOptional(action: string, entityId?: string, entityType?: s
     await trackXP(action as any, entityId, entityType as any);
   } catch (error) {
     console.warn("XP tracking failed:", error);
+  }
+}
+
+async function revalidateBeachReviewPaths(beachId: string): Promise<void> {
+  revalidatePath(`/beach/${beachId}`);
+  revalidatePath("/map");
+
+  try {
+    const beachResult = await getBeachByIdFromDb(beachId);
+    if (!beachResult.success || !beachResult.data) return;
+
+    revalidatePath(buildBeachUrl(beachResult.data));
+  } catch (error) {
+    console.error("Failed to revalidate canonical beach review path:", {
+      beachId,
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
   }
 }
 
@@ -114,9 +133,7 @@ export async function createBeachReview(reviewData: {
     // Update beach average ratings
     await updateBeachAverageRatings(reviewData.beach_id);
 
-    // Revalidate relevant pages
-    revalidatePath(`/beach/${reviewData.beach_id}`);
-    revalidatePath("/map");
+    await revalidateBeachReviewPaths(reviewData.beach_id);
 
     return data as unknown as BeachReviewWithUser;
   }, "create review");
@@ -158,9 +175,7 @@ export async function updateBeachReview(
     if (data) {
       await updateBeachAverageRatings(data.beach_id);
 
-      // Revalidate relevant pages
-      revalidatePath(`/beach/${data.beach_id}`);
-      revalidatePath("/map");
+      await revalidateBeachReviewPaths(data.beach_id);
     }
 
     return data as unknown as BeachReviewWithUser;
@@ -194,9 +209,7 @@ export async function deleteBeachReview(reviewId: string) {
     // Update beach average ratings
     await updateBeachAverageRatings(reviewData.beach_id);
 
-    // Revalidate relevant pages
-    revalidatePath(`/beach/${reviewData.beach_id}`);
-    revalidatePath("/map");
+    await revalidateBeachReviewPaths(reviewData.beach_id);
 
     return true;
   }, "delete review");

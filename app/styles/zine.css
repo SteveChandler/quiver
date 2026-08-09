@@ -589,6 +589,24 @@ body:has(.zine-page) {
   opacity: 1 !important;
 }
 
+/* The install CTA is a self-contained card, not a tab section heading. The rule
+   above crushes its h2 to 14px uppercase Bowlby One - the same size as its own
+   body copy - leaving the card with no hierarchy on beach detail. Utilities
+   cannot beat those !important declarations, so reset them here. */
+.zine-page .zine-tabs-slot section.install-cta h2.install-cta-heading {
+  font-family: var(--font-heading), 'Space Grotesk', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 1.125rem !important;
+  letter-spacing: -0.01em !important;
+  text-transform: none !important;
+}
+
+@media (min-width: 768px) {
+  .zine-page .zine-tabs-slot section.install-cta h2.install-cta-heading {
+    font-size: 1.25rem !important;
+  }
+}
+
 .zine-page .zine-tabs-slot section h2 + span,
 .zine-page .zine-tabs-slot section .text-muted-foreground {
   color: rgba(17, 16, 13, 0.65) !important;

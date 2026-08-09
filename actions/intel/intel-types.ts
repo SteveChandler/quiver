@@ -2,6 +2,9 @@ import type { IntelPostTag, IntelPostWithUser } from "@/types/database";
 import type { XPTrackingResult } from "@/lib/gamification/types";
 import type { XPAction } from "@/lib/gamification";
 import type { withAuthenticatedAction } from "@/lib/server-action-utils";
+import { FEET_TO_METERS } from "@/lib/utils/unit-conversions";
+
+export { FEET_TO_METERS };
 
 // Result types for intel actions
 export interface IntelPostsData {
@@ -88,7 +91,6 @@ export const GLOBAL_INTEL_FALLBACK = {
   radius: 400,
 };
 
-export const FEET_TO_METERS = 0.3048;
 export const MPH_TO_METERS_PER_SECOND = 0.44704;
 
 export const INTEL_FALLBACK_ERROR_CODES = new Set(["0A000", "42P01", "42501", "42703"]);

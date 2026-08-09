@@ -4,6 +4,7 @@
  */
 
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import { CDIPService } from "@/lib/services/cdip";
 import { CDIPBuoyData } from "@/types/forecast";
 
@@ -220,6 +221,10 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       const prov = firstForecast.raw_forecast?.wave_height_provenance;
       expect(prov?.source).toBe("cdip_sig");
       expect(prov?.components_used).toBe(false);
+
+      // Phase 21 trusted-forecast coverage is inert-by-design until its
+      // coverage slugs land; the builder logs this until then.
+      expectConsoleErrors([/trusted_forecast_coverage_unavailable/]);
     });
 
     it("should fall back to NOAA when CDIP data unavailable", async () => {

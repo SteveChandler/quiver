@@ -51,7 +51,7 @@ export type SessionStatus = "planned" | "completed" | "cancelled";
 
 export type Session = {
   id: string;
-  user_id: string; // Sole ownership field (profile_id was dropped Feb 2026)
+  user_id: string; // Sole ownership field
   beach_id?: string;
   board_id?: string;
   status: SessionStatus;

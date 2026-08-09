@@ -42,7 +42,7 @@ jest.mock("@/lib/utils/timezone-utils", () => {
   );
   return {
     ...actual,
-    getTimezoneFromCoords: jest.fn(() => "UTC"),
+    resolveBeachTimezone: jest.fn(() => "UTC"),
   };
 });
 

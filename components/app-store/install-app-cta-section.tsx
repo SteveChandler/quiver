@@ -9,50 +9,90 @@ import {
 } from "@/lib/analytics/web-context";
 
 interface InstallAppCtaSectionProps {
+  platform?: FirstTouchPlatform;
   source: string;
   surface: string;
   placement: string;
-  /** Personalizes the heading, e.g. "Check Blacks from the lineup". */
+  /** Personalizes the heading, e.g. "Check Blacks in the app". */
   beachName?: string;
+  /**
+   * One real, already-fetched figure from the page (water temp, next high tide).
+   * Proof beats adjectives: a number the visitor can check against reality does
+   * more than a list of claims. Omit rather than invent one.
+   */
+  proof?: { value: string; label: string };
 }
+
+const VALUE_CHIPS = ["Dawn patrol", "Session log", "Alerts"];
 
 /**
  * In-content install section for SEO/long-form surfaces (Plan 063 T1).
  * Device-aware via NativeAppFunnelCta: iOS → App Store, Android → beta
- * waitlist, desktop → send-to-phone. Rendered client-side only so the
- * platform decision never mismatches SSR output.
+ * waitlist, desktop → send-to-phone.
+ *
+ * Renders on the server when `platform` is supplied, which avoids the
+ * client-only null flash; it falls back to client detection only when the
+ * caller cannot resolve the platform itself.
  */
 export function InstallAppCtaSection({
+  platform,
   source,
   surface,
   placement,
   beachName,
+  proof,
 }: InstallAppCtaSectionProps): ReactElement | null {
-  const [platform, setPlatform] = useState<FirstTouchPlatform | null>(null);
+  const [detectedPlatform, setDetectedPlatform] =
+    useState<FirstTouchPlatform | null>(null);
 
   useEffect(() => {
-    setPlatform(getFirstTouchPlatform());
-  }, []);
+    if (platform) return;
 
-  if (!platform) return null;
+    setDetectedPlatform(getFirstTouchPlatform());
+  }, [platform]);
 
-  const heading = beachName
-    ? `Check ${beachName} from the app`
-    : "Check the surf from the app";
+  const resolvedPlatform = platform ?? detectedPlatform;
+
+  if (!resolvedPlatform) return null;
 
   return (
     <section
       aria-label="Get the Quiver app"
-      className="my-6 -rotate-1 rounded-lg rounded-tr-3xl border-2 border-[#11100D] bg-[#F4EBD8] p-5 shadow-[3px_4px_0_rgba(17,16,13,0.25)]"
+      className="install-cta mx-auto my-8 max-w-2xl -rotate-1 rounded-lg rounded-tr-3xl border-2 border-[#11100D] bg-[#F4EBD8] p-5 shadow-[4px_5px_0_rgba(17,16,13,0.85)] md:rotate-0"
     >
-      <h2 className="font-heading text-xl font-bold tracking-tight text-[#11100D]">
-        {heading}
+      {beachName ? (
+        <p className="install-cta-eyebrow truncate font-sans text-[11px] font-semibold tracking-wide text-[#11100D]/65 uppercase">
+          {beachName}
+        </p>
+      ) : null}
+      <h2 className="install-cta-heading font-heading text-lg font-bold tracking-tight text-[#11100D] md:text-xl">
+        Check the surf in the app
       </h2>
-      <p className="mt-1 mb-4 text-sm text-[#11100D]/80">
-        Dawn-patrol calls, session logging, and swell alerts — free in the app.
+      {proof ? (
+        <p className="mt-3 flex items-baseline gap-2">
+          <span className="font-heading text-4xl leading-none font-bold text-[#11100D] tabular-nums md:text-5xl">
+            {proof.value}
+          </span>
+          <span className="font-sans text-xs font-semibold tracking-wide text-[#11100D]/65 uppercase">
+            {proof.label}
+          </span>
+        </p>
+      ) : null}
+      <p className="mt-3 mb-3 text-sm text-[#11100D]/80">
+        Everything here, plus the parts that only work on your phone — free.
       </p>
+      <ul className="mb-4 flex flex-wrap gap-1" aria-label="What you get">
+        {VALUE_CHIPS.map((chip) => (
+          <li
+            key={chip}
+            className="rounded-full border border-[#11100D]/50 px-2 py-1 font-sans text-[11px] font-semibold text-[#11100D]/75"
+          >
+            {chip}
+          </li>
+        ))}
+      </ul>
       <NativeAppFunnelCta
-        platform={platform}
+        platform={resolvedPlatform}
         source={source}
         surface={surface}
         placement={placement}

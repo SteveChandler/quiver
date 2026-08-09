@@ -139,7 +139,7 @@ export const GET = withAuth(handler);
 
 **See Also:**
 - `/docs/API_MIDDLEWARE.md` - Developer guide with patterns and usage
-- `/docs/API_MIDDLEWARE_REFERENCE.md` - Technical architecture and type definitions
+- `/docs/API_MIDDLEWARE.md#technical-reference-appendix` - Technical architecture and type definitions
 
 ---
 
@@ -680,7 +680,7 @@ export const GET = withAuth(handler);
 **Query Parameters**:
 
 - `beach`: Beach name (e.g., "Ocean Beach")
-- `lat`, `lng`: Geographic coordinates (alternative to beach name)
+- `lat`, `lon`: Geographic coordinates (alternative to beach name)
 
 #### `/surf/insights/route.ts`
 

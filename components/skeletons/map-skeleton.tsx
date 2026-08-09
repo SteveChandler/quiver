@@ -1,20 +1,45 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoaderCircle } from "lucide-react";
 
 export function MapSkeleton() {
   return (
-    <div className="flex-1 relative overflow-hidden min-h-[400px]">
-      {/* Map area skeleton */}
-      <Skeleton className="w-full h-full" />
-
-      {/* Map overlay skeleton */}
-      <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-md max-w-xs">
-        <Skeleton className="h-4 w-48 mb-1" />
-        <Skeleton className="h-3 w-32" />
+    <div
+      className="relative flex min-h-[400px] flex-1 overflow-hidden bg-[#80C8E2]"
+      data-testid="map-skeleton"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading surf map and nearby conditions"
+    >
+      <div className="absolute bottom-[9rem] left-3 w-[calc(100%-1.5rem)] max-w-[27rem] rounded-lg border border-black/15 bg-[#F5ECD8]/95 p-3 shadow-md sm:w-auto sm:min-w-[23rem]">
+        <Skeleton className="mb-3 h-3 w-36 bg-black/15 motion-reduce:animate-none" />
+        <div className="grid grid-cols-4 gap-2">
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton
+              key={index}
+              className="h-8 bg-black/10 motion-reduce:animate-none"
+            />
+          ))}
+        </div>
+        <div className="mt-3 border-t border-black/10 pt-3">
+          <Skeleton className="mb-2 h-3 w-20 bg-black/15 motion-reduce:animate-none" />
+          <Skeleton className="mb-2 h-4 w-full bg-black/10 motion-reduce:animate-none" />
+          <Skeleton className="h-3 w-56 bg-black/10 motion-reduce:animate-none" />
+        </div>
       </div>
 
-      {/* Location control skeleton */}
-      <div className="absolute top-4 right-4">
-        <Skeleton className="h-8 w-32" />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="flex items-center gap-2 rounded-lg border border-white/25 bg-[#151C36]/90 px-4 py-3 text-sm font-medium text-white shadow-lg">
+          <LoaderCircle
+            className="h-4 w-4 motion-safe:animate-spin"
+            aria-hidden="true"
+          />
+          Charting nearby breaks…
+        </div>
+      </div>
+
+      <div className="absolute bottom-3 left-1/2 w-[min(64rem,calc(100%-24px))] -translate-x-1/2 rounded-lg border border-black/15 bg-[#F5ECD8]/95 p-3 shadow-md">
+        <Skeleton className="mb-2 h-3 w-24 bg-black/15 motion-reduce:animate-none" />
+        <Skeleton className="h-8 w-full bg-black/10 motion-reduce:animate-none" />
       </div>
     </div>
   );
