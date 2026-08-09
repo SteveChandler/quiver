@@ -6,6 +6,7 @@ import GenericBeachDetailPage, {
   generateMetadata,
 } from "@/app/[intent]/[city]/[beachSlug]/page";
 import { getBeachesBySlug } from "@/actions/beach/beach-query-actions";
+import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
@@ -173,6 +174,23 @@ function makeBeach(overrides: BeachTestOverrides) {
   } as unknown as Beach;
 }
 
+function freshForecastResult() {
+  const now = Date.now();
+  return {
+    report: {
+      waveHeight: "2-3 ft",
+      updatedAt: new Date(now - 60 * 60 * 1000).toISOString(),
+    },
+    isTomorrow: false,
+    forecastContext: {
+      selectedRowTime: new Date(now + 60 * 60 * 1000).toISOString(),
+      waveHeight: "2-3 ft",
+      sourceDataUpdatedAt: new Date(now - 60 * 60 * 1000).toISOString(),
+      primaryDataSource: "NOAA_NWS",
+    },
+  };
+}
+
 describe("GenericBeachDetailPage slug resolution", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -317,6 +335,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
         }],
       })],
     });
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValue(freshForecastResult());
 
     const metadata = await generateMetadata({
       params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
@@ -336,6 +355,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
         wave_tips: "Watch the reef peak before paddling out.",
       })],
     });
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValue(freshForecastResult());
 
     const metadata = await generateMetadata({
       params: Promise.resolve({
@@ -353,7 +373,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     );
   });
 
-  it("keeps an explicitly rejected GSC-protected beach noindex", async () => {
+  it("does not let editorial rejection take a current forecast page down", async () => {
     (getBeachesBySlug as jest.Mock).mockResolvedValue({
       success: true,
       data: [makeBeach({
@@ -365,6 +385,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
         editorial_reviewed_at: "2026-07-13T00:00:00.000Z",
       })],
     });
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValue(freshForecastResult());
 
     const metadata = await generateMetadata({
       params: Promise.resolve({
@@ -374,6 +395,6 @@ describe("GenericBeachDetailPage slug resolution", () => {
       }),
     });
 
-    expect((metadata.robots as { index?: boolean })?.index).toBe(false);
+    expect((metadata.robots as { index?: boolean } | undefined)?.index).not.toBe(false);
   });
 });

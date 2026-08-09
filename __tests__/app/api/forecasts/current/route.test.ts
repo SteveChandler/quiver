@@ -308,7 +308,7 @@ describe("GET /api/forecasts/current", () => {
             availability: "stale",
             dataSource: "OPEN_METEO",
             lastUpdated: staleUpdatedAt,
-            reason: "Data is 13.0h old (threshold: 6h)",
+            reason: "Data is 13.0h old (threshold: 12h)",
           },
         },
         timestamp: NOW.toISOString(),

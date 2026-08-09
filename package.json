@@ -123,6 +123,8 @@
     "seo:gsc-refresh": "node --import tsx scripts/seo/gsc-refresh.ts",
     "seo:technical-audit": "node --import tsx scripts/seo/technical-audit.ts",
     "seo:metadata-audit": "node --import tsx scripts/seo/metadata-audit.ts",
+    "seo:forecast-authority-audit": "node --import tsx scripts/seo/forecast-authority-audit.ts",
+    "seo:forecast-authority-benchmark": "node --import tsx scripts/seo/forecast-authority-benchmark.ts",
     "seo:enrich": "node --import tsx scripts/seo/enrich.ts",
     "seo:export:vercel": "node --import tsx scripts/seo/export-vercel.ts",
     "seo:export:posthog": "node --import tsx scripts/seo/export-posthog.ts",

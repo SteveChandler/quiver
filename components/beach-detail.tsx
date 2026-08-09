@@ -1030,6 +1030,7 @@ function BeachDetailContent({
                 waterQuality={waterQuality}
                 beachPhoto={beachPhoto}
                 surfCallReport={surfCallReport}
+                surfCallIsTomorrow={surfCallIsTomorrow}
                 beachTimezone={beachTimezone}
                 onWriteReview={() =>
                   handleWriteReview(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA)

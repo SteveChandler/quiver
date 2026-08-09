@@ -1,0 +1,3064 @@
+{
+  "generatedAt": "2026-08-09T04:52:43.602Z",
+  "forecastQuerySucceeded": true,
+  "eligibleSpots": [
+    {
+      "id": "86f9f0cd-e095-4416-af44-b2dd1cfecbe6",
+      "name": "12th Street Jetty",
+      "city": "Sea Isle City",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/sea-isle-city/12th-street-jetty-sea-isle-city-nj"
+    },
+    {
+      "id": "f7ebea96-dc6c-4a32-b881-9969cce2f986",
+      "name": "1st Street Jetty",
+      "city": "Ocean City",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/ocean-city/1st-street-jetty-ocean-city-nj"
+    },
+    {
+      "id": "08c3baad-9404-43d3-ab42-d4230dfdfbf4",
+      "name": "36th-42nd Street",
+      "city": "Sea Isle City",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/sea-isle-city/36th-42nd-street-sea-isle-city-nj"
+    },
+    {
+      "id": "84564bea-a736-474e-a822-efa55be830ee",
+      "name": "3rd Avenue Beach",
+      "city": "Bradley Beach",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/bradley-beach/3rd-avenue-beach-bradley-beach-nj"
+    },
+    {
+      "id": "3a0a42c0-85e0-47ef-938b-fc9c29fd030f",
+      "name": "3rd Avenue Jetty",
+      "city": "Belmar",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/belmar/3rd-avenue-jetty-belmar-nj"
+    },
+    {
+      "id": "336e967d-86a6-40db-9404-e398b057fefe",
+      "name": "7th Street Beach",
+      "city": "Ocean City",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/ocean-city/7th-street-beach-ocean-city-nj"
+    },
+    {
+      "id": "03e143a9-d7c1-4988-bbcd-5cb7732d4b99",
+      "name": "8th Avenue Jetty",
+      "city": "Belmar",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/belmar/8th-avenue-jetty-belmar-nj"
+    },
+    {
+      "id": "1279cf64-8ef0-4bb9-b786-6dd77fc2c201",
+      "name": "Asbury Park",
+      "city": "Asbury Park",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/asbury-park/asbury-park-asbury-park-nj"
+    },
+    {
+      "id": "b9627a2a-493e-467f-9521-9081b47512cc",
+      "name": "Bay Head Beach",
+      "city": "Bay Head",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/bay-head/bay-head-beach-bay-head-nj"
+    },
+    {
+      "id": "fb0ee60f-a269-47ed-b244-e8dc64fff891",
+      "name": "Belmar Beach",
+      "city": "Belmar",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/belmar/belmar-belmar-nj"
+    },
+    {
+      "id": "e28bbce6-2ad8-478c-9271-3dc82461975d",
+      "name": "Belmar Fishing Pier",
+      "city": "Belmar",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/belmar/belmar-fishing-pier-belmar-nj"
+    },
+    {
+      "id": "c06c6bd7-dbce-4df7-8479-73c44c1cb905",
+      "name": "Boynton Inlet",
+      "city": "Boynton Beach",
+      "state": "FL",
+      "country": "USA",
+      "canonicalPath": "/fl/boynton-beach/boynton-inlet-boynton-beach-fl"
+    },
+    {
+      "id": "4d6c17f9-5fd9-40d6-b9c3-cd0e25ce5bcb",
+      "name": "Brinley Avenue",
+      "city": "Bradley Beach",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/bradley-beach/brinley-avenue-bradley-beach-nj"
+    },
+    {
+      "id": "ef5d9f02-6dfa-4513-92c2-c158dc8c17b5",
+      "name": "Broadway Beach",
+      "city": "Cape May",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/cape-may/broadway-beach-cape-may-nj"
+    },
+    {
+      "id": "d264fbf8-0525-4d31-adb5-9a0742eaeb7e",
+      "name": "Cape Hatteras Lighthouse",
+      "city": "Buxton",
+      "state": "NC",
+      "country": "USA",
+      "canonicalPath": "/nc/buxton/cape-hatteras-lighthouse-buxton-nc"
+    },
+    {
+      "id": "7c9ac9f8-a836-4ee4-b5bb-5fe5936d54b4",
+      "name": "Coast Guard Beach",
+      "city": "Eastham",
+      "state": "MA",
+      "country": "USA",
+      "canonicalPath": "/ma/eastham/coast-guard-beach-eastham-ma"
+    },
+    {
+      "id": "99e50d6b-a1cf-458b-8fff-c199cd55b23c",
+      "name": "Cocoa Beach Pier",
+      "city": "Cocoa Beach",
+      "state": "FL",
+      "country": "USA",
+      "canonicalPath": "/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl"
+    },
+    {
+      "id": "885440f6-10c2-4c70-aa40-b7b71044cda3",
+      "name": "Corolla",
+      "city": "Corolla",
+      "state": "NC",
+      "country": "USA",
+      "canonicalPath": "/nc/corolla/corolla-corolla-nc"
+    },
+    {
+      "id": "acfad2b2-7d0c-4c42-9fba-e78fa73e4ae3",
+      "name": "Crash Boat",
+      "city": "Aguadilla",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/aguadilla/crash-boat"
+    },
+    {
+      "id": "1bd4ef4d-eb8e-4833-8679-8a13095a97d6",
+      "name": "Deerfield Beach Pier",
+      "city": "Deerfield Beach",
+      "state": "FL",
+      "country": "USA",
+      "canonicalPath": "/fl/deerfield-beach/deerfield-beach-pier-deerfield-beach-fl"
+    },
+    {
+      "id": "632e0e1c-a256-4d1f-8c6a-c1cbbc6ff2b6",
+      "name": "Ditch Plains",
+      "city": "Montauk",
+      "state": "NY",
+      "country": "USA",
+      "canonicalPath": "/ny/montauk/ditch-plains-montauk-ny"
+    },
+    {
+      "id": "8a2b0951-38b4-4d7e-b5d5-6e076b58a5f0",
+      "name": "Domes",
+      "city": "Rincón",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/rincon/domes"
+    },
+    {
+      "id": "bf11355b-3072-49ce-9682-783349d5a17d",
+      "name": "El Cocal",
+      "city": "Yabucoa",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/yabucoa/el-cocal-yabucoa-pr"
+    },
+    {
+      "id": "9ca1fa2f-2b90-4aa3-8784-48721e5463bb",
+      "name": "Flagler Beach",
+      "city": "Flagler Beach",
+      "state": "FL",
+      "country": "USA",
+      "canonicalPath": "/fl/flagler-beach/flagler-beach-flagler-beach-fl"
+    },
+    {
+      "id": "76057acb-e6b4-46c0-ae0e-4110cd7a19d1",
+      "name": "Folly Beach",
+      "city": "Folly Beach",
+      "state": "SC",
+      "country": "USA",
+      "canonicalPath": "/sc/folly-beach/folly-beach-folly-beach-sc"
+    },
+    {
+      "id": "8160745c-6322-45b0-8bad-81319574008b",
+      "name": "Hampton Beach",
+      "city": "Hampton",
+      "state": "NH",
+      "country": "USA",
+      "canonicalPath": "/nh/hampton/hampton-beach-hampton-nh"
+    },
+    {
+      "id": "adcd7128-424e-46d3-b8d1-f3aad6dd5edb",
+      "name": "Higgins Beach",
+      "city": "Scarborough",
+      "state": "ME",
+      "country": "USA",
+      "canonicalPath": "/me/scarborough/higgins-beach-scarborough-me"
+    },
+    {
+      "id": "4b9682e4-87f9-4058-81aa-ea0630e7be47",
+      "name": "Inches",
+      "city": "Patillas",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/patillas/inches-patillas-pr"
+    },
+    {
+      "id": "f298d080-177b-4407-9e3a-be51bae58605",
+      "name": "Indicators",
+      "city": "Rincón",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/rincon/indicators"
+    },
+    {
+      "id": "d15efc29-c4cb-407c-99b8-be92914473f4",
+      "name": "Isle of Palms",
+      "city": "Isle of Palms",
+      "state": "SC",
+      "country": "USA",
+      "canonicalPath": "/sc/isle-of-palms/isle-of-palms-isle-of-palms-sc"
+    },
+    {
+      "id": "a4472f56-626e-4905-b909-5f1dc27174a9",
+      "name": "Jacksonville Beach Pier",
+      "city": "Jacksonville Beach",
+      "state": "FL",
+      "country": "USA",
+      "canonicalPath": "/fl/jacksonville-beach/jacksonville-beach-pier-jacksonville-beach-fl"
+    },
+    {
+      "id": "388bb737-5889-46d0-a182-d26567bf23f6",
+      "name": "Jobos",
+      "city": "Isabela",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/isabela/jobos"
+    },
+    {
+      "id": "a3344c6e-847a-4d85-84f4-6c8de7f7256f",
+      "name": "Kook Bay (Spring Lake)",
+      "city": "Spring Lake",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/spring-lake/kook-bay-spring-lake-nj"
+    },
+    {
+      "id": "49edc438-1e29-47e4-a66f-d8d68cd4e7fe",
+      "name": "Kure Beach",
+      "city": "Kure Beach",
+      "state": "NC",
+      "country": "USA",
+      "canonicalPath": "/nc/kure-beach/kure-beach-kure-beach-nc"
+    },
+    {
+      "id": "bfcdd918-de0f-4b0f-b771-caca7a9c8baa",
+      "name": "La Ocho",
+      "city": "San Juan",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/san-juan/la-ocho"
+    },
+    {
+      "id": "6c111c72-1773-490b-ae9e-fe6d81827989",
+      "name": "La Pared",
+      "city": "Luquillo",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/luquillo/la-pared"
+    },
+    {
+      "id": "d43d6f41-1458-4141-b11e-837760e8b14c",
+      "name": "La Pozita",
+      "city": "Yabucoa",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/yabucoa/la-pozita-yabucoa-pr"
+    },
+    {
+      "id": "03dc4aef-c5e3-48a6-9563-39e0fe08c9b5",
+      "name": "Long Beach",
+      "city": "Long Beach",
+      "state": "NY",
+      "country": "USA",
+      "canonicalPath": "/ny/long-beach/long-beach-long-beach-ny"
+    },
+    {
+      "id": "f84767c3-4c79-42ed-9e77-2351ab80d20e",
+      "name": "Long Branch Beach",
+      "city": "Long Branch",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/long-branch/long-branch-long-branch-nj"
+    },
+    {
+      "id": "ee905024-1532-4540-9edb-e371c2dde4da",
+      "name": "Mambo Beach",
+      "city": "Spring Lake",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/spring-lake/mambo-beach-spring-lake-nj"
+    },
+    {
+      "id": "fb4fa0e0-328c-442b-b17a-82f95fbb6af5",
+      "name": "Manasquan Inlet",
+      "city": "Manasquan",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/manasquan/manasquan-inlet-manasquan-nj"
+    },
+    {
+      "id": "5c879b55-26e6-4755-92f3-0291f4634f24",
+      "name": "María's",
+      "city": "Rincón",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/rincon/marias"
+    },
+    {
+      "id": "da7dc3e8-51c7-46a7-86f6-c3a90f4da036",
+      "name": "Matunuck",
+      "city": "South Kingstown",
+      "state": "RI",
+      "country": "USA",
+      "canonicalPath": "/ri/south-kingstown/matunuck-south-kingstown-ri"
+    },
+    {
+      "id": "77903282-042b-4294-b6b2-2e3815489513",
+      "name": "Middles Isabela",
+      "city": "Isabela",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/isabela/middles-isabela"
+    },
+    {
+      "id": "872fdb8c-6e6b-459e-813c-e8fc6a9561bd",
+      "name": "Nags Head Beach",
+      "city": "Nags Head",
+      "state": "NC",
+      "country": "USA",
+      "canonicalPath": "/nc/nags-head/nags-head-nags-head-nc"
+    },
+    {
+      "id": "6693188e-80a0-4877-a618-d733ab4809b2",
+      "name": "Nantasket Beach",
+      "city": "Hull",
+      "state": "MA",
+      "country": "USA",
+      "canonicalPath": "/ma/hull/nantasket-beach-hull-ma"
+    },
+    {
+      "id": "662cc0f6-4488-48dc-a820-47768a2e285b",
+      "name": "Narragansett Town Beach",
+      "city": "Narragansett",
+      "state": "RI",
+      "country": "USA",
+      "canonicalPath": "/ri/narragansett/narragansett-town-beach-narragansett-ri"
+    },
+    {
+      "id": "9eeb258d-2fb7-4e72-a6a4-4451882dedb6",
+      "name": "Nauset Beach",
+      "city": "Orleans",
+      "state": "MA",
+      "country": "USA",
+      "canonicalPath": "/ma/orleans/nauset-beach-orleans-ma"
+    },
+    {
+      "id": "3b948da8-26a0-43f6-8ad3-e99e9cc5174b",
+      "name": "Navarre Beach Pier",
+      "city": "Navarre",
+      "state": "FL",
+      "country": "USA",
+      "canonicalPath": "/fl/navarre/navarre-beach-pier-navarre-fl"
+    },
+    {
+      "id": "f5eec6e8-844a-41be-b3bf-4c47e0615545",
+      "name": "New Smyrna Beach (NSB) Inlet",
+      "city": "New Smyrna Beach",
+      "state": "FL",
+      "country": "USA",
+      "canonicalPath": "/fl/new-smyrna-beach/new-smyrna-beach-nsb-inlet-new-smyrna-beach-fl"
+    },
+    {
+      "id": "4836065b-e9a9-4568-912d-41ca148ddce0",
+      "name": "Ogunquit Beach",
+      "city": "Ogunquit",
+      "state": "ME",
+      "country": "USA",
+      "canonicalPath": "/me/ogunquit/ogunquit-beach-ogunquit-me"
+    },
+    {
+      "id": "f7d5b137-3950-43ce-891a-0c6ef8917dfd",
+      "name": "Ortley Beach",
+      "city": "Toms River",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/toms-river/ortley-beach-toms-river-nj"
+    },
+    {
+      "id": "ee7239d5-8e40-4385-b60c-288aff0d4706",
+      "name": "Pawleys Island Pier",
+      "city": "Pawleys Island",
+      "state": "SC",
+      "country": "USA",
+      "canonicalPath": "/sc/pawleys-island/pawleys-island-pier-pawleys-island-sc"
+    },
+    {
+      "id": "3433ea8e-6528-4c18-8b16-c830bf642568",
+      "name": "Pensacola Pier",
+      "city": "Pensacola Beach",
+      "state": "FL",
+      "country": "USA",
+      "canonicalPath": "/fl/pensacola-beach/pensacola-pier-pensacola-beach-fl"
+    },
+    {
+      "id": "55c54357-fdc9-402e-9c31-1bb17978bb03",
+      "name": "Pine Grove",
+      "city": "Carolina",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/carolina/pine-grove"
+    },
+    {
+      "id": "64cb1fb1-e5aa-4306-a6eb-87b9afd14e99",
+      "name": "Point Judith",
+      "city": "Narragansett",
+      "state": "RI",
+      "country": "USA",
+      "canonicalPath": "/ri/narragansett/point-judith-narragansett-ri"
+    },
+    {
+      "id": "9c6bdc37-68c3-4101-9c2f-d188384528b6",
+      "name": "Ponce Inlet",
+      "city": "Ponce Inlet",
+      "state": "FL",
+      "country": "USA",
+      "canonicalPath": "/fl/ponce-inlet/ponce-inlet-ponce-inlet-fl"
+    },
+    {
+      "id": "1073228d-4ca4-4d67-a5bd-2ff372f1a749",
+      "name": "Poverty Beach",
+      "city": "Cape May",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/cape-may/poverty-beach-cape-may-nj"
+    },
+    {
+      "id": "7e7b38b1-767f-4213-9314-538f51ab5084",
+      "name": "Rockaway Beach – 90th St",
+      "city": "Queens",
+      "state": "NY",
+      "country": "USA",
+      "canonicalPath": "/ny/queens/rockaway-beach-90th-st-queens-ny"
+    },
+    {
+      "id": "1a7ac53d-f3ac-4f78-a89a-8befb2fa69b7",
+      "name": "Rockaway Beach – 98th St",
+      "city": "Queens",
+      "state": "NY",
+      "country": "USA",
+      "canonicalPath": "/ny/queens/rockaway-beach-98th-st-queens-ny"
+    },
+    {
+      "id": "307d7cb3-f235-4b32-9b42-8a375ac9f54f",
+      "name": "Satellite Beach",
+      "city": "Satellite Beach",
+      "state": "FL",
+      "country": "USA",
+      "canonicalPath": "/fl/satellite-beach/satellite-beach-satellite-beach-fl"
+    },
+    {
+      "id": "a1566585-0143-4a1d-983f-c7fd195c5e55",
+      "name": "Scarborough Beach",
+      "city": "Scarborough",
+      "state": "ME",
+      "country": "USA",
+      "canonicalPath": "/me/scarborough/scarborough-beach-scarborough-me"
+    },
+    {
+      "id": "ce47aad5-8a2d-490c-8d42-5ebafc9e9105",
+      "name": "Seaside Park",
+      "city": "Seaside Park",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/seaside-park/seaside-park-seaside-park-nj"
+    },
+    {
+      "id": "d0f77b47-ec94-4188-8dde-d52a10b7be49",
+      "name": "Sebastian Inlet",
+      "city": "Melbourne Beach",
+      "state": "FL",
+      "country": "USA",
+      "canonicalPath": "/fl/melbourne-beach/sebastian-inlet-melbourne-beach-fl"
+    },
+    {
+      "id": "81dac2f3-8646-4f01-b8e3-a863c421ba2a",
+      "name": "Seven Presidents Oceanfront Park",
+      "city": "Long Branch",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/long-branch/seven-presidents-long-branch-nj"
+    },
+    {
+      "id": "a240ccfc-d047-4471-a406-6ae5e92b0816",
+      "name": "Shacks",
+      "city": "Isabela",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/isabela/shacks"
+    },
+    {
+      "id": "55cc5dfa-6963-4e17-abfd-d2022a2dcd36",
+      "name": "South Beach",
+      "city": "Miami Beach",
+      "state": "FL",
+      "country": "USA",
+      "canonicalPath": "/fl/miami-beach/south-beach-miami-beach-fl"
+    },
+    {
+      "id": "eb18d122-5d15-4239-9eb5-eca0392b4c4b",
+      "name": "South End Jetty",
+      "city": "Spring Lake",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/spring-lake/south-end-jetty-spring-lake-nj"
+    },
+    {
+      "id": "19313c94-11c9-431e-9f0b-9cc9e89628aa",
+      "name": "South Litchfield",
+      "city": "Litchfield Beach",
+      "state": "SC",
+      "country": "USA",
+      "canonicalPath": "/sc/litchfield-beach/south-litchfield-litchfield-beach-sc"
+    },
+    {
+      "id": "53e8654a-a2bb-46a9-8153-83661af98fb1",
+      "name": "Spanish House",
+      "city": "Melbourne Beach",
+      "state": "FL",
+      "country": "USA",
+      "canonicalPath": "/fl/melbourne-beach/spanish-house-melbourne-beach-fl"
+    },
+    {
+      "id": "fd6522df-caf5-4d78-bb35-8b53ce603db2",
+      "name": "Surf City",
+      "city": "Surf City",
+      "state": "NC",
+      "country": "USA",
+      "canonicalPath": "/nc/surf-city/surf-city-surf-city-nc"
+    },
+    {
+      "id": "4a0aac5b-86e5-433d-8a54-64c8e15197f9",
+      "name": "Surfer's Beach",
+      "city": "Aguadilla",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/aguadilla/surfers-beach"
+    },
+    {
+      "id": "d56a19ac-a0ee-4f99-b041-a10d70c26860",
+      "name": "The Cove (Cape May)",
+      "city": "Cape May",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/cape-may/the-cove-cape-may-nj"
+    },
+    {
+      "id": "bfd3e168-f268-4692-901c-4b80b9b58dcb",
+      "name": "The Point at Sandy",
+      "city": "Rincón",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/rincon/the-point-at-sandy"
+    },
+    {
+      "id": "88424465-0b1d-4f93-aa17-93dd1c4d03f3",
+      "name": "Tres Palmas",
+      "city": "Rincón",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/rincon/tres-palmas"
+    },
+    {
+      "id": "fad234b3-4c14-4c02-a0fe-db1ba6e67bbe",
+      "name": "Turtle Cove",
+      "city": "Montauk",
+      "state": "NY",
+      "country": "USA",
+      "canonicalPath": "/ny/montauk/turtle-cove-montauk-ny"
+    },
+    {
+      "id": "d3740aa5-3c96-4575-a60c-d8200023affe",
+      "name": "Tybee Island",
+      "city": "Tybee Island",
+      "state": "GA",
+      "country": "USA",
+      "canonicalPath": "/ga/tybee-island/tybee-island-tybee-island-ga"
+    },
+    {
+      "id": "83572ce5-aa5d-4631-925c-9e4a19967a7c",
+      "name": "Washington Beach",
+      "city": "Spring Lake",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/spring-lake/washington-beach-spring-lake-nj"
+    },
+    {
+      "id": "e5f995d2-4d8c-4765-ad7e-3113430d0881",
+      "name": "Waverly Beach",
+      "city": "Ocean City",
+      "state": "NJ",
+      "country": "USA",
+      "canonicalPath": "/nj/ocean-city/waverly-beach-ocean-city-nj"
+    },
+    {
+      "id": "2795319c-e680-45d0-a8af-f4c55631986e",
+      "name": "Wilderness",
+      "city": "Aguadilla",
+      "state": "PR",
+      "country": "USA",
+      "canonicalPath": "/pr/aguadilla/wilderness"
+    },
+    {
+      "id": "4b88f10a-c794-4144-b17a-133af9fee9f9",
+      "name": "Wrightsville Beach",
+      "city": "Wrightsville Beach",
+      "state": "NC",
+      "country": "USA",
+      "canonicalPath": "/nc/wrightsville-beach/wrightsville-beach-wrightsville-beach-nc"
+    }
+  ],
+  "summary": {
+    "totalBeachRecords": 346,
+    "totalCanonicalSpotPages": 346,
+    "forecastEligible": 81,
+    "forecastIneligible": 265,
+    "missingForecast": 0,
+    "incompleteForecast": 0,
+    "staleForecast": 265,
+    "badLocationIdentity": 0,
+    "quarantinedEditorial": 1,
+    "missingMetadata": 0,
+    "canonicalConflicts": 0,
+    "sitemapEntries": 243,
+    "missingSitemapEntries": 0
+  },
+  "reasonCounts": {
+    "forecast-approved": 81,
+    "forecast-stale": 265
+  },
+  "canonicalConflicts": [],
+  "missingSitemapEntries": [],
+  "failures": [
+    {
+      "id": "047e61b4-b4a8-4042-a290-f2189b5a70ca",
+      "name": "204s",
+      "canonicalPath": "/ca/san-clemente/204s",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "36a2d39e-64f1-4c7e-9618-ac8cc695af62",
+      "name": "38th Avenue (Santa Cruz)",
+      "canonicalPath": "/ca/santa-cruz/38th-avenue-santa-cruz-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "1207215c-f61d-4fe1-bbaa-a3db7d4e7d53",
+      "name": "52nd Street",
+      "canonicalPath": "/ca/newport-beach/52nd-street-newport-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "da8ad733-8e6b-4781-8b3f-0fe4ee492c3f",
+      "name": "54th Street",
+      "canonicalPath": "/ca/newport-beach/54th-street-newport-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "6932c9a6-bc1f-46b7-9493-51c587bf7eb0",
+      "name": "72nd Place",
+      "canonicalPath": "/ca/long-beach/72nd-place-long-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "ffc0dcae-83d7-4b90-ade3-03c14e789088",
+      "name": "Agate Beach",
+      "canonicalPath": "/or/newport/agate-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "0f0dcd5a-be9d-4c0d-a7ba-d6f932f9b769",
+      "name": "Agate Street",
+      "canonicalPath": "/ca/laguna-beach/agate-street",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "80fc2c1b-2d3f-4a94-bcc2-c8ea0e9b8fc5",
+      "name": "Ala Moana Bowls",
+      "canonicalPath": "/hi/honolulu/ala-moana-bowls",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "6e083f22-4c11-46c5-9110-ac7500f6cba5",
+      "name": "Alfonsos",
+      "canonicalPath": "/mexico/baja-california/rosarito/alfonsos",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "c9659503-c562-4379-9177-fff60acdfb7f",
+      "name": "Anahola",
+      "canonicalPath": "/hi/anahola/anahola",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "3b2d3a98-7c91-4d8a-81a4-6e0d5d2b9a04",
+      "name": "Andrew Molera State Beach (river mouth)",
+      "canonicalPath": "/ca/big-sur/andrew-molera-river-mouth-big-sur-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "b1d6dd7c-cfd7-47ba-83ad-6fe09e67cfe4",
+      "name": "Asilomar State Beach",
+      "canonicalPath": "/ca/pacific-grove/asilomar-state-beach-pacific-grove-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "63af8c07-1aed-44bd-b03b-9b20abdff56c",
+      "name": "Avalanche",
+      "canonicalPath": "/ca/ocean-beach/avalanche",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "a797dcac-2507-4b2b-9d37-1f92dfd6af89",
+      "name": "Avalon Pier",
+      "canonicalPath": "/nc/kill-devil-hills/avalon-pier-kill-devil-hills-nc",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "0e7a0a9f-3a0b-44a2-b81c-43a6f7b2a203",
+      "name": "Avila Beach",
+      "canonicalPath": "/ca/avila-beach/avila-beach-avila-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "486929f4-c8f8-4ae8-9b10-5ba1b7be7bcf",
+      "name": "Backyards",
+      "canonicalPath": "/hi/kahuku/backyards",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "3c8f272b-473a-4303-83b7-3081579a042b",
+      "name": "Bandon",
+      "canonicalPath": "/or/bandon/bandon",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "eadd2bf6-759a-46e4-a8af-8df1feb635cb",
+      "name": "Banyans",
+      "canonicalPath": "/hi/kailua-kona/banyans",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "615ff20a-922f-4487-88d8-fa7d830ebacf",
+      "name": "Bastendorff Beach",
+      "canonicalPath": "/or/coos-bay/bastendorff-beach-coos-bay-or",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "6c4b160d-8aba-4078-aca7-9bde1bf81738",
+      "name": "Bay Street",
+      "canonicalPath": "/ca/santa-monica/bay-street-santa-monica-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "22536002-c7d2-48ab-a676-9b489fd79874",
+      "name": "Beacons",
+      "canonicalPath": "/ca/encinitas/beacons",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "ec73bb77-4be5-4126-8986-348929c1e7e9",
+      "name": "Big Jetty",
+      "canonicalPath": "/ca/san-diego/big-jetty",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "dbbafa09-3143-4f73-82e8-90a69a4121f5",
+      "name": "Big Rock",
+      "canonicalPath": "/ca/la-jolla/big-rock-la-jolla-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "ca2b1d6f-2428-4273-ab02-7555eeec4323",
+      "name": "Birdrock",
+      "canonicalPath": "/ca/la-jolla/birdrock",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "66d06e54-10bd-458c-a57b-1966a957b825",
+      "name": "Blackies",
+      "canonicalPath": "/ca/newport-beach/blackies",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "01330afc-00d3-461b-88f3-b173774766f4",
+      "name": "Blacks Beach",
+      "canonicalPath": "/ca/san-diego/blacks",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "04940f92-f611-448d-acd3-a6456ca8b6de",
+      "name": "Bob Hall Pier",
+      "canonicalPath": "/tx/corpus-christi/bob-hall-pier-corpus-christi-tx",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "92e18cf0-97c3-4c68-9cdf-800eb9ac4313",
+      "name": "Bodega Bay / Doran Beach",
+      "canonicalPath": "/ca/bodega-bay/doran-beach-bodega-bay-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "5c0969f9-8496-4291-830e-8caea021d7cc",
+      "name": "Bolinas",
+      "canonicalPath": "/ca/bolinas/bolinas-bolinas-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "c62b7ad4-8deb-4275-889d-b0eb8ec7c5f0",
+      "name": "Brookings (Harris Beach)",
+      "canonicalPath": "/or/brookings/brookings-harris-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "1f8660f2-891d-4f79-8f16-cad8ebd59c79",
+      "name": "Brooks Street",
+      "canonicalPath": "/ca/laguna-beach/brooks-street",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "8de2c2cf-2b8d-4a4e-8d5e-3e7b5d5c7d07",
+      "name": "Campus Point (UCSB)",
+      "canonicalPath": "/ca/goleta/campus-point-ucsb-goleta-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "b2286d82-0f40-45db-b4d1-3774950f6632",
+      "name": "Cannon Beach (Ecola/Indian)",
+      "canonicalPath": "/or/cannon-beach/cannon-beach-ecolaindian",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "dca521c3-ab32-46c6-8045-8aa7477f59a8",
+      "name": "Capitola Beach",
+      "canonicalPath": "/ca/capitola/capitola-capitola-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "80efa1c0-37a2-4879-819b-647ae3c3d749",
+      "name": "Cardiff Reef",
+      "canonicalPath": "/ca/encinitas/cardiff-reef",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "c0977bcd-5475-4745-b4b8-0ca1e16a7faf",
+      "name": "Carlsbad State Beach",
+      "canonicalPath": "/ca/carlsbad/carlsbad-state-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "d7ed5c84-df3b-4837-85b8-d73c5a7bff3e",
+      "name": "Carmel Beach",
+      "canonicalPath": "/ca/carmel-by-the-sea/carmel-beach-carmel-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "a1a7c2e8-2b3f-4b0d-9a6a-3b9d3b6b6c06",
+      "name": "Carmel River State Beach",
+      "canonicalPath": "/ca/carmel-by-the-sea/carmel-river-state-beach-carmel-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "23554d2f-cf2b-487c-8e38-45d19ec785b5",
+      "name": "Carolina Beach",
+      "canonicalPath": "/nc/carolina-beach/carolina-beach-carolina-beach-nc",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "1bd1a1f5-5c8a-4607-8d7b-0b8f0d2c9b02",
+      "name": "Cayucos Pier (south side)",
+      "canonicalPath": "/ca/cayucos/cayucos-pier-south-cayucos-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "e12b9c1b-c500-47e0-a31c-3765736fe270",
+      "name": "Chun’s Reef",
+      "canonicalPath": "/hi/haleiwa/chuns-reef",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "a0332432-4877-48c5-855d-b30fd097ba38",
+      "name": "Church",
+      "canonicalPath": "/ca/san-clemente/church",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "12e0096c-9826-443f-9131-53aaa646f789",
+      "name": "Corona del Mar",
+      "canonicalPath": "/ca/newport-beach/corona-del-mar",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "b29821f9-c91a-486f-981b-7085c6d86b68",
+      "name": "Coronado North Jetty",
+      "canonicalPath": "/ca/san-diego/coronado-north-jetty",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "2c1d7948-72c1-4787-93e8-f33ac9567db0",
+      "name": "Cottons",
+      "canonicalPath": "/ca/san-clemente/cottons",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "71bdbe5a-67f6-429c-b1e4-80ec390ec4a3",
+      "name": "County Line",
+      "canonicalPath": "/ca/malibu/county-line-malibu-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "a3f9b33e-6b29-4b41-8024-3f7cf1eb66c8",
+      "name": "Crystal Beach",
+      "canonicalPath": "/tx/crystal-beach/crystal-beach-crystal-beach-tx",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "0e557ec4-355a-4176-8352-6ea50e379c13",
+      "name": "Crystal Cove",
+      "canonicalPath": "/ca/newport-coast/crystal-cove",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "cc7c0837-257c-42c3-9d98-634911e73a6a",
+      "name": "Crystal Pier",
+      "canonicalPath": "/ca/san-diego/crystal-pier",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "486dc095-4b21-4edb-838c-97f68b40d1df",
+      "name": "C Street / Ventura Point",
+      "canonicalPath": "/ca/ventura/c-street-ventura-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "5e72b79d-a12d-4cd3-8da4-b7b92069efbf",
+      "name": "Del Mar",
+      "canonicalPath": "/ca/del-mar/del-mar",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "7fc84dd8-abcc-4d7c-9ade-3d1500c1c24c",
+      "name": "Del Mar Rivermouth",
+      "canonicalPath": "/ca/del-mar/del-mar-rivermouth",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "a3d480de-3743-4dd7-8092-fb52772a0fb2",
+      "name": "Del Monte Beach",
+      "canonicalPath": "/ca/monterey/del-monte-beach-monterey-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "f7fbc2c4-7c4e-4c2c-8f8a-5e3bd1ee8e08",
+      "name": "Devereux / Sands (Coal Oil Point)",
+      "canonicalPath": "/ca/isla-vista/devereux-sands-isla-vista-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "8ee452f0-4043-4fe0-a049-207afbd95523",
+      "name": "Diamond Head (Cliffs)",
+      "canonicalPath": "/hi/honolulu/diamond-head-cliffs",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "1376c3e3-d7b2-408d-b1d4-e6e004cbe063",
+      "name": "Dockweiler State Beach",
+      "canonicalPath": "/ca/playa-del-rey/dockweiler-state-beach-playa-del-rey-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "a57ae4c8-7a27-4d3f-91d5-6229350fb888",
+      "name": "Doheny Beach",
+      "canonicalPath": "/ca/dana-point/doheny",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "a4575b12-2bc3-44d4-ba53-4415707f3851",
+      "name": "Doheny State Beach",
+      "canonicalPath": "/ca/dana-point/doheny-state-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "902a215b-2a3d-40af-9391-16b0afed7dee",
+      "name": "D Street",
+      "canonicalPath": "/ca/encinitas/d-street",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "4194e543-a87e-46ee-b317-56c5820c5567",
+      "name": "El Capitan",
+      "canonicalPath": "/ca/santa-barbara/el-capitan-santa-barbara-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "6cbb1b4f-d25e-40a3-a78a-b138ebdf9e96",
+      "name": "El Morro Point (K37.5)",
+      "canonicalPath": "/mexico/baja-california/rosarito/el-morro-point-k375",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "52879e4f-fc7f-4c02-a5e3-ea40b992ea80",
+      "name": "El Porto (Manhattan)",
+      "canonicalPath": "/ca/manhattan-beach/el-porto-manhattan",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "be03bc6f-878a-4806-bff2-9cf870a9f241",
+      "name": "El Segundo Beach Jetty",
+      "canonicalPath": "/ca/el-segundo/el-segundo-beach-jetty-el-segundo-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "21eae8b9-387c-438c-b144-55796bab5caa",
+      "name": "Emma Wood",
+      "canonicalPath": "/ca/ventura/emma-wood-ventura-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "2b401051-cdbf-41a9-ac30-e636c33a42ef",
+      "name": "Florence South Jetty",
+      "canonicalPath": "/or/florence/florence-south-jetty",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "e5fee219-672c-4113-a0bb-a86a5d97700f",
+      "name": "Forster St. Oceanside",
+      "canonicalPath": "/ca/oceanside/forster-st-oceanside",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "208cd792-7e94-419f-802c-09c9634ec6a9",
+      "name": "Fort Point (San Francisco)",
+      "canonicalPath": "/ca/san-francisco/fort-point-san-francisco-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "13ba376d-efd5-4e4e-af12-85bfeb2c17bc",
+      "name": "Galveston – 61st Street Pier",
+      "canonicalPath": "/tx/galveston/galveston-61st-street-pier-galveston-tx",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "cc0b9ee8-0efc-4f78-9049-48a99e0d2c52",
+      "name": "Galveston – Pleasure Pier",
+      "canonicalPath": "/tx/galveston/galveston-pleasure-pier-galveston-tx",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "f0d0c0d9-6c1a-4d2b-9f4e-9f7bb7b8c205",
+      "name": "Garrapata State Beach (southern coves)",
+      "canonicalPath": "/ca/carmel-by-the-sea/garrapata-southern-coves-carmel-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "7dca6429-25ee-4161-a2c2-800555ed8a6a",
+      "name": "George's",
+      "canonicalPath": "/ca/cardiff-by-the-sea/georges",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "f1899def-896d-48ea-adf3-f7de468966eb",
+      "name": "Ghost Tree",
+      "canonicalPath": "/ca/pebble-beach/ghost-tree-pebble-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "8d4afe79-ac68-4508-84d5-9175282a3f2c",
+      "name": "Gold Beach (South Jetty)",
+      "canonicalPath": "/or/gold-beach/gold-beach-south-jetty",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "66ef3c08-a8a2-4cf1-9361-273489bac45b",
+      "name": "Goldenwest",
+      "canonicalPath": "/ca/huntington-beach/goldenwest",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "f29ddb0a-6d46-4589-a4a4-da406ddd3d5c",
+      "name": "Grandview Beach",
+      "canonicalPath": "/ca/encinitas/grandview",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "43cfaf0d-0376-45cb-a8bd-78087ba4ee15",
+      "name": "Haleʻiwa Aliʻi Beach",
+      "canonicalPath": "/hi/haleiwa/haleiwa",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "b4202dc4-e308-4dc2-9844-665413a75cb1",
+      "name": "Hanalei Bay (Kauai)",
+      "canonicalPath": "/hi/hanalei/hanalei-bay-kauai",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "71fa4843-1235-4f11-9184-fe1c87e8fbc5",
+      "name": "Hanalei (Wainiha) — Colony Resort",
+      "canonicalPath": "/hi/hanalei/hanalei-wainiha-colony-resort",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "1ac4f5f1-94a1-4347-b4ca-6c9d62aee5d3",
+      "name": "Hapuna Beach (Kohala)",
+      "canonicalPath": "/hi/waimea/hapuna-beach-kohala",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "d60dd5c8-d147-4042-a531-c2ec55c620af",
+      "name": "HB Cliffs",
+      "canonicalPath": "/ca/huntington-beach/hb-cliffs",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "326941d7-6c39-4e82-b045-941b156f7897",
+      "name": "Hermosa Beach Pier",
+      "canonicalPath": "/ca/hermosa-beach/hermosa-beach-pier-hermosa-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "110a87b2-cb2c-4bb7-8e83-b895fb2f4940",
+      "name": "Hermosa Beach South",
+      "canonicalPath": "/ca/hermosa-beach/hermosa-beach-south-hermosa-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "37ffa92a-d811-4791-afbb-b90a86dcdf49",
+      "name": "Hermosa Pier",
+      "canonicalPath": "/ca/hermosa-beach/hermosa-pier",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "44c9add8-cbd4-4e2f-8554-58a32b9b3c08",
+      "name": "Hobuck Beach (Neah Bay)",
+      "canonicalPath": "/wa/neah-bay/hobuck-beach-neah-bay-wa",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "4dd216b1-edc3-46b6-aabb-66beb467bcaf",
+      "name": "Honolua Bay",
+      "canonicalPath": "/hi/kapalua/honolua-bay",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "e6cec9c8-ab43-4ff8-9d79-cb297422b529",
+      "name": "Ho'okipa",
+      "canonicalPath": "/hi/paia/hookipa",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "30e68b00-c27d-4d22-ba57-2d92156964c6",
+      "name": "Horseshoe",
+      "canonicalPath": "/ca/la-jolla/horseshoe",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "84d3468b-c1ec-46ad-8621-d8507e5f167a",
+      "name": "Hotel Del Coronado",
+      "canonicalPath": "/ca/san-diego/hotel-del-coronado",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "387c8c1c-d6e3-494e-96d9-e5b025aa995b",
+      "name": "Humbug Mountain (Port Orford)",
+      "canonicalPath": "/or/port-orford/humbug-mountain-port-orford",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "071db1df-b5ee-4af6-a022-ea8a09667cbe",
+      "name": "Huntington Beach Pier",
+      "canonicalPath": "/ca/huntington-beach/huntington-beach-pier",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "72726bcb-bed0-4b76-8336-f90d7fb57159",
+      "name": "Huntington Beach Pier Northside",
+      "canonicalPath": "/ca/huntington-beach/huntington-beach-pier-northside",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "025cfc18-8357-49d6-994e-e0abf0a16f6d",
+      "name": "Huntington Beach Pier Southside",
+      "canonicalPath": "/ca/huntington-beach/huntington-beach-pier-southside",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "b57b32b9-0057-46f6-9fa9-cd35d5bd5319",
+      "name": "Huntington St.",
+      "canonicalPath": "/ca/huntington-beach/huntington-st",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "502bd50f-21c8-4cdc-ae96-1d53fcbc34de",
+      "name": "Huntington State Beach",
+      "canonicalPath": "/ca/huntington-beach/huntington-state-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "9e94759c-d531-4e5c-9bc2-d022acea9dcd",
+      "name": "Imperial Beach",
+      "canonicalPath": "/ca/imperial-beach/imperial-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "d9f93c82-7f4b-440a-865a-55cdbb821f74",
+      "name": "Imperial Beach Pier",
+      "canonicalPath": "/ca/imperial-beach/imperial-beach-pier",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "1ec3682e-d993-4c60-a650-f630e1ea3b06",
+      "name": "Jalama Beach",
+      "canonicalPath": "/ca/jalama/jalama-beach-jalama-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "77d286c5-87e9-4678-82d3-81d0125285fa",
+      "name": "K-38",
+      "canonicalPath": "/mexico/baja-california/rosarito/k-38",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "de6575ce-4ee1-4c6b-a2cf-7009ba171c3b",
+      "name": "K-40 (Puerto Nuevo)",
+      "canonicalPath": "/mexico/baja-california/puerto-nuevo/k-40-puerto-nuevo",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "67996143-6e0e-4391-a810-9dec48e19963",
+      "name": "Kahalu'u",
+      "canonicalPath": "/hi/kahaluu-keauhou/kahaluu",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "785980ea-6213-48bf-8571-55f3267bd2da",
+      "name": "Kaisers",
+      "canonicalPath": "/hi/honolulu/kaisers",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "b2b469ea-3d00-44df-88e8-621934c6926f",
+      "name": "Kalapaki Beach",
+      "canonicalPath": "/hi/lihue/kalapaki-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "34e6e6d4-b640-4412-934f-4343b7dd8dfc",
+      "name": "Kekaha / Pakala (Infinities)",
+      "canonicalPath": "/hi/waimea/pakala-infinities",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "8809c326-c194-4b6a-aba0-dd25102294a5",
+      "name": "Kewalo Basin",
+      "canonicalPath": "/hi/honolulu/kewalo-basin",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "fea10ecf-6b55-4cc9-b29b-f215f923759d",
+      "name": "Kill Devil Hills",
+      "canonicalPath": "/nc/kill-devil-hills/kill-devil-hills-kill-devil-hills-nc",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "2c622571-c1fa-4c46-afd1-c0769c184570",
+      "name": "Lahaina Harbor (Breakwall)",
+      "canonicalPath": "/hi/lahaina/lahaina-harbor-breakwall",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "d291411d-d331-4bf1-ad1a-302da3c69de0",
+      "name": "La Jolla Shores",
+      "canonicalPath": "/ca/la-jolla/la-jolla-shores",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "11fc4aab-e5d2-4439-a726-fd4bd31b6acd",
+      "name": "Laniakea",
+      "canonicalPath": "/hi/haleiwa/laniakea",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "058c415c-39da-41bb-aee9-c4942d79e95d",
+      "name": "La Push — First Beach",
+      "canonicalPath": "/wa/la-push/la-push-first-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "281b7eef-bcc3-4ecd-998f-1faa190ed956",
+      "name": "La Push – Second Beach",
+      "canonicalPath": "/wa/la-push/la-push-second-beach-la-push-wa",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "c03fc6d7-913e-4c99-b1f4-610d036b3cbf",
+      "name": "La Push – Third Beach",
+      "canonicalPath": "/wa/la-push/la-push-third-beach-la-push-wa",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "7db87d82-4e66-4a48-9c8b-d5f95a282a4c",
+      "name": "La Selva",
+      "canonicalPath": "/pr/luquillo/la-selva",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "965196e2-81c3-4c1a-8c2f-e5c9c0f8e3fd",
+      "name": "Las Gaviotas",
+      "canonicalPath": "/mexico/baja-california/rosarito/las-gaviotas",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "ca9f0f1b-f4f5-4601-91c5-5e972c5f1a41",
+      "name": "Latigo Point",
+      "canonicalPath": "/ca/malibu/latigo-point-malibu-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "e0dd3e3a-1a9e-4b7d-8c55-2d3b6f9b7f09",
+      "name": "Leadbetter",
+      "canonicalPath": "/ca/santa-barbara/leadbetter-santa-barbara-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "a13f108b-ad2a-43fa-8ea7-40577ebce66c",
+      "name": "Leo Carrillo State Beach",
+      "canonicalPath": "/ca/malibu/leo-carrillo-state-beach-malibu-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "839bab65-0ae4-443e-94a5-0d5bb4b4a5a8",
+      "name": "Long Beach (Boardwalk)",
+      "canonicalPath": "/wa/long-beach/long-beach-boardwalk",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "e5251554-03ce-49c3-b8e8-bc7a40ecd44e",
+      "name": "Lovers Point",
+      "canonicalPath": "/ca/pacific-grove/lovers-point-pacific-grove-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "193a3f9a-66d0-4362-bf55-d25bb831dae4",
+      "name": "Lower Trestles",
+      "canonicalPath": "/ca/san-onofre/lower-trestles",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "bb286d50-ad8d-4315-b966-5dbc31605a26",
+      "name": "Makaha",
+      "canonicalPath": "/hi/waianae/makaha",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "86710207-89d0-4d3d-a44b-36648d0e9588",
+      "name": "Makapuʻu",
+      "canonicalPath": "/hi/waimanalo/makapuu",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "9841bdd0-e70f-4c10-bc54-135575006298",
+      "name": "Malibu First Point (Surfrider)",
+      "canonicalPath": "/ca/malibu/malibu-first-point-surfrider",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "005b0ba6-a2d9-4069-adbb-6571baffa698",
+      "name": "Malibu Second Point",
+      "canonicalPath": "/ca/malibu/malibu-second-point-malibu-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "afbd3aaf-099f-4147-b845-443590f0e148",
+      "name": "Malibu Surfrider (First Point)",
+      "canonicalPath": "/ca/malibu/malibu-surfrider-first-point-malibu-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "abd3b0fa-6de6-480a-a6cc-c5c83143a707",
+      "name": "Malibu Third Point",
+      "canonicalPath": "/ca/malibu/malibu-third-point-malibu-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "7a093b7e-2230-4bf1-abeb-9b31faa794d5",
+      "name": "Manhattan Beach Pier",
+      "canonicalPath": "/ca/manhattan-beach/manhattan-beach-pier-manhattan-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "c0f23f4b-fcc4-4849-88f4-cb6da7206d80",
+      "name": "Marina State Beach",
+      "canonicalPath": "/ca/marina/marina-state-beach-marina-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "9b292a48-7a88-4d79-926f-16601515d7a0",
+      "name": "Marine Street Beach",
+      "canonicalPath": "/ca/san-diego/marine-street-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "d2d0b946-da8b-40ea-86ee-5ca2075d7851",
+      "name": "Matagorda",
+      "canonicalPath": "/tx/matagorda/matagorda-matagorda-tx",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "033b5518-ee98-4014-9d81-114b936778af",
+      "name": "Mavericks",
+      "canonicalPath": "/ca/half-moon-bay/mavericks-half-moon-bay-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "0f0a1339-f7d0-4b1a-ae95-61939998b4ef",
+      "name": "Mesa Lane",
+      "canonicalPath": "/ca/santa-barbara/mesa-lane-santa-barbara-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "b5bcd27f-3399-4a0a-b5d5-da8147e43b9a",
+      "name": "Middles",
+      "canonicalPath": "/ca/san-onofre/middles",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "c02b4ede-69d9-440e-b8de-22ea4bde10ef",
+      "name": "Mission Beach",
+      "canonicalPath": "/ca/san-diego/mission-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "cdcf733b-a704-45ef-affc-d8152ffde1e4",
+      "name": "Mission Beach (Central)",
+      "canonicalPath": "/ca/san-diego/mission-beach-central",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "abb56ca0-7dad-4026-960f-23412fa5cc8b",
+      "name": "Mitchell's Cove",
+      "canonicalPath": "/ca/santa-cruz/mitchells-cove-santa-cruz-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "ca0f960e-e859-4b33-8e88-6b2980e48e6a",
+      "name": "Monastery Beach / San Jose Creek Beach",
+      "canonicalPath": "/ca/carmel/monastery-beach-san-jose-creek-beach-carmel-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "9a64d63a-0c0c-40b7-bc97-d3d931204bba",
+      "name": "Mondos Beach",
+      "canonicalPath": "/ca/ventura/mondos-beach-ventura-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "deea2ae1-849d-47a1-9c27-b7bd505dbc07",
+      "name": "Moonlight State Beach",
+      "canonicalPath": "/ca/encinitas/moonlight-state-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "5c7c2a2e-3c7f-4a8c-8e8a-5cf2e9a0b101",
+      "name": "Morro Rock / Sandspit (inside bend)",
+      "canonicalPath": "/ca/morro-bay/morro-rock-sandspit-inside-bend-morro-bay-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "885ad595-67cb-4408-b4cc-9ecf2ce3a848",
+      "name": "Moss Landing",
+      "canonicalPath": "/ca/moss-landing/moss-landing-moss-landing-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "d85492b8-31ed-4dd8-af53-4284e9456be9",
+      "name": "Mustang Island State Park",
+      "canonicalPath": "/tx/corpus-christi/mustang-island-state-park-corpus-christi-tx",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "998e264e-3ad7-4875-bb19-04c25d1b173e",
+      "name": "Nelscott Reef",
+      "canonicalPath": "/or/lincoln-city/nelscott-reef-lincoln-city-or",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "d920e1b9-9e23-4ba8-9f8e-776571435f6f",
+      "name": "New Break (Nubes)",
+      "canonicalPath": "/ca/san-diego/new-break-nubes",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "53cc78d5-a759-4153-8a2e-b13cf1bb6b4e",
+      "name": "Newport 56th St",
+      "canonicalPath": "/ca/newport-beach/newport-56th-st",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "bbe7f4eb-9807-4e65-8e69-e2cee28d6b24",
+      "name": "Newport Lower Jetties",
+      "canonicalPath": "/ca/newport-beach/newport-lower-jetties",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "11662c67-a1bb-43a0-b0f7-0e4071b1c3f2",
+      "name": "Newport Point",
+      "canonicalPath": "/ca/newport-beach/newport-point",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "e64001e6-e2bd-4596-8f24-d8064e7f5186",
+      "name": "Newport Upper Jetties",
+      "canonicalPath": "/ca/newport-beach/newport-upper-jetties",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "15c7337e-5258-4339-9dc3-c435c666926b",
+      "name": "Ocean Beach",
+      "canonicalPath": "/ca/san-diego/ocean-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "65d177de-e75a-4ad8-aa0d-48a67c0851b0",
+      "name": "Ocean Beach Pier",
+      "canonicalPath": "/ca/san-diego/ocean-beach-pier",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "e8a921b7-c2b5-4259-9e5c-bd06765f7ae4",
+      "name": "Ocean Beach SF – Middle",
+      "canonicalPath": "/ca/san-francisco/ocean-beach-middle-san-francisco-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "eca7e91a-0e5e-40d5-acb4-59c6ff50d861",
+      "name": "Ocean Beach SF – North",
+      "canonicalPath": "/ca/san-francisco/ocean-beach-north-san-francisco-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "d9524c9d-8315-4686-9d35-24ceb6db2a82",
+      "name": "Ocean Beach SF – Sloat",
+      "canonicalPath": "/ca/san-francisco/ocean-beach-sloat-san-francisco-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "124c7751-a232-4c92-be53-3a750a315256",
+      "name": "Oceano / Grover Beach",
+      "canonicalPath": "/ca/grover-beach/oceano-grover-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "04ab6e6a-477f-49ab-b435-6b201134bcbf",
+      "name": "Ocean Shores",
+      "canonicalPath": "/wa/ocean-shores/ocean-shores",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "60b6bb17-dc08-4f18-8241-33729bcbc742",
+      "name": "Ocean Shores / North Beaches",
+      "canonicalPath": "/wa/ocean-shores/ocean-shores-north-beaches",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "a30b9870-aace-48ef-a3e6-e275ad9c28c1",
+      "name": "Oceanside Harbor",
+      "canonicalPath": "/ca/oceanside/oceanside-harbor",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": true,
+      "editorialReasons": [
+        "location-reference:Siuslaw River"
+      ],
+      "metadataMissing": false
+    },
+    {
+      "id": "cceecad1-7668-4ad8-88ff-ade893c605cd",
+      "name": "Oceanside Pier",
+      "canonicalPath": "/ca/oceanside/oceanside-pier",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "32c84ce9-ba42-464c-afad-58e4c8664d1e",
+      "name": "Off the Wall",
+      "canonicalPath": "/hi/pupukea/off-the-wall",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "a956de46-b204-448e-a541-db427be7e85f",
+      "name": "Old Man's (SanO)",
+      "canonicalPath": "/ca/san-clemente/old-mans-sano",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "c3b42f85-e650-445f-89b1-1debe661652e",
+      "name": "Osprey Point",
+      "canonicalPath": "/ca/san-diego/osprey-point",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "1fbbe6cc-783f-4b74-9664-a1996ca2649a",
+      "name": "Otter Rock",
+      "canonicalPath": "/or/otter-rock/otter-rock-otter-rock-or",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "f2cc331f-6569-40d9-a98b-9f50fb3da67f",
+      "name": "Pacifica / Linda Mar",
+      "canonicalPath": "/ca/pacifica/linda-mar-pacifica-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "65809772-20bc-4009-b9b2-89c8ef3c4127",
+      "name": "Pacific Beach",
+      "canonicalPath": "/ca/san-diego/pacific-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "cf59e55d-f146-4a72-8daf-5781a0693d13",
+      "name": "Pacific City (Cape Kiwanda)",
+      "canonicalPath": "/or/pacific-city/pacific-city-cape-kiwanda",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "55c7c5dd-1979-410a-bf39-ce3c52e29166",
+      "name": "Packery Channel Jetties",
+      "canonicalPath": "/tx/corpus-christi/packery-channel-jetties-corpus-christi-tx",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "14907560-8c92-4d2e-997b-9661e97b0751",
+      "name": "Padre Island National Seashore – South Beach",
+      "canonicalPath": "/tx/corpus-christi/padre-island-national-seashore-south-beach-corpus-christi-tx",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "9a3da3b5-e25b-45a4-b9dd-3ba6bc75a9fa",
+      "name": "Palos Verdes Cove",
+      "canonicalPath": "/ca/palos-verdes/palos-verdes-cove-palos-verdes-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "13ef0aa1-c857-4d82-a40d-a83612110943",
+      "name": "PB Point",
+      "canonicalPath": "/ca/san-diego/pb-point",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "fbe805b3-b9f5-40e0-afbb-3c5a8d45f67b",
+      "name": "Pine Trees (Kohanaiki)",
+      "canonicalPath": "/hi/kailua-kona/pine-trees-kohanaiki",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "6a0674ac-3e6d-49f3-9fd4-a4f1857c408a",
+      "name": "Pipeline",
+      "canonicalPath": "/hi/haleiwa/pipeline",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "2380adaa-a07c-44f4-9444-656ef51fa998",
+      "name": "Pipes",
+      "canonicalPath": "/ca/cardiff-by-the-sea/pipes",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "ee2aad76-966d-4aa3-86a2-499fde59b271",
+      "name": "Pismo Pier",
+      "canonicalPath": "/ca/pismo-beach/pismo-pier-pismo-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "cdfb7e59-ce4e-4112-acc5-15fe56a8b6a3",
+      "name": "Pleasure Point",
+      "canonicalPath": "/ca/santa-cruz/pleasure-point-santa-cruz-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "b9c4a949-4562-47db-ae7d-b2131e20d7a7",
+      "name": "Poche Beach",
+      "canonicalPath": "/ca/san-clemente/poche-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "c778cc0a-2094-4649-84cd-4c38ce864f23",
+      "name": "Point Arena / Manchester Beach",
+      "canonicalPath": "/ca/manchester/point-arena-manchester-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "bba95994-b2a3-4505-8e6f-1f85ccfbb0dc",
+      "name": "Point Dume",
+      "canonicalPath": "/ca/malibu/point-dume-malibu-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "231d8635-6ae1-40e5-9112-88c26b0918ac",
+      "name": "Poipu Beach (Kauai)",
+      "canonicalPath": "/hi/koloa/poipu-beach-kauai",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "badd7986-4609-421a-ab3d-81fcd8409a5b",
+      "name": "Ponto",
+      "canonicalPath": "/ca/carlsbad/ponto",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "b8e6da01-3696-4d18-b00f-e71081e7a8dc",
+      "name": "Pops",
+      "canonicalPath": "/hi/honolulu/pops",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "13febd14-22c1-41a8-a78d-09c436194c9f",
+      "name": "Port Aransas – Horace Caldwell Pier",
+      "canonicalPath": "/tx/port-aransas/port-aransas-horace-caldwell-pier-port-aransas-tx",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "3bee4922-90ff-442c-b173-05c5ffa0e127",
+      "name": "Puaʻena Point",
+      "canonicalPath": "/hi/haleiwa/puaena-point",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "99c6a506-e4b7-42e4-be2d-c3afb303c22e",
+      "name": "Publics",
+      "canonicalPath": "/hi/honolulu/publics",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "13a91b0d-3e80-4140-b11e-2c1b12e00687",
+      "name": "Redondo Breakwall",
+      "canonicalPath": "/ca/redondo-beach/redondo-breakwall-redondo-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "a17f4c57-324d-4157-a641-fa935464302e",
+      "name": "Refugio State Beach",
+      "canonicalPath": "/ca/goleta/refugio-state-beach-goleta-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "294712f3-3c06-44bd-9bc6-17275675fe9a",
+      "name": "Renes",
+      "canonicalPath": "/mexico/baja-california/rosarito/renes",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "bec2d595-ed20-4c2b-93c7-4b880406332f",
+      "name": "Rincon",
+      "canonicalPath": "/ca/carpinteria/rincon-carpinteria-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "a0e764f1-d0bb-4341-b397-7b21823cb93b",
+      "name": "River Jetties",
+      "canonicalPath": "/ca/newport-beach/river-jetties",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "1a854513-1c65-458e-abb6-384ba4090b0b",
+      "name": "Riviera",
+      "canonicalPath": "/ca/san-clemente/riviera",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "22696f11-3897-4fa6-b266-2f52dae4d5ac",
+      "name": "Robert Moses State Park",
+      "canonicalPath": "/ny/babylon/robert-moses-state-park-babylon-ny",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "49739de1-95fb-4e26-b890-56fafd8d2622",
+      "name": "Rockaway Beach (Pacifica)",
+      "canonicalPath": "/ca/pacifica/rockaway-beach-pacifica-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "79e8be90-df33-4b80-9d92-e79e26a67a69",
+      "name": "Rockpile",
+      "canonicalPath": "/ca/laguna-beach/rockpile",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "943e369c-2180-4152-b457-26dbbbb9c23e",
+      "name": "Rocky Point",
+      "canonicalPath": "/hi/pupukea/rocky-point",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "f0ddfc6a-7392-40c5-9211-836c05e449f1",
+      "name": "Rosarito Beach",
+      "canonicalPath": "/mexico/baja-california/rosarito/rosarito-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "73bb4a48-3d53-42ba-bbd0-d89a7cf95711",
+      "name": "Salt Creek",
+      "canonicalPath": "/ca/dana-point/salt-creek",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "e99552bf-45bd-46a8-a716-4cdfff2061f2",
+      "name": "San Clemente Pier, Northside",
+      "canonicalPath": "/ca/san-clemente/san-clemente-pier-northside",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "02dfc45e-f7f8-4fdc-8008-6ce14e2839f5",
+      "name": "San Clemente State Beach",
+      "canonicalPath": "/ca/san-clemente/san-clemente-state-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "d663a525-f59d-4873-b67a-50898ca1c72c",
+      "name": "Sandy Beach",
+      "canonicalPath": "/hi/honolulu/sandy-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "f11ccd59-b778-4ea1-a8ff-88bffb447cd8",
+      "name": "Sandy Beach Rincón",
+      "canonicalPath": "/pr/rincon/sandy-beach-rincon",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "0e550715-3367-4829-8671-8f38bd5be34f",
+      "name": "Sandy Hook",
+      "canonicalPath": "/nj/sandy-hook/sandy-hook-sandy-hook-nj",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "09affcd2-1eca-4f7d-852e-413972ea4154",
+      "name": "San Elijo State Beach",
+      "canonicalPath": "/ca/cardiff-by-the-sea/san-elijo-state-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "8a47b323-0874-45d9-aa17-ced468f70f2d",
+      "name": "San Onofre State Beach",
+      "canonicalPath": "/ca/san-clemente/san-onofre-state-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "29fefd13-7472-4ce8-9c3c-be3dabcbb233",
+      "name": "Santa Monica Beach",
+      "canonicalPath": "/ca/santa-monica/santa-monica-beach-santa-monica-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "4b0cf129-c706-4e24-8210-2219defc5ea7",
+      "name": "Scripps",
+      "canonicalPath": "/ca/la-jolla/scripps",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "5079a9ab-8d43-433e-99ea-20d3667dd0a8",
+      "name": "Seabrook (Pacific Beach area)",
+      "canonicalPath": "/wa/pacific-beach/seabrook-pacific-beach-area",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "e6602d4e-7b5a-456d-b675-230ca5501cde",
+      "name": "Seal Beach Pier",
+      "canonicalPath": "/ca/seal-beach/seal-beach-pier-seal-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "4055099a-2e07-4a84-b17a-47a401ff749c",
+      "name": "Seaside Cove",
+      "canonicalPath": "/or/seaside/seaside-cove",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "6f683baf-fd73-4a77-95b2-46f04050b136",
+      "name": "Seaside Cove (Oregon)",
+      "canonicalPath": "/or/seaside/seaside-cove-oregon-seaside-or",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "5a34b2ac-01b9-4b83-8c05-c47b1b55d923",
+      "name": "Seaside Reef",
+      "canonicalPath": "/ca/solana-beach/seaside-reef",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "5e8d07ff-786c-4b7e-ab19-53d2b3774e23",
+      "name": "Shipwrecks",
+      "canonicalPath": "/ca/coronado/shipwrecks-coronado-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "6d3a734b-b051-490d-87e4-df83c3f49c42",
+      "name": "Short Sands",
+      "canonicalPath": "/or/manzanita/short-sands-manzanita-or",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "2c2dea98-280b-488c-9d46-ffed8226447b",
+      "name": "Short Sands (Oswald West)",
+      "canonicalPath": "/or/arch-cape/short-sands-oswald-west",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "94f1010b-c71f-4025-bda1-c26ed9467c85",
+      "name": "Silver Strand State Beach",
+      "canonicalPath": "/ca/san-diego/silver-strand-state-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "144b902f-4766-4bfa-a0ed-db41ade6a704",
+      "name": "Smith Point County Park",
+      "canonicalPath": "/ny/shirley/smith-point-county-park-shirley-ny",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "65d3a4de-1f4b-4a1d-8ce0-b5b67288ee08",
+      "name": "Solana Beach",
+      "canonicalPath": "/ca/solana-beach/solana-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "411b3825-c047-4628-997d-08712117ad56",
+      "name": "Solimar Reef",
+      "canonicalPath": "/ca/ventura/solimar-reef-ventura-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "fa19107a-a276-4257-872d-c5331264d01b",
+      "name": "South Padre Island – Isla Blanca Park",
+      "canonicalPath": "/tx/south-padre-island/south-padre-island-isla-blanca-park-south-padre-island-tx",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "b1adcf43-2b85-4247-b840-6b1230e886b4",
+      "name": "Spanish Bay / South Moss Beach",
+      "canonicalPath": "/ca/pebble-beach/spanish-bay-south-moss-beach-pebble-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "2609a9ff-d247-4e0b-888f-a793ff7177a5",
+      "name": "Steamer Lane",
+      "canonicalPath": "/ca/santa-cruz/steamer-lane-santa-cruz-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "5a5dc7b8-4d30-44af-9715-3dbb4dbc9859",
+      "name": "Stinson Beach",
+      "canonicalPath": "/ca/stinson-beach/stinson-beach-stinson-beach-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "80e4aada-7d4a-4df1-b11b-841a97603979",
+      "name": "Strands",
+      "canonicalPath": "/ca/dana-point/strands",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "4c29c993-e769-414b-8539-7867c7e04772",
+      "name": "S‑Turns",
+      "canonicalPath": "/nc/rodanthe/s-turns-rodanthe-nc",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "bd7a7984-d69a-4969-85b1-b97ea78d8fb7",
+      "name": "Sunset Bay State Park",
+      "canonicalPath": "/or/charleston/sunset-bay-charleston-or",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "f52f2c49-342a-4694-b04a-d66503446736",
+      "name": "Sunset Beach",
+      "canonicalPath": "/hi/pupukea/sunset-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "b939f928-2653-494a-831d-6394cb548190",
+      "name": "Sunset Cliffs – Garbage",
+      "canonicalPath": "/ca/san-diego/sunset-cliffs-garbage-san-diego-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "34af0af5-b61c-4b86-9d9d-bf328f538a12",
+      "name": "Sunset Cliffs – Luscombs",
+      "canonicalPath": "/ca/san-diego/sunset-cliffs-luscombs-san-diego-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "d305ba0d-47cd-4494-b790-f924dac7bf1f",
+      "name": "Sunset Cliffs North (Garbage)",
+      "canonicalPath": "/ca/san-diego/sunset-cliffs-garbage",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "466b9671-93c6-402c-9de6-627367d9de6c",
+      "name": "Surfside Beach",
+      "canonicalPath": "/tx/surfside-beach/surfside-beach-surfside-beach-tx",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "b24c6fa9-9f82-4a1e-afcd-0d1fb0ce69d0",
+      "name": "Swami's",
+      "canonicalPath": "/ca/encinitas/swamis",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "b1b49703-2376-407d-b1fb-9df06130ac1d",
+      "name": "Tamarack",
+      "canonicalPath": "/ca/carlsbad/tamarack",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "ec7b1ab4-5f43-4af3-b45f-325d29b8d5e6",
+      "name": "Teresa's",
+      "canonicalPath": "/mexico/baja-california/rosarito/teresas",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "1fe4bf73-c425-48a5-899d-a7e8ee2d67e3",
+      "name": "Terramar Point",
+      "canonicalPath": "/ca/carlsbad/terramar-point",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "2a2195ef-27d1-4b35-a006-b7177b34dad2",
+      "name": "Thalia Street",
+      "canonicalPath": "/ca/laguna-beach/thalia-street",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "f3e1216f-2a17-47be-8c2e-67d8588ab065",
+      "name": "The Hook",
+      "canonicalPath": "/ca/santa-cruz/the-hook-santa-cruz-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "762fcfa2-8fd8-40ea-8955-b9cc6945a422",
+      "name": "The Rock, Oceanside",
+      "canonicalPath": "/ca/oceanside/the-rock-oceanside",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "c2c7cc01-4920-4fd9-941c-68df6b46ced0",
+      "name": "The Wedge",
+      "canonicalPath": "/ca/newport-beach/the-wedge",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "b97ebd24-dcf6-49ce-a503-f678b4de0019",
+      "name": "Threes",
+      "canonicalPath": "/hi/honolulu/threes",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "929caa5e-c79f-4b60-8fe0-bec75c2df2d6",
+      "name": "Tijuana Sloughs",
+      "canonicalPath": "/ca/san-diego/tijuana-sloughs",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "101bd2f7-e1dc-4940-b4e3-3a820d5940dd",
+      "name": "Topanga",
+      "canonicalPath": "/ca/malibu/topanga-malibu-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "a3e9d10c-92e9-4302-b808-a3de0c2eca22",
+      "name": "Torrance Beach (RAT Beach)",
+      "canonicalPath": "/ca/torrance/torrance-beach-rat-beach-torrance-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "4bdbff9e-2c1f-4918-84a6-aed42fb6e42c",
+      "name": "Torrey Pines State Beach",
+      "canonicalPath": "/ca/san-diego/torrey-pines-state-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "17628f35-9ed1-4257-aad6-070c4bd73bb8",
+      "name": "Tourmaline Beach",
+      "canonicalPath": "/ca/san-diego/tourmaline",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "91df193c-f2c8-4e6c-984e-b859bd741061",
+      "name": "Tourmaline Surf Park",
+      "canonicalPath": "/ca/san-diego/tourmaline-surf-park",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "24dd2e18-f3a6-466e-b082-cd974df852c4",
+      "name": "Tracks",
+      "canonicalPath": "/hi/kapolei/tracks",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "2f3e2136-b094-49d7-b90f-948160cbb854",
+      "name": "Trails",
+      "canonicalPath": "/ca/san-onofre/trails",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "dfeecc16-6395-4600-89e6-baf8456e3d69",
+      "name": "T-Street",
+      "canonicalPath": "/ca/san-clemente/t-street",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "f924aa96-395f-41e0-b966-502b37def7ac",
+      "name": "Upper Trestles",
+      "canonicalPath": "/ca/san-onofre/upper-trestles",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "dc3e8490-9560-4713-8b87-dcc1a6a89c53",
+      "name": "Velzyland",
+      "canonicalPath": "/hi/kahuku/velzyland",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "11467f21-5a69-430d-9eb9-05a46cd39990",
+      "name": "Venice Beach",
+      "canonicalPath": "/ca/venice/venice-beach-venice-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "96fd7011-b894-4776-a68d-ff16fb1985d8",
+      "name": "Venice Breakwater",
+      "canonicalPath": "/ca/venice/venice-breakwater-los-angeles-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "1913d8a0-38f9-468f-bb4c-18789e92731d",
+      "name": "Waddell Creek",
+      "canonicalPath": "/ca/davenport/waddell-creek-davenport-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "880748ee-5423-4b2e-a5c3-b2faab5c4a7a",
+      "name": "Waikiki (Aquarium)",
+      "canonicalPath": "/hi/honolulu/waikiki-aquarium",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "846ccff8-0e26-41f3-8496-5c5221109c6c",
+      "name": "Waikiki Beach",
+      "canonicalPath": "/hi/honolulu/waikiki-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "2ac8b200-fdf2-4822-bcb1-3ec336b83d05",
+      "name": "Waikiki – Canoes",
+      "canonicalPath": "/hi/honolulu/waikiki-canoes",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "ae2e2eee-897c-4198-80fa-04b2d47128d7",
+      "name": "Waikiki – Queens",
+      "canonicalPath": "/hi/honolulu/waikiki-queens",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "22d65140-1c40-4bbe-8790-5068fa6e5f22",
+      "name": "Waikoloa Village Lagoon",
+      "canonicalPath": "/hi/waikoloa/waikoloa-village-lagoon",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "12431285-b73c-48e4-99b3-731594f6f98c",
+      "name": "Waimea Bay",
+      "canonicalPath": "/hi/pupukea/waimea-bay",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "260868de-b952-470b-a764-b95b3e7f6655",
+      "name": "Westport Beach",
+      "canonicalPath": "/wa/westport/westport-beach",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "51180cd3-b83b-4cf8-99b2-8705c68b87ef",
+      "name": "Westport – Half Moon Bay (The Cove)",
+      "canonicalPath": "/wa/westport/westport-half-moon-bay-westport-wa",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "a83def7f-6b68-402f-a0ef-f78a5bcfbf81",
+      "name": "Westport (Marina/Groins/Jetty)",
+      "canonicalPath": "/wa/westport/westport-marinagroinsjetty",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "4ec455fa-dab5-4cfa-884f-1f1d29154c74",
+      "name": "Westport – The Groins",
+      "canonicalPath": "/wa/westport/westport-groins-westport-wa",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "cb75834d-79cb-4b65-859b-d0a370bfc75e",
+      "name": "Westport – The Jetty",
+      "canonicalPath": "/wa/westport/westport-jetty-westport-wa",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "c18f586b-85fb-47d2-8e0a-7786cd1eb341",
+      "name": "White Plains",
+      "canonicalPath": "/hi/ewa-beach/white-plains",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "3f1eeb72-41c1-4f58-9621-fd13df129c1a",
+      "name": "Will Rogers State Beach",
+      "canonicalPath": "/ca/santa-monica/will-rogers-state-beach-santa-monica-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "6f42d47d-215b-47cb-ac14-b83bf8c2a797",
+      "name": "Windansea",
+      "canonicalPath": "/ca/la-jolla/windansea",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    },
+    {
+      "id": "836f218a-9471-46c9-b201-24da1dfe0f3a",
+      "name": "Zuma Beach",
+      "canonicalPath": "/ca/malibu/zuma-beach-malibu-ca",
+      "indexabilityReason": "forecast-stale",
+      "editorialQuarantined": false,
+      "editorialReasons": [],
+      "metadataMissing": false
+    }
+  ]
+}

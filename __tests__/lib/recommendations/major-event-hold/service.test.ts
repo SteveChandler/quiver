@@ -326,7 +326,6 @@ describe("major-event hold service", () => {
     );
   });
 });
-
 describe("resolution failure diagnostics", () => {
   it("fails closed AND reports why when hold resolution throws", async () => {
     const consoleError = jest
@@ -362,4 +361,3 @@ describe("resolution failure diagnostics", () => {
     consoleError.mockRestore();
   });
 });
-

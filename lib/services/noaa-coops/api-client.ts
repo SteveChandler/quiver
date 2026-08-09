@@ -7,7 +7,6 @@
 
 import type { TideData, TideExtreme, StationInfo } from "./types";
 import { parseCOOPSTimestampToUnixSecondsUTC } from "./tide-analysis";
-import { generateFallbackTideData } from "./fallback-generator";
 
 /** NOAA CO-OPS API base URL */
 const COOPS_BASE_URL =
@@ -123,7 +122,7 @@ function createTimeoutSignal(timeoutMs: number): AbortSignal | undefined {
  * @param beginDate - Start date (YYYYMMDD)
  * @param endDate - End date (YYYYMMDD)
  * @param options - Optional logging configuration
- * @returns Array of tide data or fallback data on error
+ * @returns Array of tide data, or an empty array when NOAA is unavailable
  */
 async function fetchTidePredictions(
   stationId: string,
@@ -160,8 +159,8 @@ async function fetchTidePredictions(
     }
 
     if (!data.predictions) {
-      options?.logger?.warn("No tide predictions data returned, using fallback");
-      return generateFallbackTideData();
+      options?.logger?.warn("No tide predictions data returned");
+      return [];
     }
 
     const tideData = data.predictions.map((prediction: TideExtreme) => ({
@@ -182,10 +181,7 @@ async function fetchTidePredictions(
     return tideData;
   } catch (error) {
     options?.logger?.error("Error fetching tide predictions:", error);
-    if (options?.verbose && options?.logger) {
-      options.logger.debug("Using fallback tide data");
-    }
-    return generateFallbackTideData();
+    return [];
   }
 }
 
@@ -351,11 +347,11 @@ export async function fetchAllStationData(
       fetchStationInfo(stationId),
     ]);
 
-  // Extract results, using fallbacks for failed optional calls
+  // Do not fabricate tide observations when NOAA fails.
   const tideData =
     tideResult.status === "fulfilled"
       ? tideResult.value
-      : generateFallbackTideData();
+      : [];
 
   const waterLevel =
     waterLevelResult.status === "fulfilled" ? waterLevelResult.value : null;
@@ -366,7 +362,7 @@ export async function fetchAllStationData(
   // Log any failures for debugging (but don't block)
   if (tideResult.status === "rejected") {
     options?.logger?.warn(
-      `Tide predictions failed for station ${stationId}, using fallback`
+      `Tide predictions failed for station ${stationId}`
     );
   }
   if (waterLevelResult.status === "rejected") {

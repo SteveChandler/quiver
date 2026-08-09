@@ -13,6 +13,8 @@
  *   catching genuinely stale data.
  * - NOAA_NWS: Enhanced forecasts regenerate daily (6 AM), so 12-hour threshold prevents
  *   unnecessary regeneration attempts while providing buffer until next update
+ * - OPEN_METEO: Extended-horizon model rows are refreshed on the same batch cadence as
+ *   the forecast pipeline. Keep the 12-hour window aligned with that batch SLA.
  * - FALLBACK: Fallback data is less critical and can tolerate longer staleness
  * - NOWCAST_ANCHOR: Single-row buoy observation accepted as ground truth in the
  *   nowcast window. 6h matches CDIP-via-IOOS ingestion lag (2h sync cron +
@@ -23,6 +25,7 @@
 export const STALENESS_THRESHOLDS = {
   CDIP: 4,          // 4 hours (CDIP buoy cron doesn't reliably update every beach every hour)
   NOAA_NWS: 12,     // 12 hours (Enhanced forecasts regenerate daily, matches actual update cadence)
+  OPEN_METEO: 12,   // 12 hours (extended-horizon rows follow the forecast batch cadence)
   FALLBACK: 12,     // 12 hours (fallback data less critical)
   NOWCAST_ANCHOR: 6, // 6 hours (matches CDIP-via-IOOS ingestion lag; see forecast-builder shouldApplyNowcastAnchor)
   DEFAULT: 6        // Default for unknown sources
