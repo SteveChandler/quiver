@@ -17,6 +17,7 @@ interface ZineTabProps {
   beachPhoto?: ZineBeachPhoto | null;
   surfCallReport?: SurfCallResult | null;
   beachTimezone?: string | null;
+  surfCallIsTomorrow?: boolean;
   onWriteReview?: () => void;
 }
 
@@ -33,6 +34,7 @@ export function ZineTab({
   beachPhoto,
   surfCallReport,
   beachTimezone,
+  surfCallIsTomorrow = false,
   onWriteReview,
 }: ZineTabProps) {
   return (
@@ -52,6 +54,7 @@ export function ZineTab({
             beachPhoto={beachPhoto}
             surfCallReport={surfCallReport}
             beachTimezone={beachTimezone}
+            surfCallIsTomorrow={surfCallIsTomorrow}
             onWriteReview={onWriteReview}
           />
           <ZineFooter city={beach.city} state={beach.state} />

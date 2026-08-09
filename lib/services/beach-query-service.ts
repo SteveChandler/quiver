@@ -23,7 +23,7 @@ import type { Beach } from "@/types/database";
 // Selective field query for beach list - only fetch commonly needed fields
 // Updated after 20251025 migrations: location->city, latitude->lat, longitude->lon, region->state
 const BEACH_LIST_FIELDS =
-  "id, name, slug, city, lat, lon, state, country, created_at, is_private, break_type, skill_level, average_rating, review_count, description, crowd_tips, wave_tips, best_conditions_prose, seo_indexable, editorial_reviewed_at, editorial_sources";
+  "id, name, slug, city, lat, lon, state, country, timezone, created_at, is_private, break_type, skill_level, average_rating, review_count, description, crowd_tips, wave_tips, best_conditions_prose, seo_indexable, editorial_reviewed_at, editorial_sources";
 
 // Full beach detail fields for single beach queries
 const BEACH_DETAIL_FIELDS = "*";

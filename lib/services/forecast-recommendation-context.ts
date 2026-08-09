@@ -41,10 +41,17 @@ export interface ForecastRecommendationContext {
   swellPeriod: string | null;
   periodSec: number | null;
   swellDirection: string | null;
+  primarySwellHeight?: string | null;
+  secondarySwellHeight?: string | null;
+  secondarySwellPeriod?: string | null;
+  secondarySwellDirection?: string | null;
   windSpeed: string | null;
   windDirection: string | null;
   score: number | null;
   confidence: number | null;
+  primaryDataSource?: string | null;
+  sourceDataUpdatedAt?: string | null;
+  contributingSources?: string[];
   resolverUsed: "surf-call";
   source: ForecastDisplayContextSource;
   timezone?: string | null;
@@ -332,6 +339,46 @@ function buildConditionDrivers({
   };
 }
 
+function forecastProvenance(row: EnhancedForecastEntity | null): {
+  primaryDataSource: string | null;
+  sourceDataUpdatedAt: string | null;
+  contributingSources: string[];
+} {
+  if (!row) {
+    return {
+      primaryDataSource: null,
+      sourceDataUpdatedAt: null,
+      contributingSources: [],
+    };
+  }
+
+  const sources = [
+    ...(row.raw_forecast?.data_sources ?? []),
+    row.data_source,
+    row.coops_station_id ? "NOAA_CO-OPS" : null,
+  ].filter((source): source is string => Boolean(source?.trim()));
+
+  return {
+    primaryDataSource: row.data_source ?? null,
+    sourceDataUpdatedAt: row.updated_at ?? null,
+    contributingSources: [...new Set(sources)],
+  };
+}
+
+function swellFields(row: EnhancedForecastEntity | null): {
+  primarySwellHeight: string | null;
+  secondarySwellHeight: string | null;
+  secondarySwellPeriod: string | null;
+  secondarySwellDirection: string | null;
+} {
+  return {
+    primarySwellHeight: row?.swell_1_height ?? null,
+    secondarySwellHeight: row?.swell_2_height ?? null,
+    secondarySwellPeriod: normalizePeriod(row?.swell_2_period ?? null),
+    secondarySwellDirection: row?.swell_2_direction ?? null,
+  };
+}
+
 function pickCurrentRow(
   forecasts: EnhancedForecastEntity[],
   nowMs: number,
@@ -393,6 +440,8 @@ function contextFromRow(args: {
   const startTime = toIso(rowTime);
   const waveHeightFt = parseAverageNumber(args.row.wave_height);
   const periodSec = parseAverageNumber(pickSwellPeriod(args.row, null, args.beach));
+  const provenance = forecastProvenance(args.row);
+  const swell = swellFields(args.row);
   return {
     beachId: String(args.beach.id),
     localDate: getLocalDateString(rowTime, args.timezone),
@@ -410,10 +459,12 @@ function contextFromRow(args: {
     swellPeriod: pickSwellPeriod(args.row, null, args.beach),
     periodSec,
     swellDirection: pickSwellDirection(args.row, args.beach),
+    ...swell,
     windSpeed: args.row.wind_speed ?? null,
     windDirection: args.row.wind_direction ?? null,
     score: args.score,
     confidence: args.row.confidence_score ?? null,
+    ...provenance,
     resolverUsed: "surf-call",
     source: args.source,
     timezone: args.timezone,
@@ -461,6 +512,8 @@ export function buildForecastRecommendationContext({
     const periodSec = parseAverageNumber(swellPeriod);
     const waveHeightRangeLabel = formatForecastDisplayWaveHeightRange(waveHeightFt);
     const swellDirection = pickSwellDirection(selectedForecast, beach);
+    const provenance = forecastProvenance(selectedForecast);
+    const swell = swellFields(selectedForecast);
     return {
       beachId: String(beach.id),
       localDate: getLocalDateString(start, resolvedTimezone),
@@ -482,10 +535,12 @@ export function buildForecastRecommendationContext({
       swellPeriod,
       periodSec,
       swellDirection,
+      ...swell,
       windSpeed: selectedForecast?.wind_speed ?? sourceForecast?.wind_speed ?? null,
       windDirection: selectedForecast?.wind_direction ?? sourceForecast?.wind_direction ?? null,
       score: window.score ?? null,
       confidence: window.confidence ?? selectedForecast?.confidence_score ?? sourceForecast?.confidence_score ?? null,
+      ...provenance,
       resolverUsed: "surf-call",
       source: "looking_ahead",
       timezone: resolvedTimezone,

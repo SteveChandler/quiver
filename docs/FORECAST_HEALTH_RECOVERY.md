@@ -34,7 +34,12 @@ The marine cron job (`/api/cron/forecasts/refresh?source=marine`) was not refres
 
 ### Database View Optimization
 
-**Migration**: `supabase/migrations/20260105161500_ensure_fast_v_enhanced_forecast_latest.sql`
+**Original optimization migration**: `supabase/migrations/20260105161500_ensure_fast_v_enhanced_forecast_latest.sql`
+
+The view now also prioritizes the local today/tomorrow forecast window. See
+`supabase/migrations/20260809050000_fix_near_term_forecast_latest_view.sql` and
+the follow-up `supabase/migrations/20260809130000_skip_expired_today_forecast_latest.sql`,
+which excludes already-passed forecast slots.
 
 Replaced `DISTINCT ON` with the `LATERAL + LIMIT 1` pattern:
 
@@ -43,17 +48,32 @@ CREATE OR REPLACE VIEW public.v_enhanced_forecast_latest
 WITH (security_invoker = true) AS
 SELECT
   b.id AS beach_id,
-  ef.updated_at,
-  ef.data_source
+  near_term.updated_at,
+  near_term.data_source
 FROM public.beaches b
 CROSS JOIN LATERAL (
-  SELECT updated_at, data_source
+  SELECT ef.updated_at, ef.data_source
   FROM public.enhanced_forecasts ef
   WHERE ef.beach_id = b.id
+    AND ef.forecast_at >= now()
+    AND ef.forecast_at < now() + interval '72 hours'
     AND ef.updated_at IS NOT NULL
-  ORDER BY ef.updated_at DESC
+    AND NULLIF(BTRIM(ef.wave_height), '') IS NOT NULL
+    AND NULLIF(BTRIM(ef.data_source), '') IS NOT NULL
+  ORDER BY
+    CASE
+      WHEN (ef.forecast_at AT TIME ZONE COALESCE(NULLIF(b.timezone, ''), 'America/Los_Angeles'))::date =
+        (now() AT TIME ZONE COALESCE(NULLIF(b.timezone, ''), 'America/Los_Angeles'))::date THEN 0
+      WHEN (ef.forecast_at AT TIME ZONE COALESCE(NULLIF(b.timezone, ''), 'America/Los_Angeles'))::date =
+        ((now() AT TIME ZONE COALESCE(NULLIF(b.timezone, ''), 'America/Los_Angeles'))::date + 1) THEN 1
+      ELSE 2
+    END,
+    -- Local today first, then tomorrow; future horizon rows cannot mask a
+    -- stale public-answer row.
+    ef.forecast_at ASC,
+    ef.updated_at DESC
   LIMIT 1
-) ef;
+) near_term;
 ```
 
 ### Why LATERAL is Faster

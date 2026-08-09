@@ -591,16 +591,14 @@ XP transaction log.
 
 ### `v_enhanced_forecast_latest`
 
-Returns latest forecast row per beach for health monitoring.
+Returns the most recently written complete near-term forecast row per beach
+for health monitoring and refresh selection. It prioritizes the beach's local
+today, then tomorrow, so extended-horizon rows cannot mask stale public-answer
+data.
 
 ```sql
-SELECT DISTINCT ON (beach_id)
-  beach_id,
-  updated_at,
-  data_source
-FROM enhanced_forecasts
-WHERE updated_at IS NOT NULL
-ORDER BY beach_id, updated_at DESC;
+SELECT beach_id, updated_at, data_source
+FROM v_enhanced_forecast_latest;
 ```
 
 ---

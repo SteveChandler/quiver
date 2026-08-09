@@ -12,6 +12,7 @@ describe('Forecast Staleness Configuration', () => {
     it('should have correct thresholds for each source', () => {
       expect(STALENESS_THRESHOLDS.CDIP).toBe(4);
       expect(STALENESS_THRESHOLDS.NOAA_NWS).toBe(12);
+      expect(STALENESS_THRESHOLDS.OPEN_METEO).toBe(12);
       expect(STALENESS_THRESHOLDS.FALLBACK).toBe(12);
       expect(STALENESS_THRESHOLDS.DEFAULT).toBe(6);
     });
@@ -37,6 +38,11 @@ describe('Forecast Staleness Configuration', () => {
       expect(getStalenessThreshold('NOAA_NWS')).toBe(12);
       expect(getStalenessThreshold('noaa_nws')).toBe(12);
       expect(getStalenessThreshold('Noaa_Nws')).toBe(12);
+    });
+
+    it('should return the explicit threshold for OPEN_METEO', () => {
+      expect(getStalenessThreshold('OPEN_METEO')).toBe(12);
+      expect(getStalenessThreshold('open_meteo')).toBe(12);
     });
 
     it('should return correct threshold for FALLBACK', () => {

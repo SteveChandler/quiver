@@ -357,7 +357,10 @@ export function buildDynamicBeachMetadata({
     average_rating?: number | null;
     review_count?: number | null;
   };
-  forecast: { wave_height?: string | null } | null;
+  forecast: {
+    wave_height?: string | null;
+    dayLabel?: "today" | "tomorrow" | null;
+  } | null;
 }): { title: string; description: string } {
   const expandedState = beach.state ? expandStateForMeta(beach.state) : "";
   const locationText =
@@ -368,16 +371,23 @@ export function buildDynamicBeachMetadata({
   const shortBeachName = shortenBeachNameForSerpTitle(beach.name);
 
   if (forecast?.wave_height) {
+    const dayLabel = forecast.dayLabel;
     const title = fitDynamicBeachTitle(
       `${shortBeachName}: ${forecast.wave_height} Surf Report & Forecast`,
       beach.city,
       beach.state,
     );
-    const description = pickMetaDescription([
-      `Current ${forecast.wave_height} wave height at ${beach.name}. See today's surf report & forecast, wind, tide, crowd intel, and 7-day forecast.`,
-      `Current ${forecast.wave_height} wave height at ${shortBeachName}. See today's surf report & forecast, wind, tide, crowd intel, and 7-day forecast.`,
-      `${forecast.wave_height} surf report & forecast for ${shortBeachName}: wave height, wind, tide, crowd intel, and 7-day forecast.`,
-    ]);
+    const description = dayLabel
+      ? pickMetaDescription([
+          `${dayLabel === "tomorrow" ? "Tomorrow's" : "Current"} ${forecast.wave_height} wave height at ${beach.name}. See the ${dayLabel} surf report & forecast, wind, tide, crowd intel, and 7-day forecast.`,
+          `${dayLabel === "tomorrow" ? "Tomorrow's" : "Current"} ${forecast.wave_height} wave height at ${shortBeachName}. See the ${dayLabel} surf report & forecast, wind, tide, crowd intel, and 7-day forecast.`,
+          `${forecast.wave_height} surf report & forecast for ${shortBeachName}: wave height, wind, tide, crowd intel, and 7-day forecast.`,
+        ])
+      : pickMetaDescription([
+          `Current ${forecast.wave_height} wave height at ${beach.name}. See today's surf report & forecast, wind, tide, crowd intel, and 7-day forecast.`,
+          `Current ${forecast.wave_height} wave height at ${shortBeachName}. See today's surf report & forecast, wind, tide, crowd intel, and 7-day forecast.`,
+          `${forecast.wave_height} surf report & forecast for ${shortBeachName}: wave height, wind, tide, crowd intel, and 7-day forecast.`,
+        ]);
 
     return { title, description };
   }

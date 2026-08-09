@@ -115,6 +115,11 @@ export class NOAACOOPSService {
         this.getLoggerOptions()
       );
 
+      if (tideData.length === 0) {
+        log.warn(`No tide predictions available for station ${stationId}`);
+        return null;
+      }
+
       const result: COOPSForecast = {
         station_id: stationId,
         station_name: stationInfo?.name || `Station ${stationId}`,
