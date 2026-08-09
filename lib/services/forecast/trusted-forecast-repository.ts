@@ -1,11 +1,10 @@
-import "server-only";
-
 /**
- * Server-only reads of private trusted-forecast state (Phase 21, MFA-05).
+ * Reads of private trusted-forecast state (Phase 21, MFA-05).
  *
  * Two reads, both strictly validated:
- *  - eligible `trusted_forecast_issues` rows for one coverage entry and the
- *    local days a build covers;
+ *  - `trusted_forecast_issues` rows for one coverage entry and the local days
+ *    a build covers; policy must see non-authority superseders before it
+ *    decides which rows may act as authority;
  *  - the exact existing `(beach_id, local_date)` decisions, so a repeated build
  *    reuses the original durable decision instead of minting a second one.
  *
@@ -16,8 +15,8 @@ import "server-only";
  */
 
 import { z } from "zod";
-
-import { createServiceRoleClient } from "@/lib/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.generated";
 import {
   TRUSTED_FORECAST_SOURCE_KEYS,
   assertIssueBeachIdsUnresolved,
@@ -110,6 +109,8 @@ export interface TrustedForecastReadStore {
   }): Promise<StoreResult<unknown[]>>;
 }
 
+type TrustedForecastSupabaseClient = SupabaseClient<Database>;
+
 const BEACH_SLUG_ROW = z.object({
   id: z.string().uuid(),
   slug: z.string().min(1),
@@ -138,10 +139,12 @@ function numericFromDatabase(value: number | string): number {
   return parsed;
 }
 
-export function createSupabaseTrustedForecastReadStore(): TrustedForecastReadStore {
+export function createTrustedForecastReadStore(
+  createClient: () => TrustedForecastSupabaseClient,
+): TrustedForecastReadStore {
   return {
     async selectBeachIdsBySlug(slugs) {
-      const supabase = createServiceRoleClient();
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("beaches")
         .select("id, slug")
@@ -149,11 +152,10 @@ export function createSupabaseTrustedForecastReadStore(): TrustedForecastReadSto
       return { data: (data as unknown[]) ?? null, error };
     },
     async selectIssuePage({ regionKeys, localDates, afterIssueId, limit }) {
-      const supabase = createServiceRoleClient();
+      const supabase = createClient();
       let query = supabase
         .from("trusted_forecast_issues" as never)
         .select(TRUSTED_FORECAST_ISSUE_COLUMNS.join(", "))
-        .eq("authority_eligible", true)
         .in("region_key", [...regionKeys])
         .in("valid_local_date", [...localDates])
         .order("issue_id", { ascending: true })
@@ -163,7 +165,7 @@ export function createSupabaseTrustedForecastReadStore(): TrustedForecastReadSto
       return { data: (data as unknown[]) ?? null, error };
     },
     async selectDecisions({ beachId, localDates }) {
-      const supabase = createServiceRoleClient();
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("trusted_forecast_decisions" as never)
         .select(TRUSTED_FORECAST_DECISION_COLUMNS.join(", "))
@@ -172,7 +174,7 @@ export function createSupabaseTrustedForecastReadStore(): TrustedForecastReadSto
       return { data: (data as unknown[]) ?? null, error };
     },
     async selectApplications({ beachId, forecastAts }) {
-      const supabase = createServiceRoleClient();
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("trusted_forecast_applications" as never)
         .select(TRUSTED_FORECAST_APPLICATION_COLUMNS.join(", "))
@@ -221,8 +223,9 @@ export async function loadBeachIdsBySlug(
 }
 
 /**
- * Load every authority-eligible issue this coverage entry could use for the
- * given local days.
+ * Load every issue this coverage entry could need for the given local days.
+ * Non-authority rows stay in the result because a retraction may supersede an
+ * older authority row; policy applies the authority filter after that step.
  *
  * The `source_key` guard is the point of this function beyond the query:
  * `freshnessMaxAgeHoursForSource` falls back to the strictest 24-hour bound for

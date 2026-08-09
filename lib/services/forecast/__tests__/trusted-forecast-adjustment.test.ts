@@ -17,11 +17,14 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
+
 import {
   TRUSTED_FORECAST_ALERT_RANGE_SEPARATION,
   appliedDeltaFtForGap,
   buildTrustedForecastDecisions,
   isEligibleHorizon,
+  isLocalDateFullyCoveredByBuildWindow,
   isTrustedForecastAdjustmentEnabled,
   localDateInTimeZone,
   nearestEdgeSeparationFt,
@@ -383,6 +386,63 @@ describe("MFA-03 lineage and evidence filtering (D-05 through D-08)", () => {
 // ---------------------------------------------------------------------------
 
 describe("MFA-03 authority precedence (D-09, D-10)", () => {
+  it("rejects evidence issued materially after the build anchor", () => {
+    const issue = realIssueWhere("stormsurf_ny_shortcast_live", {
+      validLocalDate: "2026-08-06",
+    });
+    const tooEarly = new Date(issue.issuedAt.getTime() - 10 * 60_000);
+    const selection = selectTrustedForecastAuthority({
+      entry: LONG_ISLAND,
+      localDate: "2026-08-06",
+      issues: [issue],
+      buildAnchorAt: tooEarly,
+    });
+
+    expect(selection.primary).toBeNull();
+    expect(selection.excluded).toEqual([{ issue, reason: "future_dated" }]);
+  });
+
+  it("allows a small clock-skew tolerance for a nearly simultaneous issue", () => {
+    const issue = realIssueWhere("stormsurf_ny_shortcast_live", {
+      validLocalDate: "2026-08-06",
+    });
+    const nearFuture = new Date(issue.issuedAt.getTime() - 4 * 60_000);
+    const selection = selectTrustedForecastAuthority({
+      entry: LONG_ISLAND,
+      localDate: "2026-08-06",
+      issues: [issue],
+      buildAnchorAt: nearFuture,
+    });
+
+    expect(selection.primary?.issueId).toBe(issue.issueId);
+  });
+
+  it("does not create a new decision for a partially covered local-day edge", () => {
+    const buildAnchorAt = new Date("2026-08-06T18:00:00.000Z");
+
+    expect(
+      isLocalDateFullyCoveredByBuildWindow({
+        localDate: "2026-08-06",
+        timeZone: "America/Los_Angeles",
+        buildAnchorAt,
+      }),
+    ).toBe(false);
+    expect(
+      isLocalDateFullyCoveredByBuildWindow({
+        localDate: "2026-08-07",
+        timeZone: "America/Los_Angeles",
+        buildAnchorAt,
+      }),
+    ).toBe(true);
+    expect(
+      isLocalDateFullyCoveredByBuildWindow({
+        localDate: "2026-08-13",
+        timeZone: "America/Los_Angeles",
+        buildAnchorAt,
+      }),
+    ).toBe(false);
+  });
+
   it("D-09 tier 1: compatible spot WaveCast beats regional WaveCast even when regional reads bigger", () => {
     const anchor = new Date("2026-08-06T18:00:00.000Z");
     const spot = realIssueWhere("wavecast_spot_chart_live_trestles", {
@@ -497,7 +557,7 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
   });
 
   it("configured regional-authority priority order decides between two non-WaveCast lineages", () => {
-    const anchor = new Date("2026-08-06T18:00:00.000Z");
+    const anchor = new Date("2026-08-07T02:00:00.000Z");
     const stormsurf = derivedIssue({
       label: "stormsurf_in_pnw",
       from: realRef("stormsurf_ny_shortcast_live", {
@@ -1196,6 +1256,9 @@ describe("MFA-04 independent conflict (D-11)", () => {
         valid_timezone: "America/New_York",
         min_face_ft: 9,
         max_face_ft: 10,
+        issued_at: "2026-08-06T11:00:00.000Z",
+        issue_identity_key: "7".repeat(64),
+        revision_hash: "8".repeat(64),
       },
       note:
         "nws_hfo covers only Hawaii live, so no real three-lineage overlap exists on one beach/day. Only the coverage keys and range move.",
@@ -1471,14 +1534,19 @@ describe("serving flag (D-24)", () => {
 
   it.each([
     [undefined, true],
-    ["", true],
+    ["", false],
     ["true", true],
     ["TRUE", true],
     ["yes", true],
-    ["0", true],
+    ["1", true],
+    ["on", true],
     ["false", false],
     ["FALSE", false],
     ["  False  ", false],
+    ["0", false],
+    ["no", false],
+    ["off", false],
+    ["banana", false],
   ])("env %p enables adjustments: %p", (value, enabled) => {
     if (value === undefined) {
       delete process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
@@ -1486,6 +1554,21 @@ describe("serving flag (D-24)", () => {
       process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = value;
     }
     expect(isTrustedForecastAdjustmentEnabled()).toBe(enabled);
+    if (value === "banana") {
+      expectConsoleErrors([/trusted_forecast_adjustments_invalid_flag/]);
+    }
+  });
+
+  it("logs a named error for an unrecognized value", () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = "maybe";
+
+    expect(isTrustedForecastAdjustmentEnabled()).toBe(false);
+    expect(errorSpy).toHaveBeenCalledWith(
+      "trusted_forecast_adjustments_invalid_flag",
+      expect.objectContaining({ serving: "disabled" }),
+    );
+    errorSpy.mockRestore();
   });
 
   it("an explicit false returns nothing at all", () => {
@@ -1567,7 +1650,11 @@ describe("21-02 persistence contract and privacy", () => {
       rpcKeys("c_decision_keys").sort(),
     );
     expect(Object.keys(result.applications[0]).sort()).toEqual(
-      rpcKeys("c_application_keys").sort(),
+      [
+        ...rpcKeys("c_application_keys"),
+        "forecastHorizonBucket",
+        "displaySource",
+      ].sort(),
     );
   });
 

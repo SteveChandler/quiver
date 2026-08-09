@@ -1,7 +1,5 @@
-import "server-only";
-
 /**
- * Server-only persistence client for the single trusted-forecast build RPC
+ * Persistence client for the single trusted-forecast build RPC
  * (Phase 21, MFA-06 / D-18 through D-21).
  *
  * `public.persist_trusted_forecast_build` writes decisions, first-write
@@ -24,8 +22,8 @@ import "server-only";
  */
 
 import { z } from "zod";
-
-import { createServiceRoleClient } from "@/lib/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.generated";
 import type {
   TrustedForecastAlertPayload,
   TrustedForecastApplicationPayload,
@@ -187,10 +185,14 @@ export interface TrustedForecastPersistenceStore {
   loadReceipt(buildKey: string): Promise<RpcResult>;
 }
 
-export function createSupabaseTrustedForecastPersistenceStore(): TrustedForecastPersistenceStore {
+type TrustedForecastSupabaseClient = SupabaseClient<Database>;
+
+export function createTrustedForecastPersistenceStore(
+  createClient: () => TrustedForecastSupabaseClient,
+): TrustedForecastPersistenceStore {
   return {
     async persistBuild(payload) {
-      const supabase = createServiceRoleClient();
+      const supabase = createClient();
       const { data, error } = await supabase.rpc(
         PERSIST_TRUSTED_FORECAST_BUILD_RPC as never,
         { p_payload: payload } as never,
@@ -198,7 +200,7 @@ export function createSupabaseTrustedForecastPersistenceStore(): TrustedForecast
       return { data, error };
     },
     async loadReceipt(buildKey) {
-      const supabase = createServiceRoleClient();
+      const supabase = createClient();
       const { data, error } = await supabase.rpc(
         GET_TRUSTED_FORECAST_BUILD_RECEIPT_RPC as never,
         { p_build_key: buildKey } as never,

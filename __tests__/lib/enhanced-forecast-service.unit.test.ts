@@ -1,4 +1,6 @@
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
+import { TrustedForecastLayerError } from "@/lib/services/forecast/forecast-builder";
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 // Mock CDIP Service with all required methods
 jest.mock("@/lib/services/cdip", () => {
@@ -260,5 +262,24 @@ describe("EnhancedForecastService (unit)", () => {
       cdip_skip_reason: "cdip_404",
       cdip_station: "045",
     });
+  });
+
+  it("reports trusted-layer failures separately from CDIP outages", async () => {
+    const service = new EnhancedForecastService() as any;
+    jest
+      .spyOn(service, "generateComprehensiveForecastWithDiagnostics")
+      .mockRejectedValue(
+        new TrustedForecastLayerError(new Error("trusted repository failed")),
+      );
+
+    const result = await service.processBeachForecastUpdate(beach, null);
+
+    expect(result).toMatchObject({
+      beach: "Test Beach",
+      success: false,
+      cdip_skip_reason: "trusted_forecast_failed",
+      cdip_station: null,
+    });
+    expectConsoleErrors([/trusted repository failed/]);
   });
 });

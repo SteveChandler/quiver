@@ -518,6 +518,7 @@ export type TrustedForecastExclusionReason =
   | "incompatible_exposure"
   | "unapproved_lineage"
   | "stale"
+  | "future_dated"
   | "wrong_local_date"
   | "unstored_issue"
   | "lineage_dedupe";
@@ -568,6 +569,9 @@ function coversScope(
 export function issueAgeHours(issue: TrustedForecastIssue, anchor: Date): number {
   return (anchor.getTime() - issue.issuedAt.getTime()) / 3_600_000;
 }
+
+/** Five minutes absorbs normal source/host clock skew without admitting future evidence. */
+const FRESHNESS_CLOCK_SKEW_TOLERANCE_HOURS = 5 / 60;
 
 /**
  * D-09/D-10 precedence tier. `null` means the row cannot act as authority for
@@ -813,10 +817,12 @@ export function selectTrustedForecastAuthority(
       excluded.push({ issue, reason: "unapproved_lineage" });
       continue;
     }
-    if (
-      issueAgeHours(issue, buildAnchorAt) >
-      freshnessMaxAgeHoursForSource(issue.sourceKey)
-    ) {
+    const ageHours = issueAgeHours(issue, buildAnchorAt);
+    if (ageHours < -FRESHNESS_CLOCK_SKEW_TOLERANCE_HOURS) {
+      excluded.push({ issue, reason: "future_dated" });
+      continue;
+    }
+    if (ageHours > freshnessMaxAgeHoursForSource(issue.sourceKey)) {
       excluded.push({ issue, reason: "stale" });
       continue;
     }

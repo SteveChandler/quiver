@@ -70,7 +70,11 @@ function harness(options: HarnessOptions = {}) {
   for (const slug of options.resolvedSlugs ?? COVERAGE_SLUGS) {
     resolved.set(slug, `id-for-${slug}`);
   }
-  const run = jest.fn(async () => undefined);
+  const run = jest.fn(async (args: { beachId: string; expectedBuildKey: string }) => ({
+    beachId: args.beachId,
+    buildKey: args.expectedBuildKey,
+    receiptFound: true,
+  }));
   const writeRunner = jest.fn(async () => ({ run }));
   const lines: string[] = [];
 
@@ -250,6 +254,24 @@ describe("no write-capable dependency is resolved before the target matches", ()
     expect(writeRunner).not.toHaveBeenCalled();
     expect(run).not.toHaveBeenCalled();
     expect(lines.join("\n")).toMatch(/build_key_mismatch/);
+  });
+
+  it.each([
+    ["the writer exercised another beach", { beachId: "wrong-beach" }],
+    ["the writer produced another build", { buildKey: "wrong-build" }],
+    ["the writer found no receipt", { receiptFound: false }],
+  ])("rejects a green writer result when %s", async (_label, override) => {
+    const { deps, writeRunner, run, lines } = harness();
+    run.mockResolvedValue({
+      beachId: BEACH_ID,
+      buildKey: BUILD_KEY,
+      receiptFound: true,
+      ...override,
+    });
+
+    await expect(runSmoke(baseArgv(), deps)).resolves.toBe(1);
+    expect(writeRunner).toHaveBeenCalledTimes(1);
+    expect(lines.join("\n")).toContain("target_write_failed");
   });
 
   it("aborts with zero writes when a preflight read itself fails", async () => {

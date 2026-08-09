@@ -701,12 +701,12 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     expect(persistence.payloads).toHaveLength(1);
     const payload = persistence.payloads[0];
     const firstDay = payload.decisions.find(
-      (decision) => decision.localDate === "2026-08-06",
+      (decision) => decision.localDate === "2026-08-07",
     );
     expect(payload.decisions.map((decision) => decision.localDate)).toContain(
-      "2026-08-06",
+      "2026-08-07",
     );
-    // 2026-08-06 has no slot at or beyond 24 h, so the offset never fires and
+    // 2026-08-07 has slots at or beyond 24 h, so the offset fires and
     // the post-offset baseline is still the raw 5 ft.
     expect(firstDay?.baselineMaxFaceFt).toBe(5);
 
@@ -731,7 +731,7 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
 
     const payload = persistence.payloads[0];
     const firstDay = payload.decisions.find(
-      (decision) => decision.localDate === "2026-08-06",
+      (decision) => decision.localDate === "2026-08-07",
     );
     // The captured chart's own numbers, not invented ones.
     expect(firstDay).toMatchObject({
@@ -777,7 +777,7 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     );
   });
 
-  it("D-16: the slot at exactly 168 h is claimed and 171 h is not", async () => {
+  it("D-16: incomplete edge days are not newly claimed", async () => {
     const persistence = persistenceStore();
 
     await newBuilder().buildForecasts(
@@ -796,8 +796,9 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     const at = (hours: number) =>
       new Date(TRUSTED_NOW.getTime() + hours * 3_600_000).toISOString();
 
-    expect(claimed.has(at(0))).toBe(true);
-    expect(claimed.has(at(168))).toBe(true);
+    expect(claimed.has(at(0))).toBe(false);
+    expect(claimed.has(at(24))).toBe(true);
+    expect(claimed.has(at(168))).toBe(false);
     expect(claimed.has(at(171))).toBe(false);
     // Nothing beyond the bound may reach a decision either.
     expect(
@@ -1017,7 +1018,7 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     expect(expected.filter((height) => height === withFeedback).length).toBeGreaterThan(0);
   });
 
-  it("D-18: the first-write snapshot is untouched by the trusted layer", async () => {
+  it("D-18: the first-write snapshot records the trusted served value", async () => {
     process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED = "true";
     const candidate: FeedbackHeightCalibrationCandidate = {
       id: "candidate-1",
@@ -1035,13 +1036,14 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
       ).toISOString(),
     };
 
+    const persistence = persistenceStore();
     await newBuilder().buildForecasts(
       buildInputs({
         beach: trustedBeach,
         heightOffset: null,
         feedbackCalibrationCandidate: candidate,
         trustedForecastReadStore: trustedReadStore(),
-        trustedForecastPersistenceStore: persistenceStore(),
+        trustedForecastPersistenceStore: persistence,
       }),
     );
 
@@ -1053,6 +1055,12 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
       expect(row.feedback_height_calibration_applied).toBe(true);
       expect(Object.keys(row).join(",")).not.toMatch(/trusted/);
     }
+    const persistedRows = persistence.payloads.flatMap((payload) => payload.snapshots);
+    expect(persistedRows.length).toBeGreaterThan(0);
+    expect(persistedRows[0]?.offset_corrected_display_height_m).toBeCloseTo(
+      5 / METERS_TO_FEET,
+      3,
+    );
   });
 
   it("D-24: serving defaults on; only an explicit false disables it", async () => {
@@ -1087,7 +1095,8 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     expect(defaultStore.payloads).toHaveLength(1);
     expect(defaultReads.calls).toContain("selectIssuePage");
 
-    // Any other value is still enabled — the switch is explicit-false only.
+    // Empty and false-like values are strict disable forms; malformed values
+    // also disable, while an unset flag retains D-24's deliberate default-on.
     process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = "0";
     const otherStore = persistenceStore();
     await newBuilder().buildForecasts(
@@ -1097,7 +1106,7 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
         trustedForecastPersistenceStore: otherStore,
       }),
     );
-    expect(otherStore.payloads).toHaveLength(1);
+    expect(otherStore.payloads).toHaveLength(0);
   });
 
   it("an uncovered beach is served baseline without touching the RPC", async () => {

@@ -90,7 +90,8 @@ export type SmokeAbortCode =
   | "beach_timezone_missing"
   | "local_date_mismatch"
   | "build_key_mismatch"
-  | "vocabulary_uncovered";
+  | "vocabulary_uncovered"
+  | "target_write_failed";
 
 export class SmokeAbort extends Error {
   constructor(
@@ -131,7 +132,13 @@ export interface SmokePreflightReader {
 
 /** The one write-capable dependency. Never constructed before preflight passes. */
 export interface SmokeWriteRunner {
-  run(args: SmokeArgs): Promise<void>;
+  run(args: SmokeArgs): Promise<SmokeWriteResult>;
+}
+
+export interface SmokeWriteResult {
+  readonly beachId: string;
+  readonly buildKey: string;
+  readonly receiptFound: boolean;
 }
 
 export interface SmokeDeps {
@@ -139,10 +146,8 @@ export interface SmokeDeps {
   /**
    * Derives the build key with the production function.
    *
-   * Async and injected rather than a direct import because
-   * `trusted-forecast-persistence.ts` is `server-only`, which Node cannot
-   * resolve outside Next's bundler — see the `server-only` note on
-   * `createProductionDeps`.
+   * Async and injected so preflight can complete before forecast tooling and
+   * its write-capable dependencies are resolved.
    */
   readonly deriveBuildKey: (args: {
     readonly beachId: string;
@@ -412,8 +417,28 @@ export async function runSmoke(
     ),
   );
 
-  const runner = await deps.writeRunner();
-  await runner.run(args);
+  let result: SmokeWriteResult;
+  try {
+    const runner = await deps.writeRunner();
+    result = await runner.run(args);
+  } catch (error) {
+    deps.log(
+      `ABORT target_write_failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return 1;
+  }
+  if (
+    result.beachId !== target.beachId ||
+    result.buildKey !== target.buildKey ||
+    !result.receiptFound
+  ) {
+    deps.log(
+      `ABORT target_write_failed: expected beach=${target.beachId} build=${target.buildKey} ` +
+        `receipt=true; got beach=${result.beachId} build=${result.buildKey} ` +
+        `receipt=${result.receiptFound}`,
+    );
+    return 1;
+  }
   return 0;
 }
 
@@ -426,29 +451,7 @@ function describeAbort(error: unknown): string {
 /* Production wiring                                                          */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Node cannot resolve the `server-only` package: it is not a dependency, and
- * Next provides it through its own bundler (jest gets it from `next/jest`).
- * 21-04 put `server-only` inside the forecast-builder import graph, so any
- * `tsx` script that reaches `forecast-builder` now fails at import — including
- * `scripts/regenerate-enhanced-forecasts.ts`. Alias it to Next's own empty
- * module, exactly as `next/jest` does, so this runner works while that
- * regression is outstanding.
- */
-function aliasServerOnlyForNode(): void {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const Module = require("node:module") as {
-    _resolveFilename: (request: string, ...rest: unknown[]) => string;
-  };
-  const original = Module._resolveFilename.bind(Module);
-  Module._resolveFilename = (request: string, ...rest: unknown[]): string =>
-    request === "server-only"
-      ? require.resolve("next/dist/compiled/server-only/empty.js")
-      : original(request, ...rest);
-}
-
 export function createProductionDeps(): SmokeDeps {
-  aliasServerOnlyForNode();
   return {
     reader: {
       async probeTrustedForecastRelations() {
@@ -462,7 +465,7 @@ export function createProductionDeps(): SmokeDeps {
       },
       async selectBeachIdsBySlug(slugs) {
         const { createSupabaseTrustedForecastReadStore, loadBeachIdsBySlug } =
-          await import("../lib/services/forecast/trusted-forecast-repository");
+          await import("../lib/services/forecast/trusted-forecast-repository-node");
         return loadBeachIdsBySlug(createSupabaseTrustedForecastReadStore(), slugs);
       },
       async selectBeachById(beachId) {
@@ -497,15 +500,54 @@ export function createProductionDeps(): SmokeDeps {
     },
     // Imported only here, only after the preflight has passed.
     writeRunner: async () => {
-      const { updateAllBeachForecasts } = await import(
-        "../lib/utils/forecast-server-utils"
+      const { updateBeachForecast } = await import("../lib/utils/forecast-server-utils");
+      const { createSupabaseTrustedForecastPersistenceStore } = await import(
+        "../lib/services/forecast/trusted-forecast-persistence-node"
       );
       return {
         async run(args: SmokeArgs) {
-          process.env.FORECAST_BATCH_SIZE = "1";
-          process.env.FORECAST_MAX_BEACHES_PER_RUN = "1";
-          process.env.FORECAST_FRESHNESS_WINDOW_HOURS = args.mode === "audit" ? "-1" : "0";
-          await updateAllBeachForecasts();
+          const result = await updateBeachForecast(args.beachId, {
+            buildAnchorAt: args.buildAnchorAt,
+          });
+          if (result.beachId !== args.beachId) {
+            throw new SmokeAbort(
+              "target_write_failed",
+              `forecast updater returned beach=${result.beachId}`,
+            );
+          }
+          const receiptResult = await createSupabaseTrustedForecastPersistenceStore().loadReceipt(
+            args.expectedBuildKey,
+          );
+          if (receiptResult.error) {
+            throw new SmokeAbort(
+              "target_write_failed",
+              `receipt read failed: ${receiptResult.error.code ?? "unknown"}`,
+            );
+          }
+          const rows = Array.isArray(receiptResult.data)
+            ? receiptResult.data
+            : receiptResult.data == null
+              ? []
+              : [receiptResult.data];
+          const row = rows.length === 1 ? rows[0] : null;
+          const record =
+            typeof row === "object" && row !== null
+              ? (row as { build_key?: unknown; policy_version?: unknown })
+              : null;
+          if (
+            record?.build_key !== args.expectedBuildKey ||
+            record.policy_version !== TRUSTED_FORECAST_POLICY_VERSION
+          ) {
+            throw new SmokeAbort(
+              "target_write_failed",
+              `expected one matching receipt for build=${args.expectedBuildKey}`,
+            );
+          }
+          return {
+            beachId: result.beachId,
+            buildKey: record.build_key,
+            receiptFound: true,
+          };
         },
       };
     },

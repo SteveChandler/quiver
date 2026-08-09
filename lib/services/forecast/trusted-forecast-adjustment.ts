@@ -51,6 +51,9 @@ export interface TrustedForecastSlot {
   /** Raw, unrounded elapsed hours from the build anchor (D-16). */
   readonly forecastHorizonHours: number;
   readonly baselineMaxFaceFt: number | null;
+  /** Snapshot dimensions selected by the builder for the same served slot. */
+  readonly forecastHorizonBucket?: string;
+  readonly displaySource?: string;
 }
 
 /** Durable `(beach_id, local_date)` decision already stored (D-13, D-18). */
@@ -81,6 +84,9 @@ export interface TrustedForecastApplicationPayload {
   readonly beachId: string;
   readonly localDate: string;
   readonly forecastAt: string;
+  /** Full first-write snapshot key used by ml_predictions_log. */
+  readonly forecastHorizonBucket: string;
+  readonly displaySource: string;
   readonly appliedDeltaFt: number;
   readonly baselineMaxFaceFt: number | null;
   readonly adjustedMaxFaceFt: number | null;
@@ -147,12 +153,30 @@ const EMPTY_RESULT: TrustedForecastEngineResult = Object.freeze({
   reusedDecisions: [],
 });
 
-/** D-24: default enabled; only an explicit `false` is a kill switch. */
+/** D-24: an unset flag keeps the deliberately enabled serving default. */
 export function isTrustedForecastAdjustmentEnabled(): boolean {
-  return (
-    process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED?.trim().toLowerCase() !==
-    "false"
-  );
+  const raw = process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
+  if (raw === undefined) return true;
+
+  const value = raw.trim().toLowerCase();
+  if (value === "true" || value === "1" || value === "yes" || value === "on") {
+    return true;
+  }
+  if (
+    value === "" ||
+    value === "false" ||
+    value === "0" ||
+    value === "no" ||
+    value === "off"
+  ) {
+    return false;
+  }
+
+  console.error("trusted_forecast_adjustments_invalid_flag", {
+    value: raw,
+    serving: "disabled",
+  });
+  return false;
 }
 
 /** Matches `numeric(8, 4)` storage so float noise cannot cross a band edge. */
@@ -326,6 +350,72 @@ function groupSlotsByLocalDate(
         (left, right) => left.forecastAt.getTime() - right.forecastAt.getTime(),
       ),
     }));
+}
+
+function nextLocalDate(localDate: string): string {
+  const [year, month, day] = localDate.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1))
+    .toISOString()
+    .slice(0, 10);
+}
+
+function timeZoneOffsetMs(instant: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const values = new Map(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, Number(part.value)]),
+  );
+  const wallClockMs = Date.UTC(
+    values.get("year") ?? 0,
+    (values.get("month") ?? 1) - 1,
+    values.get("day") ?? 1,
+    values.get("hour") ?? 0,
+    values.get("minute") ?? 0,
+    values.get("second") ?? 0,
+  );
+  return wallClockMs - instant.getTime();
+}
+
+function localMidnight(localDate: string, timeZone: string): Date {
+  const [year, month, day] = localDate.split("-").map(Number);
+  let guessMs = Date.UTC(year, month - 1, day);
+  // A second pass observes a DST offset change at the boundary.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    guessMs =
+      Date.UTC(year, month - 1, day) -
+      timeZoneOffsetMs(new Date(guessMs), timeZone);
+  }
+  return new Date(guessMs);
+}
+
+/**
+ * A durable day decision must not be based on a partial edge of the 168-hour
+ * window. Existing decisions are still reusable; callers use this only when
+ * deciding whether a new local-day row may be created.
+ */
+export function isLocalDateFullyCoveredByBuildWindow(args: {
+  readonly localDate: string;
+  readonly timeZone: string;
+  readonly buildAnchorAt: Date;
+}): boolean {
+  const dayStart = localMidnight(args.localDate, args.timeZone).getTime();
+  const dayEnd = localMidnight(
+    nextLocalDate(args.localDate),
+    args.timeZone,
+  ).getTime();
+  const windowEnd =
+    args.buildAnchorAt.getTime() + TRUSTED_FORECAST_MAX_HORIZON_HOURS * 3_600_000;
+  return dayStart >= args.buildAnchorAt.getTime() && dayEnd <= windowEnd;
 }
 
 function localDayBaselineMaxFt(slots: readonly TrustedForecastSlot[]): number | null {
@@ -512,6 +602,8 @@ export function buildTrustedForecastDecisions(
         beachId: coverage.beachId,
         localDate,
         forecastAt: slot.forecastAt.toISOString(),
+        forecastHorizonBucket: slot.forecastHorizonBucket ?? "",
+        displaySource: slot.displaySource ?? "",
         appliedDeltaFt,
         baselineMaxFaceFt: slotBaseline,
         adjustedMaxFaceFt:

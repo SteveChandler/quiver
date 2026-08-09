@@ -23,6 +23,7 @@ import {
 } from "../trusted-forecast-persistence";
 import {
   TrustedForecastRepositoryError,
+  createTrustedForecastReadStore,
   loadBeachIdsBySlug,
   loadEligibleTrustedForecastIssues,
   loadTrustedForecastApplications,
@@ -441,6 +442,37 @@ describe("trusted forecast repository — reads fail closed", () => {
     realRowWithId("wavecast_spot_chart_live_trestles", 0),
     realRowWithId("wavecast_spot_chart_live_trestles", 1),
   ];
+
+  it("lets policy inspect non-authority superseders before it filters authority", async () => {
+    const eqCalls: string[][] = [];
+    const inCalls: string[][] = [];
+    const chain: Record<string, jest.Mock> = {};
+    chain.select = jest.fn(() => chain);
+    chain.eq = jest.fn((column: string, value: unknown) => {
+        eqCalls.push([column, String(value)]);
+        return chain;
+      });
+    chain.in = jest.fn((column: string, values: unknown[]) => {
+      inCalls.push([column, values.join(",")]);
+      return chain;
+    });
+    chain.order = jest.fn(() => chain);
+    chain.limit = jest.fn(async () => ({ data: [], error: null }));
+    chain.gt = jest.fn(() => chain);
+    const store = createTrustedForecastReadStore(
+      () => ({ from: jest.fn(() => chain) }) as never,
+    );
+
+    await store.selectIssuePage({
+      regionKeys: ["trestles"],
+      localDates: ["2026-08-06"],
+      afterIssueId: null,
+      limit: 500,
+    });
+
+    expect(eqCalls).not.toContainEqual(["authority_eligible", "true"]);
+    expect(inCalls).toContainEqual(["region_key", "trestles"]);
+  });
 
   it("returns strictly parsed real rows on a successful read", async () => {
     const store = readStore({

@@ -34,6 +34,7 @@ import {
 import {
   buildTrustedForecastDecisions,
   isEligibleHorizon,
+  isLocalDateFullyCoveredByBuildWindow,
   isTrustedForecastAdjustmentEnabled,
   localDateInTimeZone,
   type TrustedForecastSlot,
@@ -51,7 +52,6 @@ import {
 } from "./trusted-forecast-coverage";
 import {
   TrustedForecastRepositoryError,
-  createSupabaseTrustedForecastReadStore,
   loadBeachIdsBySlug,
   loadEligibleTrustedForecastIssues,
   loadTrustedForecastApplications,
@@ -60,7 +60,6 @@ import {
 } from "./trusted-forecast-repository";
 import {
   TRUSTED_FORECAST_BUILD_SCHEMA_VERSION,
-  createSupabaseTrustedForecastPersistenceStore,
   persistTrustedForecastBuild,
   toTrustedForecastSnapshotPayload,
   trustedForecastBuildKey,
@@ -275,6 +274,8 @@ export interface ForecastInputs {
   feedbackCalibrationCandidate?: FeedbackHeightCalibrationCandidate | null;
   /** Optional report-only GFS-Wave issue-time source shadow data. */
   gfsWaveData?: GfsWaveShadowForecast | null;
+  /** Test/smoke override for the build anchor; production defaults to now. */
+  buildAnchorAt?: Date;
   /**
    * Server-private trusted-forecast stores. Both default to the service-role
    * Supabase implementations; they exist as inputs so the receipt state machine
@@ -307,6 +308,57 @@ const log = createContextLogger("ForecastBuilder");
 let warnedTrustedServiceRoleMissing = false;
 /** Coverage is process-wide config, so one report per cause is enough. */
 const reportedTrustedCoverageFailures = new Set<string>();
+
+function isMissingServerOnlyModule(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("server-only");
+}
+
+async function createDefaultTrustedForecastReadStore(): Promise<TrustedForecastReadStore> {
+  try {
+    const { createSupabaseTrustedForecastReadStore } = await import(
+      "./trusted-forecast-repository-server"
+    );
+    return createSupabaseTrustedForecastReadStore();
+  } catch (error) {
+    if (!isMissingServerOnlyModule(error)) throw error;
+    const { createSupabaseTrustedForecastReadStore } = await import(
+      "./trusted-forecast-repository-node"
+    );
+    return createSupabaseTrustedForecastReadStore();
+  }
+}
+
+async function createDefaultTrustedForecastPersistenceStore(): Promise<TrustedForecastPersistenceStore> {
+  try {
+    const { createSupabaseTrustedForecastPersistenceStore } = await import(
+      "./trusted-forecast-persistence-server"
+    );
+    return createSupabaseTrustedForecastPersistenceStore();
+  } catch (error) {
+    if (!isMissingServerOnlyModule(error)) throw error;
+    const { createSupabaseTrustedForecastPersistenceStore } = await import(
+      "./trusted-forecast-persistence-node"
+    );
+    return createSupabaseTrustedForecastPersistenceStore();
+  }
+}
+
+export class TrustedForecastLayerError extends Error {
+  readonly cause: unknown;
+  readonly code?: string;
+  readonly retriable?: boolean;
+
+  constructor(cause: unknown) {
+    super(cause instanceof Error ? cause.message : String(cause));
+    this.name = "TrustedForecastLayerError";
+    this.cause = cause;
+    if (typeof cause === "object" && cause !== null) {
+      const typed = cause as { code?: unknown; retriable?: unknown };
+      if (typeof typed.code === "string") this.code = typed.code;
+      if (typeof typed.retriable === "boolean") this.retriable = typed.retriable;
+    }
+  }
+}
 
 function hasServiceRoleConfig(): boolean {
   return (
@@ -418,9 +470,10 @@ export class ForecastBuilder {
       heightOffset,
       feedbackCalibrationCandidate,
       gfsWaveData,
+      buildAnchorAt,
     } = inputs;
     const forecasts: EnhancedForecastWithRawData[] = [];
-    const now = new Date();
+    const now = buildAnchorAt ?? new Date();
 
     // If no offset row was preloaded by the caller AND the beach has the flag
     // enabled, fetch it inline so the helper has data to work with. Most
@@ -580,9 +633,24 @@ export class ForecastBuilder {
       });
     }
 
-    // Snapshot write — awaited so the Vercel runtime keeps the function alive
-    // until the round-trip to Supabase finishes. logDisplayPredictions catches
-    // all errors internally so this can never throw past us.
+    // The trusted layer needs to put its final served value into a first-write
+    // snapshot, so it runs before the ordinary snapshot dispatch.
+    try {
+      await this.applyTrustedForecastAdjustments({
+        beach,
+        buildAnchorAt: now,
+        forecasts,
+        trustedSlots: trustedSlotBuffer,
+        snapshotBuffer,
+        readStore: inputs.trustedForecastReadStore,
+        persistenceStore: inputs.trustedForecastPersistenceStore,
+      });
+    } catch (error) {
+      throw new TrustedForecastLayerError(error);
+    }
+
+    // Snapshot writes are awaited so the Vercel runtime keeps the function
+    // alive. The writer catches transport errors and never blocks serving.
     if (snapshotBuffer.length > 0) {
       try {
         await logDisplayPredictions(snapshotBuffer);
@@ -592,20 +660,6 @@ export class ForecastBuilder {
         });
       }
     }
-
-    // Trusted external-forecaster adjustment. Runs AFTER the snapshot flush so
-    // a claimed slot's first-write row already exists, and after the whole row
-    // loop so a decision always sees the complete local day. Nothing public is
-    // mutated inside it until a matching build receipt is in hand (D-19..D-21).
-    await this.applyTrustedForecastAdjustments({
-      beach,
-      buildAnchorAt: now,
-      forecasts,
-      trustedSlots: trustedSlotBuffer,
-      snapshotBuffer,
-      readStore: inputs.trustedForecastReadStore,
-      persistenceStore: inputs.trustedForecastPersistenceStore,
-    });
 
     if (gfsWaveData) {
       const gfsRows = buildGfsWaveShadowRows({
@@ -650,8 +704,8 @@ export class ForecastBuilder {
     readStore?: TrustedForecastReadStore;
     persistenceStore?: TrustedForecastPersistenceStore;
   }): Promise<void> {
-    // D-24: serving defaults on and is independent of ingestion; only an
-    // explicit `false` disables it.
+    // D-24: serving defaults on when unset; strict false-like or malformed
+    // values disable the layer before any private read.
     if (!isTrustedForecastAdjustmentEnabled()) return;
 
     const eligibleSlots = args.trustedSlots.filter((slot) =>
@@ -675,7 +729,7 @@ export class ForecastBuilder {
     }
 
     const readStore =
-      args.readStore ?? createSupabaseTrustedForecastReadStore();
+      args.readStore ?? (await createDefaultTrustedForecastReadStore());
 
     let entry: TrustedForecastCoverageEntry | null;
     try {
@@ -741,10 +795,25 @@ export class ForecastBuilder {
       });
     }
 
-    const engineSlots: TrustedForecastSlot[] = eligibleSlots.map((slot) => ({
+    const decisionEligibleSlots = eligibleSlots.filter((slot) =>
+      isLocalDateFullyCoveredByBuildWindow({
+        localDate: localDateInTimeZone(slot.forecastAt, timeZone),
+        timeZone,
+        buildAnchorAt: args.buildAnchorAt,
+      }),
+    );
+    const engineSlots: TrustedForecastSlot[] = decisionEligibleSlots.map((slot) => ({
       forecastAt: slot.forecastAt,
       forecastHorizonHours: slot.forecastHorizonHours,
       baselineMaxFaceFt: slot.postOffsetFt,
+      forecastHorizonBucket:
+        slot.snapshotIndex == null
+          ? undefined
+          : args.snapshotBuffer[slot.snapshotIndex]?.forecast_horizon_bucket,
+      displaySource:
+        slot.snapshotIndex == null
+          ? undefined
+          : args.snapshotBuffer[slot.snapshotIndex]?.display_source,
     }));
 
     const result = buildTrustedForecastDecisions({
@@ -763,9 +832,16 @@ export class ForecastBuilder {
     // A durable decision is reused exactly: the slots it already claimed and
     // the delta it already applied come from `trusted_forecast_applications`,
     // never from a recomputation, and no second application row is emitted.
-    const reusedForecastAts = result.reusedDecisions.flatMap((decision) =>
-      decision.status === "applied" ? [...decision.governedForecastAts] : [],
+    const existingAppliedDates = new Set(
+      existingDecisions
+        .filter((decision) => decision.status === "applied")
+        .map((decision) => decision.localDate),
     );
+    const reusedForecastAts = eligibleSlots
+      .filter((slot) =>
+        existingAppliedDates.has(localDateInTimeZone(slot.forecastAt, timeZone)),
+      )
+      .map((slot) => slot.forecastAt.toISOString());
     const durableApplications = await loadTrustedForecastApplications(
       readStore,
       { beachId: entry.beachId, forecastAts: reusedForecastAts },
@@ -776,7 +852,20 @@ export class ForecastBuilder {
         const slot = slotByInstant.get(application.forecastAt);
         if (slot?.snapshotIndex == null) return [];
         const row = args.snapshotBuffer[slot.snapshotIndex];
-        return row === undefined ? [] : [toTrustedForecastSnapshotPayload(row)];
+        if (row === undefined) return [];
+        return [
+          toTrustedForecastSnapshotPayload({
+            ...row,
+            // The snapshot is the value users were served, while raw and
+            // legacy offset fields remain the pre-trusted telemetry inputs.
+            offset_corrected_display_height_m: Number(
+              (
+                row.offset_corrected_display_height_m +
+                application.appliedDeltaFt / METERS_TO_FEET
+              ).toFixed(3),
+            ),
+          }),
+        ];
       });
 
       const payload = {
@@ -801,7 +890,7 @@ export class ForecastBuilder {
       const outcome = await persistTrustedForecastBuild({
         store:
           args.persistenceStore ??
-          createSupabaseTrustedForecastPersistenceStore(),
+          (await createDefaultTrustedForecastPersistenceStore()),
         payload,
       });
 
@@ -819,9 +908,15 @@ export class ForecastBuilder {
       }
 
       for (const application of result.applications) {
+        const slot = slotByInstant.get(application.forecastAt);
         this.applyTrustedSlotDelta(
           args.forecasts,
-          slotByInstant.get(application.forecastAt),
+          slot,
+          application.appliedDeltaFt,
+        );
+        this.applyTrustedSnapshotDelta(
+          args.snapshotBuffer,
+          slot,
           application.appliedDeltaFt,
         );
       }
@@ -829,11 +924,13 @@ export class ForecastBuilder {
 
     for (const [forecastAt, appliedDeltaFt] of durableApplications) {
       if (appliedDeltaFt === 0) continue;
+      const slot = slotByInstant.get(forecastAt);
       this.applyTrustedSlotDelta(
         args.forecasts,
-        slotByInstant.get(forecastAt),
+        slot,
         appliedDeltaFt,
       );
+      this.applyTrustedSnapshotDelta(args.snapshotBuffer, slot, appliedDeltaFt);
     }
   }
 
@@ -857,6 +954,22 @@ export class ForecastBuilder {
       numericFt: Math.max(0, slot.postOffsetFt + appliedDeltaFt),
       rangeSpread: slot.rangeSpread,
     });
+  }
+
+  private applyTrustedSnapshotDelta(
+    snapshotBuffer: DisplayPredictionRow[],
+    slot: TrustedSlotRecord | undefined,
+    appliedDeltaFt: number,
+  ): void {
+    if (slot?.snapshotIndex == null) return;
+    const row = snapshotBuffer[slot.snapshotIndex];
+    if (row === undefined) return;
+    row.offset_corrected_display_height_m = Number(
+      (
+        row.offset_corrected_display_height_m +
+        appliedDeltaFt / METERS_TO_FEET
+      ).toFixed(3),
+    );
   }
 
   /**
