@@ -1,4 +1,7 @@
-import { fetchWaterTemperature } from "@/lib/services/noaa-coops/api-client";
+import {
+  fetchAllStationData,
+  fetchWaterTemperature,
+} from "@/lib/services/noaa-coops/api-client";
 
 // Mock global fetch
 const mockFetch = jest.fn();
@@ -96,5 +99,23 @@ describe("fetchWaterTemperature", () => {
     expect(calledUrl).toContain("units=metric");
     expect(calledUrl).toContain("time_zone=gmt");
     expect(calledUrl).toContain("range=24");
+  });
+});
+
+describe("fetchAllStationData", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it("returns no tide data instead of fabricating synthetic predictions when NOAA fails", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 503, statusText: "Unavailable", text: async () => "down" })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ stations: [{ name: "Test Station" }] }) });
+
+    const result = await fetchAllStationData("9410230", 2);
+
+    expect(result.tideData).toEqual([]);
+    expect(result.stationInfo).toEqual({ name: "Test Station" });
   });
 });

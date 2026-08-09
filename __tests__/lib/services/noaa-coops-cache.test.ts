@@ -28,7 +28,8 @@ describe("NOAACOOPSService Tide Cache", () => {
     it("should use geographic fallback for unknown beaches", () => {
       // Unknown beach in San Diego area should use nearest station
       const station = service.getStationForLocation("Unknown Beach", 32.8, -117.25);
-      expect(station).toBeTruthy();
+      expect(typeof station).toBe("string");
+      expect(station.length).toBeGreaterThan(0);
     });
   });
 
@@ -85,6 +86,23 @@ describe("NOAACOOPSService Tide Cache", () => {
       // Should have made new fetch calls after cache clear
       expect((global.fetch as jest.Mock).mock.calls.length).toBeGreaterThan(callsAfterFirst);
     });
+
+    it("should not cache an unavailable tide response", async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: false,
+        status: 503,
+        statusText: "Unavailable",
+        text: () => Promise.resolve("down"),
+      });
+
+      const firstResult = await service.fetchCOOPSData("9410230", 10);
+      const callsAfterFirst = (global.fetch as jest.Mock).mock.calls.length;
+      const secondResult = await service.fetchCOOPSData("9410230", 10);
+
+      expect(firstResult).toBeNull();
+      expect(secondResult).toBeNull();
+      expect((global.fetch as jest.Mock).mock.calls.length).toBeGreaterThan(callsAfterFirst);
+    });
   });
 
   describe("fetchCurrentWaterLevel with range parameter", () => {
@@ -104,18 +122,14 @@ describe("NOAACOOPSService Tide Cache", () => {
       const waterLevelCall = calls.find((call: any[]) => 
         call[0]?.includes("water_level")
       );
-      
-      if (waterLevelCall) {
-        // Should use range parameter, not begin_date with time
-        expect(waterLevelCall[0]).toContain("range=1");
-        expect(waterLevelCall[0]).not.toMatch(/begin_date=\d{8}\s/);
-      }
+
+      expect(waterLevelCall?.[0]).toEqual(expect.stringContaining("range=1"));
+      expect(waterLevelCall?.[0]).not.toEqual(
+        expect.stringMatching(/begin_date=\d{8}\s/)
+      );
     });
   });
 });
-
-
-
 
 
 

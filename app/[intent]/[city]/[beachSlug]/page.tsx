@@ -2,6 +2,7 @@ import { cache, Suspense } from "react";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
+import { PublicForecastAnswer } from "@/components/beach-detail/public-forecast-answer";
 import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spots";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
@@ -11,7 +12,6 @@ import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
-import { getBeachForecastPreview } from "@/actions/forecast-actions";
 import {
   buildBeachUrl,
   buildHiCityUrlForBeach,
@@ -40,10 +40,10 @@ import { LiveCamSchema } from "@/components/seo/live-cam-schema";
 import { getBeachCameraUrl } from "@/actions/beach/cam-actions";
 import {
   applyIndexabilityToMetadata,
-  evaluateBeachIndexability,
-  toBeachEditorialInput,
-  type BeachEditorialDatabaseRecord,
+  evaluateBeachForecastIndexability,
 } from "@/lib/seo/indexability";
+import { isDataStale } from "@/lib/utils/forecast-client-utils";
+import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
 
 // Public beach data is cookie-free. Major-event hold transitions explicitly
 // revalidate affected paths, so hourly ISR remains safe between transitions.
@@ -173,6 +173,8 @@ export default async function GenericBeachDetailPage(props: PageProps) {
 
     const surfCallReport = surfReportResult?.report || null;
     const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
+    const forecastContext = surfReportResult?.forecastContext ?? null;
+    const publicBeach = sanitizeBeachEditorialContent(beach);
 
     // Validate that the beach's state matches the URL state parameter
     const expectedStateSlug = stateToSlug(beach.state);
@@ -247,12 +249,20 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         />
 
         {/* FAQ structured data for rich snippets */}
-        <FAQSchema items={generateBeachFAQ(beach)} />
+        <FAQSchema items={generateBeachFAQ(publicBeach)} />
 
         {/* WebPage structured data with dateModified for freshness signal */}
         <WebPageSchema
           name={`${beach.name} Surf Report & Forecast`}
           url={`${baseUrl}${buildBeachUrl(beach)}`}
+          dateModified={forecastContext?.sourceDataUpdatedAt ?? undefined}
+        />
+
+        <PublicForecastAnswer
+          beach={publicBeach}
+          report={surfCallReport}
+          context={forecastContext}
+          isTomorrow={surfCallIsTomorrow}
         />
 
         {/* VideoObject + BroadcastEvent for live cam — earns LIVE badge in SERPs */}
@@ -266,7 +276,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
 
         {/* Client detail component with auth tracking */}
         <BeachDetailClient
-          beach={beach}
+          beach={publicBeach}
           slug={beachSlug}
           beachTimezone={beachTimezone}
           surfCallReport={surfCallReport}
@@ -395,16 +405,17 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       path = `/beach/${beachSlug}`;
     }
 
-    // Fetch forecast data for dynamic SEO (lightweight preview endpoint)
-    let forecastData: { wave_height?: string | null } | null = null;
-    try {
-      const forecastResult = await getBeachForecastPreview(beach.id);
-      if (forecastResult.success && forecastResult.data) {
-        forecastData = { wave_height: forecastResult.data.wave_height };
-      }
-    } catch {
-      // Gracefully degrade to static metadata on forecast fetch failure
-    }
+    // Metadata and robots use the same selected state as the server-rendered
+    // answer layer, so a stale or incomplete forecast cannot earn indexability.
+    const surfReportResult = await getSpotSurfReportPublic(beach);
+    const forecastContext = surfReportResult?.forecastContext ?? null;
+    const forecastData = forecastContext
+      ? {
+          wave_height:
+            forecastContext.waveHeightRangeLabel ?? forecastContext.waveHeight,
+          dayLabel: surfReportResult?.isTomorrow ? "tomorrow" as const : "today" as const,
+        }
+      : null;
 
     // Extract first sentence of beach description for meta tags
     const descriptionExcerpt = beach.description
@@ -448,10 +459,24 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       ].filter(Boolean),
     });
 
-    const decision = evaluateBeachIndexability(
-      toBeachEditorialInput(beach as BeachEditorialDatabaseRecord),
-      path,
-    );
+    const decision = evaluateBeachForecastIndexability({
+      canonicalValid: path === buildBeachUrl(beach) && !path.startsWith("/beach/"),
+      forecastAvailable: Boolean(surfReportResult),
+      selectedStateComplete: Boolean(
+        forecastContext?.selectedRowTime &&
+          forecastContext.waveHeight &&
+          forecastContext.sourceDataUpdatedAt &&
+          forecastContext.primaryDataSource,
+      ),
+      forecastFresh: Boolean(
+        forecastContext?.sourceDataUpdatedAt &&
+          forecastContext.primaryDataSource &&
+          !isDataStale(
+            forecastContext.sourceDataUpdatedAt,
+            forecastContext.primaryDataSource,
+          ),
+      ),
+    });
     return applyIndexabilityToMetadata(metadata, decision);
   } catch (error) {
     console.error("[GenericBeachDetailPage] Error generating metadata:", {

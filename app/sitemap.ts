@@ -30,11 +30,16 @@ import {
   cityEditorialKey,
   evaluateBeachIndexability,
   evaluateCityEditorialIndexability,
+  evaluateBeachForecastIndexability,
   toBeachEditorialInput,
   toCityEditorialInput,
   type BeachEditorialDatabaseRecord,
   type CityEditorialDatabaseRecord,
 } from "@/lib/seo/indexability";
+import {
+  getForecastIndexabilityForBeaches,
+  type ForecastIndexabilitySnapshot,
+} from "@/lib/seo/forecast-indexability";
 
 const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -157,6 +162,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const beachesResponse = await getBeaches();
   const allBeaches =
     beachesResponse.success && beachesResponse.data ? beachesResponse.data : [];
+  const forecastIndexabilityByBeachId = await getForecastIndexabilityForBeaches(
+    allBeaches.map((beach) => ({ id: beach.id, timezone: beach.timezone })),
+  );
   const reviewedCityEditorial = await getReviewedCityEditorialContent();
   const cityEditorialRoutes = new Map<string, CityEditorialRoute>();
   const selectedCityEditorial = new Map<string, (typeof reviewedCityEditorial)[number]>();
@@ -224,7 +232,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     blogRoutes,
   ] = await Promise.all([
     Promise.resolve(getStaticRoutes()),
-    Promise.resolve(buildBeachRoutes(allBeaches)),
+    Promise.resolve(buildBeachRoutes(allBeaches, forecastIndexabilityByBeachId)),
     getLocationRoutes(validCitySlugs, cityEditorialRoutes),
     getIntentRoutes(cityEditorialRoutes),
     Promise.resolve(getGuideRoutes()),
@@ -315,7 +323,10 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
  * Accepts pre-fetched beach data to avoid duplicate DB calls (the main
  * sitemap function shares this data with location route validation).
  */
-export function buildBeachRoutes(beaches: NonNullable<Awaited<ReturnType<typeof getBeaches>>["data"]>): MetadataRoute.Sitemap {
+export function buildBeachRoutes(
+  beaches: NonNullable<Awaited<ReturnType<typeof getBeaches>>["data"]>,
+  forecastIndexabilityByBeachId: ReadonlyMap<string, ForecastIndexabilitySnapshot>,
+): MetadataRoute.Sitemap {
   const subPageTypes = ["tides", "water-temp"] as const;
 
   return beaches
@@ -344,12 +355,14 @@ export function buildBeachRoutes(beaches: NonNullable<Awaited<ReturnType<typeof 
       const stateSlug = stateToSlug(beach.state);
       const isUsa = isUsaCountry(beach.country) && isValidStateSlug(stateSlug);
       const hasDedicatedSubPages = isUsa || countrySlug === "mexico";
+      const forecastSnapshot = forecastIndexabilityByBeachId.get(beach.id);
+      const forecastIndexable = isBeachForecastIndexableForSitemap(
+        forecastSnapshot,
+        beachPath,
+      );
 
       const candidateRoutes = [
-        ...(isBeachIndexableForSitemap(
-          beach as SitemapBeachEditorialFields,
-          beachPath,
-        )
+        ...(forecastIndexable
           ? [{
           url: beachUrl,
           lastModified: lastModifiedDate,
@@ -358,10 +371,7 @@ export function buildBeachRoutes(beaches: NonNullable<Awaited<ReturnType<typeof 
         ...(hasDedicatedSubPages
           ? subPageTypes.flatMap((subPage) => {
               const subPagePath = `${beachPath}/${subPage}`;
-              return isBeachIndexableForSitemap(
-                beach as SitemapBeachEditorialFields,
-                subPagePath,
-              )
+              return forecastIndexable
                 ? [{
                     url: `${baseUrl}${subPagePath}`,
                     lastModified: lastModifiedDate,
@@ -373,6 +383,20 @@ export function buildBeachRoutes(beaches: NonNullable<Awaited<ReturnType<typeof 
 
       return candidateRoutes;
     });
+}
+
+export function isBeachForecastIndexableForSitemap(
+  snapshot: ForecastIndexabilitySnapshot | undefined,
+  canonicalPath: string,
+): boolean {
+  if (!snapshot) return false;
+
+  return evaluateBeachForecastIndexability({
+    canonicalValid: !canonicalPath.startsWith("/beach/"),
+    forecastAvailable: snapshot.forecastAvailable,
+    selectedStateComplete: snapshot.selectedStateComplete,
+    forecastFresh: snapshot.forecastFresh,
+  }).indexable;
 }
 
 /**

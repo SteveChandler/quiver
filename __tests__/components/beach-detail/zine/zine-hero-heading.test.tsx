@@ -28,6 +28,38 @@ describe("ZineHero heading level", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("uses the beach coordinates to render a real static location map", () => {
+    const previousToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+    process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = "test-map-token";
+    const beach = createMockBeach({
+      name: "Tourmaline Beach",
+      city: "San Diego",
+      state: "CA",
+      lat: 32.805149,
+      lon: -117.262364,
+    });
+
+    try {
+      render(<ZineHero beach={beach} />);
+
+      const map = screen.getByRole("img", {
+        name: "Map showing Tourmaline Beach at its actual location",
+      });
+      const mapImage = map.querySelector("img");
+
+      expect(mapImage).toHaveAttribute(
+        "src",
+        expect.stringContaining("-117.262364,32.805149,15,0"),
+      );
+    } finally {
+      if (previousToken === undefined) {
+        delete process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+      } else {
+        process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = previousToken;
+      }
+    }
+  });
+
   it("renders a stored cam still in the hero when the live stream URL is unavailable", () => {
     const beach = createMockBeach({
       name: "Inches",

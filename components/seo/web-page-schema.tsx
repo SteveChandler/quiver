@@ -18,7 +18,7 @@ export function WebPageSchema({
     "@type": "WebPage",
     name,
     url,
-    dateModified: dateModified ?? new Date().toISOString(),
+    ...(dateModified ? { dateModified } : {}),
     ...(description ? { description } : {}),
     ...additionalData,
   };

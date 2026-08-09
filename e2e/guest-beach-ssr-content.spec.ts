@@ -37,4 +37,14 @@ test.describe("Guest beach server-rendered content", () => {
       page.getByRole("navigation", { name: /related surf guides/i }),
     ).toHaveCount(0);
   });
+
+  test("renders the selected forecast answer in initial HTML @requires-data", async ({ page }) => {
+    const response = await page.request.get(reviewedBeachPath);
+    expect(response.status()).toBe(200);
+
+    const html = await response.text();
+    expect(html).toContain('data-testid="public-forecast-answer"');
+    expect(html).toMatch(/surf forecast/i);
+    expect(html).toMatch(/Forecast valid at/i);
+  });
 });

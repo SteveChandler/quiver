@@ -26,6 +26,7 @@ interface OverviewTabProps {
   beachPhoto?: ZineBeachPhoto | null;
   surfCallReport?: SurfCallResult | null;
   beachTimezone?: string | null;
+  surfCallIsTomorrow?: boolean;
   onWriteReview?: () => void;
 }
 
@@ -40,6 +41,7 @@ export function OverviewTab({
   beachPhoto,
   surfCallReport,
   beachTimezone,
+  surfCallIsTomorrow = false,
   onWriteReview,
 }: OverviewTabProps) {
   return (
@@ -50,6 +52,7 @@ export function OverviewTab({
       beachPhoto={beachPhoto}
       surfCallReport={surfCallReport}
       beachTimezone={beachTimezone}
+      surfCallIsTomorrow={surfCallIsTomorrow}
       onWriteReview={onWriteReview}
     />
   );

@@ -18,6 +18,7 @@ interface ZineOverviewBodyProps {
   beachPhoto?: ZineBeachPhoto | null;
   surfCallReport?: SurfCallResult | null;
   beachTimezone?: string | null;
+  surfCallIsTomorrow?: boolean;
   onWriteReview?: () => void;
 }
 
@@ -36,6 +37,7 @@ export function ZineOverviewBody({
   beachPhoto,
   surfCallReport,
   beachTimezone,
+  surfCallIsTomorrow = false,
   onWriteReview,
 }: ZineOverviewBodyProps) {
   return (
@@ -44,6 +46,7 @@ export function ZineOverviewBody({
         beach={beach}
         surfCallReport={surfCallReport}
         beachTimezone={beachTimezone}
+        isTomorrow={surfCallIsTomorrow}
       />
       <ZineMainGrid beach={beach} beachPhoto={beachPhoto} />
       <ZineSpotSummary beach={beach} />

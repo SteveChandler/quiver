@@ -65,7 +65,13 @@ export type IndexabilityReason =
   | "gsc-protected"
   | "editorial-rejected"
   | "insufficient-data"
-  | "unproven";
+  | "unproven"
+  | "forecast-approved"
+  | "forecast-missing"
+  | "forecast-incomplete"
+  | "forecast-stale"
+  | "invalid-canonical"
+  | "forecast-integrity-quarantined";
 
 export interface EditorialQualityResult {
   approved: boolean;
@@ -84,6 +90,14 @@ export interface IndexabilityContext {
 export interface IndexabilityDecision {
   indexable: boolean;
   reason: IndexabilityReason;
+}
+
+export interface ForecastIndexabilityInput {
+  canonicalValid: boolean;
+  forecastAvailable: boolean;
+  selectedStateComplete: boolean;
+  forecastFresh: boolean;
+  integrityQuarantined?: boolean;
 }
 
 function hasText(value: string | null | undefined): boolean {
@@ -274,6 +288,37 @@ export function evaluateBeachIndexability(
     dataRich: hasBeachSubstantiveContent(input),
     performanceProtected: isGscPerformanceProtected(canonicalPath),
   });
+}
+
+/**
+ * Forecast pages earn indexability from the live forecast contract, not from
+ * the editorial review queue. Editorial quality is enforced separately so a
+ * bad paragraph cannot take a useful, current forecast out of the catalog.
+ */
+export function evaluateBeachForecastIndexability(
+  input: ForecastIndexabilityInput,
+): IndexabilityDecision {
+  if (!input.canonicalValid) {
+    return { indexable: false, reason: "invalid-canonical" };
+  }
+
+  if (input.integrityQuarantined) {
+    return { indexable: false, reason: "forecast-integrity-quarantined" };
+  }
+
+  if (!input.forecastAvailable) {
+    return { indexable: false, reason: "forecast-missing" };
+  }
+
+  if (!input.selectedStateComplete) {
+    return { indexable: false, reason: "forecast-incomplete" };
+  }
+
+  if (!input.forecastFresh) {
+    return { indexable: false, reason: "forecast-stale" };
+  }
+
+  return { indexable: true, reason: "forecast-approved" };
 }
 
 export function evaluateCityEditorialIndexability(
