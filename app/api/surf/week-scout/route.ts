@@ -82,7 +82,10 @@ async function weekScoutHandler(
   request: NextRequest,
   { user }: AuthenticatedContext,
 ): Promise<NextResponse> {
-  if (process.env.WEEK_SCOUT_ENDPOINT_ENABLED !== 'true') {
+  // Installed native clients need a stable canonical contract. Keep the flag
+  // as an emergency kill switch, but default the endpoint on so an omitted
+  // preview/production env value cannot turn every mobile forecast into a 404.
+  if (process.env.WEEK_SCOUT_ENDPOINT_ENABLED === 'false') {
     return NextResponse.json(
       { success: false, error: 'Week Scout endpoint is not enabled' },
       { status: 404 },
