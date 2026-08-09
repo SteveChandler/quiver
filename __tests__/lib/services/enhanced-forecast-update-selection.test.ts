@@ -8,7 +8,7 @@ function makeBeach(id: string, name?: string): MockBeach {
  * This test verifies the beach selection logic used by the background refresh:
  * - Prioritize beaches with NO forecasts (missing coverage)
  * - Then prioritize beaches with the OLDEST `updated_at`
- * - Do not repeatedly re-select recently updated beaches due to too-short freshness window
+ * - Select beaches before the public freshness window expires
  */
 describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
   beforeEach(() => {
@@ -22,7 +22,7 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
     jest.useRealTimers();
   });
 
-  it("prioritizes missing beaches, then oldest stale beaches", async () => {
+  it("prioritizes missing beaches, then oldest beaches due for proactive refresh", async () => {
     const beaches = [
       makeBeach("b1", "Missing 1"),
       makeBeach("b2", "Missing 2"),
@@ -35,7 +35,7 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
     // by updateAllEnhancedForecasts().
     const latestRows = [
       { beach_id: "b5", updated_at: "2025-12-11T06:30:00Z" }, // 5.5h old (fresh within 12h)
-      { beach_id: "b4", updated_at: "2025-12-10T10:00:00Z" }, // older
+      { beach_id: "b4", updated_at: "2025-12-11T02:00:00Z" }, // 10h old (fresh, but inside 4h refresh lead)
       { beach_id: "b3", updated_at: "2025-12-09T10:00:00Z" }, // oldest
     ];
 
@@ -81,6 +81,9 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
     );
     const service = new Service() as any;
 
+    process.env.FORECAST_FRESHNESS_WINDOW_HOURS = "12";
+    process.env.FORECAST_REFRESH_LEAD_HOURS = "4";
+
     // Avoid network calls and DB writes during the test; capture chosen beaches via the forecast generator stub.
     const processedBeachIds: string[] = [];
     jest
@@ -105,7 +108,7 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
     expect(processedBeachIds[0]).toBe("b1");
     expect(processedBeachIds[1]).toBe("b2");
 
-    // Then oldest stale next (b3 older than b4)
+    // Then oldest due next. b4 proves selection begins before the 12h stale cutoff.
     expect(processedBeachIds).toContain("b3");
     expect(processedBeachIds).toContain("b4");
 

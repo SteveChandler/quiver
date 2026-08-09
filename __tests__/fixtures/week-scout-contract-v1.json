@@ -1,0 +1,133 @@
+{
+  "generatedAt": "2026-07-15T18:00:00.000Z",
+  "scorerVersion": "week-scout-v1:discovery-hero-v1",
+  "candidateFingerprint": "candidate-fingerprint-v1",
+  "recommendationAvailability": {
+    "state": "available",
+    "holdEpoch": "available-epoch"
+  },
+  "sessionDecision": {
+    "schemaVersion": "canonical-session-decision.v1",
+    "engineVersion": "rules.v1",
+    "decisionId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "createdAt": "2026-07-15T18:00:00.000Z",
+    "expiresAt": "2026-07-15T18:05:00.000Z",
+    "scope": {
+      "kind": "plan_next_session",
+      "windowStart": "2026-07-15T18:00:00.000Z",
+      "windowEnd": "2026-07-22T18:00:00.000Z",
+      "timezone": "Pacific/Honolulu"
+    },
+    "verdict": "go",
+    "decisionBasis": "physical_fallback",
+    "reasonCode": "selected_go",
+    "selection": {
+      "candidateId": "window-a",
+      "beachId": "11111111-1111-4111-8111-111111111111",
+      "beachName": "Ala Moana",
+      "windowStart": "2026-07-15T16:00:00.000Z",
+      "windowEnd": "2026-07-15T19:00:00.000Z",
+      "timezone": "Pacific/Honolulu",
+      "forecastRef": {
+        "forecastId": "forecast-a",
+        "beachId": "11111111-1111-4111-8111-111111111111",
+        "forecastAt": "2026-07-15T17:00:00.000Z"
+      },
+      "skillEligibility": {
+        "skill": "intermediate",
+        "state": "eligible",
+        "reasonCodes": []
+      },
+      "evidence": {
+        "conditionScore": 84,
+        "recommendationLabel": "Worth it",
+        "personalMatch": null
+      }
+    },
+    "skillEligibility": {
+      "skill": "intermediate",
+      "state": "eligible",
+      "reasonCodes": []
+    },
+    "holdEpoch": "available-epoch"
+  },
+  "days": [
+    {
+      "localDate": "2026-07-15",
+      "windows": [
+        {
+          "id": "window-a",
+          "bucket": "morning",
+          "start": "2026-07-15T16:00:00.000Z",
+          "end": "2026-07-15T19:00:00.000Z",
+          "peakTime": "2026-07-15T17:00:00.000Z",
+          "beachId": "11111111-1111-4111-8111-111111111111",
+          "conditionScore": 84,
+          "rankingScore": 88,
+          "verdict": "worth_it",
+          "rideable": true,
+          "safe": true,
+          "confidence": 82,
+          "forecast": {
+            "waveHeight": "3-4 ft",
+            "period": "12s",
+            "swellDirection": "S",
+            "windSpeed": "5 mph",
+            "windDirection": "NE",
+            "tideHeightFt": 1.4,
+            "tidePhase": "Rising",
+            "freshnessAt": "2026-07-15T18:00:00.000Z"
+          },
+          "takeaway": "Cleanest before the trades fill in.",
+          "rankedSpots": [
+            {
+              "beachId": "11111111-1111-4111-8111-111111111111",
+              "beachName": "Ala Moana",
+              "conditionScore": 84,
+              "rankingScore": 88,
+              "verdict": "worth_it"
+            }
+          ]
+        }
+      ],
+      "bestWindowId": "window-a",
+      "exclusionReasons": []
+    },
+    {
+      "localDate": "2026-07-16",
+      "windows": [],
+      "bestWindowId": null,
+      "exclusionReasons": ["no_forecasts"]
+    },
+    {
+      "localDate": "2026-07-17",
+      "windows": [],
+      "bestWindowId": null,
+      "exclusionReasons": ["no_forecasts"]
+    },
+    {
+      "localDate": "2026-07-18",
+      "windows": [],
+      "bestWindowId": null,
+      "exclusionReasons": ["no_forecasts"]
+    },
+    {
+      "localDate": "2026-07-19",
+      "windows": [],
+      "bestWindowId": null,
+      "exclusionReasons": ["no_forecasts"]
+    },
+    {
+      "localDate": "2026-07-20",
+      "windows": [],
+      "bestWindowId": null,
+      "exclusionReasons": ["no_forecasts"]
+    },
+    {
+      "localDate": "2026-07-21",
+      "windows": [],
+      "bestWindowId": null,
+      "exclusionReasons": ["no_forecasts"]
+    }
+  ]
+}

@@ -53,6 +53,24 @@ export interface BatchProcessConfig {
   batchDelayMs: number;
   maxBeachesPerRun: number;
   freshnessWindowHours: number;
+  refreshLeadHours: number;
+}
+
+/**
+ * Start refresh work before the public freshness window expires so cron
+ * cadence and execution time cannot create a rotating stale queue.
+ */
+export function getRefreshSelectionWindowHours(
+  config: Pick<BatchProcessConfig, "freshnessWindowHours" | "refreshLeadHours">
+): number {
+  const freshnessWindowHours = Number.isFinite(config.freshnessWindowHours)
+    ? Math.max(0, config.freshnessWindowHours)
+    : 0;
+  const refreshLeadHours = Number.isFinite(config.refreshLeadHours)
+    ? Math.max(0, config.refreshLeadHours)
+    : 0;
+
+  return Math.max(0, freshnessWindowHours - refreshLeadHours);
 }
 
 /**
@@ -64,6 +82,7 @@ export function loadBatchConfig(overrides?: Partial<BatchProcessConfig>): BatchP
     batchDelayMs: Number(process.env.FORECAST_BATCH_DELAY_MS ?? 1000),
     maxBeachesPerRun: Number(process.env.FORECAST_MAX_BEACHES_PER_RUN ?? 45),
     freshnessWindowHours: Number(process.env.FORECAST_FRESHNESS_WINDOW_HOURS ?? 12),
+    refreshLeadHours: Number(process.env.FORECAST_REFRESH_LEAD_HOURS ?? 4),
     ...overrides,
   };
 }
@@ -81,6 +100,7 @@ export function loadCdipBatchConfig(): BatchProcessConfig {
         25
     ),
     freshnessWindowHours: Number(process.env.FORECAST_CDIP_FRESHNESS_WINDOW_HOURS ?? 2),
+    refreshLeadHours: Number(process.env.FORECAST_CDIP_REFRESH_LEAD_HOURS ?? 0.5),
   };
 }
 
