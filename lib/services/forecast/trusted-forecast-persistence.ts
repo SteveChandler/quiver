@@ -32,7 +32,7 @@ import type {
 import type { DisplayPredictionRow } from "./log-display-prediction";
 
 export const TRUSTED_FORECAST_BUILD_SCHEMA_VERSION =
-  "trusted-forecast-build-v1";
+  "trusted-forecast-build-v2";
 
 export const PERSIST_TRUSTED_FORECAST_BUILD_RPC =
   "persist_trusted_forecast_build";
@@ -231,8 +231,9 @@ export function trustedForecastBuildKey(args: {
   readonly beachId: string;
   readonly buildAnchorAt: Date;
   readonly policyVersion: string;
+  readonly schemaVersion: string;
 }): string {
-  const key = `tf:${args.policyVersion}:${args.beachId}:${args.buildAnchorAt.toISOString()}`;
+  const key = `tf:${args.schemaVersion}:${args.policyVersion}:${args.beachId}:${args.buildAnchorAt.toISOString()}`;
   return key.length > MAX_BUILD_KEY_LENGTH
     ? key.slice(0, MAX_BUILD_KEY_LENGTH)
     : key;

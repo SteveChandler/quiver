@@ -59,6 +59,7 @@ import {
   TRUSTED_FORECAST_POLICY_VERSION,
   type TrustedForecastScopeType,
 } from "../lib/services/forecast/trusted-forecast-policy";
+import { TRUSTED_FORECAST_BUILD_SCHEMA_VERSION } from "../lib/services/forecast/trusted-forecast-persistence";
 
 export const SMOKE_MODES = ["forecast", "audit"] as const;
 export type SmokeMode = (typeof SMOKE_MODES)[number];
@@ -496,6 +497,7 @@ export function createProductionDeps(): SmokeDeps {
         beachId,
         buildAnchorAt,
         policyVersion: TRUSTED_FORECAST_POLICY_VERSION,
+        schemaVersion: TRUSTED_FORECAST_BUILD_SCHEMA_VERSION,
       });
     },
     // Imported only here, only after the preflight has passed.

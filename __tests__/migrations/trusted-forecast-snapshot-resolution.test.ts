@@ -32,4 +32,18 @@ describe("trusted forecast snapshot resolution forward migration", () => {
     expect(sql).toContain("'public.persist_trusted_forecast_build(jsonb)'::regprocedure");
     expect(sql).not.toContain("DROP FUNCTION public.persist_trusted_forecast_build");
   });
+
+  it("aborts unless both text patches were found", () => {
+    expect(sql).toContain("v_application_keys_replaced boolean := false");
+    expect(sql).toContain("v_snapshot_lookup_replaced boolean := false");
+    expect(sql).toContain(
+      "trusted forecast snapshot-resolution migration did not find the application key contract",
+    );
+    expect(sql).toContain(
+      "trusted forecast snapshot-resolution migration did not find the snapshot lookup",
+    );
+    expect(sql).toContain(
+      "IF NOT v_application_keys_replaced OR NOT v_snapshot_lookup_replaced THEN",
+    );
+  });
 });

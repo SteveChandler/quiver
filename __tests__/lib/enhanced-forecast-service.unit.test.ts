@@ -1,5 +1,6 @@
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
-import { TrustedForecastLayerError } from "@/lib/services/forecast/forecast-builder";
+import { ForecastBuilder } from "@/lib/services/forecast/forecast-builder";
+import { TrustedForecastLayerError } from "@/lib/errors/forecast-errors";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 // Mock CDIP Service with all required methods
@@ -266,13 +267,28 @@ describe("EnhancedForecastService (unit)", () => {
 
   it("reports trusted-layer failures separately from CDIP outages", async () => {
     const service = new EnhancedForecastService() as any;
+    jest.spyOn(service, "fetchWaveDataWithRetry").mockResolvedValue({});
+    jest.spyOn(service, "fetchTidalDataWithRetry").mockResolvedValue({});
+    jest.spyOn(service, "fetchWeatherDataWithRetry").mockResolvedValue([]);
+    jest.spyOn(service, "fetchCDIPDataWithRetry").mockResolvedValue({
+      data: null,
+      stationId: null,
+      skipReason: "no_station",
+    });
+    jest.spyOn(service, "fetchIOOSWaterTemp").mockResolvedValue(null);
+    jest.spyOn(service, "fetchCOOPSWaterTemp").mockResolvedValue(null);
     jest
-      .spyOn(service, "generateComprehensiveForecastWithDiagnostics")
+      .spyOn(ForecastBuilder.prototype, "buildForecasts")
       .mockRejectedValue(
         new TrustedForecastLayerError(new Error("trusted repository failed")),
       );
 
-    const result = await service.processBeachForecastUpdate(beach, null);
+    let result;
+    try {
+      result = await service.processBeachForecastUpdate(beach, null);
+    } finally {
+      jest.restoreAllMocks();
+    }
 
     expect(result).toMatchObject({
       beach: "Test Beach",

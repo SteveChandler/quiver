@@ -9,6 +9,7 @@
  */
 
 import { createContextLogger } from "@/lib/logger";
+import { TrustedForecastLayerError } from "@/lib/errors/forecast-errors";
 import { shouldForceNoDecay } from "@/lib/flags/decay-off";
 import { isForecastHandoffBlendEnabled } from "@/lib/flags/forecast-handoff-blend";
 import { calculateConfidenceScore } from "./confidence-scorer";
@@ -37,6 +38,7 @@ import {
   isLocalDateFullyCoveredByBuildWindow,
   isTrustedForecastAdjustmentEnabled,
   localDateInTimeZone,
+  TRUSTED_FORECAST_ADJUSTED_DISPLAY_SOURCE,
   type TrustedForecastSlot,
 } from "./trusted-forecast-adjustment";
 import {
@@ -343,22 +345,7 @@ async function createDefaultTrustedForecastPersistenceStore(): Promise<TrustedFo
   }
 }
 
-export class TrustedForecastLayerError extends Error {
-  readonly cause: unknown;
-  readonly code?: string;
-  readonly retriable?: boolean;
-
-  constructor(cause: unknown) {
-    super(cause instanceof Error ? cause.message : String(cause));
-    this.name = "TrustedForecastLayerError";
-    this.cause = cause;
-    if (typeof cause === "object" && cause !== null) {
-      const typed = cause as { code?: unknown; retriable?: unknown };
-      if (typeof typed.code === "string") this.code = typed.code;
-      if (typeof typed.retriable === "boolean") this.retriable = typed.retriable;
-    }
-  }
-}
+export { TrustedForecastLayerError } from "@/lib/errors/forecast-errors";
 
 function hasServiceRoleConfig(): boolean {
   return (
@@ -858,12 +845,11 @@ export class ForecastBuilder {
             ...row,
             // The snapshot is the value users were served, while raw and
             // legacy offset fields remain the pre-trusted telemetry inputs.
-            offset_corrected_display_height_m: Number(
-              (
-                row.offset_corrected_display_height_m +
-                application.appliedDeltaFt / METERS_TO_FEET
-              ).toFixed(3),
+            offset_corrected_display_height_m: this.trustedServedHeightM(
+              slot,
+              application.appliedDeltaFt,
             ),
+            display_source: TRUSTED_FORECAST_ADJUSTED_DISPLAY_SOURCE,
           }),
         ];
       });
@@ -875,6 +861,7 @@ export class ForecastBuilder {
           beachId: entry.beachId,
           buildAnchorAt: args.buildAnchorAt,
           policyVersion: TRUSTED_FORECAST_POLICY_VERSION,
+          schemaVersion: TRUSTED_FORECAST_BUILD_SCHEMA_VERSION,
         }),
         buildAnchorAt: args.buildAnchorAt.toISOString(),
         decisions: result.decisions,
@@ -964,11 +951,20 @@ export class ForecastBuilder {
     if (slot?.snapshotIndex == null) return;
     const row = snapshotBuffer[slot.snapshotIndex];
     if (row === undefined) return;
-    row.offset_corrected_display_height_m = Number(
-      (
-        row.offset_corrected_display_height_m +
-        appliedDeltaFt / METERS_TO_FEET
-      ).toFixed(3),
+    row.offset_corrected_display_height_m = this.trustedServedHeightM(
+      slot,
+      appliedDeltaFt,
+    );
+    row.display_source = TRUSTED_FORECAST_ADJUSTED_DISPLAY_SOURCE;
+  }
+
+  private trustedServedHeightM(
+    slot: TrustedSlotRecord | undefined,
+    appliedDeltaFt: number,
+  ): number {
+    if (slot?.postOffsetFt == null) return 0;
+    return Number(
+      ((slot.postOffsetFt + appliedDeltaFt) / METERS_TO_FEET).toFixed(3),
     );
   }
 

@@ -751,6 +751,46 @@ export interface SelectTrustedForecastAuthorityArgs {
 }
 
 /**
+ * Validate the authority that a row would have before it is allowed to retract
+ * another row. Supersession is intentionally not part of this predicate: a
+ * row cannot invalidate itself before its own source, scope, freshness and
+ * authority checks have passed.
+ */
+function intrinsicIssueExclusionReason(args: {
+  readonly entry: TrustedForecastCoverageEntry;
+  readonly localDate: string;
+  readonly issue: TrustedForecastIssue;
+  readonly buildAnchorAt: Date;
+}): TrustedForecastExclusionReason | null {
+  const { entry, localDate, issue, buildAnchorAt } = args;
+  if (issue.validLocalDate !== localDate) return "wrong_local_date";
+  if (issue.issueId === null) return "unstored_issue";
+  if (issue.evidenceClass !== "human_face_height_authority") {
+    return "non_authority_evidence_class";
+  }
+  if (!issue.authorityEligible) return "not_authority_eligible";
+  if (issue.measurementBasis !== "breaking_face_ft") {
+    return "unspecified_measurement_basis";
+  }
+  if (issue.minFaceFt === null || issue.maxFaceFt === null) {
+    return "missing_measured_range";
+  }
+  if (!coversScope(entry, issue)) return "uncovered_scope";
+  if (!isExposureCompatible(entry, issue.exposure)) {
+    return "incompatible_exposure";
+  }
+  if (precedenceTier(entry, issue) === null) return "unapproved_lineage";
+  const ageHours = issueAgeHours(issue, buildAnchorAt);
+  if (ageHours < -FRESHNESS_CLOCK_SKEW_TOLERANCE_HOURS) {
+    return "future_dated";
+  }
+  if (ageHours > freshnessMaxAgeHoursForSource(issue.sourceKey)) {
+    return "stale";
+  }
+  return null;
+}
+
+/**
  * Deterministic authority selection for one beach and one local date.
  *
  * Order of operations matters and is asserted by the tests: invalid, stale,
@@ -767,63 +807,32 @@ export function selectTrustedForecastAuthority(
 
   const superseded = new Set<string>(args.supersededIssueIds ?? []);
   for (const issue of issues) {
-    if (issue.supersedesIssueId !== null) superseded.add(issue.supersedesIssueId);
+    if (
+      intrinsicIssueExclusionReason({
+        entry,
+        localDate,
+        issue,
+        buildAnchorAt,
+      }) === null &&
+      issue.supersedesIssueId !== null
+    ) {
+      superseded.add(issue.supersedesIssueId);
+    }
   }
 
   for (const issue of issues) {
-    if (issue.validLocalDate !== localDate) {
-      excluded.push({ issue, reason: "wrong_local_date" });
+    const intrinsicReason = intrinsicIssueExclusionReason({
+      entry,
+      localDate,
+      issue,
+      buildAnchorAt,
+    });
+    if (intrinsicReason !== null) {
+      excluded.push({ issue, reason: intrinsicReason });
       continue;
     }
-    // A decision's `primary_issue_id` is a foreign key into
-    // `trusted_forecast_issues`. A row that has not been stored yet has no id
-    // to reference, so it cannot back a durable decision.
-    if (issue.issueId === null) {
-      excluded.push({ issue, reason: "unstored_issue" });
-      continue;
-    }
-    if (superseded.has(issue.issueId)) {
+    if (issue.issueId !== null && superseded.has(issue.issueId)) {
       excluded.push({ issue, reason: "superseded" });
-      continue;
-    }
-    // D-07: model and buoy evidence is never a human face-height authority.
-    // D-08: an unconvertible height scale stays evidence-only.
-    if (issue.evidenceClass !== "human_face_height_authority") {
-      excluded.push({ issue, reason: "non_authority_evidence_class" });
-      continue;
-    }
-    if (!issue.authorityEligible) {
-      excluded.push({ issue, reason: "not_authority_eligible" });
-      continue;
-    }
-    if (issue.measurementBasis !== "breaking_face_ft") {
-      excluded.push({ issue, reason: "unspecified_measurement_basis" });
-      continue;
-    }
-    if (issue.minFaceFt === null || issue.maxFaceFt === null) {
-      excluded.push({ issue, reason: "missing_measured_range" });
-      continue;
-    }
-    if (!coversScope(entry, issue)) {
-      excluded.push({ issue, reason: "uncovered_scope" });
-      continue;
-    }
-    // D-12: exposure compatibility is mandatory; NNW and SSW never union.
-    if (!isExposureCompatible(entry, issue.exposure)) {
-      excluded.push({ issue, reason: "incompatible_exposure" });
-      continue;
-    }
-    if (precedenceTier(entry, issue) === null) {
-      excluded.push({ issue, reason: "unapproved_lineage" });
-      continue;
-    }
-    const ageHours = issueAgeHours(issue, buildAnchorAt);
-    if (ageHours < -FRESHNESS_CLOCK_SKEW_TOLERANCE_HOURS) {
-      excluded.push({ issue, reason: "future_dated" });
-      continue;
-    }
-    if (ageHours > freshnessMaxAgeHoursForSource(issue.sourceKey)) {
-      excluded.push({ issue, reason: "stale" });
       continue;
     }
     eligible.push(issue);

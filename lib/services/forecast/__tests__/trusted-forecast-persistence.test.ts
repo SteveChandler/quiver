@@ -11,6 +11,9 @@
 
 jest.mock("server-only", () => ({}));
 
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import {
   TRUSTED_FORECAST_BUILD_SCHEMA_VERSION,
   TrustedForecastPersistenceError,
@@ -65,6 +68,7 @@ function payloadWith(
       beachId: BEACH_ID,
       buildAnchorAt: BUILD_ANCHOR,
       policyVersion: TRUSTED_FORECAST_POLICY_VERSION,
+      schemaVersion: TRUSTED_FORECAST_BUILD_SCHEMA_VERSION,
     }),
     buildAnchorAt: BUILD_ANCHOR.toISOString(),
     decisions: [],
@@ -355,15 +359,25 @@ describe("persistTrustedForecastBuild — the eight transport states", () => {
       beachId: BEACH_ID,
       buildAnchorAt: BUILD_ANCHOR,
       policyVersion: TRUSTED_FORECAST_POLICY_VERSION,
+      schemaVersion: TRUSTED_FORECAST_BUILD_SCHEMA_VERSION,
     });
     const second = trustedForecastBuildKey({
       beachId: BEACH_ID,
       buildAnchorAt: new Date(BUILD_ANCHOR.getTime()),
       policyVersion: TRUSTED_FORECAST_POLICY_VERSION,
+      schemaVersion: TRUSTED_FORECAST_BUILD_SCHEMA_VERSION,
     });
     expect(first).toBe(second);
     expect(first.length).toBeGreaterThan(0);
     expect(first.length).toBeLessThanOrEqual(200);
+
+    const legacy = trustedForecastBuildKey({
+      beachId: BEACH_ID,
+      buildAnchorAt: BUILD_ANCHOR,
+      policyVersion: TRUSTED_FORECAST_POLICY_VERSION,
+      schemaVersion: "trusted-forecast-build-v1",
+    });
+    expect(first).not.toBe(legacy);
   });
 
   it("snapshot payloads carry the RPC's column names, not the buffer's", () => {
@@ -400,6 +414,58 @@ describe("persistTrustedForecastBuild — the eight transport states", () => {
     await expect(
       persistTrustedForecastBuild({ store, payload }),
     ).rejects.toThrow(/^trusted forecast build receipt_missing: sqlstate_23505$/);
+  });
+});
+
+describe("trusted forecast service-role adapters", () => {
+  // The `-node` adapters are the fallback forecast-builder reaches when the
+  // `-server` import throws MODULE_NOT_FOUND under plain Node. `server-only`
+  // is deliberately NOT an installed dependency, so importing it here would
+  // make that fallback fail with the very error it exists to recover from —
+  // breaking scripts/regenerate-enhanced-forecasts.ts at run time while every
+  // static check still passed. Assert the absence, not the presence.
+  it("keep the Node adapters importable under plain Node", () => {
+    for (const fileName of [
+      "trusted-forecast-repository-node.ts",
+      "trusted-forecast-persistence-node.ts",
+    ]) {
+      const source = readFileSync(path.join(__dirname, "..", fileName), "utf8");
+      expect(source).not.toMatch(/^import "server-only";/m);
+      expect(source).toMatch(/assertNotBrowser\(/);
+    }
+  });
+
+  it("refuse to build a service-role client from a browser", async () => {
+    const { assertNotBrowser } = await import(
+      "../trusted-forecast-runtime-guard"
+    );
+    const globals = globalThis as { window?: unknown };
+    const hadWindow = "window" in globals;
+    globals.window = {};
+    try {
+      expect(() => assertNotBrowser("adapter-under-test")).toThrow(
+        /adapter-under-test is server-only/,
+      );
+    } finally {
+      if (!hadWindow) delete globals.window;
+    }
+  });
+
+  // This suite runs under jsdom, which defines `window`. Production server and
+  // plain-Node callers do not, so the pass-through case has to be simulated by
+  // removing it.
+  it("allow the guard through outside a browser", async () => {
+    const { assertNotBrowser } = await import(
+      "../trusted-forecast-runtime-guard"
+    );
+    const globals = globalThis as { window?: unknown };
+    const savedWindow = globals.window;
+    delete globals.window;
+    try {
+      expect(() => assertNotBrowser("adapter-under-test")).not.toThrow();
+    } finally {
+      globals.window = savedWindow;
+    }
   });
 });
 

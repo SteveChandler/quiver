@@ -417,7 +417,7 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
     expect(selection.primary?.issueId).toBe(issue.issueId);
   });
 
-  it("does not create a new decision for a partially covered local-day edge", () => {
+  it("allows the current local day but rejects the trailing partial day", () => {
     const buildAnchorAt = new Date("2026-08-06T18:00:00.000Z");
 
     expect(
@@ -426,7 +426,7 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
         timeZone: "America/Los_Angeles",
         buildAnchorAt,
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isLocalDateFullyCoveredByBuildWindow({
         localDate: "2026-08-07",
@@ -740,6 +740,38 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
     const decision = onlyDecision(result);
     expect(decision.primaryIssueId).toBe(evening.issueId);
     expect(decision.trustedMaxFaceFt).toBe(2);
+  });
+
+  it("does not let an invalid superseder suppress a valid authority", () => {
+    const anchor = new Date("2026-08-06T18:00:00.000Z");
+    const valid = realIssueWhere("stormsurf_ny_shortcast_live", {
+      validLocalDate: "2026-08-06",
+    });
+    const futureSuperseder = derivedIssue({
+      label: "future_superseder_cannot_retract_valid_authority",
+      from: realRef("stormsurf_ny_shortcast_live", {
+        validLocalDate: "2026-08-06",
+      }),
+      overrides: {
+        issued_at: new Date(anchor.getTime() + 10 * 60_000).toISOString(),
+        supersedes_issue_id: valid.issueId,
+        revision_hash: "f".repeat(64),
+      },
+      note:
+        "The live corpus has no explicit retraction row; this synthetic future-dated row proves an invalid retraction cannot suppress a valid authority.",
+    });
+
+    const selection = selectTrustedForecastAuthority({
+      entry: LONG_ISLAND,
+      localDate: "2026-08-06",
+      issues: [valid, futureSuperseder],
+      buildAnchorAt: anchor,
+    });
+
+    expect(selection.primary?.issueId).toBe(valid.issueId);
+    expect(selection.excluded).toEqual([
+      { issue: futureSuperseder, reason: "future_dated" },
+    ]);
   });
 
   it("selection is stable when every ranked dimension ties", () => {
@@ -1825,7 +1857,7 @@ describe("fixture provenance ratchet", () => {
     // the registry. One label registers once per call, and
     // `stormsurf_payload_conflict` is built by a helper the payload tests run
     // four times, so registrations exceed distinct fixtures.
-    expect(new Set(inventory.map((record) => record.label)).size).toBe(21);
+    expect(new Set(inventory.map((record) => record.label)).size).toBe(22);
     for (const record of inventory) {
       expect(record.note.length).toBeGreaterThan(40);
       expect(record.overrides.length).toBeGreaterThan(0);

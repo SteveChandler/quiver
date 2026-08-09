@@ -38,6 +38,9 @@ DO $migration$
 DECLARE
   v_definition text;
   v_updated text;
+  v_before_lookup text;
+  v_application_keys_replaced boolean := false;
+  v_snapshot_lookup_replaced boolean := false;
 BEGIN
   SELECT pg_get_functiondef(
     'public.persist_trusted_forecast_build(jsonb)'::regprocedure
@@ -67,6 +70,13 @@ BEGIN
   ];$application_keys$
   );
 
+  IF v_updated = v_definition THEN
+    RAISE EXCEPTION
+      'trusted forecast snapshot-resolution migration did not find the application key contract';
+  END IF;
+  v_application_keys_replaced := true;
+
+  v_before_lookup := v_updated;
   v_updated := replace(
     v_updated,
     $snapshot_lookup$
@@ -88,9 +98,15 @@ BEGIN
     LIMIT 1;$snapshot_lookup$
   );
 
-  IF v_updated = v_definition THEN
+  IF v_updated = v_before_lookup THEN
     RAISE EXCEPTION
-      'trusted forecast snapshot-resolution migration did not find its installed RPC text';
+      'trusted forecast snapshot-resolution migration did not find the snapshot lookup';
+  END IF;
+  v_snapshot_lookup_replaced := true;
+
+  IF NOT v_application_keys_replaced OR NOT v_snapshot_lookup_replaced THEN
+    RAISE EXCEPTION
+      'trusted forecast snapshot-resolution migration did not apply every required replacement';
   END IF;
 
   EXECUTE v_updated;

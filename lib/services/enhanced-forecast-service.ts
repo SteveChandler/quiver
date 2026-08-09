@@ -4,7 +4,6 @@ import { ForecastDataSourceManager, NOAAWeatherDataSource } from "./forecast/dat
 import { ForecastStorageService } from "./forecast/storage-service";
 import {
   ForecastBuilder,
-  TrustedForecastLayerError,
 } from "./forecast/forecast-builder";
 import { hashString } from "./forecast/batch-update-coordinator";
 import {
@@ -65,6 +64,7 @@ import {
   withForecastErrorHandling,
   withRetry,
   logError,
+  TrustedForecastLayerError,
 } from "@/lib/errors/forecast-errors";
 import {
   fetchGfsWaveShadowForecast,

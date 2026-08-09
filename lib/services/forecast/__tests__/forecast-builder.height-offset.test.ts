@@ -796,7 +796,7 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     const at = (hours: number) =>
       new Date(TRUSTED_NOW.getTime() + hours * 3_600_000).toISOString();
 
-    expect(claimed.has(at(0))).toBe(false);
+    expect(claimed.has(at(0))).toBe(true);
     expect(claimed.has(at(24))).toBe(true);
     expect(claimed.has(at(168))).toBe(false);
     expect(claimed.has(at(171))).toBe(false);
@@ -1057,10 +1057,15 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     }
     const persistedRows = persistence.payloads.flatMap((payload) => payload.snapshots);
     expect(persistedRows.length).toBeGreaterThan(0);
-    expect(persistedRows[0]?.offset_corrected_display_height_m).toBeCloseTo(
-      5 / METERS_TO_FEET,
-      3,
-    );
+    for (const row of persistedRows) {
+      expect(row.display_source).toBe("trusted-forecast-adjusted-v1");
+      // The post-offset baseline is 5 ft. Feedback would make the ordinary
+      // snapshot 5.5 ft, but trusted serving suppresses it and applies -0.5 ft.
+      expect(row.offset_corrected_display_height_m).toBeCloseTo(
+        4.5 / METERS_TO_FEET,
+        3,
+      );
+    }
   });
 
   it("D-24: serving defaults on; only an explicit false disables it", async () => {

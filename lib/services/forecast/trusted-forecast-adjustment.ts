@@ -32,6 +32,10 @@ export const TRUSTED_FORECAST_FULL_BAND_GAP_FT = 0.75;
 /** D-15: hard cap in both directions. */
 export const TRUSTED_FORECAST_MAX_ADJUSTMENT_FT = 0.5;
 
+/** Separate immutable snapshot variant for a value served after trust adjustment. */
+export const TRUSTED_FORECAST_ADJUSTED_DISPLAY_SOURCE =
+  "trusted-forecast-adjusted-v1";
+
 export const TRUSTED_FORECAST_ALERT_RANGE_SEPARATION =
   "range_separation_exceeded";
 
@@ -399,9 +403,10 @@ function localMidnight(localDate: string, timeZone: string): Date {
 }
 
 /**
- * A durable day decision must not be based on a partial edge of the 168-hour
- * window. Existing decisions are still reusable; callers use this only when
- * deciding whether a new local-day row may be created.
+ * A durable day decision must not be based on a trailing partial edge of the
+ * 168-hour window. The current local day is allowed because every slot still
+ * ahead of the build anchor is in the build's serving scope; otherwise a cold
+ * start would permanently miss that day's remaining slots.
  */
 export function isLocalDateFullyCoveredByBuildWindow(args: {
   readonly localDate: string;
@@ -415,7 +420,12 @@ export function isLocalDateFullyCoveredByBuildWindow(args: {
   ).getTime();
   const windowEnd =
     args.buildAnchorAt.getTime() + TRUSTED_FORECAST_MAX_HORIZON_HOURS * 3_600_000;
-  return dayStart >= args.buildAnchorAt.getTime() && dayEnd <= windowEnd;
+  const anchorLocalDate = localDateInTimeZone(args.buildAnchorAt, args.timeZone);
+  return (
+    dayEnd <= windowEnd &&
+    (dayStart >= args.buildAnchorAt.getTime() ||
+      args.localDate === anchorLocalDate)
+  );
 }
 
 function localDayBaselineMaxFt(slots: readonly TrustedForecastSlot[]): number | null {
@@ -603,7 +613,7 @@ export function buildTrustedForecastDecisions(
         localDate,
         forecastAt: slot.forecastAt.toISOString(),
         forecastHorizonBucket: slot.forecastHorizonBucket ?? "",
-        displaySource: slot.displaySource ?? "",
+        displaySource: TRUSTED_FORECAST_ADJUSTED_DISPLAY_SOURCE,
         appliedDeltaFt,
         baselineMaxFaceFt: slotBaseline,
         adjustedMaxFaceFt:

@@ -25,7 +25,10 @@ import {
   trustedForecastCoverageBeachSlugs,
 } from "../../lib/services/forecast/trusted-forecast-coverage";
 import { TRUSTED_FORECAST_POLICY_VERSION } from "../../lib/services/forecast/trusted-forecast-policy";
-import { trustedForecastBuildKey } from "../../lib/services/forecast/trusted-forecast-persistence";
+import {
+  TRUSTED_FORECAST_BUILD_SCHEMA_VERSION,
+  trustedForecastBuildKey,
+} from "../../lib/services/forecast/trusted-forecast-persistence";
 
 const BEACH_ID = "11111111-2222-4333-8444-555555555555";
 const ANCHOR_ISO = "2026-08-07T13:00:00.000Z";
@@ -35,6 +38,7 @@ const BUILD_KEY = trustedForecastBuildKey({
   beachId: BEACH_ID,
   buildAnchorAt: new Date(ANCHOR_ISO),
   policyVersion: TRUSTED_FORECAST_POLICY_VERSION,
+  schemaVersion: TRUSTED_FORECAST_BUILD_SCHEMA_VERSION,
 });
 
 const COVERAGE_SLUGS = trustedForecastCoverageBeachSlugs();
@@ -84,6 +88,7 @@ function harness(options: HarnessOptions = {}) {
         beachId: a.beachId,
         buildAnchorAt: a.buildAnchorAt,
         policyVersion: TRUSTED_FORECAST_POLICY_VERSION,
+        schemaVersion: TRUSTED_FORECAST_BUILD_SCHEMA_VERSION,
       }),
   );
 

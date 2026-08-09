@@ -182,6 +182,30 @@ INSERT INTO public.ml_predictions_log (
   'face-Hs-transformer-v1'
 );
 
+-- The trusted layer uses a separate display-source variant when the ordinary
+-- first-write row already exists, so the served value can remain immutable too.
+INSERT INTO public.ml_predictions_log (
+  id,
+  beach_id,
+  predicted_at,
+  forecast_horizon_hours,
+  forecast_horizon_bucket,
+  raw_display_height_m,
+  offset_corrected_display_height_m,
+  display_source,
+  model_version
+) VALUES (
+  '9d000000-0000-4000-8000-000000000002',
+  '9a000000-0000-4000-8000-000000000001',
+  '2026-07-27T18:00:00Z',
+  6,
+  '0-24h',
+  9.99,
+  9.99,
+  'trusted-forecast-adjusted-v1',
+  'trusted-forecast-adjusted-v1'
+);
+
 CREATE TEMPORARY TABLE trusted_snapshot_before AS
 SELECT to_jsonb(row) AS snapshot
 FROM public.ml_predictions_log AS row
@@ -196,9 +220,9 @@ CREATE TEMPORARY TABLE trusted_payload (name text PRIMARY KEY, payload jsonb);
 INSERT INTO trusted_payload (name, payload) VALUES (
   'baseline',
   jsonb_build_object(
-    'schemaVersion', 'trusted-forecast.v1',
+    'schemaVersion', 'trusted-forecast-build-v2',
     'policyVersion', 'trusted-policy.v1',
-    'buildKey', 'build-baseline',
+    'buildKey', 'build-baseline-v2',
     'buildAnchorAt', '2026-07-27T12:00:00Z',
     'expectedDecisionCount', 1,
     'expectedApplicationCount', 1,
@@ -223,6 +247,8 @@ INSERT INTO trusted_payload (name, payload) VALUES (
         'beachId', '9a000000-0000-4000-8000-000000000001',
         'localDate', '2026-07-27',
         'forecastAt', '2026-07-27T18:00:00Z',
+        'forecastHorizonBucket', '0-24h',
+        'displaySource', 'trusted-forecast-adjusted-v1',
         'appliedDeltaFt', 0.5,
         'baselineMaxFaceFt', 1.25,
         'adjustedMaxFaceFt', 1.75
@@ -240,8 +266,9 @@ INSERT INTO trusted_payload (name, payload) VALUES (
       )
     ),
     'snapshots', jsonb_build_array(
-      -- Collides with the pre-existing first-write row on
-      -- (beach_id, predicted_at, forecast_horizon_bucket, display_source).
+      -- Collides with the pre-existing adjusted first-write row on
+      -- (beach_id, predicted_at, forecast_horizon_bucket, display_source);
+      -- the ordinary source row remains a separate immutable record.
       jsonb_build_object(
         'beach_id', '9a000000-0000-4000-8000-000000000001',
         'predicted_at', '2026-07-27T18:00:00Z',
@@ -249,7 +276,7 @@ INSERT INTO trusted_payload (name, payload) VALUES (
         'forecast_horizon_bucket', '0-24h',
         'raw_display_height_m', 9.99,
         'offset_corrected_display_height_m', 9.99,
-        'display_source', 'face-Hs-transformer-v1',
+        'display_source', 'trusted-forecast-adjusted-v1',
         'model_version', 'face-Hs-transformer-v1'
       ),
       jsonb_build_object(
@@ -785,14 +812,14 @@ SELECT is(
     SELECT prediction_snapshot_id
     FROM public.trusted_forecast_applications
   ),
-  '9d000000-0000-4000-8000-000000000001'::uuid,
+  '9d000000-0000-4000-8000-000000000002'::uuid,
   'the application resolves the durable prediction snapshot identity'
 );
 
 SELECT is(
   (
     SELECT receipt_id
-    FROM public.get_trusted_forecast_build_receipt('build-baseline')
+    FROM public.get_trusted_forecast_build_receipt('build-baseline-v2')
   ),
   (SELECT receipt_id FROM trusted_receipt),
   'the reconciliation RPC returns the same receipt by build key'
@@ -862,7 +889,7 @@ SELECT
   pg_temp.canonical_sha256(
     jsonb_set(base.payload, '{buildKey}', to_jsonb(variant.build_key))
   ),
-  'trusted-forecast.v1',
+  'trusted-forecast-build-v2',
   'trusted-policy.v1',
   '2026-07-27T12:00:00Z',
   1 + variant.decision_drift,

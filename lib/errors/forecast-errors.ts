@@ -114,6 +114,28 @@ export class ForecastError extends Error {
   }
 }
 
+/**
+ * Marks a failure from the private trusted-forecast layer. The outer forecast
+ * error wrapper must preserve this type so callers can report the subsystem
+ * that failed instead of attributing it to CDIP.
+ */
+export class TrustedForecastLayerError extends Error {
+  readonly cause: unknown;
+  readonly code?: string;
+  readonly retriable?: boolean;
+
+  constructor(cause: unknown) {
+    super(cause instanceof Error ? cause.message : String(cause));
+    this.name = "TrustedForecastLayerError";
+    this.cause = cause;
+    if (typeof cause === "object" && cause !== null) {
+      const typed = cause as { code?: unknown; retriable?: unknown };
+      if (typeof typed.code === "string") this.code = typed.code;
+      if (typeof typed.retriable === "boolean") this.retriable = typed.retriable;
+    }
+  }
+}
+
 // Specific error classes for different scenarios
 
 export class DataSourceError extends ForecastError {
@@ -289,6 +311,9 @@ export function withForecastErrorHandling<T extends any[], R>(
     try {
       return await fn(...args);
     } catch (error) {
+      if (error instanceof TrustedForecastLayerError) {
+        throw error;
+      }
       if (error instanceof ForecastError) {
         // Add additional context to existing forecast errors
         throw new ForecastError(
