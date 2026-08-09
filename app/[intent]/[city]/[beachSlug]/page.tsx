@@ -175,7 +175,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
     const forecastContext = surfReportResult?.forecastContext ?? null;
     const publicBeach = sanitizeBeachEditorialContent(beach);
-    const reviews = reviewsResult.success ? (reviewsResult.data ?? []) : [];
 
     // Validate that the beach's state matches the URL state parameter
     const expectedStateSlug = stateToSlug(beach.state);
