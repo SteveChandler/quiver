@@ -23,6 +23,27 @@ export function validateEnvironment(env = process.env) {
     );
   }
 
+  const trustedForecastFlag = env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
+  const recognizedTrustedForecastFlags = new Set([
+    "",
+    "true",
+    "1",
+    "yes",
+    "on",
+    "false",
+    "0",
+    "no",
+    "off",
+  ]);
+  if (
+    trustedForecastFlag !== undefined &&
+    !recognizedTrustedForecastFlags.has(trustedForecastFlag.trim().toLowerCase())
+  ) {
+    warnings.push(
+      "TRUSTED_FORECAST_ADJUSTMENTS_ENABLED has an unrecognized value - trusted forecast adjustments will be disabled",
+    );
+  }
+
   if (warnings.length > 0) {
     console.warn("⚠️  Environment Configuration Warnings:");
     warnings.forEach((warning) => console.warn(`   • ${warning}`));

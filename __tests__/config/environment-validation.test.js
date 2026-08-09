@@ -77,4 +77,20 @@ describe("environment validation", () => {
       expect.stringContaining("NEXT_PUBLIC_SITE_URL not set"),
     );
   });
+
+  it("surfaces malformed trusted forecast flag values at boot", async () => {
+    const { validateEnvironment } = await import("../../config/environment-validation.mjs");
+
+    validateEnvironment({
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+      TRUSTED_FORECAST_ADJUSTMENTS_ENABLED: "maybe",
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "TRUSTED_FORECAST_ADJUSTMENTS_ENABLED has an unrecognized value",
+      ),
+    );
+  });
 });

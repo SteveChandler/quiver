@@ -2,7 +2,9 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { fetchWaterTemperature } from "@/lib/services/noaa-coops/api-client";
 import { ForecastDataSourceManager, NOAAWeatherDataSource } from "./forecast/data-source-manager";
 import { ForecastStorageService } from "./forecast/storage-service";
-import { ForecastBuilder } from "./forecast/forecast-builder";
+import {
+  ForecastBuilder,
+} from "./forecast/forecast-builder";
 import { hashString } from "./forecast/batch-update-coordinator";
 import {
   DeadlineTracker,
@@ -59,9 +61,10 @@ import {
   StorageError,
   isNoaaInvalidPointError,
   isNoaaMarineForecastNotSupportedError,
-  withErrorHandling,
+  withForecastErrorHandling,
   withRetry,
   logError,
+  TrustedForecastLayerError,
 } from "@/lib/errors/forecast-errors";
 import {
   fetchGfsWaveShadowForecast,
@@ -123,11 +126,13 @@ export class EnhancedForecastService {
     beach: Beach,
     nowcastAnchor: NowcastAnchor | null = null,
     southOcSanoShadowZoneSnapshot: SouthOcSanoShadowZoneSnapshot | null = null,
+    buildAnchorAt: Date | null = null,
   ): Promise<EnhancedForecastEntity[]> {
     const result = await this.generateComprehensiveForecastWithDiagnostics(
       beach,
       nowcastAnchor,
       southOcSanoShadowZoneSnapshot,
+      buildAnchorAt,
     );
     return result.forecasts;
   }
@@ -136,8 +141,9 @@ export class EnhancedForecastService {
     beach: Beach,
     nowcastAnchor: NowcastAnchor | null = null,
     southOcSanoShadowZoneSnapshot: SouthOcSanoShadowZoneSnapshot | null = null,
+    buildAnchorAt: Date | null = null,
   ): Promise<ComprehensiveForecastDiagnosticResult> {
-    return withErrorHandling(
+    return withForecastErrorHandling(
       async () => {
         // Validate input
         if (!beach.id || !beach.lat || !beach.lon) {
@@ -190,6 +196,7 @@ export class EnhancedForecastService {
           gfsWaveData,
           nowcastAnchor,
           southOcSanoShadowZoneSnapshot,
+          buildAnchorAt,
         };
 
         const cdipDiagnostic: CDIPForecastDiagnostic =
@@ -602,6 +609,7 @@ export class EnhancedForecastService {
     gfsWaveData,
     nowcastAnchor,
     southOcSanoShadowZoneSnapshot,
+    buildAnchorAt,
   }: {
     beach: Beach;
     waveData: any;
@@ -614,6 +622,7 @@ export class EnhancedForecastService {
     gfsWaveData: GfsWaveShadowForecast | null;
     nowcastAnchor: NowcastAnchor | null;
     southOcSanoShadowZoneSnapshot: SouthOcSanoShadowZoneSnapshot | null;
+    buildAnchorAt: Date | null;
   }): Promise<EnhancedForecastWithRawData[]> {
     // Use ForecastBuilder to build forecasts
     const builder = new ForecastBuilder({
@@ -641,6 +650,7 @@ export class EnhancedForecastService {
       gfsWaveData,
       nowcastAnchor,
       southOcSanoShadowZoneSnapshot,
+      buildAnchorAt: buildAnchorAt ?? undefined,
     });
 
     return forecasts;
@@ -690,7 +700,10 @@ export class EnhancedForecastService {
         beach: beach.name,
         success: false,
         error: errorMsg,
-        cdip_skip_reason: "cdip_unavailable",
+        cdip_skip_reason:
+          error instanceof TrustedForecastLayerError
+            ? "trusted_forecast_failed"
+            : "cdip_unavailable",
         cdip_station: null,
       };
     }

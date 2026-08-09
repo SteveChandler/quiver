@@ -30,6 +30,8 @@ export type ForecastUpdateOptions = {
    * Required when shard is set.
    */
   shardCount?: number;
+  /** Fixed build anchor used by the exact-target production smoke. */
+  buildAnchorAt?: Date;
 };
 
 /**
@@ -42,7 +44,10 @@ function getEnhancedForecastService(): EnhancedForecastService {
 /**
  * Update forecasts for a specific beach
  */
-export async function updateBeachForecast(beachId: string) {
+export async function updateBeachForecast(
+  beachId: string,
+  options: Pick<ForecastUpdateOptions, "buildAnchorAt"> = {},
+) {
   const supabase = await createSupabaseServiceRoleClient();
 
   // Get the beach details
@@ -71,6 +76,7 @@ export async function updateBeachForecast(beachId: string) {
     beach,
     nowcastAnchor,
     southOcSanoShadowZoneSnapshot,
+    options.buildAnchorAt ?? null,
   );
 
   // Store enhanced forecasts
@@ -81,6 +87,7 @@ export async function updateBeachForecast(beachId: string) {
   }
 
   return {
+    beachId: beach.id,
     beach: beach.name,
     forecastsGenerated: forecasts.length,
     message: "Enhanced forecasts updated successfully",
