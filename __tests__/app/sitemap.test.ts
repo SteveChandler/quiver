@@ -26,6 +26,10 @@ import {
 } from "@/lib/data/blog-posts";
 import { learnArticles } from "@/lib/data/learn-articles";
 import { slugifyAscii } from "@/lib/utils/text-utils";
+import {
+  getForecastIndexabilityForBeaches,
+  type ForecastIndexabilitySnapshot,
+} from "@/lib/seo/forecast-indexability";
 
 // Mock the action modules
 jest.mock("@/actions/beach/beach-location-list-actions", () => ({
@@ -46,6 +50,11 @@ jest.mock("@/actions/city/best-time-actions", () => ({
 
 jest.mock("@/actions/city/city-editorial-actions", () => ({
   getReviewedCityEditorialContent: jest.fn(),
+}));
+
+jest.mock("@/lib/seo/forecast-indexability", () => ({
+  ...jest.requireActual("@/lib/seo/forecast-indexability"),
+  getForecastIndexabilityForBeaches: jest.fn(),
 }));
 
 function reviewedBeach() {
@@ -69,6 +78,23 @@ describe("Sitemap Generation", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    (getForecastIndexabilityForBeaches as jest.Mock).mockImplementation(
+      async (beaches: Array<string | { id: string }>) => {
+        const snapshot: ForecastIndexabilitySnapshot = {
+          forecastAvailable: true,
+          selectedStateComplete: true,
+          forecastFresh: true,
+          forecastValidAt: "2026-08-08T18:00:00.000Z",
+          sourceDataUpdatedAt: "2026-08-08T16:00:00.000Z",
+          primaryDataSource: "NOAA_NWS",
+          isStale: false,
+        };
+        return new Map(
+          beaches.map((beach) => [typeof beach === "string" ? beach : beach.id, snapshot]),
+        );
+      },
+    );
 
     // Default mocks
     (getAllBeachLocations as jest.Mock).mockResolvedValue({
@@ -726,7 +752,59 @@ describe("Sitemap Generation", () => {
   });
 
   describe("Beach Routes", () => {
-    it("omits unreviewed beaches from the sitemap", async () => {
+    it("uses forecast freshness for beach URLs instead of editorial approval", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "forecast-authority",
+            city: "San Diego",
+            state: "CA",
+            country: "USA",
+            ...reviewedBeach(),
+            seo_indexable: false,
+          },
+        ],
+      });
+
+      const result = await sitemap();
+      expect(result.some((route) => route.url.endsWith("/ca/san-diego/forecast-authority"))).toBe(true);
+    });
+
+    it("omits a beach URL when its forecast coverage is stale", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "stale-forecast",
+            city: "San Diego",
+            state: "CA",
+            country: "USA",
+            ...reviewedBeach(),
+          },
+        ],
+      });
+      (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(
+        new Map([
+          ["beach-1", {
+            forecastAvailable: true,
+            selectedStateComplete: true,
+            forecastFresh: false,
+            forecastValidAt: "2026-08-07T18:00:00.000Z",
+            sourceDataUpdatedAt: "2026-08-07T00:00:00.000Z",
+            primaryDataSource: "CDIP",
+            isStale: true,
+          } satisfies ForecastIndexabilitySnapshot],
+        ]),
+      );
+
+      const result = await sitemap();
+      expect(result.some((route) => route.url.endsWith("/ca/san-diego/stale-forecast"))).toBe(false);
+    });
+
+    it("includes unreviewed beaches when forecast coverage is fresh", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [{
@@ -742,10 +820,10 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
-      expect(result.find((r) => r.url.includes("unreviewed-break"))).toBeUndefined();
+      expect(result.find((r) => r.url.includes("unreviewed-break"))).not.toBeUndefined();
     });
 
-    it("includes only the protected subpages for a substantive unreviewed beach", async () => {
+    it("includes the canonical page and forecast subpages for a substantive unreviewed beach", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [{
@@ -763,7 +841,7 @@ describe("Sitemap Generation", () => {
 
       expect(
         result.find((route) => route.url === `${baseUrl}/ca/encinitas/swamis`),
-      ).toBeUndefined();
+      ).not.toBeUndefined();
       expect(
         result.find(
           (route) =>
@@ -778,7 +856,7 @@ describe("Sitemap Generation", () => {
       ).not.toBeUndefined();
     });
 
-    it("lets explicit rejection veto protected beach subpages", async () => {
+    it("does not let editorial rejection veto a current forecast page", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [{
@@ -796,7 +874,7 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
-      expect(result.some((route) => route.url.includes("/swamis"))).toBe(false);
+      expect(result.some((route) => route.url.includes("/swamis"))).toBe(true);
     });
 
     it("should use hierarchical URL for beaches with complete location data", async () => {

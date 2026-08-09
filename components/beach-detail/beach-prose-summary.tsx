@@ -1,6 +1,7 @@
 import type { Beach } from "@/types/database";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import type { EditorialSource } from "@/lib/seo/indexability";
+import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
 
 /**
  * Server-rendered prose summary for beach detail pages.
@@ -14,14 +15,17 @@ export function BeachProseSummary({
   beach,
   surfCallReport,
   editorialSources = [],
+  forecastSources = [],
 }: {
   beach: Beach;
   surfCallReport: SurfCallResult | null;
   editorialSources?: EditorialSource[];
+  forecastSources?: string[];
 }) {
-  const breakTypeLabel = formatBreakType(beach.break_type);
-  const skillLabel = formatSkillLevel(beach.skill_level);
-  const locationParts = [beach.city, beach.state].filter(Boolean).join(", ");
+  const publicBeach = sanitizeBeachEditorialContent(beach);
+  const breakTypeLabel = formatBreakType(publicBeach.break_type);
+  const skillLabel = formatSkillLevel(publicBeach.skill_level);
+  const locationParts = [publicBeach.city, publicBeach.state].filter(Boolean).join(", ");
 
   // Build prose sentences conditionally based on available data
   const sentences: string[] = [];
@@ -29,14 +33,14 @@ export function BeachProseSummary({
   // Opening: beach identity
   if (locationParts && breakTypeLabel) {
     sentences.push(
-      `${beach.name} in ${locationParts} is a ${breakTypeLabel} break${skillLabel ? `, ${skillLabel}` : ""}.`
+      `${publicBeach.name} in ${locationParts} is a ${breakTypeLabel} break${skillLabel ? `, ${skillLabel}` : ""}.`
     );
   } else if (locationParts) {
     sentences.push(
-      `${beach.name} in ${locationParts} is a surf break${skillLabel ? ` ${skillLabel}` : ""} along the ${beach.state || "US"} coast.`
+      `${publicBeach.name} in ${locationParts} is a surf break${skillLabel ? ` ${skillLabel}` : ""} along the ${publicBeach.state || "US"} coast.`
     );
   } else {
-    sentences.push(`${beach.name} is a surf break${skillLabel ? ` ${skillLabel}` : ""}.`);
+    sentences.push(`${publicBeach.name} is a surf break${skillLabel ? ` ${skillLabel}` : ""}.`);
   }
 
   // Current conditions from surf call
@@ -72,30 +76,29 @@ export function BeachProseSummary({
   }
 
   // Beach description (first sentence only)
-  if (beach.description) {
-    const firstSentence = beach.description.split(/\.(\s|$)/)[0];
+  if (publicBeach.description) {
+    const firstSentence = publicBeach.description.split(/\.(\s|$)/)[0];
     if (firstSentence && firstSentence.length > 20) {
       sentences.push(`${firstSentence}.`);
     }
   }
 
   // Wave tips
-  if (beach.wave_tips) {
-    sentences.push(beach.wave_tips);
+  if (publicBeach.wave_tips) {
+    sentences.push(publicBeach.wave_tips);
   }
 
-  if (beach.crowd_tips) {
-    sentences.push(beach.crowd_tips);
+  if (publicBeach.crowd_tips) {
+    sentences.push(publicBeach.crowd_tips);
   }
 
-  if (beach.best_conditions_prose) {
-    sentences.push(beach.best_conditions_prose);
+  if (publicBeach.best_conditions_prose) {
+    sentences.push(publicBeach.best_conditions_prose);
   }
 
-  // Data source attribution
-  sentences.push(
-    "Forecasts are updated every 3 hours using ML-corrected NOAA models with live buoy data from CDIP, NDBC, and IOOS stations."
-  );
+  if (forecastSources && forecastSources.length > 0) {
+    sentences.push(`Forecast data sources: ${forecastSources.join(", ")}.`);
+  }
 
   return (
     <section
@@ -107,7 +110,7 @@ export function BeachProseSummary({
           Surf report snapshot
         </p>
         <h2 className="mt-2 text-xl font-semibold text-foreground">
-          {beach.name} current conditions and local guidance
+          {publicBeach.name} current conditions and local guidance
         </h2>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           {sentences.join(" ")}

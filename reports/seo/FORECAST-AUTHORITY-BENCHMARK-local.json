@@ -1,0 +1,2303 @@
+{
+  "generatedAt": "2026-08-09T03:10:46.643Z",
+  "auditGeneratedAt": "2026-08-09T03:10:38.521Z",
+  "baseUrl": "http://127.0.0.1:3000",
+  "queryClasses": [
+    "spot-surf-forecast",
+    "spot-surf-report",
+    "spot-tomorrow",
+    "best-time-to-surf-spot",
+    "when-should-i-surf-spot",
+    "spot-swell-tomorrow",
+    "spot-wind-tomorrow",
+    "spot-tide-tomorrow",
+    "best-surf-region-tomorrow",
+    "where-should-i-surf-region-tomorrow"
+  ],
+  "regions": [
+    "East Coast",
+    "California",
+    "International",
+    "Hawaii",
+    "Gulf Coast"
+  ],
+  "sampledSpots": 25,
+  "queryCount": 210,
+  "rawHtml": {
+    "pagesChecked": 25,
+    "answeredPages": 0,
+    "averageContractScore": 0,
+    "pages": [
+      {
+        "path": "/nj/sea-isle-city/12th-street-jetty-sea-isle-city-nj",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/nj/ocean-city/1st-street-jetty-ocean-city-nj",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/nj/sea-isle-city/36th-42nd-street-sea-isle-city-nj",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/nj/ocean-city/7th-street-beach-ocean-city-nj",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/nj/belmar/8th-avenue-jetty-belmar-nj",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/ca/san-clemente/204s",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/ca/santa-cruz/38th-avenue-santa-cruz-ca",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/ca/newport-beach/52nd-street-newport-beach-ca",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/ca/newport-beach/54th-street-newport-beach-ca",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/ca/long-beach/72nd-place-long-beach-ca",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/or/newport/agate-beach",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/mexico/baja-california/rosarito/alfonsos",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/pr/aguadilla/crash-boat",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/pr/rincon/domes",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/pr/yabucoa/el-cocal-yabucoa-pr",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/hi/honolulu/ala-moana-bowls",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/hi/anahola/anahola",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/hi/kahuku/backyards",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/hi/kailua-kona/banyans",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/hi/honolulu/diamond-head-cliffs",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/fl/boynton-beach/boynton-inlet-boynton-beach-fl",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/fl/deerfield-beach/deerfield-beach-pier-deerfield-beach-fl",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/fl/flagler-beach/flagler-beach-flagler-beach-fl",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/tx/galveston/galveston-61st-street-pier-galveston-tx",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      },
+      {
+        "path": "/tx/corpus-christi/mustang-island-state-park-corpus-christi-tx",
+        "status": null,
+        "facts": null,
+        "error": "fetch failed"
+      }
+    ]
+  },
+  "queries": [
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "12th Street Jetty surf forecast",
+      "spotId": "86f9f0cd-e095-4416-af44-b2dd1cfecbe6",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/12th-street-jetty-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "12th Street Jetty surf report",
+      "spotId": "86f9f0cd-e095-4416-af44-b2dd1cfecbe6",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/12th-street-jetty-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "12th Street Jetty tomorrow",
+      "spotId": "86f9f0cd-e095-4416-af44-b2dd1cfecbe6",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/12th-street-jetty-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf 12th Street Jetty",
+      "spotId": "86f9f0cd-e095-4416-af44-b2dd1cfecbe6",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/12th-street-jetty-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf 12th Street Jetty",
+      "spotId": "86f9f0cd-e095-4416-af44-b2dd1cfecbe6",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/12th-street-jetty-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "12th Street Jetty swell tomorrow",
+      "spotId": "86f9f0cd-e095-4416-af44-b2dd1cfecbe6",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/12th-street-jetty-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "12th Street Jetty wind tomorrow",
+      "spotId": "86f9f0cd-e095-4416-af44-b2dd1cfecbe6",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/12th-street-jetty-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "12th Street Jetty tide tomorrow",
+      "spotId": "86f9f0cd-e095-4416-af44-b2dd1cfecbe6",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/12th-street-jetty-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "1st Street Jetty surf forecast",
+      "spotId": "f7ebea96-dc6c-4a32-b881-9969cce2f986",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/1st-street-jetty-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "1st Street Jetty surf report",
+      "spotId": "f7ebea96-dc6c-4a32-b881-9969cce2f986",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/1st-street-jetty-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "1st Street Jetty tomorrow",
+      "spotId": "f7ebea96-dc6c-4a32-b881-9969cce2f986",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/1st-street-jetty-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf 1st Street Jetty",
+      "spotId": "f7ebea96-dc6c-4a32-b881-9969cce2f986",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/1st-street-jetty-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf 1st Street Jetty",
+      "spotId": "f7ebea96-dc6c-4a32-b881-9969cce2f986",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/1st-street-jetty-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "1st Street Jetty swell tomorrow",
+      "spotId": "f7ebea96-dc6c-4a32-b881-9969cce2f986",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/1st-street-jetty-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "1st Street Jetty wind tomorrow",
+      "spotId": "f7ebea96-dc6c-4a32-b881-9969cce2f986",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/1st-street-jetty-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "1st Street Jetty tide tomorrow",
+      "spotId": "f7ebea96-dc6c-4a32-b881-9969cce2f986",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/1st-street-jetty-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "36th-42nd Street surf forecast",
+      "spotId": "08c3baad-9404-43d3-ab42-d4230dfdfbf4",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/36th-42nd-street-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "36th-42nd Street surf report",
+      "spotId": "08c3baad-9404-43d3-ab42-d4230dfdfbf4",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/36th-42nd-street-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "36th-42nd Street tomorrow",
+      "spotId": "08c3baad-9404-43d3-ab42-d4230dfdfbf4",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/36th-42nd-street-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf 36th-42nd Street",
+      "spotId": "08c3baad-9404-43d3-ab42-d4230dfdfbf4",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/36th-42nd-street-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf 36th-42nd Street",
+      "spotId": "08c3baad-9404-43d3-ab42-d4230dfdfbf4",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/36th-42nd-street-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "36th-42nd Street swell tomorrow",
+      "spotId": "08c3baad-9404-43d3-ab42-d4230dfdfbf4",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/36th-42nd-street-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "36th-42nd Street wind tomorrow",
+      "spotId": "08c3baad-9404-43d3-ab42-d4230dfdfbf4",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/36th-42nd-street-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "36th-42nd Street tide tomorrow",
+      "spotId": "08c3baad-9404-43d3-ab42-d4230dfdfbf4",
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/36th-42nd-street-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "7th Street Beach surf forecast",
+      "spotId": "336e967d-86a6-40db-9404-e398b057fefe",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/7th-street-beach-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "7th Street Beach surf report",
+      "spotId": "336e967d-86a6-40db-9404-e398b057fefe",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/7th-street-beach-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "7th Street Beach tomorrow",
+      "spotId": "336e967d-86a6-40db-9404-e398b057fefe",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/7th-street-beach-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf 7th Street Beach",
+      "spotId": "336e967d-86a6-40db-9404-e398b057fefe",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/7th-street-beach-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf 7th Street Beach",
+      "spotId": "336e967d-86a6-40db-9404-e398b057fefe",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/7th-street-beach-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "7th Street Beach swell tomorrow",
+      "spotId": "336e967d-86a6-40db-9404-e398b057fefe",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/7th-street-beach-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "7th Street Beach wind tomorrow",
+      "spotId": "336e967d-86a6-40db-9404-e398b057fefe",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/7th-street-beach-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "7th Street Beach tide tomorrow",
+      "spotId": "336e967d-86a6-40db-9404-e398b057fefe",
+      "region": "East Coast",
+      "canonicalPath": "/nj/ocean-city/7th-street-beach-ocean-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "8th Avenue Jetty surf forecast",
+      "spotId": "03e143a9-d7c1-4988-bbcd-5cb7732d4b99",
+      "region": "East Coast",
+      "canonicalPath": "/nj/belmar/8th-avenue-jetty-belmar-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "8th Avenue Jetty surf report",
+      "spotId": "03e143a9-d7c1-4988-bbcd-5cb7732d4b99",
+      "region": "East Coast",
+      "canonicalPath": "/nj/belmar/8th-avenue-jetty-belmar-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "8th Avenue Jetty tomorrow",
+      "spotId": "03e143a9-d7c1-4988-bbcd-5cb7732d4b99",
+      "region": "East Coast",
+      "canonicalPath": "/nj/belmar/8th-avenue-jetty-belmar-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf 8th Avenue Jetty",
+      "spotId": "03e143a9-d7c1-4988-bbcd-5cb7732d4b99",
+      "region": "East Coast",
+      "canonicalPath": "/nj/belmar/8th-avenue-jetty-belmar-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf 8th Avenue Jetty",
+      "spotId": "03e143a9-d7c1-4988-bbcd-5cb7732d4b99",
+      "region": "East Coast",
+      "canonicalPath": "/nj/belmar/8th-avenue-jetty-belmar-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "8th Avenue Jetty swell tomorrow",
+      "spotId": "03e143a9-d7c1-4988-bbcd-5cb7732d4b99",
+      "region": "East Coast",
+      "canonicalPath": "/nj/belmar/8th-avenue-jetty-belmar-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "8th Avenue Jetty wind tomorrow",
+      "spotId": "03e143a9-d7c1-4988-bbcd-5cb7732d4b99",
+      "region": "East Coast",
+      "canonicalPath": "/nj/belmar/8th-avenue-jetty-belmar-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "8th Avenue Jetty tide tomorrow",
+      "spotId": "03e143a9-d7c1-4988-bbcd-5cb7732d4b99",
+      "region": "East Coast",
+      "canonicalPath": "/nj/belmar/8th-avenue-jetty-belmar-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-surf-region-tomorrow",
+      "query": "best surf East Coast tomorrow",
+      "spotId": null,
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/12th-street-jetty-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "where-should-i-surf-region-tomorrow",
+      "query": "where should I surf East Coast tomorrow",
+      "spotId": null,
+      "region": "East Coast",
+      "canonicalPath": "/nj/sea-isle-city/12th-street-jetty-sea-isle-city-nj",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "204s surf forecast",
+      "spotId": "047e61b4-b4a8-4042-a290-f2189b5a70ca",
+      "region": "California",
+      "canonicalPath": "/ca/san-clemente/204s",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "204s surf report",
+      "spotId": "047e61b4-b4a8-4042-a290-f2189b5a70ca",
+      "region": "California",
+      "canonicalPath": "/ca/san-clemente/204s",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "204s tomorrow",
+      "spotId": "047e61b4-b4a8-4042-a290-f2189b5a70ca",
+      "region": "California",
+      "canonicalPath": "/ca/san-clemente/204s",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf 204s",
+      "spotId": "047e61b4-b4a8-4042-a290-f2189b5a70ca",
+      "region": "California",
+      "canonicalPath": "/ca/san-clemente/204s",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf 204s",
+      "spotId": "047e61b4-b4a8-4042-a290-f2189b5a70ca",
+      "region": "California",
+      "canonicalPath": "/ca/san-clemente/204s",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "204s swell tomorrow",
+      "spotId": "047e61b4-b4a8-4042-a290-f2189b5a70ca",
+      "region": "California",
+      "canonicalPath": "/ca/san-clemente/204s",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "204s wind tomorrow",
+      "spotId": "047e61b4-b4a8-4042-a290-f2189b5a70ca",
+      "region": "California",
+      "canonicalPath": "/ca/san-clemente/204s",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "204s tide tomorrow",
+      "spotId": "047e61b4-b4a8-4042-a290-f2189b5a70ca",
+      "region": "California",
+      "canonicalPath": "/ca/san-clemente/204s",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "38th Avenue (Santa Cruz) surf forecast",
+      "spotId": "36a2d39e-64f1-4c7e-9618-ac8cc695af62",
+      "region": "California",
+      "canonicalPath": "/ca/santa-cruz/38th-avenue-santa-cruz-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "38th Avenue (Santa Cruz) surf report",
+      "spotId": "36a2d39e-64f1-4c7e-9618-ac8cc695af62",
+      "region": "California",
+      "canonicalPath": "/ca/santa-cruz/38th-avenue-santa-cruz-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "38th Avenue (Santa Cruz) tomorrow",
+      "spotId": "36a2d39e-64f1-4c7e-9618-ac8cc695af62",
+      "region": "California",
+      "canonicalPath": "/ca/santa-cruz/38th-avenue-santa-cruz-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf 38th Avenue (Santa Cruz)",
+      "spotId": "36a2d39e-64f1-4c7e-9618-ac8cc695af62",
+      "region": "California",
+      "canonicalPath": "/ca/santa-cruz/38th-avenue-santa-cruz-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf 38th Avenue (Santa Cruz)",
+      "spotId": "36a2d39e-64f1-4c7e-9618-ac8cc695af62",
+      "region": "California",
+      "canonicalPath": "/ca/santa-cruz/38th-avenue-santa-cruz-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "38th Avenue (Santa Cruz) swell tomorrow",
+      "spotId": "36a2d39e-64f1-4c7e-9618-ac8cc695af62",
+      "region": "California",
+      "canonicalPath": "/ca/santa-cruz/38th-avenue-santa-cruz-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "38th Avenue (Santa Cruz) wind tomorrow",
+      "spotId": "36a2d39e-64f1-4c7e-9618-ac8cc695af62",
+      "region": "California",
+      "canonicalPath": "/ca/santa-cruz/38th-avenue-santa-cruz-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "38th Avenue (Santa Cruz) tide tomorrow",
+      "spotId": "36a2d39e-64f1-4c7e-9618-ac8cc695af62",
+      "region": "California",
+      "canonicalPath": "/ca/santa-cruz/38th-avenue-santa-cruz-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "52nd Street surf forecast",
+      "spotId": "1207215c-f61d-4fe1-bbaa-a3db7d4e7d53",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/52nd-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "52nd Street surf report",
+      "spotId": "1207215c-f61d-4fe1-bbaa-a3db7d4e7d53",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/52nd-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "52nd Street tomorrow",
+      "spotId": "1207215c-f61d-4fe1-bbaa-a3db7d4e7d53",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/52nd-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf 52nd Street",
+      "spotId": "1207215c-f61d-4fe1-bbaa-a3db7d4e7d53",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/52nd-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf 52nd Street",
+      "spotId": "1207215c-f61d-4fe1-bbaa-a3db7d4e7d53",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/52nd-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "52nd Street swell tomorrow",
+      "spotId": "1207215c-f61d-4fe1-bbaa-a3db7d4e7d53",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/52nd-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "52nd Street wind tomorrow",
+      "spotId": "1207215c-f61d-4fe1-bbaa-a3db7d4e7d53",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/52nd-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "52nd Street tide tomorrow",
+      "spotId": "1207215c-f61d-4fe1-bbaa-a3db7d4e7d53",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/52nd-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "54th Street surf forecast",
+      "spotId": "da8ad733-8e6b-4781-8b3f-0fe4ee492c3f",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/54th-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "54th Street surf report",
+      "spotId": "da8ad733-8e6b-4781-8b3f-0fe4ee492c3f",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/54th-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "54th Street tomorrow",
+      "spotId": "da8ad733-8e6b-4781-8b3f-0fe4ee492c3f",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/54th-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf 54th Street",
+      "spotId": "da8ad733-8e6b-4781-8b3f-0fe4ee492c3f",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/54th-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf 54th Street",
+      "spotId": "da8ad733-8e6b-4781-8b3f-0fe4ee492c3f",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/54th-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "54th Street swell tomorrow",
+      "spotId": "da8ad733-8e6b-4781-8b3f-0fe4ee492c3f",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/54th-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "54th Street wind tomorrow",
+      "spotId": "da8ad733-8e6b-4781-8b3f-0fe4ee492c3f",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/54th-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "54th Street tide tomorrow",
+      "spotId": "da8ad733-8e6b-4781-8b3f-0fe4ee492c3f",
+      "region": "California",
+      "canonicalPath": "/ca/newport-beach/54th-street-newport-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "72nd Place surf forecast",
+      "spotId": "6932c9a6-bc1f-46b7-9493-51c587bf7eb0",
+      "region": "California",
+      "canonicalPath": "/ca/long-beach/72nd-place-long-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "72nd Place surf report",
+      "spotId": "6932c9a6-bc1f-46b7-9493-51c587bf7eb0",
+      "region": "California",
+      "canonicalPath": "/ca/long-beach/72nd-place-long-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "72nd Place tomorrow",
+      "spotId": "6932c9a6-bc1f-46b7-9493-51c587bf7eb0",
+      "region": "California",
+      "canonicalPath": "/ca/long-beach/72nd-place-long-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf 72nd Place",
+      "spotId": "6932c9a6-bc1f-46b7-9493-51c587bf7eb0",
+      "region": "California",
+      "canonicalPath": "/ca/long-beach/72nd-place-long-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf 72nd Place",
+      "spotId": "6932c9a6-bc1f-46b7-9493-51c587bf7eb0",
+      "region": "California",
+      "canonicalPath": "/ca/long-beach/72nd-place-long-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "72nd Place swell tomorrow",
+      "spotId": "6932c9a6-bc1f-46b7-9493-51c587bf7eb0",
+      "region": "California",
+      "canonicalPath": "/ca/long-beach/72nd-place-long-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "72nd Place wind tomorrow",
+      "spotId": "6932c9a6-bc1f-46b7-9493-51c587bf7eb0",
+      "region": "California",
+      "canonicalPath": "/ca/long-beach/72nd-place-long-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "72nd Place tide tomorrow",
+      "spotId": "6932c9a6-bc1f-46b7-9493-51c587bf7eb0",
+      "region": "California",
+      "canonicalPath": "/ca/long-beach/72nd-place-long-beach-ca",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-surf-region-tomorrow",
+      "query": "best surf California tomorrow",
+      "spotId": null,
+      "region": "California",
+      "canonicalPath": "/ca/san-clemente/204s",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "where-should-i-surf-region-tomorrow",
+      "query": "where should I surf California tomorrow",
+      "spotId": null,
+      "region": "California",
+      "canonicalPath": "/ca/san-clemente/204s",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "Agate Beach surf forecast",
+      "spotId": "ffc0dcae-83d7-4b90-ade3-03c14e789088",
+      "region": "International",
+      "canonicalPath": "/or/newport/agate-beach",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "Agate Beach surf report",
+      "spotId": "ffc0dcae-83d7-4b90-ade3-03c14e789088",
+      "region": "International",
+      "canonicalPath": "/or/newport/agate-beach",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "Agate Beach tomorrow",
+      "spotId": "ffc0dcae-83d7-4b90-ade3-03c14e789088",
+      "region": "International",
+      "canonicalPath": "/or/newport/agate-beach",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf Agate Beach",
+      "spotId": "ffc0dcae-83d7-4b90-ade3-03c14e789088",
+      "region": "International",
+      "canonicalPath": "/or/newport/agate-beach",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf Agate Beach",
+      "spotId": "ffc0dcae-83d7-4b90-ade3-03c14e789088",
+      "region": "International",
+      "canonicalPath": "/or/newport/agate-beach",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "Agate Beach swell tomorrow",
+      "spotId": "ffc0dcae-83d7-4b90-ade3-03c14e789088",
+      "region": "International",
+      "canonicalPath": "/or/newport/agate-beach",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "Agate Beach wind tomorrow",
+      "spotId": "ffc0dcae-83d7-4b90-ade3-03c14e789088",
+      "region": "International",
+      "canonicalPath": "/or/newport/agate-beach",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "Agate Beach tide tomorrow",
+      "spotId": "ffc0dcae-83d7-4b90-ade3-03c14e789088",
+      "region": "International",
+      "canonicalPath": "/or/newport/agate-beach",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "Alfonsos surf forecast",
+      "spotId": "6e083f22-4c11-46c5-9110-ac7500f6cba5",
+      "region": "International",
+      "canonicalPath": "/mexico/baja-california/rosarito/alfonsos",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "Alfonsos surf report",
+      "spotId": "6e083f22-4c11-46c5-9110-ac7500f6cba5",
+      "region": "International",
+      "canonicalPath": "/mexico/baja-california/rosarito/alfonsos",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "Alfonsos tomorrow",
+      "spotId": "6e083f22-4c11-46c5-9110-ac7500f6cba5",
+      "region": "International",
+      "canonicalPath": "/mexico/baja-california/rosarito/alfonsos",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf Alfonsos",
+      "spotId": "6e083f22-4c11-46c5-9110-ac7500f6cba5",
+      "region": "International",
+      "canonicalPath": "/mexico/baja-california/rosarito/alfonsos",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf Alfonsos",
+      "spotId": "6e083f22-4c11-46c5-9110-ac7500f6cba5",
+      "region": "International",
+      "canonicalPath": "/mexico/baja-california/rosarito/alfonsos",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "Alfonsos swell tomorrow",
+      "spotId": "6e083f22-4c11-46c5-9110-ac7500f6cba5",
+      "region": "International",
+      "canonicalPath": "/mexico/baja-california/rosarito/alfonsos",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "Alfonsos wind tomorrow",
+      "spotId": "6e083f22-4c11-46c5-9110-ac7500f6cba5",
+      "region": "International",
+      "canonicalPath": "/mexico/baja-california/rosarito/alfonsos",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "Alfonsos tide tomorrow",
+      "spotId": "6e083f22-4c11-46c5-9110-ac7500f6cba5",
+      "region": "International",
+      "canonicalPath": "/mexico/baja-california/rosarito/alfonsos",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "Crash Boat surf forecast",
+      "spotId": "acfad2b2-7d0c-4c42-9fba-e78fa73e4ae3",
+      "region": "International",
+      "canonicalPath": "/pr/aguadilla/crash-boat",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "Crash Boat surf report",
+      "spotId": "acfad2b2-7d0c-4c42-9fba-e78fa73e4ae3",
+      "region": "International",
+      "canonicalPath": "/pr/aguadilla/crash-boat",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "Crash Boat tomorrow",
+      "spotId": "acfad2b2-7d0c-4c42-9fba-e78fa73e4ae3",
+      "region": "International",
+      "canonicalPath": "/pr/aguadilla/crash-boat",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf Crash Boat",
+      "spotId": "acfad2b2-7d0c-4c42-9fba-e78fa73e4ae3",
+      "region": "International",
+      "canonicalPath": "/pr/aguadilla/crash-boat",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf Crash Boat",
+      "spotId": "acfad2b2-7d0c-4c42-9fba-e78fa73e4ae3",
+      "region": "International",
+      "canonicalPath": "/pr/aguadilla/crash-boat",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "Crash Boat swell tomorrow",
+      "spotId": "acfad2b2-7d0c-4c42-9fba-e78fa73e4ae3",
+      "region": "International",
+      "canonicalPath": "/pr/aguadilla/crash-boat",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "Crash Boat wind tomorrow",
+      "spotId": "acfad2b2-7d0c-4c42-9fba-e78fa73e4ae3",
+      "region": "International",
+      "canonicalPath": "/pr/aguadilla/crash-boat",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "Crash Boat tide tomorrow",
+      "spotId": "acfad2b2-7d0c-4c42-9fba-e78fa73e4ae3",
+      "region": "International",
+      "canonicalPath": "/pr/aguadilla/crash-boat",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "Domes surf forecast",
+      "spotId": "8a2b0951-38b4-4d7e-b5d5-6e076b58a5f0",
+      "region": "International",
+      "canonicalPath": "/pr/rincon/domes",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "Domes surf report",
+      "spotId": "8a2b0951-38b4-4d7e-b5d5-6e076b58a5f0",
+      "region": "International",
+      "canonicalPath": "/pr/rincon/domes",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "Domes tomorrow",
+      "spotId": "8a2b0951-38b4-4d7e-b5d5-6e076b58a5f0",
+      "region": "International",
+      "canonicalPath": "/pr/rincon/domes",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf Domes",
+      "spotId": "8a2b0951-38b4-4d7e-b5d5-6e076b58a5f0",
+      "region": "International",
+      "canonicalPath": "/pr/rincon/domes",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf Domes",
+      "spotId": "8a2b0951-38b4-4d7e-b5d5-6e076b58a5f0",
+      "region": "International",
+      "canonicalPath": "/pr/rincon/domes",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "Domes swell tomorrow",
+      "spotId": "8a2b0951-38b4-4d7e-b5d5-6e076b58a5f0",
+      "region": "International",
+      "canonicalPath": "/pr/rincon/domes",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "Domes wind tomorrow",
+      "spotId": "8a2b0951-38b4-4d7e-b5d5-6e076b58a5f0",
+      "region": "International",
+      "canonicalPath": "/pr/rincon/domes",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "Domes tide tomorrow",
+      "spotId": "8a2b0951-38b4-4d7e-b5d5-6e076b58a5f0",
+      "region": "International",
+      "canonicalPath": "/pr/rincon/domes",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "El Cocal surf forecast",
+      "spotId": "bf11355b-3072-49ce-9682-783349d5a17d",
+      "region": "International",
+      "canonicalPath": "/pr/yabucoa/el-cocal-yabucoa-pr",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "El Cocal surf report",
+      "spotId": "bf11355b-3072-49ce-9682-783349d5a17d",
+      "region": "International",
+      "canonicalPath": "/pr/yabucoa/el-cocal-yabucoa-pr",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "El Cocal tomorrow",
+      "spotId": "bf11355b-3072-49ce-9682-783349d5a17d",
+      "region": "International",
+      "canonicalPath": "/pr/yabucoa/el-cocal-yabucoa-pr",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf El Cocal",
+      "spotId": "bf11355b-3072-49ce-9682-783349d5a17d",
+      "region": "International",
+      "canonicalPath": "/pr/yabucoa/el-cocal-yabucoa-pr",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf El Cocal",
+      "spotId": "bf11355b-3072-49ce-9682-783349d5a17d",
+      "region": "International",
+      "canonicalPath": "/pr/yabucoa/el-cocal-yabucoa-pr",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "El Cocal swell tomorrow",
+      "spotId": "bf11355b-3072-49ce-9682-783349d5a17d",
+      "region": "International",
+      "canonicalPath": "/pr/yabucoa/el-cocal-yabucoa-pr",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "El Cocal wind tomorrow",
+      "spotId": "bf11355b-3072-49ce-9682-783349d5a17d",
+      "region": "International",
+      "canonicalPath": "/pr/yabucoa/el-cocal-yabucoa-pr",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "El Cocal tide tomorrow",
+      "spotId": "bf11355b-3072-49ce-9682-783349d5a17d",
+      "region": "International",
+      "canonicalPath": "/pr/yabucoa/el-cocal-yabucoa-pr",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-surf-region-tomorrow",
+      "query": "best surf International tomorrow",
+      "spotId": null,
+      "region": "International",
+      "canonicalPath": "/or/newport/agate-beach",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "where-should-i-surf-region-tomorrow",
+      "query": "where should I surf International tomorrow",
+      "spotId": null,
+      "region": "International",
+      "canonicalPath": "/or/newport/agate-beach",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "Ala Moana Bowls surf forecast",
+      "spotId": "80fc2c1b-2d3f-4a94-bcc2-c8ea0e9b8fc5",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/ala-moana-bowls",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "Ala Moana Bowls surf report",
+      "spotId": "80fc2c1b-2d3f-4a94-bcc2-c8ea0e9b8fc5",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/ala-moana-bowls",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "Ala Moana Bowls tomorrow",
+      "spotId": "80fc2c1b-2d3f-4a94-bcc2-c8ea0e9b8fc5",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/ala-moana-bowls",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf Ala Moana Bowls",
+      "spotId": "80fc2c1b-2d3f-4a94-bcc2-c8ea0e9b8fc5",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/ala-moana-bowls",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf Ala Moana Bowls",
+      "spotId": "80fc2c1b-2d3f-4a94-bcc2-c8ea0e9b8fc5",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/ala-moana-bowls",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "Ala Moana Bowls swell tomorrow",
+      "spotId": "80fc2c1b-2d3f-4a94-bcc2-c8ea0e9b8fc5",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/ala-moana-bowls",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "Ala Moana Bowls wind tomorrow",
+      "spotId": "80fc2c1b-2d3f-4a94-bcc2-c8ea0e9b8fc5",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/ala-moana-bowls",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "Ala Moana Bowls tide tomorrow",
+      "spotId": "80fc2c1b-2d3f-4a94-bcc2-c8ea0e9b8fc5",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/ala-moana-bowls",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "Anahola surf forecast",
+      "spotId": "c9659503-c562-4379-9177-fff60acdfb7f",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/anahola/anahola",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "Anahola surf report",
+      "spotId": "c9659503-c562-4379-9177-fff60acdfb7f",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/anahola/anahola",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "Anahola tomorrow",
+      "spotId": "c9659503-c562-4379-9177-fff60acdfb7f",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/anahola/anahola",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf Anahola",
+      "spotId": "c9659503-c562-4379-9177-fff60acdfb7f",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/anahola/anahola",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf Anahola",
+      "spotId": "c9659503-c562-4379-9177-fff60acdfb7f",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/anahola/anahola",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "Anahola swell tomorrow",
+      "spotId": "c9659503-c562-4379-9177-fff60acdfb7f",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/anahola/anahola",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "Anahola wind tomorrow",
+      "spotId": "c9659503-c562-4379-9177-fff60acdfb7f",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/anahola/anahola",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "Anahola tide tomorrow",
+      "spotId": "c9659503-c562-4379-9177-fff60acdfb7f",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/anahola/anahola",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "Backyards surf forecast",
+      "spotId": "486929f4-c8f8-4ae8-9b10-5ba1b7be7bcf",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kahuku/backyards",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "Backyards surf report",
+      "spotId": "486929f4-c8f8-4ae8-9b10-5ba1b7be7bcf",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kahuku/backyards",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "Backyards tomorrow",
+      "spotId": "486929f4-c8f8-4ae8-9b10-5ba1b7be7bcf",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kahuku/backyards",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf Backyards",
+      "spotId": "486929f4-c8f8-4ae8-9b10-5ba1b7be7bcf",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kahuku/backyards",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf Backyards",
+      "spotId": "486929f4-c8f8-4ae8-9b10-5ba1b7be7bcf",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kahuku/backyards",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "Backyards swell tomorrow",
+      "spotId": "486929f4-c8f8-4ae8-9b10-5ba1b7be7bcf",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kahuku/backyards",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "Backyards wind tomorrow",
+      "spotId": "486929f4-c8f8-4ae8-9b10-5ba1b7be7bcf",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kahuku/backyards",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "Backyards tide tomorrow",
+      "spotId": "486929f4-c8f8-4ae8-9b10-5ba1b7be7bcf",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kahuku/backyards",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "Banyans surf forecast",
+      "spotId": "eadd2bf6-759a-46e4-a8af-8df1feb635cb",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kailua-kona/banyans",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "Banyans surf report",
+      "spotId": "eadd2bf6-759a-46e4-a8af-8df1feb635cb",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kailua-kona/banyans",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "Banyans tomorrow",
+      "spotId": "eadd2bf6-759a-46e4-a8af-8df1feb635cb",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kailua-kona/banyans",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf Banyans",
+      "spotId": "eadd2bf6-759a-46e4-a8af-8df1feb635cb",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kailua-kona/banyans",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf Banyans",
+      "spotId": "eadd2bf6-759a-46e4-a8af-8df1feb635cb",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kailua-kona/banyans",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "Banyans swell tomorrow",
+      "spotId": "eadd2bf6-759a-46e4-a8af-8df1feb635cb",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kailua-kona/banyans",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "Banyans wind tomorrow",
+      "spotId": "eadd2bf6-759a-46e4-a8af-8df1feb635cb",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kailua-kona/banyans",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "Banyans tide tomorrow",
+      "spotId": "eadd2bf6-759a-46e4-a8af-8df1feb635cb",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/kailua-kona/banyans",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "Diamond Head (Cliffs) surf forecast",
+      "spotId": "8ee452f0-4043-4fe0-a049-207afbd95523",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/diamond-head-cliffs",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "Diamond Head (Cliffs) surf report",
+      "spotId": "8ee452f0-4043-4fe0-a049-207afbd95523",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/diamond-head-cliffs",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "Diamond Head (Cliffs) tomorrow",
+      "spotId": "8ee452f0-4043-4fe0-a049-207afbd95523",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/diamond-head-cliffs",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf Diamond Head (Cliffs)",
+      "spotId": "8ee452f0-4043-4fe0-a049-207afbd95523",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/diamond-head-cliffs",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf Diamond Head (Cliffs)",
+      "spotId": "8ee452f0-4043-4fe0-a049-207afbd95523",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/diamond-head-cliffs",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "Diamond Head (Cliffs) swell tomorrow",
+      "spotId": "8ee452f0-4043-4fe0-a049-207afbd95523",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/diamond-head-cliffs",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "Diamond Head (Cliffs) wind tomorrow",
+      "spotId": "8ee452f0-4043-4fe0-a049-207afbd95523",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/diamond-head-cliffs",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "Diamond Head (Cliffs) tide tomorrow",
+      "spotId": "8ee452f0-4043-4fe0-a049-207afbd95523",
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/diamond-head-cliffs",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-surf-region-tomorrow",
+      "query": "best surf Hawaii tomorrow",
+      "spotId": null,
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/ala-moana-bowls",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "where-should-i-surf-region-tomorrow",
+      "query": "where should I surf Hawaii tomorrow",
+      "spotId": null,
+      "region": "Hawaii",
+      "canonicalPath": "/hi/honolulu/ala-moana-bowls",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "Boynton Inlet surf forecast",
+      "spotId": "c06c6bd7-dbce-4df7-8479-73c44c1cb905",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/boynton-beach/boynton-inlet-boynton-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "Boynton Inlet surf report",
+      "spotId": "c06c6bd7-dbce-4df7-8479-73c44c1cb905",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/boynton-beach/boynton-inlet-boynton-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "Boynton Inlet tomorrow",
+      "spotId": "c06c6bd7-dbce-4df7-8479-73c44c1cb905",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/boynton-beach/boynton-inlet-boynton-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf Boynton Inlet",
+      "spotId": "c06c6bd7-dbce-4df7-8479-73c44c1cb905",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/boynton-beach/boynton-inlet-boynton-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf Boynton Inlet",
+      "spotId": "c06c6bd7-dbce-4df7-8479-73c44c1cb905",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/boynton-beach/boynton-inlet-boynton-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "Boynton Inlet swell tomorrow",
+      "spotId": "c06c6bd7-dbce-4df7-8479-73c44c1cb905",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/boynton-beach/boynton-inlet-boynton-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "Boynton Inlet wind tomorrow",
+      "spotId": "c06c6bd7-dbce-4df7-8479-73c44c1cb905",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/boynton-beach/boynton-inlet-boynton-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "Boynton Inlet tide tomorrow",
+      "spotId": "c06c6bd7-dbce-4df7-8479-73c44c1cb905",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/boynton-beach/boynton-inlet-boynton-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "Deerfield Beach Pier surf forecast",
+      "spotId": "1bd4ef4d-eb8e-4833-8679-8a13095a97d6",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/deerfield-beach/deerfield-beach-pier-deerfield-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "Deerfield Beach Pier surf report",
+      "spotId": "1bd4ef4d-eb8e-4833-8679-8a13095a97d6",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/deerfield-beach/deerfield-beach-pier-deerfield-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "Deerfield Beach Pier tomorrow",
+      "spotId": "1bd4ef4d-eb8e-4833-8679-8a13095a97d6",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/deerfield-beach/deerfield-beach-pier-deerfield-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf Deerfield Beach Pier",
+      "spotId": "1bd4ef4d-eb8e-4833-8679-8a13095a97d6",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/deerfield-beach/deerfield-beach-pier-deerfield-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf Deerfield Beach Pier",
+      "spotId": "1bd4ef4d-eb8e-4833-8679-8a13095a97d6",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/deerfield-beach/deerfield-beach-pier-deerfield-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "Deerfield Beach Pier swell tomorrow",
+      "spotId": "1bd4ef4d-eb8e-4833-8679-8a13095a97d6",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/deerfield-beach/deerfield-beach-pier-deerfield-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "Deerfield Beach Pier wind tomorrow",
+      "spotId": "1bd4ef4d-eb8e-4833-8679-8a13095a97d6",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/deerfield-beach/deerfield-beach-pier-deerfield-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "Deerfield Beach Pier tide tomorrow",
+      "spotId": "1bd4ef4d-eb8e-4833-8679-8a13095a97d6",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/deerfield-beach/deerfield-beach-pier-deerfield-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "Flagler Beach surf forecast",
+      "spotId": "9ca1fa2f-2b90-4aa3-8784-48721e5463bb",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/flagler-beach/flagler-beach-flagler-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "Flagler Beach surf report",
+      "spotId": "9ca1fa2f-2b90-4aa3-8784-48721e5463bb",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/flagler-beach/flagler-beach-flagler-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "Flagler Beach tomorrow",
+      "spotId": "9ca1fa2f-2b90-4aa3-8784-48721e5463bb",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/flagler-beach/flagler-beach-flagler-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf Flagler Beach",
+      "spotId": "9ca1fa2f-2b90-4aa3-8784-48721e5463bb",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/flagler-beach/flagler-beach-flagler-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf Flagler Beach",
+      "spotId": "9ca1fa2f-2b90-4aa3-8784-48721e5463bb",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/flagler-beach/flagler-beach-flagler-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "Flagler Beach swell tomorrow",
+      "spotId": "9ca1fa2f-2b90-4aa3-8784-48721e5463bb",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/flagler-beach/flagler-beach-flagler-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "Flagler Beach wind tomorrow",
+      "spotId": "9ca1fa2f-2b90-4aa3-8784-48721e5463bb",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/flagler-beach/flagler-beach-flagler-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "Flagler Beach tide tomorrow",
+      "spotId": "9ca1fa2f-2b90-4aa3-8784-48721e5463bb",
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/flagler-beach/flagler-beach-flagler-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "Galveston – 61st Street Pier surf forecast",
+      "spotId": "13ba376d-efd5-4e4e-af12-85bfeb2c17bc",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/galveston/galveston-61st-street-pier-galveston-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "Galveston – 61st Street Pier surf report",
+      "spotId": "13ba376d-efd5-4e4e-af12-85bfeb2c17bc",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/galveston/galveston-61st-street-pier-galveston-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "Galveston – 61st Street Pier tomorrow",
+      "spotId": "13ba376d-efd5-4e4e-af12-85bfeb2c17bc",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/galveston/galveston-61st-street-pier-galveston-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf Galveston – 61st Street Pier",
+      "spotId": "13ba376d-efd5-4e4e-af12-85bfeb2c17bc",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/galveston/galveston-61st-street-pier-galveston-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf Galveston – 61st Street Pier",
+      "spotId": "13ba376d-efd5-4e4e-af12-85bfeb2c17bc",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/galveston/galveston-61st-street-pier-galveston-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "Galveston – 61st Street Pier swell tomorrow",
+      "spotId": "13ba376d-efd5-4e4e-af12-85bfeb2c17bc",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/galveston/galveston-61st-street-pier-galveston-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "Galveston – 61st Street Pier wind tomorrow",
+      "spotId": "13ba376d-efd5-4e4e-af12-85bfeb2c17bc",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/galveston/galveston-61st-street-pier-galveston-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "Galveston – 61st Street Pier tide tomorrow",
+      "spotId": "13ba376d-efd5-4e4e-af12-85bfeb2c17bc",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/galveston/galveston-61st-street-pier-galveston-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-forecast",
+      "query": "Mustang Island State Park surf forecast",
+      "spotId": "d85492b8-31ed-4dd8-af53-4284e9456be9",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/corpus-christi/mustang-island-state-park-corpus-christi-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-surf-report",
+      "query": "Mustang Island State Park surf report",
+      "spotId": "d85492b8-31ed-4dd8-af53-4284e9456be9",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/corpus-christi/mustang-island-state-park-corpus-christi-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tomorrow",
+      "query": "Mustang Island State Park tomorrow",
+      "spotId": "d85492b8-31ed-4dd8-af53-4284e9456be9",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/corpus-christi/mustang-island-state-park-corpus-christi-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-time-to-surf-spot",
+      "query": "best time to surf Mustang Island State Park",
+      "spotId": "d85492b8-31ed-4dd8-af53-4284e9456be9",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/corpus-christi/mustang-island-state-park-corpus-christi-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "when-should-i-surf-spot",
+      "query": "when should I surf Mustang Island State Park",
+      "spotId": "d85492b8-31ed-4dd8-af53-4284e9456be9",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/corpus-christi/mustang-island-state-park-corpus-christi-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-swell-tomorrow",
+      "query": "Mustang Island State Park swell tomorrow",
+      "spotId": "d85492b8-31ed-4dd8-af53-4284e9456be9",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/corpus-christi/mustang-island-state-park-corpus-christi-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-wind-tomorrow",
+      "query": "Mustang Island State Park wind tomorrow",
+      "spotId": "d85492b8-31ed-4dd8-af53-4284e9456be9",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/corpus-christi/mustang-island-state-park-corpus-christi-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "spot-tide-tomorrow",
+      "query": "Mustang Island State Park tide tomorrow",
+      "spotId": "d85492b8-31ed-4dd8-af53-4284e9456be9",
+      "region": "Gulf Coast",
+      "canonicalPath": "/tx/corpus-christi/mustang-island-state-park-corpus-christi-tx",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "best-surf-region-tomorrow",
+      "query": "best surf Gulf Coast tomorrow",
+      "spotId": null,
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/boynton-beach/boynton-inlet-boynton-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    },
+    {
+      "queryClass": "where-should-i-surf-region-tomorrow",
+      "query": "where should I surf Gulf Coast tomorrow",
+      "spotId": null,
+      "region": "Gulf Coast",
+      "canonicalPath": "/fl/boynton-beach/boynton-inlet-boynton-beach-fl",
+      "status": null,
+      "facts": null,
+      "error": "fetch failed"
+    }
+  ],
+  "competitiveBenchmark": {
+    "competitors": [
+      "Surfline",
+      "Surf Captain"
+    ],
+    "criteria": [
+      "search discoverability",
+      "canonical-page selection",
+      "raw HTML completeness",
+      "surf facts available",
+      "freshness transparency",
+      "forecast reasoning",
+      "provenance",
+      "citation suitability"
+    ],
+    "status": "manual-evidence-required",
+    "note": "Provide a dated SERP capture or page fixture before recording competitor claims."
+  }
+}

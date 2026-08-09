@@ -6,6 +6,8 @@ import { createPublicReadClient } from "@/lib/supabase/server";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { getIndexableSeoFunnelRoutes } from "@/lib/seo/funnel-pages";
+import { evaluateBeachForecastIndexability } from "@/lib/seo/indexability";
+import { getForecastIndexabilityForBeaches } from "@/lib/seo/forecast-indexability";
 import {
   buildBeachUrl,
   isValidCountrySlug,
@@ -275,11 +277,15 @@ async function collectBeachDetailUrls(): Promise<string[]> {
   let from = 0;
 
   type BeachRow = {
+    id: string;
     slug: string | null;
     city: string | null;
     state: string | null;
     country?: string | null;
+    timezone?: string | null;
   };
+
+  const beaches: BeachRow[] = [];
 
   try {
     const supabase = createPublicReadClient();
@@ -287,7 +293,7 @@ async function collectBeachDetailUrls(): Promise<string[]> {
     while (true) {
       const { data, error } = await supabase
         .from("beaches")
-        .select("slug, city, state, country")
+        .select("id, slug, city, state, country, timezone")
         .not("slug", "is", null)
         .not("city", "is", null)
         .not("state", "is", null)
@@ -299,19 +305,34 @@ async function collectBeachDetailUrls(): Promise<string[]> {
       }
 
       const rows = data as BeachRow[];
-      for (const beach of rows) {
-        const beachPath = buildBeachUrl(beach);
-        urls.push(`${SITE_URL}${beachPath}`);
-
-        const stateSlug = stateToSlug(beach.state);
-        if (isValidStateSlug(stateSlug)) {
-          urls.push(`${SITE_URL}${beachPath}/tides`);
-          urls.push(`${SITE_URL}${beachPath}/water-temp`);
-        }
-      }
+      beaches.push(...rows);
 
       if (rows.length < pageSize) break;
       from += pageSize;
+    }
+
+    const forecastIndexabilityByBeachId = await getForecastIndexabilityForBeaches(
+      beaches.map((beach) => ({ id: beach.id, timezone: beach.timezone })),
+    );
+
+    for (const beach of beaches) {
+      const beachPath = buildBeachUrl(beach);
+      const snapshot = forecastIndexabilityByBeachId.get(beach.id);
+      const forecastIndexable = evaluateBeachForecastIndexability({
+        canonicalValid: !beachPath.startsWith("/beach/"),
+        forecastAvailable: snapshot?.forecastAvailable ?? false,
+        selectedStateComplete: snapshot?.selectedStateComplete ?? false,
+        forecastFresh: snapshot?.forecastFresh ?? false,
+      }).indexable;
+      if (!forecastIndexable) continue;
+
+      urls.push(`${SITE_URL}${beachPath}`);
+
+      const stateSlug = stateToSlug(beach.state);
+      if (isValidStateSlug(stateSlug)) {
+        urls.push(`${SITE_URL}${beachPath}/tides`);
+        urls.push(`${SITE_URL}${beachPath}/water-temp`);
+      }
     }
   } catch (error) {
     console.error("IndexNow: Error collecting beach detail URLs", error);

@@ -9,6 +9,25 @@ import { TodaySurfCall } from "@/components/beach-detail/zine/today-surf-call";
 import { createMockBeach } from "@/__tests__/setup/typed-mocks";
 
 describe("TodaySurfCall", () => {
+  it("labels the public call as tomorrow when the selected forecast rolls over", () => {
+    render(
+      <TodaySurfCall
+        beach={createMockBeach({ name: "Oceanside Harbor" })}
+        isTomorrow
+        surfCallReport={{
+          verdict: "MAYBE",
+          bestWindowStart: null,
+          bestWindowEnd: null,
+          whySentence: "Use the tomorrow window.",
+          updatedAt: "2026-05-21T18:32:00.000Z",
+        } as any}
+      />,
+    );
+
+    expect(screen.getByRole("region", { name: "Tomorrow's surf call" })).toBeInTheDocument();
+    expect(screen.getByText("Tomorrow's Surf Call")).toBeInTheDocument();
+  });
+
   it("uses the Go surf family for YES when no window exists", () => {
     render(
       <TodaySurfCall

@@ -1,8 +1,10 @@
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
+import { PublicForecastAnswer } from "@/components/beach-detail/public-forecast-answer";
+import { WebPageSchema } from "@/components/seo/web-page-schema";
 import type { Metadata } from "next";
-import { buildPageMetadata, formatMetaDate } from "@/lib/seo/meta";
+import { buildDynamicBeachMetadata, buildPageMetadata } from "@/lib/seo/meta";
 import {
   buildBeachUrl,
   buildInternationalBeachUrl,
@@ -16,6 +18,10 @@ import { notFound } from "next/navigation";
 import type { Beach } from "@/types/database";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
+import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions";
+import { evaluateBeachForecastIndexability, applyIndexabilityToMetadata } from "@/lib/seo/indexability";
+import { isDataStale } from "@/lib/utils/forecast-client-utils";
+import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
 
 // The route only reads public beach data; cache on demand instead of rendering
 // every crawler request from scratch.
@@ -173,11 +179,16 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
         beach.city,
         beach.slug
       ) || buildBeachUrl(beach);
+    const surfReportResult = await getSpotSurfReportPublic(beach);
+    const publicBeach = sanitizeBeachEditorialContent(beach);
+    const surfCallReport = surfReportResult?.report ?? null;
+    const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
+    const forecastContext = surfReportResult?.forecastContext ?? null;
 
     return (
       <>
         <BeachPageStructuredData
-          beachName={beach.name}
+          beachName={publicBeach.name}
           description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
           latitude={beach.lat || 0}
           longitude={beach.lon || 0}
@@ -200,10 +211,25 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
           ]}
         />
 
+        <WebPageSchema
+          name={`${beach.name} Surf Report & Forecast`}
+          url={`${baseUrl}${beachUrl}`}
+          dateModified={forecastContext?.sourceDataUpdatedAt ?? undefined}
+        />
+
+        <PublicForecastAnswer
+          beach={publicBeach}
+          report={surfCallReport}
+          context={forecastContext}
+          isTomorrow={surfCallIsTomorrow}
+        />
+
         <BeachDetailClient
-          beach={beach}
+          beach={publicBeach}
           slug={intlBeachSlug}
           beachTimezone={beachTimezone}
+          surfCallReport={surfCallReport}
+          surfCallIsTomorrow={surfCallIsTomorrow}
           freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
         />
       </>
@@ -256,10 +282,35 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
         beach.city,
         beach.slug
       );
+      const surfReportResult = await getSpotSurfReportPublic(beach);
+      const forecastContext = surfReportResult?.forecastContext ?? null;
+      const { title, description } = buildDynamicBeachMetadata({
+        beach: {
+          name: beach.name,
+          city: beach.city,
+          state: beach.state,
+          break_type: beach.break_type,
+          skill_level: beach.skill_level,
+          description_excerpt: beach.description
+            ? `${beach.description.split(/\.(\s|$)/)[0]}.`
+            : null,
+          wave_tips: beach.wave_tips,
+          crowd_level: beach.crowd_level,
+          average_rating: beach.average_rating,
+          review_count: beach.review_count,
+        },
+        forecast: forecastContext
+          ? {
+              wave_height:
+                forecastContext.waveHeightRangeLabel ?? forecastContext.waveHeight,
+              dayLabel: surfReportResult?.isTomorrow ? "tomorrow" : "today",
+            }
+          : null,
+      });
 
-      return buildPageMetadata({
-        title: `${beach.name} Surf Report & Forecast${locationContext}`,
-        description: `${beach.name} surf report for ${formatMetaDate()}. Tides, wind, swell, cams, and community intel${locationContext}.`,
+      const metadata = buildPageMetadata({
+        title: `${title}${locationContext}`,
+        description,
         path: path || `/beach/${intlBeachSlug}`,
         keywords: [
           beach.name,
@@ -276,6 +327,28 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
           "wind",
         ].filter(Boolean),
       });
+
+      return applyIndexabilityToMetadata(
+        metadata,
+        evaluateBeachForecastIndexability({
+          canonicalValid: Boolean(path && path !== "/" && !path.startsWith("/beach/")),
+          forecastAvailable: Boolean(surfReportResult),
+          selectedStateComplete: Boolean(
+            forecastContext?.selectedRowTime &&
+              forecastContext.waveHeight &&
+              forecastContext.sourceDataUpdatedAt &&
+              forecastContext.primaryDataSource,
+          ),
+          forecastFresh: Boolean(
+            forecastContext?.sourceDataUpdatedAt &&
+              forecastContext.primaryDataSource &&
+              !isDataStale(
+                forecastContext.sourceDataUpdatedAt,
+                forecastContext.primaryDataSource,
+              ),
+          ),
+        }),
+      );
     }
   } catch (error) {
     console.error("[InternationalBeachDetailPage] Error generating metadata:", {

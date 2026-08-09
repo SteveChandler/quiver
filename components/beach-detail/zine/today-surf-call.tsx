@@ -10,6 +10,7 @@ interface TodaySurfCallProps {
   beach: Beach;
   surfCallReport?: SurfCallResult | null;
   beachTimezone?: string | null;
+  isTomorrow?: boolean;
 }
 
 const ZINE_YES_DARK_TEAL_3_95_CONTRAST_ON_TAN = "#006B5F";
@@ -33,7 +34,12 @@ function selectDisplayTier(userTier: SkillLevel | null | undefined): TierKey {
   return "beginner";
 }
 
-export function TodaySurfCall({ beach, surfCallReport, beachTimezone }: TodaySurfCallProps) {
+export function TodaySurfCall({
+  beach,
+  surfCallReport,
+  beachTimezone,
+  isTomorrow = false,
+}: TodaySurfCallProps) {
   const tiers = surfCallReport?.tiers ?? null;
   const userTier = surfCallReport?.userTier ?? null;
   const displayTier: TierKey | null = tiers ? selectDisplayTier(userTier) : null;
@@ -65,7 +71,10 @@ export function TodaySurfCall({ beach, surfCallReport, beachTimezone }: TodaySur
     : null;
 
   return (
-    <section className="relative mt-8" aria-label="Today's surf call">
+    <section
+      className="relative mt-8"
+      aria-label={isTomorrow ? "Tomorrow's surf call" : "Today's surf call"}
+    >
       <TornDivider />
 
       <div
@@ -90,7 +99,7 @@ export function TodaySurfCall({ beach, surfCallReport, beachTimezone }: TodaySur
               lineHeight: 1,
             }}
           >
-            Today&apos;s Surf Call
+            {isTomorrow ? "Tomorrow's Surf Call" : "Today's Surf Call"}
           </h2>
         </div>
 

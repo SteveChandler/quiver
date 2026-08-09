@@ -37,7 +37,7 @@ export const beachCoordinates: Record<string, BeachCoordinates> = {
   "blacks beach": { lat: 32.9016, lon: -117.2524 },
   "windansea beach": { lat: 32.8217, lon: -117.2837 },
   "la jolla shores": { lat: 32.8507, lon: -117.2726 },
-  "tourmaline surf park": { lat: 32.8563, lon: -117.256 },
+  "tourmaline surf park": { lat: 32.805149, lon: -117.262364 },
   "crystal pier": { lat: 32.811, lon: -117.2544 },
   "pacific beach": { lat: 32.803, lon: -117.2405 },
   "mission beach": { lat: 32.7801, lon: -117.2549 },

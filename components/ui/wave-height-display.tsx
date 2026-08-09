@@ -121,7 +121,7 @@ export function WaveHeightDisplay({
       ? null
       : (
           <span
-            className="text-[11px] leading-tight text-muted-foreground/80"
+            className="text-[11px] font-medium leading-tight text-[#3F382E]"
             data-testid="wave-height-label"
           >
             {isCalibrated ? "Face height" : "Forecast height"}

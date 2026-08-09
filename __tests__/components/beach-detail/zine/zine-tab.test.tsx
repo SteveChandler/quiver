@@ -76,6 +76,29 @@ describe("ZineTab", () => {
     expect(screen.getByText(/BEST SWELL:/)).toBeInTheDocument();
     // Footer / hero — location appears in multiple zine surfaces
     expect(screen.getAllByText(/Solana Beach, CA/i).length).toBeGreaterThan(0);
+    const mapRegion = screen.getByRole("img", {
+      name: "Map showing Seaside Reef at its actual location",
+    });
+    expect(mapRegion).toBeInTheDocument();
+    expect(mapRegion).toHaveAttribute(
+      "aria-label",
+      "Map showing Seaside Reef at its actual location",
+    );
+  });
+
+  it("renders the doodle map cue when coordinates are unavailable", () => {
+    const beach = createMockBeach({
+      name: "Seaside Reef",
+      city: "Solana Beach",
+      state: "CA",
+      break_type: "Reef",
+      features: ["Reef", "Stairway lineup"],
+      lat: undefined,
+      lon: undefined,
+    });
+
+    render(<ZineTab beach={beach} />);
+
     expect(screen.getByTestId("zine-map-cue-reef")).toBeInTheDocument();
   });
 

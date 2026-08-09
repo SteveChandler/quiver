@@ -8,6 +8,25 @@ jest.mock("@/lib/supabase/server", () => ({
   })),
 }));
 
+jest.mock("@/lib/seo/forecast-indexability", () => ({
+  getForecastIndexabilityForBeaches: jest.fn(async (beaches: Array<{ id: string }>) =>
+    new Map(
+      beaches.map((beach) => [
+        beach.id,
+        {
+          forecastAvailable: true,
+          selectedStateComplete: true,
+          forecastFresh: true,
+          forecastValidAt: "2026-08-08T18:00:00.000Z",
+          sourceDataUpdatedAt: "2026-08-08T16:00:00.000Z",
+          primaryDataSource: "NOAA_NWS",
+          isStale: false,
+        },
+      ]),
+    ),
+  ),
+}));
+
 import { SITE_URL } from "@/lib/constants/seo";
 import {
   collectIndexNowUrlGroups,
@@ -15,6 +34,7 @@ import {
   flattenIndexNowUrlGroups,
   type IndexNowUrlGroups,
 } from "@/lib/seo/indexnow-url-collectors";
+import { getForecastIndexabilityForBeaches } from "@/lib/seo/forecast-indexability";
 import { getIndexableSeoFunnelRoutes } from "@/lib/seo/funnel-pages";
 
 type MockQueryChain = {
@@ -138,12 +158,14 @@ describe("IndexNow URL collectors", () => {
     beachDetailChain.range.mockResolvedValue({
       data: [
         {
+          id: "beach-blacks",
           slug: "blacks",
           city: "San Diego",
           state: "CA",
           country: "USA",
         },
         {
+          id: "beach-alfonsos",
           slug: "alfonsos",
           city: "Rosarito",
           state: "Baja California",
@@ -201,5 +223,54 @@ describe("IndexNow URL collectors", () => {
     );
     expect(urls).toContain(`${SITE_URL}/features`);
     expect(urls).toEqual([...new Set(urls)]);
+  });
+
+  it("does not submit stale beach URLs to IndexNow", async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
+
+    const beachDetailChain = createQueryChain();
+    beachDetailChain.range.mockResolvedValue({
+      data: [{
+        id: "beach-stale",
+        slug: "stale-break",
+        city: "San Diego",
+        state: "CA",
+        country: "USA",
+      }],
+      error: null,
+    });
+
+    const bestTimeChain = createQueryChain();
+    bestTimeChain.then.mockImplementation((resolve) =>
+      resolve({ data: [], error: null }),
+    );
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table !== "beaches") return createQueryChain();
+      const beachesCallIndex = mockFrom.mock.calls.filter(
+        ([calledTable]) => calledTable === "beaches",
+      ).length;
+      return beachesCallIndex === 1 ? beachDetailChain : bestTimeChain;
+    });
+
+    (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(
+      new Map([
+        ["beach-stale", {
+          forecastAvailable: true,
+          selectedStateComplete: true,
+          forecastFresh: false,
+          forecastValidAt: "2026-08-08T18:00:00.000Z",
+          sourceDataUpdatedAt: "2026-08-07T00:00:00.000Z",
+          primaryDataSource: "NOAA_NWS",
+          isStale: true,
+        }],
+      ]),
+    );
+
+    const groups = await collectIndexNowUrlGroups();
+
+    expect(groups.beachDetailUrls).not.toContain(
+      `${SITE_URL}/ca/san-diego/stale-break`,
+    );
   });
 });
