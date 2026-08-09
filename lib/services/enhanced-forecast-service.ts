@@ -8,9 +8,11 @@ import {
 import { hashString } from "./forecast/batch-update-coordinator";
 import {
   DeadlineTracker,
+  getRefreshSelectionWindowHours,
   loadBatchConfig,
   loadCdipBatchConfig,
   processBeachesInBatches,
+  type BatchProcessConfig,
   type BatchProcessResult,
   type BeachProcessResult,
 } from "./forecast/batch-beach-processor";
@@ -723,7 +725,7 @@ export class EnhancedForecastService {
     const { shard, shardCount } = options;
     const isSharded = typeof shard === "number" && typeof shardCount === "number" && shardCount > 0;
     const shardInfo = isSharded ? ` [shard ${shard}/${shardCount}]` : "";
-    log.info(`updateAllEnhancedForecasts() starting (v3 with stale-only updates)${shardInfo}`);
+    log.info(`updateAllEnhancedForecasts() starting (v3 with proactive refresh)${shardInfo}`);
 
     const config = loadBatchConfig();
     const deadlineTracker = new DeadlineTracker(options.deadlineMs);
@@ -736,7 +738,8 @@ export class EnhancedForecastService {
 
       log.info(
         `Starting batch forecast update for ${beaches.selected.length}/${beaches.eligible.length} beaches${shardInfo} ` +
-        `(missing: ${beaches.stats.missing}, stale>${config.freshnessWindowHours}h: ${beaches.stats.stale}, ` +
+        `(missing: ${beaches.stats.missing}, due>${beaches.refreshSelectionWindowHours}h: ${beaches.stats.dueForRefresh}, ` +
+        `stale at ${config.freshnessWindowHours}h, ` +
         `selectedMissing: ${beaches.stats.selectedMissing}, max ${config.maxBeachesPerRun} per run, batch size: ${config.batchSize})`
       );
 
@@ -785,17 +788,18 @@ export class EnhancedForecastService {
   }
 
   /**
-   * Select beaches for update based on staleness and sharding
+   * Select beaches for update before staleness, with optional sharding.
    */
   private async selectBeachesForUpdate(
-    config: { freshnessWindowHours: number; maxBeachesPerRun: number },
+    config: Pick<BatchProcessConfig, "freshnessWindowHours" | "refreshLeadHours" | "maxBeachesPerRun">,
     shard?: number,
     shardCount?: number
   ) {
     const supabase = await createSupabaseServiceRoleClient();
     const isSharded = typeof shard === "number" && typeof shardCount === "number" && shardCount > 0;
     const shardInfo = isSharded ? ` [shard ${shard}/${shardCount}]` : "";
-    const staleThresholdMs = Date.now() - config.freshnessWindowHours * 60 * 60 * 1000;
+    const refreshSelectionWindowHours = getRefreshSelectionWindowHours(config);
+    const refreshThresholdMs = Date.now() - refreshSelectionWindowHours * 60 * 60 * 1000;
 
     // Get all beaches
     const { data: allBeaches, error: beachError } = await supabase
@@ -831,14 +835,14 @@ export class EnhancedForecastService {
 
     // Filter beaches
     const missingBeaches = eligibleBeaches.filter((b) => !latestUpdatedAtByBeachMs.has(b.id));
-    const staleBeaches = eligibleBeaches
+    const dueForRefreshBeaches = eligibleBeaches
       .filter((b) => {
         const updatedAtMs = latestUpdatedAtByBeachMs.get(b.id);
-        return Boolean(updatedAtMs && updatedAtMs < staleThresholdMs);
+        return Boolean(updatedAtMs && updatedAtMs < refreshThresholdMs);
       })
       .sort((a, b) => (latestUpdatedAtByBeachMs.get(a.id) ?? 0) - (latestUpdatedAtByBeachMs.get(b.id) ?? 0));
 
-    let beachesToUpdate = [...missingBeaches, ...staleBeaches];
+    let beachesToUpdate = [...missingBeaches, ...dueForRefreshBeaches];
 
     // If everything is fresh, rotate oldest 5
     if (beachesToUpdate.length === 0) {
@@ -853,9 +857,10 @@ export class EnhancedForecastService {
     return {
       selected,
       eligible: eligibleBeaches,
+      refreshSelectionWindowHours,
       stats: {
         missing: missingBeaches.length,
-        stale: staleBeaches.length,
+        dueForRefresh: dueForRefreshBeaches.length,
         selectedMissing: selected.filter((b) => !latestUpdatedAtByBeachMs.has(b.id)).length,
       },
     };
@@ -883,8 +888,9 @@ export class EnhancedForecastService {
       }
 
       log.info(
-        `Starting CDIP-only update for ${beaches.selected.length}/${beaches.totalStale} CDIP-stale beaches ` +
-        `(stale>${config.freshnessWindowHours}h, max ${config.maxBeachesPerRun} per run, batch size: ${config.batchSize})`
+        `Starting CDIP-only update for ${beaches.selected.length}/${beaches.totalDueForRefresh} CDIP beaches due for refresh ` +
+        `(due>${beaches.refreshSelectionWindowHours}h, target ${config.freshnessWindowHours}h, ` +
+        `max ${config.maxBeachesPerRun} per run, batch size: ${config.batchSize})`
       );
 
       // Fetch nowcast observation anchors once per CDIP cron invocation, mirroring
@@ -933,16 +939,19 @@ export class EnhancedForecastService {
   }
 
   /**
-   * Select CDIP beaches for update based on staleness
+   * Select CDIP beaches before their refresh target expires.
    *
    * FIXED: Previously this method only selected beaches that already had data_source='CDIP',
    * which meant beaches not initially seeded with CDIP data were never updated by the CDIP cron.
    * Now we use the cdip_eligible column to determine which beaches should receive CDIP updates,
    * regardless of their current data_source.
    */
-  private async selectCdipBeachesForUpdate(config: { freshnessWindowHours: number; maxBeachesPerRun: number }) {
+  private async selectCdipBeachesForUpdate(
+    config: Pick<BatchProcessConfig, "freshnessWindowHours" | "refreshLeadHours" | "maxBeachesPerRun">
+  ) {
     const supabase = await createSupabaseServiceRoleClient();
-    const staleThresholdMs = Date.now() - config.freshnessWindowHours * 60 * 60 * 1000;
+    const refreshSelectionWindowHours = getRefreshSelectionWindowHours(config);
+    const refreshThresholdMs = Date.now() - refreshSelectionWindowHours * 60 * 60 * 1000;
 
     // Load CDIP-eligible beaches from DB (not all beaches)
     const { data: cdipBeaches, error: beachError } = await supabase
@@ -969,15 +978,15 @@ export class EnhancedForecastService {
       latestByBeach.set(row.beach_id, { updated_at: row.updated_at, data_source: row.data_source ?? null });
     }
 
-    // Select stale OR missing beaches (DO NOT filter by data_source)
-    const cdipStale = cdipBeaches
+    // Select due OR missing beaches (DO NOT filter by data_source)
+    const cdipDueForRefresh = cdipBeaches
       .filter((b) => {
         const latest = latestByBeach.get(b.id);
         // FIXED: Missing forecast data = needs update (was incorrectly returning false)
         if (!latest) return true;
         // FIXED: Removed data_source check - we want to update based on eligibility, not current source
         const ts = new Date(latest.updated_at).getTime();
-        return Number.isFinite(ts) && ts < staleThresholdMs;
+        return Number.isFinite(ts) && ts < refreshThresholdMs;
       })
       .sort((a, b) => {
         // Sort missing first, then by oldest updated
@@ -990,8 +999,9 @@ export class EnhancedForecastService {
       });
 
     return {
-      selected: cdipStale.slice(0, config.maxBeachesPerRun),
-      totalStale: cdipStale.length,
+      selected: cdipDueForRefresh.slice(0, config.maxBeachesPerRun),
+      totalDueForRefresh: cdipDueForRefresh.length,
+      refreshSelectionWindowHours,
     };
   }
 

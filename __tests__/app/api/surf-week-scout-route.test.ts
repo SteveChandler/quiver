@@ -24,8 +24,13 @@ jest.mock(
 
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/surf/week-scout/route';
+import {
+  WEEK_SCOUT_CONTRACT_BEACH_ID,
+  WEEK_SCOUT_CONTRACT_FIXTURE,
+  WEEK_SCOUT_CONTRACT_GENERATED_AT,
+} from '@/__tests__/fixtures/week-scout-contract';
 
-const BEACH_A = '11111111-1111-4111-8111-111111111111';
+const BEACH_A = WEEK_SCOUT_CONTRACT_BEACH_ID;
 const BEACH_B = '22222222-2222-4222-8222-222222222222';
 
 function request(body: unknown): NextRequest {
@@ -48,12 +53,7 @@ describe('POST /api/surf/week-scout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.WEEK_SCOUT_ENDPOINT_ENABLED = 'true';
-    mockGenerateWeekScoutForecast.mockResolvedValue({
-      generatedAt: '2026-07-15T18:00:00.000Z',
-      scorerVersion: 'week-scout-v1',
-      candidateFingerprint: 'candidate-fingerprint',
-      days: [],
-    });
+    mockGenerateWeekScoutForecast.mockResolvedValue(WEEK_SCOUT_CONTRACT_FIXTURE);
   });
 
   it('deduplicates candidate IDs and returns the exact private no-store response', async () => {
@@ -142,8 +142,58 @@ describe('POST /api/surf/week-scout', () => {
     expect(mockGenerateWeekScoutForecast).not.toHaveBeenCalled();
   });
 
-  it('returns 404 without running discovery when the rollout flag is disabled', async () => {
+  it('keeps the endpoint enabled for installed clients when the rollout flag is unset', async () => {
     delete process.env.WEEK_SCOUT_ENDPOINT_ENABLED;
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-15',
+      dayCount: 7,
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith(
+      'user-week-scout',
+      expect.objectContaining({ candidateBeachIds: [BEACH_A] }),
+    );
+    expect(response.headers.get('Cache-Control')).toBe(
+      'private, no-store, no-cache, must-revalidate',
+    );
+  });
+
+  it('returns the non-empty canonical mobile contract fixture', async () => {
+    delete process.env.WEEK_SCOUT_ENDPOINT_ENABLED;
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-15',
+      dayCount: 7,
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.data).toMatchObject({
+      generatedAt: WEEK_SCOUT_CONTRACT_GENERATED_AT,
+      recommendationAvailability: {
+        state: 'available',
+        holdEpoch: 'available-epoch',
+      },
+      sessionDecision: expect.objectContaining({
+        verdict: 'go',
+        selection: expect.objectContaining({ beachId: BEACH_A }),
+      }),
+    });
+    expect(payload.data.days[0]).toMatchObject({
+      bestWindowId: 'window-a',
+      windows: [expect.objectContaining({
+        beachId: BEACH_A,
+        forecast: expect.objectContaining({ waveHeight: '3-4 ft' }),
+      })],
+    });
+  });
+
+  it('returns 404 without running discovery when the emergency kill switch is enabled', async () => {
+    process.env.WEEK_SCOUT_ENDPOINT_ENABLED = 'false';
     const response = await callRoute({
       candidateBeachIds: [BEACH_A],
       localTimezone: 'Pacific/Honolulu',
