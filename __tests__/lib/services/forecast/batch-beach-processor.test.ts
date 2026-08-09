@@ -13,6 +13,7 @@ import {
   DeadlineTracker,
   loadBatchConfig,
   loadCdipBatchConfig,
+  getRefreshSelectionWindowHours,
   processBeachesInBatches,
   createBeachProcessor,
 } from "@/lib/services/forecast/batch-beach-processor";
@@ -155,12 +156,15 @@ describe("loadBatchConfig", () => {
     delete process.env.FORECAST_BATCH_DELAY_MS;
     delete process.env.FORECAST_MAX_BEACHES_PER_RUN;
     delete process.env.FORECAST_FRESHNESS_WINDOW_HOURS;
+    delete process.env.FORECAST_REFRESH_LEAD_HOURS;
 
     const config = loadBatchConfig();
     expect(config.batchSize).toBe(3);
     expect(config.batchDelayMs).toBe(1000);
     expect(config.maxBeachesPerRun).toBe(45);
     expect(config.freshnessWindowHours).toBe(12);
+    expect(config.refreshLeadHours).toBe(4);
+    expect(getRefreshSelectionWindowHours(config)).toBe(8);
   });
 
   it("reads values from environment variables", () => {
@@ -168,12 +172,15 @@ describe("loadBatchConfig", () => {
     process.env.FORECAST_BATCH_DELAY_MS = "2000";
     process.env.FORECAST_MAX_BEACHES_PER_RUN = "100";
     process.env.FORECAST_FRESHNESS_WINDOW_HOURS = "6";
+    process.env.FORECAST_REFRESH_LEAD_HOURS = "2";
 
     const config = loadBatchConfig();
     expect(config.batchSize).toBe(5);
     expect(config.batchDelayMs).toBe(2000);
     expect(config.maxBeachesPerRun).toBe(100);
     expect(config.freshnessWindowHours).toBe(6);
+    expect(config.refreshLeadHours).toBe(2);
+    expect(getRefreshSelectionWindowHours(config)).toBe(4);
   });
 
   it("applies overrides over env vars", () => {
@@ -191,6 +198,7 @@ describe("loadBatchConfig", () => {
     expect(config.batchDelayMs).toBe(1000);
     expect(config.maxBeachesPerRun).toBe(45);
     expect(config.freshnessWindowHours).toBe(12);
+    expect(config.refreshLeadHours).toBe(4);
   });
 });
 
@@ -206,6 +214,7 @@ describe("loadCdipBatchConfig", () => {
     delete process.env.FORECAST_CDIP_MAX_BEACHES_PER_RUN;
     delete process.env.FORECAST_MAX_BEACHES_PER_RUN;
     delete process.env.FORECAST_CDIP_FRESHNESS_WINDOW_HOURS;
+    delete process.env.FORECAST_CDIP_REFRESH_LEAD_HOURS;
   });
 
   afterAll(() => {
@@ -218,6 +227,8 @@ describe("loadCdipBatchConfig", () => {
     expect(config.batchDelayMs).toBe(1000);
     expect(config.maxBeachesPerRun).toBe(25);
     expect(config.freshnessWindowHours).toBe(2);
+    expect(config.refreshLeadHours).toBe(0.5);
+    expect(getRefreshSelectionWindowHours(config)).toBe(1.5);
   });
 
   it("reads FORECAST_CDIP_MAX_BEACHES_PER_RUN when set", () => {
@@ -244,6 +255,29 @@ describe("loadCdipBatchConfig", () => {
     const config = loadCdipBatchConfig();
     expect(config.freshnessWindowHours).toBe(4);
   });
+
+  it("reads FORECAST_CDIP_REFRESH_LEAD_HOURS when set", () => {
+    process.env.FORECAST_CDIP_REFRESH_LEAD_HOURS = "1";
+    const config = loadCdipBatchConfig();
+    expect(config.refreshLeadHours).toBe(1);
+    expect(getRefreshSelectionWindowHours(config)).toBe(1);
+  });
+});
+
+describe("getRefreshSelectionWindowHours", () => {
+  it("never returns a negative selection window", () => {
+    expect(getRefreshSelectionWindowHours({
+      freshnessWindowHours: 2,
+      refreshLeadHours: 3,
+    })).toBe(0);
+  });
+
+  it("fails safe to immediate selection for an invalid freshness window", () => {
+    expect(getRefreshSelectionWindowHours({
+      freshnessWindowHours: Number.NaN,
+      refreshLeadHours: 1,
+    })).toBe(0);
+  });
 });
 
 // ─── processBeachesInBatches ──────────────────────────────────────────────────
@@ -254,6 +288,7 @@ describe("processBeachesInBatches", () => {
     batchDelayMs: 0, // No delay in tests for speed
     maxBeachesPerRun: 100,
     freshnessWindowHours: 12,
+    refreshLeadHours: 4,
   };
 
   it("processes all beaches and returns success results", async () => {
@@ -352,6 +387,7 @@ describe("processBeachesInBatches", () => {
       batchDelayMs: 200, // larger than deadline window
       maxBeachesPerRun: 100,
       freshnessWindowHours: 12,
+      refreshLeadHours: 4,
     };
 
     const result = await processBeachesInBatches({
@@ -637,6 +673,7 @@ describe("createBeachProcessor", () => {
         batchDelayMs: 0,
         maxBeachesPerRun: 10,
         freshnessWindowHours: 12,
+        refreshLeadHours: 4,
       },
       deadlineTracker: new DeadlineTracker(),
       processBeach,
