@@ -17,9 +17,9 @@ if (typeof (globalThis as any).Response?.json !== "function") {
  * Unit tests for condition-alert-deliver cron worker hardening (Task 4).
  *
  * Verifies:
- * - ALERTS_DELIVERY_ENABLED=false short-circuits providers and writes one
+ * - FORECAST_ALERT_DELIVERY_ENABLED=false reaches the send boundary and writes one
  *   alert_delivery_attempts row per (queue_id, channel) with status
- *   "skipped_disabled" — but still marks queue rows sent.
+ *   "shadow_withheld" — but still marks queue rows sent.
  * - ALERTS_DELIVERY_USER_ALLOWLIST set + user not in list writes
  *   "skipped_allowlist" attempt rows and skips providers.
  * - Healthy state with empty allowlist + ENABLED=true writes a "sent"
@@ -322,7 +322,12 @@ function seedQueueRow(overrides: Partial<any> = {}) {
     best_score: 0.8,
     conditions_snapshot: { wave_height: 3 },
     sent: false,
-    alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
+    alert_rules: {
+      name: "Test rule",
+      preset_type: "mellow_session",
+      notify_email: true,
+      notify_push: true,
+    },
     beaches: {
       name: "Test Beach",
       timezone: "America/Los_Angeles",
@@ -362,6 +367,7 @@ function expectQueueReasonTotals(body: {
       "non_canonical",
       "major_event_hold",
       "canonical_safety_rejected",
+      "shadow_withheld",
       "delivery_disabled",
       "allowlist_excluded",
       "cooldown",
@@ -416,6 +422,7 @@ beforeEach(() => {
     candidate: null,
   });
   delete process.env.ALERTS_DELIVERY_ENABLED;
+  process.env.FORECAST_ALERT_DELIVERY_ENABLED = "true";
   delete process.env.ALERTS_DELIVERY_USER_ALLOWLIST;
 });
 
@@ -442,10 +449,16 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(routeSource).toContain("async function markQueueItemsConsumed");
   });
 
-  it("ALERTS_DELIVERY_ENABLED=false writes skipped_disabled per channel and still marks queue sent", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "false";
+  it("default-off forecast delivery records a canonical shadow outcome and consumes the row once without sending", async () => {
+    delete process.env.FORECAST_ALERT_DELIVERY_ENABLED;
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
+      best_score: 95,
+      alert_rules: {
+        name: "Test rule",
+        preset_type: "mellow_session",
+        notify_email: true,
+        notify_push: true,
+      },
     });
     seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
     store.deviceRows.push({ user_id: USER_A, device_token: "ExpoPushToken[abc]" });
@@ -455,19 +468,45 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
 
     expect(mockEmailsSend).not.toHaveBeenCalled();
     expect(mockSendPushNotifications).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockLogDelivery).not.toHaveBeenCalled();
+    expect(mockConsolidatedAlertEmail).not.toHaveBeenCalled();
     expect(store.deliveryInserts).toHaveLength(0);
+    expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledTimes(3);
 
     expect(store.attemptInserts).toHaveLength(2);
     const channels = store.attemptInserts.map((a) => a.channel).sort();
     expect(channels).toEqual(["email", "push"]);
     for (const a of store.attemptInserts) {
-      expect(a.status).toBe("skipped_disabled");
+      expect(a.status).toBe("shadow_withheld");
       expect(a.queue_id).toBe(QUEUE_1);
       expect(a.user_id).toBe(USER_A);
       expect(a.rule_id).toBe(RULE_1);
     }
 
+    const shadowUpdate = store.queueRefreshUpdates.find(
+      (update) => update.values.delivery_shadow_outcome,
+    );
+    expect(shadowUpdate).toEqual({
+      id: QUEUE_1,
+      values: {
+        delivery_shadow_outcome: {
+          status: "shadow_withheld",
+          verdict: "go",
+          reason_code: "selected_go",
+          preset_type: "mellow_session",
+          would_use_channels: ["email", "push"],
+        },
+      },
+    });
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      status: "ok",
+      queueMarked: 1,
+      queue_marked_by_reason: { shadow_withheld: 1 },
+    });
+    expectQueueReasonTotals(body);
   });
 
   it("Allowlist set, user not in list, ENABLED=true writes skipped_allowlist", async () => {
@@ -499,7 +538,8 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 
-  it("Empty allowlist, ENABLED=true, healthy email path writes one sent attempt + delivery row", async () => {
+  it("FORECAST_ALERT_DELIVERY_ENABLED=true restores email delivery", async () => {
+    process.env.FORECAST_ALERT_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
@@ -1206,6 +1246,44 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
     return n === 24 ? 0 : n;
   }
 
+  it("shadow mode consumes a quiet-hours row without degrading the run", async () => {
+    delete process.env.FORECAST_ALERT_DELIVERY_ENABLED;
+    const start = ptHourNow();
+    const end = (start + 1) % 24;
+    seedQueueRow({
+      alert_rules: {
+        name: "Test rule",
+        preset_type: "mellow_session",
+        notify_email: true,
+        notify_push: false,
+        conditions: { quiet_hours_start: start, quiet_hours_end: end },
+      },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({
+      status: "ok",
+      queueMarked: 1,
+      queue_marked_by_reason: { shadow_withheld: 1 },
+    });
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    expect(store.queueRefreshUpdates).toContainEqual({
+      id: QUEUE_1,
+      values: {
+        delivery_shadow_outcome: expect.objectContaining({
+          preset_type: "mellow_session",
+          would_use_channels: [],
+        }),
+      },
+    });
+    expectQueueReasonTotals(body);
+  });
+
   it("recipient inside quiet hours: email deferred, NOT sent/deduped/marked-sent", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
@@ -1647,7 +1725,12 @@ function seedSimilarityQueueRow(overrides: Partial<any> = {}) {
     sent: false,
     // notify_push/notify_email do NOT gate similarity — registry pref does.
     // We default false here to confirm the route bypasses the legacy flags.
-    alert_rules: { name: "Similarity match", notify_email: false, notify_push: false },
+    alert_rules: {
+      name: "Similarity match",
+      preset_type: "similarity_match",
+      notify_email: false,
+      notify_push: false,
+    },
     beaches: {
       name: "Ocean Beach SF",
       timezone: "America/Los_Angeles",
@@ -1769,6 +1852,43 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
       }),
     ]);
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_SIM], sent: true }]);
+  });
+
+  it("forecast delivery shadow mode withholds similarity enqueue and records its canonical outcome", async () => {
+    delete process.env.FORECAST_ALERT_DELIVERY_ENABLED;
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    seedSimilarityQueueRow();
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(store.deliveryInserts).toHaveLength(0);
+    expect(store.attemptInserts).toEqual([
+      expect.objectContaining({
+        queue_id: QUEUE_SIM,
+        channel: "push",
+        status: "shadow_withheld",
+      }),
+    ]);
+    expect(store.queueRefreshUpdates).toContainEqual({
+      id: QUEUE_SIM,
+      values: {
+        delivery_shadow_outcome: {
+          status: "shadow_withheld",
+          verdict: "go",
+          reason_code: "selected_go",
+          preset_type: "similarity_match",
+          would_use_channels: ["push"],
+        },
+      },
+    });
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_SIM], sent: true }]);
+    expect(body.queue_marked_by_reason.shadow_withheld).toBe(1);
+    expectQueueReasonTotals(body);
   });
 
   it("kill switch: ALERTS_DELIVERY_ENABLED=false records skipped_disabled and marks similarity queue sent without enqueueing", async () => {
