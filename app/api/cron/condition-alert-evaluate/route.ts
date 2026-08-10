@@ -15,6 +15,7 @@ import { getMinRideable, MINIMUM_VIABLE_WINDOW_MINUTES } from "@/lib/utils/surf-
 import type { Beach } from "@/types/database";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
+import type { RecommendationHoldReasonCode } from "@/lib/recommendations/major-event-hold/types";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -42,6 +43,17 @@ type AlertQueueInsertWithBestScore =
     best_score: number;
   };
 
+interface ConditionAlertEvaluationSummary {
+  status: "ok" | "degraded";
+  evaluated: number;
+  matched: number;
+  queued: number;
+  skipped: number;
+  skipped_unsurfable: number;
+  skipped_by_reason: Record<RecommendationHoldReasonCode, number>;
+  errors: number;
+}
+
 export async function GET(request: Request) {
   if (!validateCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -53,7 +65,19 @@ export async function GET(request: Request) {
     const summary = await withCronObservability(
       "/api/cron/condition-alert-evaluate",
       async () => {
-        const result = { evaluated: 0, matched: 0, queued: 0, skipped: 0, skipped_unsurfable: 0, errors: 0 };
+        const result: ConditionAlertEvaluationSummary = {
+          status: "ok",
+          evaluated: 0,
+          matched: 0,
+          queued: 0,
+          skipped: 0,
+          skipped_unsurfable: 0,
+          skipped_by_reason: {
+            hold_state_unavailable: 0,
+            major_event_hold: 0,
+          },
+          errors: 0,
+        };
 
         // 1. Fetch all enabled rules — flat select, no embeds.
         //    Previously this used profiles!inner(...) which requires PostgREST to
@@ -316,6 +340,13 @@ export async function GET(request: Request) {
                 });
                 if (holdResolution.status === "suppressed") {
                   result.skipped++;
+                  result.skipped_by_reason[holdResolution.reasonCode]++;
+                  console.warn(`${CONTEXT_TAG} Suppressed matched alert window`, {
+                    rule_id: rule.id,
+                    user_id: userId,
+                    beach_id: rule.beach_id,
+                    reason_code: holdResolution.reasonCode,
+                  });
                   holdSuppressed = true;
                   continue;
                 }
@@ -366,11 +397,30 @@ export async function GET(request: Request) {
           }
         }
 
+        if (result.matched > 0 && result.queued === 0) {
+          result.status = "degraded";
+          console.warn(`${CONTEXT_TAG} Matched alert windows but queued none`, {
+            matched: result.matched,
+            queued: result.queued,
+            skipped_by_reason: result.skipped_by_reason,
+            errors: result.errors,
+          });
+        }
+
         console.log(`${CONTEXT_TAG} Summary:`, result);
         return result;
-      }
+      },
+      {
+        statusForResult: (result) => result.status === "degraded" ? "error" : "ok",
+        errorMessageForResult: (result) =>
+          result.status === "degraded"
+            ? "Matched alert windows but queued none"
+            : null,
+      },
     );
-    return NextResponse.json(summary);
+    return NextResponse.json(summary, {
+      status: summary.status === "degraded" ? 503 : 200,
+    });
   } catch (err) {
     console.error(`${CONTEXT_TAG} Fatal error:`, err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

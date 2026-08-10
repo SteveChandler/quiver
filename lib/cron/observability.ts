@@ -22,6 +22,11 @@ type CronRunsTable = {
   };
 };
 
+interface CronObservabilityOptions<T> {
+  statusForResult: (result: T) => "ok" | "error";
+  errorMessageForResult?: (result: T) => string | null;
+}
+
 function extractErrorMessage(summary: unknown, statusCode: number): string {
   const fallback = `HTTP ${statusCode}`;
   if (!summary || typeof summary !== "object") return fallback;
@@ -195,7 +200,8 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
 
 export async function withCronObservability<T>(
   route: string,
-  handler: () => Promise<T>
+  handler: () => Promise<T>,
+  options?: CronObservabilityOptions<T>,
 ): Promise<T> {
   const supabase = await createSupabaseServiceRoleClient();
   const start = Date.now();
@@ -221,13 +227,18 @@ export async function withCronObservability<T>(
   try {
     const result = await handler();
     if (runId) {
+      const status = options?.statusForResult(result) ?? "ok";
       await db
         .from("cron_runs")
         .update({
-          status: "ok",
+          status,
           finished_at: new Date().toISOString(),
           duration_ms: Date.now() - start,
           summary: result as object,
+          error_message:
+            status === "error"
+              ? options?.errorMessageForResult?.(result) ?? "Cron reported a degraded result"
+              : null,
         })
         .eq("id", runId);
     }
