@@ -1,0 +1,67 @@
+{
+  "window": {
+    "window_label": "forward-forecast-snapshot-2026-08-10T17:55:28.139Z",
+    "start_date": "2026-08-10",
+    "end_date": "2026-08-22",
+    "timezone": "UTC",
+    "latest_complete_date": "2026-08-21",
+    "is_partial": true
+  },
+  "sources": [
+    {
+      "name": "primary 17:55 production forward-horizon replay",
+      "rows": 7764,
+      "freshness_hours": 0.4,
+      "max_freshness_hours": 6,
+      "expected_min_rows": 1,
+      "requires_exclusions": true,
+      "exclusions": "3 similarity_match rules use a separate pipeline; 3 mock-owned rules excluded; disabled rules and profile-disabled alerts excluded; entitlement caps applied",
+      "notes": "141 active rules, 94 real users, 1833 rule-day evaluations, 279 matches; retained summary only, not the row-level ledger"
+    },
+    {
+      "name": "18:35 validation replay with condition and score detail",
+      "rows": 7732,
+      "freshness_hours": 0.05,
+      "max_freshness_hours": 6,
+      "expected_min_rows": 1,
+      "requires_exclusions": true,
+      "exclusions": "same production-scope filters as the reference harness",
+      "notes": "141 active rules, 94 real users, 1833 rule-day evaluations, 288 matches; forecasts had moved since 17:55"
+    },
+    {
+      "name": "production scorer and adapter at git 8a8ad5d8e",
+      "rows": 3,
+      "freshness": "checked-out origin/prod code",
+      "expected_min_rows": 1,
+      "exclusions": "none",
+      "notes": "best-hour scorer, alert adapter, and canonical engine"
+    }
+  ],
+  "reconciliations": [
+    {
+      "name": "primary preset/custom matches sum to 279",
+      "delta": 0,
+      "tolerance": 0
+    },
+    {
+      "name": "primary 104 safety-rejected plus 175 safety-eligible equals 279",
+      "delta": 0,
+      "tolerance": 0
+    },
+    {
+      "name": "primary safety-eligible score bands 91 below 40 plus 72 from 40 to 69.999 plus 12 at least 70 equal 175",
+      "delta": 0,
+      "tolerance": 0
+    },
+    {
+      "name": "validation per-preset matches sum to 288",
+      "delta": 0,
+      "tolerance": 0
+    },
+    {
+      "name": "validation scorer component average reproduces best_score",
+      "delta": 0,
+      "tolerance": 0
+    }
+  ]
+}
