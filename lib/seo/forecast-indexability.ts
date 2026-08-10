@@ -1,5 +1,6 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getStalenessThreshold } from "@/lib/config/forecast-staleness";
+import { evaluateBeachForecastIndexability } from "@/lib/seo/indexability";
 import {
   getLocalDateString,
   resolveBeachTimezone,
@@ -28,9 +29,34 @@ export interface ForecastIndexabilityBeach {
   timezone?: string | null;
 }
 
+export interface SubPageDataAvailability {
+  /** The sub-page's own dataset resolved to a real value this render. */
+  hasSubPageData: boolean;
+}
+
 const FORECAST_COVERAGE_SELECT =
   "beach_id, forecast_at, wave_height, updated_at, data_source";
 const BEACH_ID_BATCH_SIZE = 20;
+
+/**
+ * One predicate for beach tides/water-temp sub-pages, called by both the sitemap
+ * and generateMetadata so a submitted URL cannot answer with noindex.
+ */
+export function isBeachSubPageIndexable(
+  snapshot: ForecastIndexabilitySnapshot | undefined,
+  canonicalPath: string,
+  availability: SubPageDataAvailability,
+): boolean {
+  if (!snapshot) return false;
+  if (!availability.hasSubPageData) return false;
+
+  return evaluateBeachForecastIndexability({
+    canonicalValid: !canonicalPath.startsWith("/beach/"),
+    forecastAvailable: snapshot.forecastAvailable,
+    selectedStateComplete: snapshot.selectedStateComplete,
+    forecastFresh: snapshot.forecastFresh,
+  }).indexable;
+}
 
 function hasValue(value: string | number | null | undefined): boolean {
   return value !== null && value !== undefined && String(value).trim().length > 0;

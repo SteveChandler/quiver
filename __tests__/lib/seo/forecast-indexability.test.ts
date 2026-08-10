@@ -1,5 +1,6 @@
 import {
   buildForecastIndexabilitySnapshot,
+  isBeachSubPageIndexable,
   type ForecastCoverageRow,
 } from "@/lib/seo/forecast-indexability";
 import { evaluateBeachForecastIndexability } from "@/lib/seo/indexability";
@@ -153,5 +154,55 @@ describe("forecast indexability contract", () => {
       forecastFresh: false,
       forecastValidAt: null,
     });
+  });
+});
+
+describe("isBeachSubPageIndexable", () => {
+  const fresh = {
+    forecastAvailable: true,
+    selectedStateComplete: true,
+    forecastFresh: true,
+  };
+
+  it("indexes a tides sub-page when the forecast contract passes and tide data exists", () => {
+    expect(
+      isBeachSubPageIndexable(fresh, "/ca/la-jolla/windansea/tides", {
+        hasSubPageData: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not index when the sub-page has no data of its own", () => {
+    expect(
+      isBeachSubPageIndexable(fresh, "/ca/la-jolla/windansea/tides", {
+        hasSubPageData: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not index when the forecast is stale", () => {
+    expect(
+      isBeachSubPageIndexable(
+        { ...fresh, forecastFresh: false },
+        "/ca/la-jolla/windansea/tides",
+        { hasSubPageData: true },
+      ),
+    ).toBe(false);
+  });
+
+  it("does not index a legacy /beach/ canonical", () => {
+    expect(
+      isBeachSubPageIndexable(fresh, "/beach/windansea/tides", {
+        hasSubPageData: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when there is no snapshot", () => {
+    expect(
+      isBeachSubPageIndexable(undefined, "/ca/la-jolla/windansea/tides", {
+        hasSubPageData: true,
+      }),
+    ).toBe(false);
   });
 });
