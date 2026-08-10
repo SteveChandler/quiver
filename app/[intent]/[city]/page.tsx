@@ -85,7 +85,9 @@ import { getSeoFunnelPageByIntentRoute } from "@/lib/seo/funnel-pages";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
 import {
   applyIndexabilityToMetadata,
+  evaluateCityDataIntentIndexability,
   evaluateCityEditorialIndexability,
+  isDataBackedCityIntent,
   toCityEditorialInput,
 } from "@/lib/seo/indexability";
 import { ReviewedCityEditorialSection } from "@/components/seo/reviewed-city-editorial-section";
@@ -375,12 +377,25 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     hasMatchingBeaches &&
     intentDataAvailability !== "missing" &&
     !excludedCityIntents.includes(params.intent as IntentKey);
-  const decision = evaluateCityEditorialIndexability(
-    toCityEditorialInput(cityEditorial),
-    params.intent,
-    `/${params.intent}/${canonicalCitySlug}`,
-    dataRich,
-  );
+  const canonicalPath = `/${params.intent}/${canonicalCitySlug}`;
+  const decision = isDataBackedCityIntent(params.intent)
+    ? evaluateCityDataIntentIndexability(
+        toCityEditorialInput(cityEditorial),
+        canonicalPath,
+        {
+          hasIntentData:
+            params.intent === "tide"
+              ? tideDataForMeta != null
+              : waterTempDataForMeta != null,
+          dataRich,
+        },
+      )
+    : evaluateCityEditorialIndexability(
+        toCityEditorialInput(cityEditorial),
+        params.intent,
+        canonicalPath,
+        dataRich,
+      );
 
   return applyIndexabilityToMetadata(metadata, decision);
 }

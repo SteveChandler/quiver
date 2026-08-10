@@ -68,8 +68,14 @@ describe("legacy state/city URLs", () => {
     });
     (getCityExcludeIntents as jest.Mock).mockResolvedValue([]);
     (getCityIntentDataAvailability as jest.Mock).mockResolvedValue("unknown");
-    (getCityTideData as jest.Mock).mockResolvedValue(null);
-    (getCityWaterTempHistory as jest.Mock).mockResolvedValue(null);
+    (getCityTideData as jest.Mock).mockResolvedValue({
+      nextTideType: "high",
+      nextTideTime: "8:00 PM",
+      nextTideHeight: 4.2,
+    });
+    (getCityWaterTempHistory as jest.Mock).mockResolvedValue({
+      currentTemp: 68,
+    });
     (getCityEditorialContent as jest.Mock).mockImplementation(
       async (_city: string, _state: string, _country: string, intent: string) => ({
         seo_indexable: true,
@@ -248,7 +254,7 @@ describe("legacy state/city URLs", () => {
     ["tide", getCityTideData],
     ["water-temp", getCityWaterTempHistory],
   ])(
-    "keeps %s city pages indexable when data availability is unknown",
+    "noindexes %s city pages when no reading resolves and availability is unknown",
     async (intent, dataLoader) => {
       (findCityBySlug as jest.Mock).mockResolvedValue({
         success: true,
@@ -264,7 +270,7 @@ describe("legacy state/city URLs", () => {
         }),
       });
 
-      expect((metadata.robots as any)?.index).not.toBe(false);
+      expect((metadata.robots as any)?.index).toBe(false);
     }
   );
 });
