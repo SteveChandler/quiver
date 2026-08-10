@@ -14,7 +14,7 @@
  * - forecasts: Forecast hub and regional forecast pages
  */
 
-import sitemap from "@/app/sitemap";
+import sitemap, { buildBeachRoutes } from "@/app/sitemap";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-actions";
@@ -25,11 +25,32 @@ import {
   getLatestBlogModifiedDate,
 } from "@/lib/data/blog-posts";
 import { learnArticles } from "@/lib/data/learn-articles";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { slugifyAscii } from "@/lib/utils/text-utils";
 import {
   getForecastIndexabilityForBeaches,
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
+
+const BEACH_WITH_FRESH_FORECAST = {
+  id: "windansea",
+  slug: "windansea",
+  name: "Windansea",
+  city: "La Jolla",
+  state: "CA",
+  country: "USA",
+  created_at: "2026-01-01T00:00:00.000Z",
+};
+
+const FRESH_SNAPSHOT: ForecastIndexabilitySnapshot = {
+  forecastAvailable: true,
+  selectedStateComplete: true,
+  forecastFresh: true,
+  forecastValidAt: "2026-08-09T18:00:00.000Z",
+  sourceDataUpdatedAt: "2026-08-09T16:00:00.000Z",
+  primaryDataSource: "NOAA_NWS",
+  isStale: false,
+};
 
 // Mock the action modules
 jest.mock("@/actions/beach/beach-location-list-actions", () => ({
@@ -57,6 +78,35 @@ jest.mock("@/lib/seo/forecast-indexability", () => ({
   getForecastIndexabilityForBeaches: jest.fn(),
 }));
 
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(),
+}));
+
+function createCoverageQueryMock() {
+  let beachIds: string[] = [];
+  const query = {
+    select: jest.fn(),
+    in: jest.fn(),
+    gte: jest.fn(),
+    lt: jest.fn(),
+    not: jest.fn(),
+    limit: jest.fn(),
+  };
+  query.select.mockReturnValue(query);
+  query.in.mockImplementation((_column: string, ids: string[]) => {
+    beachIds = ids;
+    return query;
+  });
+  query.gte.mockReturnValue(query);
+  query.lt.mockReturnValue(query);
+  query.not.mockReturnValue(query);
+  query.limit.mockImplementation(async () => ({
+    data: beachIds.map((beachId) => ({ beach_id: beachId })),
+    error: null,
+  }));
+  return query;
+}
+
 function reviewedBeach() {
   return {
     seo_indexable: true,
@@ -78,6 +128,10 @@ describe("Sitemap Generation", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({
+      from: jest.fn(() => createCoverageQueryMock()),
+    });
 
     (getForecastIndexabilityForBeaches as jest.Mock).mockImplementation(
       async (beaches: Array<string | { id: string }>) => {
@@ -752,6 +806,21 @@ describe("Sitemap Generation", () => {
   });
 
   describe("Beach Routes", () => {
+    it("omits a tides sub-page when the beach has no tide coverage", () => {
+      const routes = buildBeachRoutes(
+        [BEACH_WITH_FRESH_FORECAST],
+        new Map([[BEACH_WITH_FRESH_FORECAST.id, FRESH_SNAPSHOT]]),
+        {
+          tideCoverage: new Set<string>(),
+          waterTempCoverage: new Set([BEACH_WITH_FRESH_FORECAST.id]),
+        },
+      );
+      const urls = routes.map((route) => route.url);
+
+      expect(urls).not.toContain(`${baseUrl}/ca/la-jolla/windansea/tides`);
+      expect(urls).toContain(`${baseUrl}/ca/la-jolla/windansea/water-temp`);
+    });
+
     it("uses forecast freshness for beach URLs instead of editorial approval", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
