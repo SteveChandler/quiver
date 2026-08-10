@@ -397,9 +397,15 @@ export async function GET(request: Request) {
           }
         }
 
-        if (result.matched > 0 && result.queued === 0) {
+        // A matched window that never reaches the queue is only expected when a
+        // real safety hold suppressed it (`major_event_hold`) — that is the hold
+        // system working, and must stay `ok` or every big-swell day alarms falsely.
+        // `hold_state_unavailable` is the opposite: the hold could not be resolved
+        // at all, so the alert was dropped by a failure. That is the state which
+        // silently killed every forecast alert from 2026-07-26 onward.
+        if (result.skipped_by_reason.hold_state_unavailable > 0) {
           result.status = "degraded";
-          console.warn(`${CONTEXT_TAG} Matched alert windows but queued none`, {
+          console.warn(`${CONTEXT_TAG} Matched alert windows dropped without a safety hold`, {
             matched: result.matched,
             queued: result.queued,
             skipped_by_reason: result.skipped_by_reason,
@@ -414,7 +420,7 @@ export async function GET(request: Request) {
         statusForResult: (result) => result.status === "degraded" ? "error" : "ok",
         errorMessageForResult: (result) =>
           result.status === "degraded"
-            ? "Matched alert windows but queued none"
+            ? "Matched alert windows dropped without a safety hold"
             : null,
       },
     );

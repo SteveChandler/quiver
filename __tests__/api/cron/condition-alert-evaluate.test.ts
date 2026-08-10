@@ -513,12 +513,12 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
       expect.objectContaining({ reason_code: "hold_state_unavailable" }),
     );
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Matched alert windows but queued none"),
+      expect.stringContaining("Matched alert windows dropped without a safety hold"),
       expect.objectContaining({ matched: 1, queued: 0 }),
     );
   });
 
-  it("preserves active major-event hold suppression and records its distinct reason", async () => {
+  it("preserves active major-event hold suppression without degrading the run", async () => {
     seedRule();
     seedProfile();
     seedBeach();
@@ -531,10 +531,12 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
       candidate: null,
     });
 
+    // A real safety hold suppressing every match is the hold system working as
+    // designed — it must NOT page as a failure, or big-swell days alarm falsely.
     const res = await GET(makeRequest());
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      status: "degraded",
+      status: "ok",
       matched: 1,
       queued: 0,
       skipped: 1,
@@ -545,6 +547,10 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     });
     expect(store.queueUpserts).toHaveLength(0);
     expect(store.ruleUpdates).toHaveLength(0);
+    expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("Matched alert windows dropped without a safety hold"),
+      expect.anything(),
+    );
   });
 
   it("2. empty rules: 0 enabled rules => no DB writes after rules query, message returned", async () => {
