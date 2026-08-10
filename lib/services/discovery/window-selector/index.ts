@@ -58,7 +58,6 @@ export {
   scoreForecastWindow,
   scoreWindowConditionScore,
   scoreWindowWithComposite,
-  scoreWindowWithEngine,
 } from './window-scorer';
 
 // Re-export scoring engine singleton
