@@ -1,5 +1,6 @@
 export type AttemptStatus =
   | "sent"
+  | "shadow_withheld"
   | "skipped_disabled"
   | "skipped_allowlist"
   | "skipped_cooldown"
