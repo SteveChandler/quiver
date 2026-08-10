@@ -13,6 +13,13 @@ const IntelPostForm = dynamic(
   () => import("./intel-post-form").then((m) => m.IntelPostForm),
   { ssr: false }
 );
+const ConditionsReportCard = dynamic(
+  () =>
+    import("@/components/beach-detail/conditions-report-card").then(
+      (m) => m.ConditionsReportCard
+    ),
+  { ssr: false }
+);
 import { useAuth } from "@/context/auth-context";
 import {
   confirmIntelPost,
@@ -73,6 +80,7 @@ export function BeachIntelSection({
 }: BeachIntelSectionProps) {
   const router = useRouter();
   const [showPostForm, setShowPostForm] = useState(false);
+  const [showConditionsCard, setShowConditionsCard] = useState(false);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const [showAll, setShowAll] = useState<boolean>(initialShowAll);
   const [confirmingPosts, setConfirmingPosts] = useState<Set<string>>(
@@ -322,20 +330,41 @@ export function BeachIntelSection({
             </CardTitle>
 
             {!publicMode && (
-              <Button
-                data-testid="add-intel"
-                onClick={() => setShowPostForm(true)}
-                size="sm"
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-all duration-200 transform hover:scale-105"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Intel
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  data-testid="report-conditions"
+                  onClick={() => setShowConditionsCard((v) => !v)}
+                  size="sm"
+                  variant="outline"
+                  className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                >
+                  Report conditions
+                </Button>
+                <Button
+                  data-testid="add-intel"
+                  onClick={() => setShowPostForm(true)}
+                  size="sm"
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-all duration-200 transform hover:scale-105"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Intel
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
 
         <CardContent className="p-3 sm:p-4">
+          {showConditionsCard && !publicMode && (
+            <div className="mb-4" data-testid="conditions-report-slot">
+              <ConditionsReportCard
+                beachId={beachId}
+                beachName={beachName}
+                onSubmitSuccess={() => refetch()}
+                onDismiss={() => setShowConditionsCard(false)}
+              />
+            </div>
+          )}
           {error ? (
             <div className="text-center py-6">
               <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
