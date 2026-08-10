@@ -26,6 +26,7 @@ import {
 import { learnArticles } from "@/lib/data/learn-articles";
 import { INDEXABLE_SEO_FUNNEL_PAGES } from "@/lib/seo/funnel-pages";
 import { getReviewedCityEditorialContent } from "@/actions/city/city-editorial-actions";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   cityEditorialKey,
   evaluateBeachIndexability,
@@ -38,6 +39,7 @@ import {
 } from "@/lib/seo/indexability";
 import {
   getForecastIndexabilityForBeaches,
+  isBeachSubPageIndexable,
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
 
@@ -102,6 +104,17 @@ type SitemapBeachEditorialFields = {
   best_conditions_prose?: string | null;
 };
 
+export interface BeachSubPageCoverage {
+  tideCoverage: ReadonlySet<string>;
+  waterTempCoverage: ReadonlySet<string>;
+}
+
+interface BeachCoverageRow {
+  beach_id: string | null;
+}
+
+const BEACH_COVERAGE_BATCH_SIZE = 20;
+
 interface CityEditorialRoute {
   editorial: CityEditorialDatabaseRecord;
   lastModified: string;
@@ -142,6 +155,92 @@ function hasUsableSitemapCountry(
   );
 }
 
+function batchBeachIds(ids: readonly string[]): string[][] {
+  const batches: string[][] = [];
+  for (let index = 0; index < ids.length; index += BEACH_COVERAGE_BATCH_SIZE) {
+    batches.push(ids.slice(index, index + BEACH_COVERAGE_BATCH_SIZE));
+  }
+  return batches;
+}
+
+async function getBeachSubPageCoverage(
+  beachIds: readonly string[],
+): Promise<BeachSubPageCoverage> {
+  const tideCoverage = new Set<string>();
+  const waterTempCoverage = new Set<string>();
+  if (beachIds.length === 0) return { tideCoverage, waterTempCoverage };
+
+  let supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>;
+  try {
+    supabase = await createSupabaseServiceRoleClient();
+  } catch (error) {
+    console.error("Sitemap: Failed to create sub-page coverage client", {
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+    return { tideCoverage, waterTempCoverage };
+  }
+
+  const now = new Date();
+  const tideEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const today = now.toISOString().split("T")[0];
+  const tomorrow = new Date(`${today}T00:00:00.000Z`);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+
+  try {
+    const responses = await Promise.all(
+      batchBeachIds(beachIds).map(async (batch) => {
+        const [tideResponse, waterTempResponse] = await Promise.all([
+          supabase
+            .from("tide_forecasts")
+            .select("beach_id")
+            .in("beach_id", batch)
+            .gte("ts", now.toISOString())
+            .lt("ts", tideEnd.toISOString())
+            .limit(1000),
+          supabase
+            .from("enhanced_forecasts")
+            .select("beach_id")
+            .in("beach_id", batch)
+            .gte("forecast_at", `${today}T00:00:00.000Z`)
+            .lt("forecast_at", tomorrow.toISOString())
+            .not("water_temp", "is", null)
+            .limit(1000),
+        ]);
+
+        return { tideResponse, waterTempResponse };
+      }),
+    );
+
+    for (const { tideResponse, waterTempResponse } of responses) {
+      if (tideResponse.error) {
+        console.error("Sitemap: Tide coverage query failed", {
+          message: tideResponse.error.message,
+        });
+      } else {
+        for (const row of (tideResponse.data ?? []) as BeachCoverageRow[]) {
+          if (row.beach_id) tideCoverage.add(row.beach_id);
+        }
+      }
+
+      if (waterTempResponse.error) {
+        console.error("Sitemap: Water-temperature coverage query failed", {
+          message: waterTempResponse.error.message,
+        });
+      } else {
+        for (const row of (waterTempResponse.data ?? []) as BeachCoverageRow[]) {
+          if (row.beach_id) waterTempCoverage.add(row.beach_id);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Sitemap: Sub-page coverage query failed", {
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+
+  return { tideCoverage, waterTempCoverage };
+}
+
 /**
  * Generate a single flat sitemap combining all routes.
  *
@@ -162,9 +261,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const beachesResponse = await getBeaches();
   const allBeaches =
     beachesResponse.success && beachesResponse.data ? beachesResponse.data : [];
-  const forecastIndexabilityByBeachId = await getForecastIndexabilityForBeaches(
-    allBeaches.map((beach) => ({ id: beach.id, timezone: beach.timezone })),
-  );
+  const [forecastIndexabilityByBeachId, beachSubPageCoverage] = await Promise.all([
+    getForecastIndexabilityForBeaches(
+      allBeaches.map((beach) => ({ id: beach.id, timezone: beach.timezone })),
+    ),
+    getBeachSubPageCoverage(allBeaches.map((beach) => beach.id)),
+  ]);
   const reviewedCityEditorial = await getReviewedCityEditorialContent();
   const cityEditorialRoutes = new Map<string, CityEditorialRoute>();
   const selectedCityEditorial = new Map<string, (typeof reviewedCityEditorial)[number]>();
@@ -232,7 +334,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     blogRoutes,
   ] = await Promise.all([
     Promise.resolve(getStaticRoutes()),
-    Promise.resolve(buildBeachRoutes(allBeaches, forecastIndexabilityByBeachId)),
+    Promise.resolve(
+      buildBeachRoutes(
+        allBeaches,
+        forecastIndexabilityByBeachId,
+        beachSubPageCoverage,
+      ),
+    ),
     getLocationRoutes(validCitySlugs, cityEditorialRoutes),
     getIntentRoutes(cityEditorialRoutes),
     Promise.resolve(getGuideRoutes()),
@@ -326,6 +434,7 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
 export function buildBeachRoutes(
   beaches: NonNullable<Awaited<ReturnType<typeof getBeaches>>["data"]>,
   forecastIndexabilityByBeachId: ReadonlyMap<string, ForecastIndexabilitySnapshot>,
+  subPageCoverage?: BeachSubPageCoverage,
 ): MetadataRoute.Sitemap {
   const subPageTypes = ["tides", "water-temp"] as const;
 
@@ -371,7 +480,16 @@ export function buildBeachRoutes(
         ...(hasDedicatedSubPages
           ? subPageTypes.flatMap((subPage) => {
               const subPagePath = `${beachPath}/${subPage}`;
-              return forecastIndexable
+              const hasSubPageData = subPageCoverage
+                ? subPage === "tides"
+                  ? subPageCoverage.tideCoverage.has(beach.id)
+                  : subPageCoverage.waterTempCoverage.has(beach.id)
+                : true;
+              return isBeachSubPageIndexable(
+                forecastSnapshot,
+                subPagePath,
+                { hasSubPageData },
+              )
                 ? [{
                     url: `${baseUrl}${subPagePath}`,
                     lastModified: lastModifiedDate,
