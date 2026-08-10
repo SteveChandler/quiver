@@ -13,6 +13,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { QuiverSticker } from "@/components/zine";
+import { resolvePreviewSlug } from "@/components/embed-promo/beach-selection";
 import { SITE_URL } from "@/lib/constants/seo";
 
 // ---------------------------------------------------------------------------
@@ -31,6 +32,8 @@ type WidgetType = "conditions" | "tides";
 interface BusinessesEmbedPromoProps {
   /** Pre-fetched beach options for the dropdown */
   beaches: BeachOption[];
+  /** Validated beach slug selected by the server page */
+  initialSlug?: string;
 }
 
 interface ValueProp {
@@ -176,9 +179,12 @@ function CopyButton({ code }: { code: string }) {
 // Main Component
 // ---------------------------------------------------------------------------
 
-export function BusinessesEmbedPromo({ beaches }: BusinessesEmbedPromoProps) {
-  const [selectedSlug, setSelectedSlug] = useState(
-    beaches[0]?.slug ?? "blacks"
+export function BusinessesEmbedPromo({
+  beaches,
+  initialSlug,
+}: BusinessesEmbedPromoProps) {
+  const [selectedSlug, setSelectedSlug] = useState(() =>
+    resolvePreviewSlug(beaches, initialSlug)
   );
   const [widgetType, setWidgetType] = useState<WidgetType>("conditions");
 

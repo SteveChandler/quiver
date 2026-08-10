@@ -2,6 +2,7 @@ import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event
 import { parseMajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/evaluator";
 import type { EvaluateMajorEventHoldCandidatesInput } from "@/lib/recommendations/major-event-hold/service";
 import type { MajorEventHoldCandidateDecision } from "@/lib/recommendations/major-event-hold/types";
+import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
 
 type ConditionSegment = string | number | null | undefined;
 
@@ -60,7 +61,6 @@ interface ForecastWindowShareDependencies {
   ) => Promise<MajorEventHoldCandidateDecision[]>;
 }
 
-const DEFAULT_TIMEZONE = "America/Los_Angeles";
 const FALLBACK_TITLE = "Open Quiver Surf Window";
 const FALLBACK_DESCRIPTION = "Open this surf window in Quiver.";
 const NEUTRAL_DESCRIPTION =

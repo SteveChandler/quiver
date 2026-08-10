@@ -275,7 +275,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
                 href="/forecast-accuracy"
                 className="inline-flex w-fit items-center justify-center gap-2 rounded-sm border-2 border-[#F78E42] bg-[#F78E42] px-4 py-3 font-heading text-xs font-black uppercase tracking-[0.1em] text-[#11100D] shadow-[4px_4px_0_rgba(247,142,66,0.24)] transition-transform hover:-translate-y-0.5"
               >
-                Audit Quiver accuracy
+                Read the accuracy method
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
             </div>
@@ -392,7 +392,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
                   href="/forecast-accuracy"
                   className="inline-flex items-center gap-2 font-bold text-[#252D6B] underline-offset-4 hover:text-[#9E5010] hover:underline"
                 >
-                  Check public forecast accuracy
+                  Read the forecast accuracy method
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Link>
               </div>

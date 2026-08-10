@@ -4,6 +4,7 @@
 
 import {
   buildBestTimeLiveHandoffSteps,
+  buildBestTimeMetadataCopy,
   generateMetadata,
 } from "@/app/best-time-to-surf/[city]/page";
 import { findCityBySlug } from "@/actions/city/city-metadata-actions";
@@ -64,12 +65,15 @@ describe("best-time city SEO page", () => {
       params: Promise.resolve({ city: "san-diego" }),
     });
 
-    expect(metadata.title).toContain("Best Time to Surf San Diego Today & This Week");
-    expect(metadata.description).toContain("today and this week");
-    expect(metadata.description).toContain("live surf report");
-    expect(metadata.description).toContain("tides");
+    expect(metadata.title).toContain(
+      "Best San Diego surf window today: tide & wind",
+    );
+    expect(metadata.description).toContain(
+      "San Diego's best surf window today",
+    );
+    expect(metadata.description).toContain("tide");
     expect(metadata.description).toContain("wind");
-    expect(metadata.description).toContain("nearby spots");
+    expect(metadata.description).toContain("live conditions");
   });
 
   it("noindexes a city without approved best-time editorial", async () => {
@@ -124,24 +128,18 @@ describe("best-time city SEO page", () => {
     {
       citySlug: "la-jolla",
       cityName: "La Jolla",
-      title: "Best Time to Surf La Jolla: Shores, Scripps & Wind",
-      descriptionNeedle: "Scripps Pier, Shores, Tourmaline",
     },
     {
       citySlug: "newport-beach",
       cityName: "Newport Beach",
-      title: "Best Time to Surf Newport Beach: Season & Today",
-      descriptionNeedle: "live Newport Beach surf report",
     },
     {
       citySlug: "malibu",
       cityName: "Malibu",
-      title: "Best Time to Surf Malibu: Tide, Season & Crowd",
-      descriptionNeedle: "live Malibu surf report",
     },
   ])(
-    "uses scoped CTR metadata for $cityName without changing the generic template",
-    async ({ citySlug, cityName, title, descriptionNeedle }) => {
+    "uses the shared decision-first metadata for $cityName",
+    async ({ citySlug, cityName }) => {
       (findCityBySlug as jest.Mock).mockResolvedValue({
         success: true,
         data: {
@@ -154,11 +152,38 @@ describe("best-time city SEO page", () => {
       const metadata = await generateMetadata({
         params: Promise.resolve({ city: citySlug }),
       });
+      const copy = buildBestTimeMetadataCopy(cityName);
 
-      expect(metadata.title).toContain(title);
-      expect(metadata.description).toContain(descriptionNeedle);
+      expect(metadata.title).toBe(copy.title);
+      expect(metadata.description).toBe(copy.description);
     },
   );
+
+  it.each([
+    "La Jolla",
+    "Huntington Beach",
+    "Santa Cruz",
+    "Laguna Beach",
+    "Pacifica",
+    "Melbourne Beach",
+    "Surfside Beach",
+  ])("keeps %s SERP copy direct and within display targets", (cityName) => {
+    const copy = buildBestTimeMetadataCopy(cityName);
+    const renderedTitle = `${copy.title} | Quiver`;
+
+    expect(renderedTitle.length).toBeLessThanOrEqual(60);
+    expect(copy.description.length).toBeGreaterThanOrEqual(150);
+    expect(copy.description.length).toBeLessThanOrEqual(160);
+    expect(copy.title).toContain(`${cityName} surf window today`);
+    expect(copy.title).toContain("tide & wind");
+    expect(copy.description).toContain(
+      `${cityName}'s best surf window today`,
+    );
+    expect(copy.description).toContain("wind, swell, and live conditions");
+    expect(copy.h1).toBe(
+      `Best ${cityName} surf window today: tide and conditions`,
+    );
+  });
 
   it("builds live surf report handoff steps from the city's top spots", () => {
     const steps = buildBestTimeLiveHandoffSteps({
@@ -362,7 +387,10 @@ describe("best-time city SEO page", () => {
       "utf8"
     );
 
-    expect(source).toContain("Best Time to Surf ${cityName} Today");
+    expect(source).toContain(
+      "Best ${cityName} surf window today: tide and conditions",
+    );
+    expect(source).toContain("{liveAnswerCopy.todayAnswer}");
     expect(source).toContain("Surf Score by Month");
     expect(source).toContain("Monthly Breakdown");
     expect(source).toContain("path: `/best-time-to-surf/${citySlug}`");

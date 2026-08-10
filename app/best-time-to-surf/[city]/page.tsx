@@ -69,12 +69,39 @@ const MONTH_ABBREVS = [
 
 const YEAR_ROUND_THRESHOLD = 10;
 const SOLID_SEASON_THRESHOLD = 6;
+const BEST_TIME_SERP_TITLE_MAX_LENGTH = 60;
+const BEST_TIME_SERP_TITLE_SUFFIX = " | Quiver";
+const BEST_TIME_META_DESCRIPTION_MAX_LENGTH = 160;
+
+interface BestTimeMetadataCopy {
+  title: string;
+  description: string;
+  h1: string;
+}
+
+export function buildBestTimeMetadataCopy(
+  cityName: string,
+): BestTimeMetadataCopy {
+  const detailedTitle = `Best ${cityName} surf window today: tide & wind`;
+  const compactTitle = `${cityName} surf window today: tide & wind`;
+  const detailedDescription = `${cityName}'s best surf window today: check tide, wind, swell, and live conditions at nearby spots, plus seasonal patterns for planning your next session.`;
+  const compactDescription = `${cityName}'s surf window today: check tide, wind, swell, and live spot conditions, plus seasonal patterns for planning your next session.`;
+
+  return {
+    title:
+      `${detailedTitle}${BEST_TIME_SERP_TITLE_SUFFIX}`.length <=
+      BEST_TIME_SERP_TITLE_MAX_LENGTH
+        ? detailedTitle
+        : compactTitle,
+    description:
+      detailedDescription.length <= BEST_TIME_META_DESCRIPTION_MAX_LENGTH
+        ? detailedDescription
+        : compactDescription,
+    h1: `Best ${cityName} surf window today: tide and conditions`,
+  };
+}
 
 interface BestTimeCtrOverride {
-  metadataTitle: string;
-  metadataDescription: string;
-  h1: string;
-  heroDek: string;
   answerPrefix: string;
   weekSuffix: string;
   surfReportCue: string;
@@ -83,12 +110,6 @@ interface BestTimeCtrOverride {
 
 const BEST_TIME_CTR_OVERRIDES: Record<string, BestTimeCtrOverride> = {
   "la-jolla": {
-    metadataTitle: "Best Time to Surf La Jolla: Shores, Scripps & Wind",
-    metadataDescription:
-      "Find the best time to surf La Jolla today with Scripps Pier, Shores, Tourmaline, wind, tide, and seasonal windows before you drive.",
-    h1: "Best Time to Surf La Jolla Today",
-    heroDek:
-      "Shores, Scripps, Tourmaline, today's live report, and the seasonal pattern",
     answerPrefix:
       "For La Jolla, use Scripps Pier, Shores, and Tourmaline as the live proof points before trusting the seasonal pattern.",
     weekSuffix:
@@ -103,12 +124,6 @@ const BEST_TIME_CTR_OVERRIDES: Record<string, BestTimeCtrOverride> = {
     },
   },
   "newport-beach": {
-    metadataTitle: "Best Time to Surf Newport Beach: Season & Today",
-    metadataDescription:
-      "Find the best time to surf Newport Beach today with Blackies, tide, morning wind, crowd context, and the live Newport Beach surf report.",
-    h1: "Best Time to Surf Newport Beach Today",
-    heroDek:
-      "Blackies, Newport jetties, morning wind, today's live report, and the seasonal pattern",
     answerPrefix:
       "For Newport Beach, separate the seasonal calendar from the live Blackies and jetty read before you commit.",
     weekSuffix:
@@ -123,12 +138,6 @@ const BEST_TIME_CTR_OVERRIDES: Record<string, BestTimeCtrOverride> = {
     },
   },
   malibu: {
-    metadataTitle: "Best Time to Surf Malibu: Tide, Season & Crowd",
-    metadataDescription:
-      "Find the best time to surf Malibu today with First Point, tide, morning wind, crowd context, and the live Malibu surf report.",
-    h1: "Best Time to Surf Malibu Today",
-    heroDek:
-      "First Point, tide, crowd, today's live report, and the seasonal pattern",
     answerPrefix:
       "For Malibu, treat crowd and tide as part of the forecast before the seasonal score makes the call.",
     weekSuffix:
@@ -143,12 +152,6 @@ const BEST_TIME_CTR_OVERRIDES: Record<string, BestTimeCtrOverride> = {
     },
   },
   "santa-cruz": {
-    metadataTitle: "Best Time to Surf Santa Cruz: Wind, Tide & Season",
-    metadataDescription:
-      "Find the best time to surf Santa Cruz today. Compare Steamer Lane with Cowell's and Capitola windows, then check wind, tide, water temperature, and season.",
-    h1: "Best Time to Surf Santa Cruz Today",
-    heroDek:
-      "Steamer Lane, Cowell's and Capitola windows, wind, tide, cold water, and season",
     answerPrefix:
       "For Santa Cruz, separate Steamer Lane's experienced reef setup from smaller Cowell's and Capitola beginner windows; the same swell, tide, and wind do not suit both.",
     weekSuffix:
@@ -308,13 +311,18 @@ export function buildBestTimeTodayAnswerCopy({
     currentBestMonthCount > 0
       ? `${currentBestMonthCount} of ${totalBeaches} local beaches are in peak season`
       : `${cityName} is between peak-season windows`;
-  const waveText = waveHeightRange ? ` with ${waveHeightRange} surf` : "";
-  const waterText = waterTempF != null ? ` and ${waterTempF}°F water` : "";
+  const seasonalConditions = [
+    waveHeightRange ? `${waveHeightRange} surf` : null,
+    waterTempF != null ? `${waterTempF}°F water` : null,
+  ].filter((condition): condition is string => condition !== null);
+  const seasonalContext = seasonalConditions.length > 0
+    ? ` Seasonal context: ${seasonalConditions.join(" and ")}.`
+    : "";
   const forecastDay = forecastSummary?.isTomorrow ? "tomorrow" : "today";
   const topPick = forecastSummary?.topPicks[0];
   const liveTodayAnswer =
     forecastSummary?.bestWindow
-      ? `${cityName}'s best surf window ${forecastDay} is ${forecastSummary.bestWindow.start}-${forecastSummary.bestWindow.end}: ${forecastSummary.bestWindow.reason}. ${
+      ? `${cityName}'s best surf window ${forecastDay} is ${forecastSummary.bestWindow.start}-${forecastSummary.bestWindow.end}, with ${forecastSummary.conditions.tide.toLowerCase()} tide, ${forecastSummary.conditions.wind} wind, and ${forecastSummary.conditions.swell} swell; ${forecastSummary.bestWindow.reason}. ${
           topPick
             ? `${topPick.name} is the top pick at ${topPick.waveHeight}.`
             : "Check the live report before you drive."
@@ -326,7 +334,7 @@ export function buildBestTimeTodayAnswerCopy({
   const ctrOverride = citySlug ? getBestTimeCtrOverride(citySlug) : null;
   const baseTodayAnswer =
     liveTodayAnswer ??
-    `${cityName}'s best surf window today starts with the live report: check tide, wind, and swell before you drive${waveText}${waterText}.`;
+    `${cityName}'s best surf window today starts with the live report: check tide, wind, and swell before you drive.${seasonalContext}`;
   const baseThisWeekAnswer = `${currentMonthName} rates ${currentMonthScore}/100 for ${cityName}. ${seasonStrength}; ${peakMonthName} is the historical peak if this week's surf report looks marginal.`;
 
   return {
@@ -334,7 +342,7 @@ export function buildBestTimeTodayAnswerCopy({
     heading: `Best time to surf ${cityName} today`,
     weekHeading: `Best time to surf ${cityName} this week`,
     todayAnswer: ctrOverride
-      ? `${ctrOverride.answerPrefix} ${baseTodayAnswer}`
+      ? `${baseTodayAnswer} ${ctrOverride.answerPrefix}`
       : baseTodayAnswer,
     thisWeekAnswer: ctrOverride
       ? `${baseThisWeekAnswer} ${ctrOverride.weekSuffix}`
@@ -357,15 +365,11 @@ export async function generateMetadata(props: PageParams): Promise<Metadata> {
   }
 
   const { cityName, stateName } = cityResult.data;
-  const ctrOverride = getBestTimeCtrOverride(citySlug);
+  const metadataCopy = buildBestTimeMetadataCopy(cityName);
 
   const metadata = buildPageMetadata({
-    title:
-      ctrOverride?.metadataTitle ??
-      `Best Time to Surf ${cityName} Today & This Week`,
-    description:
-      ctrOverride?.metadataDescription ??
-      `Best time to surf ${cityName} today and this week. Start with the live surf report, then use seasonal windows, tides, wind, and nearby spots.`,
+    title: metadataCopy.title,
+    description: metadataCopy.description,
     path: `/best-time-to-surf/${citySlug}`,
     keywords: [
       `best time to surf ${cityName}`,
@@ -416,7 +420,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
   const stateSlug = state.toLowerCase();
   const heroScene = getBestTimeSeoScene(citySlug);
   const sessionScene = getBestTimeSessionSeoScene(citySlug);
-  const ctrOverride = getBestTimeCtrOverride(citySlug);
+  const metadataCopy = buildBestTimeMetadataCopy(cityName);
 
   const [dataResult, excludeIntents, forecastBeachesResult, cityEditorial] = await Promise.all([
     getBestTimeToSurfData(cityName, state),
@@ -566,19 +570,16 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           <span className="text-gray-800 font-medium">Surf Calendar</span>
         </nav>
 
-        <ReviewedCityEditorialSection editorial={cityEditorial} />
-
         {/* Hero Section */}
         <ScrollReveal>
           <header className="mb-10">
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] lg:items-stretch">
               <div>
                 <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-                  {ctrOverride?.h1 ?? `Best Time to Surf ${cityName} Today`}
+                  {metadataCopy.h1}
                 </h1>
                 <p className="text-lg text-gray-600 mb-6">
-                  {ctrOverride?.heroDek ??
-                    `${cityName}, ${stateName} - today, this week, and the seasonal pattern`}
+                  {liveAnswerCopy.todayAnswer}
                 </p>
 
                 <div className="mb-5 rounded-lg border border-[#11100D]/15 bg-white p-5 text-[#11100D] shadow-sm">
@@ -586,15 +587,12 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                     {liveAnswerCopy.eyebrow}
                   </p>
                   <h2 className="mb-3 text-2xl font-semibold text-gray-900">
-                    Today&apos;s surf call
+                    Plan around the live conditions
                   </h2>
-                  <p className="text-sm leading-6 text-gray-700">
-                    {liveAnswerCopy.todayAnswer}
-                  </p>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <div className="rounded-md bg-[#FBF6E8] p-3">
                       <h3 className="text-sm font-semibold text-gray-900">
-                        This week&apos;s surf window
+                        {liveAnswerCopy.weekHeading}
                       </h3>
                       <p className="mt-1 text-sm leading-6 text-gray-700">
                         {liveAnswerCopy.thisWeekAnswer}
@@ -659,6 +657,8 @@ export default async function BestTimeToSurfPage(props: PageParams) {
             </div>
           </header>
         </ScrollReveal>
+
+        <ReviewedCityEditorialSection editorial={cityEditorial} />
 
         <SeoFunnelNextSteps
           variant="paper"

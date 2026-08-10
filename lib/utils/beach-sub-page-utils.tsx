@@ -13,9 +13,8 @@ import Link from "next/link";
 
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
-import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
+import { BeachSubPageCtaSwitch } from "@/components/app-store/beach-subpage-cta-switch";
 import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { TideSummaryHero } from "@/components/beach-detail/tide-summary-hero";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
@@ -32,18 +31,18 @@ import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 import { notFound } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
+import { isBeachSubPageInstallCtaEnabled } from "@/lib/flags/beach-subpage-install-cta";
 import {
   buildBeachSubPageCrawlCopy,
   type BeachSubPageCrawlCopy,
 } from "@/lib/utils/beach-sub-page-crawl-copy";
 import { cityToSlug, regionToSlug } from "@/lib/utils/beach-url-utils";
 import { slugifyAscii } from "@/lib/utils/text-utils";
+import { applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import {
-  applyIndexabilityToMetadata,
-  evaluateBeachIndexability,
-  toBeachEditorialInput,
-  type BeachEditorialDatabaseRecord,
-} from "@/lib/seo/indexability";
+  getForecastIndexabilityForBeaches,
+  isBeachSubPageIndexable,
+} from "@/lib/seo/forecast-indexability";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -86,24 +85,16 @@ const SUB_PAGE_CONFIGS: Record<SubPageType, SubPageConfig> = {
 const SUB_PAGE_CTA_CONFIGS: Record<SubPageType, {
   ctaText: string;
   supportingText: (beachName: string) => string;
-  inlineTitle: (beachName: string) => string;
-  inlineDescription: (beachName: string) => string;
   sourcePrefix: string;
 }> = {
   tides: {
     ctaText: "Get Alerts",
     supportingText: (beachName) => `Tide alerts for ${beachName}`,
-    inlineTitle: (beachName) => `Tide Alerts for ${beachName}`,
-    inlineDescription: (beachName) =>
-      `Get notified when optimal tide windows open at ${beachName}. Know the best times to paddle out without checking charts.`,
     sourcePrefix: "tides",
   },
   "water-temp": {
     ctaText: "Get Alerts",
     supportingText: (beachName) => `Water temp alerts for ${beachName}`,
-    inlineTitle: (beachName) => `Water Temp Alerts for ${beachName}`,
-    inlineDescription: (beachName) =>
-      `Track water temperatures at ${beachName} and get wetsuit recommendations so you always suit up right.`,
     sourcePrefix: "water-temp",
   },
 };
@@ -162,6 +153,7 @@ export async function renderBeachSubPage({
   const ctaConfig = SUB_PAGE_CTA_CONFIGS[pageType];
   const ctaSource = `${ctaConfig.sourcePrefix}-${beachSlug}`;
   const subPagePath = `${beachPath}/${pageType}`;
+  const installCtaEnabled = isBeachSubPageInstallCtaEnabled();
 
   // Fetch dataset schema data in parallel with nearby beaches — uses React cache()
   // so no extra DB queries when generateBeachSubPageMetadata already called these.
@@ -190,6 +182,24 @@ export async function renderBeachSubPage({
     Boolean(tideMeta?.nextHighTime || tideMeta?.nextLowTime);
   const hasWaterTempHero = pageType === "water-temp" &&
     waterTempMeta?.tempF != null;
+  // One real figure from data this render already has (React-cached, no extra
+  // queries). A number the visitor can check beats a list of claims - but only
+  // when it is genuinely available, so this stays null rather than inventing one.
+  const installCtaProof =
+    pageType === "water-temp" && waterTempMeta?.tempF != null
+      ? { value: `${Math.round(waterTempMeta.tempF)}°F`, label: "Water temp now" }
+      : pageType === "tides" && tideMeta?.nextHighHeight != null
+        ? {
+            value: `${tideMeta.nextHighHeight.toFixed(1)} ft`,
+            // Carry the time: without it this is a strictly worse duplicate of
+            // the tide line further up the page, and a bare "ft" on a surf site
+            // reads as swell rather than tide.
+            label: tideMeta.nextHighTime
+              ? `Next high · ${tideMeta.nextHighTime}`
+              : "Next high tide",
+          }
+        : null;
+
   const crawlCopy = buildBeachSubPageCrawlCopy({
     beach,
     pageType,
@@ -273,56 +283,14 @@ export async function renderBeachSubPage({
         heroHeadingLevel="h2"
       />
 
-      <div className="container mx-auto px-4 py-8">
-        <AlertCaptureCta
-          pageContext={pageType}
-          beachId={beach.id}
-          beachName={beach.name}
-          source={`${ctaSource}-inline`}
-        />
-      </div>
-
-      <div className="container mx-auto px-4 pb-8">
-        <SeoFunnelNextSteps
-          variant="paper"
-          title={`Keep planning ${beach.name}`}
-          description={`Use this ${config.breadcrumbLabel.toLowerCase()} page as one signal, then check the full forecast, nearby breaks, and the companion condition page.`}
-          steps={[
-            {
-              label: `Open the full ${beach.name} forecast`,
-              href: beachPath,
-              description: "Return to the full spot page for forecast, reviews, intel, and sessions.",
-            },
-            {
-              label: pageType === "tides" ? "Check water temperature" : "Watch the tide window",
-              href: pageType === "tides" ? `${beachPath}/water-temp` : `${beachPath}/tides`,
-              description:
-                pageType === "tides"
-                  ? "Pair the tide call with gear and water-temperature context."
-                  : "Pair water temperature with the next useful tide shift.",
-            },
-            {
-              label: "Compare nearby surf spots",
-              href: "/map",
-              description: "Use the map when this spot is not the right call.",
-            },
-          ]}
-        />
-      </div>
-
-      <div className="container mx-auto px-4 pb-8">
-        <NearbyBeachesEnriched
-          beaches={nearbyBeaches}
-          sourceBeachName={beach.name}
-          sourceBeachLat={beach.lat}
-          sourceBeachLon={beach.lon}
-        />
-      </div>
-
-      <StickySignupBar
-        source={ctaSource}
-        ctaText={ctaConfig.ctaText}
-        supportingText={ctaConfig.supportingText(beach.name)}
+      <BeachSubPageCtaSwitch
+        beachId={beach.id}
+        beachName={beach.name}
+        installCtaEnabled={installCtaEnabled}
+        placement={`${pageType}-${beachSlug}`}
+        pathname={subPagePath}
+        pageType={pageType}
+        proof={installCtaProof ?? undefined}
         searchReferralCta={
           pageType === "tides"
             ? {
@@ -334,7 +302,47 @@ export async function renderBeachSubPage({
                 supportingText: `Get gear recs for ${beach.name}`,
               }
         }
-      />
+        source={ctaSource}
+        stickyCtaText={ctaConfig.ctaText}
+        stickySupportingText={ctaConfig.supportingText(beach.name)}
+      >
+        <div className="container mx-auto px-4 pb-8">
+          <SeoFunnelNextSteps
+            variant="paper"
+            title={`Keep planning ${beach.name}`}
+            description={`Use this ${config.breadcrumbLabel.toLowerCase()} page as one signal, then check the full forecast, nearby breaks, and the companion condition page.`}
+            steps={[
+              {
+                label: `Open the full ${beach.name} forecast`,
+                href: beachPath,
+                description: "Return to the full spot page for forecast, reviews, intel, and sessions.",
+              },
+              {
+                label: pageType === "tides" ? "Check water temperature" : "Watch the tide window",
+                href: pageType === "tides" ? `${beachPath}/water-temp` : `${beachPath}/tides`,
+                description:
+                  pageType === "tides"
+                    ? "Pair the tide call with gear and water-temperature context."
+                    : "Pair water temperature with the next useful tide shift.",
+              },
+              {
+                label: "Compare nearby surf spots",
+                href: "/map",
+                description: "Use the map when this spot is not the right call.",
+              },
+            ]}
+          />
+        </div>
+
+        <div className="container mx-auto px-4 pb-8">
+          <NearbyBeachesEnriched
+            beaches={nearbyBeaches}
+            sourceBeachName={beach.name}
+            sourceBeachLat={beach.lat}
+            sourceBeachLon={beach.lon}
+          />
+        </div>
+      </BeachSubPageCtaSwitch>
     </>
   );
 }
@@ -399,28 +407,30 @@ export async function generateBeachSubPageMetadata({
     // Fetch dynamic data for SEO based on page type
     let title: string;
     let description: string;
+    let tideMetaForIndexing: Awaited<ReturnType<typeof getTideMetaData>> | null = null;
+    let tempMetaForIndexing: Awaited<ReturnType<typeof getWaterTempMetaData>> | null = null;
 
     try {
       if (pageType === "tides") {
-        const tideMeta = await getTideMetaData(beach.id);
+        tideMetaForIndexing = await getTideMetaData(beach.id);
         const result = buildDynamicTideMetadata({
           beach,
           tideData: {
-            nextHighTime: tideMeta.nextHighTime,
-            nextLowTime: tideMeta.nextLowTime,
-            nextHighHeight: tideMeta.nextHighHeight,
-            nextLowHeight: tideMeta.nextLowHeight,
+            nextHighTime: tideMetaForIndexing.nextHighTime,
+            nextLowTime: tideMetaForIndexing.nextLowTime,
+            nextHighHeight: tideMetaForIndexing.nextHighHeight,
+            nextLowHeight: tideMetaForIndexing.nextLowHeight,
           },
         });
         title = result.title;
         description = result.description;
       } else {
-        const tempMeta = await getWaterTempMetaData(beach.id);
+        tempMetaForIndexing = await getWaterTempMetaData(beach.id);
         const result = buildDynamicWaterTempMetadata({
           beach,
           waterTempData: {
-            tempF: tempMeta.tempF,
-            wetsuitRec: tempMeta.wetsuitRec,
+            tempF: tempMetaForIndexing.tempF,
+            wetsuitRec: tempMetaForIndexing.wetsuitRec,
           },
         });
         title = result.title;
@@ -443,11 +453,25 @@ export async function generateBeachSubPageMetadata({
       image: `/api/og/beach?slug=${beachSlug}`,
     });
     const metadata = { ...meta, title: { absolute: title } };
-    const decision = evaluateBeachIndexability(
-      toBeachEditorialInput(beach as BeachEditorialDatabaseRecord),
+    const snapshots = await getForecastIndexabilityForBeaches([
+      { id: beach.id, timezone: beach.timezone ?? null },
+    ]);
+    const hasSubPageData =
+      pageType === "tides"
+        ? Boolean(
+            tideMetaForIndexing?.nextHighTime ||
+              tideMetaForIndexing?.nextLowTime,
+          )
+        : tempMetaForIndexing?.tempF != null;
+    const indexable = isBeachSubPageIndexable(
+      snapshots.get(beach.id),
       subPagePath,
+      { hasSubPageData },
     );
-    return applyIndexabilityToMetadata(metadata, decision);
+    return applyIndexabilityToMetadata(metadata, {
+      indexable,
+      reason: indexable ? "forecast-approved" : "forecast-missing",
+    });
   }
 
   const meta = buildPageMetadata({

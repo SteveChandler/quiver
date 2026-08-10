@@ -51,22 +51,24 @@ test.describe("Guest forecast accuracy trust page", () => {
       expect(response!.status()).toBe(200);
       await expect(
         page.getByRole("heading", {
-          name: "The forecast that learns what you like.",
+          name: "How to judge a surf forecast.",
         })
-      ).toBeVisible();
-      await expect(page.getByText(/NOAA baseline/i).first()).toBeVisible();
-      await expect(
-        page.getByRole("heading", { name: "Three checks, then a plain score." })
       ).toBeVisible();
       await expect(
         page.getByRole("heading", {
-          name: "More accurate than Surfline. Twice as sharp as NOAA.",
+          name: "Measure the same thing on the same sample.",
         })
       ).toBeVisible();
-      await expect(page.getByText("WINNER")).toBeVisible();
-      await expect(page.getByText("0.30m")).toBeVisible();
-      await expect(page.getByText("0.35m")).toBeVisible();
-      await expect(page.getByText("0.67m")).toBeVisible();
+      await expect(
+        page.getByRole("heading", {
+          name: "Offshore wave height is not breaking face height.",
+        })
+      ).toBeVisible();
+      await expect(
+        page.getByText("No same-sample comparison. No accuracy ranking.")
+      ).toBeVisible();
+      await expect(page.getByText("WINNER")).toHaveCount(0);
+      await expect(page.getByText(/0\.(30|35|67)m/)).toHaveCount(0);
       await expectNoHorizontalOverflow(page);
 
       const jsonLdCount = await page

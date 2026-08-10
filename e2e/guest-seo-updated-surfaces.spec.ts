@@ -38,22 +38,22 @@ const UPDATED_SURF_REPORT_SLUGS = [
 const UPDATED_BEST_TIME_PAGES = [
   {
     path: "/best-time-to-surf/la-jolla",
-    title: "Best Time to Surf La Jolla: Shores, Scripps & Wind",
-    h1: "Best Time to Surf La Jolla Today",
+    title: "Best La Jolla surf window today: tide & wind",
+    h1: "Best La Jolla surf window today: tide and conditions",
     surfReportLabel: "Open today's Scripps Pier surf report",
     surfReportHref: "/surf-report/scripps-pier-today",
   },
   {
     path: "/best-time-to-surf/newport-beach",
-    title: "Best Time to Surf Newport Beach: Season & Today",
-    h1: "Best Time to Surf Newport Beach Today",
+    title: "Best Newport Beach surf window today: tide & wind",
+    h1: "Best Newport Beach surf window today: tide and conditions",
     surfReportLabel: "Open today's Newport Beach surf report",
     surfReportHref: "/surf-report/newport-beach-today",
   },
   {
     path: "/best-time-to-surf/malibu",
-    title: "Best Time to Surf Malibu: Tide, Season & Crowd",
-    h1: "Best Time to Surf Malibu Today",
+    title: "Best Malibu surf window today: tide & wind",
+    h1: "Best Malibu surf window today: tide and conditions",
     surfReportLabel: "Open today's Malibu surf report",
     surfReportHref: "/surf-report/malibu-today",
   },
@@ -148,7 +148,7 @@ test.describe("Updated SEO public surfaces", () => {
       page.getByRole("link", { name: /Compare Quiver vs Surfline/i }),
     ).toHaveAttribute("href", "/vs/surfline");
     await expect(
-      page.getByRole("link", { name: /Check public forecast accuracy/i }),
+      page.getByRole("link", { name: /Read the forecast accuracy method/i }),
     ).toHaveAttribute("href", "/forecast-accuracy");
   });
 
@@ -194,6 +194,10 @@ test.describe("Updated SEO public surfaces", () => {
       await expect(
         page.getByRole("heading", { name: bestTimePage.h1, level: 1 }),
       ).toBeVisible();
+      const openingCopy = page.locator("h1 + p");
+      await expect(openingCopy).toContainText(/best surf window/i);
+      await expect(openingCopy).toContainText(/tide/i);
+      await expect(openingCopy).toContainText(/wind/i);
       await expect(
         page.getByRole("link", { name: bestTimePage.surfReportLabel }).first(),
       ).toHaveAttribute("href", bestTimePage.surfReportHref);
