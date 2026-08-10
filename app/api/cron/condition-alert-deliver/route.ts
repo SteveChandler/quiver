@@ -2,20 +2,19 @@
 //
 // Delivery cron — runs hourly (`0 * * * *`).
 // Reads due items from alert_queue, consolidates per user, sends email + push.
-// Cadence relaxed from `*/15 * * * *` on 2026-05-02 alongside the
-// ALERTS_DELIVERY_ENABLED=true flip — initial-rollout latency budget is
+// Cadence relaxed from `*/15 * * * *` on 2026-05-02 — initial-rollout latency budget is
 // 60 min from evaluator → delivery, acceptable for surf condition alerts.
 // Re-tighten if user-volume or feedback warrants it.
 //
 // Hardened (Task 4) with:
-//   - ALERTS_DELIVERY_ENABLED kill switch (env var, default off)
+//   - FORECAST_ALERT_DELIVERY_ENABLED forecast send switch (default off)
+//   - ALERTS_DELIVERY_ENABLED legacy similarity-alert send switch
 //   - ALERTS_DELIVERY_USER_ALLOWLIST (comma-separated user_ids; empty = all)
 //   - Per-(queue_id, channel) row in `alert_delivery_attempts` for every
 //     decision (sent, skipped_*, failed_*).
 //
-// The kill-switch path STILL marks queue rows sent so the queue can't grow
-// unboundedly while delivery is paused. Throttle (cooldown + cap) lands in
-// Task 5.
+// Forecast shadow mode runs hold, canonical, and channel checks, records the
+// outcome, and consumes queue rows without calling an outbound provider.
 
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
@@ -52,6 +51,7 @@ import {
 } from "@/lib/alerts/revalidate-alert-window";
 import type { AlertConditions } from "@/lib/alerts/types";
 import type { MatchingWindow } from "@/lib/alerts/types";
+import { isForecastAlertDeliveryEnabled } from "@/lib/flags/forecast-alert-delivery";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import {
@@ -80,6 +80,7 @@ const QUEUE_MARK_REASONS = [
   "non_canonical",
   "major_event_hold",
   "canonical_safety_rejected",
+  "shadow_withheld",
   "delivery_disabled",
   "allowlist_excluded",
   "cooldown",
@@ -104,6 +105,14 @@ type RecordedAttempt = {
   skipReason: string | null;
 };
 
+type ForecastAlertShadowOutcome = {
+  status: "shadow_withheld";
+  verdict: CanonicalSessionDecision["verdict"];
+  reason_code: CanonicalSessionDecision["reasonCode"];
+  preset_type: string | null;
+  would_use_channels: Channel[];
+};
+
 function createQueueMarkedByReason(): Record<QueueMarkReason, number> {
   return Object.fromEntries(
     QUEUE_MARK_REASONS.map((reason) => [reason, 0]),
@@ -126,6 +135,7 @@ type SuppressedNotificationHold = Extract<
 
 type RuleEmbed = {
   name: string;
+  preset_type: string | null;
   notify_email: boolean;
   notify_push: boolean;
   conditions?: AlertConditions | null;
@@ -384,7 +394,9 @@ export async function GET(request: Request): Promise<NextResponse> {
   const supabase = await createSupabaseServiceRoleClient();
 
   // Env-driven gates. Default OFF for safety; staged rollout via allowlist.
-  const deliveryEnabled = process.env.ALERTS_DELIVERY_ENABLED === "true";
+  const forecastDeliveryEnabled = isForecastAlertDeliveryEnabled();
+  const similarityDeliveryEnabled =
+    process.env.ALERTS_DELIVERY_ENABLED === "true";
   const allowlistRaw = process.env.ALERTS_DELIVERY_USER_ALLOWLIST ?? "";
   const allowlist = new Set(
     allowlistRaw
@@ -395,6 +407,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   const recordedAttemptsByQueue = new Map<string, RecordedAttempt[]>();
   const deliveryAcceptedQueueIds = new Set<string>();
   const previousUnresolvedHoldRunsByQueue = new Map<string, number>();
+  const shadowOutcomesByQueue = new Map<string, ForecastAlertShadowOutcome>();
 
   async function recordAttempt(args: {
     queueId: string;
@@ -423,6 +436,35 @@ export async function GET(request: Request): Promise<NextResponse> {
       skipReason: args.skipReason ?? null,
     });
     recordedAttemptsByQueue.set(args.queueId, attempts);
+  }
+
+  async function persistShadowOutcome(
+    item: QueueItemWithMeta,
+  ): Promise<void> {
+    const outcome = shadowOutcomesByQueue.get(item.id);
+    if (!outcome) {
+      throw new Error(`missing shadow outcome for queue row ${item.id}`);
+    }
+
+    const { error } = await (supabase.from("alert_queue") as any)
+      .update({ delivery_shadow_outcome: outcome })
+      .eq("id", item.id);
+    if (error) {
+      throw new Error(
+        `failed to persist shadow outcome for alert_queue row ${item.id}: ${error.message}`,
+      );
+    }
+  }
+
+  function addShadowChannel(
+    items: QueueItemWithMeta[],
+    channel: Channel,
+  ): void {
+    for (const item of items) {
+      const outcome = shadowOutcomesByQueue.get(item.id);
+      if (!outcome || outcome.would_use_channels.includes(channel)) continue;
+      outcome.would_use_channels.push(channel);
+    }
   }
 
   async function refreshQueueItemFromLatestForecasts(
@@ -598,9 +640,13 @@ export async function GET(request: Request): Promise<NextResponse> {
         ): QueueMarkReason | null {
           if (deliveryAcceptedQueueIds.has(item.id)) return "delivered";
           if (enabledChannels(item).length === 0) return "no_enabled_channels";
+          if (shadowOutcomesByQueue.has(item.id)) return "shadow_withheld";
 
           const attempts = recordedAttemptsByQueue.get(item.id) ?? [];
           if (attempts.length === 0) return "unrecorded_consumption";
+          if (attempts.some((attempt) => attempt.status === "shadow_withheld")) {
+            return "shadow_withheld";
+          }
           if (attempts.some((attempt) => attempt.status === "sent")) {
             return "delivered";
           }
@@ -674,7 +720,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           .select(`
             id, user_id, rule_id, beach_id, alert_date, send_at,
             window_start, window_end, best_hour, best_score, conditions_snapshot, sent,
-            alert_rules!inner(name, notify_email, notify_push, conditions),
+            alert_rules!inner(name, preset_type, notify_email, notify_push, conditions),
             beaches!inner(
               id, name, slug, timezone, lat, lon,
               wind_offshore_deg, wind_offshore_tol_deg, aspect_deg,
@@ -744,6 +790,7 @@ export async function GET(request: Request): Promise<NextResponse> {
             conditions_snapshot: (row.conditions_snapshot ?? {}) as Record<string, unknown>,
             sent: row.sent,
             rule_name: rule.name,
+            preset_type: rule.preset_type,
             beach_name: beach.name,
             beach_slug: beach.slug ?? null,
             beach_skill_level: beach.skill_level ?? null,
@@ -894,6 +941,25 @@ export async function GET(request: Request): Promise<NextResponse> {
             matches: allowedMatches,
             profileExperience: profile.experience_level,
           });
+          if (!forecastDeliveryEnabled) {
+            for (const item of userItems) {
+              const holdReason = holdReasonByCandidate.get(
+                canonicalAlertCandidateId(item),
+              );
+              const reasonCode = holdReason?.endsWith(":major_event_hold")
+                ? "major_event_hold"
+                : holdReason?.endsWith(":hold_state_unavailable")
+                  ? "hold_state_unavailable"
+                  : decision.reasonCode;
+              shadowOutcomesByQueue.set(item.id, {
+                status: "shadow_withheld",
+                verdict: holdReason ? "no" : decision.verdict,
+                reason_code: reasonCode,
+                preset_type: item.preset_type ?? null,
+                would_use_channels: [],
+              });
+            }
+          }
           const selectedMatch = selectedAlertMatch(allowedMatches, decision);
           const selectedItem = selectedMatch
             ? userItems.find(
@@ -940,6 +1006,11 @@ export async function GET(request: Request): Promise<NextResponse> {
               reason = "canonical_safety_rejected";
             }
             if (reason) addItemReason(suppressedItemsByReason, reason, item);
+          }
+          if (!forecastDeliveryEnabled) {
+            for (const item of suppressedItems) {
+              await persistShadowOutcome(item);
+            }
           }
           await markQueueItemsByReason(suppressedItemsByReason);
         }
@@ -1095,19 +1166,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           try {
             // ---- Email branch ----
             if (emailItems.length > 0) {
-              // Gate: kill switch
-              if (!deliveryEnabled) {
-                for (const item of emailItems) {
-                  await recordAttempt({
-                    queueId: item.id,
-                    ruleId: item.rule_id,
-                    userId: payload.user_id,
-                    channel: "email",
-                    status: "skipped_disabled",
-                    skipReason: "ALERTS_DELIVERY_ENABLED=false",
-                  });
-                }
-              } else if (allowlist.size > 0 && !allowlist.has(payload.user_id)) {
+              if (allowlist.size > 0 && !allowlist.has(payload.user_id)) {
                 for (const item of emailItems) {
                   await recordAttempt({
                     queueId: item.id,
@@ -1126,11 +1185,17 @@ export async function GET(request: Request): Promise<NextResponse> {
                 // below so a later hourly run sends once they're out of quiet
                 // hours and send_at has passed.
                 for (const item of emailItems) {
-                  quietDeferredEmailQueueIds.add(item.id);
+                  if (forecastDeliveryEnabled) {
+                    quietDeferredEmailQueueIds.add(item.id);
+                  }
                 }
-                result.emailQuietHoursSkipped += emailItems.length;
+                if (forecastDeliveryEnabled) {
+                  result.emailQuietHoursSkipped += emailItems.length;
+                }
                 console.log(
-                  `${CONTEXT_TAG} Email deferred for user ${payload.user_id} (quiet hours; ${emailItems.length} item(s) left due)`
+                  forecastDeliveryEnabled
+                    ? `${CONTEXT_TAG} Email deferred for user ${payload.user_id} (quiet hours; ${emailItems.length} item(s) left due)`
+                    : `${CONTEXT_TAG} Email shadow-blocked for user ${payload.user_id} (quiet hours)`,
                 );
               } else {
                 // Throttle (cooldown per-rule, weekly cap per-user). Items that
@@ -1209,7 +1274,9 @@ export async function GET(request: Request): Promise<NextResponse> {
                       alertDate
                     );
 
-                    await rateLimiter.throttle();
+                    if (forecastDeliveryEnabled) {
+                      await rateLimiter.throttle();
+                    }
 
                     const emailHold = await resolveHoldForForecastMatches({
                       eventIdPrefix: `condition-alert-deliver:email:${payload.user_id}`,
@@ -1239,7 +1306,11 @@ export async function GET(request: Request): Promise<NextResponse> {
                       emailMatches.length > 0
                         ? buildConsolidatedSubject(emailMatches, alertDate)
                         : candidateEmailSubject;
-                    const sendResult = emailHold || !emailDecision || !selectedEmailMatch
+                    const sendResult =
+                      emailHold ||
+                      !emailDecision ||
+                      !selectedEmailMatch ||
+                      !forecastDeliveryEnabled
                       ? { data: null, error: null }
                       : await sendEmail({
                           from: MAIL_FROM,
@@ -1271,6 +1342,8 @@ export async function GET(request: Request): Promise<NextResponse> {
                             : `canonical_decision:${emailDecision?.reasonCode ?? "unavailable"}`,
                         });
                       }
+                    } else if (!forecastDeliveryEnabled) {
+                      addShadowChannel(emailSurvivors, "email");
                     } else if (sendError) {
                       console.error(`${CONTEXT_TAG} Email send failed for user ${payload.user_id}:`, sendError);
                       result.errors++;
@@ -1352,18 +1425,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
             // ---- Push branch ----
             if (pushItems.length > 0) {
-              if (!deliveryEnabled) {
-                for (const item of pushItems) {
-                  await recordAttempt({
-                    queueId: item.id,
-                    ruleId: item.rule_id,
-                    userId: payload.user_id,
-                    channel: "push",
-                    status: "skipped_disabled",
-                    skipReason: "ALERTS_DELIVERY_ENABLED=false",
-                  });
-                }
-              } else if (allowlist.size > 0 && !allowlist.has(payload.user_id)) {
+              if (allowlist.size > 0 && !allowlist.has(payload.user_id)) {
                 for (const item of pushItems) {
                   await recordAttempt({
                     queueId: item.id,
@@ -1517,6 +1579,11 @@ export async function GET(request: Request): Promise<NextResponse> {
                             pushDecision?.reasonCode ??
                             "hold_state_unavailable",
                         }
+                      : !forecastDeliveryEnabled
+                        ? {
+                            enqueued: false as const,
+                            reason: "shadow_withheld" as const,
+                          }
                       : await enqueueNotification({
                           type: "forecast_alert",
                           recipientUserId: payload.user_id,
@@ -1529,7 +1596,12 @@ export async function GET(request: Request): Promise<NextResponse> {
                           return { enqueued: false as const, reason: "internal_error" as const };
                         });
 
-                    if (enqueueResult.enqueued) {
+                    if (
+                      !enqueueResult.enqueued &&
+                      enqueueResult.reason === "shadow_withheld"
+                    ) {
+                      addShadowChannel(pushSurvivors, "push");
+                    } else if (enqueueResult.enqueued) {
                       for (const item of pushSurvivors) {
                         deliveryAcceptedQueueIds.add(item.id);
                       }
@@ -1618,8 +1690,24 @@ export async function GET(request: Request): Promise<NextResponse> {
               }
             }
 
-            // 6. Mark queue items as sent (always — even when delivery is disabled —
-            //    so the queue cannot accumulate forever during a pause). EXCEPT
+            if (!forecastDeliveryEnabled) {
+              for (const item of contributingItems) {
+                await persistShadowOutcome(item);
+                const outcome = shadowOutcomesByQueue.get(item.id)!;
+                for (const channel of outcome.would_use_channels) {
+                  await recordAttempt({
+                    queueId: item.id,
+                    ruleId: item.rule_id,
+                    userId: payload.user_id,
+                    channel,
+                    status: "shadow_withheld",
+                    skipReason: JSON.stringify(outcome),
+                  });
+                }
+              }
+            }
+
+            // 6. Mark queue items as sent. EXCEPT
             //    rows whose email item was quiet-hours-deferred this run: those
             //    stay due+unsent so a later hourly tick re-evaluates and sends.
             //    (Push on the same row is dedup-protected by the push
@@ -1676,7 +1764,7 @@ export async function GET(request: Request): Promise<NextResponse> {
             // Kill switch — same semantics as the forecast branch: skip the
             // provider call but mark the queue row sent so the queue can't
             // grow unbounded during a pause.
-            if (!deliveryEnabled) {
+            if (forecastDeliveryEnabled && !similarityDeliveryEnabled) {
               await recordAttempt({
                 queueId: item.id,
                 ruleId: item.rule_id,
@@ -1838,6 +1926,22 @@ export async function GET(request: Request): Promise<NextResponse> {
               storedDecisionMatchesWindow && storedSimilarityDecision
                 ? storedSimilarityDecision
                 : similarityDecision;
+            if (!forecastDeliveryEnabled) {
+              const reasonCode =
+                similarityHold.status === "suppressed"
+                  ? similarityHold.reasonCode
+                  : notificationDecision?.reasonCode ?? "no_candidates";
+              shadowOutcomesByQueue.set(item.id, {
+                status: "shadow_withheld",
+                verdict:
+                  similarityHold.status === "suppressed"
+                    ? "no"
+                    : notificationDecision?.verdict ?? "no",
+                reason_code: reasonCode,
+                preset_type: item.preset_type ?? null,
+                would_use_channels: [],
+              });
+            }
             if (
               similarityHold.status !== "allowed" ||
               !similarityDecision ||
@@ -1855,6 +1959,9 @@ export async function GET(request: Request): Promise<NextResponse> {
                     ? `${similarityHold.auditCode}:${similarityHold.reasonCode}`
                     : `canonical_decision:${similarityDecision?.reasonCode ?? "unavailable"}`,
               });
+              if (!forecastDeliveryEnabled) {
+                await persistShadowOutcome(item);
+              }
               const similaritySuppressionReason =
                 similarityHold.status === "suppressed"
                   ? similarityHold.reasonCode
@@ -1870,6 +1977,22 @@ export async function GET(request: Request): Promise<NextResponse> {
                   "canonical_safety_rejected",
                 );
               }
+              continue;
+            }
+
+            if (!forecastDeliveryEnabled) {
+              addShadowChannel([item], "push");
+              await persistShadowOutcome(item);
+              const outcome = shadowOutcomesByQueue.get(item.id)!;
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId: item.user_id,
+                channel: "push",
+                status: "shadow_withheld",
+                skipReason: JSON.stringify(outcome),
+              });
+              await markQueueItemsConsumed([item], "shadow_withheld");
               continue;
             }
 
