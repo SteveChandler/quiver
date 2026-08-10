@@ -318,15 +318,17 @@ async function main(): Promise<void> {
   const cutoff = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000);
   const cutoffIso = cutoff.toISOString();
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, email, display_name, full_name, created_at, home_beach_id")
-    .eq("is_mock", false)
-    .gte("created_at", cutoffIso)
-    .order("created_at");
-  if (error) throw new Error(`profiles fetch failed: ${error.message}`);
+  const profileRows = await fetchAllPages<ProfileRow>("profiles", (from, to) =>
+    supabase
+      .from("profiles")
+      .select("id, email, display_name, full_name, created_at, home_beach_id")
+      .eq("is_mock", false)
+      .gte("created_at", cutoffIso)
+      .order("created_at")
+      .range(from, to)
+  );
 
-  const profiles: ProfileRow[] = (data ?? [])
+  const profiles: ProfileRow[] = profileRows
     .filter((row): row is ProfileRow & { email: string } => Boolean(row.email))
     .filter((row) => !TEST_EMAIL_PATTERNS.some((pattern) => pattern.test(row.email!)));
 

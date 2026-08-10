@@ -102,8 +102,13 @@ describe("SEO workflow outreach digest", () => {
 
   it("hasDirectEmail requires an @ in the contact field", () => {
     expect(hasDirectEmail({ category: "surf-schools", target: "A", contact: "hi@example.com", status: "queued" })).toBe(true);
+    expect(hasDirectEmail({ category: "surf-schools", target: "A2", contact: "  hi@example.com  ", status: "queued" })).toBe(true);
+    expect(hasDirectEmail({ category: "surf-schools", target: "A3", contact: "mailto:hi@example.com", status: "queued" })).toBe(true);
+    expect(hasDirectEmail({ category: "surf-schools", target: "A4", contact: "808-637-2977 / hi@example.com", status: "queued" })).toBe(true);
+    expect(hasDirectEmail({ category: "surf-schools", target: "A5", contact: "first@example.com, second@example.com", status: "queued" })).toBe(true);
     expect(hasDirectEmail({ category: "surf-schools", target: "B", contact: "808-637-2977", status: "queued" })).toBe(false);
     expect(hasDirectEmail({ category: "surf-schools", target: "C", contact: "contact form only", status: "queued" })).toBe(false);
+    expect(hasDirectEmail({ category: "surf-schools", target: "C2", contact: "   ", status: "queued" })).toBe(false);
     expect(hasDirectEmail({ category: "surf-schools", target: "D", status: "queued" })).toBe(false);
   });
 
