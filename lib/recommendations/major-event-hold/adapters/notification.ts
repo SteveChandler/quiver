@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { MAJOR_EVENT_HOLD_MODE } from "../config";
 import { parseMajorEventHoldCandidate } from "../evaluator";
 import { evaluateMajorEventHoldCandidates } from "../service";
@@ -20,6 +22,9 @@ const POSITIVE_NOTIFICATION_TYPES = new Set([
 ]);
 const FORECAST_SLOT_DURATION_MS = 60 * 60 * 1000;
 const AUDIT_CODE = "major_event_hold" as const;
+const MAX_CANDIDATE_ID_LENGTH = 160;
+const HASHED_CANDIDATE_PREFIX = "notification:sha256:";
+const HASH_DOMAIN = "quiver:notification-candidate:v1\0";
 
 export interface PositiveRecommendationPolicyContext {
   kind: "positive_session_recommendation";
@@ -91,10 +96,24 @@ function isPositiveNotification(type: string, payload: unknown): boolean {
   );
 }
 
+function hashedCandidateId(value: string): string {
+  const digest = createHash("sha256")
+    .update(HASH_DOMAIN)
+    .update(value)
+    .digest("hex");
+  return `${HASHED_CANDIDATE_PREFIX}${digest}`;
+}
+
+function boundedCandidateId(value: string): string {
+  return value.length <= MAX_CANDIDATE_ID_LENGTH &&
+    !value.startsWith(HASHED_CANDIDATE_PREFIX)
+    ? value
+    : hashedCandidateId(value);
+}
+
 function candidateIdFor(eventId: unknown): string | null {
   if (typeof eventId !== "string" || eventId.trim().length === 0) return null;
-  const candidateId = `notification:${eventId}`;
-  return candidateId.length <= 160 ? candidateId : null;
+  return boundedCandidateId(`notification:${eventId}`);
 }
 
 function candidateFromPolicyContext(
@@ -196,8 +215,9 @@ function candidatesFromForecastMatches(
       return null;
     }
     const matchCandidateId =
-      index === 0 ? candidateId : `${candidateId}:match:${index}`;
-    if (matchCandidateId.length > 160) return null;
+      index === 0
+        ? candidateId
+        : boundedCandidateId(`${candidateId}:match:${index}`);
 
     return parseMajorEventHoldCandidate({
       candidateId: matchCandidateId,
