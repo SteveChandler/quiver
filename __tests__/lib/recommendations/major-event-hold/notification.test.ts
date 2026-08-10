@@ -184,6 +184,69 @@ describe("notification major-event hold adapter", () => {
     expect(evaluateCandidates).not.toHaveBeenCalled();
   });
 
+  it("allows a user-configured forecast alert without a canonical session decision when hold state is clear", async () => {
+    const evaluateCandidates = evaluatorReturning("allowed");
+
+    const result = await resolveNotificationMajorEventHold(
+      {
+        eventId: "event-forecast-alert-clear",
+        type: "forecast_alert",
+        payload: {
+          beach_id: BEACH_ID,
+          forecast_at: STARTS_AT,
+          policy_context: {
+            kind: "positive_session_recommendation",
+            beach_id: BEACH_ID,
+            starts_at: STARTS_AT,
+            ends_at: ENDS_AT,
+          },
+        },
+        profileExperience: "beginner",
+        mode: "enforce",
+        asOf: new Date("2026-07-17T07:00:00.000Z"),
+      },
+      { evaluateCandidates },
+    );
+
+    expect(result).toMatchObject({ status: "allowed" });
+    expect(evaluateCandidates).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(MODE_EXPECTATIONS)(
+    "%s mode returns %s for a user-configured forecast alert under an active hold",
+    async (mode, expectedStatus) => {
+      const evaluateCandidates = evaluatorReturning("blocked");
+
+      const result = await resolveNotificationMajorEventHold(
+        {
+          eventId: `event-forecast-alert-held-${mode}`,
+          type: "forecast_alert",
+          payload: {
+            beach_id: BEACH_ID,
+            forecast_at: STARTS_AT,
+            policy_context: {
+              kind: "positive_session_recommendation",
+              beach_id: BEACH_ID,
+              starts_at: STARTS_AT,
+              ends_at: ENDS_AT,
+            },
+          },
+          profileExperience: "beginner",
+          mode,
+          asOf: new Date("2026-07-17T07:00:00.000Z"),
+        },
+        { evaluateCandidates },
+      );
+
+      expect(result).toMatchObject(
+        expectedStatus === "suppressed"
+          ? { status: "suppressed", reasonCode: "major_event_hold" }
+          : { status: "allowed" },
+      );
+      expect(evaluateCandidates).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it("requires every positive surf notification to carry the exact fresh canonical decision", async () => {
     const evaluateCandidates = evaluatorReturning("allowed");
     const weekendPayload = homeMorningPayload(
@@ -225,7 +288,7 @@ describe("notification major-event hold adapter", () => {
     });
   });
 
-  it("suppresses a positive alert when its canonical selection does not match the outbound window", async () => {
+  it("suppresses a similarity alert when its canonical selection does not match the outbound window", async () => {
     const evaluateCandidates = evaluatorReturning("allowed");
     const payload = homeMorningPayload("2026-07-17T07:10:00.000Z");
     delete payload.verdict;
@@ -233,8 +296,8 @@ describe("notification major-event hold adapter", () => {
 
     const result = await resolveNotificationMajorEventHold(
       {
-        eventId: "event-forecast-mismatch",
-        type: "forecast_alert",
+        eventId: "event-similarity-mismatch",
+        type: "similarity_match",
         payload,
         profileExperience: "beginner",
         mode: "enforce",
