@@ -2,6 +2,7 @@ import {
   buildForecastIndexabilitySnapshot,
   isBeachSubPageIndexable,
   type ForecastCoverageRow,
+  type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
 import { evaluateBeachForecastIndexability } from "@/lib/seo/indexability";
 
@@ -158,10 +159,14 @@ describe("forecast indexability contract", () => {
 });
 
 describe("isBeachSubPageIndexable", () => {
-  const fresh = {
+  const fresh: ForecastIndexabilitySnapshot = {
     forecastAvailable: true,
     selectedStateComplete: true,
     forecastFresh: true,
+    forecastValidAt: "2026-08-09T18:00:00.000Z",
+    sourceDataUpdatedAt: "2026-08-09T17:00:00.000Z",
+    primaryDataSource: "NOAA_WAVEWATCH",
+    isStale: false,
   };
 
   it("indexes a tides sub-page when the forecast contract passes and tide data exists", () => {
