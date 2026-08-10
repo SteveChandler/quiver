@@ -10,14 +10,11 @@ import { BeachFAQSchema, TideFAQSchema, WaterTempFAQSchema } from "@/components/
 import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
 import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 import Link from "next/link";
-import { headers } from "next/headers";
 
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
-import { InstallAppCtaSection } from "@/components/app-store/install-app-cta-section";
-import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
+import { BeachSubPageCtaSwitch } from "@/components/app-store/beach-subpage-cta-switch";
 import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
-import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { TideSummaryHero } from "@/components/beach-detail/tide-summary-hero";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
@@ -34,7 +31,7 @@ import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 import { notFound } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
-import { shouldShowBeachSubPageInstallCta } from "@/lib/app-store/beach-subpage-install-cta";
+import { isBeachSubPageInstallCtaEnabled } from "@/lib/flags/beach-subpage-install-cta";
 import {
   buildBeachSubPageCrawlCopy,
   type BeachSubPageCrawlCopy,
@@ -156,12 +153,8 @@ export async function renderBeachSubPage({
   const config = SUB_PAGE_CONFIGS[pageType];
   const ctaConfig = SUB_PAGE_CTA_CONFIGS[pageType];
   const ctaSource = `${ctaConfig.sourcePrefix}-${beachSlug}`;
-  const userAgent = (await headers()).get("user-agent") ?? "";
   const subPagePath = `${beachPath}/${pageType}`;
-  const shouldRenderInstallCta = shouldShowBeachSubPageInstallCta({
-    userAgent,
-    pathname: subPagePath,
-  });
+  const installCtaEnabled = isBeachSubPageInstallCtaEnabled();
 
   // Fetch dataset schema data in parallel with nearby beaches — uses React cache()
   // so no extra DB queries when generateBeachSubPageMetadata already called these.
@@ -291,70 +284,14 @@ export async function renderBeachSubPage({
         heroHeadingLevel="h2"
       />
 
-      {shouldRenderInstallCta ? (
-        <div className="container mx-auto px-4">
-          <InstallAppCtaSection
-            platform="ios"
-            source={ctaSource}
-            surface="beach-subpage"
-            placement={`${pageType}-${beachSlug}`}
-            beachName={beach.name}
-            proof={installCtaProof ?? undefined}
-          />
-        </div>
-      ) : (
-        <div className="container mx-auto px-4 py-8">
-          <AlertCaptureCta
-            pageContext={pageType}
-            beachId={beach.id}
-            beachName={beach.name}
-            source={`${ctaSource}-inline`}
-          />
-        </div>
-      )}
-
-      <div className="container mx-auto px-4 pb-8">
-        <SeoFunnelNextSteps
-          variant="paper"
-          title={`Keep planning ${beach.name}`}
-          description={`Use this ${config.breadcrumbLabel.toLowerCase()} page as one signal, then check the full forecast, nearby breaks, and the companion condition page.`}
-          steps={[
-            {
-              label: `Open the full ${beach.name} forecast`,
-              href: beachPath,
-              description: "Return to the full spot page for forecast, reviews, intel, and sessions.",
-            },
-            {
-              label: pageType === "tides" ? "Check water temperature" : "Watch the tide window",
-              href: pageType === "tides" ? `${beachPath}/water-temp` : `${beachPath}/tides`,
-              description:
-                pageType === "tides"
-                  ? "Pair the tide call with gear and water-temperature context."
-                  : "Pair water temperature with the next useful tide shift.",
-            },
-            {
-              label: "Compare nearby surf spots",
-              href: "/map",
-              description: "Use the map when this spot is not the right call.",
-            },
-          ]}
-        />
-      </div>
-
-      <div className="container mx-auto px-4 pb-8">
-        <NearbyBeachesEnriched
-          beaches={nearbyBeaches}
-          sourceBeachName={beach.name}
-          sourceBeachLat={beach.lat}
-          sourceBeachLon={beach.lon}
-        />
-      </div>
-
-      {shouldRenderInstallCta ? null : (
-      <StickySignupBar
-        source={ctaSource}
-        ctaText={ctaConfig.ctaText}
-        supportingText={ctaConfig.supportingText(beach.name)}
+      <BeachSubPageCtaSwitch
+        beachId={beach.id}
+        beachName={beach.name}
+        installCtaEnabled={installCtaEnabled}
+        placement={`${pageType}-${beachSlug}`}
+        pathname={subPagePath}
+        pageType={pageType}
+        proof={installCtaProof ?? undefined}
         searchReferralCta={
           pageType === "tides"
             ? {
@@ -366,8 +303,47 @@ export async function renderBeachSubPage({
                 supportingText: `Get gear recs for ${beach.name}`,
               }
         }
-      />
-      )}
+        source={ctaSource}
+        stickyCtaText={ctaConfig.ctaText}
+        stickySupportingText={ctaConfig.supportingText(beach.name)}
+      >
+        <div className="container mx-auto px-4 pb-8">
+          <SeoFunnelNextSteps
+            variant="paper"
+            title={`Keep planning ${beach.name}`}
+            description={`Use this ${config.breadcrumbLabel.toLowerCase()} page as one signal, then check the full forecast, nearby breaks, and the companion condition page.`}
+            steps={[
+              {
+                label: `Open the full ${beach.name} forecast`,
+                href: beachPath,
+                description: "Return to the full spot page for forecast, reviews, intel, and sessions.",
+              },
+              {
+                label: pageType === "tides" ? "Check water temperature" : "Watch the tide window",
+                href: pageType === "tides" ? `${beachPath}/water-temp` : `${beachPath}/tides`,
+                description:
+                  pageType === "tides"
+                    ? "Pair the tide call with gear and water-temperature context."
+                    : "Pair water temperature with the next useful tide shift.",
+              },
+              {
+                label: "Compare nearby surf spots",
+                href: "/map",
+                description: "Use the map when this spot is not the right call.",
+              },
+            ]}
+          />
+        </div>
+
+        <div className="container mx-auto px-4 pb-8">
+          <NearbyBeachesEnriched
+            beaches={nearbyBeaches}
+            sourceBeachName={beach.name}
+            sourceBeachLat={beach.lat}
+            sourceBeachLon={beach.lon}
+          />
+        </div>
+      </BeachSubPageCtaSwitch>
     </>
   );
 }
