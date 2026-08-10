@@ -212,6 +212,55 @@ describe("notification major-event hold adapter", () => {
     expect(evaluateCandidates).toHaveBeenCalledTimes(1);
   });
 
+  it("allows an over-length event id with a deterministic bounded candidate id", async () => {
+    const eventId = "condition-alert-deliver:push:" + "x".repeat(147);
+    const candidates: string[] = [];
+    const evaluateCandidates: NotificationMajorEventHoldEvaluator = jest.fn(
+      async ({ candidates: evaluatedCandidates }) => {
+        const candidate = evaluatedCandidates[0] as MajorEventHoldCandidate;
+        candidates.push(candidate.candidateId);
+        return [decisionFor(candidate, "allowed")];
+      },
+    );
+    const input = {
+      eventId,
+      type: "forecast_alert",
+      payload: {
+        beach_id: BEACH_ID,
+        forecast_at: STARTS_AT,
+        policy_context: {
+          kind: "positive_session_recommendation",
+          beach_id: BEACH_ID,
+          starts_at: STARTS_AT,
+          ends_at: ENDS_AT,
+        },
+      },
+      profileExperience: "beginner",
+      mode: "enforce" as const,
+      asOf: new Date("2026-07-17T07:00:00.000Z"),
+    };
+
+    await expect(
+      resolveNotificationMajorEventHold(input, { evaluateCandidates }),
+    ).resolves.toMatchObject({ status: "allowed" });
+    await expect(
+      resolveNotificationMajorEventHold(input, { evaluateCandidates }),
+    ).resolves.toMatchObject({ status: "allowed" });
+    await expect(
+      resolveNotificationMajorEventHold(
+        { ...input, eventId: `${eventId}y` },
+        { evaluateCandidates },
+      ),
+    ).resolves.toMatchObject({ status: "allowed" });
+
+    expect(eventId).toHaveLength(176);
+    expect(candidates).toHaveLength(3);
+    expect(candidates[0]).toMatch(/^notification:sha256:[a-f0-9]{64}$/);
+    expect(candidates[0]).toHaveLength(84);
+    expect(candidates[1]).toBe(candidates[0]);
+    expect(candidates[2]).not.toBe(candidates[0]);
+  });
+
   it.each(MODE_EXPECTATIONS)(
     "%s mode returns %s for a user-configured forecast alert under an active hold",
     async (mode, expectedStatus) => {
