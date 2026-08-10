@@ -14,7 +14,10 @@
  * - forecasts: Forecast hub and regional forecast pages
  */
 
-import sitemap, { buildBeachRoutes } from "@/app/sitemap";
+import sitemap, {
+  buildBeachRoutes,
+  buildIntentRoutes,
+} from "@/app/sitemap";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-actions";
@@ -411,6 +414,52 @@ describe("Sitemap Generation", () => {
   });
 
   describe("Database-Driven Intent Routes", () => {
+    it("includes a water-temp city page with data and no editorial row", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          city: "Corolla",
+          state: "NC",
+          country: "USA",
+          beachCount: 3,
+          hasBeginnerBeaches: true,
+          hasLeastCrowdedBeaches: true,
+          hasEditorialContent: false,
+          hasTideData: true,
+          hasWaterTempData: true,
+        }],
+      });
+
+      const routes = await buildIntentRoutes(new Map());
+
+      expect(routes.map((route) => route.url)).toContain(
+        `${baseUrl}/water-temp/corolla`,
+      );
+    });
+
+    it("still withholds a beginner city page with no editorial row", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          city: "Corolla",
+          state: "NC",
+          country: "USA",
+          beachCount: 3,
+          hasBeginnerBeaches: true,
+          hasLeastCrowdedBeaches: true,
+          hasEditorialContent: false,
+          hasTideData: true,
+          hasWaterTempData: true,
+        }],
+      });
+
+      const routes = await buildIntentRoutes(new Map());
+
+      expect(routes.map((route) => route.url)).not.toContain(
+        `${baseUrl}/beginner/corolla`,
+      );
+    });
+
     it("includes protected, data-rich city route families without editorial approval", async () => {
       (getReviewedCityEditorialContent as jest.Mock).mockResolvedValue([]);
       (getBeaches as jest.Mock).mockResolvedValue({
@@ -509,12 +558,12 @@ describe("Sitemap Generation", () => {
       });
     });
 
-    it("omits a city intent when its reviewed editorial entry is absent", async () => {
+    it("omits a recommendation intent when its reviewed editorial entry is absent", async () => {
       (getReviewedCityEditorialContent as jest.Mock).mockResolvedValue([]);
 
       const result = await sitemap();
 
-      expect(result.find((r) => r.url === `${baseUrl}/tide/encinitas`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/beginner/encinitas`)).toBeUndefined();
     });
 
     it("should exclude confirmed missing tide and water-temp city intent routes", async () => {

@@ -30,8 +30,10 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   cityEditorialKey,
   evaluateBeachIndexability,
+  evaluateCityDataIntentIndexability,
   evaluateCityEditorialIndexability,
   evaluateBeachForecastIndexability,
+  isDataBackedCityIntent,
   toBeachEditorialInput,
   toCityEditorialInput,
   type BeachEditorialDatabaseRecord,
@@ -342,7 +344,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ),
     ),
     getLocationRoutes(validCitySlugs, cityEditorialRoutes),
-    getIntentRoutes(cityEditorialRoutes),
+    buildIntentRoutes(cityEditorialRoutes),
     Promise.resolve(getGuideRoutes()),
     Promise.resolve(getForecastRoutes()),
     Promise.resolve(getCamRoutes()),
@@ -692,7 +694,7 @@ async function getLocationRoutes(
  *
  * This prevents empty or thin intent pages from being included in the sitemap.
  */
-async function getIntentRoutes(
+export async function buildIntentRoutes(
   cityEditorialRoutes: Map<string, CityEditorialRoute>,
 ): Promise<MetadataRoute.Sitemap> {
   // Skill-based intents that require cities to have matching beach skill levels
@@ -752,16 +754,22 @@ async function getIntentRoutes(
           const canonicalPath = `/${intent}/${citySlug}`;
           const dataRich =
             cityRecord.beachCount >= 3 || cityRecord.hasEditorialContent;
-          if (
-            !isCityRouteIndexable(
-              editorial,
-              intent,
-              canonicalPath,
-              dataRich,
-            )
-          ) {
-            continue;
-          }
+
+          const indexable = isDataBackedCityIntent(intent)
+            ? evaluateCityDataIntentIndexability(
+                toCityEditorialInput(editorial?.editorial),
+                canonicalPath,
+                {
+                  hasIntentData:
+                    intent === "tide"
+                      ? cityRecord.hasTideData !== false
+                      : cityRecord.hasWaterTempData !== false,
+                  dataRich,
+                },
+              ).indexable
+            : isCityRouteIndexable(editorial, intent, canonicalPath, dataRich);
+
+          if (!indexable) continue;
 
           routes.push({
             url: `${baseUrl}${canonicalPath}`,
