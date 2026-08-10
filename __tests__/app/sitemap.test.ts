@@ -857,7 +857,11 @@ describe("Sitemap Generation", () => {
   describe("Beach Routes", () => {
     it("omits a tides sub-page when the beach has no tide coverage", () => {
       const routes = buildBeachRoutes(
-        [BEACH_WITH_FRESH_FORECAST],
+        // Fixture carries only the fields buildBeachRoutes reads; the generated
+        // beach row type has 78 columns and none of the rest affect routing.
+        [BEACH_WITH_FRESH_FORECAST] as unknown as Parameters<
+          typeof buildBeachRoutes
+        >[0],
         new Map([[BEACH_WITH_FRESH_FORECAST.id, FRESH_SNAPSHOT]]),
         {
           tideCoverage: new Set<string>(),
