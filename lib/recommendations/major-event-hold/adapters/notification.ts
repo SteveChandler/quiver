@@ -380,6 +380,7 @@ export async function resolveNotificationMajorEventHold(
   if (
     mode === "enforce"
     && POSITIVE_NOTIFICATION_TYPES.has(input.type)
+    && input.type !== "forecast_alert"
     && !hasFreshCanonicalPositiveDecision({
       type: input.type,
       payload: input.payload,

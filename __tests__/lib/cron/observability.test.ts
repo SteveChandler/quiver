@@ -94,6 +94,31 @@ describe("withCronObservability", () => {
     );
   });
 
+  it("records an error status while retaining a degraded result summary", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+    const summary = { status: "degraded" as const, matched: 4, queued: 0 };
+
+    const result = await withCronObservability(
+      "/api/cron/test",
+      async () => summary,
+      {
+        statusForResult: (value) => value.status === "degraded" ? "error" : "ok",
+        errorMessageForResult: () => "Matched alert windows but queued none",
+      },
+    );
+
+    expect(result).toEqual(summary);
+    expect(client._updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "error",
+        summary,
+        error_message: "Matched alert windows but queued none",
+      }),
+    );
+  });
+
   it("records error and rethrows", async () => {
     const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
     const client = mockChain();
