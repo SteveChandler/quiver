@@ -22,7 +22,7 @@ Ship the three UGC slices this week: S1 surface the existing conditions report (
 - No native rewrite-adjacent work (Architecture Ratchet holds; new native code = feature modules).
 
 ## Current evidence
-- `submitConditionsReport` exists at `actions/conditions-report-actions.ts:51` (structured fields, dedupe, 24h expiry) — under-surfaced, not missing.
+- `submitConditionsReport` exists at `actions/conditions-report-actions.ts:62` (structured fields, dedupe, 24h expiry) — **PROBED 2026-08-10: zero consumers outside its own test**; fully dark, not merely under-surfaced. The only live conditions-posting surface is the generic `components/intel/intel-post-form.tsx` (freeform intel with a conditions tag). S1 should wire the structured action into/alongside that existing surface, not build a parallel form.
 - `community_spot_photos` fully built, DB flags default OFF (migration 20260725230000).
 - `session_media.media_type` permits `video`; zero video upload paths; `expo-video` installed native-side; no capture/compression libs.
 - Moderation primitives live: `content_reports`, `user_blocks`, intel auto-hide, community-photo moderation events.
