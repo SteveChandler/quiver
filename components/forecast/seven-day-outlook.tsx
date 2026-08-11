@@ -19,46 +19,75 @@ import { SwellArc, type SwellArcPoint } from "./swell-arc";
 interface SevenDayOutlookProps {
   summary: RegionalForecastSummary | undefined;
   regionName: string;
+  variant?: "default" | "zine";
 }
 
 function daySubtitle(
   windConditions: "offshore" | "light" | "onshore",
-  score: number
+  score: number,
 ): string {
-  if (score >= 80) return windConditions === "offshore" ? "Glassy, all timing." : "Firing.";
+  if (score >= 80)
+    return windConditions === "offshore" ? "Glassy, all timing." : "Firing.";
   if (score >= 60)
     return windConditions === "offshore"
       ? "Offshore AM, get on it."
       : "Solid — pick your window.";
   if (score >= 40)
-    return windConditions === "onshore" ? "Wind-chopped but rideable." : "Small but fun.";
-  return windConditions === "onshore" ? "Call it a no." : "Marginal — longboard day.";
+    return windConditions === "onshore"
+      ? "Wind-chopped but rideable."
+      : "Small but fun.";
+  return windConditions === "onshore"
+    ? "Call it a no."
+    : "Marginal — longboard day.";
 }
 
-function trendIcon(delta: number): { label: string; char: string; color: string } {
-  if (delta >= 5) return { label: "building", char: "↗", color: "text-emerald-400" };
-  if (delta <= -5) return { label: "dropping", char: "↘", color: "text-rose-400" };
+function trendIcon(delta: number): {
+  label: string;
+  char: string;
+  color: string;
+} {
+  if (delta >= 5)
+    return { label: "building", char: "↗", color: "text-emerald-400" };
+  if (delta <= -5)
+    return { label: "dropping", char: "↘", color: "text-rose-400" };
   return { label: "holding", char: "→", color: "text-white/50" };
 }
 
 export function SevenDayOutlook({
   summary,
   regionName,
+  variant = "default",
 }: SevenDayOutlookProps) {
+  const isZine = variant === "zine";
+
   if (!summary || summary.days.length === 0) {
     return (
       <section
         aria-labelledby="seven-day-outlook-heading"
-        className="mb-10 min-w-0"
+        className={
+          isZine
+            ? "torn torn-tb mb-10 min-w-0 border-2 border-[#11100D] bg-[#FBF6E8] p-4 sm:p-5"
+            : "mb-10 min-w-0"
+        }
         data-testid="seven-day-outlook"
       >
         <h2
           id="seven-day-outlook-heading"
-          className="mb-4 font-[var(--font-heading)] text-2xl font-bold text-white"
+          className={
+            isZine
+              ? "mb-4 font-display text-3xl font-black uppercase leading-tight text-[#11100D]"
+              : "mb-4 font-[var(--font-heading)] text-2xl font-bold text-white"
+          }
         >
           7-Day Region Outlook
         </h2>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-8 text-sm text-white/60">
+        <div
+          className={
+            isZine
+              ? "border-2 border-dashed border-[#11100D]/30 px-5 py-8 text-sm text-[#11100D]/60"
+              : "rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-8 text-sm text-white/60"
+          }
+        >
           Forecast catching up for {regionName}. Try again in a few.
         </div>
       </section>
@@ -84,12 +113,20 @@ export function SevenDayOutlook({
   return (
     <section
       aria-labelledby="seven-day-outlook-heading"
-      className="mb-10 min-w-0"
+      className={
+        isZine
+          ? "mb-10 min-w-0 rounded-[24px_10px_28px_12px] border-2 border-[#11100D] bg-[#252D6B] p-4 text-white shadow-[4px_5px_0_rgba(17,16,13,0.22)] sm:p-5"
+          : "mb-10 min-w-0"
+      }
       data-testid="seven-day-outlook"
     >
       <h2
         id="seven-day-outlook-heading"
-        className="mb-4 font-[var(--font-heading)] text-2xl font-bold text-white"
+        className={
+          isZine
+            ? "mb-4 font-display text-3xl font-black uppercase leading-tight text-[#F4EBD8]"
+            : "mb-4 font-[var(--font-heading)] text-2xl font-bold text-white"
+        }
       >
         7-Day Region Outlook
       </h2>
@@ -135,7 +172,9 @@ export function SevenDayOutlook({
                 <div className="font-[var(--font-heading)] text-sm font-semibold uppercase tracking-wide text-white">
                   {day.dayOfWeek.slice(0, 3)}
                 </div>
-                <div className="font-mono text-xs text-white/50">{monthDay}</div>
+                <div className="font-mono text-xs text-white/50">
+                  {monthDay}
+                </div>
               </div>
 
               {/* Score badge */}
