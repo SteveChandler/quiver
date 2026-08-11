@@ -2,6 +2,7 @@ import type { User } from "@supabase/supabase-js";
 import type { ActionResult } from "@/lib/action-utils";
 import { emitSessionCreatedEvent } from "@/lib/analytics/session-created";
 import type { SupabaseServerClient } from "@/types/supabase";
+import { submitForecastFeedback } from "@/lib/forecast-feedback/submit-feedback";
 import type {
   ConditionsReportInput,
   WaveSizeRange,
@@ -26,6 +27,16 @@ export interface SubmitConditionsReportData {
 const VALID_WAVE_SIZES = new Set<string>(WAVE_SIZE_OPTIONS.map((o) => o.value));
 const VALID_VIBES = new Set<string>(VIBE_OPTIONS.map((o) => o.value));
 const NOTE_MAX_LENGTH = 280;
+
+function waveSizeMidpoint(waveSizeRange: WaveSizeRange): number | null {
+  const option = WAVE_SIZE_OPTIONS.find(({ value }) => value === waveSizeRange);
+  const match = option?.value.match(/^(\d+)(?:-(\d+)|\+)?ft$/);
+  if (!match) return null;
+
+  const min = Number(match[1]);
+  const max = match[2] ? Number(match[2]) : min + 1;
+  return (min + max) / 2;
+}
 
 function validateInput(input: SubmitConditionsReportInput): string | null {
   if (!input.beachId?.trim()) return "Beach ID is required";
@@ -114,6 +125,68 @@ export async function submitConditionsReportCore(
     return { success: false, error: "Failed to submit conditions report" };
   }
 
+  const forecastAt = new Date();
+  forecastAt.setUTCMinutes(0, 0, 0);
+  const observedFaceHeightFt = waveSizeMidpoint(waveSizeRange as WaveSizeRange);
+
+  void (async () => {
+    try {
+      const feedbackResult = await submitForecastFeedback(
+        { user, supabase },
+        {
+          beachId,
+          forecastAt: forecastAt.toISOString(),
+          windowStart: null,
+          windowEnd: null,
+          issuedAt: null,
+          predictedAt: null,
+          forecastHorizonHours: null,
+          feedbackKind: "condition_report",
+          feedbackValue: waveSizeRange,
+          feedbackNote: note ?? null,
+          observedFaceHeightFt,
+          displayedContext: {
+            source: "conditions_report",
+            waveSizeRange,
+            vibe,
+          },
+          sourceModelContext: {},
+          calibrationContext: {},
+          surfCallContext: {},
+          missingFlags: {},
+          auditMetadata: {},
+          clientSource: "quiver-web",
+          clientVersion: null,
+          sessionId: null,
+          anonymousClientId: null,
+          correlationId: null,
+          requestId: null,
+          extraContext: null,
+        },
+        {
+          ingestPath: "quiver-web/conditions-report",
+          requireForecast: true,
+        },
+      );
+
+      if (!feedbackResult.success) {
+        console.warn("[submitConditionsReport] Forecast feedback skipped", {
+          beachId,
+          forecastAt: forecastAt.toISOString(),
+          reason: feedbackResult.reason,
+          feedbackKind: "condition_report",
+        });
+      }
+    } catch (error) {
+      console.warn("[submitConditionsReport] Forecast feedback failed", {
+        beachId,
+        forecastAt: forecastAt.toISOString(),
+        reason: "unexpected_forwarding_error",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  })();
+
   void (async () => {
     const { error: evtErr } = await supabase.from("user_events").insert({
       user_id: user.id,
@@ -141,6 +214,7 @@ export async function submitConditionsReportCore(
       source: "conditions_report",
       notes: content,
       duration_minutes: 0,
+      wave_height_ft: observedFaceHeightFt,
     })
     .select("id")
     .single();
