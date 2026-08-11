@@ -47,7 +47,13 @@ async function _GET(request: Request): Promise<Response> {
 
     return createSuccessResponse({
       submitted: result.totalSubmitted,
+      // 202 means IndexNow deferred key validation — the URLs are NOT confirmed
+      // delivered. A pending count equal to totalUrls is the signature of an
+      // INDEXNOW_KEY that no longer matches public/indexnow-key.txt.
+      pending: result.totalPending,
       totalUrls: uniqueUrls.length,
+      statusCodes: result.batches.map((batch) => batch.statusCode),
+      warnings: result.warnings,
       breakdown: {
         intent: urlGroups.intentUrls.length,
         location: urlGroups.locationUrls.length,
