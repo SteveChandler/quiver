@@ -10,6 +10,7 @@
 
 import type { ForecastForScoring, BeachWithThresholds } from './types';
 import { angleDifference } from '@/lib/domains/shared';
+import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability';
 
 // Threshold for "onshore" wind detection (degrees from onshore direction)
 const ONSHORE_TOLERANCE_DEG = 60;
@@ -215,7 +216,8 @@ function isBlockedPowerDayBoard(
 export function getConditionBoardPick(
   forecast: ForecastForScoring,
   boards: BoardForPick[],
-  beach?: BeachWithThresholds
+  beach?: BeachWithThresholds,
+  winningBoardClass?: BoardClass | null,
 ): BoardPickResult | null {
   if (boards.length === 0) return null;
 
@@ -224,6 +226,20 @@ export function getConditionBoardPick(
     : boards;
 
   if (candidateBoards.length === 0) return null;
+
+  if (winningBoardClass) {
+    const winningBoard = candidateBoards.find(
+      (board) => normalizeBoardClass(board.board_type) === winningBoardClass
+    );
+    if (winningBoard) {
+      return {
+        boardId: winningBoard.id,
+        boardName: winningBoard.name,
+        boardType: winningBoard.board_type,
+        reason: buildReason(winningBoard.name, getConditionTier(forecast, beach)),
+      };
+    }
+  }
 
   // Single-board quiver — always return it
   if (candidateBoards.length === 1) {

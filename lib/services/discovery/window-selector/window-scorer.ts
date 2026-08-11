@@ -10,7 +10,7 @@ import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import type { CompositeScore } from '@/lib/domains/scoring';
-import type { RideabilityBand } from '@/lib/domains/rideability';
+import type { BoardClass, RideabilityBand } from '@/lib/domains/rideability';
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 import {
   beachToSpotProfile,
@@ -20,6 +20,7 @@ import {
   resolveNativeSkillLevel,
   scoreNativeForecastSlot,
 } from '@/lib/scoring/native-condition-score';
+import { getRideabilityBand } from '@/lib/domains/rideability';
 import { getDirectionDegrees } from './direction-utils';
 import { getScoringEngine } from './scoring-engine-singleton';
 
@@ -166,33 +167,92 @@ export function scoreForecastWindow(
  * @param beach - Beach metadata
  * @returns Score from 0-100
  */
-export function scoreWindowConditionScore(
+export interface WindowConditionScoreDetails {
+  score: number;
+  boardClass: BoardClass | null;
+  rideabilityBand: RideabilityBand | null;
+}
+
+export function scoreWindowConditionDetails(
   forecast: EnhancedForecastEntity,
   _beach: Beach,
-  skillLevel?: SkillLevel | string | null
-): number {
+  skillLevel?: SkillLevel | string | null,
+  rideabilityBand?: RideabilityBand | null,
+  boardClasses?: readonly BoardClass[] | null,
+): WindowConditionScoreDetails {
   const resolvedSkillLevel = resolveNativeSkillLevel(skillLevel, 'intermediate');
-  return scoreNativeForecastSlot(forecast, resolvedSkillLevel);
+  const uniqueBoardClasses = Array.from(new Set(boardClasses ?? []));
+
+  if (uniqueBoardClasses.length === 0) {
+    return {
+      score: scoreNativeForecastSlot(forecast, resolvedSkillLevel, rideabilityBand),
+      boardClass: null,
+      rideabilityBand: rideabilityBand ?? null,
+    };
+  }
+
+  let best: WindowConditionScoreDetails | null = null;
+  for (const boardClass of uniqueBoardClasses) {
+    const boardBand = getRideabilityBand(resolvedSkillLevel, boardClass);
+    const score = scoreNativeForecastSlot(forecast, resolvedSkillLevel, boardBand);
+    if (!best || score > best.score) {
+      best = {
+        score,
+        boardClass,
+        rideabilityBand: boardBand,
+      };
+    }
+  }
+
+  return best ?? {
+    score: scoreNativeForecastSlot(forecast, resolvedSkillLevel, rideabilityBand),
+    boardClass: null,
+    rideabilityBand: rideabilityBand ?? null,
+  };
+}
+
+export function scoreWindowConditionScore(
+  forecast: EnhancedForecastEntity,
+  beach: Beach,
+  skillLevel?: SkillLevel | string | null,
+  rideabilityBand?: RideabilityBand | null,
+  boardClasses?: readonly BoardClass[] | null,
+): number {
+  return scoreWindowConditionDetails(
+    forecast,
+    beach,
+    skillLevel,
+    rideabilityBand,
+    boardClasses,
+  ).score;
 }
 
 /**
  * Score a forecast window for selector ranking, with a small board-aware
- * rideability nudge. The adjustment is intentionally kept out of
- * scoreWindowConditionScore so display/report scoring remains globally unchanged.
+ * rideability nudge.
  */
 export function scoreWindowForSelection(
   forecast: EnhancedForecastEntity,
   beach: Beach,
   rideabilityBand: RideabilityBand | null = null,
-  skillLevel?: SkillLevel | string | null
+  skillLevel?: SkillLevel | string | null,
+  boardClasses?: readonly BoardClass[] | null,
 ): number {
-  const baseScore = scoreWindowConditionScore(forecast, beach, skillLevel);
-  if (!rideabilityBand) {
+  const details = scoreWindowConditionDetails(
+    forecast,
+    beach,
+    skillLevel,
+    rideabilityBand,
+    boardClasses,
+  );
+  const baseScore = details.score;
+  const adjustmentBand = details.rideabilityBand;
+  if (!adjustmentBand) {
     return baseScore;
   }
 
   return clampSelectionScore(
-    baseScore + getRideabilitySelectionAdjustment(forecast, rideabilityBand)
+    baseScore + getRideabilitySelectionAdjustment(forecast, adjustmentBand)
   );
 }
 

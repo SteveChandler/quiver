@@ -61,7 +61,7 @@ describe('Board Class Utilities', () => {
       expect(parseBoardClass('mid length')).toBe('mid-length');
       expect(parseBoardClass('mini mal')).toBe('funboard');
       expect(parseBoardClass('log')).toBe('longboard');
-      expect(parseBoardClass('thruster')).toBe('shortboard');
+      expect(parseBoardClass('thruster')).toBeNull();
       expect(parseBoardClass('twin-pin')).toBe('fish');
       expect(parseBoardClass('boogie board')).toBe('bodyboard');
       expect(parseBoardClass('standuppaddle')).toBe('sup');
@@ -78,7 +78,7 @@ describe('Board Class Utilities', () => {
 
     it('should share the canonical rideability normalizer', () => {
       expect(normalizeBoardClass('soft board')).toBe('foamie');
-      expect(normalizeBoardClass('thruster')).toBe('shortboard');
+      expect(normalizeBoardClass('thruster')).toBeNull();
       expect(normalizeBoardClass('twin-pin')).toBe('fish');
       expect(normalizeBoardClass('unknown')).toBeNull();
     });

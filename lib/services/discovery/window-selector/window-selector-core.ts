@@ -25,7 +25,7 @@ import type {
   TimeSlot,
 } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
-import type { RideabilityBand } from '@/lib/domains/rideability';
+import type { BoardClass, RideabilityBand } from '@/lib/domains/rideability';
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
 import { createContextLogger } from '@/lib/logger';
@@ -80,6 +80,7 @@ function prepareForecasts(
   now: Date,
   todayDateStr: string,
   rideabilityBand: RideabilityBand | null,
+  boardClasses: readonly BoardClass[],
   userSkillLevel?: SkillLevel | string | null
 ): ScoredForecast[] {
   return forecasts
@@ -91,10 +92,17 @@ function prepareForecasts(
         forecast,
         beach,
         rideabilityBand,
-        userSkillLevel
+        userSkillLevel,
+        boardClasses,
       );
-      const score = rideabilityBand
-        ? scoreWindowConditionScore(forecast, beach, userSkillLevel)
+      const score = rideabilityBand || boardClasses.length > 0
+        ? scoreWindowConditionScore(
+            forecast,
+            beach,
+            userSkillLevel,
+            rideabilityBand,
+            boardClasses,
+          )
         : selectionScore;
 
       // Check if forecast is for today (in beach timezone)
@@ -435,6 +443,7 @@ interface NormalizedWindowSelectorOptions {
   now: Date;
   maxWindows: number;
   rideabilityBand: RideabilityBand | null;
+  boardClasses: readonly BoardClass[];
   userSkillLevel: SkillLevel | string | null;
 }
 
@@ -471,6 +480,7 @@ function normalizeWindowSelectorOptions(
       now: now ?? new Date(),
       maxWindows: maxWindows ?? DEFAULT_MAX_WINDOWS,
       rideabilityBand: null,
+      boardClasses: [],
       userSkillLevel: null,
     };
   }
@@ -485,6 +495,7 @@ function normalizeWindowSelectorOptions(
     now: optionsOrForecasts.now ?? new Date(),
     maxWindows: optionsOrForecasts.maxWindows ?? DEFAULT_MAX_WINDOWS,
     rideabilityBand: optionsOrForecasts.rideabilityBand ?? null,
+    boardClasses: optionsOrForecasts.boardClasses ?? [],
     userSkillLevel: optionsOrForecasts.userSkillLevel ?? null,
   };
 }
@@ -684,6 +695,7 @@ export function selectBestWindows(
     now: actualNow,
     maxWindows: actualMaxWindows,
     rideabilityBand: actualRideabilityBand,
+    boardClasses: actualBoardClasses,
     userSkillLevel: actualUserSkillLevel,
   } = normalizeWindowSelectorOptions(
     optionsOrForecasts,
@@ -733,6 +745,7 @@ export function selectBestWindows(
     actualNow,
     todayDateStr,
     actualRideabilityBand,
+    actualBoardClasses,
     actualUserSkillLevel
   );
   if (scoredForecasts.length === 0) {

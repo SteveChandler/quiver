@@ -91,6 +91,7 @@ import {
   capEndTimeToTimeSlot,
   scoreForecastWindow,
   scoreWindowWithComposite,
+  scoreWindowConditionDetails,
   scoreWindowConditionScore,
 } from '@/lib/services/discovery/window-selector';
 
@@ -508,16 +509,20 @@ describe('selectBestWindow', () => {
       powerBias: -0.7,
     };
 
-    const outOfBandGenericScore = scoreWindowConditionScore(
+    const outOfBandBoardAwareScore = scoreWindowConditionScore(
       outOfBandGenericBest,
-      mockBeach as Beach
+      mockBeach as Beach,
+      null,
+      rideabilityBand,
     );
-    const inBandGenericScore = scoreWindowConditionScore(
+    const inBandBoardAwareScore = scoreWindowConditionScore(
       inBandLowerGenericScore,
-      mockBeach as Beach
+      mockBeach as Beach,
+      null,
+      rideabilityBand,
     );
 
-    expect(outOfBandGenericScore).toBeGreaterThan(inBandGenericScore);
+    expect(inBandBoardAwareScore).toBeGreaterThan(outOfBandBoardAwareScore);
 
     const result = selectBestWindow({
       forecasts,
@@ -528,7 +533,7 @@ describe('selectBestWindow', () => {
     });
 
     expect(result?.sourceForecast?.id).toBe('forecast-lower-generic-in-band');
-    expect(result?.score).toBe(inBandGenericScore);
+    expect(result?.score).toBe(inBandBoardAwareScore);
   });
 
   it('should keep the generic-best window when rideabilityBand is absent', () => {
@@ -2061,6 +2066,26 @@ describe('selectBestWindow time slot with tide boundaries', () => {
 });
 
 describe('scoreWindowConditionScore', () => {
+  it('uses the highest score across the saved board classes', () => {
+    const smallWave = createForecast({
+      wave_height: '1.1',
+      wave_period: '13s',
+      wind_speed: '0',
+      tide_height: '3.5',
+    });
+
+    const details = scoreWindowConditionDetails(
+      smallWave,
+      mockBeach as Beach,
+      'advanced',
+      null,
+      ['shortboard', 'longboard'],
+    );
+
+    expect(details.boardClass).toBe('longboard');
+    expect(details.score).toBeGreaterThan(0);
+  });
+
   it('should return score on 0-100 scale', () => {
     const forecast = createForecast({
       wave_height: '2',

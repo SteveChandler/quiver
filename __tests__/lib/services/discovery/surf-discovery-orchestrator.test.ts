@@ -1187,9 +1187,9 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     const beach1Rec = result.recommendations.find(r => r.beach.id === 'beach-1');
     expect(beach1Rec?.boardPick).toEqual({
-      boardName: "5'10 Lost Driver",
-      boardType: 'shortboard',
-      reason: "5'10 Lost Driver conditions — enjoy the fun waves",
+      boardName: "9'0 Torq Longboard",
+      boardType: 'longboard',
+      reason: "9'0 Torq Longboard conditions — enjoy the fun waves",
     });
     expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
   });
@@ -1369,7 +1369,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     const reefForShortboard = shortboardResult.recommendations.find(
       (rec) => rec.beach.id === 'derived-reef'
     );
-    expect(reefForShortboard?.score).toBe(80);
+    expect(reefForShortboard?.score).toBe(75);
     expect(reefForShortboard?.reasons).toContain('Classic shortboard wave');
 
     mockState.boards = [
@@ -1388,7 +1388,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     const softBeachForGun = gunResult.recommendations.find(
       (rec) => rec.beach.id === 'derived-soft-beach'
     );
-    expect(softBeachForGun?.score).toBe(65);
+    expect(softBeachForGun?.score).toBe(60);
     expect(softBeachForGun?.warnings).toContain(
       'Soft, rolling wave - not much push for a gun'
     );
