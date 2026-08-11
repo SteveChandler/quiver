@@ -4,6 +4,7 @@
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { InviteLandingClient } from "@/app/invite/[token]/invite-landing-client";
+import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
 
 jest.mock("@/lib/utils/visitor-id", () => ({
   getVisitorId: () => "12345678-1234-1234-1234-123456789012",
@@ -86,7 +87,7 @@ describe("InviteLandingClient", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /open app store/i }),
-    ).toHaveAttribute("href", expect.stringContaining("apps.apple.com"));
+    ).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
     expect(
       screen.getByRole("link", { name: /already have the app/i }),
     ).toHaveAttribute("href", "quiver://invite/raw-token");
@@ -121,15 +122,21 @@ describe("InviteLandingClient", () => {
         }),
       }),
     );
-    expect(JSON.stringify(eventBody("invite_link_opened").metadata)).not.toContain("raw-token");
-    expect(JSON.stringify(eventBody("app_handoff_qr_rendered").metadata)).not.toContain("raw-token");
+    expect(
+      JSON.stringify(eventBody("invite_link_opened").metadata),
+    ).not.toContain("raw-token");
+    expect(
+      JSON.stringify(eventBody("app_handoff_qr_rendered").metadata),
+    ).not.toContain("raw-token");
   });
 
   it("tracks App Store and web fallback CTA clicks by destination type", async () => {
     render(<InviteLandingClient {...defaultProps} />);
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
 
-    clickWithoutNavigation(screen.getByRole("link", { name: /open app store/i }));
+    clickWithoutNavigation(
+      screen.getByRole("link", { name: /open app store/i }),
+    );
     expect(latestEventBody()).toEqual(
       expect.objectContaining({
         eventType: "invite_app_store_clicked",
@@ -142,7 +149,9 @@ describe("InviteLandingClient", () => {
       }),
     );
 
-    clickWithoutNavigation(screen.getByRole("link", { name: /continue on web/i }));
+    clickWithoutNavigation(
+      screen.getByRole("link", { name: /continue on web/i }),
+    );
     expect(latestEventBody()).toEqual(
       expect.objectContaining({
         eventType: "invite_continue_web_clicked",
@@ -161,9 +170,7 @@ describe("InviteLandingClient", () => {
     expect(
       await screen.findByText(/Android beta access is open/i),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/Open the iPhone app/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Open the iPhone app/i)).not.toBeInTheDocument();
 
     const androidCta = await screen.findByRole("button", {
       name: /get the android beta/i,

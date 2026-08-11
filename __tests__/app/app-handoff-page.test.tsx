@@ -88,9 +88,36 @@ describe("/app handoff page", () => {
       }),
     );
     expect(mockRedirect).toHaveBeenCalledWith(
-      expect.stringContaining("ct=app_first_v1"),
+      expect.stringContaining("ct=web"),
     );
   });
+
+  it.each([
+    ["email", { utm_source: "email", utm_medium: "app_link" }, "ct=email"],
+    [
+      "partner QR",
+      { surface: "partner_landing", utm_campaign: "partner_SURF12" },
+      "ct=partner_qr",
+    ],
+  ])(
+    "normalizes %s App Store attribution",
+    async (_label, params, expected) => {
+      mockHeadersGet.mockReturnValue(IPHONE_UA);
+
+      await expect(
+        AppHandoffPage({
+          searchParams: Promise.resolve({
+            handoff_id: HANDOFF_ID,
+            ...params,
+          }),
+        }),
+      ).rejects.toThrow("NEXT_REDIRECT");
+
+      expect(mockRedirect).toHaveBeenCalledWith(
+        expect.stringContaining(expected),
+      );
+    },
+  );
 
   it("logs and redirects Android visitors to the guided Android beta page", async () => {
     mockHeadersGet.mockReturnValue(ANDROID_UA);

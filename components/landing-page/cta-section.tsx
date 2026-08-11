@@ -16,7 +16,7 @@ import {
 } from "@/lib/analytics/ios-app-cta-tracking";
 import {
   IOS_APP_STORE_CTA,
-  IOS_APP_STORE_URL,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 import {
   trackSignupCtaClick,
@@ -73,7 +73,15 @@ export function CTASection({
       cta_type: ctaType,
       cta_copy_variant: ctaCopyVariant,
     });
-  }, [ctaCopyVariant, ctaType, isAppStoreCta, isInView, isLoading, source, user]);
+  }, [
+    ctaCopyVariant,
+    ctaType,
+    isAppStoreCta,
+    isInView,
+    isLoading,
+    source,
+    user,
+  ]);
 
   // Don't render for authenticated users (show during loading to avoid CLS)
   if (!isLoading && user) return null;
@@ -122,14 +130,14 @@ export function CTASection({
               asChild
             >
               <a
-                href={IOS_APP_STORE_URL}
+                href={IOS_APP_STORE_WEB_REDIRECT_PATH}
                 onClick={() => {
                   trackIosAppCtaClick({
                     source,
                     surface: "landing-page",
                     placement: "landing_final_cta",
                     cta_text: IOS_APP_STORE_CTA,
-                    destination_url: IOS_APP_STORE_URL,
+                    destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
                   });
                 }}
               >

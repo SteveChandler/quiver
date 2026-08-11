@@ -3,9 +3,8 @@ import type { ReactNode } from "react";
 
 import FeaturesPage, { metadata } from "@/app/features/page";
 import {
-  APP_FIRST_CAMPAIGN,
   IOS_APP_STORE_CTA,
-  iosAppStoreUrlWithCampaign,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 
 jest.mock("next/image", () => ({
@@ -97,9 +96,8 @@ describe("FeaturesPage", () => {
       name: new RegExp(IOS_APP_STORE_CTA, "i"),
     });
     expect(appStoreLinks).toHaveLength(2);
-    const expectedAppStoreUrl = iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN);
     appStoreLinks.forEach((link) => {
-      expect(link).toHaveAttribute("href", expectedAppStoreUrl);
+      expect(link).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
     });
 
     const androidWaitlistButtons = screen.getAllByTestId(
@@ -122,9 +120,7 @@ describe("FeaturesPage", () => {
     expect(
       screen.getByAltText(/home screen showing a session logging prompt/i),
     ).toBeInTheDocument();
-    expect(
-      screen.getByAltText(/custom spot editor/i),
-    ).toBeInTheDocument();
+    expect(screen.getByAltText(/custom spot editor/i)).toBeInTheDocument();
     expect(
       screen.getAllByAltText(/alerts screen/i).length,
     ).toBeGreaterThanOrEqual(1);

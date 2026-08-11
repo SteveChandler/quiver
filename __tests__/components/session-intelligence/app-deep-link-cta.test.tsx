@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { AppDeepLinkCTA } from "@/components/session-intelligence";
-import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
 import type { SurfWindowLinks } from "@/types/session-intelligence";
 
 const mockTrack = jest.fn();
@@ -18,13 +18,15 @@ function preventAnchorNavigation(): () => void {
     }
   };
   document.addEventListener("click", handler, { capture: true });
-  return () => document.removeEventListener("click", handler, { capture: true });
+  return () =>
+    document.removeEventListener("click", handler, { capture: true });
 }
 
 function makeLinks(overrides: Partial<SurfWindowLinks> = {}): SurfWindowLinks {
   return {
     appDeepLink: "/app/spot/ocean-beach?window=window-1",
-    universalLink: "https://www.quiversurf.app/app/spot/ocean-beach?window=window-1",
+    universalLink:
+      "https://www.quiversurf.app/app/spot/ocean-beach?window=window-1",
     canonicalWebUrl: "https://www.quiversurf.app/ca/san-diego/ocean-beach",
     ...overrides,
   };
@@ -46,19 +48,20 @@ describe("AppDeepLinkCTA", () => {
   it("prefers universal links", () => {
     render(<AppDeepLinkCTA links={makeLinks()} />);
 
-    expect(screen.getByRole("link", { name: "Open this window in Quiver" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", { name: "Open this window in Quiver" }),
+    ).toHaveAttribute(
       "href",
-      "https://www.quiversurf.app/app/spot/ocean-beach?window=window-1"
+      "https://www.quiversurf.app/app/spot/ocean-beach?window=window-1",
     );
   });
 
   it("falls back to app deep link when universal link is unavailable", () => {
     render(<AppDeepLinkCTA links={makeLinks({ universalLink: null })} />);
 
-    expect(screen.getByRole("link", { name: "Open this window in Quiver" })).toHaveAttribute(
-      "href",
-      "/app/spot/ocean-beach?window=window-1"
-    );
+    expect(
+      screen.getByRole("link", { name: "Open this window in Quiver" }),
+    ).toHaveAttribute("href", "/app/spot/ocean-beach?window=window-1");
   });
 
   it("falls back to App Store URL when recommendation links are unavailable", () => {
@@ -68,18 +71,18 @@ describe("AppDeepLinkCTA", () => {
           appDeepLink: null,
           universalLink: null,
         })}
-      />
+      />,
     );
 
-    expect(screen.getByRole("link", { name: "Open App Store" })).toHaveAttribute(
-      "href",
-      IOS_APP_STORE_URL
-    );
+    expect(
+      screen.getByRole("link", { name: "Open App Store" }),
+    ).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
   });
 
   it("tracks surf-window and app-deeplink clicks with fallback context", async () => {
     const user = userEvent.setup();
-    const targetHref = "https://www.quiversurf.app/app/spot/ocean-beach?window=window-1";
+    const targetHref =
+      "https://www.quiversurf.app/app/spot/ocean-beach?window=window-1";
 
     render(
       <AppDeepLinkCTA
@@ -92,10 +95,12 @@ describe("AppDeepLinkCTA", () => {
           windowId: "window-1",
           rank: 1,
         }}
-      />
+      />,
     );
 
-    await user.click(screen.getByRole("link", { name: "Open this window in Quiver" }));
+    await user.click(
+      screen.getByRole("link", { name: "Open this window in Quiver" }),
+    );
 
     const expectedPayload = {
       beachId: "beach-1",
@@ -112,8 +117,14 @@ describe("AppDeepLinkCTA", () => {
       }),
       debounceMs: 0,
     };
-    expect(mockTrack).toHaveBeenCalledWith("surf_window_click", expectedPayload);
-    expect(mockTrack).toHaveBeenCalledWith("app_deeplink_clicked", expectedPayload);
+    expect(mockTrack).toHaveBeenCalledWith(
+      "surf_window_click",
+      expectedPayload,
+    );
+    expect(mockTrack).toHaveBeenCalledWith(
+      "app_deeplink_clicked",
+      expectedPayload,
+    );
   });
 
   it("tracks App Store fallback clicks", async () => {
@@ -126,7 +137,7 @@ describe("AppDeepLinkCTA", () => {
           surface: "dev_preview",
           windowId: "window-1",
         }}
-      />
+      />,
     );
 
     await user.click(screen.getByRole("link", { name: "Open App Store" }));
@@ -135,7 +146,7 @@ describe("AppDeepLinkCTA", () => {
       metadata: expect.objectContaining({
         surface: "dev_preview",
         window_id: "window-1",
-        target_href: IOS_APP_STORE_URL,
+        target_href: IOS_APP_STORE_WEB_REDIRECT_PATH,
         link_type: "app_store",
         fallback_to_app_store: true,
       }),

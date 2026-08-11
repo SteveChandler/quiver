@@ -12,8 +12,9 @@ import { QRCodeSVG } from "qrcode.react";
 import { ArrowRight, ExternalLink, Smartphone } from "lucide-react";
 import { AndroidWaitlistCta } from "@/components/pricing/android-waitlist-cta";
 import {
+  IOS_APP_STORE_CAMPAIGNS,
   IOS_APP_STORE_CTA,
-  iosAppStoreUrlWithCampaign,
+  buildIosAppStoreRedirectPath,
 } from "@/lib/constants/app-store";
 import { trackAppHandoffQrRendered } from "@/lib/analytics/app-handoff-tracking";
 import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
@@ -148,8 +149,8 @@ export function PartnerQrLandingClient({
 
   const isAndroid = platform === "android";
   const partnerLabel = partnerName?.trim() || "A Quiver partner";
-  const appStoreUrl = iosAppStoreUrlWithCampaign(
-    `partner_${partnerCode.toUpperCase()}`,
+  const appStoreUrl = buildIosAppStoreRedirectPath(
+    IOS_APP_STORE_CAMPAIGNS.PARTNER_QR,
   );
   const leadCopy = isAndroid
     ? "Android beta access is open through Google Play closed testing. Get the beta or continue on web to start with Quiver."

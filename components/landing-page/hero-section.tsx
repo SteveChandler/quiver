@@ -20,12 +20,11 @@ import {
 } from "@/lib/analytics/ios-app-cta-tracking";
 import {
   IOS_APP_STORE_CTA,
-  IOS_APP_STORE_URL,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 import type { FirstTouchPlatform } from "@/lib/analytics/web-context";
 
-const LANDING_HERO_VIDEO_DESKTOP_SRC =
-  "/videos/quiver-landing-hero-1280.mp4";
+const LANDING_HERO_VIDEO_DESKTOP_SRC = "/videos/quiver-landing-hero-1280.mp4";
 const LANDING_HERO_VIDEO_MOBILE_SRC = "/videos/quiver-landing-hero-720.mp4";
 const LANDING_HERO_POSTER_SRC = "/images/hero/quiver-landing-hero-poster.jpg";
 const HERO_VIDEO_LOAD_DELAY_MS = 2500;
@@ -181,8 +180,7 @@ function LegacyHeroSection(): ReactElement {
   const [hasVideoEnded, setHasVideoEnded] = useState(false);
   const [hasVideoError, setHasVideoError] = useState(false);
   const [hasVideoFailedToStart, setHasVideoFailedToStart] = useState(false);
-  const [videoVariant, setVideoVariant] =
-    useState<HeroVideoVariant>("desktop");
+  const [videoVariant, setVideoVariant] = useState<HeroVideoVariant>("desktop");
   const videoSrc =
     videoVariant === "mobile"
       ? LANDING_HERO_VIDEO_MOBILE_SRC
@@ -247,7 +245,7 @@ function LegacyHeroSection(): ReactElement {
       surface: "landing-page",
       placement: "hero_video_overlay",
       cta_text: IOS_APP_STORE_CTA,
-      destination_url: IOS_APP_STORE_URL,
+      destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
       video_loaded: shouldLoadVideo,
       video_completed: hasVideoEnded,
     });
@@ -265,7 +263,7 @@ function LegacyHeroSection(): ReactElement {
       surface: "landing-page",
       placement: "hero_video_overlay",
       cta_text: IOS_APP_STORE_CTA,
-      destination_url: IOS_APP_STORE_URL,
+      destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
       video_loaded: shouldLoadVideo,
       video_completed: hasVideoEnded,
     });
@@ -434,10 +432,7 @@ function LegacyHeroSection(): ReactElement {
                   const diagnostics = getVideoDiagnostics(event.currentTarget);
                   if (!hasTrackedVideoError.current) {
                     hasTrackedVideoError.current = true;
-                    trackVideoEvent(
-                      "landing_hero_video_error",
-                      diagnostics,
-                    );
+                    trackVideoEvent("landing_hero_video_error", diagnostics);
                   }
                   if (!hasVideoLoaded.current && !hasVideoStarted.current) {
                     trackFailedStart(diagnostics);
@@ -447,7 +442,7 @@ function LegacyHeroSection(): ReactElement {
             ) : null}
             {isAppStoreCtaVisible ? (
               <a
-                href={IOS_APP_STORE_URL}
+                href={IOS_APP_STORE_WEB_REDIRECT_PATH}
                 data-testid="hero-video-app-store-cta"
                 aria-label={IOS_APP_STORE_CTA}
                 onClick={handleIosAppClick}

@@ -81,16 +81,18 @@ describe("PartnerQrLandingClient", () => {
     expect(svg).toHaveAttribute("data-smart-url", defaultProps.qrUrl);
   });
 
-  it("links App Store clicks with a per-partner campaign token", () => {
+  it("links App Store clicks with the shared low-volume partner campaign", () => {
     render(<PartnerQrLandingClient {...defaultProps} />);
 
     const appStoreUrl = new URL(
-      screen.getByRole("link", { name: /open app store/i }).getAttribute("href") ??
-        "",
+      screen
+        .getByRole("link", { name: /open app store/i })
+        .getAttribute("href") ?? "",
+      "https://www.quiversurf.app",
     );
 
-    expect(appStoreUrl.searchParams.get("ct")).toBe("partner_SURF12");
-    expect(appStoreUrl.searchParams.get("mt")).toBe("8");
+    expect(appStoreUrl.pathname).toBe("/app-store");
+    expect(appStoreUrl.searchParams.get("ct")).toBe("partner_qr");
   });
 
   it("fires app_handoff_qr_rendered and invite_link_opened on mount with partner metadata", async () => {

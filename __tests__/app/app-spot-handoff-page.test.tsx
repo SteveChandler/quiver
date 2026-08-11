@@ -11,7 +11,7 @@ import AppSpotHandoffPage, {
   generateMetadata,
 } from "@/app/app/spot/[slug]/page";
 import * as handoffModule from "@/app/app/spot/[slug]/page";
-import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
 import { track } from "@/lib/analytics";
 
 jest.mock("@/lib/analytics", () => ({
@@ -49,8 +49,7 @@ function positiveMetadata(overrides: Record<string, unknown> = {}) {
     locationLabel: "La Jolla, CA",
     ogImagePath:
       "/api/og/forecast-window?slug=server-beach&window=2026-06-03T14%3A30%3A00.000Z",
-    appSpotPath:
-      "/app/spot/server-beach?window=2026-06-03T14%3A30%3A00.000Z",
+    appSpotPath: "/app/spot/server-beach?window=2026-06-03T14%3A30%3A00.000Z",
     isFallback: false,
     ...overrides,
   });
@@ -61,7 +60,8 @@ function firstOpenGraphImageUrl(
 ): string {
   const images = metadata.openGraph?.images;
   const image = Array.isArray(images) ? images[0] : images;
-  if (typeof image === "string" || image instanceof URL) return image.toString();
+  if (typeof image === "string" || image instanceof URL)
+    return image.toString();
   return image?.url?.toString() ?? "";
 }
 
@@ -191,7 +191,7 @@ describe("/app/spot/[slug] handoff page", () => {
 
     expect(
       screen.getByRole("link", { name: /open in the app store/i }),
-    ).toHaveAttribute("href", IOS_APP_STORE_URL);
+    ).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
     expect(
       screen.getByRole("link", { name: /continue on web/i }),
     ).toHaveAttribute("href", "/beach/ocean-beach");
