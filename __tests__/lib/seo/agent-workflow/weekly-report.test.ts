@@ -1,4 +1,7 @@
-import { renderWeeklySeoReport } from "@/lib/seo/agent-workflow/weekly-report";
+import {
+  buildWeeklySeoComparison,
+  renderWeeklySeoReport,
+} from "@/lib/seo/agent-workflow/weekly-report";
 
 function extractSection(report: string, heading: string): string {
   const start = report.indexOf(heading);
@@ -9,6 +12,122 @@ function extractSection(report: string, heading: string): string {
 }
 
 describe("SEO workflow weekly report", () => {
+  it("renders source freshness, week-over-week movement, and Ahrefs issues under technical health", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-08-10T12:00:00Z",
+      auditDate: "2026-08-10",
+      recommendations: [{
+        id: "ahrefs-missing-alt-text-root",
+        createdAt: "2026-08-10T12:00:00Z",
+        source: "ahrefs-audit",
+        priority: "medium",
+        canonicalPath: "/",
+        summary: "Ahrefs found missing alt text on 299 crawled URLs.",
+        evidence: ["affectedUrls=299"],
+        status: "open",
+      }],
+      sourceFreshness: [{
+        source: "Competitor deep-dive",
+        observedAt: "2026-07-27",
+        status: "stale",
+        note: "run date 2026-07-27 (14 days old)",
+      }],
+      weekOverWeek: {
+        previousAuditDate: "2026-08-03",
+        metrics: [{
+          label: "GSC clicks (28d vs prior report)",
+          current: 998,
+          previous: 1034,
+          unit: "clicks",
+        }],
+      },
+      technical: [],
+      missing: [],
+    });
+
+    expect(report).toContain("## Source Freshness");
+    expect(report).toContain("Competitor deep-dive: STALE (2026-07-27)");
+    expect(report).toContain("## Week-over-Week Movement");
+    expect(report).toContain("GSC clicks (28d vs prior report): 998 clicks; prior 1,034; change -36 (-3.5%).");
+    expect(extractSection(report, "## Technical Crawl Health")).toContain(
+      "MEDIUM: `/` - Ahrefs found missing alt text on 299 crawled URLs.",
+    );
+    expect(report).not.toContain("No technical crawl issues in available inputs.");
+  });
+
+  // Site-audit findings previously matched both the technical merge and the
+  // keyword-movement filter, so every one of them printed twice in the report.
+  it("routes each ahrefs-audit finding to exactly one section", () => {
+    const base = {
+      createdAt: "2026-08-10T12:00:00Z",
+      source: "ahrefs-audit" as const,
+      priority: "medium" as const,
+      canonicalPath: "/",
+      evidence: [],
+      status: "open" as const,
+    };
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-08-10T12:00:00Z",
+      auditDate: "2026-08-10",
+      recommendations: [
+        { ...base, id: "ahrefs-noindex-sitemap", summary: "SITE_AUDIT_FINDING" },
+        {
+          ...base,
+          id: "ahrefs-keyword-gap",
+          summary: "KEYWORD_FINDING",
+          targetKeyword: "surf report san diego",
+        },
+      ],
+      technical: [],
+      missing: [],
+    });
+
+    const technicalSection = extractSection(report, "## Technical Crawl Health");
+    const keywordSection = extractSection(report, "## Keyword / Ranking Movement");
+
+    // A finding with no target keyword belongs to technical health only.
+    expect(technicalSection).toContain("SITE_AUDIT_FINDING");
+    expect(keywordSection).not.toContain("SITE_AUDIT_FINDING");
+
+    // A keyword-targeted finding belongs to ranking movement only.
+    expect(keywordSection).toContain("KEYWORD_FINDING");
+    expect(technicalSection).not.toContain("KEYWORD_FINDING");
+
+    // Belt and braces: neither summary appears more than once in the whole report.
+    expect(report.split("SITE_AUDIT_FINDING").length - 1).toBe(1);
+    expect(report.split("KEYWORD_FINDING").length - 1).toBe(1);
+  });
+
+  it("builds seven-day week-over-week metrics from the current GSC export", () => {
+    const comparison = buildWeeklySeoComparison({
+      generatedAt: "2026-08-10T12:00:00Z",
+      recommendations: [],
+      missing: [],
+      gsc: {
+        generatedAt: "2026-08-10T12:00:00Z",
+        siteUrl: "https://www.quiversurf.app/",
+        dateRanges: {
+          last7d: { start: "2026-08-04", end: "2026-08-10" },
+          prior7d: { start: "2026-07-28", end: "2026-08-03" },
+          last28d: { start: "2026-07-14", end: "2026-08-10" },
+        },
+        last7d: [{ page: "/", clicks: 12, impressions: 120 }],
+        prior7d: [{ page: "/", clicks: 8, impressions: 100 }],
+        last28d: [],
+        sitemapPaths: [],
+        topQueries: [],
+        topPages: [],
+        byDevice: [],
+        byCountry: [],
+      },
+    });
+
+    expect(comparison?.metrics).toEqual(expect.arrayContaining([
+      { label: "GSC clicks (last 7d vs prior 7d)", current: 12, previous: 8, unit: "clicks" },
+      { label: "GSC impressions (last 7d vs prior 7d)", current: 120, previous: 100, unit: "impressions" },
+    ]));
+  });
+
   it("renders required sections and free-data limitations with partial inputs", () => {
     const report = renderWeeklySeoReport({
       generatedAt: "2026-05-20T12:00:00Z",

@@ -24,7 +24,9 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
     errorCapture = setupErrorDetection(page);
   });
 
-  test("loads and paints the default region on first byte", async ({ page }) => {
+  test("loads and paints the default region on first byte", async ({
+    page,
+  }) => {
     await page.goto("/forecast");
     await waitForPageLoad(page);
     await dismissOnboardingWizard(page);
@@ -38,10 +40,14 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
     await expect(h1).toBeVisible();
     const h1Text = (await h1.textContent()) ?? "";
     // Default is Southern California (largest user base) when no cookie
-    expect(h1Text).toMatch(/Southern California|California|Hawaii|Oregon|Florida|San Diego|Orange County|Los Angeles|Santa Cruz|Ventura|Puerto Rico|New York|New Jersey|Outer Banks|Washington|Northern California|Baja/);
+    expect(h1Text).toMatch(
+      /Southern California|California|Hawaii|Oregon|Florida|San Diego|Orange County|Los Angeles|Santa Cruz|Ventura|Puerto Rico|New York|New Jersey|Outer Banks|Washington|Northern California|Baja/,
+    );
   });
 
-  test("`?region=hawaii` drives hero copy and primary CTA href", async ({ page }) => {
+  test("`?region=hawaii` drives hero copy and primary CTA href", async ({
+    page,
+  }) => {
     await page.goto("/forecast?region=hawaii");
     await waitForPageLoad(page);
     await dismissOnboardingWizard(page);
@@ -66,7 +72,10 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
     await expect(h1).toContainText(/Southern California/);
 
     const primaryCta = page.getByTestId("primary-cta");
-    await expect(primaryCta).toHaveAttribute("href", "/forecast/southern-california");
+    await expect(primaryCta).toHaveAttribute(
+      "href",
+      "/forecast/southern-california",
+    );
   });
 
   test("anonymous visitor sees the signup CTA", async ({ page }) => {
@@ -92,8 +101,38 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
     await dismissOnboardingWizard(page);
 
     // Old card grid used WaveSparkline; new design has zero sparklines
-    const sparklines = page.locator('[data-testid*="sparkline"], [aria-label*="sparkline" i]');
+    const sparklines = page.locator(
+      '[data-testid*="sparkline"], [aria-label*="sparkline" i]',
+    );
     await expect(sparklines).toHaveCount(0);
+  });
+
+  test("uses the zine surface and restores browse-card artwork", async ({
+    page,
+  }) => {
+    await page.goto("/forecast");
+    await waitForPageLoad(page);
+    await dismissOnboardingWizard(page);
+
+    await expect(page.getByTestId("forecast-hub-zine-surface")).toBeVisible();
+
+    const browseCards = page.getByTestId("forecast-browse-cards");
+    await expect(browseCards).toBeVisible();
+    await expect(browseCards.locator("a")).toHaveCount(4);
+    const stickerImages = browseCards.locator("[data-zine-sticker]");
+    await expect(stickerImages).toHaveCount(4);
+    await expect
+      .poll(() =>
+        stickerImages.evaluateAll((images) =>
+          images.every(
+            (image) =>
+              image instanceof HTMLImageElement &&
+              image.complete &&
+              image.naturalWidth > 0,
+          ),
+        ),
+      )
+      .toBe(true);
   });
 
   test("'Going elsewhere?' strip shows the OTHER regions (not the active one)", async ({
@@ -107,7 +146,9 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
     await expect(strip).toBeVisible();
 
     // Active region (Hawaii) must NOT appear as a chip
-    const hawaiiChip = strip.locator('[data-testid="other-region-chip-hawaii"]');
+    const hawaiiChip = strip.locator(
+      '[data-testid="other-region-chip-hawaii"]',
+    );
     await expect(hawaiiChip).toHaveCount(0);
 
     // At least 4 other regions should be chipped
@@ -115,7 +156,9 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
     expect(await chips.count()).toBeGreaterThanOrEqual(4);
   });
 
-  test("best windows section and seven-day outlook both render", async ({ page }) => {
+  test("best windows section and seven-day outlook both render", async ({
+    page,
+  }) => {
     await page.goto("/forecast?region=southern-california");
     await waitForPageLoad(page);
     await dismissOnboardingWizard(page);
@@ -123,7 +166,7 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
     const bestWindows = page.getByTestId("regional-best-surf-windows");
     await expect(bestWindows).toBeVisible();
     await expect(
-      bestWindows.getByRole("heading", { name: /best windows this week/i })
+      bestWindows.getByRole("heading", { name: /best windows this week/i }),
     ).toBeVisible();
 
     const outlook = page.getByTestId("seven-day-outlook");
@@ -132,7 +175,7 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
     // Heading is always present regardless of data availability. Component
     // copy is "7-Day Region Outlook" — match the variable middle word.
     await expect(
-      outlook.getByRole("heading", { name: /7-Day.*Outlook/i })
+      outlook.getByRole("heading", { name: /7-Day.*Outlook/i }),
     ).toBeVisible();
 
     // Either day rows render OR the empty-state message renders. We assert
@@ -160,9 +203,7 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
 
     expect(outlookBox).not.toBeNull();
     expect(topSpotsBox).not.toBeNull();
-    expect(topSpotsBox!.x).toBeGreaterThan(
-      outlookBox!.x + outlookBox!.width
-    );
+    expect(topSpotsBox!.x).toBeGreaterThan(outlookBox!.x + outlookBox!.width);
     expect(Math.abs(topSpotsBox!.y - outlookBox!.y)).toBeLessThan(80);
   });
 
@@ -185,7 +226,7 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
 
     const scripts = await jsonLd.all();
     const parsedSchemas = await Promise.all(
-      scripts.map(async (s) => (await s.textContent()) ?? "")
+      scripts.map(async (s) => (await s.textContent()) ?? ""),
     );
     const webPageSchema = parsedSchemas
       .filter((c) => c.includes('"@type":"WebPage"'))

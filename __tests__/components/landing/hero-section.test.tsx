@@ -1,5 +1,11 @@
 import React from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HeroSection } from "@/components/landing-page/hero-section";
 import { useAuth } from "@/context/auth-context";
@@ -9,7 +15,10 @@ import {
   trackIosAppCtaClick,
   trackIosAppCtaView,
 } from "@/lib/analytics/ios-app-cta-tracking";
-import { IOS_APP_STORE_CTA, IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import {
+  IOS_APP_STORE_CTA,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
+} from "@/lib/constants/app-store";
 import { trackAppHandoffView } from "@/lib/analytics/app-handoff-tracking";
 
 jest.mock("next/image", () => ({
@@ -138,7 +147,7 @@ function setMediaState(
     readyState?: number;
     networkState?: number;
     currentSrc?: string;
-  } = {}
+  } = {},
 ) {
   Object.defineProperty(video, "error", {
     configurable: true,
@@ -161,8 +170,7 @@ function setMediaState(
   });
   Object.defineProperty(video, "currentSrc", {
     configurable: true,
-    value:
-      overrides.currentSrc ?? "/videos/quiver-landing-hero-1280.mp4",
+    value: overrides.currentSrc ?? "/videos/quiver-landing-hero-1280.mp4",
   });
 }
 
@@ -217,10 +225,9 @@ describe("HeroSection", () => {
     expect(cta).toHaveAttribute("data-source", "landing_hero");
     expect(cta).toHaveAttribute("data-surface", "landing-page");
     expect(cta).toHaveAttribute("data-placement", "hero_primary");
-    expect(screen.getByRole("link", { name: /see how it works/i })).toHaveAttribute(
-      "href",
-      "#proof",
-    );
+    expect(
+      screen.getByRole("link", { name: /see how it works/i }),
+    ).toHaveAttribute("href", "#proof");
 
     await waitFor(() => {
       expect(mockTrackAppHandoffView).toHaveBeenCalledWith(
@@ -274,7 +281,7 @@ describe("HeroSection", () => {
     fireEvent.ended(video);
 
     const link = await screen.findByRole("link", { name: IOS_APP_STORE_CTA });
-    expect(link).toHaveAttribute("href", IOS_APP_STORE_URL);
+    expect(link).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
   });
 
   it("tracks the hero video overlay button view after the video ends", async () => {
@@ -292,7 +299,7 @@ describe("HeroSection", () => {
         surface: "landing-page",
         placement: "hero_video_overlay",
         cta_text: IOS_APP_STORE_CTA,
-        destination_url: IOS_APP_STORE_URL,
+        destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
         video_loaded: true,
         video_completed: true,
       });
@@ -317,7 +324,7 @@ describe("HeroSection", () => {
       surface: "landing-page",
       placement: "hero_video_overlay",
       cta_text: IOS_APP_STORE_CTA,
-      destination_url: IOS_APP_STORE_URL,
+      destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
       video_loaded: true,
       video_completed: true,
     });
@@ -329,7 +336,7 @@ describe("HeroSection", () => {
     render(<HeroSection />);
 
     const link = await screen.findByRole("link", { name: IOS_APP_STORE_CTA });
-    expect(link).toHaveAttribute("href", IOS_APP_STORE_URL);
+    expect(link).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
   });
 
   it("does not render the video immediately so the poster can paint first", () => {
@@ -387,7 +394,7 @@ describe("HeroSection", () => {
     });
     expect(mockTrack).not.toHaveBeenCalledWith(
       "landing_hero_video_failed_to_start",
-      expect.anything()
+      expect.anything(),
     );
 
     jest.useRealTimers();
@@ -422,11 +429,11 @@ describe("HeroSection", () => {
 
     expect(mockTrack).toHaveBeenCalledWith(
       "landing_hero_video_error",
-      expectedMetadata
+      expectedMetadata,
     );
     expect(mockTrack).toHaveBeenCalledWith(
       "landing_hero_video_failed_to_start",
-      expectedMetadata
+      expectedMetadata,
     );
   });
 
@@ -440,12 +447,14 @@ describe("HeroSection", () => {
     fireEvent.error(video);
 
     expect(
-      mockTrack.mock.calls.filter(([event]) => event === "landing_hero_video_error")
+      mockTrack.mock.calls.filter(
+        ([event]) => event === "landing_hero_video_error",
+      ),
     ).toHaveLength(1);
     expect(
       mockTrack.mock.calls.filter(
-        ([event]) => event === "landing_hero_video_failed_to_start"
-      )
+        ([event]) => event === "landing_hero_video_failed_to_start",
+      ),
     ).toHaveLength(1);
   });
 
@@ -456,7 +465,7 @@ describe("HeroSection", () => {
     await mountLazyVideo();
 
     expect(
-      screen.queryByRole("link", { name: IOS_APP_STORE_CTA })
+      screen.queryByRole("link", { name: IOS_APP_STORE_CTA }),
     ).not.toBeInTheDocument();
 
     act(() => {
@@ -472,10 +481,10 @@ describe("HeroSection", () => {
         has_loaded: false,
         has_started: false,
         visibility_state: "visible",
-      })
+      }),
     );
     expect(
-      screen.getByRole("link", { name: IOS_APP_STORE_CTA })
+      screen.getByRole("link", { name: IOS_APP_STORE_CTA }),
     ).toBeInTheDocument();
   });
 
@@ -492,7 +501,7 @@ describe("HeroSection", () => {
 
     expect(mockTrack).not.toHaveBeenCalledWith(
       "landing_hero_video_failed_to_start",
-      expect.anything()
+      expect.anything(),
     );
   });
 
@@ -508,11 +517,11 @@ describe("HeroSection", () => {
     });
 
     expect(
-      screen.queryByRole("link", { name: IOS_APP_STORE_CTA })
+      screen.queryByRole("link", { name: IOS_APP_STORE_CTA }),
     ).not.toBeInTheDocument();
     expect(mockTrack).not.toHaveBeenCalledWith(
       "landing_hero_video_failed_to_start",
-      expect.anything()
+      expect.anything(),
     );
 
     act(() => {
@@ -521,11 +530,11 @@ describe("HeroSection", () => {
     });
 
     expect(
-      screen.getByRole("link", { name: IOS_APP_STORE_CTA })
+      screen.getByRole("link", { name: IOS_APP_STORE_CTA }),
     ).toBeInTheDocument();
     expect(mockTrack).not.toHaveBeenCalledWith(
       "landing_hero_video_failed_to_start",
-      expect.anything()
+      expect.anything(),
     );
 
     act(() => {
@@ -541,7 +550,7 @@ describe("HeroSection", () => {
         has_loaded: false,
         has_started: false,
         visibility_state: "visible",
-      })
+      }),
     );
   });
 
@@ -553,7 +562,7 @@ describe("HeroSection", () => {
 
     expect(video).toHaveAttribute(
       "src",
-      "/videos/quiver-landing-hero-1280.mp4"
+      "/videos/quiver-landing-hero-1280.mp4",
     );
     expect(video.querySelector("source")).not.toBeInTheDocument();
   });
@@ -574,9 +583,6 @@ describe("HeroSection", () => {
 
     const video = await mountLazyVideo();
 
-    expect(video).toHaveAttribute(
-      "src",
-      "/videos/quiver-landing-hero-720.mp4"
-    );
+    expect(video).toHaveAttribute("src", "/videos/quiver-landing-hero-720.mp4");
   });
 });

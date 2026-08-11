@@ -17,10 +17,6 @@ import {
 } from './utils/error-detection';
 import { TEST_BEACHES } from './fixtures/test-data';
 import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
-import {
-  APP_FIRST_CAMPAIGN,
-  iosAppStoreUrlWithCampaign,
-} from '@/lib/constants/app-store';
 import { isVisibleSafe } from './utils/strict-helpers';
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -55,7 +51,7 @@ test.describe('Guest Smoke: Critical Pages', () => {
     await expect(page.getByRole('heading', { name: /custom alerts/i })).toBeVisible();
     await expect(
       page.getByRole('link', { name: /open app store/i }).first(),
-    ).toHaveAttribute('href', iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN));
+    ).toHaveAttribute('href', '/app-store?ct=web');
     await expect(
       page.getByRole('link', { name: /get the android beta/i }).first(),
       // The CTA carries waitlist attribution (source/surface/placement), which
@@ -127,7 +123,6 @@ test.describe('Guest Smoke: Critical Pages', () => {
     // No visible error assertions — 404 console/network errors are expected
   });
 });
-
 test.describe('Guest Smoke: SEO Infrastructure', () => {
   test('Sitemap returns valid XML response @smoke', async ({ request }) => {
     const response = await request.get('/sitemap.xml', { timeout: 10000 });

@@ -8,7 +8,7 @@ import {
 } from "@/lib/analytics/ios-app-cta-tracking";
 import {
   IOS_APP_STORE_CTA,
-  IOS_APP_STORE_URL,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 import {
   trackSignupCtaClick,
@@ -116,9 +116,7 @@ describe("CTASection", () => {
       />,
     );
 
-    await user.click(
-      screen.getByRole("button", { name: /get my surf call/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /get my surf call/i }));
 
     expect(mockTrackSignupCtaClick).toHaveBeenCalledWith({
       source: "landing-final-cta",
@@ -136,12 +134,7 @@ describe("CTASection", () => {
   it("renders and tracks the App Store CTA variant", async () => {
     const user = userEvent.setup();
 
-    render(
-      <CTASection
-        source="landing-final-cta"
-        variant="app-store"
-      />,
-    );
+    render(<CTASection source="landing-final-cta" variant="app-store" />);
 
     await waitFor(() => {
       expect(mockTrackIosAppCtaView).toHaveBeenCalledWith({
@@ -156,11 +149,9 @@ describe("CTASection", () => {
     });
     link.addEventListener("click", (event) => event.preventDefault());
 
-    expect(link).toHaveAttribute("href", IOS_APP_STORE_URL);
+    expect(link).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
     expect(
-      screen.getByText(
-        "Opens the current iPhone App Store listing.",
-      ),
+      screen.getByText("Opens the current iPhone App Store listing."),
     ).toBeInTheDocument();
 
     await user.click(link);
@@ -170,7 +161,7 @@ describe("CTASection", () => {
       surface: "landing-page",
       placement: "landing_final_cta",
       cta_text: IOS_APP_STORE_CTA,
-      destination_url: IOS_APP_STORE_URL,
+      destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
     });
     expect(mockTrackSignupCtaClick).not.toHaveBeenCalled();
     expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument();

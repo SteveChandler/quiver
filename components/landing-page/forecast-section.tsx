@@ -14,7 +14,7 @@ import {
 } from "@/lib/analytics/ios-app-cta-tracking";
 import {
   IOS_APP_STORE_CTA,
-  IOS_APP_STORE_URL,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 
 type FeatureId = "forecast" | "journal" | "intel";
@@ -35,7 +35,8 @@ const FEATURES: Feature[] = [
     headline: CONTENT.sections.forecast.title,
     body: CONTENT.sections.forecast.subtitle,
     imageSrc: "/images/app-screenshots/surf-call-720.webp",
-    imageAlt: "Quiver app showing a La Jolla Shores surf call with best-window, swell, wind, tide, and session guidance.",
+    imageAlt:
+      "Quiver app showing a La Jolla Shores surf call with best-window, swell, wind, tide, and session guidance.",
   },
   {
     id: "journal",
@@ -43,7 +44,8 @@ const FEATURES: Feature[] = [
     headline: "Log what actually happened",
     body: "After your session, save the beach, board, rating, notes, and wave check so Quiver has real surf signal to learn from.",
     imageSrc: "/images/app-screenshots/session-log-720.webp",
-    imageAlt: "Quiver Log Session screen with beach search, board picker, duration, rating, and wave conditions.",
+    imageAlt:
+      "Quiver Log Session screen with beach search, board picker, duration, rating, and wave conditions.",
   },
   {
     id: "intel",
@@ -51,7 +53,8 @@ const FEATURES: Feature[] = [
     headline: "Check the beach before you commit",
     body: "Use local reports, photos, and spot context to ground-truth the call before you drive or paddle out.",
     imageSrc: "/images/app-screenshots/local-intel-720.webp",
-    imageAlt: "Quiver beach finder screen showing nearby surf spots, skill filters, and trending local breaks.",
+    imageAlt:
+      "Quiver beach finder screen showing nearby surf spots, skill filters, and trending local breaks.",
   },
 ];
 
@@ -62,7 +65,8 @@ export function ForecastSection() {
   const { user } = useAuth();
   const hasTrackedView = useRef(false);
 
-  const activeFeature = FEATURES.find((f) => f.id === activeFeatureId) || FEATURES[0];
+  const activeFeature =
+    FEATURES.find((f) => f.id === activeFeatureId) || FEATURES[0];
 
   useEffect(() => {
     if (user || !isInView || hasTrackedView.current) return;
@@ -80,20 +84,22 @@ export function ForecastSection() {
       surface: "landing-page",
       placement: "forecast_section",
       cta_text: IOS_APP_STORE_CTA,
-      destination_url: IOS_APP_STORE_URL,
+      destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
     });
   }, []);
 
   // Navigation handlers
   const handlePrevious = useCallback(() => {
     const currentIndex = FEATURES.findIndex((f) => f.id === activeFeatureId);
-    const previousIndex = currentIndex === 0 ? FEATURES.length - 1 : currentIndex - 1;
+    const previousIndex =
+      currentIndex === 0 ? FEATURES.length - 1 : currentIndex - 1;
     setActiveFeatureId(FEATURES[previousIndex].id);
   }, [activeFeatureId]);
 
   const handleNext = useCallback(() => {
     const currentIndex = FEATURES.findIndex((f) => f.id === activeFeatureId);
-    const nextIndex = currentIndex === FEATURES.length - 1 ? 0 : currentIndex + 1;
+    const nextIndex =
+      currentIndex === FEATURES.length - 1 ? 0 : currentIndex + 1;
     setActiveFeatureId(FEATURES[nextIndex].id);
   }, [activeFeatureId]);
 
@@ -109,10 +115,12 @@ export function ForecastSection() {
 
       if (e.key === "ArrowDown" || e.key === "ArrowRight") {
         e.preventDefault();
-        targetIndex = currentIndex === FEATURES.length - 1 ? 0 : currentIndex + 1;
+        targetIndex =
+          currentIndex === FEATURES.length - 1 ? 0 : currentIndex + 1;
       } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
         e.preventDefault();
-        targetIndex = currentIndex === 0 ? FEATURES.length - 1 : currentIndex - 1;
+        targetIndex =
+          currentIndex === 0 ? FEATURES.length - 1 : currentIndex - 1;
       } else if (e.key === "Home") {
         e.preventDefault();
         targetIndex = 0;
@@ -130,17 +138,20 @@ export function ForecastSection() {
         // Focus the new tab
         setTimeout(() => {
           const newTab = document.querySelector(
-            `[data-feature-id="${FEATURES[targetIndex].id}"]`
+            `[data-feature-id="${FEATURES[targetIndex].id}"]`,
           ) as HTMLElement;
           newTab?.focus();
         }, 0);
       }
     },
-    []
+    [],
   );
 
   return (
-    <SectionWrapper className="relative overflow-hidden pt-8 pb-8 md:pt-10 md:pb-10 px-4 bg-[#252D6B]" maxWidth="6xl">
+    <SectionWrapper
+      className="relative overflow-hidden pt-8 pb-8 md:pt-10 md:pb-10 px-4 bg-[#252D6B]"
+      maxWidth="6xl"
+    >
       {/* Ambient glow */}
       <div className="absolute top-1/2 left-1/4 w-[400px] h-[400px] bg-ocean-blue/[0.06] rounded-full blur-[100px] pointer-events-none" />
 
@@ -304,7 +315,7 @@ export function ForecastSection() {
                   data-testid={`forecast-cta-${activeFeatureId}`}
                 >
                   <a
-                    href={IOS_APP_STORE_URL}
+                    href={IOS_APP_STORE_WEB_REDIRECT_PATH}
                     onClick={handleIosAppClick}
                   >
                     {IOS_APP_STORE_CTA}

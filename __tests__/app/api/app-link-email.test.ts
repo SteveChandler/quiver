@@ -16,9 +16,7 @@ import { POST } from "@/app/api/app-link-email/route";
 const send = jest.fn<
   Promise<{ data: { id: string }; error: Error | null }>,
   [unknown]
->(() =>
-  Promise.resolve({ data: { id: "email_1" }, error: null }),
-);
+>(() => Promise.resolve({ data: { id: "email_1" }, error: null }));
 
 jest.mock("@/lib/mailer/client", () => ({
   resend: { emails: { send: (arg: unknown) => send(arg) } },
@@ -29,7 +27,10 @@ jest.mock("@/lib/mailer/client", () => ({
 
 jest.mock("@/lib/middleware/api-wrappers", () => {
   const actual = jest.requireActual("@/lib/middleware/api-wrappers");
-  return { ...actual, withBotBlockingAndRateLimit: (handler: unknown) => handler };
+  return {
+    ...actual,
+    withBotBlockingAndRateLimit: (handler: unknown) => handler,
+  };
 });
 
 function req(body: unknown): never {
@@ -75,6 +76,7 @@ describe("POST /api/app-link-email", () => {
     expect(JSON.stringify(arg.react)).toContain(
       "handoff_id=33333333-3333-4333-8333-333333333333",
     );
+    expect(JSON.stringify(arg.react)).toContain("utm_campaign=app_first_v1");
   });
 
   it("never echoes the recipient address into the email body", async () => {

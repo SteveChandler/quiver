@@ -27,6 +27,7 @@ interface RegionalGuidesStripProps {
   summaries: Record<string, RegionalForecastSummary>;
   activeRegionSlug: string;
   guideLinks: GuideLink[];
+  variant?: "default" | "zine";
 }
 
 // Cycling sticker-aesthetic knobs. Indexing by card position keeps the
@@ -72,11 +73,11 @@ interface GuideCardData {
 function pickFeaturedIndex(
   guideLinks: GuideLink[],
   activeRegionSlug: string,
-  summaries: Record<string, RegionalForecastSummary>
+  summaries: Record<string, RegionalForecastSummary>,
 ): number {
   // Prefer a guide whose mapped region matches the active region.
   const activeIdx = guideLinks.findIndex(
-    (g) => g.region.slug === activeRegionSlug
+    (g) => g.region.slug === activeRegionSlug,
   );
   if (activeIdx >= 0) return activeIdx;
 
@@ -87,10 +88,7 @@ function pickFeaturedIndex(
   guideLinks.forEach((g, i) => {
     const summary = summaries[g.region.slug];
     if (!summary || summary.days.length === 0) return;
-    const peak = summary.days.reduce(
-      (m, d) => (d.score > m ? d.score : m),
-      0
-    );
+    const peak = summary.days.reduce((m, d) => (d.score > m ? d.score : m), 0);
     if (peak > bestScore) {
       bestScore = peak;
       bestIdx = i;
@@ -99,11 +97,7 @@ function pickFeaturedIndex(
   return bestIdx;
 }
 
-function FeaturedGuideCard({
-  region,
-  guideSlug,
-  photoUrl,
-}: GuideCardData) {
+function FeaturedGuideCard({ region, guideSlug, photoUrl }: GuideCardData) {
   const subtitle = getRegionalGuideSubtitle(guideSlug);
   return (
     <Link
@@ -210,13 +204,16 @@ export function RegionalGuidesStrip({
   summaries,
   activeRegionSlug,
   guideLinks,
+  variant = "default",
 }: RegionalGuidesStripProps) {
   if (guideLinks.length === 0) return null;
+
+  const isZine = variant === "zine";
 
   const featuredIdx = pickFeaturedIndex(
     guideLinks,
     activeRegionSlug,
-    summaries
+    summaries,
   );
 
   // Reorder: featured first, remaining retain their relative order.
@@ -247,11 +244,21 @@ export function RegionalGuidesStrip({
       <div className="mb-5 flex items-end justify-between gap-3">
         <h2
           id="regional-guides-heading"
-          className="font-[var(--font-heading)] text-2xl font-bold text-white sm:text-3xl"
+          className={
+            isZine
+              ? "font-display text-3xl font-black uppercase leading-tight text-[#11100D]"
+              : "font-[var(--font-heading)] text-2xl font-bold text-white sm:text-3xl"
+          }
         >
           Regional Surf Guides
         </h2>
-        <span className="font-[var(--font-handwritten)] text-lg text-white/55">
+        <span
+          className={
+            isZine
+              ? "font-[var(--font-handwritten)] text-lg text-[#11100D]/55"
+              : "font-[var(--font-handwritten)] text-lg text-white/55"
+          }
+        >
           local knowledge, by region
         </span>
       </div>

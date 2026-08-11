@@ -16,11 +16,8 @@ import {
   trackAppHandoffEmailSubmit,
   trackAppHandoffQrRendered,
 } from "@/lib/analytics/app-handoff-tracking";
-import {
-  APP_FIRST_CAMPAIGN,
-  buildSmartQrHandoffUrl,
-  iosAppStoreUrlWithCampaign,
-} from "@/lib/constants/app-handoff";
+import { buildSmartQrHandoffUrl } from "@/lib/constants/app-handoff";
+import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
 import { cn } from "@/lib/utils";
 
 interface SendToPhoneCtaProps {
@@ -61,25 +58,24 @@ export function SendToPhoneCta({
   const qrTracked = useRef(false);
 
   useEffect(() => {
-    setHandoffId((current) => current ?? providedHandoffId ?? crypto.randomUUID());
+    setHandoffId(
+      (current) => current ?? providedHandoffId ?? crypto.randomUUID(),
+    );
   }, [providedHandoffId]);
 
-  const qrValue = useMemo(
-    () => {
-      if (!handoffId) return null;
+  const qrValue = useMemo(() => {
+    if (!handoffId) return null;
 
-      return buildSmartQrHandoffUrl({
-        source,
-        surface,
-        placement,
-        handoff_id: handoffId,
-        qr_id: qrId ?? `${surface}_${placement}_qr`,
-        target: target ?? "download",
-        utm_medium: "desktop_handoff",
-      });
-    },
-    [handoffId, placement, qrId, source, surface, target],
-  );
+    return buildSmartQrHandoffUrl({
+      source,
+      surface,
+      placement,
+      handoff_id: handoffId,
+      qr_id: qrId ?? `${surface}_${placement}_qr`,
+      target: target ?? "download",
+      utm_medium: "desktop_handoff",
+    });
+  }, [handoffId, placement, qrId, source, surface, target]);
 
   useEffect(() => {
     if (!handoffId || !qrValue || qrTracked.current) return;
@@ -266,14 +262,19 @@ export function SendToPhoneCta({
                 </button>
               </div>
 
-              <div aria-live="polite" className="mt-2 min-h-5 font-sans text-sm">
+              <div
+                aria-live="polite"
+                className="mt-2 min-h-5 font-sans text-sm"
+              >
                 {inlineError ? (
                   <span className="text-sunset-orange">{inlineError}</span>
                 ) : null}
                 {statusCopy ? (
                   <span
                     className={
-                      state === "sent" ? "text-emerald-300" : "text-sunset-orange"
+                      state === "sent"
+                        ? "text-emerald-300"
+                        : "text-sunset-orange"
                     }
                   >
                     {statusCopy}
@@ -284,7 +285,7 @@ export function SendToPhoneCta({
           ) : null}
 
           <a
-            href={iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN)}
+            href={IOS_APP_STORE_WEB_REDIRECT_PATH}
             className="mt-2 inline-block font-sans text-sm text-white/72 underline underline-offset-2 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue-decorative"
           >
             Open App Store anyway

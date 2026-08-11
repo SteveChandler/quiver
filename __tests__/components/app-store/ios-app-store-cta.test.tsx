@@ -2,10 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { IosAppStoreCta } from "@/components/app-store/ios-app-store-cta";
-import {
-  APP_FIRST_CAMPAIGN,
-  iosAppStoreUrlWithCampaign,
-} from "@/lib/constants/app-store";
+import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
 import { IOS_APP_STORE_CTA } from "@/lib/constants/app-store";
 import { trackIosAppCtaClick } from "@/lib/analytics/ios-app-cta-tracking";
 
@@ -17,7 +14,7 @@ jest.mock("@/lib/analytics/ios-app-cta-tracking", () => ({
 describe("IosAppStoreCta", () => {
   it("uses the campaign-tagged App Store URL for href and click analytics", async () => {
     const user = userEvent.setup();
-    const destinationUrl = iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN);
+    const destinationUrl = IOS_APP_STORE_WEB_REDIRECT_PATH;
 
     render(
       <IosAppStoreCta

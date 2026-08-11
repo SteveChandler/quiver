@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { SendToPhoneCta } from "@/components/app-store/send-to-phone-cta";
+import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
 import {
   trackAppHandoffEmailSent,
   trackAppHandoffEmailSubmit,
@@ -48,7 +49,9 @@ describe("SendToPhoneCta", () => {
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByText(/send link/i)).toBeInTheDocument();
     expect(screen.queryByText("quiversurf.app/app")).not.toBeInTheDocument();
-    expect(screen.queryByText(/utm_medium=desktop_handoff/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/utm_medium=desktop_handoff/i),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(/open app store anyway/i)).toBeInTheDocument();
 
     await waitFor(() => {
@@ -83,9 +86,7 @@ describe("SendToPhoneCta", () => {
     const fallback = screen.getByRole("link", {
       name: /open app store anyway/i,
     });
-    expect(fallback.getAttribute("href")).toMatch(
-      /^https:\/\/apps\.apple\.com\//,
-    );
+    expect(fallback).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
   });
 
   it("adds the rollout cohort to QR render tracking when provided", () => {
