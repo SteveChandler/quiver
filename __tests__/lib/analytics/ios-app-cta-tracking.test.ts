@@ -6,10 +6,9 @@ import {
 } from "@/lib/analytics/ios-app-cta-tracking";
 import { track } from "@/lib/analytics";
 import {
-  APP_FIRST_CAMPAIGN,
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_DESTINATION_STATUS,
-  iosAppStoreUrlWithCampaign,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 
 jest.mock("@/lib/analytics", () => ({
@@ -22,8 +21,7 @@ jest.mock("@/lib/utils/visitor-id", () => ({
 
 const mockFetch = jest.fn(() => Promise.resolve({ ok: true } as Response));
 const mockTrack = track as jest.Mock;
-const IOS_APP_STORE_CAMPAIGN_URL =
-  iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN);
+const IOS_APP_STORE_CAMPAIGN_URL = IOS_APP_STORE_WEB_REDIRECT_PATH;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -138,7 +136,7 @@ describe("ios-app-cta-tracking", () => {
         page_type: "city_water_temp",
         query_intent: "water_temp",
         seo_landing_page: true,
-      })
+      }),
     );
   });
 });

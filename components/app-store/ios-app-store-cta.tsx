@@ -7,9 +7,8 @@ import {
   trackIosAppCtaView,
 } from "@/lib/analytics/ios-app-cta-tracking";
 import {
-  APP_FIRST_CAMPAIGN,
   IOS_APP_STORE_CTA,
-  iosAppStoreUrlWithCampaign,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 
 interface IosAppStoreCtaProps {
@@ -20,8 +19,7 @@ interface IosAppStoreCtaProps {
   children?: ReactNode;
 }
 
-const IOS_APP_STORE_CAMPAIGN_URL =
-  iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN);
+const IOS_APP_STORE_CAMPAIGN_URL = IOS_APP_STORE_WEB_REDIRECT_PATH;
 
 export function IosAppStoreCta({
   source,

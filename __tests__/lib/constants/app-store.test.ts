@@ -6,11 +6,16 @@ import {
   ANDROID_BETA_LANDING_URL,
   ANDROID_BETA_PLAY_URL,
   IOS_APP_STORE_APP_ID,
+  IOS_APP_STORE_CAMPAIGNS,
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_DESTINATION_STATUS,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
   IOS_APP_STORE_SMART_BANNER_ARGUMENT,
   IOS_APP_STORE_URL,
+  buildIosAppStoreRedirectPath,
+  buildIosSmartAppBannerContent,
   iosAppStoreUrlWithCampaign,
+  resolveIosAppStoreCampaign,
 } from "@/lib/constants/app-store";
 
 describe("app-store constants", () => {
@@ -71,24 +76,61 @@ describe("app-store constants", () => {
   });
 
   it("builds campaign URLs with App Store app-link attribution", () => {
-    delete process.env.IOS_APP_STORE_PROVIDER_TOKEN;
-
-    const url = iosAppStoreUrlWithCampaign("app_first_v1");
+    const url = iosAppStoreUrlWithCampaign(IOS_APP_STORE_CAMPAIGNS.WEB);
     const parsed = new URL(url);
 
     expect(parsed.origin + parsed.pathname).toBe(IOS_APP_STORE_URL);
-    expect(parsed.searchParams.get("ct")).toBe("app_first_v1");
+    expect(parsed.searchParams.get("ct")).toBe("web");
     expect(parsed.searchParams.get("mt")).toBe("8");
   });
 
   it("preserves the optional App Store provider token", () => {
-    process.env.IOS_APP_STORE_PROVIDER_TOKEN = "123456";
-
-    const url = iosAppStoreUrlWithCampaign("app_first_v1");
+    const url = iosAppStoreUrlWithCampaign(
+      IOS_APP_STORE_CAMPAIGNS.EMAIL,
+      "123456",
+    );
     const parsed = new URL(url);
 
     expect(parsed.searchParams.get("pt")).toBe("123456");
-    expect(parsed.searchParams.get("ct")).toBe("app_first_v1");
+    expect(parsed.searchParams.get("ct")).toBe("email");
     expect(parsed.searchParams.get("mt")).toBe("8");
+  });
+
+  it("omits malformed provider tokens", () => {
+    const url = new URL(
+      iosAppStoreUrlWithCampaign(IOS_APP_STORE_CAMPAIGNS.WEB, "not-a-token"),
+    );
+
+    expect(url.searchParams.has("pt")).toBe(false);
+  });
+
+  it("builds server redirect paths without exposing the provider token", () => {
+    expect(IOS_APP_STORE_WEB_REDIRECT_PATH).toBe("/app-store?ct=web");
+    expect(buildIosAppStoreRedirectPath(IOS_APP_STORE_CAMPAIGNS.EMAIL)).toBe(
+      "/app-store?ct=email",
+    );
+  });
+
+  it("adds Apple campaign attribution to Smart App Banner metadata", () => {
+    const content = buildIosSmartAppBannerContent("123456");
+
+    expect(content).toContain("app-id=6759300320");
+    expect(content).toContain("affiliate-data=pt=123456&ct=web");
+    expect(content).toContain(
+      `app-argument=${IOS_APP_STORE_SMART_BANNER_ARGUMENT}`,
+    );
+  });
+
+  it("normalizes Apple attribution to three low-volume campaigns", () => {
+    expect(resolveIosAppStoreCampaign({ campaign: "email" })).toBe("email");
+    expect(
+      resolveIosAppStoreCampaign({
+        campaign: "partner_sandys",
+        surface: "partner_landing",
+      }),
+    ).toBe("partner_qr");
+    expect(resolveIosAppStoreCampaign({ campaign: "one-off-experiment" })).toBe(
+      "web",
+    );
   });
 });

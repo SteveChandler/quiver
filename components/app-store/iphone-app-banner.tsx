@@ -8,7 +8,7 @@ import { track } from "@/lib/analytics";
 import {
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_DESTINATION_STATUS,
-  IOS_APP_STORE_URL,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 import {
   getIphoneAppBannerDecision,
@@ -41,7 +41,7 @@ function setDismissedAt(): void {
   try {
     window.localStorage.setItem(
       IPHONE_APP_BANNER_DISMISSAL_STORAGE_KEY,
-      new Date().toISOString()
+      new Date().toISOString(),
     );
   } catch {
     // Ignore storage failures so private browsing modes do not break the page.
@@ -51,7 +51,9 @@ function setDismissedAt(): void {
 export function IphoneAppBanner() {
   const pathname = usePathname();
   const trackedKeysRef = useRef<Set<string>>(new Set());
-  const [decision, setDecision] = useState<IphoneAppBannerDecision | null>(null);
+  const [decision, setDecision] = useState<IphoneAppBannerDecision | null>(
+    null,
+  );
   const [dismissed, setDismissed] = useState(false);
 
   const analyticsProps = useMemo(() => {
@@ -64,7 +66,7 @@ export function IphoneAppBanner() {
       cta_text: IOS_APP_STORE_CTA,
       destination_type: "app_store",
       destination_status: IOS_APP_STORE_DESTINATION_STATUS,
-      destination_url: IOS_APP_STORE_URL,
+      destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
       browser: decision.browser,
       pathname,
       ...(decision.suppressionReason
@@ -80,7 +82,7 @@ export function IphoneAppBanner() {
       trackedKeysRef.current.add(key);
       track(event, props);
     },
-    [pathname]
+    [pathname],
   );
 
   useEffect(() => {
@@ -149,7 +151,7 @@ export function IphoneAppBanner() {
           </p>
         </div>
         <a
-          href={IOS_APP_STORE_URL}
+          href={IOS_APP_STORE_WEB_REDIRECT_PATH}
           target="_blank"
           rel="noopener noreferrer"
           onClick={handleClick}

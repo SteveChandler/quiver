@@ -8,7 +8,11 @@ import {
   APP_FIRST_CAMPAIGN,
   iosAppStoreUrlWithCampaign,
 } from "@/lib/constants/app-handoff";
-import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import {
+  type IosAppStoreCampaign,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
+  resolveIosAppStoreCampaign,
+} from "@/lib/constants/app-store";
 import { buildAndroidBetaHandoffPath } from "@/lib/install-attribution";
 import { DesktopHandoff } from "./desktop-handoff";
 import { isValidUUID } from "@/lib/utils/validation";
@@ -32,9 +36,7 @@ function readSource(searchParams: Awaited<SearchParams>): string {
 
 function resolveHandoffId(searchParams: Awaited<SearchParams>): string {
   const handoffId = readFirstParam(searchParams, "handoff_id");
-  return handoffId && isValidUUID(handoffId)
-    ? handoffId
-    : crypto.randomUUID();
+  return handoffId && isValidUUID(handoffId) ? handoffId : crypto.randomUUID();
 }
 
 function buildHandoffMetadata(
@@ -79,6 +81,18 @@ function campaignFromParams(searchParams: Awaited<SearchParams>): string {
   return readFirstParam(searchParams, "utm_campaign") ?? APP_FIRST_CAMPAIGN;
 }
 
+function appStoreCampaignFromParams(
+  searchParams: Awaited<SearchParams>,
+): IosAppStoreCampaign {
+  return resolveIosAppStoreCampaign({
+    campaign: readFirstParam(searchParams, "utm_campaign"),
+    medium: readFirstParam(searchParams, "utm_medium"),
+    placement: readFirstParam(searchParams, "placement"),
+    source: readFirstParam(searchParams, "utm_source"),
+    surface: readFirstParam(searchParams, "surface"),
+  });
+}
+
 function androidDestination(searchParams: Awaited<SearchParams>): {
   type: string;
   url: string;
@@ -105,7 +119,10 @@ export default async function AppHandoffPage({
   const handoffId = resolveHandoffId(sp);
 
   if (platform === "ios") {
-    const destinationUrl = iosAppStoreUrlWithCampaign(campaignFromParams(sp));
+    const destinationUrl = iosAppStoreUrlWithCampaign(
+      appStoreCampaignFromParams(sp),
+      process.env.IOS_APP_STORE_PROVIDER_TOKEN,
+    );
     await logAppHandoffLinkOpenedServer({
       sessionId: handoffId,
       metadata: buildHandoffMetadata(sp, handoffId, "ios", {
@@ -137,7 +154,9 @@ export default async function AppHandoffPage({
       />
       <noscript>
         <p>
-          <a href={IOS_APP_STORE_URL}>Download Quiver on the App Store</a>
+          <a href={IOS_APP_STORE_WEB_REDIRECT_PATH}>
+            Download Quiver on the App Store
+          </a>
           {" · "}
           <a href={buildAndroidBetaHandoffPath({})}>Get the Android beta</a>
         </p>
