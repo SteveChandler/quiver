@@ -55,7 +55,13 @@ export interface HourlySwellTimeline {
   nextStart: string | null;
 }
 
-type ConditionSummary = "GOOD" | "FAIR" | "CHECK" | "UNKNOWN";
+export type ConditionSummary =
+  | "EPIC"
+  | "GOOD"
+  | "FAIR"
+  | "RIDEABLE"
+  | "MEH"
+  | "UNKNOWN";
 
 const emptyBulkForecastResponse = {
   forecasts: {},
@@ -127,17 +133,19 @@ type HourlyTimelineWindowParseResult =
  *     },
  *     isCalibrated: { [beachId]: boolean },
  *     conditionScores: { [beachId]: number | undefined },
- *     conditionSummaries: { [beachId]: "GOOD" | "FAIR" | "CHECK" | "UNKNOWN" }
+ *     conditionSummaries: {
+ *       [beachId]: "EPIC" | "GOOD" | "FAIR" | "RIDEABLE" | "MEH" | "UNKNOWN"
+ *     }
  *   }
  * }
  */
-function conditionSummaryFromScore(score: number): ConditionSummary {
-  // Web map v1 derives native-aligned summaries from the current-row score.
-  // Native currently maps from the final verdict in surf-spot-map-summary.ts.
-  // TODO(map parity): expose verdicts here so window demotions can't diverge.
+export function conditionSummaryFromScore(score: number): ConditionSummary {
+  if (!Number.isFinite(score)) return "UNKNOWN";
+  if (score >= 80) return "EPIC";
   if (score >= 70) return "GOOD";
-  if (score >= 40) return "FAIR";
-  return "CHECK";
+  if (score >= 55) return "FAIR";
+  if (score >= 40) return "RIDEABLE";
+  return "MEH";
 }
 
 function buildBulkCandidateBindings(

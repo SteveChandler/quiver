@@ -13,7 +13,7 @@ import {
 
 describe("email-formatters", () => {
   describe("getConditionLabel", () => {
-    describe("EPIC tier (score >= 85)", () => {
+    describe("EPIC tier (score >= 80)", () => {
       it("returns EPIC label for score 100", () => {
         const result = getConditionLabel(100);
 
@@ -21,8 +21,8 @@ describe("email-formatters", () => {
         expect(result.color).toBe("#00D4AA");
       });
 
-      it("returns EPIC label at the 85 boundary", () => {
-        expect(getConditionLabel(85).label).toBe("EPIC");
+      it("returns EPIC label at the 80 boundary", () => {
+        expect(getConditionLabel(80).label).toBe("EPIC");
       });
 
       it("treats scores above 100 as EPIC", () => {
@@ -33,9 +33,9 @@ describe("email-formatters", () => {
       });
     });
 
-    describe("GOOD tier (70 <= score < 85)", () => {
-      it("returns GOOD label for score 80", () => {
-        const result = getConditionLabel(80);
+    describe("GOOD tier (70 <= score < 80)", () => {
+      it("returns GOOD label for score 75", () => {
+        const result = getConditionLabel(75);
 
         expect(result.label).toBe("GOOD");
         expect(result.color).toBe("#1D9E75");
@@ -45,8 +45,8 @@ describe("email-formatters", () => {
         expect(getConditionLabel(70).label).toBe("GOOD");
       });
 
-      it("returns GOOD label just below 85", () => {
-        expect(getConditionLabel(84).label).toBe("GOOD");
+      it("returns GOOD label just below 80", () => {
+        expect(getConditionLabel(79).label).toBe("GOOD");
       });
     });
 
@@ -99,7 +99,7 @@ describe("email-formatters", () => {
 
     describe("Brand voice", () => {
       it("uses brand-vocabulary labels in descending order with no emoji", () => {
-        const labels = [100, 80, 60, 45, 10].map(
+        const labels = [100, 79, 60, 45, 10].map(
           (score) => getConditionLabel(score).label
         );
 
@@ -112,8 +112,8 @@ describe("email-formatters", () => {
 
     describe("Fractional scores", () => {
       it("handles fractional scores at the EPIC boundary", () => {
-        expect(getConditionLabel(84.9).label).toBe("GOOD");
-        expect(getConditionLabel(85.1).label).toBe("EPIC");
+        expect(getConditionLabel(79.9).label).toBe("GOOD");
+        expect(getConditionLabel(80.1).label).toBe("EPIC");
       });
     });
   });

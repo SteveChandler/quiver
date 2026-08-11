@@ -33,7 +33,7 @@ interface BulkForecastResponse {
   waterTemps: Record<string, string | undefined>;
   isCalibrated: Record<string, boolean>;
   conditionScores: Record<string, number | undefined>;
-  conditionSummaries: Record<string, "GOOD" | "FAIR" | "CHECK" | "UNKNOWN">;
+  conditionSummaries: Record<string, "EPIC" | "GOOD" | "FAIR" | "RIDEABLE" | "MEH" | "UNKNOWN">;
   swellPartitions: Record<string, unknown>;
   swellPartitionTimeline: Record<string, unknown[]>;
   hourlySwellTimeline?: {
@@ -1580,8 +1580,8 @@ describe("/api/forecasts/bulk", () => {
     });
     expect(data.data.conditionSummaries).toEqual({
       [BOUND_BEACH_ID]: "GOOD",
-      [BOUND_BEACH_ID_TWO]: "FAIR",
-      [BOUND_BEACH_ID_THREE]: "CHECK",
+      [BOUND_BEACH_ID_TWO]: "RIDEABLE",
+      [BOUND_BEACH_ID_THREE]: "MEH",
       [BOUND_BEACH_ID_FOUR]: "UNKNOWN",
     });
   });

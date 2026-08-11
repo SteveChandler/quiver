@@ -963,7 +963,7 @@ export function mockEmailFormatters() {
       return `${displayHour}:${minutes} ${ampm}`;
     }),
     getConditionLabel: jest.fn((score: number) => {
-      if (score >= 85) return { label: "EPIC", color: "#00D4AA" };
+      if (score >= 80) return { label: "EPIC", color: "#00D4AA" };
       if (score >= 70) return { label: "GOOD", color: "#1D9E75" };
       if (score >= 55) return { label: "FAIR", color: "#FDB84B" };
       if (score >= 40) return { label: "RIDEABLE", color: "#888780" };

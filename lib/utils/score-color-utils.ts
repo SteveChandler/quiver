@@ -26,16 +26,16 @@ export interface ScoreColorConfig {
  * Score thresholds for quality categories
  *
  * 80-100: EPIC conditions
- * 60-79: GOOD conditions
- * 40-59: FAIR conditions
- * 30-39: RIDEABLE conditions
- * 0-29: MEH conditions
+ * 70-79: GOOD conditions
+ * 55-69: FAIR conditions
+ * 40-54: RIDEABLE conditions
+ * 0-39: MEH conditions
  */
 export const SCORE_THRESHOLDS = {
   EPIC: 80,
-  GOOD: 60,
-  FAIR: 40,
-  RIDEABLE: 30,
+  GOOD: 70,
+  FAIR: 55,
+  RIDEABLE: 40,
   MEH: 0,
   /** @deprecated Use MEH for the native-aligned score vocabulary. */
   POOR: 0,
@@ -158,7 +158,7 @@ export const QUALITY_CONFIG = {
  * @example
  * ```typescript
  * const config = getQualityConfig(75);
- * // Returns: { label: "GOOD", minScore: 60, badgeClass: "...", textClass: "..." }
+ * // Returns: { label: "GOOD", minScore: 70, badgeClass: "...", textClass: "..." }
  * ```
  */
 export function getQualityConfig(score: number) {

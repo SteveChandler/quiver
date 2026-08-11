@@ -21,7 +21,10 @@ interface ForecastsBulkResponse {
   waterTemps: Record<string, string | undefined>;
   isCalibrated: Record<string, boolean>;
   conditionScores: Record<string, number | undefined>;
-  conditionSummaries: Record<string, "GOOD" | "FAIR" | "CHECK" | "UNKNOWN">;
+  conditionSummaries: Record<
+    string,
+    "EPIC" | "GOOD" | "FAIR" | "RIDEABLE" | "MEH" | "UNKNOWN"
+  >;
   swellPartitions: Record<string, unknown>;
   swellPartitionTimeline: Record<string, unknown[]>;
   recommendationAvailability: {
@@ -212,7 +215,24 @@ jest.mock("@/lib/services/discovery/window-selector/window-scorer", () => ({
   scoreWindowConditionScore: jest.fn(() => 72),
 }));
 
-const { GET } = require("@/app/api/forecasts/bulk/route");
+const { GET, conditionSummaryFromScore } = require("@/app/api/forecasts/bulk/route");
+
+describe("conditionSummaryFromScore", () => {
+  it.each([
+    [80, "EPIC"],
+    [79.9, "GOOD"],
+    [70, "GOOD"],
+    [69.9, "FAIR"],
+    [55, "FAIR"],
+    [54.9, "RIDEABLE"],
+    [40, "RIDEABLE"],
+    [39.9, "MEH"],
+    [0, "MEH"],
+    [Number.NaN, "UNKNOWN"],
+  ])("maps score %s to %s", (score: number, summary: string) => {
+    expect(conditionSummaryFromScore(score)).toBe(summary);
+  });
+});
 
 function forecastRow(
   beachId: string,

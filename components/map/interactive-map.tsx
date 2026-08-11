@@ -405,9 +405,11 @@ const CONDITION_LEGEND_ITEMS: Array<{
   label: ConditionSummary;
   display: string;
 }> = [
-  { label: "GOOD", display: "Worth it" },
-  { label: "FAIR", display: "Maybe" },
-  { label: "CHECK", display: "Scout it" },
+  { label: "EPIC", display: "Go now!" },
+  { label: "GOOD", display: "Go surf!" },
+  { label: "FAIR", display: "Worth a look" },
+  { label: "RIDEABLE", display: "Slim pickings" },
+  { label: "MEH", display: "Skip it" },
   { label: "UNKNOWN", display: "No read" },
 ];
 
