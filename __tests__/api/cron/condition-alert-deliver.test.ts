@@ -17,9 +17,9 @@ if (typeof (globalThis as any).Response?.json !== "function") {
  * Unit tests for condition-alert-deliver cron worker hardening (Task 4).
  *
  * Verifies:
- * - ALERTS_DELIVERY_ENABLED=false short-circuits providers and writes one
+ * - FORECAST_ALERT_DELIVERY_ENABLED=false reaches the send boundary and writes one
  *   alert_delivery_attempts row per (queue_id, channel) with status
- *   "skipped_disabled" — but still marks queue rows sent.
+ *   "shadow_withheld" — but still marks queue rows sent.
  * - ALERTS_DELIVERY_USER_ALLOWLIST set + user not in list writes
  *   "skipped_allowlist" attempt rows and skips providers.
  * - Healthy state with empty allowlist + ENABLED=true writes a "sent"
@@ -33,6 +33,7 @@ if (typeof (globalThis as any).Response?.json !== "function") {
 import { GET } from "@/app/api/cron/condition-alert-deliver/route";
 import { ConsolidatedAlertEmail } from "@/lib/mailer/templates/ConsolidatedAlertEmail";
 import { buildCanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import { readFileSync } from "fs";
 
 // ---- Mock API wrappers ----
@@ -110,6 +111,7 @@ type SeededAttemptRow = {
   user_id: string;
   channel: string;
   status: string;
+  skip_reason?: string | null;
   attempted_at: string; // ISO
 };
 type DeliveryRow = {
@@ -257,7 +259,9 @@ function mockFrom(table: string) {
       if (store.recentAttemptsError) return [];
       const f = chain._filters;
       return store.seededAttempts.filter((a) => {
+        if (f.queue_id?.in && !f.queue_id.in.includes(a.queue_id)) return false;
         if (f.status != null && a.status !== f.status) return false;
+        if (f.skip_reason != null && a.skip_reason !== f.skip_reason) return false;
         if (f.attempted_at__gte != null && a.attempted_at < f.attempted_at__gte) return false;
         return true;
       });
@@ -268,7 +272,9 @@ function mockFrom(table: string) {
           ? null
           : store.seededAttempts.filter((a) => {
               const f = chain._filters;
+              if (f.queue_id?.in && !f.queue_id.in.includes(a.queue_id)) return false;
               if (f.status != null && a.status !== f.status) return false;
+              if (f.skip_reason != null && a.skip_reason !== f.skip_reason) return false;
               if (f.attempted_at__gte != null && a.attempted_at < f.attempted_at__gte) return false;
               return true;
             }),
@@ -316,7 +322,12 @@ function seedQueueRow(overrides: Partial<any> = {}) {
     best_score: 0.8,
     conditions_snapshot: { wave_height: 3 },
     sent: false,
-    alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
+    alert_rules: {
+      name: "Test rule",
+      preset_type: "mellow_session",
+      notify_email: true,
+      notify_push: true,
+    },
     beaches: {
       name: "Test Beach",
       timezone: "America/Los_Angeles",
@@ -343,6 +354,40 @@ function makeRequest(): Request {
     method: "GET",
     headers: { authorization: "Bearer dummy" },
   });
+}
+
+function expectQueueReasonTotals(body: {
+  queueMarked: number;
+  queue_marked_by_reason: Record<string, number>;
+}): void {
+  expect(Object.keys(body.queue_marked_by_reason).sort()).toEqual(
+    [
+      "delivered",
+      "stale",
+      "major_event_hold",
+      "canonical_safety_rejected",
+      "shadow_withheld",
+      "delivery_disabled",
+      "allowlist_excluded",
+      "cooldown",
+      "user_cap",
+      "channel_disabled",
+      "missing_destination",
+      "deduplicated",
+      "no_enabled_channels",
+      "mixed_deliberate_skip",
+      "orphaned_profile",
+      "failed_delivery",
+      "invalid_payload",
+      "unrecorded_consumption",
+      "hold_state_unavailable_retry_exhausted",
+    ].sort(),
+  );
+  const reasonTotal = Object.values(body.queue_marked_by_reason).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
+  expect(reasonTotal).toBe(body.queueMarked);
 }
 
 const ORIGINAL_ENV = { ...process.env };
@@ -376,6 +421,7 @@ beforeEach(() => {
     candidate: null,
   });
   delete process.env.ALERTS_DELIVERY_ENABLED;
+  process.env.FORECAST_ALERT_DELIVERY_ENABLED = "true";
   delete process.env.ALERTS_DELIVERY_USER_ALLOWLIST;
 });
 
@@ -396,10 +442,22 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(routeSource).toContain("@/lib/middleware/api-wrappers");
   });
 
-  it("ALERTS_DELIVERY_ENABLED=false writes skipped_disabled per channel and still marks queue sent", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "false";
+  it("routes every sent=true write through the reason-accounting helper", () => {
+    expect([...routeSource.matchAll(/\.update\(\{ sent: true \}\)/g)]).toHaveLength(1);
+    expect([...routeSource.matchAll(/result\.queueMarked \+=/g)]).toHaveLength(1);
+    expect(routeSource).toContain("async function markQueueItemsConsumed");
+  });
+
+  it("default-off forecast delivery records a canonical shadow outcome and consumes the row once without sending", async () => {
+    delete process.env.FORECAST_ALERT_DELIVERY_ENABLED;
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
+      best_score: 95,
+      alert_rules: {
+        name: "Test rule",
+        preset_type: "mellow_session",
+        notify_email: true,
+        notify_push: true,
+      },
     });
     seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
     store.deviceRows.push({ user_id: USER_A, device_token: "ExpoPushToken[abc]" });
@@ -409,19 +467,45 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
 
     expect(mockEmailsSend).not.toHaveBeenCalled();
     expect(mockSendPushNotifications).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockLogDelivery).not.toHaveBeenCalled();
+    expect(mockConsolidatedAlertEmail).not.toHaveBeenCalled();
     expect(store.deliveryInserts).toHaveLength(0);
+    expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledTimes(1);
 
     expect(store.attemptInserts).toHaveLength(2);
     const channels = store.attemptInserts.map((a) => a.channel).sort();
     expect(channels).toEqual(["email", "push"]);
     for (const a of store.attemptInserts) {
-      expect(a.status).toBe("skipped_disabled");
+      expect(a.status).toBe("shadow_withheld");
       expect(a.queue_id).toBe(QUEUE_1);
       expect(a.user_id).toBe(USER_A);
       expect(a.rule_id).toBe(RULE_1);
     }
 
+    const shadowUpdate = store.queueRefreshUpdates.find(
+      (update) => update.values.delivery_shadow_outcome,
+    );
+    expect(shadowUpdate).toEqual({
+      id: QUEUE_1,
+      values: {
+        delivery_shadow_outcome: {
+          status: "shadow_withheld",
+          verdict: "go",
+          reason_code: "selected_go",
+          preset_type: "mellow_session",
+          would_use_channels: ["email", "push"],
+        },
+      },
+    });
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      status: "ok",
+      queueMarked: 1,
+      queue_marked_by_reason: { shadow_withheld: 1 },
+    });
+    expectQueueReasonTotals(body);
   });
 
   it("Allowlist set, user not in list, ENABLED=true writes skipped_allowlist", async () => {
@@ -453,7 +537,8 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 
-  it("Empty allowlist, ENABLED=true, healthy email path writes one sent attempt + delivery row", async () => {
+  it("FORECAST_ALERT_DELIVERY_ENABLED=true restores email delivery", async () => {
+    process.env.FORECAST_ALERT_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
@@ -463,6 +548,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
 
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
+    const body = await res.json();
 
     expect(mockEmailsSend).toHaveBeenCalledTimes(1);
     expect(mockEmailsSend).toHaveBeenCalledWith(
@@ -508,15 +594,97 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     });
 
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    expect(body.queue_marked_by_reason).toMatchObject({
+      delivered: 1,
+      stale: 0,
+    });
+    expectQueueReasonTotals(body);
   });
 
-  it("immediately suppresses held or unresolved forecast email and push delivery", async () => {
-    process.env.ALERTS_DELIVERY_ENABLED = "true";
-    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+  it("sends a beginner user's forecast alert for an expert beach", async () => {
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
+      best_score: 95,
+      alert_rules: {
+        name: "Expert beach rule",
+        notify_email: true,
+        notify_push: true,
+      },
+      beaches: {
+        name: "Expert Beach",
+        timezone: "America/Los_Angeles",
+        skill_level: "expert",
+      },
     });
-    seedProfile();
+    seedProfile({
+      experience_level: "beginner",
+      notif_email_enabled: true,
+      notif_push_enabled: true,
+    });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification.mock.calls[0][0].payload.session_decision).toMatchObject({
+      verdict: "no",
+      reasonCode: "beach_skill_exceeds_user",
+      skillEligibility: {
+        skill: "beginner",
+        state: "ineligible",
+        reasonCodes: expect.arrayContaining(["beach_skill_exceeds_user"]),
+      },
+    });
+    expect(store.attemptInserts).toContainEqual(
+      expect.objectContaining({
+        queue_id: QUEUE_1,
+        channel: "email",
+        status: "sent",
+      }),
+    );
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+
+  it.each([
+    { verdict: "no", bestScore: 20 },
+    { verdict: "maybe", bestScore: 50 },
+  ])("sends when the canonical verdict is $verdict", async ({ verdict, bestScore }) => {
+    seedQueueRow({
+      best_score: bestScore,
+      alert_rules: {
+        name: "Matched user rule",
+        notify_email: true,
+        notify_push: true,
+      },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(
+      mockEnqueueNotification.mock.calls[0][0].payload.session_decision.verdict,
+    ).toBe(verdict);
+    expect(store.attemptInserts).toContainEqual(
+      expect.objectContaining({
+        queue_id: QUEUE_1,
+        channel: "email",
+        status: "sent",
+      }),
+    );
+  });
+
+  it("sends when major-event hold state is unavailable", async () => {
+    seedQueueRow({
+      alert_rules: {
+        name: "Matched user rule",
+        notify_email: true,
+        notify_push: false,
+      },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
     mockResolveNotificationMajorEventHold.mockResolvedValue({
       status: "suppressed",
       reasonCode: "hold_state_unavailable",
@@ -525,43 +693,95 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     });
 
     const res = await GET(makeRequest());
-    expect(res.status).toBe(200);
 
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(store.attemptInserts).toContainEqual(
+      expect.objectContaining({
+        queue_id: QUEUE_1,
+        channel: "email",
+        status: "sent",
+      }),
+    );
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+
+  it("consumes a real major-event hold as an explainable skip without degrading", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
+    });
+    seedProfile();
+    mockResolveNotificationMajorEventHold.mockResolvedValue({
+      status: "suppressed",
+      reasonCode: "major_event_hold",
+      auditCode: "major_event_hold",
+      candidate: null,
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({
+      status: "ok",
+      queueMarked: 1,
+      queue_marked_by_reason: { major_event_hold: 1 },
+    });
     expect(mockEmailsSend).not.toHaveBeenCalled();
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
-    expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledTimes(1);
-    for (const call of mockResolveNotificationMajorEventHold.mock.calls) {
-      expect(call[0]).toMatchObject({
-        type: "forecast_alert",
-        payload: {
-          beach_id: BEACH_1,
-          policy_context: {
-            kind: "positive_session_recommendation",
-            beach_id: BEACH_1,
-            starts_at: "2026-04-26T13:00:00Z",
-            ends_at: "2026-04-26T15:00:00Z",
-          },
-        },
-        profileExperience: "beginner",
-      });
-    }
     expect(store.attemptInserts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           queue_id: QUEUE_1,
           channel: "email",
           status: "skipped_disabled",
-          skip_reason: "major_event_hold:hold_state_unavailable",
+          skip_reason: "major_event_hold:major_event_hold",
         }),
         expect.objectContaining({
           queue_id: QUEUE_1,
           channel: "push",
           status: "skipped_disabled",
-          skip_reason: "major_event_hold:hold_state_unavailable",
+          skip_reason: "major_event_hold:major_event_hold",
         }),
-      ])
+      ]),
     );
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    expectQueueReasonTotals(body);
+  });
+
+  it("degrades when a provider failure is consumed without delivery or a deliberate skip", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+    mockEmailsSend.mockResolvedValue({
+      data: null,
+      error: { message: "provider unavailable" },
+    });
+
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const res = await GET(makeRequest());
+    consoleErrorSpy.mockRestore();
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body).toMatchObject({
+      status: "degraded",
+      queueMarked: 1,
+      queue_marked_by_reason: { failed_delivery: 1 },
+    });
+    expect(store.attemptInserts).toEqual([
+      expect.objectContaining({
+        queue_id: QUEUE_1,
+        status: "failed_provider",
+      }),
+    ]);
+    expectQueueReasonTotals(body);
+    expectConsoleWarnings([/degraded queue consumption/]);
   });
 
   it("counts email delivery-row insert failure after send without retrying the provider action", async () => {
@@ -596,7 +816,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 
-  it("sends only the canonical highest-ranked beach when multiple alerts qualify", async () => {
+  it("sends every matching forecast alert instead of selecting one canonical beach", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
@@ -627,13 +847,24 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
 
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
+    const body = await res.json();
 
-    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(2);
     expect(store.alertQueueSelects[0]).toContain("best_score");
-    expect(mockConsolidatedAlertEmail).toHaveBeenCalledTimes(1);
+    expect(mockConsolidatedAlertEmail).toHaveBeenCalledTimes(2);
     expect(
-      mockConsolidatedAlertEmail.mock.calls[0][0].matches[0].beach_name,
-    ).toBe("Higher Score Beach");
+      mockConsolidatedAlertEmail.mock.calls.map(
+        ([props]) => props.matches[0].beach_name,
+      ),
+    ).toEqual(["Lower Score Beach", "Higher Score Beach"]);
+    expect(body.queue_marked_by_reason).toMatchObject({
+      delivered: 2,
+    });
+    expect(store.queueUpdates.flatMap((update) => update.ids)).toEqual([
+      "00000000-0000-0000-0000-0000000000c2",
+      "00000000-0000-0000-0000-0000000000c3",
+    ]);
+    expectQueueReasonTotals(body);
   });
 
   it("email-only rule, profile.email is null → skipped_no_email, no Resend call, queue still marked sent", async () => {
@@ -665,6 +896,50 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       status: "skipped_no_email",
     });
 
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+
+  it("existing delivery dedupes a matched forecast alert", async () => {
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+    store.existingDeliveries.push({
+      user_id: USER_A,
+      alert_date: "2026-04-26",
+      channel: "email",
+      payload: {},
+    });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(store.deliveryInserts).toHaveLength(0);
+    expect(store.attemptInserts).toEqual([
+      expect.objectContaining({
+        queue_id: QUEUE_1,
+        channel: "email",
+        status: "skipped_dedup_collision",
+      }),
+    ]);
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+
+  it("a rule with no enabled channels does not deliver", async () => {
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: false, notify_push: false },
+    });
+    seedProfile();
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(store.attemptInserts).toHaveLength(0);
+    expect(body.queue_marked_by_reason.no_enabled_channels).toBe(1);
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 
@@ -716,6 +991,11 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     const body = await res.json();
 
     expect(body.skippedStale).toBe(1);
+    expect(body.status).toBe("ok");
+    expect(body.queue_marked_by_reason).toMatchObject({
+      stale: 1,
+      delivered: 0,
+    });
     expect(mockEmailsSend).not.toHaveBeenCalled();
     expect(store.deliveryInserts).toHaveLength(0);
     expect(store.attemptInserts).toEqual([
@@ -728,6 +1008,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       }),
     ]);
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    expectQueueReasonTotals(body);
   });
 
   it("persists refreshed alert fields and logs rendered match metadata before sending", async () => {
@@ -1013,6 +1294,44 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
     return n === 24 ? 0 : n;
   }
 
+  it("shadow mode consumes a quiet-hours row without degrading the run", async () => {
+    delete process.env.FORECAST_ALERT_DELIVERY_ENABLED;
+    const start = ptHourNow();
+    const end = (start + 1) % 24;
+    seedQueueRow({
+      alert_rules: {
+        name: "Test rule",
+        preset_type: "mellow_session",
+        notify_email: true,
+        notify_push: false,
+        conditions: { quiet_hours_start: start, quiet_hours_end: end },
+      },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({
+      status: "ok",
+      queueMarked: 1,
+      queue_marked_by_reason: { shadow_withheld: 1 },
+    });
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    expect(store.queueRefreshUpdates).toContainEqual({
+      id: QUEUE_1,
+      values: {
+        delivery_shadow_outcome: expect.objectContaining({
+          preset_type: "mellow_session",
+          would_use_channels: [],
+        }),
+      },
+    });
+    expectQueueReasonTotals(body);
+  });
+
   it("recipient inside quiet hours: email deferred, NOT sent/deduped/marked-sent", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
@@ -1173,7 +1492,10 @@ describe("condition-alert-deliver — orphaned queue rows", () => {
       expect.stringContaining("No profile found for user")
     );
     consoleWarnSpy.mockRestore();
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.queue_marked_by_reason.orphaned_profile).toBe(1);
+    expectQueueReasonTotals(body);
 
     expect(mockEmailsSend).not.toHaveBeenCalled();
     expect(mockSendPushNotifications).not.toHaveBeenCalled();
@@ -1332,7 +1654,7 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
       expect.objectContaining({ reason: "internal_error" })
     );
     consoleErrorSpy.mockRestore();
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(503);
 
     expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
     expect(store.deliveryInserts).toHaveLength(0);
@@ -1340,6 +1662,7 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
     const pushAttempt = store.attemptInserts.find((a) => a.channel === "push");
     expect(pushAttempt?.status).toBe("failed_internal");
     expect(pushAttempt?.skip_reason).toContain("internal_error");
+    expectConsoleWarnings([/degraded queue consumption/]);
   });
 
   it("does NOT enqueue when notif_push_enabled=false", async () => {
@@ -1450,7 +1773,12 @@ function seedSimilarityQueueRow(overrides: Partial<any> = {}) {
     sent: false,
     // notify_push/notify_email do NOT gate similarity — registry pref does.
     // We default false here to confirm the route bypasses the legacy flags.
-    alert_rules: { name: "Similarity match", notify_email: false, notify_push: false },
+    alert_rules: {
+      name: "Similarity match",
+      preset_type: "similarity_match",
+      notify_email: false,
+      notify_push: false,
+    },
     beaches: {
       name: "Ocean Beach SF",
       timezone: "America/Los_Angeles",
@@ -1572,6 +1900,43 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
       }),
     ]);
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_SIM], sent: true }]);
+  });
+
+  it("forecast delivery shadow mode withholds similarity enqueue and records its canonical outcome", async () => {
+    delete process.env.FORECAST_ALERT_DELIVERY_ENABLED;
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    seedSimilarityQueueRow();
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(store.deliveryInserts).toHaveLength(0);
+    expect(store.attemptInserts).toEqual([
+      expect.objectContaining({
+        queue_id: QUEUE_SIM,
+        channel: "push",
+        status: "shadow_withheld",
+      }),
+    ]);
+    expect(store.queueRefreshUpdates).toContainEqual({
+      id: QUEUE_SIM,
+      values: {
+        delivery_shadow_outcome: {
+          status: "shadow_withheld",
+          verdict: "go",
+          reason_code: "selected_go",
+          preset_type: "similarity_match",
+          would_use_channels: ["push"],
+        },
+      },
+    });
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_SIM], sent: true }]);
+    expect(body.queue_marked_by_reason.shadow_withheld).toBe(1);
+    expectQueueReasonTotals(body);
   });
 
   it("kill switch: ALERTS_DELIVERY_ENABLED=false records skipped_disabled and marks similarity queue sent without enqueueing", async () => {
@@ -1700,7 +2065,7 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
       expect.objectContaining({ reason: "invalid_payload" })
     );
     consoleErrorSpy.mockRestore();
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(503);
 
     const simAttempts = store.attemptInserts.filter((a) => a.queue_id === QUEUE_SIM);
     expect(simAttempts).toHaveLength(1);
@@ -1714,6 +2079,7 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
     // Permanent failure — queue marked sent so we don't loop on it.
     const allMarked = store.queueUpdates.flatMap((u) => u.ids);
     expect(allMarked).toContain(QUEUE_SIM);
+    expectConsoleWarnings([/degraded queue consumption/]);
   });
 
   it("fails a legacy similarity row without wave safety data closed", async () => {

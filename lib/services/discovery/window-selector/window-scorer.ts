@@ -175,9 +175,6 @@ export function scoreWindowConditionScore(
   return scoreNativeForecastSlot(forecast, resolvedSkillLevel);
 }
 
-/** @deprecated Use `scoreWindowConditionScore` for native-compatible display scoring. */
-export const scoreWindowWithEngine = scoreWindowConditionScore;
-
 /**
  * Score a forecast window for selector ranking, with a small board-aware
  * rideability nudge. The adjustment is intentionally kept out of

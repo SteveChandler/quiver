@@ -38,12 +38,11 @@ import {
 } from "@/lib/utils/beach-sub-page-crawl-copy";
 import { cityToSlug, regionToSlug } from "@/lib/utils/beach-url-utils";
 import { slugifyAscii } from "@/lib/utils/text-utils";
+import { applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import {
-  applyIndexabilityToMetadata,
-  evaluateBeachIndexability,
-  toBeachEditorialInput,
-  type BeachEditorialDatabaseRecord,
-} from "@/lib/seo/indexability";
+  getForecastIndexabilityForBeaches,
+  isBeachSubPageIndexable,
+} from "@/lib/seo/forecast-indexability";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -408,28 +407,30 @@ export async function generateBeachSubPageMetadata({
     // Fetch dynamic data for SEO based on page type
     let title: string;
     let description: string;
+    let tideMetaForIndexing: Awaited<ReturnType<typeof getTideMetaData>> | null = null;
+    let tempMetaForIndexing: Awaited<ReturnType<typeof getWaterTempMetaData>> | null = null;
 
     try {
       if (pageType === "tides") {
-        const tideMeta = await getTideMetaData(beach.id);
+        tideMetaForIndexing = await getTideMetaData(beach.id);
         const result = buildDynamicTideMetadata({
           beach,
           tideData: {
-            nextHighTime: tideMeta.nextHighTime,
-            nextLowTime: tideMeta.nextLowTime,
-            nextHighHeight: tideMeta.nextHighHeight,
-            nextLowHeight: tideMeta.nextLowHeight,
+            nextHighTime: tideMetaForIndexing.nextHighTime,
+            nextLowTime: tideMetaForIndexing.nextLowTime,
+            nextHighHeight: tideMetaForIndexing.nextHighHeight,
+            nextLowHeight: tideMetaForIndexing.nextLowHeight,
           },
         });
         title = result.title;
         description = result.description;
       } else {
-        const tempMeta = await getWaterTempMetaData(beach.id);
+        tempMetaForIndexing = await getWaterTempMetaData(beach.id);
         const result = buildDynamicWaterTempMetadata({
           beach,
           waterTempData: {
-            tempF: tempMeta.tempF,
-            wetsuitRec: tempMeta.wetsuitRec,
+            tempF: tempMetaForIndexing.tempF,
+            wetsuitRec: tempMetaForIndexing.wetsuitRec,
           },
         });
         title = result.title;
@@ -452,11 +453,25 @@ export async function generateBeachSubPageMetadata({
       image: `/api/og/beach?slug=${beachSlug}`,
     });
     const metadata = { ...meta, title: { absolute: title } };
-    const decision = evaluateBeachIndexability(
-      toBeachEditorialInput(beach as BeachEditorialDatabaseRecord),
+    const snapshots = await getForecastIndexabilityForBeaches([
+      { id: beach.id, timezone: beach.timezone ?? null },
+    ]);
+    const hasSubPageData =
+      pageType === "tides"
+        ? Boolean(
+            tideMetaForIndexing?.nextHighTime ||
+              tideMetaForIndexing?.nextLowTime,
+          )
+        : tempMetaForIndexing?.tempF != null;
+    const indexable = isBeachSubPageIndexable(
+      snapshots.get(beach.id),
       subPagePath,
+      { hasSubPageData },
     );
-    return applyIndexabilityToMetadata(metadata, decision);
+    return applyIndexabilityToMetadata(metadata, {
+      indexable,
+      reason: indexable ? "forecast-approved" : "forecast-missing",
+    });
   }
 
   const meta = buildPageMetadata({

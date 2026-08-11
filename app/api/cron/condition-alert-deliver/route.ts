@@ -2,20 +2,19 @@
 //
 // Delivery cron — runs hourly (`0 * * * *`).
 // Reads due items from alert_queue, consolidates per user, sends email + push.
-// Cadence relaxed from `*/15 * * * *` on 2026-05-02 alongside the
-// ALERTS_DELIVERY_ENABLED=true flip — initial-rollout latency budget is
+// Cadence relaxed from `*/15 * * * *` on 2026-05-02 — initial-rollout latency budget is
 // 60 min from evaluator → delivery, acceptable for surf condition alerts.
 // Re-tighten if user-volume or feedback warrants it.
 //
 // Hardened (Task 4) with:
-//   - ALERTS_DELIVERY_ENABLED kill switch (env var, default off)
+//   - FORECAST_ALERT_DELIVERY_ENABLED forecast send switch (default off)
+//   - ALERTS_DELIVERY_ENABLED legacy similarity-alert send switch
 //   - ALERTS_DELIVERY_USER_ALLOWLIST (comma-separated user_ids; empty = all)
 //   - Per-(queue_id, channel) row in `alert_delivery_attempts` for every
 //     decision (sent, skipped_*, failed_*).
 //
-// The kill-switch path STILL marks queue rows sent so the queue can't grow
-// unboundedly while delivery is paused. Throttle (cooldown + cap) lands in
-// Task 5.
+// Forecast shadow mode runs hold, canonical, and channel checks, records the
+// outcome, and consumes queue rows without calling an outbound provider.
 
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
@@ -52,11 +51,11 @@ import {
 } from "@/lib/alerts/revalidate-alert-window";
 import type { AlertConditions } from "@/lib/alerts/types";
 import type { MatchingWindow } from "@/lib/alerts/types";
+import { isForecastAlertDeliveryEnabled } from "@/lib/flags/forecast-alert-delivery";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import {
   resolveNotificationMajorEventHold,
-  type NotificationMajorEventHoldResult,
   type PositiveRecommendationPolicyContext,
 } from "@/lib/recommendations/major-event-hold/adapters/notification";
 import {
@@ -72,15 +71,65 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 const CONTEXT_TAG = "[condition-alert-deliver]";
+const HOLD_STATE_UNAVAILABLE_MAX_ATTEMPTS = 3;
+
+const QUEUE_MARK_REASONS = [
+  "delivered",
+  "stale",
+  "major_event_hold",
+  "canonical_safety_rejected",
+  "shadow_withheld",
+  "delivery_disabled",
+  "allowlist_excluded",
+  "cooldown",
+  "user_cap",
+  "channel_disabled",
+  "missing_destination",
+  "deduplicated",
+  "no_enabled_channels",
+  "mixed_deliberate_skip",
+  "orphaned_profile",
+  "failed_delivery",
+  "invalid_payload",
+  "unrecorded_consumption",
+  "hold_state_unavailable_retry_exhausted",
+] as const;
+
+type QueueMarkReason = (typeof QUEUE_MARK_REASONS)[number];
+
+type RecordedAttempt = {
+  channel: Channel;
+  status: AttemptStatus;
+  skipReason: string | null;
+};
+
+type ForecastAlertShadowOutcome = {
+  status: "shadow_withheld";
+  verdict: CanonicalSessionDecision["verdict"];
+  reason_code: CanonicalSessionDecision["reasonCode"];
+  preset_type: string | null;
+  would_use_channels: Channel[];
+};
+
+function createQueueMarkedByReason(): Record<QueueMarkReason, number> {
+  return Object.fromEntries(
+    QUEUE_MARK_REASONS.map((reason) => [reason, 0]),
+  ) as Record<QueueMarkReason, number>;
+}
+
+const DEGRADED_QUEUE_MARK_REASONS = new Set<QueueMarkReason>([
+  "orphaned_profile",
+  "failed_delivery",
+  "invalid_payload",
+  "unrecorded_consumption",
+  "hold_state_unavailable_retry_exhausted",
+]);
 
 type Channel = "email" | "push";
-type SuppressedNotificationHold = Extract<
-  NotificationMajorEventHoldResult,
-  { status: "suppressed" }
->;
 
 type RuleEmbed = {
   name: string;
+  preset_type: string | null;
   notify_email: boolean;
   notify_push: boolean;
   conditions?: AlertConditions | null;
@@ -302,35 +351,6 @@ function policyContextForMatch(
   };
 }
 
-async function resolveHoldForForecastMatches(args: {
-  eventIdPrefix: string;
-  payload: Record<string, unknown>;
-  matches: MatchingWindow[];
-  profileExperience: unknown;
-}): Promise<SuppressedNotificationHold | null> {
-  const basePayload = { ...args.payload };
-  delete basePayload.policy_context;
-  delete basePayload.matches;
-
-  for (const match of args.matches) {
-    const policyContext = policyContextForMatch(match);
-    const resolution = await resolveNotificationMajorEventHold({
-      eventId: `${args.eventIdPrefix}:${match.rule_id}:${match.window_start}`,
-      type: "forecast_alert",
-      payload: {
-        ...basePayload,
-        beach_id: match.beach_id,
-        forecast_at: match.best_hour || match.window_start,
-        ...(policyContext ? { policy_context: policyContext } : {}),
-      },
-      profileExperience: args.profileExperience,
-    });
-    if (resolution.status === "suppressed") return resolution;
-  }
-
-  return null;
-}
-
 export async function GET(request: Request): Promise<NextResponse> {
   if (!validateCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -339,7 +359,9 @@ export async function GET(request: Request): Promise<NextResponse> {
   const supabase = await createSupabaseServiceRoleClient();
 
   // Env-driven gates. Default OFF for safety; staged rollout via allowlist.
-  const deliveryEnabled = process.env.ALERTS_DELIVERY_ENABLED === "true";
+  const forecastDeliveryEnabled = isForecastAlertDeliveryEnabled();
+  const similarityDeliveryEnabled =
+    process.env.ALERTS_DELIVERY_ENABLED === "true";
   const allowlistRaw = process.env.ALERTS_DELIVERY_USER_ALLOWLIST ?? "";
   const allowlist = new Set(
     allowlistRaw
@@ -347,6 +369,10 @@ export async function GET(request: Request): Promise<NextResponse> {
       .map((s) => s.trim())
       .filter(Boolean)
   );
+  const recordedAttemptsByQueue = new Map<string, RecordedAttempt[]>();
+  const deliveryAcceptedQueueIds = new Set<string>();
+  const previousUnresolvedHoldRunsByQueue = new Map<string, number>();
+  const shadowOutcomesByQueue = new Map<string, ForecastAlertShadowOutcome>();
 
   async function recordAttempt(args: {
     queueId: string;
@@ -366,6 +392,43 @@ export async function GET(request: Request): Promise<NextResponse> {
     });
     if (error) {
       console.error(`${CONTEXT_TAG} attempt-write-failed:`, error.message, args);
+      return;
+    }
+    const attempts = recordedAttemptsByQueue.get(args.queueId) ?? [];
+    attempts.push({
+      channel: args.channel,
+      status: args.status,
+      skipReason: args.skipReason ?? null,
+    });
+    recordedAttemptsByQueue.set(args.queueId, attempts);
+  }
+
+  async function persistShadowOutcome(
+    item: QueueItemWithMeta,
+  ): Promise<void> {
+    const outcome = shadowOutcomesByQueue.get(item.id);
+    if (!outcome) {
+      throw new Error(`missing shadow outcome for queue row ${item.id}`);
+    }
+
+    const { error } = await (supabase.from("alert_queue") as any)
+      .update({ delivery_shadow_outcome: outcome })
+      .eq("id", item.id);
+    if (error) {
+      throw new Error(
+        `failed to persist shadow outcome for alert_queue row ${item.id}: ${error.message}`,
+      );
+    }
+  }
+
+  function addShadowChannel(
+    items: QueueItemWithMeta[],
+    channel: Channel,
+  ): void {
+    for (const item of items) {
+      const outcome = shadowOutcomesByQueue.get(item.id);
+      if (!outcome || outcome.would_use_channels.includes(channel)) continue;
+      outcome.would_use_channels.push(channel);
     }
   }
 
@@ -438,17 +501,174 @@ export async function GET(request: Request): Promise<NextResponse> {
       "/api/cron/condition-alert-deliver",
       async () => {
         const result = {
+          status: "ok" as "ok" | "degraded",
           processed: 0,
           emailSent: 0,
           pushSent: 0,
           queueMarked: 0,
+          queue_marked_by_reason: createQueueMarkedByReason(),
           skippedStale: 0,
+          holdStateUnavailableDeferred: 0,
           // Email items deferred because the recipient is inside their
           // quiet-hours window. These rows stay due+unsent so a later hourly
           // run re-evaluates and sends once they're out of quiet hours.
           emailQuietHoursSkipped: 0,
           errors: 0,
         };
+
+        async function markQueueItemsConsumed(
+          queueItems: QueueItemWithMeta[],
+          reason: QueueMarkReason,
+        ): Promise<boolean> {
+          if (queueItems.length === 0) return true;
+
+          const queueIds = queueItems.map((item) => item.id);
+          const { error } = await supabase
+            .from("alert_queue")
+            .update({ sent: true })
+            .in("id", queueIds);
+          if (error) {
+            console.error(`${CONTEXT_TAG} Failed to mark queue items consumed`, {
+              reason,
+              queue_ids: queueIds,
+              error: error.message,
+            });
+            result.errors++;
+            return false;
+          }
+
+          result.queueMarked += queueItems.length;
+          result.queue_marked_by_reason[reason] += queueItems.length;
+          for (const item of queueItems) {
+            console.log(`${CONTEXT_TAG} queue-consumed`, {
+              reason,
+              queue_id: item.id,
+              rule_id: item.rule_id,
+              user_id: item.user_id,
+            });
+          }
+          return true;
+        }
+
+        async function markQueueItemsByReason(
+          itemsByReason: Map<QueueMarkReason, QueueItemWithMeta[]>,
+        ): Promise<void> {
+          for (const [reason, queueItems] of itemsByReason) {
+            await markQueueItemsConsumed(queueItems, reason);
+          }
+        }
+
+        function addItemReason(
+          itemsByReason: Map<QueueMarkReason, QueueItemWithMeta[]>,
+          reason: QueueMarkReason,
+          item: QueueItemWithMeta,
+        ): void {
+          const queueItems = itemsByReason.get(reason) ?? [];
+          queueItems.push(item);
+          itemsByReason.set(reason, queueItems);
+        }
+
+        function unresolvedHoldDisposition(
+          item: QueueItemWithMeta,
+        ): QueueMarkReason | null {
+          const enabled = enabledChannels(item);
+          if (enabled.length === 0) return "no_enabled_channels";
+
+          const recordedUnresolved = (recordedAttemptsByQueue.get(item.id) ?? [])
+            .filter(
+              (attempt) =>
+                attempt.skipReason === "major_event_hold:hold_state_unavailable",
+            );
+          if (recordedUnresolved.length === 0) {
+            return "unrecorded_consumption";
+          }
+
+          const attemptNumber =
+            (previousUnresolvedHoldRunsByQueue.get(item.id) ?? 0) + 1;
+          if (attemptNumber >= HOLD_STATE_UNAVAILABLE_MAX_ATTEMPTS) {
+            return "hold_state_unavailable_retry_exhausted";
+          }
+
+          result.holdStateUnavailableDeferred++;
+          console.warn(`${CONTEXT_TAG} queue-retained-for-unresolved-hold`, {
+            queue_id: item.id,
+            rule_id: item.rule_id,
+            user_id: item.user_id,
+            attempt: attemptNumber,
+            max_attempts: HOLD_STATE_UNAVAILABLE_MAX_ATTEMPTS,
+          });
+          return null;
+        }
+
+        function reasonForProcessedForecastItem(
+          item: QueueItemWithMeta,
+        ): QueueMarkReason | null {
+          if (deliveryAcceptedQueueIds.has(item.id)) return "delivered";
+          if (enabledChannels(item).length === 0) return "no_enabled_channels";
+          if (shadowOutcomesByQueue.has(item.id)) return "shadow_withheld";
+
+          const attempts = recordedAttemptsByQueue.get(item.id) ?? [];
+          if (attempts.length === 0) return "unrecorded_consumption";
+          if (attempts.some((attempt) => attempt.status === "shadow_withheld")) {
+            return "shadow_withheld";
+          }
+          if (attempts.some((attempt) => attempt.status === "sent")) {
+            return "delivered";
+          }
+          if (
+            attempts.some(
+              (attempt) =>
+                attempt.skipReason === "major_event_hold:hold_state_unavailable",
+            )
+          ) {
+            return unresolvedHoldDisposition(item);
+          }
+          if (
+            attempts.some(
+              (attempt) =>
+                attempt.status === "failed_provider" ||
+                attempt.status === "failed_internal",
+            )
+          ) {
+            return "failed_delivery";
+          }
+
+          const deliberateReasons = new Set<QueueMarkReason>();
+          for (const attempt of attempts) {
+            if (attempt.status === "skipped_allowlist") {
+              deliberateReasons.add("allowlist_excluded");
+            } else if (attempt.status === "skipped_cooldown") {
+              deliberateReasons.add("cooldown");
+            } else if (attempt.status === "skipped_user_cap") {
+              deliberateReasons.add("user_cap");
+            } else if (attempt.status === "skipped_channel_disabled") {
+              deliberateReasons.add("channel_disabled");
+            } else if (
+              attempt.status === "skipped_no_email" ||
+              attempt.status === "skipped_no_device"
+            ) {
+              deliberateReasons.add("missing_destination");
+            } else if (attempt.status === "skipped_dedup_collision") {
+              deliberateReasons.add("deduplicated");
+            } else if (
+              attempt.status === "skipped_disabled" &&
+              attempt.skipReason === "ALERTS_DELIVERY_ENABLED=false"
+            ) {
+              deliberateReasons.add("delivery_disabled");
+            } else if (
+              attempt.status === "skipped_disabled" &&
+              attempt.skipReason === "major_event_hold:major_event_hold"
+            ) {
+              deliberateReasons.add("major_event_hold");
+            }
+          }
+
+          if (deliberateReasons.size === 1) {
+            return [...deliberateReasons][0];
+          }
+          if (deliberateReasons.size > 1) return "mixed_deliberate_skip";
+          return "unrecorded_consumption";
+        }
 
         // 1. Fetch due, unsent queue items with rule + beach embeddings.
         //    Profiles are fetched in a separate query because `alert_queue.user_id`
@@ -460,7 +680,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           .select(`
             id, user_id, rule_id, beach_id, alert_date, send_at,
             window_start, window_end, best_hour, best_score, conditions_snapshot, sent,
-            alert_rules!inner(name, notify_email, notify_push, conditions),
+            alert_rules!inner(name, preset_type, notify_email, notify_push, conditions),
             beaches!inner(
               id, name, slug, timezone, lat, lon,
               wind_offshore_deg, wind_offshore_tol_deg, aspect_deg,
@@ -482,6 +702,37 @@ export async function GET(request: Request): Promise<NextResponse> {
 
         console.log(`${CONTEXT_TAG} Found ${queueRows.length} due queue items`);
 
+        const { data: unresolvedHoldAttemptsRaw, error: unresolvedHoldAttemptsError } =
+          await supabase
+            .from("alert_delivery_attempts")
+            .select("queue_id, channel")
+            .in(
+              "queue_id",
+              queueRows.map((row) => row.id),
+            )
+            .eq("status", "skipped_disabled")
+            .eq("skip_reason", "major_event_hold:hold_state_unavailable");
+        if (unresolvedHoldAttemptsError) throw unresolvedHoldAttemptsError;
+
+        const unresolvedCountsByQueueChannel = new Map<string, number>();
+        for (const attempt of (unresolvedHoldAttemptsRaw ?? []) as Array<{
+          queue_id: string;
+          channel: string;
+        }>) {
+          const key = `${attempt.queue_id}:${attempt.channel}`;
+          unresolvedCountsByQueueChannel.set(
+            key,
+            (unresolvedCountsByQueueChannel.get(key) ?? 0) + 1,
+          );
+        }
+        for (const row of queueRows) {
+          const priorRuns = Math.max(
+            unresolvedCountsByQueueChannel.get(`${row.id}:email`) ?? 0,
+            unresolvedCountsByQueueChannel.get(`${row.id}:push`) ?? 0,
+          );
+          previousUnresolvedHoldRunsByQueue.set(row.id, priorRuns);
+        }
+
         // 2. Reshape into flat QueueItemWithMeta (consolidateQueueItems expects this shape)
         const allItems: QueueItemWithMeta[] = queueRows.map((row) => {
           const rule = row.alert_rules as unknown as RuleEmbed;
@@ -499,6 +750,7 @@ export async function GET(request: Request): Promise<NextResponse> {
             conditions_snapshot: (row.conditions_snapshot ?? {}) as Record<string, unknown>,
             sent: row.sent,
             rule_name: rule.name,
+            preset_type: rule.preset_type,
             beach_name: beach.name,
             beach_slug: beach.slug ?? null,
             beach_skill_level: beach.skill_level ?? null,
@@ -550,18 +802,8 @@ export async function GET(request: Request): Promise<NextResponse> {
               });
             }
           }
-          const staleQueueIds = staleItems.map((i) => i.id);
-          const { error: staleMarkError } = await supabase
-            .from("alert_queue")
-            .update({ sent: true })
-            .in("id", staleQueueIds);
-          if (staleMarkError) {
-            console.error(`${CONTEXT_TAG} Failed to mark stale queue items sent:`, staleMarkError);
-            result.errors++;
-          } else {
-            result.queueMarked += staleQueueIds.length;
-            result.skippedStale += staleQueueIds.length;
-          }
+          const marked = await markQueueItemsConsumed(staleItems, "stale");
+          if (marked) result.skippedStale += staleItems.length;
         }
 
         // 3. Fetch profile data for the queue's user set in a single query.
@@ -611,10 +853,10 @@ export async function GET(request: Request): Promise<NextResponse> {
           attempted_at: new Date(r.attempted_at),
         }));
 
-        // 4. Resolve one authoritative alert session per user across every
-        // beach/rule candidate. Candidates must first pass the P0-A boundary;
-        // only the exact canonical selection can reach email or push.
-        const canonicalItems: QueueItemWithMeta[] = [];
+        // 4. Resolve active operator holds and record the canonical decision
+        // for shadow observability. The user's matched rules remain the
+        // delivery candidates regardless of verdict or skill eligibility.
+        const deliverableItems: QueueItemWithMeta[] = [];
         const itemsByUser = new Map<string, QueueItemWithMeta[]>();
         for (const item of items) {
           const userItems = itemsByUser.get(item.user_id) ?? [];
@@ -625,14 +867,13 @@ export async function GET(request: Request): Promise<NextResponse> {
         for (const [userId, userItems] of itemsByUser) {
           const profile = profilesByUser.get(userId);
           if (!profile) {
-            canonicalItems.push(...userItems);
+            deliverableItems.push(...userItems);
             continue;
           }
           const userMatches = consolidateQueueItems(userItems).flatMap(
             (candidatePayload) => candidatePayload.matches,
           );
-          const allowedMatches: MatchingWindow[] = [];
-          let holdSuppressionReason: string | null = null;
+          const heldCandidateIds = new Set<string>();
           for (const match of userMatches) {
             const policyContext = policyContextForMatch(match);
             const resolution = await resolveNotificationMajorEventHold({
@@ -645,34 +886,39 @@ export async function GET(request: Request): Promise<NextResponse> {
               },
               profileExperience: profile.experience_level,
             });
-            if (resolution.status === "allowed") {
-              allowedMatches.push(match);
-            } else if (resolution.status === "suppressed") {
-              holdSuppressionReason = `${resolution.auditCode}:${resolution.reasonCode}`;
+            if (
+              resolution.status === "suppressed" &&
+              resolution.reasonCode === "major_event_hold"
+            ) {
+              heldCandidateIds.add(canonicalAlertCandidateId(match));
             }
           }
 
           const decision = buildAlertSessionDecision({
-            matches: allowedMatches,
+            matches: userMatches,
             profileExperience: profile.experience_level,
           });
-          const selectedMatch = selectedAlertMatch(allowedMatches, decision);
-          const selectedItem = selectedMatch
-            ? userItems.find(
-                (item) =>
-                  item.rule_id === selectedMatch.rule_id &&
-                  item.beach_id === selectedMatch.beach_id &&
-                  item.window_start === selectedMatch.window_start,
-              ) ?? null
-            : null;
-          if (selectedItem) {
-            canonicalItems.push(selectedItem);
+          if (!forecastDeliveryEnabled) {
+            for (const item of userItems) {
+              const held = heldCandidateIds.has(canonicalAlertCandidateId(item));
+              shadowOutcomesByQueue.set(item.id, {
+                status: "shadow_withheld",
+                verdict: held ? "no" : decision.verdict,
+                reason_code: held ? "major_event_hold" : decision.reasonCode,
+                preset_type: item.preset_type ?? null,
+                would_use_channels: [],
+              });
+            }
           }
-
-          const suppressedItems = userItems.filter(
-            (item) => item.id !== selectedItem?.id,
+          const heldItems = userItems.filter((item) =>
+            heldCandidateIds.has(canonicalAlertCandidateId(item)),
           );
-          for (const item of suppressedItems) {
+          const unheldItems = userItems.filter(
+            (item) => !heldCandidateIds.has(canonicalAlertCandidateId(item)),
+          );
+          deliverableItems.push(...unheldItems);
+
+          for (const item of heldItems) {
             for (const channel of enabledChannels(item)) {
               await recordAttempt({
                 queueId: item.id,
@@ -680,33 +926,19 @@ export async function GET(request: Request): Promise<NextResponse> {
                 userId,
                 channel,
                 status: "skipped_disabled",
-                skipReason:
-                  holdSuppressionReason ??
-                  `canonical_decision:${decision.reasonCode}`,
+                skipReason: "major_event_hold:major_event_hold",
               });
             }
           }
-          if (suppressedItems.length > 0) {
-            const { error: canonicalMarkError } = await supabase
-              .from("alert_queue")
-              .update({ sent: true })
-              .in(
-                "id",
-                suppressedItems.map((item) => item.id),
-              );
-            if (canonicalMarkError) {
-              console.error(
-                `${CONTEXT_TAG} Failed to mark non-canonical alert rows sent for user ${userId}:`,
-                canonicalMarkError,
-              );
-              result.errors++;
-            } else {
-              result.queueMarked += suppressedItems.length;
+          if (!forecastDeliveryEnabled) {
+            for (const item of heldItems) {
+              await persistShadowOutcome(item);
             }
           }
+          await markQueueItemsConsumed(heldItems, "major_event_hold");
         }
 
-        const payloads = consolidateQueueItems(canonicalItems);
+        const payloads = consolidateQueueItems(deliverableItems);
         const baseUrl = getBaseUrl();
         const rateLimiter = createResendRateLimiter();
         const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
@@ -714,11 +946,10 @@ export async function GET(request: Request): Promise<NextResponse> {
         for (const payload of payloads) {
           const payloadBeachId = payload.matches[0]?.beach_id ?? null;
           result.processed++;
-          const contributingItems = canonicalItems.filter(
+          const contributingItems = deliverableItems.filter(
             (item) =>
               item.user_id === payload.user_id && item.beach_id === payloadBeachId,
           );
-          const queueIds = contributingItems.map((i) => i.id);
           const emailItems = contributingItems.filter((i) => i.notify_email);
           const pushItems = contributingItems.filter((i) => i.notify_push);
           const profile = profilesByUser.get(payload.user_id);
@@ -744,17 +975,11 @@ export async function GET(request: Request): Promise<NextResponse> {
                 skipReason: "profile missing for queued alert user",
               });
             }
-            const { error: markError } = await supabase
-              .from("alert_queue")
-              .update({ sent: true })
-              .in("id", queueIds);
-            if (markError) {
-              console.error(`${CONTEXT_TAG} Failed to mark orphaned queue items sent for user ${payload.user_id}:`, markError);
-              result.errors++;
-            } else {
-              result.queueMarked += queueIds.length;
-              result.errors++;
-            }
+            const marked = await markQueueItemsConsumed(
+              contributingItems,
+              "orphaned_profile",
+            );
+            if (marked) result.errors++;
             continue;
           }
           const profileExperience = parseSkillLevel(profile.experience_level);
@@ -864,19 +1089,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           try {
             // ---- Email branch ----
             if (emailItems.length > 0) {
-              // Gate: kill switch
-              if (!deliveryEnabled) {
-                for (const item of emailItems) {
-                  await recordAttempt({
-                    queueId: item.id,
-                    ruleId: item.rule_id,
-                    userId: payload.user_id,
-                    channel: "email",
-                    status: "skipped_disabled",
-                    skipReason: "ALERTS_DELIVERY_ENABLED=false",
-                  });
-                }
-              } else if (allowlist.size > 0 && !allowlist.has(payload.user_id)) {
+              if (allowlist.size > 0 && !allowlist.has(payload.user_id)) {
                 for (const item of emailItems) {
                   await recordAttempt({
                     queueId: item.id,
@@ -895,11 +1108,17 @@ export async function GET(request: Request): Promise<NextResponse> {
                 // below so a later hourly run sends once they're out of quiet
                 // hours and send_at has passed.
                 for (const item of emailItems) {
-                  quietDeferredEmailQueueIds.add(item.id);
+                  if (forecastDeliveryEnabled) {
+                    quietDeferredEmailQueueIds.add(item.id);
+                  }
                 }
-                result.emailQuietHoursSkipped += emailItems.length;
+                if (forecastDeliveryEnabled) {
+                  result.emailQuietHoursSkipped += emailItems.length;
+                }
                 console.log(
-                  `${CONTEXT_TAG} Email deferred for user ${payload.user_id} (quiet hours; ${emailItems.length} item(s) left due)`
+                  forecastDeliveryEnabled
+                    ? `${CONTEXT_TAG} Email deferred for user ${payload.user_id} (quiet hours; ${emailItems.length} item(s) left due)`
+                    : `${CONTEXT_TAG} Email shadow-blocked for user ${payload.user_id} (quiet hours)`,
                 );
               } else {
                 // Throttle (cooldown per-rule, weekly cap per-user). Items that
@@ -973,42 +1192,23 @@ export async function GET(request: Request): Promise<NextResponse> {
                       month: "long",
                       day: "numeric",
                     });
-                    const candidateEmailSubject = buildConsolidatedSubject(
-                      candidateEmailMatches,
-                      alertDate
-                    );
+                    if (forecastDeliveryEnabled) {
+                      await rateLimiter.throttle();
+                    }
 
-                    await rateLimiter.throttle();
-
-                    const emailHold = await resolveHoldForForecastMatches({
-                      eventIdPrefix: `condition-alert-deliver:email:${payload.user_id}`,
-                      payload: {
-                        alert_date: payload.alert_date,
-                        title: candidateEmailSubject,
-                        body: candidateEmailMatches.map((match) => match.rule_name).join(", "),
-                      },
+                    const emailDecision = buildAlertSessionDecision({
                       matches: candidateEmailMatches,
                       profileExperience,
                     });
-                    const emailDecision = emailHold
-                      ? null
-                      : buildAlertSessionDecision({
-                          matches: candidateEmailMatches,
-                          profileExperience,
-                        });
-                    const selectedEmailMatch = emailDecision
-                      ? selectedAlertMatch(candidateEmailMatches, emailDecision)
-                      : null;
-                    const emailMatches = selectedEmailMatch
-                      ? [selectedEmailMatch]
-                      : [];
+                    const emailMatches = candidateEmailMatches;
                     const renderedEmailMatches =
                       buildRenderedMatchDetails(emailMatches);
-                    const emailSubject =
-                      emailMatches.length > 0
-                        ? buildConsolidatedSubject(emailMatches, alertDate)
-                        : candidateEmailSubject;
-                    const sendResult = emailHold || !emailDecision || !selectedEmailMatch
+                    const emailSubject = buildConsolidatedSubject(
+                      emailMatches,
+                      alertDate,
+                    );
+                    const sendResult =
+                      !forecastDeliveryEnabled
                       ? { data: null, error: null }
                       : await sendEmail({
                           from: MAIL_FROM,
@@ -1027,19 +1227,8 @@ export async function GET(request: Request): Promise<NextResponse> {
                         });
                     const { data: sendData, error: sendError } = sendResult;
 
-                    if (emailHold || !emailDecision || !selectedEmailMatch) {
-                      for (const item of emailSurvivors) {
-                        await recordAttempt({
-                          queueId: item.id,
-                          ruleId: item.rule_id,
-                          userId: payload.user_id,
-                          channel: "email",
-                          status: "skipped_disabled",
-                          skipReason: emailHold
-                            ? `${emailHold.auditCode}:${emailHold.reasonCode}`
-                            : `canonical_decision:${emailDecision?.reasonCode ?? "unavailable"}`,
-                        });
-                      }
+                    if (!forecastDeliveryEnabled) {
+                      addShadowChannel(emailSurvivors, "email");
                     } else if (sendError) {
                       console.error(`${CONTEXT_TAG} Email send failed for user ${payload.user_id}:`, sendError);
                       result.errors++;
@@ -1055,6 +1244,9 @@ export async function GET(request: Request): Promise<NextResponse> {
                         });
                       }
                     } else {
+                      for (const item of emailSurvivors) {
+                        deliveryAcceptedQueueIds.add(item.id);
+                      }
                       // Write dedup record
                       const { error: deliveryInsertError } = await supabase.from("alert_deliveries").insert({
                         user_id: payload.user_id,
@@ -1118,18 +1310,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
             // ---- Push branch ----
             if (pushItems.length > 0) {
-              if (!deliveryEnabled) {
-                for (const item of pushItems) {
-                  await recordAttempt({
-                    queueId: item.id,
-                    ruleId: item.rule_id,
-                    userId: payload.user_id,
-                    channel: "push",
-                    status: "skipped_disabled",
-                    skipReason: "ALERTS_DELIVERY_ENABLED=false",
-                  });
-                }
-              } else if (allowlist.size > 0 && !allowlist.has(payload.user_id)) {
+              if (allowlist.size > 0 && !allowlist.has(payload.user_id)) {
                 for (const item of pushItems) {
                   await recordAttempt({
                     queueId: item.id,
@@ -1187,58 +1368,15 @@ export async function GET(request: Request): Promise<NextResponse> {
                     const candidatePushMatches = payload.matches.filter(
                       (m) => m.notify_push && survivorRuleIdsPush.has(m.rule_id)
                     );
-                    const candidateTopMatch = candidatePushMatches[0];
-                    const holdProbePayload = {
-                      alert_date: payload.alert_date,
-                      title: "Forecast alert",
-                      body: "A surf window matched your alert.",
-                      beach_id: candidateTopMatch?.beach_id ?? null,
-                      forecast_at:
-                        candidateTopMatch?.best_hour ??
-                        candidateTopMatch?.window_start ??
-                        null,
-                      matches: candidatePushMatches.map((m) => ({
-                        beach_id: m.beach_id,
-                        window_start: m.window_start,
-                        window_end: m.window_end,
-                        best_hour: m.best_hour,
-                      })),
-                    };
-                    const pushHold = await resolveHoldForForecastMatches({
-                      eventIdPrefix: `condition-alert-deliver:push:${payload.user_id}`,
-                      payload: holdProbePayload,
+                    const pushDecision = buildAlertSessionDecision({
                       matches: candidatePushMatches,
                       profileExperience,
                     });
-                    const pushDecision = pushHold
-                      ? null
-                      : buildAlertSessionDecision({
-                          matches: candidatePushMatches,
-                          profileExperience,
-                        });
-                    const selectedPushMatch = pushDecision
-                      ? selectedAlertMatch(candidatePushMatches, pushDecision)
-                      : null;
-                    const pushMatches = selectedPushMatch
-                      ? [selectedPushMatch]
-                      : [];
+                    const pushMatches = candidatePushMatches;
                     const renderedPushMatches =
                       buildRenderedMatchDetails(pushMatches);
-                    const {
-                      title,
-                      body,
-                      data: pushData,
-                    } = selectedPushMatch
-                      ? formatPushNotification(pushMatches)
-                      : {
-                          title: "Forecast alert",
-                          body: "No approved surf window.",
-                          data: {
-                            type: "forecast_alert",
-                            beach_id: null,
-                            forecast_at: null,
-                          },
-                        };
+                    const { title, body, data: pushData } =
+                      formatPushNotification(pushMatches);
                     const topMatch = pushMatches[0];
                     const quietHoursOverride =
                       resolveQuietHoursOverride(pushSurvivors);
@@ -1265,24 +1403,18 @@ export async function GET(request: Request): Promise<NextResponse> {
                       ...(topPolicyContext
                         ? { policy_context: topPolicyContext }
                         : {}),
-                      ...(pushDecision
-                        ? { session_decision: pushDecision }
-                        : {}),
+                      session_decision: pushDecision,
                       queue_items: pushSurvivors.map((s) => ({
                         queue_id: s.id,
                         rule_id: s.rule_id,
                       })),
                     };
                     const enqueueResult =
-                      pushHold || !pushDecision || !selectedPushMatch
-                      ? {
-                          enqueued: false as const,
-                          reason: "major_event_hold" as const,
-                          holdReason:
-                            pushHold?.reasonCode ??
-                            pushDecision?.reasonCode ??
-                            "hold_state_unavailable",
-                        }
+                      !forecastDeliveryEnabled
+                        ? {
+                            enqueued: false as const,
+                            reason: "shadow_withheld" as const,
+                          }
                       : await enqueueNotification({
                           type: "forecast_alert",
                           recipientUserId: payload.user_id,
@@ -1295,7 +1427,15 @@ export async function GET(request: Request): Promise<NextResponse> {
                           return { enqueued: false as const, reason: "internal_error" as const };
                         });
 
-                    if (enqueueResult.enqueued) {
+                    if (
+                      !enqueueResult.enqueued &&
+                      enqueueResult.reason === "shadow_withheld"
+                    ) {
+                      addShadowChannel(pushSurvivors, "push");
+                    } else if (enqueueResult.enqueued) {
+                      for (const item of pushSurvivors) {
+                        deliveryAcceptedQueueIds.add(item.id);
+                      }
                       // Evaluator-side day gate: condition-alert-evaluate skips
                       // users who already have an alert_deliveries row for
                       // (user, alert_date). This is "we've enqueued for today"
@@ -1312,7 +1452,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                           notification_event_id: enqueueResult.eventId,
                           method: "enqueued_via_pipeline",
                           matches: renderedPushMatches,
-                          session_decision_id: pushDecision!.decisionId,
+                          session_decision_id: pushDecision.decisionId,
                         } as import("@/types/database.generated").Json,
                       });
 
@@ -1335,17 +1475,6 @@ export async function GET(request: Request): Promise<NextResponse> {
                       // (sent / skipped_no_device / skipped_channel_disabled /
                       // failed_provider / etc.), so cooldown reads on
                       // status='sent' reflect actual delivery.
-                    } else if (enqueueResult.reason === "major_event_hold") {
-                      for (const item of pushSurvivors) {
-                        await recordAttempt({
-                          queueId: item.id,
-                          ruleId: item.rule_id,
-                          userId: payload.user_id,
-                          channel: "push",
-                          status: "skipped_disabled",
-                          skipReason: `major_event_hold:${enqueueResult.holdReason}`,
-                        });
-                      }
                     } else if (enqueueResult.reason === "duplicate") {
                       // Worker-level dedup caught it (a prior tick already
                       // enqueued the same forecast_alert for today).
@@ -1381,28 +1510,38 @@ export async function GET(request: Request): Promise<NextResponse> {
               }
             }
 
-            // 6. Mark queue items as sent (always — even when delivery is disabled —
-            //    so the queue cannot accumulate forever during a pause). EXCEPT
+            if (!forecastDeliveryEnabled) {
+              for (const item of contributingItems) {
+                await persistShadowOutcome(item);
+                const outcome = shadowOutcomesByQueue.get(item.id)!;
+                for (const channel of outcome.would_use_channels) {
+                  await recordAttempt({
+                    queueId: item.id,
+                    ruleId: item.rule_id,
+                    userId: payload.user_id,
+                    channel,
+                    status: "shadow_withheld",
+                    skipReason: JSON.stringify(outcome),
+                  });
+                }
+              }
+            }
+
+            // 6. Mark queue items as sent. EXCEPT
             //    rows whose email item was quiet-hours-deferred this run: those
             //    stay due+unsent so a later hourly tick re-evaluates and sends.
             //    (Push on the same row is dedup-protected by the push
             //    alert_deliveries row + dedupeKey, so re-processing is safe.)
-            const queueIdsToMark = queueIds.filter(
-              (id) => !quietDeferredEmailQueueIds.has(id)
-            );
-            if (queueIdsToMark.length > 0) {
-              const { error: markError } = await supabase
-                .from("alert_queue")
-                .update({ sent: true })
-                .in("id", queueIdsToMark);
-
-              if (markError) {
-                console.error(`${CONTEXT_TAG} Failed to mark queue items sent for user ${payload.user_id}:`, markError);
-                result.errors++;
-              } else {
-                result.queueMarked += queueIdsToMark.length;
-              }
+            const processedItemsByReason = new Map<
+              QueueMarkReason,
+              QueueItemWithMeta[]
+            >();
+            for (const item of contributingItems) {
+              if (quietDeferredEmailQueueIds.has(item.id)) continue;
+              const reason = reasonForProcessedForecastItem(item);
+              if (reason) addItemReason(processedItemsByReason, reason, item);
             }
+            await markQueueItemsByReason(processedItemsByReason);
           } catch (userErr) {
             console.error(`${CONTEXT_TAG} Error processing user ${payload.user_id}:`, userErr);
             result.errors++;
@@ -1421,7 +1560,6 @@ export async function GET(request: Request): Promise<NextResponse> {
         // would silently suppress matches in active weeks.
         for (const item of similarityItems) {
           result.processed++;
-          const queueIds = [item.id];
           const profile = profilesByUser.get(item.user_id);
 
           if (!profile) {
@@ -1434,17 +1572,11 @@ export async function GET(request: Request): Promise<NextResponse> {
               status: "failed_internal",
               skipReason: "profile missing for queued similarity user",
             });
-            const { error: markErr } = await supabase
-              .from("alert_queue")
-              .update({ sent: true })
-              .in("id", queueIds);
-            if (markErr) {
-              console.error(`${CONTEXT_TAG} Failed to mark orphaned similarity queue item sent for user ${item.user_id}:`, markErr);
-              result.errors++;
-            } else {
-              result.queueMarked += queueIds.length;
-              result.errors++;
-            }
+            const marked = await markQueueItemsConsumed(
+              [item],
+              "orphaned_profile",
+            );
+            if (marked) result.errors++;
             continue;
           }
 
@@ -1452,7 +1584,7 @@ export async function GET(request: Request): Promise<NextResponse> {
             // Kill switch — same semantics as the forecast branch: skip the
             // provider call but mark the queue row sent so the queue can't
             // grow unbounded during a pause.
-            if (!deliveryEnabled) {
+            if (forecastDeliveryEnabled && !similarityDeliveryEnabled) {
               await recordAttempt({
                 queueId: item.id,
                 ruleId: item.rule_id,
@@ -1461,16 +1593,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                 status: "skipped_disabled",
                 skipReason: "ALERTS_DELIVERY_ENABLED=false",
               });
-              const { error: markErr } = await supabase
-                .from("alert_queue")
-                .update({ sent: true })
-                .in("id", queueIds);
-              if (markErr) {
-                console.error(`${CONTEXT_TAG} Failed to mark similarity queue item sent for user ${item.user_id}:`, markErr);
-                result.errors++;
-              } else {
-                result.queueMarked += queueIds.length;
-              }
+              await markQueueItemsConsumed([item], "delivery_disabled");
               continue;
             }
 
@@ -1483,16 +1606,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                 status: "skipped_allowlist",
                 skipReason: `user not in ALERTS_DELIVERY_USER_ALLOWLIST`,
               });
-              const { error: markErr } = await supabase
-                .from("alert_queue")
-                .update({ sent: true })
-                .in("id", queueIds);
-              if (markErr) {
-                console.error(`${CONTEXT_TAG} Failed to mark similarity queue item sent for user ${item.user_id}:`, markErr);
-                result.errors++;
-              } else {
-                result.queueMarked += queueIds.length;
-              }
+              await markQueueItemsConsumed([item], "allowlist_excluded");
               continue;
             }
 
@@ -1632,6 +1746,22 @@ export async function GET(request: Request): Promise<NextResponse> {
               storedDecisionMatchesWindow && storedSimilarityDecision
                 ? storedSimilarityDecision
                 : similarityDecision;
+            if (!forecastDeliveryEnabled) {
+              const reasonCode =
+                similarityHold.status === "suppressed"
+                  ? similarityHold.reasonCode
+                  : notificationDecision?.reasonCode ?? "no_candidates";
+              shadowOutcomesByQueue.set(item.id, {
+                status: "shadow_withheld",
+                verdict:
+                  similarityHold.status === "suppressed"
+                    ? "no"
+                    : notificationDecision?.verdict ?? "no",
+                reason_code: reasonCode,
+                preset_type: item.preset_type ?? null,
+                would_use_channels: [],
+              });
+            }
             if (
               similarityHold.status !== "allowed" ||
               !similarityDecision ||
@@ -1649,16 +1779,40 @@ export async function GET(request: Request): Promise<NextResponse> {
                     ? `${similarityHold.auditCode}:${similarityHold.reasonCode}`
                     : `canonical_decision:${similarityDecision?.reasonCode ?? "unavailable"}`,
               });
-              const { error: markErr } = await supabase
-                .from("alert_queue")
-                .update({ sent: true })
-                .in("id", queueIds);
-              if (markErr) {
-                console.error(`${CONTEXT_TAG} Failed to mark held similarity queue item sent for user ${item.user_id}:`, markErr);
-                result.errors++;
-              } else {
-                result.queueMarked += queueIds.length;
+              if (!forecastDeliveryEnabled) {
+                await persistShadowOutcome(item);
               }
+              const similaritySuppressionReason =
+                similarityHold.status === "suppressed"
+                  ? similarityHold.reasonCode
+                  : null;
+              if (similaritySuppressionReason === "hold_state_unavailable") {
+                const reason = unresolvedHoldDisposition(item);
+                if (reason) await markQueueItemsConsumed([item], reason);
+              } else if (similaritySuppressionReason === "major_event_hold") {
+                await markQueueItemsConsumed([item], "major_event_hold");
+              } else {
+                await markQueueItemsConsumed(
+                  [item],
+                  "canonical_safety_rejected",
+                );
+              }
+              continue;
+            }
+
+            if (!forecastDeliveryEnabled) {
+              addShadowChannel([item], "push");
+              await persistShadowOutcome(item);
+              const outcome = shadowOutcomesByQueue.get(item.id)!;
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId: item.user_id,
+                channel: "push",
+                status: "shadow_withheld",
+                skipReason: JSON.stringify(outcome),
+              });
+              await markQueueItemsConsumed([item], "shadow_withheld");
               continue;
             }
 
@@ -1684,15 +1838,9 @@ export async function GET(request: Request): Promise<NextResponse> {
               // the registry's onChannelOutcome hook (mirrors forecast_alert)
               // so the cron's cooldown / cap reads only see actually-delivered
               // pushes — not enqueued-but-pref-skipped ones.
-              const { error: markErr } = await supabase
-                .from("alert_queue")
-                .update({ sent: true })
-                .in("id", queueIds);
-              if (markErr) {
-                console.error(`${CONTEXT_TAG} Failed to mark similarity queue item sent for user ${item.user_id}:`, markErr);
-                result.errors++;
-              } else {
-                result.queueMarked += queueIds.length;
+              deliveryAcceptedQueueIds.add(item.id);
+              const marked = await markQueueItemsConsumed([item], "delivered");
+              if (marked) {
                 result.pushSent++;
                 console.log(
                   `${CONTEXT_TAG} Similarity push enqueued for user ${item.user_id} (event ${enqueueResult.eventId})`
@@ -1710,16 +1858,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                 status: "skipped_dedup_collision",
                 skipReason: "notification_events dedupe_key collision",
               });
-              const { error: markErr } = await supabase
-                .from("alert_queue")
-                .update({ sent: true })
-                .in("id", queueIds);
-              if (markErr) {
-                console.error(`${CONTEXT_TAG} Failed to mark similarity queue item sent for user ${item.user_id}:`, markErr);
-                result.errors++;
-              } else {
-                result.queueMarked += queueIds.length;
-              }
+              await markQueueItemsConsumed([item], "deduplicated");
             } else if (enqueueResult.reason === "invalid_payload") {
               // Permanent — don't retry. Mark queue sent + record the failure.
               console.error(
@@ -1735,16 +1874,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                 status: "failed_internal",
                 skipReason: `enqueue: invalid_payload${enqueueResult.message ? `: ${enqueueResult.message}` : ""}`,
               });
-              const { error: markErr } = await supabase
-                .from("alert_queue")
-                .update({ sent: true })
-                .in("id", queueIds);
-              if (markErr) {
-                console.error(`${CONTEXT_TAG} Failed to mark similarity queue item sent for user ${item.user_id}:`, markErr);
-                result.errors++;
-              } else {
-                result.queueMarked += queueIds.length;
-              }
+              await markQueueItemsConsumed([item], "invalid_payload");
             } else {
               // internal_error / unknown_type — leave queue UNSENT so the
               // next tick can retry. Record the attempt for observability.
@@ -1768,11 +1898,45 @@ export async function GET(request: Request): Promise<NextResponse> {
           }
         }
 
+        const reasonTotal = Object.values(result.queue_marked_by_reason).reduce(
+          (sum, count) => sum + count,
+          0,
+        );
+        const unexplainedConsumed = [...DEGRADED_QUEUE_MARK_REASONS].reduce(
+          (sum, reason) => sum + result.queue_marked_by_reason[reason],
+          0,
+        );
+        if (
+          reasonTotal !== result.queueMarked ||
+          unexplainedConsumed > 0 ||
+          result.holdStateUnavailableDeferred > 0
+        ) {
+          result.status = "degraded";
+          console.warn(`${CONTEXT_TAG} degraded queue consumption`, {
+            queue_marked: result.queueMarked,
+            reason_total: reasonTotal,
+            unexplained_consumed: unexplainedConsumed,
+            hold_state_unavailable_deferred:
+              result.holdStateUnavailableDeferred,
+            queue_marked_by_reason: result.queue_marked_by_reason,
+          });
+        }
+
         console.log(`${CONTEXT_TAG} Summary:`, result);
         return result;
-      }
+      },
+      {
+        statusForResult: (result) =>
+          result.status === "degraded" ? "error" : "ok",
+        errorMessageForResult: (result) =>
+          result.status === "degraded"
+            ? "Alert queue consumption was unresolved or unexplained"
+            : null,
+      },
     );
-    return NextResponse.json(summary);
+    return NextResponse.json(summary, {
+      status: summary.status === "degraded" ? 503 : 200,
+    });
   } catch (err) {
     console.error(`${CONTEXT_TAG} Fatal error:`, err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

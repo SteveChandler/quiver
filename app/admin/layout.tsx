@@ -63,6 +63,7 @@ const navItems = [
     href: "/admin/community-photos",
     icon: ImageIcon,
   },
+  { title: "Session Videos", href: "/admin/session-videos", icon: ImageIcon },
   {
     title: "Intel",
     href: "/admin/intel",

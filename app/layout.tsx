@@ -1,16 +1,20 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Space_Grotesk, Space_Mono, Caveat, Bowlby_One, Permanent_Marker } from "next/font/google";
+import {
+  DM_Sans,
+  Space_Grotesk,
+  Space_Mono,
+  Caveat,
+  Bowlby_One,
+  Permanent_Marker,
+} from "next/font/google";
 import "./globals.css";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 import { Providers } from "@/components/providers";
 import { SiteFooter } from "@/components/shared/site-footer";
 import { HideOnRoutes } from "@/components/hide-on-routes";
 import { buildRootStructuredDataGraph } from "@/lib/seo/root-structured-data";
-import {
-  IOS_APP_STORE_APP_ID,
-  IOS_APP_STORE_SMART_BANNER_ARGUMENT,
-} from "@/lib/constants/app-store";
+import { buildIosSmartAppBannerContent } from "@/lib/constants/app-store";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -71,13 +75,12 @@ export const metadata: Metadata = {
     default: "Quiver | Surf Reports, Forecasts & Conditions",
     template: "%s | Quiver",
   },
-  description:
-    SEO_CONFIG.description,
+  description: SEO_CONFIG.description,
   generator: "Next.js",
 
   // Performance optimizations
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
   ),
 
   // Favicon configuration
@@ -140,18 +143,25 @@ export const metadata: Metadata = {
     },
   },
 
-  itunes: {
-    appId: IOS_APP_STORE_APP_ID,
-    appArgument: IOS_APP_STORE_SMART_BANNER_ARGUMENT,
-  },
-
   // Performance hints
   other: {
     ...SEO_CONFIG.additionalMeta,
+    "apple-itunes-app": buildIosSmartAppBannerContent(
+      process.env.IOS_APP_STORE_PROVIDER_TOKEN,
+    ),
   },
 };
 
-const hideFooterPrefixes = ["/auth", "/admin", "/profile", "/sessions", "/prefs", "/embed", "/welcome", "/map"];
+const hideFooterPrefixes = [
+  "/auth",
+  "/admin",
+  "/profile",
+  "/sessions",
+  "/prefs",
+  "/embed",
+  "/welcome",
+  "/map",
+];
 
 export default function RootLayout({
   children,
@@ -296,7 +306,9 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${dmSans.className} font-sans antialiased theme-retro-dark noise-texture-subtle`}>
+      <body
+        className={`${dmSans.className} font-sans antialiased theme-retro-dark noise-texture-subtle`}
+      >
         {/* Skip link — must be the first focusable element in the DOM.
             sr-only hides it visually until focused (keyboard/screen-reader users).
             Targets #main-content which wraps all page content below the nav. */}

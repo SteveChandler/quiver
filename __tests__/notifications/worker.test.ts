@@ -831,6 +831,43 @@ describe("processPendingEvents — happy path", () => {
     });
   });
 
+  it("forecast_alert: no device skips push and reconciles alert_delivery_attempts", async () => {
+    const state = emptyState();
+    state.events.push(
+      buildEvent({
+        id: "evt-forecast-no-device",
+        actor_user_id: null,
+        type: "forecast_alert",
+        entity_type: "beach",
+        entity_id: "beach-1",
+        payload: {
+          alert_date: "2026-05-10",
+          title: "Conditions lining up today",
+          body: "La Jolla Shores 7am-9am",
+          beach_id: "beach-1",
+          forecast_at: "2026-05-10T14:30:00.000Z",
+          queue_items: [{ queue_id: "queue-forecast-1", rule_id: "rule-forecast-1" }],
+        },
+      }),
+    );
+    state.profiles.set("user-recipient", buildProfile());
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never },
+    );
+
+    expect(summary.by_status.skipped_no_device).toBe(1);
+    expect(state.alertAttempts).toContainEqual({
+      queue_id: "queue-forecast-1",
+      rule_id: "rule-forecast-1",
+      user_id: "user-recipient",
+      channel: "push",
+      status: "skipped_no_device",
+      skip_reason: "skipped_no_device",
+    });
+  });
+
   it("similarity_match: worker push success reconciles alert_delivery_attempts", async () => {
     const state = emptyState();
     state.events.push(
@@ -1250,6 +1287,56 @@ describe("processPendingEvents — terminal skips", () => {
       );
     },
   );
+
+  it("delivers a forecast alert when hold state is unavailable", async () => {
+    const state = emptyState();
+    state.events.push(
+      buildEvent({
+        id: "evt-unavailable-forecast",
+        actor_user_id: null,
+        type: "forecast_alert",
+        entity_type: "beach",
+        entity_id: "11111111-1111-4111-8111-111111111111",
+        payload: {
+          alert_date: "2026-04-29",
+          title: "Conditions lining up today",
+          body: "Clean morning window",
+          beach_id: "11111111-1111-4111-8111-111111111111",
+          forecast_at: "2026-04-29T19:00:00.000Z",
+          queue_items: [{ queue_id: "queue-unavailable", rule_id: "rule-unavailable" }],
+        },
+      }),
+    );
+    state.profiles.set("user-recipient", buildProfile());
+    state.devices.set("user-recipient", ["device-token-A"]);
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+    const resolveMajorEventHold = jest.fn(async () => ({
+      status: "suppressed" as const,
+      reasonCode: "hold_state_unavailable" as const,
+      auditCode: "major_event_hold" as const,
+      candidate: null,
+    }));
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: fakeFcm as never, resolveMajorEventHold },
+    );
+
+    expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(summary.by_status.sent).toBe(2);
+    expect(state.alertAttempts).toContainEqual(
+      expect.objectContaining({
+        queue_id: "queue-unavailable",
+        status: "sent",
+      }),
+    );
+  });
 
   it("suppresses a positive alert queued before hold activation immediately before delivery", async () => {
     const state = emptyState();

@@ -1014,7 +1014,11 @@ async function resolveHoldSuppression(
       candidate: null,
     };
   }
-  if (holdDecision.status === "suppressed") {
+  if (
+    holdDecision.status === "suppressed" &&
+    (event.type !== "forecast_alert" ||
+      holdDecision.reasonCode === "major_event_hold")
+  ) {
     return channelDecision("skipped_disabled", {
       providerResponse: {
         audit_code: holdDecision.auditCode,

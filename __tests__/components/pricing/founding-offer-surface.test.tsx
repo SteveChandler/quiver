@@ -1,13 +1,11 @@
 import { render, screen } from "@testing-library/react";
 
 import { FoundingOfferSurface } from "@/components/pricing/founding-offer-surface";
-import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
 
 jest.mock("@/components/pricing/founding-access-cta", () => ({
   FoundingAccessCta: () => (
-    <div data-testid="founding-access-cta">
-      Get the Android beta
-    </div>
+    <div data-testid="founding-access-cta">Get the Android beta</div>
   ),
 }));
 
@@ -31,9 +29,7 @@ describe("FoundingOfferSurface", () => {
         name: /get quiver/i,
       }),
     ).toBeInTheDocument();
-    expect(
-      screen.getAllByText(/14 days free/i).length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/14 days free/i).length).toBeGreaterThan(0);
     expect(
       screen.getByText(/app store shows the current plan/i),
     ).toBeInTheDocument();
@@ -48,10 +44,8 @@ describe("FoundingOfferSurface", () => {
     expect(screen.queryByText(/android waitlist/i)).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /open app store/i }),
-    ).toHaveAttribute("href", IOS_APP_STORE_URL);
-    expect(
-      screen.getByText("iPhone"),
-    ).toBeInTheDocument();
+    ).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
+    expect(screen.getByText("iPhone")).toBeInTheDocument();
     expect(screen.getAllByText(/app store live/i).length).toBeGreaterThan(0);
     expect(screen.getByTestId("founding-access-cta")).toBeInTheDocument();
 

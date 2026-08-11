@@ -7,6 +7,8 @@
 ## Source Of Truth
 
 - `lib/constants/app-store.ts` owns the shared App Store app id, App Store URL, CTA text, destination status, smart banner argument, and Android beta landing/group/contact constants.
+- Browser install CTAs use `/app-store?ct=...`, whose server route adds `IOS_APP_STORE_PROVIDER_TOKEN` before redirecting to Apple. Client bundles never read that environment variable directly.
+- Apple campaign labels are deliberately limited to `web`, `email`, and `partner_qr`; Quiver source/surface/placement/UTM fields retain their own higher-resolution attribution.
 - Landing, forecast, final CTA, iPhone banner, and iOS CTA analytics read these constants instead of hardcoding destination copy.
 - Android beta remains a separate web landing path. Web pricing and founding access copy must not imply Android closed-beta access is the same as the public iOS install path.
 

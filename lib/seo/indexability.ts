@@ -337,6 +337,53 @@ export function evaluateCityEditorialIndexability(
   });
 }
 
+export interface CityDataIntentAvailability {
+  /** The intent's own live dataset resolved to a real value this render. */
+  hasIntentData: boolean;
+  /** The city has beaches that make the intent meaningful. */
+  dataRich: boolean;
+}
+
+/** Intents whose page value is a live measurement, not an editorial recommendation. */
+export const DATA_BACKED_CITY_INTENTS = new Set(["tide", "water-temp"]);
+
+export function isDataBackedCityIntent(
+  intent: string | null | undefined,
+): boolean {
+  return Boolean(intent && DATA_BACKED_CITY_INTENTS.has(intent));
+}
+
+/**
+ * Tide and water-temp city pages answer a question with a current number, so they
+ * earn indexability from that number rather than from the editorial review queue.
+ * An explicit editorial rejection still wins - a human pulling a page must not be
+ * overridden by the presence of data.
+ */
+export function evaluateCityDataIntentIndexability(
+  input: CityIntentEditorialInput | null,
+  canonicalPath: string,
+  availability: CityDataIntentAvailability,
+): IndexabilityDecision {
+  const rejected = Boolean(input?.seoReviewedAt && input.seoIndexable === false);
+  if (rejected) {
+    return { indexable: false, reason: "editorial-rejected" };
+  }
+
+  if (!availability.dataRich) {
+    return { indexable: false, reason: "insufficient-data" };
+  }
+
+  if (!availability.hasIntentData) {
+    return { indexable: false, reason: "forecast-missing" };
+  }
+
+  if (isGscPerformanceProtected(normalizeSeoPath(canonicalPath))) {
+    return { indexable: true, reason: "gsc-protected" };
+  }
+
+  return { indexable: true, reason: "forecast-approved" };
+}
+
 export function isBeachEligibleForIndexing(
   beach: BeachEditorialRecord,
   canonicalPath = "/",

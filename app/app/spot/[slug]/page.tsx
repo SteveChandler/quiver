@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactElement } from "react";
 import { ExternalLink, Smartphone, Waves } from "lucide-react";
 
-import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
 import { loadForecastWindowShareMetadata } from "@/lib/share/forecast-window-share";
 import { ShareLinkOpenTracker } from "./share-link-open-tracker";
 
@@ -77,7 +77,9 @@ export async function generateMetadata({
   };
 }
 
-function firstSearchValue(value: string | string[] | undefined): string | undefined {
+function firstSearchValue(
+  value: string | string[] | undefined,
+): string | undefined {
   if (Array.isArray(value)) return value[0];
   return value;
 }
@@ -113,7 +115,10 @@ export default async function AppSpotHandoffPage({
 
   return (
     <main className="min-h-screen bg-[#101436] px-5 py-12 text-white sm:px-8">
-      <ShareLinkOpenTracker slug={safeDecodeSlug(slug)} windowValue={windowId ?? null} />
+      <ShareLinkOpenTracker
+        slug={safeDecodeSlug(slug)}
+        windowValue={windowId ?? null}
+      />
       <section className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-3xl flex-col justify-center">
         <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-md bg-[#F78E42] text-[#11100D] shadow-lg shadow-black/25">
           <Waves className="h-7 w-7" aria-hidden="true" />
@@ -135,7 +140,7 @@ export default async function AppSpotHandoffPage({
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <a
-            href={IOS_APP_STORE_URL}
+            href={IOS_APP_STORE_WEB_REDIRECT_PATH}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
           >
             <Smartphone className="h-5 w-5" aria-hidden="true" />
@@ -151,8 +156,8 @@ export default async function AppSpotHandoffPage({
         </div>
 
         <p className="mt-6 max-w-xl text-sm font-semibold leading-6 text-[#91A0C8]">
-          Open Quiver from the App Store, or keep reading this spot forecast
-          on the web.
+          Open Quiver from the App Store, or keep reading this spot forecast on
+          the web.
         </p>
       </section>
     </main>

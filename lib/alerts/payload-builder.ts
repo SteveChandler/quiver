@@ -23,6 +23,7 @@ export interface QueueItemWithMeta {
   conditions_snapshot: Record<string, unknown>;
   sent: boolean;
   rule_name: string;
+  preset_type?: string | null;
   beach_name: string;
   beach_slug?: string | null;
   beach_skill_level?: string | null;

@@ -39,6 +39,10 @@ export interface OutreachTrackerParse {
   totalRows: number;
 }
 
+export function hasDirectEmail(row: OutreachTrackerRow): boolean {
+  return Boolean(row.contact && row.contact.includes("@"));
+}
+
 export function resolveOutreachRotation(date: string): {
   week: number;
   category: OutreachRotationCategory;
@@ -111,11 +115,18 @@ export function buildOutreachDigest(
     (row) => row.category === category && row.status === "queued",
   );
 
+  const emailable = queued.filter(hasDirectEmail);
+  for (const row of queued) {
+    if (!hasDirectEmail(row)) {
+      missing.push(`No direct email for outreach target "${row.target}" — contact: ${row.contact ?? "none"}`);
+    }
+  }
+
   if (markdown.trim() && queued.length === 0) {
     missing.push(`No queued outreach targets for rotation category "${category}"`);
   }
 
-  const candidates = queued
+  const candidates = emailable
     .slice(0, maxCandidates)
     .map((row) => buildDraftCandidate(row, category));
 
@@ -165,6 +176,7 @@ function draftCopy(
         "",
         `I run Quiver, a free surf-forecast app with ML-tuned forecasts for ${where} and 5,000+ US spots. No paywall.`,
         "Happy to set your school up with a free embeddable conditions widget for your site, or just be a resource your students can check before a session.",
+        "You can see it live here: https://www.quiversurf.app/for-surf-schools",
         "Would a quick look be useful?",
         "",
         signoff,

@@ -204,7 +204,7 @@ test.describe("/app/handoff route", () => {
 
     expect([301, 302, 307, 308]).toContain(response.status());
     expect(response.headers()["location"] ?? "").toContain("apps.apple.com");
-    expect(response.headers()["location"] ?? "").toContain("ct=app_first_v1");
+    expect(response.headers()["location"] ?? "").toContain("ct=web");
   });
 
   test("Android UA redirects to the guided beta page", async ({ page }) => {

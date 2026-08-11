@@ -58,7 +58,6 @@ export {
   capEndTimeToTimeSlot,
   scoreForecastWindow,
   scoreWindowConditionScore,
-  scoreWindowWithEngine,
   type WindowSelectorOptions,
 } from './window-selector';
 

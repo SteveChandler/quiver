@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   Apple,
   ArrowRight,
@@ -17,10 +16,14 @@ import type { LucideIcon } from "lucide-react";
 
 import { FoundingAccessCta } from "@/components/pricing/founding-access-cta";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
-import { QuiverSticker, type QuiverStickerProps, ZineSurface } from "@/components/zine";
+import {
+  QuiverSticker,
+  type QuiverStickerProps,
+  ZineSurface,
+} from "@/components/zine";
 import {
   IOS_APP_STORE_CTA,
-  IOS_APP_STORE_URL,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 
 const TRIAL_STEPS = [
@@ -204,13 +207,13 @@ export function FoundingOfferSurface() {
                 })}
               </div>
 
-              <Link
-                href={IOS_APP_STORE_URL}
+              <a
+                href={IOS_APP_STORE_WEB_REDIRECT_PATH}
                 className="mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 font-semibold text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] sm:max-w-sm"
               >
                 {IOS_APP_STORE_CTA}
                 <ArrowRight className="h-4 w-4" aria-hidden />
-              </Link>
+              </a>
               <p className="mt-3 text-center text-xs font-medium text-[#11100D]/64 sm:max-w-sm">
                 Cancel anytime in Apple subscriptions.
               </p>
@@ -228,7 +231,10 @@ export function FoundingOfferSurface() {
                   </div>
                   <div className="rounded-full border-2 border-[#11100D] bg-[#FFF7E6] px-3 py-2 shadow-[2px_2px_0_rgba(17,16,13,0.18)]">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#11100D]">
-                      <Smartphone className="h-4 w-4 text-[#252D6B]" aria-hidden />
+                      <Smartphone
+                        className="h-4 w-4 text-[#252D6B]"
+                        aria-hidden
+                      />
                       Android
                     </div>
                     <p className="mt-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-[#252D6B]">
@@ -251,10 +257,7 @@ export function FoundingOfferSurface() {
                 className="pointer-events-none absolute -right-3 -top-4 w-20 rotate-12 opacity-40"
                 sizes="5rem"
               />
-              <p
-                id="plans-included-heading"
-                className="typewriter mb-1"
-              >
+              <p id="plans-included-heading" className="typewriter mb-1">
                 Pro membership includes
               </p>
               <div className="mt-5 divide-y-2 divide-dashed divide-[#11100D]/20">
@@ -272,7 +275,10 @@ export function FoundingOfferSurface() {
                           className="absolute -right-6 -top-4 w-20 rotate-12 opacity-55"
                           sizes="5rem"
                         />
-                        <Icon className="relative z-10 h-6 w-6 text-[#252D6B]" aria-hidden />
+                        <Icon
+                          className="relative z-10 h-6 w-6 text-[#252D6B]"
+                          aria-hidden
+                        />
                       </div>
                       <div>
                         <h3 className="font-display text-base font-black uppercase leading-tight text-[#11100D] sm:text-lg">

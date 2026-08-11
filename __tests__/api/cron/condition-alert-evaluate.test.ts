@@ -239,6 +239,7 @@ function mockFrom(table: string) {
 
 const mockSupabase = { from: jest.fn(mockFrom) };
 let consoleLogSpy: jest.SpyInstance;
+let consoleWarnSpy: jest.SpyInstance;
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() => Promise.resolve(mockSupabase)),
@@ -342,6 +343,7 @@ beforeEach(() => {
   jest.useFakeTimers().setSystemTime(TEST_NOW);
   jest.clearAllMocks();
   consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+  consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
   // mockReset drains any `mockReturnValueOnce` queue left over from a prior
   // test (jest.clearAllMocks does NOT clear that queue, only call records).
   mockFindMatchingWindows.mockReset();
@@ -407,6 +409,7 @@ beforeEach(() => {
 
 afterEach(() => {
   consoleLogSpy.mockRestore();
+  consoleWarnSpy.mockRestore();
   jest.useRealTimers();
 });
 
@@ -434,6 +437,11 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     expect(body.evaluated).toBe(1);
     expect(body.matched).toBe(1);
     expect(body.queued).toBeGreaterThanOrEqual(1);
+    expect(body.status).toBe("ok");
+    expect(body.skipped_by_reason).toEqual({
+      hold_state_unavailable: 0,
+      major_event_hold: 0,
+    });
     expect(body.errors).toBe(0);
 
     expect(store.queueUpserts).toHaveLength(1);
@@ -473,7 +481,7 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     });
   });
 
-  it("suppresses held or unresolved positive windows before alert_queue persistence", async () => {
+  it("reports unavailable hold state by reason and degrades when every match is suppressed", async () => {
     seedRule();
     seedProfile();
     seedBeach();
@@ -487,10 +495,62 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     });
 
     const res = await GET(makeRequest());
-    expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toMatchObject({ queued: 0, skipped: 1 });
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toMatchObject({
+      status: "degraded",
+      matched: 1,
+      queued: 0,
+      skipped: 1,
+      skipped_by_reason: {
+        hold_state_unavailable: 1,
+        major_event_hold: 0,
+      },
+    });
     expect(store.queueUpserts).toHaveLength(0);
     expect(store.ruleUpdates).toHaveLength(0);
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Suppressed matched alert window"),
+      expect.objectContaining({ reason_code: "hold_state_unavailable" }),
+    );
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Matched alert windows dropped without a safety hold"),
+      expect.objectContaining({ matched: 1, queued: 0 }),
+    );
+  });
+
+  it("preserves active major-event hold suppression without degrading the run", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach();
+    seedForecast();
+    seedMatchingWindow();
+    mockResolveNotificationMajorEventHold.mockResolvedValueOnce({
+      status: "suppressed",
+      reasonCode: "major_event_hold",
+      auditCode: "major_event_hold",
+      candidate: null,
+    });
+
+    // A real safety hold suppressing every match is the hold system working as
+    // designed — it must NOT page as a failure, or big-swell days alarm falsely.
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      status: "ok",
+      matched: 1,
+      queued: 0,
+      skipped: 1,
+      skipped_by_reason: {
+        hold_state_unavailable: 0,
+        major_event_hold: 1,
+      },
+    });
+    expect(store.queueUpserts).toHaveLength(0);
+    expect(store.ruleUpdates).toHaveLength(0);
+    expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("Matched alert windows dropped without a safety hold"),
+      expect.anything(),
+    );
   });
 
   it("2. empty rules: 0 enabled rules => no DB writes after rules query, message returned", async () => {

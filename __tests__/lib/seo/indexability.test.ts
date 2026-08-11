@@ -1,6 +1,7 @@
 import {
   applyIndexabilityToMetadata,
   evaluateBeachIndexability,
+  evaluateCityDataIntentIndexability,
   evaluateCityEditorialIndexability,
   resolveIndexability,
   type EditorialSource,
@@ -179,5 +180,56 @@ describe("SEO indexability", () => {
         reason: "gsc-protected",
       }),
     ).toBe(metadata);
+  });
+});
+
+describe("evaluateCityDataIntentIndexability", () => {
+  const noEditorial = null;
+
+  it("indexes a water-temp city page with live data and no editorial row", () => {
+    const decision = evaluateCityDataIntentIndexability(
+      noEditorial,
+      "/water-temp/corolla",
+      { hasIntentData: true, dataRich: true },
+    );
+    expect(decision).toEqual({ indexable: true, reason: "forecast-approved" });
+  });
+
+  it("does not index when the city has no live reading", () => {
+    expect(
+      evaluateCityDataIntentIndexability(noEditorial, "/water-temp/ma", {
+        hasIntentData: false,
+        dataRich: true,
+      }).indexable,
+    ).toBe(false);
+  });
+
+  it("does not index when the city has no matching beaches", () => {
+    expect(
+      evaluateCityDataIntentIndexability(noEditorial, "/tide/nowhere", {
+        hasIntentData: true,
+        dataRich: false,
+      }).indexable,
+    ).toBe(false);
+  });
+
+  it("still honours an explicit editorial rejection", () => {
+    const decision = evaluateCityDataIntentIndexability(
+      {
+        seoIndexable: false,
+        seoReviewedAt: "2026-07-20T00:00:00Z",
+        seoSources: [],
+        description: null,
+        intent: "water-temp",
+        intro: null,
+        localGuidance: null,
+      },
+      "/water-temp/corolla",
+      { hasIntentData: true, dataRich: true },
+    );
+    expect(decision).toEqual({
+      indexable: false,
+      reason: "editorial-rejected",
+    });
   });
 });
