@@ -39,6 +39,34 @@ FOR SELECT USING (
   )
 );
 
+-- Harness finding: the older OR'd policy also needs the moderation gate or pending videos leak publicly.
+DROP POLICY IF EXISTS session_media_select_public_owner_or_admin ON public.session_media;
+CREATE POLICY session_media_select_public_owner_or_admin
+  ON public.session_media
+  FOR SELECT
+  USING (
+    (
+      deleted_at IS NULL
+      AND moderation_status = 'approved'
+      AND (
+        session_id IS NULL
+        OR EXISTS (
+          SELECT 1
+          FROM public.sessions
+          WHERE id = session_media.session_id
+            AND COALESCE(is_public, false)
+            AND deleted_at IS NULL
+        )
+      )
+    )
+    OR user_id = (select auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = (select auth.uid())
+        AND is_admin = true
+    )
+  );
+
 DO $$ BEGIN
   ALTER TYPE content_report_target ADD VALUE IF NOT EXISTS 'session_media';
 EXCEPTION WHEN undefined_object THEN NULL; END $$;
