@@ -551,8 +551,31 @@ export interface OutreachDigestInput {
   missing?: string[];
 }
 
+export type WeeklySeoSourceFreshnessStatus = "fresh" | "lagged" | "stale" | "missing";
+
+export interface WeeklySeoSourceFreshness {
+  source: string;
+  observedAt?: string;
+  status: WeeklySeoSourceFreshnessStatus;
+  note: string;
+}
+
+export interface WeeklySeoMetricDelta {
+  label: string;
+  current: number;
+  previous: number;
+  unit: string;
+}
+
+export interface WeeklySeoComparison {
+  previousAuditDate?: string;
+  metrics: WeeklySeoMetricDelta[];
+  missing?: string[];
+}
+
 export interface WeeklySeoReportInput {
   generatedAt: string;
+  auditDate?: string;
   recommendations: SeoRecommendation[];
   gsc?: GscExportInput;
   vercel?: VercelExportInput;
@@ -565,6 +588,8 @@ export interface WeeklySeoReportInput {
   outreach?: OutreachDigestInput;
   technical?: SeoRecommendation[];
   metadata?: SeoMetadataAuditInput;
+  sourceFreshness?: WeeklySeoSourceFreshness[];
+  weekOverWeek?: WeeklySeoComparison;
   missing: string[];
 }
 

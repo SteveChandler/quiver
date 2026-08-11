@@ -29,6 +29,7 @@ yarn seo:enrich --source posthog --input path/to/posthog-export.json
 yarn seo:enrich --source ahrefs --input ../Brand-Vault/seo-audit/YYYY-MM-DD/AHREFS-SCREENSHOT-INPUT.json --output ../Brand-Vault/seo-audit/YYYY-MM-DD/AHREFS-ENRICHMENT.json
 yarn seo:recommend --input ../Brand-Vault/seo-audit/YYYY-MM-DD/GSC-REFRESH.json --input ../Brand-Vault/seo-audit/YYYY-MM-DD/TECHNICAL-AUDIT.json --input ../Brand-Vault/seo-audit/YYYY-MM-DD/VERCEL-ENRICHMENT.json
 yarn seo:weekly-report
+yarn seo:weekly-report --dir ../Brand-Vault/seo-audit/YYYY-MM-DD --audit-date YYYY-MM-DD
 ```
 
 The commands generate dashboard updates or review reports only. They do not publish content, apply migrations, commit, push, or mutate production data. Weekly audit artifacts default to `../Brand-Vault/seo-audit/YYYY-MM-DD/` so generated marketing intelligence stays outside the app repo.
@@ -52,6 +53,7 @@ The weekly report is the single home for the SEO workflow's deterministic report
 
 - **Broken-link scanner (deterministic):** `seo:technical-audit` extracts same-origin `<a href>` links from the pages it already crawls and HEAD-checks a bounded sample (cap 40, 8s timeout). Broken links (status >= 400) surface under Technical Crawl Health.
 - **AEO citation monitor:** the report folds the latest `docs/seo/reports/aeo-citation-tracking/*.md` baseline into the AI Citation / AEO Signals section. The audit is a search-presence proxy, not a true multi-engine AI-answer citation measurement. Keep queries stable and append rather than replace so the citation rate stays comparable.
+- **Weekly freshness and movement guard:** the weekly report records source age for GSC, Vercel, PostHog, DataForSEO, store, Ahrefs, competitor, AEO-baseline, and backlink inputs. It labels sources as fresh, lagged, stale, or missing, compares the current bundle with the previous dated audit when available, and surfaces Ahrefs audit recommendations under Technical Crawl Health. Pass `--audit-date` when a scheduler needs the report date pinned independently of UTC.
 - **Backlink scanner:** the report folds the latest `docs/seo/backlink-reports/*.md` confirmed/unverified target list into the Backlink / Referrer Signals section, alongside referrer/embed/manual-export signals.
 - **Outreach drafter:** `seo:outreach-digest` reads `docs/seo/outreach-tracker.md`, picks this week's rotation category (Week 1 schools, Week 2 bloggers, Week 3 coastal businesses, Week 4 publications, by week-of-month), and emits draft candidates into the Outreach Queue section. In live mode, the agent may create those as Gmail drafts, never sent, and mark the tracker rows `drafted` after verifying the drafts exist. Review drafts in Gmail before sending.
 
