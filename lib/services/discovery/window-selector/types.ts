@@ -10,7 +10,7 @@ import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { TimeSlot } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
-import type { RideabilityBand } from '@/lib/domains/rideability';
+import type { BoardClass, RideabilityBand } from '@/lib/domains/rideability';
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 
 /**
@@ -26,6 +26,7 @@ export interface WindowSelectorOptions {
   now?: Date;
   maxWindows?: number;
   rideabilityBand?: RideabilityBand | null;
+  boardClasses?: readonly BoardClass[];
   userSkillLevel?: SkillLevel | string | null;
 }
 

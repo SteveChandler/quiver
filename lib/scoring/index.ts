@@ -34,6 +34,11 @@ export {
   type WindowCalculatorOptions,
 } from './types';
 export { calculateMultipleWindows } from './window-calculator';
-export { getConditionBoardPick, type BoardForPick, type BoardPickResult } from './board-pick';
+export {
+  getConditionBoardPick,
+  type BoardForPick,
+  type BoardPickContext,
+  type BoardPickResult,
+} from './board-pick';
 export { calculateRelativeContext, type DailyScore } from './relative-context';
 export { type ConditionCharacter, type ConditionCharacterCategory, type MultiWindowResult, type RelativeContext } from './types';

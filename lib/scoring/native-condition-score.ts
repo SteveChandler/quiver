@@ -10,6 +10,7 @@ import {
   DAYLIGHT_START_HOUR,
 } from "@/lib/services/magic-hour/constants";
 import { getLocalHour } from "@/lib/utils/timezone-utils";
+import type { RideabilityBand } from '@/lib/domains/rideability';
 
 export interface NativeSkillThresholds {
   waveMinFt: number;
@@ -105,10 +106,20 @@ export function nativeScoreInputsFromForecast(
 
 export function scoreNativeConditionInputs(
   inputs: NativeScoreInputs,
-  skillLevel?: SkillLevel | string | null
+  skillLevel?: SkillLevel | string | null,
+  rideabilityBand?: RideabilityBand | null,
 ): number {
   const skill = resolveNativeSkillLevel(skillLevel);
-  const thresholds = NATIVE_SKILL_THRESHOLDS[skill];
+  const nativeThresholds = NATIVE_SKILL_THRESHOLDS[skill];
+  const thresholds = rideabilityBand
+    ? {
+        ...nativeThresholds,
+        waveMinFt: rideabilityBand.acceptable.min,
+        waveMaxFt: rideabilityBand.acceptable.max,
+        idealMinFt: rideabilityBand.ideal.min,
+        idealMaxFt: rideabilityBand.ideal.max,
+      }
+    : nativeThresholds;
   const { waveHeightFt, windSpeedMph, periodSec, tideHeightFt } = inputs;
 
   if (
@@ -151,9 +162,14 @@ export function scoreNativeConditionInputs(
 
 export function scoreNativeForecastSlot(
   forecast: EnhancedForecastEntity,
-  skillLevel?: SkillLevel | string | null
+  skillLevel?: SkillLevel | string | null,
+  rideabilityBand?: RideabilityBand | null,
 ): number {
-  return scoreNativeConditionInputs(nativeScoreInputsFromForecast(forecast), skillLevel);
+  return scoreNativeConditionInputs(
+    nativeScoreInputsFromForecast(forecast),
+    skillLevel,
+    rideabilityBand,
+  );
 }
 
 export function pickBestNativeForecastSlot(

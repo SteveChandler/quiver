@@ -250,6 +250,7 @@ describe("useConditionIntelligence", () => {
     expect(optionsArg).toEqual({
       beachTimezone: mockBeachTimezone,
       skillLevel: undefined,
+      boardClasses: ["shortboard", "fish"],
     });
 
     expect(result.current.windows).toEqual(mockWindowResult.windows);
@@ -266,6 +267,12 @@ describe("useConditionIntelligence", () => {
     );
 
     expect(mockGetConditionBoardPick).toHaveBeenCalledTimes(1);
+    expect(mockGetConditionBoardPick).toHaveBeenCalledWith(
+      expect.anything(),
+      mockBoards,
+      mockBeach,
+      { kind: "scored", boardClass: null },
+    );
     expect(result.current.boardPick).toEqual(mockBoardPick);
   });
 

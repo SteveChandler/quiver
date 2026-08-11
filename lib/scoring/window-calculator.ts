@@ -15,6 +15,7 @@ import type {
 } from './types';
 import type { Beach } from '@/types/database';
 import type { ConditionsSnapshot } from '@/lib/domains/conditions/types';
+import type { BoardClass } from '@/lib/domains/rideability';
 import { createSwellComponent } from '@/lib/domains/conditions';
 import {
   beachToSpotProfile,
@@ -22,7 +23,11 @@ import {
   getConditionCharacter,
   type ScoringEngine,
 } from '@/lib/domains/scoring';
-import { scoreNativeConditionInputs } from '@/lib/scoring/native-condition-score';
+import {
+  resolveNativeSkillLevel,
+  scoreNativeConditionInputs,
+} from '@/lib/scoring/native-condition-score';
+import { getRideabilityBand } from '@/lib/domains/rideability';
 import {
   DAYLIGHT_END_HOUR,
   DAYLIGHT_START_HOUR,
@@ -105,14 +110,27 @@ function scoreForecastTotal(
   forecast: ForecastForScoring,
   _beach: BeachWithThresholds,
   skillLevel?: WindowCalculatorOptions['skillLevel'],
+  boardClasses: readonly BoardClass[] = [],
 ): number {
-  return scoreNativeConditionInputs({
+  const inputs = {
     waveHeightFt: forecast.waveHeight,
     windSpeedMph: forecast.windSpeed,
     periodSec: forecast.wavePeriod,
     tideHeightFt: Number.isFinite(forecast.tideHeight) ? forecast.tideHeight : null,
     tideStatus: forecast.tideStatus,
-  }, skillLevel);
+  };
+  const baselineScore = scoreNativeConditionInputs(inputs, skillLevel);
+  if (boardClasses.length === 0) return baselineScore;
+
+  const resolvedSkill = resolveNativeSkillLevel(skillLevel, 'intermediate');
+  return boardClasses.reduce((bestScore, boardClass) => {
+    const boardScore = scoreNativeConditionInputs(
+      inputs,
+      resolvedSkill,
+      getRideabilityBand(resolvedSkill, boardClass),
+    );
+    return Math.max(bestScore, boardScore);
+  }, baselineScore);
 }
 
 // Default configuration
@@ -187,7 +205,8 @@ export function calculateOptimalWindow(
     daylightForecasts,
     beach,
     minScoreThreshold,
-    options.skillLevel
+    options.skillLevel,
+    options.boardClasses,
   );
 
   // Find best contiguous window
@@ -269,10 +288,11 @@ function scoreForecasts(
   forecasts: ForecastForScoring[],
   beach: BeachWithThresholds,
   minScoreThreshold: number,
-  skillLevel?: WindowCalculatorOptions['skillLevel']
+  skillLevel?: WindowCalculatorOptions['skillLevel'],
+  boardClasses: readonly BoardClass[] = [],
 ): ScoredForecast[] {
   return forecasts.map(forecast => {
-    const total = scoreForecastTotal(forecast, beach, skillLevel);
+    const total = scoreForecastTotal(forecast, beach, skillLevel, boardClasses);
     return {
       forecast,
       score: total,
@@ -824,7 +844,12 @@ export function calculateMultipleWindows(
 
   // Score all forecasts
   const scoredForecasts: ScoredForecast[] = daylightForecasts.map(forecast => {
-    const total = scoreForecastTotal(forecast, beach, options.skillLevel);
+    const total = scoreForecastTotal(
+      forecast,
+      beach,
+      options.skillLevel,
+      options.boardClasses,
+    );
     return {
       forecast,
       score: total,

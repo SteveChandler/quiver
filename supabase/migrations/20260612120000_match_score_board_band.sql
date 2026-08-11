@@ -211,7 +211,7 @@ BEGIN
         WHEN key IN ('longboard', 'long-board', 'log', 'longboard-single-fin', 'longboard-2-plus-1')
           OR replace(key, '-', '') IN ('longboard', 'longboard21')
         THEN 'longboard'
-        WHEN key IN ('midlength', 'mid-length', 'egg')
+        WHEN key IN ('midlength', 'mid-length', 'mini-mid', 'egg')
           OR replace(key, '-', '') = 'midlength'
         THEN 'mid-length'
         WHEN key IN ('funboard', 'fun-board', 'mini', 'minimal', 'mini-mal', 'mini-simmons')
@@ -220,7 +220,7 @@ BEGIN
         WHEN key IN ('fish', 'twin', 'twin-pin', 'groveler')
           OR replace(key, '-', '') = 'twinpin'
         THEN 'fish'
-        WHEN key IN ('shortboard', 'short-board', 'thruster')
+        WHEN key IN ('shortboard', 'short-board')
           OR replace(key, '-', '') = 'shortboard'
         THEN 'shortboard'
         WHEN key IN ('step-up', 'stepup')

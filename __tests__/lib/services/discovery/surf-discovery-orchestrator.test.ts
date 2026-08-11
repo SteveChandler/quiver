@@ -1186,12 +1186,36 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     });
 
     const beach1Rec = result.recommendations.find(r => r.beach.id === 'beach-1');
+    // 3.5ft is the `medium` tier, whose priority list leads with shortboard, and
+    // this quiver has one. The previous expectation asserted the 9'0 longboard
+    // while carrying the medium-tier reason string — it contradicted the table it
+    // was exercising. Board-aware scoring now returns the surf-correct pick.
     expect(beach1Rec?.boardPick).toEqual({
       boardName: "5'10 Lost Driver",
       boardType: 'shortboard',
       reason: "5'10 Lost Driver conditions — enjoy the fun waves",
     });
     expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
+  });
+
+  test('keeps a Pro board pick when no saved board class can be scored', async () => {
+    mockState.boards = [
+      { id: 'custom-1', name: 'Custom Shape', board_type: 'custom-shape', volume: 40 },
+      { id: 'custom-2', name: 'Another Shape', board_type: 'another-shape', volume: 35 },
+    ];
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+      isPro: true,
+    });
+
+    const beach1Rec = result.recommendations.find(r => r.beach.id === 'beach-1');
+    expect(beach1Rec?.boardPick).toEqual({
+      boardName: 'Custom Shape',
+      boardType: 'custom-shape',
+      reason: 'Custom Shape conditions — enjoy the fun waves',
+    });
   });
 
   test('fetches board context for free users without leaking Pro board picks', async () => {
@@ -1369,7 +1393,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     const reefForShortboard = shortboardResult.recommendations.find(
       (rec) => rec.beach.id === 'derived-reef'
     );
-    expect(reefForShortboard?.score).toBe(80);
+    expect(reefForShortboard?.score).toBe(75);
     expect(reefForShortboard?.reasons).toContain('Classic shortboard wave');
 
     mockState.boards = [
@@ -1388,7 +1412,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     const softBeachForGun = gunResult.recommendations.find(
       (rec) => rec.beach.id === 'derived-soft-beach'
     );
-    expect(softBeachForGun?.score).toBe(65);
+    expect(softBeachForGun?.score).toBe(60);
     expect(softBeachForGun?.warnings).toContain(
       'Soft, rolling wave - not much push for a gun'
     );

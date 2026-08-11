@@ -349,5 +349,75 @@ describe('getConditionBoardPick', () => {
 
       expect(result).toBeNull();
     });
+
+    it('does not fall back to a different tier board when the scored board is blocked', () => {
+      const boards = [
+        { id: 'lb-1', name: "9'0 Longboard", board_type: 'longboard', volume: 75 },
+        { id: 'sb-1', name: "5'10 Driver", board_type: 'shortboard', volume: 28 },
+      ];
+
+      const result = getConditionBoardPick(
+        powerDay,
+        boards,
+        makeBeach('lower-trestles'),
+        { kind: 'scored', boardClass: 'longboard' },
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('resolves an aliased board to the scored board class', () => {
+      const boards = [
+        {
+          id: 'lb-1',
+          name: "9'0 2+1",
+          board_type: 'longboard-2-plus-1',
+          volume: 75,
+        },
+      ];
+
+      const result = getConditionBoardPick(
+        makeForecast(1.5, 3),
+        boards,
+        undefined,
+        { kind: 'scored', boardClass: 'longboard' },
+      );
+
+      expect(result?.boardId).toBe('lb-1');
+    });
+
+    it('falls back to tier priority when scoring resolves no board class', () => {
+      const boards = [
+        { id: 'lb-1', name: "9'0 Longboard", board_type: 'longboard', volume: 75 },
+        { id: 'sb-1', name: "5'10 Driver", board_type: 'shortboard', volume: 28 },
+      ];
+
+      const result = getConditionBoardPick(
+        makeForecast(1.5, 3),
+        boards,
+        undefined,
+        { kind: 'scored', boardClass: null },
+      );
+
+      expect(result?.boardId).toBe('lb-1');
+      expect(result?.boardType).toBe('longboard');
+    });
+
+    it('falls back when scoring names a class absent from the quiver', () => {
+      const boards = [
+        { id: 'ml-1', name: "7'2 Mid", board_type: 'mid-length', volume: 48 },
+        { id: 'lb-1', name: "9'0 Longboard", board_type: 'longboard', volume: 75 },
+      ];
+
+      const result = getConditionBoardPick(
+        makeForecast(4, 5),
+        boards,
+        undefined,
+        { kind: 'scored', boardClass: 'shortboard' },
+      );
+
+      expect(result?.boardId).toBe('ml-1');
+      expect(result?.boardType).toBe('mid-length');
+    });
   });
 });

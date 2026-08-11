@@ -26,9 +26,13 @@ import { rerankHero, type RerankResult } from '@/lib/services/discovery/hero-ran
 import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import {
   getSkillLevelOrDefault,
-  SKILL_WAVE_RANGES,
   type SkillLevel,
 } from '@/lib/domains/user-preferences';
+import {
+  getRideabilityBand,
+  normalizeBoardClass,
+  type BoardClass,
+} from '@/lib/domains/rideability';
 import type { SpotProfile } from '@/lib/domains/spot-profile/types';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -130,6 +134,7 @@ interface GeneratedWeekScoutContext {
   beaches: Beach[];
   forecastsByBeach: Map<string, EnhancedForecastEntity[]>;
   userSkillLevel: SkillLevel | null;
+  boardClasses: BoardClass[];
   generatedAt: string;
   now: Date;
 }
@@ -159,6 +164,7 @@ export interface WeekScoutServiceDependencies {
   ) => Promise<Map<string, { sunrises: Date[]; sunsets: Date[] }>>;
   fetchPreferences: (userId: string) => ReturnType<typeof getUserSurfPreferences>;
   fetchSkill: (userId: string) => Promise<SkillLevel | null>;
+  fetchBoardClasses?: (userId: string) => Promise<BoardClass[]>;
   fetchPersonalizationContext: (
     userId: string,
     beachIds: string[],
@@ -175,11 +181,13 @@ export interface WeekScoutServiceDependencies {
     sunTimesCache: Map<string, { sunrises: Date[]; sunsets: Date[] }>;
     now: Date;
     userSkillLevel: SkillLevel | null;
+    boardClasses?: readonly BoardClass[];
   }) => PersonalizedForecastWindow | null;
   scoreWindowCondition: (
     forecast: EnhancedForecastEntity,
     beach: Beach,
     skillLevel?: SkillLevel | null,
+    boardClasses?: readonly BoardClass[],
   ) => number;
   scoreBeach: (
     beach: Beach,
@@ -290,12 +298,21 @@ function isSafe(score: DetailedScore): boolean {
 function isRideable(
   forecast: EnhancedForecastEntity,
   skillLevel: SkillLevel | null,
+  boardClasses: readonly BoardClass[] = [],
 ): boolean {
   const waveHeight = finiteNumber(forecast.wave_height);
   if (waveHeight === null) return false;
 
-  const band = SKILL_WAVE_RANGES[getSkillLevelOrDefault(skillLevel)].acceptable;
-  return waveHeight >= band.min && waveHeight <= band.max;
+  const resolvedSkillLevel = getSkillLevelOrDefault(skillLevel);
+  if (boardClasses.length === 0) {
+    const band = getRideabilityBand(resolvedSkillLevel, null).acceptable;
+    return waveHeight >= band.min && waveHeight <= band.max;
+  }
+
+  return boardClasses.some((boardClass) => {
+    const band = getRideabilityBand(resolvedSkillLevel, boardClass).acceptable;
+    return waveHeight >= band.min && waveHeight <= band.max;
+  });
 }
 
 function clampScore(score: number): number {
@@ -328,12 +345,29 @@ function defaultDependencies(now: Date): WeekScoutServiceDependencies {
     fetchSkill: async (userId) => (
       getProfileExperienceLevel(createSupabaseServiceRoleClient(), userId)
     ),
+    fetchBoardClasses: async (userId) => {
+      const { data, error } = await createSupabaseServiceRoleClient()
+        .from('boards')
+        .select('board_type')
+        .eq('user_id', userId);
+      if (error || !Array.isArray(data)) return [];
+
+      return Array.from(
+        new Set(
+          data
+            .map((row) => normalizeBoardClass(row.board_type))
+            .filter((boardClass): boardClass is BoardClass => boardClass !== null)
+        )
+      );
+    },
     fetchPersonalizationContext: async (userId, beachIds) => (
       fetchPersonalizationContext(userId, beachIds)
     ),
     calculatePersonalizationBonus,
     selectBestWindow,
-    scoreWindowCondition: scoreWindowConditionScore,
+    scoreWindowCondition: (forecast, beach, skillLevel, boardClasses) => (
+      scoreWindowConditionScore(forecast, beach, skillLevel, null, boardClasses)
+    ),
     scoreBeach: (beach, forecast, options) => (
       scoreBeachWithEngine(scoringEngine, beach, forecast, options)
     ),
@@ -382,6 +416,7 @@ function buildDraftWindow(args: {
   forecasts: EnhancedForecastEntity[];
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>>;
   userSkillLevel: SkillLevel | null;
+  boardClasses: readonly BoardClass[];
   sunTimes: Map<string, { sunrises: Date[]; sunsets: Date[] }>;
   personalizationContext: PersonalizationContext | null;
   generatedAt: string;
@@ -394,6 +429,7 @@ function buildDraftWindow(args: {
     sunTimesCache: args.sunTimes,
     now: args.deps.now,
     userSkillLevel: args.userSkillLevel,
+    boardClasses: args.boardClasses,
   });
   if (!window) return null;
 
@@ -412,6 +448,7 @@ function buildDraftWindow(args: {
     forecast,
     args.beach,
     args.userSkillLevel,
+    args.boardClasses,
   );
   const representativeScore = clampScore(
     conditionScore + personalization.affinityBonus + personalization.personalizationBonus,
@@ -431,7 +468,12 @@ function buildDraftWindow(args: {
       const time = new Date(row.forecast_at).getTime();
       return time >= window.start.getTime() && time < end.getTime();
     })
-    .map((row) => args.deps.scoreWindowCondition(row, args.beach, args.userSkillLevel));
+    .map((row) => args.deps.scoreWindowCondition(
+      row,
+      args.beach,
+      args.userSkillLevel,
+      args.boardClasses,
+    ));
   const subscores = {
     ...detailed.subscores,
     personalizationBonus: personalization.personalizationBonus,
@@ -448,7 +490,7 @@ function buildDraftWindow(args: {
       beachId: args.beach.id,
       conditionScore,
       verdict,
-      rideable: isRideable(forecast, args.userSkillLevel),
+      rideable: isRideable(forecast, args.userSkillLevel, args.boardClasses),
       safe: isSafe(detailed),
       confidence: finiteNumber(forecast.confidence_score),
       forecast: {
@@ -654,12 +696,13 @@ async function generateWeekScoutForecastInternal(
   );
   const beaches = await deps.fetchBeaches(request.candidateBeachIds);
   const beachIds = beaches.map((candidate) => candidate.id);
-  const [forecastsByBeach, sunTimes, userPrefs, userSkillLevel, personalizationContext] = await Promise.all([
+  const [forecastsByBeach, sunTimes, userPrefs, userSkillLevel, personalizationContext, boardClasses] = await Promise.all([
     deps.fetchForecasts(beaches, 24 * (request.dayCount + 1)),
     deps.fetchSunTimes(beachIds, localDates),
     deps.fetchPreferences(userId),
     deps.fetchSkill(userId),
     deps.fetchPersonalizationContext(userId, beachIds),
+    deps.fetchBoardClasses?.(userId) ?? Promise.resolve([]),
   ]);
 
   const slotsByBeach = new Map(beaches.map((candidate) => [
@@ -685,6 +728,7 @@ async function generateWeekScoutForecastInternal(
           forecasts,
           userPrefs,
           userSkillLevel,
+          boardClasses,
           sunTimes,
           personalizationContext,
           generatedAt,
@@ -740,6 +784,7 @@ async function generateWeekScoutForecastInternal(
     beaches,
     forecastsByBeach,
     userSkillLevel,
+    boardClasses,
     generatedAt,
     now: deps.now,
   };

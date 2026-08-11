@@ -19,6 +19,7 @@ import type { RecommendationAvailability } from "@/lib/recommendations/major-eve
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import { normalizeBoardClass, type BoardClass } from "@/lib/domains/rideability";
 import {
   resolveSelectedHourDisplay,
   resolveTodayHeadline,
@@ -759,7 +760,20 @@ async function bulkForecastHandler(
       });
     }
 
-    const userSkillLevel = await getProfileExperienceLevel(supabase, user?.id);
+    const [userSkillLevel, boardClasses] = await Promise.all([
+      getProfileExperienceLevel(supabase, user?.id),
+      user?.id
+        ? supabase
+            .from("boards")
+            .select("board_type")
+            .eq("user_id", user.id)
+            .then(({ data }) => Array.from(new Set(
+              (data ?? [])
+                .map((row) => normalizeBoardClass(row.board_type))
+                .filter((boardClass): boardClass is BoardClass => boardClass !== null)
+            )))
+        : Promise.resolve<BoardClass[]>([]),
+    ]);
     const fetchWindow = resolveForecastFetchWindow(forecastAtParam);
 
     const {
@@ -907,7 +921,13 @@ async function bulkForecastHandler(
         if (!forecast) continue;
 
         try {
-          const score = scoreWindowConditionScore(forecast, beach, userSkillLevel);
+          const score = scoreWindowConditionScore(
+            forecast,
+            beach,
+            userSkillLevel,
+            null,
+            boardClasses,
+          );
           if (!Number.isFinite(score)) continue;
 
           conditionScoreMap[beach.id] = score;

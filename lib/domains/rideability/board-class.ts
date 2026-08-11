@@ -43,6 +43,7 @@ export const BOARD_TYPE_TO_BOARD_CLASS: Readonly<Record<string, BoardClass>> = {
 
   midlength: 'mid-length',
   'mid-length': 'mid-length',
+  'mini-mid': 'mid-length',
   egg: 'mid-length',
 
   funboard: 'funboard',
@@ -59,7 +60,6 @@ export const BOARD_TYPE_TO_BOARD_CLASS: Readonly<Record<string, BoardClass>> = {
 
   shortboard: 'shortboard',
   'short-board': 'shortboard',
-  thruster: 'shortboard',
 
   'step-up': 'step-up',
   stepup: 'step-up',
@@ -109,6 +109,9 @@ export function normalizeBoardClass(
   if (BOARD_CLASS_SET.has(key)) return key as BoardClass;
 
   const compactKey = compactBoardClassKey(key);
+
+  if (key.startsWith('longboard-')) return 'longboard';
+
   return (
     BOARD_TYPE_TO_BOARD_CLASS[key] ??
     BOARD_TYPE_TO_BOARD_CLASS[compactKey] ??

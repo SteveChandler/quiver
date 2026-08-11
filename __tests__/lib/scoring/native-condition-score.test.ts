@@ -3,6 +3,7 @@ import {
   scoreNativeForecastSlot,
 } from "@/lib/scoring/native-condition-score";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { getRideabilityBand } from "@/lib/domains/rideability";
 
 function forecast(
   overrides: Partial<EnhancedForecastEntity> = {}
@@ -71,6 +72,14 @@ describe("native-condition-score", () => {
     expect(scoreNativeForecastSlot(row, "beginner")).toBeGreaterThan(
       scoreNativeForecastSlot(row, "advanced")
     );
+  });
+
+  it("keeps the no-board score unchanged while accepting a longboard-sized advanced wave", () => {
+    const row = forecast({ wave_height: "1.1 ft", wave_period: "13s" });
+    const longboardBand = getRideabilityBand("advanced", "longboard");
+
+    expect(scoreNativeForecastSlot(row, "advanced")).toBe(0);
+    expect(scoreNativeForecastSlot(row, "advanced", longboardBand)).toBeGreaterThan(0);
   });
 
   it("drops sharply with high wind", () => {
