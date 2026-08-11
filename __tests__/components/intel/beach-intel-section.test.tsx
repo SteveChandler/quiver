@@ -286,6 +286,38 @@ describe("BeachIntelSection", () => {
       expect(avatarBtn).toHaveAttribute("data-user-id", mockIntelPost.user_id);
     });
 
+    it("renders structured conditions fields as chips", () => {
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: {
+          posts: [
+            {
+              ...mockIntelPost,
+              wave_size_range: "2-3ft",
+              vibe: "fun",
+              description: "Clean lines and a light offshore breeze",
+            },
+          ] as any,
+        },
+      }));
+
+      render(<BeachIntelSection {...defaultProps} />);
+
+      expect(screen.getByTestId("conditions-chips")).toHaveTextContent("2-3ft");
+      expect(screen.getByTestId("conditions-chips")).toHaveTextContent("🤙 Fun");
+      expect(screen.getByText("Clean lines and a light offshore breeze")).toBeInTheDocument();
+    });
+
+    it("keeps legacy conditions posts text-only when structured fields are absent", () => {
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [mockIntelPost] as any },
+      }));
+
+      render(<BeachIntelSection {...defaultProps} />);
+
+      expect(screen.queryByTestId("conditions-chips")).not.toBeInTheDocument();
+      expect(screen.getByText(mockIntelPost.description)).toBeInTheDocument();
+    });
+
     it("shows post count badge when posts exist", () => {
       mockUseIntelData.mockReturnValue(mockIntelDataReturn({
         data: { posts: [mockIntelPost] as any },

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { Check } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { submitConditionsReport } from "@/actions/conditions-report-actions";
 import {
@@ -42,6 +44,7 @@ export function ConditionsReportCard({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // CTA defense-in-depth: never trust the parent's publicMode alone
   const { user } = useAuth();
+  const prefersReducedMotion = useReducedMotion() ?? false;
   const effectivePublicMode = publicMode || !user;
 
   const handleSubmit = useCallback(async () => {
@@ -99,15 +102,64 @@ export function ConditionsReportCard({
   // --- Success state ---
   if (formState === "success") {
     return (
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center space-y-2">
-        <p className="text-emerald-700 font-semibold text-base">
-          Report shared! Thanks for helping the community.
+      <div
+        className="relative overflow-hidden rounded-xl border-2 border-[var(--ink)] bg-[var(--paper)] p-5 text-center text-[var(--ink)] shadow-[4px_4px_0_var(--ink)]"
+        data-testid="conditions-report-success"
+        data-reduced-motion={prefersReducedMotion}
+        aria-live="polite"
+      >
+        {!prefersReducedMotion && (
+          <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+            {[
+              { x: -42, y: -30, rotate: -20, color: "var(--q-orange)" },
+              { x: 38, y: -34, rotate: 18, color: "var(--stamp-blue)" },
+              { x: -50, y: 18, rotate: 28, color: "var(--hi-yellow)" },
+              { x: 48, y: 20, rotate: -24, color: "var(--q-orange)" },
+              { x: -20, y: 42, rotate: 12, color: "var(--stamp-blue)" },
+              { x: 20, y: 42, rotate: -12, color: "var(--hi-yellow)" },
+            ].map((particle, index) => (
+              <motion.span
+                key={index}
+                className="absolute left-1/2 top-1/2 h-2 w-1 rounded-sm"
+                style={{ backgroundColor: particle.color }}
+                initial={{ opacity: 0, scale: 0, x: 0, y: 0, rotate: 0 }}
+                animate={{
+                  opacity: [0, 1, 0],
+                  scale: [0, 1, 0.8],
+                  x: particle.x,
+                  y: particle.y,
+                  rotate: particle.rotate,
+                }}
+                transition={{
+                  duration: 0.8,
+                  delay: index * 0.04,
+                  ease: "easeOut",
+                }}
+              />
+            ))}
+          </div>
+        )}
+        <motion.div
+          className="relative mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border-2 border-[var(--ink)] bg-[var(--q-orange)]"
+          initial={prefersReducedMotion ? false : { scale: 0.5, rotate: -8 }}
+          animate={prefersReducedMotion ? undefined : { scale: 1, rotate: 0 }}
+          transition={
+            prefersReducedMotion
+              ? { duration: 0 }
+              : { type: "spring", stiffness: 420, damping: 18 }
+          }
+          aria-hidden="true"
+        >
+          <Check className="h-6 w-6 stroke-[3] text-[var(--ink)]" />
+        </motion.div>
+        <p className="relative font-heading text-base font-semibold">
+          Report shared! Thanks for helping the {beachName} crew.
         </p>
         <Button
           variant="ghost"
           size="sm"
           onClick={onDismiss}
-          className="text-emerald-600 hover:text-emerald-700"
+          className="relative text-[var(--ink)] hover:bg-[var(--paper-shadow)]"
         >
           Close
         </Button>
