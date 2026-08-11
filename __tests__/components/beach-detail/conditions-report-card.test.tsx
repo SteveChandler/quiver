@@ -10,6 +10,10 @@ jest.mock("@/actions/conditions-report-actions", () => ({
   submitConditionsReport: jest.fn(),
 }));
 jest.mock("@/lib/analytics", () => ({ track: jest.fn() }));
+jest.mock("framer-motion", () => ({
+  ...jest.requireActual("framer-motion"),
+  useReducedMotion: jest.fn(() => true),
+}));
 
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockSubmit = submitConditionsReport as jest.MockedFunction<
@@ -47,11 +51,17 @@ describe("ConditionsReportCard", () => {
   });
 
   it("submits the structured report and shows the success state", async () => {
+    const onSubmitSuccess = jest.fn();
     mockSubmit.mockResolvedValue({
       success: true,
       data: { success: true, data: { intelPostId: "intel-1", sessionId: null } },
     } as never);
-    render(<ConditionsReportCard {...defaultProps} />);
+    render(
+      <ConditionsReportCard
+        {...defaultProps}
+        onSubmitSuccess={onSubmitSuccess}
+      />
+    );
     fillForm();
     fireEvent.click(screen.getByRole("button", { name: "Share Report" }));
 
@@ -64,6 +74,29 @@ describe("ConditionsReportCard", () => {
       vibe: "fun",
       note: undefined,
     });
+    expect(onSubmitSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders a static zine success state when reduced motion is preferred", async () => {
+    mockSubmit.mockResolvedValue({
+      success: true,
+      data: { success: true, data: { intelPostId: "intel-1", sessionId: null } },
+    } as never);
+
+    render(<ConditionsReportCard {...defaultProps} />);
+    fillForm();
+    fireEvent.click(screen.getByRole("button", { name: "Share Report" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("conditions-report-success")).toHaveAttribute(
+        "data-reduced-motion",
+        "true"
+      );
+    });
+    expect(
+      screen.getByText("Report shared! Thanks for helping the Blacks crew.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("community")).not.toBeInTheDocument();
   });
 
   it("shows the already-reported state on dedupe", async () => {

@@ -50,6 +50,7 @@ import {
   getConfidenceColor,
   getConfidenceLabel,
 } from "@/lib/constants/intel";
+import { getVibeEmoji, VIBE_OPTIONS } from "@/types/conditions-report";
 import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
 import { PartialContentGate } from "@/components/ui/partial-content-gate";
 
@@ -553,6 +554,19 @@ function IntelPostCard({
               <span>{timeAgo}</span>
             </div>
           </div>
+
+          {post.tag === "conditions" &&
+            post.wave_size_range &&
+            post.vibe && (
+              <div className="mb-2 flex flex-wrap gap-1.5" data-testid="conditions-chips">
+                <span className="rounded-full border border-[var(--ink)]/25 bg-[var(--paper)] px-2 py-0.5 text-xs font-medium text-[var(--ink)]">
+                  {post.wave_size_range}
+                </span>
+                <span className="rounded-full border border-[var(--ink)]/25 bg-[var(--paper)] px-2 py-0.5 text-xs font-medium text-[var(--ink)]">
+                  {getVibeEmoji(post.vibe)} {VIBE_OPTIONS.find((option) => option.value === post.vibe)?.label ?? post.vibe}
+                </span>
+              </div>
+            )}
 
           {/* Description */}
           <p
