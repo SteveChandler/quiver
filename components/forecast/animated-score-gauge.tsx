@@ -88,8 +88,8 @@ const SIZE_CONFIG = {
 /**
  * Extended score thresholds that include the new 'minimal' band (30-39).
  *
- * The existing SCORE_THRESHOLDS from score-color-utils uses a coarser
- * 4-bucket system (80/60/40/0). The gauge uses a finer 6-bucket system
+ * The existing SCORE_THRESHOLDS from score-color-utils uses the five-state
+ * condition vocabulary. The gauge uses a finer 6-bucket system
  * that maps directly to MatchQuality values from the scoring engine.
  */
 const GAUGE_THRESHOLDS = {
@@ -210,7 +210,7 @@ export function AnimatedScoreGauge({
   const circumference = 2 * Math.PI * radius;
   const strokeColor = isHero ? "#ffffff" : getStrokeColor(score);
   const glowColor = isHero ? "rgba(255,255,255,0.3)" : getGlowColor(score);
-  // scoreColors from the shared utility (4-bucket) is still used for number text colour
+  // Shared condition colors are used for the numeric text; the gauge label remains MatchQuality.
   const scoreColors = getScoreColorClasses(score);
 
   // Calculate target offset (0 = full, circumference = empty)

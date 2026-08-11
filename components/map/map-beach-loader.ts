@@ -1,5 +1,6 @@
 import type { Beach } from "@/types/database";
 import type {
+  ConditionSummary,
   HourlySwellTimeline,
   SwellPartition,
 } from "@/app/api/forecasts/bulk/route";
@@ -8,13 +9,15 @@ import { fetchInBatches } from "@/lib/utils/batch-fetch";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import { selectTimelineFieldBeachIds } from "@/components/map/timeline-beach-sampler";
 
-export type ConditionSummary = "GOOD" | "FAIR" | "CHECK" | "UNKNOWN";
+export type { ConditionSummary } from "@/app/api/forecasts/bulk/route";
 export type ForecastLoadStatus = "ready" | "empty" | "unavailable";
 
 const VALID_CONDITION_SUMMARIES = new Set<ConditionSummary>([
+  "EPIC",
   "GOOD",
   "FAIR",
-  "CHECK",
+  "RIDEABLE",
+  "MEH",
   "UNKNOWN",
 ]);
 

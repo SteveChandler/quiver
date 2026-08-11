@@ -11,7 +11,13 @@ export type MapMarkerDisplay = "forecast" | "points";
 
 export interface ConditionMarkerCall {
   summary: ConditionSummary;
-  label: "Worth it" | "Maybe" | "Scout it" | "No read";
+  label:
+    | "Go now!"
+    | "Go surf!"
+    | "Worth a look"
+    | "Slim pickings"
+    | "Skip it"
+    | "No read";
   gradient: string;
 }
 
@@ -25,9 +31,11 @@ export const CONDITION_MARKER_CALLS: ReadonlyArray<{
   summary: ConditionSummary;
   label: ConditionMarkerCall["label"];
 }> = [
-  { summary: "GOOD", label: "Worth it" },
-  { summary: "FAIR", label: "Maybe" },
-  { summary: "CHECK", label: "Scout it" },
+  { summary: "EPIC", label: "Go now!" },
+  { summary: "GOOD", label: "Go surf!" },
+  { summary: "FAIR", label: "Worth a look" },
+  { summary: "RIDEABLE", label: "Slim pickings" },
+  { summary: "MEH", label: "Skip it" },
   { summary: "UNKNOWN", label: "No read" },
 ];
 
@@ -50,9 +58,15 @@ export function getConditionMarkerGradient(
 ): string {
   // Derived from Quiver brand/score colors but darkened for white marker text
   // on light map tiles; raw native teal (#00D4AA) is too low-contrast here.
+  if (summary === "EPIC") {
+    return "linear-gradient(to right, #8A5A00, #B87900)";
+  }
   if (summary === "GOOD") return "linear-gradient(to right, #005B52, #008F7A)";
   if (summary === "FAIR") return "linear-gradient(to right, #8A4A12, #9E5010)";
-  if (summary === "CHECK") return "linear-gradient(to right, #334155, #475569)";
+  if (summary === "RIDEABLE") {
+    return "linear-gradient(to right, #475569, #64748B)";
+  }
+  if (summary === "MEH") return "linear-gradient(to right, #334155, #475569)";
   return "linear-gradient(to right, #5F6673, #475569)";
 }
 
