@@ -7,7 +7,10 @@ import {
   trackIosAppCtaClick,
   trackIosAppCtaView,
 } from "@/lib/analytics/ios-app-cta-tracking";
-import { IOS_APP_STORE_CTA, IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import {
+  IOS_APP_STORE_CTA,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
+} from "@/lib/constants/app-store";
 
 jest.mock("next/image", () => ({
   __esModule: true,
@@ -96,7 +99,9 @@ describe("ForecastSection", () => {
     await user.click(screen.getAllByRole("tab", { name: /check/i })[0]);
 
     expect(
-      screen.getByRole("heading", { name: /check the beach before you commit/i }),
+      screen.getByRole("heading", {
+        name: /check the beach before you commit/i,
+      }),
     ).toBeInTheDocument();
     expect(screen.getByText(/ground-truth the call/i)).toBeInTheDocument();
   });
@@ -115,7 +120,7 @@ describe("ForecastSection", () => {
 
     const cta = screen.getByRole("link", { name: IOS_APP_STORE_CTA });
     cta.addEventListener("click", (event) => event.preventDefault());
-    expect(cta).toHaveAttribute("href", IOS_APP_STORE_URL);
+    expect(cta).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
 
     await user.click(cta);
 
@@ -124,7 +129,7 @@ describe("ForecastSection", () => {
       surface: "landing-page",
       placement: "forecast_section",
       cta_text: IOS_APP_STORE_CTA,
-      destination_url: IOS_APP_STORE_URL,
+      destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
     });
   });
 });

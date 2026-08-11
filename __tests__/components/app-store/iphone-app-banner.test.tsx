@@ -6,7 +6,7 @@ import { IPHONE_APP_BANNER_DISMISSAL_STORAGE_KEY } from "@/lib/app-store/iphone-
 import {
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_DESTINATION_STATUS,
-  IOS_APP_STORE_URL,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 
 jest.mock("next/navigation", () => ({
@@ -65,17 +65,17 @@ describe("IphoneAppBanner", () => {
           cta_text: IOS_APP_STORE_CTA,
           destination_type: "app_store",
           destination_status: IOS_APP_STORE_DESTINATION_STATUS,
-          destination_url: IOS_APP_STORE_URL,
+          destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
           browser: "chrome_ios",
           pathname: "/map",
-        })
+        }),
       );
       expect(mockedTrack).toHaveBeenCalledWith(
         "iphone_app_banner_view",
         expect.objectContaining({
           browser: "chrome_ios",
           pathname: "/map",
-        })
+        }),
       );
     });
   });
@@ -86,7 +86,7 @@ describe("IphoneAppBanner", () => {
     const cta = await screen.findByRole("link", {
       name: IOS_APP_STORE_CTA,
     });
-    expect(cta).toHaveAttribute("href", IOS_APP_STORE_URL);
+    expect(cta).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
 
     fireEvent.click(cta);
 
@@ -97,8 +97,8 @@ describe("IphoneAppBanner", () => {
         pathname: "/map",
         cta_text: IOS_APP_STORE_CTA,
         destination_status: IOS_APP_STORE_DESTINATION_STATUS,
-        destination_url: IOS_APP_STORE_URL,
-      })
+        destination_url: IOS_APP_STORE_WEB_REDIRECT_PATH,
+      }),
     );
   });
 
@@ -108,19 +108,19 @@ describe("IphoneAppBanner", () => {
     fireEvent.click(
       await screen.findByRole("button", {
         name: "Dismiss iPhone app banner",
-      })
+      }),
     );
 
     expect(screen.queryByTestId("iphone-app-banner")).not.toBeInTheDocument();
     expect(
-      window.localStorage.getItem(IPHONE_APP_BANNER_DISMISSAL_STORAGE_KEY)
+      window.localStorage.getItem(IPHONE_APP_BANNER_DISMISSAL_STORAGE_KEY),
     ).not.toBeNull();
     expect(mockedTrack).toHaveBeenCalledWith(
       "iphone_app_banner_dismiss",
       expect.objectContaining({
         browser: "chrome_ios",
         pathname: "/map",
-      })
+      }),
     );
   });
 
@@ -136,7 +136,7 @@ describe("IphoneAppBanner", () => {
         expect.objectContaining({
           browser: "safari",
           pathname: "/map",
-        })
+        }),
       );
       expect(mockedTrack).toHaveBeenCalledWith(
         "iphone_app_banner_suppressed",
@@ -144,7 +144,7 @@ describe("IphoneAppBanner", () => {
           browser: "safari",
           pathname: "/map",
           suppression_reason: "safari_native_banner",
-        })
+        }),
       );
     });
   });
@@ -161,7 +161,7 @@ describe("IphoneAppBanner", () => {
         expect.objectContaining({
           suppression_reason: "excluded_route",
           pathname: "/",
-        })
+        }),
       );
     });
   });

@@ -4,7 +4,10 @@ import { ExternalLink, Smartphone } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useTrackEvent } from "@/hooks/use-track-event";
-import { IOS_APP_STORE_CTA, IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import {
+  IOS_APP_STORE_CTA,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
+} from "@/lib/constants/app-store";
 import { cn } from "@/lib/utils";
 import type { SurfWindowLinks } from "@/types/session-intelligence";
 import {
@@ -22,7 +25,9 @@ export interface AppDeepLinkCTAProps {
 }
 
 function resolveHref(links: SurfWindowLinks): string {
-  return links.universalLink ?? links.appDeepLink ?? IOS_APP_STORE_URL;
+  return (
+    links.universalLink ?? links.appDeepLink ?? IOS_APP_STORE_WEB_REDIRECT_PATH
+  );
 }
 
 export function AppDeepLinkCTA({
@@ -34,13 +39,14 @@ export function AppDeepLinkCTA({
 }: AppDeepLinkCTAProps) {
   const { track } = useTrackEvent();
   const resolvedLabel =
-    label ?? (variant === "ghost" ? "Take it with you" : "Open this window in Quiver");
+    label ??
+    (variant === "ghost" ? "Take it with you" : "Open this window in Quiver");
   const href = resolveHref(links);
-  const isFallback = href === IOS_APP_STORE_URL;
+  const isFallback = href === IOS_APP_STORE_WEB_REDIRECT_PATH;
   const ctaLabel = isFallback ? IOS_APP_STORE_CTA : resolvedLabel;
   const metadata = buildSurfWindowTrackingMetadata(tracking ?? {}, {
     targetHref: href,
-    linkType: resolveAppDeepLinkType(href),
+    linkType: isFallback ? "app_store" : resolveAppDeepLinkType(href),
     fallbackToAppStore: isFallback,
   });
 
@@ -64,7 +70,7 @@ export function AppDeepLinkCTA({
         variant === "ghost"
           ? "h-10 w-full border-white/15 bg-transparent text-white/75 hover:bg-white/[0.06] hover:text-white sm:w-auto"
           : "h-10 w-full bg-ocean-blue text-white hover:bg-ocean-blue/90 sm:w-auto",
-        className
+        className,
       )}
     >
       <a

@@ -13,7 +13,7 @@ import { ArrowRight, ExternalLink, Smartphone } from "lucide-react";
 import { AndroidWaitlistCta } from "@/components/pricing/android-waitlist-cta";
 import {
   IOS_APP_STORE_CTA,
-  IOS_APP_STORE_URL,
+  IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 import { trackAppHandoffQrRendered } from "@/lib/analytics/app-handoff-tracking";
 import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
@@ -54,7 +54,10 @@ type InviteDestinationType =
   | "web_signup"
   | "android_waitlist";
 
-type InviteMetadataOverride = Record<string, string | number | boolean | undefined>;
+type InviteMetadataOverride = Record<
+  string,
+  string | number | boolean | undefined
+>;
 
 function detectPlatform(): InviteLandingPlatform {
   if (typeof navigator === "undefined") return "desktop";
@@ -223,7 +226,7 @@ export function InviteLandingClient({
                 </AndroidWaitlistCta>
               ) : (
                 <a
-                  href={IOS_APP_STORE_URL}
+                  href={IOS_APP_STORE_WEB_REDIRECT_PATH}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() =>

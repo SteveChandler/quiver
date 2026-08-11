@@ -43,9 +43,7 @@ describe("app-handoff constants", () => {
     expect(path).toContain("source=landing_hero");
     expect(path).toContain("surface=landing-page");
     expect(path).toContain("placement=hero_primary");
-    expect(path).toContain(
-      "handoff_id=33333333-3333-4333-8333-333333333333",
-    );
+    expect(path).toContain("handoff_id=33333333-3333-4333-8333-333333333333");
     expect(path).toContain("qr_id=hero_qr");
     expect(path).toContain("target=download");
     expect(path).toContain("utm_source=qr");
@@ -85,9 +83,9 @@ describe("app-handoff constants", () => {
   });
 
   it("appends Apple campaign tokens to the App Store URL", () => {
-    const url = iosAppStoreUrlWithCampaign("app_first_v1");
+    const url = iosAppStoreUrlWithCampaign("web");
     expect(url.startsWith(IOS_APP_STORE_URL)).toBe(true);
-    expect(url).toContain("ct=app_first_v1");
+    expect(url).toContain("ct=web");
     expect(url).toContain("mt=8");
   });
 });
