@@ -14,6 +14,7 @@ import type {
   StoreSnapshotInput,
   VercelExportInput,
   WeeklyActionItem,
+  WeeklySeoComparison,
   WeeklySeoReportInput,
 } from "./types";
 import {
@@ -50,13 +51,21 @@ export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
   const actionQueue = synthesizeWeeklyActionQueue(input);
 
   return [
-    `# Quiver Weekly SEO + ASO Report - ${input.generatedAt.slice(0, 10)}`,
+    `# Quiver Weekly SEO + ASO Report - ${input.auditDate ?? input.generatedAt.slice(0, 10)}`,
     "",
     "Report-only output. No publishing, migrations, commits, pushes, runtime page edits, or production mutations were performed.",
     "",
     "## Bottom Line",
     "",
     renderBottomLine(input, openRecommendations),
+    "",
+    "## Source Freshness",
+    "",
+    renderSourceFreshness(input.sourceFreshness),
+    "",
+    "## Week-over-Week Movement",
+    "",
+    renderWeekOverWeek(input.weekOverWeek),
     "",
     "## Web SEO",
     "",
@@ -88,7 +97,10 @@ export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
     "",
     "## Technical Crawl Health",
     "",
-    renderRecommendations(input.technical ?? [], "No technical crawl issues in available inputs."),
+    renderRecommendations(
+      mergeTechnicalRecommendations(input.technical ?? [], input.recommendations),
+      "No technical crawl issues in available inputs.",
+    ),
     "",
     "## Backlink / Referrer Signals",
     "",
@@ -131,6 +143,147 @@ export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
     renderCoverageNotes(input),
     "",
   ].join("\n");
+}
+
+export function buildWeeklySeoComparison(
+  current: WeeklySeoReportInput,
+  previous?: WeeklySeoReportInput,
+  previousAuditDate?: string,
+): WeeklySeoComparison | undefined {
+  const metrics: WeeklySeoComparison["metrics"] = [];
+  const currentGsc = current.gsc;
+
+  if (currentGsc) {
+    addMetric(
+      metrics,
+      "GSC clicks (last 7d vs prior 7d)",
+      sum(currentGsc.last7d.map((row) => row.clicks)),
+      sum(currentGsc.prior7d.map((row) => row.clicks)),
+      "clicks",
+    );
+    addMetric(
+      metrics,
+      "GSC impressions (last 7d vs prior 7d)",
+      sum(currentGsc.last7d.map((row) => row.impressions)),
+      sum(currentGsc.prior7d.map((row) => row.impressions)),
+      "impressions",
+    );
+  }
+
+  if (current.vercel) {
+    const currentVisits = sum(current.vercel.pages.map((page) => page.visits ?? 0));
+    const previousVisits = sum(current.vercel.pages.map((page) => page.previousVisits ?? 0));
+    if (currentVisits > 0 && previousVisits > 0) {
+      addMetric(
+        metrics,
+        "Vercel SEO page visits",
+        currentVisits,
+        previousVisits,
+        "visits",
+      );
+    }
+  }
+
+  if (previous?.gsc && currentGsc) {
+    addMetric(
+      metrics,
+      "GSC clicks (28d vs prior report)",
+      sum(currentGsc.last28d.map((row) => row.clicks)),
+      sum(previous.gsc.last28d.map((row) => row.clicks)),
+      "clicks",
+    );
+    addMetric(
+      metrics,
+      "GSC impressions (28d vs prior report)",
+      sum(currentGsc.last28d.map((row) => row.impressions)),
+      sum(previous.gsc.last28d.map((row) => row.impressions)),
+      "impressions",
+    );
+  }
+
+  if (previous?.vercel && current.vercel) {
+    addMetric(
+      metrics,
+      "Vercel adjusted pageviews",
+      current.vercel.adjustedPageViews,
+      previous.vercel.adjustedPageViews,
+      "pageviews",
+    );
+  }
+
+  if (previous?.dataforseo && current.dataforseo) {
+    addMetric(
+      metrics,
+      "DataForSEO Google top-100 checks",
+      countTop100(current.dataforseo.googleRankings),
+      countTop100(previous.dataforseo.googleRankings),
+      "checks",
+    );
+    addMetric(
+      metrics,
+      "DataForSEO ASO top-100 checks",
+      countTop100(current.dataforseo.asoRankings),
+      countTop100(previous.dataforseo.asoRankings),
+      "checks",
+    );
+  }
+
+  if (metrics.length === 0) return undefined;
+  return { previousAuditDate, metrics };
+}
+
+function addMetric(
+  metrics: WeeklySeoComparison["metrics"],
+  label: string,
+  current: number,
+  previous: number,
+  unit: string,
+): void {
+  if (!Number.isFinite(current) || !Number.isFinite(previous)) return;
+  if (current === 0 && previous === 0) return;
+  metrics.push({ label, current, previous, unit });
+}
+
+function countTop100(rows: Array<{ quiverRank: number | null }>): number {
+  return rows.filter((row) => row.quiverRank !== null && row.quiverRank <= 100).length;
+}
+
+function renderSourceFreshness(
+  freshness: WeeklySeoReportInput["sourceFreshness"],
+): string {
+  if (!freshness?.length) return "- Source freshness was not recorded for this run.";
+  return [
+    "- Freshness policy: FRESH = 0–1 days old; LAGGED = 2–3 days; STALE = more than 3 days; MISSING = no dated input.",
+    ...freshness.map((source) =>
+      `- ${source.source}: ${source.status.toUpperCase()}${source.observedAt ? ` (${source.observedAt})` : ""} — ${source.note}`,
+    ),
+  ].join("\n");
+}
+
+function renderWeekOverWeek(comparison?: WeeklySeoComparison): string {
+  if (!comparison?.metrics.length) return "- No comparable prior-week metrics were available.";
+  const rows = comparison.previousAuditDate
+    ? [`- Comparison baseline: audit ${comparison.previousAuditDate}.`]
+    : [];
+  rows.push(...comparison.metrics.map((metric) => {
+    const delta = metric.current - metric.previous;
+    const percent = metric.previous === 0 ? "n/a" : `${formatSigned((delta / metric.previous) * 100, 1)}%`;
+    return `- ${metric.label}: ${formatMetricNumber(metric.current)} ${metric.unit}; prior ${formatMetricNumber(metric.previous)}; change ${formatSigned(delta, 0)} (${percent}).`;
+  }));
+  if (comparison.missing?.length) {
+    rows.push(...comparison.missing.map((item) => `- Comparison gap: ${item}`));
+  }
+  return rows.join("\n");
+}
+
+function mergeTechnicalRecommendations(
+  technical: SeoRecommendation[],
+  recommendations: SeoRecommendation[],
+): SeoRecommendation[] {
+  const ahrefsIssues = recommendations.filter((item) =>
+    item.source === "ahrefs-audit" && !item.targetKeyword,
+  );
+  return [...new Map([...technical, ...ahrefsIssues].map((item) => [item.id, item])).values()];
 }
 
 function renderBottomLine(
@@ -192,8 +345,11 @@ function renderKeywordMovement(
   dataforseo: DataForSeoExportInput | undefined,
   recommendations: SeoRecommendation[],
 ): string {
+  // Non-keyword ahrefs-audit findings render under Technical Crawl Health via
+  // mergeTechnicalRecommendations. Keeping them here too printed each one twice.
   const keywordRecs = recommendations.filter((item) =>
-    item.source === "gsc-decay" || item.source === "ahrefs-audit",
+    item.source === "gsc-decay" ||
+    (item.source === "ahrefs-audit" && Boolean(item.targetKeyword)),
   );
   const rows = [
     ...renderDataForSeoGoogleRanks(dataforseo),
@@ -894,6 +1050,17 @@ function isAmbiguousAsoBrandKeyword(keyword: string): boolean {
 
 function sum(values: number[]): number {
   return values.reduce((total, value) => total + value, 0);
+}
+
+function formatMetricNumber(value: number): string {
+  return Number.isInteger(value) ? value.toLocaleString("en-US") : value.toFixed(1);
+}
+
+function formatSigned(value: number, decimals: number): string {
+  const rounded = decimals === 0
+    ? Math.abs(Math.round(value)).toLocaleString("en-US")
+    : Math.abs(value).toFixed(decimals);
+  return `${value >= 0 ? "+" : "-"}${rounded}`;
 }
 
 function formatNumber(value: number | undefined): string {
