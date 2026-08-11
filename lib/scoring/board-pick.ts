@@ -54,6 +54,10 @@ export interface BoardPickResult {
   reason: string;
 }
 
+export type BoardPickContext =
+  | { kind: 'heuristic' }
+  | { kind: 'scored'; boardClass: BoardClass | null };
+
 /**
  * Determine whether conditions are "choppy" (onshore wind above threshold)
  * or "clean" (offshore/cross-shore or light wind).
@@ -203,21 +207,24 @@ function isBlockedPowerDayBoard(
 /**
  * Picks the best board from a user's quiver for the given forecast conditions.
  *
- * Uses condition range → board type heuristics (priority-ordered). Returns the
- * first board in the user's quiver that matches the preferred type. If the user
- * has only one board, it is always returned (the scorer handles whether to surf,
- * not the board pick). Returns null if the quiver is empty.
+ * Uses condition range → board type heuristics when no board-aware score is
+ * available. A scored class is returned when its board is available, keeping
+ * the displayed board tied to the board that produced the score. If scoring
+ * chose no class, or no owned board matches the class, the heuristic remains a
+ * useful fallback. A scored board that is excluded by a safety guard returns
+ * null rather than displaying a different, unscored board.
  *
  * @param forecast - The forecast conditions
  * @param boards - The user's boards
  * @param beach - Optional beach config (used for wind direction context)
- * @returns BoardPickResult or null if quiver is empty
+ * @param context - Whether scoring selected a class or the heuristic should be used
+ * @returns BoardPickResult or null if quiver is empty or the scored board is blocked
  */
 export function getConditionBoardPick(
   forecast: ForecastForScoring,
   boards: BoardForPick[],
   beach?: BeachWithThresholds,
-  winningBoardClass?: BoardClass | null,
+  context: BoardPickContext = { kind: 'heuristic' },
 ): BoardPickResult | null {
   if (boards.length === 0) return null;
 
@@ -227,9 +234,9 @@ export function getConditionBoardPick(
 
   if (candidateBoards.length === 0) return null;
 
-  if (winningBoardClass) {
+  if (context.kind === 'scored' && context.boardClass) {
     const winningBoard = candidateBoards.find(
-      (board) => normalizeBoardClass(board.board_type) === winningBoardClass
+      (board) => normalizeBoardClass(board.board_type) === context.boardClass
     );
     if (winningBoard) {
       return {
@@ -239,6 +246,13 @@ export function getConditionBoardPick(
         reason: buildReason(winningBoard.name, getConditionTier(forecast, beach)),
       };
     }
+
+    // A matching board may have been removed by a power-day safety guard. Do
+    // not display a substitute whose class did not produce the score.
+    const scoredBoardIsBlocked = boards.some(
+      (board) => normalizeBoardClass(board.board_type) === context.boardClass
+    );
+    if (scoredBoardIsBlocked) return null;
   }
 
   // Single-board quiver — always return it

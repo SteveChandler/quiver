@@ -1893,13 +1893,16 @@ async function discoverSurfSpotsInner(
             toForecastForScoring(bestWindowForecast, beachTz),
             userBoardsForPicks,
             beach,
-            scoreWindowConditionDetails(
-              bestWindowForecast,
-              beach,
-              userSkillLevel,
-              null,
-              boardClasses,
-            ).boardClass,
+            {
+              kind: 'scored',
+              boardClass: scoreWindowConditionDetails(
+                bestWindowForecast,
+                beach,
+                userSkillLevel,
+                null,
+                boardClasses,
+              ).boardClass,
+            },
           )
         : null;
 
@@ -2034,13 +2037,16 @@ async function discoverSurfSpotsInner(
               toForecastForScoring(bestWindowForecast, beachTz),
               userBoardsForPicks,
               customBeach,
-              scoreWindowConditionDetails(
-                bestWindowForecast,
-                customBeach,
-                userSkillLevel,
-                null,
-                boardClasses,
-              ).boardClass,
+              {
+                kind: 'scored',
+                boardClass: scoreWindowConditionDetails(
+                  bestWindowForecast,
+                  customBeach,
+                  userSkillLevel,
+                  null,
+                  boardClasses,
+                ).boardClass,
+              },
             )
           : null;
 

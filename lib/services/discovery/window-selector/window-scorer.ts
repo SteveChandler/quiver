@@ -7,6 +7,7 @@
  */
 
 import type { Beach } from '@/types/database';
+import type { BeachWithThresholds } from '@/lib/scoring/types';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import type { CompositeScore } from '@/lib/domains/scoring';
@@ -173,29 +174,43 @@ export interface WindowConditionScoreDetails {
   rideabilityBand: RideabilityBand | null;
 }
 
+/**
+ * Scores the best saved board, but never below the no-board baseline. A null
+ * boardClass means no saved board improved the displayed score.
+ */
 export function scoreWindowConditionDetails(
   forecast: EnhancedForecastEntity,
-  _beach: Beach,
+  _beach: BeachWithThresholds,
   skillLevel?: SkillLevel | string | null,
   rideabilityBand?: RideabilityBand | null,
   boardClasses?: readonly BoardClass[] | null,
 ): WindowConditionScoreDetails {
   const resolvedSkillLevel = resolveNativeSkillLevel(skillLevel, 'intermediate');
   const uniqueBoardClasses = Array.from(new Set(boardClasses ?? []));
+  const baselineScore = scoreNativeForecastSlot(forecast, resolvedSkillLevel);
 
   if (uniqueBoardClasses.length === 0) {
     return {
-      score: scoreNativeForecastSlot(forecast, resolvedSkillLevel, rideabilityBand),
+      score: rideabilityBand
+        ? Math.max(
+            baselineScore,
+            scoreNativeForecastSlot(forecast, resolvedSkillLevel, rideabilityBand),
+          )
+        : baselineScore,
       boardClass: null,
       rideabilityBand: rideabilityBand ?? null,
     };
   }
 
-  let best: WindowConditionScoreDetails | null = null;
+  let best: WindowConditionScoreDetails = {
+    score: baselineScore,
+    boardClass: null,
+    rideabilityBand: null,
+  };
   for (const boardClass of uniqueBoardClasses) {
     const boardBand = getRideabilityBand(resolvedSkillLevel, boardClass);
     const score = scoreNativeForecastSlot(forecast, resolvedSkillLevel, boardBand);
-    if (!best || score > best.score) {
+    if (score > best.score) {
       best = {
         score,
         boardClass,
@@ -204,16 +219,12 @@ export function scoreWindowConditionDetails(
     }
   }
 
-  return best ?? {
-    score: scoreNativeForecastSlot(forecast, resolvedSkillLevel, rideabilityBand),
-    boardClass: null,
-    rideabilityBand: rideabilityBand ?? null,
-  };
+  return best;
 }
 
 export function scoreWindowConditionScore(
   forecast: EnhancedForecastEntity,
-  beach: Beach,
+  beach: BeachWithThresholds,
   skillLevel?: SkillLevel | string | null,
   rideabilityBand?: RideabilityBand | null,
   boardClasses?: readonly BoardClass[] | null,

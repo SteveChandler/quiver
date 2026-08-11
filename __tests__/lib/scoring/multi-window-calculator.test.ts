@@ -103,6 +103,28 @@ describe('calculateMultipleWindows', () => {
     expect(result.bestWindow).toBeNull();
   });
 
+  it('uses a saved longboard to surface a small advanced-skill window', () => {
+    const forecasts = [
+      makeForecast(6, 1.1, 13, 0, 90, 3.5),
+      makeForecast(7, 1.1, 13, 0, 90, 3.5),
+      makeForecast(8, 1.1, 13, 0, 90, 3.5),
+      makeForecast(9, 1.1, 13, 0, 90, 3.5),
+    ];
+
+    expect(
+      calculateMultipleWindows(forecasts, baseBeach, {
+        skillLevel: 'advanced',
+      }).bestWindow,
+    ).toBeNull();
+
+    expect(
+      calculateMultipleWindows(forecasts, baseBeach, {
+        skillLevel: 'advanced',
+        boardClasses: ['longboard'],
+      }).bestWindow,
+    ).not.toBeNull();
+  });
+
   it('returns all 3 windows when three viable blocks exist, ranked by avg score', () => {
     // Window 1 (hours 5-7): good
     // Gap (hour 8): bad
