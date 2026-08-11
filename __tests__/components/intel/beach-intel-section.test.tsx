@@ -318,6 +318,29 @@ describe("BeachIntelSection", () => {
       expect(screen.getByText(mockIntelPost.description)).toBeInTheDocument();
     });
 
+    it("resolves an approved report video only after the tile is clicked", async () => {
+      const fetchMock = jest.spyOn(global, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ url: "https://signed.example/report.mp4" }), { status: 200 }),
+      );
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: {
+          posts: [{ ...mockIntelPost, session_id: "session-report", video_media_id: "media-report" }] as any,
+        },
+      }));
+
+      render(<BeachIntelSection {...defaultProps} />);
+
+      expect(screen.getByRole("button", { name: "Play local spot report video" })).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Play local spot report video" }));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+        "/api/sessions/session-report/videos/media-report",
+      ));
+      await waitFor(() => expect(document.querySelector("video")).toHaveAttribute("src", "https://signed.example/report.mp4"));
+      fetchMock.mockRestore();
+    });
+
     it("shows post count badge when posts exist", () => {
       mockUseIntelData.mockReturnValue(mockIntelDataReturn({
         data: { posts: [mockIntelPost] as any },

@@ -39,6 +39,7 @@ import {
   Loader2,
   AlertTriangle,
   Eye,
+  Play,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { toast } from "sonner";
@@ -495,6 +496,39 @@ interface IntelPostCardProps {
   isConfirming: boolean;
 }
 
+function ReportVideoTile({ sessionId, mediaId }: { sessionId: string; mediaId: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const resolvePlayback = async (): Promise<void> => {
+    if (url || loading) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}/videos/${mediaId}`);
+      if (!response.ok) return;
+      const body = (await response.json()) as { url?: string };
+      if (body.url) setUrl(body.url);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return url ? (
+    <video className="mt-3 w-full rounded-lg" controls playsInline src={url} />
+  ) : (
+    <button
+      type="button"
+      className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-4 py-6 text-sm font-medium text-blue-800 hover:bg-blue-100"
+      onClick={resolvePlayback}
+      disabled={loading}
+      aria-label="Play local spot report video"
+    >
+      <Play className="h-4 w-4 fill-current" />
+      {loading ? "Loading video…" : "Play spot report video"}
+    </button>
+  );
+}
+
 function IntelPostCard({
   post,
   onConfirm,
@@ -567,6 +601,10 @@ function IntelPostCard({
                 </span>
               </div>
             )}
+
+          {post.tag === "conditions" && post.session_id && post.video_media_id && (
+            <ReportVideoTile sessionId={post.session_id} mediaId={post.video_media_id} />
+          )}
 
           {/* Description */}
           <p

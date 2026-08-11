@@ -72,6 +72,7 @@ export interface IntelPostRPCResult {
   surf_conditions: import("@/types/database.generated").Json | null;
   vibe: string | null;
   wave_size_range: string | null;
+  session_id?: string | null;
 }
 
 export type TrackXPFn = (

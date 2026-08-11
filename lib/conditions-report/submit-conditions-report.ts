@@ -212,6 +212,9 @@ export async function submitConditionsReportCore(
       arrival_time: new Date().toISOString(),
       status: "completed",
       source: "conditions_report",
+      // Conditions reports are public content; their hidden session must be
+      // public so approved report videos satisfy the public media RLS arm.
+      is_public: true,
       notes: content,
       duration_minutes: 0,
       wave_height_ft: observedFaceHeightFt,
@@ -222,11 +225,26 @@ export async function submitConditionsReportCore(
   if (sessionError) {
     console.warn("[submitConditionsReport] Session insert failed (non-fatal):", sessionError);
   } else {
-    sessionId = session?.id ?? null;
-    if (sessionId) {
+    const createdSessionId = session?.id ?? null;
+    sessionId = createdSessionId;
+    if (createdSessionId) {
+      try {
+        const { error: linkageError } = await (supabase.from("intel_posts") as any)
+          .update({ session_id: createdSessionId })
+          .eq("id", intelPost.id);
+        if (linkageError) {
+          console.warn("[submitConditionsReport] Intel/session linkage failed (non-fatal):", linkageError);
+          sessionId = null;
+        }
+      } catch (error) {
+        console.warn("[submitConditionsReport] Intel/session linkage threw (non-fatal):", error);
+        sessionId = null;
+      }
+    }
+    if (createdSessionId) {
       await emitSessionCreatedEvent(supabase, {
         userId: user.id,
-        session: { id: sessionId, beach_id: beachId },
+        session: { id: createdSessionId, beach_id: beachId },
         source: "web-conditions-report",
         surface: "conditions-report",
       });

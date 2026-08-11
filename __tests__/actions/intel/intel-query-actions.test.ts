@@ -30,11 +30,12 @@ const mockServerClient = {
   select: jest.fn().mockReturnThis(),
   insert: jest.fn().mockReturnThis(),
   eq: jest.fn().mockReturnThis(),
-  in: jest.fn(),
+  in: jest.fn().mockResolvedValue({ data: [], error: null }),
   gte: jest.fn().mockReturnThis(),
   or: jest.fn().mockReturnThis(),
   order: jest.fn().mockReturnThis(),
   limit: jest.fn().mockReturnThis(),
+  is: jest.fn().mockReturnThis(),
   single: jest.fn(),
   rpc: jest.fn(),
 };
@@ -49,10 +50,11 @@ const mockServiceRoleClient = {
   from: jest.fn().mockReturnThis(),
   select: jest.fn().mockReturnThis(),
   eq: jest.fn().mockReturnThis(),
-  in: jest.fn(),
+  in: jest.fn().mockResolvedValue({ data: [], error: null }),
   or: jest.fn().mockReturnThis(),
   order: jest.fn().mockReturnThis(),
   limit: jest.fn().mockReturnThis(),
+  is: jest.fn().mockReturnThis(),
   rpc: jest.fn(),
 };
 
@@ -320,8 +322,8 @@ describe("getNearbyIntelPosts", () => {
     });
 
     expect(result.success).toBe(true);
-    // in() should be called only once (profiles), not twice
-    expect(mockServiceRoleClient.in).toHaveBeenCalledTimes(1);
+    // The conditions linkage lookup is also batched, even when it returns no rows.
+    expect(mockServiceRoleClient.in).toHaveBeenCalledTimes(2);
     expect(result.data?.posts[0].user_has_confirmed).toBe(false);
   });
 
@@ -371,8 +373,8 @@ describe("getPublicIntelPosts", () => {
 
     expect(result.success).toBe(true);
     expect(result.data?.posts[0].user_has_confirmed).toBe(false);
-    // in() should be called once (profiles), no confirmations
-    expect(mockServerClient.in).toHaveBeenCalledTimes(1);
+    // The conditions linkage lookup is also batched, even when it returns no rows.
+    expect(mockServerClient.in).toHaveBeenCalledTimes(2);
   });
 
   test("returns empty results when RPC fails", async () => {

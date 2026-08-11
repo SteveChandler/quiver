@@ -6,6 +6,10 @@ const mockFrom = jest.fn();
 const mockStorage = jest.fn();
 const mockRequireOwnership = jest.fn();
 
+jest.mock("@/lib/supabase", () => ({
+  createServiceRoleClient: () => ({ storage: { from: mockStorage } }),
+}));
+
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   withAuth: (handler: any) => async (request: any, context: any) => {
     if (request.testRole === "none") return NextResponse.json({ error: "Authentication required" }, { status: 401 });
@@ -85,6 +89,15 @@ describe("session video routes", () => {
     mockFrom.mockReturnValue(chain({ data: null, error: null }));
     const { GET } = await import("@/app/api/sessions/[id]/videos/[mediaId]/route");
     expect((await GET({} as NextRequest, { params: { id: "s", mediaId: "m" } })).status).toBe(404);
+  });
+
+  it("returns 404 when the approved media object is missing from storage", async () => {
+    mockFrom.mockReturnValue(chain({ data: { id: "media-1", user_id: "other", storage_path: "missing.mp4", moderation_status: "approved", sessions: { is_public: true } }, error: null }));
+    mockStorage.mockReturnValue({ createSignedUrl: jest.fn().mockResolvedValue({ data: null, error: { statusCode: "404", message: "Object not found" } }) });
+    const { GET } = await import("@/app/api/sessions/[id]/videos/[mediaId]/route");
+    const response = await GET({} as NextRequest, { params: { id: "session-1", mediaId: "media-1" } });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "Not found" });
   });
 });
 
