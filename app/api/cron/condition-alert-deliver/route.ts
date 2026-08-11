@@ -76,6 +76,7 @@ const HOLD_STATE_UNAVAILABLE_MAX_ATTEMPTS = 3;
 const QUEUE_MARK_REASONS = [
   "delivered",
   "stale",
+  "below_score_floor",
   "major_event_hold",
   "canonical_safety_rejected",
   "shadow_withheld",
@@ -96,6 +97,13 @@ const QUEUE_MARK_REASONS = [
 ] as const;
 
 type QueueMarkReason = (typeof QUEUE_MARK_REASONS)[number];
+
+/**
+ * Minimum best_score worth interrupting someone for. Rules match on thresholds, which
+ * says a session is acceptable, not that it is worth the drive. In the 7 days after the
+ * 2026-08-10 pipeline repair, 9 of 56 queued alerts scored below this — the weakest 0.09.
+ */
+const ALERT_MIN_DELIVERABLE_SCORE = 0.3;
 
 type RecordedAttempt = {
   channel: Channel;
@@ -220,8 +228,15 @@ function toRevalidationBeachMeta(
 }
 
 function parseQueuedBestScore(value: unknown): number {
-  const score = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(score) ? score : 0;
+  const score =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim().length > 0
+        ? Number(value)
+        : Number.NaN;
+  if (Number.isFinite(score)) return score;
+  // Fail open so malformed queue data cannot silently mute the alert channel.
+  return ALERT_MIN_DELIVERABLE_SCORE;
 }
 
 function resolveRuleWeeklyCap(conditions?: AlertConditions | null): number | null {
@@ -806,6 +821,18 @@ export async function GET(request: Request): Promise<NextResponse> {
           if (marked) result.skippedStale += staleItems.length;
         }
 
+        const lowScoreItems = items.filter(
+          (item) =>
+            parseQueuedBestScore(item.best_score) < ALERT_MIN_DELIVERABLE_SCORE,
+        );
+        if (lowScoreItems.length > 0) {
+          await markQueueItemsConsumed(lowScoreItems, "below_score_floor");
+        }
+        const scoreEligibleItems = items.filter(
+          (item) =>
+            parseQueuedBestScore(item.best_score) >= ALERT_MIN_DELIVERABLE_SCORE,
+        );
+
         // 3. Fetch profile data for the queue's user set in a single query.
         //    profiles.id is a 1:1 mirror of auth.users.id, so we can key by user_id.
         type ProfileRow = {
@@ -858,7 +885,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         // delivery candidates regardless of verdict or skill eligibility.
         const deliverableItems: QueueItemWithMeta[] = [];
         const itemsByUser = new Map<string, QueueItemWithMeta[]>();
-        for (const item of items) {
+        for (const item of scoreEligibleItems) {
           const userItems = itemsByUser.get(item.user_id) ?? [];
           userItems.push(item);
           itemsByUser.set(item.user_id, userItems);
