@@ -364,6 +364,7 @@ function expectQueueReasonTotals(body: {
     [
       "delivered",
       "stale",
+      "below_score_floor",
       "major_event_hold",
       "canonical_safety_rejected",
       "shadow_withheld",
@@ -823,7 +824,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       id: "00000000-0000-0000-0000-0000000000c2",
       rule_id: "00000000-0000-0000-0000-0000000000a2",
       beach_id: "00000000-0000-0000-0000-0000000000b2",
-      best_score: 0.25,
+      best_score: 0.35,
       alert_rules: { name: "Lower score rule", notify_email: true, notify_push: false },
       beaches: {
         name: "Lower Score Beach",
@@ -866,6 +867,91 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     ]);
     expectQueueReasonTotals(body);
   });
+
+  it("suppresses a queued alert whose best score is below the floor", async () => {
+    seedQueueRow({
+      best_score: 0.09,
+      alert_rules: {
+        name: "Pipes low-score rule",
+        notify_email: true,
+        notify_push: false,
+      },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.queue_marked_by_reason.below_score_floor).toBe(1);
+    expect(body.queue_marked_by_reason.delivered).toBe(0);
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(store.attemptInserts).toHaveLength(0);
+    expect(store.deliveryInserts).toHaveLength(0);
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+
+  it.each([0.3, 0.64])(
+    "still delivers a queued alert with best score %s at or above the floor",
+    async (bestScore) => {
+      seedQueueRow({
+        best_score: bestScore,
+        alert_rules: {
+          name: "Deliverable score rule",
+          notify_email: true,
+          notify_push: false,
+        },
+      });
+      seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+      const res = await GET(makeRequest());
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.queue_marked_by_reason.below_score_floor).toBe(0);
+      expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+      expect(store.attemptInserts).toContainEqual(
+        expect.objectContaining({
+          queue_id: QUEUE_1,
+          channel: "email",
+          status: "sent",
+        }),
+      );
+    },
+  );
+
+  it.each([
+    { label: "null", bestScore: null },
+    { label: "unparseable", bestScore: "not-a-score" },
+  ])(
+    "keeps a queue row with a $label best score deliverable",
+    async ({ bestScore }) => {
+      seedQueueRow({
+        best_score: bestScore,
+        alert_rules: {
+          name: "Fail-open score rule",
+          notify_email: true,
+          notify_push: false,
+        },
+      });
+      seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+      const res = await GET(makeRequest());
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.queue_marked_by_reason.below_score_floor).toBe(0);
+      expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+      expect(store.attemptInserts).toContainEqual(
+        expect.objectContaining({
+          queue_id: QUEUE_1,
+          channel: "email",
+          status: "sent",
+        }),
+      );
+    },
+  );
 
   it("email-only rule, profile.email is null → skipped_no_email, no Resend call, queue still marked sent", async () => {
     // Regression for the 2026-04-27 failed_provider crash where Resend rejected
