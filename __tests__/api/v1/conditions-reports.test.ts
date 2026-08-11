@@ -81,6 +81,26 @@ describe("POST /api/v1/conditions-reports", () => {
     );
   });
 
+  it("preserves the core result when its non-fatal feedback forward is handled there", async () => {
+    coreMock.mockResolvedValue({
+      success: true,
+      data: {
+        intelPostId: "intel-2",
+        sessionId: null,
+        expiresAt: "2026-08-11T00:00:00.000Z",
+      },
+    });
+
+    const response = await POST(request(validBody));
+
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body).toMatchObject({
+      reportId: "intel-2",
+    });
+    expect(body).not.toHaveProperty("sessionId");
+  });
+
   it("returns 409 when the user already reported today", async () => {
     coreMock.mockResolvedValue({
       success: false,
