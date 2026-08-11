@@ -137,8 +137,10 @@ describe("IndexNow submit cron route", () => {
     (flattenIndexNowUrlGroups as jest.Mock).mockReturnValue(flattenedUrls);
     (submitUrlsInBatches as jest.Mock).mockResolvedValue({
       totalSubmitted: 3,
-      batches: [{ urls: flattenedUrls }],
+      totalPending: 0,
+      batches: [{ urls: flattenedUrls, statusCode: 200 }],
       errors: [],
+      warnings: [],
     });
 
     const response = await GET(
@@ -154,7 +156,10 @@ describe("IndexNow submit cron route", () => {
       success: true,
       data: {
         submitted: 3,
+        pending: 0,
         totalUrls: 3,
+        statusCodes: [200],
+        warnings: [],
         breakdown: {
           intent: 1,
           location: 2,

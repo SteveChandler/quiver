@@ -3,6 +3,7 @@ import { getFirstTouchPlatform } from "@/lib/analytics/web-context";
 import { isBeachSubPageInstallCtaEnabled } from "@/lib/flags/beach-subpage-install-cta";
 
 export interface BeachSubPageInstallCtaInput {
+  enabled?: boolean;
   userAgent: string;
   pathname: string;
 }
@@ -34,10 +35,11 @@ export function iphoneBannerOwnsInstallAsk({
  * failing toward fewer prompts.
  */
 export function shouldShowBeachSubPageInstallCta({
+  enabled = isBeachSubPageInstallCtaEnabled(),
   userAgent,
   pathname,
 }: BeachSubPageInstallCtaInput): boolean {
-  if (!isBeachSubPageInstallCtaEnabled()) return false;
+  if (!enabled) return false;
   if (getFirstTouchPlatform(userAgent) !== "ios") return false;
 
   return !iphoneBannerOwnsInstallAsk({ userAgent, pathname });
