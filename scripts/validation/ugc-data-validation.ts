@@ -22,6 +22,7 @@ type Check = { phase: string; name: string; status: CheckStatus; evidence: strin
 type Client = SupabaseClient<any, any, any>;
 
 const checks: Check[] = [];
+let failureObserved = false;
 const remoteReadonly = process.argv.includes("--remote-readonly");
 const withServer = process.argv.includes("--with-server");
 const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -44,6 +45,7 @@ function record(phase: string, name: string, status: CheckStatus, evidence: unkn
 function pass(phase: string, name: string, evidence: unknown): void { record(phase, name, "PASS", evidence); }
 function skip(phase: string, name: string, evidence: unknown): void { record(phase, name, "SKIP", evidence); }
 function fail(phase: string, name: string, error: unknown): void {
+  failureObserved = true;
   record(phase, name, "FAIL", error instanceof Error ? error.message : JSON.stringify(error));
 }
 
@@ -74,10 +76,29 @@ function sql(query: string): string {
   ).trim();
 }
 
+function sqlLiteral(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
+function printFailureEvidence(mediaId: string | null, paths: string[]): void {
+  const pathValues = paths.length > 0 ? paths.map(sqlLiteral).join(", ") : "NULL";
+  const mediaPredicate = mediaId
+    ? `(id = ${sqlLiteral(mediaId)} OR storage_path IN (${pathValues}))`
+    : `storage_path IN (${pathValues})`;
+  const evidence = sql(`
+    SELECT json_build_object(
+      'session_media', (SELECT COALESCE(json_agg(row_to_json(sm) ORDER BY sm.created_at), '[]'::json) FROM public.session_media sm WHERE ${mediaPredicate}),
+      'storage_objects', (SELECT COALESCE(json_agg(row_to_json(so) ORDER BY so.created_at), '[]'::json) FROM storage.objects so WHERE so.bucket_id = 'session-videos' AND so.name IN (${pathValues}))
+    )
+  `);
+  console.error(`FAILURE EVIDENCE ${evidence}`);
+}
+
 function localDatabaseTruth(): Record<string, unknown> {
   const raw = sql(`
     SELECT json_build_object(
       'bucket', (SELECT row_to_json(b) FROM storage.buckets b WHERE b.id = 'session-videos'),
+      'intel_session_column', (SELECT row_to_json(c) FROM information_schema.columns c WHERE c.table_schema = 'public' AND c.table_name = 'intel_posts' AND c.column_name = 'session_id'),
       'column', (SELECT row_to_json(c) FROM information_schema.columns c WHERE c.table_schema = 'public' AND c.table_name = 'session_media' AND c.column_name = 'moderation_status'),
       'check', (SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = 'public.session_media'::regclass AND conname = 'session_media_moderation_status_check'),
       'enum', (SELECT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'content_report_target' AND e.enumlabel = 'session_media')),
@@ -113,6 +134,9 @@ async function schemaPhase(service: Client): Promise<void> {
   const mime = JSON.stringify(bucket.allowed_mime_types ?? []);
   assert(mime.includes("video/mp4") && mime.includes("video/quicktime"), `bucket MIME types ${mime}`);
   pass(phase, "session-videos bucket", bucket);
+  const intelSessionColumn = truth.intel_session_column as Record<string, unknown> | null;
+  assert(intelSessionColumn, "intel_posts.session_id column is missing");
+  pass(phase, "intel_posts.session_id column", intelSessionColumn);
   const column = truth.column as Record<string, unknown> | null;
   assert(column, "moderation_status column is missing");
   assert(column.column_default === "'approved'::text", `moderation_status default is ${column.column_default}`);
@@ -160,8 +184,9 @@ async function conditionsPhase(a: { client: Client; user: User }, service: Clien
   const user = a.user;
   const first = await submitConditionsReportCore(input as any, user, a.client as any);
   assert(first.success, `conditions report failed: ${JSON.stringify(first)}`);
-  const intel = requireValue((await service.from("intel_posts").select("tag,wave_size_range,vibe").eq("id", first.data.intelPostId).single()).data, "intel row missing");
+  const intel = requireValue((await service.from("intel_posts").select("tag,wave_size_range,vibe,session_id").eq("id", first.data.intelPostId).single()).data, "intel row missing");
   assert(intel.tag === "conditions" && intel.wave_size_range === input.waveSizeRange && intel.vibe === input.vibe, JSON.stringify(intel));
+  assert(intel.session_id === first.data.sessionId, `intel/session linkage mismatch: ${JSON.stringify(intel)}`);
   pass(phase, "intel_posts", intel);
   const session = requireValue((await service.from("sessions").select("id,wave_height_ft,source").eq("id", first.data.sessionId).single()).data, "conditions session missing");
   assert(Number(session.wave_height_ft) === 2.5 && session.source === "conditions_report", JSON.stringify(session));
@@ -183,6 +208,51 @@ async function conditionsPhase(a: { client: Client; user: User }, service: Clien
     pass(phase, "forecast feedback context", feedback);
   }
   return { beachId: beach.id, sessionId: requireValue(first.data.sessionId, "conditions core did not create a session") };
+}
+
+async function reportVideoPhase(a: { client: Client; user: User; accessToken: string }, b: { client: Client; user: User; accessToken: string }, service: Client, conditions: { beachId: string; sessionId: string }, storagePaths: string[], onMediaId: (mediaId: string) => void): Promise<void> {
+  const phase = "report-video";
+  const intel = requireValue((await service.from("intel_posts").select("id,session_id").eq("session_id", conditions.sessionId).single()).data, "linked conditions intel row missing");
+  assert(intel.session_id === conditions.sessionId, JSON.stringify(intel));
+  pass(phase, "intel/session linkage row-for-row", intel);
+
+  const path = `${conditions.sessionId}/${a.user.id}/${randomUUID()}.mp4`;
+  const fixture = Buffer.from("\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom", "ascii");
+  const upload = await a.client.storage.from("session-videos").upload(path, fixture, { contentType: "video/mp4", upsert: false });
+  if (upload.error) throw upload.error;
+  storagePaths.push(path);
+  pass(phase, "report session storage upload", `${path} (${fixture.length} bytes)`);
+
+  const { POST } = await import("../../app/api/sessions/[id]/videos/route");
+  const finalize = await POST(new Request(`${url}/api/sessions/${conditions.sessionId}/videos`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${a.accessToken}`, "content-type": "application/json" },
+    body: JSON.stringify({ storagePath: path, durationSec: 12, sizeBytes: fixture.length }),
+  }) as any, { params: { id: conditions.sessionId } } as any);
+  const finalizeText = await finalize.text();
+  assert(finalize.status === 201, `report video finalize returned ${finalize.status}: ${finalizeText}`);
+  const mediaId = requireValue((JSON.parse(finalizeText) as { mediaId?: string }).mediaId, "report video mediaId missing");
+  onMediaId(mediaId);
+  pass(phase, "report video finalized pending", mediaId);
+
+  const { data: bIntel, error: bIntelError } = await b.client.from("intel_posts").select("id,session_id").eq("id", intel.id).single();
+  if (bIntelError) throw bIntelError;
+  assert(bIntel?.session_id === conditions.sessionId, `actor B cannot see report linkage: ${JSON.stringify(bIntel)}`);
+  const { data: pendingForB, error: pendingError } = await b.client.from("session_media").select("id").eq("id", mediaId).maybeSingle();
+  if (pendingError) throw pendingError;
+  assert(!pendingForB, "pending report video is visible to actor B through the intel-side lens");
+  pass(phase, "pending invisible to actor B", "intel linkage visible; pending clip hidden");
+
+  const approved = await service.from("session_media").update({ moderation_status: "approved" }).eq("id", mediaId);
+  if (approved.error) throw approved.error;
+  const { GET } = await import("../../app/api/sessions/[id]/videos/[mediaId]/route");
+  const playback = await GET(new Request(`${url}/api/sessions/${conditions.sessionId}/videos/${mediaId}`, {
+    headers: { authorization: `Bearer ${b.accessToken}` },
+  }) as any, { params: { id: conditions.sessionId, mediaId } } as any);
+  const playbackText = await playback.text();
+  assert(playback.status === 200, `actor B playback returned ${playback.status}: ${playbackText}`);
+  assert(Boolean((JSON.parse(playbackText) as { url?: string }).url), "actor B playback URL is empty");
+  pass(phase, "actor B approved playback", "HTTP 200 signed URL");
 }
 
 async function videoPhase(a: { client: Client; user: User; accessToken: string }, service: Client, beachId: string, storagePaths: string[]): Promise<{ publicSessionId: string; mediaId: string }> {
@@ -280,16 +350,26 @@ async function main(): Promise<void> {
   let actorA: Awaited<ReturnType<typeof createActor>> | null = null;
   let actorB: Awaited<ReturnType<typeof createActor>> | null = null;
   const storagePaths: string[] = [];
+  let reportVideoMediaId: string | null = null;
+  let failure: unknown = null;
   try {
     actorA = await createActor(anon, service, "a");
     actorB = await createActor(anon, service, "b");
     pass("actors", "throwaway auth users", `${actorA.user.id}, ${actorB.user.id}`);
     const conditions = await conditionsPhase(actorA, localService);
+    await reportVideoPhase(actorA, actorB, localService, conditions, storagePaths, (mediaId) => { reportVideoMediaId = mediaId; });
     const video = await videoPhase(actorA, localService, conditions.beachId, storagePaths);
     await visibilityPhase(actorA, actorB, anon, localService, video.publicSessionId, video.mediaId, conditions.beachId);
     await contractsPhase(localService, video.mediaId);
     await sharesPhase(actorA, conditions.sessionId);
+  } catch (error: unknown) {
+    failure = error;
+    fail("fatal", "harness", error);
   } finally {
+    if (failure || failureObserved) {
+      // Capture the database row and storage object before cleanup removes either.
+      printFailureEvidence(reportVideoMediaId, storagePaths);
+    }
     if (storagePaths.length > 0) {
       const removed = await localService.storage.from("session-videos").remove(storagePaths);
       if (removed.error) fail("cleanup", "storage objects", removed.error);

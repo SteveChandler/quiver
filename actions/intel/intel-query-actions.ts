@@ -15,6 +15,13 @@ import type {
 import type { IntelPostsData, IntelPostRPCResult } from "./intel-types";
 import { GLOBAL_INTEL_FALLBACK } from "./intel-types";
 
+interface ConditionReportRow {
+  id: string;
+  session_id: string | null;
+  wave_size_range: string | null;
+  vibe: string | null;
+}
+
 /**
  * Get nearby intel posts (authenticated)
  */
@@ -114,16 +121,52 @@ export async function getNearbyIntelPosts(
       (confirmations || []).map((c) => c.intel_post_id)
     );
 
+    const conditionPostIds = intelPosts
+      .filter((post) => post.tag === "conditions")
+      .map((post) => post.id);
+    const conditionLookup = conditionPostIds.length
+      ? await (supabase.from("intel_posts") as any)
+          .select("id, session_id, wave_size_range, vibe")
+          .in("id", conditionPostIds)
+      : { data: [] as ConditionReportRow[], error: null };
+    const conditionRows = (conditionLookup.data ?? []) as ConditionReportRow[];
+    const conditionRowsError = conditionLookup.error;
+    if (conditionRowsError) {
+      console.warn("Conditions linkage lookup failed in getNearbyIntelPosts", conditionRowsError);
+    }
+    const conditionMap = new Map((conditionRows ?? []).map((row) => [row.id, row]));
+    const sessionIds = (conditionRows ?? [])
+      .map((row) => row.session_id)
+      .filter((id): id is string => Boolean(id));
+    const { data: approvedVideos, error: approvedVideosError } = sessionIds.length
+      ? await supabase
+          .from("session_media")
+          .select("id, session_id")
+          .in("session_id", sessionIds)
+          .eq("media_type", "video")
+          .eq("moderation_status", "approved")
+          .is("deleted_at", null)
+      : { data: [], error: null };
+    if (approvedVideosError) {
+      console.warn("Approved report video lookup failed in getNearbyIntelPosts", approvedVideosError);
+    }
+    const approvedVideoMap = new Map(
+      (approvedVideos ?? []).map((video) => [video.session_id, video.id]),
+    );
+
     const enrichedPosts: IntelPostWithUser[] = intelPosts.map((post: IntelPostRPCResult) => {
       const profile = profilesMap.get(post.user_id);
+      const condition = conditionMap.get(post.id);
       return {
         ...post,
         dedupe_hash: null,
         emoji_rating: null,
         photo_storage_path: null,
         report_count: 0,
-        vibe: post.vibe ?? null,
-        wave_size_range: post.wave_size_range ?? null,
+        vibe: condition?.vibe ?? post.vibe ?? null,
+        wave_size_range: condition?.wave_size_range ?? post.wave_size_range ?? null,
+        session_id: condition?.session_id ?? null,
+        video_media_id: condition?.session_id ? approvedVideoMap.get(condition.session_id) ?? null : null,
         user: {
           full_name: profile?.full_name || post.user_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,
@@ -225,16 +268,52 @@ export async function getPublicIntelPosts(
     // Combine data (no user confirmations for public access)
     const profilesMap = new Map(profiles?.map((p) => [p.id, p]) || []);
 
+    const conditionPostIds = intelPosts
+      .filter((post) => post.tag === "conditions")
+      .map((post) => post.id);
+    const conditionLookup = conditionPostIds.length
+      ? await (supabase.from("intel_posts") as any)
+          .select("id, session_id, wave_size_range, vibe")
+          .in("id", conditionPostIds)
+      : { data: [] as ConditionReportRow[], error: null };
+    const conditionRows = (conditionLookup.data ?? []) as ConditionReportRow[];
+    const conditionRowsError = conditionLookup.error;
+    if (conditionRowsError) {
+      console.warn("Conditions linkage lookup failed in getPublicIntelPosts", conditionRowsError);
+    }
+    const conditionMap = new Map((conditionRows ?? []).map((row) => [row.id, row]));
+    const sessionIds = (conditionRows ?? [])
+      .map((row) => row.session_id)
+      .filter((id): id is string => Boolean(id));
+    const { data: approvedVideos, error: approvedVideosError } = sessionIds.length
+      ? await supabase
+          .from("session_media")
+          .select("id, session_id")
+          .in("session_id", sessionIds)
+          .eq("media_type", "video")
+          .eq("moderation_status", "approved")
+          .is("deleted_at", null)
+      : { data: [], error: null };
+    if (approvedVideosError) {
+      console.warn("Approved report video lookup failed in getPublicIntelPosts", approvedVideosError);
+    }
+    const approvedVideoMap = new Map(
+      (approvedVideos ?? []).map((video) => [video.session_id, video.id]),
+    );
+
     const enrichedPosts: IntelPostWithUser[] = intelPosts.map((post: IntelPostRPCResult) => {
       const profile = profilesMap.get(post.user_id);
+      const condition = conditionMap.get(post.id);
       return {
         ...post,
         dedupe_hash: null,
         emoji_rating: null,
         photo_storage_path: null,
         report_count: 0,
-        vibe: post.vibe ?? null,
-        wave_size_range: post.wave_size_range ?? null,
+        vibe: condition?.vibe ?? post.vibe ?? null,
+        wave_size_range: condition?.wave_size_range ?? post.wave_size_range ?? null,
+        session_id: condition?.session_id ?? null,
+        video_media_id: condition?.session_id ? approvedVideoMap.get(condition.session_id) ?? null : null,
         user: {
           full_name: profile?.full_name || post.user_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,

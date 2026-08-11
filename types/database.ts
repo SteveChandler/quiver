@@ -184,6 +184,8 @@ export interface ProfileWithStats extends Profile {
 }
 
 export interface IntelPostWithUser extends IntelPost {
+  session_id?: string | null
+  video_media_id?: string | null
   // Additional fields from RPC function get_nearby_intel_posts
   beach_name?: string
   distance_miles?: number

@@ -98,6 +98,7 @@ async function handler(
     {
       reportId: result.data?.intelPostId,
       intelPostId: result.data?.intelPostId,
+      sessionId: result.data?.sessionId ?? null,
       expiresAt: result.data?.expiresAt,
     },
     { status: 201 },

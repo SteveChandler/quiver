@@ -45,6 +45,9 @@ const createSupabaseMock = () => {
     from: jest.fn().mockReturnThis() as MockFn,
     select: jest.fn().mockReturnThis() as MockFn,
     insert: jest.fn().mockReturnThis() as MockFn,
+    update: jest.fn().mockImplementation(() => ({
+      eq: jest.fn().mockImplementation(() => Promise.resolve({ error: null })) as unknown as MockFn,
+    })) as unknown as MockFn,
     eq: jest.fn().mockReturnThis() as MockFn,
     not: jest.fn().mockReturnThis() as MockFn,
     gte: jest.fn().mockReturnThis() as MockFn,

@@ -71,6 +71,7 @@ describe("POST /api/v1/conditions-reports", () => {
     expect(await response.json()).toEqual({
       reportId: "intel-1",
       intelPostId: "intel-1",
+      sessionId: "session-1",
       expiresAt: "2026-08-11T00:00:00.000Z",
     });
     expect(response.headers.get("cache-control")).toContain("no-store");
@@ -98,7 +99,7 @@ describe("POST /api/v1/conditions-reports", () => {
     expect(body).toMatchObject({
       reportId: "intel-2",
     });
-    expect(body).not.toHaveProperty("sessionId");
+    expect(body).toHaveProperty("sessionId", null);
   });
 
   it("returns 409 when the user already reported today", async () => {
