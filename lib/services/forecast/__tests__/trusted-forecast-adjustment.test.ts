@@ -46,9 +46,9 @@ import {
 } from "../trusted-forecast-policy";
 import {
   REAL_ISSUE_FIXTURE,
-  derivedIssue,
+  derivedIssue as createDerivedIssue,
   derivedIssueInventory,
-  realIssue,
+  realIssue as createRealIssue,
   realIssueDocument,
   realIssueRow,
 } from "./fixtures/trusted-forecast-real-issues";
@@ -96,6 +96,86 @@ function realRef(documentId: string, query: RealIssueQuery) {
   return { document: documentId, index: findRealIndex(documentId, query) };
 }
 
+/**
+ * Most pre-existing engine cases exercise mechanics that remain valid for a
+ * spot authority. Their captured rows predate the regional evidence-only
+ * boundary, so the test adapter keeps their ranges and provenance while
+ * making the intended spot-policy input explicit. The raw helper below is
+ * reserved for tests of the new regional boundary itself.
+ */
+function asSpotPolicyInput(issue: TrustedForecastIssue): TrustedForecastIssue {
+  if (issue.scopeType !== "regional" || issue.providerLineage !== "wavecast") {
+    return issue;
+  }
+  return { ...issue, scopeType: "spot" };
+}
+
+function realIssue(documentId: string, index: number): TrustedForecastIssue {
+  return asSpotPolicyInput(createRealIssue(documentId, index));
+}
+
+function derivedIssue(
+  args: Parameters<typeof createDerivedIssue>[0],
+): TrustedForecastIssue {
+  return asSpotPolicyInput(createDerivedIssue(args));
+}
+
+function rawDerivedIssue(
+  args: Parameters<typeof createDerivedIssue>[0],
+): TrustedForecastIssue {
+  return createDerivedIssue(args);
+}
+
+function rawRegionalIssue(
+  documentId: string,
+  query: RealIssueQuery,
+): TrustedForecastIssue {
+  return createRealIssue(documentId, findRealIndex(documentId, query));
+}
+
+function wavecastNewYorkSpot(
+  label: string,
+  overrides: Record<string, unknown> = {},
+): TrustedForecastIssue {
+  return derivedIssue({
+    label,
+    from: realRef("wavecast_regional_live_new_york", {
+      validLocalDate: "2026-08-06",
+    }),
+    overrides: {
+      region_key: "new_york",
+      exposure: "primary",
+      ...overrides,
+    },
+    note:
+      "The captured WaveCast New York regional row is adapted to the explicit " +
+      "spot-policy shape needed by this engine test; production regional rows " +
+      "are covered by the regional evidence-only test.",
+  });
+}
+
+function wavecastKauaiSpot(
+  label: string,
+  overrides: Record<string, unknown> = {},
+): TrustedForecastIssue {
+  return derivedIssue({
+    label,
+    from: realRef("wavecast_regional_live_hawaii", {
+      validLocalDate: "2026-08-06",
+      exposure: "NNW",
+    }),
+    overrides: {
+      region_key: "hawaii",
+      exposure: "kauai/NORTH",
+      ...overrides,
+    },
+    note:
+      "The captured WaveCast Hawaii row is adapted to the explicit spot-policy " +
+      "shape needed to keep the local day-part engine test independent of the " +
+      "regional authority boundary.",
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Coverage configuration (operator policy, not source data)
 // ---------------------------------------------------------------------------
@@ -103,7 +183,7 @@ function realRef(documentId: string, query: RealIssueQuery) {
 const OAHU_NORTH: TrustedForecastCoverageEntry = {
   beachId: "11111111-1111-4111-8111-111111111111",
   localTimezone: "Pacific/Honolulu",
-  spotRegionKeys: [],
+  spotRegionKeys: ["hawaii"],
   regionalRegionKeys: ["hawaii"],
   // WaveCast names the swell direction; NWS names the shore. Both describe
   // this beach's exposure. SSW deliberately does not.
@@ -114,7 +194,7 @@ const OAHU_NORTH: TrustedForecastCoverageEntry = {
 const LONG_ISLAND: TrustedForecastCoverageEntry = {
   beachId: "22222222-2222-4222-8222-222222222222",
   localTimezone: "America/New_York",
-  spotRegionKeys: [],
+  spotRegionKeys: ["new_york"],
   regionalRegionKeys: ["new_york"],
   compatibleExposures: ["primary"],
   regionalAuthorityLineages: ["stormsurf"],
@@ -138,7 +218,7 @@ const SPOT_OVER_REGIONAL: TrustedForecastCoverageEntry = {
 const NORCAL: TrustedForecastCoverageEntry = {
   beachId: "44444444-4444-4444-8444-444444444444",
   localTimezone: "America/Los_Angeles",
-  spotRegionKeys: [],
+  spotRegionKeys: ["norcal"],
   regionalRegionKeys: ["norcal"],
   compatibleExposures: ["primary"],
   regionalAuthorityLineages: [],
@@ -147,7 +227,7 @@ const NORCAL: TrustedForecastCoverageEntry = {
 const PNW: TrustedForecastCoverageEntry = {
   beachId: "55555555-5555-4555-8555-555555555555",
   localTimezone: "America/Los_Angeles",
-  spotRegionKeys: [],
+  spotRegionKeys: ["pnw"],
   regionalRegionKeys: ["pnw"],
   compatibleExposures: ["coastal", "surf"],
   regionalAuthorityLineages: ["surf_institute", "stormsurf"],
@@ -156,7 +236,7 @@ const PNW: TrustedForecastCoverageEntry = {
 const NEW_JERSEY: TrustedForecastCoverageEntry = {
   beachId: "66666666-6666-4666-8666-666666666666",
   localTimezone: "America/New_York",
-  spotRegionKeys: [],
+  spotRegionKeys: ["new_jersey"],
   regionalRegionKeys: ["new_jersey"],
   compatibleExposures: ["primary"],
   regionalAuthorityLineages: ["surfers_view"],
@@ -260,11 +340,11 @@ describe("MFA-03 lineage and evidence filtering (D-05 through D-08)", () => {
     ]);
   });
 
-  it("D-06: multiple Stormsurf endpoints produce exactly one Stormsurf vote", () => {
-    const real = realIssueWhere("stormsurf_ny_shortcast_live", {
+  it("D-06: regional Stormsurf endpoints cannot produce a vote", () => {
+    const real = rawRegionalIssue("stormsurf_ny_shortcast_live", {
       validLocalDate: "2026-08-06",
     });
-    const secondEndpoint = derivedIssue({
+    const secondEndpoint = rawDerivedIssue({
       label: "stormsurf_second_endpoint_same_lineage",
       from: realRef("stormsurf_ny_shortcast_live", {
         validLocalDate: "2026-08-06",
@@ -288,18 +368,18 @@ describe("MFA-03 lineage and evidence filtering (D-05 through D-08)", () => {
       buildAnchorAt: anchor,
     });
 
-    expect(selection.primary?.providerLineage).toBe("stormsurf");
-    // One vote: the other Stormsurf row is deduped, not a corroborator.
+    // Regression: regional Stormsurf rows cannot vote at all, even when the
+    // row is authority-eligible and multiple endpoints share one lineage.
+    expect(selection.primary).toBeNull();
     expect(selection.corroborators).toEqual([]);
     expect(selection.excluded).toEqual([
-      { issue: real, reason: "lineage_dedupe" },
+      { issue: real, reason: "regional_evidence_only" },
+      { issue: secondEndpoint, reason: "regional_evidence_only" },
     ]);
-    // The 6-8 row wins on daily maximum, but it still cannot self-corroborate.
-    expect(selection.primary?.maxFaceFt).toBe(8);
   });
 
-  it("D-05: NJ Beach Cams and The Surfers View are one lineage, never two votes", () => {
-    const njBeachCams = derivedIssue({
+  it("D-05: regional NJ mirrors cannot produce a vote", () => {
+    const njBeachCams = rawDerivedIssue({
       label: "nj_beach_cams_authority_shape",
       from: realRef("wavecast_regional_live_new_york", {
         validLocalDate: "2026-08-06",
@@ -314,10 +394,9 @@ describe("MFA-03 lineage and evidence filtering (D-05 through D-08)", () => {
         issue_identity_key: "d".repeat(64),
         revision_hash: "e".repeat(64),
       },
-      note:
-        "Both NJ sources are enabled: false AND evidence_only in the registry (their pages are iframe shells reporting significant wave height), so no authority-eligible surfers_view row can exist live. Promoted here solely to prove the mirrors still cast one vote.",
+      note: "Both NJ sources are enabled: false AND evidence_only in the registry (their pages are iframe shells reporting significant wave height), so no authority-eligible surfers_view row can exist live. Promoted here solely to prove the mirrors still cast one vote.",
     });
-    const surfersView = derivedIssue({
+    const surfersView = rawDerivedIssue({
       label: "surfers_view_authority_shape",
       from: realRef("wavecast_regional_live_new_york", {
         validLocalDate: "2026-08-06",
@@ -342,9 +421,13 @@ describe("MFA-03 lineage and evidence filtering (D-05 through D-08)", () => {
       issues: [njBeachCams, surfersView],
       buildAnchorAt: anchor,
     });
+    // Regression: regional mirrors remain evidence-only; shared lineage must
+    // not turn either one into a beach-specific authority.
+    expect(selection.primary).toBeNull();
     expect(selection.corroborators).toEqual([]);
     expect(selection.excluded).toEqual([
-      { issue: njBeachCams, reason: "lineage_dedupe" },
+      { issue: njBeachCams, reason: "regional_evidence_only" },
+      { issue: surfersView, reason: "regional_evidence_only" },
     ]);
   });
 
@@ -387,9 +470,7 @@ describe("MFA-03 lineage and evidence filtering (D-05 through D-08)", () => {
 
 describe("MFA-03 authority precedence (D-09, D-10)", () => {
   it("rejects evidence issued materially after the build anchor", () => {
-    const issue = realIssueWhere("stormsurf_ny_shortcast_live", {
-      validLocalDate: "2026-08-06",
-    });
+    const issue = wavecastNewYorkSpot("future_dated_wavecast_spot");
     const tooEarly = new Date(issue.issuedAt.getTime() - 10 * 60_000);
     const selection = selectTrustedForecastAuthority({
       entry: LONG_ISLAND,
@@ -403,9 +484,7 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
   });
 
   it("allows a small clock-skew tolerance for a nearly simultaneous issue", () => {
-    const issue = realIssueWhere("stormsurf_ny_shortcast_live", {
-      validLocalDate: "2026-08-06",
-    });
+    const issue = wavecastNewYorkSpot("clock_skew_wavecast_spot");
     const nearFuture = new Date(issue.issuedAt.getTime() - 4 * 60_000);
     const selection = selectTrustedForecastAuthority({
       entry: LONG_ISLAND,
@@ -474,14 +553,15 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
     expect(selection.corroborators).toEqual([]);
   });
 
-  it("D-09 tier 2: regional WaveCast beats the configured regional authority", () => {
-    // REAL on both sides: WaveCast's NY page and Stormsurf's NY shortcast both
-    // cover Long Island for 2026-08-06 and both are authority-eligible.
+  it("D-09 tier 2: regional WaveCast cannot become authority over a break", () => {
+    // Regression: the old regional WaveCast tier is intentionally unreachable;
+    // row authority flags and configured regional lineages cannot override the
+    // scope boundary.
     const anchor = new Date("2026-08-06T18:00:00.000Z");
-    const waveCast = realIssueWhere("wavecast_regional_live_new_york", {
+    const waveCast = rawRegionalIssue("wavecast_regional_live_new_york", {
       validLocalDate: "2026-08-06",
     });
-    const stormsurf = realIssueWhere("stormsurf_ny_shortcast_live", {
+    const stormsurf = rawRegionalIssue("stormsurf_ny_shortcast_live", {
       validLocalDate: "2026-08-06",
     });
 
@@ -492,20 +572,22 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
       buildAnchorAt: anchor,
     });
 
-    expect(selection.primaryTier).toBe("regional_wavecast");
-    expect(selection.primary?.providerLineage).toBe("wavecast");
-    expect(selection.corroborators.map((issue) => issue.providerLineage)).toEqual(
-      ["stormsurf"],
-    );
+    expect(selection.primary).toBeNull();
+    expect(selection.primaryTier).toBeNull();
+    expect(selection.corroborators).toEqual([]);
+    expect(selection.excluded).toEqual([
+      { issue: stormsurf, reason: "regional_evidence_only" },
+      { issue: waveCast, reason: "regional_evidence_only" },
+    ]);
   });
 
-  it("D-09 tier 3: the configured regional authority takes over once WaveCast goes stale", () => {
+  it("D-09 tier 3: configured regional authority cannot take over once WaveCast goes stale", () => {
     // WaveCast NY issued 2026-08-06T08:15Z with a 36-hour bound; Stormsurf's NY
     // shortcast issued 2026-08-04T17:09Z with its own 336-hour bound.
-    const waveCast = realIssueWhere("wavecast_regional_live_new_york", {
+    const waveCast = rawRegionalIssue("wavecast_regional_live_new_york", {
       validLocalDate: "2026-08-07",
     });
-    const stormsurf = realIssueWhere("stormsurf_ny_shortcast_live", {
+    const stormsurf = rawRegionalIssue("stormsurf_ny_shortcast_live", {
       validLocalDate: "2026-08-07",
     });
     expect(freshnessMaxAgeHoursForSource("new_york")).toBe(36);
@@ -522,7 +604,7 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
       issues: [waveCast, stormsurf],
       buildAnchorAt: justInside,
     });
-    expect(fresh.primary?.providerLineage).toBe("wavecast");
+    expect(fresh.primary).toBeNull();
 
     const stale = selectTrustedForecastAuthority({
       entry: LONG_ISLAND,
@@ -530,44 +612,42 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
       issues: [waveCast, stormsurf],
       buildAnchorAt: justOutside,
     });
-    expect(stale.primary?.providerLineage).toBe("stormsurf");
-    expect(stale.primaryTier).toBe("regional_authority");
-    expect(
-      stale.excluded.filter((entry) => entry.reason === "stale"),
-    ).toHaveLength(1);
+    expect(stale.primary).toBeNull();
+    expect(stale.primaryTier).toBeNull();
+    expect(stale.excluded).toEqual([
+      { issue: waveCast, reason: "stale" },
+      { issue: stormsurf, reason: "regional_evidence_only" },
+    ]);
   });
 
   it("D-10: one valid authority activates with no corroboration at all", () => {
     const anchor = new Date("2026-08-06T12:00:00.000Z");
-    const stormsurf = realIssueWhere("stormsurf_ny_shortcast_live", {
-      validLocalDate: "2026-08-06",
-    });
+    const wavecast = wavecastNewYorkSpot("single_wavecast_spot_authority");
     const result = buildTrustedForecastDecisions({
       coverage: LONG_ISLAND,
-      issues: [stormsurf],
-      slots: [slotAt("2026-08-06T16:00:00.000Z", 2, anchor)],
+      issues: [wavecast],
+      slots: [slotAt("2026-08-06T16:00:00.000Z", 9, anchor)],
       buildAnchorAt: anchor,
     });
     const decision = onlyDecision(result);
     expect(decision.status).toBe("applied");
-    expect(decision.trustedMinFaceFt).toBe(0);
-    expect(decision.trustedMaxFaceFt).toBe(1);
+    expect(decision.trustedMinFaceFt).toBe(1);
+    expect(decision.trustedMaxFaceFt).toBe(2);
     expect(decision.appliedDeltaFt).toBe(-0.5);
     expect(result.alerts).toEqual([]);
   });
 
-  it("configured regional-authority priority order decides between two non-WaveCast lineages", () => {
+  it("configured regional lineages cannot override the scope boundary", () => {
     const anchor = new Date("2026-08-07T02:00:00.000Z");
-    const stormsurf = derivedIssue({
+    const stormsurf = rawDerivedIssue({
       label: "stormsurf_in_pnw",
       from: realRef("stormsurf_ny_shortcast_live", {
         validLocalDate: "2026-08-06",
       }),
       overrides: { region_key: "pnw", exposure: "coastal" },
-      note:
-        "No live region has two enabled non-WaveCast authority lineages: nws_hfo covers only Hawaii and stormsurf only New York.",
+      note: "No live region has two enabled non-WaveCast authority lineages: nws_hfo covers only Hawaii and stormsurf only New York.",
     });
-    const surfInstitute = derivedIssue({
+    const surfInstitute = rawDerivedIssue({
       label: "surf_institute_promoted_to_authority",
       from: realRef("surf_institute_pnw_live", { exposure: "coastal" }),
       overrides: {
@@ -587,22 +667,31 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
       issues: [stormsurf, surfInstitute],
       buildAnchorAt: anchor,
     });
-    expect(surfInstituteFirst.primary?.providerLineage).toBe("surf_institute");
+    expect(surfInstituteFirst.primary).toBeNull();
+    expect(surfInstituteFirst.excluded).toEqual([
+      { issue: stormsurf, reason: "regional_evidence_only" },
+      { issue: surfInstitute, reason: "regional_evidence_only" },
+    ]);
 
     const stormsurfFirst = selectTrustedForecastAuthority({
-      entry: { ...PNW, regionalAuthorityLineages: ["stormsurf", "surf_institute"] },
+      entry: {
+        ...PNW,
+        regionalAuthorityLineages: ["stormsurf", "surf_institute"],
+      },
       localDate: "2026-08-06",
       issues: [stormsurf, surfInstitute],
       buildAnchorAt: anchor,
     });
-    expect(stormsurfFirst.primary?.providerLineage).toBe("stormsurf");
+    expect(stormsurfFirst.primary).toBeNull();
+    expect(stormsurfFirst.excluded).toEqual([
+      { issue: stormsurf, reason: "regional_evidence_only" },
+      { issue: surfInstitute, reason: "regional_evidence_only" },
+    ]);
   });
 
   it("a stated validity basis outranks a newer derived publication-day window", () => {
     const anchor = new Date("2026-08-06T18:00:00.000Z");
-    const stated = realIssueWhere("stormsurf_ny_shortcast_live", {
-      validLocalDate: "2026-08-06",
-    });
+    const stated = wavecastNewYorkSpot("stated_wavecast_spot");
     expect(stated.validityBasis).toBe("stated");
 
     // Deliberately identical in every dimension the comparator ranks ahead of
@@ -611,19 +700,20 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
     // recency-first ordering would pick it.
     const newerDerived = derivedIssue({
       label: "newer_derived_publication_day_authority",
-      from: realRef("stormsurf_ny_shortcast_live", {
+      from: realRef("wavecast_regional_live_new_york", {
         validLocalDate: "2026-08-06",
       }),
       overrides: {
-        source_key: "stormsurf_pnw_links",
-        parser_version: "stormsurf-pnw-links-v1",
+        source_key: "socal",
+        parser_version: "socal-v1",
+        region_key: "new_york",
+        exposure: "primary",
         validity_basis: "derived_publication_day",
         issued_at: "2026-08-06T12:00:00-04:00",
         issue_identity_key: "3".repeat(64),
         revision_hash: "4".repeat(64),
       },
-      note:
-        "No live source emits an authority-eligible row with validity_basis=derived_publication_day: the two derived-basis sources (the WaveCast socal index and surf.institute) are both evidence_only. A derived window is the publication DAY, not a stated forecast window, so it must lose to a stated one even when newer.",
+      note: "No live source emits an authority-eligible row with validity_basis=derived_publication_day: the two derived-basis sources (the WaveCast socal index and surf.institute) are both evidence_only. A derived window is the publication DAY, not a stated forecast window, so it must lose to a stated one even when newer.",
     });
     expect(newerDerived.issuedAt.getTime()).toBeGreaterThan(
       stated.issuedAt.getTime(),
@@ -679,18 +769,15 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
     expect(onlyDecision(result).primaryIssueId).toBeNull();
   });
 
-  it("a source's newer issuance supersedes its own earlier call, including downward", () => {
-    // REAL PAIR. NWS Honolulu restates the same local day roughly every 12 h,
-    // and `issued_at` is one of Seaside's identity fields, so each re-fetch
-    // mints a new identity and `trusted_forecast_issues` (UNIQUE on
-    // `revision_hash`) keeps BOTH issuances of 2026-08-07 / oahu/NORTH / day.
-    // At this anchor both are well inside the 24-hour `nws_hawaii_srf` bound.
+  it("regional revisions cannot become a beach authority", () => {
+    // REAL PAIR. NWS Honolulu has two issuances for this local day, but the
+    // scope gate runs before revision ordering and keeps both evidence-only.
     const anchor = new Date("2026-08-07T02:00:00.000Z");
-    const evening = realIssueWhere("nws_hawaii_srf_live_evening_issuance", {
+    const evening = rawRegionalIssue("nws_hawaii_srf_live_evening_issuance", {
       validLocalDate: "2026-08-07",
       exposure: "oahu/NORTH",
     });
-    const morning = derivedIssue({
+    const morning = rawDerivedIssue({
       label: "nws_morning_issuance_revised_down_by_the_evening_issuance",
       from: realRef("nws_hawaii_srf_live_morning_issuance", {
         validLocalDate: "2026-08-07",
@@ -719,15 +806,17 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
         issues,
         buildAnchorAt: anchor,
       });
-      // Ranked on the daily maximum first, the 12-hour-old 8-12 ft call wins.
-      // The `superseded` reason (not `stale`) is the point: the older row is
-      // still fresh, it has simply been replaced by its own source.
-      expect(selection.primary?.issueId).toBe(evening.issueId);
-      expect(selection.primary?.maxFaceFt).toBe(2);
+      // Regression: the regional scope gate runs before source revision
+      // ordering, so neither NWS issuance can become a beach authority.
+      expect(selection.primary).toBeNull();
       expect(selection.corroborators).toEqual([]);
-      expect(selection.excluded).toEqual([
-        { issue: morning, reason: "superseded" },
-      ]);
+      expect(selection.excluded).toHaveLength(2);
+      expect(selection.excluded).toEqual(
+        expect.arrayContaining([
+          { issue: morning, reason: "regional_evidence_only" },
+          { issue: evening, reason: "regional_evidence_only" },
+        ]),
+      );
     }
 
     // And the durable decision's `primary_issue_id` points at the current call.
@@ -738,28 +827,21 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
       buildAnchorAt: anchor,
     });
     const decision = onlyDecision(result);
-    expect(decision.primaryIssueId).toBe(evening.issueId);
-    expect(decision.trustedMaxFaceFt).toBe(2);
+    expect(decision.primaryIssueId).toBeNull();
+    expect(decision.trustedMaxFaceFt).toBeNull();
   });
 
   it("does not let an invalid superseder suppress a valid authority", () => {
     const anchor = new Date("2026-08-06T18:00:00.000Z");
-    const valid = realIssueWhere("stormsurf_ny_shortcast_live", {
-      validLocalDate: "2026-08-06",
-    });
-    const futureSuperseder = derivedIssue({
-      label: "future_superseder_cannot_retract_valid_authority",
-      from: realRef("stormsurf_ny_shortcast_live", {
-        validLocalDate: "2026-08-06",
-      }),
-      overrides: {
+    const valid = wavecastNewYorkSpot("valid_wavecast_spot");
+    const futureSuperseder = wavecastNewYorkSpot(
+      "future_superseder_cannot_retract_valid_authority",
+      {
         issued_at: new Date(anchor.getTime() + 10 * 60_000).toISOString(),
         supersedes_issue_id: valid.issueId,
         revision_hash: "f".repeat(64),
       },
-      note:
-        "The live corpus has no explicit retraction row; this synthetic future-dated row proves an invalid retraction cannot suppress a valid authority.",
-    });
+    );
 
     const selection = selectTrustedForecastAuthority({
       entry: LONG_ISLAND,
@@ -781,14 +863,17 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
     // differ in `source_key`, so they are two endpoints of one provider rather
     // than two issuances of one identity, and neither supersedes the other.
     const anchor = new Date("2026-08-06T18:00:00.000Z");
-    const base = realRef("stormsurf_ny_shortcast_live", {
+    const base = realRef("wavecast_regional_live_new_york", {
       validLocalDate: "2026-08-06",
     });
     const lowKey = derivedIssue({
       label: "tie_break_low_identity_key",
       from: base,
       overrides: {
-        source_key: "stormsurf_ny_shortcast",
+        source_key: "new_york",
+        parser_version: "wavecast-v3",
+        region_key: "new_york",
+        exposure: "primary",
         issue_identity_key: "0".repeat(64),
         revision_hash: "5".repeat(64),
       },
@@ -798,18 +883,19 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
       label: "tie_break_high_identity_key",
       from: base,
       overrides: {
-        source_key: "stormsurf_pnw_links",
-        parser_version: "stormsurf-pnw-links-v1",
+        source_key: "socal",
+        parser_version: "wavecast-v3",
+        region_key: "new_york",
+        exposure: "primary",
         issue_identity_key: "f".repeat(64),
         revision_hash: "6".repeat(64),
       },
-      note:
-        "Second half of the identity-key tie-break pair. Only stormsurf_ny_shortcast is enabled among the three Stormsurf endpoints, so the corpus can never carry two Stormsurf rows for one beach/day, let alone two that agree exactly.",
+      note: "Second half of the identity-key tie-break pair. Only stormsurf_ny_shortcast is enabled among the three Stormsurf endpoints, so the corpus can never carry two Stormsurf rows for one beach/day, let alone two that agree exactly.",
     });
     expect(highKey.providerLineage).toBe(lowKey.providerLineage);
     expect(highKey.maxFaceFt).toBe(lowKey.maxFaceFt);
     expect(highKey.issuedAt.getTime()).toBe(lowKey.issuedAt.getTime());
-    expect(freshnessMaxAgeHoursForSource("stormsurf_pnw_links")).toBe(72);
+    expect(freshnessMaxAgeHoursForSource("socal")).toBe(96);
 
     const forward = selectTrustedForecastAuthority({
       entry: LONG_ISLAND,
@@ -840,33 +926,41 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
     // every identity field — `issued_at` included — identical. Recency cannot
     // separate them; only the content-addressed hash can.
     const anchor = new Date("2026-08-06T18:00:00.000Z");
-    const base = realRef("stormsurf_ny_shortcast_live", {
+    const base = realRef("wavecast_regional_live_new_york", {
       validLocalDate: "2026-08-06",
     });
     const lowRevision = derivedIssue({
       label: "revision_low_hash_small_range",
       from: base,
       overrides: {
+        source_key: "new_york",
+        parser_version: "wavecast-v3",
+        region_key: "new_york",
+        exposure: "primary",
         min_face_ft: 1,
         max_face_ft: 2,
         revision_hash: "1".repeat(64),
       },
-      note:
-        "The live corpus has 196 rows with 196 distinct revision hashes and no two revisions of one identity, because each document was fetched once. Only the measured range and the revision hash that covers it move here.",
+      note: "The live corpus has 196 rows with 196 distinct revision hashes and no two revisions of one identity, because each document was fetched once. Only the measured range and the revision hash that covers it move here.",
     });
     const highRevision = derivedIssue({
       label: "revision_high_hash_large_range",
       from: base,
       overrides: {
+        source_key: "new_york",
+        parser_version: "wavecast-v3",
+        region_key: "new_york",
+        exposure: "primary",
         min_face_ft: 6,
         max_face_ft: 8,
         revision_hash: "9".repeat(64),
       },
-      note:
-        "Second half of the one-identity revision pair; deliberately the LARGER range, so a daily-maximum-first ordering would pick it and the content-addressed tie-break is the only thing that can decide.",
+      note: "Second half of the one-identity revision pair; deliberately the LARGER range, so a daily-maximum-first ordering would pick it and the content-addressed tie-break is the only thing that can decide.",
     });
     expect(highRevision.issueIdentityKey).toBe(lowRevision.issueIdentityKey);
-    expect(highRevision.issuedAt.getTime()).toBe(lowRevision.issuedAt.getTime());
+    expect(highRevision.issuedAt.getTime()).toBe(
+      lowRevision.issuedAt.getTime(),
+    );
 
     for (const issues of [
       [lowRevision, highRevision],
@@ -893,6 +987,41 @@ describe("MFA-03 authority precedence (D-09, D-10)", () => {
 
 describe("MFA-04 exposure compatibility (D-12)", () => {
   const anchor = new Date("2026-08-06T18:00:00.000Z");
+
+  it("regional scope is evidence-only even when the row is authority-eligible", () => {
+    const regional = rawRegionalIssue("wavecast_regional_live_hawaii", {
+      validLocalDate: "2026-08-06",
+      exposure: "NNW",
+    });
+    expect(regional.scopeType).toBe("regional");
+    expect(regional.authorityEligible).toBe(true);
+
+    const selection = selectTrustedForecastAuthority({
+      entry: OAHU_NORTH,
+      localDate: "2026-08-06",
+      issues: [regional],
+      buildAnchorAt: anchor,
+    });
+
+    // Regression: a regional "Hawaii is 0-1 ft" row must not become the
+    // primary authority for a named beach merely because ingestion set its
+    // authority flag to true.
+    expect(selection.primary).toBeNull();
+    expect(selection.primaryTier).toBeNull();
+    expect(selection.excluded).toEqual([
+      { issue: regional, reason: "regional_evidence_only" },
+    ]);
+
+    const result = buildTrustedForecastDecisions({
+      coverage: OAHU_NORTH,
+      issues: [regional],
+      slots: [slotAt("2026-08-06T20:00:00.000Z", 3, anchor)],
+      buildAnchorAt: anchor,
+    });
+    expect(onlyDecision(result).status).toBe("no_authority");
+    expect(onlyDecision(result).appliedDeltaFt).toBe(0);
+    expect(result.applications).toEqual([]);
+  });
 
   it("NNW and SSW are never unioned", () => {
     // REAL. The live WaveCast Hawaii page states NNW 0-1 and SSW 1-2 for
@@ -1444,11 +1573,7 @@ describe("MFA-05 signed adjustment bands (D-14, D-15)", () => {
     // the same day can be carried below zero by it.
     const result = buildTrustedForecastDecisions({
       coverage: LONG_ISLAND,
-      issues: [
-        realIssueWhere("stormsurf_ny_shortcast_live", {
-          validLocalDate: "2026-08-06",
-        }),
-      ],
+      issues: [wavecastNewYorkSpot("below_zero_wavecast_spot")],
       slots: [
         slotAt("2026-08-06T16:00:00.000Z", 5, anchor),
         slotAt("2026-08-06T19:00:00.000Z", 0.1, anchor),
@@ -1853,11 +1978,13 @@ describe("versioned coverage policy", () => {
 describe("fixture provenance ratchet", () => {
   it("every synthetic fixture is a documented derivation of a real row", () => {
     const inventory = derivedIssueInventory();
-    // Pinned so 21-03-SUMMARY's stated fixture count cannot silently drift from
-    // the registry. One label registers once per call, and
-    // `stormsurf_payload_conflict` is built by a helper the payload tests run
-    // four times, so registrations exceed distinct fixtures.
-    expect(new Set(inventory.map((record) => record.label)).size).toBe(22);
+    // Pinned so the fixture registry cannot silently drift. The policy-boundary
+    // adapters and the alert-payload helper each register named derivations,
+    // so registrations exceed the number of source documents.
+    // The regional-scope adapter and the explicit WaveCast spot fixtures add
+    // six named derivations; pin the new inventory so undocumented test data
+    // cannot creep in unnoticed.
+    expect(new Set(inventory.map((record) => record.label)).size).toBe(28);
     for (const record of inventory) {
       expect(record.note.length).toBeGreaterThan(40);
       expect(record.overrides.length).toBeGreaterThan(0);
@@ -1991,18 +2118,19 @@ describe("D-17/D-14: a primary may only move the part of the day it spoke about"
   const KAUAI_NORTH: TrustedForecastCoverageEntry = {
     beachId: "77777777-7777-4777-8777-777777777777",
     localTimezone: "Pacific/Honolulu",
-    spotRegionKeys: [],
+    spotRegionKeys: ["hawaii"],
     regionalRegionKeys: ["hawaii"],
     compatibleExposures: ["kauai/NORTH"],
     regionalAuthorityLineages: ["nws_hfo"],
   };
 
-  it("a day-only NWS primary claims only the local day slots, never the night ones", () => {
-    // Real row: kauai/NORTH, day_part 'day', 0-2 ft, valid 06:00-18:00 HST.
-    const dayRow = realIssueWhere("nws_hawaii_srf_live_morning_issuance", {
-      exposure: "kauai/NORTH",
-      dayPart: "day",
-      validLocalDate: "2026-08-06",
+  it("a day-only primary claims only the local day slots, never the night ones", () => {
+    // The WaveCast spot-policy fixture speaks for kauai/NORTH, day_part 'day',
+    // 0-2 ft, valid 06:00-18:00 HST.
+    const dayRow = wavecastKauaiSpot("day_only_wavecast_spot", {
+      day_part: "day",
+      min_face_ft: 0,
+      max_face_ft: 2,
     });
     expect(dayRow.dayPart).toBe("day");
 
@@ -2037,10 +2165,8 @@ describe("D-17/D-14: a primary may only move the part of the day it spoke about"
   });
 
   it("a night-only primary claims only the night slots", () => {
-    const nightRow = realIssueWhere("nws_hawaii_srf_live_evening_issuance", {
-      exposure: "kauai/NORTH",
-      dayPart: "night",
-      validLocalDate: "2026-08-06",
+    const nightRow = wavecastKauaiSpot("night_only_wavecast_spot", {
+      day_part: "night",
     });
     expect(nightRow.dayPart).toBe("night");
 
@@ -2066,7 +2192,7 @@ describe("D-17/D-14: a primary may only move the part of the day it spoke about"
   });
 
   it("an all_day primary still claims every eligible slot", () => {
-    // WaveCast's regional Hawaii page states whole days, and nothing about the
+    // The captured WaveCast row states whole days, and nothing about the
     // restriction may narrow those.
     const allDayRow = realIssueWhere("wavecast_regional_live_hawaii", {
       exposure: "NNW",
@@ -2092,10 +2218,8 @@ describe("D-17/D-14: a primary may only move the part of the day it spoke about"
   it("the daily maximum is still taken across the whole local day", () => {
     // The critic accepted the daily-maximum rule and rejected only its pairing
     // with unrestricted application, so the comparison basis must not narrow.
-    const dayRow = realIssueWhere("nws_hawaii_srf_live_morning_issuance", {
-      exposure: "kauai/NORTH",
-      dayPart: "day",
-      validLocalDate: "2026-08-06",
+    const dayRow = wavecastKauaiSpot("daily_maximum_day_only_wavecast_spot", {
+      day_part: "day",
     });
     const slots = hawaiiSlots().map((slot, index) => ({
       ...slot,
