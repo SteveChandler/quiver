@@ -25,6 +25,11 @@ const REQUIRED_APPLE_PATHS = [
   '/invite/*',
   '/settings*',
   '/app/spot/*',
+  // Regression: partner QR links require prefix expansion and the nudge CTA
+  // must be claimed as the exact /app path, not its subpaths.
+  '/p',
+  '/p/*',
+  '/app',
 ] as const;
 
 type AndroidAssetLink = {

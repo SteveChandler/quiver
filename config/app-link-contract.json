@@ -5,10 +5,12 @@
     { "path": "/beach", "match": "prefix" },
     { "path": "/sessions", "match": "prefix" },
     { "path": "/profile", "match": "prefix" },
+    { "path": "/p", "match": "prefix" },
     { "path": "/auth", "match": "prefix" },
     { "path": "/settings", "match": "exact" },
     { "path": "/map", "match": "exact" },
     { "path": "/alerts", "match": "prefix" },
+    { "path": "/app", "match": "exact" },
     { "path": "/app/handoff", "match": "exact" },
     { "path": "/app/spot", "match": "subpaths" },
     { "path": "/app/forecast", "match": "exact" }
