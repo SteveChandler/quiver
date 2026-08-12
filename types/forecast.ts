@@ -246,7 +246,7 @@ export interface EnhancedForecastEntity {
     tide_schedule?: TideScheduleEntry[];
     /** NOAA CO-OPS station used for tide predictions */
     tide_station?: TideStationInfo;
-    /** Per-row wave_height provenance (source, transform path, etc.). */
+    /** Per-row wave_height provenance (source, shoaling basis, transform path, etc.). */
     wave_height_provenance?: WaveHeightProvenance;
   } | null;
 }
@@ -527,6 +527,11 @@ export interface WaveHeightProvenance {
     | 'ndbc_buoy'
     | 'nowcast_anchor'
     | null;
+  /**
+   * Shoaling basis for the displayed number. `population_prior_v1` is a
+   * measured population prior, not per-beach calibration.
+   */
+  provenance: 'generic' | 'measured' | 'population_prior_v1';
   /** Raw input height in feet, before transformation. */
   raw_value_ft: number | null;
   /** CDIP / NDBC / IOOS station that supplied the input (null for model). */
