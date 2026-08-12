@@ -5,12 +5,13 @@
  * that match what surfers expect from services like Surfline/Surf Captain.
  *
  * The transformation applies:
- * 1. Base shoaling factor (1.0x) - raw model data already accounts for shoaling
+ * 1. Base shoaling factor (1.0x generic, population prior on uncalibrated beaches)
+ *    - raw model data already accounts for shoaling
  * 2. Period amplification - longer periods (14-20s) = bigger faces
  * 3. Beach-specific swell access - uses terrain swell_access_factors
  *
  * Formula:
- *   face_height = Hs x BASE_SHOALING x period_factor x direction_factor
+ *   face_height = Hs x base_shoaling x period_factor x direction_factor
  *
  * Example: 3.5ft Hs @ 14s with good direction = 3.5 x 1.0 x 1.2 x 1.0 = 4.2ft face
  */
@@ -48,6 +49,30 @@ export interface ShoalingFactors {
   /** Provenance metadata for the calibration — not used at runtime */
   calibration?: Record<string, unknown>;
 }
+
+/**
+ * Identifies which shoaling basis produced a transformed face height.
+ * `population_prior_v1` is deliberately distinct from measured calibration.
+ */
+export type WaveHeightTransformProvenance =
+  | 'generic'
+  | 'measured'
+  | 'population_prior_v1';
+
+export const POPULATION_PRIOR_PROVENANCE = 'population_prior_v1' as const;
+
+/**
+ * Measured population correction for beaches without per-beach observations.
+ * These values are the base factor for the same four period buckets used by
+ * `shoaling_factors`; they are not a `ShoalingFactors` value and must not be
+ * persisted in `beaches.shoaling_factors`.
+ */
+export const POPULATION_PRIOR_BUCKETS: readonly ShoalingBucket[] = [
+  { tp_min_s: 0, tp_max_s: 8, factor: 0.955 },
+  { tp_min_s: 8, tp_max_s: 12, factor: 1.020 },
+  { tp_min_s: 12, tp_max_s: 16, factor: 1.119 },
+  { tp_min_s: 16, tp_max_s: 999, factor: 1.139 },
+] as const;
 
 /**
  * Beach terrain configuration needed for wave height transformation
@@ -289,6 +314,32 @@ export function lookupShoalingBucket(
   return null;
 }
 
+function lookupPopulationPrior(periodS: number | null | undefined): number | null {
+  if (periodS == null || !Number.isFinite(periodS) || periodS <= 0) {
+    return null;
+  }
+
+  return POPULATION_PRIOR_BUCKETS.find(
+    (bucket) => periodS >= bucket.tp_min_s && periodS < bucket.tp_max_s,
+  )?.factor ?? null;
+}
+
+function getGenericBaseShoalingFactor(
+  periodS: number | null | undefined,
+  beach: BeachTerrainConfig | null | undefined,
+): { factor: number; provenance: WaveHeightTransformProvenance } {
+  // A null value is the explicit database representation of an uncalibrated
+  // beach. Do not infer that status when no beach calibration field was passed.
+  if (beach?.shoaling_factors === null) {
+    const priorFactor = lookupPopulationPrior(periodS);
+    if (priorFactor != null) {
+      return { factor: priorFactor, provenance: POPULATION_PRIOR_PROVENANCE };
+    }
+  }
+
+  return { factor: BASE_SHOALING, provenance: 'generic' };
+}
+
 const QUARANTINED_BUCKET_MIN_PERIOD_S = 15;
 const QUARANTINED_BUCKET_MAX_FACTOR = 1;
 
@@ -378,6 +429,7 @@ export function transformToFaceHeight(params: TransformParams): number {
 export interface FaceHeightWithMetadata {
   faceHeightFt: number;
   isCalibrated: boolean;
+  provenance: WaveHeightTransformProvenance;
   calibrationBucketQuarantined?: boolean;
 }
 
@@ -426,7 +478,7 @@ export function transformToFaceHeightWithMetadata(
   // Validate input - return 0 for invalid values (not calibrated: a
   // meaningless number cannot be "calibrated").
   if (!Number.isFinite(rawHeightFt) || rawHeightFt < 0) {
-    return { faceHeightFt: 0, isCalibrated: false };
+    return { faceHeightFt: 0, isCalibrated: false, provenance: 'generic' };
   }
 
   let calibrationBucketQuarantined = false;
@@ -447,14 +499,18 @@ export function transformToFaceHeightWithMetadata(
         return {
           faceHeightFt: Math.round(rawHeightFt * bucketFactor * shadow * 10) / 10,
           isCalibrated: true,
+          provenance: 'measured',
         };
       }
     }
   }
 
-  // Legacy path: generic base × period × direction for uncalibrated beaches.
+  // Generic path: base × period × direction. Explicitly uncalibrated beaches
+  // use the measured population prior as the base; measured beaches that do
+  // not take the CDIP short-circuit remain on the original 1.0 base.
   const periodFactor = calculatePeriodFactor(periodS);
   const dirFactor = calculateDirectionFactor(swellDirectionDeg, beach);
+  const baseShoaling = getGenericBaseShoalingFactor(periodS, beach);
 
   // Apply deepwater decay for model data sources.
   // CDIP buoy data already reflects nearshore conditions — decay would double-correct.
@@ -464,12 +520,13 @@ export function transformToFaceHeightWithMetadata(
     : 1.0;
 
   // Apply transformation
-  const faceHeight = rawHeightFt * decay * BASE_SHOALING * periodFactor * dirFactor;
+  const faceHeight = rawHeightFt * decay * baseShoaling.factor * periodFactor * dirFactor;
 
   // Round to 1 decimal place
   return {
     faceHeightFt: Math.round(faceHeight * 10) / 10,
     isCalibrated: false,
+    provenance: baseShoaling.provenance,
     ...(calibrationBucketQuarantined ? { calibrationBucketQuarantined } : {}),
   };
 }
@@ -839,6 +896,7 @@ export interface SwellComponentInput {
 export interface DecomposedFaceHeightResult {
   faceHeightFt: number;
   isCalibrated: boolean;
+  provenance: WaveHeightTransformProvenance;
   path: 'decomposed' | 'legacy';
   calibrationBucketQuarantined?: boolean;
 }
@@ -875,10 +933,11 @@ export interface DecomposedFaceHeightResult {
  *   swell component on a flat day. Do NOT full-fallback on partial data,
  *   because doing so would lose the per-component alignment signal for the
  *   component that is populated.
- * - **Null shoaling_factors (uncalibrated beach)** → use
- *   `calculatePeriodFactor × BASE_SHOALING` as each component's bucket
- *   factor. The alignment gate and RMS sum still apply, so the decomposed
- *   path is still physically meaningful even without empirical calibration.
+ * - **Null shoaling_factors (uncalibrated beach)** → use the
+ *   `population_prior_v1` base factor for the component's period bucket,
+ *   multiplied by `calculatePeriodFactor`. The alignment gate and RMS sum
+ *   still apply, so the decomposed path remains physically meaningful without
+ *   per-beach calibration.
  * - **Null swell window** → CDIP/direct `alignmentFactor` returns 1.0 for
  *   every component, so decomposition becomes "bucket factor × raw height"
  *   RMS-summed. Model sources still use terrain access when available.
@@ -933,6 +992,7 @@ export function transformToFaceHeightDecomposed(params: {
     return {
       faceHeightFt: legacy.faceHeightFt,
       isCalibrated: legacy.isCalibrated,
+      provenance: legacy.provenance,
       path: 'legacy',
       ...(legacy.calibrationBucketQuarantined
         ? { calibrationBucketQuarantined: true }
@@ -952,6 +1012,7 @@ export function transformToFaceHeightDecomposed(params: {
   let sumOfSquares = 0;
   let calibrationBucketQuarantined = false;
   let calibratedBucketUsed = false;
+  let populationPriorUsed = false;
   for (const component of populated) {
     if (
       component.partition === 'wind_wave' &&
@@ -993,6 +1054,7 @@ export function transformToFaceHeightDecomposed(params: {
       calibratedBucketUsed = true;
     }
     const periodFactor = calculatePeriodFactor(component.periodS);
+    const baseShoaling = getGenericBaseShoalingFactor(component.periodS, beach);
     // Terrain-access canyon paths should treat 12s+ model swell as organized
     // groundswell; otherwise the generic 12s=1.1 ramp still undercalls LJS.
     const terrainModelPeriodFactor =
@@ -1003,7 +1065,11 @@ export function transformToFaceHeightDecomposed(params: {
         ? Math.max(periodFactor, PERIOD_FACTOR_MAX)
         : periodFactor;
     const perComponentFactor =
-      bucketFactor ?? BASE_SHOALING * terrainModelPeriodFactor;
+      bucketFactor ?? baseShoaling.factor * terrainModelPeriodFactor;
+
+    if (bucketFactor == null && baseShoaling.provenance === POPULATION_PRIOR_PROVENANCE) {
+      populationPriorUsed = true;
+    }
 
     const faceI = component.heightFt * decay * perComponentFactor * accessFactor;
     sumOfSquares += faceI * faceI;
@@ -1019,6 +1085,7 @@ export function transformToFaceHeightDecomposed(params: {
     return {
       faceHeightFt: legacy.faceHeightFt,
       isCalibrated: legacy.isCalibrated,
+      provenance: legacy.provenance,
       path: 'legacy',
       ...(legacy.calibrationBucketQuarantined
         ? { calibrationBucketQuarantined: true }
@@ -1032,6 +1099,11 @@ export function transformToFaceHeightDecomposed(params: {
   return {
     faceHeightFt: rounded,
     isCalibrated: calibratedBucketUsed,
+    provenance: calibratedBucketUsed
+      ? 'measured'
+      : populationPriorUsed
+        ? POPULATION_PRIOR_PROVENANCE
+        : 'generic',
     path: 'decomposed',
     ...(calibrationBucketQuarantined ? { calibrationBucketQuarantined } : {}),
   };

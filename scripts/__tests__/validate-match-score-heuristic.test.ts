@@ -35,7 +35,7 @@ import {
 } from "../validate-match-score-heuristic";
 
 const latestMatchScoreMigrationPath =
-  "supabase/migrations/20260612123000_match_score_skill_aware_band.sql";
+  "supabase/migrations/20260811183000_fix_match_score_core_board_aliases.sql";
 
 const baseSession = (
   overrides: Partial<RatedSessionSample> = {}
