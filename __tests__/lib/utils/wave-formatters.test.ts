@@ -637,17 +637,16 @@ describe("wave-formatters", () => {
         expect(numeric).toBeLessThan(3);
       });
 
-      it("uncalibrated beach (shoaling_factors=null) follows legacy path regardless of source", () => {
-        // Sanity: an uncalibrated beach with CDIP sig input uses the legacy
-        // pipeline, no short-circuit. Confirms the 190-ish non-Phase-1.4
-        // beaches behave identically to pre-migration.
+      it("uncalibrated beach (shoaling_factors=null) uses the population prior", () => {
+        // Regression: the formatter path must agree with the transformer path
+        // so an uncalibrated beach does not lose the prior at source selection.
         const result = toFaceHeightFeet({
           cdipSigFt: 1.7,
           periodS: 14,
           beach: { shoaling_factors: null },
         });
-        // 1.7 * 1.0 * 1.2 * 1.0 = 2.04 → 2 ft
-        expect(result).toBe("2 ft");
+        // 1.7 * 1.119 * 1.2 = 2.28456 → 2.3 ft
+        expect(result).toBe("2.3 ft");
       });
     });
   });

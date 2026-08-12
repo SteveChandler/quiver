@@ -16,6 +16,7 @@ import {
   transformToFaceHeightDecomposed,
   type BeachTerrainConfig,
   type WaveHeightSourceTag,
+  type WaveHeightTransformProvenance,
   type SwellComponentInput,
   BASE_SHOALING,
   calculatePeriodFactor,
@@ -560,7 +561,8 @@ export interface FaceHeightParams extends WaveHeightSourceParams {
  * Convert various swell/height inputs to a display face height in feet.
  *
  * Applies beach-specific wave transformation including:
- * - Base shoaling factor (1.0x) - raw model data already accounts for shoaling
+ * - Base shoaling factor (1.0x generic; population prior for uncalibrated beaches)
+ *   - raw model data already accounts for shoaling
  * - Period amplification - longer periods = bigger faces
  * - Direction factor from terrain swell_access_factors
  *
@@ -665,6 +667,7 @@ export function toFaceHeightFeetDecomposed(
  * Fields:
  * - `source`: which raw input was actually used (after CDIP outlier checks).
  * - `rawHeightFt`: the raw input height in feet, before transformation.
+ * - `provenance`: `'measured'`, `'population_prior_v1'`, or `'generic'`.
  * - `transformPath`: which math path inside the transformer fired.
  *   - `'scalar_calibrated'`: `transformToFaceHeightWithMetadata` ran the
  *     per-beach `shoaling_factors` short-circuit (CDIP source + bucket hit).
@@ -681,6 +684,7 @@ export function toFaceHeightFeetDecomposed(
 export interface WaveHeightDebugInfo {
   source: WaveHeightSourceTag | null;
   rawHeightFt: number | null;
+  provenance: WaveHeightTransformProvenance;
   transformPath: 'scalar_calibrated' | 'scalar_generic' | 'decomposed' | null;
   componentsUsed: boolean;
   calibratedShoalingFired: boolean;
@@ -713,6 +717,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
       debug: {
         source: null,
         rawHeightFt: null,
+        provenance: 'generic',
         transformPath: null,
         componentsUsed: false,
         calibratedShoalingFired: false,
@@ -745,6 +750,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
     debug: {
       source: source.source,
       rawHeightFt: source.heightFt,
+      provenance: result.provenance,
       transformPath,
       componentsUsed: result.path === 'decomposed',
       calibratedShoalingFired: result.isCalibrated,
