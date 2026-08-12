@@ -55,6 +55,7 @@ interface QuickLogViewProps {
   detectedBeach: { id: string; name: string } | null;
   detectedSource: BeachSource;
   detectedConfidence: "high" | "low" | null;
+  sessionLogFlowId?: string;
   sessionFitPicker?: ReactNode;
   /** Expanded detail sections rendered by parent */
   detailSections: ReactNode;
@@ -71,6 +72,7 @@ export function QuickLogView({
   detectedBeach,
   detectedSource,
   detectedConfidence,
+  sessionLogFlowId,
   sessionFitPicker,
   detailSections,
 }: QuickLogViewProps) {
@@ -100,6 +102,7 @@ export function QuickLogView({
           formState={formState}
           beaches={beaches}
           mode="log"
+          sessionLogFlowId={sessionLogFlowId}
           updateField={updateField}
         />
       );

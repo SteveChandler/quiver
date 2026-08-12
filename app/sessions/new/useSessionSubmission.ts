@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { SessionFormMode } from "@/hooks/use-session-form";
@@ -8,6 +8,11 @@ import { createLoggedSession } from "@/actions/session-actions";
 import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
 import { createActivity } from "@/actions/activity-actions";
 import { track } from "@/lib/analytics";
+import { useTrackEvent } from "@/hooks/use-track-event";
+import {
+  buildSessionLogEventMetadata,
+  createSessionLogFlowId,
+} from "@/lib/analytics/session-log-funnel";
 import { slugify } from "@/lib/utils/text-utils";
 import { buildSessionPayload } from "@/lib/utils/session-data-builder";
 import { buildSessionShareUrl } from "@/lib/share/build-share-card-url";
@@ -25,6 +30,8 @@ export function useSessionSubmission({
   forecastFeedbackId,
 }: UseSessionSubmissionOptions) {
   const router = useRouter();
+  const { track: trackSupabaseEvent } = useTrackEvent();
+  const fallbackFlowIdRef = useRef(createSessionLogFlowId());
 
   // Share state
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
@@ -153,6 +160,8 @@ export function useSessionSubmission({
 
       // Submit-funnel telemetry only; session_created is the session-count event.
       try {
+        const flowId =
+          sessionData.sessionLogFlowId ?? fallbackFlowIdRef.current;
         const wave = sessionData.waveQuality
           ? parseInt(sessionData.waveQuality)
           : undefined;
@@ -164,13 +173,24 @@ export function useSessionSubmission({
           const m = String(sessionData.waterTemp).match(/(\d+)/);
           water = m ? parseInt(m[1]) : undefined;
         }
-        track("session_log_submit", {
+        const submitMetadata = buildSessionLogEventMetadata(flowId, {
+          event_id: `session:${result.data.id}:submit:web:v1`,
+          session_id: result.data.id,
+        });
+        const analyticsSubmitMetadata = {
+          ...submitMetadata,
           beach_slug: sessionData.selectedBeach
             ? slugify(sessionData.selectedBeach)
             : sessionData.selectedBeachId,
           wave_rating: isFinite(wave as number) ? wave : undefined,
           crowd: isFinite(crowd as number) ? crowd : undefined,
           water_temp: isFinite(water as number) ? water : undefined,
+        };
+        track("session_log_submit", analyticsSubmitMetadata);
+        trackSupabaseEvent("session_log_submit", {
+          beachId: sessionData.selectedBeachId,
+          metadata: submitMetadata,
+          debounceMs: 0,
         });
       } catch (e) { console.error('[SessionSubmission] error:', e); }
 

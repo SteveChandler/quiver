@@ -213,7 +213,12 @@ describe("SessionScrollForm telemetry", () => {
       expect(startEvents).toHaveLength(1);
       expect(startEvents[0][1]).toEqual({
         beachId: "beach-abc",
-        metadata: { beach_id: "beach-abc" },
+        metadata: expect.objectContaining({
+          beach_id: "beach-abc",
+          flow_id: expect.any(String),
+          schema_version: 1,
+          client_stage_at: expect.any(String),
+        }),
       });
 
       // Re-render with the same state — start must not fire a second time.
@@ -254,7 +259,12 @@ describe("SessionScrollForm telemetry", () => {
       expect(beachEvents).toHaveLength(1);
       expect(beachEvents[0][1]).toEqual({
         beachId: "beach-1",
-        metadata: { beach_id: "beach-1" },
+        metadata: expect.objectContaining({
+          beach_id: "beach-1",
+          flow_id: expect.any(String),
+          schema_version: 1,
+          client_stage_at: expect.any(String),
+        }),
       });
 
       // Re-render with same beach — should NOT re-fire.
@@ -283,7 +293,12 @@ describe("SessionScrollForm telemetry", () => {
       expect(beachEvents).toHaveLength(2);
       expect(beachEvents[1][1]).toEqual({
         beachId: "beach-2",
-        metadata: { beach_id: "beach-2" },
+        metadata: expect.objectContaining({
+          beach_id: "beach-2",
+          flow_id: expect.any(String),
+          schema_version: 1,
+          client_stage_at: expect.any(String),
+        }),
       });
     });
   });
@@ -301,12 +316,15 @@ describe("SessionScrollForm telemetry", () => {
 
       expect(mockTrack).toHaveBeenCalledWith("session_decomposition_selected", {
         beachId: "beach-abc",
-        metadata: {
+        metadata: expect.objectContaining({
           beach_id: "beach-abc",
           rating: 4,
           tag: "skill_fit",
           skill_fit: "dialed",
-        },
+          flow_id: expect.any(String),
+          schema_version: 1,
+          client_stage_at: expect.any(String),
+        }),
         debounceMs: 0,
       });
     });
@@ -323,12 +341,15 @@ describe("SessionScrollForm telemetry", () => {
 
       expect(mockTrack).toHaveBeenCalledWith("session_board_fit_feedback_selected", {
         beachId: "beach-abc",
-        metadata: {
+        metadata: expect.objectContaining({
           beach_id: "beach-abc",
           rating: 4,
           board_fit: "right",
           source: "session_fit_picker",
-        },
+          flow_id: expect.any(String),
+          schema_version: 1,
+          client_stage_at: expect.any(String),
+        }),
         debounceMs: 0,
       });
     });

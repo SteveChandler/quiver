@@ -751,6 +751,14 @@ export interface BeachSearchResultClickMetadata {
 
 /** Metadata for session_log_* events */
 export interface SessionLogMetadata {
+  /** Stable identifier shared by all events in one web/native form flow */
+  flow_id?: string;
+  /** Client timestamp used for ordering events within a flow */
+  client_stage_at?: string;
+  /** Version of the session funnel metadata contract */
+  schema_version?: number;
+  /** Stable event identifier for deduplication and exact joins */
+  event_id?: string;
   /** Draft or saved session ID for native session-log telemetry */
   session_id?: string;
   /** Beach ID selected for the session (if already chosen) */
@@ -763,6 +771,12 @@ export interface SessionLogMetadata {
   max_step_reached?: 'beach_select' | 'rating' | 'photo' | 'details' | 'review';
   /** For session_log_rating_set: the rating value 1-5 */
   rating?: number;
+  /** Validation codes retained as an array for exact failure attribution */
+  validation_errors?: string[];
+  /** Number of validation codes emitted in the event */
+  validation_error_count?: number;
+  /** First form section containing a validation error */
+  validation_first_field?: string | null;
   /** For session_log_photo_added: count of photos attached at time of event */
   photo_count?: number;
   /** For session_log_photo_added: count added in this picker action */

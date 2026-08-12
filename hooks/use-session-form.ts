@@ -7,8 +7,11 @@ import { Board, Beach } from "@/types/database";
 import { toast } from "sonner";
 import { useAuth } from "@/context/auth-context";
 import type { SessionDecomposition } from "@/lib/session-fit";
+import { createSessionLogFlowId } from "@/lib/analytics/session-log-funnel";
 
 export type SessionFormState = {
+  /** Transient correlation ID; consumed by funnel telemetry, never persisted. */
+  sessionLogFlowId?: string;
   selectedBeach: string;
   selectedBeachId?: string;
   selectedDate: string;
@@ -95,6 +98,7 @@ export type SessionFormHookParams = {
  */
 function getDefaultFormState(mode: SessionFormMode): SessionFormState {
   return {
+    sessionLogFlowId: createSessionLogFlowId(),
     selectedBeach: "",
     selectedBeachId: "",
     selectedDate: new Date().toISOString().split("T")[0], // Default to today

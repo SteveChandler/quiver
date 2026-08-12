@@ -2,7 +2,7 @@
 
 This document is the canonical, high-level overview of Quiver's architecture and an index to detailed docs. It summarizes core patterns, policies, and the current product strategy.
 
-**Last Updated:** August 7, 2026
+**Last Updated:** August 12, 2026
 
 ---
 
@@ -44,6 +44,10 @@ This document is the canonical, high-level overview of Quiver's architecture and
 - `scripts/terrain/` - Terrain analysis for geometry scoring (see `scripts/terrain/ARCHITECTURE.md`)
 
 **Primary Reference**: `docs/STYLE_GUIDE.md` (Brand, patterns, accessibility).
+
+**Session Funnel Telemetry**: [`SESSION_FUNNEL_TELEMETRY.md`](SESSION_FUNNEL_TELEMETRY.md)
+documents the active web/native event-correlation contract, canonical joins,
+platform coverage, and post-release verification.
 
 ---
 
