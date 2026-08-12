@@ -321,6 +321,33 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
 export const KNOWN_REJECTED_USER_EVENT_EMITTERS = [
 ] as const;
 
+/**
+ * Event types present in the user_events CHECK constraint but deliberately
+ * absent from VALID_EVENTS.
+ *
+ * Native `trackEvent()` inserts straight into user_events via the Supabase
+ * client, so these never transit /api/events and must not widen that route's
+ * allowlist. They are still required in the DB CHECK — before migration
+ * 20260812130000 every insert of one raised 23514 and was silently dropped,
+ * because `trackEvent` is void-dispatched and nothing surfaced the loss.
+ *
+ * Adding a native-only event means adding it here AND to a CHECK migration.
+ * The sync test fails if a CHECK entry appears in none of the three lists.
+ */
+export const NATIVE_DIRECT_INSERT_EVENTS = [
+  'onboarding_paywall_viewed',
+  'onboarding_free_selected',
+  'onboarding_purchase_started',
+  'onboarding_purchase_success',
+  'onboarding_purchase_failed',
+  'onboarding_purchase_cancelled',
+  'onboarding_restore_result',
+  'community_filter_selected',
+  'siri_shortcut_opened',
+  'garmin_connect_viewed',
+  'garmin_designated_activity_set',
+] as const;
+
 export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   'page_view', 'beach_view', 'tab_view', 'onboarding_step',
   // Conversion tracking (critical for understanding anon→authed funnel)

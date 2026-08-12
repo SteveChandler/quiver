@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { VALID_EVENTS } from "@/app/api/events/route";
-import { KNOWN_REJECTED_USER_EVENT_EMITTERS } from "@/lib/analytics/event-taxonomy";
+import {
+  KNOWN_REJECTED_USER_EVENT_EMITTERS,
+  NATIVE_DIRECT_INSERT_EVENTS,
+} from "@/lib/analytics/event-taxonomy";
 
 const ACQUISITION_SOURCE_SELF_REPORTED_EVENT =
   "acquisition_source_self_reported";
@@ -73,8 +76,17 @@ describe("user_events allowlist / DB CHECK sync", () => {
   it("keeps DB CHECK additions accepted by the API route or explicitly documented", () => {
     const validEvents = new Set<string>(VALID_EVENTS);
     const documentedRejectedEvents = new Set<string>(KNOWN_REJECTED_USER_EVENT_EMITTERS);
+    // Native emitters insert straight into user_events and never transit
+    // /api/events, so they belong in the CHECK without widening VALID_EVENTS.
+    // Declaring them is still mandatory — an undeclared CHECK entry fails here.
+    const nativeDirectInsertEvents = new Set<string>(NATIVE_DIRECT_INSERT_EVENTS);
     const dbOnlyEvents = [...userEventsCheckMigrationEventTypes()]
-      .filter(e => !validEvents.has(e) && !documentedRejectedEvents.has(e))
+      .filter(
+        e =>
+          !validEvents.has(e) &&
+          !documentedRejectedEvents.has(e) &&
+          !nativeDirectInsertEvents.has(e)
+      )
       .sort();
 
     expect(dbOnlyEvents).toEqual([]);
