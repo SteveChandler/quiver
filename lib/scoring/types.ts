@@ -116,6 +116,8 @@ export interface OptimalWindow {
   message: string;
   /** Peak score time within window */
   peakTime?: Date;
+  /** Score at peakTime; the render-facing decision score for this window */
+  peakScore?: number;
   /** Average score across all forecasts within this window (0-100) */
   avgScore?: number;
   /** Qualitative character of conditions during this window */

@@ -560,6 +560,7 @@ export function ForecastTab({
               start: w.start.toISOString(),
               end: w.end.toISOString(),
               avgScore: w.avgScore ?? 0,
+              peakScore: w.peakScore,
               character: w.character
                 ? { label: w.character.label, category: w.character.category }
                 : undefined,

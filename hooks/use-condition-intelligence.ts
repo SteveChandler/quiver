@@ -110,7 +110,10 @@ export function useConditionIntelligence(
 
     if (multiWindowResult.bestWindow) {
       todayCharacter = multiWindowResult.bestWindow.character ?? null;
-      todayScore = multiWindowResult.bestWindow.avgScore ?? null;
+      todayScore =
+        multiWindowResult.bestWindow.peakScore ??
+        multiWindowResult.bestWindow.avgScore ??
+        null;
     }
 
     // Group forecasts by date and compute max native score per day.
@@ -169,18 +172,25 @@ export function useConditionIntelligence(
     const peakTime = bestWindow.peakTime ?? bestWindow.start;
     if (!forecasts || forecasts.length === 0) return null;
 
-    // Find the forecast closest to the peak time
+    // Use the same timezone-resolved timestamps as the window calculator.
     let closestForecast = forecasts[0];
+    let closestScoringForecast = toForecastForScoring(
+      closestForecast,
+      beachTimezone ?? undefined,
+    );
     let minDiff = Infinity;
     for (const f of forecasts) {
-      const diff = Math.abs(new Date(f.forecast_at).getTime() - peakTime.getTime());
+      const scoringForecast = toForecastForScoring(f, beachTimezone ?? undefined);
+      const diff = Math.abs(
+        scoringForecast.forecastTime.getTime() - peakTime.getTime(),
+      );
       if (diff < minDiff) {
         minDiff = diff;
         closestForecast = f;
+        closestScoringForecast = scoringForecast;
       }
     }
 
-    const scoringForecast = toForecastForScoring(closestForecast, beachTimezone ?? undefined);
     const winningBoardClass = scoreWindowConditionDetails(
       closestForecast,
       beach,
@@ -188,7 +198,7 @@ export function useConditionIntelligence(
       null,
       boardClasses,
     ).boardClass;
-    return getConditionBoardPick(scoringForecast, boards, beach, {
+    return getConditionBoardPick(closestScoringForecast, boards, beach, {
       kind: 'scored',
       boardClass: winningBoardClass,
     });

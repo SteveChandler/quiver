@@ -267,6 +267,11 @@ export function calculateOptimalWindow(
 
   // Find peak time within window
   const peakTime = findPeakTime(scoredForecasts, startIndex, endIndex);
+  const peakScore = peakTime
+    ? scoredForecasts.find(
+        (scored) => scored.forecast.forecastTime.getTime() === peakTime.getTime(),
+      )?.score
+    : undefined;
 
   // Generate message
   const message = generateWindowMessage(startInfo.reason, endInfo.reason);
@@ -278,6 +283,7 @@ export function calculateOptimalWindow(
     endReason: endInfo.reason,
     message,
     peakTime,
+    peakScore,
   };
 }
 
@@ -771,7 +777,8 @@ function buildWindowFromBlock(
   const peakTime = findPeakTime(scoredForecasts, block.startIndex, block.endIndex);
   const message = generateWindowMessage(startInfo.reason, endInfo.reason);
 
-  // Get condition character from the peak forecast (most representative moment)
+  // Use the same representative forecast for the score, character, and board
+  // pick at the beach-detail render boundary.
   const peakIndex = scoredForecasts
     .slice(block.startIndex, block.endIndex + 1)
     .reduce<number>(
@@ -779,7 +786,14 @@ function buildWindowFromBlock(
         sf.score > scoredForecasts[block.startIndex + bestI].score ? i : bestI,
       0
     );
-  const peakForecast = scoredForecasts[block.startIndex + peakIndex].forecast;
+  const peakScored = peakTime
+    ? scoredForecasts.find(
+        (scored) => scored.forecast.forecastTime.getTime() === peakTime.getTime(),
+      )
+    : undefined;
+  const peakScoredFallback = scoredForecasts[block.startIndex + peakIndex];
+  const representativePeak = peakScored ?? peakScoredFallback;
+  const peakForecast = representativePeak.forecast;
 
   // Compute condition character via the domain engine (re-scores the peak
   // forecast to obtain a CompositeScore — plugins are pure and the engine
@@ -801,6 +815,7 @@ function buildWindowFromBlock(
     endReason: endInfo.reason,
     message,
     peakTime,
+    peakScore: representativePeak.score,
     avgScore: parseFloat(block.avgScore.toFixed(1)),
     character,
   };
