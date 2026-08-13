@@ -9,6 +9,10 @@ jest.mock("@/components/pricing/founding-access-cta", () => ({
   ),
 }));
 
+jest.mock("@/components/pricing/revenuecat-web-checkout-cta", () => ({
+  RevenueCatWebCheckoutCta: () => null,
+}));
+
 const BLOCKED_PUBLIC_COPY = [
   /monthly/i,
   /annual/i,

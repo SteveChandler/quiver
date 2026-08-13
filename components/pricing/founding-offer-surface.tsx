@@ -15,6 +15,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { FoundingAccessCta } from "@/components/pricing/founding-access-cta";
+import { RevenueCatWebCheckoutCta } from "@/components/pricing/revenuecat-web-checkout-cta";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import {
   QuiverSticker,
@@ -217,6 +218,8 @@ export function FoundingOfferSurface() {
               <p className="mt-3 text-center text-xs font-medium text-[#11100D]/64 sm:max-w-sm">
                 Cancel anytime in Apple subscriptions.
               </p>
+
+              <RevenueCatWebCheckoutCta />
 
               <div className="mt-6 border-t-2 border-dashed border-[#11100D]/30 pt-5 sm:max-w-sm">
                 <div className="flex flex-wrap gap-2">
