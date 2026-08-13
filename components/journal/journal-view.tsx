@@ -330,7 +330,7 @@ export function JournalView({ className }: JournalViewProps) {
                         onClick={() => handleShareClick(session)}
                         aria-label="Share session"
                       >
-                        <Share2 className="h-4 w-4" />
+                        <Share2 className="h-4 w-4" aria-hidden="true" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -338,19 +338,25 @@ export function JournalView({ className }: JournalViewProps) {
                         onClick={() =>
                           handlePrivacyToggle(session.id, !session.is_public)
                         }
+                        aria-label={
+                          session.is_public
+                            ? "Make session private"
+                            : "Make session public"
+                        }
                       >
                         {session.is_public ? (
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-4 w-4" aria-hidden="true" />
                         ) : (
-                          <EyeOff className="h-4 w-4" />
+                          <EyeOff className="h-4 w-4" aria-hidden="true" />
                         )}
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleSessionClick(session)}
+                        aria-label="Open session settings"
                       >
-                        <Settings className="h-4 w-4" />
+                        <Settings className="h-4 w-4" aria-hidden="true" />
                       </Button>
                     </div>
                   </div>

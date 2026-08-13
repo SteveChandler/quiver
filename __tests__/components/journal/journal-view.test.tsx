@@ -215,6 +215,16 @@ describe("JournalView", () => {
     expect(screen.getByText("3.5")).toBeInTheDocument(); // Average rating
     // Check that favorite beach section exists (Test Beach appears in stats)
     expect(screen.getByText("Favorite Beach")).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("button", { name: "Make session private" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Make session public" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "Open session settings" }),
+    ).toHaveLength(2);
   });
 
   it("displays loading state", () => {
