@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Star, Loader2, CalendarDays, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
@@ -55,6 +55,7 @@ export function BeachHeroCompact({
 }: BeachHeroCompactProps) {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [showGhostAuthModal, setShowGhostAuthModal] = useState(false);
+  const prefersReducedMotion = useReducedMotion() ?? false;
   const rating = beach.average_rating;
   const reviewCount = beach.review_count;
   const breakType = beach.break_type || "Beach Break";
@@ -197,9 +198,13 @@ export function BeachHeroCompact({
       {publicMode && !personalizationScore && !isLoadingPersonalization && (
         <motion.div
           ref={teaserRef}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, type: "spring", stiffness: 300, damping: 25 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+          animate={prefersReducedMotion ? undefined : { opacity: 1, y: 0 }}
+          transition={
+            prefersReducedMotion
+              ? { duration: 0 }
+              : { delay: 0.3, type: "spring", stiffness: 300, damping: 25 }
+          }
           className="mb-3"
         >
           <button
