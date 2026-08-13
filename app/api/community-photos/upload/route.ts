@@ -16,6 +16,7 @@ import {
   COMMUNITY_PHOTO_MAX_INPUT_BYTES,
   processCommunityPhoto,
 } from "@/lib/community-photos/image-processing";
+import { COMMUNITY_PHOTO_ACCEPTED_MIME_TYPES } from "@/lib/community-photos/upload-constraints";
 import {
   withAuth,
   withRateLimit,
@@ -26,13 +27,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const ACCEPTED_IMAGE_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/heic",
-  "image/heif",
-]);
+const ACCEPTED_IMAGE_TYPES: ReadonlySet<string> = new Set(
+  COMMUNITY_PHOTO_ACCEPTED_MIME_TYPES,
+);
 const EXPECTED_FIELDS = new Set([
   "photo",
   "targetType",

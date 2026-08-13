@@ -11,9 +11,9 @@ jest.mock("@/lib/supabase", () => ({
 }));
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
-  withAuth: (handler: any) => async (request: any, context: any) => {
-    if (request.testRole === "none") return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    return handler(request, { ...context, user: { id: request.testUserId ?? "user-1" }, supabase: { from: mockFrom, storage: { from: mockStorage } } });
+  withAuth: (handler: any, options?: { optional?: boolean }) => async (request: any, context: any) => {
+    if (request.testRole === "none" && !options?.optional) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return handler(request, { ...context, user: request.testRole === "none" ? null : { id: request.testUserId ?? "user-1" }, supabase: { from: mockFrom, storage: { from: mockStorage } } });
   },
   withAdminAuth: (handler: any) => async (request: any) => {
     if (request.testRole !== "admin") return NextResponse.json({ error: request.testRole === "none" ? "Authentication required" : "Admin access required" }, { status: request.testRole === "none" ? 401 : 403 });
@@ -83,6 +83,43 @@ describe("session video routes", () => {
     mockStorage.mockReturnValue({ createSignedUrl: jest.fn().mockResolvedValue({ data: { signedUrl: "https://signed" }, error: null }) });
     const { GET } = await import("@/app/api/sessions/[id]/videos/[mediaId]/route");
     expect((await GET({} as NextRequest, { params: { id: "session-1", mediaId: "media-1" } })).status).toBe(expected);
+  });
+
+  it("allows anonymous playback for approved media from public sessions", async () => {
+    mockFrom.mockReturnValue(chain({
+      data: {
+        id: "media-1",
+        user_id: "other",
+        storage_path: "public.mp4",
+        moderation_status: "approved",
+        sessions: { is_public: true },
+      },
+      error: null,
+    }));
+    mockStorage.mockReturnValue({ createSignedUrl: jest.fn().mockResolvedValue({ data: { signedUrl: "https://signed" }, error: null }) });
+    const { GET } = await import("@/app/api/sessions/[id]/videos/[mediaId]/route");
+    const response = await GET(request({}, "none"), { params: { id: "session-1", mediaId: "media-1" } });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ url: "https://signed", expiresIn: 300 });
+  });
+
+  it("does not sign pending media for anonymous viewers", async () => {
+    mockFrom.mockReturnValue(chain({
+      data: {
+        id: "media-1",
+        user_id: "owner",
+        storage_path: "pending.mp4",
+        moderation_status: "pending",
+        sessions: { is_public: true },
+      },
+      error: null,
+    }));
+    const createSignedUrl = jest.fn();
+    mockStorage.mockReturnValue({ createSignedUrl });
+    const { GET } = await import("@/app/api/sessions/[id]/videos/[mediaId]/route");
+    const response = await GET(request({}, "none"), { params: { id: "session-1", mediaId: "media-1" } });
+    expect(response.status).toBe(403);
+    expect(createSignedUrl).not.toHaveBeenCalled();
   });
 
   it("returns 404 when playback media is absent", async () => {

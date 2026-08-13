@@ -1,6 +1,9 @@
 import sharp, { type Metadata } from "sharp";
 
-export const COMMUNITY_PHOTO_MAX_INPUT_BYTES = 15 * 1024 * 1024;
+import { COMMUNITY_PHOTO_MAX_INPUT_BYTES } from "./upload-constraints";
+
+export { COMMUNITY_PHOTO_MAX_INPUT_BYTES } from "./upload-constraints";
+
 export const COMMUNITY_PHOTO_MAX_PIXELS = 20_000_000;
 export const COMMUNITY_PHOTO_MAX_OUTPUT_WIDTH = 2400;
 

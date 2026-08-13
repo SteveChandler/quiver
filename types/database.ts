@@ -184,7 +184,8 @@ export interface ProfileWithStats extends Profile {
 }
 
 export interface IntelPostWithUser extends IntelPost {
-  session_id?: string | null
+  // session_id now comes from the generated IntelPost (migration 20260811020600);
+  // re-declaring it as optional here conflicts with the required base property.
   video_media_id?: string | null
   // Additional fields from RPC function get_nearby_intel_posts
   beach_name?: string

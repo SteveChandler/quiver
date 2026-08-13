@@ -39,6 +39,7 @@ describe("useIntelData", () => {
     tag: IntelPostTag = "conditions"
   ): IntelPostWithUser => ({
     id,
+    session_id: null,
     user_id: "user-123",
     beach_id: "beach-123",
     latitude: lat,

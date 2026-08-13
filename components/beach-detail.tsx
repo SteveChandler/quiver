@@ -78,6 +78,7 @@ import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { AlertCreationPopover } from "@/components/alerts/alert-creation-popover";
 import { AnonAlertCaptureForm } from "@/components/alerts/anon-alert-capture-form";
 import type { BeachAlertMeta } from "@/lib/alerts/types";
+import { CommunityPhotoUpload } from "@/components/media/community-photo-upload";
 // trackSignupCtaClick, trackAuthModalOpened, and motion removed — only needed for removed CTAs
 
 // Alert discoverability nudge — shows for favorited beaches with no alert rules
@@ -1114,6 +1115,16 @@ function BeachDetailContent({
             </div>
           </BeachTabContent>
         </BeachTabs>
+
+        {!publicMode ? (
+          <div className="mx-auto mt-10 max-w-5xl">
+            <CommunityPhotoUpload
+              targetType="beach"
+              targetId={beach.id}
+              onUploaded={() => router.refresh()}
+            />
+          </div>
+        ) : null}
 
         {afterTabsContent ? (
           <div className="mt-10">{afterTabsContent}</div>
