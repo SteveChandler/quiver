@@ -270,6 +270,62 @@ SUPABASE_SERVICE_ROLE_KEY=your_production_service_role_key
 
 **Get from:** Supabase Dashboard → Project Settings → API
 
+## Local database bootstrap
+
+Use the committed production-derived snapshot to boot local Supabase:
+
+```bash
+yarn db:local
+```
+
+`yarn db:local` runs `scripts/db-local-from-snapshot.mjs`. It checks for
+`supabase/snapshots/schema.sql`, `catalog.sql`, and `storage-policies.sql`,
+temporarily disables migration replay in `supabase/config.toml`, points the
+seed list at those three files in schema/storage/catalog order, stops any
+existing local stack, and starts Supabase. It restores the original
+`supabase/config.toml` on success, failure, or an interrupt; the committed
+config must not be left patched.
+
+This intentionally does not replay `supabase/migrations/`. Replay is
+structurally broken: production has 346 beaches, but only 239 are created by
+migrations; 107 exist only in production, and several data migrations assert
+against or update rows that are present only in production. The snapshot is the
+working local bootstrap until the migration chain is repaired.
+
+To test a new migration, boot the snapshot first and apply the migration
+directly to that local database:
+
+```bash
+yarn db:local
+psql "$(supabase status -o json | jq -r .DB_URL)" \
+  -f supabase/migrations/<migration-file>.sql
+```
+
+Do not use a full migration replay as the test setup. The direct `psql`
+command above targets the local `DB_URL`; it is not a production migration
+path.
+
+Two snapshot restore requirements are easy to miss:
+
+- `supabase/roles.sql` must create the `posthog_readonly` role. The committed
+  schema snapshot contains grants to that role, so restore fails when the role
+  is absent.
+- `supabase/snapshots/catalog.sql` is committed and generated from an explicit
+  table allowlist, currently `beaches`, rather than from a broad data dump. Its
+  generator has a column-name PII guard and refuses columns that look like
+  email, phone, password, token, secret, user ID, device, or similar user data.
+
+Regenerate the snapshots from the linked production project with:
+
+```bash
+yarn db:snapshot
+```
+
+This runs the linked schema dump and `scripts/db-snapshot-catalog.mjs`, which
+reads the production catalog with the service-role client from `.env.local` and
+also refreshes the storage-policy snapshot. Review the generated files before
+committing them.
+
 ### Environment Variable Validation
 
 The application automatically validates environment variables at build time using `lib/env-validation.ts`.

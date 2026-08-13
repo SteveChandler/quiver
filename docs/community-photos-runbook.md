@@ -3,13 +3,36 @@
 Community spot photos launch behind two independent, fail-closed layers:
 
 - Database `community_photo_feature_config.read_enabled` and
-  `writes_enabled`, both `false` after migration.
+  `writes_enabled`. The migration defaults both to `false`; production
+  verification on 2026-08-13 found both `true`, with the row updated on
+  2026-08-11.
 - Runtime `COMMUNITY_PHOTOS_READ_ENABLED` and
   `COMMUNITY_PHOTOS_WRITE_ENABLED`, both disabled unless exactly `true`.
   Runtime writes are effective only while runtime reads are enabled.
 - `COMMUNITY_PHOTOS_CANARY_USER_IDS` optionally contains an exact
   comma-separated UUID allowlist. Listed authenticated users receive reads and,
   only when the runtime write flag is on, writes before global reads turn on.
+
+`lib/community-photos/contracts.ts` is the runtime source of truth. It ignores
+allowlist values that are not UUIDs, enables reads for a listed user when the
+global read flag is off, and computes `writeEnabled` as
+`readEnabled && COMMUNITY_PHOTOS_WRITE_ENABLED === "true"`. A canary user
+therefore gets writes only when the runtime write flag is on; a non-canary user
+gets neither read nor write access while the global read flag is off. The
+database RPCs independently require their database flags, so the runtime
+allowlist does not bypass the database gate.
+
+## Current status
+
+Production verification on 2026-08-13 found zero rows in both
+`community_spot_photos` and `beach_photo_submissions`. The reason was a missing
+client entry point, not a missing server pipeline: `lib/community-photos/repository.ts`
+already implemented preflight, reservation/storage upload, and completion, and
+the admin moderation queue already existed. Before `feat/ugc-media-upload-ui`,
+no client component called `/api/community-photos/upload`. That branch adds
+`components/media/community-photo-upload.tsx` and mounts it in the beach and
+post-session surfaces. The canary and rollout procedure below is therefore
+executable for the first time once that UI is deployed.
 
 ## Deployment order
 
