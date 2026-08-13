@@ -281,4 +281,25 @@ describe("useCtaImpression", () => {
       },
     });
   });
+
+  it("runs the impression callback exactly once with the first qualifying entry", () => {
+    const onImpression = jest.fn();
+
+    renderWithAttachedRef({
+      ctaId: "app_handoff_beach_detail",
+      surface: "beach_detail",
+      onImpression,
+    });
+
+    fireIntersection(0.7);
+    fireIntersection(0.9);
+
+    expect(onImpression).toHaveBeenCalledTimes(1);
+    expect(onImpression).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isIntersecting: true,
+        intersectionRatio: 0.7,
+      }),
+    );
+  });
 });
