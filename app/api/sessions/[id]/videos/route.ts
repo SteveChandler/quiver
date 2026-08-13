@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, requireOwnership, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
+import type { Database } from "@/types/database.generated";
 
 const MAX_SIZE = 62914560;
 const noStore = (response: NextResponse): NextResponse => { response.headers.set("Cache-Control", "no-store"); return response; };
@@ -18,11 +19,12 @@ export const POST = withAuth(async (request: NextRequest, { params, user, supaba
   const prefix = `${params.id}/${user.id}/`;
   if (!storagePath.startsWith(prefix) || storagePath.includes("..")) return error("bad_path");
   if (!/\.(mp4|mov)$/i.test(storagePath)) return error("bad_type");
-  const { data, error: insertError } = await (supabase.from("session_media") as any).insert({
+  const insert: Database["public"]["Tables"]["session_media"]["Insert"] = {
     session_id: params.id, user_id: user.id, storage_path: storagePath, public_url: "",
     file_size: sizeBytes, media_type: "video", metadata: { durationSec },
     moderation_status: "pending", thumbnail_path: null,
-  }).select("id").single();
+  };
+  const { data, error: insertError } = await supabase.from("session_media").insert(insert).select("id").single();
   if (insertError) throw insertError;
   return noStore(NextResponse.json({ mediaId: data.id }, { status: 201 }));
 }, { errorMessage: "Failed to finalize session video" });
