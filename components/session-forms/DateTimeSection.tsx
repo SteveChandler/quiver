@@ -16,7 +16,7 @@ import {
   SessionFormMode,
 } from "@/lib/constants/session-form-constants";
 import { SessionFormState } from "@/hooks/use-session-form";
-import { useCallback, useMemo, useRef, useEffect, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface DateTimeSectionProps {
@@ -38,6 +38,11 @@ export function DateTimeSection({
   const text = getFormText(mode);
   const isDisabled = sessionCreated;
   const baseInputClass = "h-12 min-w-0 appearance-none";
+  const dateId = useId();
+  const timeId = useId();
+  const timeHintId = useId();
+  const durationId = useId();
+  const durationHintId = useId();
 
   const handleDurationChange = useCallback(
     (value: string) => {
@@ -115,10 +120,11 @@ export function DateTimeSection({
         {/* Date and Time in same row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="min-w-0">
-            <label className="block text-sm font-medium mb-2">
+            <label htmlFor={dateId} className="block text-sm font-medium mb-2">
               Date Surfed
             </label>
             <Input
+              id={dateId}
               ref={dateInputRef}
               type="date"
               className={cn(
@@ -136,12 +142,17 @@ export function DateTimeSection({
           </div>
 
           <div className="min-w-0">
-            <label className="block text-sm font-medium mb-2">
+            <label htmlFor={timeId} className="block text-sm font-medium mb-2">
               Time Started
             </label>
             <div className="relative">
-              <Timer className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Timer
+                aria-hidden="true"
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground"
+              />
               <Input
+                id={timeId}
+                aria-describedby={timeHintId}
                 type="time"
                 className={cn(
                   baseInputClass,
@@ -153,7 +164,7 @@ export function DateTimeSection({
                 data-testid="session-time-input"
               />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p id={timeHintId} className="text-xs text-muted-foreground mt-1">
               What time did you start surfing?
             </p>
           </div>
@@ -161,7 +172,7 @@ export function DateTimeSection({
 
         {/* Duration */}
         <div>
-          <label className="block text-sm font-medium mb-2">
+          <label htmlFor={durationId} className="block text-sm font-medium mb-2">
             {text.durationLabel}
           </label>
           <Select
@@ -170,7 +181,11 @@ export function DateTimeSection({
             onValueChange={handleDurationChange}
             disabled={isDisabled}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger
+              id={durationId}
+              aria-describedby={durationHintId}
+              className="w-full"
+            >
               <SelectValue placeholder="Select duration" />
             </SelectTrigger>
             <SelectContent>
@@ -181,7 +196,7 @@ export function DateTimeSection({
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p id={durationHintId} className="text-xs text-muted-foreground mt-1">
             How long did your session last?
           </p>
         </div>

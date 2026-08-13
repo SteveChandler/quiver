@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { PhotoSelectionSection } from "@/components/session-forms/PhotoSelectionSection";
 
 // Mock file for testing
@@ -92,6 +92,39 @@ describe("PhotoSelectionSection", () => {
 
     // Should render the upload area without errors
     expect(screen.getByText("Add session photos")).toBeInTheDocument();
+  });
+
+  // Previews live in local state and are only populated through the file input,
+  // so the prop alone will not render them.
+  const selectPhoto = (container: HTMLElement, name = "photo1.jpg") => {
+    const fileInput = container.querySelector(
+      "input[type=file]"
+    ) as HTMLInputElement;
+    const file = createMockFile(name, 1024 * 1024, "image/jpeg");
+    fireEvent.change(fileInput, { target: { files: [file] } });
+  };
+
+  it("exposes a named remove control that is visible without hover", async () => {
+    // Sessions get logged on a phone, where there is no hover state — a
+    // reveal-on-hover remove button is unreachable there.
+    const { container } = render(<PhotoSelectionSection {...defaultProps} />);
+    selectPhoto(container);
+
+    const remove = await screen.findByRole("button", {
+      name: /remove photo photo1\.jpg/i,
+    });
+    expect(remove).toBeVisible();
+    expect(remove.className).not.toMatch(/(^|\s)opacity-0(\s|$)/);
+    expect(remove.className).not.toMatch(/group-hover:opacity-100/);
+  });
+
+  it("gives each preview image a descriptive alt", async () => {
+    const { container } = render(<PhotoSelectionSection {...defaultProps} />);
+    selectPhoto(container);
+
+    expect(
+      await screen.findByAltText("Selected photo: photo1.jpg")
+    ).toBeInTheDocument();
   });
 
   it("handles drag and drop area rendering", () => {

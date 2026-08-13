@@ -166,6 +166,7 @@ export function BeachSelector({
     <div className="relative">
       <input
         id={inputIdToUse}
+        aria-label="Search beaches"
         className="border rounded p-2 w-full"
         value={query}
         placeholder="Type or select a beach"
@@ -191,8 +192,9 @@ export function BeachSelector({
             onBeachSelected(emptyBeach);
           }}
           title="Clear selection"
+          aria-label="Clear selected beach"
         >
-          ×
+          <span aria-hidden="true">×</span>
         </button>
       )}
 

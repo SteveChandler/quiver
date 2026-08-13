@@ -155,7 +155,7 @@ export function AnonAlertCaptureForm({
         placeholder="you@email.com"
         aria-label="Email address"
         data-testid="anon-alert-capture-email"
-        className="w-full rounded border border-[#404C92] bg-[#252D6B] px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50"
+        className="w-full rounded border border-[#404C92] bg-[#252D6B] px-3 py-2 text-sm text-white placeholder:text-[#9AABC6] focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50"
       />
       <fieldset className="space-y-1">
         <legend className="text-xs uppercase tracking-widest text-gray-400">
@@ -190,7 +190,7 @@ export function AnonAlertCaptureForm({
         type="submit"
         disabled={submitting}
         data-testid="anon-alert-capture-submit"
-        className="w-full bg-[#F78E42] hover:bg-[#F78E42]/90 text-white"
+        className="w-full bg-[#F78E42] hover:bg-[#F78E42]/90 text-[#11100D]"
       >
         {submitting ? "Sending..." : "Get alerts"}
       </Button>

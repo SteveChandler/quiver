@@ -547,7 +547,7 @@ export function AlertsManagementPage() {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search Bolsa, Huntington..."
-                className="zine-alert-input h-11 w-full rounded-sm border-2 border-[#11100D] bg-[#F4EBD8] px-3 text-sm text-[#11100D] outline-none placeholder:text-[#403A2E]/55 focus:border-[#F78E42] focus:ring-2 focus:ring-[#F78E42]/30"
+                className="zine-alert-input h-11 w-full rounded-sm border-2 border-[#11100D] bg-[#F4EBD8] px-3 text-sm text-[#11100D] outline-none placeholder:text-[#5F5646] focus:border-[#F78E42] focus:ring-2 focus:ring-[#F78E42]/30"
               />
             </div>
 
@@ -917,20 +917,34 @@ function AlertRuleEditorDialog({
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#403A2E]">
+              <div
+                className="space-y-1.5"
+                role="group"
+                aria-labelledby="alert-conditions-label"
+              >
+                <span
+                  id="alert-conditions-label"
+                  className="block font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#403A2E]"
+                >
                   Conditions
-                </label>
+                </span>
                 <ConditionBuilder
                   conditions={conditions}
                   onChange={setConditions}
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#403A2E]">
+              <div
+                className="space-y-2"
+                role="group"
+                aria-labelledby="alert-notify-label"
+              >
+                <span
+                  id="alert-notify-label"
+                  className="block font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#403A2E]"
+                >
                   Notify via
-                </label>
+                </span>
                 <div className="flex flex-wrap gap-2">
                   <ChannelButton
                     active={notifyPush}

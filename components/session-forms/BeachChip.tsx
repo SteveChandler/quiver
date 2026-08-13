@@ -76,7 +76,7 @@ export function BeachChip({
           <button
             type="button"
             onClick={handleConfirm}
-            className="flex-1 rounded-lg bg-[#F78E42] py-2.5 text-sm font-semibold text-white active:scale-[0.96] transition-all duration-150 hover:bg-[#E07D35] shadow-sm shadow-[#F78E42]/20"
+            className="flex-1 rounded-lg bg-[#F78E42] py-2.5 text-sm font-semibold text-[#11100D] active:scale-[0.96] transition-all duration-150 hover:bg-[#E07D35] shadow-sm shadow-[#F78E42]/20"
           >
             Yeah
           </button>
