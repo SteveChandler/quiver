@@ -127,7 +127,7 @@ export function LocationPermissionBanner({
       </div>
       <button
         onClick={handleDismiss}
-        className="absolute top-3 right-3 text-amber-600 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-100"
+        className="absolute top-3 right-3 text-amber-600 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-100 focus-ring"
         aria-label="Dismiss banner"
         data-testid="location-permission-dismiss-button"
       >

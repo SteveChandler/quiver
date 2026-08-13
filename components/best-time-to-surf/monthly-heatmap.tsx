@@ -149,7 +149,7 @@ export function MonthlyHeatmap({ monthly, peakMonths, stateName }: MonthlyHeatma
           <button
             type="button"
             onClick={() => setTooltip(null)}
-            className="mt-3 text-xs text-slate-400 hover:text-white transition-colors"
+            className="mt-3 text-xs text-slate-400 hover:text-white transition-colors focus-ring"
           >
             Close
           </button>

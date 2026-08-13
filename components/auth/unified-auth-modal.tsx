@@ -679,7 +679,7 @@ export function UnifiedAuthModal({
                 <button
                   type="button"
                   onClick={switchToSignup}
-                  className="text-primary hover:underline"
+                  className="text-primary hover:underline focus-ring"
                 >
                   Sign up
                 </button>
@@ -690,7 +690,7 @@ export function UnifiedAuthModal({
                 <button
                   type="button"
                   onClick={switchToLogin}
-                  className="text-primary hover:underline"
+                  className="text-primary hover:underline focus-ring"
                 >
                   Log in
                 </button>

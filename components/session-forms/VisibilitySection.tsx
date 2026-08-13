@@ -32,7 +32,7 @@ export function VisibilitySection({
             isPublic
               ? "bg-[#404C92] text-[#F0F0F0] shadow-sm"
               : "text-[#8B9EC2] hover:text-[#F0F0F0]"
-          )}
+          ) + " focus-ring"}
         >
           <Eye className="h-4 w-4" />
           Public
@@ -50,7 +50,7 @@ export function VisibilitySection({
             !isPublic
               ? "bg-[#404C92] text-[#F0F0F0] shadow-sm"
               : "text-[#8B9EC2] hover:text-[#F0F0F0]"
-          )}
+          ) + " focus-ring"}
         >
           <Lock className="h-4 w-4" />
           Just me

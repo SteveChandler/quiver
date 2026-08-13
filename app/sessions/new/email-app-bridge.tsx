@@ -99,7 +99,7 @@ export function EmailSessionAppBridge({
             <button
               type="button"
               onClick={onContinueWeb}
-              className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/16 px-5 py-3 text-center font-semibold text-white transition hover:bg-white/10"
+              className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/16 px-5 py-3 text-center font-semibold text-white transition hover:bg-white/10 focus-ring"
             >
               Continue on web
             </button>

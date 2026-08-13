@@ -211,7 +211,7 @@ export default function TideWindow() {
                 selected
                   ? "bg-[#F78E42] text-[#11100D]"
                   : "bg-[#FBF6E8] text-[#11100D]"
-              }`}
+              }` + " focus-ring"}
             >
               <span className="block font-display text-sm font-black uppercase leading-none">
                 {option.label}

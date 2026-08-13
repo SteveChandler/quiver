@@ -299,7 +299,7 @@ export function UnifiedSurfCard({
           </div>
           <button
             onClick={() => setShareOpen(true)}
-            className="p-2 -m-1 rounded-full text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+            className="p-2 -m-1 rounded-full text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors focus-ring"
             aria-label="Share surf call"
           >
             <Share2 className="h-5 w-5" />

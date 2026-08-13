@@ -518,7 +518,7 @@ function ReportVideoTile({ sessionId, mediaId }: { sessionId: string; mediaId: s
   ) : (
     <button
       type="button"
-      className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-4 py-6 text-sm font-medium text-blue-800 hover:bg-blue-100"
+      className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-4 py-6 text-sm font-medium text-blue-800 hover:bg-blue-100 focus-ring"
       onClick={resolvePlayback}
       disabled={loading}
       aria-label="Play local spot report video"

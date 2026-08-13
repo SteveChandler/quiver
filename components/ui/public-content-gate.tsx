@@ -197,7 +197,7 @@ export function PublicContentGate({
             <button
               type="button"
               onClick={handleSignInClick}
-              className="w-full text-sm text-white/60 hover:text-white/80 transition-colors py-2"
+              className="w-full text-sm text-white/60 hover:text-white/80 transition-colors py-2 focus-ring"
             >
               Already have an account? Log in
             </button>

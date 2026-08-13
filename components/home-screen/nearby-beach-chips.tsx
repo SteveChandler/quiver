@@ -158,7 +158,7 @@ export function NearbyBeachChips({
             <button
               key={b.id}
               onClick={() => handleSelect(b)}
-              className="shrink-0 rounded-full border px-3 py-1 text-sm bg-white hover:bg-gray-50 active:bg-gray-100"
+              className="shrink-0 rounded-full border px-3 py-1 text-sm bg-white hover:bg-gray-50 active:bg-gray-100 focus-ring"
             >
               {b.name}
             </button>

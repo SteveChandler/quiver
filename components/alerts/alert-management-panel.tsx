@@ -97,7 +97,7 @@ export function AlertManagementPanel({ beachId, beachName: _beachName, onAddRule
         <span>Couldn&apos;t load alerts</span>
         <button
           onClick={fetchRules}
-          className="text-[#F78E42] hover:text-[#F78E42]/80 font-medium"
+          className="text-[#F78E42] hover:text-[#F78E42]/80 font-medium focus-ring"
         >
           Retry
         </button>

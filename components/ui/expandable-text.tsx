@@ -51,7 +51,7 @@ export function ExpandableText({
           type="button"
           aria-expanded={expanded}
           onClick={() => setExpanded((prev) => !prev)}
-          className="text-xs text-ocean-blue/80 hover:text-ocean-blue mt-1 font-medium"
+          className="text-xs text-ocean-blue/80 hover:text-ocean-blue mt-1 font-medium focus-ring"
         >
           {expanded ? "Read less" : "Read more"}
         </button>

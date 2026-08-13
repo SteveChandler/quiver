@@ -74,7 +74,7 @@ export function TideFullChart({ hourlyPoints }: TideFullChartProps) {
                 activeRange === tab.key
                   ? "bg-white text-blue-700 shadow-sm"
                   : "text-gray-600 hover:text-gray-800"
-              )}
+              ) + " focus-ring"}
             >
               {tab.label}
             </button>

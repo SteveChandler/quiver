@@ -541,7 +541,7 @@ export function EmbedMapClient() {
                   <button
                     key={opt.id}
                     type="button"
-                    className="embed-layer-pill"
+                    className="embed-layer-pill focus-ring"
                     aria-pressed={active}
                     onClick={() => {
                       setFieldHidden(false);
@@ -565,7 +565,7 @@ export function EmbedMapClient() {
               })}
               <button
                 type="button"
-                className="embed-layer-pill"
+                className="embed-layer-pill focus-ring"
                 aria-pressed={fieldHidden}
                 onClick={() => {
                   setFieldHidden(true);
@@ -705,7 +705,7 @@ export function EmbedMapClient() {
                   alignItems: "center",
                   justifyContent: "center",
                   boxShadow: "0 2px 6px rgba(0, 0, 0, 0.4)",
-                }}
+                }} className="focus-ring"
               >
                 {isPlaying ? "⏸" : "▶"}
               </button>

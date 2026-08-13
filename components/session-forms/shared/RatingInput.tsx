@@ -47,7 +47,7 @@ export function RatingInput({
                 parseInt(value) >= rating
                   ? `${colorClass} bg-opacity-10`
                   : "text-gray-300 hover:text-gray-400 hover:bg-gray-50"
-              }`}
+              }` + " focus-ring"}
               title={getRatingDescription(ratingType, rating)}
               aria-label={`Rate ${label} as ${rating} out of 5 - ${getRatingDescription(
                 ratingType,

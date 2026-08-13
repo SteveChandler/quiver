@@ -596,7 +596,7 @@ export function AlertsManagementPage() {
                   <button
                     type="button"
                     onClick={loadRules}
-                    className="inline-flex items-center gap-1 text-sm font-black text-red-900"
+                    className="inline-flex items-center gap-1 text-sm font-black text-red-900 focus-ring"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                     Retry
@@ -995,7 +995,7 @@ function ChannelButton({
         active
           ? "border-[#11100D] bg-[#F78E42] text-[#11100D]"
           : "border-[#11100D]/45 bg-[#FBF6E8] text-[#403A2E] hover:border-[#11100D]"
-      }`}
+      }` + " focus-ring"}
     >
       {icon}
       {label}

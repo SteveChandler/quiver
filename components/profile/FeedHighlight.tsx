@@ -51,7 +51,7 @@ export function FeedHighlight({ sessionId, onShare, onDismiss }: FeedHighlightPr
           <button
             type="button"
             onClick={() => { setVisible(false); onDismiss(); }}
-            className="text-orange-400 hover:text-orange-600 p-1"
+            className="text-orange-400 hover:text-orange-600 p-1 focus-ring"
             aria-label="Dismiss"
           >
             <X className="h-4 w-4" />

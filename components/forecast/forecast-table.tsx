@@ -210,7 +210,7 @@ function ForecastDayTable({
       {/* Day Header */}
       <button
         type="button"
-        className="flex w-full items-center justify-between rounded-lg bg-muted/50 p-3 text-left transition-colors hover:bg-muted"
+        className="flex w-full items-center justify-between rounded-lg bg-muted/50 p-3 text-left transition-colors hover:bg-muted focus-ring"
         onClick={onToggle}
       >
         <div className="flex items-center gap-2">

@@ -219,7 +219,7 @@ export function HomeZineEmpty({
           <button
             type="button"
             onClick={onSetHomeBeach}
-            className="label-black rot-1"
+            className="label-black rot-1 focus-ring"
             style={{ cursor: "pointer", border: "none" }}
           >
             Set your home beach
@@ -240,7 +240,7 @@ export function HomeZineEmpty({
               background: "transparent",
               border: `1.5px dashed ${STAMP_BLUE}`,
               padding: "9px 16px",
-            }}
+            }} className="focus-ring"
           >
             Try again
           </button>

@@ -36,7 +36,7 @@ export function BestTimeEnhancements({ stateProfiles }: BestTimeEnhancementsProp
               ? "bg-[#F78E42]/10 text-[#F78E42] border-b-2 border-[#F78E42]"
               : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
             }
-          `}
+          ` + " focus-ring"}
         >
           <User className="h-4 w-4" />
           Best Month for Me
@@ -50,7 +50,7 @@ export function BestTimeEnhancements({ stateProfiles }: BestTimeEnhancementsProp
               ? "bg-[#F78E42]/10 text-[#F78E42] border-b-2 border-[#F78E42]"
               : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
             }
-          `}
+          ` + " focus-ring"}
         >
           <GitCompare className="h-4 w-4" />
           Compare Destinations

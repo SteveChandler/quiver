@@ -369,7 +369,7 @@ export function ForecastFeedbackCapture({
                   active
                     ? "border-[#11100D] bg-[#11100D] text-[#F4EBD8]"
                     : "border-[#11100D] bg-[#F4EBD8] text-[#11100D] hover:bg-[#EFE5CF]"
-                }`}
+                }` + " focus-ring"}
                 aria-pressed={active}
               >
                 <Icon className="h-4 w-4 shrink-0" />
@@ -437,7 +437,7 @@ export function ForecastFeedbackCapture({
                 void handleSubmit();
               }}
               disabled={isLocked}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-heading text-sm font-black uppercase text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#11100D] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-heading text-sm font-black uppercase text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#11100D] disabled:cursor-not-allowed disabled:opacity-60 focus-ring"
             >
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

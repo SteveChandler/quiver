@@ -222,7 +222,7 @@ export function DetailedForecastTable({
             <button
               type="button"
               aria-expanded={isExpanded}
-              className="flex w-full items-center justify-between gap-3 border-b-2 border-[#11100D] bg-[#F4EBD8] px-4 py-3 text-left"
+              className="flex w-full items-center justify-between gap-3 border-b-2 border-[#11100D] bg-[#F4EBD8] px-4 py-3 text-left focus-ring"
               onClick={() => {
                 setExpandedDates((prev) => {
                   const next = new Set(prev);

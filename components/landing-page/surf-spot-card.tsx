@@ -132,7 +132,7 @@ export function SurfSpotCard({
               type="button"
               aria-label={`Save ${name}`}
               onClick={handleSaveClick}
-              className="absolute top-3 right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 shadow-sm hover:bg-white/20 hover:shadow-md transition-all"
+              className="absolute top-3 right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 shadow-sm hover:bg-white/20 hover:shadow-md transition-all focus-ring"
             >
               <Bookmark className="h-4 w-4 text-white/70" />
             </button>

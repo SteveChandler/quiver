@@ -93,7 +93,7 @@ export function LocationTimeoutBanner({
       </div>
       <button
         onClick={handleDismiss}
-        className="absolute right-1 top-1 inline-flex h-11 w-11 items-center justify-center text-amber-600 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-100"
+        className="absolute right-1 top-1 inline-flex h-11 w-11 items-center justify-center text-amber-600 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-100 focus-ring"
         aria-label="Dismiss banner"
         data-testid="dismiss-banner-button"
       >

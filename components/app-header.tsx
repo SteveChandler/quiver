@@ -299,7 +299,7 @@ export function AppHeader() {
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
               <button
-                className="lg:hidden p-2 rounded-md hover:bg-muted transition-colors"
+                className="lg:hidden p-2 rounded-md hover:bg-muted transition-colors focus-ring"
                 aria-label="Open navigation menu"
                 aria-expanded={mobileMenuOpen}
                 data-testid="mobile-menu-button"
@@ -369,7 +369,7 @@ export function AppHeader() {
                         await signOut();
                         router.push("/");
                       }}
-                      className="flex items-center gap-3 w-full h-12 px-4 rounded-md text-base font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                      className="flex items-center gap-3 w-full h-12 px-4 rounded-md text-base font-medium text-destructive hover:bg-destructive/10 transition-colors focus-ring"
                       data-testid="mobile-nav-logout"
                     >
                       <LogOut className="h-5 w-5" />

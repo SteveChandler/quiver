@@ -174,7 +174,7 @@ export function SmartChecklist({
       <div className="flex flex-wrap gap-2">
         <button
           onClick={handleCopy}
-          className="inline-flex items-center gap-1.5 rounded-full border border-blue-200/60 bg-white/80 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-ocean-blue hover:text-white backdrop-blur-sm"
+          className="inline-flex items-center gap-1.5 rounded-full border border-blue-200/60 bg-white/80 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-ocean-blue hover:text-white backdrop-blur-sm focus-ring"
           aria-label="Copy surf plan to clipboard"
         >
           {copied ? (
@@ -187,7 +187,7 @@ export function SmartChecklist({
 
         <button
           onClick={handleShare}
-          className="inline-flex items-center gap-1.5 rounded-full border border-blue-200/60 bg-white/80 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-ocean-blue hover:text-white backdrop-blur-sm"
+          className="inline-flex items-center gap-1.5 rounded-full border border-blue-200/60 bg-white/80 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-ocean-blue hover:text-white backdrop-blur-sm focus-ring"
           aria-label="Share surf plan with your crew"
         >
           <Share2 className="h-3.5 w-3.5" />

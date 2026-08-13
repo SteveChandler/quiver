@@ -159,7 +159,7 @@ export function SessionCard({
               e.stopPropagation();
               onUserClick(session.user!.id);
             }}
-            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity focus-ring"
           >
             <UserAvatar
               src={session?.user?.avatar_url}
@@ -374,7 +374,7 @@ export function SessionCard({
         <button
           className={`flex items-center gap-1 text-sm transition-colors motion-optimized like-button-spring ripple-effect ${
             liked ? "text-primary" : "text-muted-foreground hover:text-primary"
-          } ${isToggling ? "opacity-75" : ""} ${liked ? "heart-burst" : ""}`}
+          } ${isToggling ? "opacity-75" : ""} ${liked ? "heart-burst" : ""}` + " focus-ring"}
           onClick={handleLikeClick}
           disabled={isToggling}
           data-testid="like-button"
@@ -406,7 +406,7 @@ export function SessionCard({
           </span>
         </button>
         <button
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"
+          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors focus-ring"
           onClick={handleCommentsClick}
         >
           <MessageSquare className="h-4 w-4" />
@@ -418,7 +418,7 @@ export function SessionCard({
               following
                 ? "text-primary"
                 : "text-muted-foreground hover:text-primary"
-            } ${isFollowToggling ? "opacity-75" : ""}`}
+            } ${isFollowToggling ? "opacity-75" : ""}` + " focus-ring"}
             onClick={handleFollowClick}
             disabled={isFollowToggling}
             data-testid="follow-button"

@@ -53,7 +53,7 @@ export const DetailCard = memo(function DetailCard({
           data-testid="detail-card-close"
           className={`p-1 rounded hover:bg-white/10 transition-colors ${
             isDark ? "text-slate-400" : "text-slate-500"
-          }`}
+          }` + " focus-ring"}
           aria-label="Close details"
         >
           ✕

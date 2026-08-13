@@ -62,7 +62,7 @@ export function TideChartSection({ forecasts }: TideChartSectionProps) {
                 activeRange === tab.key
                   ? "bg-white text-ocean-blue shadow-sm"
                   : "text-muted-foreground hover:text-dark-grey"
-              )}
+              ) + " focus-ring"}
             >
               {tab.label}
             </button>
