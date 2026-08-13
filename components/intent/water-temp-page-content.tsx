@@ -20,6 +20,7 @@ import { MonthlyAveragesChart } from "./monthly-averages-chart";
 import { BeachTempComparison } from "./beach-temp-comparison";
 import { BeachEditorialSection } from "./beach-editorial-section";
 import { UtilitySessionHandoff } from "./utility-session-handoff";
+import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
 
 interface WaterTempPageContentProps {
   cityName: string;
@@ -114,6 +115,17 @@ export function WaterTempPageContent({
         <div className="space-y-12">
           {/* Module 1: Water Temp Hero */}
           <WaterTempHeroSection data={waterTempData} />
+
+          <ContentPageAppHandoffCta
+            source={`content-water-temp-${citySlug}`}
+            surface="water_temp"
+            placement="above_fold_after_temperature"
+            target={`water-temp:${citySlug}`}
+            eyebrow={`${cityName} water temp · next check`}
+            title="Water temp sorted. Is it worth paddling out?"
+            description={`Your ${roundedCurrentTemp}°F answer is set. Take the surf call for ${cityName} with you and check the conditions when you're ready to go.`}
+            ctaLabel="Check the surf in the app"
+          />
 
           {/* Module 2: Monthly Averages Chart (optional) */}
           <MonthlyAveragesChart data={waterTempData.monthlyAverages} />
