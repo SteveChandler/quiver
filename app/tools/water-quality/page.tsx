@@ -368,7 +368,7 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
               <div className="px-6 pb-6 space-y-3">
                 <Link
                   href={`/beach/${wq.beachSlug}`}
-                  className="block w-full text-center py-3 rounded-xl bg-[#F78E42] text-white font-semibold hover:bg-[#F78E42]/90 transition-colors"
+                  className="block w-full text-center py-3 rounded-xl bg-ocean-blue text-white font-semibold hover:bg-ocean-blue/90 transition-colors"
                 >
                   See full conditions at {wq.beachName}
                 </Link>

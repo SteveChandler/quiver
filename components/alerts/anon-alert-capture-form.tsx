@@ -190,7 +190,7 @@ export function AnonAlertCaptureForm({
         type="submit"
         disabled={submitting}
         data-testid="anon-alert-capture-submit"
-        className="w-full bg-[#F78E42] hover:bg-[#F78E42]/90 text-white"
+        className="w-full bg-[#F78E42] hover:bg-[#F78E42]/90 text-[#11100D]"
       >
         {submitting ? "Sending..." : "Get alerts"}
       </Button>

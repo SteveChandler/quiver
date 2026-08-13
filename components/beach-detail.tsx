@@ -1002,7 +1002,7 @@ function BeachDetailContent({
             beachName={beach.name}
             refreshKey={alertRulesRefreshKey}
             onOpenAlerts={handleOpenAlerts}
-            className="bg-[#F78E42] text-white hover:bg-[#F78E42]/90"
+            className="bg-[#F78E42] text-[#11100D] hover:bg-[#F78E42]/90"
             freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
           />
         </div>

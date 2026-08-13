@@ -340,7 +340,7 @@ export function AlertCreationPopover({
               <Button
                 onClick={handleSave}
                 disabled={saving || !hasConditions || (!notifyEmail && !notifyPush)}
-                className="w-full bg-[#F78E42] hover:bg-[#F78E42]/90 active:scale-[0.98] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="w-full bg-ocean-blue hover:bg-ocean-blue/90 active:scale-[0.98] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />

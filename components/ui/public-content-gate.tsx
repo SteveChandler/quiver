@@ -189,7 +189,7 @@ export function PublicContentGate({
               <Button
                 onClick={handleSignUpClick}
                 size="lg"
-                className="w-full bg-[#F78E42] hover:bg-[#D57835] hover:shadow-[0_0_20px_rgba(247,142,66,0.3)] text-white font-heading font-semibold transition-shadow"
+                className="w-full bg-[#F78E42] hover:bg-[#D57835] hover:shadow-[0_0_20px_rgba(247,142,66,0.3)] text-[#11100D] font-heading font-semibold transition-shadow"
               >
                 {ctaButtonText}
               </Button>
