@@ -183,7 +183,11 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={sharedPreview.imageUrl}
-                  alt=""
+                  alt={
+                    sharedPreview.title
+                      ? `Shared session: ${sharedPreview.title}`
+                      : "Shared surf session"
+                  }
                   className="h-full w-full object-cover"
                 />
               </div>
@@ -360,7 +364,7 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
               onClick={() => setShareOpen(true)}
               aria-label="Share session"
             >
-              <Share2 className="h-5 w-5" />
+              <Share2 className="h-5 w-5" aria-hidden="true" />
             </Button>
             <Button size="icon" variant="ghost" asChild>
               <Link href={`/sessions/new?mode=log&edit=${session.id}`}>
@@ -373,8 +377,9 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
                   size="icon"
                   variant="ghost"
                   className="text-destructive"
+                  aria-label="Delete session"
                 >
-                  <Trash2 className="h-5 w-5" />
+                  <Trash2 className="h-5 w-5" aria-hidden="true" />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>

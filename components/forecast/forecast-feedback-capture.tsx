@@ -387,7 +387,7 @@ export function ForecastFeedbackCapture({
               <label className="block text-sm font-bold text-[#11100D]">
                 What face height did you see?{" "}
                 <span className="font-medium">(optional)</span>
-                <span className="mt-1 flex max-w-48 items-center rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8]">
+                <span className="mt-1 flex max-w-48 items-center rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] focus-within:ring-2 focus-within:ring-[#0B3A75]">
                   <input
                     type="number"
                     inputMode="decimal"

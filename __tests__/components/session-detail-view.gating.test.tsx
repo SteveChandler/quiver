@@ -1,6 +1,8 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { SessionDetailView } from "@/components/session-detail-view";
+import { useAuth } from "@/context/auth-context";
+import type { SessionWithDetails } from "@/types/database";
 
 jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(() => ({
@@ -40,6 +42,24 @@ jest.mock("@/components/app-store/native-app-funnel-cta", () => ({
 
 jest.mock("@/lib/analytics/web-context", () => ({
   getFirstTouchPlatform: jest.fn(() => "android"),
+}));
+
+jest.mock("next/dynamic", () => jest.fn(() => () => null));
+
+jest.mock("@/components/map-image", () => ({
+  MapImage: () => null,
+}));
+
+jest.mock("@/components/session-comments", () => ({
+  SessionComments: () => null,
+}));
+
+jest.mock("@/components/session/forecast-comparison", () => ({
+  ForecastComparison: () => null,
+}));
+
+jest.mock("@/lib/utils/session-utils", () => ({
+  getSessionMapImageUrl: jest.fn(() => "/session-map.jpg"),
 }));
 
 jest.mock("next/navigation", () => ({
@@ -85,5 +105,69 @@ describe("SessionDetailView (gating)", () => {
       "href",
       "/download",
     );
+  });
+
+  it("gives the destructive session action an accessible name", async () => {
+    (useAuth as jest.Mock).mockReturnValue({
+      user: { id: "user-1" },
+      isLoading: false,
+    });
+
+    const session = {
+      id: "session-1",
+      user_id: "user-1",
+      beach: null,
+      beach_name: "Test Beach",
+      arrival_time: "2026-08-13T08:00:00.000Z",
+      rating: 4,
+      tide_height_ft: null,
+      tide_status: null,
+      description: null,
+      board: null,
+      duration_minutes: null,
+      wave_height_ft: null,
+      water_temp: null,
+      crowd_level: null,
+      forecast_snapshot: null,
+    } as unknown as SessionWithDetails;
+
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: { session } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [] }),
+      });
+
+    render(<SessionDetailView id="session-1" />);
+
+    const deleteButton = await screen.findByRole("button", {
+      name: "Delete session",
+    });
+
+    expect(deleteButton).toBeInTheDocument();
+    expect(deleteButton.querySelector("svg")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+  });
+});
+
+describe("shared session preview image", () => {
+  it("describes the preview instead of marking it decorative", () => {
+    // The shared-session preview IS the primary content of this view, so an
+    // empty alt hides it entirely from screen readers.
+    const src = require("fs").readFileSync(
+      require("path").join(process.cwd(), "components/session-detail-view.tsx"),
+      "utf8"
+    );
+    const previewImg = src.slice(src.indexOf("sharedPreview.imageUrl"));
+    const altMatch = previewImg.slice(0, 400).match(/alt=\{?([^\n]*)/);
+    expect(altMatch).not.toBeNull();
+    expect(altMatch![1]).not.toMatch(/^""/);
+    expect(previewImg.slice(0, 400)).toMatch(/Shared session|Shared surf session/);
   });
 });
