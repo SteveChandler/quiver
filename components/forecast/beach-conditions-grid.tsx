@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import type { BeachConditionSummary } from "@/lib/utils/regional-forecast-utils";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
-import { formatWaveHeightDecimal as formatWaveHeight } from "@/lib/utils/wave-formatters";
+import { getScoreCall } from "./score-band-call";
 import { ScoreBadge } from "./score-badge";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
@@ -117,7 +117,7 @@ function BeachConditionRow({
   index: number;
   variant?: "default" | "zine";
 }) {
-  const scoreColors = getScoreColorClasses(beach.currentScore);
+  const scoreCall = getScoreCall(beach.currentScore);
   const isZine = variant === "zine";
 
   return (
@@ -178,11 +178,19 @@ function BeachConditionRow({
       <TableCell>
         <div className="flex items-center gap-2">
           <div className="transition-transform duration-200 hover:scale-110">
-            <ScoreBadge score={beach.currentScore} />
+            <ScoreBadge
+              score={beach.currentScore}
+              className={getScoreColorClasses(beach.currentScore).paperBadge}
+            />
           </div>
-          <span className={cn("text-xs font-medium", isZine ? "text-[#11100D]/68" : scoreColors.text)}>
-            {scoreColors.label}
-          </span>
+          <div className="flex min-w-0 flex-col">
+            <span className="text-xs font-bold text-[#11100D]">
+              {scoreCall.label}
+            </span>
+            <span className="text-[11px] leading-tight text-[#11100D]">
+              {scoreCall.action}
+            </span>
+          </div>
         </div>
       </TableCell>
     </TableRow>
@@ -201,7 +209,7 @@ function BeachConditionCard({
   index: number;
   variant?: "default" | "zine";
 }) {
-  const scoreColors = getScoreColorClasses(beach.currentScore);
+  const scoreCall = getScoreCall(beach.currentScore);
   const isZine = variant === "zine";
 
   return (
@@ -210,7 +218,7 @@ function BeachConditionCard({
         className={cn(
           "transition-[background-color,border-color,box-shadow,transform] duration-200 group",
           isZine
-            ? "torn torn-tb rounded-none border-2 border-[#11100D] bg-[#FBF6E8] shadow-[2px_3px_0_rgba(17,16,13,0.18)] hover:-translate-y-0.5"
+            ? "rounded-none border-2 border-[#11100D] bg-[#FBF6E8] shadow-[2px_3px_0_rgba(17,16,13,0.18)] hover:-translate-y-0.5"
             : "hover:shadow-md hover:border-border/80"
         )}
       >
@@ -218,7 +226,10 @@ function BeachConditionCard({
           <div className="flex items-start gap-3">
             {/* Score Badge with hover scale */}
             <div className="transition-transform duration-200 group-hover:scale-110">
-              <ScoreBadge score={beach.currentScore} />
+              <ScoreBadge
+                score={beach.currentScore}
+                className={getScoreColorClasses(beach.currentScore).paperBadge}
+              />
             </div>
 
             {/* Beach Info */}
@@ -235,8 +246,8 @@ function BeachConditionCard({
               </Link>
 
               {/* Score Label */}
-              <p className={cn("text-xs font-medium mt-0.5", isZine ? "text-[#11100D]/68" : scoreColors.text)}>
-                {scoreColors.label} conditions
+              <p className="mt-0.5 text-xs font-medium text-[#11100D]">
+                {scoreCall.label} · {scoreCall.action}
               </p>
 
               {/* Quick Stats with animated wave height */}
@@ -377,16 +388,16 @@ export function BeachConditionsGrid({
       </ScrollReveal>
 
       {/* Desktop Table View */}
-      <div className={cn("hidden md:block", isZine && "torn torn-tb border-2 border-[#11100D] bg-[#FBF6E8] p-2")}>
+      <div className={cn("hidden md:block", isZine && "border-2 border-[#11100D] bg-[#FBF6E8] p-2")}>
         <ScrollReveal variant="fadeIn" delay={100}>
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead className={cn("w-[30%]", isZine && "font-mono uppercase tracking-[0.1em] text-[#11100D]/60")}>Beach</TableHead>
-                <TableHead className={cn("w-[20%]", isZine && "font-mono uppercase tracking-[0.1em] text-[#11100D]/60")}>Best Day</TableHead>
-                <TableHead className={cn("w-[15%]", isZine && "font-mono uppercase tracking-[0.1em] text-[#11100D]/60")}>Wave Height</TableHead>
-                <TableHead className={cn("w-[15%]", isZine && "font-mono uppercase tracking-[0.1em] text-[#11100D]/60")}>Trend</TableHead>
-                <TableHead className={cn("w-[20%]", isZine && "font-mono uppercase tracking-[0.1em] text-[#11100D]/60")}>Score</TableHead>
+              <TableRow className="border-[#11100D]">
+                <TableHead className="w-[30%] font-mono uppercase tracking-[0.1em] text-[#11100D]">Beach</TableHead>
+                <TableHead className="w-[20%] font-mono uppercase tracking-[0.1em] text-[#11100D]">Best Day</TableHead>
+                <TableHead className="w-[15%] font-mono uppercase tracking-[0.1em] text-[#11100D]">Wave Height</TableHead>
+                <TableHead className="w-[15%] font-mono uppercase tracking-[0.1em] text-[#11100D]">Trend</TableHead>
+                <TableHead className="w-[20%] font-mono uppercase tracking-[0.1em] text-[#11100D]">Score</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
