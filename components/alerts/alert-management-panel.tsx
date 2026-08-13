@@ -122,7 +122,7 @@ export function AlertManagementPanel({ beachId, beachName: _beachName, onAddRule
       <button
         onClick={onAddRule}
         aria-label="Add a new alert"
-        className="flex items-center gap-1 text-xs text-[#F78E42] hover:text-[#F78E42]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 focus-visible:rounded active:scale-95 font-medium mt-2 transition-all min-h-[44px]"
+        className="flex items-center gap-1 text-xs text-[#F78E42] hover:text-[#F78E42]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 focus-visible:rounded active:scale-95 font-medium mt-2 transition-[color,box-shadow,transform] min-h-[44px]"
       >
         <Plus className="w-3.5 h-3.5" />
         Add alert

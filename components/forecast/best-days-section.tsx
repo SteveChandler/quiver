@@ -410,7 +410,7 @@ function BestDayCard({
     <ScrollReveal variant="fadeUp" delay={index * 100}>
       <Card
         className={cn(
-          "transition-all duration-200",
+          "transition-[background-color,border-color,box-shadow] duration-200",
           "hover:shadow-md hover:border-border/80",
           "hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/50 dark:hover:from-[#354090]/50 dark:hover:to-[#404C92]/50",
           "group",

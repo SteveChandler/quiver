@@ -86,7 +86,7 @@ function BeachCard({
 
   return (
     <Link href={beachUrl} prefetch={false} className="block group">
-      <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+      <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-[box-shadow,transform] duration-300 transform hover:-translate-y-1">
         {/* Image Section */}
         <div className="relative h-48 bg-gradient-to-br from-ocean-blue to-blue-400 overflow-hidden">
           <Image
@@ -181,7 +181,7 @@ export function PopularBeachesSection({ beaches }: PopularBeachesSectionProps) {
         <div className="text-center">
           <Button
             size="lg"
-            className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-heading font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+            className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-heading font-semibold rounded-lg shadow-lg hover:shadow-xl transition-[background-color,box-shadow] duration-300"
             asChild
           >
             <Link href="/map">

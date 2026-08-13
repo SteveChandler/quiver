@@ -66,7 +66,7 @@ export function MonthlyHeatmap({ monthly, peakMonths, stateName }: MonthlyHeatma
               key={i}
               type="button"
               className={`
-                relative rounded-lg p-2 flex flex-col items-center gap-1 transition-all
+                relative rounded-lg p-2 flex flex-col items-center gap-1 transition-[box-shadow,transform]
                 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#F78E42]/60
                 ${colorClass} ${isActive ? "ring-2 ring-[#F78E42]" : ""}
                 ${isPeak ? "ring-2 ring-white/50" : ""}

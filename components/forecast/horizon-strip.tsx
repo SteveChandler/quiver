@@ -155,7 +155,7 @@ function DayCard({
         colors.border,
         colors.text,
         // Transitions
-        "transition-all duration-200 ease-out",
+        "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out",
         // Entry animation — on gated cards the rotation already makes
         // the row feel lively, so skip the staggered slide-up that
         // looked chaotic when stacked on top of tilt.

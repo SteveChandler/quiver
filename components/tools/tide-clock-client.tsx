@@ -722,7 +722,7 @@ export function TideClockClient() {
                 </div>
                 <Link
                   href={beachUrl}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 font-mono text-sm font-semibold text-white transition-all min-w-max"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 font-mono text-sm font-semibold text-white transition-none min-w-max"
                   style={{ background: "#F78E42" }}
                 >
                   View Full Forecast
@@ -748,7 +748,7 @@ export function TideClockClient() {
                       setBeachName(b.name);
                       fetchTideData(b.slug);
                     }}
-                    className="noise-texture rounded-xl border p-4 text-left transition-all hover:border-[rgba(247,142,66,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
+                    className="noise-texture rounded-xl border p-4 text-left transition-[border-color,box-shadow] hover:border-[rgba(247,142,66,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
                     style={{
                       background: "rgba(37,45,107,0.5)",
                       borderColor: "rgba(64,76,146,0.4)",

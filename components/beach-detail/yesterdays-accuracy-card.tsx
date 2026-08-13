@@ -87,7 +87,7 @@ export function YesterdaysAccuracyCard({
       <div className="mb-3 h-2 w-full rounded-full bg-gray-100">
         <div
           data-testid="accuracy-bar"
-          className={cn("h-2 rounded-full transition-all", barColor)}
+          className={cn("h-2 rounded-full transition-[width]", barColor)}
           style={{ width: `${accuracyPct}%` }}
         />
       </div>

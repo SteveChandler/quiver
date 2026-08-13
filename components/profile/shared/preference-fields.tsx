@@ -113,7 +113,7 @@ export function SurfStylesField({
                     field.onChange(updated);
                   }}
                   className={cn(
-                    "flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all",
+                    "flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-colors",
                     "disabled:opacity-50 disabled:cursor-not-allowed",
                     isSelected
                       ? "border-primary bg-primary/5"
@@ -136,4 +136,3 @@ export function SurfStylesField({
     />
   );
 }
-

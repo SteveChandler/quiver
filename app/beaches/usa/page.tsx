@@ -124,7 +124,7 @@ export default async function UsaStatesIndexPage() {
             <Link
               key={s.stateSlug}
               href={`/beaches/usa/${s.stateSlug}`}
-              className="group rounded-xl border border-slate-200 bg-white/80 backdrop-blur-sm p-5 transition-all duration-200 hover:shadow-lg hover:border-sky-300 hover:bg-gradient-to-br hover:from-sky-50/60 hover:to-blue-50/40"
+              className="group rounded-xl border border-slate-200 bg-white/80 backdrop-blur-sm p-5 transition-[background-color,border-color,box-shadow] duration-200 hover:shadow-lg hover:border-sky-300 hover:bg-gradient-to-br hover:from-sky-50/60 hover:to-blue-50/40"
             >
               <div className="flex items-center justify-between gap-4">
                 <h2 className="text-lg font-semibold text-slate-900 transition-colors group-hover:text-sky-700">
@@ -135,7 +135,7 @@ export default async function UsaStatesIndexPage() {
                     <AnimatedCounter value={s.cityCount} duration={500} />{" "}
                     {s.cityCount === 1 ? "city" : "cities"}
                   </span>
-                  <ArrowRight className="h-4 w-4 text-sky-500 opacity-0 -translate-x-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0" />
+                  <ArrowRight className="h-4 w-4 text-sky-500 opacity-0 -translate-x-1 transition-[opacity,transform] duration-200 group-hover:opacity-100 group-hover:translate-x-0" />
                 </div>
               </div>
               <p className="mt-2 text-sm text-slate-600">

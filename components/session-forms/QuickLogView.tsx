@@ -159,7 +159,7 @@ export function QuickLogView({
                 type="button"
                 onClick={() => updateField("selectedTime", preset.value)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-150",
+                  "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,transform] duration-150",
                   "active:scale-[0.96]",
                   isSelected
                     ? "bg-[#F78E42]/15 text-[#F78E42] border border-[#F78E42]/30"
@@ -242,7 +242,7 @@ export function QuickLogView({
                   );
                 }}
                 className={cn(
-                  "py-3 rounded-lg border text-center transition-all duration-150",
+                  "py-3 rounded-lg border text-center transition-[color,background-color,border-color,transform] duration-150",
                   "active:scale-[0.96]",
                   isSelected
                     ? "border-[#F78E42] bg-[#F78E42]/10"

@@ -415,7 +415,7 @@ function ConditionRow({
       </div>
       <button
         onClick={onRemove}
-        className="-mr-2 flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-sm text-[#403A2E] transition-all hover:bg-red-100 hover:text-red-700 focus-visible:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 active:scale-95"
+        className="-mr-2 flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-sm text-[#403A2E] transition-[color,background-color,box-shadow,transform] hover:bg-red-100 hover:text-red-700 focus-visible:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 active:scale-95"
         aria-label={`Remove ${ct.label} condition`}
       >
         <X className="w-3.5 h-3.5" />
@@ -439,7 +439,7 @@ function CompassSelector({
           onClick={() => onChange(dir.label)}
           aria-label={`${dir.label} direction`}
           aria-pressed={value === dir.label}
-          className={`h-9 w-9 touch-action-manipulation rounded-sm border-2 font-mono text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/60 active:scale-95 ${
+          className={`h-9 w-9 touch-action-manipulation rounded-sm border-2 font-mono text-[11px] font-black transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/60 active:scale-95 ${
             value === dir.label
               ? "border-[#11100D] bg-[#F78E42] text-[#11100D]"
               : "border-[#11100D]/45 bg-[#FBF6E8] text-[#403A2E] hover:border-[#11100D]"

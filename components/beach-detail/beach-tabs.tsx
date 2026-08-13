@@ -40,7 +40,7 @@ interface BeachTabsProps {
  * - Inactive: gray-600 text, font-weight 500
  * - Active: ocean-blue text and border, font-weight 600
  * - Hover: gray-50 background, gray-900 text
- * - Transitions: 0.2s ease (transition-all duration-200)
+ * - Transitions: 0.2s ease (transition-colors duration-200)
  * - Margin bottom: -2px (-mb-0.5) to overlap container border
  *
  * Supports both controlled and uncontrolled modes:
@@ -114,7 +114,7 @@ export function BeachTabs({
     "px-2 py-2 sm:px-3 sm:py-3 min-[1100px]:px-6 " + // Phase 5: Responsive padding, tightened near sticker actions
     "text-xs sm:text-sm min-[1100px]:text-base font-medium text-gray-600 " + // Phase 5: Responsive font size
     "whitespace-nowrap " +
-    "transition-all duration-300 ease-out " + // Smooth transitions
+    "transition-colors duration-300 ease-out " + // Smooth transitions
     "hover:bg-gray-50 dark:hover:bg-[#354090]/50 hover:text-gray-900 " + // Tier-aware hover
     "data-[state=active]:border-ocean-blue " + // Active border color
     "data-[state=active]:text-ocean-blue " + // Active text color

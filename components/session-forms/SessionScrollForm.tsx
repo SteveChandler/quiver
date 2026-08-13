@@ -561,7 +561,7 @@ export function SessionScrollForm({
                             );
                           }}
                           className={cn(
-                            "p-4 rounded-lg border-2 transition-all",
+                            "p-4 rounded-lg border-2 transition-colors",
                             isSelected
                               ? "border-q-orange bg-q-orange/10"
                               : "border-[#404C92] bg-[#354090] hover:bg-[#404C92]"
@@ -620,7 +620,7 @@ export function SessionScrollForm({
             disabled={!canSave || loadingData}
             onClick={handleSave}
             className={cn(
-              "w-full py-4 rounded-xl text-white font-bold text-lg transition-all duration-200 disabled:cursor-not-allowed",
+              "w-full py-4 rounded-xl text-white font-bold text-lg transition-[background-color,background-image,box-shadow,transform,opacity] duration-200 disabled:cursor-not-allowed",
               canSave && !loadingData
                 ? "bg-gradient-to-r from-q-orange to-[#D57835] active:scale-[0.97] shadow-lg shadow-q-orange/20 hover:shadow-xl hover:shadow-q-orange/30"
                 : "bg-[#404C92]/60 opacity-50"

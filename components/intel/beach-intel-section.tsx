@@ -312,7 +312,7 @@ export function BeachIntelSection({
       <Card
         id="intel-section"
         className={cn(
-          "overflow-hidden backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg transition-all duration-300 hover:shadow-xl",
+          "overflow-hidden backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg transition-shadow duration-300 hover:shadow-xl",
           className
         )}
       >
@@ -346,7 +346,7 @@ export function BeachIntelSection({
                   data-testid="add-intel"
                   onClick={() => setShowPostForm(true)}
                   size="sm"
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-all duration-200 transform hover:scale-105"
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-[background-image,box-shadow,transform] duration-200 transform hover:scale-105"
                 >
                   <Plus className="h-4 w-4 mr-1" />
                   Add Intel
@@ -544,7 +544,7 @@ function IntelPostCard({
   });
 
   return (
-    <div className="bg-white/70 rounded-xl border border-blue-100/80 p-4 transition-all duration-200 hover:bg-white/90 hover:shadow-md">
+    <div className="bg-white/70 rounded-xl border border-blue-100/80 p-4 transition-[background-color,box-shadow] duration-200 hover:bg-white/90 hover:shadow-md">
       <div className="flex items-start gap-3">
         {/* User Avatar */}
         <UserAvatarButton
@@ -609,7 +609,7 @@ function IntelPostCard({
           {/* Description */}
           <p
             className={cn(
-              "text-sm text-gray-700 transition-all duration-200",
+              "text-sm text-gray-700 transition-none duration-200",
               isExpanded ? "line-clamp-none" : "line-clamp-2"
             )}
           >
@@ -633,7 +633,7 @@ function IntelPostCard({
                   onClick={() => onConfirm(post.id, isConfirmed)}
                   disabled={isConfirming}
                   className={cn(
-                    "h-7 px-2 text-xs whitespace-nowrap transition-all duration-200 shrink-0",
+                    "h-7 px-2 text-xs whitespace-nowrap transition-[color,background-color,opacity] duration-200 shrink-0",
                     isConfirmed
                       ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
                       : "text-gray-600 hover:bg-blue-50 hover:text-blue-700",

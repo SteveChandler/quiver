@@ -442,7 +442,7 @@ function ProfileViewContent() {
                                 </p>
                                 <div className="mt-2 h-2 overflow-hidden rounded-full border border-[#11100D] bg-[#11100D]/10">
                                   <div
-                                    className="h-full rounded-full bg-[#F78E42] transition-all"
+                                    className="h-full rounded-full bg-[#F78E42] transition-[width]"
                                     style={{
                                       width: `${Math.min(100, ((preferences.sample_size || 0) / 5) * 100)}%`,
                                     }}

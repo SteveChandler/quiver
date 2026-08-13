@@ -172,7 +172,7 @@ function StickySignupBarContent({
               ? "opacity-100"
               : "opacity-0 pointer-events-none"
             : cn(
-                "transition-all duration-300 ease-out",
+                "transition-[opacity,transform] duration-300 ease-out",
                 isVisible
                   ? "translate-y-0 opacity-100"
                   : "translate-y-full opacity-0 pointer-events-none"

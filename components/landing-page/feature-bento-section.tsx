@@ -70,7 +70,7 @@ function BentoCard({ title, description, Illustration, isTall }: BentoCardProps)
         "bg-white/[0.04] backdrop-blur-md border border-white/[0.08] rounded-2xl p-8",
         "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
         // Hover treatment
-        "transition-all duration-300 ease-out",
+        "transition-[background-color,border-color,box-shadow,transform] duration-300 ease-out",
         "hover:bg-white/[0.08] hover:border-white/20 hover:-translate-y-1",
         "hover:shadow-lg hover:shadow-ocean-blue/5",
         // Internal layout

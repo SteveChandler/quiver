@@ -30,7 +30,7 @@ export function VisibilitySection({
           data-active={isPublic ? "true" : "false"}
           onClick={() => onPublicChange(true)}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all",
+            "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-[color,background-color,box-shadow]",
             isPublic
               ? "bg-[#404C92] text-[#F0F0F0] shadow-sm"
               : "text-[#8B9EC2] hover:text-[#F0F0F0]"
@@ -48,7 +48,7 @@ export function VisibilitySection({
             onMutedChange(false); // Reset muted when going private
           }}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all",
+            "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-[color,background-color,box-shadow]",
             !isPublic
               ? "bg-[#404C92] text-[#F0F0F0] shadow-sm"
               : "text-[#8B9EC2] hover:text-[#F0F0F0]"

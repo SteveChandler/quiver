@@ -102,7 +102,7 @@ export function SessionEmailLogFallback({
             <button
               key={option.value}
               onClick={() => setSelectedRating(option.value)}
-              className={`flex-1 py-4 px-2 rounded-lg border-2 transition-all ${
+              className={`flex-1 py-4 px-2 rounded-lg border-2 transition-colors ${
                 selectedRating === option.value
                   ? "border-blue-500 bg-blue-50"
                   : "border-gray-200 bg-white hover:border-gray-300"

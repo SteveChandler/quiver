@@ -92,7 +92,7 @@ function TrendIndicator({
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200",
+        "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-[color,background-color,border-color,transform] duration-200",
         isZine
           ? "border border-[#11100D]/25 bg-[#F0E5CC] text-[#11100D]"
           : [config.bgColor, config.color],
@@ -126,7 +126,7 @@ function BeachConditionRow({
         isZine
           ? "border-[#11100D]/20 hover:bg-[#F4EBD8]"
           : "hover:bg-gradient-to-r hover:from-sky-50/50 hover:to-transparent",
-        "transition-all duration-200"
+        "transition-colors duration-200"
       )}
       style={{
         animationDelay: `${index * 50}ms`,
@@ -208,7 +208,7 @@ function BeachConditionCard({
     <ScrollReveal variant="fadeUp" delay={index * 75}>
       <Card
         className={cn(
-          "transition-all duration-200 group",
+          "transition-[background-color,border-color,box-shadow,transform] duration-200 group",
           isZine
             ? "torn torn-tb rounded-none border-2 border-[#11100D] bg-[#FBF6E8] shadow-[2px_3px_0_rgba(17,16,13,0.18)] hover:-translate-y-0.5"
             : "hover:shadow-md hover:border-border/80"

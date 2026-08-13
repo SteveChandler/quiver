@@ -353,7 +353,7 @@ export function AlertCreationPopover({
               <Button
                 onClick={handleSave}
                 disabled={saving || !hasConditions || (!notifyEmail && !notifyPush)}
-                className="w-full bg-[#F78E42] hover:bg-[#F78E42]/90 active:scale-[0.98] text-[#11100D] font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="w-full bg-[#F78E42] hover:bg-[#F78E42]/90 active:scale-[0.98] text-[#11100D] font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-[background-color,transform,opacity]"
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -435,7 +435,7 @@ function ToggleChip({
       onClick={onClick}
       aria-pressed={active}
       aria-label={`${label} notifications ${active ? "enabled" : "disabled"}`}
-      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 active:scale-95 ${
+      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 active:scale-95 ${
         active
           ? "bg-[#F78E42]/20 border-[#F78E42] text-[#F78E42]"
           : "bg-transparent border-[#404C92] text-gray-400 hover:border-gray-300"
