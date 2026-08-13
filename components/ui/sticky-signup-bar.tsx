@@ -193,7 +193,7 @@ function StickySignupBarContent({
               onClick={handleCtaClick}
               size="sm"
               className={cn(
-                "bg-[#F78E42] text-white hover:bg-[#F78E42]/90 font-semibold px-4 rounded-full shadow-sm",
+                "bg-[#F78E42] text-[#11100D] hover:bg-[#F78E42]/90 font-semibold px-4 rounded-full shadow-sm",
                 buttonClassName
               )}
               data-testid="sticky-signup-cta"

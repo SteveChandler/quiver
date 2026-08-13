@@ -102,6 +102,21 @@ export default tseslint.config(
             "Use Next.js router (useRouter from 'next/navigation') instead of window.location to maintain SPA behavior",
         },
       ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "Literal[value=/(?=[\\s\\S]*bg-(?:\\[#F78E42\\]|ocean-blue-decorative|q-orange)(?!\\/))(?=[\\s\\S]*\\btext-white\\b)/]",
+          message:
+            "WCAG AA contrast failure: full-opacity orange with text-white is 2.36:1. Use bg-ocean-blue with text-white (5.82:1) or keep orange with text-[#11100D] (8.07:1).",
+        },
+        {
+          selector:
+            "TemplateElement[value.raw=/(?=[\\s\\S]*bg-(?:\\[#F78E42\\]|ocean-blue-decorative|q-orange)(?!\\/))(?=[\\s\\S]*\\btext-white\\b)/]",
+          message:
+            "WCAG AA contrast failure: full-opacity orange with text-white is 2.36:1. Use bg-ocean-blue with text-white (5.82:1) or keep orange with text-[#11100D] (8.07:1).",
+        },
+      ],
     },
   },
   // Test file overrides (shared by Jest and Playwright)

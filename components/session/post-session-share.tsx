@@ -162,7 +162,7 @@ export function PostSessionShare({
         <div className="flex flex-col gap-3 w-full mt-2">
           <button
             onClick={onShare}
-            className="w-full rounded-2xl bg-[#F78E42] hover:bg-[#D57835] active:bg-[#C06A25] text-white font-bold text-base py-4 transition-colors"
+            className="w-full rounded-2xl bg-[#F78E42] hover:bg-[#D57835] active:bg-[#C06A25] text-[#11100D] font-bold text-base py-4 transition-colors"
           >
             Share Your Session
           </button>
