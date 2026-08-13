@@ -208,7 +208,7 @@ export function BeachHeroCompact({
             className="group w-full sm:max-w-sm flex items-center gap-3 rounded-2xl
               border border-white/15 bg-[#252D6B]/80 backdrop-blur-sm
               p-3.5 shadow-sm
-              hover:bg-[#252D6B]/95 hover:border-white/25 transition-all duration-200"
+              hover:bg-[#252D6B]/95 hover:border-white/25 transition-colors duration-200"
           >
             <div className="flex-shrink-0 p-2 rounded-xl bg-[#F78E42]/20">
               <CalendarDays className="h-5 w-5 text-[#F78E42]" />

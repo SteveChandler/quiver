@@ -944,7 +944,7 @@ function BeachDetailContent({
         disabled={!canGetDirections}
         data-zine-directions
         aria-label="Get directions"
-        className="group relative h-10 w-[170px] shrink-0 overflow-visible rounded-none border-0 bg-transparent px-0 text-[#F4EBD8] shadow-none transition-all duration-300 ease-out hover:bg-transparent focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] disabled:opacity-50 min-[1100px]:w-[220px]"
+        className="group relative h-10 w-[170px] shrink-0 overflow-visible rounded-none border-0 bg-transparent px-0 text-[#F4EBD8] shadow-none transition-[opacity,transform,box-shadow] duration-300 ease-out hover:bg-transparent focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] disabled:opacity-50 min-[1100px]:w-[220px]"
       >
         <span
           aria-hidden="true"

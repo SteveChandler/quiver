@@ -116,7 +116,7 @@ function CategoryLinkCard({
   return (
     <Link
       href={`${category.pathPrefix}/${stateSlug}`}
-      className={`group block p-5 rounded-xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-md shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] hover:bg-white/[0.08] hover:-translate-y-1 ${category.colors.border} transition-all duration-300`}
+      className={`group block p-5 rounded-xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-md shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] hover:bg-white/[0.08] hover:-translate-y-1 ${category.colors.border} transition-[background-color,border-color,transform] duration-300`}
     >
       <div className="flex items-center gap-3 mb-2">
         <div

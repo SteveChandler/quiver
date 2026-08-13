@@ -99,7 +99,7 @@ export function WindDirectionCompass({
                 // Shape
                 'rounded-full',
                 // Border & Background
-                'border-2 transition-all duration-200',
+                'border-2 transition-[color,background-color,border-color,box-shadow] duration-200',
                 isSelected
                   ? 'border-ocean-blue bg-ocean-blue text-white shadow-md'
                   : 'border-gray-300 bg-white text-gray-700 hover:border-ocean-blue hover:bg-blue-50',

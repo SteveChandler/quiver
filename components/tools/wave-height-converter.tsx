@@ -279,7 +279,7 @@ export function WaveHeightConverter() {
             </div>
             <div className="flex flex-col items-center gap-2 flex-1">
               <div
-                className="w-full rounded-t-lg transition-all duration-500 ease-out"
+                className="w-full rounded-t-lg transition-[height] duration-500 ease-out"
                 style={{
                   height: `${Math.max(4, barHeight * 1.28)}px`,
                   background: "linear-gradient(to top, #252D6B, #F78E42)",

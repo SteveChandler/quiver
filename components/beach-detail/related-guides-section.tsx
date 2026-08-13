@@ -71,7 +71,7 @@ export async function RelatedGuidesSection({
       {/* City hub link - primary navigation back to city page */}
       <Link
         href={linkSet.primaryLink.href}
-        className="group flex items-center justify-between gap-3 rounded-lg border border-sky-800/50 bg-sky-950/40 p-4 mb-3 transition-all hover:border-sky-600 hover:bg-sky-900/40 hover:shadow-sm"
+        className="group flex items-center justify-between gap-3 rounded-lg border border-sky-800/50 bg-sky-950/40 p-4 mb-3 transition-[background-color,border-color,box-shadow] hover:border-sky-600 hover:bg-sky-900/40 hover:shadow-sm"
       >
         <div className="flex items-center gap-2">
           <PrimaryIcon className="h-5 w-5 text-sky-400" />
@@ -86,7 +86,7 @@ export async function RelatedGuidesSection({
           <Link
             key={key}
             href={href}
-            className="group flex flex-col gap-2 rounded-lg border border-white/10 bg-white/5 p-4 transition-all hover:border-sky-500/50 hover:bg-white/10"
+            className="group flex flex-col gap-2 rounded-lg border border-white/10 bg-white/5 p-4 transition-colors hover:border-sky-500/50 hover:bg-white/10"
           >
             <div className="flex items-center gap-2">
               <Icon className="h-5 w-5 text-sky-400 group-hover:text-sky-300" />

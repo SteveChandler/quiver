@@ -248,7 +248,9 @@ describe("ProfileView - Surf Style Card", () => {
       });
 
       // 2 sessions out of 5 = 40%
-      const progressBar = container.querySelector('[class*="bg-[#F78E42]"].rounded-full.transition-all');
+      const progressBar = container.querySelector(
+        '[class*="bg-[#F78E42]"].rounded-full[class*="transition-[width]"]'
+      );
       expect(progressBar).toHaveStyle({ width: "40%" });
     });
 
@@ -294,7 +296,9 @@ describe("ProfileView - Surf Style Card", () => {
         expect(screen.getByText("Your Surf Style")).toBeInTheDocument();
       });
 
-      const progressBar = container.querySelector('[class*="bg-[#F78E42]"].rounded-full.transition-all');
+      const progressBar = container.querySelector(
+        '[class*="bg-[#F78E42]"].rounded-full[class*="transition-[width]"]'
+      );
       expect(progressBar).toHaveStyle({ width: "100%" });
     });
   });

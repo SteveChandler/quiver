@@ -225,7 +225,7 @@ export function WindCheckerClient({
                   <button
                     key={b.slug}
                     onClick={() => loadBeach(b.slug)}
-                    className="noise-texture rounded-xl border p-4 text-left transition-all hover:border-[rgba(247,142,66,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
+                    className="noise-texture rounded-xl border p-4 text-left transition-[border-color,box-shadow] hover:border-[rgba(247,142,66,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
                     style={{
                       background: "rgba(37,45,107,0.5)",
                       borderColor: "rgba(64,76,146,0.4)",

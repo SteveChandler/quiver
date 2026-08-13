@@ -369,7 +369,7 @@ interface CityLink {
 **Styling Patterns**:
 
 - Grid: `grid grid-cols-2 md:grid-cols-3 gap-2`
-- City Card: `rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 hover:border-blue-200 hover:shadow-md transition-all`
+- City Card: `rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 hover:border-blue-200 hover:shadow-md transition-[border-color,box-shadow]`
 
 ---
 

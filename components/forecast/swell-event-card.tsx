@@ -295,7 +295,7 @@ function SwellTimeline({
         {/* Progress bar (animated) */}
         <div
           className={cn(
-            "absolute inset-y-0 left-0 rounded-full transition-all duration-300",
+            "absolute inset-y-0 left-0 rounded-full transition-[width] duration-300",
             styles.badge
           )}
           style={{ width: `${animatedProgress}%` }}
@@ -363,7 +363,7 @@ export function SwellEventCard({
     return (
       <div
         className={cn(
-          "p-3 transition-all duration-200",
+          "p-3 transition-[box-shadow,transform] duration-200",
           isZine
             ? "torn torn-tb border-2 border-[#11100D] bg-[#F4EBD8] shadow-[2px_2px_0_rgba(17,16,13,0.35)] hover:-translate-y-0.5"
             : cn("rounded-lg border hover:shadow-md", styles.bg, styles.border),
@@ -398,7 +398,7 @@ export function SwellEventCard({
   return (
     <div
       className={cn(
-        "border-2 p-4 transition-all duration-200",
+        "border-2 p-4 transition-[box-shadow,transform] duration-200",
         isZine
           ? "torn torn-tb border-[#11100D] bg-[#F4EBD8] shadow-[3px_3px_0_rgba(17,16,13,0.35)] hover:-translate-y-0.5"
           : cn("rounded-xl hover:shadow-lg", styles.bg, styles.border, isLargeSwell && styles.glow),

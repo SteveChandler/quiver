@@ -170,7 +170,7 @@ function RegionalForecastCardNoData({
 
   return (
     <Link href={cardHref} className={cn("block group", className)}>
-      <Card className="h-full transition-all duration-200 hover:shadow-lg">
+      <Card className="h-full transition-shadow duration-200 hover:shadow-lg">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
             <CardTitle className="text-lg group-hover:text-primary transition-colors">
@@ -250,7 +250,7 @@ export function RegionalForecastCard({
       className={cn("block group", className)}
     >
       <Card className={cn(
-        "h-full transition-all duration-200",
+        "h-full transition-[background-color,background-image,box-shadow] duration-200",
         "hover:shadow-lg",
         "hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30"
       )}>

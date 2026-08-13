@@ -393,12 +393,12 @@ export function SessionCard({
           }}
         >
           <ThumbsUp
-            className={`h-4 w-4 transition-all duration-300 ${
+            className={`h-4 w-4 transition-colors duration-300 ${
               liked ? "fill-current text-red-500" : ""
             } ${isToggling && liked ? "animate-bounce" : ""}`}
           />
           <span
-            className={`transition-all duration-200 ${
+            className={`transition-transform duration-200 ${
               isToggling ? "scale-110" : "scale-100"
             }`}
           >

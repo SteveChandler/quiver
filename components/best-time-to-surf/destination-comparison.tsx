@@ -60,7 +60,7 @@ export function DestinationComparison({ availableStates }: DestinationComparison
               key={state.stateSlug}
               type="button"
               onClick={() => addState(state.stateSlug)}
-              className="px-3 py-1.5 rounded-lg bg-[#252D6B] border border-[#F78E42]/30 text-sm text-white hover:border-[#F78E42] hover:bg-[#F78E42]/10 transition-all"
+              className="px-3 py-1.5 rounded-lg bg-[#252D6B] border border-[#F78E42]/30 text-sm text-white hover:border-[#F78E42] hover:bg-[#F78E42]/10 transition-colors"
             >
               {state.stateName}
             </button>
@@ -69,7 +69,7 @@ export function DestinationComparison({ availableStates }: DestinationComparison
             <button
               type="button"
               onClick={() => setShowPicker(true)}
-              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/20 text-sm text-slate-300 hover:bg-white/10 transition-all"
+              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/20 text-sm text-slate-300 hover:bg-white/10 transition-colors"
             >
               + {availableStates.length - 8} more
             </button>
@@ -103,7 +103,7 @@ export function DestinationComparison({ availableStates }: DestinationComparison
           <button
             type="button"
             onClick={() => setShowPicker((v) => !v)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/5 border border-white/20 text-sm text-slate-300 hover:bg-white/10 transition-all"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/5 border border-white/20 text-sm text-slate-300 hover:bg-white/10 transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
             Add destination
@@ -121,7 +121,7 @@ export function DestinationComparison({ availableStates }: DestinationComparison
                 key={state.stateSlug}
                 type="button"
                 onClick={() => addState(state.stateSlug)}
-                className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/20 text-sm text-white hover:border-[#F78E42] hover:bg-[#F78E42]/10 transition-all"
+                className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/20 text-sm text-white hover:border-[#F78E42] hover:bg-[#F78E42]/10 transition-colors"
               >
                 {state.stateName}
               </button>

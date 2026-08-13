@@ -165,7 +165,7 @@ function MetricBar({
       </div>
       <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all ${color}`}
+          className={`h-full rounded-full transition-[width] ${color}`}
           style={{ width: `${pct}%` }}
         />
       </div>

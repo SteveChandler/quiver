@@ -314,7 +314,7 @@ export function SessionAnalytics({
                         className="flex flex-col items-center flex-1 min-w-0"
                       >
                         <div
-                          className="bg-blue-500 rounded-t-sm w-full transition-all duration-300 hover:bg-blue-600 min-h-[8px] relative"
+                          className="bg-blue-500 rounded-t-sm w-full transition-[background-color,height] duration-300 hover:bg-blue-600 min-h-[8px] relative"
                           style={{ height: `${finalHeightPx}px` }}
                           title={`${point.date}: ${point.averageWaveHeight}ft`}
                         >
@@ -506,7 +506,7 @@ export function SessionAnalytics({
                         className="flex flex-col items-center flex-1 min-w-0"
                       >
                         <div
-                          className={`rounded-t-sm w-full transition-all duration-300 min-h-[8px] relative ${
+                          className={`rounded-t-sm w-full transition-[background-color,height,opacity] duration-300 min-h-[8px] relative ${
                             isActiveMonth
                               ? "bg-primary hover:opacity-80"
                               : "bg-muted-foreground/30"

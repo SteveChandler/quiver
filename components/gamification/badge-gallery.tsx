@@ -253,7 +253,7 @@ function BadgeCard({ badge }: BadgeCardProps) {
         <TooltipTrigger asChild>
           <div
             className={cn(
-              "relative p-4 rounded-lg border transition-all duration-200",
+              "relative p-4 rounded-lg border transition-[background-color,border-color,box-shadow,opacity] duration-200",
               isUnlocked
                 ? "bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200 hover:border-amber-300 hover:shadow-md"
                 : "bg-gray-50 border-gray-200 hover:border-gray-300",
@@ -270,7 +270,7 @@ function BadgeCard({ badge }: BadgeCardProps) {
             <div className="flex flex-col items-center text-center space-y-2">
               <div
                 className={cn(
-                  "flex items-center justify-center w-12 h-12 rounded-full transition-all",
+                  "flex items-center justify-center w-12 h-12 rounded-full transition-colors",
                   isUnlocked
                     ? "bg-gradient-to-r from-amber-100 to-yellow-100"
                     : "bg-gray-100"

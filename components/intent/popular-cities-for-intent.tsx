@@ -48,7 +48,7 @@ export function PopularCitiesForIntent({
           <li key={city.slug}>
             <Link
               href={buildCityIntentUrl(intentKey, city.slug)}
-              className="block p-3 rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 hover:border-blue-200 hover:shadow-md transition-all"
+              className="block p-3 rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 hover:border-blue-200 hover:shadow-md transition-[border-color,box-shadow]"
               aria-label={`${intentLabel} guide for ${city.name}`}
             >
               {city.name}
@@ -71,7 +71,7 @@ export function PopularCitiesForIntent({
               <li key={city.slug}>
                 <Link
                   href={buildCityIntentUrl(intentKey, city.slug)}
-                  className="block px-2.5 py-1.5 rounded-lg border border-blue-100/40 bg-gradient-to-br from-white/70 to-blue-50/20 text-sm text-sky-700 hover:border-blue-200 hover:bg-blue-50/40 transition-all"
+                  className="block px-2.5 py-1.5 rounded-lg border border-blue-100/40 bg-gradient-to-br from-white/70 to-blue-50/20 text-sm text-sky-700 hover:border-blue-200 hover:bg-blue-50/40 transition-[background-color,border-color]"
                   aria-label={`${intentLabel} guide for ${city.name}`}
                 >
                   {city.name}

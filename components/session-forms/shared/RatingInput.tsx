@@ -43,7 +43,7 @@ export function RatingInput({
               key={rating}
               type="button"
               onClick={() => onChange(rating.toString())}
-              className={`p-2 rounded-lg transition-all duration-200 ${
+              className={`p-2 rounded-lg transition-colors duration-200 ${
                 parseInt(value) >= rating
                   ? `${colorClass} bg-opacity-10`
                   : "text-gray-300 hover:text-gray-400 hover:bg-gray-50"

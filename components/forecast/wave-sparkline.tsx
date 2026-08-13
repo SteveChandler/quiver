@@ -262,7 +262,7 @@ export function WaveSparkline({
           r={3}
           fill={lineColor}
           className={cn(
-            "transition-all duration-300",
+            "transition-[opacity,transform] duration-300",
             isVisible ? "opacity-100 scale-100" : "opacity-0 scale-0"
           )}
           style={{

@@ -98,7 +98,7 @@ export function FAQSection({
                     id={answerId}
                     role="region"
                     aria-labelledby={`faq-question-${index}`}
-                    className="grid transition-all duration-300 ease-in-out"
+                    className="grid transition-[grid-template-rows] duration-300 ease-in-out"
                     style={{
                       gridTemplateRows: isOpen ? "1fr" : "0fr",
                     }}

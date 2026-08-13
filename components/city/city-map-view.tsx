@@ -145,7 +145,7 @@ function BeachListItem({
     <Link
       href={href}
       className={cn(
-        "block p-4 transition-all duration-200",
+        "block p-4 transition-colors duration-200",
         isSelected && "bg-sky-50 border-l-4 border-sky-500",
         isHovered && !isSelected && "bg-slate-50",
         !isSelected && "border-l-4 border-transparent"
@@ -390,7 +390,7 @@ export function CityMapView({
                 key={spot.slug}
                 href={spotUrls[spot.slug]}
                 className={cn(
-                  "flex-none w-[280px] p-4 rounded-lg border snap-start transition-all",
+                  "flex-none w-[280px] p-4 rounded-lg border snap-start transition-colors",
                   selectedSpot?.slug === spot.slug
                     ? "border-sky-500 bg-sky-50"
                     : "border-slate-200 bg-white hover:border-slate-300"
