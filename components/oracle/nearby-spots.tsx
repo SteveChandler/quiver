@@ -226,7 +226,7 @@ export function NearbySpots({
           type="button"
           onClick={onUseMyLocation}
           disabled={locationLoading}
-          className="mb-4 inline-flex min-h-11 w-full items-center justify-center gap-2 px-4 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
+          className="mb-4 inline-flex min-h-11 w-full items-center justify-center gap-2 px-4 disabled:cursor-wait disabled:opacity-60 sm:w-auto focus-ring"
           style={{
             fontFamily: "var(--font-mono), monospace",
             fontSize: 12,

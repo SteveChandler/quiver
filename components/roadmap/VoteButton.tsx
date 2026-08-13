@@ -100,7 +100,7 @@ export function VoteButton({
         localVoted
           ? "border-[#11100D] bg-[#F78E42] text-[#11100D] shadow-[1px_2px_0_rgba(17,16,13,0.2)]"
           : "border-[#11100D]/45 bg-[#F0E5CC] text-[#11100D]/70 hover:border-[#F78E42] hover:text-[#11100D]",
-      )}
+      ) + " focus-ring"}
     >
       <ThumbsUp size={14} aria-hidden="true" />
       <span className="font-[var(--font-mono)] text-sm font-bold">{localCount}</span>

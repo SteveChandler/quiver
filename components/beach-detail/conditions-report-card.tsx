@@ -209,7 +209,7 @@ export function ConditionsReportCard({
                 waveSizeRange === opt.value
                   ? "border-ocean-blue bg-ocean-blue text-white"
                   : "border-gray-300 bg-white text-gray-700 hover:border-ocean-blue hover:text-ocean-blue"
-              )}
+              ) + " focus-ring"}
             >
               {opt.label}
             </button>
@@ -231,7 +231,7 @@ export function ConditionsReportCard({
                 vibe === opt.value
                   ? "border-ocean-blue bg-ocean-blue text-white"
                   : "border-gray-300 bg-white text-gray-700 hover:border-ocean-blue hover:text-ocean-blue"
-              )}
+              ) + " focus-ring"}
             >
               {opt.emoji} {opt.label}
             </button>

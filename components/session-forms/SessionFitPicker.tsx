@@ -130,7 +130,7 @@ export function SessionFitPicker({
                   selected
                     ? "border-[#00D4AA] bg-[#00D4AA]/15 text-[#00D4AA]"
                     : "border-[#404C92] bg-[#252D6B]/60 text-[#9AABC6] hover:text-[#F0F0F0]"
-                )}
+                ) + " focus-ring"}
               >
                 <Icon className="h-4 w-4" />
                 {label}
@@ -161,7 +161,7 @@ export function SessionFitPicker({
                   selected
                     ? "border-[#F78E42] bg-[#F78E42]/15 text-[#F78E42]"
                     : "border-[#404C92] bg-[#252D6B]/60 text-[#F0F0F0] hover:bg-[#404C92]"
-                )}
+                ) + " focus-ring"}
               >
                 {option.label}
               </button>
@@ -190,7 +190,7 @@ export function SessionFitPicker({
                   selected
                     ? "border-[#F78E42] bg-[#F78E42]/15 text-[#F78E42]"
                     : "border-[#404C92] bg-[#252D6B]/60 text-[#F0F0F0] hover:bg-[#404C92]"
-                )}
+                ) + " focus-ring"}
               >
                 {option.label}
               </button>

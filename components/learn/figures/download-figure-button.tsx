@@ -148,7 +148,7 @@ export function DownloadFigureButton({
         void handleDownload();
       }}
       disabled={busy}
-      className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-md border-[1.5px] border-[#11100D] bg-[#FBF6E8] px-3 py-1.5 font-mono text-[10px] font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.18)] transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-60"
+      className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-md border-[1.5px] border-[#11100D] bg-[#FBF6E8] px-3 py-1.5 font-mono text-[10px] font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.18)] transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-60 focus-ring"
     >
       <Download className="h-3.5 w-3.5" aria-hidden />
       {busy ? "Preparing" : "Download PNG"}

@@ -40,7 +40,7 @@ export function EmbedFigureSnippet({ figureKey }: { figureKey: FigureKey }) {
         <button
           type="button"
           onClick={copy}
-          className="self-start rounded border-[1.5px] border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#11100D] transition-transform hover:-translate-y-0.5"
+          className="self-start rounded border-[1.5px] border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#11100D] transition-transform hover:-translate-y-0.5 focus-ring"
         >
           {copied ? "Copied ✓" : "Copy embed code"}
         </button>

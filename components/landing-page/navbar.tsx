@@ -296,7 +296,7 @@ export function Navbar({
                 className={cn(
                   "font-mono text-xs font-bold uppercase tracking-[0.14em] transition-colors",
                   navTextClass,
-                )}
+                ) + " focus-ring"}
               >
                 Log in
               </button>

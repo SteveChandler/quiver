@@ -184,7 +184,7 @@ export function MiniLogTeaser({
         <button
           type="button"
           onClick={handleSaveClick}
-          className="mt-4 w-full rounded-full bg-ocean-blue text-white py-2.5 text-sm font-semibold shadow-sm hover:shadow-md transition-shadow"
+          className="mt-4 w-full rounded-full bg-ocean-blue text-white py-2.5 text-sm font-semibold shadow-sm hover:shadow-md transition-shadow focus-ring"
         >
           Save + Improve my forecast
         </button>

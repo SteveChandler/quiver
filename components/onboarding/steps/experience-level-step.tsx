@@ -142,21 +142,21 @@ export function ExperienceLevelStep() {
         <button
           type="button"
           onClick={prevStep}
-          className="flex-1 py-3 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white font-semibold text-sm hover:bg-white/10 transition-colors"
+          className="flex-1 py-3 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white font-semibold text-sm hover:bg-white/10 transition-colors focus-ring"
         >
           Back
         </button>
         <button
           type="button"
           onClick={handleMaybeLater}
-          className="flex-1 py-3 text-white/40 hover:text-white/60 text-sm transition-colors"
+          className="flex-1 py-3 text-white/40 hover:text-white/60 text-sm transition-colors focus-ring"
         >
           Maybe later
         </button>
         <button
           type="button"
           onClick={handleContinue}
-          className="flex-1 py-3 rounded-lg bg-gradient-to-r from-[#F78E42] to-[#D57835] text-white font-semibold text-sm transition-opacity"
+          className="flex-1 py-3 rounded-lg bg-gradient-to-r from-[#F78E42] to-[#D57835] text-white font-semibold text-sm transition-opacity focus-ring"
         >
           Continue
         </button>

@@ -410,7 +410,7 @@ export default function SessionPhotoGallery({
           <div key={photo.id} className="relative group">
             <button
               type="button"
-              className="aspect-square w-full overflow-hidden rounded-lg bg-gray-100"
+              className="aspect-square w-full overflow-hidden rounded-lg bg-gray-100 focus-ring"
               onClick={() => openLightbox(index)}
               aria-label={
                 photo.caption

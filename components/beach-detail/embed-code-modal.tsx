@@ -44,7 +44,7 @@ function EmbedSnippet({
         </pre>
         <button
           onClick={handleCopy}
-          className="absolute top-2 right-2 p-1.5 rounded-md bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
+          className="absolute top-2 right-2 p-1.5 rounded-md bg-white border border-slate-200 hover:bg-slate-50 transition-colors focus-ring"
           aria-label={copied ? "Copied" : "Copy embed code"}
         >
           {copied ? (
@@ -74,7 +74,7 @@ export function EmbedCodeButton({ beachSlug, beachName }: EmbedCodeModalProps) {
     <Dialog>
       <DialogTrigger asChild>
         <button
-          className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-ocean-blue transition-colors"
+          className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-ocean-blue transition-colors focus-ring"
           title="Get embed code"
         >
           <Code2 className="w-3.5 h-3.5" />

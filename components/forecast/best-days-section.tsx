@@ -206,7 +206,7 @@ function BestDayCard({
         className={cn(
           "torn torn-tb group relative block w-full overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] p-5 text-left shadow-[4px_5px_0_rgba(17,16,13,0.2)] transition-transform hover:-translate-y-1",
           className
-        )}
+        ) + " focus-ring"}
         onClick={onClick}
         aria-label={`Best day this week: ${day.dayOfWeek}`}
         data-testid="zine-best-day-card"
@@ -371,7 +371,7 @@ function BestDayCard({
           className={cn(
             "torn torn-tb group block min-h-44 w-full border-2 border-[#11100D] bg-[#FBF6E8] p-4 text-left transition-transform hover:-translate-y-1",
             className
-          )}
+          ) + " focus-ring"}
           onClick={onClick}
           aria-label={`Surf day: ${day.dayOfWeek}`}
         >

@@ -164,7 +164,7 @@ export function QuickLogView({
                   isSelected
                     ? "bg-[#F78E42]/15 text-[#F78E42] border border-[#F78E42]/30"
                     : "bg-[#354090]/40 text-[#9AABC6] border border-[#404C92]/50 hover:text-[#F0F0F0]"
-                )}
+                ) + " focus-ring"}
               >
                 <span className="text-xs">{preset.icon}</span>
                 {preset.label}
@@ -247,7 +247,7 @@ export function QuickLogView({
                   isSelected
                     ? "border-[#F78E42] bg-[#F78E42]/10"
                     : "border-[#404C92]/60 bg-[#354090]/30 hover:bg-[#354090]/50"
-                )}
+                ) + " focus-ring"}
               >
                 <span
                   className={cn(

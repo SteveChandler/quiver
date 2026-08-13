@@ -596,7 +596,7 @@ export function AlertsManagementPage() {
                   <button
                     type="button"
                     onClick={loadRules}
-                    className="inline-flex items-center gap-1 text-sm font-black text-red-900"
+                    className="inline-flex items-center gap-1 text-sm font-black text-red-900 focus-ring"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                     Retry

@@ -46,7 +46,7 @@ export function MonthlyViewToggle({
             view === "grid"
               ? "bg-white text-gray-900 shadow-sm"
               : "text-gray-500 hover:text-gray-700"
-          }`}
+          }` + " focus-ring"}
         >
           <LayoutGrid className="h-3.5 w-3.5" />
           Detail
@@ -58,7 +58,7 @@ export function MonthlyViewToggle({
             view === "heatmap"
               ? "bg-white text-gray-900 shadow-sm"
               : "text-gray-500 hover:text-gray-700"
-          }`}
+          }` + " focus-ring"}
         >
           <Flame className="h-3.5 w-3.5" />
           Heatmap

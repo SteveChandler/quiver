@@ -178,7 +178,7 @@ export function BeachSelector({
       {selectionMade && query && (
         <button
           type="button"
-          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10 focus-ring"
           onClick={() => {
             setQuery("");
             setSelectionMade(false);
@@ -208,7 +208,7 @@ export function BeachSelector({
                 <li key={b.id}>
                   <button
                     type="button"
-                    className="w-full p-2 text-left hover:bg-gray-100"
+                    className="w-full p-2 text-left hover:bg-gray-100 focus-ring"
                     onMouseDown={() => {
                       setQuery(b.name);
                       trySelect(b.name);

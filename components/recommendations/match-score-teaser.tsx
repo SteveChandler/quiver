@@ -78,7 +78,7 @@ export function MatchScoreTeaser({
             "px-4 py-3 flex items-center gap-3 text-left",
             "hover:from-amber-50/20 hover:to-amber-100/20 transition-colors",
             className
-          )}
+          ) + " focus-ring"}
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-400/20">
             <Sparkles className="h-5 w-5 text-amber-400" />

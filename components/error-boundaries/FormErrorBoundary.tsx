@@ -276,7 +276,7 @@ export class FormErrorBoundary extends Component<
           <div className="flex gap-3">
             <button
               onClick={this.restoreFormState}
-              className="px-4 py-2 bg-ocean-blue text-white rounded-lg hover:bg-ocean-blue/90 transition-colors"
+              className="px-4 py-2 bg-ocean-blue text-white rounded-lg hover:bg-ocean-blue/90 transition-colors focus-ring"
               disabled={isRestored}
             >
               {isRestored ? 'Form Restored' : 'Restore Form'}
@@ -284,7 +284,7 @@ export class FormErrorBoundary extends Component<
 
             <button
               onClick={this.resetError}
-              className="px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition-colors"
+              className="px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition-colors focus-ring"
             >
               Start Over
             </button>

@@ -107,7 +107,7 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
           <button
             type="button"
             onClick={() => setExpanded((prev) => !prev)}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium transition-colors hover:opacity-80 ${config.textColor} ${config.badgeBg}`}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium transition-colors hover:opacity-80 ${config.textColor} ${config.badgeBg}` + " focus-ring"}
             aria-expanded={expanded}
             aria-label={`${config.label}. Click to ${expanded ? "collapse" : "expand"} details.`}
           >

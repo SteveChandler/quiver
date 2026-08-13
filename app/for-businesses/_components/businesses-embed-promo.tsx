@@ -158,7 +158,7 @@ function CopyButton({ code }: { code: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border-2 border-[#F4EBD8]/70 bg-[#F4EBD8] px-4 py-1.5 font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D] transition-transform hover:-translate-y-0.5"
+      className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border-2 border-[#F4EBD8]/70 bg-[#F4EBD8] px-4 py-1.5 font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D] transition-transform hover:-translate-y-0.5 focus-ring"
     >
       {copied ? (
         <>
@@ -328,7 +328,7 @@ export function BusinessesEmbedPromo({
                   widgetType === "conditions"
                     ? "bg-[#F78E42] text-[#11100D]"
                     : "text-[#11100D]/70 hover:bg-[#F0E5CC]"
-                }`}
+                }` + " focus-ring"}
               >
                 Conditions
               </button>
@@ -339,7 +339,7 @@ export function BusinessesEmbedPromo({
                   widgetType === "tides"
                     ? "bg-[#F78E42] text-[#11100D]"
                     : "text-[#11100D]/70 hover:bg-[#F0E5CC]"
-                }`}
+                }` + " focus-ring"}
               >
                 Tide Chart
               </button>

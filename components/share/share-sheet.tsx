@@ -243,7 +243,7 @@ export function ShareSheet({
             </SheetTitle>
             <button
               onClick={() => onOpenChange(false)}
-              className="text-white/60 hover:text-white transition-colors"
+              className="text-white/60 hover:text-white transition-colors focus-ring"
               aria-label="Close share sheet"
             >
               <X className="h-5 w-5" />
@@ -323,7 +323,7 @@ export function ShareSheet({
           {/* Issue 8: aria-label on bottom Close button */}
           <button
             onClick={() => onOpenChange(false)}
-            className="font-heading text-xs uppercase tracking-wider text-white/40 hover:text-white/60 py-3 w-full transition-colors"
+            className="font-heading text-xs uppercase tracking-wider text-white/40 hover:text-white/60 py-3 w-full transition-colors focus-ring"
             aria-label="Close share sheet"
           >
             Close

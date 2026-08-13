@@ -208,7 +208,7 @@ export function PostSessionShare({
           </div>
           <button
             onClick={onSkip}
-            className="w-full rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/70 font-medium text-base py-3.5 transition-colors"
+            className="w-full rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/70 font-medium text-base py-3.5 transition-colors focus-ring"
           >
             Skip
           </button>

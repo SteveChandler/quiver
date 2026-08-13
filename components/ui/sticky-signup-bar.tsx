@@ -203,7 +203,7 @@ function StickySignupBarContent({
 
             <button
               onClick={handleDismiss}
-              className="p-2.5 text-white/50 hover:text-white/80 transition-colors rounded-full hover:bg-white/10 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="p-2.5 text-white/50 hover:text-white/80 transition-colors rounded-full hover:bg-white/10 min-w-[44px] min-h-[44px] flex items-center justify-center focus-ring"
               aria-label="Dismiss signup prompt"
               data-testid="sticky-signup-dismiss"
             >

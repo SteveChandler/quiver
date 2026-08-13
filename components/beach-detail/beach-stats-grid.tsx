@@ -146,7 +146,7 @@ export function BeachStatsGrid({
     <div data-testid="beach-stats-grid" data-tier="supporting" className={`bg-gray-50 p-4 sm:p-5 rounded-xl my-4 sm:my-6 ${className || ""}`}>
       <button
         type="button"
-        className="flex w-full items-center justify-between md:hidden"
+        className="flex w-full items-center justify-between md:hidden focus-ring"
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}
       >

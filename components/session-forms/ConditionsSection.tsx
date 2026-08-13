@@ -407,7 +407,7 @@ export function ConditionsSection({
                             ? "border-slate-300 bg-slate-100 text-slate-900"
                             : "border-amber-400 bg-amber-100 text-amber-900"
                           : "border-border bg-background text-muted-foreground hover:bg-muted"
-                      }`}
+                      }` + " focus-ring"}
                     >
                       {option.label}
                     </button>

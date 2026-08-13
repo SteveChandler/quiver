@@ -192,7 +192,7 @@ export function WaveTypeSelector({
                   isSelected
                     ? "border-[#F78E42] bg-[#F78E42]/10"
                     : "border-[#404C92] hover:border-[#2A3F66] bg-[#354090] hover:bg-[#404C92]"
-                }`}
+                }` + " focus-ring"}
                 title={waveType.description}
               >
                 <div className="flex items-center gap-2 mb-1">

@@ -377,7 +377,7 @@ export function SessionScrollForm({
             type="button"
             aria-label="Cancel"
             onClick={handleCancel}
-            className="p-1 rounded-full text-[#8B9EC2] hover:text-[#A8B8D0] transition-colors"
+            className="p-1 rounded-full text-[#8B9EC2] hover:text-[#A8B8D0] transition-colors focus-ring"
           >
             <X className="w-5 h-5" />
           </button>
@@ -565,7 +565,7 @@ export function SessionScrollForm({
                             isSelected
                               ? "border-q-orange bg-q-orange/10"
                               : "border-[#404C92] bg-[#354090] hover:bg-[#404C92]"
-                          )}
+                          ) + " focus-ring"}
                           aria-label={`${option.label}: ${option.description}`}
                         >
                           <div className="flex flex-col items-center gap-2">
@@ -624,7 +624,7 @@ export function SessionScrollForm({
               canSave && !loadingData
                 ? "bg-gradient-to-r from-q-orange to-[#D57835] active:scale-[0.97] shadow-lg shadow-q-orange/20 hover:shadow-xl hover:shadow-q-orange/30"
                 : "bg-[#404C92]/60 opacity-50"
-            )}
+            ) + " focus-ring"}
           >
             {loadingData ? (
               <span className="flex items-center justify-center gap-2">

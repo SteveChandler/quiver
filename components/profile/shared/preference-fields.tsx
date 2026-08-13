@@ -118,7 +118,7 @@ export function SurfStylesField({
                     isSelected
                       ? "border-primary bg-primary/5"
                       : "border-border hover:border-primary/50"
-                  )}
+                  ) + " focus-ring"}
                   disabled={disabled}
                 >
                   <span className="text-2xl">{style.emoji}</span>
