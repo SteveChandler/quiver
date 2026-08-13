@@ -36,8 +36,10 @@ jest.mock("@/components/forecast/animated-score-gauge", () => ({
 }));
 
 jest.mock("@/components/forecast/score-badge", () => ({
-  ScoreBadge: ({ score }: { score: number }) => (
-    <div data-testid="score-badge">{score}</div>
+  ScoreBadge: ({ score, className }: { score: number; className?: string }) => (
+    <div data-testid="score-badge" className={className}>
+      {score}
+    </div>
   ),
 }));
 
@@ -86,7 +88,10 @@ jest.mock("@/lib/utils/wave-formatters", () => ({
 }));
 
 jest.mock("@/lib/utils/score-color-utils", () => ({
-  getScoreColorClasses: () => ({ border: "border-blue-500" }),
+  getScoreColorClasses: () => ({
+    border: "border-blue-500",
+    paperBadge: "bg-[#11100D] text-[#F4EBD8]",
+  }),
   SCORE_THRESHOLDS: { EPIC: 90 },
 }));
 
@@ -519,5 +524,28 @@ describe("BestDaysSection — analytics wiring", () => {
       // Still only one view event
       expect(trackBestConditionsViewed).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe("BestDaysSection — paper score treatment", () => {
+  it("uses the shared ink badge and keeps interactive day cards free of torn masks", () => {
+    render(
+      <BestDaysSection
+        days={ALL_DAYS}
+        bestDay={BEST_DAY}
+        regionName={REGION_NAME}
+        variant="zine"
+      />
+    );
+
+    expect(screen.getAllByTestId("score-badge")).toHaveLength(3);
+    for (const badge of screen.getAllByTestId("score-badge")) {
+      expect(badge).toHaveClass("bg-[#11100D]", "text-[#F4EBD8]");
+      expect(badge).not.toHaveClass("text-white");
+    }
+
+    for (const card of screen.getAllByRole("button")) {
+      expect(card).not.toHaveClass("torn", "torn-tb");
+    }
   });
 });
