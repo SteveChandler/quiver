@@ -155,3 +155,19 @@ describe("SessionDetailView (gating)", () => {
     );
   });
 });
+
+describe("shared session preview image", () => {
+  it("describes the preview instead of marking it decorative", () => {
+    // The shared-session preview IS the primary content of this view, so an
+    // empty alt hides it entirely from screen readers.
+    const src = require("fs").readFileSync(
+      require("path").join(process.cwd(), "components/session-detail-view.tsx"),
+      "utf8"
+    );
+    const previewImg = src.slice(src.indexOf("sharedPreview.imageUrl"));
+    const altMatch = previewImg.slice(0, 400).match(/alt=\{?([^\n]*)/);
+    expect(altMatch).not.toBeNull();
+    expect(altMatch![1]).not.toMatch(/^""/);
+    expect(previewImg.slice(0, 400)).toMatch(/Shared session|Shared surf session/);
+  });
+});

@@ -183,7 +183,11 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={sharedPreview.imageUrl}
-                  alt=""
+                  alt={
+                    sharedPreview.title
+                      ? `Shared session: ${sharedPreview.title}`
+                      : "Shared surf session"
+                  }
                   className="h-full w-full object-cover"
                 />
               </div>
