@@ -163,7 +163,13 @@ export function TideHourlyTable({
         className="overflow-hidden rounded-lg border border-slate-200"
         data-testid="tide-hourly-table"
       >
-        <div className="max-h-[400px] overflow-y-auto">
+        <div
+          className="max-h-[400px] overflow-x-auto overflow-y-auto"
+          data-testid="tide-hourly-table-scroll"
+          role="region"
+          aria-label="Hourly tide data"
+          tabIndex={0}
+        >
           <table className="w-full">
             <thead className="bg-slate-50 sticky top-0">
               <tr className="border-b border-slate-200">
@@ -216,73 +222,92 @@ export function TideHourlyTableCompact({
   return (
     <div className={cn("space-y-2", className)}>
       <h4 className="text-sm font-medium text-slate-700">Tide Table</h4>
-      <div className="grid grid-cols-2 gap-4">
+      <div
+        className="grid grid-cols-1 gap-4 md:grid-cols-2"
+        data-testid="tide-hourly-table-compact-grid"
+      >
         {/* Left column */}
         <div className="overflow-hidden rounded-lg border border-slate-200">
-          <table className="w-full text-xs">
-            <thead className="bg-slate-50">
-              <tr className="border-b border-slate-200">
-                <th className="py-1.5 px-2 text-left font-medium text-slate-600">
-                  Time
-                </th>
-                <th className="py-1.5 px-2 text-right font-medium text-slate-600">
-                  {unit}
-                </th>
-                <th className="py-1.5 px-2 w-8"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {leftColumn.map((point) => (
-                <tr
-                  key={point.time.getTime()}
-                  className={cn(
-                    "border-b border-slate-100 last:border-b-0",
-                    getRowStyles(point)
-                  )}
-                >
-                  <td className="py-1.5 px-2">{formatTime(point.time)}</td>
-                  <td className="py-1.5 px-2 text-right font-medium">
-                    {formatTideHeight(point.height)}
-                  </td>
-                  <td className="py-1.5 px-2">{getTrendIcon(point.trend)}</td>
+          <div
+            className="overflow-x-auto"
+            data-testid="tide-hourly-table-compact-left-scroll"
+            role="region"
+            aria-label="Tide table, first half"
+            tabIndex={0}
+          >
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50">
+                <tr className="border-b border-slate-200">
+                  <th className="py-1.5 px-2 text-left font-medium text-slate-600">
+                    Time
+                  </th>
+                  <th className="py-1.5 px-2 text-right font-medium text-slate-600">
+                    {unit}
+                  </th>
+                  <th className="py-1.5 px-2 w-8"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {leftColumn.map((point) => (
+                  <tr
+                    key={point.time.getTime()}
+                    className={cn(
+                      "border-b border-slate-100 last:border-b-0",
+                      getRowStyles(point)
+                    )}
+                  >
+                    <td className="py-1.5 px-2">{formatTime(point.time)}</td>
+                    <td className="py-1.5 px-2 text-right font-medium">
+                      {formatTideHeight(point.height)}
+                    </td>
+                    <td className="py-1.5 px-2">{getTrendIcon(point.trend)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Right column */}
         <div className="overflow-hidden rounded-lg border border-slate-200">
-          <table className="w-full text-xs">
-            <thead className="bg-slate-50">
-              <tr className="border-b border-slate-200">
-                <th className="py-1.5 px-2 text-left font-medium text-slate-600">
-                  Time
-                </th>
-                <th className="py-1.5 px-2 text-right font-medium text-slate-600">
-                  {unit}
-                </th>
-                <th className="py-1.5 px-2 w-8"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rightColumn.map((point) => (
-                <tr
-                  key={point.time.getTime()}
-                  className={cn(
-                    "border-b border-slate-100 last:border-b-0",
-                    getRowStyles(point)
-                  )}
-                >
-                  <td className="py-1.5 px-2">{formatTime(point.time)}</td>
-                  <td className="py-1.5 px-2 text-right font-medium">
-                    {formatTideHeight(point.height)}
-                  </td>
-                  <td className="py-1.5 px-2">{getTrendIcon(point.trend)}</td>
+          <div
+            className="overflow-x-auto"
+            data-testid="tide-hourly-table-compact-right-scroll"
+            role="region"
+            aria-label="Tide table, second half"
+            tabIndex={0}
+          >
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50">
+                <tr className="border-b border-slate-200">
+                  <th className="py-1.5 px-2 text-left font-medium text-slate-600">
+                    Time
+                  </th>
+                  <th className="py-1.5 px-2 text-right font-medium text-slate-600">
+                    {unit}
+                  </th>
+                  <th className="py-1.5 px-2 w-8"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rightColumn.map((point) => (
+                  <tr
+                    key={point.time.getTime()}
+                    className={cn(
+                      "border-b border-slate-100 last:border-b-0",
+                      getRowStyles(point)
+                    )}
+                  >
+                    <td className="py-1.5 px-2">{formatTime(point.time)}</td>
+                    <td className="py-1.5 px-2 text-right font-medium">
+                      {formatTideHeight(point.height)}
+                    </td>
+                    <td className="py-1.5 px-2">{getTrendIcon(point.trend)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
