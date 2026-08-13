@@ -362,7 +362,7 @@ export function SessionScrollForm({
   );
 
   return (
-    <div className={cn("relative min-h-screen bg-[#252D6B] session-scroll-form", className)}>
+    <div className={cn("relative min-h-screen bg-q-twilight session-scroll-form", className)}>
       {/* Grain overlay */}
       <div
         className="pointer-events-none fixed inset-0 z-0 opacity-[0.04]"
@@ -372,7 +372,7 @@ export function SessionScrollForm({
       {/* Content */}
       <div className="relative z-10 flex flex-col min-h-screen max-w-xl mx-auto w-full">
         {/* Sticky header */}
-        <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[#252D6B] border-b border-[#404C92]">
+        <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-q-twilight border-b border-[#404C92]">
           <button
             type="button"
             aria-label="Cancel"
@@ -389,7 +389,7 @@ export function SessionScrollForm({
             size="sm"
             disabled={!canSave || loadingData}
             onClick={handleSave}
-            className="bg-gradient-to-r from-[#F78E42] to-[#D57835] hover:from-[#D57835] hover:to-[#C92F6C] text-white font-semibold px-4 disabled:opacity-40"
+            className="bg-gradient-to-r from-q-orange to-[#D57835] hover:from-[#D57835] hover:to-[#C92F6C] text-white font-semibold px-4 disabled:opacity-40"
           >
             {loadingData ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
           </Button>
@@ -563,16 +563,16 @@ export function SessionScrollForm({
                           className={cn(
                             "p-4 rounded-lg border-2 transition-all",
                             isSelected
-                              ? "border-[#F78E42] bg-[#F78E42]/10"
+                              ? "border-q-orange bg-q-orange/10"
                               : "border-[#404C92] bg-[#354090] hover:bg-[#404C92]"
                           )}
                           aria-label={`${option.label}: ${option.description}`}
                         >
                           <div className="flex flex-col items-center gap-2">
                             {IconComponent && (
-                              <IconComponent className={cn("h-6 w-6", isSelected ? "text-[#F78E42]" : iconColor)} />
+                              <IconComponent className={cn("h-6 w-6", isSelected ? "text-q-orange" : iconColor)} />
                             )}
-                            <span className={cn("font-medium", isSelected ? "text-[#F78E42]" : "text-[#F0F0F0]")}>{option.label}</span>
+                            <span className={cn("font-medium", isSelected ? "text-q-orange" : "text-[#F0F0F0]")}>{option.label}</span>
                             <span className="text-xs text-[#9AABC6] text-center">{option.description}</span>
                           </div>
                         </button>
@@ -613,7 +613,7 @@ export function SessionScrollForm({
         </main>
 
         {/* Sticky bottom save button */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#252D6B] border-t border-[#404C92] safe-area-bottom">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-q-twilight border-t border-[#404C92] safe-area-bottom">
           <div className="max-w-xl mx-auto">
           <button
             type="button"
@@ -622,7 +622,7 @@ export function SessionScrollForm({
             className={cn(
               "w-full py-4 rounded-xl text-white font-bold text-lg transition-all duration-200 disabled:cursor-not-allowed",
               canSave && !loadingData
-                ? "bg-gradient-to-r from-[#F78E42] to-[#D57835] active:scale-[0.97] shadow-lg shadow-[#F78E42]/20 hover:shadow-xl hover:shadow-[#F78E42]/30"
+                ? "bg-gradient-to-r from-q-orange to-[#D57835] active:scale-[0.97] shadow-lg shadow-q-orange/20 hover:shadow-xl hover:shadow-q-orange/30"
                 : "bg-[#404C92]/60 opacity-50"
             )}
           >

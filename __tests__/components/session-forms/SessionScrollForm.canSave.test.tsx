@@ -209,6 +209,24 @@ describe("SessionScrollForm canSave gate", () => {
       expect(screen.getByTestId("stub-conditions")).toBeInTheDocument();
       expect(screen.getByTestId("stub-wavetypes")).toBeInTheDocument();
     });
+
+    it("renders the migrated zine palette utilities", () => {
+      render(
+        <SessionScrollForm
+          initialMode="log"
+          onComplete={jest.fn()}
+          onCancel={jest.fn()}
+        />
+      );
+
+      const form = document.querySelector(".session-scroll-form");
+      expect(form).toHaveClass("bg-q-twilight");
+      expect(form?.className).not.toContain("#252D6B");
+
+      const saveButton = getSaveButton(document.body);
+      expect(saveButton).toHaveClass("from-q-orange");
+      expect(saveButton.className).not.toContain("#F78E42");
+    });
   });
 
 });
