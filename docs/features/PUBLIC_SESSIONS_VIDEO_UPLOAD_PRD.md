@@ -1,5 +1,10 @@
 # Quiver PRD: Public Sessions with Video Uploads
 
+> Status: historical product proposal. For the shipped session-video storage,
+> moderation, limits, and playback contract, use
+> [`docs/session-video-ugc-runbook.md`](../session-video-ugc-runbook.md). The
+> limits and public-read assumptions below are not the current implementation.
+
 ## Overview
 
 This update enhances the existing Sessions feature by allowing surfers to upload video clips when creating or editing a session.
@@ -117,4 +122,3 @@ Use existing Session form component; add:
 - Add comments + reactions on public sessions.
 - Add "Request Feedback" toggle → triggers feedback thread system.
 - Add verified coach tags and AI form analysis later.
-

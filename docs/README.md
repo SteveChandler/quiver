@@ -28,6 +28,8 @@ This is the first stop for AI coding sessions and human contributors. Prefer the
 
 - [`API_MIDDLEWARE.md`](API_MIDDLEWARE.md) and [`API_MIDDLEWARE_REFERENCE.md`](API_MIDDLEWARE_REFERENCE.md) - API wrapper patterns and reference.
 - [`SUPABASE_GUIDE.md`](SUPABASE_GUIDE.md) - database tables, access patterns, and Supabase usage.
+- [`setup/SUPABASE_SETUP.md`](setup/SUPABASE_SETUP.md) - local snapshot bootstrap and Supabase setup.
+- [`community-photos-runbook.md`](community-photos-runbook.md) and [`session-video-ugc-runbook.md`](session-video-ugc-runbook.md) - UGC media rollout, storage, moderation, and retention contracts.
 - [`TEST_ARCHITECTURE.md`](TEST_ARCHITECTURE.md), [`guides/TESTING_GUIDE.md`](guides/TESTING_GUIDE.md), and [`quick-start/RUNNING_TESTS.md`](quick-start/RUNNING_TESTS.md) - local test strategy and commands.
 - [`GIT_WORKFLOW.md`](GIT_WORKFLOW.md) - branch, main/prod, and release workflow.
 - [`STYLE_GUIDE.md`](STYLE_GUIDE.md), [`BRAND_GUIDE.md`](BRAND_GUIDE.md), and [`DESIGN_PRINCIPLES.md`](DESIGN_PRINCIPLES.md) - product design and brand standards.
