@@ -71,10 +71,10 @@ export function FieldGuideCommunity(): ReactElement {
           From the lineup
         </p>
         <h2 className="mt-2 font-[var(--font-zine-display)] text-3xl uppercase leading-tight text-[#11100D] sm:text-4xl">
-          Recent check-ins from the community.
+          What surfers told us.
         </h2>
         <p className="mt-3 font-mono text-sm leading-relaxed text-[#11100D]/75 sm:text-base">
-          Live check-ins from Quiver users — pulled directly from the app.
+          Notes from Quiver surfers, shared with us by email.
           Forecasting accuracy, sessions, conditions, photos.
         </p>
       </div>

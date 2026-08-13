@@ -9,7 +9,7 @@ import {
 const HERO_POSTER_PATH = "/images/hero/quiver-landing-hero-poster.jpg";
 const HERO_VIDEO_PATH = "/videos/quiver-landing-hero-720.mp4";
 const SCREENSHOT_ROOT = "/images/app-screenshots/";
-const FIRST_LOAD_MEDIA_REQUEST_BUDGET = 5;
+const LANDING_MEDIA_REQUEST_BUDGET = 5;
 const ALLOWED_FIRST_LOAD_MEDIA = new Set([
   HERO_POSTER_PATH,
   HERO_VIDEO_PATH,
@@ -72,17 +72,19 @@ for (const { name, viewport } of MEDIA_VIEWPORTS) {
       });
     });
 
-    test("keeps first-load media within the documented request budget @smoke", async ({
+    test("keeps landing media within the documented request budget @smoke", async ({
       page,
     }) => {
       const mediaRequests = captureLandingMediaRequests(page);
+      const media = page.getByTestId("field-guide-hero-video");
       const response = await page.goto("/", { waitUntil: "load" });
 
       expect(response).not.toBeNull();
       expect(response!.status()).toBe(200);
-      await expect(
-        page.getByTestId("field-guide-hero-video").locator("video"),
-      ).toBeVisible();
+      await expect(media.getByRole("button", { name: "Play demo" })).toBeVisible();
+      await expect(media.locator("video")).toHaveCount(0);
+      await media.getByRole("button", { name: "Play demo" }).click();
+      await expect(media.locator("video")).toBeVisible();
       await expect
         .poll(
           () =>
@@ -100,9 +102,7 @@ for (const { name, viewport } of MEDIA_VIEWPORTS) {
           ALLOWED_FIRST_LOAD_MEDIA.has(assetPath),
         ),
       ).toBe(true);
-      expect(mediaRequests.length).toBeLessThanOrEqual(
-        FIRST_LOAD_MEDIA_REQUEST_BUDGET,
-      );
+      expect(mediaRequests.length).toBeLessThanOrEqual(LANDING_MEDIA_REQUEST_BUDGET);
     });
   });
 }

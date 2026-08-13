@@ -189,6 +189,9 @@ describe("Navbar native app CTA", () => {
     expect(screen.getByTestId("ios-app-store-cta")).toHaveTextContent(
       "Get the app",
     );
+    expect(screen.getByTestId("ios-app-store-cta")).toHaveClass(
+      "bg-transparent",
+    );
     expect(screen.queryByLabelText(/search by beach/i)).not.toBeInTheDocument();
     expect(
       screen.queryByPlaceholderText(/search by beach/i),

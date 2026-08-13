@@ -31,7 +31,7 @@ describe("QuiverFieldGuideLanding", () => {
     render(<QuiverFieldGuideLanding platform="ios" />);
 
     expect(screen.getByTestId("field-guide-hero")).toBeInTheDocument();
-    expect(screen.getByTestId("field-guide-spotlight")).toBeInTheDocument();
+    expect(screen.queryByTestId("field-guide-spotlight")).not.toBeInTheDocument();
     expect(screen.getByTestId("field-guide-proof")).toBeInTheDocument();
     expect(screen.getByTestId("field-guide-coverage")).toBeInTheDocument();
     expect(screen.getByTestId("field-guide-inside-app")).toBeInTheDocument();
@@ -47,8 +47,12 @@ describe("QuiverFieldGuideLanding", () => {
     render(<QuiverFieldGuideLanding platform="ios" />);
 
     expect(
-      screen.getByRole("heading", { name: /know where to paddle out/i }),
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Know where to paddle out before dawn.",
+      }),
     ).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     const hero = screen.getByTestId("field-guide-hero");
     expect(
       within(hero).getByRole("link", { name: "Get the app" }),
@@ -59,25 +63,40 @@ describe("QuiverFieldGuideLanding", () => {
     expect(
       within(hero).getByRole("link", { name: "Watch demo" }),
     ).toHaveAttribute("href", "#demo");
+    expect(
+      within(hero).getByRole("link", { name: "Watch demo" }),
+    ).toHaveClass("underline");
+    expect(
+      within(hero).getByRole("link", { name: "Watch demo" }),
+    ).not.toHaveClass("border-2");
+    expect(
+      within(hero).getByTestId("field-guide-hero-primary-cta"),
+    ).toHaveClass("bg-[#F78E42]");
     expect(screen.getByTestId("funnel-cta")).toBeInTheDocument();
   });
 
-  it("renders the Swell View spotlight without a duplicate CTA", () => {
+  it("renders the ordered How Quiver works steps and a real product decision", () => {
     render(<QuiverFieldGuideLanding platform="ios" />);
 
-    const spotlight = screen.getByTestId("field-guide-spotlight");
     expect(
-      within(spotlight).getByRole("heading", {
-        name: /quiver's swell view is here/i,
+      screen.getByRole("heading", {
+        name: /turn a forecast into a surf plan/i,
       }),
     ).toBeInTheDocument();
+    const walkthrough = screen.getByTestId("field-guide-walkthrough");
+    const steps = within(walkthrough).getByTestId(
+      "field-guide-walkthrough-steps",
+    );
+    expect(steps.tagName).toBe("OL");
+    expect(within(steps).getAllByRole("listitem")).toHaveLength(4);
+    expect(within(steps).getByText("Save your home break.")).toBeInTheDocument();
+    expect(within(steps).getByText("Add the boards in your quiver.")).toBeInTheDocument();
+    expect(within(steps).getByText("Get one call for the window.")).toBeInTheDocument();
+    expect(within(steps).getByText("Log what happened in the water.")).toBeInTheDocument();
     expect(
-      within(spotlight).getByText("FREE · NEW IN THE APP"),
-    ).toBeInTheDocument();
-    // The spotlight no longer repeats the hero's "Get the app" CTA.
-    expect(
-      within(spotlight).queryByRole("link", { name: "Get the app" }),
-    ).not.toBeInTheDocument();
+      within(walkthrough).getByAltText(/5:00 PM best window/i),
+    ).toHaveAttribute("src", expect.stringContaining("surf-call-720.webp"));
+    expect(walkthrough).toHaveTextContent("Worth it");
   });
 
   it("renders community testimonials from real surfer feedback", () => {
@@ -86,9 +105,10 @@ describe("QuiverFieldGuideLanding", () => {
     const community = screen.getByTestId("field-guide-community");
     expect(
       within(community).getByRole("heading", {
-        name: /recent check-ins from the community/i,
+        name: /what surfers told us/i,
       }),
     ).toBeInTheDocument();
+    expect(community).toHaveTextContent(/shared with us by email/i);
     expect(community).toHaveTextContent(/swell direction, interval, and wind/i);
   });
 
@@ -150,7 +170,7 @@ describe("QuiverFieldGuideLanding", () => {
     expect(container.querySelector("[data-zine-sticker]")).not.toBeNull();
   });
 
-  it("starts the hero media slot on the poster and plays video only after request", () => {
+  it("keeps the hero media on the poster until request and exposes native controls", () => {
     const originalMatchMedia = window.matchMedia;
     window.matchMedia = jest.fn().mockReturnValue({
       matches: true,
@@ -182,7 +202,9 @@ describe("QuiverFieldGuideLanding", () => {
         "src",
         "/videos/quiver-landing-hero-720.mp4",
       );
+      expect(video).toHaveAttribute("controls");
       expect(video).not.toHaveAttribute("poster");
+      expect(within(media).getByText("App preview")).toBeInTheDocument();
       expect(media.querySelector("img")).toHaveAttribute(
         "src",
         expect.stringContaining("/images/hero/quiver-landing-hero-poster.jpg"),
