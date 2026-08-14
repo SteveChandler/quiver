@@ -206,9 +206,20 @@ Builds a Web Purchase Link / Funnel URL carrying the App User ID.
   non-HTTPS returns `null` and the CTA does not render. **Promoting today ships this
   feature 100% inert and it will look like it works.**
 - **Gate: populate the env var with the real Funnel URL, then verify the CTA renders on dev.**
-- **This is only half the loop.** The purchase is redeemed on device by native's
-  `rc-38aee70261` URL scheme, which ships in build 17. Web CTA without build 17 means a
-  user can buy on the web and not have it applied in the app. See "Native ships with this".
+- **Build 17 is NOT required for the purchase to reach the app.** Web sets
+  `app_user_id` to the Supabase auth user id
+  (`lib/subscription/revenuecat-web-checkout.ts:29`, from `user.id`), and native identifies
+  to RevenueCat with that *same* id — `Purchases.logIn(userId)` where
+  `userId = useAuthStore().user.id` (`src/providers/subscription-provider.tsx:191`). The
+  purchase therefore lands on the same RevenueCat customer, and **build 16 picks the
+  entitlement up on its next foreground refresh** (AppState listener; RC foreground
+  customer-info TTL ~5 min).
+- What build 17's `rc-38aee70261` scheme adds is *immediate* redemption — instant unlock
+  and the "Quiver Pro unlocked" toast on return to the app — not the entitlement itself.
+- **The real constraint is sign-in, not build number.** The CTA only builds a URL when
+  `user?.id` exists (`components/pricing/revenuecat-web-checkout-cta.tsx:16`); logged-out
+  visitors get a sign-in prompt instead. A purchase made while signed out has no
+  `app_user_id` to attach to and will not follow the user into the app.
 
 ### 12. Map — streamlined forecast loading and controls
 - **Gate: none beyond visual check.** `perf` only.
@@ -231,6 +242,12 @@ below are not already broken in production today.
 
 The `app.config.js` change alone (`scheme: ["quiver", "rc-38aee70261"]`, build 17) is a
 native config change and is not OTA-eligible under any policy.
+
+**RevenueCat is the exception — it is not coupled to build 17.** Entitlements travel by
+shared App User ID (the Supabase auth user id), not by the URL scheme, so a web purchase
+reaches **build 16** on its next foreground refresh. The scheme only makes redemption
+instant. Turning on `NEXT_PUBLIC_REVENUECAT_WEB_CHECKOUT_URL` therefore *does* affect
+users on the current build, and does so without any native release. See item 11.
 
 ### The coupling: native features whose backend exists only on web `main`
 
