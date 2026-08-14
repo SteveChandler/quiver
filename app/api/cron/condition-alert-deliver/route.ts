@@ -19,7 +19,7 @@
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { withCronObservability } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { sendEmail, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import {
   buildConditionsLine,
@@ -512,8 +512,35 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const summary = await withCronObservability(
-      "/api/cron/condition-alert-deliver",
+    const summary = await withCronOutcome(
+      {
+        job: "/api/cron/condition-alert-deliver",
+        unit: "notifications_sent",
+        expectedMin: 1,
+        getProduced: (result) => result.emailSent + result.pushSent,
+        legitimatelyZero: (result) => {
+          if (
+            result.errors === 0 &&
+            result.holdStateUnavailableDeferred === 0 &&
+            result.processed === 0 &&
+            result.queueMarked === 0
+          ) {
+            return { reason: "No alert queue items were due for delivery" };
+          }
+          if (
+            result.errors === 0 &&
+            result.queueMarked > 0 &&
+            result.queue_marked_by_reason.delivery_disabled === result.queueMarked
+          ) {
+            return { reason: "Condition-alert delivery is disabled by feature flag" };
+          }
+          return undefined;
+        },
+        failureReason: (result) =>
+          result.status === "degraded"
+            ? "Alert queue consumption was unresolved or unexplained"
+            : null,
+      },
       async () => {
         const result = {
           status: "ok" as "ok" | "degraded",
@@ -1957,14 +1984,6 @@ export async function GET(request: Request): Promise<NextResponse> {
 
         console.log(`${CONTEXT_TAG} Summary:`, result);
         return result;
-      },
-      {
-        statusForResult: (result) =>
-          result.status === "degraded" ? "error" : "ok",
-        errorMessageForResult: (result) =>
-          result.status === "degraded"
-            ? "Alert queue consumption was unresolved or unexplained"
-            : null,
       },
     );
     return NextResponse.json(summary, {

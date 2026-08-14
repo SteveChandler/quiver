@@ -3,6 +3,7 @@
  */
 
 import { NextRequest } from "next/server";
+import { readFileSync } from "fs";
 import {
   setupCronTestEnvironment,
   createMockCronRequest,
@@ -38,6 +39,10 @@ const mockUpdateAllBeachForecasts = updateAllBeachForecasts as jest.MockedFuncti
 const mockForecastLogger = forecastLogger as jest.Mocked<typeof forecastLogger>;
 
 describe("Cron: enhanced-forecast-sync", () => {
+  const sharedSource = readFileSync(
+    "app/api/cron/enhanced-forecast-sync/_shared.ts",
+    "utf8",
+  );
   let cronEnv: CronTestEnvironment;
 
   beforeEach(() => {
@@ -48,6 +53,11 @@ describe("Cron: enhanced-forecast-sync", () => {
 
   afterEach(() => {
     cronEnv.cleanup();
+  });
+
+  it("asserts forecasts written as the ingestion outcome", () => {
+    expect(sharedSource).toContain("withCronOutcome");
+    expect(sharedSource).toContain('unit: "forecasts_written"');
   });
 
   describe("Authentication", () => {

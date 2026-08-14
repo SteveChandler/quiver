@@ -5,7 +5,7 @@ import {
   handleApiError,
   validateCronRequest,
 } from "@/lib/middleware/api-wrappers";
-import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseServiceClient } from "@/types/supabase";
 import {
@@ -40,147 +40,163 @@ interface SystemCardHistoryRow {
 }
 
 async function _GET(request: Request): Promise<Response> {
+  if (!validateCronRequest(request)) {
+    return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
+  }
+
   try {
-    if (!validateCronRequest(request)) {
-      return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
-    }
-    if (!areSystemCardsEnabled()) {
-      return createSuccessResponse({
-        summary: { paused: true, reason: "QUIVER_SYSTEM_CARDS_ENABLED=false", successful: 0 },
-        results: [],
-      });
-    }
-
-    const startedAt = Date.now();
-    const supabase = await createSupabaseServiceRoleClient();
-    const now = new Date();
-    const systemProfileId = await resolveSystemIdentity(supabase);
-
-    const history = await fetchSystemCardHistory(supabase, now);
-    const cardsToday = history.filter((row) => isSameUtcDay(row.created_at, now)).length;
-    if (cardsToday >= MAX_SYSTEM_CARDS_PER_DAY || cardsToday >= TARGET_SYSTEM_CARDS_PER_DAY) {
-      return createSuccessResponse({
-        summary: {
-          paused: false,
-          cardsToday,
-          target: TARGET_SYSTEM_CARDS_PER_DAY,
-          hardCeiling: MAX_SYSTEM_CARDS_PER_DAY,
-          successful: 0,
-          durationMs: Date.now() - startedAt,
-        },
-        results: [],
-      });
-    }
-
-    const candidates = await fetchSystemCardCandidates(supabase);
-    const trafficWeights = await fetchBeachTrafficWeights(
-      supabase,
-      candidates.map((candidate) => candidate.id),
-    );
-    const weightByBeach = new Map(
-      (trafficWeights ?? []).map((weight) => [weight.beachId.toLowerCase(), weight]),
-    );
-    const weightedCandidates = candidates.map((candidate) => {
-      const weight = weightByBeach.get(candidate.id.toLowerCase());
-      return {
-        ...candidate,
-        marketKey: weight?.marketKey || candidate.marketKey,
-        allocationTier: weight?.allocationTier ?? (trafficWeights ? "exploration" : "proven"),
-        trafficWeight: weight?.weight ?? 1,
-      } satisfies SystemCardCandidate;
-    });
-
-    const contentClass = planSystemCardClasses(1, history.length)[0];
-    const [planned] = await selectSystemCardCandidates({
-      candidates: weightedCandidates,
-      contentClasses: [contentClass],
-      history: history.flatMap(toSelectionRecord),
-      asOf: now,
-      sequenceOffset: history.length,
-    });
-    if (!planned) {
-      return createSuccessResponse({
-        summary: { cardsToday, successful: 0, skipped: "no_safe_candidate", durationMs: Date.now() - startedAt },
-        results: [],
-      });
-    }
-
-    const forecast = await fetchLatestSystemForecast(supabase, planned.candidate.id);
-    if (!forecast) {
-      return createSuccessResponse({
-        summary: { cardsToday, successful: 0, skipped: "no_forecast_data", durationMs: Date.now() - startedAt },
-        results: [],
-      });
-    }
-
-    const copy = buildSystemCardCopy({
-      candidate: planned.candidate,
-      forecast,
-      contentClass: planned.contentClass,
-    });
-    const dedupeCandidate: SystemCardDedupeRecord = {
-      beachId: planned.candidate.id,
-      contentClass: copy.contentClass,
-      title: copy.title,
-      description: copy.description,
-      semanticClaim: copy.semanticClaim,
-      createdAt: now.toISOString(),
-    };
-    const dedupeHistory = history.flatMap(toDedupeRecord);
-    const sentenceHash = hashSentence(copy.description);
-    if (isSystemCardBlocked(dedupeCandidate, dedupeHistory, now)) {
-      return createSuccessResponse({
-        summary: { cardsToday, successful: 0, skipped: "duplicate", durationMs: Date.now() - startedAt },
-        results: [],
-      });
-    }
-
-    const post = await insertSystemFeedPost(supabase, {
-      userId: systemProfileId,
-      beachId: planned.candidate.id,
-      latitude: planned.candidate.lat,
-      longitude: planned.candidate.lon,
-      title: copy.title,
-      description: copy.description,
-      dedupeHash: sentenceHash,
-      surfConditions: copy.surfConditions as unknown as import("@/types/database").Json,
-      expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: now.toISOString(),
-    });
-    if (post.status !== "inserted") {
-      return createSuccessResponse({
-        summary: {
-          cardsToday,
-          successful: 0,
-          skipped: post.status,
-          durationMs: Date.now() - startedAt,
-        },
-        results: [],
-      });
-    }
-
-    return createSuccessResponse({
-      summary: {
-        cardsToday: cardsToday + 1,
-        target: TARGET_SYSTEM_CARDS_PER_DAY,
-        hardCeiling: MAX_SYSTEM_CARDS_PER_DAY,
-        successful: 1,
-        durationMs: Date.now() - startedAt,
+    const payload = await withCronOutcome(
+      {
+        job: "/api/cron/system-cards",
+        unit: "cards_published",
+        expectedMin: 1,
+        getProduced: (result) => result.summary.successful,
+        legitimatelyZero: (result) =>
+          ("paused" in result.summary && result.summary.paused === true)
+            ? { reason: "QUIVER_SYSTEM_CARDS_ENABLED=false" }
+            : undefined,
       },
-      results: [{
-        postId: post.postId,
-        voice: SYSTEM_VOICE_LABEL,
-        beachId: planned.candidate.id,
-        contentClass: copy.contentClass,
-        prompt: copy.prompt,
-      }],
-    });
+      async () => {
+        if (!areSystemCardsEnabled()) {
+          return {
+            summary: { paused: true, reason: "QUIVER_SYSTEM_CARDS_ENABLED=false", successful: 0 },
+            results: [],
+          };
+        }
+
+        const startedAt = Date.now();
+        const supabase = await createSupabaseServiceRoleClient();
+        const now = new Date();
+        const systemProfileId = await resolveSystemIdentity(supabase);
+
+        const history = await fetchSystemCardHistory(supabase, now);
+        const cardsToday = history.filter((row) => isSameUtcDay(row.created_at, now)).length;
+        if (cardsToday >= MAX_SYSTEM_CARDS_PER_DAY || cardsToday >= TARGET_SYSTEM_CARDS_PER_DAY) {
+          return {
+            summary: {
+              paused: false,
+              cardsToday,
+              target: TARGET_SYSTEM_CARDS_PER_DAY,
+              hardCeiling: MAX_SYSTEM_CARDS_PER_DAY,
+              successful: 0,
+              durationMs: Date.now() - startedAt,
+            },
+            results: [],
+          };
+        }
+
+        const candidates = await fetchSystemCardCandidates(supabase);
+        const trafficWeights = await fetchBeachTrafficWeights(
+          supabase,
+          candidates.map((candidate) => candidate.id),
+        );
+        const weightByBeach = new Map(
+          (trafficWeights ?? []).map((weight) => [weight.beachId.toLowerCase(), weight]),
+        );
+        const weightedCandidates = candidates.map((candidate) => {
+          const weight = weightByBeach.get(candidate.id.toLowerCase());
+          return {
+            ...candidate,
+            marketKey: weight?.marketKey || candidate.marketKey,
+            allocationTier: weight?.allocationTier ?? (trafficWeights ? "exploration" : "proven"),
+            trafficWeight: weight?.weight ?? 1,
+          } satisfies SystemCardCandidate;
+        });
+
+        const contentClass = planSystemCardClasses(1, history.length)[0];
+        const [planned] = await selectSystemCardCandidates({
+          candidates: weightedCandidates,
+          contentClasses: [contentClass],
+          history: history.flatMap(toSelectionRecord),
+          asOf: now,
+          sequenceOffset: history.length,
+        });
+        if (!planned) {
+          return {
+            summary: { cardsToday, successful: 0, skipped: "no_safe_candidate", durationMs: Date.now() - startedAt },
+            results: [],
+          };
+        }
+
+        const forecast = await fetchLatestSystemForecast(supabase, planned.candidate.id);
+        if (!forecast) {
+          return {
+            summary: { cardsToday, successful: 0, skipped: "no_forecast_data", durationMs: Date.now() - startedAt },
+            results: [],
+          };
+        }
+
+        const copy = buildSystemCardCopy({
+          candidate: planned.candidate,
+          forecast,
+          contentClass: planned.contentClass,
+        });
+        const dedupeCandidate: SystemCardDedupeRecord = {
+          beachId: planned.candidate.id,
+          contentClass: copy.contentClass,
+          title: copy.title,
+          description: copy.description,
+          semanticClaim: copy.semanticClaim,
+          createdAt: now.toISOString(),
+        };
+        const dedupeHistory = history.flatMap(toDedupeRecord);
+        const sentenceHash = hashSentence(copy.description);
+        if (isSystemCardBlocked(dedupeCandidate, dedupeHistory, now)) {
+          return {
+            summary: { cardsToday, successful: 0, skipped: "duplicate", durationMs: Date.now() - startedAt },
+            results: [],
+          };
+        }
+
+        const post = await insertSystemFeedPost(supabase, {
+          userId: systemProfileId,
+          beachId: planned.candidate.id,
+          latitude: planned.candidate.lat,
+          longitude: planned.candidate.lon,
+          title: copy.title,
+          description: copy.description,
+          dedupeHash: sentenceHash,
+          surfConditions: copy.surfConditions as unknown as import("@/types/database").Json,
+          expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+          createdAt: now.toISOString(),
+        });
+        if (post.status !== "inserted") {
+          return {
+            summary: {
+              cardsToday,
+              successful: 0,
+              skipped: post.status,
+              durationMs: Date.now() - startedAt,
+            },
+            results: [],
+          };
+        }
+
+        return {
+          summary: {
+            cardsToday: cardsToday + 1,
+            target: TARGET_SYSTEM_CARDS_PER_DAY,
+            hardCeiling: MAX_SYSTEM_CARDS_PER_DAY,
+            successful: 1,
+            durationMs: Date.now() - startedAt,
+          },
+          results: [{
+            postId: post.postId,
+            voice: SYSTEM_VOICE_LABEL,
+            beachId: planned.candidate.id,
+            contentClass: copy.contentClass,
+            prompt: copy.prompt,
+          }],
+        };
+      },
+    );
+    return createSuccessResponse(payload);
   } catch (error) {
     return handleApiError(error, "Failed to generate Quiver Forecast system card");
   }
 }
 
-export const GET = withObservedCron("/api/cron/system-cards", _GET);
+export const GET = _GET;
 
 async function fetchSystemCardHistory(
   supabase: SupabaseServiceClient,

@@ -15,7 +15,7 @@ import type {
   SampleSyncResult,
   EvaluationResult,
 } from "@/lib/services/water-quality";
-import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -93,7 +93,15 @@ async function _GET(request: Request): Promise<Response> {
     const supabase = createSupabaseServiceRoleClient();
 
     if (phase === "stations") {
-      const syncResult = await syncWQStations(supabase);
+      const syncResult = await withCronOutcome(
+        {
+          job: "/api/cron/water-quality-sync?phase=stations",
+          unit: "stations_synced",
+          expectedMin: 1,
+          getProduced: (result) => result.stationsUpserted,
+        },
+        () => syncWQStations(supabase),
+      );
       const response: StationPhaseResult = {
         phase: "stations",
         result: syncResult,
@@ -106,7 +114,15 @@ async function _GET(request: Request): Promise<Response> {
     }
 
     if (phase === "samples") {
-      const syncResult = await syncWQSamples(supabase);
+      const syncResult = await withCronOutcome(
+        {
+          job: "/api/cron/water-quality-sync?phase=samples",
+          unit: "samples_stored",
+          expectedMin: 1,
+          getProduced: (result) => result.samplesUpserted,
+        },
+        () => syncWQSamples(supabase),
+      );
       const response: SamplePhaseResult = {
         phase: "samples",
         result: syncResult,
@@ -119,7 +135,15 @@ async function _GET(request: Request): Promise<Response> {
     }
 
     // phase === "evaluate"
-    const evalResult = await evaluateWaterQuality(supabase);
+    const evalResult = await withCronOutcome(
+      {
+        job: "/api/cron/water-quality-sync?phase=evaluate",
+        unit: "beaches_evaluated",
+        expectedMin: 1,
+        getProduced: (result) => result.beachesEvaluated,
+      },
+      () => evaluateWaterQuality(supabase),
+    );
     const response: EvaluatePhaseResult = {
       phase: "evaluate",
       result: evalResult,
@@ -135,4 +159,4 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/water-quality-sync", _GET);
+export const GET = _GET;

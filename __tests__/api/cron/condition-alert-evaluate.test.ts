@@ -33,9 +33,10 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   validateCronRequest: jest.fn(() => true),
 }));
 
-// withCronObservability: pass through to the handler without touching cron_runs table.
-jest.mock("@/lib/cron/observability", () => ({
-  withCronObservability: jest.fn(async (_route: string, handler: () => Promise<unknown>) =>
+// Keep route behavior tests focused on alert evaluation; outcome persistence
+// has dedicated tests in __tests__/lib/cron/outcome.test.ts.
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) =>
     handler()
   ),
 }));
@@ -421,6 +422,8 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
   it("uses the API wrapper barrel for cron request validation", () => {
     expect(routeSource).not.toContain("@/lib/api-utils");
     expect(routeSource).toContain("@/lib/middleware/api-wrappers");
+    expect(routeSource).toContain("withCronOutcome");
+    expect(routeSource).toContain('unit: "alerts_queued"');
   });
 
   it("1. happy path: 1 rule + matching forecast window => upserts 1 alert_queue row", async () => {

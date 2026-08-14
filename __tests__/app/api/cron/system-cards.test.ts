@@ -1,6 +1,7 @@
 /** @jest-environment node */
 
 import { GET } from "@/app/api/cron/system-cards/route";
+import { readFileSync } from "fs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { fetchBeachTrafficWeights } from "@/lib/npc/traffic-weights";
 import { fetchLatestSystemForecast } from "@/lib/npc/system-cards";
@@ -23,8 +24,8 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   validateCronRequest: jest.fn(() => true),
 }));
 
-jest.mock("@/lib/cron/observability", () => ({
-  withObservedCron: jest.fn((_path: string, handler) => handler),
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn((_options: unknown, handler) => handler()),
 }));
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -45,6 +46,7 @@ jest.mock("@/lib/npc/system-card-selection", () => ({
 }));
 
 describe("system-card cron route", () => {
+  const routeSource = readFileSync("app/api/cron/system-cards/route.ts", "utf8");
   let intelPostInsert: jest.Mock;
   let systemFeedRpc: jest.Mock;
   let historyRows: Array<Record<string, unknown>>;
@@ -114,6 +116,22 @@ describe("system-card cron route", () => {
     } else {
       process.env.QUIVER_SYSTEM_CARDS_ENABLED = originalSystemCardsFlag;
     }
+  });
+
+  it("asserts published cards and treats the disabled flag as a legitimate zero", async () => {
+    expect(routeSource).toContain("withCronOutcome");
+    expect(routeSource).toContain('unit: "cards_published"');
+
+    process.env.QUIVER_SYSTEM_CARDS_ENABLED = "false";
+    const response = await GET(new Request("http://localhost/api/cron/system-cards"));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.data.summary).toMatchObject({
+      paused: true,
+      successful: 0,
+      reason: "QUIVER_SYSTEM_CARDS_ENABLED=false",
+    });
   });
 
   it("posts with uniform fallback when traffic weights are missing", async () => {
