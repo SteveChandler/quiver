@@ -53,6 +53,12 @@ jest.mock("@/lib/utils/forecast-server-utils", () => ({
   updateCdipBeachForecasts: jest.fn(),
 }));
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) =>
+    handler()
+  ),
+}));
+
 describe("CDIP Enhanced Forecast Sync Cron Job API", () => {
   const sharedSource = readFileSync(
     "app/api/cron/enhanced-forecast-sync-cdip/_shared.ts",
@@ -101,6 +107,8 @@ describe("CDIP Enhanced Forecast Sync Cron Job API", () => {
   it("uses the API wrapper barrel for response helpers and cron request validation", () => {
     expect(sharedSource).not.toContain("@/lib/api-utils");
     expect(sharedSource).toContain("@/lib/middleware/api-wrappers");
+    expect(sharedSource).toContain("withCronOutcome");
+    expect(sharedSource).toContain('unit: "forecasts_written"');
   });
 
   it("should successfully run via POST when environment and cron auth are valid", async () => {
@@ -154,5 +162,3 @@ describe("CDIP Enhanced Forecast Sync Cron Job API", () => {
     expect(completeCronCheckIn).not.toHaveBeenCalled();
   });
 });
-
-

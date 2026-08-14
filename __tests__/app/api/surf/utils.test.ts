@@ -23,6 +23,14 @@ jest.mock("@/actions/forecast-actions", () => ({
   getLatestBeachForecast: jest.fn(),
 }));
 
+const mockRankBeaches = jest.fn(async <T extends { id: string }>(beaches: T[]) =>
+  beaches,
+);
+
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
+}));
+
 // Make this file a module to avoid global type conflicts
 export {};
 
@@ -111,6 +119,7 @@ describe("app/api/surf/utils", () => {
     const res = await fetchForecast(32.75, -117.25);
 
     expect(res).toEqual(forecastRow);
+    expect(mockRankBeaches).toHaveBeenCalled();
   });
 
   test("getSurfForecast: beach name path uses getBeaches + getBeachForecasts", async () => {
@@ -159,7 +168,6 @@ describe("app/api/surf/utils", () => {
     );
   });
 });
-
 
 
 

@@ -18,6 +18,7 @@ export interface MajorEventHoldBoundaryDecision {
 interface ParsedDecision {
   candidateId: string;
   state: "available" | "blocked" | "unavailable";
+  reasonCode?: "major_event_hold" | "water_quality_hold";
   holdEpoch: string;
   expiresAt?: string;
   expiresAtMs?: number;
@@ -183,7 +184,7 @@ function parseDecision(
     evaluation.outcome !== "explicit_none" ||
     recommendationAvailability.state !== "none" ||
     evaluation.reasonCode !== recommendationAvailability.reasonCode ||
-    !["major_event_hold", "hold_state_unavailable"].includes(
+    !["major_event_hold", "water_quality_hold", "hold_state_unavailable"].includes(
       evaluation.reasonCode ?? "",
     ) ||
     evaluation.expiresAt !== recommendationAvailability.expiresAt
@@ -191,11 +192,17 @@ function parseDecision(
     return null;
   }
 
-  if (evaluation.reasonCode === "major_event_hold") {
+  if (
+    evaluation.reasonCode === "major_event_hold" ||
+    evaluation.reasonCode === "water_quality_hold"
+  ) {
     if (
       evaluation.holdIds.length === 0 ||
-      evaluationExpiryMs === undefined ||
-      availabilityExpiryMs === undefined
+      (evaluation.reasonCode === "major_event_hold" &&
+        (evaluationExpiryMs === undefined ||
+          availabilityExpiryMs === undefined)) ||
+      (evaluation.reasonCode === "water_quality_hold" &&
+        (evaluationExpiryMs !== undefined || availabilityExpiryMs !== undefined))
     ) {
       return null;
     }
@@ -210,7 +217,13 @@ function parseDecision(
   return {
     candidateId,
     state:
-      evaluation.reasonCode === "major_event_hold" ? "blocked" : "unavailable",
+      evaluation.reasonCode === "hold_state_unavailable"
+        ? "unavailable"
+        : "blocked",
+    ...(evaluation.reasonCode === "major_event_hold" ||
+    evaluation.reasonCode === "water_quality_hold"
+      ? { reasonCode: evaluation.reasonCode }
+      : {}),
     holdEpoch: evaluation.holdEpoch,
     expiresAt: evaluation.expiresAt,
     expiresAtMs: evaluationExpiryMs,
@@ -333,7 +346,11 @@ export function resolveMajorEventHoldBoundary(
   return {
     recommendationAvailability: {
       state: "none",
-      reasonCode: "major_event_hold",
+      reasonCode: blocked.some(
+        ({ reasonCode }) => reasonCode === "major_event_hold",
+      )
+        ? "major_event_hold"
+        : "water_quality_hold",
       ...(latestExpiry?.expiresAt ? { expiresAt: latestExpiry.expiresAt } : {}),
       holdEpoch,
       ...(resolutionAsOf ? { resolutionAsOf } : {}),

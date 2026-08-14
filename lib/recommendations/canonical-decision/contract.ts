@@ -22,6 +22,7 @@ const reasonCodeSchema = z.enum([
   "no_candidates",
   "unknown_skill",
   "major_event_hold",
+  "water_quality_hold",
   "hold_state_unavailable",
   "water_quality_closure",
   "beach_skill_exceeds_user",

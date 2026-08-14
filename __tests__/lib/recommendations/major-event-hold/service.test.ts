@@ -1,4 +1,8 @@
-import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
+import {
+  evaluateMajorEventHoldCandidates,
+  evaluateRecommendationHoldCandidates,
+} from "@/lib/recommendations/major-event-hold/service";
+import type { WaterQualityHoldResolution } from "@/lib/recommendations/major-event-hold/water-quality";
 import type {
   MajorEventHoldCandidate,
   MajorEventHoldResolution,
@@ -66,6 +70,68 @@ describe("major-event hold service", () => {
     expect(decisions[0].recommendationAvailability).toMatchObject({
       state: "available",
       resolutionAsOf: resolutionAsOf.toISOString(),
+    });
+  });
+
+  it("fails closed on recommendation surfaces while leaving the base evaluator opt-in", async () => {
+    const waterQualityResolution: WaterQualityHoldResolution = {
+      state: "resolved",
+      heldBeachIds: [BEACH_A],
+      epoch: "water-quality-epoch",
+    };
+    const resolveWaterQualityHolds = jest
+      .fn()
+      .mockResolvedValue(waterQualityResolution);
+
+    const recommendationDecisions = await evaluateRecommendationHoldCandidates(
+      {
+        candidates,
+        profileExperience: "intermediate",
+        mode: "off",
+      },
+      { resolveWaterQualityHolds, audit: discardAudit },
+    );
+    const directDecisions = await evaluateMajorEventHoldCandidates(
+      {
+        candidates,
+        profileExperience: "intermediate",
+        mode: "off",
+      },
+      { resolveWaterQualityHolds, audit: discardAudit },
+    );
+
+    expect(recommendationDecisions[0].recommendationAvailability).toMatchObject({
+      state: "none",
+      reasonCode: "water_quality_hold",
+    });
+    expect(recommendationDecisions[1].recommendationAvailability.state).toBe(
+      "available",
+    );
+    expect(directDecisions.every(
+      (decision) => decision.recommendationAvailability.state === "available",
+    )).toBe(true);
+    expect(resolveWaterQualityHolds).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a known chronic hold effective while an outside live signal is unavailable", async () => {
+    const resolveWaterQualityHolds = jest.fn().mockResolvedValue({
+      state: "unresolved",
+      heldBeachIds: [BEACH_A],
+      epoch: "water-quality-unresolved-with-owner-hold",
+    } satisfies WaterQualityHoldResolution);
+
+    const decisions = await evaluateRecommendationHoldCandidates(
+      { candidates, profileExperience: "intermediate", mode: "off" },
+      { resolveWaterQualityHolds, audit: discardAudit },
+    );
+
+    expect(decisions[0].recommendationAvailability).toMatchObject({
+      state: "none",
+      reasonCode: "water_quality_hold",
+    });
+    expect(decisions[1].recommendationAvailability).toMatchObject({
+      state: "none",
+      reasonCode: "hold_state_unavailable",
     });
   });
 

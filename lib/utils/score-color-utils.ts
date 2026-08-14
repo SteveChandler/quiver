@@ -16,11 +16,15 @@ export interface ScoreColorConfig {
   bg: string;
   /** Text color class for score labels (e.g., "text-teal-700 dark:text-teal-300") */
   text: string;
+  /** Opaque ink badge treatment for score numbers on paper surfaces */
+  paperBadge: string;
   /** Border color class (e.g., "border-teal-500/30") */
   border: string;
   /** Quality label (e.g., "EPIC", "GOOD", "FAIR", "RIDEABLE", "MEH") */
   label: string;
 }
+
+const PAPER_SCORE_BADGE_CLASSES = "bg-[#11100D] text-[#F4EBD8]";
 
 /**
  * Score thresholds for quality categories
@@ -58,6 +62,7 @@ export function getScoreColorClasses(score: number): ScoreColorConfig {
     return {
       bg: "bg-teal-500",
       text: "text-teal-700 dark:text-teal-300",
+      paperBadge: PAPER_SCORE_BADGE_CLASSES,
       border: "border-teal-500/30",
       label: "EPIC",
     };
@@ -66,6 +71,7 @@ export function getScoreColorClasses(score: number): ScoreColorConfig {
     return {
       bg: "bg-ocean-blue-decorative",
       text: "text-ocean-blue dark:text-ocean-blue-decorative",
+      paperBadge: PAPER_SCORE_BADGE_CLASSES,
       border: "border-ocean-blue-decorative/40",
       label: "GOOD",
     };
@@ -74,6 +80,7 @@ export function getScoreColorClasses(score: number): ScoreColorConfig {
     return {
       bg: "bg-accent-orange",
       text: "text-amber-800 dark:text-accent-orange",
+      paperBadge: PAPER_SCORE_BADGE_CLASSES,
       border: "border-accent-orange/40",
       label: "FAIR",
     };
@@ -82,6 +89,7 @@ export function getScoreColorClasses(score: number): ScoreColorConfig {
     return {
       bg: "bg-slate-500",
       text: "text-slate-600 dark:text-slate-300",
+      paperBadge: PAPER_SCORE_BADGE_CLASSES,
       border: "border-slate-500/30",
       label: "RIDEABLE",
     };
@@ -89,6 +97,7 @@ export function getScoreColorClasses(score: number): ScoreColorConfig {
   return {
     bg: "bg-slate-400",
     text: "text-slate-500 dark:text-slate-400",
+    paperBadge: PAPER_SCORE_BADGE_CLASSES,
     border: "border-slate-400/30",
     label: "MEH",
   };

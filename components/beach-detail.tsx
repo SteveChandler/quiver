@@ -996,16 +996,6 @@ function BeachDetailContent({
             onSetupAlerts={handleOpenAlerts}
           />
         ) : null}
-        <div className="mx-auto mb-6 max-w-5xl md:hidden">
-          <BeachAlertCta
-            beachId={beach.id}
-            beachName={beach.name}
-            refreshKey={alertRulesRefreshKey}
-            onOpenAlerts={handleOpenAlerts}
-            className="bg-[#F78E42] text-white hover:bg-[#F78E42]/90"
-            freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
-          />
-        </div>
         <SessionIntelligencePilot
           beach={beach}
           canonicalPath={beachCanonicalPath}

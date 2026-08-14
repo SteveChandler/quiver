@@ -40,8 +40,8 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   validateCronRequest: jest.fn(() => true),
 }));
 
-jest.mock("@/lib/cron/observability", () => ({
-  withObservedCron: jest.fn((_route: string, handler) => handler),
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn((_options: unknown, handler) => handler()),
 }));
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -74,6 +74,7 @@ describe("water quality sync cron route", () => {
     samplesParsed: 20,
     samplesMatched: 18,
     samplesUpserted: 18,
+    futureSamplesRejected: 0,
     errors: [],
     duration_ms: 234,
   };
@@ -109,6 +110,10 @@ describe("water quality sync cron route", () => {
   it("uses the API wrapper barrel for response helpers and cron request validation", () => {
     expect(routeSource).not.toContain("@/lib/api-utils");
     expect(routeSource).toContain("@/lib/middleware/api-wrappers");
+    expect(routeSource).toContain("withCronOutcome");
+    expect(routeSource).toContain('unit: "stations_synced"');
+    expect(routeSource).toContain('unit: "samples_stored"');
+    expect(routeSource).toContain('unit: "beaches_evaluated"');
   });
 
   it("rejects unauthorized cron requests before creating a Supabase client", async () => {

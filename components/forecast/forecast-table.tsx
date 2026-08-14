@@ -186,9 +186,9 @@ function ForecastDayTable({
   };
 
   const getConsistencyRating = (confidence: number) => {
-    if (confidence >= 75) return "Excellent";
-    if (confidence >= 50) return "Fair";
-    return "Poor";
+    if (confidence >= 75) return "High confidence";
+    if (confidence >= 50) return "Moderate confidence";
+    return "Low confidence";
   };
 
   const getWeatherIcon = (condition: string | null | undefined) => {

@@ -32,6 +32,15 @@ jest.mock("@/lib/supabase/api-server-client", () => ({
   }),
 }));
 
+jest.mock("@/lib/recommendations/major-event-hold/water-quality", () => ({
+  ...jest.requireActual("@/lib/recommendations/major-event-hold/water-quality"),
+  resolveWaterQualityHolds: jest.fn(async () => ({
+    state: "resolved",
+    heldBeachIds: [],
+    epoch: "test-water-quality",
+  })),
+}));
+
 describe("GET /api/coach-picks radius forwarding", () => {
   it("passes radiusKm=30 and suppresses anonymous positive picks", async () => {
     const { GET } = await import("@/app/api/coach-picks/route");

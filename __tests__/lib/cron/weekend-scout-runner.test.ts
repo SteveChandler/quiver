@@ -13,6 +13,12 @@ import {
   type WeekendScoutCronProfile,
 } from '@/lib/cron/weekend-scout-runner';
 
+const mockSelectBeach = jest.fn(async <T extends { id: string }>(beach: T | null) => beach);
+
+jest.mock('@/lib/recommendations/selection', () => ({
+  selectBeach: (beach: { id: string } | null) => mockSelectBeach(beach),
+}));
+
 function profile(overrides: Partial<WeekendScoutCronProfile> = {}): WeekendScoutCronProfile {
   return {
     id: 'user-1',
@@ -138,10 +144,22 @@ describe('runWeekendScoutCron', () => {
         weekend_start: fixture.weekendStart,
         weekend_end: fixture.weekendEnd,
         qualifying_count: 3,
+        beach_id: fixture.results[0].beachId,
         lead_beach_id: fixture.results[0].beachId,
         lead_beach_name: "Black's",
         lead_window_local: 'Saturday morning',
+        forecast_at: fixture.results[0].bestWindow.start,
+        policy_context: {
+          kind: 'positive_session_recommendation',
+          beach_id: fixture.results[0].beachId,
+          starts_at: fixture.results[0].bestWindow.start,
+          ends_at: fixture.results[0].bestWindow.end,
+        },
       },
+    });
+    expect(mockSelectBeach).toHaveBeenCalledWith({
+      id: fixture.results[0].beachId,
+      name: fixture.results[0].beachName,
     });
   });
 

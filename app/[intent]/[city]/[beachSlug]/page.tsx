@@ -11,6 +11,7 @@ import { iphoneBannerOwnsInstallAsk } from "@/lib/app-store/beach-subpage-instal
 import { getFirstTouchPlatform } from "@/lib/analytics/web-context";
 import { headers } from "next/headers";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
 import type { Metadata } from "next";
@@ -278,6 +279,21 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           isTomorrow={surfCallIsTomorrow}
         />
 
+        {forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
+          <div className="mx-auto mt-4 max-w-5xl px-4 sm:px-6 lg:px-8">
+            <ContentPageAppHandoffCta
+              source={`content-beach-detail-${beachSlug}`}
+              surface="beach_detail"
+              placement="above_fold_after_public_answer"
+              target={`beach:${beachSlug}`}
+              eyebrow={`Next call · ${beach.name}`}
+              title={`Watch the next good window at ${beach.name}.`}
+              description="Today's call is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
+              ctaLabel="Watch the next window in the app"
+            />
+          </div>
+        ) : null}
+
         {/* VideoObject + BroadcastEvent for live cam — earns LIVE badge in SERPs */}
         {cameraUrl && (
           <LiveCamSchema
@@ -298,18 +314,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           waterQuality={waterQualityResult}
           beachPhoto={beachPhoto}
           freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
-          beforeTabsContent={
-            <div className="hidden md:block">
-              <InlineSignupCta
-                title={`Save ${beach.name} as your home break`}
-                description={`Get personalized alerts when ${beach.name} is firing — based on your level.`}
-                primaryButtonText={`Save ${beach.name}`}
-                source={`beach-detail-${beachSlug}-desktop-inline`}
-                ctaCopyVariant="beach_home_break_v1"
-                variant="zine"
-              />
-            </div>
-          }
           afterTabsContent={
             <div className="pt-2">
               {!bannerOwnsInstallAsk && (
@@ -321,6 +325,16 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                   beachName={beach.name}
                 />
               )}
+              <div className="mt-8 hidden md:block">
+                <InlineSignupCta
+                  title={`Save ${beach.name} as your home break`}
+                  description={`Get personalized alerts when ${beach.name} is firing — based on your level.`}
+                  primaryButtonText={`Save ${beach.name}`}
+                  source={`beach-detail-${beachSlug}-desktop-inline`}
+                  ctaCopyVariant="beach_home_break_v1"
+                  variant="zine"
+                />
+              </div>
               <Suspense fallback={null}>
                 <DeferredZineNearbySpots beach={beach} />
               </Suspense>

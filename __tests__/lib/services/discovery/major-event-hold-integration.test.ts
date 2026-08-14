@@ -120,6 +120,25 @@ function blocked(candidateId: string): MajorEventHoldCandidateDecision {
   };
 }
 
+function waterQualityBlocked(
+  candidateId: string,
+): MajorEventHoldCandidateDecision {
+  return {
+    candidateId,
+    evaluation: {
+      outcome: "explicit_none",
+      reasonCode: "water_quality_hold",
+      holdIds: ["water-quality:held"],
+      holdEpoch: "epoch-1",
+    },
+    recommendationAvailability: {
+      state: "none",
+      reasonCode: "water_quality_hold",
+      holdEpoch: "epoch-1",
+    },
+  };
+}
+
 function response(
   recommendations: SurfDiscoveryRecommendation[],
 ): SurfDiscoveryResponse {
@@ -208,6 +227,31 @@ describe("Surf Discovery major-event hold integration", () => {
         beachId: BEACH_IDS[0],
       }),
     ]);
+  });
+
+  it("removes a water-quality-held beach from discovery before truncation", async () => {
+    const ranked = [recommendation(0), recommendation(1), recommendation(2)];
+    const evaluate = jest.fn(async ({ candidates }: {
+      candidates: readonly MajorEventHoldCandidate[];
+    }) => candidates.map(({ candidateId }, index) =>
+      index === 0 ? waterQualityBlocked(candidateId) : allow(candidateId),
+    ));
+
+    const result = await enforceMajorEventHoldBeforeDiscoveryTruncation({
+      recommendations: ranked,
+      profileExperience: "beginner",
+      maxResults: 3,
+      isPrimaryEligible: () => true,
+      evaluateCandidates: evaluate,
+    });
+
+    expect(result.primaryRecommendations.map(({ beach }) => beach.name)).toEqual([
+      "Beach 2",
+      "Beach 3",
+    ]);
+    expect(result.primaryRecommendations).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ beach: expect.objectContaining({ id: BEACH_IDS[0] }) })]),
+    );
   });
 
   it("fails the whole pre-truncation pool closed for malformed decisions", async () => {

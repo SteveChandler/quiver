@@ -12,6 +12,7 @@ import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
 import { notFound, redirect } from "next/navigation";
 import { renderToStaticMarkup } from "react-dom/server";
+import { CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS } from "@/lib/recommendations/major-event-hold/water-quality";
 
 // Mock React's cache function for server components
 jest.mock("react", () => ({
@@ -103,6 +104,10 @@ jest.mock("@/components/beach-detail/optimal-conditions-section", () => ({
 
 jest.mock("@/components/ui/sticky-signup-bar", () => ({
   StickySignupBar: () => null,
+}));
+
+jest.mock("@/components/app-store/content-page-app-handoff-cta", () => ({
+  ContentPageAppHandoffCta: () => null,
 }));
 
 jest.mock("@/lib/utils/beach-faq-utils", () => ({
@@ -273,6 +278,36 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(html).not.toContain("Lower Trestles tide chart");
     expect(html).not.toContain("Lower Trestles water temperature");
     expect(html).not.toContain('aria-label="Lower Trestles related surf guides"');
+  });
+
+  it("renders a held beach page with its forecast intact", async () => {
+    const heldBeachId = CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS[2];
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [
+        makeBeach({
+          id: heldBeachId,
+          name: "Silver Strand State Beach",
+          slug: "silver-strand-state-beach",
+          city: "Coronado",
+        }),
+      ],
+    });
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(freshForecastResult());
+
+    const page = await GenericBeachDetailPage({
+      params: Promise.resolve({
+        intent: "ca",
+        city: "coronado",
+        beachSlug: "silver-strand-state-beach",
+      }),
+    });
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(getSpotSurfReportPublic).toHaveBeenCalledWith(
+      expect.objectContaining({ id: heldBeachId }),
+    );
+    expect(renderToStaticMarkup(page)).toContain("2-3 ft");
   });
 
   it("redirects stale city slugs to the canonical beach URL", async () => {

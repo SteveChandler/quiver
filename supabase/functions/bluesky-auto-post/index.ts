@@ -15,6 +15,7 @@ import type {
   HoldAuthorizationContext,
   HoldAuthorizationResolution,
 } from "./hold-policy.ts";
+import { filterBeachesByWaterQualityHolds } from "./water-quality-filter.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -764,7 +765,24 @@ async function getSanDiegoBeaches(supabase: SupabaseClient): Promise<BeachRow[]>
     .or("is_private.is.null,is_private.eq.false");
 
   if (error) throw new Error(`Failed to fetch SD beaches: ${error.message}`);
-  return (data || []) as BeachRow[];
+
+  const beaches = (data || []) as BeachRow[];
+  const { data: heldRows, error: heldError } = await supabase
+    .from("water_quality_held_beaches")
+    .select("beach_id")
+    .in("beach_id", beaches.map(({ id }) => id));
+
+  if (heldError) {
+    throw new Error(
+      `Failed to fetch water-quality holds: ${heldError.message}`,
+    );
+  }
+
+  const safeBeaches = filterBeachesByWaterQualityHolds(beaches, heldRows);
+  if (safeBeaches === null) {
+    throw new Error("Invalid water-quality hold response");
+  }
+  return safeBeaches;
 }
 
 async function getForecastsForWindow(

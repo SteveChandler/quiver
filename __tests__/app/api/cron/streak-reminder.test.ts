@@ -11,6 +11,7 @@ import { scoreWindowWithComposite } from "@/lib/services/discovery/window-select
 const mockEnqueueNotification = jest.fn();
 const mockInsert = jest.fn();
 const mockFrom = jest.fn((table: string) => buildQuery(table));
+const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) => beaches);
 
 jest.mock("@/lib/cron/observability", () => ({
   withObservedCron: jest.fn((_route: string, handler) => handler),
@@ -55,6 +56,14 @@ jest.mock("@/lib/notifications/enqueue", () => ({
 jest.mock("@/lib/services/discovery/window-selector", () => ({
   FORECAST_WINDOW_DURATION_MINUTES: 30,
   scoreWindowWithComposite: jest.fn(() => ({ total: 72 })),
+}));
+
+jest.mock("@/lib/recommendations/major-event-hold/water-quality-visibility", () => ({
+  filterBeachesByWaterQualityVisibility: jest.fn(async (beaches) => beaches),
+}));
+
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
 }));
 
 interface TableState {

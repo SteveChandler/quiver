@@ -56,6 +56,7 @@ import {
   scoreNativeForecastSlot,
 } from '@/lib/scoring/native-condition-score';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { rankBeaches } from '@/lib/recommendations/selection';
 
 // Import from other discovery modules
 import {
@@ -2100,10 +2101,26 @@ async function discoverSurfSpotsInner(
   const allRecsScored = collapseWindowCandidates(
     similarityResult.recommendations,
   );
-  allRecsScored.sort(compareDiscoveryRecommendations);
+  const rankedRecommendations = await rankBeaches(
+    allRecsScored.map((recommendation, index) => ({
+      id: recommendation.beach.id,
+      recommendation,
+      index,
+    })),
+    {
+      compare: (left, right) =>
+        compareDiscoveryRecommendations(
+          left.recommendation,
+          right.recommendation,
+        ) || left.index - right.index,
+    },
+  );
+  const safeRecsScored = rankedRecommendations.map(
+    ({ recommendation }) => recommendation,
+  );
 
   const holdPool = await enforceMajorEventHoldBeforeDiscoveryTruncation({
-    recommendations: allRecsScored,
+    recommendations: safeRecsScored,
     profileExperience: userSkillLevel,
     maxResults,
     isPrimaryEligible: (rec) =>

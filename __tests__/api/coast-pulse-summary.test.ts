@@ -12,6 +12,7 @@ const mockGetNearestNDBCStation = jest.fn();
 const mockFetchCOOPSData = jest.fn();
 const mockGetStationForLocation = jest.fn();
 const mockFetchBuoyData = jest.fn();
+const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) => beaches);
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: (...args: unknown[]) =>
@@ -48,6 +49,16 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
     withRateLimit: (handler: any) => handler,
   };
 });
+
+jest.mock("@/lib/recommendations/major-event-hold/water-quality-visibility", () => ({
+  filterBeachesByWaterQualityVisibility: jest.fn(
+    async (beaches: unknown[]) => beaches,
+  ),
+}));
+
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
+}));
 
 import { GET } from "@/app/api/coast-pulse/summary/route";
 
@@ -168,6 +179,7 @@ describe("GET /api/coast-pulse/summary", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(mockRankBeaches).toHaveBeenCalled();
     expect(forecastSelect).toHaveBeenCalledWith(
       "wave_height, wave_period, wave_direction, swell_1_direction, wind_speed, wind_direction, tide_status, updated_at"
     );

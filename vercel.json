@@ -53,12 +53,8 @@
       "schedule": "0 4 * * 0"
     },
     {
-      "path": "/api/cron/morning-forecast-bot",
-      "schedule": "30 13 * * *"
-    },
-    {
       "path": "/api/cron/npc-activity",
-      "schedule": "0 0-4,13-23 * * *"
+      "schedule": "0 5-20 * * *"
     },
     {
       "path": "/api/cron/ioos-sync?phase=observations",

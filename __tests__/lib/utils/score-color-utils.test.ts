@@ -36,7 +36,10 @@ describe("score-color-utils", () => {
     });
 
     it("returns brand-aligned classes instead of generic green success classes", () => {
-      const classes = Object.values(getScoreColorClasses(85)).join(" ");
+      const classes = Object.entries(getScoreColorClasses(85))
+        .filter(([key]) => key !== "paperBadge")
+        .map(([, value]) => value)
+        .join(" ");
 
       expect(classes).toContain("teal");
       expect(classes).not.toContain("green");
@@ -48,9 +51,20 @@ describe("score-color-utils", () => {
 
       expect(result).toHaveProperty("bg");
       expect(result).toHaveProperty("text");
+      expect(result).toHaveProperty("paperBadge");
       expect(result).toHaveProperty("border");
       expect(result).toHaveProperty("label");
       expect(result.text).toContain("dark:");
+    });
+
+    it("uses one opaque ink badge treatment in every score band", () => {
+      const paperBadgeClasses = [0, 40, 55, 70, 80].map(
+        (score) => getScoreColorClasses(score).paperBadge
+      );
+
+      expect(new Set(paperBadgeClasses)).toEqual(
+        new Set(["bg-[#11100D] text-[#F4EBD8]"])
+      );
     });
   });
 
