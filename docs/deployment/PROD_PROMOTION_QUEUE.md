@@ -10,6 +10,51 @@ This one is the queue.
 
 **Audited 2026-08-13.** `prod` (`6112d9377`, Aug 11) is **203 commits behind** `main`
 (`8306d1314`) — 1,374 files, +118,646 / −44,265. Unpromoted work spans Aug 3 – Aug 13.
+The audit also covers **Quiver Native `main`** (`8c73fef7`) — see "Native ships with this",
+below, for what must be sequenced against the web promotion.
+
+---
+
+## Environment variables that must change before promotion
+
+**Code promotion alone does not turn these features on.** Two production env vars need
+action; without them the feature ships silently inert or the cron fails on every run.
+Verified against Vercel production on 2026-08-13.
+
+### Must set — blocking
+
+| Var | Current state | Consequence if promoted as-is |
+|---|---|---|
+| `NEXT_PUBLIC_REVENUECAT_WEB_CHECKOUT_URL` | **present but empty string** | Helper is fail-closed: empty / unparseable / non-HTTPS returns `null` and the CTA never renders. The feature ships 100% inert **and looks healthy**. Set the real Funnel URL. |
+| `MODERATION_QUEUE_NOTIFY_TO` (or `MOD_NOTIFY_TO`) | **absent** | `app/api/cron/moderation-queue-digest/route.ts:153-157` resolves the recipient, logs `recipient is not configured`, and returns an error response. **The digest cron fails every run.** |
+
+### Already `"true"` in production — promotion makes these live immediately
+
+`COMMUNITY_PHOTOS_READ_ENABLED`, `COMMUNITY_PHOTOS_WRITE_ENABLED`,
+`TRUSTED_FORECAST_ADJUSTMENTS_ENABLED`, `FORECAST_ALERT_DELIVERY_ENABLED`,
+`ALERTS_DELIVERY_ENABLED`.
+
+These are open gates, not pending ones. Nothing needs flipping — but nothing is held back
+either, so treat each as shipping to users on the promotion deploy.
+
+### Referenced by new code, absent, and safe to leave alone
+
+`BEACH_SUBPAGE_INSTALL_CTA_ENABLED` and `FEEDBACK_HEIGHT_CALIBRATION_ENABLED` default off.
+`ALERTS_DELIVERY_USER_ALLOWLIST` is optional and **fail-open** — unset means an empty set
+and no restriction (`app/api/cron/similarity-alerts/route.ts:314`), which is the behaviour
+prod already runs today. `FORECAST_FRESHNESS_WINDOW_HOURS`, `FORECAST_REFRESH_LEAD_HOURS`,
+and `FORECAST_CDIP_REFRESH_LEAD_HOURS` have in-code defaults. `SUPABASE_URL` and `APP`
+have `||` fallbacks. `MODERATION_QUEUE_DIGEST_START_DATE` falls back to a default.
+`INTERNAL_SECRET`, `BASE_URL`, `SUPABASE_PASS`, `SUPABASE_ANON_KEY`, `RUN_PERF_PROBE`, and
+`NEXT_PUBLIC_ENABLE_GOOGLE_ONE_TAP_LOCALHOST` are script/test-only.
+
+### Scoping trap
+
+**Vercel env vars are per-environment, and `main` deploys to Preview, not Production.**
+Setting a var for Production only will not change what you see on `dev.quiversurf.app`.
+To test a flag on dev before promotion, it must be added to **Preview** as well.
+`vercel env add` also defaults to Sensitive — use `--no-sensitive --force` when the value
+needs to be readable back.
 
 ---
 
@@ -158,9 +203,71 @@ Builds a Web Purchase Link / Funnel URL carrying the App User ID.
   non-HTTPS returns `null` and the CTA does not render. **Promoting today ships this
   feature 100% inert and it will look like it works.**
 - **Gate: populate the env var with the real Funnel URL, then verify the CTA renders on dev.**
+- **This is only half the loop.** The purchase is redeemed on device by native's
+  `rc-38aee70261` URL scheme, which ships in build 17. Web CTA without build 17 means a
+  user can buy on the web and not have it applied in the app. See "Native ships with this".
 
 ### 12. Map — streamlined forecast loading and controls
 - **Gate: none beyond visual check.** `perf` only.
+
+---
+
+## Native ships with this
+
+Audited against `../quiver-native` `main` @ `8c73fef7` (2026-08-13), app version 1.0.2,
+`ios.buildNumber` **17** / `android.versionCode` **16** staged in `app.config.js`.
+**Users are on build 16.** Everything below is unshipped native work.
+
+### Why native cannot leak ahead of web
+
+Native `main` uses `runtimeVersion: { policy: "fingerprint" }` as a deliberate OTA safety
+interlock, and production OTAs are published from separate deployed branches that preserve
+`appVersion`. So the Aug 10–13 native work **cannot reach installed binaries by OTA from
+`main`** — it needs a replacement binary. That is the only reason the three API couplings
+below are not already broken in production today.
+
+The `app.config.js` change alone (`scheme: ["quiver", "rc-38aee70261"]`, build 17) is a
+native config change and is not OTA-eligible under any policy.
+
+### The coupling: native features whose backend exists only on web `main`
+
+Every path below was checked against `origin/prod` and `origin/main`.
+
+| Native feature | Web route it calls | On prod? |
+|---|---|---|
+| Conditions reports (`#134`, Aug 11) — `src/features/conditions-report/api.ts:58` | `/api/v1/conditions-reports` | **MAIN ONLY** |
+| Session video finalize (`#135`, Aug 11) | `/api/sessions/[id]/videos` | **MAIN ONLY** |
+| Session video playback | `/api/sessions/[id]/videos/[mediaId]` | **MAIN ONLY** |
+
+Native uploads the video itself straight to Supabase storage over tus
+(`${SUPABASE_URL}/storage/v1/upload/resumable`, `src/features/session-video/upload-video.ts:53`),
+so only the finalize and playback hops depend on web. All 47 other API paths native calls
+already exist on `prod`.
+
+**Ordering rule: promote web `prod` BEFORE submitting a native build that carries
+conditions reports or session video.** Reversed, those clients 404 against production with
+no client-side fallback.
+
+### Native work with no web dependency
+
+Home decision/verdict rework, map marker + ranking fixes, subscription entitlement
+cold-start fix, board catalog ids, accessibility fixes, and the test-stability batch are
+native-only. `fix(boards): give the shortboard its own catalog id` pairs with migration
+`20260811183000_fix_match_score_core_board_aliases.sql`, which is **already applied**, so
+that half is live regardless.
+
+### Not in this promotion
+
+- **Build 17 universal links (`go.quiversurf.app`)** is explicitly **deferred** —
+  `docs/handoffs/build-17-go-app-handoff-20260810.md`, "Do not start build 17 until Steven
+  explicitly asks for it." When it does start it carries real web work: DNS plus a valid
+  AASA for `go.quiversurf.app` including the exact `/app/handoff` path for
+  `QBA8TA48NG.app.quiversurf.mobile`, and routing CTAs through it with a UUID `handoff_id`.
+- **App links need no web deploy now.** `app/.well-known/apple-app-site-association/route.ts`
+  and `assetlinks.json/route.ts` are **byte-identical between prod and main**, so native's
+  `fix(app-links): claim /p, route /profile/analytics` is satisfied by what prod already
+  serves. Note `/profile/analytics` has no web page — on a device without the app that URL
+  404s. Worth a web route before promoting that link into any campaign.
 
 ---
 
