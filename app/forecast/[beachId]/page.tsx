@@ -8,16 +8,13 @@ import { buildBeachUrlWithTab } from "@/lib/utils/beach-url-utils";
 import {
   FORECAST_REGIONS,
   getForecastRegion,
-  getAllForecastRegionSlugs,
   getGuideSlugForRegion,
   hasHubGuide,
 } from "@/lib/data/forecast-regions";
 import { formatFullDateWithYear } from "@/lib/utils/date-time";
-import {
-  aggregateRegionalForecast,
-  getBeachesForRegion,
-} from "@/lib/utils/regional-forecast-utils";
-import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
+import { getRegionalSummary } from "@/lib/utils/forecast-hub-utils";
+import { getBeachesForRegion } from "@/lib/utils/regional-forecast-utils";
+import { getStaticMapImageUrl } from "@/lib/map-utils";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
@@ -25,7 +22,7 @@ import {
   BestDaysSection,
   SwellEventList,
   BeachConditionsGrid,
-  AnimatedScoreGauge,
+  TopRankedBeachHero,
 } from "@/components/forecast";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
@@ -134,36 +131,37 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
     );
   }
 
-  // Filter beaches for this region
   const beaches = getBeachesForRegion(region, beachesResult.data);
-
   if (beaches.length === 0) {
     console.error(`No beaches found for region: ${region.slug}`);
     return notFound();
   }
 
-  // Fetch forecasts for all beaches in the region (batch fetch for performance)
-  const beachIds = beaches.map((b) => b.id);
-  const forecastMap = await getBatchFreshForecastsFromCache(
-    beachIds,
-    168 // 7 days in hours
-  );
-
-  // Build regional forecast map from batch results
-  const regionForecastMap = new Map();
-  for (const beach of beaches) {
-    const result = forecastMap.get(beach.id);
-    if (result && result.forecasts.length > 0) {
-      regionForecastMap.set(beach.id, result.forecasts);
-    }
-  }
-
-  // Aggregate into regional summary
-  const summary = aggregateRegionalForecast(
-    region,
-    beaches,
-    regionForecastMap
-  );
+  // Reuse the summary pipeline so the top-ranked beach and its approved photo
+  // are selected from the same live ranking used by the forecast hub.
+  const summary = await getRegionalSummary(region, beaches, {
+    includeBestSurfWindows: true,
+  });
+  const topBeach = summary.beachConditions[0] ?? null;
+  const topBeachRecord = topBeach
+    ? beaches.find((beach) => beach.id === topBeach.beachId)
+    : null;
+  const approvedTopBeachImage =
+    topBeach && summary.photoBeachName === topBeach.beachName
+      ? summary.photoUrl
+      : null;
+  const fallbackMapUrl =
+    !approvedTopBeachImage && topBeachRecord
+      ? getStaticMapImageUrl(topBeachRecord.lat, topBeachRecord.lon, {
+          style: "mapbox/satellite-streets-v12",
+          width: 960,
+          height: 540,
+          zoom: 13,
+        })
+      : null;
+  const satelliteFallbackUrl = fallbackMapUrl?.startsWith("https://")
+    ? fallbackMapUrl
+    : null;
 
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -247,7 +245,7 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
           </ScrollReveal>
 
           <ScrollReveal variant="fadeUp" delay={50}>
-            <header className="relative mb-12 grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+            <header className="relative mb-12 grid gap-8 lg:grid-cols-1">
               <QuiverSticker
                 sticker="creamCoastMap"
                 className="absolute -right-4 -top-6 hidden w-36 rotate-6 opacity-80 lg:block"
@@ -293,17 +291,23 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
                 </div>
               </div>
 
-              {summary.stats.avgRegionScore > 0 && (
-                <div className="torn torn-tb border-2 border-[#11100D] bg-[#F0E5CC] p-5">
-                  <AnimatedScoreGauge
-                    score={summary.stats.avgRegionScore}
-                    size="lg"
-                    showLabel
-                  />
-                </div>
-              )}
             </header>
           </ScrollReveal>
+
+          {topBeach && (
+            <TopRankedBeachHero
+              beach={topBeach}
+              regionName={region.name}
+              beachTimezone={topBeachRecord?.timezone}
+              imageUrl={approvedTopBeachImage}
+              mapImageUrl={satelliteFallbackUrl}
+              bestSurfWindow={
+                summary.bestSurfWindows?.find(
+                  (window) => window.beach.id === topBeach.beachId,
+                ) ?? null
+              }
+            />
+          )}
 
           <BestDaysSection
             days={summary.days}

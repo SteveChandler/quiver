@@ -1,38 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, type ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 
 const HERO_VIDEO_SRC = "/videos/quiver-landing-hero-720.mp4";
 const HERO_POSTER_SRC = "/images/hero/quiver-landing-hero-poster.jpg";
 
-function shouldAutoplayLandingVideo(): boolean {
-  if (typeof window === "undefined") return false;
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    return false;
-  }
-
-  const connection = (
-    navigator as Navigator & {
-      connection?: { saveData?: boolean; effectiveType?: string };
-    }
-  ).connection;
-  if (connection?.saveData) return false;
-  if (connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") {
-    return false;
-  }
-
-  return true;
-}
-
 export function FieldGuideHeroVideo(): ReactElement {
-  const [canAutoplay, setCanAutoplay] = useState(false);
   const [userRequestedVideo, setUserRequestedVideo] = useState(false);
-  const showVideo = canAutoplay || userRequestedVideo;
-
-  useEffect(() => {
-    setCanAutoplay(shouldAutoplayLandingVideo());
-  }, []);
+  const showVideo = userRequestedVideo;
 
   return (
     <div
@@ -53,10 +29,9 @@ export function FieldGuideHeroVideo(): ReactElement {
           src={HERO_VIDEO_SRC}
           autoPlay
           muted
-          loop={canAutoplay}
-          controls={userRequestedVideo}
+          controls
           playsInline
-          preload={canAutoplay ? "metadata" : "none"}
+          preload="metadata"
           aria-label="Quiver app launch video preview"
           className="absolute inset-0 h-full w-full object-cover"
         />
@@ -70,7 +45,7 @@ export function FieldGuideHeroVideo(): ReactElement {
         </button>
       )}
       <div className="absolute bottom-1.5 right-1.5 z-10 border border-[#11100D] bg-[#F4EBD8]/85 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[#11100D]">
-        Live now
+        App preview
       </div>
     </div>
   );

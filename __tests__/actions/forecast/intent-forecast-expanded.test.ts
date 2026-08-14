@@ -9,6 +9,11 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
 }));
 
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: jest.fn(async (beaches: Array<{ id: string }>) => beaches),
+  selectBeach: jest.fn(async <T extends { id: string }>(beach: T | null) => beach),
+}));
+
 /**
  * Generate sinusoidal tide samples (hourly) between two dates.
  * Produces ~2 highs and ~2 lows per day (semidiurnal tide).

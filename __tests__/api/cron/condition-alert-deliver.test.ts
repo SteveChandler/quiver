@@ -41,6 +41,12 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   validateCronRequest: jest.fn(() => true),
 }));
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) =>
+    handler()
+  ),
+}));
+
 // ---- Mock mailer client ----
 const mockEmailsSend = jest.fn();
 jest.mock("@/lib/mailer/client", () => ({
@@ -441,6 +447,8 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   it("uses the API wrapper barrel for cron request validation", () => {
     expect(routeSource).not.toContain("@/lib/api-utils");
     expect(routeSource).toContain("@/lib/middleware/api-wrappers");
+    expect(routeSource).toContain("withCronOutcome");
+    expect(routeSource).toContain('unit: "notifications_sent"');
   });
 
   it("routes every sent=true write through the reason-accounting helper", () => {

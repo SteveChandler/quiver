@@ -20,6 +20,20 @@ const mockSupabase = {
   rpc: jest.fn(),
   from: jest.fn(() => mockQuery),
 };
+const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) =>
+  beaches.filter((beach) => beach.id !== "held-beach"),
+);
+
+jest.mock("@/lib/recommendations/major-event-hold/water-quality-visibility", () => ({
+  filterBeachesByWaterQualityVisibility: jest.fn(
+    async (beaches: Array<{ id: string }>) =>
+      beaches.filter((beach) => beach.id !== "held-beach"),
+  ),
+}));
+
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
+}));
 
 jest.mock("@/lib/supabase/server", () => ({
   createPublicReadClient: jest.fn(() => mockSupabase),
@@ -62,7 +76,7 @@ describe("nearby beach service", () => {
       input_lat: 32.7,
       input_lng: -117.2,
       max_distance_meters: Math.round(50 * 1609.34),
-      limit_count: 50,
+      limit_count: 55,
     });
     expect(mockSupabase.from).not.toHaveBeenCalled();
   });
@@ -118,6 +132,44 @@ describe("nearby beach service", () => {
       "private-beach",
       "deleted-beach",
     ]);
+  });
+
+  it("does not return a held beach from nearby recommendations", async () => {
+    mockSupabase.rpc.mockResolvedValue({
+      data: [
+        {
+          id: "held-beach",
+          name: "Held Beach",
+          lat: 32.7,
+          lon: -117.2,
+          is_private: false,
+          country: "USA",
+        },
+        {
+          id: "safe-beach",
+          name: "Safe Beach",
+          lat: 32.71,
+          lon: -117.21,
+          is_private: false,
+          country: "USA",
+        },
+      ],
+      error: null,
+    });
+    mockQuery.in.mockResolvedValue({
+      data: [
+        { id: "held-beach", country: "USA" },
+        { id: "safe-beach", country: "USA" },
+      ],
+      error: null,
+    });
+
+    await expect(
+      getNearbyBeachesFromDb(32.7, -117.2, 30, 20),
+    ).resolves.toMatchObject({
+      success: true,
+      data: [{ id: "safe-beach" }],
+    });
   });
 
   it("bounds the exceptional fallback by box and candidate cap", async () => {

@@ -8,15 +8,11 @@ import { isVisibleSafe } from './utils/strict-helpers';
  * CTA Reduction Tests — zine layout revision (2026-04-28) +
  * desktop CTA addition (2026-04-29).
  *
- * Beach detail page rebuilt around the cream-paper zine. The zine
- * masthead + Today's Surf Call act as the editorial CTA surface. On
- * top of that, anonymous users see exactly ONE primary signup CTA
- * per viewport:
- *   - Desktop (≥768px): InlineSignupCta with "home break" framing.
- *   - Mobile (<768px): StickySignupBar with the same framing.
- * They are mutually exclusive by viewport (md:hidden / hidden md:block),
- * so they count as one effective CTA — the Phase 1A/1B invariant
- * ("one primary CTA per beach page") is preserved.
+ * Beach detail page rebuilt around the cream-paper zine. The anonymous
+ * first-screen conversion is now the contextual app handoff CTA; the
+ * existing signup surfaces remain available as secondary/deeper-path asks:
+ *   - Desktop (≥768px): app handoff before tabs, InlineSignupCta after tabs.
+ *   - Mobile (<768px): app handoff before tabs, StickySignupBar after scroll.
  *
  * MatchScoreTeaser (Phase 1A reinstatement) was retired again because
  * it conflicted visually with the zine paper and was redundant against
@@ -26,10 +22,10 @@ import { isVisibleSafe } from './utils/strict-helpers';
  *   - MatchScoreTeaser card is NOT rendered for anonymous users.
  *   - Horizon-strip upsell banner and PersonalizedForecastTeaser are
  *     NOT rendered.
- *   - Desktop: InlineSignupCta with "home break" framing is visible;
+ *   - Desktop: app handoff and the moved InlineSignupCta are visible;
  *     StickySignupBar is NOT.
- *   - Mobile: StickySignupBar with "home break" framing is visible;
- *     desktop InlineSignupCta is NOT.
+ *   - Mobile: app handoff is visible before scrolling; StickySignupBar
+ *     remains available after scroll and desktop InlineSignupCta is NOT.
  *
  * @project guest
  */
@@ -225,10 +221,13 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Viewport-specific CTA invariant (2026-04-29):
-  //   - Desktop ≥768px: InlineSignupCta visible, StickySignupBar hidden.
-  //   - Mobile <768px:  StickySignupBar visible, InlineSignupCta hidden.
-  //   - Both surfaces use "home break" framing with the beach name.
+  // Viewport-specific CTA invariant (2026-04-29 + app handoff):
+  //   - Both viewports: contextual app handoff CTA appears before the tabs.
+  //   - Desktop ≥768px: InlineSignupCta remains available after the tabs;
+  //     StickySignupBar is hidden.
+  //   - Mobile <768px: StickySignupBar remains available after scroll;
+  //     InlineSignupCta is hidden.
+  //   - Existing signup surfaces use "home break" framing with the beach name.
   // -------------------------------------------------------------------------
 
   test('desktop viewport renders InlineSignupCta with "home break" framing; sticky bar is hidden', async ({ page }) => {
@@ -239,6 +238,13 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
     const inlineCta = page.getByTestId('inline-signup-cta');
     await inlineCta.scrollIntoViewIfNeeded().catch(() => {});
     await expect(inlineCta).toBeVisible({ timeout: 10000 });
+
+    const appHandoffCta = page.getByTestId('content-page-app-handoff-cta-beach_detail');
+    await expect(appHandoffCta).toBeVisible({ timeout: 10000 });
+    await expect(appHandoffCta).toHaveAttribute('data-placement', 'above_fold_after_public_answer');
+    await expect(
+      appHandoffCta.getByRole('link', { name: /watch the next window in the app/i }),
+    ).toHaveAttribute('href', /\/app\/handoff/);
 
     // Copy must include "Save", the beach name, and "home break". The live DB
     // may render a longer name than the fixture (e.g. "Blacks Beach" vs the
@@ -258,6 +264,13 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
     await page.setViewportSize({ width: 375, height: 667 });
     await navigateToBeach(page, TEST_BEACHES.blacks);
     await page.waitForLoadState('load');
+
+    const appHandoffCta = page.getByTestId('content-page-app-handoff-cta-beach_detail');
+    await expect(appHandoffCta).toBeVisible({ timeout: 10000 });
+    await expect(appHandoffCta).toHaveAttribute('data-placement', 'above_fold_after_public_answer');
+    await expect(
+      appHandoffCta.getByRole('link', { name: /watch the next window in the app/i }),
+    ).toHaveAttribute('href', /\/app\/handoff/);
 
     // Trigger sticky bar (scrollThreshold = 150).
     await page.evaluate(() => window.scrollTo(0, 400));

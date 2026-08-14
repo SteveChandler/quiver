@@ -20,6 +20,7 @@ import { z } from "zod";
 
 export const similarityMatchSchema = z.object({
   beach_id: z.string().min(1),
+  configured_beach_id: z.string().min(1).optional(),
   /**
    * Beach slug. Strict non-empty by design — a missing slug means the
    * upstream beach row was malformed at seed time and the cron's

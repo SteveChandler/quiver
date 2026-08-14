@@ -71,6 +71,10 @@ jest.mock('@/lib/services/discovery/candidate-pool-builder', () => ({
   })),
 }));
 
+jest.mock('@/lib/recommendations/selection', () => ({
+  rankBeaches: jest.fn(async (beaches: Array<{ id: string }>) => beaches),
+}));
+
 jest.mock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
   batchFetchForecasts: jest.fn(async () => ({
     successful: candidateBeaches.map((b) => ({

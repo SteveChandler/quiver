@@ -9,13 +9,21 @@ import {
   getCityExcludeIntents,
   getCityMetadata,
   findCityBySlug,
+  getCityBeachEditorialData,
 } from "@/actions/city/city-metadata-actions";
 import { createPublicReadClient } from "@/lib/supabase/server";
+const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) => beaches);
 
 // Mock the Supabase server client
 jest.mock("@/lib/supabase/server", () => ({
   __esModule: true,
   createPublicReadClient: jest.fn(),
+}));
+jest.mock("@/lib/recommendations/major-event-hold/water-quality-visibility", () => ({
+  filterBeachesByWaterQualityVisibility: jest.fn(async (beaches: Array<{ id: string }>) => beaches),
+}));
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
 }));
 
 // Chain builder for Supabase query mocking
@@ -114,6 +122,7 @@ describe("City Metadata Actions", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRankBeaches.mockImplementation(async (beaches: Array<{ id: string }>) => beaches);
     tableChain = makeChain();
 
     mockSupabaseClient = {
@@ -124,6 +133,22 @@ describe("City Metadata Actions", () => {
     (createPublicReadClient as jest.Mock).mockReturnValue(
       mockSupabaseClient
     );
+  });
+
+  it("removes held beaches from city editorial recommendations", async () => {
+    mockRankBeaches.mockImplementation(async (beaches: Array<{ id: string }>) =>
+      beaches.filter(({ id }) => id !== "beach-sd-1"),
+    );
+    tableChain.order.mockResolvedValue({
+      data: mockSanDiegoBeaches,
+      error: null,
+    });
+
+    const result = await getCityBeachEditorialData("San Diego", "CA");
+
+    expect(result.map((beach) => beach.id)).not.toContain("beach-sd-1");
+    expect(result.map((beach) => beach.id)).toContain("beach-sd-2");
+    expect(mockRankBeaches).toHaveBeenCalled();
   });
 
   describe("getCityMetadata", () => {

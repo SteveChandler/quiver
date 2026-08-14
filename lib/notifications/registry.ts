@@ -83,6 +83,7 @@ const forecastAlertSchema = z.object({
   title: z.string().min(1),
   body: z.string().min(1),
   beach_id: z.string().nullable().optional(),
+  configured_beach_id: z.string().min(1).optional(),
   beach_slug: z.string().nullable().optional(),
   forecast_at: z.string().nullable().optional(),
   policy_context: positiveRecommendationPolicyContextSchema.optional(),

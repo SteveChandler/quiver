@@ -161,6 +161,7 @@ const hideFooterPrefixes = [
   "/embed",
   "/welcome",
   "/map",
+  "/redeem",
 ];
 
 export default function RootLayout({

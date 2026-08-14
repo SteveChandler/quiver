@@ -17,7 +17,12 @@ import {
   SOCAL_REGIONS,
   NORCAL_REGIONS,
 } from '@/config/regions';
-import { selectBeachForPost } from './beach-selection';
+import {
+  selectSafeBeachForPost,
+  type BeachSelectionRun,
+} from './beach-selection';
+import { selectBeach } from '@/lib/recommendations/selection';
+import { fetchBeachTrafficWeights } from './traffic-weights';
 
 export type ActivityLevel = 'high' | 'medium' | 'low';
 
@@ -154,7 +159,8 @@ function getSlugListForRegion(homeRegion: string): string[] {
  */
 export async function getBeachesForNPC(
   supabase: SupabaseClient<Database>,
-  npc: NPCProfile
+  npc: NPCProfile,
+  selectionRun?: BeachSelectionRun,
 ): Promise<BeachRecord | null> {
   const allSlugs = getSlugListForRegion(npc.home_region);
 
@@ -186,14 +192,20 @@ export async function getBeachesForNPC(
     if (ordered.length > 0) {
       const homeSlugs = ordered.slice(0, HOME_BEACH_COUNT).map((b) => b.id);
       const secondarySlugs = ordered.slice(HOME_BEACH_COUNT).map((b) => b.id);
+      const trafficWeights = await fetchBeachTrafficWeights(
+        supabase,
+        ordered.map((beach) => beach.id),
+      );
 
-      const selectedId = selectBeachForPost({
+      const selectedId = await selectSafeBeachForPost({
         homeBeachIds: homeSlugs.length > 0 ? homeSlugs : ordered.map((b) => b.id),
         secondaryBeaches: secondarySlugs,
         homeRegion: npc.home_region,
+        trafficWeights: trafficWeights ?? undefined,
+        selectionRun,
       });
 
-      return ordered.find((b) => b.id === selectedId) ?? ordered[0];
+      return ordered.find((b) => b.id === selectedId) ?? null;
     }
   }
 
@@ -209,12 +221,21 @@ export async function getBeachesForNPC(
 
   if (!fallback || fallback.length === 0) return null;
 
-  const pick = fallback[Math.floor(Math.random() * fallback.length)];
-  return {
-    id: pick.id,
-    name: pick.name,
-    lat: pick.lat ?? null,
-    lon: pick.lon ?? null,
-    city: pick.city ?? null,
-  };
+  const remaining = [...fallback];
+  while (remaining.length > 0) {
+    const index = Math.floor(Math.random() * remaining.length);
+    const [pick] = remaining.splice(index, 1);
+    if (!pick) continue;
+
+    const selected = await selectBeach({
+      id: pick.id,
+      name: pick.name,
+      lat: pick.lat ?? null,
+      lon: pick.lon ?? null,
+      city: pick.city ?? null,
+    });
+    if (selected) return selected;
+  }
+
+  return null;
 }

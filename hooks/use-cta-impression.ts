@@ -31,6 +31,8 @@ interface UseCtaImpressionOptions {
   threshold?: number;
   /** Disable tracking entirely (e.g., for authenticated users when the CTA is anonymous-only) */
   enabled?: boolean;
+  /** Run once alongside the impression after the element crosses the visibility threshold. */
+  onImpression?: (entry: IntersectionObserverEntry) => void;
 }
 
 export function useCtaImpression<T extends HTMLElement>(
@@ -39,7 +41,14 @@ export function useCtaImpression<T extends HTMLElement>(
   const ref = useRef<T>(null);
   const hasFiredRef = useRef(false);
   const { track } = useTrackEvent();
-  const { ctaId, surface, extra, threshold = 0.5, enabled = true } = options;
+  const {
+    ctaId,
+    surface,
+    extra,
+    threshold = 0.5,
+    enabled = true,
+    onImpression,
+  } = options;
 
   useEffect(() => {
     if (!enabled || hasFiredRef.current) return;
@@ -61,6 +70,7 @@ export function useCtaImpression<T extends HTMLElement>(
               } as CtaImpressionMetadata,
             });
             observer.disconnect();
+            onImpression?.(entry);
             return;
           }
         }
@@ -70,7 +80,7 @@ export function useCtaImpression<T extends HTMLElement>(
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [ctaId, surface, extra, threshold, enabled, track]);
+  }, [ctaId, surface, extra, threshold, enabled, onImpression, track]);
 
   return ref;
 }

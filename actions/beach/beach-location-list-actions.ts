@@ -31,6 +31,7 @@ import {
   parseHiIslandCitySlug,
   getHiIslandDisplayName,
 } from "@/lib/utils/beach-url-utils";
+import { rankBeaches } from "@/lib/recommendations/selection";
 
 /**
  * Resolve a city slug to the exact city name stored in the database.
@@ -118,7 +119,15 @@ export async function getLocationPageData(
           throw new Error(`Failed to fetch beaches: ${beachesError.message}`);
         }
 
-        if (!beaches || beaches.length === 0) {
+        const visibleBeaches = (await rankBeaches(
+          (beaches ?? []).map((beach: any, index: number) => ({
+            id: beach.id,
+            beach,
+            index,
+          })),
+          { compare: (left, right) => left.index - right.index },
+        )).map(({ beach }) => beach);
+        if (visibleBeaches.length === 0) {
           console.warn(`[getLocationPageData] No beaches found for metro area, but metro config exists:`, {
             city: metroConfig.cities,
             state,
@@ -143,7 +152,7 @@ export async function getLocationPageData(
         }
 
         // Add rank to each beach (global ranking across all neighborhoods)
-        const rankedBeaches: BeachWithMetrics[] = beaches.map(
+        const rankedBeaches: BeachWithMetrics[] = visibleBeaches.map(
           (beach: any, index: number) => ({
             ...beach,
             rank: index + 1,
@@ -306,8 +315,21 @@ export async function getLocationPageData(
           throw new Error("No beaches found for this location");
         }
 
+        const visibleBeaches = (await rankBeaches(
+          (beaches ?? []).map((beach: any, index: number) => ({
+            id: beach.id,
+            beach,
+            index,
+          })),
+          { compare: (left, right) => left.index - right.index },
+        )).map(({ beach }) => beach);
+
+        if (visibleBeaches.length === 0) {
+          throw new Error("CITY_EXISTS_NO_DATA");
+        }
+
         // Add rank to each beach
-        const rankedBeaches: BeachWithMetrics[] = beaches.map(
+        const rankedBeaches: BeachWithMetrics[] = visibleBeaches.map(
           (beach: any, index: number) => ({
             ...beach,
             rank: index + 1,
@@ -442,4 +464,3 @@ export async function getAllBeachLocations() {
     })
   );
 }
-

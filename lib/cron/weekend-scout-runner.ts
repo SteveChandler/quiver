@@ -11,6 +11,7 @@ import {
   createOrGetWeekendScoutSnapshot,
   type CreateWeekendScoutSnapshotResult,
 } from '@/lib/services/discovery/weekend-scout-snapshots';
+import { selectBeach } from '@/lib/recommendations/selection';
 
 const MAX_LOCATION_AGE_MS = 24 * 60 * 60 * 1000;
 const MAX_LOCATION_FUTURE_SKEW_MS = 5 * 60 * 1000;
@@ -250,6 +251,24 @@ export async function runWeekendScoutCron(
           continue;
         }
 
+        const safeLeadBeach = created.leadBeachId
+          ? await selectBeach({
+              id: created.leadBeachId,
+              name: created.leadBeachName,
+            })
+          : null;
+        if (!safeLeadBeach) {
+          summary.skippedCounts.noCandidates += 1;
+          continue;
+        }
+        const leadResult = created.snapshot.results.find(
+          (result) => result.beachId === created.leadBeachId,
+        );
+        if (!leadResult) {
+          summary.skippedCounts.noCandidates += 1;
+          continue;
+        }
+
         let enqueueResult: EnqueueResult;
         try {
           enqueueResult = await deps.enqueue({
@@ -261,9 +280,17 @@ export async function runWeekendScoutCron(
               weekend_start: created.snapshot.weekendStart,
               weekend_end: created.snapshot.weekendEnd,
               qualifying_count: created.snapshot.qualifyingCount,
+              beach_id: created.leadBeachId,
               lead_beach_id: created.leadBeachId,
-              lead_beach_name: created.leadBeachName,
+              lead_beach_name: safeLeadBeach.name,
               lead_window_local: created.leadWindowLocal,
+              forecast_at: leadResult.bestWindow.start,
+              policy_context: {
+                kind: 'positive_session_recommendation',
+                beach_id: created.leadBeachId,
+                starts_at: leadResult.bestWindow.start,
+                ends_at: leadResult.bestWindow.end,
+              },
             },
           });
         } catch (error) {

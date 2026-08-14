@@ -23,6 +23,7 @@ import {
   resolveCanonicalSessionDecisionContext,
   type CanonicalSessionDecision,
 } from "@/lib/recommendations/canonical-decision";
+import { selectBeach } from "@/lib/recommendations/selection";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 
 export const revalidate = 0;
@@ -202,7 +203,11 @@ export async function selectAndBuildMorningCall({
     return { skipReason: "canonicalDecision" };
   }
   const sourceForecast = recommendation?.forecast ?? morningForecasts[0];
-  const selectedBeach = recommendation?.beach ?? beach;
+  const selectedBeachCandidate = recommendation?.beach ?? beach;
+  const selectedBeach = await selectBeach(selectedBeachCandidate, { asOf: now });
+  if (!selectedBeach) {
+    return { skipReason: "selection" };
+  }
   const verdict: SurfCallVerdict = decision.verdict === "go"
     ? "YES"
     : decision.verdict === "maybe"

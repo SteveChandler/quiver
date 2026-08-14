@@ -17,9 +17,9 @@
  *     forecast, then a stable beach/window ID.
  *  4. Return the head, or null on empty.
  *
- * The water-quality and surfability filters live upstream in the cron — by
- * the time the picker sees the slots, the caller has already decided which
- * beaches/forecasts are eligible. This keeps the picker pure and unit-testable.
+ * The surfability filters live upstream in the cron — by the time the picker
+ * sees the slots, the caller has already decided which forecasts are eligible.
+ * This keeps the picker pure and unit-testable.
  */
 
 export interface ScoredSlot {

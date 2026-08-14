@@ -26,6 +26,7 @@ import {
   getLocalDateString,
   resolveBeachTimezone,
 } from "@/lib/utils/timezone-utils";
+import { rankBeaches } from "@/lib/recommendations/selection";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -507,8 +508,24 @@ async function _GET(request: Request): Promise<Response> {
       throw new Error(`Failed to query sessions: ${sessionsError.message}`);
     }
 
+    const safeRawCandidates = await rankBeaches(
+      rawCandidates.map((candidate, index) => ({
+        id: candidate.beachId,
+        candidate,
+        index,
+      })),
+      {
+        compare: (left, right) => {
+          if (left.candidate.userId !== right.candidate.userId) {
+            return left.index - right.index;
+          }
+          return isBetterCandidate(left.candidate, right.candidate) ? -1 : 1;
+        },
+      },
+    );
+
     const candidatesByUser = new Map<string, Candidate>();
-    for (const candidate of rawCandidates) {
+    for (const { candidate } of safeRawCandidates) {
       if (
         hasFeedbackForCandidate(
           candidate,

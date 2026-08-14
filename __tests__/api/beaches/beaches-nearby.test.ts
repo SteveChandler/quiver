@@ -49,6 +49,14 @@ jest.mock("@/lib/monitoring/rate-limit-telemetry", () => ({
   logRateLimitViolation: jest.fn(),
 }));
 
+const mockRankBeaches = jest.fn(async <T extends { id: string }>(beaches: T[]) =>
+  beaches,
+);
+
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
+}));
+
 // Sample beach data for tests
 const mockBeaches = [
   {
@@ -340,6 +348,7 @@ describe("GET /api/beaches/nearby", () => {
       expect(beachNames).toContain("Pacific Beach");
       expect(beachNames).toContain("La Jolla Shores");
       expect(beachNames).not.toContain("Distant Beach");
+      expect(mockRankBeaches).toHaveBeenCalled();
     });
 
     it("orders by distance", async () => {
@@ -426,7 +435,7 @@ describe("GET /api/beaches/nearby", () => {
           input_lat: 32.75,
           input_lng: -117.25,
           max_distance_meters: Math.round(50 * 1609.34),
-          limit_count: 50,
+          limit_count: 55,
         },
       );
     });

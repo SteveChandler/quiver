@@ -114,6 +114,7 @@ export function AppHeader() {
   // on "/", client matches on first render, then shows header after mount if logged in
   const usesLandingNav =
     pathname === "/" || pathname === "/cams" || pathname.startsWith("/cams/");
+  const isRedeemPage = pathname === "/redeem";
 
   if (usesLandingNav && (!hasMounted || !user)) {
     return null;
@@ -449,21 +450,23 @@ export function AppHeader() {
                     >
                       Log in
                     </Button>
-                    <Button
-                      size="lg"
-                      className="w-full h-12 text-base font-semibold"
-                      onClick={() => {
-                        trackSignupCtaClick({
-                          source: "app-header-mobile",
-                        });
-                        setMobileMenuOpen(false);
-                        setAuthMode("signup");
-                        setAuthModalOpen(true);
-                      }}
-                      data-testid="mobile-nav-signup"
-                    >
-                      {getSignupCta(pathname)}
-                    </Button>
+                    {!isRedeemPage && (
+                      <Button
+                        size="lg"
+                        className="w-full h-12 text-base font-semibold"
+                        onClick={() => {
+                          trackSignupCtaClick({
+                            source: "app-header-mobile",
+                          });
+                          setMobileMenuOpen(false);
+                          setAuthMode("signup");
+                          setAuthModalOpen(true);
+                        }}
+                        data-testid="mobile-nav-signup"
+                      >
+                        {getSignupCta(pathname)}
+                      </Button>
+                    )}
                   </div>
                 </>
               )}
@@ -555,23 +558,25 @@ export function AppHeader() {
                 >
                   Log in
                 </Button>
-                <Button
-                  size="sm"
-                  className="rounded-full bg-[#F78E42] px-3 text-[#11100D] shadow-sm transition-[background-color,box-shadow,transform] duration-200 hover:bg-[#FFAA63] hover:shadow-md active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 lg:px-5 h-10 font-semibold"
-                  onClick={() => {
-                    const headerSource = `app-header-${isBeachContextPath(pathname) ? "beach" : pathname.startsWith("/forecast") ? "forecast" : "general"}`;
-                    trackSignupCtaClick({
-                      source: headerSource,
-                    });
-                    setAuthMode("signup");
-                    setAuthModalOpen(true);
-                  }}
-                >
-                  <span className="lg:hidden">Sign Up</span>
-                  <span className="hidden lg:inline">
-                    {getSignupCta(pathname)}
-                  </span>
-                </Button>
+                {!isRedeemPage && (
+                  <Button
+                    size="sm"
+                    className="rounded-full bg-[#F78E42] px-3 text-[#11100D] shadow-sm transition-[background-color,box-shadow,transform] duration-200 hover:bg-[#FFAA63] hover:shadow-md active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 lg:px-5 h-10 font-semibold"
+                    onClick={() => {
+                      const headerSource = `app-header-${isBeachContextPath(pathname) ? "beach" : pathname.startsWith("/forecast") ? "forecast" : "general"}`;
+                      trackSignupCtaClick({
+                        source: headerSource,
+                      });
+                      setAuthMode("signup");
+                      setAuthModalOpen(true);
+                    }}
+                  >
+                    <span className="lg:hidden">Sign Up</span>
+                    <span className="hidden lg:inline">
+                      {getSignupCta(pathname)}
+                    </span>
+                  </Button>
+                )}
               </div>
 
               <UnifiedAuthModal

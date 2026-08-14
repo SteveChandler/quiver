@@ -920,6 +920,10 @@ export interface CtaImpressionMetadata {
   surface: string;
   /** Percent of the CTA visible at time of impression (0-100) */
   viewport_pct?: number;
+  card_id?: string;
+  content_class?: string;
+  prompt?: boolean;
+  market_key?: string;
 }
 
 /** Metadata for client_error events */

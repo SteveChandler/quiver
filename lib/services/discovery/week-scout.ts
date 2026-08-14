@@ -46,6 +46,7 @@ import {
   type MajorEventHoldWeekScoutResponse,
 } from '@/lib/recommendations/major-event-hold/adapters/week-scout';
 import { evaluateMajorEventHoldCandidates } from '@/lib/recommendations/major-event-hold/service';
+import { rankBeaches } from '@/lib/recommendations/selection';
 import type { MajorEventHoldCandidate } from '@/lib/recommendations/major-event-hold/types';
 import {
   buildCanonicalSessionDecision,
@@ -755,11 +756,37 @@ async function generateWeekScoutForecastInternal(
     };
   });
 
-  const response: WeekScoutResponse = {
+  let response: WeekScoutResponse = {
     generatedAt,
     scorerVersion: WEEK_SCOUT_SCORER_VERSION,
     candidateFingerprint: hash([...beachIds].sort()),
     days,
+  };
+  const safeWindows = await rankBeaches(
+    response.days.flatMap((day) => day.windows).map((window) => ({
+      id: window.beachId,
+      window,
+    })),
+    {
+      compare: (left, right) =>
+        right.window.rankingScore - left.window.rankingScore,
+    },
+  );
+  const safeWindowIds = new Set(safeWindows.map(({ window }) => window.id));
+  response = {
+    ...response,
+    days: response.days.map((day) => {
+      const windows = day.windows.filter((window) => safeWindowIds.has(window.id));
+      const bestWindowId = day.bestWindowId && safeWindowIds.has(day.bestWindowId)
+        ? day.bestWindowId
+        : null;
+      return {
+        ...day,
+        windows,
+        bestWindowId,
+        exclusionReasons: exclusionReasonsForDay(windows, bestWindowId),
+      };
+    }),
   };
   const candidates: MajorEventHoldCandidate[] = response.days.flatMap((day) =>
     day.windows.map((window) => ({
@@ -772,6 +799,7 @@ async function generateWeekScoutForecastInternal(
   const decisions = await evaluateMajorEventHoldCandidates({
     candidates,
     profileExperience: userSkillLevel,
+    applyWaterQualityHolds: true,
   });
   const heldResponse = compactHeldResponse(sanitizeWeekScoutForMajorEventHold(
     response,

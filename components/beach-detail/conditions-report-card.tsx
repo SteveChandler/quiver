@@ -25,6 +25,8 @@ interface ConditionsReportCardProps {
   onSubmitSuccess?: () => void;
   /** Called when the user dismisses/collapses the card */
   onDismiss?: () => void;
+  /** Marks a completed report as a response to a visible system prompt. */
+  promptSeen?: boolean;
 }
 
 type FormState = "idle" | "submitting" | "success" | "already_reported" | "error";
@@ -36,6 +38,7 @@ export function ConditionsReportCard({
   onAuthRequired,
   onSubmitSuccess,
   onDismiss,
+  promptSeen = false,
 }: ConditionsReportCardProps) {
   const [waveSizeRange, setWaveSizeRange] = useState<WaveSizeRange | null>(null);
   const [vibe, setVibe] = useState<Vibe | null>(null);
@@ -89,13 +92,18 @@ export function ConditionsReportCard({
       }
 
       setFormState("success");
-      track("intel_post_created", { beach_id: beachId, wave_size_range: waveSizeRange, vibe });
+      track("intel_post_created", {
+        beach_id: beachId,
+        wave_size_range: waveSizeRange,
+        vibe,
+        source: promptSeen ? "system_card_prompt" : "local_intel",
+      });
       onSubmitSuccess?.();
     } catch {
       setFormState("error");
       setErrorMessage("Something went wrong. Please try again.");
     }
-  }, [effectivePublicMode, onAuthRequired, beachId, waveSizeRange, vibe, note, onSubmitSuccess]);
+  }, [effectivePublicMode, onAuthRequired, beachId, waveSizeRange, vibe, note, onSubmitSuccess, promptSeen]);
 
   const canSubmit = Boolean(waveSizeRange && vibe);
 

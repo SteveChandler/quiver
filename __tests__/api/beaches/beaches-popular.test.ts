@@ -11,6 +11,12 @@ const mockFrom = jest.fn();
 const mockSelect = jest.fn();
 const mockIn = jest.fn();
 const mockLimit = jest.fn();
+const mockFilterWaterQuality = jest.fn(async (beaches: Array<{ id: string }>) =>
+  beaches.filter((beach) => beach.id !== "held-beach"),
+);
+const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) =>
+  mockFilterWaterQuality(beaches),
+);
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => ({
@@ -26,6 +32,15 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
     withRateLimit: (handler: any) => handler,
   };
 });
+
+jest.mock("@/lib/recommendations/major-event-hold/water-quality-visibility", () => ({
+  filterBeachesByWaterQualityVisibility: (beaches: Array<{ id: string }>) =>
+    mockFilterWaterQuality(beaches),
+}));
+
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
+}));
 
 import { GET } from "@/app/api/beaches/popular/route";
 
@@ -47,7 +62,7 @@ describe("GET /api/beaches/popular", () => {
     expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
   });
 
-  it("returns cached RPC results and clamps limit to 20", async () => {
+  it("over-fetches RPC results before filtering held beaches and clamps output to 20", async () => {
     const beaches = [{ id: "beach-1", name: "Swami's" }];
     mockRpc.mockResolvedValue({ data: beaches, error: null });
 
@@ -59,7 +74,7 @@ describe("GET /api/beaches/popular", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toContain("max-age");
     expect(mockRpc).toHaveBeenCalledWith("get_popular_beaches", {
-      p_limit: 20,
+      p_limit: 25,
     });
     expect(mockFrom).not.toHaveBeenCalled();
     expect(body.data).toEqual(beaches);
@@ -79,8 +94,26 @@ describe("GET /api/beaches/popular", () => {
     expect(mockFrom).toHaveBeenCalledWith("beaches");
     expect(mockSelect).toHaveBeenCalledWith("id, name, slug, city, state");
     expect(mockIn).toHaveBeenCalledWith("name", expect.arrayContaining(["Pipeline"]));
-    expect(mockLimit).toHaveBeenCalledWith(2);
+    // The fallback reads the full bounded name list so held rows are removed before caching.
+    expect(mockLimit).toHaveBeenCalledWith(8);
     expect(body.data).toEqual(beaches);
+  });
+
+  it("does not return a held beach from the popularity ranking", async () => {
+    const beaches = [
+      { id: "held-beach", name: "Held Beach" },
+      { id: "safe-beach", name: "Safe Beach" },
+    ];
+    mockRpc.mockResolvedValue({ data: beaches, error: null });
+
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/beaches/popular"),
+    );
+
+    expect((await response.json()).data).toEqual([
+      { id: "safe-beach", name: "Safe Beach" },
+    ]);
+    expect(mockRankBeaches).toHaveBeenCalledWith(beaches);
   });
 
   it("wraps fallback query errors", async () => {

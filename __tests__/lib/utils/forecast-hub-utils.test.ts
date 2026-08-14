@@ -69,14 +69,26 @@ jest.mock("@/lib/recommendations/major-event-hold/adapters/regional", () => ({
 // photo attachment silently no-ops (summaries retain null photoUrl fields,
 // which matches the photos-unavailable branch the callers already handle).
 let mockPhotoBeachIds: string[] = [];
+let mockHeldBeachIds = new Set<string>();
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() => ({
-    from: () => ({
+    from: (table: string) => ({
       select: () => ({
         in: (_field: string, beachIds: string[]) => {
-          mockPhotoBeachIds = beachIds;
+          if (table === "beach_photos") mockPhotoBeachIds = beachIds;
+          if (table === "water_quality_held_beaches") {
+            return Promise.resolve({
+              data: beachIds
+                .filter((beachId) => mockHeldBeachIds.has(beachId))
+                .map((beach_id) => ({ beach_id })),
+              error: null,
+            });
+          }
+          if (table === "beach_water_quality") {
+            return Promise.resolve({ data: [], error: null });
+          }
           return {
-          order: () => Promise.resolve({ data: [], error: null }),
+            order: () => Promise.resolve({ data: [], error: null }),
           };
         },
       }),
@@ -276,6 +288,7 @@ describe("forecast-hub-utils", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPhotoBeachIds = [];
+    mockHeldBeachIds.clear();
 
     // Set up FORECAST_REGIONS mock data
     Object.keys(FORECAST_REGIONS).forEach((key) => {
@@ -352,6 +365,40 @@ describe("forecast-hub-utils", () => {
       expect(getBatchFreshForecastsFromCache).toHaveBeenCalledWith(
         ["beach-1", "beach-3", "beach-2"], // All unique beach IDs
         168 // 7 days in hours
+      );
+    });
+
+    it("filters held beaches before regional aggregation", async () => {
+      const heldBeach = {
+        ...mockBeaches[0],
+        id: "550e8400-e29b-41d4-a716-446655440000",
+        name: "Held Beach",
+      } as Beach;
+      const safeBeach = {
+        ...mockBeaches[1],
+        id: "550e8400-e29b-41d4-a716-446655440001",
+        name: "Safe Beach",
+      } as Beach;
+      mockHeldBeachIds.add(heldBeach.id);
+      (getBeachesForRegion as jest.Mock).mockImplementation(
+        (_region: ForecastRegion, regionBeaches: Beach[]) => regionBeaches,
+      );
+      (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(new Map());
+      (aggregateRegionalForecast as jest.Mock).mockImplementation(
+        (_region: ForecastRegion, regionBeaches: Beach[]) =>
+          createMockRegionalSummary(mockRegion1, regionBeaches.length),
+      );
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [heldBeach, safeBeach],
+      });
+
+      await getRegionalSummaries();
+
+      expect(aggregateRegionalForecast).toHaveBeenCalledWith(
+        expect.anything(),
+        [safeBeach],
+        expect.any(Map),
       );
     });
 

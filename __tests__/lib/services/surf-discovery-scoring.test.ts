@@ -30,6 +30,10 @@ jest.mock("@/lib/services/discovery/major-event-hold", () => ({
   ),
 }));
 
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: jest.fn(async (beaches: Array<{ id: string }>) => beaches),
+}));
+
 jest.mock("@/lib/utils/timezone-utils.server", () => ({
   getTimezoneFromCoords: jest.fn(() => "UTC"),
   getLocalHour: jest.fn((d: Date) => d.getUTCHours()),

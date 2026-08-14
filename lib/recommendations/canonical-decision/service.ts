@@ -7,6 +7,7 @@ import type {
   SurfDiscoveryResponse,
 } from "@/types/personalization";
 import { buildCanonicalDecisionFromSurfDiscovery } from "./discovery-adapter";
+import { rankBeaches } from "@/lib/recommendations/selection";
 import type {
   CanonicalDecisionScope,
   CanonicalSessionDecision,
@@ -59,6 +60,14 @@ export async function resolveCanonicalSessionDecisionContext(
         candidateBeachIds.has(recommendation.beach.id),
       )
     : recommendations;
+  const rankedDecisionRecommendations = await rankBeaches(
+    decisionRecommendations.map((recommendation, index) => ({
+      id: recommendation.beach.id,
+      recommendation,
+      index,
+    })),
+    { compare: (left, right) => left.index - right.index },
+  );
 
   const decision = buildCanonicalDecisionFromSurfDiscovery({
     anchorTime: input.anchorTime,
@@ -69,7 +78,9 @@ export async function resolveCanonicalSessionDecisionContext(
       reasonCode: "hold_state_unavailable",
       holdEpoch: "hold-state-unavailable",
     },
-    recommendations: decisionRecommendations,
+    recommendations: rankedDecisionRecommendations.map(
+      ({ recommendation }) => recommendation,
+    ),
   });
 
   return { decision, discovery };

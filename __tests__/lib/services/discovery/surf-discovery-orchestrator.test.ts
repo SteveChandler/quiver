@@ -2963,6 +2963,9 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
 
     // Re-import the module so createContextLogger is called again with our spy
     jest.resetModules();
+    jest.doMock('@/lib/recommendations/selection', () => ({
+      rankBeaches: jest.fn(async (items: unknown[]) => items),
+    }));
     // Re-apply all mocks after resetModules
     jest.doMock('@/lib/logger', () => ({
       createContextLogger: jest.fn(() => ({
@@ -3172,6 +3175,9 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       .mockReturnValueOnce(tomorrowWindow);
 
     jest.resetModules();
+    jest.doMock('@/lib/recommendations/selection', () => ({
+      rankBeaches: jest.fn(async (items: unknown[]) => items),
+    }));
     jest.doMock('@/lib/logger', () => ({
       createContextLogger: jest.fn(() => ({
         debug: jest.fn(),
@@ -3368,6 +3374,9 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       .mockReturnValueOnce(tomorrowWindow);
 
     jest.resetModules();
+    jest.doMock('@/lib/recommendations/selection', () => ({
+      rankBeaches: jest.fn(async (items: unknown[]) => items),
+    }));
     jest.doMock('@/lib/logger', () => ({
       createContextLogger: jest.fn(() => ({
         debug: jest.fn(),
@@ -3564,6 +3573,9 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       .mockReturnValueOnce(tomorrowWindow); // full-set fall-through call
 
     jest.resetModules();
+    jest.doMock('@/lib/recommendations/selection', () => ({
+      rankBeaches: jest.fn(async (items: unknown[]) => items),
+    }));
     jest.doMock('@/lib/logger', () => ({
       createContextLogger: jest.fn(() => ({
         debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn(),
@@ -3748,6 +3760,9 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       .mockReturnValueOnce(tomorrowWindow); // full-set fall-through call
 
     jest.resetModules();
+    jest.doMock('@/lib/recommendations/selection', () => ({
+      rankBeaches: jest.fn(async (items: unknown[]) => items),
+    }));
     jest.doMock('@/lib/logger', () => ({
       createContextLogger: jest.fn(() => ({
         debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn(),
