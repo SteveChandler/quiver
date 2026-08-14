@@ -9,6 +9,7 @@ import {
   collectIndexNowUrlGroups,
   flattenIndexNowUrlGroups,
 } from "@/lib/seo/indexnow-url-collectors";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
@@ -43,7 +44,15 @@ async function _GET(request: Request): Promise<Response> {
     const urlGroups = await collectIndexNowUrlGroups();
     const uniqueUrls = flattenIndexNowUrlGroups(urlGroups);
 
-    const result = await submitUrlsInBatches(uniqueUrls);
+    const result = await withCronOutcome(
+      {
+        job: "/api/cron/indexnow-submit",
+        unit: "urls_submitted",
+        expectedMin: 1,
+        getProduced: (value) => value.totalSubmitted,
+      },
+      () => submitUrlsInBatches(uniqueUrls),
+    );
 
     return createSuccessResponse({
       submitted: result.totalSubmitted,

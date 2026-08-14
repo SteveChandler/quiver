@@ -4,6 +4,7 @@ import {
   handleApiError,
   validateCronRequest,
 } from "@/lib/middleware/api-wrappers";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { NOAABuoySync } from "@/lib/services/noaa-sync";
 import { withObservedCron } from "@/lib/cron/observability";
 
@@ -44,7 +45,15 @@ async function _GET(request: Request): Promise<Response> {
     console.log(`Starting NOAA buoy sync with maxDistanceKm=${maxDistanceKm}...`);
 
     const syncService = new NOAABuoySync();
-    const result = await syncService.syncBuoysForExistingBeaches(maxDistanceKm);
+    const result = await withCronOutcome(
+      {
+        job: "/api/cron/sync-buoys",
+        unit: "buoys_synced",
+        expectedMin: 1,
+        getProduced: (value) => value.buoysAdded,
+      },
+      () => syncService.syncBuoysForExistingBeaches(maxDistanceKm),
+    );
 
     if (result.success) {
       const summary = {

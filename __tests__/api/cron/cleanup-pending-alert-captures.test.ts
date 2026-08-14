@@ -20,6 +20,12 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   validateCronRequest: jest.fn(() => true),
 }));
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) =>
+    handler()
+  ),
+}));
+
 const mockChain: {
   delete: jest.Mock;
   lt: jest.Mock;

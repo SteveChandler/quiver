@@ -45,6 +45,12 @@ jest.mock("@/lib/cron/observability", () => ({
   withObservedCron: jest.fn((_route: string, handler) => handler),
 }));
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) =>
+    handler()
+  ),
+}));
+
 jest.mock("@/lib/services/indexnow-service", () => ({
   submitUrlsInBatches: jest.fn(),
 }));

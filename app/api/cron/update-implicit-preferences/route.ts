@@ -7,6 +7,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { isValidUUID } from "@/lib/utils/validation";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
@@ -90,9 +91,25 @@ async function _GET(request: Request): Promise<Response> {
       throw new Error(`Failed to cleanup expired events: ${cleanupError.message}`);
     }
 
+    const outcome = await withCronOutcome(
+      {
+        job: "/api/cron/update-implicit-preferences",
+        unit: "preferences_recomputed",
+        expectedMin: 1,
+        getProduced: (value) => value.processedUsers,
+        legitimatelyZero: (value) =>
+          value.processedUsers === 0
+            ? { reason: "No users had eligible events for implicit preference recomputation" }
+            : undefined,
+      },
+      async () => ({
+        processedUsers: processedUsers ?? 0,
+        deletedExpiredEvents: deletedExpiredEvents ?? 0,
+      }),
+    );
+
     return createSuccessResponse({
-      processedUsers: processedUsers ?? 0,
-      deletedExpiredEvents: deletedExpiredEvents ?? 0,
+      ...outcome,
       targetUserId: targetUserId || null,
       duration: `${Date.now() - startedAt}ms`,
     });
