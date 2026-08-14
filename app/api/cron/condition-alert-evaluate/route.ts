@@ -75,6 +75,7 @@ export async function GET(request: Request) {
           skipped_by_reason: {
             hold_state_unavailable: 0,
             major_event_hold: 0,
+            water_quality_hold: 0,
           },
           errors: 0,
         };
@@ -328,6 +329,7 @@ export async function GET(request: Request) {
                   type: "forecast_alert",
                   payload: {
                     beach_id: rule.beach_id,
+                    configured_beach_id: rule.beach_id,
                     forecast_at: window.best_hour,
                     policy_context: {
                       kind: "positive_session_recommendation",

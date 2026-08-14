@@ -2,6 +2,8 @@
 
 import { unstable_cache } from "next/cache";
 import { createPublicReadClient } from "@/lib/supabase/server";
+import { rankBeaches } from "@/lib/recommendations/selection";
+import { WATER_QUALITY_HOLD_PREFETCH_BUFFER } from "@/lib/recommendations/major-event-hold/water-quality";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -165,7 +167,7 @@ async function fetchCitySurfReport(
       .gte("forecast_at", recentStart.toISOString())
       .lt("forecast_at", tomorrowStart.toISOString())
       .order("forecast_at", { ascending: false })
-      .limit(200);
+      .limit(200 + WATER_QUALITY_HOLD_PREFETCH_BUFFER);
 
     if (error) {
       console.error("[getCitySurfReport] Query error:", error.message);
@@ -250,9 +252,16 @@ async function fetchCitySurfReport(
       });
     }
 
-    // Sort descending by score, limit to 15
-    conditions.sort((a, b) => b.score - a.score);
-    const limited = conditions.slice(0, 15);
+    const rankedConditions = await rankBeaches(
+      conditions.map((condition) => ({
+        id: condition.beachId,
+        condition,
+      })),
+      { compare: (left, right) => right.condition.score - left.condition.score },
+    );
+    const limited = rankedConditions
+      .slice(0, 15)
+      .map(({ condition }) => condition);
     const bestBeach = limited[0] ?? null;
 
     return {

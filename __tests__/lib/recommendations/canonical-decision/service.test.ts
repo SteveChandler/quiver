@@ -9,6 +9,10 @@ type CanonicalServiceModule = {
   ) => Promise<unknown>;
 };
 
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: jest.fn(async (beaches: Array<{ id: string }>) => beaches),
+}));
+
 function loadService(): CanonicalServiceModule {
   return require("@/lib/recommendations/canonical-decision/service") as CanonicalServiceModule;
 }

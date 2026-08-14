@@ -20,6 +20,9 @@ const POSITIVE_NOTIFICATION_TYPES = new Set([
   "home_morning_call",
   "weekend_window",
 ]);
+// A water-quality alert is an explicit safety warning for the beach the user
+// configured, not a Quiver recommendation. Naming that beach is intentional.
+const USER_CONFIGURED_SAFETY_NOTIFICATION_TYPES = new Set(["water_quality"]);
 const FORECAST_SLOT_DURATION_MS = 60 * 60 * 1000;
 const AUDIT_CODE = "major_event_hold" as const;
 const MAX_CANDIDATE_ID_LENGTH = 160;
@@ -87,6 +90,12 @@ function isPositiveNotification(type: string, payload: unknown): boolean {
     return !isRecord(payload) || payload.verdict !== "NO";
   }
   if (POSITIVE_NOTIFICATION_TYPES.has(type)) return true;
+  if (
+    isRecord(payload) &&
+    isPositivePolicyContext(payload.policy_context)
+  ) {
+    return true;
+  }
   if (type !== "log_session_nudge" || !isRecord(payload)) return false;
 
   return (
@@ -94,6 +103,27 @@ function isPositiveNotification(type: string, payload: unknown): boolean {
     (isRecord(payload.policy_context) &&
       payload.policy_context.kind === "positive_session_recommendation")
   );
+}
+
+function isNamedNotification(type: string, payload: unknown): boolean {
+  if (USER_CONFIGURED_SAFETY_NOTIFICATION_TYPES.has(type)) return true;
+  if (isPositiveNotification(type, payload)) return true;
+  if (type !== "forecast_feedback_nudge" || !isRecord(payload)) return false;
+  return typeof payload.beach_id === "string";
+}
+
+function configuredBeachIdsForNotification(
+  type: string,
+  payload: unknown,
+): string[] {
+  if (
+    (type !== "forecast_alert" && type !== "similarity_match") ||
+    !isRecord(payload) ||
+    typeof payload.configured_beach_id !== "string"
+  ) {
+    return [];
+  }
+  return [payload.configured_beach_id];
 }
 
 function hashedCandidateId(value: string): string {
@@ -147,6 +177,19 @@ function candidateFromForecastAt(
     beachId: payload.beach_id,
     startsAt: payload.forecast_at,
     endsAt: new Date(startsAtMs + FORECAST_SLOT_DURATION_MS).toISOString(),
+  });
+}
+
+function candidateFromBeachId(
+  candidateId: string,
+  payload: Record<string, unknown>,
+): MajorEventHoldCandidate | null {
+  if (typeof payload.beach_id !== "string") return null;
+  return parseMajorEventHoldCandidate({
+    candidateId,
+    beachId: payload.beach_id,
+    startsAt: "1970-01-01T00:00:00.000Z",
+    endsAt: "1970-01-01T01:00:00.000Z",
   });
 }
 
@@ -266,11 +309,31 @@ export function buildNotificationMajorEventHoldCandidate(
   const candidateId = candidateIdFor(input.eventId);
   if (candidateId === null || !isRecord(input.payload)) return null;
 
+  if (input.type === "water_quality") {
+    return candidateFromBeachId(candidateId, input.payload);
+  }
+
   if (input.type === "log_session_nudge") {
     return candidateFromPolicyContext(
       candidateId,
       input.payload.policy_context,
+    ) ?? candidateFromBeachId(candidateId, input.payload);
+  }
+  if (
+    !POSITIVE_NOTIFICATION_TYPES.has(input.type) &&
+    isPositivePolicyContext(input.payload.policy_context)
+  ) {
+    const candidate = candidateFromPolicyContext(
+      candidateId,
+      input.payload.policy_context,
     );
+    if (
+      candidate === null ||
+      !policyContextMatchesPayload(input.type, candidate, input.payload)
+    ) {
+      return null;
+    }
+    return candidate;
   }
   if (POSITIVE_NOTIFICATION_TYPES.has(input.type)) {
     if (Object.prototype.hasOwnProperty.call(input.payload, "policy_context")) {
@@ -292,7 +355,16 @@ export function buildNotificationMajorEventHoldCandidate(
     ) {
       return candidateFromForecastMatch(candidateId, input.payload);
     }
-    return candidateFromForecastAt(candidateId, input.payload);
+    return (
+      candidateFromForecastAt(candidateId, input.payload) ??
+      candidateFromBeachId(candidateId, input.payload)
+    );
+  }
+  if (input.type === "forecast_feedback_nudge") {
+    return (
+      candidateFromForecastAt(candidateId, input.payload) ??
+      candidateFromBeachId(candidateId, input.payload)
+    );
   }
   return null;
 }
@@ -390,17 +462,33 @@ export async function resolveNotificationMajorEventHold(
   input: ResolveNotificationMajorEventHoldInput,
   dependencies: NotificationMajorEventHoldDependencies = {},
 ): Promise<NotificationMajorEventHoldResult> {
-  if (!isPositiveNotification(input.type, input.payload)) {
+  if (!isNamedNotification(input.type, input.payload)) {
     return { status: "not_applicable" };
+  }
+
+  if (USER_CONFIGURED_SAFETY_NOTIFICATION_TYPES.has(input.type)) {
+    // Water-quality notifications exist to identify the affected beach. They
+    // are deliberately exempt from recommendation-hold suppression.
+    return {
+      status: "allowed",
+      candidate: buildNotificationMajorEventHoldCandidate(input),
+    };
   }
 
   const mode = input.mode ?? MAJOR_EVENT_HOLD_MODE;
   const candidate = buildNotificationMajorEventHoldCandidate(input);
   const candidates = buildNotificationMajorEventHoldCandidates(input);
+  const hasFreshWeekendSnapshot =
+    input.type === "weekend_window" &&
+    candidate !== null &&
+    isRecord(input.payload) &&
+    isPositivePolicyContext(input.payload.policy_context) &&
+    policyContextMatchesPayload(input.type, candidate, input.payload);
   if (
     mode === "enforce"
     && POSITIVE_NOTIFICATION_TYPES.has(input.type)
     && input.type !== "forecast_alert"
+    && !hasFreshWeekendSnapshot
     && !hasFreshCanonicalPositiveDecision({
       type: input.type,
       payload: input.payload,
@@ -420,6 +508,11 @@ export async function resolveNotificationMajorEventHold(
       profileExperience: input.profileExperience,
       mode,
       asOf: input.asOf,
+      applyWaterQualityHolds: true,
+      waterQualityExemptBeachIds: configuredBeachIdsForNotification(
+        input.type,
+        input.payload,
+      ),
     });
   } catch {
     return unavailableForMode(mode, candidate);
@@ -437,8 +530,9 @@ export async function resolveNotificationMajorEventHold(
       return { status: "allowed", candidate };
     }
     return suppressed(
-      availability?.reasonCode === "major_event_hold"
-        ? "major_event_hold"
+      availability?.reasonCode === "major_event_hold" ||
+        availability?.reasonCode === "water_quality_hold"
+        ? availability.reasonCode
         : "hold_state_unavailable",
       candidate,
     );
@@ -454,7 +548,15 @@ export async function resolveNotificationMajorEventHold(
     const blockedCandidate = validCandidates.find((value) =>
       boundary.blockedCandidateIds.has(value.candidateId),
     );
-    return suppressed("major_event_hold", blockedCandidate ?? candidate);
+    const blockedDecision = decisions.find(
+      (decision) => decision.candidateId === blockedCandidate?.candidateId,
+    );
+    return suppressed(
+      blockedDecision?.evaluation.reasonCode === "water_quality_hold"
+        ? "water_quality_hold"
+        : "major_event_hold",
+      blockedCandidate ?? candidate,
+    );
   }
   if (boundary.allowedCandidateIds.size === validCandidates.length) {
     return { status: "allowed", candidate };
@@ -462,8 +564,9 @@ export async function resolveNotificationMajorEventHold(
   if (mode !== "enforce") return { status: "allowed", candidate };
 
   return suppressed(
-    boundary.recommendationAvailability.reasonCode === "major_event_hold"
-      ? "major_event_hold"
+    boundary.recommendationAvailability.reasonCode === "major_event_hold" ||
+      boundary.recommendationAvailability.reasonCode === "water_quality_hold"
+      ? boundary.recommendationAvailability.reasonCode
       : "hold_state_unavailable",
     candidate,
   );

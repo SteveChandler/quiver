@@ -14,6 +14,8 @@ import {
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { rankBeaches } from "@/lib/recommendations/selection";
+import { WATER_QUALITY_HOLD_PREFETCH_BUFFER } from "@/lib/recommendations/major-event-hold/water-quality";
 
 export const revalidate = 86400; // 24h (best-effort; may be treated as dynamic if cookies are read)
 
@@ -95,9 +97,9 @@ export default async function StateRootPage(props: StateRootPageProps) {
       .or(candidates.map((v) => `state.ilike.${v}`).join(","))
       .eq("is_private", false)
       .order("review_count", { ascending: false })
-      .limit(200);
+      .limit(200 + WATER_QUALITY_HOLD_PREFETCH_BUFFER);
 
-    beaches = (data || []).filter(
+    const publicBeaches = (data || []).filter(
       (
         b
       ): b is {
@@ -112,6 +114,9 @@ export default async function StateRootPage(props: StateRootPageProps) {
         is_private: boolean;
       } => !!(b && b.slug && b.city && b.state && b.is_private === false)
     );
+    beaches = await rankBeaches(publicBeaches, {
+      compare: (a, b) => (b.review_count ?? 0) - (a.review_count ?? 0),
+    });
   } catch {
     beaches = [];
   }

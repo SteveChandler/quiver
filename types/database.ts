@@ -194,8 +194,10 @@ export interface IntelPostWithUser extends IntelPost {
 
   // User profile information (enriched from profiles table)
   user?: {
+    id?: string
     full_name: string
     avatar_url: string | null
+    is_system_account?: boolean | null
   }
 
   // Legacy field for backward compatibility

@@ -28,6 +28,8 @@ import {
   FALLBACK_IMAGE_BY_NAME,
 } from "@/lib/constants/featured-beaches-config";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
+import { rankBeaches } from "@/lib/recommendations/selection";
+import { WATER_QUALITY_HOLD_PREFETCH_BUFFER } from "@/lib/recommendations/major-event-hold/water-quality";
 import type { BeachPhotoSelect, Beach } from "@/types/database";
 import type { Coordinates } from "@/lib/types/coordinates";
 
@@ -374,7 +376,9 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<Fe
 
     // When no coordinates, limit for performance; with coordinates, fetch all for proximity filtering
     if (!options?.coordinates) {
-      beachesQuery = beachesQuery.limit(FEATURED_BEACHES_LIMIT * 3);
+      beachesQuery = beachesQuery.limit(
+        FEATURED_BEACHES_LIMIT * 3 + WATER_QUALITY_HOLD_PREFETCH_BUFFER,
+      );
     }
 
     // Execute both queries in parallel
@@ -437,10 +441,23 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<Fe
     // Step 4: Apply priority sorting to beaches with photos
     applyPrioritySorting(enrichedWithPhotos);
 
+    const allDeduped = dedupeBeaches([
+      ...enrichedWithPhotos,
+      ...enrichedWithoutPhotos,
+    ]);
+    // Filter the source list before any derived list is cached. The comparator
+    // preserves the existing curated order; ranking is still enforced at the
+    // downstream proximity/landing selection sites.
+    const safeBeaches = await rankBeaches(allDeduped, { compare: () => 0 });
+    const safeWithPhotos = safeBeaches.filter((beach) => beach.has_real_photo);
+    const safeWithoutPhotos = safeBeaches.filter(
+      (beach) => !beach.has_real_photo,
+    );
+
     // Step 5: Build global list (used for no-coords path and as proximity fallback)
     const globalList = buildGlobalFeaturedList(
-      enrichedWithPhotos,
-      enrichedWithoutPhotos,
+      safeWithPhotos,
+      safeWithoutPhotos,
       FEATURED_BEACHES_LIMIT
     );
 
@@ -451,9 +468,8 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<Fe
     }
 
     const radiusMiles = options?.radiusMiles ?? FEATURED_BEACHES_RADIUS_MILES;
-    const allDeduped = dedupeBeaches([...enrichedWithPhotos, ...enrichedWithoutPhotos]);
     const nearby = filterByProximity(
-      allDeduped,
+      safeBeaches,
       coordinatesById,
       userCoords,
       radiusMiles,
@@ -471,7 +487,7 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<Fe
     for (const expandedRadius of EXPANDED_SEARCH_RADII) {
       if (expandedRadius <= radiusMiles) continue; // skip radii we've already covered
       const expanded = filterByProximity(
-        allDeduped, coordinatesById, userCoords, expandedRadius, FEATURED_BEACHES_LIMIT
+        safeBeaches, coordinatesById, userCoords, expandedRadius, FEATURED_BEACHES_LIMIT
       );
       const expandedWithPhotos = expanded.filter((b) => b.has_real_photo);
       if (expandedWithPhotos.length >= MIN_NEARBY_RESULTS) {
@@ -498,7 +514,7 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<Fe
 export async function getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<FeaturedBeachesResult> {
   // When coordinates are provided, bypass cache to avoid cache key explosion per unique lat/lon
   if (options?.coordinates) {
-    return await _getFeaturedBeaches(options);
+    return _getFeaturedBeaches(options);
   }
 
   try {
@@ -506,8 +522,8 @@ export async function getFeaturedBeaches(options?: FeaturedBeachesOptions): Prom
       tags: ["featured-beaches"],
       revalidate: 600, // 10 minutes
     });
-    return await cachedFetch();
+    return cachedFetch();
   } catch {
-    return await _getFeaturedBeaches();
+    return _getFeaturedBeaches();
   }
 }

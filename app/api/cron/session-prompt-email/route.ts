@@ -33,6 +33,7 @@ import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { signEmailToken, getEmailTokenSecret } from "@/lib/utils/email-token";
 import { withObservedCron } from "@/lib/cron/observability";
+import { rankBeaches } from "@/lib/recommendations/selection";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -260,9 +261,18 @@ async function _GET(request: Request): Promise<Response> {
       return createSuccessResponse({ summary });
     }
 
+    const waterQualityVisibleCandidates = (
+      await rankBeaches(
+        (candidates as SessionPromptCandidate[]).map((candidate) => ({
+          id: candidate.home_beach_id,
+          candidate,
+        })),
+        { compare: () => 0 },
+      )
+    ).map(({ candidate }) => candidate);
     const deliverable = await filterSuppressedRecipients(
       supabase,
-      candidates as SessionPromptCandidate[]
+      waterQualityVisibleCandidates as SessionPromptCandidate[],
     );
     summary.candidates = deliverable.length;
     const baseUrl = getBaseUrl();

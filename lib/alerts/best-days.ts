@@ -83,7 +83,8 @@ export async function computeBestDaysForUser(
 
   const slots: BestDaySlot[] = [];
 
-  for (const [beachId, beach] of beachesById) {
+  for (const beach of beachesById.values()) {
+    const beachId = beach.id;
     const tz = beach.timezone ?? "America/Los_Angeles";
     const { data: forecasts } = await (supabase as any)
       .from("enhanced_forecasts")

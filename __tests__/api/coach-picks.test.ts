@@ -10,6 +10,7 @@ const mockGetProfileExperienceLevel = jest.fn();
 const mockResolveCanonicalSessionDecision = jest.fn();
 const mockAuthGetUser = jest.fn();
 const mockRpc = jest.fn();
+const mockRankBeaches = jest.fn(async <T extends { id: string }>(beaches: T[]) => beaches);
 const NO_STORE = "private, no-store, no-cache, must-revalidate";
 const REQUEST_AS_OF = "2026-07-20T12:00:00.000Z";
 const PRIMARY_BEACH_ID = "11111111-1111-4111-8111-111111111111";
@@ -79,6 +80,24 @@ function blockedDecision(beachId: string) {
   };
 }
 
+function waterQualityBlockedDecision(beachId: string) {
+  return {
+    candidateId: candidateId(beachId),
+    evaluation: {
+      outcome: "explicit_none",
+      reasonCode: "water_quality_hold",
+      holdIds: [`water-quality:${beachId}`],
+      holdEpoch: "ordinary-epoch",
+    },
+    recommendationAvailability: {
+      state: "none",
+      reasonCode: "water_quality_hold",
+      holdEpoch: "ordinary-epoch",
+      resolutionAsOf: REQUEST_AS_OF,
+    },
+  };
+}
+
 jest.mock("@/lib/supabase/api-server-client", () => ({
   createAPIServerClient: () => ({
     auth: { getUser: (...args: unknown[]) => mockAuthGetUser(...args) },
@@ -107,6 +126,10 @@ jest.mock("@/lib/profile/skill-level", () => ({
 jest.mock("@/lib/recommendations/major-event-hold/service", () => ({
   evaluateMajorEventHoldCandidates: (input: unknown) =>
     mockEvaluateMajorEventHoldCandidates(input),
+}));
+
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
 }));
 
 jest.mock("@/lib/recommendations/canonical-decision", () => ({
@@ -241,6 +264,7 @@ describe("GET /api/coach-picks", () => {
       ],
       profileExperience: "intermediate",
       asOf: new Date(REQUEST_AS_OF),
+      applyWaterQualityHolds: true,
     });
     expect(body.data).toEqual({
       picks: [
@@ -288,6 +312,7 @@ describe("GET /api/coach-picks", () => {
       candidates: [null],
       profileExperience: "intermediate",
       asOf: new Date(REQUEST_AS_OF),
+      applyWaterQualityHolds: true,
     });
     expect(body.data).toEqual({
       picks: [],
@@ -334,6 +359,7 @@ describe("GET /api/coach-picks", () => {
       ],
       profileExperience: "advanced",
       asOf: new Date(REQUEST_AS_OF),
+      applyWaterQualityHolds: true,
     });
   });
 
@@ -385,6 +411,39 @@ describe("GET /api/coach-picks", () => {
       holdEpoch: "ordinary-epoch",
       resolutionAsOf: REQUEST_AS_OF,
     });
+  });
+
+  it("filters water-quality-held coach picks before canonical selection", async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: [
+        { beach_id: PRIMARY_BEACH_ID, name: "Held Beach", score: 99 },
+        { beach_id: SECONDARY_BEACH_ID, name: "Allowed Beach", score: 80 },
+      ],
+      error: null,
+    });
+    mockEvaluateMajorEventHoldCandidates.mockResolvedValueOnce([
+      waterQualityBlockedDecision(PRIMARY_BEACH_ID),
+      allowDecision(SECONDARY_BEACH_ID),
+    ]);
+    mockResolveCanonicalSessionDecision.mockResolvedValueOnce(
+      canonicalDecision(SECONDARY_BEACH_ID),
+    );
+    const { GET } = await import("@/app/api/coach-picks/route");
+    const { NextRequest } = await import("next/server");
+
+    const response = await GET(
+      new NextRequest(
+        new URL(`http://localhost/api/coach-picks?beachId=${PRIMARY_BEACH_ID}`),
+      ) as never,
+    );
+    const body = await response.json();
+
+    expect(body.data.picks.map((pick: { beach_id: string }) => pick.beach_id)).toEqual([
+      SECONDARY_BEACH_ID,
+    ]);
+    expect(body.data.picks.map((pick: { name: string }) => pick.name)).not.toContain(
+      "Held Beach",
+    );
   });
 
   it("projects legacy picks to the one beach selected by the canonical engine", async () => {

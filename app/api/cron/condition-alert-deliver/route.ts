@@ -908,6 +908,7 @@ export async function GET(request: Request): Promise<NextResponse> {
               type: "forecast_alert",
               payload: {
                 beach_id: match.beach_id,
+                configured_beach_id: match.beach_id,
                 forecast_at: match.best_hour,
                 ...(policyContext ? { policy_context: policyContext } : {}),
               },
@@ -1413,6 +1414,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                       title,
                       body,
                       beach_id: pushData.beach_id,
+                      configured_beach_id: payloadBeachId,
                       forecast_at:
                         pushData.forecast_at ??
                         topMatch?.best_hour ??
@@ -1682,6 +1684,10 @@ export async function GET(request: Request): Promise<NextResponse> {
                 : null;
             const similarityPayload = {
               beach_id: String(snap.beach_id ?? item.beach_id),
+              configured_beach_id:
+                typeof snap.configured_beach_id === "string"
+                  ? snap.configured_beach_id
+                  : undefined,
               beach_slug: String(snap.beach_slug ?? ""),
               beach_name: String(snap.beach_name ?? item.beach_name),
               alert_date: item.alert_date,

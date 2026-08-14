@@ -2,10 +2,12 @@ import { applyBeachCoordinateCorrection } from "@/lib/beach-coordinate-correctio
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { normalizeBeachCountry } from "@/lib/utils/beach-url-utils";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
+import { rankBeaches } from "@/lib/recommendations/selection";
 import type { Beach } from "@/types/database";
 
 export const MAX_NEARBY_RADIUS_MILES = 50;
 export const MAX_NEARBY_LIMIT = 50;
+const WATER_QUALITY_HOLD_OVERFETCH = 5;
 const MAX_FALLBACK_CANDIDATES = 200;
 
 export interface NearbyBeachQuery {
@@ -77,7 +79,7 @@ async function boundedFallback(
 
   if (error) throw error;
 
-  return ((data ?? []) as Beach[])
+  const boundedBeaches = ((data ?? []) as Beach[])
     .map(applyBeachCoordinateCorrection)
     .filter(validCoordinates)
     .map((beach) => ({
@@ -88,8 +90,11 @@ async function boundedFallback(
       ),
     }))
     .filter((beach) => beach.distance <= radiusMiles)
-    .sort((left, right) => left.distance - right.distance)
-    .slice(0, limit);
+  const rankedBeaches = await rankBeaches(boundedBeaches, {
+    compare: (left, right) => left.distance - right.distance,
+  });
+
+  return rankedBeaches.slice(0, limit);
 }
 
 export async function getNearbyBeachesFromDb(
@@ -106,7 +111,13 @@ export async function getNearbyBeachesFromDb(
       input_lat: latitude,
       input_lng: longitude,
       max_distance_meters: Math.round(normalized.radiusMiles * 1609.34),
-      limit_count: normalized.limit,
+      limit_count: Math.min(
+        MAX_NEARBY_LIMIT + WATER_QUALITY_HOLD_OVERFETCH,
+        Math.max(
+          normalized.limit + WATER_QUALITY_HOLD_OVERFETCH,
+          normalized.limit * 2,
+        ),
+      ),
     });
 
     if (error) {
@@ -128,8 +139,7 @@ export async function getNearbyBeachesFromDb(
 
     const rpcRows = ((data ?? []) as unknown as Beach[])
       .map(applyBeachCoordinateCorrection)
-      .filter(validCoordinates)
-      .slice(0, normalized.limit);
+      .filter(validCoordinates);
     const rpcRowIds = rpcRows
       .map((beach) => beach.id)
       .filter((id): id is string => Boolean(id));
@@ -170,9 +180,24 @@ export async function getNearbyBeachesFromDb(
       }
     }
 
+    const rankedNearbyRows = await rankBeaches(nearbyRows, {
+      compare: (left, right) => {
+        if (left.lat === null || left.lon === null) return 1;
+        if (right.lat === null || right.lon === null) return -1;
+        return calculateDistanceInMiles(
+          { lat: latitude, lon: longitude },
+          { lat: left.lat, lon: left.lon },
+        ) - calculateDistanceInMiles(
+          { lat: latitude, lon: longitude },
+          { lat: right.lat, lon: right.lon },
+        );
+      },
+    });
+    const visibleNearbyRows = rankedNearbyRows.slice(0, normalized.limit);
+
     return {
       success: true,
-      data: nearbyRows.map((beach) => ({
+      data: visibleNearbyRows.map((beach) => ({
         ...beach,
         country:
           normalizeBeachCountry(beach.country) ??

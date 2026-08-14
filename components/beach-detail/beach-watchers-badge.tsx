@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import { Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { suppressSmallActivitySignals } from "@/lib/analytics/real-activity-signals";
 import {
   STICKER_PILL_BASE,
   STICKER_ROTATIONS,
@@ -11,7 +12,7 @@ import {
 
 interface BeachWatchersBadgeProps {
   beachId: string;
-  /** Minimum watcher count required to render. Defaults to 3 — avoids
+  /** Minimum signal count required to render. Defaults to 5 — avoids
    *  "1 surfer checked this spot" sadness on rarely-viewed beaches
    *  while still surfacing social proof on the long tail. */
   minThreshold?: number;
@@ -20,13 +21,13 @@ interface BeachWatchersBadgeProps {
 
 interface ViewCountResponse {
   watchers: number;
+  recentChecks: number;
+  loggedSessions: number;
 }
 
 /**
- * Social-proof badge showing "{n} surfers checked this spot" on beach
- * detail pages. Renders only when the all-time distinct-viewer count
- * clears `minThreshold`. Silent-fail on fetch error — the badge is an
- * enhancement, not a load-bearing element.
+ * Aggregate activity signals on beach detail pages. Each signal is rendered
+ * only when its measured count clears `minThreshold`.
  *
  * Data source: `/api/beaches/[id]/view-count` (GET, anonymous-accessible,
  * 5min edge cache). Uses `useDataFetcher` with a stable cacheKey so a
@@ -37,7 +38,7 @@ interface ViewCountResponse {
  */
 export function BeachWatchersBadge({
   beachId,
-  minThreshold = 3,
+  minThreshold = 5,
   className,
 }: BeachWatchersBadgeProps) {
   const fetchViewCount = useCallback(async () => {
@@ -54,17 +55,19 @@ export function BeachWatchersBadge({
     }
   );
 
-  const watchers = data?.watchers ?? 0;
+  const visible = suppressSmallActivitySignals({
+    watchers: data?.watchers ?? 0,
+    recentChecks: data?.recentChecks ?? 0,
+    loggedSessions: data?.loggedSessions ?? 0,
+  }, minThreshold);
 
   const label = useMemo(() => {
-    if (watchers < minThreshold) return null;
-    // Past-tense copy. The underlying query counts distinct all-time
-    // viewers (with a ~90 day practical ceiling because
-    // `user_events.expires_at` prunes older rows). "Checked" is honest
-    // about this being a view-count rollup, not an active-presence
-    // signal — matches Quiver's "data is sacred" brand stance.
-    return `${watchers} surfers checked this spot`;
-  }, [watchers, minThreshold]);
+    const labels: string[] = [];
+    if (visible.watchers !== null) labels.push(`${visible.watchers} surfers are watching this spot`);
+    if (visible.recentChecks !== null) labels.push(`checked ${visible.recentChecks} times this week`);
+    if (visible.loggedSessions !== null) labels.push(`${visible.loggedSessions} sessions logged this month`);
+    return labels.length > 0 ? labels.join(" · ") : null;
+  }, [visible.loggedSessions, visible.recentChecks, visible.watchers]);
 
   if (error || (!loading && !label)) return null;
 
@@ -87,7 +90,7 @@ export function BeachWatchersBadge({
         )}
       >
         <Eye className="h-3 w-3 opacity-0" aria-hidden="true" />
-        <span>000 surfers checked this spot</span>
+        <span>000 surfers are watching this spot</span>
       </span>
     );
   }

@@ -441,6 +441,7 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     expect(body.skipped_by_reason).toEqual({
       hold_state_unavailable: 0,
       major_event_hold: 0,
+      water_quality_hold: 0,
     });
     expect(body.errors).toBe(0);
 
@@ -469,6 +470,7 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
       type: "forecast_alert",
       payload: {
         beach_id: BEACH_1,
+        configured_beach_id: BEACH_1,
         forecast_at: "2026-04-26T15:00:00Z",
         policy_context: {
           kind: "positive_session_recommendation",

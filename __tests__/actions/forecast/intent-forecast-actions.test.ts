@@ -9,6 +9,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { findMagicHour } from "@/lib/services/magic-hour/magic-hour-finder";
 
 const mockEvaluateMajorEventHoldCandidates = jest.fn();
+const mockSelectBeach = jest.fn(async <T extends { id: string }>(beach: T | null) => beach);
 
 // Mock Supabase client
 jest.mock("@/lib/supabase/server", () => ({
@@ -22,6 +23,11 @@ jest.mock("@/lib/services/magic-hour/magic-hour-finder", () => ({
 jest.mock("@/lib/recommendations/major-event-hold/service", () => ({
   evaluateMajorEventHoldCandidates: (input: unknown) =>
     mockEvaluateMajorEventHoldCandidates(input),
+}));
+
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: jest.fn(async (beaches: unknown[]) => beaches),
+  selectBeach: (beach: { id: string } | null) => mockSelectBeach(beach),
 }));
 
 describe("getCityTideData", () => {
@@ -171,6 +177,7 @@ describe("getCityTideData", () => {
           ).toISOString(),
         })),
         profileExperience: null,
+        applyWaterQualityHolds: true,
       });
       expect(result).toMatchObject({
         bestWindow: null,

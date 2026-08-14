@@ -94,7 +94,11 @@ export async function enforceMajorEventHoldBeforeDiscoveryTruncation({
   profileExperience,
   maxResults,
   isPrimaryEligible,
-  evaluateCandidates = evaluateMajorEventHoldCandidates,
+  evaluateCandidates = (input) =>
+    evaluateMajorEventHoldCandidates({
+      ...input,
+      applyWaterQualityHolds: true,
+    }),
 }: EnforceDiscoveryHoldInput): Promise<EnforcedDiscoveryHoldPool> {
   const identifiedRecommendations = recommendations.map(
     withDeterministicRecommendationId,
@@ -128,7 +132,11 @@ export async function sanitizeSurfDiscoveryForSerializationMajorEventHold(
   response: Readonly<SurfDiscoveryResponse>,
   profileExperience: unknown,
   evaluateCandidates: EvaluateDiscoveryHoldCandidates =
-    evaluateMajorEventHoldCandidates,
+    (input) =>
+      evaluateMajorEventHoldCandidates({
+        ...input,
+        applyWaterQualityHolds: true,
+      }),
 ): Promise<MajorEventHoldSurfDiscoveryResponse> {
   const candidates = buildSurfDiscoveryMajorEventHoldCandidates(response);
   const decisions = await evaluateCandidates({

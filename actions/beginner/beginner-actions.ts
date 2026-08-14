@@ -1,6 +1,7 @@
 "use server";
 
 import { createPublicReadClient } from "@/lib/supabase/server";
+import { rankBeaches } from "@/lib/recommendations/selection";
 import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import {
   parseFloatSafe,
@@ -237,12 +238,13 @@ async function findTopBeginnerBeach(
     beaches.map((beach) => beach.id),
   );
 
-  return [...beaches].sort((a, b) =>
-    compareBeginnerBeachSort(
-      buildBeginnerBeachSort(a, forecastMap.get(a.id)),
-      buildBeginnerBeachSort(b, forecastMap.get(b.id)),
+  const rankedBeaches = await rankBeaches(beaches, {
+    compare: (left, right) => compareBeginnerBeachSort(
+      buildBeginnerBeachSort(left, forecastMap.get(left.id)),
+      buildBeginnerBeachSort(right, forecastMap.get(right.id)),
     ),
-  )[0];
+  });
+  return rankedBeaches[0] ?? null;
 }
 
 async function getLatestForecast(
@@ -644,7 +646,11 @@ export async function getBeginnerBeachesWithEditorial(
 
     if (error || !beaches || beaches.length === 0) return [];
 
-    const beachRows = beaches as BeginnerBeachRankingMeta[];
+    const beachRows = await rankBeaches(
+      beaches as BeginnerBeachRankingMeta[],
+      { compare: () => 0 },
+    );
+    if (beachRows.length === 0) return [];
     const forecastMap = await getTodayLatestForecastMap(
       supabase,
       beachRows.map((beach) => beach.id),
@@ -664,7 +670,7 @@ export async function getBeginnerBeachesWithEditorial(
       });
     }
 
-    return beachRows.map((beach: any) => {
+    const enriched = beachRows.map((beach: any) => {
       const editorialRows = Array.isArray(beach.beach_editorial_content)
         ? beach.beach_editorial_content
         : [];
@@ -725,9 +731,15 @@ export async function getBeginnerBeachesWithEditorial(
         },
         sort: buildBeginnerBeachSort(beach, forecast, editorial !== null),
       };
-    })
-      .sort((a, b) => compareBeginnerBeachSort(a.sort, b.sort))
-      .map((ranked) => ranked.beach);
+    });
+    const ranked = await rankBeaches(
+      enriched.map((candidate) => ({
+        id: candidate.beach.id,
+        candidate,
+      })),
+      { compare: (left, right) => compareBeginnerBeachSort(left.candidate.sort, right.candidate.sort) },
+    );
+    return ranked.map(({ candidate }) => candidate.beach);
   } catch (error) {
     console.error("[getBeginnerBeachesWithEditorial] Error:", error);
     return [];
