@@ -40,11 +40,11 @@ import {
   AlertTriangle,
   Eye,
   Play,
+  Bot,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { UserAvatar } from "@/components/user-avatar";
 import { UserAvatarButton } from "@/components/social/user-avatar-button";
 import {
   getIntelTagConfig,
@@ -54,6 +54,8 @@ import {
 import { getVibeEmoji, VIBE_OPTIONS } from "@/types/conditions-report";
 import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
 import { PartialContentGate } from "@/components/ui/partial-content-gate";
+import { useTrackEvent } from "@/hooks/use-track-event";
+import { isSystemAuthored } from "@/lib/system-identity";
 
 interface BeachIntelSectionProps {
   beachId: string;
@@ -93,6 +95,7 @@ export function BeachIntelSection({
   >({});
   const [pendingPosts, setPendingPosts] = useState<IntelPostWithUser[]>([]);
   const { user } = useAuth();
+  const { track } = useTrackEvent();
 
   // Validate coordinates in development
   useEffect(() => {
@@ -156,6 +159,11 @@ export function BeachIntelSection({
 
     return mapped;
   }, [intelData?.posts, optimisticUpdates, pendingPosts]);
+
+  const hasSystemPrompt = useMemo(
+    () => posts.some((post) => getSystemCardMetadata(post.surf_conditions)?.prompt === true),
+    [posts],
+  );
 
   useEffect(() => {
     if (!intelData?.posts) return;
@@ -335,7 +343,19 @@ export function BeachIntelSection({
               <div className="flex items-center gap-2">
                 <Button
                   data-testid="report-conditions"
-                  onClick={() => setShowConditionsCard((v) => !v)}
+                  onClick={() => {
+                    if (hasSystemPrompt) {
+                      void track("cta_click", {
+                        beachId,
+                        metadata: {
+                          cta: "check_conditions",
+                          location: "system_card_prompt",
+                        },
+                        debounceMs: 0,
+                      });
+                    }
+                    setShowConditionsCard((v) => !v);
+                  }}
                   size="sm"
                   variant="outline"
                   className="border-blue-200 text-blue-700 hover:bg-blue-50"
@@ -362,6 +382,7 @@ export function BeachIntelSection({
               <ConditionsReportCard
                 beachId={beachId}
                 beachName={beachName}
+                promptSeen={hasSystemPrompt}
                 onSubmitSuccess={() => refetch()}
                 onDismiss={() => setShowConditionsCard(false)}
               />
@@ -392,26 +413,29 @@ export function BeachIntelSection({
               </div>
             </div>
           ) : posts.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
+            <div className="py-6 text-center sm:py-8" data-testid="intel-empty-state">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100">
                 <MessageSquare className="h-6 w-6 text-blue-600" />
               </div>
-              <h3 className="text-sm font-medium text-gray-900 mb-1">
-                No local intel yet
+              <h3 className="mb-1 text-sm font-semibold text-gray-900">
+                What are conditions at {beachName} right now?
               </h3>
-              <p className="text-xs text-gray-600 mb-4">
-                Be the first to share intel about {beachName}
+              <p className="mx-auto mb-4 max-w-sm text-xs leading-relaxed text-gray-600">
+                Share a quick local check—wave size, wind, crowd, or hazards. A few taps is enough.
               </p>
               <Button
-                data-testid="add-intel"
+                data-testid="empty-state-report-conditions"
                 onClick={() => setShowPostForm(true)}
                 size="sm"
                 variant="outline"
                 className="border-blue-200 text-blue-700 hover:bg-blue-50"
               >
                 <Plus className="h-3 w-3 mr-1" />
-                Add First Intel
+                Report current conditions
               </Button>
+              <p className="mt-3 text-[11px] text-gray-500">
+                No photo or polished write-up needed.
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -537,29 +561,77 @@ function IntelPostCard({
   onToggleExpand,
   isConfirming,
 }: IntelPostCardProps) {
+  const { track } = useTrackEvent();
+  const systemCard = getSystemCardMetadata(post.surf_conditions);
+  const systemCardContentClass = systemCard?.content_class;
+  const systemCardMarketKey = systemCard?.market_key;
   const tagConfig = getIntelTagConfig(post.tag);
+  const isSystemAuthor = isSystemAuthored(post);
   const isConfirmed = post.user_has_confirmed ?? false;
   const timeAgo = formatDistanceToNow(new Date(post.created_at), {
     addSuffix: true,
   });
 
+  useEffect(() => {
+    if (!systemCard?.prompt || !systemCardContentClass) return;
+    void track("cta_impression", {
+      beachId: post.beach_id ?? undefined,
+      metadata: {
+        cta_id: "system_card_prompt",
+        surface: "system_card",
+        card_id: post.id,
+        content_class: systemCardContentClass,
+        prompt: true,
+        market_key: systemCardMarketKey,
+      },
+      debounceMs: 0,
+    });
+  }, [post.beach_id, post.id, systemCard?.prompt, systemCardContentClass, systemCardMarketKey, track]);
+
   return (
-    <div className="bg-white/70 rounded-xl border border-blue-100/80 p-4 transition-[background-color,box-shadow] duration-200 hover:bg-white/90 hover:shadow-md">
+    <div
+      data-testid={isSystemAuthor ? "system-intel-card" : "user-intel-card"}
+      className={cn(
+        "rounded-xl border p-4 transition-[background-color,box-shadow] duration-200 hover:shadow-md",
+        isSystemAuthor
+          ? "border-amber-200/90 bg-amber-50/80 hover:bg-amber-50"
+          : "border-blue-100/80 bg-white/70 hover:bg-white/90"
+      )}
+    >
       <div className="flex items-start gap-3">
-        {/* User Avatar */}
-        <UserAvatarButton
-          userId={post.user_id}
-          src={post.user?.avatar_url ?? undefined}
-          name={getDisplayName(post.user?.full_name ?? "Anonymous", post.id)}
-          size="sm"
-          className="ring-2 ring-white shadow-sm"
-        />
+        {isSystemAuthor ? (
+          <div
+            data-testid="system-author-mark"
+            role="img"
+            aria-label="Quiver system automated report"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-200 text-amber-900 ring-2 ring-white shadow-sm"
+          >
+            <Bot className="h-4 w-4" aria-hidden="true" />
+          </div>
+        ) : (
+          <UserAvatarButton
+            userId={post.user_id}
+            src={post.user?.avatar_url ?? undefined}
+            name={getDisplayName(post.user?.full_name ?? "Anonymous", post.id)}
+            size="sm"
+            className="ring-2 ring-white shadow-sm"
+          />
+        )}
 
         <div className="flex-1 min-w-0">
           {/* Header */}
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
+                {isSystemAuthor && (
+                  <span
+                    data-testid="system-author-label"
+                    className="inline-flex items-center gap-1 rounded-full bg-amber-200/80 px-2 py-1 text-xs font-semibold text-amber-950"
+                  >
+                    <Bot className="h-3 w-3" aria-hidden="true" />
+                    Quiver system
+                  </span>
+                )}
                 <Badge
                   className={cn(
                     "text-xs font-medium px-2 py-1 transition-colors",
@@ -577,6 +649,15 @@ function IntelPostCard({
                   </div>
                 )}
               </div>
+
+              {isSystemAuthor && (
+                <p
+                  data-testid="system-post-disclosure"
+                  className="mb-1 text-[11px] leading-snug text-amber-900/80"
+                >
+                  Automated report generated from forecast and beach data—not a live surfer report.
+                </p>
+              )}
 
               <h4 className="font-medium text-sm text-gray-900 line-clamp-1">
                 {cleanTitle(post.title, tagConfig.emoji)}
@@ -675,4 +756,27 @@ function IntelPostCard({
       </div>
     </div>
   );
+}
+
+interface SystemCardMetadata {
+  system_card: true;
+  content_class: string;
+  prompt: boolean;
+  market_key?: string;
+}
+
+function getSystemCardMetadata(value: unknown): SystemCardMetadata | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (
+    record.system_card !== true ||
+    typeof record.content_class !== "string" ||
+    typeof record.prompt !== "boolean"
+  ) return null;
+  return {
+    system_card: true,
+    content_class: record.content_class,
+    prompt: record.prompt,
+    market_key: typeof record.market_key === "string" ? record.market_key : undefined,
+  };
 }
