@@ -69,6 +69,9 @@ describe("FoundingOfferSurface", () => {
     const pageText = container.textContent ?? "";
     expect(pageText).not.toMatch(/release gate/i);
     expect(pageText).not.toMatch(/plans open|plans are not open|lifetime pro/i);
+    for (const blockedCopy of BLOCKED_PUBLIC_COPY) {
+      expect(pageText).not.toMatch(blockedCopy);
+    }
   });
 
   it("shows Pro benefits in the AllTrails-style membership layout", () => {
