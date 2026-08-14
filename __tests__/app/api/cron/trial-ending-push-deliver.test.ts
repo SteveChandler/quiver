@@ -15,6 +15,10 @@ import { GET } from "@/app/api/cron/trial-ending-push-deliver/route";
 import { NextRequest } from "next/server";
 import { readFileSync } from "fs";
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 // ============================================================================
 // Mocks
 // ============================================================================

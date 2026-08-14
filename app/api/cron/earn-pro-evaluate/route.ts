@@ -14,6 +14,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import {
   grantPromotionalEntitlement,
   isEarnProEligible,
@@ -123,7 +124,18 @@ async function _GET(request: Request): Promise<Response> {
     if (!summary.enabled) {
       summary.skipped.flagDisabled = 1;
       summary.durationMs = Date.now() - startedAt;
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(
+        await withCronOutcome(
+          {
+            job: "/api/cron/earn-pro-evaluate",
+            unit: "rewards_evaluated",
+            expectedMin: 1,
+            getProduced: (value) => value.summary.evaluated,
+            legitimatelyZero: () => ({ reason: "EARN_PRO_ENABLED is not true" }),
+          },
+          async () => ({ summary }),
+        ),
+      );
     }
 
     const allowlistedUserIds = parseEarnProTestUserIds();
@@ -132,7 +144,18 @@ async function _GET(request: Request): Promise<Response> {
       summary.skipped.missingAllowlist = 1;
       summary.durationMs = Date.now() - startedAt;
       console.warn(`${CONTEXT_TAG} EARN_PRO_ENABLED is true but allowlist is empty`);
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(
+        await withCronOutcome(
+          {
+            job: "/api/cron/earn-pro-evaluate",
+            unit: "rewards_evaluated",
+            expectedMin: 1,
+            getProduced: (value) => value.summary.evaluated,
+            legitimatelyZero: () => ({ reason: "EARN_PRO_ENABLED is true but the test allowlist is empty" }),
+          },
+          async () => ({ summary }),
+        ),
+      );
     }
 
     const supabase = createSupabaseServiceRoleClient();
@@ -191,7 +214,21 @@ async function _GET(request: Request): Promise<Response> {
     }
 
     summary.durationMs = Date.now() - startedAt;
-    return createSuccessResponse({ summary });
+    return createSuccessResponse(
+      await withCronOutcome(
+        {
+          job: "/api/cron/earn-pro-evaluate",
+          unit: "rewards_evaluated",
+          expectedMin: 1,
+          getProduced: (value) => value.summary.evaluated,
+          legitimatelyZero: (value) =>
+            value.summary.candidates === 0
+              ? { reason: "No allowlisted profiles were available to evaluate" }
+              : undefined,
+        },
+        async () => ({ summary }),
+      ),
+    );
   } catch (error) {
     return handleApiError(error);
   }

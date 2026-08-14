@@ -9,6 +9,10 @@ import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
 import { scoreWindowWithComposite } from "@/lib/services/discovery/window-selector";
 
 const mockEnqueueNotification = jest.fn();
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 const mockInsert = jest.fn();
 const mockFrom = jest.fn((table: string) => buildQuery(table));
 const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) => beaches);

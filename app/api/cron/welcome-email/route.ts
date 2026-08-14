@@ -27,6 +27,7 @@ import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 
 export const revalidate = 0;
@@ -63,6 +64,24 @@ interface RunSummary {
     confirmFailed: number;
     logFailed: number;
   };
+}
+
+async function recordWelcomeEmailOutcome(
+  result: { summary: RunSummary },
+): Promise<{ summary: RunSummary }> {
+  return withCronOutcome(
+    {
+      job: "/api/cron/welcome-email",
+      unit: "emails_sent",
+      expectedMin: 1,
+      getProduced: (value) => value.summary.sent,
+      legitimatelyZero: (value) =>
+        value.summary.candidates === 0
+          ? { reason: "No users met the welcome-email eligibility window" }
+          : undefined,
+    },
+    async () => result,
+  );
 }
 
 // ============================================================================
@@ -106,7 +125,7 @@ async function _GET(request: Request): Promise<Response> {
     if (!candidates || candidates.length === 0) {
       summary.durationMs = Date.now() - startTime;
       console.log(`${CONTEXT_TAG} No candidates found`);
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(await recordWelcomeEmailOutcome({ summary }));
     }
 
     const deliverable = await filterSuppressedRecipients(
@@ -235,7 +254,7 @@ async function _GET(request: Request): Promise<Response> {
       `${CONTEXT_TAG} Completed: ${summary.sent} sent, ${summary.autoConfirmed} auto-confirmed, ${summary.durationMs}ms`
     );
 
-    return createSuccessResponse({ summary });
+    return createSuccessResponse(await recordWelcomeEmailOutcome({ summary }));
   } catch (error) {
     return handleApiError(error);
   }

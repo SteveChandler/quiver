@@ -3,6 +3,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 // Pass-through observability wrapper so importing GET yields the unwrapped
 // handler. Keeps the route's public surface unchanged.
 jest.mock("@/lib/cron/observability", () => ({

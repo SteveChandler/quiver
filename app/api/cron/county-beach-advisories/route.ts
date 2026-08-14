@@ -8,6 +8,7 @@ import {
   createCountyFeedFetcher,
   runCountyAdvisoryIngest,
 } from "@/lib/services/county-beach-advisories";
+import { withCronOutcome } from "@/lib/cron/outcome";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -28,12 +29,26 @@ async function _GET(request: Request): Promise<Response> {
   }
 
   try {
-    const result = await runCountyAdvisoryIngest({
-      fetcher: createCountyFeedFetcher(),
-      repository: createCountyAdvisoryRepository(
-        createSupabaseServiceRoleClient(),
-      ),
-    });
+    const result = await withCronOutcome(
+      {
+        job: ROUTE,
+        unit: "advisories_synced",
+        expectedMin: 1,
+        getProduced: (value) =>
+          value.status === "ok" ? value.summary.records.length : 0,
+        legitimatelyZero: (value) =>
+          value.status === "skipped"
+            ? { reason: `County feed skipped: ${value.reason}` }
+            : undefined,
+      },
+      () =>
+        runCountyAdvisoryIngest({
+          fetcher: createCountyFeedFetcher(),
+          repository: createCountyAdvisoryRepository(
+            createSupabaseServiceRoleClient(),
+          ),
+        }),
+    );
 
     if (result.status === "error") {
       return NextResponse.json(

@@ -47,6 +47,10 @@ jest.mock("@/lib/cron/observability", () => ({
   withObservedCron: jest.fn((_route: string, handler) => handler),
 }));
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: async (_options: unknown, handler: () => Promise<unknown>) => handler(),
+}));
+
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
 }));

@@ -7,6 +7,7 @@ import {
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { fetchLatestNDBCObservation } from "@/lib/services/ndbc-service";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -48,10 +49,21 @@ async function _GET(request: Request): Promise<Response> {
     }
 
     if (!buoys || buoys.length === 0) {
-      return createSuccessResponse({
-        summary: { total: 0, updated: 0, failed: 0 },
-        message: "No active buoys to update",
-      });
+      return createSuccessResponse(
+        await withCronOutcome(
+          {
+            job: "/api/cron/update-buoy-conditions",
+            unit: "buoy_conditions_updated",
+            expectedMin: 1,
+            getProduced: (value) => value.summary.updated,
+            legitimatelyZero: () => ({ reason: "No active buoys were available to update" }),
+          },
+          async () => ({
+            summary: { total: 0, updated: 0, failed: 0 },
+            message: "No active buoys to update",
+          }),
+        ),
+      );
     }
 
     console.log(`Updating conditions for ${buoys.length} buoys...`);
@@ -135,10 +147,24 @@ async function _GET(request: Request): Promise<Response> {
 
     console.log("Buoy conditions update complete:", summary);
 
-    return createSuccessResponse({
-      summary,
-      message: `Updated ${updated} of ${buoys.length} buoys`,
-    });
+    return createSuccessResponse(
+      await withCronOutcome(
+        {
+          job: "/api/cron/update-buoy-conditions",
+          unit: "buoy_conditions_updated",
+          expectedMin: 1,
+          getProduced: (value) => value.summary.updated,
+          legitimatelyZero: (value) =>
+            value.summary.noData === value.summary.total
+              ? { reason: "Active buoys returned no current observations" }
+              : undefined,
+        },
+        async () => ({
+          summary,
+          message: `Updated ${updated} of ${buoys.length} buoys`,
+        }),
+      ),
+    );
   } catch (error) {
     console.error("Buoy conditions cron error:", error);
     return handleApiError(error);

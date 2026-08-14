@@ -8,6 +8,10 @@ import { GET } from "@/app/api/cron/county-beach-advisories/route";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { runCountyAdvisoryIngest } from "@/lib/services/county-beach-advisories";
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   validateCronRequest: jest.fn(() => true),
 }));

@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   validateCronRequest,
@@ -6,6 +5,8 @@ import {
   createSuccessResponse,
 } from "@/lib/middleware/api-wrappers";
 import { getCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
+import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -64,7 +65,7 @@ function getYouTubeHqThumbnail(
   return mq.replace("mqdefault.jpg", "hqdefault.jpg");
 }
 
-export async function GET(request: NextRequest): Promise<Response> {
+async function _GET(request: Request): Promise<Response> {
   const startTime = Date.now();
 
   try {
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       );
     }
 
-    const force = request.nextUrl.searchParams.get("force") === "true";
+    const force = new URL(request.url).searchParams.get("force") === "true";
     const supabase = createSupabaseServiceRoleClient();
 
     let query = supabase
@@ -96,10 +97,20 @@ export async function GET(request: NextRequest): Promise<Response> {
     }
 
     if (!rows || rows.length === 0) {
-      return createSuccessResponse({
-        message: "No cams to process",
-        duration: `${Date.now() - startTime}ms`,
-      });
+      return createSuccessResponse(await withCronOutcome(
+        {
+          job: "/api/cron/resolve-cam-thumbnails",
+          unit: "thumbnails_updated",
+          expectedMin: 1,
+          getProduced: (value) => value.updated ?? 0,
+          legitimatelyZero: () => ({ reason: "No camera sources were missing thumbnails" }),
+        },
+        async () => ({
+          message: "No cams to process",
+          updated: 0,
+          duration: `${Date.now() - startTime}ms`,
+        }),
+      ));
     }
 
     let updated = 0;
@@ -150,19 +161,31 @@ export async function GET(request: NextRequest): Promise<Response> {
       }
     }
 
-    return createSuccessResponse({
-      total: rows.length,
-      updated,
-      skipped,
-      failed,
-      duration: `${Date.now() - startTime}ms`,
-    });
+    return createSuccessResponse(await withCronOutcome(
+      {
+        job: "/api/cron/resolve-cam-thumbnails",
+        unit: "thumbnails_updated",
+        expectedMin: 1,
+        getProduced: (value) => value.updated,
+      },
+      async () => ({
+        total: rows.length,
+        updated,
+        skipped,
+        failed,
+        duration: `${Date.now() - startTime}ms`,
+      }),
+    ));
   } catch (error) {
     console.error("[resolve-cam-thumbnails] Unexpected error:", error);
     return createErrorResponse("Cron failed", { error: String(error) }, 500);
   }
 }
 
-export async function POST(request: NextRequest): Promise<Response> {
-  return GET(request);
+export const GET = withObservedCron("/api/cron/resolve-cam-thumbnails", _GET);
+
+async function _POST(request: Request): Promise<Response> {
+  return _GET(request);
 }
+
+export const POST = withObservedCron("/api/cron/resolve-cam-thumbnails", _POST);

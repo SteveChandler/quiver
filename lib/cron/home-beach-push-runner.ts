@@ -11,6 +11,7 @@ import {
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
+import { withCronOutcome, type CronOutcomeOptions } from "@/lib/cron/outcome";
 
 export interface HomeBeachPushProfileRow {
   id: string;
@@ -66,6 +67,7 @@ interface HomeBeachPushRunnerOptions<P extends object> {
     selection: { payload: P; dedupeKey: string };
     summary: HomeBeachPushRunSummary;
   }) => Promise<void>;
+  outcome?: CronOutcomeOptions<HomeBeachPushRunSummary>;
 }
 
 export interface HomeBeachPushRunSummary {
@@ -211,11 +213,18 @@ export async function runHomeBeachPushCron<P extends object>(
       ...(options.createAdditionalSummary?.() ?? {}),
     };
 
+    const respond = async (value: HomeBeachPushRunSummary): Promise<Response> =>
+      createSuccessResponse(
+        options.outcome
+          ? await withCronOutcome(options.outcome, async () => value)
+          : value,
+      );
+
     if (process.env[options.enabledEnv] !== "true") {
       summary.skipped = true;
       summary.reason = "disabled";
       summary.durationMs = Date.now() - startedAt;
-      return createSuccessResponse(summary);
+      return respond(summary);
     }
 
     const allowlist = parseHomeBeachPushAllowlist(options.allowlistEnv);
@@ -355,7 +364,7 @@ export async function runHomeBeachPushCron<P extends object>(
     }
 
     summary.durationMs = Date.now() - startedAt;
-    return createSuccessResponse(summary);
+    return respond(summary);
   } catch (error) {
     return handleApiError(error);
   }

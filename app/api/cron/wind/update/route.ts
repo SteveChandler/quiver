@@ -13,6 +13,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { validateCronRequest, createSuccessResponse, createErrorResponse } from '@/lib/middleware/api-wrappers';
 import { fetchHourlyWind } from '@/lib/services/open-meteo-wind-service';
 import { withObservedCron } from '@/lib/cron/observability';
+import { withCronOutcome } from '@/lib/cron/outcome';
 
 export const maxDuration = 120;
 
@@ -148,10 +149,26 @@ async function _GET(request: Request): Promise<Response> {
   };
 
   if (errors > 0) {
-    return createErrorResponse('Wind update completed with row errors', summary);
+    return createErrorResponse('Wind update completed with row errors', await withCronOutcome(
+      {
+        job: '/api/cron/wind/update',
+        unit: 'wind_rows_updated',
+        expectedMin: 1,
+        getProduced: (value) => value.updated,
+      },
+      async () => summary,
+    ));
   }
 
-  return createSuccessResponse(summary);
+  return createSuccessResponse(await withCronOutcome(
+    {
+      job: '/api/cron/wind/update',
+      unit: 'wind_rows_updated',
+      expectedMin: 1,
+      getProduced: (value) => value.updated,
+    },
+    async () => summary,
+  ));
 }
 
 export const GET = withObservedCron('/api/cron/wind/update', _GET);

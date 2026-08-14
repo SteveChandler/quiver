@@ -14,6 +14,10 @@
  * - Firing cohort + failing confidence lookup falls back to free_home
  */
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 import { GET } from "@/app/api/cron/first-session-nudge-push/route";
 import { NextRequest } from "next/server";
 import { readFileSync } from "fs";

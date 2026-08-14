@@ -28,6 +28,7 @@ import {
 } from '@/lib/npc/template-hydration';
 import type { Database } from '@/types/database';
 import { withObservedCron } from '@/lib/cron/observability';
+import { withCronOutcome } from '@/lib/cron/outcome';
 import { isPersonaPostingEnabled } from '@/lib/npc/system-card-config';
 
 export const revalidate = 0;
@@ -105,15 +106,26 @@ async function _GET(request: Request): Promise<Response> {
     }
 
     if (!isPersonaPostingEnabled()) {
-      return createSuccessResponse({
-        summary: {
-          paused: true,
-          reason: 'NPC_PERSONA_POSTING_ENABLED is not true',
-          successful: 0,
-          failed: 0,
-        },
-        results: [],
-      });
+      return createSuccessResponse(
+        await withCronOutcome(
+          {
+            job: '/api/cron/npc-activity',
+            unit: 'posts_published',
+            expectedMin: 1,
+            getProduced: (value) => value.summary.successful,
+            legitimatelyZero: () => ({ reason: 'NPC_PERSONA_POSTING_ENABLED is not true' }),
+          },
+          async () => ({
+            summary: {
+              paused: true,
+              reason: 'NPC_PERSONA_POSTING_ENABLED is not true',
+              successful: 0,
+              failed: 0,
+            },
+            results: [],
+          }),
+        ),
+      );
     }
 
     const startMs = Date.now();
@@ -193,19 +205,33 @@ async function _GET(request: Request): Promise<Response> {
 
     console.log(`[npc-activity] Completed: ${successful} posts created, ${failed} failed`);
 
-    return createSuccessResponse({
-      summary: {
-        ptHour,
-        isWeekend,
-        totalNpcs: allNpcs.length,
-        selectedNpcs: selectedNpcs.length,
-        processed: results.length,
-        successful,
-        failed,
-        durationMs: Date.now() - startMs,
-      },
-      results,
-    });
+    return createSuccessResponse(
+      await withCronOutcome(
+        {
+          job: '/api/cron/npc-activity',
+          unit: 'posts_published',
+          expectedMin: 1,
+          getProduced: (value) => value.summary.successful,
+          legitimatelyZero: (value) =>
+            value.summary.selectedNpcs === 0
+              ? { reason: 'No NPCs were scheduled to post during this hour' }
+              : undefined,
+        },
+        async () => ({
+          summary: {
+            ptHour,
+            isWeekend,
+            totalNpcs: allNpcs.length,
+            selectedNpcs: selectedNpcs.length,
+            processed: results.length,
+            successful,
+            failed,
+            durationMs: Date.now() - startMs,
+          },
+          results,
+        }),
+      ),
+    );
   } catch (error) {
     return handleApiError(error, 'Failed to run NPC activity cron');
   }

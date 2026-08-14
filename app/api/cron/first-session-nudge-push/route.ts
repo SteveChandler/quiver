@@ -45,6 +45,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import {
   getLocalDateString,
   getLocalHour,
@@ -143,6 +144,24 @@ interface RunSummary {
   cohorts: Record<CohortKey, number>;
   errors: number;
   durationMs: number;
+}
+
+async function recordFirstSessionPushOutcome(
+  result: { summary: RunSummary },
+): Promise<{ summary: RunSummary }> {
+  return withCronOutcome(
+    {
+      job: "/api/cron/first-session-nudge-push",
+      unit: "nudges_sent",
+      expectedMin: 1,
+      getProduced: (value) => value.summary.sent,
+      legitimatelyZero: (value) =>
+        value.summary.total === 0
+          ? { reason: "No users were eligible for the day-7 first-session push window" }
+          : undefined,
+    },
+    async () => result,
+  );
 }
 
 // ============================================================================
@@ -395,7 +414,7 @@ async function _GET(request: Request): Promise<Response> {
     if (!windowProfiles || windowProfiles.length === 0) {
       summary.durationMs = Date.now() - startTime;
       console.log(`${CONTEXT_TAG} No profiles in signup window`);
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(await recordFirstSessionPushOutcome({ summary }));
     }
 
     const windowUserIds = windowProfiles.map((p) => p.id);
@@ -420,7 +439,7 @@ async function _GET(request: Request): Promise<Response> {
     if (unloggedIds.length === 0) {
       summary.durationMs = Date.now() - startTime;
       console.log(`${CONTEXT_TAG} All ${windowUserIds.length} candidates already pushed`);
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(await recordFirstSessionPushOutcome({ summary }));
     }
 
     // 3. Session-count filter — drop anyone at >= SESSION_COUNT_THRESHOLD.
@@ -447,7 +466,7 @@ async function _GET(request: Request): Promise<Response> {
     if (underThresholdIds.length === 0) {
       summary.durationMs = Date.now() - startTime;
       console.log(`${CONTEXT_TAG} No users under ${SESSION_COUNT_THRESHOLD}-session cap`);
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(await recordFirstSessionPushOutcome({ summary }));
     }
 
     // 4. Email-confirmation gate — skip the "invisible cohort" (confirmed=null).
@@ -477,7 +496,7 @@ async function _GET(request: Request): Promise<Response> {
     if (confirmedIds.length === 0) {
       summary.durationMs = Date.now() - startTime;
       console.log(`${CONTEXT_TAG} No email-confirmed candidates`);
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(await recordFirstSessionPushOutcome({ summary }));
     }
 
     // 5. Push-enabled filter via profiles.notif_push_enabled.
@@ -499,7 +518,7 @@ async function _GET(request: Request): Promise<Response> {
     if (pushEnabledIds.size === 0) {
       summary.durationMs = Date.now() - startTime;
       console.log(`${CONTEXT_TAG} No push-enabled candidates`);
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(await recordFirstSessionPushOutcome({ summary }));
     }
 
     // 6. Device tokens — users without one are skipped and NOT logged (so
@@ -585,7 +604,7 @@ async function _GET(request: Request): Promise<Response> {
 
     if (candidates.length === 0) {
       summary.durationMs = Date.now() - startTime;
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(await recordFirstSessionPushOutcome({ summary }));
     }
 
     // 9. Batch-load beach names for cohort copy (only beaches actually in use).
@@ -729,7 +748,7 @@ async function _GET(request: Request): Promise<Response> {
       `${CONTEXT_TAG} Completed: ${summary.sent} sent, ${summary.total} candidates, ${summary.durationMs}ms`
     );
 
-    return createSuccessResponse({ summary });
+    return createSuccessResponse(await recordFirstSessionPushOutcome({ summary }));
   } catch (error) {
     return handleApiError(error);
   }

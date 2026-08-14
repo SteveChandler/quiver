@@ -1,5 +1,9 @@
 /** @jest-environment node */
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 import { readFileSync } from "fs";
 
 // NextResponse.json relies on the static Response.json() helper (available in newer runtimes).
@@ -173,7 +177,6 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
     expect(json.data.totals.tides).toBe(4);
   });
 });
-
 
 
 

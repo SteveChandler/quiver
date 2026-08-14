@@ -8,6 +8,10 @@ import { withObservedCron } from "@/lib/cron/observability";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { processPendingEvents } from "@/lib/notifications/worker";
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   validateCronRequest: jest.fn(() => true),
 }));

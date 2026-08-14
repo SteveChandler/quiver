@@ -33,6 +33,7 @@ import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { signEmailToken, getEmailTokenSecret } from "@/lib/utils/email-token";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { rankBeaches } from "@/lib/recommendations/selection";
 
 export const revalidate = 0;
@@ -61,6 +62,24 @@ interface RunSummary {
     claimFailed: number;
     sendFailed: number;
   };
+}
+
+async function recordSessionPromptOutcome(
+  result: { summary: RunSummary },
+): Promise<{ summary: RunSummary }> {
+  return withCronOutcome(
+    {
+      job: "/api/cron/session-prompt-email",
+      unit: "emails_sent",
+      expectedMin: 1,
+      getProduced: (value) => value.summary.sent,
+      legitimatelyZero: (value) =>
+        value.summary.candidates === 0
+          ? { reason: "No deliverable session-prompt candidates were found" }
+          : undefined,
+    },
+    async () => result,
+  );
 }
 
 type ProcessingStatus = "success" | "claim_failed" | "send_failed";
@@ -258,7 +277,7 @@ async function _GET(request: Request): Promise<Response> {
 
     if (!candidates || candidates.length === 0) {
       summary.durationMs = Date.now() - startTime;
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(await recordSessionPromptOutcome({ summary }));
     }
 
     const waterQualityVisibleCandidates = (
@@ -319,7 +338,7 @@ async function _GET(request: Request): Promise<Response> {
     );
     console.log(`   Skipped breakdown:`, summary.skipped);
 
-    return createSuccessResponse({ summary });
+    return createSuccessResponse(await recordSessionPromptOutcome({ summary }));
   } catch (error) {
     return handleApiError(error);
   }

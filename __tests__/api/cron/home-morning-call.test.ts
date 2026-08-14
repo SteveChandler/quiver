@@ -3,6 +3,10 @@
  */
 
 const mockResolveNotificationMajorEventHold = jest.fn();
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 const mockResolveCanonicalSessionDecisionContext = jest.fn();
 const mockServiceFrom = jest.fn();
 

@@ -7,6 +7,7 @@ import {
   validateCronRequest,
 } from '@/lib/middleware/api-wrappers';
 import { withObservedCron } from '@/lib/cron/observability';
+import { withCronOutcome } from '@/lib/cron/outcome';
 
 interface UserPreferenceUpdateResult {
   totalUsers: number;
@@ -151,18 +152,27 @@ async function _GET(request: Request): Promise<Response> {
     if (uniqueUserIds.length === 0) {
       console.log('ℹ️ No eligible users found for preference updates');
       return createSuccessResponse(
-        {
-          totalUsers: 0,
-          successful: 0,
-          failed: 0,
-          skipped: 0,
-          duration: `${Date.now() - startTime}ms`,
-          failures: [],
-          includeMockUsers,
-          excludedMockUsers: excludedNpcCount,
-          message: 'No eligible users found for preference updates',
-        },
-        200
+        await withCronOutcome(
+          {
+            job: "/api/cron/update-user-preferences",
+            unit: "preferences_updated",
+            expectedMin: 1,
+            getProduced: (value) => value.successful,
+            legitimatelyZero: () => ({ reason: "No users had enough rated session history for preference learning" }),
+          },
+          async () => ({
+            totalUsers: 0,
+            successful: 0,
+            failed: 0,
+            skipped: 0,
+            duration: `${Date.now() - startTime}ms`,
+            failures: [],
+            includeMockUsers,
+            excludedMockUsers: excludedNpcCount,
+            message: 'No eligible users found for preference updates',
+          }),
+        ),
+        200,
       );
     }
 
@@ -258,13 +268,25 @@ async function _GET(request: Request): Promise<Response> {
     }
 
     return createSuccessResponse(
-      {
-        ...results,
-        includeMockUsers,
-        excludedMockUsers: excludedNpcCount,
-        message: successMessage,
-      },
-      200
+      await withCronOutcome(
+        {
+          job: "/api/cron/update-user-preferences",
+          unit: "preferences_updated",
+          expectedMin: 1,
+          getProduced: (value) => value.successful,
+          legitimatelyZero: (value) =>
+            value.totalUsers === 0
+              ? { reason: "No users had enough rated session history for preference learning" }
+              : undefined,
+        },
+        async () => ({
+          ...results,
+          includeMockUsers,
+          excludedMockUsers: excludedNpcCount,
+          message: successMessage,
+        }),
+      ),
+      200,
     );
   } catch (error) {
     const duration = `${Date.now() - startTime}ms`;

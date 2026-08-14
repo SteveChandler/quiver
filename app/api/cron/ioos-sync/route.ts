@@ -17,6 +17,7 @@ import { EARTH_RADIUS_KM } from "@/lib/utils/geo-utils";
 import { IOOSStation, IOOSObservation, PRIORITY_NETWORKS } from "@/types/ioos";
 import { ParsedObservation } from "@/lib/services/ioos";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -104,11 +105,27 @@ async function _GET(request: Request): Promise<Response> {
     console.log(`🌊 Starting IOOS sync (phase=${phase})...`);
 
     if (phase === "stations") {
-      const result = await syncStations(maxStations);
+      const result = await withCronOutcome(
+        {
+          job: "/api/cron/ioos-sync?phase=stations",
+          unit: "stations_synced",
+          expectedMin: 1,
+          getProduced: (value) => value.stationsUpserted,
+        },
+        () => syncStations(maxStations),
+      );
       console.log("✅ IOOS station discovery complete:", result);
       return createSuccessResponse(result);
     } else {
-      const result = await syncObservations(maxStations, batchSize);
+      const result = await withCronOutcome(
+        {
+          job: "/api/cron/ioos-sync?phase=observations",
+          unit: "observations_stored",
+          expectedMin: 1,
+          getProduced: (value) => value.observationsInserted,
+        },
+        () => syncObservations(maxStations, batchSize),
+      );
       console.log("✅ IOOS observation sync complete:", result);
       return createSuccessResponse(result);
     }

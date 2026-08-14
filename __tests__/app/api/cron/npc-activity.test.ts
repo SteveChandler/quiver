@@ -12,6 +12,10 @@ import {
 } from "@/lib/npc/npc-selection";
 import { fetchRandomTemplate } from "@/lib/npc/template-hydration";
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: async () => ({

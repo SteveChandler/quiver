@@ -8,6 +8,10 @@ import {
   upsertCCCLocations,
 } from "@/lib/services/ccc";
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 jest.mock("@/lib/cron/observability", () => ({
   withObservedCron:
     <H extends (request: Request) => Promise<Response>>(

@@ -7,6 +7,7 @@ import {
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { processWaterQualityAlerts } from "@/lib/services/water-quality/water-quality-alerts-service";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -37,7 +38,19 @@ async function _GET(request: Request): Promise<Response> {
     console.log("[WQAlerts] Starting water quality alert processing...");
 
     const supabase = createSupabaseServiceRoleClient();
-    const result = await processWaterQualityAlerts(supabase);
+    const result = await withCronOutcome(
+      {
+        job: "/api/cron/water-quality-alerts",
+        unit: "notifications_sent",
+        expectedMin: 1,
+        getProduced: (value) => value.notificationsSent,
+        legitimatelyZero: (value) =>
+          value.beachesWithChanges === 0
+            ? { reason: "No water-quality status changes were detected in the evaluation window" }
+            : undefined,
+      },
+      () => processWaterQualityAlerts(supabase),
+    );
 
     console.log("[WQAlerts] Complete:", JSON.stringify(result, null, 2));
     return createSuccessResponse({ result });
