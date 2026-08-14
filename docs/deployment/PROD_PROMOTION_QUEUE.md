@@ -301,9 +301,17 @@ present on pre-merge `cd9220349` too. The merge wave introduced no regressions.
 - **Beach photo library is 23% usable** — 206 of 828 approved photos are both relevant and
   licence-clean. Blocks imagery-led design work. See
   `.planning/beach-photo-library-remediation-20260813.md`.
-- **11 dependabot advisories.** All five HIGH are dev/build-only (`extract-zip`,
-  `js-yaml`, `ip-address`, `fast-uri`). The four that reach runtime are medium:
-  `dompurify` via `posthog-js`, `undici` ×3 via `firebase`.
+- **7 dependabot advisories open** (verified via the API 2026-08-13, down from 11 — the
+  `dompurify` and `undici` runtime advisories were closed on `main`). 5 high, 2 medium:
+
+  | Severity | Package | Scope |
+  |---|---|---|
+  | high | `fast-uri` | **runtime** |
+  | high | `js-yaml` ×2, `ip-address`, `extract-zip` | development |
+  | medium | `ip-address` ×2 | development |
+
+  An earlier revision of this doc claimed all five HIGH were dev/build-only. That was
+  wrong: `fast-uri` is runtime-scoped and is the only advisory that reaches shipped code.
 - **Vercel crons run against Production only.** `session-video-retention` and
   `moderation-queue-digest` are in `vercel.json` on `main` but do not fire until promotion.
   `session-video-retention` deletes storage objects — it only removes objects with no
