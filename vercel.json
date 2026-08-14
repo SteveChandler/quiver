@@ -201,10 +201,6 @@
       "schedule": "35 9 * * *"
     },
     {
-      "path": "/api/cron/moderation-queue-digest",
-      "schedule": "0 16 * * *"
-    },
-    {
       "path": "/api/cron/session-video-retention",
       "schedule": "50 9 * * *"
     }

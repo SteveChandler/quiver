@@ -17,8 +17,8 @@ below, for what must be sequenced against the web promotion.
 
 ## Environment variables that must change before promotion
 
-**Code promotion alone does not turn these features on.** Two production env vars need
-action; without them the feature ships silently inert or the cron fails on every run.
+**Code promotion alone does not turn these features on.** One production env var needs
+action; without it the feature ships silently inert while appearing healthy.
 Verified against Vercel production on 2026-08-13.
 
 ### Must set — blocking
@@ -29,7 +29,7 @@ Verified against Vercel production on 2026-08-13.
 
 `MODERATION_QUEUE_NOTIFY_TO` is **not** required — moderation-queue review is handled by a
 scheduled daily Codex run instead of the web digest email (decision 2026-08-13). See the
-cron note under "Known gaps" for what that means for `vercel.json`.
+cron note under "Known gaps" — the redundant cron has been deleted.
 
 ### Already `"true"` in production — promotion makes these live immediately
 
@@ -315,15 +315,14 @@ present on pre-merge `cd9220349` too. The merge wave introduced no regressions.
 
   An earlier revision of this doc claimed all five HIGH were dev/build-only. That was
   wrong: `fast-uri` is runtime-scoped and is the only advisory that reaches shipped code.
-- **Vercel crons run against Production only.** `session-video-retention` and
-  `moderation-queue-digest` are in `vercel.json` on `main` but do not fire until promotion.
+- **Vercel crons run against Production only.** `session-video-retention`
+  is in `vercel.json` on `main` but does not fire until promotion.
   `session-video-retention` deletes storage objects — it only removes objects with no
   `session_media` row older than 24h, skips on query error, and keeps rows regardless of
   moderation status, but it is the one item here that destroys data. Watch its first run.
-- **`moderation-queue-digest` is superseded and should be removed from `vercel.json`.**
-  Moderation review moved to a scheduled daily Codex run (2026-08-13), so the digest email
-  is redundant. The entry is still scheduled at `0 16 * * *`, and the route returns an
-  error whenever no recipient is configured
-  (`app/api/cron/moderation-queue-digest/route.ts:153-157`) — so if it is promoted as-is it
-  will **fail once a day, every day**, adding permanent red to cron monitoring for a job
-  nobody reads. Delete the `vercel.json` entry (and ideally the route) before promoting.
+- **`moderation-queue-digest` was removed on 2026-08-13 — no action needed.** Moderation
+  review moved to a scheduled daily Codex run, so the digest email was redundant. Left in
+  place it would have failed once a day forever, since the route errored whenever no
+  recipient was configured. Deleted: the `vercel.json` entry (49 crons remain), the route,
+  its test, and the `.env.example` block. `MOD_NOTIFY_TO` was **kept** — it belongs to the
+  separate `notify-content-report` Supabase Edge Function, not to the digest.
