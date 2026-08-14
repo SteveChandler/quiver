@@ -26,7 +26,10 @@ Verified against Vercel production on 2026-08-13.
 | Var | Current state | Consequence if promoted as-is |
 |---|---|---|
 | `NEXT_PUBLIC_REVENUECAT_WEB_CHECKOUT_URL` | **present but empty string** | Helper is fail-closed: empty / unparseable / non-HTTPS returns `null` and the CTA never renders. The feature ships 100% inert **and looks healthy**. Set the real Funnel URL. |
-| `MODERATION_QUEUE_NOTIFY_TO` (or `MOD_NOTIFY_TO`) | **absent** | `app/api/cron/moderation-queue-digest/route.ts:153-157` resolves the recipient, logs `recipient is not configured`, and returns an error response. **The digest cron fails every run.** |
+
+`MODERATION_QUEUE_NOTIFY_TO` is **not** required — moderation-queue review is handled by a
+scheduled daily Codex run instead of the web digest email (decision 2026-08-13). See the
+cron note under "Known gaps" for what that means for `vercel.json`.
 
 ### Already `"true"` in production — promotion makes these live immediately
 
@@ -317,3 +320,10 @@ present on pre-merge `cd9220349` too. The merge wave introduced no regressions.
   `session-video-retention` deletes storage objects — it only removes objects with no
   `session_media` row older than 24h, skips on query error, and keeps rows regardless of
   moderation status, but it is the one item here that destroys data. Watch its first run.
+- **`moderation-queue-digest` is superseded and should be removed from `vercel.json`.**
+  Moderation review moved to a scheduled daily Codex run (2026-08-13), so the digest email
+  is redundant. The entry is still scheduled at `0 16 * * *`, and the route returns an
+  error whenever no recipient is configured
+  (`app/api/cron/moderation-queue-digest/route.ts:153-157`) — so if it is promoted as-is it
+  will **fail once a day, every day**, adding permanent red to cron monitoring for a job
+  nobody reads. Delete the `vercel.json` entry (and ideally the route) before promoting.
