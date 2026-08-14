@@ -109,6 +109,7 @@ describe("npc activity cron route", () => {
   let consoleLogSpy: jest.SpyInstance;
   let consoleWarnSpy: jest.SpyInstance;
   let consoleErrorSpy: jest.SpyInstance;
+  const originalPersonaFlag = process.env.NPC_PERSONA_POSTING_ENABLED;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -134,6 +135,7 @@ describe("npc activity cron route", () => {
     (selectNPCsForCurrentHour as jest.Mock).mockReturnValue([npcFixture]);
     (getBeachesForNPC as jest.Mock).mockResolvedValue(beachFixture);
     (fetchRandomTemplate as jest.Mock).mockResolvedValue(null);
+    process.env.NPC_PERSONA_POSTING_ENABLED = "true";
     randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.1);
     consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
@@ -145,6 +147,11 @@ describe("npc activity cron route", () => {
     consoleLogSpy.mockRestore();
     consoleWarnSpy.mockRestore();
     consoleErrorSpy.mockRestore();
+    if (originalPersonaFlag === undefined) {
+      delete process.env.NPC_PERSONA_POSTING_ENABLED;
+    } else {
+      process.env.NPC_PERSONA_POSTING_ENABLED = originalPersonaFlag;
+    }
   });
 
   it("uses the API wrapper barrel for response helpers and cron request validation", () => {
@@ -168,6 +175,20 @@ describe("npc activity cron route", () => {
       details: "Invalid cron authentication",
       timestamp: "2026-05-26T00:00:00.000Z",
     });
+    expect(createSupabaseServiceRoleClient).not.toHaveBeenCalled();
+    expect(fetchEligibleNPCs).not.toHaveBeenCalled();
+  });
+
+  it("pauses persona posting by default without touching profiles or posts", async () => {
+    delete process.env.NPC_PERSONA_POSTING_ENABLED;
+
+    const response = await GET(
+      new Request("http://localhost/api/cron/npc-activity"),
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.data.summary).toMatchObject({ paused: true, successful: 0 });
     expect(createSupabaseServiceRoleClient).not.toHaveBeenCalled();
     expect(fetchEligibleNPCs).not.toHaveBeenCalled();
   });

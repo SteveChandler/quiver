@@ -28,6 +28,7 @@ import {
 } from '@/lib/npc/template-hydration';
 import type { Database } from '@/types/database';
 import { withObservedCron } from '@/lib/cron/observability';
+import { isPersonaPostingEnabled } from '@/lib/npc/system-card-config';
 
 export const revalidate = 0;
 export const runtime = 'nodejs';
@@ -101,6 +102,18 @@ async function _GET(request: Request): Promise<Response> {
   try {
     if (!validateCronRequest(request)) {
       return createErrorResponse('Unauthorized', 'Invalid cron authentication', 401);
+    }
+
+    if (!isPersonaPostingEnabled()) {
+      return createSuccessResponse({
+        summary: {
+          paused: true,
+          reason: 'NPC_PERSONA_POSTING_ENABLED is not true',
+          successful: 0,
+          failed: 0,
+        },
+        results: [],
+      });
     }
 
     const startMs = Date.now();
