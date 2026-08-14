@@ -12,8 +12,18 @@ const NATIVE_REVENUECAT_CLIENT_PATH = resolve(
   "../quiver-native/src/lib/subscription/revenuecat-client.ts",
 );
 
-function readNativeRevenueCatWebPurchasePrefix(): string {
-  const nativeSource = readFileSync(NATIVE_REVENUECAT_CLIENT_PATH, "utf8");
+/**
+ * The native repo is a sibling checkout, so it is present locally but NOT in CI,
+ * where only `quiver` is cloned. Return null there rather than throwing — the
+ * always-runnable assertion below is the real guard.
+ */
+function readNativeRevenueCatWebPurchasePrefix(): string | null {
+  let nativeSource: string;
+  try {
+    nativeSource = readFileSync(NATIVE_REVENUECAT_CLIENT_PATH, "utf8");
+  } catch {
+    return null;
+  }
   const prefix = nativeSource.match(
     /export const REVENUECAT_WEB_PURCHASE_URL_PREFIX\s*=\s*["']([^"']+)["']/,
   )?.[1];
@@ -78,10 +88,21 @@ describe("resolveRedeemPageState", () => {
     expect(resolveRedeemPageState(value)).toEqual({ kind: "malformed" });
   });
 
-  it("keeps the web RevenueCat prefix in parity with native", () => {
+  // Runs everywhere, including CI. Changing the scheme breaks every already-issued
+  // redemption deep link, so it is pinned to a literal on purpose.
+  it("pins the RevenueCat web-purchase scheme", () => {
     expect(REVENUECAT_WEB_PURCHASE_URL_PREFIX).toBe(
-      readNativeRevenueCatWebPurchasePrefix(),
+      "rc-38aee70261://redeem_web_purchase",
     );
+  });
+
+  // Only runs where the sibling native checkout exists. Skipped in CI by design.
+  it("keeps the web RevenueCat prefix in parity with native", () => {
+    const nativePrefix = readNativeRevenueCatWebPurchasePrefix();
+    // Absent in CI, where only `quiver` is cloned. The pinned-scheme test above
+    // is the guard that always runs; this one adds cross-repo parity when it can.
+    if (nativePrefix === null) return;
+    expect(REVENUECAT_WEB_PURCHASE_URL_PREFIX).toBe(nativePrefix);
   });
 
   it.each([
