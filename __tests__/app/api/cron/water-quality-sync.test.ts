@@ -74,6 +74,7 @@ describe("water quality sync cron route", () => {
     samplesParsed: 20,
     samplesMatched: 18,
     samplesUpserted: 18,
+    futureSamplesRejected: 0,
     errors: [],
     duration_ms: 234,
   };

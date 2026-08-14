@@ -43,6 +43,9 @@ const MAX_RESPONSE_BYTES = 50 * 1024 * 1024;
 /** Maximum rows fetched per CEDEN sample query */
 const CEDEN_SAMPLE_QUERY_LIMIT = 32_000;
 
+/** Supabase's default response cap; use explicit pages for station reads. */
+const MONITORING_STATION_PAGE_SIZE = 1_000;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -101,6 +104,20 @@ interface WaterQualityUpsertRow {
   updated_at: string;
 }
 
+interface MonitoringStationRow {
+  id: string;
+  station_id: string;
+  nearest_beach_id: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  name?: string | null;
+}
+
+interface MonitoringStationPageResult {
+  stations: MonitoringStationRow[];
+  error: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // Result types (returned to the cron route)
 // ---------------------------------------------------------------------------
@@ -119,6 +136,7 @@ export interface SampleSyncResult {
   samplesParsed: number;
   samplesMatched: number;
   samplesUpserted: number;
+  futureSamplesRejected: number;
   errors: string[];
   duration_ms: number;
 }
@@ -129,6 +147,54 @@ export interface EvaluationResult {
   statusChanges: number;
   errors: string[];
   duration_ms: number;
+}
+
+function utcDateString(date: Date = new Date()): string {
+  return date.toISOString().split("T")[0];
+}
+
+function subtractUtcDays(dateISO: string, days: number): string {
+  const date = new Date(`${dateISO}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() - days);
+  return utcDateString(date);
+}
+
+function normalizeSampleDate(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+
+  const date = value.split("T")[0]?.trim();
+  return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+}
+
+async function fetchAllMonitoringStations(
+  supabase: SupabaseServiceClient,
+  select: string,
+  linkedOnly: boolean
+): Promise<MonitoringStationPageResult> {
+  const stations: MonitoringStationRow[] = [];
+
+  for (let offset = 0; ; offset += MONITORING_STATION_PAGE_SIZE) {
+    const baseQuery = supabase
+      .from("wq_monitoring_stations")
+      .select(select);
+    const filteredQuery = linkedOnly
+      ? baseQuery.not("nearest_beach_id", "is", null)
+      : baseQuery;
+    const { data, error } = await filteredQuery
+      .order("id", { ascending: true })
+      .range(offset, offset + MONITORING_STATION_PAGE_SIZE - 1);
+
+    if (error) {
+      return { stations, error: error.message };
+    }
+
+    const page = (data ?? []) as unknown as MonitoringStationRow[];
+    stations.push(...page);
+
+    if (page.length < MONITORING_STATION_PAGE_SIZE) {
+      return { stations, error: null };
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -570,11 +636,18 @@ export async function syncWQStations(
  */
 async function fetchCEDENSamples(
   stationLookup: Map<string, { uuid: string; beachId: string | null }>,
-  startDateISO: string
-): Promise<{ samples: SampleUpsertRow[]; count: number; errors: string[] }> {
+  startDateISO: string,
+  todayISO: string
+): Promise<{
+  samples: SampleUpsertRow[];
+  count: number;
+  futureSamplesRejected: number;
+  errors: string[];
+}> {
   const errors: string[] = [];
   const samples: SampleUpsertRow[] = [];
   let totalRecords = 0;
+  let futureSamplesRejected = 0;
 
   try {
     // Format date as YYYY-MM-DD for CEDEN SQL query
@@ -604,7 +677,7 @@ async function fetchCEDENSamples(
 
     if (!response.ok) {
       errors.push(`CEDEN sample fetch failed: HTTP ${response.status}`);
-      return { samples, count: 0, errors };
+      return { samples, count: 0, futureSamplesRejected, errors };
     }
 
     const json = await response.json();
@@ -612,12 +685,17 @@ async function fetchCEDENSamples(
     totalRecords = records.length;
 
     for (const rec of records) {
+      const sampleDate = normalizeSampleDate(rec.SampleDate);
+      if (!sampleDate) continue;
+
+      if (sampleDate > todayISO) {
+        futureSamplesRejected++;
+        continue;
+      }
+
       const stationKey = `CEDEN-${rec.StationCode}`;
       const match = stationLookup.get(stationKey);
       if (!match) continue;
-
-      const sampleDate = rec.SampleDate ? rec.SampleDate.split("T")[0] : null;
-      if (!sampleDate) continue;
 
       // Parse result value; null if non-numeric or missing
       let value: number | null = null;
@@ -643,12 +721,14 @@ async function fetchCEDENSamples(
       });
     }
 
-    console.log(`${LOG_PREFIX} CEDEN: ${totalRecords} records -> ${samples.length} matched samples`);
+    console.log(
+      `${LOG_PREFIX} CEDEN: ${totalRecords} records -> ${samples.length} matched samples (${futureSamplesRejected} future rows rejected)`
+    );
   } catch (error) {
     errors.push(`CEDEN sample fetch error: ${error instanceof Error ? error.message : "unknown"}`);
   }
 
-  return { samples, count: totalRecords, errors };
+  return { samples, count: totalRecords, futureSamplesRejected, errors };
 }
 
 /**
@@ -657,14 +737,21 @@ async function fetchCEDENSamples(
  */
 async function fetchPacIOOSSamples(
   stationLookup: Map<string, { uuid: string; beachId: string | null }>,
-  startDateISO: string
-): Promise<{ samples: SampleUpsertRow[]; count: number; errors: string[] }> {
+  startDateISO: string,
+  todayISO: string
+): Promise<{
+  samples: SampleUpsertRow[];
+  count: number;
+  futureSamplesRejected: number;
+  errors: string[];
+}> {
   const errors: string[] = [];
   const samples: SampleUpsertRow[] = [];
   let rowCount = 0;
+  let futureSamplesRejected = 0;
 
   try {
-    const url = `${PACIOOS_CONFIG.baseUrl}.csv?time,location_id,location_name,enterococcus&time>=${startDateISO}`;
+    const url = `${PACIOOS_CONFIG.baseUrl}.csv?time,location_id,location_name,enterococcus&time>=${startDateISO}&time<=${todayISO}T23:59:59Z`;
 
     const response = await fetch(url, {
       signal: AbortSignal.timeout(PACIOOS_CONFIG.requestTimeoutMs),
@@ -674,10 +761,10 @@ async function fetchPacIOOSSamples(
       // ERDDAP returns 404 when no matching data exists (e.g. stale dataset)
       if (response.status === 404) {
         console.log(`${LOG_PREFIX} PacIOOS: no sample data in requested time range (HTTP 404)`);
-        return { samples, count: 0, errors };
+        return { samples, count: 0, futureSamplesRejected, errors };
       }
       errors.push(`PacIOOS sample fetch failed: HTTP ${response.status}`);
-      return { samples, count: 0, errors };
+      return { samples, count: 0, futureSamplesRejected, errors };
     }
 
     const { rowCount: parsed, errors: parseErrors } = await streamParseCSV(response, (fields, headers) => {
@@ -691,13 +778,18 @@ async function fetchPacIOOSSamples(
 
       // ERDDAP returns ISO format like "2026-02-20T00:00:00Z"
       let sampleDate: string | null = null;
-      if (timeStr) {
+      if (typeof timeStr === "string" && timeStr) {
         const d = new Date(timeStr);
         if (!isNaN(d.getTime())) {
-          sampleDate = d.toISOString().split("T")[0];
+          sampleDate = utcDateString(d);
         }
       }
       if (!sampleDate) return;
+
+      if (sampleDate > todayISO) {
+        futureSamplesRejected++;
+        return;
+      }
 
       let value: number | null = null;
       if (enteroStr && enteroStr !== "" && enteroStr !== "NaN") {
@@ -720,12 +812,14 @@ async function fetchPacIOOSSamples(
       errors.push(...parseErrors.map(e => `PacIOOS sample parse: ${e}`));
     }
 
-    console.log(`${LOG_PREFIX} PacIOOS: ${rowCount} rows -> ${samples.length} matched samples`);
+    console.log(
+      `${LOG_PREFIX} PacIOOS: ${rowCount} rows -> ${samples.length} matched samples (${futureSamplesRejected} future rows rejected)`
+    );
   } catch (error) {
     errors.push(`PacIOOS sample fetch error: ${error instanceof Error ? error.message : "unknown"}`);
   }
 
-  return { samples, count: rowCount, errors };
+  return { samples, count: rowCount, futureSamplesRejected, errors };
 }
 
 // ---------------------------------------------------------------------------
@@ -748,18 +842,21 @@ export async function syncWQSamples(
     samplesParsed: 0,
     samplesMatched: 0,
     samplesUpserted: 0,
+    futureSamplesRejected: 0,
     errors: [],
     duration_ms: 0,
   };
 
   try {
-    // Load our station records to match against
-    const { data: stations, error: stationError } = await supabase
-      .from("wq_monitoring_stations")
-      .select("id, station_id, nearest_beach_id");
+    // Load every station page; Supabase caps an unpaged response at 1,000 rows.
+    const { stations, error: stationError } = await fetchAllMonitoringStations(
+      supabase,
+      "id, station_id, nearest_beach_id",
+      false
+    );
 
     if (stationError) {
-      result.errors.push(`Failed to fetch stations: ${stationError.message}`);
+      result.errors.push(`Failed to fetch stations: ${stationError}`);
       result.duration_ms = Date.now() - startTime;
       return result;
     }
@@ -787,13 +884,14 @@ export async function syncWQSamples(
 
     // 90-day lookback window to account for reporting lag
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 90);
+    startDate.setUTCDate(startDate.getUTCDate() - 90);
     const startDateISO = startDate.toISOString();
+    const todayISO = utcDateString();
 
     // Fetch from both sources in parallel
     const [cedenResult, pacioosResult] = await Promise.allSettled([
-      fetchCEDENSamples(stationLookup, startDateISO),
-      fetchPacIOOSSamples(stationLookup, startDateISO),
+      fetchCEDENSamples(stationLookup, startDateISO, todayISO),
+      fetchPacIOOSSamples(stationLookup, startDateISO, todayISO),
     ]);
 
     const allSamples: SampleUpsertRow[] = [];
@@ -801,6 +899,7 @@ export async function syncWQSamples(
     if (cedenResult.status === "fulfilled") {
       allSamples.push(...cedenResult.value.samples);
       result.samplesParsed += cedenResult.value.count;
+      result.futureSamplesRejected += cedenResult.value.futureSamplesRejected;
       result.errors.push(...cedenResult.value.errors);
       if (cedenResult.value.samples.length > 0) result.statesFetched++;
     } else {
@@ -810,6 +909,7 @@ export async function syncWQSamples(
     if (pacioosResult.status === "fulfilled") {
       allSamples.push(...pacioosResult.value.samples);
       result.samplesParsed += pacioosResult.value.count;
+      result.futureSamplesRejected += pacioosResult.value.futureSamplesRejected;
       result.errors.push(...pacioosResult.value.errors);
       if (pacioosResult.value.samples.length > 0) result.statesFetched++;
     } else {
@@ -906,15 +1006,17 @@ export async function evaluateWaterQuality(
   };
 
   try {
-    // Get all stations that have a linked beach
-    const { data: linkedStations, error: stationError } = await supabase
-      .from("wq_monitoring_stations")
-      .select("id, station_id, nearest_beach_id, lat, lon, name")
-      .not("nearest_beach_id", "is", null);
+    // Get every station page that has a linked beach.
+    const { stations: linkedStations, error: stationError } =
+      await fetchAllMonitoringStations(
+        supabase,
+        "id, station_id, nearest_beach_id, lat, lon, name",
+        true
+      );
 
     if (stationError) {
       result.errors.push(
-        `Failed to fetch linked stations: ${stationError.message}`
+        `Failed to fetch linked stations: ${stationError}`
       );
       result.duration_ms = Date.now() - startTime;
       return result;
@@ -941,25 +1043,12 @@ export async function evaluateWaterQuality(
       `${LOG_PREFIX} Evaluating water quality for ${beachStations.size} beaches with ${linkedStations.length} linked stations`
     );
 
-    // Determine the evaluation window from actual sample data, not the system clock.
-    // Source data may lag weeks/months -- anchoring to the latest sample ensures
-    // we always evaluate whatever is most recent.
-    const { data: latestRow } = await supabase
-      .from("wq_samples")
-      .select("sample_date")
-      .order("sample_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const anchorDate = latestRow?.sample_date
-      ? new Date(latestRow.sample_date)
-      : new Date();
-    const cutoffDate = new Date(anchorDate);
-    cutoffDate.setDate(cutoffDate.getDate() - 30);
-    const cutoffISO = cutoffDate.toISOString().split("T")[0]; // YYYY-MM-DD
+    // Future rows must not move the evaluation window beyond real time.
+    const endDateISO = utcDateString();
+    const cutoffISO = subtractUtcDays(endDateISO, 30);
 
     console.log(
-      `${LOG_PREFIX} Evaluation window: ${cutoffISO} to ${anchorDate.toISOString().split("T")[0]} (anchored to latest sample)`
+      `${LOG_PREFIX} Evaluation window: ${cutoffISO} to ${endDateISO} (anchored to UTC today)`
     );
 
     // Fetch existing statuses to detect changes (batched to stay within .in() limit)
@@ -999,6 +1088,7 @@ export async function evaluateWaterQuality(
         .select("station_id, characteristic, value, detection_condition, sample_date")
         .in("station_id", batch)
         .gte("sample_date", cutoffISO)
+        .lte("sample_date", endDateISO)
         .order("sample_date", { ascending: false });
 
       if (batchError) {
