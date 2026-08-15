@@ -38,7 +38,7 @@ export const TEST_BEACHES = isDevEnvironment ? {
     slug: 'blacks',
     city: 'San Diego',
     state: 'CA',
-    name: 'Blacks'
+    name: 'Blacks Beach'
   },
   birdrock: {
     id: 'ca2b1d6f-2428-4273-ab02-7555eeec4323',
@@ -59,9 +59,9 @@ export const TEST_BEACHES = isDevEnvironment ? {
   blacks: {
     id: 'blacks',
     slug: 'blacks',
-    city: 'La Jolla',
+    city: 'San Diego',
     state: 'CA',
-    name: 'Blacks'
+    name: 'Blacks Beach'
   },
   birdrock: {
     id: 'bird-rock',
