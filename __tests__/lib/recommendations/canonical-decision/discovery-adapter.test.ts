@@ -133,4 +133,50 @@ describe("canonical discovery adapter", () => {
       selection: null,
     });
   });
+
+  it("preserves an unresolved hold marker for the canonical reason code", () => {
+    const { buildCanonicalDecisionFromSurfDiscovery } = loadAdapter();
+    const decision = buildCanonicalDecisionFromSurfDiscovery({
+      anchorTime: "2026-07-22T18:00:00.000Z",
+      scope: {
+        kind: "plan_next_session",
+        windowStart: "2026-07-22T18:00:00.000Z",
+        windowEnd: "2026-07-23T18:00:00.000Z",
+        timezone: "America/Los_Angeles",
+      },
+      profileExperience: "beginner",
+      recommendationAvailability: {
+        state: "available",
+        holdEpoch: "hold-epoch-1",
+      },
+      recommendations: [
+        recommendation({
+          beach: {
+            id: "shores",
+            name: "La Jolla Shores",
+            skill_level: "beginner",
+          },
+          forecast: {
+            id: "forecast-shores",
+            beach_id: "shores",
+            forecast_at: "2026-07-23T14:00:00.000Z",
+            wave_height: "2-3 ft",
+          },
+          safetyOverrideReasons: ["hold_state_unavailable"],
+        }),
+      ],
+    }) as {
+      verdict: string;
+      decisionBasis: string;
+      reasonCode: string;
+      selection: unknown;
+    };
+
+    expect(decision).toMatchObject({
+      verdict: "no",
+      decisionBasis: "safety_override",
+      reasonCode: "hold_state_unavailable",
+      selection: null,
+    });
+  });
 });

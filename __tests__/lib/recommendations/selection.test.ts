@@ -135,6 +135,50 @@ describe("recommendation beach selection", () => {
     expectConsoleErrors([/\[water-quality-hold:query-error\]/]);
   });
 
+  it("preserves an unresolved hold reason for canonical decisions without weakening default ranking", async () => {
+    await configureHoldStore({
+      heldError: { code: "PGRST500", message: "database unavailable" },
+    });
+    const candidate = { id: SAFE_BEACH_ID, score: 1 };
+
+    await expect(
+      rankBeaches([candidate], {
+        compare: () => 0,
+        preserveSafetyReasons: true,
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        id: SAFE_BEACH_ID,
+        safetyOverrideReasons: ["hold_state_unavailable"],
+      }),
+    ]);
+    await expect(
+      rankBeaches([candidate], { compare: () => 0 }),
+    ).resolves.toEqual([]);
+    expectConsoleErrors([/\[water-quality-hold:query-error\]/]);
+  });
+
+  it("marks a genuinely held beach for canonical explanation while default ranking excludes it", async () => {
+    await configureHoldStore({
+      heldRows: [{ beach_id: HELD_BEACH_ID }],
+      qualityRows: [],
+    });
+    const candidate = { id: HELD_BEACH_ID, score: 10 };
+
+    await expect(
+      rankBeaches([candidate], {
+        compare: () => 0,
+        preserveSafetyReasons: true,
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        id: HELD_BEACH_ID,
+        safetyOverrideReasons: ["water_quality_closure"],
+      }),
+    ]);
+    await expect(selectBeach(candidate)).resolves.toBeNull();
+  });
+
   it("fails closed when hold resolution throws", async () => {
     await configureHoldStore({ throwOnHeldQuery: true });
 

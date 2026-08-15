@@ -43,6 +43,7 @@ export async function resolveCanonicalSessionDecisionContext(
   const discovery = await discover(input.userId, {
     ...input.discoveryOptions,
     maxResults: CANDIDATE_POOL_LIMIT,
+    preserveSafetyReasons: true,
   });
   const recommendations = [
     ...discovery.recommendations,
@@ -66,7 +67,10 @@ export async function resolveCanonicalSessionDecisionContext(
       recommendation,
       index,
     })),
-    { compare: (left, right) => left.index - right.index },
+    {
+      compare: (left, right) => left.index - right.index,
+      preserveSafetyReasons: true,
+    },
   );
 
   const decision = buildCanonicalDecisionFromSurfDiscovery({
@@ -79,7 +83,13 @@ export async function resolveCanonicalSessionDecisionContext(
       holdEpoch: "hold-state-unavailable",
     },
     recommendations: rankedDecisionRecommendations.map(
-      ({ recommendation }) => recommendation,
+      ({ recommendation, safetyOverrideReasons }) =>
+        safetyOverrideReasons?.length
+          ? {
+              ...recommendation,
+              safetyOverrideReasons,
+            }
+          : recommendation,
     ),
   });
 

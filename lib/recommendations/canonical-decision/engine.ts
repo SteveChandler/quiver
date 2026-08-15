@@ -348,7 +348,9 @@ export function buildCanonicalSessionDecision(
           : noSafeCandidate
             ? [
                 ...safetyReasons,
-                ...(isUnknownSkill ? ["unknown_skill"] : []),
+                ...(isUnknownSkill
+                  ? (["unknown_skill"] as CanonicalDecisionReasonCode[])
+                  : []),
               ]
             : isUnknownSkill
               ? ["unknown_skill"]

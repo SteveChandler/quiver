@@ -56,7 +56,10 @@ import {
   scoreNativeForecastSlot,
 } from '@/lib/scoring/native-condition-score';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { rankBeaches } from '@/lib/recommendations/selection';
+import {
+  rankBeaches,
+  type SelectionSafetyReason,
+} from '@/lib/recommendations/selection';
 
 // Import from other discovery modules
 import {
@@ -126,6 +129,18 @@ type BoardPickRow = {
   board_type: unknown;
   volume?: unknown;
 };
+
+function preserveSelectionSafetyReasons(
+  recommendation: SurfDiscoveryRecommendation,
+  reasons: readonly SelectionSafetyReason[] | undefined,
+): SurfDiscoveryRecommendation {
+  if (!reasons || reasons.length === 0) return recommendation;
+  const existing = recommendation.safetyOverrideReasons ?? [];
+  return {
+    ...recommendation,
+    safetyOverrideReasons: Array.from(new Set([...existing, ...reasons])),
+  };
+}
 
 type UserBoardContextRow = BoardPickRow & {
   session_count?: unknown;
@@ -1405,6 +1420,7 @@ async function discoverSurfSpotsInner(
     discoveryMode = 'best-window',
     isPro = false,
     includeBeachIds,
+    preserveSafetyReasons = false,
   } = options;
   // `candidatePoolLimit` (how many beaches get forecasts fetched and scored) is
   // NOT `maxResults` (how many are shown). Shrinking the pool to the size of the
@@ -2182,23 +2198,27 @@ async function discoverSurfSpotsInner(
           left.recommendation,
           right.recommendation,
         ) || left.index - right.index,
+      preserveSafetyReasons,
     },
   );
   const safeRecsScored = rankedRecommendations.map(
-    ({ recommendation }) => recommendation,
+    ({ recommendation, safetyOverrideReasons }) =>
+      preserveSelectionSafetyReasons(recommendation, safetyOverrideReasons),
   );
 
   const holdPool = await enforceMajorEventHoldBeforeDiscoveryTruncation({
     recommendations: safeRecsScored,
     profileExperience: userSkillLevel,
     maxResults,
+    preserveSafetyReasons,
     isPrimaryEligible: (rec) =>
       primaryEligibleKeys.has(recommendationKey(rec)),
   });
 
   // Hold filtering happens across the full sorted pool before this top-N is
   // consumed, so an allowed rank below a blocked result can fill the response.
-  const merged = holdPool.primaryRecommendations;
+  const merged =
+    holdPool.decisionRecommendations ?? holdPool.primaryRecommendations;
 
   // Phase 2: populate per-slot scorer outputs across each candidate's window
   // BEFORE rerank so hero-window-score's persistence/duration evidence is

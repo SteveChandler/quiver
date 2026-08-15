@@ -78,6 +78,7 @@ describe("canonical session decision service", () => {
         userLocation: { lat: 32.83, lon: -117.27 },
         horizonHours: 24,
         maxResults: 60,
+        preserveSafetyReasons: true,
       }),
     );
     expect(decision).toMatchObject({

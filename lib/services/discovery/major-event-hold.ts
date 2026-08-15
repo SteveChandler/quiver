@@ -24,13 +24,27 @@ interface EnforceDiscoveryHoldInput {
   profileExperience: unknown;
   maxResults: number;
   isPrimaryEligible: (recommendation: SurfDiscoveryRecommendation) => boolean;
+  preserveSafetyReasons?: boolean;
   evaluateCandidates?: EvaluateDiscoveryHoldCandidates;
 }
 
 export interface EnforcedDiscoveryHoldPool {
   allAllowedRecommendations: SurfDiscoveryRecommendation[];
   primaryRecommendations: SurfDiscoveryRecommendation[];
+  decisionRecommendations?: SurfDiscoveryRecommendation[];
   recommendationAvailability: RecommendationAvailability;
+}
+
+function withSafetyReason(
+  recommendation: SurfDiscoveryRecommendation,
+  reason: "water_quality_closure" | "hold_state_unavailable",
+): SurfDiscoveryRecommendation {
+  return {
+    ...recommendation,
+    safetyOverrideReasons: Array.from(
+      new Set([...(recommendation.safetyOverrideReasons ?? []), reason]),
+    ),
+  };
 }
 
 function serializedInstant(value: unknown): string {
@@ -94,6 +108,7 @@ export async function enforceMajorEventHoldBeforeDiscoveryTruncation({
   profileExperience,
   maxResults,
   isPrimaryEligible,
+  preserveSafetyReasons = false,
   evaluateCandidates = (input) =>
     evaluateMajorEventHoldCandidates({
       ...input,
@@ -118,12 +133,29 @@ export async function enforceMajorEventHoldBeforeDiscoveryTruncation({
       typeof recommendationId === "string" &&
       boundary.allowedCandidateIds.has(recommendationId),
   );
+  const decisionRecommendations =
+    preserveSafetyReasons &&
+    allAllowedRecommendations.length === 0 &&
+    (boundary.recommendationAvailability.reasonCode === "water_quality_hold" ||
+      boundary.recommendationAvailability.reasonCode ===
+        "hold_state_unavailable")
+      ? identifiedRecommendations.map((recommendation) =>
+          withSafetyReason(
+            recommendation,
+            boundary.recommendationAvailability.reasonCode ===
+              "water_quality_hold"
+              ? "water_quality_closure"
+              : "hold_state_unavailable",
+          ),
+        )
+      : undefined;
 
   return {
     allAllowedRecommendations,
     primaryRecommendations: allAllowedRecommendations
       .filter(isPrimaryEligible)
       .slice(0, maxResults),
+    decisionRecommendations,
     recommendationAvailability: boundary.recommendationAvailability,
   };
 }

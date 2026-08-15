@@ -5,9 +5,15 @@ import { buildCanonicalSessionDecision } from "./engine";
 import type {
   BuildCanonicalSessionDecisionInput,
   CanonicalDecisionCandidate,
+  CanonicalDecisionReasonCode,
   CanonicalPersonalMatchEvidence,
   CanonicalSessionDecision,
 } from "./types";
+
+type CanonicalSafetyOverrideReason = Extract<
+  CanonicalDecisionReasonCode,
+  "water_quality_closure" | "hold_state_unavailable"
+>;
 
 export type BuildCanonicalDecisionFromSurfDiscoveryInput = Omit<
   BuildCanonicalSessionDecisionInput,
@@ -59,12 +65,19 @@ function toPersonalMatchEvidence(
 function toCanonicalCandidate(
   recommendation: SurfDiscoveryRecommendation,
 ): CanonicalDecisionCandidate {
+  const markedRecommendation = recommendation as SurfDiscoveryRecommendation & {
+    safetyOverrideReasons?: CanonicalDecisionReasonCode[];
+  };
   const safetyOverrideReasons = (recommendation.warnings ?? []).some(
     (warning) =>
       warning.toLowerCase().includes("water quality closure"),
   )
-    ? (["water_quality_closure"] as const)
+    ? ["water_quality_closure" as const]
     : [];
+  const markedReasons = (markedRecommendation.safetyOverrideReasons ?? []).filter(
+    (reason): reason is CanonicalSafetyOverrideReason =>
+      reason === "water_quality_closure" || reason === "hold_state_unavailable",
+  );
 
   return {
     candidateId: recommendation.recommendationId ?? "",
@@ -80,7 +93,9 @@ function toCanonicalCandidate(
     utilityScore: recommendation.score,
     recommendationLabel: recommendation.recommendationLabel,
     personalMatch: toPersonalMatchEvidence(recommendation),
-    safetyOverrideReasons: [...safetyOverrideReasons],
+    safetyOverrideReasons: Array.from(
+      new Set([...markedReasons, ...safetyOverrideReasons]),
+    ),
   };
 }
 
