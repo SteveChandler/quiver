@@ -14,6 +14,9 @@ import {
   type WaterQualityHoldResolution,
 } from "@/lib/recommendations/major-event-hold/water-quality";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
+import { createContextLogger } from "@/lib/logger";
+
+const log = createContextLogger("RecommendationSelection");
 
 declare const RankedBrand: unique symbol;
 export type RankedBeach<T> = T & { readonly [RankedBrand]: true };
@@ -72,21 +75,49 @@ async function resolveSafeBeachIds<T extends { id: string }>(
 
   const asOf = validAsOf(options?.asOf);
   if (asOf === null) {
+    log.warn("Water-quality hold resolution unavailable: invalid_as_of", {
+      cause: "invalid_as_of",
+      asOf: options?.asOf,
+    });
     return { state: "unresolved", reason: "hold_state_unavailable" };
   }
 
   const holdCandidates = buildHoldCandidates(candidates, asOf);
   if (holdCandidates === null) {
+    log.warn("Water-quality hold resolution unavailable: invalid_candidate_window", {
+      cause: "invalid_candidate_window",
+      asOf: asOf.toISOString(),
+      candidateCount: candidates.length,
+    });
     return { state: "unresolved", reason: "hold_state_unavailable" };
   }
 
   try {
     const resolution = await resolveWaterQualityHolds(holdCandidates);
+    if (resolution.state === "unresolved") {
+      log.warn("Water-quality hold resolution unavailable: resolver_returned_unresolved", {
+        cause: "resolver_returned_unresolved",
+        candidateCount: candidates.length,
+        epoch: resolution.epoch,
+      });
+      return { state: "unresolved", reason: "hold_state_unavailable" };
+    }
     const heldBeachIds = resolvedHeldBeachIds(resolution);
-    return heldBeachIds === null
-      ? { state: "unresolved", reason: "hold_state_unavailable" }
-      : { state: "resolved", heldBeachIds };
-  } catch {
+    if (heldBeachIds === null) {
+      log.warn("Water-quality hold resolution unavailable: invalid_resolved_payload", {
+        cause: "invalid_resolved_payload",
+        candidateCount: candidates.length,
+        heldBeachIds: resolution.heldBeachIds,
+      });
+      return { state: "unresolved", reason: "hold_state_unavailable" };
+    }
+    return { state: "resolved", heldBeachIds };
+  } catch (error) {
+    log.warn("Water-quality hold resolution unavailable: resolver_threw", {
+      cause: "resolver_threw",
+      candidateCount: candidates.length,
+      error,
+    });
     return { state: "unresolved", reason: "hold_state_unavailable" };
   }
 }
@@ -115,11 +146,17 @@ export async function rankBeaches<T extends { id: string }>(
     asOf?: Date;
     /** Only canonical decisions preserve blocked rows to explain their reason. */
     preserveSafetyReasons?: boolean;
+    /**
+     * Discovery treats an unresolved probe as a data gap, not a closure: keep
+     * the candidates and mark them so the surface can disclose it. Genuine
+     * resolved closures still filter out.
+     */
+    degradeOnUnresolvedHolds?: boolean;
   },
 ): Promise<SafetyMarkedRankedBeach<T>[]> {
   const resolution = await resolveSafeBeachIds(candidates, opts);
   if (resolution.state === "unresolved") {
-    if (!opts.preserveSafetyReasons) return [];
+    if (!opts.preserveSafetyReasons && !opts.degradeOnUnresolvedHolds) return [];
     return candidates
       .slice()
       .sort(opts.compare)

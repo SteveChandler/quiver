@@ -2193,6 +2193,7 @@ async function discoverSurfSpotsInner(
       index,
     })),
     {
+      degradeOnUnresolvedHolds: true,
       compare: (left, right) =>
         compareDiscoveryRecommendations(
           left.recommendation,
