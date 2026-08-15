@@ -86,6 +86,12 @@ export const canonicalSessionDecisionSchema = z.object({
     "physical_fallback",
     "safety_override",
   ]),
+  decisionBasisV2: z.enum([
+    "personal_match",
+    "physical_fallback",
+    "safety_override",
+    "data_unavailable",
+  ]).optional(),
   reasonCode: reasonCodeSchema,
   selection: selectionSchema.nullable(),
   skillEligibility: skillEligibilitySchema,

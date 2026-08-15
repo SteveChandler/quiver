@@ -738,6 +738,7 @@ describe("canonical session decision engine", () => {
 
     expect(decision).toMatchObject({
       verdict: "no",
+      decisionBasisV2: "data_unavailable",
       reasonCode: "no_candidates",
       selection: null,
     });

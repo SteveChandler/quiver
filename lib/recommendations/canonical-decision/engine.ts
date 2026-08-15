@@ -13,6 +13,7 @@ import type {
   BuildCanonicalSessionDecisionInput,
   CanonicalDecisionCandidate,
   CanonicalDecisionBasis,
+  CanonicalDecisionBasisV2,
   CanonicalDecisionReasonCode,
   CanonicalDecisionSelection,
   CanonicalDecisionSkill,
@@ -278,6 +279,9 @@ export function buildCanonicalSessionDecision(
     : learnedCandidates.length > 0
       ? "personal_match"
       : "physical_fallback";
+  const decisionBasisV2: CanonicalDecisionBasisV2 = hasNoCandidates
+    ? "data_unavailable"
+    : decisionBasis;
   const verdict = safetyOverride
     ? "no"
     : selected
@@ -336,6 +340,7 @@ export function buildCanonicalSessionDecision(
     scope: input.scope,
     verdict,
     decisionBasis,
+    decisionBasisV2,
     reasonCode,
     selection: hasSelection ? selectionFor(selected, skill) : null,
     skillEligibility: {
