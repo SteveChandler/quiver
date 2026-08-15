@@ -10,9 +10,13 @@ import type {
   CanonicalSessionDecision,
 } from "./types";
 
+/**
+ * A per-candidate safety marker is only ever a resolved closure. An unreachable
+ * water-quality probe is a data gap, not a closure, and marks nothing.
+ */
 type CanonicalSafetyOverrideReason = Extract<
   CanonicalDecisionReasonCode,
-  "water_quality_closure" | "hold_state_unavailable"
+  "water_quality_closure"
 >;
 
 export type BuildCanonicalDecisionFromSurfDiscoveryInput = Omit<
@@ -76,7 +80,7 @@ function toCanonicalCandidate(
     : [];
   const markedReasons = (markedRecommendation.safetyOverrideReasons ?? []).filter(
     (reason): reason is CanonicalSafetyOverrideReason =>
-      reason === "water_quality_closure" || reason === "hold_state_unavailable",
+      reason === "water_quality_closure",
   );
 
   return {

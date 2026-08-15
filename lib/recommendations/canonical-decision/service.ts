@@ -43,7 +43,6 @@ export async function resolveCanonicalSessionDecisionContext(
   const discovery = await discover(input.userId, {
     ...input.discoveryOptions,
     maxResults: CANDIDATE_POOL_LIMIT,
-    preserveSafetyReasons: true,
   });
   const recommendations = [
     ...discovery.recommendations,
@@ -69,7 +68,6 @@ export async function resolveCanonicalSessionDecisionContext(
     })),
     {
       compare: (left, right) => left.index - right.index,
-      preserveSafetyReasons: true,
     },
   );
 
@@ -77,19 +75,15 @@ export async function resolveCanonicalSessionDecisionContext(
     anchorTime: input.anchorTime,
     scope: input.scope,
     profileExperience: input.profileExperience,
+    // Discovery always reports availability; a missing value is an absent
+    // hold, not a hold. Genuine major-event holds still arrive as
+    // `state: "none"` with their own reason code.
     recommendationAvailability: discovery.recommendationAvailability ?? {
-      state: "none",
-      reasonCode: "hold_state_unavailable",
-      holdEpoch: "hold-state-unavailable",
+      state: "available",
+      holdEpoch: "no-hold",
     },
     recommendations: rankedDecisionRecommendations.map(
-      ({ recommendation, safetyOverrideReasons }) =>
-        safetyOverrideReasons?.length
-          ? {
-              ...recommendation,
-              safetyOverrideReasons,
-            }
-          : recommendation,
+      ({ recommendation }) => recommendation,
     ),
   });
 

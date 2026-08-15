@@ -235,21 +235,6 @@ jest.mock('@/lib/services/discovery/personalization-layer', () => ({
   })),
 }));
 
-jest.mock('@/lib/services/discovery/major-event-hold', () => ({
-  enforceMajorEventHoldBeforeDiscoveryTruncation: jest.fn(
-    async ({ recommendations, maxResults, isPrimaryEligible }) => ({
-      allAllowedRecommendations: recommendations,
-      primaryRecommendations: recommendations
-        .filter(isPrimaryEligible)
-        .slice(0, maxResults),
-      recommendationAvailability: {
-        state: 'available',
-        holdEpoch: 'similarity-lift-test-epoch',
-      },
-    }),
-  ),
-}));
-
 // Inline mock for the similarity layer captures the input array length and
 // attaches learned evidence without mutating recommendation.score.
 const applySimilarityLayerMock = jest.fn();

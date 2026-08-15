@@ -240,7 +240,6 @@ async function orderPoolCandidates(
       ),
     }));
   const ranked = await rankBeaches(ordered, {
-    degradeOnUnresolvedHolds: true,
     compare: (a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
       if (a.isPinned) return a.distanceMiles - b.distanceMiles;

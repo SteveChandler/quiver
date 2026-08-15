@@ -109,24 +109,6 @@ jest.mock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
   })),
 }));
 
-jest.mock('@/lib/services/discovery/major-event-hold', () => ({
-  enforceMajorEventHoldBeforeDiscoveryTruncation: jest.fn(
-    async ({
-      recommendations,
-      maxResults,
-      isPrimaryEligible,
-    }: {
-      recommendations: unknown[];
-      maxResults: number;
-      isPrimaryEligible: (rec: unknown) => boolean;
-    }) => ({
-      allAllowedRecommendations: recommendations,
-      primaryRecommendations: recommendations.filter(isPrimaryEligible).slice(0, maxResults),
-      recommendationAvailability: { state: 'available', holdEpoch: 'now-ungated-test-epoch' },
-    })
-  ),
-}));
-
 jest.mock('@/lib/services/discovery/response-formatter', () => ({
   enrichWithPhotos: jest.fn(async (recs: unknown[]) => recs),
   generateDiscoverySummary: jest.fn(() => 'Good conditions'),
