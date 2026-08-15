@@ -9,6 +9,7 @@ interface PublicForecastAnswerProps {
   report: SurfCallResult | null;
   context: ForecastRecommendationContext | null;
   isTomorrow: boolean;
+  headingLevel: "h1" | "h2";
 }
 
 function formatForecastDate(
@@ -73,6 +74,7 @@ export function PublicForecastAnswer({
   report,
   context,
   isTomorrow,
+  headingLevel,
 }: PublicForecastAnswerProps) {
   const timezone =
     context?.timezone ??
@@ -110,8 +112,6 @@ export function PublicForecastAnswer({
   const isStale = sourceDataUpdatedAt
     ? isDataStale(sourceDataUpdatedAt, primaryDataSource)
     : false;
-  if (!context?.selectedRowTime || !context.waveHeight) return null;
-
   const titleDate = forecastDate ? ` for ${forecastDate}` : "";
   const validAt = context?.selectedRowTime
     ? formatBeachDateTime(context.selectedRowTime, timezone, "EEE h:mm a")
@@ -122,6 +122,8 @@ export function PublicForecastAnswer({
   const computedAt = report?.updatedAt
     ? formatBeachDateTime(report.updatedAt, timezone, "EEE h:mm a")
     : null;
+  const HeadingTag = headingLevel;
+  const hasForecastDetails = Boolean(context?.selectedRowTime && waveHeight);
 
   return (
     <section
@@ -133,21 +135,27 @@ export function PublicForecastAnswer({
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           {isTomorrow ? "Tomorrow's surf forecast" : "Surf forecast"}
         </p>
-        <h2 id="public-forecast-answer-heading" className="mt-2 text-xl font-semibold text-foreground">
-          {beach.name} surf forecast{titleDate}
-        </h2>
+        <HeadingTag id="public-forecast-answer-heading" className="mt-2 text-xl font-semibold text-foreground">
+          {beach.name} Surf Forecast{titleDate}
+        </HeadingTag>
 
-        <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          {waveHeight && <div><dt className="font-medium text-muted-foreground">Surf</dt><dd>{waveHeight}</dd></div>}
-          {bestWindow && <div><dt className="font-medium text-muted-foreground">Best window</dt><dd>{bestWindow}</dd></div>}
-          {report?.verdict && <div><dt className="font-medium text-muted-foreground">Verdict</dt><dd>{report.verdict}</dd></div>}
-          {report?.score != null && <div><dt className="font-medium text-muted-foreground">Score</dt><dd>{report.score}/100</dd></div>}
-          {report?.forecastConfidence != null && <div><dt className="font-medium text-muted-foreground">Confidence</dt><dd>{report.forecastConfidence}/100</dd></div>}
-          {primarySwell && <div><dt className="font-medium text-muted-foreground">Primary swell</dt><dd>{primarySwell}</dd></div>}
-          {secondarySwell && <div><dt className="font-medium text-muted-foreground">Secondary swell</dt><dd>{secondarySwell}</dd></div>}
-          {wind && <div><dt className="font-medium text-muted-foreground">Wind</dt><dd>{wind}</dd></div>}
-          {tide && <div><dt className="font-medium text-muted-foreground">Tide</dt><dd>{tide}</dd></div>}
-        </dl>
+        {hasForecastDetails ? (
+          <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+            {waveHeight && <div><dt className="font-medium text-muted-foreground">Surf</dt><dd>{waveHeight}</dd></div>}
+            {bestWindow && <div><dt className="font-medium text-muted-foreground">Best window</dt><dd>{bestWindow}</dd></div>}
+            {report?.verdict && <div><dt className="font-medium text-muted-foreground">Verdict</dt><dd>{report.verdict}</dd></div>}
+            {report?.score != null && <div><dt className="font-medium text-muted-foreground">Score</dt><dd>{report.score}/100</dd></div>}
+            {report?.forecastConfidence != null && <div><dt className="font-medium text-muted-foreground">Confidence</dt><dd>{report.forecastConfidence}/100</dd></div>}
+            {primarySwell && <div><dt className="font-medium text-muted-foreground">Primary swell</dt><dd>{primarySwell}</dd></div>}
+            {secondarySwell && <div><dt className="font-medium text-muted-foreground">Secondary swell</dt><dd>{secondarySwell}</dd></div>}
+            {wind && <div><dt className="font-medium text-muted-foreground">Wind</dt><dd>{wind}</dd></div>}
+            {tide && <div><dt className="font-medium text-muted-foreground">Tide</dt><dd>{tide}</dd></div>}
+          </dl>
+        ) : (
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">
+            Current forecast details are temporarily unavailable. Check back for the next Quiver surf call and hourly conditions.
+          </p>
+        )}
 
         {report?.whySentence && (
           <p className="mt-5 text-sm leading-6 text-foreground">
@@ -155,17 +163,17 @@ export function PublicForecastAnswer({
           </p>
         )}
 
-        <div className="mt-5 border-t border-border/60 pt-3 text-xs leading-5 text-muted-foreground">
-          <p>
-            Forecast valid at {validAt ?? "the selected forecast time"} ({timezone}).
+        {(validAt || sourceUpdatedAt || computedAt) && <div className="mt-5 border-t border-border/60 pt-3 text-xs leading-5 text-muted-foreground">
+          {validAt && <p>
+            Forecast valid at {validAt} ({timezone}).
             {isStale ? " Source data is stale; conditions may have changed." : ""}
-          </p>
+          </p>}
           {sourceUpdatedAt && <p>Source data updated: {sourceUpdatedAt}.</p>}
           {computedAt && <p>Quiver computed this answer: {computedAt}.</p>}
           {context?.contributingSources && context.contributingSources.length > 0 && (
             <p>Contributing sources: {context.contributingSources.map(sourceLabel).join(", ")}.</p>
           )}
-        </div>
+        </div>}
       </div>
     </section>
   );

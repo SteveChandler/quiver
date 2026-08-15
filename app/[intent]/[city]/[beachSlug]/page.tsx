@@ -3,6 +3,7 @@ import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { PublicForecastAnswer } from "@/components/beach-detail/public-forecast-answer";
+import { PublicForecastHourly } from "@/components/beach-detail/public-forecast-hourly";
 import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spots";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
@@ -188,6 +189,8 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     const surfCallReport = surfReportResult?.report || null;
     const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
     const forecastContext = surfReportResult?.forecastContext ?? null;
+    const hourlyForecasts = surfReportResult?.hourlyForecasts ?? [];
+    const hourlyForecastDay = surfReportResult?.hourlyForecastDay ?? "today";
     const publicBeach = sanitizeBeachEditorialContent(beach);
 
     // Validate that the beach's state matches the URL state parameter
@@ -277,6 +280,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           report={surfCallReport}
           context={forecastContext}
           isTomorrow={surfCallIsTomorrow}
+          headingLevel="h1"
         />
 
         {forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
@@ -313,6 +317,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           amenities={amenitiesResult}
           waterQuality={waterQualityResult}
           beachPhoto={beachPhoto}
+          heroHeadingLevel="h2"
           freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
           afterTabsContent={
             <div className="pt-2">
@@ -340,6 +345,15 @@ export default async function GenericBeachDetailPage(props: PageProps) {
               </Suspense>
             </div>
           }
+        />
+
+        <PublicForecastHourly
+          beachName={publicBeach.name}
+          forecastHours={hourlyForecasts}
+          report={surfCallReport}
+          context={forecastContext}
+          isTomorrow={surfCallIsTomorrow}
+          forecastDay={hourlyForecastDay}
         />
 
         <StickySignupBar

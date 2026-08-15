@@ -394,7 +394,7 @@ describe("spot-surf-report-actions", () => {
       expect(result).toBeNull();
     });
 
-    it("returns isTomorrow: true when falling back to tomorrow forecast", async () => {
+    it("keeps today's hourly rows when the best recommendation falls tomorrow", async () => {
       const { createSupabaseServerClient, createSupabaseServiceRoleClient } = await import(
         "@/lib/supabase/server"
       );
@@ -428,8 +428,8 @@ describe("spot-surf-report-actions", () => {
       ]);
       (getBatchSunTimes as jest.Mock).mockResolvedValue(mockSunTimesCache);
 
-      // Setup mock Supabase response with only tomorrow's forecasts
-      const tomorrowForecasts = [
+      const todayAndTomorrowForecasts = [
+        mockForecasts[0],
         {
           ...mockForecasts[0],
           forecast_at: "2024-01-16T14:00Z",
@@ -444,7 +444,7 @@ describe("spot-surf-report-actions", () => {
                 lt: jest.fn(() => ({
                   order: jest.fn(() => ({
                     limit: jest.fn(async () => ({
-                      data: tomorrowForecasts,
+                      data: todayAndTomorrowForecasts,
                       error: null,
                     })),
                   })),
@@ -471,6 +471,33 @@ describe("spot-surf-report-actions", () => {
       const result = await getSpotSurfReport(mockBeach);
 
       expect(result?.isTomorrow).toBe(true);
+      expect(result?.hourlyForecastDay).toBe("today");
+      expect(result?.hourlyForecasts).toEqual([
+        expect.objectContaining({ forecast_at: "2024-01-15T14:00Z" }),
+      ]);
+      expect(result?.hourlyForecasts).not.toEqual([
+        expect.objectContaining({ forecast_at: "2024-01-16T14:00Z" }),
+      ]);
+    });
+
+    it("keeps today's hourly rows when neither day has a viable window", async () => {
+      await setupBoardAwareScenario();
+      mockSelectBestWindow.mockReturnValue(null);
+      const { getSpotSurfReportPublic } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+
+      const result = await getSpotSurfReportPublic(mockBeach);
+
+      expect(result?.isTomorrow).toBe(false);
+      expect(result?.hourlyForecastDay).toBe("today");
+      expect(result?.hourlyForecasts).toEqual([
+        expect.objectContaining({ forecast_at: "2024-01-15T14:00Z" }),
+      ]);
+      expect(result?.report.recommendationAvailability).toEqual({
+        state: "available",
+        holdEpoch: "no-positive-surf-call",
+      });
     });
 
     it("passes user preferences to selectBestWindow when user is logged in", async () => {
@@ -889,6 +916,15 @@ describe("spot-surf-report-actions", () => {
       );
       expect(result?.report.userTier).toBeNull();
       expect(result?.report.tiers).toBeNull();
+      expect(result?.hourlyForecasts).toEqual([
+        expect.objectContaining({
+          forecast_at: "2024-01-15T14:00Z",
+          wave_height: "2",
+          wind_speed: "3 mph",
+          wind_direction: "E",
+        }),
+      ]);
+      expect(result?.hourlyForecastDay).toBe("today");
     });
 
     it("passes null userPrefs for anonymous users", async () => {

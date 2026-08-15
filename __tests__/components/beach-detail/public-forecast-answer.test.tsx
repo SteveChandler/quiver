@@ -59,26 +59,33 @@ describe("PublicForecastAnswer", () => {
         report={null}
         context={context}
         isTomorrow
+        headingLevel="h1"
       />,
     );
 
     expect(screen.getByTestId("public-forecast-answer")).toBeInTheDocument();
     expect(screen.getByText("Tomorrow's surf forecast")).toBeInTheDocument();
-    expect(screen.getByText(/Oceanside Harbor surf forecast for/)).toBeInTheDocument();
+    expect(screen.getByText(/Oceanside Harbor Surf Forecast for/)).toBeInTheDocument();
     expect(screen.getByText("2-3 ft")).toBeInTheDocument();
     expect(screen.getByText(/NOAA NWS, NOAA CO-OPS/)).toBeInTheDocument();
   });
 
-  it("does not render without a selected forecast row", () => {
+  it("keeps the exact-query heading when forecast details are unavailable", () => {
     render(
       <PublicForecastAnswer
         beach={beach}
         report={null}
         context={null}
         isTomorrow={false}
+        headingLevel="h1"
       />,
     );
 
-    expect(screen.queryByTestId("public-forecast-answer")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", {
+      level: 1,
+      name: "Oceanside Harbor Surf Forecast",
+    })).toBeInTheDocument();
+    expect(screen.getByText(/temporarily unavailable/)).toBeInTheDocument();
+    expect(screen.queryByText(/Forecast valid at/)).not.toBeInTheDocument();
   });
 });
