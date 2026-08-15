@@ -55,7 +55,6 @@ function candidateSafetyReasons(
   candidate: CanonicalDecisionCandidate,
   skill: CanonicalDecisionSkill,
 ): CanonicalDecisionReasonCode[] {
-  if (skill === "unknown") return ["unknown_skill"];
   const reasons: CanonicalDecisionReasonCode[] = [
     ...(candidate.safetyOverrideReasons ?? []),
   ];
@@ -69,7 +68,10 @@ function candidateSafetyReasons(
   );
   if (beachSkill === null) {
     reasons.push("missing_beach_skill");
-  } else if (SKILL_ORDER[beachSkill] > SKILL_ORDER[skill]) {
+  } else if (
+    skill !== "unknown" &&
+    SKILL_ORDER[beachSkill] > SKILL_ORDER[skill]
+  ) {
     reasons.push("beach_skill_exceeds_user");
   }
   const range = parseWaveHeightRangeFt(
@@ -77,7 +79,12 @@ function candidateSafetyReasons(
   );
   if (range === null || range.min <= 0) {
     reasons.push("missing_wave_height");
-  } else if (range.max > SKILL_WAVE_RANGES[skill].acceptable.max) {
+  } else if (
+    range.max >
+    SKILL_WAVE_RANGES[
+      skill === "unknown" ? "beginner" : skill
+    ].acceptable.max
+  ) {
     reasons.push("wave_height_exceeds_skill");
   }
   return reasons;
@@ -188,7 +195,7 @@ function selectionFor(
     evidence: {
       conditionScore: candidate.utilityScore,
       recommendationLabel: candidate.recommendationLabel ?? null,
-      personalMatch: candidate.personalMatch ?? null,
+      personalMatch: skill === "unknown" ? null : candidate.personalMatch ?? null,
     },
   };
 }
@@ -203,6 +210,7 @@ export function buildCanonicalSessionDecision(
     Math.min(anchor.getTime() + DECISION_TTL_MS, scopeEnd),
   ).toISOString();
   const skill = canonicalSkill(input.profileExperience);
+  const isUnknownSkill = skill === "unknown";
   const candidateEvaluations = input.candidates.map((candidate) => ({
     candidate,
     reasons: candidateSafetyReasons(candidate, skill),
@@ -211,7 +219,7 @@ export function buildCanonicalSessionDecision(
     .filter(({ reasons }) => reasons.length === 0)
     .map(({ candidate }) => candidate);
   const learnedCandidates = safeCandidates.filter(
-    (candidate) => personalMatchVerdict(candidate) !== null,
+    (candidate) => !isUnknownSkill && personalMatchVerdict(candidate) !== null,
   );
   const physicallyRecommendableCandidates = safeCandidates.filter(
     (candidate) => physicalVerdictForCandidate(candidate) !== "no",
@@ -241,13 +249,14 @@ export function buildCanonicalSessionDecision(
     input.recommendationAvailability.state === "none"
       ? input.recommendationAvailability.reasonCode ?? "hold_state_unavailable"
       : null;
-  const isUnknownSkill = skill === "unknown";
   const hasNoCandidates = input.candidates.length === 0;
   const safetyReasons = Array.from(
     new Set(candidateEvaluations.flatMap(({ reasons }) => reasons)),
   ).sort((left, right) => {
     const priority: CanonicalDecisionReasonCode[] = [
       "water_quality_closure",
+      "water_quality_hold",
+      "hold_state_unavailable",
       "beach_skill_exceeds_user",
       "wave_height_exceeds_skill",
       "missing_beach_skill",
@@ -258,12 +267,10 @@ export function buildCanonicalSessionDecision(
     return priority.indexOf(left) - priority.indexOf(right);
   });
   const noSafeCandidate =
-    !isUnknownSkill &&
     input.candidates.length > 0 &&
     safeCandidates.length === 0;
   const safetyOverride =
     holdReason !== null ||
-    isUnknownSkill ||
     hasNoCandidates ||
     noSafeCandidate;
   const decisionBasis: CanonicalDecisionBasis = safetyOverride
@@ -285,8 +292,6 @@ export function buildCanonicalSessionDecision(
     reasonCode = holdReason;
   } else if (hasNoCandidates) {
     reasonCode = "no_candidates";
-  } else if (isUnknownSkill) {
-    reasonCode = "unknown_skill";
   } else if (noSafeCandidate) {
     reasonCode = safetyReasons[0];
   } else if (verdict === "go") {
@@ -301,7 +306,6 @@ export function buildCanonicalSessionDecision(
 
   let eligibilityState: CanonicalSessionDecision["skillEligibility"]["state"];
   if (
-    isUnknownSkill ||
     holdReason === "hold_state_unavailable" ||
     hasNoCandidates
   ) {
@@ -317,6 +321,8 @@ export function buildCanonicalSessionDecision(
     eligibilityState = isSafetyDataMissing
       ? "insufficient_safety_data"
       : "ineligible";
+  } else if (isUnknownSkill) {
+    eligibilityState = "insufficient_safety_data";
   } else {
     eligibilityState = "eligible";
   }
@@ -339,10 +345,13 @@ export function buildCanonicalSessionDecision(
         ? [holdReason]
         : hasNoCandidates
           ? ["no_candidates"]
-          : isUnknownSkill
-            ? ["unknown_skill"]
-            : noSafeCandidate
-              ? safetyReasons
+          : noSafeCandidate
+            ? [
+                ...safetyReasons,
+                ...(isUnknownSkill ? ["unknown_skill"] : []),
+              ]
+            : isUnknownSkill
+              ? ["unknown_skill"]
               : [],
     },
     holdEpoch: input.recommendationAvailability.holdEpoch,
