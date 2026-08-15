@@ -318,10 +318,11 @@ async function surfDiscoveryHandler(
       timezone: decisionTimezone,
     },
     profileExperience,
+    // A missing availability is an absent hold, not a hold. Discovery always
+    // reports one, and a genuine major-event hold arrives as a real value.
     recommendationAvailability: gatedDiscovery.recommendationAvailability ?? {
-      state: 'none',
-      reasonCode: 'hold_state_unavailable',
-      holdEpoch: 'hold-state-unavailable',
+      state: 'available',
+      holdEpoch: 'no-hold',
     },
     recommendations: gatedDiscovery.recommendations,
   });

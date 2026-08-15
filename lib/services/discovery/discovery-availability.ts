@@ -3,14 +3,10 @@ import type { RecommendationAvailability } from '@/lib/recommendations/major-eve
 /**
  * Shared serialization rules for `recommendationAvailability`.
  *
- * A zero-candidate discovery cannot produce a verified hold decision, so the
- * major-event boundary reports `hold_state_unavailable`. That is an operational
- * state, never a successful answer: native clients reject any `state: 'none'`
- * payload whose reasonCode isn't `major_event_hold`, so serializing it as HTTP
- * 200 turns a legitimate "nothing to recommend" into a dead-end client error.
- *
- * `/api/surf/discover` and `/api/surf/week-scout` adopted these rules in the
- * 2026-07-26 hotfix; `/api/surf/call` was missed and is covered here too.
+ * Native clients reject any `state: 'none'` payload whose reasonCode isn't
+ * `major_event_hold`, so these routes must only ever serialize a hold they can
+ * actually name. An explicit major-event hold is authoritative; everything else
+ * resolves to an available state rather than withholding the answer.
  */
 
 /** Structural shape shared by every discovery result these routes serialize. */
@@ -52,21 +48,15 @@ export function hasExplicitMajorEventHold(
   );
 }
 
-export function isUnresolvedHoldAvailability(
-  availability: RecommendationAvailability | null | undefined,
-): boolean {
-  return (
-    availability?.state === 'none' &&
-    availability.reasonCode === 'hold_state_unavailable'
-  );
-}
-
 /**
  * Resolve the availability a single-beach (scoped) discovery should serialize.
  *
  * Precedence mirrors the discover route: an explicit major-event hold is
  * authoritative, a successful empty result is normalized to `no_candidates`,
- * and anything else falls through to whatever the boundary reported.
+ * and anything else falls through to whatever the boundary reported. A missing
+ * availability is an absent hold, not a hold — discovery always reports one,
+ * and withholding the answer on its absence is what suppressed every
+ * recommendation for every user.
  */
 export function resolveScopedRecommendationAvailability(
   discovery: DiscoveryAvailabilityShape,
@@ -80,8 +70,7 @@ export function resolveScopedRecommendationAvailability(
   }
   return (
     discovery.recommendationAvailability ?? {
-      state: 'none',
-      reasonCode: 'hold_state_unavailable',
+      state: 'available',
       holdEpoch: fallbackHoldEpoch,
     }
   );
