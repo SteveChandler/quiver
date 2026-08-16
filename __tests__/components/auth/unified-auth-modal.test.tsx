@@ -468,7 +468,7 @@ describe("UnifiedAuthModal", () => {
       });
     });
 
-    it("should track signup success on Apple Sign-In in signup mode", async () => {
+    it("defers Apple signup success until the OAuth callback completes", async () => {
       render(
         <UnifiedAuthModal
           isOpen={true}
@@ -485,12 +485,12 @@ describe("UnifiedAuthModal", () => {
         expect(mockOnClose).toHaveBeenCalled();
       });
 
-      expect(authEvents.trackSignupSuccess).toHaveBeenCalledWith({
-        method: "apple",
-        requires_verification: false,
+      expect(authEvents.trackSignupSuccess).not.toHaveBeenCalled();
+      expect(authEvents.trackSignupStarted).toHaveBeenCalledWith("apple", expect.objectContaining({
         source: "unknown",
-        landing_page: "/",
-      });
+        redirect_state: "pending",
+        redirect_path: "/",
+      }));
     });
   });
 
@@ -548,7 +548,7 @@ describe("UnifiedAuthModal", () => {
       );
     });
 
-    it("should track signup success on successful OAuth in signup mode", async () => {
+    it("defers Google signup success until the OAuth callback completes", async () => {
       render(
         <UnifiedAuthModal
           isOpen={true}
@@ -565,12 +565,12 @@ describe("UnifiedAuthModal", () => {
         expect(mockOnClose).toHaveBeenCalled();
       });
 
-      expect(authEvents.trackSignupSuccess).toHaveBeenCalledWith({
-        method: "google",
-        requires_verification: false,
+      expect(authEvents.trackSignupSuccess).not.toHaveBeenCalled();
+      expect(authEvents.trackSignupStarted).toHaveBeenCalledWith("google", expect.objectContaining({
         source: "unknown",
-        landing_page: "/",
-      });
+        redirect_state: "pending",
+        redirect_path: "/",
+      }));
     });
 
     it("should show error when OAuth fails", async () => {

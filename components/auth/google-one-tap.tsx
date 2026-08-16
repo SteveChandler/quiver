@@ -8,8 +8,9 @@ import {
   trackAuthProviderSelected,
   trackSignupStarted,
   trackSignupSuccess,
+  trackSignupFailed,
   trackLoginSuccess,
-  trackLoginFailed,
+  clearSignupFlow,
 } from "@/lib/analytics/auth-events";
 import {
   safeGetItem,
@@ -97,8 +98,12 @@ export function GoogleOneTap() {
         mode: "signup",
         source: "google_one_tap",
       });
-      trackSignupStarted("google_one_tap");
-
+      const signupFlow = trackSignupStarted("google", {
+        source: "google_one_tap",
+        redirect_state: "inline",
+        // eslint-disable-next-line no-restricted-properties -- Analytics context only.
+        landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
+      });
       try {
         const supabase = createClient();
 
@@ -109,10 +114,12 @@ export function GoogleOneTap() {
 
         if (error) {
           console.error("[google-one-tap] signInWithIdToken error:", error);
-          trackLoginFailed({
-            method: "google_one_tap",
+          trackSignupFailed({
+            method: "google",
             error_type: "token_exchange_failed",
             source: "google_one_tap",
+            flow_id: signupFlow.flow_id,
+            started_at: signupFlow.started_at,
           });
           return;
         }
@@ -124,15 +131,22 @@ export function GoogleOneTap() {
 
         if (isNewUser) {
           trackSignupSuccess({
-            method: "google_one_tap",
+            method: "google",
             requires_verification: false,
+            source: "google_one_tap",
+            flow_id: signupFlow.flow_id,
+            started_at: signupFlow.started_at,
           });
         } else {
           trackLoginSuccess({
-            method: "google_one_tap",
+            method: "google",
             duration_ms: duration,
             source: "google_one_tap",
+            flow_id: signupFlow.flow_id,
+            redirect_state: "completed",
+            started_at: signupFlow.started_at,
           });
+          clearSignupFlow(signupFlow.flow_id);
         }
 
         // Reload the page to let auth context pick up the new session
@@ -140,10 +154,12 @@ export function GoogleOneTap() {
         window.location.reload();
       } catch (err) {
         console.error("[google-one-tap] Unexpected error:", err);
-        trackLoginFailed({
-          method: "google_one_tap",
+        trackSignupFailed({
+          method: "google",
           error_type: "unexpected_error",
           source: "google_one_tap",
+          flow_id: signupFlow.flow_id,
+          started_at: signupFlow.started_at,
         });
       }
     },

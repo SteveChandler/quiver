@@ -15,6 +15,8 @@ import {
   trackSignupStarted,
   trackSignupSuccess,
   trackSignupFailed,
+  getSignupFlow,
+  SIGNUP_FLOW_TTL_MS,
   trackMagicLinkSent,
   trackMagicLinkClicked,
   trackAuthRedirectCompleted,
@@ -77,6 +79,7 @@ describe("auth-events", () => {
     mockFetch.mockReset();
     mockFetch.mockResolvedValue({ ok: true } as Response);
     Object.defineProperty(window, "innerWidth", { value: 375, writable: true });
+    sessionStorage.clear();
   });
 
   afterAll(() => {
@@ -502,6 +505,67 @@ describe("auth-events", () => {
         expect(callArgs).not.toHaveProperty("source");
         expect(callArgs).not.toHaveProperty("landing_page");
         expect(callArgs).toHaveProperty("browser_session_id", "test-browser-session-id");
+      });
+
+      it("correlates a start to one terminal signup outcome", () => {
+        const flow = trackSignupStarted("google", {
+          source: "hero-cta",
+          redirect_path: "/ca/san-diego/blacks-beach",
+          redirect_state: "pending",
+        });
+
+        expect(getSignupFlow()).toEqual(flow);
+        trackSignupSuccess({
+          method: "google",
+          requires_verification: false,
+          flow_id: flow.flow_id,
+          redirect_state: "completed",
+        });
+        trackSignupSuccess({
+          method: "google",
+          requires_verification: false,
+          flow_id: flow.flow_id,
+        });
+        trackSignupFailed({
+          method: "google",
+          error_type: "oauth_failed",
+          flow_id: flow.flow_id,
+        });
+
+        expect(track).toHaveBeenCalledTimes(2);
+        expect(track).toHaveBeenNthCalledWith(
+          2,
+          "signup_success",
+          expect.objectContaining({
+            flow_id: flow.flow_id,
+            provider: "google",
+            source: "hero-cta",
+            redirect_path: "/ca/san-diego/blacks-beach",
+            redirect_state: "completed",
+          }),
+        );
+      });
+
+      it("clears expired flows before they can produce a terminal outcome", () => {
+        sessionStorage.setItem(
+          "quiver_signup_flow",
+          JSON.stringify({
+            flow_id: "expired-flow",
+            provider: "google",
+            redirect_state: "pending",
+            started_at: Date.now() - SIGNUP_FLOW_TTL_MS - 1,
+          }),
+        );
+
+        expect(getSignupFlow()).toBeUndefined();
+        trackSignupSuccess({
+          method: "google",
+          requires_verification: false,
+          flow_id: "expired-flow",
+          started_at: Date.now() - SIGNUP_FLOW_TTL_MS - 1,
+        });
+
+        expect(track).not.toHaveBeenCalled();
       });
     });
 
