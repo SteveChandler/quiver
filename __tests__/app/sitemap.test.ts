@@ -34,6 +34,7 @@ import {
   getForecastIndexabilityForBeaches,
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
+import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
 
 const BEACH_WITH_FRESH_FORECAST = {
   id: "windansea",
@@ -436,6 +437,36 @@ describe("Sitemap Generation", () => {
         `${baseUrl}/water-temp/corolla`,
       );
     });
+
+    it.each([
+      ["Huntington Beach", "CA", "huntington-beach"],
+      ["Corolla", "NC", "corolla"],
+      ["Kill Devil Hills", "NC", "kill-devil-hills"],
+    ])(
+      "keeps the proven %s water-temp city route in the sitemap",
+      async (city, state, citySlug) => {
+        (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+          success: true,
+          data: [{
+            city,
+            state,
+            country: "USA",
+            beachCount: 3,
+            hasBeginnerBeaches: true,
+            hasLeastCrowdedBeaches: true,
+            hasEditorialContent: false,
+            hasTideData: true,
+            hasWaterTempData: true,
+          }],
+        });
+
+        const routes = await buildIntentRoutes(new Map());
+
+        expect(routes.map((route) => route.url)).toContain(
+          `${baseUrl}/water-temp/${citySlug}`,
+        );
+      },
+    );
 
     it("still withholds a beginner city page with no editorial row", async () => {
       (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
@@ -872,6 +903,49 @@ describe("Sitemap Generation", () => {
 
       expect(urls).not.toContain(`${baseUrl}/ca/la-jolla/windansea/tides`);
       expect(urls).toContain(`${baseUrl}/ca/la-jolla/windansea/water-temp`);
+    });
+
+    it("keeps the three GSC-protected water-temp beach routes in the sitemap", () => {
+      const protectedRoutes = [
+        {
+          id: "huntington-state-beach",
+          slug: "huntington-state-beach",
+          city: "Huntington Beach",
+          state: "CA",
+          expectedPath: "/ca/huntington-beach/huntington-state-beach/water-temp",
+        },
+        {
+          id: "corolla-corolla-nc",
+          slug: "corolla-corolla-nc",
+          city: "Corolla",
+          state: "NC",
+          expectedPath: "/nc/corolla/corolla-corolla-nc/water-temp",
+        },
+        {
+          id: "kill-devil-hills-kill-devil-hills-nc",
+          slug: "kill-devil-hills-kill-devil-hills-nc",
+          city: "Kill Devil Hills",
+          state: "NC",
+          expectedPath: "/nc/kill-devil-hills/kill-devil-hills-kill-devil-hills-nc/water-temp",
+        },
+      ];
+      const routes = buildBeachRoutes(
+        protectedRoutes.map((beach) => ({
+          ...beach,
+          country: "USA",
+        })) as unknown as Parameters<typeof buildBeachRoutes>[0],
+        new Map(protectedRoutes.map((beach) => [beach.id, FRESH_SNAPSHOT])),
+        {
+          tideCoverage: new Set<string>(),
+          waterTempCoverage: new Set(protectedRoutes.map((beach) => beach.id)),
+        },
+      );
+      const urls = new Set(routes.map((route) => route.url));
+
+      for (const beach of protectedRoutes) {
+        expect(isGscPerformanceProtected(beach.expectedPath)).toBe(true);
+        expect(urls).toContain(`${baseUrl}${beach.expectedPath}`);
+      }
     });
 
     it("uses forecast freshness for beach URLs instead of editorial approval", async () => {
