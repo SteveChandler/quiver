@@ -22,9 +22,16 @@ import {
   TRUSTED_FORECAST_MEASUREMENT_BASES,
   TRUSTED_FORECAST_SCOPE_TYPES,
   TRUSTED_FORECAST_VALIDITY_BASES,
+  TRUSTED_FORECAST_FRESHNESS_MAX_AGE_HOURS,
+  freshnessMaxAgeHoursForSource,
   TrustedForecastIssueContractError,
   parseTrustedForecastIssue,
 } from "../trusted-forecast-policy";
+import {
+  TRUSTED_FORECAST_SOURCE_KEYS,
+  TRUSTED_FORECAST_SOURCE_REGION_KEYS,
+  TRUSTED_FORECAST_SOURCE_TIMEZONES,
+} from "../trusted-forecast-coverage";
 import {
   REAL_ISSUE_FIXTURE,
   realIssueRow,
@@ -101,6 +108,109 @@ describe("trusted forecast normalized issue: fixture provenance", () => {
     }
     expect([...dayParts].sort()).toEqual(["all_day", "day", "night"]);
     expect([...bases].sort()).toEqual(["derived_publication_day", "stated"]);
+  });
+});
+
+describe("trusted forecast source inventory contract", () => {
+  const sourceKeys = [
+    "socal", "hawaii", "new_england", "new_york", "new_jersey",
+    "north_carolina", "florida_east_coast", "norcal", "central_california",
+    "baja", "nws_hawaii_srf", "nws_akq_srf", "nws_box_srf", "nws_bro_srf",
+    "nws_car_srf", "nws_chs_srf", "nws_crp_srf", "nws_eka_srf", "nws_gum_srf",
+    "nws_gyx_srf", "nws_ilm_srf", "nws_jax_srf", "nws_lox_srf", "nws_mfl_srf",
+    "nws_mhx_srf", "nws_mlb_srf", "nws_mob_srf", "nws_mtr_srf", "nws_okx_srf",
+    "nws_phi_srf", "nws_pqr_srf", "nws_sgx_srf", "nws_sju_srf", "nws_tae_srf",
+    "nws_tbw_srf", "surf_institute_pnw", "stormsurf_pnw_links", "stormsurf_pnw_buoy",
+    "stormsurf_ny_shortcast", "nj_beach_cams_reports", "surfers_view_nj",
+  ] as const;
+
+  it("pins the canonical 41-source order and freshness exactly", () => {
+    expect(TRUSTED_FORECAST_SOURCE_KEYS).toEqual(sourceKeys);
+    expect(Object.keys(TRUSTED_FORECAST_SOURCE_TIMEZONES)).toEqual(sourceKeys);
+    expect(Object.keys(TRUSTED_FORECAST_FRESHNESS_MAX_AGE_HOURS)).toEqual(sourceKeys);
+    expect(TRUSTED_FORECAST_FRESHNESS_MAX_AGE_HOURS).toEqual(
+      {
+        socal: 96,
+        hawaii: 36,
+        new_england: 36,
+        new_york: 36,
+        new_jersey: 36,
+        north_carolina: 36,
+        florida_east_coast: 36,
+        norcal: 36,
+        central_california: 36,
+        baja: 36,
+        nws_hawaii_srf: 24,
+        nws_akq_srf: 24,
+        nws_box_srf: 24,
+        nws_bro_srf: 24,
+        nws_car_srf: 24,
+        nws_chs_srf: 24,
+        nws_crp_srf: 24,
+        nws_eka_srf: 24,
+        nws_gum_srf: 24,
+        nws_gyx_srf: 24,
+        nws_ilm_srf: 24,
+        nws_jax_srf: 24,
+        nws_lox_srf: 24,
+        nws_mfl_srf: 24,
+        nws_mhx_srf: 24,
+        nws_mlb_srf: 24,
+        nws_mob_srf: 24,
+        nws_mtr_srf: 24,
+        nws_okx_srf: 24,
+        nws_phi_srf: 24,
+        nws_pqr_srf: 24,
+        nws_sgx_srf: 24,
+        nws_sju_srf: 24,
+        nws_tae_srf: 24,
+        nws_tbw_srf: 24,
+        surf_institute_pnw: 36,
+        stormsurf_pnw_links: 72,
+        stormsurf_pnw_buoy: 36,
+        stormsurf_ny_shortcast: 336,
+        nj_beach_cams_reports: 24,
+        surfers_view_nj: 24,
+      },
+    );
+  });
+
+  it("pins every canonical source timezone and region key exactly", () => {
+    expect(TRUSTED_FORECAST_SOURCE_TIMEZONES).toEqual({
+      socal: "America/Los_Angeles", hawaii: "Pacific/Honolulu", new_england: "America/New_York",
+      new_york: "America/New_York", new_jersey: "America/New_York", north_carolina: "America/New_York",
+      florida_east_coast: "America/New_York", norcal: "America/Los_Angeles", central_california: "America/Los_Angeles",
+      baja: "America/Tijuana", nws_hawaii_srf: "Pacific/Honolulu", nws_akq_srf: "America/New_York",
+      nws_box_srf: "America/New_York", nws_bro_srf: "America/Chicago", nws_car_srf: "America/New_York",
+      nws_chs_srf: "America/New_York", nws_crp_srf: "America/Chicago", nws_eka_srf: "America/Los_Angeles",
+      nws_gum_srf: "Pacific/Guam", nws_gyx_srf: "America/New_York", nws_ilm_srf: "America/New_York",
+      nws_jax_srf: "America/New_York", nws_lox_srf: "America/Los_Angeles", nws_mfl_srf: "America/New_York",
+      nws_mhx_srf: "America/New_York", nws_mlb_srf: "America/New_York", nws_mob_srf: "America/Chicago",
+      nws_mtr_srf: "America/Los_Angeles", nws_okx_srf: "America/New_York", nws_phi_srf: "America/New_York",
+      nws_pqr_srf: "America/Los_Angeles", nws_sgx_srf: "America/Los_Angeles", nws_sju_srf: "America/Puerto_Rico",
+      nws_tae_srf: "America/New_York", nws_tbw_srf: "America/New_York", surf_institute_pnw: "America/Los_Angeles",
+      stormsurf_pnw_links: "America/Los_Angeles", stormsurf_pnw_buoy: "America/Los_Angeles",
+      stormsurf_ny_shortcast: "America/New_York", nj_beach_cams_reports: "America/New_York", surfers_view_nj: "America/New_York",
+    });
+    expect(TRUSTED_FORECAST_SOURCE_REGION_KEYS).toEqual({
+      socal: ["socal", "malibu", "rincon", "trestles", "oldmans", "beacons", "ventura", "huntington-beach", "oceanside"],
+      hawaii: ["hawaii"], new_england: ["new_england"], new_york: ["new_york"], new_jersey: ["new_jersey"],
+      north_carolina: ["north_carolina"], florida_east_coast: ["florida_east_coast"], norcal: ["norcal"],
+      central_california: ["central_california"], baja: ["baja"], nws_hawaii_srf: ["hawaii"],
+      nws_akq_srf: ["virginia"], nws_box_srf: ["new_england"], nws_bro_srf: ["texas"], nws_car_srf: ["new_england"],
+      nws_chs_srf: ["south_carolina"], nws_crp_srf: ["texas"], nws_eka_srf: ["norcal"], nws_gum_srf: ["guam"],
+      nws_gyx_srf: ["new_england"], nws_ilm_srf: ["north_carolina"], nws_jax_srf: ["florida_east_coast"],
+      nws_lox_srf: ["socal"], nws_mfl_srf: ["florida_east_coast"], nws_mhx_srf: ["north_carolina"],
+      nws_mlb_srf: ["florida_east_coast"], nws_mob_srf: ["gulf_coast"], nws_mtr_srf: ["central_california"],
+      nws_okx_srf: ["new_york"], nws_phi_srf: ["new_jersey"], nws_pqr_srf: ["pnw"], nws_sgx_srf: ["socal"],
+      nws_sju_srf: ["puerto_rico"], nws_tae_srf: ["florida_panhandle"], nws_tbw_srf: ["florida_west_coast"],
+      surf_institute_pnw: ["pnw"], stormsurf_pnw_links: ["pnw"], stormsurf_pnw_buoy: ["pnw"],
+      stormsurf_ny_shortcast: ["new_york"], nj_beach_cams_reports: ["new_jersey"], surfers_view_nj: ["new_jersey"],
+    });
+  });
+
+  it("keeps unknown source freshness fail-closed", () => {
+    expect(freshnessMaxAgeHoursForSource("future_source")).toBe(24);
   });
 });
 

@@ -93,6 +93,27 @@ interface CDIPForecastDiagnostic {
   skipReason: CDIPSkipReason;
 }
 
+function shouldTryExplicitCDIPStationFailover(
+  diagnostic: CDIPBuoyDataDiagnostic,
+): boolean {
+  if (
+    diagnostic.skipReason === "cdip_400" ||
+    diagnostic.skipReason === "cdip_404" ||
+    diagnostic.skipReason === "blacklisted_station"
+  ) {
+    return true;
+  }
+
+  // A no-row ERDDAP response is the only unavailable result without either
+  // an HTTP status or an error message. Keep 5xx, network, timeout, breaker,
+  // and rate-limit failures on their existing fallback path.
+  return (
+    diagnostic.skipReason === "cdip_unavailable" &&
+    diagnostic.status === undefined &&
+    diagnostic.errorMessage === undefined
+  );
+}
+
 interface ComprehensiveForecastDiagnosticResult {
   forecasts: EnhancedForecastWithRawData[];
   cdip: CDIPForecastDiagnostic;
@@ -485,15 +506,43 @@ export class EnhancedForecastService {
 
         log.debug(`Selected CDIP station ${selectedStation} for ${beach.name}`);
 
-        // Fetch CDIP data for the nearest station
-        log.debug(`Fetching CDIP data from station ${selectedStation} for ${beach.name}`);
-        const cdipData = await this.dataSourceManager.getCDIPService().fetchBuoyDataWithDiagnostics(selectedStation);
+        // Fetch CDIP data from the selected station.
+        log.debug("Fetching CDIP data from station " + selectedStation + " for " + beach.name);
+        const cdipService = this.dataSourceManager.getCDIPService();
+        let cdipData = await cdipService.fetchBuoyDataWithDiagnostics(selectedStation);
 
+        // Explicit overrides are operator intent, but a deterministic ERDDAP
+        // 400/404, blacklist, or no-row response should not discard a nearby
+        // configured buoy that is demonstrably serving data. Never fail over
+        // 5xx/network/timeout/breaker/rate-limit failures.
+        if (
+          beachAny.cdip_station &&
+          shouldTryExplicitCDIPStationFailover(cdipData)
+        ) {
+          const alternateStation = await cdipService.getNearestStation(
+            beach.lat ?? 0,
+            beach.lon ?? 0,
+            150,
+            [selectedStation],
+          );
+          if (alternateStation !== null) {
+            log.warn(
+              "CDIP override station " + selectedStation + " returned " +
+                cdipData.skipReason + "; trying nearby station " +
+                alternateStation + " for " + beach.name,
+            );
+            cdipData = await cdipService.fetchBuoyDataWithDiagnostics(
+              alternateStation,
+            );
+          }
+        }
+
+        const resolvedStation = cdipData.stationId ?? selectedStation;
         if (cdipData.data) {
-          log.debug(`Successfully fetched CDIP data for ${beach.name} from station ${selectedStation}`);
+          log.debug(`Successfully fetched CDIP data for ${beach.name} from station ${resolvedStation}`);
         } else {
           log.warn(
-            `CDIP data fetch returned ${cdipData.skipReason} for ${beach.name} from station ${selectedStation}`
+            `CDIP data fetch returned ${cdipData.skipReason} for ${beach.name} from station ${resolvedStation}`
           );
         }
 

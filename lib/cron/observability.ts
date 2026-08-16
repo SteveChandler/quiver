@@ -75,6 +75,22 @@ function shouldStartSentryCronMonitor(env: NodeJS.ProcessEnv = process.env): boo
   return (env.VERCEL_ENV || env.NODE_ENV) === "production";
 }
 
+async function finishSentryCronCheckIn(
+  checkInId: string,
+  monitorSlug: string,
+  status: "ok" | "error",
+  durationMs: number,
+): Promise<void> {
+  try {
+    await completeCronCheckIn(checkInId, monitorSlug, status, durationMs);
+  } catch (err) {
+    // Telemetry must never alter the route's response or thrown error.
+    if (process.env.NODE_ENV !== "test") {
+      console.warn("[cron-observability] Sentry completion failed", monitorSlug, status, err);
+    }
+  }
+}
+
 /**
  * Response-level wrapper: takes an existing route handler and returns one that
  * logs every invocation to `cron_runs`. Works on routes that already do their
@@ -138,7 +154,12 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
       const response = await handler(request);
 
       if (checkInId && monitor) {
-        completeCronCheckIn(checkInId, monitor.slug, response.ok ? "ok" : "error");
+        await finishSentryCronCheckIn(
+          checkInId,
+          monitor.slug,
+          response.ok ? "ok" : "error",
+          Date.now() - start,
+        );
       }
 
       if (runId) {
@@ -172,7 +193,7 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
       return response;
     } catch (err) {
       if (checkInId && monitor) {
-        completeCronCheckIn(checkInId, monitor.slug, "error");
+        await finishSentryCronCheckIn(checkInId, monitor.slug, "error", Date.now() - start);
       }
 
       if (runId) {

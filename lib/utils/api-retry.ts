@@ -177,6 +177,11 @@ export class RetryableAPIClient {
     return false;
   }
 
+  private isDeterministicCDIPStatus(serviceName: string, error: unknown): boolean {
+    const status = (error as { status?: unknown })?.status;
+    return serviceName === "CDIP" && (status === 400 || status === 404);
+  }
+
   private calculateDelay(attempt: number, options: RetryOptions): number {
     const base = options.exponentialBase || 2;
     const baseDelay = options.baseDelay || 1000;
@@ -292,6 +297,8 @@ export class RetryableAPIClient {
           
           if (isExpectedNoaa404) {
             console.warn(`[${serviceName}] No coverage for point (404 on /points/): ${url}`);
+          } else if (this.isDeterministicCDIPStatus(serviceName, error)) {
+            console.warn(`[${serviceName}] Station data unavailable (${status}): ${url}`);
           } else {
             console.error(`[${serviceName}] Failed after ${attempt + 1} attempts:`, error);
           }

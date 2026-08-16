@@ -9,6 +9,14 @@ const mockUpdateUser = jest.fn(() =>
   Promise.resolve({ data: { user: null }, error: null }),
 );
 const originalPostHogToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+jest.mock("@/lib/analytics/auth-events", () => {
+  const actual = jest.requireActual("@/lib/analytics/auth-events");
+  return {
+    ...actual,
+    trackSignupSuccess: jest.fn(),
+    trackLoginSuccess: jest.fn(),
+  };
+});
 jest.mock("@/lib/posthog-client", () => ({
   buildPostHogUserProperties: jest.fn(() => ({})),
   captureClientPostHogEvent: jest.fn(),
@@ -70,6 +78,10 @@ jest.mock("@/lib/supabase/client", () => ({
 // Use the real AuthContext module (it is a client component)
 jest.unmock("@/context/auth-context");
 import { AuthProvider, useAuth } from "@/context/auth-context";
+import {
+  trackLoginSuccess,
+  trackSignupSuccess,
+} from "@/lib/analytics/auth-events";
 
 function Consumer() {
   const { isLoading, isAuthenticated, refreshSession } = useAuth();
@@ -102,6 +114,9 @@ describe("AuthContext error paths", () => {
     sessionStorage.removeItem("welcome_email_sent_new-user");
     sessionStorage.removeItem("pending_signup_metadata");
     sessionStorage.removeItem("events_linked_new-user");
+    sessionStorage.removeItem("quiver_signup_flow");
+    sessionStorage.removeItem("signup_metadata_applied_new-user");
+    sessionStorage.removeItem("posthog_signup_queued_new-user");
     if (originalPostHogToken === undefined) {
       delete process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
     } else {
@@ -126,7 +141,7 @@ describe("AuthContext error paths", () => {
     );
   });
 
-  it("closes the PostHog gate synchronously when a session signs in", async () => {
+  it("lets PostHog consent follow the authenticated user state", async () => {
     render(
       <AuthProvider>
         <div>child</div>
@@ -134,7 +149,6 @@ describe("AuthContext error paths", () => {
     );
 
     await waitFor(() => expect(mockOnAuthStateChange).toHaveBeenCalled());
-    mockSetClientPostHogTrackingAllowed.mockClear();
     const onAuthStateChange = getAuthStateChangeHandler();
 
     act(() => {
@@ -147,7 +161,7 @@ describe("AuthContext error paths", () => {
       });
     });
 
-    expect(mockSetClientPostHogTrackingAllowed).toHaveBeenCalledWith(null);
+    expect(mockSetClientPostHogTrackingAllowed).not.toHaveBeenCalled();
   });
 
   it("queues a fresh signup conversion for the consent-aware provider", async () => {
@@ -236,5 +250,149 @@ describe("AuthContext error paths", () => {
       );
     });
     expect(sessionStorage.getItem("pending_signup_metadata")).toBeNull();
+
+  });
+
+  it("reconciles a callback session already present during bootstrap", async () => {
+    const visitorId = "22222222-2222-4222-8222-222222222222";
+    mockGetExistingVisitorId.mockReturnValue(visitorId);
+    const flow = {
+      flow_id: "oauth-bootstrap-flow",
+      provider: "google",
+      source: "landing_hero",
+      landing_page: "/",
+      redirect_path: "/sessions",
+      redirect_state: "pending",
+      started_at: Date.now(),
+    };
+    sessionStorage.setItem("quiver_signup_flow", JSON.stringify(flow));
+    sessionStorage.setItem(
+      "pending_signup_metadata",
+      JSON.stringify({
+        signup_context: {
+          schema_version: 2,
+          signup_surface: "web",
+          method: "google",
+          entrypoint: "landing_hero",
+          source_capture_status: "captured",
+          captured_at: "2026-07-25T18:00:00.000Z",
+        },
+      }),
+    );
+    mockGetSession.mockResolvedValueOnce({
+      data: {
+        session: {
+          user: {
+            id: "new-user",
+            created_at: new Date().toISOString(),
+            app_metadata: { provider: "google" },
+          },
+        },
+      },
+      error: null,
+    } as any);
+
+    render(
+      <AuthProvider>
+        <div>child</div>
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(trackSignupSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flow_id: flow.flow_id,
+        method: "google",
+        redirect_state: "completed",
+      }),
+    ));
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/events/link",
+        expect.objectContaining({
+          body: JSON.stringify({
+            sessionId: visitorId,
+            signupContext: {
+              schema_version: 2,
+              signup_surface: "web",
+              method: "google",
+              entrypoint: "landing_hero",
+              source_capture_status: "captured",
+              captured_at: "2026-07-25T18:00:00.000Z",
+            },
+          }),
+        }),
+      );
+    });
+    expect(sessionStorage.getItem("pending_signup_metadata")).toBeNull();
+
+    const onAuthStateChange = getAuthStateChangeHandler();
+    act(() => {
+      onAuthStateChange("SIGNED_IN", {
+        user: {
+          id: "new-user",
+          created_at: new Date().toISOString(),
+          app_metadata: { provider: "google" },
+        },
+      });
+    });
+    await waitFor(() => {
+      const urls = (global.fetch as jest.Mock).mock.calls.map(([url]) => url);
+      expect(urls.filter((url) => url === "/api/events/link")).toHaveLength(1);
+      expect(urls.filter((url) => url === "/api/internal/send-welcome-email")).toHaveLength(1);
+      expect(urls.filter((url) => url === "/api/admin/new-user-alert")).toHaveLength(1);
+    });
+    expect(mockSetClientPostHogTrackingAllowed).not.toHaveBeenCalled();
+  });
+
+  it("classifies signup-mode OAuth resolving to an existing account as login", async () => {
+    const flow = {
+      flow_id: "oauth-existing-flow",
+      provider: "google",
+      source: "landing_hero",
+      redirect_path: "/sessions",
+      redirect_state: "pending",
+      started_at: Date.now(),
+    };
+    sessionStorage.setItem("quiver_signup_flow", JSON.stringify(flow));
+    sessionStorage.setItem(
+      "pending_signup_metadata",
+      JSON.stringify({
+        signup_context: {
+          schema_version: 2,
+          signup_surface: "web",
+          method: "google",
+          entrypoint: "landing_hero",
+          source_capture_status: "captured",
+          captured_at: "2026-07-25T18:00:00.000Z",
+        },
+      }),
+    );
+
+    render(
+      <AuthProvider>
+        <div>child</div>
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(mockOnAuthStateChange).toHaveBeenCalled());
+    const onAuthStateChange = getAuthStateChangeHandler();
+
+    act(() => {
+      onAuthStateChange("SIGNED_IN", {
+        user: {
+          id: "existing-user",
+          created_at: "2020-01-01T00:00:00.000Z",
+          app_metadata: { provider: "google" },
+        },
+      });
+    });
+
+    await waitFor(() => expect(trackLoginSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flow_id: flow.flow_id,
+        method: "google",
+        redirect_state: "completed",
+      }),
+    ));
+    expect(sessionStorage.getItem("quiver_signup_flow")).toBeNull();
   });
 });

@@ -7,6 +7,7 @@ import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-servic
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import { CDIPService } from "@/lib/services/cdip";
 import { CDIPBuoyData } from "@/types/forecast";
+import type { CDIPBuoyDataDiagnostic } from "@/lib/services/cdip/types";
 
 // Create spy for Supabase upsert
 const mockUpsert = jest.fn(() => Promise.resolve({ data: [], error: null }));
@@ -195,6 +196,101 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
   });
 
   describe("CDIP Data Source Integration", () => {
+    it("fails over an explicit deterministic CDIP 404 to a nearby configured station", async () => {
+      const explicitBeach = { ...mockBeach, cdip_station: "155" };
+      mockCDIPService.fetchBuoyDataWithDiagnostics.mockImplementation(
+        async (stationId: string) => {
+          if (stationId === "155") {
+            return {
+              data: null,
+              stationId,
+              skipReason: "cdip_404" as const,
+              status: 404,
+            };
+          }
+          return {
+            data: { ...mockCDIPData, stationId },
+            stationId,
+            skipReason: "success" as const,
+          };
+        },
+      );
+      mockCDIPService.getNearestStation.mockResolvedValue("191");
+
+      const result = await (service as any).fetchCDIPDataWithRetry(explicitBeach);
+
+      expect(result).toMatchObject({ stationId: "191", skipReason: "success" });
+      expect(mockCDIPService.fetchBuoyDataWithDiagnostics).toHaveBeenNthCalledWith(1, "155");
+      expect(mockCDIPService.getNearestStation).toHaveBeenCalledWith(
+        explicitBeach.lat,
+        explicitBeach.lon,
+        150,
+        ["155"],
+      );
+      expect(mockCDIPService.fetchBuoyDataWithDiagnostics).toHaveBeenNthCalledWith(2, "191");
+    });
+
+    it.each([
+      [
+        "HTTP 500",
+        {
+          data: null,
+          stationId: "155",
+          skipReason: "cdip_unavailable",
+          status: 500,
+        } as const,
+      ],
+      [
+        "rate-limited",
+        {
+          data: null,
+          stationId: "155",
+          skipReason: "cdip_unavailable",
+          errorMessage: "rate_limited",
+        } as const,
+      ],
+      [
+        "circuit-open",
+        {
+          data: null,
+          stationId: "155",
+          skipReason: "circuit_open",
+          errorMessage: "Circuit breaker is open",
+        } as const,
+      ],
+      [
+        "unknown station",
+        {
+          data: null,
+          stationId: "155",
+          skipReason: "unknown_station",
+        } as const,
+      ],
+    ] as const)(
+      "does not fail over explicit station for %s diagnostics",
+      async (_label, diagnostic) => {
+        const explicitBeach = { ...mockBeach, cdip_station: "155" };
+        mockCDIPService.fetchBuoyDataWithDiagnostics.mockResolvedValue(
+          diagnostic as CDIPBuoyDataDiagnostic,
+        );
+
+        const result = await (service as any).fetchCDIPDataWithRetry(
+          explicitBeach,
+        );
+
+        expect(result).toEqual(diagnostic);
+        expect(
+          mockCDIPService.getNearestStation,
+        ).not.toHaveBeenCalled();
+        expect(
+          mockCDIPService.fetchBuoyDataWithDiagnostics,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+          mockCDIPService.fetchBuoyDataWithDiagnostics,
+        ).toHaveBeenCalledWith("155");
+      },
+    );
+
     it("should use CDIP data as primary source for Southern California", async () => {
       mockCDIPService.getNearestStation.mockResolvedValue("100");
       mockCDIPService.fetchBuoyData.mockResolvedValue(mockCDIPData);

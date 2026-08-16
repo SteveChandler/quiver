@@ -165,6 +165,7 @@ export function UnifiedAuthModal({
   // Track whether the user completed an auth action so we can fire
   // auth_modal_closed_without_action only for dismissals that didn't lead to auth.
   const authActionTakenRef = useRef(false);
+  const signupFlowRef = useRef<ReturnType<typeof trackSignupStarted> | null>(null);
 
   // Location context for signup metadata
   const locationContext = useLocationSafe();
@@ -291,8 +292,10 @@ export function UnifiedAuthModal({
     trackAuthMethodSelected({ method: "apple", mode: activeMode });
     trackAuthProviderSelected({ provider: "apple", mode: activeMode, source });
     if (activeMode === "signup") {
-      trackSignupStarted("apple", {
+      signupFlowRef.current = trackSignupStarted("apple", {
         source,
+        redirect_path: getReturnPath(),
+        redirect_state: "pending",
         // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
         landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
       });
@@ -308,24 +311,25 @@ export function UnifiedAuthModal({
 
     if (result.error) {
       setError(result.error);
-      trackLoginFailed({ method: "apple", error_type: "oauth_failed", source });
+      if (activeMode === "signup") {
+        trackSignupFailed({
+          method: "apple",
+          error_type: "oauth_failed",
+          source,
+          flow_id: signupFlowRef.current?.flow_id,
+          started_at: signupFlowRef.current?.started_at,
+        });
+      } else {
+        trackLoginFailed({ method: "apple", error_type: "oauth_failed", source });
+      }
       setLoading(false);
       return;
     }
 
-    // Native: signInWithIdToken() completed inline — session is already established.
-    // Web: signInWithOAuth() triggered a redirect; this code runs briefly before
-    // the browser navigates away, so setLoading(false) + onClose() are harmless.
+    // Web OAuth redirects away before auth completion. The callback's auth
+    // state listener emits the terminal signup outcome with this flow ID.
     const duration = Date.now() - start;
-    if (activeMode === "signup") {
-      trackSignupSuccess({
-        method: "apple",
-        requires_verification: false,
-        source,
-        // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
-        landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
-      });
-    } else {
+    if (activeMode !== "signup") {
       trackLoginSuccess({ method: "apple", duration_ms: duration, source });
     }
     setLoading(false);
@@ -344,8 +348,10 @@ export function UnifiedAuthModal({
     trackAuthMethodSelected({ method: "google", mode: activeMode });
     trackAuthProviderSelected({ provider: "google", mode: activeMode, source });
     if (activeMode === "signup") {
-      trackSignupStarted("google", {
+      signupFlowRef.current = trackSignupStarted("google", {
         source,
+        redirect_path: getReturnPath(),
+        redirect_state: "pending",
         // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
         landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
       });
@@ -361,25 +367,25 @@ export function UnifiedAuthModal({
 
     if (result.error) {
       setError(result.error);
-      trackLoginFailed({ method: "google", error_type: "oauth_failed", source });
+      if (activeMode === "signup") {
+        trackSignupFailed({
+          method: "google",
+          error_type: "oauth_failed",
+          source,
+          flow_id: signupFlowRef.current?.flow_id,
+          started_at: signupFlowRef.current?.started_at,
+        });
+      } else {
+        trackLoginFailed({ method: "google", error_type: "oauth_failed", source });
+      }
       setLoading(false);
       return;
     }
 
-    // Native: signInWithIdToken() completed inline — session is already established.
-    // Web: signInWithOAuth() triggered a redirect; this code runs briefly before
-    // the browser navigates away, so setLoading(false) + onClose() are harmless.
+    // Web OAuth redirects away before auth completion. The callback's auth
+    // state listener emits the terminal signup outcome with this flow ID.
     const duration = Date.now() - start;
-    if (activeMode === "signup") {
-      // Google OAuth verifies email server-side, so no client-side verification step is needed.
-      trackSignupSuccess({
-        method: "google",
-        requires_verification: false,
-        source,
-        // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
-        landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
-      });
-    } else {
+    if (activeMode !== "signup") {
       trackLoginSuccess({ method: "google", duration_ms: duration, source });
     }
     setLoading(false);
@@ -461,8 +467,10 @@ export function UnifiedAuthModal({
     try {
       if (activeMode === "signup") {
         // Signup flow
-        trackSignupStarted("password", {
+        signupFlowRef.current = trackSignupStarted("password", {
           source,
+          redirect_path: getReturnPath(),
+          redirect_state: "inline",
           // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
           landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
         });
@@ -476,6 +484,8 @@ export function UnifiedAuthModal({
           method: "password",
           requires_verification: true,
           source,
+          flow_id: signupFlowRef.current?.flow_id,
+          started_at: signupFlowRef.current?.started_at,
           // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
           landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
         });
@@ -517,7 +527,13 @@ export function UnifiedAuthModal({
         err instanceof Error ? err.message : "Authentication failed";
 
       if (activeMode === "signup") {
-        trackSignupFailed({ method: "password", error_type: errorType, source });
+        trackSignupFailed({
+          method: "password",
+          error_type: errorType,
+          source,
+          flow_id: signupFlowRef.current?.flow_id,
+          started_at: signupFlowRef.current?.started_at,
+        });
       } else {
         trackLoginFailed({ method: "password", error_type: errorType, source });
       }
