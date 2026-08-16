@@ -23,7 +23,7 @@ const STEPS: WalkthroughStep[] = [
   },
   {
     eyebrow: "WHEN TO GO",
-    title: "Get one call for the window.",
+    title: "Get the surf window.",
     body: "Every break has a setup it likes best. Quiver reads swell, wind, tide, and forecast confidence against that one, then calls the window with five labels: EPIC, GOOD, FAIR, RIDEABLE, and MEH.",
   },
   {

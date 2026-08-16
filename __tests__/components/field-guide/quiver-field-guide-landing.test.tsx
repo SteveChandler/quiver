@@ -114,7 +114,7 @@ describe("QuiverFieldGuideLanding", () => {
     expect(within(steps).getAllByRole("listitem")).toHaveLength(4);
     expect(within(steps).getByText("Save your home break.")).toBeInTheDocument();
     expect(within(steps).getByText("Add the boards in your quiver.")).toBeInTheDocument();
-    expect(within(steps).getByText("Get one call for the window.")).toBeInTheDocument();
+    expect(within(steps).getByText("Get the surf window.")).toBeInTheDocument();
     expect(within(steps).getByText("Log what happened in the water.")).toBeInTheDocument();
     const walkthroughVideo = within(walkthrough)
       .getByTestId("field-guide-walkthrough-video")
