@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Beach } from "@/types/database";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
 import type { ZineBeachPhoto } from "./types";
@@ -21,6 +22,8 @@ interface ZineHeroProps {
   beachPhoto?: ZineBeachPhoto | null;
   sources?: BeachSources | null;
   headingLevel?: ZineHeroHeadingLevel;
+  /** Server-rendered forecast answer, shown in the hero's left column. */
+  forecastSlot?: ReactNode;
 }
 
 export function ZineHero({
@@ -28,6 +31,7 @@ export function ZineHero({
   beachPhoto,
   sources,
   headingLevel = "h1",
+  forecastSlot,
 }: ZineHeroProps) {
   const skill = (beach.skill_level || "All").toUpperCase();
   const breakType = (beach.break_type || "Spot").toUpperCase();
@@ -91,6 +95,8 @@ export function ZineHero({
             </>
           )}
         </div>
+
+        {forecastSlot ? <div className="mt-6">{forecastSlot}</div> : null}
       </div>
 
       <TapedMapPhoto

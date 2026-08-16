@@ -227,27 +227,28 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
           surfCallReport={surfCallReport}
           surfCallIsTomorrow={surfCallIsTomorrow}
           heroHeadingLevel="h2"
+          heroForecastSlot={
+              <PublicForecastAnswer
+                beach={publicBeach}
+                report={surfCallReport}
+                context={forecastContext}
+                isTomorrow={surfCallIsTomorrow}
+                headingLevel="h1"
+              />
+          }
           freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
           /* Server-rendered inside the zine paper above the tabs — see the
              canonical US route for why this is not inside the forecast tab. */
-          beforeTabsContent={
-            <PublicForecastAnswer
-              beach={publicBeach}
+          afterTabsContent={
+            <PublicForecastHourly
+              beachName={publicBeach.name}
+              forecastHours={hourlyForecasts}
               report={surfCallReport}
               context={forecastContext}
               isTomorrow={surfCallIsTomorrow}
-              headingLevel="h1"
+              forecastDay={hourlyForecastDay}
             />
           }
-        />
-
-        <PublicForecastHourly
-          beachName={publicBeach.name}
-          forecastHours={hourlyForecasts}
-          report={surfCallReport}
-          context={forecastContext}
-          isTomorrow={surfCallIsTomorrow}
-          forecastDay={hourlyForecastDay}
         />
       </>
     );

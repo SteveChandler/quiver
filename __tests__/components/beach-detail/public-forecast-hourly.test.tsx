@@ -69,7 +69,7 @@ describe("PublicForecastHourly", () => {
     );
 
     expect(document.body).not.toHaveTextContent("84/100");
-    expect(screen.getByRole("columnheader", { name: "Quiver recommendation" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Quiver call" })).toBeInTheDocument();
 
     const rows = screen.getAllByTestId("public-forecast-hour");
     expect(within(rows[0]).queryByText("Best window")).not.toBeInTheDocument();

@@ -138,25 +138,41 @@ export function PublicForecastAnswer({
     : null;
   const HeadingTag = headingLevel;
   const hasForecastDetails = Boolean(context?.selectedRowTime && waveHeight);
+  const provenance = [
+    validAt ? `Valid ${validAt} ${timezone}` : null,
+    sourceUpdatedAt ? `Source updated ${sourceUpdatedAt}` : null,
+    computedAt ? `Computed ${computedAt}` : null,
+    context?.contributingSources?.length
+      ? context.contributingSources.map(sourceLabel).join(", ")
+      : null,
+  ].filter(Boolean) as string[];
 
   return (
     <section
       aria-labelledby="public-forecast-answer-heading"
       data-testid="public-forecast-answer"
-      className="border-t-2 border-dashed border-[#0B3A75]/35 pt-6"
+      className="border-t-2 border-dashed border-[#0B3A75]/30 pt-5"
     >
-      <p className="typewriter font-bold text-[#0B3A75]">
-        {isTomorrow ? "Tomorrow's surf forecast" : "Surf forecast"}
-      </p>
-      <HeadingTag
-        id="public-forecast-answer-heading"
-        className="mt-1.5 max-w-3xl font-[var(--font-zine-display)] text-2xl uppercase leading-[1.05] text-[#11100D] sm:text-3xl"
-      >
-        {beach.name} Surf Forecast{titleDate}
-      </HeadingTag>
+      {/* Sits directly under the hero's beach name, so this is a label line,
+          not a second display headline. The full "<Beach> Surf Forecast" string
+          stays intact for the H1 contract; only its weight comes down. */}
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <HeadingTag
+          id="public-forecast-answer-heading"
+          className="max-w-xl font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#0B3A75]"
+        >
+          {beach.name} Surf Forecast{titleDate}
+        </HeadingTag>
+        {/* The date alone does not read as "not today" at a glance. */}
+        {isTomorrow && (
+          <span className="border border-[#11100D] px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#11100D]">
+            Tomorrow
+          </span>
+        )}
+      </div>
 
       {hasForecastDetails ? (
-        <dl className="mt-6">
+        <dl className="mt-4">
           {/* Deck: the answer itself, sized to win the squint test. */}
           <div className="flex flex-wrap items-baseline gap-x-7 gap-y-3">
             {waveHeight && (
@@ -237,17 +253,14 @@ export function PublicForecastAnswer({
         </p>
       )}
 
-      {(validAt || sourceUpdatedAt || computedAt) && <div className="mt-6 font-mono text-[11px] leading-5 text-[#11100D]/60">
-        {validAt && <p>
-          Forecast valid at {validAt} ({timezone}).
-          {isStale ? " Source data is stale; conditions may have changed." : ""}
-        </p>}
-        {sourceUpdatedAt && <p>Source data updated: {sourceUpdatedAt}.</p>}
-        {computedAt && <p>Quiver computed this answer: {computedAt}.</p>}
-        {context?.contributingSources && context.contributingSources.length > 0 && (
-          <p>Contributing sources: {context.contributingSources.map(sourceLabel).join(", ")}.</p>
-        )}
-      </div>}
+      {/* One provenance line, not four. Every fact a crawler needs is still
+          here; it just no longer reads as a paragraph of boilerplate. */}
+      {provenance.length > 0 && (
+        <p className="mt-4 font-mono text-[11px] leading-5 text-[#11100D]/55">
+          {provenance.join(" · ")}
+          {isStale ? " · Source data is stale; conditions may have changed." : ""}
+        </p>
+      )}
     </section>
   );
 }

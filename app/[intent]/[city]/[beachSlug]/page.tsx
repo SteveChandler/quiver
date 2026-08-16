@@ -11,7 +11,6 @@ import { InstallAppCtaSection } from "@/components/app-store/install-app-cta-sec
 import { iphoneBannerOwnsInstallAsk } from "@/lib/app-store/beach-subpage-install-cta";
 import { getFirstTouchPlatform } from "@/lib/analytics/web-context";
 import { headers } from "next/headers";
-import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
@@ -295,68 +294,70 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           waterQuality={waterQualityResult}
           beachPhoto={beachPhoto}
           heroHeadingLevel="h2"
-          freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
-          /* Server-rendered, so the machine-readable answer stays in the initial
-             HTML, but rendered inside the zine paper above the tabs rather than
-             floating above the hero as a foreign card. */
-          beforeTabsContent={
-            <div className="space-y-4">
-              <PublicForecastAnswer
-                beach={publicBeach}
-                report={surfCallReport}
-                context={forecastContext}
-                isTomorrow={surfCallIsTomorrow}
-                headingLevel="h1"
-              />
-              {forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
-                <ContentPageAppHandoffCta
-                  source={`content-beach-detail-${beachSlug}`}
-                  surface="beach_detail"
-                  placement="above_fold_after_public_answer"
-                  target={`beach:${beachSlug}`}
-                  eyebrow={`Next call · ${beach.name}`}
-                  title={`Watch the next good window at ${beach.name}.`}
-                  description="Today's call is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
-                  ctaLabel="Watch the next window in the app"
+          heroForecastSlot={
+                <PublicForecastAnswer
+                  beach={publicBeach}
+                  report={surfCallReport}
+                  context={forecastContext}
+                  isTomorrow={surfCallIsTomorrow}
+                  headingLevel="h1"
                 />
-              ) : null}
-            </div>
+          }
+          freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
+          beforeTabsContent={
+            forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
+              <ContentPageAppHandoffCta
+                source={`content-beach-detail-${beachSlug}`}
+                surface="beach_detail"
+                placement="above_fold_after_public_answer"
+                target={`beach:${beachSlug}`}
+                eyebrow={`Next call · ${beach.name}`}
+                title={`Watch the next good window at ${beach.name}.`}
+                description="Today's call is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
+                ctaLabel="Watch the next window in the app"
+              />
+            ) : null
           }
           afterTabsContent={
             <div className="pt-2">
+              <PublicForecastHourly
+                beachName={publicBeach.name}
+                forecastHours={hourlyForecasts}
+                report={surfCallReport}
+                context={forecastContext}
+                isTomorrow={surfCallIsTomorrow}
+                forecastDay={hourlyForecastDay}
+              />
+              {/* One ask here, not two. The home-break signup this used to stack
+                  underneath is the same ask the sticky bar already carries, so
+                  it read as the page repeating itself. The install section takes
+                  a real already-fetched figure instead — proof beats adjectives. */}
               {!bannerOwnsInstallAsk && (
-                <InstallAppCtaSection
-                  platform={installCtaPlatform}
-                  source={`beach-detail-${beachSlug}`}
-                  surface="beach-detail"
-                  placement="after-tabs"
-                  beachName={beach.name}
-                />
+                <div className="mt-10">
+                  <InstallAppCtaSection
+                    platform={installCtaPlatform}
+                    source={`beach-detail-${beachSlug}`}
+                    surface="beach-detail"
+                    placement="after-tabs"
+                    beachName={beach.name}
+                    proof={
+                      forecastContext?.waveHeightRangeLabel ??
+                      forecastContext?.waveHeight
+                        ? {
+                            value: (forecastContext.waveHeightRangeLabel ??
+                              forecastContext.waveHeight) as string,
+                            label: "Surf right now",
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
               )}
-              <div className="mt-8 hidden md:block">
-                <InlineSignupCta
-                  title={`Save ${beach.name} as your home break`}
-                  description={`Get personalized alerts when ${beach.name} is firing — based on your level.`}
-                  primaryButtonText={`Save ${beach.name}`}
-                  source={`beach-detail-${beachSlug}-desktop-inline`}
-                  ctaCopyVariant="beach_home_break_v1"
-                  variant="zine"
-                />
-              </div>
               <Suspense fallback={null}>
                 <DeferredZineNearbySpots beach={beach} />
               </Suspense>
             </div>
           }
-        />
-
-        <PublicForecastHourly
-          beachName={publicBeach.name}
-          forecastHours={hourlyForecasts}
-          report={surfCallReport}
-          context={forecastContext}
-          isTomorrow={surfCallIsTomorrow}
-          forecastDay={hourlyForecastDay}
         />
 
         <StickySignupBar

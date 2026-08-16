@@ -75,22 +75,30 @@ jest.mock("@/app/beach/[slug]/beach-detail-client", () => ({
     beach,
     heroHeadingLevel = "h1",
     beforeTabsContent,
+    afterTabsContent,
+    heroForecastSlot,
   }: {
     beach: Beach;
     heroHeadingLevel?: "h1" | "h2";
     beforeTabsContent?: React.ReactNode;
+    afterTabsContent?: React.ReactNode;
+    heroForecastSlot?: React.ReactNode;
   }) => {
     const React = jest.requireActual("react");
-    // afterTabsContent is intentionally not rendered: it is below-the-fold
-    // promo/nearby content full of client components, and none of the initial
-    // HTML contracts asserted here depend on it.
     return React.createElement(
       "div",
       null,
       React.createElement(heroHeadingLevel, { key: "hero" }, beach.name),
+      heroForecastSlot ?? null,
       beforeTabsContent ?? null,
+      afterTabsContent ?? null,
     );
   },
+}));
+
+// Client CTAs inside afterTabsContent; they call useRouter/useState.
+jest.mock("@/components/app-store/install-app-cta-section", () => ({
+  InstallAppCtaSection: () => null,
 }));
 
 // Client CTA that calls useRouter; it now renders through beforeTabsContent.
