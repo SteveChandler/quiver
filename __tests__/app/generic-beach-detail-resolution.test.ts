@@ -62,7 +62,16 @@ jest.mock("@/lib/utils/timezone-utils.server", () => ({
 
 // Mock the child components to avoid rendering issues in node environment
 jest.mock("@/app/beach/[slug]/beach-detail-client", () => ({
-  BeachDetailClient: () => null,
+  BeachDetailClient: ({
+    beach,
+    heroHeadingLevel = "h1",
+  }: {
+    beach: Beach;
+    heroHeadingLevel?: "h1" | "h2";
+  }) => {
+    const React = jest.requireActual("react");
+    return React.createElement(heroHeadingLevel, null, beach.name);
+  },
 }));
 
 jest.mock("@/components/spots/spot-surf-report", () => ({
@@ -180,19 +189,85 @@ function makeBeach(overrides: BeachTestOverrides) {
 
 function freshForecastResult() {
   const now = Date.now();
+  const selectedRowTime = new Date(now).toISOString();
+  const windowStart = new Date(now - 60 * 60 * 1000).toISOString();
+  const windowEnd = new Date(now + 60 * 60 * 1000).toISOString();
   return {
     report: {
       waveHeight: "2-3 ft",
       updatedAt: new Date(now - 60 * 60 * 1000).toISOString(),
+      bestWindowStart: windowStart,
+      bestWindowEnd: windowEnd,
+      verdict: "YES",
+      score: 84,
+      forecastConfidence: 92,
     },
     isTomorrow: false,
     forecastContext: {
-      selectedRowTime: new Date(now + 60 * 60 * 1000).toISOString(),
+      selectedRowTime,
       waveHeight: "2-3 ft",
       sourceDataUpdatedAt: new Date(now - 60 * 60 * 1000).toISOString(),
       primaryDataSource: "NOAA_NWS",
+      displayWindowStart: windowStart,
+      displayWindowEnd: windowEnd,
+      timezone: "America/Los_Angeles",
     },
+    hourlyForecasts: [
+      {
+        forecast_at: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
+        wave_height: "2 ft",
+        swell_1_height: "2 ft",
+        swell_1_period: "17s",
+        swell_1_direction: "SW",
+        swell_2_height: null,
+        swell_2_period: null,
+        swell_2_direction: null,
+        wind_speed: "4 mph",
+        wind_direction: "N",
+        tide_height: "3.0 ft",
+        tide_status: "Rising",
+        confidence_score: 91,
+      },
+      {
+        forecast_at: selectedRowTime,
+        wave_height: "3 ft",
+        swell_1_height: "2 ft",
+        swell_1_period: "17s",
+        swell_1_direction: "SW",
+        swell_2_height: null,
+        swell_2_period: null,
+        swell_2_direction: null,
+        wind_speed: "4 mph",
+        wind_direction: "N",
+        tide_height: "3.2 ft",
+        tide_status: "Rising",
+        confidence_score: 92,
+      },
+      {
+        forecast_at: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
+        wave_height: "2-3 ft",
+        swell_1_height: "2 ft",
+        swell_1_period: "16s",
+        swell_1_direction: "SW",
+        swell_2_height: null,
+        swell_2_period: null,
+        swell_2_direction: null,
+        wind_speed: "6 mph",
+        wind_direction: "W",
+        tide_height: "3.4 ft",
+        tide_status: "Rising",
+        confidence_score: 90,
+      },
+    ],
+    hourlyForecastDay: "today" as const,
   };
+}
+
+function getHeadingTexts(html: string, level: 1 | 2): string[] {
+  const pattern = new RegExp(`<h${level}\\b[^>]*>([\\s\\S]*?)<\\/h${level}>`, "gi");
+  return Array.from(html.matchAll(pattern), (match) =>
+    match[1].replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
+  ).filter(Boolean);
 }
 
 describe("GenericBeachDetailPage slug resolution", () => {
@@ -273,6 +348,60 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(html).not.toContain("Lower Trestles tide chart");
     expect(html).not.toContain("Lower Trestles water temperature");
     expect(html).not.toContain('aria-label="Lower Trestles related surf guides"');
+  });
+
+  it("renders the forecast answer and hourly rows in initial HTML", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [
+        makeBeach({
+          name: "Del Mar",
+          slug: "del-mar",
+          city: "Del Mar",
+        }),
+      ],
+    });
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(freshForecastResult());
+
+    const page = await GenericBeachDetailPage({
+      params: Promise.resolve({
+        intent: "ca",
+        city: "del-mar",
+        beachSlug: "del-mar",
+      }),
+    });
+    const html = renderToStaticMarkup(page);
+
+    expect(getHeadingTexts(html, 1)).toEqual(["Del Mar Surf Forecast"]);
+    expect(getHeadingTexts(html, 2)).toContain("Del Mar");
+    expect(getHeadingTexts(html, 2)).toContain("Del Mar Hourly Surf Forecast");
+    expect(html).toContain('data-testid="public-forecast-hourly"');
+    expect((html.match(/data-testid="public-forecast-hour"/g) ?? [])).toHaveLength(3);
+    expect(html.match(/84\/100/g)).toHaveLength(1);
+    expect(html).toContain("Best window");
+    expect(html).toContain("17s SW");
+    expect(html).toContain("3.2 ft · Rising");
+    expect(html).toContain("92%");
+  });
+
+  it("keeps the surf-forecast H1 when live forecast details are unavailable", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({ name: "Del Mar", slug: "del-mar", city: "Del Mar" })],
+    });
+
+    const page = await GenericBeachDetailPage({
+      params: Promise.resolve({
+        intent: "ca",
+        city: "del-mar",
+        beachSlug: "del-mar",
+      }),
+    });
+    const html = renderToStaticMarkup(page);
+
+    expect(getHeadingTexts(html, 1)).toEqual(["Del Mar Surf Forecast"]);
+    expect(getHeadingTexts(html, 2)).toContain("Del Mar");
+    expect(html).toContain("Current forecast details are temporarily unavailable");
   });
 
   it("redirects stale city slugs to the canonical beach URL", async () => {

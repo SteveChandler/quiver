@@ -7,6 +7,7 @@
 
 import { expect, test, type APIRequestContext, type APIResponse } from '@playwright/test';
 import { TEST_BEACHES } from './fixtures/test-data';
+import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
 
 const WAVE_HEIGHT_PATTERN = /\d+(\.\d+)?(-\d+(\.\d+)?)?\s*ft/i;
 
@@ -191,6 +192,33 @@ test.describe('Route HTML Contracts', () => {
       expect(ogImage).toContain(`slug=${beach.slug}`);
 
       expectBeachMetaDescription(description, beach.name);
+    });
+
+    test('/[state]/[city]/[beachSlug] keeps one exact-query H1 in initial HTML', async ({
+      request,
+    }) => {
+      const beach = TEST_BEACHES.blacks;
+      const html = await getHtml(request, buildBeachUrl(beach));
+      const h1Headings = getHeadingTexts(html, 1);
+
+      expect(h1Headings).toHaveLength(1);
+      expect(h1Headings[0]).toMatch(new RegExp(`^${beach.name} Surf Forecast(?: for .+)?$`));
+      expect(getHeadingTexts(html, 2)).toContain(beach.name);
+      expect(html).not.toContain('Loading beach details');
+    });
+
+    test('/[state]/[city]/[beachSlug] exposes hourly rows in initial HTML @requires-data', async ({
+      request,
+    }) => {
+      const beach = TEST_BEACHES.blacks;
+      const html = await getHtml(request, buildBeachUrl(beach));
+
+      expect(getHeadingTexts(html, 2)).toContain(`${beach.name} Hourly Surf Forecast`);
+      expect(html).toContain('data-testid="public-forecast-hourly"');
+      expect((html.match(/data-testid="public-forecast-hour"/g) ?? []).length).toBeGreaterThan(1);
+      expect(html).toMatch(/Surf height/);
+      expect(html).toMatch(/Quiver recommendation/);
+      expect(html).toMatch(/Confidence/);
     });
   });
 

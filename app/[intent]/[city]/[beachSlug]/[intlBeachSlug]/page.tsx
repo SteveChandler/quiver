@@ -2,6 +2,7 @@ import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { PublicForecastAnswer } from "@/components/beach-detail/public-forecast-answer";
+import { PublicForecastHourly } from "@/components/beach-detail/public-forecast-hourly";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import type { Metadata } from "next";
 import { buildDynamicBeachMetadata, buildPageMetadata } from "@/lib/seo/meta";
@@ -184,6 +185,8 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
     const surfCallReport = surfReportResult?.report ?? null;
     const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
     const forecastContext = surfReportResult?.forecastContext ?? null;
+    const hourlyForecasts = surfReportResult?.hourlyForecasts ?? [];
+    const hourlyForecastDay = surfReportResult?.hourlyForecastDay ?? "today";
 
     return (
       <>
@@ -222,6 +225,7 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
           report={surfCallReport}
           context={forecastContext}
           isTomorrow={surfCallIsTomorrow}
+          headingLevel="h1"
         />
 
         <BeachDetailClient
@@ -230,7 +234,17 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
           beachTimezone={beachTimezone}
           surfCallReport={surfCallReport}
           surfCallIsTomorrow={surfCallIsTomorrow}
+          heroHeadingLevel="h2"
           freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
+        />
+
+        <PublicForecastHourly
+          beachName={publicBeach.name}
+          forecastHours={hourlyForecasts}
+          report={surfCallReport}
+          context={forecastContext}
+          isTomorrow={surfCallIsTomorrow}
+          forecastDay={hourlyForecastDay}
         />
       </>
     );
