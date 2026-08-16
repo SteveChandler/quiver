@@ -4,6 +4,20 @@ import type { ForecastRecommendationContext } from "@/lib/services/forecast-reco
 import { formatBeachDateTime, formatTimeInTimezone } from "@/lib/utils/date-time";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
 
+// Same contrast-checked verdict palette the in-tab surf call uses on tan paper.
+const VERDICT_COLOR: Record<string, string> = {
+  YES: "#006B5F",
+  MAYBE: "#B47A0F",
+  NO: "#5C5A57",
+};
+
+const DECK_LABEL =
+  "font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#0B3A75]";
+const DECK_VALUE =
+  "mt-0.5 font-[var(--font-zine-display)] text-3xl leading-none text-[#11100D] sm:text-4xl";
+const STRIP_LABEL =
+  "font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#11100D]";
+
 interface PublicForecastAnswerProps {
   beach: Beach;
   report: SurfCallResult | null;
@@ -129,29 +143,87 @@ export function PublicForecastAnswer({
     <section
       aria-labelledby="public-forecast-answer-heading"
       data-testid="public-forecast-answer"
-      className="border-2 border-[#11100D] bg-[#FFFDF4] px-5 py-5 shadow-[3px_4px_0_rgba(17,16,13,0.2)] sm:px-6"
+      className="border-t-2 border-dashed border-[#0B3A75]/35 pt-6"
     >
       <p className="typewriter font-bold text-[#0B3A75]">
         {isTomorrow ? "Tomorrow's surf forecast" : "Surf forecast"}
       </p>
       <HeadingTag
         id="public-forecast-answer-heading"
-        className="mt-2 font-[var(--font-zine-display)] text-2xl uppercase leading-tight text-[#11100D] sm:text-3xl"
+        className="mt-1.5 max-w-3xl font-[var(--font-zine-display)] text-2xl uppercase leading-[1.05] text-[#11100D] sm:text-3xl"
       >
         {beach.name} Surf Forecast{titleDate}
       </HeadingTag>
 
       {hasForecastDetails ? (
-        <dl className="mt-5 grid gap-x-6 gap-y-4 border-t-2 border-dashed border-[#0B3A75]/30 pt-4 font-mono text-sm text-[#11100D] sm:grid-cols-2 lg:grid-cols-3">
-          {waveHeight && <div><dt className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0B3A75]">Surf</dt><dd className="mt-0.5 text-base font-bold">{waveHeight}</dd></div>}
-          {bestWindow && <div><dt className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0B3A75]">Best window</dt><dd className="mt-0.5 text-base font-bold">{bestWindow}</dd></div>}
-          {report?.verdict && <div><dt className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0B3A75]">Verdict</dt><dd className="mt-0.5 text-base font-bold">{report.verdict}</dd></div>}
-          {report?.score != null && <div><dt className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0B3A75]">Score</dt><dd className="mt-0.5 text-base font-bold">{report.score}/100</dd></div>}
-          {report?.forecastConfidence != null && <div><dt className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0B3A75]">Confidence</dt><dd className="mt-0.5 text-base font-bold">{report.forecastConfidence}/100</dd></div>}
-          {primarySwell && <div><dt className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0B3A75]">Primary swell</dt><dd className="mt-0.5 text-base font-bold">{primarySwell}</dd></div>}
-          {secondarySwell && <div><dt className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0B3A75]">Secondary swell</dt><dd className="mt-0.5 text-base font-bold">{secondarySwell}</dd></div>}
-          {wind && <div><dt className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0B3A75]">Wind</dt><dd className="mt-0.5 text-base font-bold">{wind}</dd></div>}
-          {tide && <div><dt className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0B3A75]">Tide</dt><dd className="mt-0.5 text-base font-bold">{tide}</dd></div>}
+        <dl className="mt-6">
+          {/* Deck: the answer itself, sized to win the squint test. */}
+          <div className="flex flex-wrap items-baseline gap-x-7 gap-y-3">
+            {waveHeight && (
+              <div>
+                <dt className={DECK_LABEL}>Surf</dt>
+                <dd className={DECK_VALUE}>{waveHeight}</dd>
+              </div>
+            )}
+            {report?.verdict && (
+              <div>
+                <dt className={DECK_LABEL}>Verdict</dt>
+                <dd className={DECK_VALUE} style={{ color: VERDICT_COLOR[report.verdict] }}>
+                  {report.verdict}
+                </dd>
+              </div>
+            )}
+            {bestWindow && (
+              <div>
+                <dt className={DECK_LABEL}>Best window</dt>
+                <dd className="mt-0.5 font-mono text-lg font-bold leading-none text-[#11100D] sm:text-xl">
+                  {bestWindow}
+                </dd>
+              </div>
+            )}
+          </div>
+
+          {/* Supporting reads, in the page's own condition-strip. */}
+          <div className="condition-strip mt-6">
+            {[
+              { label: "Primary swell", value: primarySwell },
+              { label: "Wind", value: wind },
+              { label: "Tide", value: tide },
+              {
+                label: "Confidence",
+                value:
+                  report?.forecastConfidence != null
+                    ? `${report.forecastConfidence}/100`
+                    : null,
+              },
+            ]
+              .filter((cell) => cell.value)
+              .map((cell) => (
+                <div key={cell.label} className="min-w-0 px-2">
+                  <dt className={STRIP_LABEL}>{cell.label}</dt>
+                  <dd className="mt-1 font-[var(--font-zine-display)] text-xl leading-tight text-[#11100D] sm:text-2xl">
+                    {cell.value}
+                  </dd>
+                </div>
+              ))}
+          </div>
+
+          {(secondarySwell || report?.score != null) && (
+            <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 font-mono text-xs text-[#11100D]/75">
+              {secondarySwell && (
+                <div className="flex gap-1.5">
+                  <dt className="font-bold uppercase tracking-[0.14em]">Secondary swell</dt>
+                  <dd>{secondarySwell}</dd>
+                </div>
+              )}
+              {report?.score != null && (
+                <div className="flex gap-1.5">
+                  <dt className="font-bold uppercase tracking-[0.14em]">Score</dt>
+                  <dd>{report.score}/100</dd>
+                </div>
+              )}
+            </div>
+          )}
         </dl>
       ) : (
         <p className="mt-4 font-mono text-sm leading-6 text-[#11100D]/75">
@@ -160,12 +232,12 @@ export function PublicForecastAnswer({
       )}
 
       {report?.whySentence && (
-        <p className="mt-5 font-mono text-sm leading-6 text-[#11100D]">
+        <p className="mt-5 max-w-2xl font-mono text-sm leading-6 text-[#11100D]">
           <strong className="font-bold">Why:</strong> {report.whySentence}
         </p>
       )}
 
-      {(validAt || sourceUpdatedAt || computedAt) && <div className="mt-5 border-t-2 border-dashed border-[#0B3A75]/30 pt-3 font-mono text-[11px] leading-5 text-[#11100D]/70">
+      {(validAt || sourceUpdatedAt || computedAt) && <div className="mt-6 font-mono text-[11px] leading-5 text-[#11100D]/60">
         {validAt && <p>
           Forecast valid at {validAt} ({timezone}).
           {isStale ? " Source data is stale; conditions may have changed." : ""}
