@@ -24,7 +24,7 @@ const STEPS: WalkthroughStep[] = [
   {
     eyebrow: "WHEN TO GO",
     title: "Get one call for the window.",
-    body: "Swell, wind, tide, and forecast confidence come together in the decision. Quiver surfaces the best window and uses five labels: EPIC, GOOD, FAIR, RIDEABLE, and MEH.",
+    body: "Every break has a setup it likes best. Quiver reads swell, wind, tide, and forecast confidence against that one, then calls the window with five labels: EPIC, GOOD, FAIR, RIDEABLE, and MEH.",
   },
   {
     eyebrow: "KEEP LEARNING",
