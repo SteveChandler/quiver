@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, jest, beforeEach, afterEach } from "@jest/globals";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 // Mock the ApiError import
 jest.mock("@/lib/errors/forecast-errors", () => ({
@@ -73,6 +74,7 @@ describe("api-retry", () => {
     }
 
     it.each([400, 404])("does not open the breaker for deterministic CDIP %s responses", async (status) => {
+      const errorLog = jest.spyOn(console, "error").mockImplementation(() => undefined);
       const { RetryableAPIClient } = await import("@/lib/utils/api-retry");
       const client = new RetryableAPIClient();
       global.fetch = jest.fn(() => Promise.resolve(response(status)));
@@ -91,6 +93,16 @@ describe("api-retry", () => {
         state: "CLOSED",
         failureCount: 0,
       });
+      expect(errorLog).not.toHaveBeenCalled();
+      errorLog.mockRestore();
+      const warnings = (globalThis as { __quiverConsoleWarns?: string[] })
+        .__quiverConsoleWarns;
+      expect(warnings).toHaveLength(5);
+      expectConsoleWarnings([
+        new RegExp(
+          "^\\[CDIP\\] Station data unavailable \\(" + status + "\\):",
+        ),
+      ]);
     });
 
     it.each([429, 500])("opens the station breaker for transient CDIP %s responses", async (status) => {

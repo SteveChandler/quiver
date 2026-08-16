@@ -214,6 +214,7 @@ describe("CDIPService - API integration tests (mocked)", () => {
     });
 
     it("returns cdip_404 diagnostics for deterministic ERDDAP 404s", async () => {
+      const errorLog = jest.spyOn(console, "error").mockImplementation(() => undefined);
       mockFetchCDIPData.mockRejectedValueOnce(
         Object.assign(new Error("HTTP 404: Not Found"), { status: 404 })
       );
@@ -225,9 +226,12 @@ describe("CDIPService - API integration tests (mocked)", () => {
         stationId: "100",
         skipReason: "cdip_404",
       });
+      expect(errorLog).not.toHaveBeenCalled();
+      errorLog.mockRestore();
     });
 
     it("returns cdip_400 diagnostics for deterministic ERDDAP 400s", async () => {
+      const errorLog = jest.spyOn(console, "error").mockImplementation(() => undefined);
       mockFetchCDIPData.mockRejectedValueOnce(
         Object.assign(new Error("HTTP 400: Bad Request"), { status: 400 })
       );
@@ -239,6 +243,8 @@ describe("CDIPService - API integration tests (mocked)", () => {
         stationId: "100",
         skipReason: "cdip_400",
       });
+      expect(errorLog).not.toHaveBeenCalled();
+      errorLog.mockRestore();
     });
 
     it("returns circuit_open diagnostics for open station breakers", async () => {

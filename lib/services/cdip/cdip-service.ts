@@ -36,6 +36,11 @@ import { transformToCDIPBuoyData, calculateDataQualityScore } from "./data-parse
 
 const log = createContextLogger("CDIPService");
 
+function statusFromError(error: unknown): number | undefined {
+  const status = (error as { status?: unknown })?.status;
+  return typeof status === "number" ? status : undefined;
+}
+
 /**
  * Main service class for CDIP wave data
  */
@@ -153,6 +158,7 @@ export class CDIPService {
               data: null,
               stationId,
               skipReason: "cdip_unavailable",
+              errorMessage: "rate_limited",
             };
           }
           if (this.isVerbose()) {
@@ -213,10 +219,15 @@ export class CDIPService {
       this.inFlightFetches.set(stationId, fetchPromise);
       return await fetchPromise;
     } catch (error) {
-      log.error(
-        `💥 Error fetching CDIP data for station ${stationId}:`,
-        error
-      );
+      const status = statusFromError(error);
+      if (status === 400 || status === 404) {
+        log.warn(`CDIP station ${stationId} has no deterministic data (${status})`);
+      } else {
+        log.error(
+          `💥 Error fetching CDIP data for station ${stationId}:`,
+          error
+        );
+      }
       return {
         data: null,
         stationId,
@@ -274,14 +285,16 @@ export class CDIPService {
   async getNearestStation(
     latitude: number,
     longitude: number,
-    maxDistanceKm: number = DEFAULT_MAX_DISTANCE_KM
+    maxDistanceKm: number = DEFAULT_MAX_DISTANCE_KM,
+    excludedStationIds: readonly string[] = [],
   ): Promise<string | null> {
     try {
       let nearestStation: string | null = null;
       let minDistance = Infinity;
+      const excluded = new Set(excludedStationIds.map((stationId) => String(stationId)));
 
       for (const station of Object.values(CDIP_STATIONS)) {
-        if (this.blacklist.has(String(station.id))) {
+        if (this.blacklist.has(String(station.id)) || excluded.has(String(station.id))) {
           continue; // skip bad stations
         }
         const distance = calculateDistance(

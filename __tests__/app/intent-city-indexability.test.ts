@@ -34,6 +34,7 @@ import {
   getCityWaterTempHistory,
 } from "@/actions/forecast/intent-forecast-actions";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
+import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
 
 describe("city intent indexability", () => {
   beforeEach(() => {
@@ -65,6 +66,41 @@ describe("city intent indexability", () => {
     });
 
     expect(metadata.robots).toMatchObject({ index: true, follow: true });
+  });
+
+  it("keeps the GSC-protected Huntington Beach city route indexable and self-canonical", async () => {
+    const citySlug = "huntington-beach";
+    expect(isGscPerformanceProtected(`/water-temp/${citySlug}`)).toBe(true);
+
+    (findCityBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: {
+        cityName: "Huntington Beach",
+        state: "CA",
+        stateName: "California",
+        totalBeaches: 3,
+        beginnerCount: 1,
+        intermediateCount: 2,
+        advancedCount: 0,
+        beaches: [],
+        centerLat: 36.38,
+        centerLon: -75.83,
+      },
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ intent: "water-temp", city: citySlug }),
+    });
+
+    expect(metadata.robots).toMatchObject({ index: true, follow: true });
+    expect(metadata.alternates?.canonical).toContain(`/water-temp/${citySlug}`);
+    expect(metadata.title).toBe("Huntington Beach Water Temperature Today: 76°F");
+    expect(String(metadata.description)).toContain(
+      "Huntington Beach water temperature today is 76°F",
+    );
+    expect(String(metadata.description)).toContain("Wetsuit guide");
+    expect(String(metadata.title).length).toBeLessThanOrEqual(60);
+    expect(String(metadata.description).length).toBeLessThanOrEqual(160);
   });
 
   it("keeps /beginner/{city} noindexed without an approved editorial row", async () => {
