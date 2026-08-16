@@ -65,6 +65,10 @@ const ONE_TAP_DISMISSED_KEY = "qvr_one_tap_dismissed";
 const ONE_TAP_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours after dismissal
 const ONE_TAP_DELAY_MS = 3000; // 3 second delay before showing
 
+function isLocalHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
 /**
  * GoogleOneTap — Renders the Google One Tap sign-in prompt for anonymous web users.
  *
@@ -170,6 +174,9 @@ export function GoogleOneTap() {
 
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID;
     if (!clientId) return;
+    const allowLocalhost =
+      process.env.NEXT_PUBLIC_ENABLE_GOOGLE_ONE_TAP_LOCALHOST === "true";
+    if (!allowLocalhost && isLocalHostname(new URL(document.URL).hostname)) return;
 
     // Check if user dismissed One Tap recently
     const dismissedAt = safeGetItem(ONE_TAP_DISMISSED_KEY);

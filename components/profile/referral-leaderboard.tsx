@@ -262,7 +262,7 @@ export function ReferralLeaderboard({ onInvite }: ReferralLeaderboardProps) {
         {/* Invite CTA */}
         <Button
           onClick={handleShare}
-          className="w-full bg-[#F78E42] hover:bg-[#F78E42]/90 text-white font-heading font-semibold rounded-xl"
+          className="w-full bg-[#F78E42] hover:bg-[#F78E42]/90 text-[#11100D] font-heading font-semibold rounded-xl"
         >
           <Share2 className="h-4 w-4 mr-2" />
           Invite a friend

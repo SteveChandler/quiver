@@ -35,7 +35,7 @@ export function ExpandableCityList({
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
-        className="mt-2 w-full rounded-lg px-3 py-2 text-sm font-medium text-ocean-blue hover:bg-slate-50 transition-colors"
+        className="mt-2 w-full rounded-lg px-3 py-2 text-sm font-medium text-ocean-blue hover:bg-slate-50 transition-colors focus-ring"
       >
         {expanded
           ? "Show fewer cities"

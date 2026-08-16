@@ -8,7 +8,7 @@
  * - Text colors (gray-600 inactive, ocean-blue active)
  * - Hover states (gray-50 background, gray-900 text)
  * - Active border color (ocean-blue)
- * - Transitions (0.2s ease - transition-all duration-200)
+ * - Transitions (0.2s ease - transition-colors duration-300)
  * - Tab switching functionality
  */
 
@@ -184,7 +184,7 @@ describe('BeachTabs Component', () => {
       const overviewTab = screen.getByRole('tab', { name: /overview/i });
 
       // Phase 5: Transition specification
-      expect(overviewTab).toHaveClass('transition-all');
+      expect(overviewTab).toHaveClass('transition-colors');
       expect(overviewTab).toHaveClass('duration-300');
     });
 

@@ -1538,6 +1538,7 @@ export class ForecastBuilder {
       },
       wave_height_provenance: {
         source: waveHeightDebug.source,
+        provenance: waveHeightDebug.provenance,
         raw_value_ft: waveHeightDebug.rawHeightFt,
         station_id: provenanceStationId,
         transform_path: waveHeightDebug.transformPath,

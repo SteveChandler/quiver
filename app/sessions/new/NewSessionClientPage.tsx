@@ -109,6 +109,9 @@ function NewSessionPageContent({
               onShare={submission.handleShareSession}
               onSkip={submission.handleSkipShare}
               shareCardUrl={submission.shareCardUrl ?? undefined}
+              beachId={submission.savedSessionData?.selectedBeachId || undefined}
+              sessionId={submission.createdSessionId ?? undefined}
+              initialPhoto={submission.savedSessionData?.photos?.[0] ?? null}
             />
           )}
           {submission.shareCardUrl && (

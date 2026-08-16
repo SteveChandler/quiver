@@ -4,6 +4,7 @@ import { createPublicReadClient } from "@/lib/supabase/server";
 import { withServerAction, ServerActionResponse } from "@/lib/server-action-utils";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { resolveCityFromSlug } from "@/lib/seo/city-slug-utils";
+import { rankBeaches } from "@/lib/recommendations/selection";
 
 // CityMetadata and BeachEditorialItem are defined in @/types/location; re-export for backward compatibility
 import type { CityMetadata, BeachEditorialItem } from "@/types/location";
@@ -292,7 +293,7 @@ export async function getCityBeachEditorialData(
       return [];
     }
 
-    return beaches.map((b: Record<string, any>) => {
+    const editorialBeaches = beaches.map((b: Record<string, any>) => {
       const item: BeachEditorialItem = {
         id: b.id,
         name: b.name,
@@ -319,6 +320,10 @@ export async function getCityBeachEditorialData(
       if (b.preferred_tide_ft_max != null) item.preferredTideFtMax = Number(b.preferred_tide_ft_max);
 
       return item;
+    });
+
+    return rankBeaches(editorialBeaches, {
+      compare: (left, right) => left.name.localeCompare(right.name),
     });
   } catch (error) {
     console.error("[getCityBeachEditorialData] Unexpected error:", error);

@@ -117,7 +117,7 @@ export function WaterQualityMapList({ beaches, currentSlug }: WaterQualityMapLis
                     key={beach.beachId}
                     href={`/tools/water-quality?beach=${beach.beachSlug}`}
                     className={cn(
-                      "flex items-center justify-between gap-3 rounded-xl border p-3.5 transition-all",
+                      "flex items-center justify-between gap-3 rounded-xl border p-3.5 transition-[background-color,box-shadow]",
                       "bg-white/5 border-white/10 hover:bg-white/10",
                       isActive && "ring-2 ring-[#F78E42]/60",
                       config.color

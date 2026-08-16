@@ -12,6 +12,7 @@ import {
   toFaceHeightRangeFeet,
   extractNumericWaveHeight,
   selectWaveHeightSource,
+  metersToFeet,
   roundWaveHeight,
   clampWaveHeight,
   WAVE_HEIGHT_NUMBER_PATTERN,
@@ -132,6 +133,22 @@ describe("wave-formatters", () => {
       // Even with min > max, should format without crashing
       const result = formatWaveRange([5, 3]);
       expect(typeof result).toBe("string");
+    });
+
+    it("characterizes the array arity used by forecast cards", () => {
+      expect(formatWaveRange([2.375, 2.375])).toBe("2.4ft");
+      expect(formatWaveRange([2.375, 4.625], "integer")).toBe("2-5ft");
+    });
+  });
+
+  describe("metersToFeet characterization", () => {
+    it("preserves raw conversion precision and undefined sentinels", () => {
+      expect(metersToFeet(1.83)).toBe(6.0039372);
+      expect(metersToFeet(0.2)).toBe(0.6561680000000001);
+      expect(metersToFeet(null)).toBeUndefined();
+      expect(metersToFeet(undefined)).toBeUndefined();
+      expect(metersToFeet(Number.NaN)).toBeUndefined();
+      expect(metersToFeet(Number.POSITIVE_INFINITY)).toBeUndefined();
     });
   });
 
@@ -620,17 +637,16 @@ describe("wave-formatters", () => {
         expect(numeric).toBeLessThan(3);
       });
 
-      it("uncalibrated beach (shoaling_factors=null) follows legacy path regardless of source", () => {
-        // Sanity: an uncalibrated beach with CDIP sig input uses the legacy
-        // pipeline, no short-circuit. Confirms the 190-ish non-Phase-1.4
-        // beaches behave identically to pre-migration.
+      it("uncalibrated beach (shoaling_factors=null) uses the population prior", () => {
+        // Regression: the formatter path must agree with the transformer path
+        // so an uncalibrated beach does not lose the prior at source selection.
         const result = toFaceHeightFeet({
           cdipSigFt: 1.7,
           periodS: 14,
           beach: { shoaling_factors: null },
         });
-        // 1.7 * 1.0 * 1.2 * 1.0 = 2.04 → 2 ft
-        expect(result).toBe("2 ft");
+        // 1.7 * 1.119 * 1.2 = 2.28456 → 2.3 ft
+        expect(result).toBe("2.3 ft");
       });
     });
   });

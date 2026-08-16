@@ -77,7 +77,7 @@ export function LocationTimeoutBanner({
           onClick={handleGrantLocation}
           size="sm"
           variant="default"
-          className="bg-amber-600 hover:bg-amber-700 text-white"
+          className="min-h-11 bg-amber-600 hover:bg-amber-700 text-white"
         >
           <MapPin className="h-4 w-4 mr-1" />
           Grant Location Access
@@ -86,14 +86,14 @@ export function LocationTimeoutBanner({
           onClick={handleDismiss}
           size="sm"
           variant="ghost"
-          className="text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
+          className="min-h-11 text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
         >
           Dismiss
         </Button>
       </div>
       <button
         onClick={handleDismiss}
-        className="absolute top-3 right-3 text-amber-600 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-100"
+        className="absolute right-1 top-1 inline-flex h-11 w-11 items-center justify-center text-amber-600 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-100 focus-ring"
         aria-label="Dismiss banner"
         data-testid="dismiss-banner-button"
       >

@@ -87,6 +87,7 @@ async function tryWaitForLayer(page: Page, timeout = 5000): Promise<boolean> {
 
 async function requireRenderedSwellLayer(page: Page): Promise<void> {
   await waitForMapIdle(page);
+  await page.getByRole("button", { name: "Expand map legend" }).click();
   await expect(page.getByTestId("swell-layer-selector")).toBeVisible({
     timeout: 30000,
   });
@@ -141,6 +142,7 @@ function changedPixelCount(left: Buffer, right: Buffer): number {
 
 function hourlyTimelineChunk(
   beachIds: string[],
+  timelineBeachIds: string[],
   start: string,
   hours: number,
   hasMore: boolean,
@@ -149,23 +151,33 @@ function hourlyTimelineChunk(
   const timestamps = Array.from({ length: hours }, (_, index) =>
     new Date(startMs + index * 60 * 60 * 1000).toISOString(),
   );
+  const partition = (index = 0) => ({
+    s1Dir: 270,
+    s1PeriodS: 14,
+    s1HeightFt: 3.5 + index / 10,
+    s2Dir: null,
+    s2PeriodS: null,
+    s2HeightFt: null,
+    windDir: null,
+    windMph: null,
+  });
 
   return {
     success: true,
     data: {
       forecasts: Object.fromEntries(beachIds.map((beachId) => [beachId, "3.5 ft"])),
       swellPartitions: Object.fromEntries(
-        beachIds.map((beachId) => [beachId, { s1Dir: 270, s1PeriodS: 14, s1HeightFt: 3.5 }]),
+        beachIds.map((beachId) => [beachId, partition()]),
       ),
       hourlySwellTimeline: {
         timestamps,
         partitionsByBeach: Object.fromEntries(
-          beachIds.map((beachId) => [
+          timelineBeachIds.map((beachId) => [
             beachId,
             timestamps.map((_, index) =>
               index === 7
                 ? null
-                : { s1Dir: 270, s1PeriodS: 14, s1HeightFt: 3.5 + index / 10 },
+                : partition(index),
             ),
           ]),
         ),
@@ -178,10 +190,59 @@ function hourlyTimelineChunk(
   };
 }
 
-async function routeExpandableTimeline(page: Page): Promise<{ requests: string[] }> {
-  const requests: string[] = [];
+async function routeMapBeachCatalog(page: Page): Promise<void> {
+  const beaches = [
+    {
+      id: "mission-beach",
+      name: "Mission Beach",
+      slug: "mission-beach",
+      city: "San Diego",
+      state: "CA",
+      country: "USA",
+      timezone: "America/Los_Angeles",
+      lat: 32.7702,
+      lon: -117.2525,
+    },
+    {
+      id: "waikiki",
+      name: "Waikiki",
+      slug: "waikiki",
+      city: "Honolulu",
+      state: "HI",
+      country: "USA",
+      timezone: "Pacific/Honolulu",
+      lat: 21.2767,
+      lon: -157.8263,
+    },
+  ];
+
+  await page.route("**/api/beaches/nearby?*", async (route: Route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, data: beaches }),
+    });
+  });
+  await page.route("**/api/beaches", async (route: Route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, data: { beaches } }),
+    });
+  });
+  await page.route("**/rest/v1/custom_spots?*", async (route: Route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      headers: { "Content-Range": "*/0" },
+      body: "[]",
+    });
+  });
+}
+
+async function routeExpandableTimeline(
+  page: Page,
+): Promise<{ requests: Array<{ start: string; hours: string | null }> }> {
+  const requests: Array<{ start: string; hours: string | null }> = [];
   const initialStart = "2026-07-10T20:00:00.000Z";
-  const secondStart = "2026-07-12T02:00:00.000Z";
+  const secondStart = "2026-07-12T20:00:00.000Z";
 
   await page.route("**/api/forecasts/bulk?*", async (route: Route) => {
     const url = new URL(route.request().url());
@@ -191,13 +252,19 @@ async function routeExpandableTimeline(page: Page): Promise<{ requests: string[]
     }
 
     const start = url.searchParams.get("timelineStart") ?? initialStart;
-    requests.push(start);
+    requests.push({ start, hours: url.searchParams.get("timelineHours") });
     const beachIds = (url.searchParams.get("beachIds") ?? "")
       .split(",")
       .filter(Boolean);
+    const explicitTimelineBeachIds = (url.searchParams.get("timelineBeachIds") ?? "")
+      .split(",")
+      .filter(Boolean);
+    const timelineBeachIds = explicitTimelineBeachIds.length > 0
+      ? explicitTimelineBeachIds
+      : beachIds;
     const body = start === secondStart
-      ? hourlyTimelineChunk(beachIds, secondStart, 24, false)
-      : hourlyTimelineChunk(beachIds, initialStart, 30, true);
+      ? hourlyTimelineChunk(beachIds, timelineBeachIds, secondStart, 182, true)
+      : hourlyTimelineChunk(beachIds, timelineBeachIds, initialStart, 48, true);
     await route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
   });
 
@@ -220,13 +287,74 @@ test.describe("expandable local forecast timeline", () => {
 
   test.beforeEach(async ({ page }) => {
     errorCapture = setupErrorDetection(page);
+    await routeMapBeachCatalog(page);
   });
 
   test.afterEach(async ({ page }) => {
     await assertNoErrors(page, errorCapture, { context: "Expandable map forecast timeline" });
   });
 
-  test("uses absolute Hawaii time, keyboard hours, and a second forecast chunk", async ({ page }) => {
+  test("keeps a truthful field loading status until the first forecast chunk resolves", async ({ page }) => {
+    let releaseForecast!: () => void;
+    const forecastRelease = new Promise<void>((resolve) => {
+      releaseForecast = resolve;
+    });
+    let reportRequest!: (url: URL) => void;
+    const forecastRequest = new Promise<URL>((resolve) => {
+      reportRequest = resolve;
+    });
+
+    await page.route("**/api/forecasts/bulk?*", async (route: Route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get("timeline") !== "hourly") {
+        await route.continue();
+        return;
+      }
+
+      reportRequest(url);
+      await forecastRelease;
+      const beachIds = (url.searchParams.get("beachIds") ?? "")
+        .split(",")
+        .filter(Boolean);
+      const explicitTimelineBeachIds = (url.searchParams.get("timelineBeachIds") ?? "")
+        .split(",")
+        .filter(Boolean);
+      const timelineBeachIds = explicitTimelineBeachIds.length > 0
+        ? explicitTimelineBeachIds
+        : beachIds;
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(
+          hourlyTimelineChunk(
+            beachIds,
+            timelineBeachIds,
+            "2026-07-10T20:00:00.000Z",
+            48,
+            false,
+          ),
+        ),
+      });
+    });
+
+    await page.goto("/map?search=Mission%20Beach", { waitUntil: "commit" });
+    await expect(page.getByText("Unable to Load map data")).toHaveCount(0);
+
+    try {
+      const requestUrl = await forecastRequest;
+      expect(requestUrl.searchParams.get("timelineHours")).toBe("48");
+      await expect(page.getByTestId("swell-field-loading-note")).toBeVisible();
+      await expect(page.getByTestId("swell-field-empty-note")).toHaveCount(0);
+    } finally {
+      releaseForecast();
+    }
+
+    await expect(page.getByTestId("swell-field-loading-note")).toHaveCount(0);
+    await expect(page.getByTestId("swell-field-empty-note")).toHaveCount(0);
+    await expect(page.getByText("Unable to Load map data")).toHaveCount(0);
+    await expect(page.getByTestId("map-container")).toBeVisible();
+  });
+
+  test("uses absolute Hawaii time, keyboard hours, and a ten-day background horizon", async ({ page }) => {
     const timeline = await routeExpandableTimeline(page);
     await page.goto("/map?search=Waikiki");
     await page.waitForLoadState("load");
@@ -244,8 +372,18 @@ test.describe("expandable local forecast timeline", () => {
     await slider.press("PageDown");
     await expect(bubble).toHaveText(/Sat 11 — 11 AM HST/);
 
-    await expect.poll(() => timeline.requests.filter((start) => start === "2026-07-12T02:00:00.000Z").length).toBe(1);
-    await expect(page.getByTestId("timeline-day-Sun-12")).toBeVisible();
+    await expect.poll(() => timeline.requests.filter(
+      (request) => request.start === "2026-07-12T20:00:00.000Z"
+        && request.hours === "182",
+    ).length).toBe(1);
+    await expect(page.getByTestId("timeline-day-Sun-19")).toBeVisible();
+    await expect(page.getByTestId("timeline-day-Mon-20")).toHaveCount(0);
+    await slider.press("End");
+    await expect(bubble).toHaveText(/Sun 19/);
+    expect(timeline.requests.filter(
+      (request) => request.start === "2026-07-12T20:00:00.000Z"
+        && request.hours === "182",
+    )).toHaveLength(1);
   });
 
   test("keeps the mobile bubble, controls, and conditions callout inside the map timeline", async ({ page }) => {
@@ -277,6 +415,49 @@ test.describe("expandable local forecast timeline", () => {
     expect(playBox!.x).toBeGreaterThanOrEqual(mapBox!.x);
     expect(playBox!.x + playBox!.width).toBeLessThanOrEqual(mapBox!.x + mapBox!.width);
 
+    const slider = page.getByRole("slider", { name: "Forecast time" });
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 756, height: 781 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await slider.press("End");
+      const [endBubbleBox, resizedPanelBox] = await Promise.all([
+        bubble.boundingBox(),
+        panel.boundingBox(),
+      ]);
+      expect(endBubbleBox).not.toBeNull();
+      expect(resizedPanelBox).not.toBeNull();
+      expect(endBubbleBox!.x).toBeGreaterThanOrEqual(resizedPanelBox!.x);
+      expect(endBubbleBox!.x + endBubbleBox!.width).toBeLessThanOrEqual(
+        resizedPanelBox!.x + resizedPanelBox!.width,
+      );
+
+      await slider.press("Home");
+      const startBubbleBox = await bubble.boundingBox();
+      expect(startBubbleBox).not.toBeNull();
+      expect(startBubbleBox!.x).toBeGreaterThanOrEqual(resizedPanelBox!.x);
+      expect(startBubbleBox!.x + startBubbleBox!.width).toBeLessThanOrEqual(
+        resizedPanelBox!.x + resizedPanelBox!.width,
+      );
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await slider.fill("7");
+    const emptyNote = page.getByTestId("swell-field-empty-note");
+    await expect(emptyNote).toHaveText("No swell data for this forecast hour");
+    const [emptyNoteBox, nullFramePanelBox] = await Promise.all([
+      emptyNote.boundingBox(),
+      panel.boundingBox(),
+    ]);
+    expect(emptyNoteBox).not.toBeNull();
+    expect(nullFramePanelBox).not.toBeNull();
+    expect(emptyNoteBox!.y + emptyNoteBox!.height).toBeLessThanOrEqual(
+      nullFramePanelBox!.y,
+    );
+    await slider.fill("8");
+    await expect(emptyNote).toHaveCount(0);
+
     await expect(page.getByTestId("beach-marker").first()).toBeVisible({ timeout: 30000 });
     const marker = await firstMarkerAboveTimeline(page, panelBox!.y);
     await marker.click();
@@ -291,6 +472,7 @@ test.describe("expandable local forecast timeline", () => {
     await routeExpandableTimeline(page);
     await page.goto("/map?search=Waikiki");
     await page.waitForLoadState("load");
+    await page.getByRole("option", { name: "Waikiki Honolulu, HI" }).click();
     await waitForMapInstance(page);
     await requireRenderedSwellLayer(page);
 
@@ -361,6 +543,8 @@ for (const viewport of [
         width: viewport.width,
         height: viewport.height,
       });
+      await routeMapBeachCatalog(page);
+      await routeExpandableTimeline(page);
     });
 
     test.afterEach(async ({ page }) => {
@@ -373,7 +557,10 @@ for (const viewport of [
       await waitForMapInstance(page);
       await waitForMapIdle(page);
 
-      await expect(page.getByTestId("swell-layer-selector")).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Expand map legend" }),
+      ).toBeVisible();
+      await expect(page.getByTestId("swell-layer-selector")).toHaveCount(0);
       expect(await layerExists(page)).toBe(true);
 
       await page.getByTestId("swell-field-toggle").click();
@@ -381,7 +568,10 @@ for (const viewport of [
       expect(await layerExists(page)).toBe(false);
 
       await page.getByTestId("swell-field-toggle").click();
-      await expect(page.getByTestId("swell-layer-selector")).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Expand map legend" }),
+      ).toBeVisible();
+      expect(await layerExists(page)).toBe(true);
     });
 
     test("switches layers without console errors", async ({ page }) => {
@@ -389,16 +579,17 @@ for (const viewport of [
       await page.waitForLoadState("load");
       await waitForMapInstance(page);
       await waitForMapIdle(page);
+      await page.getByRole("button", { name: "Expand map legend" }).click();
       await expect(page.getByTestId("swell-layer-selector")).toBeVisible();
 
       await page.getByTestId("swell-layer-wind").click();
       await expect(page.getByTestId("swell-layer-wind")).toHaveAttribute(
-        "aria-checked",
+        "aria-pressed",
         "true"
       );
       await page.getByTestId("swell-layer-s2").click();
       await expect(page.getByTestId("swell-layer-s2")).toHaveAttribute(
-        "aria-checked",
+        "aria-pressed",
         "true"
       );
       expect(await layerExists(page)).toBe(true);
@@ -416,6 +607,10 @@ for (const viewport of [
       const mapContainer = page.getByTestId("map-container");
 
       await expect(legend).toBeVisible();
+      await expect(selector).toHaveCount(0);
+      await legend
+        .getByRole("button", { name: "Expand map legend" })
+        .press("Enter");
       await expect(selector).toBeVisible();
       await expect(timeline).toBeVisible();
       await expect(legend.getByTestId("swell-forecast-timeline")).toHaveCount(0);
@@ -496,7 +691,6 @@ for (const viewport of [
     }) => {
       // Motion allowed.
       await page.emulateMedia({ reducedMotion: "no-preference" });
-      await routeExpandableTimeline(page);
       await page.goto("/map");
       await page.waitForLoadState("load");
       await waitForMapInstance(page);
@@ -512,6 +706,7 @@ for (const viewport of [
       const page2 = await context.newPage();
       await page2.setViewportSize(viewport);
       await page2.emulateMedia({ reducedMotion: "reduce" });
+      await routeMapBeachCatalog(page2);
       await routeExpandableTimeline(page2);
       const cap2 = setupErrorDetection(page2);
       await page2.goto("/map");

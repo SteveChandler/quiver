@@ -19,6 +19,7 @@ import type { RecommendationAvailability } from "@/lib/recommendations/major-eve
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import { normalizeBoardClass, type BoardClass } from "@/lib/domains/rideability";
 import {
   resolveSelectedHourDisplay,
   resolveTodayHeadline,
@@ -30,7 +31,12 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import type { Database } from "@/types/database.generated";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { rowToSwellPartition, type SwellPartition } from "./swell-partition";
+import { MAX_TIMELINE_FIELD_BEACHES } from "@/components/map/timeline-beach-sampler";
+import {
+  interpolateSwellPartition,
+  rowToSwellPartition,
+  type SwellPartition,
+} from "./swell-partition";
 
 export const dynamic = 'force-dynamic';
 
@@ -50,7 +56,13 @@ export interface HourlySwellTimeline {
   nextStart: string | null;
 }
 
-type ConditionSummary = "GOOD" | "FAIR" | "CHECK" | "UNKNOWN";
+export type ConditionSummary =
+  | "EPIC"
+  | "GOOD"
+  | "FAIR"
+  | "RIDEABLE"
+  | "MEH"
+  | "UNKNOWN";
 
 const emptyBulkForecastResponse = {
   forecasts: {},
@@ -64,7 +76,10 @@ const emptyBulkForecastResponse = {
 };
 
 const BULK_FORECAST_SELECT =
-  "beach_id, forecast_date, forecast_time, forecast_at, wave_height, wave_period, wave_direction, wave_height_om, wave_direction_om, swell_height_om, swell_period_om, swell_direction_om, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_wave_height, wind_wave_period, wind_wave_direction, wind_speed, wind_direction, wind_direction_deg, tide_height, tide_status, confidence_score, data_source" as const;
+  "beach_id, forecast_date, forecast_time, forecast_at, wave_height, wave_period, wave_direction, wave_height_om, wave_direction_om, swell_height_om, swell_period_om, swell_direction_om, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_wave_height, wind_wave_period, wind_wave_direction, wind_speed, wind_direction, wind_direction_deg, water_temp, tide_height, tide_status, confidence_score, data_source" as const;
+
+const HOURLY_TIMELINE_SELECT =
+  "beach_id, forecast_at, swell_direction_om, wave_direction_om, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_speed, wind_direction_deg" as const;
 
 const BULK_BEACH_SELECT =
   "id, name, slug, lat, lon, city, state, country, region, timezone, break_type, skill_level, cdip_station, cdip_eligible, wind_offshore_deg, wind_offshore_tol_deg, wind_cross_shore_ok_kt, wind_onshore_bad_kt, swell_window_center_deg, swell_window_halfwidth_deg, swell_access_factors, wind_exposure_factors, preferred_tide_direction, preferred_tide_ft_min, preferred_tide_ft_max, tide_direction_sensitivity, preference_model, features, hazards, average_rating, review_count, shoaling_factors" as const;
@@ -77,6 +92,10 @@ const HOURLY_SWELL_TIMELINE_HOUR_OFFSETS = Array.from(
 const DEFAULT_TIMELINE_HOURS = 48;
 const MAX_TIMELINE_HOURS = 14 * 24;
 const HOUR_MS = 60 * 60 * 1000;
+const TIMELINE_ANCHOR_HOURS = 3;
+const TIMELINE_ANCHOR_MS = TIMELINE_ANCHOR_HOURS * HOUR_MS;
+const HOURLY_INTERPOLATION_SPAN_HOURS = 3;
+const HOURLY_SAMPLE_HALO_MS = HOURLY_INTERPOLATION_SPAN_HOURS * HOUR_MS;
 const ISO_TIMESTAMP_WITH_TIMEZONE =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})$/;
 
@@ -115,17 +134,19 @@ type HourlyTimelineWindowParseResult =
  *     },
  *     isCalibrated: { [beachId]: boolean },
  *     conditionScores: { [beachId]: number | undefined },
- *     conditionSummaries: { [beachId]: "GOOD" | "FAIR" | "CHECK" | "UNKNOWN" }
+ *     conditionSummaries: {
+ *       [beachId]: "EPIC" | "GOOD" | "FAIR" | "RIDEABLE" | "MEH" | "UNKNOWN"
+ *     }
  *   }
  * }
  */
-function conditionSummaryFromScore(score: number): ConditionSummary {
-  // Web map v1 derives native-aligned summaries from the current-row score.
-  // Native currently maps from the final verdict in surf-spot-map-summary.ts.
-  // TODO(map parity): expose verdicts here so window demotions can't diverge.
+export function conditionSummaryFromScore(score: number): ConditionSummary {
+  if (!Number.isFinite(score)) return "UNKNOWN";
+  if (score >= 80) return "EPIC";
   if (score >= 70) return "GOOD";
-  if (score >= 40) return "FAIR";
-  return "CHECK";
+  if (score >= 55) return "FAIR";
+  if (score >= 40) return "RIDEABLE";
+  return "MEH";
 }
 
 function buildBulkCandidateBindings(
@@ -283,6 +304,67 @@ function parseHourlyTimelineWindow(
   return { window: { start, end }, error: null };
 }
 
+function parseTimelineBeachIds(
+  searchParams: URLSearchParams,
+  requestedBeachIds: readonly string[],
+): { beachIds: string[]; error: string | null } {
+  const requestedBeachIdSet = new Set(requestedBeachIds);
+  const timelineBeachIdsParam = searchParams.get("timelineBeachIds");
+  if (
+    timelineBeachIdsParam === null
+    && requestedBeachIds.length > MAX_TIMELINE_FIELD_BEACHES
+  ) {
+    return {
+      beachIds: [],
+      error: `timelineBeachIds is required when beachIds includes more than ${MAX_TIMELINE_FIELD_BEACHES} beaches`,
+    };
+  }
+  const timelineBeachIds = timelineBeachIdsParam === null
+    ? [...requestedBeachIds]
+    : Array.from(new Set(
+        timelineBeachIdsParam
+          .split(",")
+          .map((beachId) => beachId.trim())
+          .filter(Boolean),
+      ));
+
+  if (timelineBeachIds.length === 0) {
+    return { beachIds: [], error: "timelineBeachIds must include at least one beach" };
+  }
+  if (timelineBeachIds.length > MAX_TIMELINE_FIELD_BEACHES) {
+    return {
+      beachIds: [],
+      error: `timelineBeachIds supports at most ${MAX_TIMELINE_FIELD_BEACHES} beaches`,
+    };
+  }
+  if (timelineBeachIds.some((beachId) => !requestedBeachIdSet.has(beachId))) {
+    return {
+      beachIds: [],
+      error: "timelineBeachIds must be a subset of beachIds",
+    };
+  }
+
+  return { beachIds: timelineBeachIds, error: null };
+}
+
+function timelineAnchorTimestamps(start: Date, end: Date): string[] {
+  const firstAnchorMs = Math.floor(start.getTime() / TIMELINE_ANCHOR_MS)
+    * TIMELINE_ANCHOR_MS;
+  const finalAnchorMs = Math.ceil(end.getTime() / TIMELINE_ANCHOR_MS)
+    * TIMELINE_ANCHOR_MS;
+  const timestamps: string[] = [];
+
+  for (
+    let anchorMs = firstAnchorMs;
+    anchorMs <= finalAnchorMs;
+    anchorMs += TIMELINE_ANCHOR_MS
+  ) {
+    timestamps.push(new Date(anchorMs).toISOString());
+  }
+
+  return timestamps;
+}
+
 function forecastTimeMs(
   row: Pick<EnhancedForecastEntity, "forecast_at" | "forecast_date" | "forecast_time">
 ): number | null {
@@ -358,6 +440,43 @@ function forecastAtMs(row: Pick<EnhancedForecastEntity, "forecast_at">): number 
   return Number.isFinite(value) ? value : null;
 }
 
+function partitionForTimelineHour(
+  rowsByHour: ReadonlyMap<number, EnhancedForecastEntity>,
+  hourMs: number,
+): SwellPartition | null {
+  const exact = rowsByHour.get(hourMs);
+  if (exact) return rowToSwellPartition(exact);
+
+  let previous: EnhancedForecastEntity | null = null;
+  let next: EnhancedForecastEntity | null = null;
+  for (
+    let deltaHours = 1;
+    deltaHours <= HOURLY_INTERPOLATION_SPAN_HOURS;
+    deltaHours += 1
+  ) {
+    previous ??= rowsByHour.get(hourMs - deltaHours * HOUR_MS) ?? null;
+    next ??= rowsByHour.get(hourMs + deltaHours * HOUR_MS) ?? null;
+  }
+  if (!previous || !next) return null;
+
+  const previousMs = forecastAtMs(previous);
+  const nextMs = forecastAtMs(next);
+  if (
+    previousMs == null
+    || nextMs == null
+    || nextMs <= previousMs
+    || nextMs - previousMs > HOURLY_SAMPLE_HALO_MS
+  ) {
+    return null;
+  }
+
+  return interpolateSwellPartition(
+    rowToSwellPartition(previous),
+    rowToSwellPartition(next),
+    (hourMs - previousMs) / (nextMs - previousMs),
+  );
+}
+
 function buildHourlySwellTimeline(
   rows: EnhancedForecastEntity[],
   beachIds: string[],
@@ -365,7 +484,7 @@ function buildHourlySwellTimeline(
   nextStart: string | null,
 ): HourlySwellTimeline {
   const requestedBeachIds = new Set(beachIds);
-  const rowsByHour = new Map<number, Map<string, EnhancedForecastEntity>>();
+  const rowsByBeach = new Map<string, Map<number, EnhancedForecastEntity>>();
 
   for (const row of rows) {
     if (!requestedBeachIds.has(row.beach_id)) continue;
@@ -373,25 +492,36 @@ function buildHourlySwellTimeline(
     const rowMs = forecastAtMs(row);
     if (rowMs == null) continue;
 
-    if (rowMs < window.start.getTime() || rowMs >= window.end.getTime()) continue;
+    if (
+      rowMs < window.start.getTime() - HOURLY_SAMPLE_HALO_MS
+      || rowMs >= window.end.getTime() + HOURLY_SAMPLE_HALO_MS
+    ) {
+      continue;
+    }
     if (rowMs % HOUR_MS !== 0) continue;
 
-    const hourMs = rowMs;
-    const rowsByBeach = rowsByHour.get(hourMs) ?? new Map<string, EnhancedForecastEntity>();
-    if (!rowsByBeach.has(row.beach_id)) {
-      rowsByBeach.set(row.beach_id, row);
-    }
-    rowsByHour.set(hourMs, rowsByBeach);
+    const beachRows = rowsByBeach.get(row.beach_id)
+      ?? new Map<number, EnhancedForecastEntity>();
+    if (!beachRows.has(rowMs)) beachRows.set(rowMs, row);
+    rowsByBeach.set(row.beach_id, beachRows);
   }
 
-  const hourKeys = Array.from(rowsByHour.keys()).sort((left, right) => left - right);
+  const hourKeys: number[] = [];
+  for (
+    let hourMs = window.start.getTime();
+    hourMs < window.end.getTime();
+    hourMs += HOUR_MS
+  ) {
+    hourKeys.push(hourMs);
+  }
+
   const timestamps = hourKeys.map((hourMs) => new Date(hourMs).toISOString());
   const partitionsByBeach = Object.fromEntries(
     beachIds.map((beachId) => [
       beachId,
       hourKeys.map((hourMs) => {
-        const row = rowsByHour.get(hourMs)?.get(beachId);
-        return row ? rowToSwellPartition(row) : null;
+        const beachRows = rowsByBeach.get(beachId);
+        return beachRows ? partitionForTimelineHour(beachRows, hourMs) : null;
       }),
     ]),
   ) as Record<string, Array<SwellPartition | null>>;
@@ -413,17 +543,22 @@ async function fetchHourlySwellTimelineRows(
   data: EnhancedForecastEntity[] | null;
   error: { message: string } | null;
 }> {
+  const anchorTimestamps = timelineAnchorTimestamps(start, end);
   const { data, error } = await supabase
     .from("enhanced_forecasts")
-    .select(BULK_FORECAST_SELECT)
+    .select(HOURLY_TIMELINE_SELECT)
     .in("beach_id", beachIds)
-    .gte("forecast_at", start.toISOString())
-    .lt("forecast_at", end.toISOString())
-    .order("forecast_at", { ascending: true });
+    .in("forecast_at", anchorTimestamps)
+    .gte("forecast_at", new Date(start.getTime() - HOURLY_SAMPLE_HALO_MS).toISOString())
+    .lt("forecast_at", new Date(end.getTime() + HOURLY_SAMPLE_HALO_MS).toISOString())
+    .order("forecast_at", { ascending: true })
+    .order("beach_id", { ascending: true });
+
+  if (error) return { data: null, error: { message: error.message } };
 
   return {
-    data: data as unknown as EnhancedForecastEntity[] | null,
-    error: error ? { message: error.message } : null,
+    data: (data ?? []) as unknown as EnhancedForecastEntity[],
+    error: null,
   };
 }
 
@@ -435,10 +570,15 @@ async function fetchNextHourlySwellTimelineStart(
   nextStart: string | null;
   error: { message: string } | null;
 }> {
+  const eligibleFutureAnchors = timelineAnchorTimestamps(
+    end,
+    new Date(end.getTime() + MAX_TIMELINE_HOURS * HOUR_MS),
+  ).filter((timestamp) => Date.parse(timestamp) >= end.getTime());
   const { data, error } = await supabase
     .from("enhanced_forecasts")
     .select("forecast_at")
     .in("beach_id", beachIds)
+    .in("forecast_at", eligibleFutureAnchors)
     .gte("forecast_at", end.toISOString())
     .order("forecast_at", { ascending: true })
     .limit(1);
@@ -450,7 +590,7 @@ async function fetchNextHourlySwellTimelineStart(
     return { nextStart: null, error: null };
   }
 
-  return { nextStart: new Date(nextEpoch).toISOString(), error: null };
+  return { nextStart: end.toISOString(), error: null };
 }
 
 async function fetchHourlySwellTimeline(
@@ -599,12 +739,19 @@ async function bulkForecastHandler(
     // Limit to prevent abuse
     const maxBeaches = 50;
     const limitedBeachIds = beachIds.slice(0, maxBeaches);
+    const timelineBeachIdResult = isHourlyTimeline
+      ? parseTimelineBeachIds(searchParams, limitedBeachIds)
+      : null;
+    if (timelineBeachIdResult?.error) {
+      return createValidationError(timelineBeachIdResult.error);
+    }
+    const timelineBeachIds = timelineBeachIdResult?.beachIds ?? [];
     const { supabase, user } = context;
 
     if (isHourlyTimelineExtension && hourlyTimelineWindow) {
       const { timeline, error } = await fetchHourlySwellTimeline(
         supabase,
-        limitedBeachIds,
+        timelineBeachIds,
         hourlyTimelineWindow,
       );
       if (error || !timeline) {
@@ -621,7 +768,20 @@ async function bulkForecastHandler(
       });
     }
 
-    const userSkillLevel = await getProfileExperienceLevel(supabase, user?.id);
+    const [userSkillLevel, boardClasses] = await Promise.all([
+      getProfileExperienceLevel(supabase, user?.id),
+      user?.id
+        ? supabase
+            .from("boards")
+            .select("board_type")
+            .eq("user_id", user.id)
+            .then(({ data }) => Array.from(new Set(
+              (data ?? [])
+                .map((row) => normalizeBoardClass(row.board_type))
+                .filter((boardClass): boardClass is BoardClass => boardClass !== null)
+            )))
+        : Promise.resolve<BoardClass[]>([]),
+    ]);
     const fetchWindow = resolveForecastFetchWindow(forecastAtParam);
 
     const {
@@ -643,7 +803,7 @@ async function bulkForecastHandler(
     let hourlySwellTimeline: HourlySwellTimeline | undefined;
     if (hourlyTimelineWindow) {
       const { timeline, error: hourlyTimelineError } =
-        await fetchHourlySwellTimeline(supabase, limitedBeachIds, hourlyTimelineWindow);
+        await fetchHourlySwellTimeline(supabase, timelineBeachIds, hourlyTimelineWindow);
 
       if (hourlyTimelineError || !timeline) {
         console.error("Error fetching hourly swell timeline:", hourlyTimelineError);
@@ -769,7 +929,13 @@ async function bulkForecastHandler(
         if (!forecast) continue;
 
         try {
-          const score = scoreWindowConditionScore(forecast, beach, userSkillLevel);
+          const score = scoreWindowConditionScore(
+            forecast,
+            beach,
+            userSkillLevel,
+            null,
+            boardClasses,
+          );
           if (!Number.isFinite(score)) continue;
 
           conditionScoreMap[beach.id] = score;
@@ -785,25 +951,14 @@ async function bulkForecastHandler(
       }
     }
 
-    // Fetch water temps from the same forecast rows
-    // Use a direct query since the RPC doesn't return water_temp
     const waterTempMap: Record<string, string | undefined> = {};
-    if (limitedBeachIds.length > 0) {
-      const now = new Date().toISOString();
-      const { data: tempData } = await supabase
-        .from("enhanced_forecasts")
-        .select("beach_id, water_temp")
-        .in("beach_id", limitedBeachIds)
-        .gte("forecast_at", now)
-        .not("water_temp", "is", null)
-        .order("forecast_at", { ascending: true });
-
-      // Keep only the first (most current) water_temp per beach
-      (tempData || []).forEach((row: { beach_id: string; water_temp: string | null }) => {
-        if (row.water_temp !== null && !waterTempMap[row.beach_id]) {
-          waterTempMap[row.beach_id] = row.water_temp;
-        }
-      });
+    for (const [beachId, rows] of timelineByBeach) {
+      const currentTempRow = rows.find((row) => (
+        Date.parse(row.forecast_at) >= nowMs && row.water_temp != null
+      ));
+      if (currentTempRow?.water_temp != null) {
+        waterTempMap[beachId] = currentTempRow.water_temp;
+      }
     }
 
     const response = {

@@ -71,6 +71,10 @@ jest.mock('@/lib/services/discovery/candidate-pool-builder', () => ({
   })),
 }));
 
+jest.mock('@/lib/recommendations/selection', () => ({
+  rankBeaches: jest.fn(async (beaches: Array<{ id: string }>) => beaches),
+}));
+
 jest.mock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
   batchFetchForecasts: jest.fn(async () => ({
     successful: candidateBeaches.map((b) => ({
@@ -229,21 +233,6 @@ jest.mock('@/lib/services/discovery/personalization-layer', () => ({
     avoidancePenalty: 0,
     reasons: [],
   })),
-}));
-
-jest.mock('@/lib/services/discovery/major-event-hold', () => ({
-  enforceMajorEventHoldBeforeDiscoveryTruncation: jest.fn(
-    async ({ recommendations, maxResults, isPrimaryEligible }) => ({
-      allAllowedRecommendations: recommendations,
-      primaryRecommendations: recommendations
-        .filter(isPrimaryEligible)
-        .slice(0, maxResults),
-      recommendationAvailability: {
-        state: 'available',
-        holdEpoch: 'similarity-lift-test-epoch',
-      },
-    }),
-  ),
 }));
 
 // Inline mock for the similarity layer captures the input array length and

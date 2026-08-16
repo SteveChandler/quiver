@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 
+import { IOS_APP_STORE_WEB_REDIRECT_PATH } from '../lib/constants/app-store';
 import {
   assertNoErrors,
   ErrorCapture,
@@ -42,12 +43,15 @@ test.describe('Guest Plans Page', () => {
       page.getByRole('link', {
         name: /open app store/i,
       }),
-    ).toHaveAttribute('href', /apps\.apple\.com\/us\/app\/surf-forecast-quiver\/id6759300320/);
+    ).toHaveAttribute('href', IOS_APP_STORE_WEB_REDIRECT_PATH);
     await expect(
       page.getByRole('link', {
         name: /get the android beta/i,
       }),
-    ).toHaveAttribute('href', '/android-beta');
+    ).toHaveAttribute(
+      'href',
+      /^\/android-beta\?source=plans-android-waitlist&surface=plans-page&placement=plans_compact&campaign=app_first_v1$/,
+    );
     await expect(page.getByText(/android beta is open/i).first()).toBeVisible();
 
     const bodyText = await page.locator('body').innerText();

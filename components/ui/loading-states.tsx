@@ -1,50 +1,18 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  LoadingSpinner,
+  CenteredLoadingSpinner,
+  InlineLoadingSpinner,
+} from "@/components/ui/loading-spinner";
+import { CardSkeleton } from "@/components/skeletons/card-skeleton";
 
-// Base loading spinner with consistent styling
-interface LoadingSpinnerProps {
-  size?: "sm" | "md" | "lg";
-  className?: string;
-  text?: string;
-}
-
-export function LoadingSpinner({
-  size = "md",
-  className = "",
-  text,
-}: LoadingSpinnerProps) {
-  const sizeClasses = {
-    sm: "h-4 w-4",
-    md: "h-8 w-8",
-    lg: "h-12 w-12",
-  };
-
-  return (
-    <div className={cn("flex items-center justify-center", className)}>
-      <Loader2
-        className={cn(
-          sizeClasses[size],
-          "animate-spin text-primary",
-          text && "mr-2"
-        )}
-      />
-      {text && <span className="text-muted-foreground">{text}</span>}
-    </div>
-  );
-}
+export { LoadingSpinner, CenteredLoadingSpinner, InlineLoadingSpinner };
+export { CardSkeleton };
 
 // Common loading patterns
-export function CenteredLoadingSpinner({ text }: { text?: string }) {
-  return (
-    <div className="flex justify-center py-8">
-      <LoadingSpinner text={text} />
-    </div>
-  );
-}
-
 export function FullPageLoader({ text = "Checking the lineup..." }: { text?: string }) {
   return (
     <div className="flex-1 flex items-center justify-center min-h-[400px]">
@@ -87,40 +55,6 @@ export function ListItemSkeleton({ count = 1 }: { count?: number }) {
             <div className="space-y-2">
               <Skeleton className="h-4 w-[250px]" />
               <Skeleton className="h-4 w-[200px]" />
-            </div>
-          </div>
-        ))}
-    </div>
-  );
-}
-
-// Card skeleton for consistent card loading states
-export function CardSkeleton({
-  count = 1,
-  showImage = true,
-  className = "",
-}: {
-  count?: number;
-  showImage?: boolean;
-  className?: string;
-}) {
-  return (
-    <div className={cn("space-y-4", className)}>
-      {Array(count)
-        .fill(0)
-        .map((_, index) => (
-          <div key={index} className="border rounded-lg p-4">
-            <div className="flex space-x-4">
-              {showImage && <Skeleton className="h-16 w-16 rounded-md" />}
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-5 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-                <div className="flex space-x-2">
-                  <Skeleton className="h-6 w-16" />
-                  <Skeleton className="h-6 w-12" />
-                  <Skeleton className="h-6 w-20" />
-                </div>
-              </div>
             </div>
           </div>
         ))}

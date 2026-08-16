@@ -265,7 +265,7 @@ export function SwellAnalyzerClient({
                 >
                   <button
                     onClick={() => setMode("current")}
-                    className="flex items-center gap-1.5 rounded-md px-3 py-1.5 font-mono text-xs font-semibold transition-colors min-h-[36px]"
+                    className="flex items-center gap-1.5 rounded-md px-3 py-1.5 font-mono text-xs font-semibold transition-colors min-h-[36px] focus-ring"
                     style={
                       mode === "current"
                         ? {
@@ -282,7 +282,7 @@ export function SwellAnalyzerClient({
                   </button>
                   <button
                     onClick={() => setMode("explore")}
-                    className="flex items-center gap-1.5 rounded-md px-3 py-1.5 font-mono text-xs font-semibold transition-colors min-h-[36px]"
+                    className="flex items-center gap-1.5 rounded-md px-3 py-1.5 font-mono text-xs font-semibold transition-colors min-h-[36px] focus-ring"
                     style={
                       mode === "explore"
                         ? {
@@ -469,7 +469,7 @@ export function SwellAnalyzerClient({
                             <button
                               key={label}
                               onClick={() => setSwellDirection(deg)}
-                              className="min-h-[44px] min-w-[44px] rounded-xl border font-mono text-sm font-semibold transition-colors"
+                              className="min-h-[44px] min-w-[44px] rounded-xl border font-mono text-sm font-semibold transition-colors focus-ring"
                               style={
                                 swellDirection === deg
                                   ? {

@@ -205,7 +205,7 @@ export function SwellArc({ points, peakIndex }: SwellArcProps) {
           // with 4-8px of breathing room. z-20 sits ABOVE the outlook list
           // but BELOW both the app-header (z-50) and the mobile
           // StickySignupBar (z-50), so collisions are impossible.
-          "sticky top-[calc(var(--site-header-height,72px))] z-20 mb-3 overflow-hidden rounded-2xl border bg-[#1a2051]/90 px-3 py-3 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.55)] backdrop-blur-sm transition-all duration-300",
+          "sticky top-[calc(var(--site-header-height,72px))] z-20 mb-3 overflow-hidden rounded-2xl border bg-[#1a2051]/90 px-3 py-3 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.55)] backdrop-blur-sm transition-[border-color,box-shadow] duration-300",
           isStuck
             ? "border-[#F78E42]/50 shadow-[0_10px_36px_-14px_rgba(247,142,66,0.45)]"
             : "border-white/10",

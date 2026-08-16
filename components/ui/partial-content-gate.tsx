@@ -113,7 +113,7 @@ export function PartialContentGate({
           Already have an account?{" "}
           <button
             onClick={handleLoginClick}
-            className="text-primary hover:underline font-medium"
+            className="text-primary hover:underline font-medium focus-ring"
           >
             Log in
           </button>

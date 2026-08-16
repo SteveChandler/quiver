@@ -87,7 +87,7 @@ export function NetworkErrorFallback({
           <button
             onClick={resetError}
             disabled={isRetrying}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-ocean-blue text-white rounded-lg hover:bg-ocean-blue/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-ocean-blue text-white rounded-lg hover:bg-ocean-blue/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-ring"
           >
             <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
             {isRetrying ? 'Retrying...' : 'Retry'}
@@ -97,7 +97,7 @@ export function NetworkErrorFallback({
           {cachedData && onUseCachedData && (
             <button
               onClick={onUseCachedData}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition-colors focus-ring"
             >
               <Database className="h-4 w-4" />
               View Cached Data

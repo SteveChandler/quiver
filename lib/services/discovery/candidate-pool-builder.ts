@@ -25,6 +25,7 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { createContextLogger } from '@/lib/logger';
 import type { Beach } from '@/types/database';
+import { rankBeaches } from '@/lib/recommendations/selection';
 import { parseSkillLevel, type SkillLevel } from '@/lib/domains/user-preferences';
 import {
   effectiveDistanceMiles,
@@ -40,6 +41,7 @@ export const MIN_CANDIDATES = 8;
 export const MAX_CANDIDATE_RADIUS_MILES = 100;
 
 const MILES_TO_METERS = 1609.34;
+const WATER_QUALITY_HOLD_OVERFETCH = 5;
 
 /**
  * Options for building the candidate pool
@@ -162,7 +164,7 @@ async function fetchCandidatesForRadius(args: {
   radiusMiles: number;
 }): Promise<PoolCandidate[] | null> {
   const max_distance_meters = Math.round(args.radiusMiles * MILES_TO_METERS);
-  const limit_count = CANDIDATE_POOL_LIMIT;
+  const limit_count = CANDIDATE_POOL_LIMIT + WATER_QUALITY_HOLD_OVERFETCH;
 
   const { data: nearbyRaw, error: nearbyError } = await args.supabase.rpc(
     'get_nearby_beaches',
@@ -182,7 +184,7 @@ async function fetchCandidatesForRadius(args: {
   const nearby = (nearbyRaw || []) as NearbyBeachRow[];
   const publicRows = nearby
     .filter((r) => !r.is_private)
-    .slice(0, CANDIDATE_POOL_LIMIT);
+    .slice(0, limit_count);
   const orderedIds = publicRows.map((r) => r.id);
 
   if (orderedIds.length === 0) {
@@ -222,12 +224,13 @@ async function fetchCandidatesForRadius(args: {
  * effective distance. Sorting — rather than filtering — means the cap upstream
  * simply takes a prefix and pinned spots survive it by construction.
  */
-function orderPoolCandidates(
+async function orderPoolCandidates(
   candidates: PoolCandidate[],
   userContext: PoolUserContext
-): Beach[] {
-  return candidates
+): Promise<Beach[]> {
+  const ordered = candidates
     .map((candidate) => ({
+      id: candidate.beach.id,
       beach: candidate.beach,
       isPinned: userContext.pinnedBeachIds.has(candidate.beach.id),
       distanceMiles: candidate.distanceMiles,
@@ -235,8 +238,9 @@ function orderPoolCandidates(
         candidate.distanceMiles,
         preferenceFit(candidate.beach, userContext)
       ),
-    }))
-    .sort((a, b) => {
+    }));
+  const ranked = await rankBeaches(ordered, {
+    compare: (a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
       if (a.isPinned) return a.distanceMiles - b.distanceMiles;
 
@@ -245,8 +249,9 @@ function orderPoolCandidates(
       // Stable, deterministic fallback so equal-fit spots don't shuffle
       // between requests.
       return a.distanceMiles - b.distanceMiles;
-    })
-    .map((entry) => entry.beach);
+    },
+  });
+  return ranked.map((entry) => entry.beach);
 }
 
 /**
@@ -311,7 +316,10 @@ export async function buildCandidatePool(
     }
 
     return {
-      candidates: orderPoolCandidates(candidates, userContext),
+      candidates: (await orderPoolCandidates(candidates, userContext)).slice(
+        0,
+        CANDIDATE_POOL_LIMIT,
+      ),
       userSkillLevel: userContext.skillLevel,
     };
   } catch (error) {

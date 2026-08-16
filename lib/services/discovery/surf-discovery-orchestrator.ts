@@ -56,6 +56,7 @@ import {
   scoreNativeForecastSlot,
 } from '@/lib/scoring/native-condition-score';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { rankBeaches } from '@/lib/recommendations/selection';
 
 // Import from other discovery modules
 import {
@@ -80,6 +81,7 @@ import {
   PAST_WINDOW_TOLERANCE_MINUTES,
   scoreWindowConditionScore,
 } from './window-selector';
+import { scoreWindowConditionDetails } from './window-selector/window-scorer';
 import {
   enrichWithPhotos,
   generateDiscoverySummary,
@@ -113,10 +115,15 @@ import { FEATURE_HERO_WINDOW_SCORE } from '@/lib/constants/feature-flags';
 import type { ScoringEngine } from '@/lib/domains/scoring';
 import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
 import { boardStyleFit } from './board-style-fit';
-import { enforceMajorEventHoldBeforeDiscoveryTruncation } from './major-event-hold';
 import { resolveForecastAlignment } from './forecast-alignment';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
+
+/**
+ * Discovery reports an available pool: it filters resolved water-quality
+ * closures per beach and never suppresses the response as a whole.
+ */
+const DISCOVERY_AVAILABILITY_HOLD_EPOCH = 'discovery-water-quality-filtered';
 
 type BoardPickRow = {
   id: unknown;
@@ -131,6 +138,7 @@ type UserBoardContextRow = BoardPickRow & {
 
 interface UserBoardContext {
   dominantBoardClass: BoardClass | null;
+  boardClasses: BoardClass[];
   boardsForPicks: BoardForPick[];
 }
 
@@ -658,6 +666,18 @@ function resolveDominantBoardClass(rows: UserBoardContextRow[]): BoardClass | nu
   return candidates[0].boardClass;
 }
 
+function resolveBoardClasses(rows: UserBoardContextRow[]): BoardClass[] {
+  return Array.from(
+    new Set(
+      rows
+        .map((row) => (
+          typeof row.board_type === 'string' ? normalizeBoardClass(row.board_type) : null
+        ))
+        .filter((boardClass): boardClass is BoardClass => boardClass !== null)
+    )
+  );
+}
+
 function getWavePunchiness(beach: Beach): number | null {
   const b = beach as BeachWithWavePunchiness;
   return resolveWavePunchiness({
@@ -989,6 +1009,7 @@ async function fetchUserBoardContext(
     log.warn(`Failed to fetch boards for discovery board context: ${error.message}`);
     return {
       dominantBoardClass: null,
+      boardClasses: [],
       boardsForPicks: [],
     };
   }
@@ -996,6 +1017,7 @@ async function fetchUserBoardContext(
   if (!Array.isArray(data)) {
     return {
       dominantBoardClass: null,
+      boardClasses: [],
       boardsForPicks: [],
     };
   }
@@ -1004,6 +1026,7 @@ async function fetchUserBoardContext(
 
   return {
     dominantBoardClass: resolveDominantBoardClass(rows),
+    boardClasses: resolveBoardClasses(rows),
     boardsForPicks: isPro
       ? rows
           .map((row) => normalizeBoardForPick(row))
@@ -1039,6 +1062,7 @@ export function computeWindowSlotScores(
   allHourly: EnhancedForecastEntity[],
   _scoringEngine: ScoringEngine,
   userSkillLevel?: SkillLevel | string | null,
+  boardClasses: readonly BoardClass[] = [],
 ): number[] {
   const start = rec.window?.start;
   const end = rec.window?.end;
@@ -1062,7 +1086,9 @@ export function computeWindowSlotScores(
 
   return inWindow.map((f) => {
     try {
-      return scoreNativeForecastSlot(f, userSkillLevel);
+      return boardClasses.length > 0
+        ? scoreWindowConditionScore(f, rec.beach, userSkillLevel, null, boardClasses)
+        : scoreNativeForecastSlot(f, userSkillLevel);
     } catch {
       return 0;
     }
@@ -1080,17 +1106,24 @@ function clampDiscoveryScore(score: number): number {
 }
 
 function buildDiscoveryDisplayScore(args: {
+  beach: Beach;
   forecast: EnhancedForecastEntity;
   userSkillLevel: SkillLevel | null;
   affinityBonus: number;
   distancePenalty: number;
   personalizationBonus: number;
   boardStyleFitPoints: number;
+  boardClasses: readonly BoardClass[];
 }): DiscoveryDisplayScore {
-  const displayConditionScore = scoreNativeForecastSlot(
-    args.forecast,
-    args.userSkillLevel
-  );
+  const displayConditionScore = args.boardClasses.length > 0
+    ? scoreWindowConditionScore(
+        args.forecast,
+        args.beach,
+        args.userSkillLevel,
+        null,
+        args.boardClasses,
+      )
+    : scoreNativeForecastSlot(args.forecast, args.userSkillLevel);
   const nativeMatchQuality = getNativeConditionMatchQuality(displayConditionScore);
 
   return {
@@ -1121,6 +1154,7 @@ async function scoreBeachForDiscovery(args: {
   personalizationBonus?: number;
   personalizationReasons?: string[];
   dominantBoardClass?: BoardClass | null;
+  boardClasses?: readonly BoardClass[];
 }): Promise<DetailedScore> {
   const { beach, forecast, userSkillLevel, distanceMiles } = args;
 
@@ -1147,12 +1181,14 @@ async function scoreBeachForDiscovery(args: {
     args.dominantBoardClass ?? null
   );
   const displayScore = buildDiscoveryDisplayScore({
+    beach,
     forecast,
     userSkillLevel,
     affinityBonus,
     distancePenalty,
     personalizationBonus: persBonus,
     boardStyleFitPoints: boardStyle.points,
+    boardClasses: args.boardClasses ?? [],
   });
 
   const detailedScore = {
@@ -1301,7 +1337,8 @@ function selectImmediateWindow(
   beach: Beach,
   sunTimesCache: Map<string, { sunrises: Date[]; sunsets: Date[] }>,
   now: Date,
-  userSkillLevel?: SkillLevel | string | null
+  userSkillLevel?: SkillLevel | string | null,
+  boardClasses: readonly BoardClass[] = [],
 ): PersonalizedForecastWindow | null {
   if (forecasts.length === 0) return null;
 
@@ -1334,7 +1371,13 @@ function selectImmediateWindow(
     confidence: bucket.forecast.confidence_score || 50,
     timezone: beachTz,
     usedTideBoundaries: false,
-    score: scoreWindowConditionScore(bucket.forecast, beach, userSkillLevel),
+    score: scoreWindowConditionScore(
+      bucket.forecast,
+      beach,
+      userSkillLevel,
+      null,
+      boardClasses,
+    ),
     peakTime: now,
     sourceForecast: bucket.forecast,
   };
@@ -1575,7 +1618,11 @@ async function discoverSurfSpotsInner(
     fetchUserBoardContext(supabase, userId, isPro),
     fetchBreakBehaviorSessionRows(supabase, candidateBeachIds, { now }),
   ]);
-  const { dominantBoardClass, boardsForPicks: userBoardsForPicks } = userBoardContext;
+  const {
+    dominantBoardClass,
+    boardClasses,
+    boardsForPicks: userBoardsForPicks,
+  } = userBoardContext;
   const breakBehaviorRowsByBeach = groupBreakBehaviorRowsByBeach(breakBehaviorRows);
 
   const wqMap = new Map<string, string>();
@@ -1656,6 +1703,7 @@ async function discoverSurfSpotsInner(
               now: selectionNow,
               maxWindows: 1,
               userSkillLevel,
+              boardClasses,
             })
           : []
         : discoveryMode === 'now'
@@ -1666,6 +1714,7 @@ async function discoverSurfSpotsInner(
                 sunTimesCache,
                 nowForFallback,
                 userSkillLevel,
+                boardClasses,
               ),
             ].filter(
               (window): window is PersonalizedForecastWindow => window !== null,
@@ -1681,6 +1730,7 @@ async function discoverSurfSpotsInner(
                 now: nowForFallback,
                 maxWindows: 3,
                 userSkillLevel,
+                boardClasses,
               })
             : [];
 
@@ -1700,6 +1750,7 @@ async function discoverSurfSpotsInner(
         now: nowForFallback,
         maxWindows: 3,
         userSkillLevel,
+        boardClasses,
       });
       if (selectedWindows.length === 0 && todayForecasts.length === 0) {
         log.warn(`[discoverSurfSpots] ${beach.name}: no today forecasts (total=${forecasts.length}), tomorrow fallback returned null`);
@@ -1761,6 +1812,7 @@ async function discoverSurfSpotsInner(
       personalizationBonus: persResult.personalizationBonus,
       personalizationReasons: persResult.reasons,
       dominantBoardClass,
+      boardClasses,
     });
 
     // Apply water quality override after scoring
@@ -1800,6 +1852,7 @@ async function discoverSurfSpotsInner(
       beach,
       beachTz,
       userSkillLevel,
+      boardClasses,
     );
     if (distinction && !detailedScore.reasons.includes(distinction)) {
       detailedScore.reasons = [
@@ -1846,6 +1899,16 @@ async function discoverSurfSpotsInner(
             toForecastForScoring(bestWindowForecast, beachTz),
             userBoardsForPicks,
             beach,
+            {
+              kind: 'scored',
+              boardClass: scoreWindowConditionDetails(
+                bestWindowForecast,
+                beach,
+                userSkillLevel,
+                null,
+                boardClasses,
+              ).boardClass,
+            },
           )
         : null;
 
@@ -1920,6 +1983,7 @@ async function discoverSurfSpotsInner(
         personalizationBonus: customPersResult.personalizationBonus,
         personalizationReasons: customPersResult.reasons,
         dominantBoardClass,
+        boardClasses,
       });
 
       if (wqStatus === 'closure') {
@@ -1936,6 +2000,7 @@ async function discoverSurfSpotsInner(
         customBeach,
         beachTz,
         userSkillLevel,
+        boardClasses,
       );
       if (
         customDistinction &&
@@ -1978,6 +2043,16 @@ async function discoverSurfSpotsInner(
               toForecastForScoring(bestWindowForecast, beachTz),
               userBoardsForPicks,
               customBeach,
+              {
+                kind: 'scored',
+                boardClass: scoreWindowConditionDetails(
+                  bestWindowForecast,
+                  customBeach,
+                  userSkillLevel,
+                  null,
+                  boardClasses,
+                ).boardClass,
+              },
             )
           : null;
 
@@ -2100,19 +2175,32 @@ async function discoverSurfSpotsInner(
   const allRecsScored = collapseWindowCandidates(
     similarityResult.recommendations,
   );
-  allRecsScored.sort(compareDiscoveryRecommendations);
+  const rankedRecommendations = await rankBeaches(
+    allRecsScored.map((recommendation, index) => ({
+      id: recommendation.beach.id,
+      recommendation,
+      index,
+    })),
+    {
+      compare: (left, right) =>
+        compareDiscoveryRecommendations(
+          left.recommendation,
+          right.recommendation,
+        ) || left.index - right.index,
+    },
+  );
+  // `rankBeaches` has already dropped any beach with a resolved water-quality
+  // closure. An unreachable probe drops nothing, so the pool stays intact.
+  const safeRecsScored = rankedRecommendations.map(
+    ({ recommendation }) => recommendation,
+  );
 
-  const holdPool = await enforceMajorEventHoldBeforeDiscoveryTruncation({
-    recommendations: allRecsScored,
-    profileExperience: userSkillLevel,
-    maxResults,
-    isPrimaryEligible: (rec) =>
-      primaryEligibleKeys.has(recommendationKey(rec)),
-  });
-
-  // Hold filtering happens across the full sorted pool before this top-N is
-  // consumed, so an allowed rank below a blocked result can fill the response.
-  const merged = holdPool.primaryRecommendations;
+  // Water-quality filtering happens across the full sorted pool before this
+  // top-N is consumed, so an allowed rank below a blocked result can fill the
+  // response.
+  const merged = safeRecsScored
+    .filter((rec) => primaryEligibleKeys.has(recommendationKey(rec)))
+    .slice(0, maxResults);
 
   // Phase 2: populate per-slot scorer outputs across each candidate's window
   // BEFORE rerank so hero-window-score's persistence/duration evidence is
@@ -2124,7 +2212,8 @@ async function discoverSurfSpotsInner(
       rec,
       allHourly,
       scoringEngine,
-      userSkillLevel
+      userSkillLevel,
+      boardClasses,
     );
   }
 
@@ -2141,7 +2230,7 @@ async function discoverSurfSpotsInner(
   const rankedSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
   const finalSlice = applyWorthTheDriveReasons(rankedSlice);
   const finalSliceKeys = new Set(finalSlice.map((rec) => recommendationKey(rec)));
-  const includedSlice = holdPool.allAllowedRecommendations.filter((rec) => {
+  const includedSlice = safeRecsScored.filter((rec) => {
     if ((rec.kind ?? 'beach') === 'beach') {
       return (
         requestedIncludeBeachIdSet.has(rec.beach.id) &&
@@ -2262,6 +2351,7 @@ async function discoverSurfSpotsInner(
         sunTimesCache,
         timeSlot: 'late-morning',
         userSkillLevel,
+        boardClasses,
       });
       if (!lateWindow) continue;
 
@@ -2281,6 +2371,7 @@ async function discoverSurfSpotsInner(
         userSkillLevel,
         distanceMiles: distMiles,
         dominantBoardClass,
+        boardClasses,
       });
       sleepInScores.set(rec.beach.id, lateScore.total);
     }
@@ -2371,7 +2462,14 @@ async function discoverSurfSpotsInner(
     },
     regionalCall,
     eveningTransition,
-    recommendationAvailability: holdPool.recommendationAvailability,
+    // Resolved water-quality closures were filtered out of the pool above.
+    // Major-event holds are resolved at the serialization boundary
+    // (`sanitizeSurfDiscoveryForSerializationMajorEventHold`), which overwrites
+    // this; discovery itself never withholds the whole response.
+    recommendationAvailability: {
+      state: 'available',
+      holdEpoch: DISCOVERY_AVAILABILITY_HOLD_EPOCH,
+    },
   };
 }
 

@@ -7,6 +7,15 @@ jest.mock('@/lib/recommendations/major-event-hold/service', () => ({
   evaluateMajorEventHoldCandidates: (...args: unknown[]) =>
     mockEvaluateMajorEventHoldCandidates(...args),
 }));
+jest.mock('@/lib/supabase/server', () => ({
+  createSupabaseServiceRoleClient: jest.fn(() => ({
+    from: jest.fn(() => ({
+      select: jest.fn(() => ({
+        in: jest.fn(async () => ({ data: [], error: null })),
+      })),
+    })),
+  })),
+}));
 
 import {
   generateWeekScoutForecast,
@@ -510,11 +519,70 @@ describe('generateWeekScoutForecast', () => {
         },
       ]),
       profileExperience: 'intermediate',
+      applyWaterQualityHolds: true,
     });
     expect(mockEvaluateMajorEventHoldCandidates.mock.calls[0][0].candidates).toHaveLength(6);
     expect(response.recommendationAvailability).toEqual({
       state: 'available',
       holdEpoch: 'week-scout-test-epoch',
+    });
+  });
+
+  it('removes a water-quality-held beach from Week Scout recommendations', async () => {
+    mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
+      async ({ candidates }: { candidates: Array<{ candidateId: string; beachId: string }> }) =>
+        candidates.map(({ candidateId, beachId }) => {
+          const held = beachId === BEACH_A;
+          return {
+            candidateId,
+            evaluation: held
+              ? {
+                  outcome: 'explicit_none' as const,
+                  reasonCode: 'water_quality_hold' as const,
+                  holdIds: [`water-quality:${beachId}`],
+                  holdEpoch: 'week-scout-water-quality-epoch',
+                }
+              : {
+                  outcome: 'allow' as const,
+                  holdIds: [],
+                  holdEpoch: 'week-scout-water-quality-epoch',
+                },
+            recommendationAvailability: held
+              ? {
+                  state: 'none' as const,
+                  reasonCode: 'water_quality_hold' as const,
+                  holdEpoch: 'week-scout-water-quality-epoch',
+                }
+              : {
+                  state: 'available' as const,
+                  holdEpoch: 'week-scout-water-quality-epoch',
+                },
+          };
+        }),
+    );
+
+    const response = await generateWeekScoutForecastForDays(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 2,
+      },
+      dependencies(),
+    );
+
+    const heldWindows = response.days.flatMap((day) =>
+      day.windows.filter((window) => window.beachId === BEACH_A),
+    );
+    const allowedWindows = response.days.flatMap((day) =>
+      day.windows.filter((window) => window.beachId === BEACH_B),
+    );
+    expect(heldWindows).toHaveLength(0);
+    expect(allowedWindows).toHaveLength(3);
+    expect(allowedWindows.every((window) => window.rankingScore !== null)).toBe(true);
+    expect(response.recommendationAvailability).toMatchObject({
+      state: 'available',
     });
   });
 

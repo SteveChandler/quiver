@@ -12,6 +12,7 @@ import {
 } from "@/lib/services/ccc";
 import type { FetchResult, UpsertResult, MatchResult } from "@/lib/services/ccc";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -103,7 +104,19 @@ async function _GET(request: Request): Promise<Response> {
 
     if (phase === "import") {
       const result = {
-        ...(await runImportPhase(startTime)),
+        ...(await withCronOutcome(
+          {
+            job: "/api/cron/ccc-sync?phase=import",
+            unit: "ccc_locations_written",
+            expectedMin: 1,
+            getProduced: (value) => value.upsert.upserted,
+            legitimatelyZero: (value) =>
+              value.fetch.notModified
+                ? { reason: "CCC feed ETag has not changed since the last import" }
+                : undefined,
+          },
+          () => runImportPhase(startTime),
+        )),
         inferred_phase: inferred,
       };
       console.log("[CCC] Import phase complete:", JSON.stringify(result, null, 2));
@@ -111,7 +124,15 @@ async function _GET(request: Request): Promise<Response> {
     } else {
       const radiusM = parseInt(url.searchParams.get("radiusM") || "1500", 10);
       const result = {
-        ...(await runMatchPhase(startTime, radiusM)),
+        ...(await withCronOutcome(
+          {
+            job: "/api/cron/ccc-sync?phase=match",
+            unit: "beach_matches_written",
+            expectedMin: 1,
+            getProduced: (value) => value.match.matchesUpserted,
+          },
+          () => runMatchPhase(startTime, radiusM),
+        )),
         inferred_phase: inferred,
       };
       console.log("[CCC] Match phase complete:", JSON.stringify(result, null, 2));

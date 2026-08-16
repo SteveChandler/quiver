@@ -28,6 +28,7 @@ export type {
   BuildCanonicalSessionDecisionInput,
   CanonicalDecisionCandidate,
   CanonicalDecisionBasis,
+  CanonicalDecisionBasisV2,
   CanonicalMatchConfidence,
   CanonicalDecisionReasonCode,
   CanonicalDecisionScope,

@@ -6,7 +6,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
-import { FORECAST_REGIONS } from '../config/regions';
+import { COAST_SECTIONS } from '../config/regions';
 
 config();
 
@@ -29,7 +29,7 @@ async function main() {
 
   console.log('Forecaster ID:', forecaster.id);
 
-  for (const [key, regionConfig] of Object.entries(FORECAST_REGIONS)) {
+  for (const [key, regionConfig] of Object.entries(COAST_SECTIONS)) {
     const { data: beaches, error: beachError } = await supabase
       .from('beaches')
       .select('id, lat, lon')

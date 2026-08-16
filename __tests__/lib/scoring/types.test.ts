@@ -182,6 +182,7 @@ describe('toForecastForScoring', () => {
         data_sources: ['NOAA_NWS'],
         wave_height_provenance: {
           source: 'nowcast_anchor',
+          provenance: 'measured',
           raw_value_ft: 3.08,
           station_id: '46285',
           transform_path: 'scalar_calibrated',

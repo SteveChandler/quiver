@@ -38,6 +38,9 @@ export type { ScoreBadgeProps } from './score-badge';
 export { AnimatedScoreGauge } from './animated-score-gauge';
 export type { AnimatedScoreGaugeProps } from './animated-score-gauge';
 
+// Top-ranked beach hero
+export { TopRankedBeachHero } from './top-ranked-beach-hero';
+
 // Wave Sparkline Component
 export { WaveSparkline, createSparklineData } from './wave-sparkline';
 export type { WaveSparklineProps, SparklineDataPoint } from './wave-sparkline';

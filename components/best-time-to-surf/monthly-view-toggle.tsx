@@ -42,11 +42,11 @@ export function MonthlyViewToggle({
         <button
           type="button"
           onClick={() => setView("grid")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-[color,background-color,box-shadow] ${
             view === "grid"
               ? "bg-white text-gray-900 shadow-sm"
               : "text-gray-500 hover:text-gray-700"
-          }`}
+          }` + " focus-ring"}
         >
           <LayoutGrid className="h-3.5 w-3.5" />
           Detail
@@ -54,11 +54,11 @@ export function MonthlyViewToggle({
         <button
           type="button"
           onClick={() => setView("heatmap")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-[color,background-color,box-shadow] ${
             view === "heatmap"
               ? "bg-white text-gray-900 shadow-sm"
               : "text-gray-500 hover:text-gray-700"
-          }`}
+          }` + " focus-ring"}
         >
           <Flame className="h-3.5 w-3.5" />
           Heatmap

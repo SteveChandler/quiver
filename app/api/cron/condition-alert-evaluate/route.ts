@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { withCronObservability } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { findMatchingWindows } from "@/lib/alerts/window-finder";
 import { selectActionableAlertWindow } from "@/lib/alerts/actionable-window-selector";
 import { filterToDaylight, getDaylightWindow } from "@/lib/alerts/sunrise";
@@ -62,8 +62,27 @@ export async function GET(request: Request) {
   const supabase = await createSupabaseServiceRoleClient();
 
   try {
-    const summary = await withCronObservability(
-      "/api/cron/condition-alert-evaluate",
+    const summary = await withCronOutcome(
+      {
+        job: "/api/cron/condition-alert-evaluate",
+        unit: "alerts_queued",
+        expectedMin: 1,
+        getProduced: (result) => result.queued,
+        legitimatelyZero: (result) => {
+          if (
+            result.status === "ok" &&
+            result.errors === 0 &&
+            result.skipped_by_reason.hold_state_unavailable === 0
+          ) {
+            return { reason: "No actionable alert windows matched this cycle" };
+          }
+          return undefined;
+        },
+        failureReason: (result) =>
+          result.status === "degraded"
+            ? "Matched alert windows dropped without a safety hold"
+            : null,
+      },
       async () => {
         const result: ConditionAlertEvaluationSummary = {
           status: "ok",
@@ -75,6 +94,7 @@ export async function GET(request: Request) {
           skipped_by_reason: {
             hold_state_unavailable: 0,
             major_event_hold: 0,
+            water_quality_hold: 0,
           },
           errors: 0,
         };
@@ -328,6 +348,7 @@ export async function GET(request: Request) {
                   type: "forecast_alert",
                   payload: {
                     beach_id: rule.beach_id,
+                    configured_beach_id: rule.beach_id,
                     forecast_at: window.best_hour,
                     policy_context: {
                       kind: "positive_session_recommendation",
@@ -415,13 +436,6 @@ export async function GET(request: Request) {
 
         console.log(`${CONTEXT_TAG} Summary:`, result);
         return result;
-      },
-      {
-        statusForResult: (result) => result.status === "degraded" ? "error" : "ok",
-        errorMessageForResult: (result) =>
-          result.status === "degraded"
-            ? "Matched alert windows dropped without a safety hold"
-            : null,
       },
     );
     return NextResponse.json(summary, {

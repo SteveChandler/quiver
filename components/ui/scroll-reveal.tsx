@@ -182,7 +182,7 @@ export function ScrollReveal({
           return cloneElement(element, {
             className: cn(
               element.props.className,
-              "transition-all",
+              "transition-[opacity,transform]",
               isVisible
                 ? VARIANT_ANIMATED_STYLES[variant]
                 : VARIANT_INITIAL_STYLES[variant]
@@ -206,7 +206,7 @@ export function ScrollReveal({
       ref={elementRef}
       className={cn(
         className,
-        "transition-all",
+        "transition-[opacity,transform]",
         isVisible
           ? VARIANT_ANIMATED_STYLES[variant]
           : VARIANT_INITIAL_STYLES[variant]

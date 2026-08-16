@@ -216,7 +216,7 @@ erDiagram
     enhanced_forecasts {
         uuid id PK
         uuid beach_id FK
-        timestamp forecast_time
+        timestamp forecast_at
         decimal wave_height_ft
         decimal wave_period_s
         decimal wave_direction_deg
@@ -232,7 +232,7 @@ erDiagram
     beach_daily_intel {
         uuid id PK
         uuid beach_id FK
-        date forecast_date
+        timestamp forecast_at
         text recommendation
         text surf_description
         decimal surf_min_ft
@@ -411,7 +411,7 @@ erDiagram
     marine_forecasts {
         uuid id PK
         uuid beach_id FK
-        timestamp forecast_time
+        timestamp forecast_at
         decimal wave_height_ft
         decimal wave_period_s
         integer wave_direction_deg
@@ -441,7 +441,7 @@ erDiagram
     beach_forecast_accuracy {
         uuid id PK
         uuid beach_id FK
-        date forecast_date
+        timestamp forecast_at
         decimal accuracy_score
         integer total_votes
         timestamp created_at
@@ -451,10 +451,10 @@ erDiagram
         uuid id PK
         uuid beach_id FK
         uuid user_id FK
-        date forecast_date
+        timestamp forecast_at
         integer accuracy_rating
         timestamp created_at
-        UK "beach_id, user_id, forecast_date"
+        UK "beach_id, user_id, forecast_at"
     }
 
     spot_feedback {
@@ -583,7 +583,7 @@ Using PostGIS GIST indexes:
 ### Composite Indexes
 Optimized for common query patterns:
 - `sessions(user_id, session_date DESC)`
-- `enhanced_forecasts(beach_id, forecast_time DESC)`
+- `enhanced_forecasts(beach_id, forecast_at DESC)`
 - `user_activities(user_id, created_at DESC)`
 - `session_likes(session_id, user_id)` (unique)
 - `user_follows(follower_id, following_id)` (unique)

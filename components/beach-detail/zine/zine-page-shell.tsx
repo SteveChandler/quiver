@@ -37,22 +37,9 @@ export function ZinePageShell({
     <div className="zine-page zine-tab">
       <RoughEdgeFilter />
       <div className="zine-stage">
-        <div className="zine-masthead">
-          <div className="left">
-            <span>Field Guide · Vol. 03</span>
-            <span className="rule" aria-hidden />
-            <span>
-              {beach.city
-                ? `${beach.city.toUpperCase()}${beach.state ? `, ${beach.state.toUpperCase()}` : ""}`
-                : "FIELD"}
-            </span>
-          </div>
-          <div>
-            {new Date()
-              .toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-              .toUpperCase()}
-          </div>
-        </div>
+        {/* No masthead: the app header already sits above this page with the
+            Quiver wordmark in it, so a masthead reads as a second header. The
+            edition byline still runs in ZineFooter. */}
 
         <div className="zine-paper">
           <ZineHero

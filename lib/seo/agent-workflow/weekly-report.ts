@@ -532,7 +532,16 @@ function renderOutreach(outreach?: OutreachDigestInput): string {
   ];
 
   if (outreach.candidates.length === 0) {
-    rows.push("- No queued targets in this week's rotation category; nothing to draft.");
+    const skippedForEmail = (outreach.missing ?? []).filter((entry) =>
+      entry.startsWith("No direct email for outreach target"),
+    );
+    if (skippedForEmail.length > 0) {
+      rows.push(
+        `- ${skippedForEmail.length} queued target${skippedForEmail.length === 1 ? "" : "s"} in this week's rotation lack a direct email and were skipped; see missing data below.`,
+      );
+    } else {
+      rows.push("- No queued targets in this week's rotation category; nothing to draft.");
+    }
   } else {
     rows.push(`- Draft candidates ready for review (${outreach.candidates.length}):`);
     for (const candidate of outreach.candidates) {

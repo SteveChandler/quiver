@@ -1,5 +1,6 @@
 import {
   buildOutreachDigest,
+  hasDirectEmail,
   parseOutreachTracker,
   resolveOutreachRotation,
 } from "@/lib/seo/agent-workflow/outreach-digest";
@@ -14,15 +15,16 @@ const TRACKER = [
   "",
   "## Surf School Targets (Playbook Section 1.3)",
   "### California",
-  "| Target | Website | Nearest Beach | Status | Date | Notes |",
-  "| --- | --- | --- | --- | --- | --- |",
-  "| Surf Diva | surfdiva.com | La Jolla | queued | | women's school |",
-  "| Pacific Surf School | pacificsurfschool.com | San Diego | sent | | |",
+  "| Target | Website | Contact | Nearest Beach | Status | Date | Notes |",
+  "| --- | --- | --- | --- | --- | --- | --- |",
+  "| Surf Diva | surfdiva.com | askadiva@surfdiva.com | La Jolla | queued | | women's school |",
+  "| Pacific Surf School | pacificsurfschool.com | pacificsurf@pacificsurf.org | San Diego | sent | | |",
+  "| North Shore Surf Girls | northshoresurfgirls.com | 808-637-2977 | Haleiwa | queued | | phone only |",
   "",
   "## Surf Bloggers & Micro-Influencers",
-  "| Target | Website/Channel | Nearest Beach | Status | Date | Notes |",
-  "| --- | --- | --- | --- | --- | --- |",
-  "| Ben Gravy | YouTube 520K | East Coast | queued | | |",
+  "| Target | Website/Channel | Contact | Nearest Beach | Status | Date | Notes |",
+  "| --- | --- | --- | --- | --- | --- | --- |",
+  "| Ben Gravy | YouTube 520K | ben@bengravy.com | East Coast | queued | | |",
   "",
   "## Monthly Metrics",
   "| Month | Outreach Sent |",
@@ -57,8 +59,8 @@ describe("SEO workflow outreach digest", () => {
   it("parses target rows by section and ignores legend and metrics tables", () => {
     const parsed = parseOutreachTracker(TRACKER);
 
-    expect(parsed.totalRows).toBe(3);
-    expect(parsed.statusCounts).toEqual({ queued: 2, sent: 1 });
+    expect(parsed.totalRows).toBe(4);
+    expect(parsed.statusCounts).toEqual({ queued: 3, sent: 1 });
     expect(parsed.rows).toEqual(expect.arrayContaining([
       expect.objectContaining({
         target: "Surf Diva",
@@ -76,7 +78,7 @@ describe("SEO workflow outreach digest", () => {
     expect(parsed.rows.some((row) => row.target === "queued")).toBe(false);
   });
 
-  it("builds queued draft candidates for the current rotation category", () => {
+  it("builds queued draft candidates for the current rotation category, skipping rows without a direct email", () => {
     const digest = buildOutreachDigest("2026-07-06T12:00:00Z", {
       reportDate: "2026-07-06",
       markdown: TRACKER,
@@ -89,6 +91,25 @@ describe("SEO workflow outreach digest", () => {
     expect(digest.candidates[0]?.nearestBeach).toBe("La Jolla");
     expect(digest.candidates[0]?.subject).toContain("La Jolla");
     expect(digest.candidates[0]?.body).toContain("Hi Surf Diva team,");
+    expect(digest.candidates[0]?.body).toContain(
+      "https://www.quiversurf.app/for-surf-schools",
+    );
+    expect(digest.candidates.some((candidate) => candidate.target === "North Shore Surf Girls")).toBe(false);
+    expect(digest.missing).toEqual(expect.arrayContaining([
+      expect.stringContaining("North Shore Surf Girls"),
+    ]));
+  });
+
+  it("hasDirectEmail requires an @ in the contact field", () => {
+    expect(hasDirectEmail({ category: "surf-schools", target: "A", contact: "hi@example.com", status: "queued" })).toBe(true);
+    expect(hasDirectEmail({ category: "surf-schools", target: "A2", contact: "  hi@example.com  ", status: "queued" })).toBe(true);
+    expect(hasDirectEmail({ category: "surf-schools", target: "A3", contact: "mailto:hi@example.com", status: "queued" })).toBe(true);
+    expect(hasDirectEmail({ category: "surf-schools", target: "A4", contact: "808-637-2977 / hi@example.com", status: "queued" })).toBe(true);
+    expect(hasDirectEmail({ category: "surf-schools", target: "A5", contact: "first@example.com, second@example.com", status: "queued" })).toBe(true);
+    expect(hasDirectEmail({ category: "surf-schools", target: "B", contact: "808-637-2977", status: "queued" })).toBe(false);
+    expect(hasDirectEmail({ category: "surf-schools", target: "C", contact: "contact form only", status: "queued" })).toBe(false);
+    expect(hasDirectEmail({ category: "surf-schools", target: "C2", contact: "   ", status: "queued" })).toBe(false);
+    expect(hasDirectEmail({ category: "surf-schools", target: "D", status: "queued" })).toBe(false);
   });
 
   it("selects the rotation category from the report date", () => {

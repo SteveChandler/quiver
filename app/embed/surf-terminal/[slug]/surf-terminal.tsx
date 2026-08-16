@@ -536,7 +536,7 @@ export function SurfTerminal({
                   : isDark
                     ? "text-slate-400 hover:text-slate-200 hover:bg-white/5"
                     : "text-slate-500 hover:text-slate-800 hover:bg-black/5"
-              }`}
+              }` + " focus-ring"}
             >
               {tr.label}
             </button>
@@ -669,7 +669,7 @@ function LegendToggle({
       aria-label={`Toggle ${label} series`}
       className={`flex items-center gap-1 px-1.5 py-0.5 rounded transition-opacity ${
         active ? "opacity-100" : "opacity-40"
-      } ${isDark ? "hover:bg-white/5" : "hover:bg-black/5"}`}
+      } ${isDark ? "hover:bg-white/5" : "hover:bg-black/5"}` + " focus-ring"}
     >
       <span
         className="inline-block w-2 h-2 rounded-full"

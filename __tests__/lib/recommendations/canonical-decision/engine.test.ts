@@ -71,6 +71,83 @@ function input(
 }
 
 describe("canonical session decision engine", () => {
+  it("keeps the objective call while withholding personal fit for unknown skill", () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(
+      input(
+        [
+          candidate({
+            personalMatch: {
+              score: 9.2,
+              label: "EPIC",
+              confidence: "high",
+              sessionCount: 20,
+              reasons: ["Matches your completed sessions"],
+            },
+          }),
+        ],
+        { profileExperience: null },
+      ),
+    ) as {
+      verdict: string;
+      decisionBasis: string;
+      reasonCode: string;
+      selection: {
+        evidence: { personalMatch: unknown };
+      } | null;
+      skillEligibility: { state: string; reasonCodes: string[] };
+    };
+
+    expect(decision).toMatchObject({
+      verdict: "go",
+      decisionBasis: "physical_fallback",
+      reasonCode: "selected_go",
+      selection: { evidence: { personalMatch: null } },
+      skillEligibility: {
+        state: "insufficient_safety_data",
+        reasonCodes: ["unknown_skill"],
+      },
+    });
+  });
+
+  it("keeps the beginner hard floor when skill is unknown", () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(
+      input(
+        [
+          candidate({
+            waveHeight: "5-6 ft",
+            personalMatch: {
+              score: 9.2,
+              label: "EPIC",
+              confidence: "high",
+              sessionCount: 20,
+              reasons: ["Matches your completed sessions"],
+            },
+          }),
+        ],
+        { profileExperience: undefined },
+      ),
+    ) as {
+      verdict: string;
+      decisionBasis: string;
+      reasonCode: string;
+      selection: unknown;
+      skillEligibility: { state: string; reasonCodes: string[] };
+    };
+
+    expect(decision).toMatchObject({
+      verdict: "no",
+      decisionBasis: "safety_override",
+      reasonCode: "wave_height_exceeds_skill",
+      selection: null,
+      skillEligibility: {
+        state: "ineligible",
+        reasonCodes: ["wave_height_exceeds_skill", "unknown_skill"],
+      },
+    });
+  });
+
   it("returns one go selection for the highest-ranked safe session", () => {
     const { buildCanonicalSessionDecision } = loadEngine();
     const decision = buildCanonicalSessionDecision(
@@ -523,14 +600,15 @@ describe("canonical session decision engine", () => {
     expect(decision.selection?.beachId).toBe("protected");
   });
 
-  it("returns explicit no when skill is unknown", () => {
+  it("returns the objective call when skill is unknown", () => {
     const { buildCanonicalSessionDecision } = loadEngine();
     const decision = buildCanonicalSessionDecision(
       input([candidate()], { profileExperience: null }),
     ) as {
       verdict: string;
+      decisionBasis: string;
       reasonCode: string;
-      selection: unknown;
+      selection: { beachId: string } | null;
       skillEligibility: {
         skill: string;
         state: string;
@@ -538,9 +616,10 @@ describe("canonical session decision engine", () => {
       };
     };
 
-    expect(decision.verdict).toBe("no");
-    expect(decision.reasonCode).toBe("unknown_skill");
-    expect(decision.selection).toBeNull();
+    expect(decision.verdict).toBe("go");
+    expect(decision.decisionBasis).toBe("physical_fallback");
+    expect(decision.reasonCode).toBe("selected_go");
+    expect(decision.selection?.beachId).toBe("blackies");
     expect(decision.skillEligibility).toEqual({
       skill: "unknown",
       state: "insufficient_safety_data",
@@ -659,6 +738,7 @@ describe("canonical session decision engine", () => {
 
     expect(decision).toMatchObject({
       verdict: "no",
+      decisionBasisV2: "data_unavailable",
       reasonCode: "no_candidates",
       selection: null,
     });

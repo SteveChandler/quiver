@@ -2,6 +2,10 @@
  * @jest-environment node
  */
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 const mockValidateCronRequest = jest.fn();
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({

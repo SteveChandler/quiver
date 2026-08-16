@@ -18,6 +18,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import {
   FORECAST_WINDOW_DURATION_MINUTES,
   scoreWindowWithComposite,
@@ -26,6 +27,7 @@ import {
   getLocalDateString,
   resolveBeachTimezone,
 } from "@/lib/utils/timezone-utils";
+import { rankBeaches } from "@/lib/recommendations/selection";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -107,6 +109,32 @@ interface RunSummary {
   };
   errors: number;
   durationMs: number;
+}
+
+interface DailyNudgeOutcome {
+  summary: RunSummary;
+  enabled?: boolean;
+  [key: string]: unknown;
+}
+
+async function recordDailyNudgeOutcome(
+  result: DailyNudgeOutcome,
+): Promise<DailyNudgeOutcome> {
+  return withCronOutcome(
+    {
+      job: "/api/cron/daily-call-streak-reminder",
+      unit: "reminders_sent",
+      expectedMin: 1,
+      getProduced: (value) => value.summary.sent,
+      legitimatelyZero: (value) =>
+        value.enabled === false
+          ? { reason: "FORECAST_FEEDBACK_NUDGE_ENABLED is not true" }
+          : value.summary.candidates === 0
+            ? { reason: "No users had an eligible passed forecast window for a reminder" }
+            : undefined,
+    },
+    async () => result,
+  );
 }
 
 function dateKey(date: Date): string {
@@ -274,13 +302,13 @@ async function _GET(request: Request): Promise<Response> {
 
     if (!isForecastFeedbackNudgeEnabled()) {
       summary.durationMs = Date.now() - startedAt;
-      return createSuccessResponse({
+      return createSuccessResponse(await recordDailyNudgeOutcome({
         enabled: false,
         candidates: 0,
         sent: 0,
         skipped: summary.skipped,
         summary,
-      });
+      }));
     }
 
     const supabase = createSupabaseServiceRoleClient();
@@ -309,7 +337,7 @@ async function _GET(request: Request): Promise<Response> {
 
     if (reminderEnabledUserIds.size === 0) {
       summary.durationMs = Date.now() - startedAt;
-      return createSuccessResponse({ candidates: 0, sent: 0, skipped: summary.skipped, summary });
+      return createSuccessResponse(await recordDailyNudgeOutcome({ candidates: 0, sent: 0, skipped: summary.skipped, summary }));
     }
 
     const { data: loggedRows, error: logError } = await (supabase as any)
@@ -334,7 +362,7 @@ async function _GET(request: Request): Promise<Response> {
 
     if (activeUserIds.length === 0) {
       summary.durationMs = Date.now() - startedAt;
-      return createSuccessResponse({ candidates: 0, sent: 0, skipped: summary.skipped, summary });
+      return createSuccessResponse(await recordDailyNudgeOutcome({ candidates: 0, sent: 0, skipped: summary.skipped, summary }));
     }
 
     const { data: favorites, error: favoritesError } = await supabase
@@ -369,7 +397,7 @@ async function _GET(request: Request): Promise<Response> {
 
     if (targets.size === 0) {
       summary.durationMs = Date.now() - startedAt;
-      return createSuccessResponse({ candidates: 0, sent: 0, skipped: summary.skipped, summary });
+      return createSuccessResponse(await recordDailyNudgeOutcome({ candidates: 0, sent: 0, skipped: summary.skipped, summary }));
     }
 
     const beachIds = Array.from(
@@ -471,7 +499,7 @@ async function _GET(request: Request): Promise<Response> {
 
     if (rawCandidates.length === 0) {
       summary.durationMs = Date.now() - startedAt;
-      return createSuccessResponse({ candidates: 0, sent: 0, skipped: summary.skipped, summary });
+      return createSuccessResponse(await recordDailyNudgeOutcome({ candidates: 0, sent: 0, skipped: summary.skipped, summary }));
     }
 
     const candidateUserIds = Array.from(
@@ -507,8 +535,24 @@ async function _GET(request: Request): Promise<Response> {
       throw new Error(`Failed to query sessions: ${sessionsError.message}`);
     }
 
+    const safeRawCandidates = await rankBeaches(
+      rawCandidates.map((candidate, index) => ({
+        id: candidate.beachId,
+        candidate,
+        index,
+      })),
+      {
+        compare: (left, right) => {
+          if (left.candidate.userId !== right.candidate.userId) {
+            return left.index - right.index;
+          }
+          return isBetterCandidate(left.candidate, right.candidate) ? -1 : 1;
+        },
+      },
+    );
+
     const candidatesByUser = new Map<string, Candidate>();
-    for (const candidate of rawCandidates) {
+    for (const { candidate } of safeRawCandidates) {
       if (
         hasFeedbackForCandidate(
           candidate,
@@ -609,12 +653,12 @@ async function _GET(request: Request): Promise<Response> {
     }
 
     summary.durationMs = Date.now() - startedAt;
-    return createSuccessResponse({
+    return createSuccessResponse(await recordDailyNudgeOutcome({
       candidates: sendCandidates.length,
       sent: summary.sent,
       skipped: summary.skipped,
       summary,
-    });
+    }));
   } catch (error) {
     return handleApiError(error);
   }

@@ -4,7 +4,14 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+const mockServiceFrom = jest.fn();
+
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(),
+}));
+
 import { GET } from "@/app/api/v1/recommendations/route";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   createMockRequest,
   createMockSupabaseClient,
@@ -184,6 +191,29 @@ function setupCompleteRecommendationQuery(
   });
 }
 
+async function configureHoldStore(heldRows: unknown[]): Promise<void> {
+  (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({
+    from: mockServiceFrom,
+  });
+  mockServiceFrom.mockImplementation((table: string) => {
+    const chain: Record<string, jest.Mock> = {
+      select: jest.fn(),
+      in: jest.fn(),
+    };
+    chain.select.mockReturnValue(chain);
+    chain.in.mockResolvedValue(
+      table === "water_quality_held_beaches"
+        ? { data: heldRows, error: null }
+        : { data: [], error: null },
+    );
+    return chain;
+  });
+}
+
+async function seedHeldBeach(beachId: string): Promise<void> {
+  await configureHoldStore([{ beach_id: beachId }]);
+}
+
 describe("GET /api/v1/recommendations", () => {
   let cleanup: () => void;
 
@@ -198,6 +228,7 @@ describe("GET /api/v1/recommendations", () => {
           candidates.map(({ candidateId }) => allowDecision(candidateId)),
         ),
     );
+    void configureHoldStore([]);
   });
 
   afterEach(() => {
@@ -293,6 +324,7 @@ describe("GET /api/v1/recommendations", () => {
           },
         ],
         profileExperience: "advanced",
+        applyWaterQualityHolds: true,
       });
       expect(body.data.recommendations).toHaveLength(1);
       expect(body.data.recommendationAvailability.state).toBe("available");
@@ -330,6 +362,7 @@ describe("GET /api/v1/recommendations", () => {
           },
         ],
         profileExperience: "advanced",
+        applyWaterQualityHolds: true,
       });
       expect(body.data.metadata.user_skill).toBe("beginner");
       expect(body.data.recommendationAvailability).toEqual({
@@ -381,6 +414,25 @@ describe("GET /api/v1/recommendations", () => {
       expect(JSON.stringify(body)).not.toMatch(
         /internal-hold-id|holdIds|evaluation/,
       );
+    });
+
+    it("does not return a water-quality-held beach from the ranked pool", async () => {
+      setupCompleteRecommendationQuery([BEACH_ID, BEACH_IDS[1]]);
+      await seedHeldBeach(BEACH_ID);
+
+      const response = await GET(
+        createMockRequest(
+          "GET",
+          "http://localhost:3000/api/v1/recommendations",
+          { searchParams: { lat: "32.79", lon: "-117.23", time: QUERY_TIME } },
+        ),
+      );
+      const body = await expectSuccessResponse<any>(response, 200);
+
+      expect(body.data.recommendations.map(({ spotId }: { spotId: string }) => spotId))
+        .toEqual([BEACH_IDS[1]]);
+      expect(body.data.top_picks.map(({ spotId }: { spotId: string }) => spotId))
+        .toEqual([BEACH_IDS[1]]);
     });
 
     it("keeps positives in shadow mode without exposing would-block evidence", async () => {
@@ -465,6 +517,7 @@ describe("GET /api/v1/recommendations", () => {
       expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledWith({
         candidates: [],
         profileExperience: null,
+        applyWaterQualityHolds: true,
       });
       expect(body.data).toMatchObject({
         recommendations: [],

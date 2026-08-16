@@ -36,7 +36,7 @@ export function SiblingCitiesSection({
           <Link
             key={city.slug}
             href={`/${stateSlug}/${city.slug}`}
-            className="group flex flex-col gap-1 rounded-lg border border-gray-200 bg-white p-4 transition-all hover:border-sky-300 hover:shadow-sm"
+            className="group flex flex-col gap-1 rounded-lg border border-gray-200 bg-white p-4 transition-[border-color,box-shadow] hover:border-sky-300 hover:shadow-sm"
           >
             <span className="font-medium text-gray-900 text-sm group-hover:text-sky-700">
               {city.name}

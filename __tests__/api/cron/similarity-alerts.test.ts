@@ -19,6 +19,10 @@
  *     window do not produce an insert.
  */
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 if (typeof (globalThis as any).Response?.json !== "function") {
   (globalThis as any).Response.json = (data: any, init?: ResponseInit) =>
     new Response(JSON.stringify(data), {
@@ -75,12 +79,14 @@ const RULE_USER_OLD = "00000000-0000-0000-0000-0000000000b0"; // smaller id, NUL
 const RULE_AUTO_A = "00000000-0000-0000-0000-0000000000c0"; // both auto, MIN id
 const RULE_AUTO_B = "00000000-0000-0000-0000-0000000000c1"; // both auto, larger id
 const HOME_BEACH = "00000000-0000-0000-0000-0000000000d1";
+const CONFIGURED_BEACH = "00000000-0000-0000-0000-0000000000d2";
 
 interface Store {
   alertRules: any[];
   favoriteBeaches: any[];
   beaches: any[];
   beachWaterQuality: any[];
+  heldBeachIds: string[];
   forecasts: any[];
   ruleUpdates: { id: string; last_matched_at: string }[];
 }
@@ -90,6 +96,7 @@ const store: Store = {
   favoriteBeaches: [],
   beaches: [],
   beachWaterQuality: [],
+  heldBeachIds: [],
   forecasts: [],
   ruleUpdates: [],
 };
@@ -98,17 +105,23 @@ function chainOk(rows: any[]) {
   // Generic fluent chain that resolves to { data: rows, error: null } at any
   // point along the .eq/.in/.gte/.lte/.order/.limit/.maybeSingle path.
   const chain: any = {};
+  let resultRows = rows;
   const passthrough = () => chain;
   chain.select = passthrough;
   chain.eq = passthrough;
-  chain.in = passthrough;
+  chain.in = (_column: string, values: string[]) => {
+    if (rows.every((row) => row && typeof row === "object" && "beach_id" in row)) {
+      resultRows = rows.filter((row) => values.includes(row.beach_id));
+    }
+    return chain;
+  };
   chain.gte = passthrough;
   chain.lte = passthrough;
   chain.order = passthrough;
   chain.limit = passthrough;
-  chain.then = (resolve: any) => resolve({ data: rows, error: null });
-  chain.maybeSingle = () => Promise.resolve({ data: rows[0] ?? null, error: null });
-  chain.single = () => Promise.resolve({ data: rows[0] ?? null, error: null });
+  chain.then = (resolve: any) => resolve({ data: resultRows, error: null });
+  chain.maybeSingle = () => Promise.resolve({ data: resultRows[0] ?? null, error: null });
+  chain.single = () => Promise.resolve({ data: resultRows[0] ?? null, error: null });
   return chain;
 }
 
@@ -174,6 +187,21 @@ function fromImpl(table: string) {
       return chainOk(store.beaches);
     case "beach_water_quality":
       return chainOk(store.beachWaterQuality);
+    case "water_quality_held_beaches":
+      return chainOk(
+        store.heldBeachIds.map((beach_id) => ({ beach_id })),
+      );
+    case "county_beach_advisory_runs":
+      return chainOk([
+        {
+          id: "county-run-similarity-alerts",
+          fetched_at: new Date().toISOString(),
+          status: "completed",
+          source_identifier: "county-san-diego-dehq-sdbeachinfo",
+        },
+      ]);
+    case "county_beach_advisories":
+      return chainOk([]);
     case "enhanced_forecasts":
       return chainOk(store.forecasts);
     case "cron_runs":
@@ -282,6 +310,7 @@ beforeEach(() => {
   store.favoriteBeaches = [];
   store.beaches = [];
   store.beachWaterQuality = [];
+  store.heldBeachIds = [];
   store.forecasts = [];
   store.ruleUpdates = [];
 
@@ -463,6 +492,94 @@ describe("similarity-alerts cron — Plan V4", () => {
       )
     ).toHaveLength(0);
     expect(store.ruleUpdates).toHaveLength(0);
+  });
+
+  it("removes a held alternative from the similarity candidate pool before scoring", async () => {
+    const heldAlternative = "550e8400-e29b-41d4-a716-446655440001";
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+    store.favoriteBeaches.push({ beach_id: heldAlternative });
+    store.beaches.push({
+      id: heldAlternative,
+      name: "Held Alternative",
+      slug: "held-alternative",
+      lat: 33.61,
+      lon: -118.01,
+      timezone: "America/Los_Angeles",
+      skill_level: "beginner",
+    });
+    store.heldBeachIds.push(heldAlternative);
+
+    mockRpc.mockImplementation((name: string, args: any) => {
+      if (name === "compute_user_match_score_batch") {
+        return Promise.resolve({
+          data: [
+            {
+              slot_idx: 0,
+              forecast_at: "2026-05-04T18:00:00Z",
+              result: { state: "ready", score: 8.5, label: "GOOD" },
+            },
+          ],
+          error: null,
+        });
+      }
+      return rpcImpl(name, args);
+    });
+
+    const res = await GET(makeReq());
+
+    expect(res.status).toBe(200);
+    expect(mockScoreWindowWithComposite).toHaveBeenCalledTimes(1);
+    expect(mockRpc.mock.calls.filter((call: any[]) =>
+      call[0] === "try_insert_similarity_alert",
+    )).toHaveLength(1);
+  });
+
+  it("retains a held configured beach while excluding a held alternative", async () => {
+    const heldAlternative = "550e8400-e29b-41d4-a716-446655440002";
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+    store.alertRules[0].beach_id = CONFIGURED_BEACH;
+    store.beaches.push({
+      ...store.beaches[0],
+      id: CONFIGURED_BEACH,
+      name: "Configured Beach",
+      slug: "configured-beach",
+    });
+    store.favoriteBeaches.push({ beach_id: heldAlternative });
+    store.beaches.push({
+      ...store.beaches[0],
+      id: heldAlternative,
+      name: "Held Alternative",
+      slug: "held-alternative",
+    });
+    store.heldBeachIds.push(CONFIGURED_BEACH, heldAlternative);
+
+    mockRpc.mockImplementation((name: string, args: any) => {
+      if (name === "compute_user_match_score_batch") {
+        return Promise.resolve({
+          data: [
+            {
+              slot_idx: 0,
+              forecast_at: "2026-05-04T18:00:00Z",
+              result: { state: "ready", score: 8.5, label: "GOOD" },
+            },
+          ],
+          error: null,
+        });
+      }
+      return rpcImpl(name, args);
+    });
+
+    const res = await GET(makeReq());
+
+    expect(res.status).toBe(200);
+    expect(mockScoreWindowWithComposite).toHaveBeenCalledTimes(1);
+    const insertCalls = mockRpc.mock.calls.filter(
+      (call: any[]) => call[0] === "try_insert_similarity_alert",
+    );
+    expect(insertCalls).toHaveLength(1);
+    expect(insertCalls[0][1]).toMatchObject({
+      p_beach_id: CONFIGURED_BEACH,
+    });
   });
 
   it("suppresses a learned GOOD match when the beach exceeds the user's skill", async () => {

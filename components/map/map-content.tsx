@@ -49,6 +49,7 @@ interface MapContentProps {
   onGetUserLocation: () => void;
   onUseDefaultLocation: () => void;
   onSearchPromptClick?: () => void;
+  locationDeniedPromptDismissed?: boolean;
   onBeachSelect: (beach: Beach) => void;
   onBoundsChange?: (bounds: {
     west: number;
@@ -75,6 +76,7 @@ interface MapContentProps {
   onSwellTimelineChange?: (index: number) => void;
   swellTimelineMode?: "legacy" | "hourly" | "expandable-hourly";
   viewTimezone?: string;
+  timelineFocusBeachId?: string | null;
 }
 
 const InteractiveMap = dynamic(
@@ -82,7 +84,7 @@ const InteractiveMap = dynamic(
     import("@/components/map/interactive-map").then((mod) => ({
       default: mod.InteractiveMap,
     })),
-  { ssr: false },
+  { ssr: false, loading: () => <MapSkeleton /> },
 );
 
 export function MapContent({
@@ -101,6 +103,7 @@ export function MapContent({
   onGetUserLocation,
   onUseDefaultLocation,
   onSearchPromptClick,
+  locationDeniedPromptDismissed = false,
   onBeachSelect,
   onBoundsChange,
   onWaveHeightsChange,
@@ -116,6 +119,7 @@ export function MapContent({
   onSwellTimelineChange,
   swellTimelineMode = "legacy",
   viewTimezone,
+  timelineFocusBeachId,
 }: MapContentProps) {
   const mapCenterState = useMemo(() => {
     if (
@@ -184,6 +188,7 @@ export function MapContent({
   ]);
   const mapCenter = mapCenterState.center;
   const showLocationDeniedPrompt =
+    !locationDeniedPromptDismissed &&
     usingDefaultLocation &&
     !hasTimedOut &&
     typeof locationError === "string" &&
@@ -243,40 +248,36 @@ export function MapContent({
         </div>
       )}
 
-      {showLocationDeniedPrompt && (
-        <div
-          className="border-b bg-background px-4 py-3"
-          data-testid="map-location-denied-prompt"
-          role="status"
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">
-                Location is off. Search your break.
-              </p>
-              <p className="text-xs text-muted-foreground">
-                We are showing Mission Beach until you pick a spot.
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={onSearchPromptClick}
-              className="h-9 w-full justify-center sm:w-auto"
-            >
-              <Search className="h-4 w-4" aria-hidden="true" />
-              Search spots
-            </Button>
-          </div>
-        </div>
-      )}
-
       {/* Interactive Map */}
       <div
         className="flex-1 relative overflow-hidden min-h-[200px] sm:min-h-[400px] bg-gray-200 map-container"
         data-testid="map-container"
       >
+        {showLocationDeniedPrompt && (
+          <div
+            className="pointer-events-none absolute left-1/2 top-3 z-20 w-[min(42rem,calc(100%-1.5rem))] -translate-x-1/2"
+            data-testid="map-location-denied-prompt"
+            role="status"
+          >
+            <div className="pointer-events-auto flex flex-col gap-3 rounded-lg border border-black/15 bg-background/95 px-4 py-3 shadow-lg backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  Location is off. Search your break.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={onSearchPromptClick}
+                className="min-h-11 w-full justify-center sm:w-auto"
+              >
+                <Search className="h-4 w-4" aria-hidden="true" />
+                Search spots
+              </Button>
+            </div>
+          </div>
+        )}
         <DataErrorBoundary dataType="map data" componentName="InteractiveMap">
           <InteractiveMap
             initialCenter={initialCenterArray}
@@ -303,6 +304,7 @@ export function MapContent({
             onSwellTimelineChange={onSwellTimelineChange}
             swellTimelineMode={swellTimelineMode}
             viewTimezone={viewTimezone}
+            timelineFocusBeachId={timelineFocusBeachId}
             className="absolute inset-0 z-0 w-full h-full"
           />
         </DataErrorBoundary>

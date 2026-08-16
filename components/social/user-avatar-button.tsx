@@ -41,7 +41,7 @@ export function UserAvatarButton({
       <button
         type="button"
         onClick={handleClick}
-        className={"hover:opacity-80 transition-opacity " + (className || "")}
+        className={"hover:opacity-80 transition-opacity " + (className || "") + " focus-ring"}
         aria-label={name ? `${name}'s profile` : "View profile"}
       >
         <UserAvatar

@@ -180,7 +180,7 @@ function HomeBeachPickerContent() {
                   <button
                     onClick={() => handleSelect(beach)}
                     disabled={isSaving}
-                    className="w-full text-left px-4 py-3 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    className="w-full text-left px-4 py-3 hover:bg-gray-50 disabled:opacity-50 transition-colors focus-ring"
                   >
                     <div className="font-medium text-gray-900">{beach.name}</div>
                     {formatLocation(beach) && (
@@ -207,7 +207,7 @@ function HomeBeachPickerContent() {
                   <button
                     onClick={() => handleSelect(beach)}
                     disabled={isSaving}
-                    className="w-full text-left px-4 py-3 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    className="w-full text-left px-4 py-3 hover:bg-gray-50 disabled:opacity-50 transition-colors focus-ring"
                   >
                     <div className="font-medium text-gray-900">{beach.name}</div>
                     {formatLocation(beach) && (

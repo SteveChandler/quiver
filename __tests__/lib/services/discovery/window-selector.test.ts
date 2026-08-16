@@ -7,6 +7,8 @@
 
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import { toForecastForScoring } from '@/lib/scoring';
+import { getConditionBoardPick } from '@/lib/scoring/board-pick';
 
 // Mock beaches
 const mockBeach: Partial<Beach> = {
@@ -91,6 +93,7 @@ import {
   capEndTimeToTimeSlot,
   scoreForecastWindow,
   scoreWindowWithComposite,
+  scoreWindowConditionDetails,
   scoreWindowConditionScore,
 } from '@/lib/services/discovery/window-selector';
 
@@ -508,16 +511,20 @@ describe('selectBestWindow', () => {
       powerBias: -0.7,
     };
 
-    const outOfBandGenericScore = scoreWindowConditionScore(
+    const outOfBandBoardAwareScore = scoreWindowConditionScore(
       outOfBandGenericBest,
-      mockBeach as Beach
+      mockBeach as Beach,
+      null,
+      rideabilityBand,
     );
-    const inBandGenericScore = scoreWindowConditionScore(
+    const inBandBoardAwareScore = scoreWindowConditionScore(
       inBandLowerGenericScore,
-      mockBeach as Beach
+      mockBeach as Beach,
+      null,
+      rideabilityBand,
     );
 
-    expect(outOfBandGenericScore).toBeGreaterThan(inBandGenericScore);
+    expect(inBandBoardAwareScore).toBeGreaterThan(outOfBandBoardAwareScore);
 
     const result = selectBestWindow({
       forecasts,
@@ -528,7 +535,7 @@ describe('selectBestWindow', () => {
     });
 
     expect(result?.sourceForecast?.id).toBe('forecast-lower-generic-in-band');
-    expect(result?.score).toBe(inBandGenericScore);
+    expect(result?.score).toBe(inBandBoardAwareScore);
   });
 
   it('should keep the generic-best window when rideabilityBand is absent', () => {
@@ -2061,6 +2068,84 @@ describe('selectBestWindow time slot with tide boundaries', () => {
 });
 
 describe('scoreWindowConditionScore', () => {
+  it('uses the highest score across the saved board classes', () => {
+    const smallWave = createForecast({
+      wave_height: '1.1',
+      wave_period: '13s',
+      wind_speed: '0',
+      tide_height: '3.5',
+    });
+
+    const details = scoreWindowConditionDetails(
+      smallWave,
+      mockBeach as Beach,
+      'advanced',
+      null,
+      ['shortboard', 'longboard'],
+    );
+
+    expect(details.boardClass).toBe('longboard');
+    expect(details.score).toBeGreaterThan(0);
+  });
+
+  it('floors board-aware scoring at the no-board baseline', () => {
+    const forecast = createForecast({
+      wave_height: '3',
+      wave_period: '13s',
+      wind_speed: '0',
+      tide_height: '3.5',
+    });
+
+    const baseline = scoreWindowConditionDetails(
+      forecast,
+      mockBeach as Beach,
+      'advanced',
+    );
+    const boardAware = scoreWindowConditionDetails(
+      forecast,
+      mockBeach as Beach,
+      'advanced',
+      null,
+      ['shortboard'],
+    );
+
+    expect(boardAware.score).toBe(baseline.score);
+    expect(boardAware.boardClass).toBeNull();
+  });
+
+  it('passes the scored board class through to the displayed board pick', () => {
+    const powerDay = createForecast({
+      wave_height: '3.2',
+      wave_period: '17s',
+      swell_1_direction: '203',
+      wind_speed: '4',
+      wind_direction_deg: 90,
+      tide_height: '3.5',
+    });
+    const beach = { ...mockBeach, slug: 'lower-trestles' } as Beach;
+    const details = scoreWindowConditionDetails(
+      powerDay,
+      beach,
+      'advanced',
+      null,
+      ['longboard', 'shortboard'],
+    );
+
+    expect(details.boardClass).toBe('longboard');
+
+    const boardPick = getConditionBoardPick(
+      toForecastForScoring(powerDay),
+      [
+        { id: 'lb-1', name: 'Longboard', board_type: 'longboard' },
+        { id: 'sb-1', name: 'Shortboard', board_type: 'shortboard' },
+      ],
+      beach,
+      { kind: 'scored', boardClass: details.boardClass },
+    );
+
+    expect(boardPick).toBeNull();
+  });
+
   it('should return score on 0-100 scale', () => {
     const forecast = createForecast({
       wave_height: '2',

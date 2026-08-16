@@ -70,6 +70,7 @@ interface ConditionWindow {
   start: string;
   end: string;
   avgScore: number;
+  peakScore?: number;
   character?: {
     label: string;
     category: string;
@@ -921,9 +922,9 @@ function ConditionIntelligenceSection({
               Best Window
             </h4>
           </div>
-          {primaryWindow.avgScore > 0 && (
+          {(primaryWindow.peakScore ?? primaryWindow.avgScore) > 0 && (
             <span className="shrink-0 text-xs font-bold tabular-nums px-2 py-0.5 rounded-full bg-blue-100/80 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
-              {Math.round(primaryWindow.avgScore)}
+              {Math.round(primaryWindow.peakScore ?? primaryWindow.avgScore)}
             </span>
           )}
         </div>

@@ -3,6 +3,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 
 /**
  * Tests for GET /api/beaches/nearby
@@ -17,10 +18,12 @@ import { join } from "node:path";
 // Mock Supabase client before imports
 const mockSupabaseClient = {
   from: jest.fn(),
+  rpc: jest.fn(),
 };
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => Promise.resolve(mockSupabaseClient)),
+  createPublicReadClient: jest.fn(() => mockSupabaseClient),
 }));
 
 // Mock the rate limiter to avoid rate limiting during tests
@@ -44,6 +47,14 @@ jest.mock("@/lib/api/rate-limit-config", () => ({
 // Mock rate limit telemetry
 jest.mock("@/lib/monitoring/rate-limit-telemetry", () => ({
   logRateLimitViolation: jest.fn(),
+}));
+
+const mockRankBeaches = jest.fn(async <T extends { id: string }>(beaches: T[]) =>
+  beaches,
+);
+
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
 }));
 
 // Sample beach data for tests
@@ -106,12 +117,40 @@ describe("GET /api/beaches/nearby", () => {
     const nextServer = await import("next/server");
     NextRequest = nextServer.NextRequest;
 
-    // Default mock: return all beaches
-    (mockSupabaseClient.from as jest.Mock).mockReturnValue({
-      select: jest.fn().mockResolvedValue({
-        data: mockBeaches,
-        error: null,
-      }),
+    mockSupabaseClient.rpc.mockImplementation((_, args) => {
+      const radiusMiles = args.max_distance_meters / 1609.34;
+      const data = mockBeaches
+        .map((beach) => ({
+          ...beach,
+          distance: calculateDistanceInMiles(
+            { lat: args.input_lat, lon: args.input_lng },
+            { lat: beach.lat, lon: beach.lon },
+          ),
+        }))
+        .filter((beach) => beach.distance <= radiusMiles)
+        .sort((left, right) => left.distance - right.distance)
+        .slice(0, args.limit_count);
+      return Promise.resolve({ data, error: null });
+    });
+    mockSupabaseClient.from.mockImplementation(() => {
+      const query = {
+        select: jest.fn(),
+        or: jest.fn(),
+        is: jest.fn(),
+        in: jest.fn((_, ids: string[]) =>
+          Promise.resolve({
+            data: ids.map((id) => {
+              const beach = mockBeaches.find((candidate) => candidate.id === id);
+              return { id, country: beach?.country ?? "USA" };
+            }),
+            error: null,
+          }),
+        ),
+      };
+      query.select.mockReturnValue(query);
+      query.or.mockReturnValue(query);
+      query.is.mockReturnValue(query);
+      return query;
     });
   });
 
@@ -309,6 +348,7 @@ describe("GET /api/beaches/nearby", () => {
       expect(beachNames).toContain("Pacific Beach");
       expect(beachNames).toContain("La Jolla Shores");
       expect(beachNames).not.toContain("Distant Beach");
+      expect(mockRankBeaches).toHaveBeenCalled();
     });
 
     it("orders by distance", async () => {
@@ -379,6 +419,27 @@ describe("GET /api/beaches/nearby", () => {
       expect(json.data.length).toBeLessThanOrEqual(2);
     });
 
+    it("caps radius and limit before calling the spatial RPC", async () => {
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beaches/nearby?lat=32.75&lon=-117.25&maxDistance=500&limit=999",
+        ),
+      );
+
+      const res = await GET(req);
+
+      expect(res.status).toBe(200);
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+        "get_nearby_beaches",
+        {
+          input_lat: 32.75,
+          input_lng: -117.25,
+          max_distance_meters: Math.round(50 * 1609.34),
+          limit_count: 55,
+        },
+      );
+    });
+
     it("uses default limit of 20 when not provided", async () => {
       // Create more than 20 mock beaches to test limit
       const manyBeaches = Array.from({ length: 25 }, (_, i) => ({
@@ -389,14 +450,15 @@ describe("GET /api/beaches/nearby", () => {
         slug: `beach-${i}`,
         city: "San Diego",
         state: "CA",
+        country: "USA",
       }));
 
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockResolvedValue({
-          data: manyBeaches,
+      mockSupabaseClient.rpc.mockImplementation((_, args) =>
+        Promise.resolve({
+          data: manyBeaches.slice(0, args.limit_count),
           error: null,
         }),
-      });
+      );
 
       const req = new NextRequest(
         new URL(
@@ -416,12 +478,7 @@ describe("GET /api/beaches/nearby", () => {
   describe("Empty Results Handling", () => {
     it("handles empty results gracefully", async () => {
       // Mock empty beach list
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockResolvedValue({
-          data: [],
-          error: null,
-        }),
-      });
+      mockSupabaseClient.rpc.mockResolvedValue({ data: [], error: null });
 
       const req = new NextRequest(
         new URL("http://localhost/api/beaches/nearby?lat=32.75&lon=-117.25")
@@ -454,12 +511,7 @@ describe("GET /api/beaches/nearby", () => {
     });
 
     it("handles null data from database gracefully", async () => {
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockResolvedValue({
-          data: null,
-          error: null,
-        }),
-      });
+      mockSupabaseClient.rpc.mockResolvedValue({ data: null, error: null });
 
       const req = new NextRequest(
         new URL("http://localhost/api/beaches/nearby?lat=32.75&lon=-117.25")
@@ -522,12 +574,7 @@ describe("GET /api/beaches/nearby", () => {
         .spyOn(console, "error")
         .mockImplementation(() => undefined);
 
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockResolvedValue({
-          data: null,
-          error: dbError,
-        }),
-      });
+      mockSupabaseClient.rpc.mockRejectedValue(dbError);
 
       try {
         const req = new NextRequest(
@@ -541,8 +588,12 @@ describe("GET /api/beaches/nearby", () => {
         expect(json.success).toBe(false);
         expect(json.error).toBe("Error fetching nearby beaches");
         expect(consoleErrorSpy).toHaveBeenCalledWith(
+          "Error getting nearby beaches:",
+          dbError,
+        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
           "Error fetching nearby beaches:",
-          dbError
+          expect.any(Error),
         );
         expect(consoleErrorSpy).toHaveBeenCalledWith("API Error:", "Unknown error");
       } finally {
@@ -564,11 +615,9 @@ describe("GET /api/beaches/nearby", () => {
         },
       ];
 
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockResolvedValue({
-          data: beachesWithMissing,
-          error: null,
-        }),
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: beachesWithMissing,
+        error: null,
       });
 
       const req = new NextRequest(
@@ -600,14 +649,13 @@ describe("GET /api/beaches/nearby", () => {
           slug: "exact-location",
           city: "San Diego",
           state: "CA",
+          country: "USA",
         },
       ];
 
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockResolvedValue({
-          data: nearbyBeaches,
-          error: null,
-        }),
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: nearbyBeaches,
+        error: null,
       });
 
       const req = new NextRequest(

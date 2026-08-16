@@ -225,7 +225,7 @@ export function CalendarHeatmap({
                 <div
                   key={day.toISOString()}
                   className={`
-                    relative p-2 min-h-[3rem] border rounded-lg cursor-pointer transition-all duration-200
+                    relative p-2 min-h-[3rem] border rounded-lg cursor-pointer transition-[background-color,box-shadow,opacity,transform] duration-200
                     ${!isCurrentMonth ? "opacity-30" : ""}
                     ${dateFns.isToday(day) ? "ring-2 ring-primary" : ""}
                     ${hasSession ? "cursor-pointer hover:scale-105" : ""}

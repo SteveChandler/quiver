@@ -16,6 +16,7 @@ import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { sanitizeIntentForecastForMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/intent";
 import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
+import { rankBeaches, selectBeach } from "@/lib/recommendations/selection";
 
 type SupabaseClient = Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>;
 
@@ -412,7 +413,7 @@ async function findRepresentativeBeach(
     .limit(1)
     .single();
 
-  if (data) return data;
+  if (data) return selectBeach(data);
 
   const { data: alt } = await supabase
     .from("beaches")
@@ -422,7 +423,7 @@ async function findRepresentativeBeach(
     .limit(1)
     .single();
 
-  return alt ?? null;
+  return alt ? selectBeach(alt) : null;
 }
 
 async function findRepresentativeBeachStrict(
@@ -440,7 +441,7 @@ async function findRepresentativeBeachStrict(
     .maybeSingle();
 
   if (error) throw error;
-  if (data) return data;
+  if (data) return selectBeach(data);
 
   const { data: alt, error: altError } = await supabase
     .from("beaches")
@@ -451,7 +452,7 @@ async function findRepresentativeBeachStrict(
     .maybeSingle();
 
   if (altError) throw altError;
-  return alt ?? null;
+  return alt ? selectBeach(alt) : null;
 }
 
 async function fetchCityTideRowsForAvailability(
@@ -536,7 +537,7 @@ async function getCityWaterTempDataAvailability(
 
   const { data, error } = await supabase
     .from("enhanced_forecasts")
-    .select("forecast_date, forecast_at, water_temp")
+    .select("forecast_at, water_temp")
     .eq("beach_id", beach.id)
     .gte("forecast_at", `${startDateStr}T00:00:00Z`)
     .lt("forecast_at", `${endNextDay}T00:00:00Z`)
@@ -779,7 +780,7 @@ async function fetchWaterTempData(
   const endNextDay = new Date(new Date(endDate + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
   const { data: forecasts, error: forecastError } = await supabase
     .from("enhanced_forecasts")
-    .select("forecast_date, forecast_at, water_temp, forecast_time")
+    .select("forecast_date, forecast_at, water_temp")
     .eq("beach_id", beach.id)
     .gte("forecast_at", `${startDate}T00:00:00Z`)
     .lt("forecast_at", `${endNextDay}T00:00:00Z`)
@@ -1157,7 +1158,13 @@ export async function getIntentForecastSummary(
   intentSlug: string
 ): Promise<IntentForecastSummary | null> {
   try {
-    const selectedBeaches = beaches.slice(0, 5);
+    const rankedInputBeaches = await rankBeaches(
+      beaches.map((beach, index) => ({ beach, id: beach.id, index })),
+      { compare: (left, right) => left.index - right.index },
+    );
+    const selectedBeaches = rankedInputBeaches
+      .slice(0, 5)
+      .map(({ beach }) => beach);
     const beachIds = selectedBeaches.map((b) => b.id);
 
     if (beachIds.length === 0) return null;
@@ -1305,10 +1312,24 @@ export async function getIntentForecastSummary(
       };
     });
 
+    const safeRankedItems = await rankBeaches(
+      rankedItems.map((item) => ({
+        id: item.candidate.beachId,
+        item,
+      })),
+      {
+        compare: (left, right) =>
+          right.item.topPick.score - left.item.topPick.score,
+      },
+    );
+
     // Extract bestWindow from the top result
     let bestWindow: IntentForecastSummary["bestWindow"] = null;
-    if (sortedResults.length > 0) {
-      const best = sortedResults[0];
+    if (safeRankedItems.length > 0) {
+      const best = sortedResults.find(
+        (result) => result.beach.id === safeRankedItems[0].id,
+      );
+      if (!best) return null;
       bestWindow = {
         start: best.result.windowStart ?? "",
         end: best.result.windowEnd ?? "",
@@ -1318,8 +1339,8 @@ export async function getIntentForecastSummary(
 
     // Extract conditions from the best beach's forecast data
     const bestForecasts: EnhancedForecastEntity[] =
-      sortedResults.length > 0
-        ? forecastsByBeach.get(sortedResults[0].beach.id) ?? []
+      safeRankedItems.length > 0
+        ? forecastsByBeach.get(safeRankedItems[0].id) ?? []
         : (forecasts as EnhancedForecastEntity[]);
     const conditionForecast = bestForecasts[0];
 
@@ -1329,18 +1350,20 @@ export async function getIntentForecastSummary(
       swell: conditionForecast?.wave_height ?? "Unknown",
     };
 
-    const candidates = rankedItems.map(({ candidate }) => candidate);
+    const safeItems = safeRankedItems.map(({ item }) => item);
+    const candidates = safeItems.map(({ candidate }) => candidate);
     const decisions = await evaluateMajorEventHoldCandidates({
       candidates,
       profileExperience: null,
+      applyWaterQualityHolds: true,
     });
 
     return sanitizeIntentForecastForMajorEventHold(
       {
-        items: rankedItems,
+        items: safeItems,
         bestWindow,
         bestWindowSourceCandidateId:
-          rankedItems[0]?.candidate.candidateId ?? null,
+          safeItems[0]?.candidate.candidateId ?? null,
         conditions,
         isTomorrow,
       },

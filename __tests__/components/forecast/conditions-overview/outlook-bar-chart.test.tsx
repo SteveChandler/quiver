@@ -34,7 +34,7 @@ function createDay(overrides: Partial<EnrichedDaySummary>): EnrichedDaySummary {
     dayName: "Today",
     minHeight: 1,
     maxHeight: 2,
-    tier: "marginal",
+    tier: "meh",
     score: 0,
     fullDate: "2026-08-04",
     isToday: false,
@@ -67,6 +67,6 @@ describe("OutlookBarChart", () => {
     );
     const bars = screen.getAllByTestId("score-bar");
     expect(bars).toHaveLength(2);
-    expect(bars[1]).toHaveAttribute("data-fill", "#7F96AD");
+    expect(bars[1]).toHaveAttribute("data-fill", "#64748B");
   });
 });

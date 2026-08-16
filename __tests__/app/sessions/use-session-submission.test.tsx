@@ -111,9 +111,19 @@ describe("useSessionSubmission", () => {
         wave_rating: 4,
       })
     );
-    expect(mockTrackSupabase).not.toHaveBeenCalledWith(
+    expect(mockTrackSupabase).toHaveBeenCalledWith(
       "session_log_submit",
-      expect.anything()
+      expect.objectContaining({
+        beachId: "beach-123",
+        debounceMs: 0,
+        metadata: expect.objectContaining({
+          flow_id: expect.any(String),
+          schema_version: 1,
+          client_stage_at: expect.any(String),
+          event_id: "session:session-123:submit:web:v1",
+          session_id: "session-123",
+        }),
+      })
     );
     expect(global.fetch).not.toHaveBeenCalled();
     expect(mockSaveLastBeach).toHaveBeenCalledWith({

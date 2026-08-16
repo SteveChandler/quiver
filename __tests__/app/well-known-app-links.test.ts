@@ -45,12 +45,17 @@ describe('.well-known app-link manifests', () => {
           '/sessions/*',
           '/profile',
           '/profile/*',
+          // Regression: partner QR URLs need prefix coverage.
+          '/p',
+          '/p/*',
           '/auth',
           '/auth/*',
           '/settings',
           '/map',
           '/alerts',
           '/alerts/*',
+          // Regression: the nudge-email CTA must claim only the exact /app route.
+          '/app',
           '/app/handoff',
           '/app/spot/*',
           '/app/forecast',

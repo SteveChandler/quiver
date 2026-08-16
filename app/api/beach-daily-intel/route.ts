@@ -131,6 +131,9 @@ async function getBeachDailyIntel(request: NextRequest): Promise<NextResponse> {
     return createSuccessResponse({ intel: null });
   }
 
+  const { beaches, ...intelFields } = intel;
+  const beach = Array.isArray(beaches) ? beaches[0] : beaches;
+  const beachTimeZone = beach?.timezone ?? "";
   const labels = await getDailyIntelWaveHeightLabels(
     supabase,
     beachId,
@@ -138,11 +141,9 @@ async function getBeachDailyIntel(request: NextRequest): Promise<NextResponse> {
     {
       bestWindowStart: intel.best_window_start,
       bestWindowEnd: intel.best_window_end,
-    }
+    },
+    beachTimeZone
   );
-  const { beaches, ...intelFields } = intel;
-  const beach = Array.isArray(beaches) ? beaches[0] : beaches;
-  const beachTimeZone = beach?.timezone ?? "";
   const completeIntel = { ...intelFields, ...labels };
   const candidate = buildDailyIntelMajorEventHoldCandidate(
     completeIntel,

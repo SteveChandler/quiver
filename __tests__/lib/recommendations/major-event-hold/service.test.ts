@@ -1,4 +1,8 @@
-import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
+import {
+  evaluateMajorEventHoldCandidates,
+  evaluateRecommendationHoldCandidates,
+} from "@/lib/recommendations/major-event-hold/service";
+import type { WaterQualityHoldResolution } from "@/lib/recommendations/major-event-hold/water-quality";
 import type {
   MajorEventHoldCandidate,
   MajorEventHoldResolution,
@@ -66,6 +70,68 @@ describe("major-event hold service", () => {
     expect(decisions[0].recommendationAvailability).toMatchObject({
       state: "available",
       resolutionAsOf: resolutionAsOf.toISOString(),
+    });
+  });
+
+  it("fails closed on recommendation surfaces while leaving the base evaluator opt-in", async () => {
+    const waterQualityResolution: WaterQualityHoldResolution = {
+      state: "resolved",
+      heldBeachIds: [BEACH_A],
+      epoch: "water-quality-epoch",
+    };
+    const resolveWaterQualityHolds = jest
+      .fn()
+      .mockResolvedValue(waterQualityResolution);
+
+    const recommendationDecisions = await evaluateRecommendationHoldCandidates(
+      {
+        candidates,
+        profileExperience: "intermediate",
+        mode: "off",
+      },
+      { resolveWaterQualityHolds, audit: discardAudit },
+    );
+    const directDecisions = await evaluateMajorEventHoldCandidates(
+      {
+        candidates,
+        profileExperience: "intermediate",
+        mode: "off",
+      },
+      { resolveWaterQualityHolds, audit: discardAudit },
+    );
+
+    expect(recommendationDecisions[0].recommendationAvailability).toMatchObject({
+      state: "none",
+      reasonCode: "water_quality_hold",
+    });
+    expect(recommendationDecisions[1].recommendationAvailability.state).toBe(
+      "available",
+    );
+    expect(directDecisions.every(
+      (decision) => decision.recommendationAvailability.state === "available",
+    )).toBe(true);
+    expect(resolveWaterQualityHolds).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a known chronic hold effective while an outside live signal is unavailable", async () => {
+    const resolveWaterQualityHolds = jest.fn().mockResolvedValue({
+      state: "unresolved",
+      heldBeachIds: [BEACH_A],
+      epoch: "water-quality-unresolved-with-owner-hold",
+    } satisfies WaterQualityHoldResolution);
+
+    const decisions = await evaluateRecommendationHoldCandidates(
+      { candidates, profileExperience: "intermediate", mode: "off" },
+      { resolveWaterQualityHolds, audit: discardAudit },
+    );
+
+    expect(decisions[0].recommendationAvailability).toMatchObject({
+      state: "none",
+      reasonCode: "water_quality_hold",
+    });
+    expect(decisions[1].recommendationAvailability).toMatchObject({
+      state: "none",
+      reasonCode: "hold_state_unavailable",
     });
   });
 
@@ -324,5 +390,40 @@ describe("major-event hold service", () => {
     expect(serialized).not.toMatch(
       /evidence|operator|safety|reliability|confidence|recordId|holdId/i,
     );
+  });
+});
+describe("resolution failure diagnostics", () => {
+  it("fails closed AND reports why when hold resolution throws", async () => {
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const audit = jest.fn();
+
+    const decisions = await evaluateMajorEventHoldCandidates(
+      { mode: "enforce", profileExperience: "intermediate", candidates },
+      {
+        resolveHolds: jest
+          .fn()
+          .mockRejectedValue(new Error("hold store unreachable")),
+        audit,
+      },
+    );
+
+    // Fail-closed behaviour is deliberate and must not regress: a resolution
+    // failure suppresses recommendations rather than serving an unsafe call.
+    for (const decision of decisions) {
+      expect(decision.evaluation.outcome).toBe("explicit_none");
+      expect(decision.evaluation.reasonCode).toBe("hold_state_unavailable");
+    }
+
+    // ...but the cause must be recoverable. Before this, a bare catch swallowed
+    // the error, so a DB outage, a timeout and a bad asOf were indistinguishable
+    // from each other in production.
+    expect(consoleError).toHaveBeenCalledWith(
+      "[major-event-hold:resolution-failed]",
+      expect.objectContaining({ error: "hold store unreachable" }),
+    );
+
+    consoleError.mockRestore();
   });
 });

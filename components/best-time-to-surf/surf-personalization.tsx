@@ -156,12 +156,12 @@ export function SurfPersonalization({ stateProfiles }: SurfPersonalizationProps)
               type="button"
               onClick={() => handleSkillChange(s)}
               className={`
-                rounded-xl border p-3 text-left transition-all
+                rounded-xl border p-3 text-left transition-colors
                 ${skill === s
                   ? "border-[#F78E42] bg-[#F78E42]/10 text-white"
                   : "border-white/10 bg-white/5 text-slate-300 hover:border-white/30 hover:bg-white/10"
                 }
-              `}
+              ` + " focus-ring"}
             >
               <p className="font-semibold text-sm">{skillLabels[s].label}</p>
               <p className="text-xs text-slate-400 mt-0.5 leading-tight">
@@ -184,12 +184,12 @@ export function SurfPersonalization({ stateProfiles }: SurfPersonalizationProps)
               type="button"
               onClick={() => handleCrowdChange(c)}
               className={`
-                flex-1 rounded-xl border py-2.5 text-sm font-medium transition-all
+                flex-1 rounded-xl border py-2.5 text-sm font-medium transition-colors
                 ${crowd === c
                   ? "border-[#F78E42] bg-[#F78E42]/10 text-white"
                   : "border-white/10 bg-white/5 text-slate-300 hover:border-white/30"
                 }
-              `}
+              ` + " focus-ring"}
             >
               {c === "any" ? "Don't care" : "Avoid crowds"}
             </button>

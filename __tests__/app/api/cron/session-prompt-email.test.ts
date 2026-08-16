@@ -15,6 +15,13 @@ import { GET } from "@/app/api/cron/session-prompt-email/route";
 import { NextRequest } from "next/server";
 import { readFileSync } from "fs";
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) =>
+  beaches.filter((beach) => beach.id !== "held-beach"),
+);
+
 // Mock API response utilities
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
@@ -49,6 +56,17 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
     status: 500,
   })),
   validateCronRequest: jest.fn(() => true),
+}));
+
+jest.mock("@/lib/recommendations/major-event-hold/water-quality-visibility", () => ({
+  filterBeachesByWaterQualityVisibility: jest.fn(
+    async (beaches: Array<{ id: string }>) =>
+      beaches.filter((beach) => beach.id !== "held-beach"),
+  ),
+}));
+
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
 }));
 
 // Mock Supabase client
@@ -89,6 +107,12 @@ jest.mock("@/lib/services/email-logging-service", () => ({
     logEmailSent: jest.fn(),
     logEmailFailed: jest.fn(),
   })),
+}));
+
+jest.mock("@/lib/email/suppression", () => ({
+  filterSuppressedRecipients: jest.fn(
+    async (_supabase: unknown, candidates: unknown[]) => candidates,
+  ),
 }));
 
 // Mock rate limiter
@@ -300,6 +324,44 @@ describe("Session Prompt Email Cron Job API", () => {
       expect(data.data.summary.candidates).toBe(2);
       expect(data.data.summary.sent).toBe(2);
       expect(mockEmailsSend).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not send a session-prompt email naming a held home beach", async () => {
+      const candidates = [
+        {
+          user_id: "user-held",
+          email: "held@example.com",
+          display_name: "Held User",
+          home_beach_id: "held-beach",
+          beach_name: "Held Beach",
+          beach_slug: "held-beach",
+          conditions_score: 90,
+          surf_description: "Clean 3-4ft",
+        },
+        {
+          user_id: "user-safe",
+          email: "safe@example.com",
+          display_name: "Safe User",
+          home_beach_id: "safe-beach",
+          beach_name: "Safe Beach",
+          beach_slug: "safe-beach",
+          conditions_score: 80,
+          surf_description: "Solid 2-3ft",
+        },
+      ];
+      mockRpc
+        .mockResolvedValueOnce({ data: candidates, error: null })
+        .mockResolvedValueOnce({ data: true, error: null });
+
+      const response = await GET(mockRequest({ authorization: "Bearer valid-cron-secret" }));
+      const data = await response.json();
+
+      expect(data.data.summary.candidates).toBe(1);
+      expect(data.data.summary.sent).toBe(1);
+      expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+      expect(mockEmailsSend.mock.calls[0][0].to).toBe("safe@example.com");
+      expect(mockEmailsSend.mock.calls[0][0].subject).toContain("Safe Beach");
+      expect(mockEmailsSend.mock.calls[0][0].subject).not.toContain("Held Beach");
     });
   });
 

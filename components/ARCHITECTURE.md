@@ -499,7 +499,6 @@ For detailed documentation, see [`/components/home-screen/ARCHITECTURE.md`](/com
 - **`hero-section.tsx`** - Video background with CTA
 - **`features-section.tsx`** - Product feature highlights
 - **`forecast-section.tsx`** - Live forecast demonstration
-- **`social-feed-section.tsx`** - Community activity preview
 - **`cta-section.tsx`** - Conversion call-to-action
 - **`footer-section.tsx`** - Site footer with links
 
@@ -557,13 +556,11 @@ For detailed documentation, see [`/components/home-screen/ARCHITECTURE.md`](/com
 
 #### Components
 
-- **`HomeBeachBanner.tsx`** - Prompt to set home beach when unset
 - **`HomeBeachSelector.tsx`** - Beach selection dropdown (moved to root)
 - **`HomeBeachTile.tsx`** - Profile stats tile showing home beach (in `/profile`)
 
 #### Integration Points
 
-- **Home Screen**: Banner shows when no home beach is set
 - **Profile Page**: Tile displays current home beach or "-" if unset
 - **Edit Profile**: Selector allows changing home beach preference
 - **Forecast Tab**: Uses home beach for personalized forecasts
@@ -584,7 +581,6 @@ For detailed documentation, see [`/components/home-screen/ARCHITECTURE.md`](/com
 - **`interactive-map.tsx`** - Mapbox-powered beach discovery
 - **`map-content.tsx`** - Map interface orchestrator
 - **`map-toolbar.tsx`** - Single `/map` toolbar with search, location, swell toggle, and region/filter dropdown
-- **`map-display.tsx`** - Map rendering and controls
 
 #### Interface Components
 

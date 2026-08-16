@@ -183,8 +183,9 @@ export function BeachReviewsList({
                         variant="ghost"
                         size="icon"
                         onClick={() => onEditReview?.(review)}
+                        aria-label="Edit review"
                       >
-                        <Edit3 className="h-4 w-4" />
+                        <Edit3 className="h-4 w-4" aria-hidden="true" />
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -192,11 +193,18 @@ export function BeachReviewsList({
                             variant="ghost"
                             size="icon"
                             disabled={deletingId === review.id}
+                            aria-label="Delete review"
                           >
                             {deletingId === review.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader2
+                                className="h-4 w-4 animate-spin"
+                                aria-hidden="true"
+                              />
                             ) : (
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <Trash2
+                                className="h-4 w-4 text-destructive"
+                                aria-hidden="true"
+                              />
                             )}
                           </Button>
                         </AlertDialogTrigger>

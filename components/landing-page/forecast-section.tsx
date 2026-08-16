@@ -179,7 +179,7 @@ export function ForecastSection() {
                   onClick={() => handleFeatureClick(feature.id)}
                   onKeyDown={(e) => handleKeyDown(e, feature.id)}
                   className={`
-                    px-4 py-2 rounded-full text-xs font-semibold transition-all
+                    px-4 py-2 rounded-full text-xs font-semibold transition-[color,background-color,box-shadow]
                     focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]
                     ${
                       activeFeatureId === feature.id
@@ -228,7 +228,7 @@ export function ForecastSection() {
                     onClick={() => handleFeatureClick(feature.id)}
                     onKeyDown={(e) => handleKeyDown(e, feature.id)}
                     className={`
-                      text-sm text-left underline underline-offset-4 transition-all
+                      text-sm text-left underline underline-offset-4 transition-[color,box-shadow]
                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B] focus-visible:rounded
                       ${
                         activeFeatureId === feature.id
@@ -311,7 +311,7 @@ export function ForecastSection() {
               <div className="mt-10 flex flex-col gap-4 items-center md:items-start">
                 <Button
                   asChild
-                  className="rounded-full bg-ocean-blue px-7 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-ocean-blue/90 hover:shadow-xl active:translate-y-0 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+                  className="rounded-full bg-ocean-blue px-7 py-3 text-sm font-semibold text-white shadow-sm transition-[background-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:bg-ocean-blue/90 hover:shadow-xl active:translate-y-0 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
                   data-testid={`forecast-cta-${activeFeatureId}`}
                 >
                   <a

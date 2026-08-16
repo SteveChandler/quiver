@@ -271,7 +271,7 @@ export function SurfboardVolumeCalculator() {
                   key={u}
                   type="button"
                   onClick={() => setWeightUnit(u)}
-                  className="w-14 text-sm font-mono font-semibold transition-colors"
+                  className="w-14 text-sm font-mono font-semibold transition-colors focus-ring"
                   style={
                     weightUnit === u
                       ? { background: "#F78E42", color: "#fff" }

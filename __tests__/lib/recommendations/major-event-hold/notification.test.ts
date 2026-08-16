@@ -37,10 +37,14 @@ function firingPayload(): Record<string, unknown> {
 
 function decisionFor(
   candidate: MajorEventHoldCandidate,
-  state: "allowed" | "blocked" | "unavailable",
+  state: "allowed" | "blocked" | "water_quality_block" | "unavailable",
 ): MajorEventHoldCandidateDecision {
   const reasonCode =
-    state === "blocked" ? "major_event_hold" : "hold_state_unavailable";
+    state === "blocked"
+      ? "major_event_hold"
+      : state === "water_quality_block"
+        ? "water_quality_hold"
+        : "hold_state_unavailable";
   if (state === "allowed") {
     return {
       candidateId: candidate.candidateId,
@@ -61,7 +65,7 @@ function decisionFor(
     evaluation: {
       outcome: "explicit_none",
       reasonCode,
-      holdIds: state === "blocked" ? ["hold-1"] : [],
+      holdIds: state === "blocked" || state === "water_quality_block" ? ["hold-1"] : [],
       ...(state === "blocked" ? { expiresAt: ENDS_AT } : {}),
       holdEpoch: `epoch-${state}`,
     },
@@ -84,6 +88,59 @@ function evaluatorReturning(
 }
 
 describe("notification major-event hold adapter", () => {
+  it("allows water-quality warnings to name the configured affected beach", async () => {
+    const evaluateCandidates = jest.fn();
+    const result = await resolveNotificationMajorEventHold(
+      {
+        eventId: "event-water-quality-warning",
+        type: "water_quality",
+        payload: {
+          beach_id: BEACH_ID,
+          title: "Water quality update",
+          body: "Check the latest advisory before entering the water.",
+        },
+        profileExperience: "beginner",
+        mode: "enforce",
+      },
+      { evaluateCandidates },
+    );
+
+    expect(result).toMatchObject({
+      status: "allowed",
+      candidate: { beachId: BEACH_ID },
+    });
+    expect(evaluateCandidates).not.toHaveBeenCalled();
+  });
+
+  it("evaluates a weekend snapshot window instead of suppressing a null candidate", async () => {
+    const evaluateCandidates = evaluatorReturning("allowed");
+    const result = await resolveNotificationMajorEventHold(
+      {
+        eventId: "event-weekend-window",
+        type: "weekend_window",
+        payload: {
+          beach_id: BEACH_ID,
+          forecast_at: STARTS_AT,
+          policy_context: {
+            kind: "positive_session_recommendation",
+            beach_id: BEACH_ID,
+            starts_at: STARTS_AT,
+            ends_at: ENDS_AT,
+          },
+        },
+        profileExperience: "beginner",
+        mode: "enforce",
+      },
+      { evaluateCandidates },
+    );
+
+    expect(result).toMatchObject({
+      status: "allowed",
+      candidate: { beachId: BEACH_ID, startsAt: STARTS_AT, endsAt: ENDS_AT },
+    });
+    expect(evaluateCandidates).toHaveBeenCalledTimes(1);
+  });
+
   function homeMorningPayload(expiresAt: string): Record<string, unknown> {
     return {
       verdict: "YES",
@@ -261,6 +318,136 @@ describe("notification major-event hold adapter", () => {
     expect(candidates[2]).not.toBe(candidates[0]);
   });
 
+  it("delivers a user-configured alert on a held beach", async () => {
+    const evaluateCandidates = jest.fn(async (input) => {
+      expect(input.applyWaterQualityHolds).toBe(true);
+      expect(input.waterQualityExemptBeachIds).toEqual([BEACH_ID]);
+      return [decisionFor(input.candidates[0] as MajorEventHoldCandidate, "allowed")];
+    });
+
+    const result = await resolveNotificationMajorEventHold(
+      {
+        eventId: "event-user-alert-held-beach",
+        type: "forecast_alert",
+        payload: {
+          beach_id: BEACH_ID,
+          configured_beach_id: BEACH_ID,
+          forecast_at: STARTS_AT,
+          policy_context: {
+            kind: "positive_session_recommendation",
+            beach_id: BEACH_ID,
+            starts_at: STARTS_AT,
+            ends_at: ENDS_AT,
+          },
+        },
+        profileExperience: "beginner",
+        mode: "enforce",
+      },
+      { evaluateCandidates },
+    );
+
+    expect(result).toMatchObject({ status: "allowed" });
+  });
+
+  it("delivers a user-configured similarity subscription on a held beach", async () => {
+    const payload = homeMorningPayload("2026-07-17T07:10:00.000Z");
+    delete payload.verdict;
+    payload.configured_beach_id = BEACH_ID;
+    const evaluateCandidates = jest.fn(async (input) => {
+      expect(input.applyWaterQualityHolds).toBe(true);
+      expect(input.waterQualityExemptBeachIds).toEqual([BEACH_ID]);
+      return [decisionFor(input.candidates[0] as MajorEventHoldCandidate, "allowed")];
+    });
+
+    const result = await resolveNotificationMajorEventHold(
+      {
+        eventId: "event-similarity-held-beach",
+        type: "similarity_match",
+        payload,
+        profileExperience: "beginner",
+        mode: "enforce",
+        asOf: new Date("2026-07-17T07:00:00.000Z"),
+      },
+      { evaluateCandidates },
+    );
+
+    expect(result).toMatchObject({ status: "allowed" });
+  });
+
+  it("filters an unlisted future Quiver beach recommendation by default", async () => {
+    const evaluateCandidates = jest.fn(async (input) => {
+      expect(input.applyWaterQualityHolds).toBe(true);
+      return [
+        decisionFor(
+          input.candidates[0] as MajorEventHoldCandidate,
+          "water_quality_block",
+        ),
+      ];
+    });
+
+    const result = await resolveNotificationMajorEventHold(
+      {
+        eventId: "event-future-quiver-recommendation-held-beach",
+        // Deliberately absent from the former WATER_QUALITY_NOTIFICATION_TYPES
+        // allowlist: new Quiver types must inherit filtering automatically.
+        type: "future_quiver_beach_recommendation",
+        payload: {
+          beach_id: BEACH_ID,
+          configured_beach_id: BEACH_ID,
+          forecast_at: STARTS_AT,
+          policy_context: {
+            kind: "positive_session_recommendation",
+            beach_id: BEACH_ID,
+            starts_at: STARTS_AT,
+            ends_at: ENDS_AT,
+          },
+        },
+        profileExperience: "beginner",
+        mode: "enforce",
+      },
+      { evaluateCandidates },
+    );
+
+    expect(result).toMatchObject({
+      status: "suppressed",
+      reasonCode: "water_quality_hold",
+      candidate: { beachId: BEACH_ID },
+    });
+  });
+
+  it("suppresses a Quiver-initiated recommendation that names a held beach", async () => {
+    const evaluateCandidates = jest.fn(async (input) => {
+      expect(input.applyWaterQualityHolds).toBe(true);
+      return [
+        decisionFor(
+          input.candidates[0] as MajorEventHoldCandidate,
+          "water_quality_block",
+        ),
+      ];
+    });
+
+    const result = await resolveNotificationMajorEventHold(
+      {
+        eventId: "event-feedback-nudge-held-beach",
+        type: "forecast_feedback_nudge",
+        payload: {
+          beach_id: BEACH_ID,
+          beach_name: "Held Beach",
+          forecast_at: STARTS_AT,
+        },
+        profileExperience: "beginner",
+        mode: "enforce",
+      },
+      { evaluateCandidates },
+    );
+
+    expect(result).toMatchObject({
+      status: "suppressed",
+      reasonCode: "water_quality_hold",
+      candidate: { beachId: BEACH_ID },
+    });
+  });
+
   it.each(MODE_EXPECTATIONS)(
     "%s mode returns %s for a user-configured forecast alert under an active hold",
     async (mode, expectedStatus) => {
@@ -296,7 +483,7 @@ describe("notification major-event hold adapter", () => {
     },
   );
 
-  it("requires every positive surf notification to carry the exact fresh canonical decision", async () => {
+  it("requires weekend notifications to carry their exact persisted snapshot window", async () => {
     const evaluateCandidates = evaluatorReturning("allowed");
     const weekendPayload = homeMorningPayload(
       "2026-07-17T07:10:00.000Z",
@@ -319,6 +506,9 @@ describe("notification major-event hold adapter", () => {
 
     const missingDecision = { ...weekendPayload };
     delete missingDecision.session_decision;
+    delete missingDecision.policy_context;
+    delete missingDecision.beach_id;
+    delete missingDecision.forecast_at;
     await expect(
       resolveNotificationMajorEventHold(
         {

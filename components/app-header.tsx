@@ -114,6 +114,7 @@ export function AppHeader() {
   // on "/", client matches on first render, then shows header after mount if logged in
   const usesLandingNav =
     pathname === "/" || pathname === "/cams" || pathname.startsWith("/cams/");
+  const isRedeemPage = pathname === "/redeem";
 
   if (usesLandingNav && (!hasMounted || !user)) {
     return null;
@@ -260,7 +261,7 @@ export function AppHeader() {
             onSubmit={handleSearch}
             className="hidden md:flex flex-1 max-w-[600px] mx-8"
           >
-            <div className="relative w-full rounded-full border border-transparent bg-muted focus-within:bg-background focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition-all duration-200">
+            <div className="relative w-full rounded-full border border-transparent bg-muted focus-within:bg-background focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition-[background-color,border-color,box-shadow] duration-200">
               <Search
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none"
                 aria-hidden="true"
@@ -299,7 +300,7 @@ export function AppHeader() {
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
               <button
-                className="lg:hidden p-2 rounded-md hover:bg-muted transition-colors"
+                className="lg:hidden p-2 rounded-md hover:bg-muted transition-colors focus-ring"
                 aria-label="Open navigation menu"
                 aria-expanded={mobileMenuOpen}
                 data-testid="mobile-menu-button"
@@ -346,7 +347,7 @@ export function AppHeader() {
                         key={item.href}
                         href={item.href}
                         className={cn(
-                          "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
+                          "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-colors duration-200",
                           isActiveRoute(item.href)
                             ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
                             : "text-foreground/80 hover:bg-muted hover:text-foreground",
@@ -369,7 +370,7 @@ export function AppHeader() {
                         await signOut();
                         router.push("/");
                       }}
-                      className="flex items-center gap-3 w-full h-12 px-4 rounded-md text-base font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                      className="flex items-center gap-3 w-full h-12 px-4 rounded-md text-base font-medium text-destructive hover:bg-destructive/10 transition-colors focus-ring"
                       data-testid="mobile-nav-logout"
                     >
                       <LogOut className="h-5 w-5" />
@@ -389,7 +390,7 @@ export function AppHeader() {
                     <Link
                       href="/"
                       className={cn(
-                        "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
+                        "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-colors duration-200",
                         pathname === "/"
                           ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
                           : "text-foreground/80 hover:bg-muted hover:text-foreground",
@@ -403,7 +404,7 @@ export function AppHeader() {
                     <Link
                       href="/map"
                       className={cn(
-                        "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
+                        "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-colors duration-200",
                         pathname.startsWith("/map")
                           ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
                           : "text-foreground/80 hover:bg-muted hover:text-foreground",
@@ -417,7 +418,7 @@ export function AppHeader() {
                     <Link
                       href="/discover"
                       className={cn(
-                        "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
+                        "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-colors duration-200",
                         pathname.startsWith("/discover")
                           ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
                           : "text-foreground/80 hover:bg-muted hover:text-foreground",
@@ -449,21 +450,23 @@ export function AppHeader() {
                     >
                       Log in
                     </Button>
-                    <Button
-                      size="lg"
-                      className="w-full h-12 text-base font-semibold"
-                      onClick={() => {
-                        trackSignupCtaClick({
-                          source: "app-header-mobile",
-                        });
-                        setMobileMenuOpen(false);
-                        setAuthMode("signup");
-                        setAuthModalOpen(true);
-                      }}
-                      data-testid="mobile-nav-signup"
-                    >
-                      {getSignupCta(pathname)}
-                    </Button>
+                    {!isRedeemPage && (
+                      <Button
+                        size="lg"
+                        className="w-full h-12 text-base font-semibold"
+                        onClick={() => {
+                          trackSignupCtaClick({
+                            source: "app-header-mobile",
+                          });
+                          setMobileMenuOpen(false);
+                          setAuthMode("signup");
+                          setAuthModalOpen(true);
+                        }}
+                        data-testid="mobile-nav-signup"
+                      >
+                        {getSignupCta(pathname)}
+                      </Button>
+                    )}
                   </div>
                 </>
               )}
@@ -478,7 +481,7 @@ export function AppHeader() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="relative h-9 w-9 rounded-full border-2 border-transparent hover:border-primary hover:ring-3 hover:ring-primary/10 transition-all duration-200"
+                  className="relative h-9 w-9 rounded-full border-2 border-transparent hover:border-primary hover:ring-3 hover:ring-primary/10 transition-[border-color,box-shadow] duration-200"
                   data-testid="user-avatar-button"
                   aria-label="User menu"
                 >
@@ -555,23 +558,25 @@ export function AppHeader() {
                 >
                   Log in
                 </Button>
-                <Button
-                  size="sm"
-                  className="rounded-full bg-[#F78E42] px-3 text-[#11100D] shadow-sm transition-all duration-200 hover:bg-[#FFAA63] hover:shadow-md active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 lg:px-5 h-10 font-semibold"
-                  onClick={() => {
-                    const headerSource = `app-header-${isBeachContextPath(pathname) ? "beach" : pathname.startsWith("/forecast") ? "forecast" : "general"}`;
-                    trackSignupCtaClick({
-                      source: headerSource,
-                    });
-                    setAuthMode("signup");
-                    setAuthModalOpen(true);
-                  }}
-                >
-                  <span className="lg:hidden">Sign Up</span>
-                  <span className="hidden lg:inline">
-                    {getSignupCta(pathname)}
-                  </span>
-                </Button>
+                {!isRedeemPage && (
+                  <Button
+                    size="sm"
+                    className="rounded-full bg-[#F78E42] px-3 text-[#11100D] shadow-sm transition-[background-color,box-shadow,transform] duration-200 hover:bg-[#FFAA63] hover:shadow-md active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 lg:px-5 h-10 font-semibold"
+                    onClick={() => {
+                      const headerSource = `app-header-${isBeachContextPath(pathname) ? "beach" : pathname.startsWith("/forecast") ? "forecast" : "general"}`;
+                      trackSignupCtaClick({
+                        source: headerSource,
+                      });
+                      setAuthMode("signup");
+                      setAuthModalOpen(true);
+                    }}
+                  >
+                    <span className="lg:hidden">Sign Up</span>
+                    <span className="hidden lg:inline">
+                      {getSignupCta(pathname)}
+                    </span>
+                  </Button>
+                )}
               </div>
 
               <UnifiedAuthModal

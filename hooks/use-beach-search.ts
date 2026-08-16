@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { getBeaches, getNearbyBeaches } from "@/actions/beach-actions";
+import { getBeaches, getNearbyBeaches } from "@/lib/map-beach-client";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import type { Beach } from "@/types/database";
 import { normalizeSearchText, expandSearchWithAliases } from "@/lib/utils/text-normalization";
@@ -8,6 +8,7 @@ const MAX_DISTANCE_MILES = 30;
 
 interface BeachSearchState {
   filteredBeaches: Beach[];
+  resultsQuery: string;
   searchQuery: string;
   selectedBeach: Beach | null;
   activeRegion: string | "ALL";
@@ -20,6 +21,7 @@ interface BeachSearchState {
 export function useBeachSearch() {
   const [state, setState] = useState<BeachSearchState>({
     filteredBeaches: [],
+    resultsQuery: "",
     searchQuery: "",
     selectedBeach: null,
     activeRegion: "ALL",
@@ -47,11 +49,15 @@ export function useBeachSearch() {
   // Nearby lookups can overlap when the user chooses a region while the initial
   // location request is still resolving. Only the latest intent may update state.
   const nearbyRequestIdRef = useRef(0);
+  const nearbyAbortControllerRef = useRef<AbortController | null>(null);
+  const selectedNearbyAbortControllerRef = useRef<AbortController | null>(null);
   const nearbyPresentationSnapshotRef = useRef<{
     beaches: Beach[];
+    resultsQuery: string;
     generation: number;
   } | null>(null);
   const filteredBeachesRef = useRef<Beach[]>([]);
+  const resultsQueryRef = useRef("");
   const presentationGenerationRef = useRef(0);
   const allBeachesLoadingRef = useRef(false);
 
@@ -84,13 +90,15 @@ export function useBeachSearch() {
 
   useEffect(() => {
     filteredBeachesRef.current = state.filteredBeaches;
-  }, [state.filteredBeaches]);
+    resultsQueryRef.current = state.resultsQuery;
+  }, [state.filteredBeaches, state.resultsQuery]);
 
   // Compute distinct regions from loaded beaches
   const regions = useMemo(() => {
     const unique = new Set<string>();
     for (const b of beaches || []) {
-      if (b?.region) unique.add(b.region);
+      const region = b?.region || b?.state;
+      if (region) unique.add(region);
     }
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
   }, [beaches]);
@@ -102,7 +110,9 @@ export function useBeachSearch() {
 
       // Region filter
       if (activeRegion !== "ALL") {
-        working = working.filter((b) => (b.region || "") === activeRegion);
+        working = working.filter(
+          (b) => (b.region || b.state || "") === activeRegion,
+        );
       }
 
       // Beginner-friendly filter
@@ -195,6 +205,8 @@ export function useBeachSearch() {
     const hasSearchQuery = state.searchQuery.trim().length > 0;
     presentationGenerationRef.current += 1;
     filteredBeachesRef.current = filtered;
+    const resultsQuery = state.searchQuery.trim();
+    resultsQueryRef.current = resultsQuery;
 
     setState((prev) => {
       const prevSelection = prev.selectedBeach;
@@ -215,6 +227,7 @@ export function useBeachSearch() {
       return {
         ...prev,
         filteredBeaches: filtered,
+        resultsQuery,
         selectedBeach: nextSelection,
       };
     });
@@ -267,6 +280,9 @@ export function useBeachSearch() {
     async (latitude: number, longitude: number) => {
       const requestId = nearbyRequestIdRef.current + 1;
       nearbyRequestIdRef.current = requestId;
+      nearbyAbortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      nearbyAbortControllerRef.current = abortController;
 
       setBeachesState((prev) => ({
         ...prev,
@@ -279,6 +295,7 @@ export function useBeachSearch() {
       if (nearbyPresentationSnapshotRef.current === null) {
         nearbyPresentationSnapshotRef.current = {
           beaches: filteredBeachesRef.current,
+          resultsQuery: resultsQueryRef.current,
           generation: presentationGenerationRef.current,
         };
       }
@@ -286,18 +303,23 @@ export function useBeachSearch() {
       setState((prev) => ({
         ...prev,
         filteredBeaches: [],
+        resultsQuery: "",
       }));
  
       try {
         const result = await getNearbyBeaches(
           latitude,
           longitude,
-          MAX_DISTANCE_MILES
+          MAX_DISTANCE_MILES,
+          abortController.signal,
         );
 
         if (requestId !== nearbyRequestIdRef.current) return;
+        if (!result.success) {
+          throw new Error(result.error || "Failed to load nearby beaches");
+        }
 
-        if (result.success && result.data && result.data.length > 0) {
+        if (result.data && result.data.length > 0) {
           if ((result as any).fallbackUsed) {
             // Surface spatial fallback in the browser so E2E tests can catch DB regressions
             console.warn(
@@ -319,6 +341,7 @@ export function useBeachSearch() {
           setState((prev) => ({
             ...prev,
             filteredBeaches: sortedBeaches,
+            resultsQuery: "",
             selectedBeach: prev.selectedBeach,
           }));
           nearbyPresentationSnapshotRef.current = null;
@@ -335,12 +358,14 @@ export function useBeachSearch() {
           setState((prev) => ({
             ...prev,
             filteredBeaches: [],
+            resultsQuery: "",
             selectedBeach: null,
           }));
           nearbyPresentationSnapshotRef.current = null;
         }
       } catch (error) {
         if (requestId !== nearbyRequestIdRef.current) return;
+        if (abortController.signal.aborted) return;
         console.error("Error loading nearby beaches:", error);
         setBeachesState((prev) => ({
           ...prev,
@@ -360,7 +385,12 @@ export function useBeachSearch() {
           setState((prev) => ({
             ...prev,
             filteredBeaches: previousPresentation.beaches,
+            resultsQuery: previousPresentation.resultsQuery,
           }));
+        }
+      } finally {
+        if (nearbyAbortControllerRef.current === abortController) {
+          nearbyAbortControllerRef.current = null;
         }
       }
     },
@@ -375,16 +405,33 @@ export function useBeachSearch() {
         return;
       }
 
+      selectedNearbyAbortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      selectedNearbyAbortControllerRef.current = abortController;
       try {
-        const result = await getNearbyBeaches(beach.lat, beach.lon, MAX_DISTANCE_MILES);
+        const result = await getNearbyBeaches(
+          beach.lat,
+          beach.lon,
+          MAX_DISTANCE_MILES,
+          abortController.signal,
+        );
 
-        if (result.success && result.data) {
+        if (!result.success) {
+          throw new Error(result.error || "Failed to load nearby beaches");
+        }
+
+        if (result.data) {
           // Filter out the selected beach itself
           const nearby = result.data.filter((b) => b.id !== beach.id);
           setSelectedBeachNearby(nearby);
         }
       } catch (error) {
+        if (abortController.signal.aborted) return;
         console.error("[useBeachSearch] Error loading nearby beaches for selected:", error);
+      } finally {
+        if (selectedNearbyAbortControllerRef.current === abortController) {
+          selectedNearbyAbortControllerRef.current = null;
+        }
       }
     },
     []
@@ -392,7 +439,14 @@ export function useBeachSearch() {
 
   // Clear the selected beach nearby list
   const clearSelectedBeachNearby = useCallback(() => {
+    selectedNearbyAbortControllerRef.current?.abort();
+    selectedNearbyAbortControllerRef.current = null;
     setSelectedBeachNearby([]);
+  }, []);
+
+  useEffect(() => () => {
+    nearbyAbortControllerRef.current?.abort();
+    selectedNearbyAbortControllerRef.current?.abort();
   }, []);
 
   const setSearchQuery = useCallback((query: string) => {

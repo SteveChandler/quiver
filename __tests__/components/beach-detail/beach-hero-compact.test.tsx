@@ -8,8 +8,51 @@
 
 import React from "react";
 import { render, screen } from "@testing-library/react";
+import { useReducedMotion } from "framer-motion";
 import { BeachHeroCompact } from "@/components/beach-detail/beach-hero-compact";
 import type { Beach } from "@/types/database";
+
+jest.mock("framer-motion", () => {
+  const React = require("react");
+
+  return {
+    useReducedMotion: jest.fn(() => false),
+    motion: {
+      div: React.forwardRef(
+        (
+          { children, ...props }: { children?: React.ReactNode } & Record<
+            string,
+            unknown
+          >,
+          ref: React.Ref<HTMLDivElement>
+        ) => (
+          <div
+            ref={ref}
+            {...Object.fromEntries(
+              Object.entries(props).flatMap(([key, value]) => {
+                if (!["initial", "animate", "exit", "transition"].includes(key)) {
+                  return [[key, value]];
+                }
+                if (value === undefined) return [];
+                return [[`data-motion-${key}`, JSON.stringify(value)]];
+              })
+            )}
+          >
+            {children}
+          </div>
+        )
+      ),
+    },
+  };
+});
+
+const mockUseReducedMotion = useReducedMotion as jest.MockedFunction<
+  typeof useReducedMotion
+>;
+
+afterEach(() => {
+  mockUseReducedMotion.mockReturnValue(false);
+});
 
 const mockBeach = {
   id: "test-beach-1",
@@ -295,6 +338,21 @@ describe("BeachHeroCompact Component - Phase 4 Specifications", () => {
       render(<BeachHeroCompact beach={mockBeach} />);
       const heading = screen.getByRole("heading", { level: 1 });
       expect(heading).toBeInTheDocument();
+    });
+
+    it("skips the forecast teaser entrance animation when reduced motion is requested", () => {
+      mockUseReducedMotion.mockReturnValue(true);
+
+      render(<BeachHeroCompact beach={mockBeach} publicMode />);
+
+      const teaser = screen.getByTestId("beach-hero-forecast-teaser");
+      const motionContainer = teaser.parentElement as HTMLElement;
+      expect(motionContainer).toHaveAttribute("data-motion-initial", "false");
+      expect(motionContainer).not.toHaveAttribute("data-motion-animate");
+      expect(motionContainer).toHaveAttribute(
+        "data-motion-transition",
+        JSON.stringify({ duration: 0 })
+      );
     });
 
     it("should maintain semantic HTML structure", () => {

@@ -408,6 +408,9 @@ describe("/api/beach-daily-intel", () => {
           bestWindowStart: "06:00:00",
           bestWindowEnd: "09:00:00",
         },
+        // The best window is beach-local wall clock, so the beach timezone has
+        // to reach the label query or it resolves the window against UTC.
+        "America/Los_Angeles",
       );
     });
 

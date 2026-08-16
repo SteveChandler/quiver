@@ -19,17 +19,19 @@ export interface FormattedBestWindow {
  * Labels follow the brand vocabulary (EPIC / GOOD / FAIR / RIDEABLE / MEH) — no emoji.
  */
 export function getConditionLabel(score: number): ConditionLabelData {
-  if (score >= 85) {
+  if (score >= 80) {
     return { label: "EPIC", color: "#00D4AA" };
-  } else if (score >= 70) {
-    return { label: "GOOD", color: "#1D9E75" };
-  } else if (score >= 55) {
-    return { label: "FAIR", color: "#FDB84B" };
-  } else if (score >= 40) {
-    return { label: "RIDEABLE", color: "#888780" };
-  } else {
-    return { label: "MEH", color: "#5F5E5A" };
   }
+  if (score >= 70) {
+    return { label: "GOOD", color: "#1D9E75" };
+  }
+  if (score >= 55) {
+    return { label: "FAIR", color: "#FDB84B" };
+  }
+  if (score >= 40) {
+    return { label: "RIDEABLE", color: "#888780" };
+  }
+  return { label: "MEH", color: "#5F5E5A" };
 }
 
 /**

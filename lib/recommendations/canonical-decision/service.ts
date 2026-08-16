@@ -7,6 +7,7 @@ import type {
   SurfDiscoveryResponse,
 } from "@/types/personalization";
 import { buildCanonicalDecisionFromSurfDiscovery } from "./discovery-adapter";
+import { rankBeaches } from "@/lib/recommendations/selection";
 import type {
   CanonicalDecisionScope,
   CanonicalSessionDecision,
@@ -59,17 +60,31 @@ export async function resolveCanonicalSessionDecisionContext(
         candidateBeachIds.has(recommendation.beach.id),
       )
     : recommendations;
+  const rankedDecisionRecommendations = await rankBeaches(
+    decisionRecommendations.map((recommendation, index) => ({
+      id: recommendation.beach.id,
+      recommendation,
+      index,
+    })),
+    {
+      compare: (left, right) => left.index - right.index,
+    },
+  );
 
   const decision = buildCanonicalDecisionFromSurfDiscovery({
     anchorTime: input.anchorTime,
     scope: input.scope,
     profileExperience: input.profileExperience,
+    // Discovery always reports availability; a missing value is an absent
+    // hold, not a hold. Genuine major-event holds still arrive as
+    // `state: "none"` with their own reason code.
     recommendationAvailability: discovery.recommendationAvailability ?? {
-      state: "none",
-      reasonCode: "hold_state_unavailable",
-      holdEpoch: "hold-state-unavailable",
+      state: "available",
+      holdEpoch: "no-hold",
     },
-    recommendations: decisionRecommendations,
+    recommendations: rankedDecisionRecommendations.map(
+      ({ recommendation }) => recommendation,
+    ),
   });
 
   return { decision, discovery };

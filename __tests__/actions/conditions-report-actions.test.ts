@@ -45,6 +45,9 @@ const createSupabaseMock = () => {
     from: jest.fn().mockReturnThis() as MockFn,
     select: jest.fn().mockReturnThis() as MockFn,
     insert: jest.fn().mockReturnThis() as MockFn,
+    update: jest.fn().mockImplementation(() => ({
+      eq: jest.fn().mockImplementation(() => Promise.resolve({ error: null })) as unknown as MockFn,
+    })) as unknown as MockFn,
     eq: jest.fn().mockReturnThis() as MockFn,
     not: jest.fn().mockReturnThis() as MockFn,
     gte: jest.fn().mockReturnThis() as MockFn,
@@ -79,6 +82,8 @@ const mockIntelPost = { id: "intel-post-abc" };
 // A completed sessions insert result
 const mockSession = { id: "session-xyz" };
 
+let mockSubmitForecastFeedback: jest.MockedFunction<(...args: any[]) => any>;
+
 /** Simulate no existing reports today (dedup check returns empty) */
 const noExistingReports = { data: [], error: null };
 
@@ -103,9 +108,24 @@ beforeEach(async () => {
     createSupabaseServerClient: jest.fn(),
     createSupabaseServiceRoleClient: jest.fn(),
   }));
+  jest.mock("@/lib/forecast-feedback/submit-feedback", () => ({
+    submitForecastFeedback: jest.fn(),
+  }));
 
   const serverModule = await import("@/lib/supabase/server");
   createSupabaseServerClient = serverModule.createSupabaseServerClient as jest.MockedFunction<any>;
+  const feedbackModule = await import("@/lib/forecast-feedback/submit-feedback");
+  mockSubmitForecastFeedback = feedbackModule.submitForecastFeedback as jest.MockedFunction<
+    (...args: any[]) => any
+  >;
+  mockSubmitForecastFeedback.mockResolvedValue({
+    success: true,
+    data: {
+      id: "feedback-1",
+      contractVersion: "forecast-feedback-context.v1",
+      correlationId: "corr-1",
+    },
+  });
 
   const actionsModule = await import("@/actions/conditions-report-actions");
   submitConditionsReport = actionsModule.submitConditionsReport as any;
@@ -232,6 +252,32 @@ describe("submitConditionsReport", () => {
       expect(inner.success).toBe(true);
       expect(inner.data?.intelPostId).toBe("intel-post-abc");
       expect(inner.data?.sessionId).toBe("session-xyz");
+
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(mockSubmitForecastFeedback).toHaveBeenCalledWith(
+        expect.objectContaining({ user: mockUser, supabase }),
+        expect.objectContaining({
+          beachId: "beach-1",
+          forecastAt: expect.stringMatching(/:00\.000Z$/),
+          feedbackKind: "condition_report",
+          feedbackValue: "3-4ft",
+          feedbackNote: "Clean lines",
+          observedFaceHeightFt: 3.5,
+          displayedContext: {
+            source: "conditions_report",
+            waveSizeRange: "3-4ft",
+            vibe: "firing",
+          },
+        }),
+        expect.objectContaining({ requireForecast: true }),
+      );
+
+      const sessionInsert = supabase.insert.mock.calls.find(
+        ([payload]) => payload?.source === "conditions_report",
+      );
+      expect(sessionInsert?.[0]).toEqual(
+        expect.objectContaining({ wave_height_ft: 3.5 }),
+      );
     });
 
     test("emits intel_post_created and session_created, not session_log_submit", async () => {
@@ -309,6 +355,31 @@ describe("submitConditionsReport", () => {
       expect(inner.data?.intelPostId).toBe("intel-post-abc");
       // sessionId is null because the insert failed (non-fatal)
       expect(inner.data?.sessionId).toBeNull();
+    });
+
+    test("succeeds when forecast feedback forwarding fails", async () => {
+      const supabase = createSupabaseMock();
+      supabase.auth.getUser.mockResolvedValue({ data: { user: mockUser }, error: null } as any);
+      mockSupabaseClient(supabase);
+      mockSubmitForecastFeedback.mockRejectedValueOnce(new Error("Seaside unavailable"));
+
+      supabase.limit.mockResolvedValueOnce(noExistingReports);
+      supabase.single
+        .mockResolvedValueOnce({ data: mockBeach, error: null })
+        .mockResolvedValueOnce({ data: mockIntelPost, error: null })
+        .mockResolvedValueOnce({ data: mockSession, error: null });
+
+      const result = await submitConditionsReport({
+        beachId: "beach-1",
+        waveSizeRange: "5+ft",
+        vibe: "fun",
+      });
+      await new Promise((resolve) => setImmediate(resolve));
+
+      const inner = result?.data ?? result;
+      expect(inner.success).toBe(true);
+      expect(inner.data?.intelPostId).toBe("intel-post-abc");
+      expectConsoleWarnings([/Forecast feedback failed/i]);
     });
   });
 

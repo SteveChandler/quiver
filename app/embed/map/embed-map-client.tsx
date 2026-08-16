@@ -125,6 +125,17 @@ function renderHealthStatus(fps: number): "ok" | "degraded" {
   return fps >= DEGRADED_FPS_THRESHOLD ? "ok" : "degraded";
 }
 
+export function focusEmbedBeachMarker(beachId: string): boolean {
+  const markers = document.querySelectorAll<HTMLElement>('[data-testid="beach-marker"]');
+  const marker = Array.from(markers).find(
+    (candidate) => candidate.getAttribute("data-beach-id") === beachId,
+  );
+  const focusTarget = marker?.querySelector<HTMLElement>('[data-marker-badge="true"]') ?? marker;
+  if (!focusTarget) return false;
+  focusTarget.focus({ preventScroll: true });
+  return document.activeElement === focusTarget;
+}
+
 export function EmbedMapClient() {
   const searchParams = useSearchParams();
   const isHourlyTimeline = searchParams.get("timeline") === "hourly";
@@ -322,6 +333,9 @@ export function EmbedMapClient() {
           );
           return;
         }
+        case "focusSelectedSpot":
+          focusEmbedBeachMarker(command.payload.beachId);
+          return;
         case "startPlacement": {
           const point = command.payload?.lat !== undefined && command.payload?.lon !== undefined
             ? command.payload
@@ -527,7 +541,7 @@ export function EmbedMapClient() {
                   <button
                     key={opt.id}
                     type="button"
-                    className="embed-layer-pill"
+                    className="embed-layer-pill focus-ring"
                     aria-pressed={active}
                     onClick={() => {
                       setFieldHidden(false);
@@ -551,7 +565,7 @@ export function EmbedMapClient() {
               })}
               <button
                 type="button"
-                className="embed-layer-pill"
+                className="embed-layer-pill focus-ring"
                 aria-pressed={fieldHidden}
                 onClick={() => {
                   setFieldHidden(true);
@@ -691,7 +705,7 @@ export function EmbedMapClient() {
                   alignItems: "center",
                   justifyContent: "center",
                   boxShadow: "0 2px 6px rgba(0, 0, 0, 0.4)",
-                }}
+                }} className="focus-ring"
               >
                 {isPlaying ? "⏸" : "▶"}
               </button>

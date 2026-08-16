@@ -41,12 +41,41 @@ describe('rideability board class domain', () => {
     expect(normalizeBoardClass('softboard')).toBe('foamie');
     expect(normalizeBoardClass('soft board')).toBe('foamie');
     expect(normalizeBoardClass('soft-top')).toBe('foamie');
-    expect(normalizeBoardClass('thruster')).toBe('shortboard');
+    expect(normalizeBoardClass('thruster')).toBeNull();
     expect(normalizeBoardClass('twin-pin')).toBe('fish');
     expect(normalizeBoardClass('standuppaddle')).toBe('sup');
     expect(normalizeBoardClass('standuppaddleboard')).toBe('sup');
     expect(normalizeBoardClass('stand up paddle board')).toBe('sup');
     expect(normalizeBoardClass('unknown')).toBeNull();
+  });
+
+  it('normalizes every observed production board type', () => {
+    const expected: Record<string, BoardClass | null> = {
+      shortboard: 'shortboard',
+      Shortboard: 'shortboard',
+      fish: 'fish',
+      longboard: 'longboard',
+      thruster: null,
+      midlength: 'mid-length',
+      'longboard-single-fin': 'longboard',
+      'longboard-2-plus-1': 'longboard',
+      funboard: 'funboard',
+      'boogie-board': 'bodyboard',
+      gun: 'gun',
+      egg: 'mid-length',
+      groveler: 'fish',
+      'Mini Mid': 'mid-length',
+      softboard: 'foamie',
+      'step-up': 'step-up',
+      foil: 'foil',
+      'mid-length': 'mid-length',
+    };
+
+    for (const [raw, boardClass] of Object.entries(expected)) {
+      expect(normalizeBoardClass(raw)).toBe(boardClass);
+    }
+
+    expect(normalizeBoardClass('LONGBOARD-2-PLUS-1')).toBe('longboard');
   });
 
   it('keeps parser and fallback compatibility APIs aligned with the canonical normalizer', () => {

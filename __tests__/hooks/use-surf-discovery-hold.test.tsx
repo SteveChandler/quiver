@@ -437,8 +437,16 @@ describe("useSurfDiscovery major-event hold precedence", () => {
     const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.discovery).toBeNull();
+    // The projection now rejects an unreadable createdAt at the boundary, so
+    // the surface is emptied like every other invalid decision (previously the
+    // hook's expiry effect caught this one render later via reset()).
+    expect(result.current.discovery?.recommendations ?? []).toEqual([]);
     expect(result.current.hasRecommendations).toBe(false);
+    expect(
+      Object.keys(window.localStorage).filter((key) =>
+        key.includes("surf-discovery"),
+      ),
+    ).toEqual([]);
   });
 
   it("revalidates a visible session and replaces a prior positive with explicit none", async () => {

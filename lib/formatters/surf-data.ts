@@ -43,10 +43,22 @@ export function formatTideHeight(ft: number): string {
 
 /**
  * Format water temperature in Fahrenheit, rounded to nearest integer.
+ *
+ * Callers that historically displayed an em dash can opt into that sentinel
+ * without changing the default output used by forecast and session surfaces.
  */
-export function formatWaterTemp(fahrenheit: number): string {
-  if (!Number.isFinite(fahrenheit)) return '--°F';
-  return `${Math.round(fahrenheit)}°F`;
+export function formatWaterTemp(
+  fahrenheit: number | string | null | undefined,
+  emptyValue: '--°F' | '—' = '--°F'
+): string {
+  if (fahrenheit === null || fahrenheit === undefined || fahrenheit === '') {
+    return emptyValue;
+  }
+
+  const numericValue =
+    typeof fahrenheit === 'string' ? parseFloat(fahrenheit) : fahrenheit;
+  if (!Number.isFinite(numericValue)) return emptyValue;
+  return `${Math.round(numericValue)}°F`;
 }
 
 // ============================================================================

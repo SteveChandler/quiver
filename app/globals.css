@@ -84,6 +84,13 @@
     color: rgba(255, 255, 255, 0.7);
   }
 
+  /* Stamp-blue is clear on paper; the paper offset stays clear on twilight. */
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--stamp-blue, #0B3A75);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px var(--paper, #F4EBD8);
+  }
+
   /* === NEON GLOW: 4-layer progressive blur === */
   .glow-orange {
     box-shadow:

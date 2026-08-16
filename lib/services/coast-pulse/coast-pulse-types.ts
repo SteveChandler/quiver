@@ -44,6 +44,7 @@ export interface BeachCacheEntry {
   lat: number;
   lon: number;
   windOffshoreDeg?: number | null;
+  timezone?: string | null;
 }
 
 /** Parameters for the generateCoastPulse service function */

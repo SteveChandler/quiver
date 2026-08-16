@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { NativeAppFunnelCta } from "@/components/app-store/native-app-funnel-cta";
+import { CommunityPhotoUpload } from "@/components/media/community-photo-upload";
+import { SessionVideoUpload } from "@/components/media/session-video-upload";
 import {
   getFirstTouchPlatform,
   type FirstTouchPlatform,
@@ -25,6 +27,10 @@ export interface PostSessionShareProps {
    * so users see exactly what they're sharing before they tap.
    */
   shareCardUrl?: string;
+  /** Session/beach context used by the post-session UGC uploads. */
+  beachId?: string;
+  sessionId?: string;
+  initialPhoto?: File | null;
 }
 
 /**
@@ -40,8 +46,12 @@ export function PostSessionShare({
   onShare,
   onSkip,
   shareCardUrl,
+  beachId,
+  sessionId,
+  initialPhoto = null,
 }: PostSessionShareProps) {
   const clampedRating = Math.max(0, Math.min(5, Math.round(overallRating)));
+  const reducedMotion = useReducedMotion();
   const [cardImageLoaded, setCardImageLoaded] = useState(false);
   const [nativeCtaPlatform, setNativeCtaPlatform] =
     useState<FirstTouchPlatform>("desktop");
@@ -86,9 +96,9 @@ export function PostSessionShare({
       className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-[#0d1f2d] via-[#1a3a4a] to-[#0d1f2d] px-6 overflow-y-auto"
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.92 }}
+        initial={reducedMotion ? false : { opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.35, ease: "easeOut" }}
+        transition={reducedMotion ? { duration: 0 } : { duration: 0.35, ease: "easeOut" }}
         className="flex flex-col items-center gap-6 w-full max-w-sm text-center py-8"
       >
         {/* Headline */}
@@ -127,6 +137,17 @@ export function PostSessionShare({
           </span>
         ) : null}
 
+        {beachId ? (
+          <CommunityPhotoUpload
+            targetType="beach"
+            targetId={beachId}
+            initialFile={initialPhoto}
+            className="w-full text-left"
+          />
+        ) : null}
+
+        {sessionId ? <SessionVideoUpload sessionId={sessionId} className="w-full text-left" /> : null}
+
         {/* OG share card preview — hero of the celebration when available */}
         {shareCardUrl ? (
           <div className="w-full flex flex-col items-center gap-3">
@@ -162,7 +183,7 @@ export function PostSessionShare({
         <div className="flex flex-col gap-3 w-full mt-2">
           <button
             onClick={onShare}
-            className="w-full rounded-2xl bg-[#F78E42] hover:bg-[#D57835] active:bg-[#C06A25] text-white font-bold text-base py-4 transition-colors"
+              className="w-full rounded-2xl bg-[#F78E42] px-4 py-4 text-base font-bold text-[#11100D] transition-colors hover:bg-[#D57835] active:bg-[#C06A25] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1A1535]"
           >
             Share Your Session
           </button>
@@ -187,7 +208,7 @@ export function PostSessionShare({
           </div>
           <button
             onClick={onSkip}
-            className="w-full rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/70 font-medium text-base py-3.5 transition-colors"
+            className="w-full rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/70 font-medium text-base py-3.5 transition-colors focus-ring"
           >
             Skip
           </button>

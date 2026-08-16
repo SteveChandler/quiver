@@ -1,39 +1,12 @@
-"use client";
-
 import Image from "next/image";
-import { useEffect, useState, type ReactElement } from "react";
+import type { ReactElement } from "react";
+
+import { AutoplayVideo } from "./autoplay-video";
 
 const HERO_VIDEO_SRC = "/videos/quiver-landing-hero-720.mp4";
 const HERO_POSTER_SRC = "/images/hero/quiver-landing-hero-poster.jpg";
 
-function shouldAutoplayLandingVideo(): boolean {
-  if (typeof window === "undefined") return false;
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    return false;
-  }
-
-  const connection = (
-    navigator as Navigator & {
-      connection?: { saveData?: boolean; effectiveType?: string };
-    }
-  ).connection;
-  if (connection?.saveData) return false;
-  if (connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") {
-    return false;
-  }
-
-  return true;
-}
-
 export function FieldGuideHeroVideo(): ReactElement {
-  const [canAutoplay, setCanAutoplay] = useState(false);
-  const [userRequestedVideo, setUserRequestedVideo] = useState(false);
-  const showVideo = canAutoplay || userRequestedVideo;
-
-  useEffect(() => {
-    setCanAutoplay(shouldAutoplayLandingVideo());
-  }, []);
-
   return (
     <div
       id="demo"
@@ -42,35 +15,21 @@ export function FieldGuideHeroVideo(): ReactElement {
     >
       <Image
         src={HERO_POSTER_SRC}
-        alt={showVideo ? "" : "Quiver app launch video preview"}
+        alt="Quiver app launch video preview"
         fill
         priority
         sizes="(min-width: 1024px) 470px, (min-width: 768px) 430px, 100vw"
         className="object-cover"
       />
-      {showVideo ? (
-        <video
-          src={HERO_VIDEO_SRC}
-          autoPlay
-          muted
-          loop={canAutoplay}
-          controls={userRequestedVideo}
-          playsInline
-          preload={canAutoplay ? "metadata" : "none"}
-          aria-label="Quiver app launch video preview"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setUserRequestedVideo(true)}
-          className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border-2 border-[#11100D] bg-[#F4EBD8] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.2)] transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
-        >
-          Play demo
-        </button>
-      )}
+      <AutoplayVideo
+        src={HERO_VIDEO_SRC}
+        ariaLabel="Quiver app launch video preview"
+        className="absolute inset-0 h-full w-full object-cover"
+        playLabel="Play demo"
+        playButtonClassName="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border-2 border-[#11100D] bg-[#F4EBD8] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.2)] transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+      />
       <div className="absolute bottom-1.5 right-1.5 z-10 border border-[#11100D] bg-[#F4EBD8]/85 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[#11100D]">
-        Live now
+        App preview
       </div>
     </div>
   );

@@ -86,6 +86,7 @@ jest.mock("@/components/forecast/tide-chart-recharts", () => ({
 
 jest.mock("@/components/forecast/forecast-table", () => ({
   MultiDayForecastTable: () => <div data-testid="forecast-table" />,
+  SimplifiedForecastTable: () => <div data-testid="simplified-forecast-table" />,
 }));
 
 jest.mock("@/components/ui/public-content-gate", () => ({
@@ -106,6 +107,42 @@ describe("BeachesEnhancedForecastWithTransparency", () => {
 
   afterAll(() => {
     jest.useRealTimers();
+  });
+
+  describe("Heading hierarchy", () => {
+    it("uses h4 for data source subsections in both forecast branches", () => {
+      const publicRender = render(
+        <BeachesEnhancedForecastWithTransparency
+          beachId="beach-1"
+          beachName="Trestles"
+          publicMode={true}
+        />
+      );
+
+      expect(
+        screen.getByRole("heading", { name: "Wave Data" })
+      ).toHaveProperty("tagName", "H4");
+      expect(
+        screen.getByRole("heading", { name: "Weather & Tides" })
+      ).toHaveProperty("tagName", "H4");
+
+      publicRender.unmount();
+
+      render(
+        <BeachesEnhancedForecastWithTransparency
+          beachId="beach-1"
+          beachName="Trestles"
+          publicMode={false}
+        />
+      );
+
+      expect(
+        screen.getByRole("heading", { name: "Wave Data" })
+      ).toHaveProperty("tagName", "H4");
+      expect(
+        screen.getByRole("heading", { name: "Weather & Tides" })
+      ).toHaveProperty("tagName", "H4");
+    });
   });
 
   describe("Transparency Integration", () => {

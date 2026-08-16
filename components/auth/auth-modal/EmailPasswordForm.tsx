@@ -79,7 +79,7 @@ export function EmailPasswordForm({
             {emailSuggestion.suggestion}{" "}
             <button
               type="button"
-              className="underline font-medium hover:text-amber-700 dark:hover:text-amber-300"
+              className="underline font-medium hover:text-amber-700 dark:hover:text-amber-300 focus-ring"
               onClick={() => onAcceptSuggestion?.(emailSuggestion.suggestedEmail)}
             >
               Use {emailSuggestion.suggestedEmail}

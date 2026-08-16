@@ -126,7 +126,7 @@ export function TideDiagnosticsPanel({
           "w-full flex items-center justify-between gap-2 px-4 py-3 text-left",
           "hover:bg-slate-50 transition-colors",
           isOpen && "bg-blue-50"
-        )}
+        ) + " focus-ring"}
       >
         <div className="flex items-center gap-2">
           <Database className="h-4 w-4 text-slate-500" />

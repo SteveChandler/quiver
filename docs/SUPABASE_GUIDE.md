@@ -198,7 +198,6 @@ User surf sessions (logged or planned).
 |--------|------|-------------|
 | `id` | UUID (PK) | Session identifier |
 | `user_id` | UUID (FK) | Session owner |
-| `profile_id` | UUID (FK) | Profile reference |
 | `beach_id` | UUID (FK) | Beach location |
 | `board_id` | UUID (FK) | Board used (nullable) |
 | `arrival_time` | TIMESTAMPTZ | Session date/time |
@@ -470,7 +469,6 @@ export const createSession = withAuthenticatedAction(
       .insert({
         ...sessionData,
         user_id: userId,
-        profile_id: userId,
       })
       .select()
       .single();

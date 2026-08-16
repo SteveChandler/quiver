@@ -20,6 +20,7 @@ import {
   User,
 } from "lucide-react";
 import { AuthLoader } from "@/components/ui/loading-states";
+import { ProfileTabLoadingSkeleton } from "@/components/skeletons/profile-tab-loading-skeleton";
 import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { BoardCard } from "@/components/board-card";
 import { UserStats } from "@/components/user-stats";
@@ -116,29 +117,6 @@ function SessionsLoadingSkeleton() {
           className="h-32 border-2 border-[#11100D]/25 bg-[#FBF6E8] animate-pulse"
         ></div>
       ))}
-    </div>
-  );
-}
-
-function TabLoadingSkeleton({ type }: { type: string }) {
-  return (
-    <div className="space-y-4 animate-pulse">
-      <div className="flex items-center justify-center py-8">
-        <div className="text-center space-y-2">
-          <div className="w-8 h-8 border-2 border-[#11100D] border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/70">
-            Loading {type}...
-          </p>
-        </div>
-      </div>
-      <div className="grid gap-4">
-        {[1, 2].map((i) => (
-          <div
-            key={i}
-            className="h-24 border-2 border-[#11100D]/25 bg-[#FBF6E8]"
-          ></div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -464,7 +442,7 @@ function ProfileViewContent() {
                                 </p>
                                 <div className="mt-2 h-2 overflow-hidden rounded-full border border-[#11100D] bg-[#11100D]/10">
                                   <div
-                                    className="h-full rounded-full bg-[#F78E42] transition-all"
+                                    className="h-full rounded-full bg-[#F78E42] transition-[width]"
                                     style={{
                                       width: `${Math.min(100, ((preferences.sample_size || 0) / 5) * 100)}%`,
                                     }}
@@ -615,7 +593,7 @@ function ProfileViewContent() {
                         }}
                       />
                     )}
-                    <Suspense fallback={<TabLoadingSkeleton type="Journal" />}>
+                    <Suspense fallback={<ProfileTabLoadingSkeleton type="Journal" />}>
                       <JournalView />
                     </Suspense>
                   </TabsContent>
@@ -625,7 +603,7 @@ function ProfileViewContent() {
                     className="p-4 sm:p-6 space-y-4 m-0"
                   >
                     {user && (
-                      <Suspense fallback={<TabLoadingSkeleton type="Boards" />}>
+                      <Suspense fallback={<ProfileTabLoadingSkeleton type="Boards" />}>
                         <BoardsManager userId={user.id} boards={boards} />
                       </Suspense>
                     )}
@@ -651,7 +629,7 @@ function ProfileViewContent() {
                         Add Beach
                       </Button>
                     </div>
-                    <Suspense fallback={<TabLoadingSkeleton type="Beaches" />}>
+                    <Suspense fallback={<ProfileTabLoadingSkeleton type="Beaches" />}>
                       <FavoriteBeaches />
                     </Suspense>
                   </TabsContent>
@@ -662,7 +640,7 @@ function ProfileViewContent() {
                   >
                     {user && (
                       <Suspense
-                        fallback={<TabLoadingSkeleton type="Comments" />}
+                        fallback={<ProfileTabLoadingSkeleton type="Comments" />}
                       >
                         <UserComments userId={user.id} />
                       </Suspense>
@@ -674,12 +652,12 @@ function ProfileViewContent() {
                     className="p-4 sm:p-6 space-y-4 m-0"
                   >
                     <Suspense
-                      fallback={<TabLoadingSkeleton type="Surf Profile" />}
+                      fallback={<ProfileTabLoadingSkeleton type="Surf Profile" />}
                     >
                       <SurfProfileSection />
                     </Suspense>
                     <Suspense
-                      fallback={<TabLoadingSkeleton type="Removed photos" />}
+                      fallback={<ProfileTabLoadingSkeleton type="Removed photos" />}
                     >
                       <CommunityPhotoRecovery />
                     </Suspense>

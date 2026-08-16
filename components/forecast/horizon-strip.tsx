@@ -75,9 +75,9 @@ function TierBadge({ tier }: { tier: ConditionTier }) {
   const colors = TIER_COLORS[tier];
 
   // Only show badge for notable conditions
-  if (tier === 'marginal') return null;
+  if (tier === 'meh') return null;
 
-  const label = tier === 'great' ? '★' : tier === 'good' ? '●' : '○';
+  const label = tier === 'epic' ? '★' : tier === 'good' ? '●' : '○';
 
   return (
     <span
@@ -85,7 +85,7 @@ function TierBadge({ tier }: { tier: ConditionTier }) {
         "absolute top-1 right-1 w-4 h-4 rounded-full",
         "flex items-center justify-center text-[10px]",
         colors.badge,
-        tier === 'great' && "text-amber-900",
+        tier === 'epic' && "text-amber-900",
         tier === 'good' && "text-emerald-900",
         tier === 'fair' && "text-blue-900"
       )}
@@ -155,7 +155,7 @@ function DayCard({
         colors.border,
         colors.text,
         // Transitions
-        "transition-all duration-200 ease-out",
+        "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out",
         // Entry animation — on gated cards the rotation already makes
         // the row feel lively, so skip the staggered slide-up that
         // looked chaotic when stacked on top of tilt.
@@ -265,7 +265,7 @@ function DayCard({
  * 12-Day Horizon Strip
  *
  * A horizontal scrollable strip showing surf condition forecasts for the next 12 days.
- * Each day is color-coded by condition quality (great/good/fair/marginal).
+ * Each day is color-coded by condition quality (EPIC/GOOD/FAIR/RIDEABLE/MEH).
  * Clicking a day selects it for detailed view in the forecast tab.
  */
 export function HorizonStrip({

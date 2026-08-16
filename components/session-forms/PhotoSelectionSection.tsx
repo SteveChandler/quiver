@@ -284,20 +284,25 @@ export function PhotoSelectionSection({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={filePreview.url}
-                      alt="Preview"
+                      alt={`Selected photo: ${filePreview.file.name}`}
                       className="w-full h-full object-cover"
                     />
                   </div>
 
+                  {/* Always visible: a hover-only reveal is unreachable on touch,
+                      which is where sessions actually get logged. The ::after
+                      pseudo-element widens the hit area to 44px without growing
+                      the badge over the thumbnail. */}
                   <Button
                     type="button"
                     variant="destructive"
                     size="sm"
-                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label={`Remove photo ${filePreview.file.name}`}
+                    className="absolute -top-2 -right-2 h-8 w-8 rounded-full p-0 shadow-sm after:absolute after:-inset-[6px] after:content-['']"
                     onClick={() => removeFile(filePreview.id)}
                     disabled={disabled}
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-4 w-4" />
                   </Button>
 
                   <div className="mt-1 text-xs text-muted-foreground">

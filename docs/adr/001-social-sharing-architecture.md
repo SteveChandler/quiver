@@ -1,9 +1,11 @@
 # ADR 001: Social Sharing Architecture (Native-First)
 
 **Date**: December 22, 2025
-**Status**: Accepted (Supersedes Satori SSR Architecture)
+**Status**: Historical (superseded for the current web app)
 **Deciders**: Engineering Team
 **Context**: Migration from Server-Side Rendering (SSR) to a Native-First sharing approach for Capacitor compatibility and reduced maintenance.
+
+> **Retirement note (August 7, 2026):** Capacitor is not a dependency of the current web app. The Capacitor-specific decision and implementation references below are retained only as historical context; current web sharing uses the Web Share API and existing web share routes.
 
 ---
 

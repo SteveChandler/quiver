@@ -166,6 +166,7 @@ export function BeachSelector({
     <div className="relative">
       <input
         id={inputIdToUse}
+        aria-label="Search beaches"
         className="border rounded p-2 w-full"
         value={query}
         placeholder="Type or select a beach"
@@ -177,7 +178,7 @@ export function BeachSelector({
       {selectionMade && query && (
         <button
           type="button"
-          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10 focus-ring"
           onClick={() => {
             setQuery("");
             setSelectionMade(false);
@@ -191,8 +192,9 @@ export function BeachSelector({
             onBeachSelected(emptyBeach);
           }}
           title="Clear selection"
+          aria-label="Clear selected beach"
         >
-          ×
+          <span aria-hidden="true">×</span>
         </button>
       )}
 
@@ -206,7 +208,7 @@ export function BeachSelector({
                 <li key={b.id}>
                   <button
                     type="button"
-                    className="w-full p-2 text-left hover:bg-gray-100"
+                    className="w-full p-2 text-left hover:bg-gray-100 focus-ring"
                     onMouseDown={() => {
                       setQuery(b.name);
                       trySelect(b.name);

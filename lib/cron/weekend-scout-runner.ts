@@ -11,6 +11,8 @@ import {
   createOrGetWeekendScoutSnapshot,
   type CreateWeekendScoutSnapshotResult,
 } from '@/lib/services/discovery/weekend-scout-snapshots';
+import { selectBeach } from '@/lib/recommendations/selection';
+import { withCronOutcome, type CronOutcomeOptions } from '@/lib/cron/outcome';
 
 const MAX_LOCATION_AGE_MS = 24 * 60 * 60 * 1000;
 const MAX_LOCATION_FUTURE_SKEW_MS = 5 * 60 * 1000;
@@ -182,6 +184,7 @@ function skipKey(
 export async function runWeekendScoutCron(
   request: Request,
   dependencies?: WeekendScoutCronDependencies,
+  outcome?: CronOutcomeOptions<WeekendScoutRunSummary>,
 ): Promise<Response> {
   const startedAt = Date.now();
   const deps = dependencies ?? defaultDependencies(new Date());
@@ -201,11 +204,16 @@ export async function runWeekendScoutCron(
     durationMs: 0,
   };
 
+  const respond = async (value: WeekendScoutRunSummary): Promise<Response> =>
+    createSuccessResponse(
+      outcome ? await withCronOutcome(outcome, async () => value) : value,
+    );
+
   if (process.env.WEEKEND_WINDOW_ENABLED !== 'true') {
     summary.skipped = true;
     summary.reason = 'disabled';
     summary.durationMs = Date.now() - startedAt;
-    return createSuccessResponse(summary);
+    return respond(summary);
   }
 
   try {
@@ -250,6 +258,24 @@ export async function runWeekendScoutCron(
           continue;
         }
 
+        const safeLeadBeach = created.leadBeachId
+          ? await selectBeach({
+              id: created.leadBeachId,
+              name: created.leadBeachName,
+            })
+          : null;
+        if (!safeLeadBeach) {
+          summary.skippedCounts.noCandidates += 1;
+          continue;
+        }
+        const leadResult = created.snapshot.results.find(
+          (result) => result.beachId === created.leadBeachId,
+        );
+        if (!leadResult) {
+          summary.skippedCounts.noCandidates += 1;
+          continue;
+        }
+
         let enqueueResult: EnqueueResult;
         try {
           enqueueResult = await deps.enqueue({
@@ -261,9 +287,17 @@ export async function runWeekendScoutCron(
               weekend_start: created.snapshot.weekendStart,
               weekend_end: created.snapshot.weekendEnd,
               qualifying_count: created.snapshot.qualifyingCount,
+              beach_id: created.leadBeachId,
               lead_beach_id: created.leadBeachId,
-              lead_beach_name: created.leadBeachName,
+              lead_beach_name: safeLeadBeach.name,
               lead_window_local: created.leadWindowLocal,
+              forecast_at: leadResult.bestWindow.start,
+              policy_context: {
+                kind: 'positive_session_recommendation',
+                beach_id: created.leadBeachId,
+                starts_at: leadResult.bestWindow.start,
+                ends_at: leadResult.bestWindow.end,
+              },
             },
           });
         } catch (error) {
@@ -287,7 +321,7 @@ export async function runWeekendScoutCron(
     }
 
     summary.durationMs = Date.now() - startedAt;
-    return createSuccessResponse(summary);
+    return respond(summary);
   } catch (error) {
     return handleApiError(error);
   }

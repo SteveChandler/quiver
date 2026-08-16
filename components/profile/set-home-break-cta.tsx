@@ -82,7 +82,7 @@ export function SetHomeBreakCta() {
           type="button"
           onClick={handleClick}
           disabled={isLoading}
-          className="flex-shrink-0 px-4 py-2 rounded-full bg-[#F78E42] text-white text-sm font-semibold hover:bg-[#D57835] transition-colors disabled:opacity-50"
+          className="flex-shrink-0 px-4 py-2 rounded-full bg-ocean-blue text-white text-sm font-semibold hover:bg-ocean-blue/90 transition-colors disabled:opacity-50 focus-ring"
           data-testid="set-home-break-cta"
         >
           {isLoading ? (

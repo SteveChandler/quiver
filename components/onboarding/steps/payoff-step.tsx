@@ -549,7 +549,7 @@ export function PayoffStep() {
               <button
                 onClick={handleFinish}
                 disabled={isSaving}
-                className="formgrid-cta-sweep formgrid-cta-glow w-full py-3.5 rounded-lg bg-gradient-to-r from-[#F78E42] to-[#D57835] text-white font-semibold text-sm disabled:opacity-50 transition-opacity"
+                className="formgrid-cta-sweep formgrid-cta-glow w-full py-3.5 rounded-lg bg-gradient-to-r from-[#F78E42] to-[#D57835] text-white font-semibold text-sm disabled:opacity-50 transition-opacity focus-ring"
                 data-testid="complete-onboarding-button"
               >
                 {isSaving ? (

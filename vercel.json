@@ -53,12 +53,16 @@
       "schedule": "0 4 * * 0"
     },
     {
-      "path": "/api/cron/morning-forecast-bot",
-      "schedule": "30 13 * * *"
+      "path": "/api/cron/system-cards",
+      "schedule": "0 0-4,13-17 * * *"
     },
     {
       "path": "/api/cron/npc-activity",
-      "schedule": "0 0-4,13-23 * * *"
+      "schedule": "0 5-20 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-beach-traffic-weights",
+      "schedule": "0 5 * * *"
     },
     {
       "path": "/api/cron/ioos-sync?phase=observations",
@@ -111,6 +115,10 @@
     {
       "path": "/api/cron/water-quality-sync?phase=evaluate",
       "schedule": "30 12 * * 2,5"
+    },
+    {
+      "path": "/api/cron/county-beach-advisories",
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/cron/water-quality-alerts",
@@ -199,6 +207,10 @@
     {
       "path": "/api/cron/community-photo-retention",
       "schedule": "35 9 * * *"
+    },
+    {
+      "path": "/api/cron/session-video-retention",
+      "schedule": "50 9 * * *"
     }
   ]
 }

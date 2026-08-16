@@ -11,10 +11,11 @@ jest.mock("@/lib/utils", () => ({
 
 jest.mock("@/lib/utils/horizon-strip-utils", () => ({
   TIER_COLORS: {
-    great: { bg: "bg-great", border: "border-great", text: "text-great", badge: "badge-great" },
+    epic: { bg: "bg-epic", border: "border-epic", text: "text-epic", badge: "badge-epic" },
     good: { bg: "bg-good", border: "border-good", text: "text-good", badge: "badge-good" },
     fair: { bg: "bg-fair", border: "border-fair", text: "text-fair", badge: "badge-fair" },
-    marginal: { bg: "bg-marginal", border: "border-marginal", text: "text-marginal", badge: "badge-marginal" },
+    rideable: { bg: "bg-rideable", border: "border-rideable", text: "text-rideable", badge: "badge-rideable" },
+    meh: { bg: "bg-meh", border: "border-meh", text: "text-meh", badge: "badge-meh" },
   },
   formatWaveRange: jest.fn((min, max) => `${min}-${max}ft`),
   getTierLabel: jest.fn((tier) => tier.charAt(0).toUpperCase() + tier.slice(1)),
@@ -429,8 +430,8 @@ describe("HorizonStrip", () => {
   });
 
   describe("Tier Badges", () => {
-    it("renders badge for 'great' tier with star symbol", () => {
-      const days = [createMockDay({ tier: "great" })];
+    it("renders badge for 'epic' tier with star symbol", () => {
+      const days = [createMockDay({ tier: "epic" })];
 
       const { container } = render(
         <HorizonStrip
@@ -478,8 +479,8 @@ describe("HorizonStrip", () => {
       expect(badge).toHaveTextContent("○");
     });
 
-    it("does not render badge for 'marginal' tier", () => {
-      const days = [createMockDay({ tier: "marginal" })];
+    it("does not render badge for 'meh' tier", () => {
+      const days = [createMockDay({ tier: "meh" })];
 
       const { container } = render(
         <HorizonStrip
@@ -489,7 +490,7 @@ describe("HorizonStrip", () => {
         />
       );
 
-      // TierBadge returns null for marginal, so no aria-hidden span should exist
+      // TierBadge returns null for meh, so no aria-hidden span should exist
       // (other than the spacer divs at the end)
       const badges = container.querySelectorAll('button span[aria-hidden="true"]');
       expect(badges.length).toBe(0);
@@ -497,10 +498,10 @@ describe("HorizonStrip", () => {
 
     it("renders different badges for different tiers", () => {
       const days = [
-        createMockDay({ fullDate: "2026-02-10", tier: "great" }),
+        createMockDay({ fullDate: "2026-02-10", tier: "epic" }),
         createMockDay({ fullDate: "2026-02-11", tier: "good" }),
         createMockDay({ fullDate: "2026-02-12", tier: "fair" }),
-        createMockDay({ fullDate: "2026-02-13", tier: "marginal" }),
+        createMockDay({ fullDate: "2026-02-13", tier: "meh" }),
       ];
 
       const { container } = render(
@@ -511,7 +512,7 @@ describe("HorizonStrip", () => {
         />
       );
 
-      // Only 3 badges: great, good, fair (marginal returns null)
+      // Only 3 badges: epic, good, fair (meh returns null)
       const badges = container.querySelectorAll('button span[aria-hidden="true"]');
       expect(badges.length).toBe(3);
     });
@@ -632,10 +633,11 @@ describe("HorizonStrip", () => {
 
     it("handles all tiers in single render", () => {
       const days = [
-        createMockDay({ tier: "great" }),
+        createMockDay({ tier: "epic" }),
         createMockDay({ tier: "good" }),
         createMockDay({ tier: "fair" }),
-        createMockDay({ tier: "marginal" }),
+        createMockDay({ tier: "rideable" }),
+        createMockDay({ tier: "meh" }),
       ];
 
       render(
@@ -647,7 +649,7 @@ describe("HorizonStrip", () => {
       );
 
       const buttons = screen.getAllByRole("button");
-      expect(buttons).toHaveLength(4);
+      expect(buttons).toHaveLength(5);
     });
 
     it("handles zero wave height", () => {

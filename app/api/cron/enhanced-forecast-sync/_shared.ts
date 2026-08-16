@@ -13,6 +13,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { forecastLogger } from "@/lib/monitoring/forecast-logger";
 import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import {
   startCronCheckIn,
   completeCronCheckIn,
@@ -186,7 +187,16 @@ export async function runEnhancedForecastSync(
     checkInId = startCronCheckIn({ slug: monitorSlug, schedule: monitorSchedule });
 
     const { deadlineMs, timeBudgetMs, safetyMarginMs } = getCronDeadlineMs();
-    const result = await updateAllBeachForecasts({ deadlineMs, shard, shardCount });
+    const job = new URL(request.url).pathname;
+    const result = await withCronOutcome(
+      {
+        job,
+        unit: "forecasts_written",
+        expectedMin: 1,
+        getProduced: (value) => value.summary?.successful ?? 0,
+      },
+      () => updateAllBeachForecasts({ deadlineMs, shard, shardCount }),
+    );
     const duration = Date.now() - startTime;
     const summary = (result as any)?.summary as
       | {
@@ -304,3 +314,4 @@ export async function runEnhancedForecastSyncHead(
     );
   }
 }
+

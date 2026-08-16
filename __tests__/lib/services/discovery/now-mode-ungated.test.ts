@@ -72,9 +72,20 @@ function makeQuery(rows: unknown[]): unknown {
 
 jest.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceRoleClient: jest.fn(() => ({
-    from: jest.fn((table: string) =>
-      makeQuery(table === 'sun_times' ? mockState.sunTimeRows : [])
-    ),
+    from: jest.fn((table: string) => {
+      if (table === 'sun_times') return makeQuery(mockState.sunTimeRows);
+      if (table === 'county_beach_advisory_runs') {
+        return makeQuery([
+          {
+            id: 'county-run-now-mode',
+            fetched_at: new Date().toISOString(),
+            status: 'completed',
+            source_identifier: 'county-san-diego-dehq-sdbeachinfo',
+          },
+        ]);
+      }
+      return makeQuery([]);
+    }),
     rpc: jest.fn(async () => ({ data: [], error: null })),
   })),
 }));
@@ -96,24 +107,6 @@ jest.mock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
     failed: [],
     staleCount: 0,
   })),
-}));
-
-jest.mock('@/lib/services/discovery/major-event-hold', () => ({
-  enforceMajorEventHoldBeforeDiscoveryTruncation: jest.fn(
-    async ({
-      recommendations,
-      maxResults,
-      isPrimaryEligible,
-    }: {
-      recommendations: unknown[];
-      maxResults: number;
-      isPrimaryEligible: (rec: unknown) => boolean;
-    }) => ({
-      allAllowedRecommendations: recommendations,
-      primaryRecommendations: recommendations.filter(isPrimaryEligible).slice(0, maxResults),
-      recommendationAvailability: { state: 'available', holdEpoch: 'now-ungated-test-epoch' },
-    })
-  ),
 }));
 
 jest.mock('@/lib/services/discovery/response-formatter', () => ({

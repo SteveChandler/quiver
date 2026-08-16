@@ -8,6 +8,10 @@ import { GET } from "@/app/api/cron/ndbc-direct-sync/route";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { fetchRecentNDBCObservations } from "@/lib/services/ndbc-service";
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: async () => ({

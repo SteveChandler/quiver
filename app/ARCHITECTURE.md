@@ -11,18 +11,20 @@ The `/app` directory follows Next.js 16 App Router conventions, implementing a m
 #### `page.tsx`
 
 - **Function**: Main landing page/homepage
-- **Type**: Client component wrapper
-- **Behavior**: Dynamically renders either landing page (unauthenticated) or dashboard (authenticated)
-- **Implementation**: Delegates to `client-app.tsx` for authentication-based routing
+- **Type**: Server page with an SSR landing shell and client auth-aware wrapper
+- **Behavior**: Renders crawlable beach content alongside the authenticated/unauthenticated client experience
+- **Implementation**: Delegates auth-aware routing to `AuthAwareLandingWrapper`
 
-#### `client-app.tsx`
+#### `AuthAwareLandingWrapper`
 
-- **Function**: Main client-side application orchestrator
+- **Function**: Client-side authentication-aware home router
 - **Type**: Client component with lazy loading
 - **Features**:
   - Authentication-based routing
+  - `OracleHomeScreen` for authenticated users
+  - `QuiverFieldGuideLanding` for unauthenticated users
+  - Signup confirmation handling and loading states
   - Performance optimizations (lazy loading, preloading)
-  - Error boundaries and loading states
   - Web Vitals tracking
   - Memory usage monitoring (development)
 

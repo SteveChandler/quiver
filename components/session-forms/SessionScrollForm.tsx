@@ -31,7 +31,10 @@ import { QuickLogView } from "./QuickLogView";
 import type { BeachSource } from "@/hooks/use-nearest-beach";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import { useSessionConditionsPrefill } from "@/hooks/use-session-conditions-prefill";
-import type { SessionLogMetadata } from "@/types/implicit-preferences";
+import {
+  buildSessionLogEventMetadata,
+  createSessionLogFlowId,
+} from "@/lib/analytics/session-log-funnel";
 
 type SessionLogStep =
   | "none"
@@ -118,6 +121,9 @@ export function SessionScrollForm({
   const hasTrackedStartRef = useRef(false);
   const hasSubmittedRef = useRef(false);
   const hasTrackedAbandonRef = useRef(false);
+  const fallbackFlowIdRef = useRef(createSessionLogFlowId());
+  const flowId = formState.sessionLogFlowId ?? fallbackFlowIdRef.current;
+  const flowIdRef = useRef(flowId);
   const maxStepReachedRef = useRef<SessionLogStep>("none");
   const trackedBeachIdRef = useRef<string | null>(null);
   const lastPhotoCountRef = useRef<number>(0);
@@ -155,14 +161,20 @@ export function SessionScrollForm({
       hasTrackedStartRef.current = true;
       trackEvent("session_log_start", {
         beachId,
-        metadata: { beach_id: beachId } as SessionLogMetadata,
+        metadata: buildSessionLogEventMetadata(flowId, {
+          beach_id: beachId,
+          event_id: `session-log:${flowId}:start:web:v1`,
+        }),
       });
     }
     trackEvent("session_log_beach_selected", {
       beachId,
-      metadata: { beach_id: beachId } as SessionLogMetadata,
+      metadata: buildSessionLogEventMetadata(flowId, {
+        beach_id: beachId,
+        event_id: `session-log:${flowId}:beach:${beachId}:web:v1`,
+      }),
     });
-  }, [isLog, formState.selectedBeachId, trackEvent]);
+  }, [flowId, isLog, formState.selectedBeachId, trackEvent]);
 
   // session_log_rating_set: fire on overallRating change with 500ms debounce.
   // Only the primary rating — wave quality / crowd sliders are excluded by design.
@@ -183,17 +195,17 @@ export function SessionScrollForm({
       );
       trackEvent("session_log_rating_set", {
         beachId: formState.selectedBeachId,
-        metadata: {
+        metadata: buildSessionLogEventMetadata(flowId, {
           rating: ratingNum,
           beach_id: formState.selectedBeachId,
-        } as SessionLogMetadata,
+        }),
       });
     }, 500);
 
     return () => {
       if (ratingDebounceRef.current) clearTimeout(ratingDebounceRef.current);
     };
-  }, [isLog, formState.overallRating, formState.selectedBeachId, trackEvent]);
+  }, [flowId, isLog, formState.overallRating, formState.selectedBeachId, trackEvent]);
 
   // session_log_photo_added: fire when photo count increases (never on remove).
   // Batch adds (multi-select / drag-drop of N files) fire a single event with
@@ -209,10 +221,10 @@ export function SessionScrollForm({
       );
       trackEvent("session_log_photo_added", {
         beachId: formState.selectedBeachId,
-        metadata: {
+        metadata: buildSessionLogEventMetadata(flowId, {
           photo_count: count,
           beach_id: formState.selectedBeachId,
-        } as SessionLogMetadata,
+        }),
         // Disable debounce so rapid successive adds each land
         debounceMs: 0,
       });
@@ -220,14 +232,15 @@ export function SessionScrollForm({
       // Keep counter in sync on removal (but do not fire)
       lastPhotoCountRef.current = count;
     }
-  }, [isLog, formState.photos, formState.selectedBeachId, trackEvent]);
+  }, [flowId, isLog, formState.photos, formState.selectedBeachId, trackEvent]);
 
   // Sync mirror refs every render so the unmount cleanup reads fresh values.
   useEffect(() => {
     trackRef.current = trackEvent;
     isLogRef.current = isLog;
     currentBeachIdRef.current = formState.selectedBeachId;
-  });
+    flowIdRef.current = flowId;
+  }, [flowId, formState.selectedBeachId, isLog, trackEvent]);
 
   // Unmount cleanup: fire session_log_abandon if the form was opened in log
   // mode and the user neither submitted nor already cancelled via button.
@@ -244,7 +257,7 @@ export function SessionScrollForm({
       hasTrackedAbandonRef.current = true;
       trackRef.current("session_log_abandon", {
         beachId: currentBeachIdRef.current,
-        metadata: {
+        metadata: buildSessionLogEventMetadata(flowIdRef.current, {
           beach_id: currentBeachIdRef.current,
           abandon_via: "unmount",
           duration_ms: Date.now() - openedAtRef.current,
@@ -252,7 +265,7 @@ export function SessionScrollForm({
             maxStepReachedRef.current === "none"
               ? undefined
               : maxStepReachedRef.current,
-        } as SessionLogMetadata,
+        }),
       });
     };
     // Empty deps intentional: cleanup must run only on real unmount. All values
@@ -272,7 +285,7 @@ export function SessionScrollForm({
       hasTrackedAbandonRef.current = true;
       trackEvent("session_log_abandon", {
         beachId: formState.selectedBeachId,
-        metadata: {
+        metadata: buildSessionLogEventMetadata(flowId, {
           beach_id: formState.selectedBeachId,
           abandon_via: "cancel_button",
           duration_ms: Date.now() - openedAtRef.current,
@@ -280,11 +293,11 @@ export function SessionScrollForm({
             maxStepReachedRef.current === "none"
               ? undefined
               : maxStepReachedRef.current,
-        } as SessionLogMetadata,
+        }),
       });
     }
     onCancel();
-  }, [isLog, formState.selectedBeachId, trackEvent, onCancel]);
+  }, [flowId, isLog, formState.selectedBeachId, trackEvent, onCancel]);
 
   const handleSave = useCallback(() => {
     if (!canSave) return;
@@ -301,12 +314,12 @@ export function SessionScrollForm({
       if (selection.kind === "board_fit") {
         trackEvent("session_board_fit_feedback_selected", {
           beachId: formState.selectedBeachId,
-          metadata: {
+          metadata: buildSessionLogEventMetadata(flowId, {
             beach_id: formState.selectedBeachId,
             rating,
             board_fit: selection.value,
             source: "session_fit_picker",
-          } as SessionLogMetadata,
+          }),
           debounceMs: 0,
         });
         return;
@@ -314,18 +327,18 @@ export function SessionScrollForm({
 
       trackEvent("session_decomposition_selected", {
         beachId: formState.selectedBeachId,
-        metadata: {
+        metadata: buildSessionLogEventMetadata(flowId, {
           beach_id: formState.selectedBeachId,
           rating,
           tag: selection.tag,
           ...(selection.tag === "skill_fit"
             ? { skill_fit: selection.value }
             : {}),
-        } as SessionLogMetadata,
+        }),
         debounceMs: 0,
       });
     },
-    [formState.overallRating, formState.selectedBeachId, trackEvent]
+    [flowId, formState.overallRating, formState.selectedBeachId, trackEvent]
   );
 
   const handleCelebrationDismiss = useCallback(() => {
@@ -335,9 +348,9 @@ export function SessionScrollForm({
       // Mark as submitted so unmount cleanup does not fire abandon when the
       // parent navigates away after the server action succeeds.
       hasSubmittedRef.current = true;
-      onComplete(captured);
+      onComplete({ ...captured, sessionLogFlowId: flowId });
     }
-  }, [pendingFormState, onComplete]);
+  }, [flowId, onComplete, pendingFormState]);
 
   const sessionFitPicker = (
     <SessionFitPicker
@@ -349,7 +362,7 @@ export function SessionScrollForm({
   );
 
   return (
-    <div className={cn("relative min-h-screen bg-[#252D6B] session-scroll-form", className)}>
+    <div className={cn("relative min-h-screen bg-q-twilight session-scroll-form", className)}>
       {/* Grain overlay */}
       <div
         className="pointer-events-none fixed inset-0 z-0 opacity-[0.04]"
@@ -359,12 +372,12 @@ export function SessionScrollForm({
       {/* Content */}
       <div className="relative z-10 flex flex-col min-h-screen max-w-xl mx-auto w-full">
         {/* Sticky header */}
-        <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[#252D6B] border-b border-[#404C92]">
+        <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-q-twilight border-b border-[#404C92]">
           <button
             type="button"
             aria-label="Cancel"
             onClick={handleCancel}
-            className="p-1 rounded-full text-[#8B9EC2] hover:text-[#A8B8D0] transition-colors"
+            className="p-1 rounded-full text-[#8B9EC2] hover:text-[#A8B8D0] transition-colors focus-ring"
           >
             <X className="w-5 h-5" />
           </button>
@@ -376,7 +389,7 @@ export function SessionScrollForm({
             size="sm"
             disabled={!canSave || loadingData}
             onClick={handleSave}
-            className="bg-gradient-to-r from-[#F78E42] to-[#D57835] hover:from-[#D57835] hover:to-[#C92F6C] text-white font-semibold px-4 disabled:opacity-40"
+            className="bg-gradient-to-r from-q-orange to-[#D57835] hover:from-[#D57835] hover:to-[#C92F6C] text-white font-semibold px-4 disabled:opacity-40"
           >
             {loadingData ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
           </Button>
@@ -394,6 +407,7 @@ export function SessionScrollForm({
                 detectedBeach={detectedBeach ?? null}
                 detectedSource={detectedSource ?? null}
                 detectedConfidence={detectedConfidence ?? null}
+                sessionLogFlowId={flowId}
                 sessionFitPicker={sessionFitPicker}
                 detailSections={
                   <>
@@ -478,7 +492,13 @@ export function SessionScrollForm({
                   <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
                     Where&apos;d you surf?
                   </h2>
-                  <LocationStep formState={formState} beaches={beaches} mode={initialMode} updateField={updateField} />
+                  <LocationStep
+                    formState={formState}
+                    beaches={beaches}
+                    mode={initialMode}
+                    sessionLogFlowId={flowId}
+                    updateField={updateField}
+                  />
                   <DateTimeSection mode={initialMode} formState={formState} updateField={updateField} />
                 </section>
 
@@ -541,18 +561,18 @@ export function SessionScrollForm({
                             );
                           }}
                           className={cn(
-                            "p-4 rounded-lg border-2 transition-all",
+                            "p-4 rounded-lg border-2 transition-colors",
                             isSelected
-                              ? "border-[#F78E42] bg-[#F78E42]/10"
+                              ? "border-q-orange bg-q-orange/10"
                               : "border-[#404C92] bg-[#354090] hover:bg-[#404C92]"
-                          )}
+                          ) + " focus-ring"}
                           aria-label={`${option.label}: ${option.description}`}
                         >
                           <div className="flex flex-col items-center gap-2">
                             {IconComponent && (
-                              <IconComponent className={cn("h-6 w-6", isSelected ? "text-[#F78E42]" : iconColor)} />
+                              <IconComponent className={cn("h-6 w-6", isSelected ? "text-q-orange" : iconColor)} />
                             )}
-                            <span className={cn("font-medium", isSelected ? "text-[#F78E42]" : "text-[#F0F0F0]")}>{option.label}</span>
+                            <span className={cn("font-medium", isSelected ? "text-q-orange" : "text-[#F0F0F0]")}>{option.label}</span>
                             <span className="text-xs text-[#9AABC6] text-center">{option.description}</span>
                           </div>
                         </button>
@@ -593,18 +613,18 @@ export function SessionScrollForm({
         </main>
 
         {/* Sticky bottom save button */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#252D6B] border-t border-[#404C92] safe-area-bottom">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-q-twilight border-t border-[#404C92] safe-area-bottom">
           <div className="max-w-xl mx-auto">
           <button
             type="button"
             disabled={!canSave || loadingData}
             onClick={handleSave}
             className={cn(
-              "w-full py-4 rounded-xl text-white font-bold text-lg transition-all duration-200 disabled:cursor-not-allowed",
+              "w-full py-4 rounded-xl text-white font-bold text-lg transition-[background-color,background-image,box-shadow,transform,opacity] duration-200 disabled:cursor-not-allowed",
               canSave && !loadingData
-                ? "bg-gradient-to-r from-[#F78E42] to-[#D57835] active:scale-[0.97] shadow-lg shadow-[#F78E42]/20 hover:shadow-xl hover:shadow-[#F78E42]/30"
+                ? "bg-gradient-to-r from-q-orange to-[#D57835] active:scale-[0.97] shadow-lg shadow-q-orange/20 hover:shadow-xl hover:shadow-q-orange/30"
                 : "bg-[#404C92]/60 opacity-50"
-            )}
+            ) + " focus-ring"}
           >
             {loadingData ? (
               <span className="flex items-center justify-center gap-2">

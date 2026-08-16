@@ -126,7 +126,7 @@ export function CTASection({
           {isAppStoreCta ? (
             <Button
               size="lg"
-              className="bg-ocean-blue text-white rounded-full px-8 py-3 font-sans font-semibold hover:shadow-xl hover:shadow-ocean-blue/20 transition-all duration-200 hover:bg-ocean-blue/90 hover:-translate-y-0.5 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+              className="bg-ocean-blue text-white rounded-full px-8 py-3 font-sans font-semibold hover:shadow-xl hover:shadow-ocean-blue/20 transition-[background-color,box-shadow,transform] duration-200 hover:bg-ocean-blue/90 hover:-translate-y-0.5 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
               asChild
             >
               <a
@@ -148,7 +148,7 @@ export function CTASection({
           ) : (
             <Button
               size="lg"
-              className="bg-ocean-blue text-white rounded-full px-8 py-3 font-sans font-semibold hover:shadow-xl hover:shadow-ocean-blue/20 transition-all duration-200 hover:bg-ocean-blue/90 hover:-translate-y-0.5 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+              className="bg-ocean-blue text-white rounded-full px-8 py-3 font-sans font-semibold hover:shadow-xl hover:shadow-ocean-blue/20 transition-[background-color,box-shadow,transform] duration-200 hover:bg-ocean-blue/90 hover:-translate-y-0.5 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
               onClick={() => {
                 trackSignupCtaClick({
                   source,
@@ -167,7 +167,7 @@ export function CTASection({
           <Button
             size="lg"
             variant="ghost"
-            className="border border-white/30 text-white rounded-full px-6 py-3 font-sans font-semibold hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+            className="border border-white/30 text-white rounded-full px-6 py-3 font-sans font-semibold hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 transition-[color,background-color,box-shadow,transform] duration-200 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
             asChild
           >
             <Link href={preserveQueryParams("/about", searchParams)}>

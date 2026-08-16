@@ -132,6 +132,10 @@ function dayTestId(label: string): string {
   return `timeline-day-${label.replaceAll(/\s+/g, "-")}`;
 }
 
+export function compactTimelineDayLabel(label: string): string {
+  return label.match(/\d+$/)?.[0] ?? label;
+}
+
 function TimelineStatus({
   error,
   isLoadingMore,
@@ -323,7 +327,12 @@ export function SwellDayTimeline({
   }
 
   const progress = timestamps.length <= 1 ? 0 : visualIndex / maxIndex;
-  const bubbleLeft = `${Math.min(96, Math.max(4, progress * 100))}%`;
+  const bubbleLeft = `${progress * 100}%`;
+  const bubbleTransform = progress <= 0.15
+    ? "translateX(0)"
+    : progress >= 0.85
+      ? "translateX(-100%)"
+      : "translateX(-50%)";
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     const delta = deltaByKey[event.key];
@@ -366,10 +375,11 @@ export function SwellDayTimeline({
         <div data-testid="timeline-track" className="relative min-w-0 flex-1 pt-9">
           <div
             data-testid="timeline-bubble"
-            className="absolute z-10 -translate-x-1/2 border border-[var(--swell-timeline-ink)] px-2 py-1 text-xs font-bold tabular-nums shadow-[var(--swell-timeline-sticker-shadow)]"
+            className="absolute z-10 whitespace-nowrap border border-[var(--swell-timeline-ink)] px-2 py-1 text-xs font-bold tabular-nums shadow-[var(--swell-timeline-sticker-shadow)]"
             style={{
               left: bubbleLeft,
               top: "0.35rem",
+              transform: bubbleTransform,
               background: "var(--swell-timeline-active)",
               borderRadius: "7px 3px 8px 4px",
               color: "var(--swell-timeline-ink)",
@@ -426,7 +436,7 @@ export function SwellDayTimeline({
                   <div
                     key={segment.key}
                     data-testid={dayTestId(segment.label)}
-                    className="absolute bottom-0 top-0 flex min-w-0 items-center border-r border-[var(--swell-timeline-ink)] px-2 text-[10px] font-bold uppercase tracking-[0.08em] last:border-r-0"
+                    className="absolute bottom-0 top-0 flex min-w-0 items-center justify-center border-r border-[var(--swell-timeline-ink)] px-0.5 text-[10px] font-bold uppercase tracking-[0.04em] last:border-r-0 sm:justify-start sm:px-2 sm:tracking-[0.08em]"
                     style={{
                       left: `${left}%`,
                       width: `${width}%`,
@@ -435,7 +445,13 @@ export function SwellDayTimeline({
                         : SWELL_MAP_TIMELINE.dayBandAlternate,
                     }}
                   >
-                    <span className="truncate">{segment.label}</span>
+                    <span className="hidden truncate sm:inline">{segment.label}</span>
+                    <span
+                      data-testid={`${dayTestId(segment.label)}-compact`}
+                      className="tabular-nums sm:hidden"
+                    >
+                      {compactTimelineDayLabel(segment.label)}
+                    </span>
                   </div>
                 );
               })}

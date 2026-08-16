@@ -76,14 +76,14 @@ export function BeachChip({
           <button
             type="button"
             onClick={handleConfirm}
-            className="flex-1 rounded-lg bg-[#F78E42] py-2.5 text-sm font-semibold text-white active:scale-[0.96] transition-all duration-150 hover:bg-[#E07D35] shadow-sm shadow-[#F78E42]/20"
+            className="flex-1 rounded-lg bg-[#F78E42] py-2.5 text-sm font-semibold text-[#11100D] active:scale-[0.96] transition-[background-color,transform] duration-150 hover:bg-[#E07D35] shadow-sm shadow-[#F78E42]/20 focus-ring"
           >
             Yeah
           </button>
           <button
             type="button"
             onClick={onChange}
-            className="flex-1 rounded-lg border border-[#404C92] py-2.5 text-sm font-semibold text-[#9AABC6] hover:text-[#F0F0F0] hover:border-[#9AABC6]/40 active:scale-[0.96] transition-all duration-150"
+            className="flex-1 rounded-lg border border-[#404C92] py-2.5 text-sm font-semibold text-[#9AABC6] hover:text-[#F0F0F0] hover:border-[#9AABC6]/40 active:scale-[0.96] transition-[color,border-color,transform] duration-150 focus-ring"
           >
             Nah, different spot
           </button>
@@ -106,7 +106,7 @@ export function BeachChip({
         : entryVariants)}
       className={cn(
         "w-full flex items-center gap-3 rounded-xl bg-[#354090]/60 border border-[#404C92] p-4",
-        "hover:bg-[#354090]/80 active:scale-[0.98] transition-all duration-150 group",
+        "hover:bg-[#354090]/80 active:scale-[0.98] transition-[background-color,transform] duration-150 group",
         className
       )}
     >

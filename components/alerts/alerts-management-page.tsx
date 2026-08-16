@@ -443,12 +443,12 @@ export function AlertsManagementPage() {
         paperClassName="overflow-hidden"
       >
         <main className="mx-auto max-w-2xl space-y-6 py-10 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center border-2 border-[#11100D] bg-[#F78E42] shadow-[4px_4px_0_#11100D]">
-            <Radio className="h-7 w-7 text-[#11100D]" aria-hidden="true" />
+          <div className="mx-auto flex h-14 w-14 items-center justify-center border-2 border-ink bg-q-orange shadow-[4px_4px_0_var(--ink)]">
+            <Radio className="h-7 w-7 text-ink" aria-hidden="true" />
           </div>
           <div className="space-y-3">
             <p className="label-black">Surf watch desk</p>
-            <h1 className="zine-h1 font-black uppercase leading-[0.9] tracking-normal text-[#11100D]">
+            <h1 className="zine-h1 font-black uppercase leading-[0.9] tracking-normal text-ink">
               Sign in for condition alerts
             </h1>
             <p className="mx-auto max-w-xl text-base leading-7 text-[#3B352C]">
@@ -459,14 +459,14 @@ export function AlertsManagementPage() {
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button
               asChild
-              className="border-2 border-[#11100D] bg-[#F78E42] font-black uppercase text-[#11100D] shadow-[4px_4px_0_#11100D] hover:bg-[#F78E42]/90"
+              className="border-2 border-ink bg-q-orange font-black uppercase text-ink shadow-[4px_4px_0_var(--ink)] hover:bg-q-orange/90"
             >
               <Link href="/auth/sign-in?redirectTo=/alerts">Sign in</Link>
             </Button>
             <Button
               asChild
               variant="outline"
-              className="border-2 border-[#11100D] bg-[#F4E7D1] font-black uppercase text-[#11100D] shadow-[4px_4px_0_#11100D] hover:bg-[#F4E7D1]/90"
+              className="border-2 border-ink bg-[#F4E7D1] font-black uppercase text-ink shadow-[4px_4px_0_var(--ink)] hover:bg-[#F4E7D1]/90"
             >
               <Link href="/auth/sign-up?redirectTo=/alerts">Create account</Link>
             </Button>
@@ -497,7 +497,7 @@ export function AlertsManagementPage() {
         `}
       </style>
       <main className="space-y-7">
-        <section className="relative border-b-2 border-[#11100D] pb-7">
+        <section className="relative border-b-2 border-ink pb-7">
           <QuiverSticker
             sticker="orangeTape"
             className="absolute -right-6 -top-8 hidden w-32 rotate-6 opacity-85 sm:block"
@@ -505,10 +505,10 @@ export function AlertsManagementPage() {
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="label-black mb-4">Surf watch desk</p>
-              <h1 className="zine-h1 font-black uppercase leading-[0.9] tracking-normal text-[#11100D]">
+              <h1 className="zine-h1 font-black uppercase leading-[0.9] tracking-normal text-ink">
                 Condition alerts
               </h1>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-[#11100D]/75 sm:text-lg">
+              <p className="mt-4 max-w-2xl text-base leading-7 text-ink/75 sm:text-lg">
                 Manage the surf windows you care about. These rules use wave
                 height, wind, tide, and beach-specific forecast data.
               </p>
@@ -518,7 +518,7 @@ export function AlertsManagementPage() {
               onClick={() =>
                 document.getElementById("alert-beach-search")?.focus()
               }
-              className="h-11 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] hover:bg-[#F78E42]/90"
+              className="h-11 rounded-full border-2 border-ink bg-q-orange px-5 font-semibold text-ink shadow-[2px_2px_0_rgba(17,16,13,0.35)] hover:bg-q-orange/90"
             >
               <Plus className="mr-2 h-4 w-4" />
               Create alert
@@ -527,10 +527,10 @@ export function AlertsManagementPage() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          <div className="torn torn-tb rotate-[-0.35deg] border-2 border-[#11100D] bg-[#FBF6E8] p-5 shadow-[5px_6px_0_rgba(17,16,13,0.22)]">
+          <div className="torn torn-tb rotate-[-0.35deg] border-2 border-ink bg-[#FBF6E8] p-5 shadow-[5px_6px_0_rgba(17,16,13,0.22)]">
             <div className="flex items-center gap-2">
-              <Search className="h-4 w-4 text-[#F78E42]" />
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-base font-black uppercase tracking-[0.03em] text-[#11100D]">
+              <Search className="h-4 w-4 text-q-orange" />
+              <h2 className="font-[family-name:var(--font-space-grotesk)] text-base font-black uppercase tracking-[0.03em] text-ink">
                 Create for a beach
               </h2>
             </div>
@@ -547,14 +547,14 @@ export function AlertsManagementPage() {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search Bolsa, Huntington..."
-                className="zine-alert-input h-11 w-full rounded-sm border-2 border-[#11100D] bg-[#F4EBD8] px-3 text-sm text-[#11100D] outline-none placeholder:text-[#403A2E]/55 focus:border-[#F78E42] focus:ring-2 focus:ring-[#F78E42]/30"
+                  className="zine-alert-input h-11 w-full rounded-sm border-2 border-ink bg-paper px-3 text-sm text-ink outline-none placeholder:text-[#5F5646] focus:border-q-orange focus:ring-2 focus:ring-q-orange/30"
               />
             </div>
 
             <div className="mt-3 space-y-2" data-testid="alert-beach-results">
               {searchLoading || editorLoading ? (
-                <div className="flex items-center gap-2 rounded-sm border-2 border-[#11100D]/45 bg-[#F4EBD8] px-3 py-3 text-sm text-[#403A2E]">
-                  <Loader2 className="h-4 w-4 animate-spin text-[#F78E42]" />
+                <div className="flex items-center gap-2 rounded-sm border-2 border-ink/45 bg-paper px-3 py-3 text-sm text-[#403A2E]">
+                  <Loader2 className="h-4 w-4 animate-spin text-q-orange" />
                   Loading beach metadata
                 </div>
               ) : null}
@@ -562,7 +562,7 @@ export function AlertsManagementPage() {
               {!searchLoading &&
               searchQuery.trim().length >= 2 &&
               beachResults.length === 0 ? (
-                <div className="rounded-sm border-2 border-dashed border-[#11100D]/45 bg-[#F4EBD8] px-3 py-3 text-sm text-[#403A2E]">
+                <div className="rounded-sm border-2 border-dashed border-ink/45 bg-paper px-3 py-3 text-sm text-[#403A2E]">
                   No beaches found
                 </div>
               ) : null}
@@ -572,7 +572,7 @@ export function AlertsManagementPage() {
                   key={beach.id}
                   type="button"
                   onClick={() => openCreateEditor(beach.id)}
-                  className="flex w-full items-center justify-between gap-3 rounded-sm border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-3 text-left text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.18)] transition hover:-translate-y-0.5 hover:bg-[#FFF9EA] hover:shadow-[3px_3px_0_rgba(17,16,13,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70"
+                  className="flex w-full items-center justify-between gap-3 rounded-sm border-2 border-ink bg-paper px-3 py-3 text-left text-ink shadow-[2px_2px_0_rgba(17,16,13,0.18)] transition hover:-translate-y-0.5 hover:bg-[#FFF9EA] hover:shadow-[3px_3px_0_rgba(17,16,13,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-q-orange/70"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-black">
@@ -582,7 +582,7 @@ export function AlertsManagementPage() {
                       {[beach.city, beach.state].filter(Boolean).join(", ")}
                     </span>
                   </span>
-                  <Plus className="h-4 w-4 shrink-0 text-[#F78E42]" />
+                  <Plus className="h-4 w-4 shrink-0 text-q-orange" />
                 </button>
               ))}
             </div>
@@ -596,7 +596,7 @@ export function AlertsManagementPage() {
                   <button
                     type="button"
                     onClick={loadRules}
-                    className="inline-flex items-center gap-1 text-sm font-black text-red-900"
+                    className="inline-flex items-center gap-1 text-sm font-black text-red-900 focus-ring"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                     Retry
@@ -606,15 +606,15 @@ export function AlertsManagementPage() {
             ) : null}
 
             {rulesLoading ? (
-              <div className="rounded-sm border-2 border-[#11100D] bg-[#FBF6E8] p-8 text-center text-[#403A2E] shadow-[4px_5px_0_rgba(17,16,13,0.18)]">
-                <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-[#F78E42]" />
+              <div className="rounded-sm border-2 border-ink bg-[#FBF6E8] p-8 text-center text-[#403A2E] shadow-[4px_5px_0_rgba(17,16,13,0.18)]">
+                <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-q-orange" />
                 Loading alerts
               </div>
             ) : null}
 
             {!rulesLoading && groupedRules.length === 0 ? (
-              <div className="rounded-sm border-2 border-dashed border-[#11100D] bg-[#FBF6E8] p-8 text-center text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.14)]">
-                <Waves className="mx-auto h-8 w-8 text-[#F78E42]" />
+              <div className="rounded-sm border-2 border-dashed border-ink bg-[#FBF6E8] p-8 text-center text-ink shadow-[4px_5px_0_rgba(17,16,13,0.14)]">
+                <Waves className="mx-auto h-8 w-8 text-q-orange" />
                 <h2 className="mt-3 font-[family-name:var(--font-space-grotesk)] text-xl font-black uppercase">
                   No condition alerts yet
                 </h2>
@@ -628,9 +628,9 @@ export function AlertsManagementPage() {
             {groupedRules.map((group) => (
               <section
                 key={group.beachId}
-                className="rounded-sm border-2 border-[#11100D] bg-[#FBF6E8] p-4 text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.18)]"
+                className="rounded-sm border-2 border-ink bg-[#FBF6E8] p-4 text-ink shadow-[4px_5px_0_rgba(17,16,13,0.18)]"
               >
-                <div className="flex flex-col gap-2 border-b-2 border-[#11100D] pb-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-2 border-b-2 border-ink pb-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="font-[family-name:var(--font-space-grotesk)] text-lg font-black uppercase tracking-[0.03em]">
                       {group.beachName}
@@ -643,14 +643,14 @@ export function AlertsManagementPage() {
                   <button
                     type="button"
                     onClick={() => openCreateEditor(group.beachId)}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F4EBD8] px-3 text-sm font-black text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.18)] transition hover:-translate-y-0.5 hover:bg-[#F78E42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full border-2 border-ink bg-paper px-3 text-sm font-black text-ink shadow-[2px_2px_0_rgba(17,16,13,0.18)] transition hover:-translate-y-0.5 hover:bg-q-orange focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-q-orange/70"
                   >
                     <Plus className="h-4 w-4" />
                     Add rule
                   </button>
                 </div>
 
-                <div className="divide-y-2 divide-[#11100D]/20">
+                <div className="divide-y-2 divide-ink/20">
                   {group.rules.map((rule) => (
                     <AlertRuleRow
                       key={rule.id}
@@ -699,14 +699,14 @@ function AlertRuleRow({
     >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="truncate text-sm font-black text-[#11100D]">
+          <h3 className="truncate text-sm font-black text-ink">
             {rule.name}
           </h3>
           <span
             className={`rounded-sm border px-2 py-0.5 font-mono text-[10px] font-black uppercase tracking-[0.08em] ${
               rule.enabled
-                ? "border-[#11100D] bg-[#F78E42] text-[#11100D]"
-                : "border-[#11100D]/35 bg-[#E6E0D1] text-[#403A2E]"
+                ? "border-ink bg-q-orange text-ink"
+                : "border-ink/35 bg-[#E6E0D1] text-[#403A2E]"
             }`}
           >
             {rule.enabled ? "Active" : "Paused"}
@@ -716,19 +716,19 @@ function AlertRuleRow({
           {chips.map((chip) => (
             <span
               key={chip}
-              className="rounded-sm border border-[#11100D]/35 bg-[#FFF9EA] px-2.5 py-1 font-mono text-[11px] font-bold text-[#252D6B]"
+              className="rounded-sm border border-ink/35 bg-[#FFF9EA] px-2.5 py-1 font-mono text-[11px] font-bold text-q-twilight"
             >
               {chip}
             </span>
           ))}
           {rule.notify_push ? (
-            <span className="inline-flex items-center gap-1 rounded-sm border border-[#11100D]/45 bg-[#F78E42]/20 px-2.5 py-1 font-mono text-[11px] font-bold text-[#11100D]">
+            <span className="inline-flex items-center gap-1 rounded-sm border border-ink/45 bg-q-orange/20 px-2.5 py-1 font-mono text-[11px] font-bold text-ink">
               <Radio className="h-3 w-3" />
               Push on
             </span>
           ) : null}
           {rule.notify_email ? (
-            <span className="inline-flex items-center gap-1 rounded-sm border border-[#11100D]/35 bg-[#F4EBD8] px-2.5 py-1 font-mono text-[11px] font-bold text-[#403A2E]">
+            <span className="inline-flex items-center gap-1 rounded-sm border border-ink/35 bg-paper px-2.5 py-1 font-mono text-[11px] font-bold text-[#403A2E]">
               <Mail className="h-3 w-3" />
               Email on
             </span>
@@ -741,7 +741,7 @@ function AlertRuleRow({
           type="button"
           onClick={onToggle}
           aria-label={rule.enabled ? "Pause alert" : "Enable alert"}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-sm text-[#403A2E] transition hover:bg-[#F78E42]/20 hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-sm text-[#403A2E] transition hover:bg-q-orange/20 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-q-orange/70"
         >
           {rule.enabled ? (
             <Pause className="h-4 w-4" />
@@ -753,7 +753,7 @@ function AlertRuleRow({
           type="button"
           onClick={onEdit}
           aria-label="Edit alert"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-sm text-[#403A2E] transition hover:bg-[#F78E42]/20 hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-sm text-[#403A2E] transition hover:bg-q-orange/20 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-q-orange/70"
         >
           <Edit3 className="h-4 w-4" />
         </button>
@@ -876,11 +876,11 @@ function AlertRuleEditorDialog({
     <Dialog open={!!editor} onOpenChange={(open) => (!open ? onClose() : null)}>
       <DialogContent
         data-testid="alert-editor-dialog"
-        className="max-w-lg overflow-hidden rounded-sm border-2 border-[#11100D] bg-[#F4EBD8] p-0 text-[#11100D] shadow-[8px_8px_0_rgba(17,16,13,0.55)] [&>button]:text-[#11100D] [&>button]:opacity-100 [&>button]:ring-offset-[#F4EBD8]"
+        className="max-w-lg overflow-hidden rounded-sm border-2 border-ink bg-paper p-0 text-ink shadow-[8px_8px_0_rgba(17,16,13,0.55)] [&>button]:text-ink [&>button]:opacity-100 [&>button]:ring-offset-paper"
       >
         {editor ? (
           <>
-            <DialogHeader className="border-b-2 border-[#11100D] bg-[#FBF6E8] px-5 py-4">
+            <DialogHeader className="border-b-2 border-ink bg-[#FBF6E8] px-5 py-4">
               <DialogTitle className="font-[family-name:var(--font-space-grotesk)] text-lg font-black uppercase tracking-[0.03em]">
                 {editor.mode === "edit" ? "Edit alert" : "Create alert"}
               </DialogTitle>
@@ -890,8 +890,8 @@ function AlertRuleEditorDialog({
             </DialogHeader>
 
             <div className="max-h-[74vh] space-y-4 overflow-y-auto px-5 py-5">
-              <div className="rounded-sm border-2 border-[#11100D] bg-[#FFF9EA] p-3 shadow-[2px_2px_0_rgba(17,16,13,0.18)]">
-                <div className="flex items-center gap-2 text-sm font-black text-[#11100D]">
+              <div className="rounded-sm border-2 border-ink bg-[#FFF9EA] p-3 shadow-[2px_2px_0_rgba(17,16,13,0.18)]">
+                <div className="flex items-center gap-2 text-sm font-black text-ink">
                   <Waves className="h-4 w-4" />
                   Small clean longboard default
                 </div>
@@ -913,24 +913,38 @@ function AlertRuleEditorDialog({
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   maxLength={100}
-                  className="zine-alert-control h-10 w-full rounded-sm border-2 border-[#11100D] bg-[#FBF6E8] px-3 text-sm text-[#11100D] outline-none focus:border-[#F78E42] focus:ring-2 focus:ring-[#F78E42]/30"
+                  className="zine-alert-control h-10 w-full rounded-sm border-2 border-ink bg-[#FBF6E8] px-3 text-sm text-ink outline-none focus:border-q-orange focus:ring-2 focus:ring-q-orange/30"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#403A2E]">
+              <div
+                className="space-y-1.5"
+                role="group"
+                aria-labelledby="alert-conditions-label"
+              >
+                <span
+                  id="alert-conditions-label"
+                  className="block font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#403A2E]"
+                >
                   Conditions
-                </label>
+                </span>
                 <ConditionBuilder
                   conditions={conditions}
                   onChange={setConditions}
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#403A2E]">
+              <div
+                className="space-y-2"
+                role="group"
+                aria-labelledby="alert-notify-label"
+              >
+                <span
+                  id="alert-notify-label"
+                  className="block font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#403A2E]"
+                >
                   Notify via
-                </label>
+                </span>
                 <div className="flex flex-wrap gap-2">
                   <ChannelButton
                     active={notifyPush}
@@ -958,7 +972,7 @@ function AlertRuleEditorDialog({
                 onClick={handleSave}
                 disabled={saving}
                 data-testid="alert-editor-save"
-                className="h-11 w-full rounded-full border-2 border-[#11100D] bg-[#F78E42] font-black text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] hover:bg-[#F78E42]/90 disabled:opacity-60"
+                className="h-11 w-full rounded-full border-2 border-ink bg-q-orange font-black text-ink shadow-[2px_2px_0_rgba(17,16,13,0.35)] hover:bg-q-orange/90 disabled:opacity-60"
               >
                 {saving ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -993,8 +1007,8 @@ function ChannelButton({
       aria-pressed={active}
       className={`inline-flex h-9 items-center gap-1.5 rounded-full border-2 px-3 text-xs font-black transition ${
         active
-          ? "border-[#11100D] bg-[#F78E42] text-[#11100D]"
-          : "border-[#11100D]/45 bg-[#FBF6E8] text-[#403A2E] hover:border-[#11100D]"
+          ? "border-ink bg-q-orange text-ink"
+          : "border-ink/45 bg-[#FBF6E8] text-[#403A2E] hover:border-ink"
       }`}
     >
       {icon}

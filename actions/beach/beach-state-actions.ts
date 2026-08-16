@@ -3,6 +3,8 @@
 import { withServerAction, withPublicDatabaseOperation } from "@/lib/server-action-utils";
 import type { Beach } from "@/types/database";
 import { expandPartialBeach } from "@/lib/utils/beach-defaults";
+import { rankBeaches } from "@/lib/recommendations/selection";
+import { WATER_QUALITY_HOLD_PREFETCH_BUFFER } from "@/lib/recommendations/major-event-hold/water-quality";
 
 const STATE_MAP_BEACH_FIELDS =
   "id, name, slug, city, lat, lon, state, country, created_at, is_private, geog, skill_level, break_type, average_rating, review_count";
@@ -65,13 +67,15 @@ export async function getStateMapBeaches(params: {
         .not("lat", "is", null)
         .not("lon", "is", null)
         .order("name")
-        .limit(limit);
+        .limit(limit + WATER_QUALITY_HOLD_PREFETCH_BUFFER);
 
       if (error) throw error;
       const rows = (data ?? []) as StateMapBeachRow[];
-      return rows.map(toFullBeach);
+      const beaches = rows.map(toFullBeach);
+      const rankedBeaches = await rankBeaches(beaches, {
+        compare: (left, right) => left.name.localeCompare(right.name),
+      });
+      return rankedBeaches.slice(0, limit);
     })
   );
 }
-
-

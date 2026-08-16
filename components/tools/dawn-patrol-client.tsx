@@ -649,7 +649,7 @@ export function DawnPatrolClient() {
                   </div>
                   <Link
                     href={beachUrl}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 font-mono text-sm font-semibold text-white transition-all self-start"
+                    className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 font-mono text-sm font-semibold text-white transition-none self-start"
                     style={{ background: "#F78E42" }}
                   >
                     Get Full Forecast

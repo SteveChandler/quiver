@@ -7,7 +7,8 @@ import { toForecastForScoring } from "@/lib/scoring";
 import { calculateMultipleWindows } from "@/lib/scoring/window-calculator";
 import { getConditionBoardPick } from "@/lib/scoring/board-pick";
 import { calculateRelativeContext } from "@/lib/scoring/relative-context";
-import { scoreNativeForecastSlot } from "@/lib/scoring/native-condition-score";
+import { scoreWindowConditionDetails } from "@/lib/services/discovery/window-selector/window-scorer";
+import { normalizeBoardClass, type BoardClass } from "@/lib/domains/rideability";
 import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { getUserBoards } from "@/actions/board-actions";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
@@ -38,7 +39,8 @@ export interface ConditionIntelligenceResult {
  *    calculateRelativeContext() for best-of-week / trend / swell data
  * 5. Returns the best window's character + score as todayCharacter / todayScore
  *
- * All heavy computation runs inside useMemo, only recomputing when forecasts change.
+ * All heavy computation runs inside useMemo, recomputing when forecasts, skill,
+ * or saved board context changes.
  */
 export function useConditionIntelligence(
   forecasts: EnhancedForecastEntity[] | undefined,
@@ -73,7 +75,18 @@ export function useConditionIntelligence(
     }));
   }, [boardsData]);
 
-  // Core scoring computation — only recomputes when forecasts or beach change
+  const boardClasses: BoardClass[] = useMemo(
+    () => Array.from(
+      new Set(
+        boards
+          .map((board) => normalizeBoardClass(board.board_type))
+          .filter((boardClass): boardClass is BoardClass => boardClass !== null),
+      ),
+    ),
+    [boards],
+  );
+
+  // Core scoring computation — includes the same board context used by the pick.
   const scoringResult = useMemo(() => {
     if (!forecasts || forecasts.length === 0 || !beach) {
       return null;
@@ -88,6 +101,7 @@ export function useConditionIntelligence(
     const multiWindowResult = calculateMultipleWindows(scoringForecasts, beach, {
       beachTimezone: beachTimezone ?? undefined,
       skillLevel,
+      boardClasses,
     });
 
     // Determine today's character and score from the best window
@@ -96,7 +110,10 @@ export function useConditionIntelligence(
 
     if (multiWindowResult.bestWindow) {
       todayCharacter = multiWindowResult.bestWindow.character ?? null;
-      todayScore = multiWindowResult.bestWindow.avgScore ?? null;
+      todayScore =
+        multiWindowResult.bestWindow.peakScore ??
+        multiWindowResult.bestWindow.avgScore ??
+        null;
     }
 
     // Group forecasts by date and compute max native score per day.
@@ -106,7 +123,13 @@ export function useConditionIntelligence(
         forecast.forecast_at,
         beachTimezone ?? undefined
       );
-      const total = scoreNativeForecastSlot(forecast, skillLevel);
+      const total = scoreWindowConditionDetails(
+        forecast,
+        beach,
+        skillLevel,
+        null,
+        boardClasses,
+      ).score;
       const currentMax = dateScoreMap[date] ?? 0;
       if (total > currentMax) {
         dateScoreMap[date] = total;
@@ -136,9 +159,9 @@ export function useConditionIntelligence(
       todayScore,
       relativeContext,
     };
-  }, [forecasts, beach, beachTimezone, skillLevel]);
+  }, [forecasts, beach, beachTimezone, skillLevel, boardClasses]);
 
-  // Board pick computation — recomputes when scoring result or boards change
+  // Board pick computation — uses the winning class from the scored peak.
   const boardPick = useMemo(() => {
     if (!scoringResult || boards.length === 0 || !beach) return null;
 
@@ -149,20 +172,37 @@ export function useConditionIntelligence(
     const peakTime = bestWindow.peakTime ?? bestWindow.start;
     if (!forecasts || forecasts.length === 0) return null;
 
-    // Find the forecast closest to the peak time
+    // Use the same timezone-resolved timestamps as the window calculator.
     let closestForecast = forecasts[0];
+    let closestScoringForecast = toForecastForScoring(
+      closestForecast,
+      beachTimezone ?? undefined,
+    );
     let minDiff = Infinity;
     for (const f of forecasts) {
-      const diff = Math.abs(new Date(f.forecast_at).getTime() - peakTime.getTime());
+      const scoringForecast = toForecastForScoring(f, beachTimezone ?? undefined);
+      const diff = Math.abs(
+        scoringForecast.forecastTime.getTime() - peakTime.getTime(),
+      );
       if (diff < minDiff) {
         minDiff = diff;
         closestForecast = f;
+        closestScoringForecast = scoringForecast;
       }
     }
 
-    const scoringForecast = toForecastForScoring(closestForecast, beachTimezone ?? undefined);
-    return getConditionBoardPick(scoringForecast, boards, beach);
-  }, [scoringResult, boards, beach, forecasts, beachTimezone]);
+    const winningBoardClass = scoreWindowConditionDetails(
+      closestForecast,
+      beach,
+      skillLevel,
+      null,
+      boardClasses,
+    ).boardClass;
+    return getConditionBoardPick(closestScoringForecast, boards, beach, {
+      kind: 'scored',
+      boardClass: winningBoardClass,
+    });
+  }, [scoringResult, boards, beach, forecasts, beachTimezone, skillLevel, boardClasses]);
 
   const loading = !!user && boardsLoading;
 

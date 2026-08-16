@@ -311,12 +311,15 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       // through the scalar/legacy path with `components: [null, null, null]`.
       // Previously, populated NOAA components silently overrode CDIP Hs in
       // the decomposed branch — the old "4.3 ft" pinned that bug.
-      expect(firstForecast.wave_height).toBe("2 ft");
+      // Uncalibrated CDIP rows now use the population prior: 1.8 × 1.119 ×
+      // 1.15 (13s) = 2.317 → 2.3ft. The UI still receives isCalibrated=false.
+      expect(firstForecast.wave_height).toBe("2.3 ft");
       expect(firstForecast.wave_period).toBe("13s");
       // Provenance must record CDIP-driven scalar path, not decomposed.
       const prov = firstForecast.raw_forecast?.wave_height_provenance;
       expect(prov?.source).toBe("cdip_sig");
       expect(prov?.components_used).toBe(false);
+      expect(prov?.provenance).toBe("population_prior_v1");
 
       // Phase 21 trusted-forecast coverage is inert-by-design until its
       // coverage slugs land; the builder logs this until then.
@@ -352,7 +355,9 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       expect(forecasts[0].data_source).toBe("CDIP");
       // CDIP-scalar branch: CDIP Hs drives wave_height; NOAA weather still
       // populates weather_condition.
-      expect(forecasts[0].wave_height).toBe("2 ft");
+      // Regression: the CDIP builder path must apply the same population prior
+      // as the direct transformer path (1.8 × 1.119 × 1.15 → 2.3ft).
+      expect(forecasts[0].wave_height).toBe("2.3 ft");
       expect(forecasts[0].weather_condition).toBe("Partly Cloudy"); // From NOAA
     });
 

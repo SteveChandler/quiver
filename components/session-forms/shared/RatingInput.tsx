@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useId } from "react";
 import { getRatingDescription } from "@/lib/constants/session-form-constants";
 
 /**
@@ -33,21 +33,31 @@ export function RatingInput({
   ratingType,
   emptyText,
 }: RatingInputProps) {
+  const labelId = useId();
+
   return (
     <div className="text-center">
-      <label className="block text-sm font-medium mb-3">{label}</label>
+      {/* A <label> can only name a single control; this names a group of five
+          buttons, so it's a labelled group instead. */}
+      <span id={labelId} className="block text-sm font-medium mb-3">
+        {label}
+      </span>
       <div className="space-y-3">
-        <div className="flex justify-center gap-1">
+        <div
+          role="group"
+          aria-labelledby={labelId}
+          className="flex justify-center gap-1"
+        >
           {[1, 2, 3, 4, 5].map((rating) => (
             <button
               key={rating}
               type="button"
               onClick={() => onChange(rating.toString())}
-              className={`p-2 rounded-lg transition-all duration-200 ${
+              className={`p-2 rounded-lg transition-colors duration-200 ${
                 parseInt(value) >= rating
                   ? `${colorClass} bg-opacity-10`
                   : "text-gray-300 hover:text-gray-400 hover:bg-gray-50"
-              }`}
+              }` + " focus-ring"}
               title={getRatingDescription(ratingType, rating)}
               aria-label={`Rate ${label} as ${rating} out of 5 - ${getRatingDescription(
                 ratingType,
@@ -63,7 +73,7 @@ export function RatingInput({
         </div>
 
         <div className="space-y-1">
-          <span className="text-sm font-medium">
+          <span className="text-sm font-medium" aria-live="polite">
             {value
               ? `${value}/5 - ${getRatingDescription(
                   ratingType,

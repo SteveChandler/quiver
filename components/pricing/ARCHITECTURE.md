@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Pricing components render the public `/plans` native-app availability surface. They must point iPhone surfers to Apple for install and subscription details, frame Android as an open Google Play closed beta, and avoid separate web pricing until RevenueCat Web Billing, entitlement mapping, and release copy are verified.
+Pricing components render the public `/plans` acquisition and purchase surface. They point iPhone surfers to Apple for install and subscription details, frame Android as an open Google Play closed beta, and expose verified RevenueCat web checkout only after the production configuration is verified.
 
 ## Current Rules
 
@@ -12,7 +12,15 @@ Pricing components render the public `/plans` native-app availability surface. T
   Apple-managed and does not hardcode plan amounts.
 - High-level Pro benefits can appear here, but `/features` remains the fuller
   product marketing page.
-- Do not render public prices, checkout links, or purchase availability.
+- `NEXT_PUBLIC_REVENUECAT_WEB_CHECKOUT_URL` must be an HTTPS production
+  RevenueCat Web Purchase Link or published Funnel URL. Purchase Links receive
+  the signed-in Supabase user ID as a URL-encoded App User ID path segment;
+  Funnels receive the signed-in ID as the encoded `app_user_id` query parameter
+  and carry it into checkout. Both modes fail closed for missing, malformed, or
+  non-HTTPS configuration.
+- Do not render public prices or purchase availability without the
+  corresponding verified RevenueCat configuration. Anonymous visitors are
+  sent to sign in before an identified web checkout link is exposed.
 - Do not imply App Store and web purchases are interchangeable.
 - Pre-auth signup analytics must only fire for anonymous users.
 - The Google account email on `/android-beta` is required before the Google

@@ -93,14 +93,8 @@ export default function BlogIndexPage() {
       <div className="zine-page zine-tab min-h-screen bg-[#0D1020]">
         <RoughEdgeFilter />
         <div className="zine-stage pt-24">
-          <div className="zine-masthead">
-            <div className="left">
-              <span className="logo">Quiver</span>
-              <span className="rule" aria-hidden />
-              <span>Blog Desk</span>
-            </div>
-            <div>Founder notes / field reports</div>
-          </div>
+          {/* No masthead: the app header above already carries the Quiver
+              wordmark, so a masthead reads as a second header. */}
 
           <main className="zine-paper overflow-hidden">
             <QuiverSticker

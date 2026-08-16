@@ -56,8 +56,8 @@ export function SwellLayerSelector({
     ? "grid grid-cols-4 gap-1"
     : "grid grid-cols-2 gap-1 sm:gap-1.5";
   const optionClassName = isLegendPlacement
-    ? "flex items-center gap-1 rounded-sm px-1 py-0.5 text-[9px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] sm:gap-1.5 sm:px-2 sm:text-[10px]"
-    : "flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] sm:gap-1.5 sm:px-2 sm:py-1 sm:text-[11px]";
+    ? "flex min-h-11 items-center justify-center gap-1 rounded-sm px-1 py-0.5 text-[9px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] sm:gap-1.5 sm:px-2 sm:text-[10px]"
+    : "flex min-h-11 items-center justify-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] sm:gap-1.5 sm:px-2 sm:py-1 sm:text-[11px]";
   const legendClassName = isLegendPlacement
     ? "mt-1 border-t pt-1"
     : "mt-1.5 hidden border-t border-white/15 pt-2 sm:block";
@@ -78,7 +78,7 @@ export function SwellLayerSelector({
         Swell field
       </span>
       <div
-        role="radiogroup"
+        role="group"
         aria-label="Swell field layer"
         className={groupClassName}
       >
@@ -89,8 +89,7 @@ export function SwellLayerSelector({
             <button
               key={layer.id}
               type="button"
-              role="radio"
-              aria-checked={isActive}
+              aria-pressed={isActive}
               data-testid={`swell-layer-${layer.id}`}
               onClick={() => onChange(layer.id)}
               className={optionClassName}

@@ -80,7 +80,7 @@ Server actions must return the following shape via the `withServerAction` wrappe
 
 **📚 Comprehensive middleware documentation:**
 - **[API Middleware Developer Guide](/docs/API_MIDDLEWARE.md)** - Patterns, decision trees, migration guide
-- **[API Middleware Technical Reference](/docs/API_MIDDLEWARE_REFERENCE.md)** - Architecture, types, implementation details
+- **[API Middleware Technical Reference](/docs/API_MIDDLEWARE.md#technical-reference-appendix)** - Architecture, types, implementation details
 
 #### Quick Reference
 

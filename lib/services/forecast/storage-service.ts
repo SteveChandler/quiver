@@ -368,10 +368,11 @@ export class ForecastStorageService {
       }
 
       // Get latest forecast timestamp per beach
+      const todayUtc = new Date().toISOString().split("T")[0];
       const { data: latestRows, error: latestError } = await supabase
         .from("enhanced_forecasts")
         .select("beach_id, updated_at")
-        .gte("forecast_date", new Date().toISOString().split("T")[0])
+        .gte("forecast_at", `${todayUtc}T00:00:00Z`)
         .order("updated_at", { ascending: false });
 
       if (latestError) {

@@ -1,7 +1,6 @@
-/** Normalize an angle to [0, 360) */
-export function normalizeAngle(deg: number): number {
-  return ((deg % 360) + 360) % 360;
-}
+import { normalizeAngle } from "@/lib/domains/shared/angle-utils";
+
+export { normalizeAngle };
 
 /** Shortest angular distance between two bearings (0-180) */
 export function angularDistance(a: number, b: number): number {

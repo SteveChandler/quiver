@@ -9,6 +9,7 @@ import {
   getBeachByIdFromDb,
   getBeachesBySlugFromDb,
 } from "@/lib/services/beach-query-service";
+import { rankBeaches } from "@/lib/recommendations/selection";
 import type { Beach } from "@/types/database";
 
 // Full beach detail fields for single beach queries
@@ -130,7 +131,7 @@ async function _getBeachesByIntentAndCityInternal(
   const { data, error } = await query.order("name");
   if (error) throw error;
 
-  return (data ?? []) as Beach[];
+  return rankBeaches((data ?? []) as Beach[], { compare: () => 0 });
 }
 
 /**
@@ -165,12 +166,18 @@ export async function getBeachesByIntentAndCity(
     try {
       // Use cached version for cross-request performance
       const beaches = await getCachedBeachesByIntentAndCity(intent, citySlug, stateSlug);
-      return { data: beaches, error: null };
+      return {
+        data: beaches,
+        error: null,
+      };
     } catch {
       // Fallback to uncached on cache infrastructure error
       trackFallback({ domain: 'beach-query', field: 'cache_and_db', fallbackValue: '[]', context: { intent, citySlug } });
       const beaches = await _getBeachesByIntentAndCityInternal(intent, citySlug, stateSlug);
-      return { data: beaches, error: null };
+      return {
+        data: beaches,
+        error: null,
+      };
     }
   });
 }
@@ -190,7 +197,7 @@ async function _getBeachesByStateInternal(stateSlug: string): Promise<Beach[]> {
     .order("name");
 
   if (error) throw error;
-  return (data ?? []) as Beach[];
+  return rankBeaches((data ?? []) as Beach[], { compare: () => 0 });
 }
 
 /**
@@ -219,11 +226,17 @@ export async function getBeachesByState(stateSlug: string) {
     try {
       // Use cached version for cross-request performance
       const beaches = await getCachedBeachesByState(stateSlug);
-      return { data: beaches, error: null };
+      return {
+        data: beaches,
+        error: null,
+      };
     } catch {
       // Fallback to uncached on cache infrastructure error
       const beaches = await _getBeachesByStateInternal(stateSlug);
-      return { data: beaches, error: null };
+      return {
+        data: beaches,
+        error: null,
+      };
     }
   });
 }
@@ -248,12 +261,14 @@ async function _getBeachesByIntentAndStateInternal(
 
   const { data, error } = await query
     .order("city")
-    .order("name")
-    .limit(100);
+    .order("name");
 
   if (error) throw error;
 
-  return (data ?? []) as Beach[];
+  const ranked = await rankBeaches((data ?? []) as Beach[], {
+    compare: () => 0,
+  });
+  return ranked.slice(0, 100);
 }
 
 /**
@@ -286,11 +301,17 @@ export async function getBeachesByIntentAndState(
     try {
       // Use cached version for cross-request performance
       const beaches = await getCachedBeachesByIntentAndState(intent, stateSlug);
-      return { data: beaches, error: null };
+      return {
+        data: beaches,
+        error: null,
+      };
     } catch {
       // Fallback to uncached on cache infrastructure error
       const beaches = await _getBeachesByIntentAndStateInternal(intent, stateSlug);
-      return { data: beaches, error: null };
+      return {
+        data: beaches,
+        error: null,
+      };
     }
   });
 }

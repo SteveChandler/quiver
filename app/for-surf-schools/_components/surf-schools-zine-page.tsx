@@ -145,7 +145,7 @@ function CopyButton({ code }: { code: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-4 py-1.5 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.25)] transition-transform hover:-translate-y-0.5"
+      className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-4 py-1.5 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.25)] transition-transform hover:-translate-y-0.5 focus-ring"
     >
       {copied ? (
         <>
@@ -319,7 +319,7 @@ export function SurfSchoolsZinePage({
                       widgetType === "conditions"
                         ? "bg-[#F78E42] text-[#11100D]"
                         : "text-[#11100D]/70 hover:bg-[#11100D]/5"
-                    }`}
+                    }` + " focus-ring"}
                   >
                     Conditions
                   </button>
@@ -330,7 +330,7 @@ export function SurfSchoolsZinePage({
                       widgetType === "tides"
                         ? "bg-[#F78E42] text-[#11100D]"
                         : "text-[#11100D]/70 hover:bg-[#11100D]/5"
-                    }`}
+                    }` + " focus-ring"}
                   >
                     Tide Chart
                   </button>

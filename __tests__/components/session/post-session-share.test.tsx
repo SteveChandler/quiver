@@ -14,6 +14,7 @@ import { PostSessionShare } from "@/components/session/post-session-share";
 jest.mock("framer-motion", () => {
   const React = require("react");
   return {
+    useReducedMotion: () => false,
     motion: {
       div: React.forwardRef(
         (props: Record<string, unknown>, ref: React.Ref<HTMLDivElement>) => {

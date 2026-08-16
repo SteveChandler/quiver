@@ -490,6 +490,32 @@ describe("SEO workflow weekly report", () => {
     expect(report).toContain("Outreach coverage reads docs/seo/outreach-tracker.md: week-1 rotation, 1 draft candidate proposed.");
   });
 
+  it("distinguishes an empty rotation from queued rows skipped for lacking a direct email", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-07-06T12:00:00Z",
+      recommendations: [],
+      missing: [],
+      outreach: {
+        generatedAt: "2026-07-06T12:00:00Z",
+        reportDate: "2026-07-06",
+        rotationWeek: 1,
+        rotationCategory: "surf-schools",
+        statusCounts: { queued: 2 },
+        totalRows: 2,
+        candidates: [],
+        missing: [
+          'No direct email for outreach target "North Shore Surf Girls" — contact: 808-637-2977',
+          'No direct email for outreach target "Hawaiian Surfing Adventures" — contact: 808-482-0749',
+        ],
+      },
+    });
+
+    expect(report).toContain(
+      "2 queued targets in this week's rotation lack a direct email and were skipped; see missing data below.",
+    );
+    expect(report).not.toContain("No queued targets in this week's rotation category; nothing to draft.");
+  });
+
   it("turns weekly actions into an ordered execution plan", () => {
     const report = renderWeeklySeoReport({
       generatedAt: "2026-06-29T12:00:00Z",

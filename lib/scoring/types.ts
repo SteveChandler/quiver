@@ -4,6 +4,7 @@
 
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
+import type { BoardClass } from '@/lib/domains/rideability';
 import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 
 /**
@@ -115,6 +116,8 @@ export interface OptimalWindow {
   message: string;
   /** Peak score time within window */
   peakTime?: Date;
+  /** Score at peakTime; the render-facing decision score for this window */
+  peakScore?: number;
   /** Average score across all forecasts within this window (0-100) */
   avgScore?: number;
   /** Qualitative character of conditions during this window */
@@ -147,6 +150,8 @@ export interface WindowCalculatorOptions {
   skillLevel?: SkillLevel | string | null;
   /** IANA timezone used to exclude non-daylight forecast rows */
   beachTimezone?: string;
+  /** Saved board classes used to score the best available board fit */
+  boardClasses?: readonly BoardClass[];
 }
 
 /**

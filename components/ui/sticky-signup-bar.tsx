@@ -172,7 +172,7 @@ function StickySignupBarContent({
               ? "opacity-100"
               : "opacity-0 pointer-events-none"
             : cn(
-                "transition-all duration-300 ease-out",
+                "transition-[opacity,transform] duration-300 ease-out",
                 isVisible
                   ? "translate-y-0 opacity-100"
                   : "translate-y-full opacity-0 pointer-events-none"
@@ -193,7 +193,7 @@ function StickySignupBarContent({
               onClick={handleCtaClick}
               size="sm"
               className={cn(
-                "bg-[#F78E42] text-white hover:bg-[#F78E42]/90 font-semibold px-4 rounded-full shadow-sm",
+                "bg-[#F78E42] text-[#11100D] hover:bg-[#F78E42]/90 font-semibold px-4 rounded-full shadow-sm",
                 buttonClassName
               )}
               data-testid="sticky-signup-cta"
@@ -203,7 +203,7 @@ function StickySignupBarContent({
 
             <button
               onClick={handleDismiss}
-              className="p-2.5 text-white/50 hover:text-white/80 transition-colors rounded-full hover:bg-white/10 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="p-2.5 text-white/50 hover:text-white/80 transition-colors rounded-full hover:bg-white/10 min-w-[44px] min-h-[44px] flex items-center justify-center focus-ring"
               aria-label="Dismiss signup prompt"
               data-testid="sticky-signup-dismiss"
             >

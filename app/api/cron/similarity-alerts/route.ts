@@ -4,20 +4,19 @@
 //
 // Iterates DISTINCT eligible USERS (not rules). For each user:
 //  1. Builds a candidate beach pool: home_beach + favorites + nearby ≤ 30mi.
-//  2. Drops candidates with active water-quality closures.
-//  3. Drops candidates whose `slug` is null/empty (defensive; payload schema
+//  2. Drops candidates whose `slug` is null/empty (defensive; payload schema
 //     requires non-empty beach_slug and a missing slug means the beach row
 //     was malformed at seed time — better to skip than to self-reject in
 //     the worker).
-//  4. Fetches the next 72h of enhanced_forecasts per candidate, filters to
+//  3. Fetches the next 72h of enhanced_forecasts per candidate, filters to
 //     surfable windows (tighter 6:00-19:00 beach-local daylight + base
 //     scoreWindowWithComposite().total ≥ SURFABILITY_FLOOR on the 0-100
 //     beach-aware condition
 //     scale), then bulk-scores survivors via compute_user_match_score_batch
 //     (one RPC per beach, not per slot).
-//  5. Picks the highest-scoring ready slot ≥ 7.5 across all candidates,
+//  4. Picks the highest-scoring ready slot ≥ 7.5 across all candidates,
 //     tie-break by earliest forecast_at, rejects 22:00-06:00 user-local picks.
-//  6. Inserts via try_insert_similarity_alert RPC with send_at =
+//  5. Inserts via try_insert_similarity_alert RPC with send_at =
 //     window_start - 60 minutes so the alert lands ~1h before the window.
 //     inserted=false on dedup hit is treated as success.
 //
@@ -54,6 +53,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import { scoreWindowWithComposite } from "@/lib/services/discovery/window-selector";
 import {
@@ -65,6 +65,7 @@ import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
 import { buildCanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
 import { normalizeTideStatus } from "@/lib/services/preference-learning-service";
+import { selectBeach } from "@/lib/recommendations/selection";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -112,6 +113,7 @@ interface EligibleUserRow {
   user_id: string;
   anchor_rule_id: string;
   home_beach_id: string;
+  configured_beach_id: string;
   timezone: string | null;
   experience_level: string | null;
 }
@@ -318,12 +320,21 @@ async function _GET(req: Request): Promise<Response> {
 
   if (!deliveryEnabled) {
     console.log(`${CONTEXT_TAG} skipped: ALERTS_DELIVERY_ENABLED=false`);
-    return NextResponse.json({
-      skipped: true,
-      reason: "delivery_disabled",
-      enqueued: 0,
-      evaluated: 0,
-    });
+    return NextResponse.json(await withCronOutcome(
+      {
+        job: "/api/cron/similarity-alerts",
+        unit: "alerts_queued",
+        expectedMin: 1,
+        getProduced: (value) => value.enqueued,
+        legitimatelyZero: () => ({ reason: "ALERTS_DELIVERY_ENABLED is not true" }),
+      },
+      async () => ({
+        skipped: true,
+        reason: "delivery_disabled",
+        enqueued: 0,
+        evaluated: 0,
+      }),
+    ));
   }
 
   const supabase = await createSupabaseServiceRoleClient();
@@ -351,16 +362,10 @@ async function _GET(req: Request): Promise<Response> {
           continue;
         }
 
-        const filtered = await filterByWaterQuality(supabase, candidates);
-        if (filtered.length === 0) {
-          noPickSkipped++;
-          continue;
-        }
-
         const scored = await scoreCandidates(
           supabase,
           user.user_id,
-          filtered
+          candidates,
         );
         if (scored.length === 0) {
           noPickSkipped++;
@@ -407,14 +412,26 @@ async function _GET(req: Request): Promise<Response> {
       noPickSkipped,
       errors,
     });
-    return NextResponse.json({
-      evaluated,
-      enqueued,
-      dedupSkipped,
-      allowlistSkipped,
-      noPickSkipped,
-      errors,
-    });
+    return NextResponse.json(await withCronOutcome(
+      {
+        job: "/api/cron/similarity-alerts",
+        unit: "alerts_queued",
+        expectedMin: 1,
+        getProduced: (value) => value.enqueued,
+        legitimatelyZero: (value) =>
+          value.errors === 0 && (value.evaluated === 0 || value.enqueued === 0)
+            ? { reason: value.evaluated === 0 ? "No similarity-alert users were eligible" : "No eligible similarity window matched this cycle" }
+            : undefined,
+      },
+      async () => ({
+        evaluated,
+        enqueued,
+        dedupSkipped,
+        allowlistSkipped,
+        noPickSkipped,
+        errors,
+      }),
+    ));
   } catch (err) {
     console.error(`${CONTEXT_TAG} fatal error`, err);
     return NextResponse.json(
@@ -456,7 +473,7 @@ async function loadEligibleUsers(
   // 1. Flat select — no relationship embed. See function-doc rationale.
   const { data: rules, error: rulesError } = await supabase
     .from("alert_rules")
-    .select("id, user_id, auto_created_at")
+    .select("id, user_id, beach_id, auto_created_at")
     .eq("preset_type", "similarity_match")
     .eq("enabled", true);
 
@@ -468,6 +485,7 @@ async function loadEligibleUsers(
   const ruleRows = (rules ?? []) as Array<{
     id: string;
     user_id: string;
+    beach_id: string | null;
     auto_created_at: string | null;
   }>;
   if (ruleRows.length === 0) return [];
@@ -548,6 +566,7 @@ async function loadEligibleUsers(
     Array<{
       id: string;
       user_id: string;
+      beach_id: string | null;
       auto_created_at: string | null;
       home_beach_id: string;
       timezone: string | null;
@@ -575,6 +594,7 @@ async function loadEligibleUsers(
     list.push({
       id: rule.id,
       user_id: rule.user_id,
+      beach_id: rule.beach_id,
       auto_created_at: rule.auto_created_at,
       home_beach_id: profile.home_beach_id,
       timezone: profile.timezone,
@@ -598,6 +618,7 @@ async function loadEligibleUsers(
       user_id: userId,
       anchor_rule_id: anchor.id,
       home_beach_id: anchor.home_beach_id,
+      configured_beach_id: anchor.beach_id ?? anchor.home_beach_id,
       timezone: anchor.timezone,
       experience_level: anchor.experience_level,
     });
@@ -614,7 +635,10 @@ async function buildCandidateBeaches(
   supabase: any,
   user: EligibleUserRow,
 ): Promise<BeachRow[]> {
-  const ids = new Set<string>([user.home_beach_id]);
+  const ids = new Set<string>([
+    user.home_beach_id,
+    user.configured_beach_id,
+  ]);
 
   const { data: favs } = await supabase
     .from("favorite_beaches")
@@ -646,7 +670,7 @@ async function buildCandidateBeaches(
       input_lat: homeRow.lat,
       input_lng: homeRow.lon,
       max_distance_meters: meters,
-      limit_count: NEARBY_LIMIT,
+      limit_count: NEARBY_LIMIT + FAVORITE_LIMIT,
     });
     for (const r of (nearby ?? []) as Array<{ id: string; is_private?: boolean | null }>) {
       if (r.id && !r.is_private) {
@@ -706,46 +730,33 @@ async function buildCandidateBeaches(
   });
   const validIds = new Set(validBeaches.map((beach) => beach.id));
   const selectedIds = new Set<string>();
-  if (validIds.has(user.home_beach_id)) {
-    selectedIds.add(user.home_beach_id);
+  if (validIds.has(user.configured_beach_id)) {
+    selectedIds.add(user.configured_beach_id);
   }
+  const safeAlternatives = (
+    await Promise.all(
+      validBeaches
+        .filter((beach) => beach.id !== user.configured_beach_id)
+        .map((beach) => selectBeach(beach)),
+    )
+  ).filter((beach): beach is NonNullable<typeof beach> => beach !== null);
+  const safeAlternativeIds = new Set(
+    safeAlternatives.map(({ id }) => id),
+  );
   favoriteIds
     .filter((beachId) => validIds.has(beachId))
+    .filter((beachId) => safeAlternativeIds.has(beachId))
     .slice(0, FAVORITE_LIMIT)
     .forEach((beachId) => selectedIds.add(beachId));
   nearbyIds
     .filter((beachId) => validIds.has(beachId))
+    .filter((beachId) => safeAlternativeIds.has(beachId))
     .forEach((beachId) => selectedIds.add(beachId));
 
-  return validBeaches.filter((beach) => selectedIds.has(beach.id));
-}
-
-/**
- * Drops beaches with status='closure' in beach_water_quality (matches the
- * filter applied by the discovery orchestrator).
- */
-async function filterByWaterQuality(
-  supabase: any,
-  candidates: BeachRow[],
-): Promise<BeachRow[]> {
-  if (candidates.length === 0) return [];
-  const { data, error } = await supabase
-    .from("beach_water_quality")
-    .select("beach_id, status")
-    .in(
-      "beach_id",
-      candidates.map((c) => c.id),
-    );
-  if (error) {
-    // Non-fatal — proceed without WQ filter rather than skipping the user.
-    console.warn(`${CONTEXT_TAG} water quality lookup failed`, error.message);
-    return candidates;
-  }
-  const closed = new Set<string>();
-  for (const r of (data ?? []) as Array<{ beach_id: string; status: string }>) {
-    if (r.status === "closure") closed.add(r.beach_id);
-  }
-  return candidates.filter((c) => !closed.has(c.id));
+  return validBeaches.filter(
+    (beach) =>
+      beach.id === user.configured_beach_id || selectedIds.has(beach.id),
+  );
 }
 
 /**
@@ -1073,6 +1084,7 @@ async function tryInsertAlert(
     forecast_at: pick.forecast_at,
     rule_id: user.anchor_rule_id,
     beach_id: pick.beach_id,
+    configured_beach_id: user.configured_beach_id,
     beach_slug: pick.beach_slug,
     beach_name: pick.beach_name,
     reason: pick.reason ?? `${pick.label ?? "Match"} at ${pick.beach_name}`,

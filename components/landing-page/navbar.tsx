@@ -74,7 +74,7 @@ type NavbarPosition = "overlay" | "static";
 type NavbarNativeCtaPlacement = "navbar_primary" | "navbar_mobile_primary";
 
 const NAVBAR_CTA_CLASS =
-  "inline-flex min-h-11 items-center justify-center rounded-full bg-[#F78E42] px-6 py-3 font-sans text-sm font-bold text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.22)] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]";
+  "inline-flex min-h-11 items-center justify-center rounded-md border border-[#11100D]/45 bg-transparent px-4 py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#11100D] transition hover:bg-[#11100D]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]";
 const NAVBAR_MOBILE_CTA_CLASS =
   "inline-flex min-h-12 w-full items-center justify-center rounded-md bg-[#F78E42] px-4 text-base font-bold text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]";
 const NAVBAR_APP_CTA_LABEL = "Get the app";
@@ -296,7 +296,7 @@ export function Navbar({
                 className={cn(
                   "font-mono text-xs font-bold uppercase tracking-[0.14em] transition-colors",
                   navTextClass,
-                )}
+                ) + " focus-ring"}
               >
                 Log in
               </button>

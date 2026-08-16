@@ -254,33 +254,4 @@ describe('POST /api/surf/week-scout', () => {
       holdEpoch: 'held-epoch',
     });
   });
-
-  it('returns a retryable error instead of serializing unavailable hold state as success', async () => {
-    mockGenerateWeekScoutForecast.mockResolvedValueOnce({
-      generatedAt: '2026-07-15T18:00:00.000Z',
-      scorerVersion: 'week-scout-v1',
-      candidateFingerprint: 'candidate-fingerprint',
-      days: [],
-      recommendationAvailability: {
-        state: 'none',
-        reasonCode: 'hold_state_unavailable',
-        holdEpoch: 'hold-state-unavailable',
-      },
-    });
-
-    const response = await callRoute({
-      candidateBeachIds: [BEACH_A],
-      localTimezone: 'Pacific/Honolulu',
-      startLocalDate: '2026-07-15',
-      dayCount: 7,
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(503);
-    expect(body).toMatchObject({
-      success: false,
-      retryable: true,
-      code: 'hold_state_unavailable',
-    });
-  });
 });

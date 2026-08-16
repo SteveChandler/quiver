@@ -72,7 +72,6 @@ import {
 import {
   windAt,
   calculateOnOffshore,
-  normalizeAngle,
   analyzeWindConditions,
 } from "@/lib/analyzers/wind-analyzer";
 
@@ -87,8 +86,6 @@ const FEET_TO_METERS = 0.3048;
 // windAt function moved to lib/analyzers/wind-analyzer.ts
 
 // calculateOnOffshore function moved to lib/analyzers/wind-analyzer.ts
-
-// normalizeAngle function moved to lib/analyzers/wind-analyzer.ts
 
 // degreesToCardinal function moved to lib/analyzers/wind-analyzer.ts
 

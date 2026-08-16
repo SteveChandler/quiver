@@ -5,7 +5,7 @@
  * state propagation failures are detected. Uses Resend.
  */
 
-import { getResendClient } from "@/lib/email/resend-client";
+import { sendEmail } from "@/lib/mailer/client";
 
 const ADMIN_EMAIL = "stcha0004@gmail.com";
 const FROM_ADDRESS = "Quiver Alerts <noreply@quiversurf.app>";
@@ -31,12 +31,11 @@ interface AuthFailureAlertData {
 
 export async function sendNewUserAlert(data: NewUserAlertData) {
   try {
-    const resend = getResendClient();
     const deviceInfo = data.device
       ? `${data.device.os || "?"} / ${data.device.browser || "?"} / ${data.device.device_type || "?"}`
       : "Unknown";
 
-    await resend.emails.send({
+    await sendEmail({
       from: FROM_ADDRESS,
       to: ADMIN_EMAIL,
       subject: `New signup: ${data.name || data.email} (${data.signupMethod})`,
@@ -61,9 +60,7 @@ export async function sendNewUserAlert(data: NewUserAlertData) {
 
 export async function sendAuthFailureAlert(data: AuthFailureAlertData) {
   try {
-    const resend = getResendClient();
-
-    await resend.emails.send({
+    await sendEmail({
       from: FROM_ADDRESS,
       to: ADMIN_EMAIL,
       subject: `AUTH FAILURE: ${data.name || data.email} still seeing CTAs ${data.minutesSinceSignup}min after signup`,

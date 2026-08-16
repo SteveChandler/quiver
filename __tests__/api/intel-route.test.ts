@@ -446,6 +446,8 @@ describe("GET /api/intel", () => {
         id: "user-1",
         full_name: "John Surfer",
         avatar_url: "https://example.com/avatar.jpg",
+        // Surfaced so the feed can label automated posts as system cards.
+        is_system_account: null,
       });
     });
 

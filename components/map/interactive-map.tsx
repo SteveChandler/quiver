@@ -10,7 +10,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, LoaderCircle } from "lucide-react";
 import mapboxgl from "mapbox-gl";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { debounce } from "@/lib/utils/debounce";
@@ -89,6 +89,7 @@ import { SwellLayerSelector } from "@/components/map/swell-field/swell-layer-sel
 import { SwellForecastTimeline } from "@/components/map/swell-field/swell-forecast-timeline";
 import { SwellDayTimeline } from "@/components/map/swell-field/swell-day-timeline";
 import { useExpandableSwellTimeline } from "@/hooks/use-expandable-swell-timeline";
+import { calendarDayTimelineHours } from "@/components/map/hourly-swell-timeline";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { CustomSpot } from "@/hooks/use-custom-spots";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
@@ -377,6 +378,7 @@ interface InteractiveMapProps {
   swellTimelineMode?: "legacy" | "hourly" | "expandable-hourly";
   onHourlyTimelineLoaded?: (timeline: HourlySwellTimeline | null) => void;
   viewTimezone?: string;
+  timelineFocusBeachId?: string | null;
   showMapChrome?: boolean;
   placementPin?: { lat: number; lon: number } | null;
   placementPinDraggable?: boolean;
@@ -387,14 +389,27 @@ interface InteractiveMapProps {
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
 const EMPTY_CUSTOM_SPOTS: CustomSpot[] = [];
 const FULL_FORECAST_TIMELINE_HOURS = 14 * 24;
+const INITIAL_EXPANDABLE_TIMELINE_HOURS = 48;
+const PUBLIC_MAP_TIMELINE_HORIZON_DAYS = 10;
+const MAP_LOAD_TIMEOUT_MS = 15_000;
+
+type SwellFieldLoadStatus = "loading" | "ready" | "empty" | "unavailable";
+type MapLoadFailure = "token_invalid" | "webgl_unsupported" | "timeout";
+type MapFailureReason =
+  | MapLoadFailure
+  | "network"
+  | "tile_error"
+  | "unknown";
 
 const CONDITION_LEGEND_ITEMS: Array<{
   label: ConditionSummary;
   display: string;
 }> = [
-  { label: "GOOD", display: "Worth it" },
-  { label: "FAIR", display: "Maybe" },
-  { label: "CHECK", display: "Scout it" },
+  { label: "EPIC", display: "Go now!" },
+  { label: "GOOD", display: "Go surf!" },
+  { label: "FAIR", display: "Worth a look" },
+  { label: "RIDEABLE", display: "Slim pickings" },
+  { label: "MEH", display: "Skip it" },
   { label: "UNKNOWN", display: "No read" },
 ];
 
@@ -409,7 +424,7 @@ function MapConditionLegend({
   timeline,
   bottomOffset = 0,
 }: MapConditionLegendProps): ReactElement {
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(true);
   const embeddedControls = Children.toArray(controls);
   const hasEmbeddedControls = embeddedControls.length > 0;
   const hasTimeline = Boolean(timeline);
@@ -423,7 +438,7 @@ function MapConditionLegend({
       title={toggleLabel}
       data-testid="map-legend-toggle"
       onClick={() => setIsMinimized((current) => !current)}
-      className="pointer-events-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-black/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
+      className="pointer-events-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-black/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
       style={{
         background: "rgba(17,16,13,0.08)",
         color: SWELL_MAP_LEGEND_SURFACE.ink,
@@ -520,6 +535,7 @@ export function InteractiveMap({
   swellTimelineMode = "legacy",
   onHourlyTimelineLoaded,
   viewTimezone,
+  timelineFocusBeachId,
   showMapChrome = true,
   placementPin = null,
   placementPinDraggable = true,
@@ -527,6 +543,8 @@ export function InteractiveMap({
   onMapLoadFailure,
 }: InteractiveMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRetryButtonRef = useRef<HTMLButtonElement>(null);
+  const shouldRestoreMapFocusRef = useRef(false);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Record<string, mapboxgl.Marker>>({});
   const markerSignatureRef = useRef<Record<string, string>>({});
@@ -558,12 +576,17 @@ export function InteractiveMap({
   );
   const lastPopulateKeyRef = useRef<string | null>(null);
   const populateRequestIdRef = useRef(0);
+  const populateAbortControllerRef = useRef<AbortController | null>(null);
+  const forecastUnavailableRef = useRef(false);
   const lastViewportRef = useRef<{
     lat: number;
     lng: number;
     zoom: number;
   } | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [mapLoadFailure, setMapLoadFailure] =
+    useState<MapLoadFailure | null>(null);
+  const [mapRetryNonce, setMapRetryNonce] = useState(0);
   const [mapStyleRevision, setMapStyleRevision] = useState(0);
   const [leashSuspendedCommandId, setLeashSuspendedCommandId] = useState<
     number | null
@@ -594,11 +617,8 @@ export function InteractiveMap({
   const [hourlyTimelineBeachIds, setHourlyTimelineBeachIds] = useState<string[]>([]);
   // Loader-resolved beaches that partitionsMap is keyed by (the prop may be empty).
   const [swellFieldBeaches, setSwellFieldBeaches] = useState<Beach[]>([]);
-  // Whether the last flow-field build resolved ANY field points. False → the
-  // field is ON but no beach partitions drew (blank water looks like a bug),
-  // so we surface a small "no swell data" sticker. Defaults true to avoid a
-  // flash before the first build.
-  const [hasSwellData, setHasSwellData] = useState(true);
+  const [swellFieldLoadStatus, setSwellFieldLoadStatus] =
+    useState<SwellFieldLoadStatus>("loading");
   const [expandableTimelineHeight, setExpandableTimelineHeight] = useState(0);
   const [expandablePlaybackPosition, setExpandablePlaybackPosition] = useState(0);
   const [showAuth, setShowAuth] = useState(false);
@@ -681,6 +701,11 @@ export function InteractiveMap({
   useEffect(() => {
     isMapReadyRef.current = isMapReady;
   }, [isMapReady]);
+
+  useEffect(() => {
+    if (!mapLoadFailure) return;
+    mapRetryButtonRef.current?.focus();
+  }, [mapLoadFailure]);
 
   useEffect(() => {
     userRef.current = user;
@@ -770,7 +795,7 @@ export function InteractiveMap({
   const hourlyTimelineScopeKey = `${[...hourlyTimelineBeachIds].sort().join(",")}|${timelineTimezone}`;
   const loadHourlyChunk = useCallback(
     async (start: string, hours: number, signal: AbortSignal): Promise<HourlySwellTimeline> => {
-      const beachIds = hourlyTimelineBeachIdsRef.current.slice(0, 20);
+      const beachIds = hourlyTimelineBeachIdsRef.current;
       if (beachIds.length === 0) throw new Error("No beaches are available for the forecast timeline");
 
       const searchParams = new URLSearchParams({
@@ -809,12 +834,24 @@ export function InteractiveMap({
     },
     [beaches, swellFieldBeaches, swellLayerId],
   );
+  const publicMapTimelineHorizonHours = useMemo(
+    () => calendarDayTimelineHours(
+      hourlyTimelineSeed?.timestamps[0],
+      timelineTimezone,
+      PUBLIC_MAP_TIMELINE_HORIZON_DAYS,
+    ),
+    [hourlyTimelineSeed?.timestamps, timelineTimezone],
+  );
   const expandableTimeline = useExpandableSwellTimeline({
     scopeKey: hourlyTimelineScopeKey,
     initial: hourlyTimelineSeed,
     timezone: timelineTimezone,
     loadChunk: loadHourlyChunk,
     reducedMotion,
+    prefetchHours:
+      swellTimelineMode === "expandable-hourly"
+        ? publicMapTimelineHorizonHours
+        : 0,
     isFramePlayable: isExpandableFramePlayable,
   });
   const isExpandableTimeline = swellTimelineMode === "expandable-hourly";
@@ -1138,12 +1175,15 @@ export function InteractiveMap({
 
   // Helper: full cleanup
   const cleanupMap = useCallback(() => {
+    populateAbortControllerRef.current?.abort();
+    populateAbortControllerRef.current = null;
     cleanupMarkers();
     clearMapDebugCenter();
     if (mapRef.current) {
       mapRef.current.remove();
       mapRef.current = null;
     }
+    mapContainerRef.current?.replaceChildren();
     lastPopulateKeyRef.current = null;
     populateRequestIdRef.current += 1;
     selectedBeachIdRef.current = null;
@@ -1152,6 +1192,30 @@ export function InteractiveMap({
     isMapReadyRef.current = false;
     setIsMapReady(false);
   }, [cleanupMarkers]);
+
+  const invalidateSwellForecastState = useCallback((): void => {
+    populateAbortControllerRef.current?.abort();
+    populateAbortControllerRef.current = null;
+    populateRequestIdRef.current += 1;
+    lastPopulateKeyRef.current = null;
+    lastViewportRef.current = null;
+    forecastUnavailableRef.current = false;
+    partitionsMapRef.current = new Map();
+    hourlyTimelineBeachIdsRef.current = [];
+    flowFieldsRef.current = {
+      s1: EMPTY_FLOW_FIELD,
+      s2: EMPTY_FLOW_FIELD,
+      wind: EMPTY_FLOW_FIELD,
+    };
+    setPartitionsMap(new Map());
+    setPartitionsTimelineMap(new Map());
+    setHourlyTimelineSeed(null);
+    setHourlyTimelineBeachIds([]);
+    setSwellFieldBeaches([]);
+    setSwellFieldLoadStatus("loading");
+    onHourlyTimelineLoadedRef.current?.(null);
+    mapRef.current?.triggerRepaint();
+  }, []);
 
   // Helper to check if viewport has significantly changed
   const hasViewportChanged = useCallback(
@@ -1425,18 +1489,25 @@ export function InteractiveMap({
           .join(",");
       const populateKey = `${latitude.toFixed(4)}-${longitude.toFixed(
         4
-      )}-${zoom.toFixed(2)}-${beachesKey}-${swellTimelineMode ?? "legacy"}`;
+      )}-${zoom.toFixed(2)}-${beachesKey}-${swellTimelineMode ?? "legacy"}-${
+        timelineFocusBeachId ?? "no-focus"
+      }`;
 
       if (lastPopulateKeyRef.current === populateKey) {
         return;
       }
 
       lastPopulateKeyRef.current = populateKey;
+      populateAbortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      populateAbortControllerRef.current = abortController;
       const requestId = populateRequestIdRef.current + 1;
       populateRequestIdRef.current = requestId;
+      forecastUnavailableRef.current = false;
+      setSwellFieldLoadStatus("loading");
       try {
         // Clean up existing markers when provided beaches change
-        if (beaches && beaches.length > 0) {
+        if (beaches !== undefined) {
           cleanupMarkers();
         }
 
@@ -1446,10 +1517,15 @@ export function InteractiveMap({
           beaches,
           { fetchNearbyBeaches: fetchNearbyBeaches.current },
           swellTimelineMode === "legacy"
-            ? {}
+            ? { signal: abortController.signal }
             : {
                 timeline: "hourly",
-                timelineHours: FULL_FORECAST_TIMELINE_HOURS,
+                timelineHours:
+                  swellTimelineMode === "expandable-hourly"
+                    ? INITIAL_EXPANDABLE_TIMELINE_HOURS
+                    : FULL_FORECAST_TIMELINE_HOURS,
+                timelineFocusBeachId,
+                signal: abortController.signal,
               },
         );
         if (requestId !== populateRequestIdRef.current) return;
@@ -1464,16 +1540,15 @@ export function InteractiveMap({
         setPartitionsMap(result.partitionsMap);
         setPartitionsTimelineMap(result.partitionsTimelineMap);
         setSwellFieldBeaches(result.locations);
+        forecastUnavailableRef.current =
+          result.forecastStatus === "unavailable";
+        setSwellFieldLoadStatus(result.forecastStatus);
         if (swellTimelineMode === "hourly") {
           setHourlyTimelineSeed(result.hourlySwellTimeline);
           onHourlyTimelineLoadedRef.current?.(result.hourlySwellTimeline);
         }
         if (swellTimelineMode === "expandable-hourly") {
-          const beachIds = result.locations
-            .map((beach) => beach.id)
-            .filter((beachId): beachId is string => Boolean(beachId))
-            .sort()
-            .slice(0, 20);
+          const beachIds = result.hourlyTimelineBeachIds;
           hourlyTimelineBeachIdsRef.current = beachIds;
           setHourlyTimelineBeachIds(beachIds);
           setHourlyTimelineSeed(result.hourlySwellTimeline);
@@ -1482,11 +1557,18 @@ export function InteractiveMap({
         onDisplayForecastsChangeRef.current?.(result.displayForecastMap);
       } catch (e) {
         if (requestId !== populateRequestIdRef.current) return;
+        if (abortController.signal.aborted) return;
         lastPopulateKeyRef.current = null;
+        forecastUnavailableRef.current = true;
+        setSwellFieldLoadStatus("unavailable");
         console.error("Error populating locations", e);
+      } finally {
+        if (populateAbortControllerRef.current === abortController) {
+          populateAbortControllerRef.current = null;
+        }
       }
     },
-    [beaches, cleanupMarkers, swellTimelineMode]
+    [beaches, cleanupMarkers, swellTimelineMode, timelineFocusBeachId]
   );
 
   useEffect(() => {
@@ -1542,15 +1624,22 @@ export function InteractiveMap({
     };
     if (!map || !isMapReady || !showSwellField) {
       resetFields();
-      // Field is off → reset to the optimistic default so the empty-state note
-      // never lingers after toggling the field back on.
-      setHasSwellData(true);
+      setSwellFieldLoadStatus("loading");
+      return;
+    }
+    if (swellFieldLoadStatus === "loading") {
+      resetFields();
+      return;
+    }
+    if (forecastUnavailableRef.current) {
+      resetFields();
+      setSwellFieldLoadStatus("unavailable");
       return;
     }
     const b = map.getBounds();
     if (!b) {
       resetFields();
-      setHasSwellData(true);
+      setSwellFieldLoadStatus("loading");
       return;
     }
     const bounds = {
@@ -1619,11 +1708,11 @@ export function InteractiveMap({
       nextFields[component] = buildFlowField(points, bounds, 12);
     }
     if (!anyPoints && expandableTimeline.isPlaying) {
-      setHasSwellData(true);
+      setSwellFieldLoadStatus("ready");
       return;
     }
     flowFieldsRef.current = nextFields;
-    setHasSwellData(anyPoints);
+    setSwellFieldLoadStatus(anyPoints ? "ready" : "empty");
     // Best-effort mask now; the idle/moveend listener re-masks once tiles render.
     applyWaterMask(map);
     // Nudge a repaint so a static (reduced-motion) frame reflects the new field.
@@ -1645,6 +1734,7 @@ export function InteractiveMap({
     partitionsTimelineMap,
     showSwellField,
     swellFieldBeaches,
+    swellFieldLoadStatus,
     swellLayerId,
     swellTimelineIndex,
     swellTimelineSteps.length,
@@ -2049,6 +2139,7 @@ export function InteractiveMap({
       typeof performance !== "undefined" ? performance.now() : 0;
     hasEmittedReadyRef.current = false;
     emittedFailureTypesRef.current = new Set();
+    setMapLoadFailure(null);
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
@@ -2066,12 +2157,41 @@ export function InteractiveMap({
     mapRef.current = map;
 
     let readyMarked = false;
+    let terminalLoadFailure = false;
+    const reportMapFailure = (errorType: MapFailureReason): void => {
+      if (emittedFailureTypesRef.current.has(errorType)) return;
+      emittedFailureTypesRef.current.add(errorType);
+
+      const timeToFailureMs =
+        typeof performance !== "undefined"
+          ? Math.round(performance.now() - mountedAtRef.current)
+          : undefined;
+
+      trackRef.current('map_load_failed', {
+        metadata: {
+          error_type: errorType,
+          ...(timeToFailureMs !== undefined
+            ? { time_to_failure_ms: timeToFailureMs }
+            : {}),
+        },
+      });
+      onMapLoadFailureRef.current?.(errorType);
+    };
+    const loadTimeout = window.setTimeout(() => {
+      if (readyMarked) return;
+      terminalLoadFailure = true;
+      reportMapFailure("timeout");
+      setMapLoadFailure("timeout");
+    }, MAP_LOAD_TIMEOUT_MS);
     const markMapReady = () => {
+      if (terminalLoadFailure) return;
       if (typeof map.isStyleLoaded === "function" && !map.isStyleLoaded()) {
         return;
       }
       if (readyMarked) return;
       readyMarked = true;
+      window.clearTimeout(loadTimeout);
+      setMapLoadFailure(null);
 
       // Emit map_ready exactly once per mount.
       if (!hasEmittedReadyRef.current) {
@@ -2087,6 +2207,10 @@ export function InteractiveMap({
         });
       }
       setIsMapReady(true);
+      if (shouldRestoreMapFocusRef.current) {
+        shouldRestoreMapFocusRef.current = false;
+        window.requestAnimationFrame(() => mapContainerRef.current?.focus());
+      }
       onMapReadyRef.current?.();
       // Expose map instance in dev and Playwright builds for E2E map assertions.
       if (
@@ -2113,11 +2237,12 @@ export function InteractiveMap({
     map.on("load", markMapReady);
     map.on("styledata", markMapReady);
     map.on("idle", markMapReady);
-    map.on("style.load", () => {
+    const styleLoadHandler = (): void => {
       setMapStyleRevision((current) => current + 1);
-    });
+    };
+    map.on("style.load", styleLoadHandler);
 
-    map.on("error", (e) => {
+    const mapErrorHandler = (e: unknown): void => {
       console.error("Map error:", e);
 
       // Classify the error into a coarse category. We intentionally do NOT
@@ -2169,24 +2294,17 @@ export function InteractiveMap({
       }
 
       // Dedupe: one emission per category per mount.
-      if (emittedFailureTypesRef.current.has(errorType)) return;
-      emittedFailureTypesRef.current.add(errorType);
-
-      const timeToFailureMs =
-        typeof performance !== "undefined"
-          ? Math.round(performance.now() - mountedAtRef.current)
-          : undefined;
-
-      trackRef.current('map_load_failed', {
-        metadata: {
-          error_type: errorType,
-          ...(timeToFailureMs !== undefined
-            ? { time_to_failure_ms: timeToFailureMs }
-            : {}),
-        },
-      });
-      onMapLoadFailureRef.current?.(errorType);
-    });
+      reportMapFailure(errorType);
+      if (
+        !readyMarked &&
+        (errorType === "token_invalid" || errorType === "webgl_unsupported")
+      ) {
+        terminalLoadFailure = true;
+        window.clearTimeout(loadTimeout);
+        setMapLoadFailure(errorType);
+      }
+    };
+    map.on("error", mapErrorHandler);
 
     // Stable wrapper — delegates to the latest debounced handler via ref
     const moveEndHandler = () => {
@@ -2271,9 +2389,12 @@ export function InteractiveMap({
     map.on("rotatestart", rotateStartHandler);
 
     return () => {
+      window.clearTimeout(loadTimeout);
       map.off("load", markMapReady);
       map.off("styledata", markMapReady);
       map.off("idle", markMapReady);
+      map.off("style.load", styleLoadHandler);
+      map.off("error", mapErrorHandler);
       map.off("moveend", moveEndHandler);
       map.off("click", handleMapClick);
       map.off("dragstart", dragStartHandler);
@@ -2282,7 +2403,7 @@ export function InteractiveMap({
       (handleMoveEndRef.current as any)?.cancel?.();
       cleanupMap();
     };
-  }, [initialZoom, cleanupMap]);
+  }, [initialZoom, cleanupMap, mapRetryNonce]);
 
   useEffect(() => {
     const container = mapContainerRef.current;
@@ -2329,6 +2450,9 @@ export function InteractiveMap({
 
     const map = mapRef.current;
 
+    invalidateSwellForecastState();
+    releaseSwellFieldLeash(map);
+
     if (regionViewport.bounds) {
       map.fitBounds(regionViewport.bounds, {
         padding: 48,
@@ -2344,7 +2468,12 @@ export function InteractiveMap({
     }
 
     lastRegionViewportKeyRef.current = regionViewport.key;
-  }, [regionViewport, isMapReady]);
+  }, [
+    regionViewport,
+    isMapReady,
+    invalidateSwellForecastState,
+    releaseSwellFieldLeash,
+  ]);
 
   // Update markers when selection state changes
   useEffect(() => {
@@ -2374,7 +2503,7 @@ export function InteractiveMap({
             border: 3px solid #F78E42;
             border-radius: 50%;
             pointer-events: none;
-            animation: pulse 2s infinite;
+            animation: ${reducedMotion ? "none" : "pulse 2s infinite"};
           `;
           element.appendChild(selectionRing);
         }
@@ -2423,6 +2552,7 @@ export function InteractiveMap({
     displayMode,
     waterTempMap,
     conditionSummaryMap,
+    reducedMotion,
   ]);
 
   // Camera commands are monotonic. A command is applied once, after the map is
@@ -2435,11 +2565,9 @@ export function InteractiveMap({
     // A command represents a new location intent. Invalidate any prior viewport
     // load before releasing its coastal leash so stale data cannot constrain the
     // camera back to the previous region when that request resolves.
-    populateRequestIdRef.current += 1;
-    lastPopulateKeyRef.current = null;
+    invalidateSwellForecastState();
     pendingLeashCommandRef.current = cameraCommand;
     setLeashSuspendedCommandId(cameraCommand.id);
-    setSwellFieldBeaches([]);
     releaseSwellFieldLeash(map);
     if (cameraCommand.bounds) {
       map.fitBounds(cameraCommand.bounds, {
@@ -2454,11 +2582,16 @@ export function InteractiveMap({
       });
     }
     appliedCameraCommandIdRef.current = cameraCommand.id;
-  }, [cameraCommand, isMapReady, releaseSwellFieldLeash]);
+  }, [
+    cameraCommand,
+    isMapReady,
+    invalidateSwellForecastState,
+    releaseSwellFieldLeash,
+  ]);
 
   // Re-populate locations when beaches prop changes (filters applied)
   useEffect(() => {
-    if (isMapReady && mapRef.current && beaches && beaches.length > 0) {
+    if (isMapReady && mapRef.current && beaches !== undefined) {
       const center = mapRef.current.getCenter();
       populateLocations(center.lat, center.lng);
     }
@@ -2742,6 +2875,9 @@ export function InteractiveMap({
         onPlaybackPositionChange={setExpandablePlaybackPosition}
       />
     ) : null;
+  const swellStatusBottom = expandableSwellTimeline
+    ? expandableTimelineHeight + 12
+    : 12;
 
   const swellLayerSelector =
     showMapChrome && showSwellField && onSwellLayerChange ? (
@@ -2754,10 +2890,60 @@ export function InteractiveMap({
 
   return (
     <div
-      ref={mapContainerRef}
       className={`${className} mapbox-container relative overflow-hidden`}
       style={{ width: "100%", height: "100%" }}
     >
+      <div
+        ref={mapContainerRef}
+        className="absolute inset-0"
+        role="region"
+        aria-label="Interactive surf map"
+        aria-hidden={!isMapReady || mapLoadFailure !== null}
+        inert={!isMapReady || mapLoadFailure !== null ? true : undefined}
+        tabIndex={-1}
+      />
+      {mapLoadFailure ? (
+        <div
+          className="absolute inset-0 z-20 flex items-center justify-center bg-[#80C8E2] px-4"
+          data-testid="map-error-overlay"
+          role="alert"
+        >
+          <div className="max-w-sm rounded-lg border border-white/25 bg-[#151C36]/95 px-5 py-4 text-center text-white shadow-lg">
+            <p className="text-sm font-semibold">Map unavailable</p>
+            <p className="mt-1 text-xs text-white/80">
+              Nearby break details are still available. Retry the map when you’re ready.
+            </p>
+            <button
+              ref={mapRetryButtonRef}
+              type="button"
+              className="mt-3 min-h-11 rounded-md bg-[#F78E42] px-4 py-2 text-sm font-semibold text-[#151C36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              onClick={() => {
+                shouldRestoreMapFocusRef.current = true;
+                setMapLoadFailure(null);
+                setIsMapReady(false);
+                setMapRetryNonce((current) => current + 1);
+              }}
+            >
+              Retry map
+            </button>
+          </div>
+        </div>
+      ) : !isMapReady ? (
+        <div
+          className="absolute inset-0 z-20 flex items-center justify-center bg-[#80C8E2]"
+          data-testid="map-loading-overlay"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-center gap-2 rounded-lg border border-white/25 bg-[#151C36]/90 px-4 py-3 text-sm font-medium text-white shadow-lg">
+            <LoaderCircle
+              className="h-4 w-4 motion-safe:animate-spin"
+              aria-hidden="true"
+            />
+            Charting nearby breaks…
+          </div>
+        </div>
+      ) : null}
       {showMapChrome && displayMode === "wave-height" && (
         <MapConditionLegend
           controls={swellLayerSelector}
@@ -2787,22 +2973,63 @@ export function InteractiveMap({
           Zoomed to your coast for swell detail
         </div>
       )}
-      {showMapChrome && showSwellField && !hasSwellData && (
-        // Field is ON but no beach partitions resolved into points — say so
-        // instead of leaving blank water look broken. Subtle sticker note.
+      {showMapChrome &&
+        showSwellField &&
+        isMapReady &&
+        swellFieldLoadStatus === "loading" && (
+          <div
+            data-testid="swell-field-loading-note"
+            className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 px-3 py-1.5 text-[11px] text-white/90"
+            style={{
+              bottom: swellStatusBottom,
+              background: SWELL_MAP_SURFACE.panel,
+              border: `1px solid ${SWELL_MAP_SURFACE.border}`,
+              borderRadius: SWELL_MAP_STICKER_RADIUS,
+              boxShadow: SWELL_MAP_STICKER_SHADOW,
+            }}
+            role="status"
+            aria-live="polite"
+          >
+            Loading local conditions…
+          </div>
+        )}
+      {showMapChrome &&
+        showSwellField &&
+        swellFieldLoadStatus === "empty" && (
         <div
           data-testid="swell-field-empty-note"
-          className="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-3 py-1.5 text-[11px] text-white/80"
+          className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 px-3 py-1.5 text-[11px] text-white/80"
           style={{
+            bottom: swellStatusBottom,
             background: SWELL_MAP_SURFACE.panel,
             border: `1px solid ${SWELL_MAP_SURFACE.border}`,
             borderRadius: SWELL_MAP_STICKER_RADIUS,
             boxShadow: SWELL_MAP_STICKER_SHADOW,
           }}
+          role="status"
+          aria-live="polite"
         >
-          No swell data for this stretch
+          No swell data for this forecast hour
         </div>
       )}
+      {showMapChrome &&
+        showSwellField &&
+        swellFieldLoadStatus === "unavailable" && (
+          <div
+            data-testid="swell-field-unavailable-note"
+            className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 px-3 py-1.5 text-[11px] text-white/90"
+            style={{
+              bottom: swellStatusBottom,
+              background: SWELL_MAP_SURFACE.panel,
+              border: `1px solid ${SWELL_MAP_SURFACE.border}`,
+              borderRadius: SWELL_MAP_STICKER_RADIUS,
+              boxShadow: SWELL_MAP_STICKER_SHADOW,
+            }}
+            role="status"
+          >
+            Conditions are unavailable. The map still works.
+          </div>
+        )}
       {showAuth && (
         <UnifiedAuthModal
           isOpen={showAuth}

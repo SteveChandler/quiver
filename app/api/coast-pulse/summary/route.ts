@@ -23,6 +23,7 @@ import {
   formatForecastConditions,
 } from "@/lib/utils/coast-pulse-formatter";
 import { computeSummary, CoastPulseSummaryItem } from "@/lib/utils/coast-pulse-summary";
+import { rankBeaches } from "@/lib/recommendations/selection";
 import { haversineDistance, degreesToCardinal } from "@/lib/utils/geo-utils";
 import {
   DISTANCE,
@@ -64,7 +65,8 @@ async function summaryHandler(request: NextRequest) {
       .not("lon", "is", null)
       .limit(PAGINATION.BEACHES_CACHE_LIMIT);
 
-    const beachesCache = (beaches || []).flatMap((b) => {
+    const beachesCache = await rankBeaches(
+      (beaches || []).flatMap((b) => {
       if (b.lat == null || b.lon == null) return [];
       return [
         {
@@ -75,18 +77,19 @@ async function summaryHandler(request: NextRequest) {
           windOffshoreDeg: b.wind_offshore_deg,
         },
       ];
-    });
+      }),
+      {
+        compare: (left, right) =>
+          haversineDistance(lat, lon, left.lat, left.lon) -
+          haversineDistance(lat, lon, right.lat, right.lon),
+      },
+    );
 
     // Find closest beach for forecast
-    let closestBeach = beachesCache[0];
-    let minDist = Infinity;
-    for (const beach of beachesCache) {
-      const dist = haversineDistance(lat, lon, beach.lat, beach.lon);
-      if (dist < minDist) {
-        minDist = dist;
-        closestBeach = beach;
-      }
-    }
+    const closestBeach = beachesCache[0];
+    const minDist = closestBeach
+      ? haversineDistance(lat, lon, closestBeach.lat, closestBeach.lon)
+      : Infinity;
 
     // Fetch forecast, NDBC, CDIP, and tide in parallel
     const [forecastResult, ndbcResult, cdipResult, tideResult] = await Promise.allSettled([

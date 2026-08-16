@@ -41,16 +41,16 @@ describe("TodaysWindows", () => {
     expect(screen.queryByRole("link", { name: /full forecast/i })).not.toBeInTheDocument();
   });
 
-  it("applies gold text to the best window time label", () => {
+  it("marks the best window time label", () => {
     render(<TodaysWindows windows={SAMPLE_WINDOWS} preferredTime={null} />);
     const bestTimeLabel = screen.getByText("5am");
-    expect(bestTimeLabel).toHaveClass("text-[#FDB84B]");
+    expect(bestTimeLabel).toHaveAttribute("data-best", "true");
   });
 
-  it("applies medium text to non-best window time labels", () => {
+  it("does not mark non-best window time labels", () => {
     render(<TodaysWindows windows={SAMPLE_WINDOWS} preferredTime={null} />);
     const nonBestLabel = screen.getByText("8am");
-    expect(nonBestLabel).toHaveClass("text-medium");
+    expect(nonBestLabel).not.toHaveAttribute("data-best");
   });
 
   it("renders condition labels for each window", () => {
@@ -70,12 +70,12 @@ describe("TodaysWindows", () => {
     expect(screen.getByText("3-4ft")).toBeInTheDocument();
   });
 
-  it("applies preferred time ring to the matching time slot", () => {
+  it("marks the preferred time slot", () => {
     const { container } = render(
       <TodaysWindows windows={SAMPLE_WINDOWS} preferredTime="morning" />
     );
-    // The 8am row should have the preferred-time ring class
-    const ringedRow = container.querySelector(".ring-1.ring-\\[\\#FDB84B\\]\\/20");
+    // The 8am row should be marked as the user's preferred slot
+    const ringedRow = container.querySelector('[data-preferred="true"]');
     expect(ringedRow).toBeInTheDocument();
   });
 

@@ -45,7 +45,7 @@ export function SessionTimeSelector({
                 isSelected
                   ? "border-[#FDB84B] bg-[#FDB84B]/10"
                   : "border-[#404C92] bg-[#2D357D] hover:border-[#FDB84B]/40",
-              ].join(" ")}
+              ].join(" ") + " focus-ring"}
             >
               <div className="mb-1 text-xl leading-none">{option.emoji}</div>
               <div className="font-heading text-high text-sm font-medium">

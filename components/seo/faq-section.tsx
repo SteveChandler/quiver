@@ -82,7 +82,7 @@ export function FAQSection({
                       onClick={() => toggleItem(index)}
                       aria-expanded={isOpen}
                       aria-controls={answerId}
-                      className="flex w-full items-center justify-between px-6 py-4 text-left hover:bg-gray-50 transition-colors"
+                      className="flex w-full items-center justify-between px-6 py-4 text-left hover:bg-gray-50 transition-colors focus-ring"
                     >
                       <span className="text-base font-medium text-gray-900 pr-4">
                         {faq.question}
@@ -98,7 +98,7 @@ export function FAQSection({
                     id={answerId}
                     role="region"
                     aria-labelledby={`faq-question-${index}`}
-                    className="grid transition-all duration-300 ease-in-out"
+                    className="grid transition-[grid-template-rows] duration-300 ease-in-out"
                     style={{
                       gridTemplateRows: isOpen ? "1fr" : "0fr",
                     }}

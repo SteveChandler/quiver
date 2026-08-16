@@ -66,6 +66,10 @@
 
 ### 3:00 – App Demo (45 seconds)
 
+> **Monetization note — 2026-08-13:** This draft's “whole thing is free” line is stale as a
+> current-product claim. Keep the free claim scoped to the core forecast and session log;
+> the native app has optional Quiver Pro features.
+
 "Here's what this looks like in practice."
 
 [Screen recording: opening Quiver app]
@@ -80,7 +84,7 @@
 
 "Tide charts, live buoy readings, wind — it's all here. And every forecast links back to the raw buoy data so you can verify."
 
-"The whole thing is free. No paywalled features."
+"The core forecast and session log are free. Optional Quiver Pro features are available in the app."
 
 ### 3:45 – CTA (15 seconds)
 

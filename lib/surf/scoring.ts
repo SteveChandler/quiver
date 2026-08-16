@@ -4,7 +4,6 @@
 
 import {
   toBin5,
-  clamp01 as terrainClamp01,
   useTerrainFactors,
   TERRAIN_BINS,
 } from '@/types/terrain';

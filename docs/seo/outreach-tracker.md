@@ -12,6 +12,19 @@ This tracker is read and updated by the weekly "SEO Outreach Drafter" scheduled 
 
 Steven reviews Gmail drafts and sends. Status updates happen here.
 
+**No-email guard (2026-08-10):** `buildOutreachDigest` (`lib/seo/agent-workflow/outreach-digest.ts`)
+only drafts a row whose `Contact`/`Notes` field contains an `@` address (`hasDirectEmail()`). A row
+with a phone number, "contact form only", or a blank contact is skipped and logged in the digest's
+`missing[]` instead of silently producing a phone number in an email draft. This currently drops:
+North Shore Surf Girls, Hawaiian Surfing Adventures, and Island Water Sports (phone/form only),
+Cocoa Beach Surf School (no email on its HTTP-only site), and the Santa Cruz "needs manual check" row.
+Those rows stay `queued` — they need a manually-found email address (or a different outreach channel,
+e.g. a DM) before they can surface as a draft candidate.
+
+**Email copy (2026-08-10):** the surf-schools template no longer references an iframe embed. It links
+to `https://www.quiversurf.app/for-surf-schools` as a plain, unlinked URL in the body so Gmail doesn't
+wrap it in a `google.com/url` redirect before the recipient sees the live widget.
+
 ---
 
 ## Status Legend
@@ -176,3 +189,12 @@ The SEO Outreach Drafter agent follows this rotation:
 | April 2026 | | | | |
 | May 2026 | | | | |
 | June 2026 | | | | |
+| August 2026 | 3 (+ 4 drafted, awaiting send) | 0 | 0 | 0 |
+
+**On the 0% reply rate (2026-08-10):** cold email to surf schools is notoriously low-response, so this
+alone isn't a signal to change tactics. Two things worth fixing before the next batch goes out:
+1. The embed freshness bug (`quiver/.planning/embed-freshness-fix-and-refactor-20260805.md`) blanks the
+   widget on stale data — any school that checked the link after getting the email likely saw nothing.
+   Wait for that fix to ship before sending more of this batch.
+2. A direct Instagram DM or a reply to a target's most recent post may convert better than cold email
+   for this audience — worth trying alongside (not instead of) email once volume picks back up.

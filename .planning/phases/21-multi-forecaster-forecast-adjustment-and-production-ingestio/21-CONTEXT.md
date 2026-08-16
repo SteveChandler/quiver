@@ -90,7 +90,7 @@ job after production parity.
 
 ### Forecast architecture and safety
 
-- `docs/superpowers/specs/2026-07-17-canonical-session-decision-engine-design.md` — Forecast evidence classes, immutable lineage, and canonical decision direction. Phase 21's approved bounded-authority decisions supersede its earlier blanket QA-only treatment for specifically authorized normalized forecasters.
+- `docs/archive/superpowers/specs/2026-07-17-canonical-session-decision-engine-design.md` — Forecast evidence classes, immutable lineage, and canonical decision direction. Phase 21's approved bounded-authority decisions supersede its earlier blanket QA-only treatment for specifically authorized normalized forecasters.
 - `AGENTS.md` — Quiver repository workflow, verification, migration, and final-report requirements.
 - `/Users/stevenchandler/Desktop/dev/seaside/AGENTS.md` — Seaside scheduler, database, testing, and production-safety requirements.
 

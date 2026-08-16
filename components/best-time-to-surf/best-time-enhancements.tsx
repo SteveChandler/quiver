@@ -31,12 +31,12 @@ export function BestTimeEnhancements({ stateProfiles }: BestTimeEnhancementsProp
           type="button"
           onClick={() => setActiveTab("personalize")}
           className={`
-            flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-medium transition-all
+            flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-medium transition-colors
             ${activeTab === "personalize"
               ? "bg-[#F78E42]/10 text-[#F78E42] border-b-2 border-[#F78E42]"
               : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
             }
-          `}
+          ` + " focus-ring"}
         >
           <User className="h-4 w-4" />
           Best Month for Me
@@ -45,12 +45,12 @@ export function BestTimeEnhancements({ stateProfiles }: BestTimeEnhancementsProp
           type="button"
           onClick={() => setActiveTab("compare")}
           className={`
-            flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-medium transition-all
+            flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-medium transition-colors
             ${activeTab === "compare"
               ? "bg-[#F78E42]/10 text-[#F78E42] border-b-2 border-[#F78E42]"
               : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
             }
-          `}
+          ` + " focus-ring"}
         >
           <GitCompare className="h-4 w-4" />
           Compare Destinations

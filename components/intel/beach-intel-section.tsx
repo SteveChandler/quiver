@@ -13,6 +13,13 @@ const IntelPostForm = dynamic(
   () => import("./intel-post-form").then((m) => m.IntelPostForm),
   { ssr: false }
 );
+const ConditionsReportCard = dynamic(
+  () =>
+    import("@/components/beach-detail/conditions-report-card").then(
+      (m) => m.ConditionsReportCard
+    ),
+  { ssr: false }
+);
 import { useAuth } from "@/context/auth-context";
 import {
   confirmIntelPost,
@@ -32,19 +39,23 @@ import {
   Loader2,
   AlertTriangle,
   Eye,
+  Play,
+  Bot,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { UserAvatar } from "@/components/user-avatar";
 import { UserAvatarButton } from "@/components/social/user-avatar-button";
 import {
   getIntelTagConfig,
   getConfidenceColor,
   getConfidenceLabel,
 } from "@/lib/constants/intel";
+import { getVibeEmoji, VIBE_OPTIONS } from "@/types/conditions-report";
 import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
 import { PartialContentGate } from "@/components/ui/partial-content-gate";
+import { useTrackEvent } from "@/hooks/use-track-event";
+import { isSystemAuthored } from "@/lib/system-identity";
 
 interface BeachIntelSectionProps {
   beachId: string;
@@ -73,6 +84,7 @@ export function BeachIntelSection({
 }: BeachIntelSectionProps) {
   const router = useRouter();
   const [showPostForm, setShowPostForm] = useState(false);
+  const [showConditionsCard, setShowConditionsCard] = useState(false);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const [showAll, setShowAll] = useState<boolean>(initialShowAll);
   const [confirmingPosts, setConfirmingPosts] = useState<Set<string>>(
@@ -83,6 +95,7 @@ export function BeachIntelSection({
   >({});
   const [pendingPosts, setPendingPosts] = useState<IntelPostWithUser[]>([]);
   const { user } = useAuth();
+  const { track } = useTrackEvent();
 
   // Validate coordinates in development
   useEffect(() => {
@@ -146,6 +159,11 @@ export function BeachIntelSection({
 
     return mapped;
   }, [intelData?.posts, optimisticUpdates, pendingPosts]);
+
+  const hasSystemPrompt = useMemo(
+    () => posts.some((post) => getSystemCardMetadata(post.surf_conditions)?.prompt === true),
+    [posts],
+  );
 
   useEffect(() => {
     if (!intelData?.posts) return;
@@ -302,7 +320,7 @@ export function BeachIntelSection({
       <Card
         id="intel-section"
         className={cn(
-          "overflow-hidden backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg transition-all duration-300 hover:shadow-xl",
+          "overflow-hidden backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg transition-shadow duration-300 hover:shadow-xl",
           className
         )}
       >
@@ -322,20 +340,54 @@ export function BeachIntelSection({
             </CardTitle>
 
             {!publicMode && (
-              <Button
-                data-testid="add-intel"
-                onClick={() => setShowPostForm(true)}
-                size="sm"
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-all duration-200 transform hover:scale-105"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Intel
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  data-testid="report-conditions"
+                  onClick={() => {
+                    if (hasSystemPrompt) {
+                      void track("cta_click", {
+                        beachId,
+                        metadata: {
+                          cta: "check_conditions",
+                          location: "system_card_prompt",
+                        },
+                        debounceMs: 0,
+                      });
+                    }
+                    setShowConditionsCard((v) => !v);
+                  }}
+                  size="sm"
+                  variant="outline"
+                  className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                >
+                  Report conditions
+                </Button>
+                <Button
+                  data-testid="add-intel"
+                  onClick={() => setShowPostForm(true)}
+                  size="sm"
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-[background-image,box-shadow,transform] duration-200 transform hover:scale-105"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Intel
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
 
         <CardContent className="p-3 sm:p-4">
+          {showConditionsCard && !publicMode && (
+            <div className="mb-4" data-testid="conditions-report-slot">
+              <ConditionsReportCard
+                beachId={beachId}
+                beachName={beachName}
+                promptSeen={hasSystemPrompt}
+                onSubmitSuccess={() => refetch()}
+                onDismiss={() => setShowConditionsCard(false)}
+              />
+            </div>
+          )}
           {error ? (
             <div className="text-center py-6">
               <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
@@ -361,26 +413,29 @@ export function BeachIntelSection({
               </div>
             </div>
           ) : posts.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
+            <div className="py-6 text-center sm:py-8" data-testid="intel-empty-state">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100">
                 <MessageSquare className="h-6 w-6 text-blue-600" />
               </div>
-              <h3 className="text-sm font-medium text-gray-900 mb-1">
-                No local intel yet
+              <h3 className="mb-1 text-sm font-semibold text-gray-900">
+                What are conditions at {beachName} right now?
               </h3>
-              <p className="text-xs text-gray-600 mb-4">
-                Be the first to share intel about {beachName}
+              <p className="mx-auto mb-4 max-w-sm text-xs leading-relaxed text-gray-600">
+                Share a quick local check—wave size, wind, crowd, or hazards. A few taps is enough.
               </p>
               <Button
-                data-testid="add-intel"
+                data-testid="empty-state-report-conditions"
                 onClick={() => setShowPostForm(true)}
                 size="sm"
                 variant="outline"
                 className="border-blue-200 text-blue-700 hover:bg-blue-50"
               >
                 <Plus className="h-3 w-3 mr-1" />
-                Add First Intel
+                Report current conditions
               </Button>
+              <p className="mt-3 text-[11px] text-gray-500">
+                No photo or polished write-up needed.
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -465,6 +520,39 @@ interface IntelPostCardProps {
   isConfirming: boolean;
 }
 
+function ReportVideoTile({ sessionId, mediaId }: { sessionId: string; mediaId: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const resolvePlayback = async (): Promise<void> => {
+    if (url || loading) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}/videos/${mediaId}`);
+      if (!response.ok) return;
+      const body = (await response.json()) as { url?: string };
+      if (body.url) setUrl(body.url);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return url ? (
+    <video className="mt-3 w-full rounded-lg" controls playsInline src={url} />
+  ) : (
+    <button
+      type="button"
+      className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-4 py-6 text-sm font-medium text-blue-800 hover:bg-blue-100 focus-ring"
+      onClick={resolvePlayback}
+      disabled={loading}
+      aria-label="Play local spot report video"
+    >
+      <Play className="h-4 w-4 fill-current" />
+      {loading ? "Loading video…" : "Play spot report video"}
+    </button>
+  );
+}
+
 function IntelPostCard({
   post,
   onConfirm,
@@ -473,29 +561,77 @@ function IntelPostCard({
   onToggleExpand,
   isConfirming,
 }: IntelPostCardProps) {
+  const { track } = useTrackEvent();
+  const systemCard = getSystemCardMetadata(post.surf_conditions);
+  const systemCardContentClass = systemCard?.content_class;
+  const systemCardMarketKey = systemCard?.market_key;
   const tagConfig = getIntelTagConfig(post.tag);
+  const isSystemAuthor = isSystemAuthored(post);
   const isConfirmed = post.user_has_confirmed ?? false;
   const timeAgo = formatDistanceToNow(new Date(post.created_at), {
     addSuffix: true,
   });
 
+  useEffect(() => {
+    if (!systemCard?.prompt || !systemCardContentClass) return;
+    void track("cta_impression", {
+      beachId: post.beach_id ?? undefined,
+      metadata: {
+        cta_id: "system_card_prompt",
+        surface: "system_card",
+        card_id: post.id,
+        content_class: systemCardContentClass,
+        prompt: true,
+        market_key: systemCardMarketKey,
+      },
+      debounceMs: 0,
+    });
+  }, [post.beach_id, post.id, systemCard?.prompt, systemCardContentClass, systemCardMarketKey, track]);
+
   return (
-    <div className="bg-white/70 rounded-xl border border-blue-100/80 p-4 transition-all duration-200 hover:bg-white/90 hover:shadow-md">
+    <div
+      data-testid={isSystemAuthor ? "system-intel-card" : "user-intel-card"}
+      className={cn(
+        "rounded-xl border p-4 transition-[background-color,box-shadow] duration-200 hover:shadow-md",
+        isSystemAuthor
+          ? "border-amber-200/90 bg-amber-50/80 hover:bg-amber-50"
+          : "border-blue-100/80 bg-white/70 hover:bg-white/90"
+      )}
+    >
       <div className="flex items-start gap-3">
-        {/* User Avatar */}
-        <UserAvatarButton
-          userId={post.user_id}
-          src={post.user?.avatar_url ?? undefined}
-          name={getDisplayName(post.user?.full_name ?? "Anonymous", post.id)}
-          size="sm"
-          className="ring-2 ring-white shadow-sm"
-        />
+        {isSystemAuthor ? (
+          <div
+            data-testid="system-author-mark"
+            role="img"
+            aria-label="Quiver system automated report"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-200 text-amber-900 ring-2 ring-white shadow-sm"
+          >
+            <Bot className="h-4 w-4" aria-hidden="true" />
+          </div>
+        ) : (
+          <UserAvatarButton
+            userId={post.user_id}
+            src={post.user?.avatar_url ?? undefined}
+            name={getDisplayName(post.user?.full_name ?? "Anonymous", post.id)}
+            size="sm"
+            className="ring-2 ring-white shadow-sm"
+          />
+        )}
 
         <div className="flex-1 min-w-0">
           {/* Header */}
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
+                {isSystemAuthor && (
+                  <span
+                    data-testid="system-author-label"
+                    className="inline-flex items-center gap-1 rounded-full bg-amber-200/80 px-2 py-1 text-xs font-semibold text-amber-950"
+                  >
+                    <Bot className="h-3 w-3" aria-hidden="true" />
+                    Quiver system
+                  </span>
+                )}
                 <Badge
                   className={cn(
                     "text-xs font-medium px-2 py-1 transition-colors",
@@ -514,6 +650,15 @@ function IntelPostCard({
                 )}
               </div>
 
+              {isSystemAuthor && (
+                <p
+                  data-testid="system-post-disclosure"
+                  className="mb-1 text-[11px] leading-snug text-amber-900/80"
+                >
+                  Automated report generated from forecast and beach data—not a live surfer report.
+                </p>
+              )}
+
               <h4 className="font-medium text-sm text-gray-900 line-clamp-1">
                 {cleanTitle(post.title, tagConfig.emoji)}
               </h4>
@@ -525,10 +670,27 @@ function IntelPostCard({
             </div>
           </div>
 
+          {post.tag === "conditions" &&
+            post.wave_size_range &&
+            post.vibe && (
+              <div className="mb-2 flex flex-wrap gap-1.5" data-testid="conditions-chips">
+                <span className="rounded-full border border-[var(--ink)]/25 bg-[var(--paper)] px-2 py-0.5 text-xs font-medium text-[var(--ink)]">
+                  {post.wave_size_range}
+                </span>
+                <span className="rounded-full border border-[var(--ink)]/25 bg-[var(--paper)] px-2 py-0.5 text-xs font-medium text-[var(--ink)]">
+                  {getVibeEmoji(post.vibe)} {VIBE_OPTIONS.find((option) => option.value === post.vibe)?.label ?? post.vibe}
+                </span>
+              </div>
+            )}
+
+          {post.tag === "conditions" && post.session_id && post.video_media_id && (
+            <ReportVideoTile sessionId={post.session_id} mediaId={post.video_media_id} />
+          )}
+
           {/* Description */}
           <p
             className={cn(
-              "text-sm text-gray-700 transition-all duration-200",
+              "text-sm text-gray-700 transition-none duration-200",
               isExpanded ? "line-clamp-none" : "line-clamp-2"
             )}
           >
@@ -552,7 +714,7 @@ function IntelPostCard({
                   onClick={() => onConfirm(post.id, isConfirmed)}
                   disabled={isConfirming}
                   className={cn(
-                    "h-7 px-2 text-xs whitespace-nowrap transition-all duration-200 shrink-0",
+                    "h-7 px-2 text-xs whitespace-nowrap transition-[color,background-color,opacity] duration-200 shrink-0",
                     isConfirmed
                       ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
                       : "text-gray-600 hover:bg-blue-50 hover:text-blue-700",
@@ -594,4 +756,27 @@ function IntelPostCard({
       </div>
     </div>
   );
+}
+
+interface SystemCardMetadata {
+  system_card: true;
+  content_class: string;
+  prompt: boolean;
+  market_key?: string;
+}
+
+function getSystemCardMetadata(value: unknown): SystemCardMetadata | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (
+    record.system_card !== true ||
+    typeof record.content_class !== "string" ||
+    typeof record.prompt !== "boolean"
+  ) return null;
+  return {
+    system_card: true,
+    content_class: record.content_class,
+    prompt: record.prompt,
+    market_key: typeof record.market_key === "string" ? record.market_key : undefined,
+  };
 }

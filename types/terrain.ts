@@ -212,11 +212,6 @@ export const binToDeg = (bin: number): number => {
 }
 
 /**
- * Clamp a value to [0, 1] range
- */
-export const clamp01 = (x: number): number => Math.max(0, Math.min(1, x))
-
-/**
  * Check if terrain factors should be used for a beach
  *
  * Requires:

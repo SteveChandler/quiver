@@ -200,7 +200,10 @@ const intelGetHandler = withAuth(
     const userIds = [...new Set(intelPosts.map((post: any) => post.user_id))];
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("id, full_name, avatar_url")
+      // is_system_account is required by the feed to label automated posts as system
+      // cards rather than rendering them with a personal avatar. Without it the flag
+      // is undefined at runtime and every system card silently renders as a person.
+      .select("id, full_name, avatar_url, is_system_account")
       .in("id", userIds);
 
     // If profile lookup fails (RLS or other), continue with fallback names from RPC
@@ -224,8 +227,18 @@ const intelGetHandler = withAuth(
     }
 
     // Combine data
-    const profilesMap = new Map<string, { id: string; full_name: string | null; avatar_url: string | null }>(
-      profiles?.map((p: { id: string; full_name: string | null; avatar_url: string | null }) => [p.id, p]) || []
+    const profilesMap = new Map<
+      string,
+      { id: string; full_name: string | null; avatar_url: string | null; is_system_account: boolean | null }
+    >(
+      profiles?.map(
+        (p: {
+          id: string;
+          full_name: string | null;
+          avatar_url: string | null;
+          is_system_account: boolean | null;
+        }) => [p.id, p]
+      ) || []
     );
     const confirmationsSet = new Set(
       userConfirmations.map((c) => c.intel_post_id)
@@ -239,6 +252,7 @@ const intelGetHandler = withAuth(
           id: post.user_id,
           full_name: profile?.full_name || (post as any).user_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,
+          is_system_account: profile?.is_system_account ?? null,
         },
         user_confirmed: confirmationsSet.has(post.id),
       };

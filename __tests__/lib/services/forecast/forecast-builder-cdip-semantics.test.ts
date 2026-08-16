@@ -511,6 +511,7 @@ describe("ForecastBuilder CDIP height semantics", () => {
         transform_path: "decomposed",
         components_used: true,
         calibrated_shoaling_fired: false,
+        provenance: "population_prior_v1",
       }),
     );
     expect(prov?.source).not.toBe("cdip_sig");

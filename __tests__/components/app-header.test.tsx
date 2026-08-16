@@ -1296,13 +1296,16 @@ describe("AppHeader", () => {
         expect(signUpButton?.className).toContain("font-semibold");
       });
 
-      it("has transition-all duration-200 classes", () => {
+      it("has the narrowed color, shadow, and transform transition", () => {
         render(<AppHeader />);
 
         const signUpButton = screen.getByRole("button", { name: /get started/i });
 
         expect(signUpButton).toBeInTheDocument();
-        expect(signUpButton?.className).toContain("transition-all");
+        expect(signUpButton?.className).toContain(
+          "transition-[background-color,box-shadow,transform]"
+        );
+        expect(signUpButton?.className).not.toContain("transition-all");
         expect(signUpButton?.className).toContain("duration-200");
       });
     });
@@ -1337,13 +1340,16 @@ describe("AppHeader", () => {
         expect(avatarButton.className).toContain("hover:ring-primary/10");
       });
 
-      it("has transition-all duration-200 classes", () => {
+      it("has the narrowed border and shadow transition", () => {
         render(<AppHeader />);
 
         const avatarButton = screen.getByTestId("user-avatar-button");
 
         expect(avatarButton).toBeInTheDocument();
-        expect(avatarButton.className).toContain("transition-all");
+        expect(avatarButton.className).toContain(
+          "transition-[border-color,box-shadow]"
+        );
+        expect(avatarButton.className).not.toContain("transition-all");
         expect(avatarButton.className).toContain("duration-200");
       });
 
@@ -1523,6 +1529,34 @@ describe("AppHeader", () => {
           expect(discoverLink.className).toContain("text-sm");
           expect(discoverLink.className).toContain("font-medium");
         }
+      });
+    });
+
+    describe("Transition Property Narrowing", () => {
+      it("keeps representative header transitions property-specific", () => {
+        (useAuth as jest.Mock).mockReturnValue({
+          user: null,
+          isLoading: false,
+          signOut: jest.fn(),
+        });
+        (usePathname as jest.Mock).mockReturnValue("/features");
+        const guestRender = render(<AppHeader />);
+        const signUpButton = screen.getByRole("button", { name: /get started/i });
+
+        expect(signUpButton.className).toContain(
+          "transition-[background-color,box-shadow,transform]"
+        );
+        expect(signUpButton.className).not.toContain("transition-all");
+
+        guestRender.unmount();
+        (useAuth as jest.Mock).mockReturnValue(defaultMocks.auth);
+        render(<AppHeader />);
+
+        const avatarButton = screen.getByTestId("user-avatar-button");
+        expect(avatarButton.className).toContain(
+          "transition-[border-color,box-shadow]"
+        );
+        expect(avatarButton.className).not.toContain("transition-all");
       });
     });
 
