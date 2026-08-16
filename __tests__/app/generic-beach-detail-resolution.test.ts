@@ -66,16 +66,46 @@ jest.mock("@/lib/utils/timezone-utils.server", () => ({
 }));
 
 // Mock the child components to avoid rendering issues in node environment
+// The real client component server-renders whatever the page passes into its
+// zine shell, so the stub must render beforeTabsContent/afterTabsContent too.
+// Dropping them would let this suite pass while the crawlable answer block
+// silently vanished from the initial HTML — the exact thing it guards.
 jest.mock("@/app/beach/[slug]/beach-detail-client", () => ({
   BeachDetailClient: ({
     beach,
     heroHeadingLevel = "h1",
+    beforeTabsContent,
+    afterTabsContent,
+    heroForecastSlot,
   }: {
     beach: Beach;
     heroHeadingLevel?: "h1" | "h2";
+    beforeTabsContent?: React.ReactNode;
+    afterTabsContent?: React.ReactNode;
+    heroForecastSlot?: React.ReactNode;
   }) => {
     const React = jest.requireActual("react");
-    return React.createElement(heroHeadingLevel, null, beach.name);
+    return React.createElement(
+      "div",
+      null,
+      React.createElement(heroHeadingLevel, { key: "hero" }, beach.name),
+      heroForecastSlot ?? null,
+      beforeTabsContent ?? null,
+      afterTabsContent ?? null,
+    );
+  },
+}));
+
+// Client CTAs inside afterTabsContent; they call useRouter/useState.
+jest.mock("@/components/app-store/install-app-cta-section", () => ({
+  InstallAppCtaSection: () => null,
+}));
+
+// Client CTA that calls useRouter; it now renders through beforeTabsContent.
+jest.mock("@/components/app-store/content-page-app-handoff-cta", () => ({
+  ContentPageAppHandoffCta: ({ eyebrow }: { eyebrow?: string }) => {
+    const React = jest.requireActual("react");
+    return React.createElement("div", { "data-testid": "handoff-cta" }, eyebrow);
   },
 }));
 

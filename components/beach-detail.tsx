@@ -243,6 +243,7 @@ interface BeachDetailProps {
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
   heroHeadingLevel?: ZineHeroHeadingLevel;
+  heroForecastSlot?: ReactNode;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
   freeGrowthPhaseEnabled?: boolean;
@@ -273,6 +274,7 @@ function BeachDetailContent({
   waterQuality,
   beachPhoto,
   heroHeadingLevel,
+  heroForecastSlot,
   beforeTabsContent,
   afterTabsContent,
   freeGrowthPhaseEnabled = false,
@@ -984,6 +986,7 @@ function BeachDetailContent({
         beachPhoto={beachPhoto}
         sources={sources}
         heroHeadingLevel={heroHeadingLevel}
+        heroForecastSlot={heroForecastSlot}
       >
         <div ref={signupCtaRef} />
         {beforeTabsContent ? (
