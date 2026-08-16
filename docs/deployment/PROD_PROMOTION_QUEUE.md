@@ -224,6 +224,22 @@ Builds a Web Purchase Link / Funnel URL carrying the App User ID.
 ### 12. Map — streamlined forecast loading and controls
 - **Gate: none beyond visual check.** `perf` only.
 
+## Conversion measurement and release notes — audited 2026-08-13
+
+These items are conversion-relevant and must not be treated as verified merely because
+the surrounding app builds:
+
+| Item | Repository state | What it changes | Gate before treating conversion data as trustworthy |
+|---|---|---|---|
+| RevenueCat lifecycle funnel instrumentation, `impl/funnel-measurement` @ `792f9071b` | **Not on `main` or `prod`** | Adds idempotent webhook-backed `trial_entitlement_received`, `paywall_purchase_success`, cancellation, and lapse events with trial-to-paid attribution | Review and promote the backend/webhook path, then prove one RevenueCat sandbox or production-safe test account produces both the webhook row and entitlement state. This does not supply paywall-view or offer-eligibility denominators. |
+| Native build 17 RevenueCat redemption scheme, native `main` @ `8c73fef7` / `e3d88416` | **Staged, not in users' binaries; users remain on build 16** | Adds the `rc-38aee70261` return path for immediate web-purchase redemption feedback | Release and test the binary only after the web Funnel URL is valid. Shared App User ID means build 16 can refresh the entitlement, but build 17 is needed for the immediate return UX. |
+| Native event constraint migration `20260812130000_allow_native_onboarding_purchase_events.sql` | **Already on web `main`; stamped as applied to production 2026-08-12** | Prevents the 11 native event types from being rejected; the historical `onboarding_restore_result` gap remains unrecoverable | No promotion gate. Recheck the live constraint when production access is available; do not edit this applied migration. |
+
+The web checkout item above remains separately blocked on
+`NEXT_PUBLIC_REVENUECAT_WEB_CHECKOUT_URL`: an empty or invalid value keeps the CTA
+fail-closed and inert. Promoting `main` to `prod` by itself does not resolve that
+configuration or prove the native offer/entitlement path.
+
 ---
 
 ## Native ships with this

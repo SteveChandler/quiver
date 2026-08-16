@@ -64,7 +64,11 @@ recipients having no registered device — not a second disconnection. Both chan
 
 ---
 
-## Iteration 2 — 11 native events rejected by the database: CONNECTED (merged unapplied)
+## Iteration 2 — 11 native events rejected by the database: CONNECTED (applied 2026-08-12)
+
+> **Correction — 2026-08-13:** The migration below was merged to `main` and stamped as
+> applied to production in `dc4f0a6d5` on 2026-08-12. The current audit could not repeat
+> the live check because production DNS access was unavailable.
 
 **Was disconnected:** native `trackEvent()` inserts *directly* into `user_events` via the
 Supabase client, so the web `VALID_EVENTS` taxonomy never gates it —
@@ -103,16 +107,19 @@ The real ongoing costs are (a) every onboarding paywall view runs two rejected i
 a Sentry diagnostic, and (b) the structural defect below.
 
 **Changed:** `supabase/migrations/20260812130000_allow_native_onboarding_purchase_events.sql`
-on branch `fix/native-event-check-constraint` (commit `2fe2e3bf6`, local only —
-pushes are the owner's). Follows the established idempotent pattern that preserves the live
-CHECK expression dynamically.
+from commit `2fe2e3bf6`; it was subsequently merged to `main` and stamped as applied in
+`dc4f0a6d5`. It follows the established idempotent pattern that preserves the live CHECK
+expression dynamically.
 
 **Verified in a rolled-back transaction against production:** 11 added → 0 still rejected;
 an unknown event type is **still rejected** (so the constraint was widened, not neutered);
 a second run reports "no change". `yarn jest __tests__/events-allowlist` 38/38 and
 `__tests__/migrations` 653/653 pass.
 
-**Not applied.** Applying to production is the owner's call.
+**Applied:** The repository records the production apply on 2026-08-12 14:19 UTC. The
+original rolled-back verification reported 11/11 accepted, unknown event types still
+rejected, and a second run as a no-op. Historical rejected rows are not recoverable;
+`onboarding_restore_result` remains the one genuine lost signal.
 
 **Structural cause (named rather than patched):** the native allowlist
 (`quiver-native/src/lib/analytics.ts`) and this CHECK constraint (`quiver` migrations) are

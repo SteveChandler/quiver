@@ -24,7 +24,10 @@ Deterministic rubric:
 
 ## NEEDS-OPERATOR
 
-None.
+**2026-08-13:** Production flag state was not reverified in this audit because the
+Supabase/Vercel network probes were unavailable. Confirm `FREE_GROWTH_PHASE`,
+`SURF_DISCOVERY_BEST_SPOT_GATE`, and `ALERT_PREVIEW_MODE` before treating the decisions
+below as live production behavior.
 
 ## Inventory
 

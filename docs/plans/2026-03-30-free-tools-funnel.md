@@ -3,6 +3,10 @@
 **Date:** 2026-03-30
 **Goal:** Build 8 free tools that rank for high-volume surf queries, attract new users, and funnel them into Quiver's core product (beach reports, session tracking, forecasts).
 
+> **Status note — 2026-08-13:** This remains a design proposal, not evidence of shipped
+> behavior or current monetization. The native app now contains an optional, dismissible
+> Quiver Pro paywall; keep “free tools” claims scoped to the tools themselves.
+
 **Design principles:** Retro surf aesthetic (Deep Twilight navy, Charming Orange accents). Data is sacred — numbers must be crisp and instantly scannable. Mobile-first (surfers check at the beach). Respect `prefers-reduced-motion`.
 
 ---

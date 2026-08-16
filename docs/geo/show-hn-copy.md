@@ -19,6 +19,10 @@ For each of our 185+ beaches, we train an XGBoost model on historical buoy obser
 3. We subtract the predicted bias from the raw forecast → corrected prediction
 4. Models retrain weekly with validation gates: deploy only if RMSE improves on held-out data
 
+> **Monetization note — 2026-08-13:** This draft's “no paywalled tiers” line is stale as a
+> current-product claim. The core surf forecast and session log remain free, while the
+> native app has optional Quiver Pro features and a 14-day trial configured in source.
+
 **What users see:**
 
 - Corrected wave height, period, and direction forecasts
@@ -28,7 +32,7 @@ For each of our 185+ beaches, we train an XGBoost model on historical buoy obser
 
 **Stack:** Next.js 16 (App Router), Supabase/PostGIS, Python edge functions for the ML pipeline, XGBoost for per-beach models.
 
-**It's free.** No paywalled tiers.
+**The core surf forecast is free.** Optional Quiver Pro features are available in the app.
 
 **Feedback I'd love:**
 

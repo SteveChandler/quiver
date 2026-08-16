@@ -2,6 +2,11 @@
 
 Copy-paste-ready content for App Store Connect. Referenced by `IOS_RELEASE_GUIDE.md`.
 
+> **Truth boundary — 2026-08-13:** This is repository source copy, not a live App Store
+> Connect snapshot. The live listing, RevenueCat offer attachment, and territory-specific
+> trial configuration were not reverified in this audit because external access was
+> unavailable.
+
 ---
 
 ## App Identity
