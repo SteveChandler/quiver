@@ -49,12 +49,204 @@ import {
   captureClientPostHogEvent,
   queueClientPostHogSignup,
   resetPostHog,
-  setClientPostHogTrackingAllowed,
 } from "@/lib/posthog-client";
 import {
   parseSignupMetadata,
   type WebSignupContext,
 } from "@/lib/analytics/acquisition-context";
+import {
+  clearSignupFlow,
+  getSignupFlow,
+  trackLoginSuccess,
+  trackSignupSuccess,
+} from "@/lib/analytics/auth-events";
+
+type PendingSignupCompletion = {
+  context?: WebSignupContext;
+  metadataPresent: boolean;
+};
+
+/**
+ * Reconcile an OAuth signup after either bootstrap or a SIGNED_IN callback.
+ * Supabase can resolve the callback session before registering the listener,
+ * so this must not depend on a particular AuthChangeEvent value.
+ */
+function processPendingSignupCompletion(
+  session: Session,
+  supabase: ReturnType<typeof createClient>,
+): PendingSignupCompletion {
+  if (typeof window === "undefined") {
+    return { metadataPresent: false };
+  }
+
+  const pendingMetadata = sessionStorage.getItem("pending_signup_metadata");
+  if (!pendingMetadata) return { metadataPresent: false };
+
+  try {
+    if (pendingMetadata.length > 16_384) {
+      throw new Error("Metadata payload exceeds size limit");
+    }
+
+    const raw = JSON.parse(pendingMetadata);
+    const metadata = parseSignupMetadata(raw);
+    const context = metadata.signup_context;
+    const signupFlow = getSignupFlow();
+    const createdAt = Date.parse(session.user.created_at);
+    const isNewUser =
+      Number.isFinite(createdAt) && Date.now() - createdAt < 60_000;
+
+    if (signupFlow) {
+      if (isNewUser) {
+        trackSignupSuccess({
+          method: context.method === "email" ? "password" : context.method,
+          requires_verification: false,
+          flow_id: signupFlow.flow_id,
+          source: signupFlow.source,
+          landing_page: signupFlow.landing_page,
+          redirect_path: signupFlow.redirect_path,
+          redirect_state: "completed",
+          started_at: signupFlow.started_at,
+        });
+      } else {
+        // Signup-mode OAuth can resolve to an existing account. Record the
+        // actual authenticated outcome and close the signup flow cleanly.
+        trackLoginSuccess({
+          method: signupFlow.provider,
+          duration_ms: 0,
+          source: signupFlow.source,
+          landing_page: signupFlow.landing_page,
+          flow_id: signupFlow.flow_id,
+          redirect_path: signupFlow.redirect_path,
+          redirect_state: "completed",
+          started_at: signupFlow.started_at,
+        });
+        clearSignupFlow(signupFlow.flow_id);
+      }
+    }
+
+    if (isNewUser) {
+      const metadataAppliedKey = `signup_metadata_applied_${session.user.id}`;
+      if (!sessionStorage.getItem(metadataAppliedKey)) {
+        sessionStorage.setItem(metadataAppliedKey, "true");
+        supabase.auth
+          .updateUser({ data: metadata })
+          .then(({ error }: { error: unknown }) => {
+            if (error && process.env.NODE_ENV === "development") {
+              console.error(
+                "[AuthContext] Failed to update user metadata:",
+                error,
+              );
+            }
+          });
+      }
+    }
+
+    return { context, metadataPresent: true };
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error(
+        "[AuthContext] Error parsing pending signup metadata:",
+        error,
+      );
+    }
+    return { metadataPresent: true };
+  }
+}
+
+/**
+ * Run post-auth side effects once per authenticated user/session. Storage
+ * markers make this safe when bootstrap and SIGNED_IN both observe a session.
+ */
+function processAuthenticatedSession(
+  session: Session,
+  supabase: ReturnType<typeof createClient>,
+): PendingSignupCompletion {
+  const pendingSignupCompletion = processPendingSignupCompletion(
+    session,
+    supabase,
+  );
+  if (typeof window === "undefined") return pendingSignupCompletion;
+
+  const storedPath = safeGetItem("auth_redirect_path");
+  if (storedPath) safeRemoveItem("auth_redirect_path");
+  safeSetItem("quiver_returning_user", "true");
+
+  const userId = session.user.id;
+  const isNewUser = session.user.created_at
+    ? Date.now() - new Date(session.user.created_at).getTime() < 60_000
+    : false;
+  const welcomeEmailKey = `welcome_email_sent_${userId}`;
+  if (isNewUser && !sessionStorage.getItem(welcomeEmailKey)) {
+    sessionStorage.setItem(welcomeEmailKey, "true");
+    fetch("/api/internal/send-welcome-email", { method: "POST" }).catch(
+      (error) => {
+        if (process.env.NODE_ENV === "development") {
+          console.error("[AuthContext] Failed to trigger welcome email:", error);
+        }
+        Sentry.captureException(error, {
+          tags: { context: "auth_welcome_email" },
+          extra: { userId },
+        });
+      },
+    );
+    fetch("/api/admin/new-user-alert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        method: session.user.app_metadata?.provider || "unknown",
+        viewportWidth: window.innerWidth,
+        entryPage: window.location.pathname, // eslint-disable-line no-restricted-properties -- analytics context only
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  }
+
+  const pendingMetadata = pendingSignupCompletion.metadataPresent
+    ? sessionStorage.getItem("pending_signup_metadata")
+    : null;
+  const linkKey = `events_linked_${userId}`;
+  const visitorId = getExistingVisitorId();
+  if (visitorId && !sessionStorage.getItem(linkKey)) {
+    sessionStorage.setItem(linkKey, "true");
+    const linkRequest = fetch("/api/events/link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: visitorId,
+        ...(pendingSignupCompletion.context
+          ? { signupContext: pendingSignupCompletion.context }
+          : {}),
+      }),
+    });
+    linkRequest
+      .then((response) => {
+        if (response.ok) {
+          clearVisitorId();
+        } else {
+          sessionStorage.removeItem(linkKey);
+        }
+      })
+      .catch((error) => {
+        sessionStorage.removeItem(linkKey);
+        if (process.env.NODE_ENV === "development") {
+          console.error("[AuthContext] Failed to link anonymous events:", error);
+        }
+      });
+  }
+  if (pendingMetadata) sessionStorage.removeItem("pending_signup_metadata");
+
+  if (process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN && isNewUser) {
+    const postHogKey = `posthog_signup_queued_${userId}`;
+    if (!sessionStorage.getItem(postHogKey)) {
+      sessionStorage.setItem(postHogKey, "true");
+      const rawProvider = session.user.app_metadata?.provider;
+      const provider = typeof rawProvider === "string" ? rawProvider : "email";
+      queueClientPostHogSignup(userId, provider);
+    }
+  }
+
+  return pendingSignupCompletion;
+}
 
 /**
  * AuthContext provides authentication state and methods throughout the application.
@@ -244,6 +436,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Update auth state regardless of error - session might still be valid
         updateAuthState(session);
+        if (session) {
+          processAuthenticatedSession(session, supabase);
+        }
 
         // Set up auth state listener for real-time updates
         const {
@@ -254,165 +449,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // Handle post-auth redirect when user signs in
             if (event === "SIGNED_IN" && session) {
-              setClientPostHogTrackingAllowed(null);
-              let pendingSignupContext: WebSignupContext | undefined;
-
-              // Clear stored redirect path - components will re-render with new auth state
-              // This prevents redirect loops caused by hard page reloads
-              const storedPath = safeGetItem("auth_redirect_path");
-              if (storedPath) {
-                console.log(
-                  "[AuthContext] Clearing redirect path (already on page):",
-                  storedPath,
-                );
-                safeRemoveItem("auth_redirect_path");
-              }
-
-              // Mark user as returning for future session recovery
-              safeSetItem("quiver_returning_user", "true");
-
-              // Handle pending signup metadata from OAuth flow
-              // Only apply if this is a fresh signup (created within last 60 seconds)
-              const pendingMetadata = sessionStorage.getItem(
-                "pending_signup_metadata",
-              );
-              if (pendingMetadata && session.user.created_at) {
-                const createdAt = new Date(session.user.created_at).getTime();
-                const isNewUser = Date.now() - createdAt < 60_000;
-
-                if (isNewUser) {
-                  try {
-                    if (pendingMetadata.length > 16_384) {
-                      throw new Error("Metadata payload exceeds size limit");
-                    }
-
-                    const raw = JSON.parse(pendingMetadata);
-                    const metadata = parseSignupMetadata(raw);
-                    pendingSignupContext = metadata.signup_context;
-
-                    supabase.auth
-                      .updateUser({ data: metadata })
-                      .then(({ error }: { error: unknown }) => {
-                        if (error && process.env.NODE_ENV === "development") {
-                          console.error(
-                            "[AuthContext] Failed to update user metadata:",
-                            error,
-                          );
-                        }
-                      });
-                  } catch (e) {
-                    if (process.env.NODE_ENV === "development") {
-                      console.error(
-                        "[AuthContext] Error parsing pending signup metadata:",
-                        e,
-                      );
-                    }
-                  }
-                }
-              }
-              // Send immediate welcome email for new users
-              // Check if this is a fresh signup (created within last 60 seconds)
-              // and we haven't already triggered the welcome email in this session
-              if (session.user.created_at) {
-                const createdAt = new Date(session.user.created_at).getTime();
-                const isNewUser = Date.now() - createdAt < 60_000;
-                const welcomeEmailKey = `welcome_email_sent_${session.user.id}`;
-                const alreadyTriggered =
-                  sessionStorage.getItem(welcomeEmailKey);
-
-                if (isNewUser && !alreadyTriggered) {
-                  // Mark as triggered immediately to prevent duplicates
-                  sessionStorage.setItem(welcomeEmailKey, "true");
-
-                  // Fire and forget - don't block auth flow
-                  fetch("/api/internal/send-welcome-email", {
-                    method: "POST",
-                  }).catch((err) => {
-                    // Log to console in dev, track in Sentry for production
-                    if (process.env.NODE_ENV === "development") {
-                      console.error(
-                        "[AuthContext] Failed to trigger welcome email:",
-                        err,
-                      );
-                    }
-                    // Track in Sentry for production monitoring
-                    Sentry.captureException(err, {
-                      tags: { context: "auth_welcome_email" },
-                      extra: { userId: session.user.id },
-                    });
-                  });
-
-                  // Send new-user alert to founder (fire and forget)
-                  fetch("/api/admin/new-user-alert", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      method:
-                        session.user.app_metadata?.provider || "unknown",
-                      viewportWidth:
-                        typeof window !== "undefined"
-                          ? window.innerWidth
-                          : undefined,
-                      entryPage:
-                        typeof window !== "undefined"
-                          ? window.location.pathname // eslint-disable-line no-restricted-properties -- reading pathname for analytics, not navigating
-                          : undefined,
-                    }),
-                    keepalive: true,
-                  }).catch(() => {});
-                }
-              }
-
-              // Link anonymous events to the newly authenticated user
-              // Guard with session-scoped flag to prevent repeated calls on token refresh
-              const linkKey = `events_linked_${session.user.id}`;
-              const alreadyLinked = sessionStorage.getItem(linkKey);
-              const visitorId = getExistingVisitorId();
-              if (visitorId && !alreadyLinked) {
-                sessionStorage.setItem(linkKey, "true");
-                const linkRequest = fetch('/api/events/link', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    sessionId: visitorId,
-                    ...(pendingSignupContext
-                      ? { signupContext: pendingSignupContext }
-                      : {}),
-                  }),
-                });
-                if (pendingMetadata) {
-                  sessionStorage.removeItem("pending_signup_metadata");
-                }
-                linkRequest
-                  .then((res) => {
-                    if (res.ok) {
-                      clearVisitorId();
-                    } else {
-                      sessionStorage.removeItem(linkKey);
-                    }
-                  })
-                  .catch((err) => {
-                    sessionStorage.removeItem(linkKey);
-                    if (process.env.NODE_ENV === 'development') {
-                      console.error('[AuthContext] Failed to link anonymous events:', err);
-                    }
-                  });
-              } else if (pendingMetadata) {
-                sessionStorage.removeItem("pending_signup_metadata");
-              }
-
-              if (process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN) {
-                const isNewUserForPostHog = session.user.created_at
-                  ? Date.now() - new Date(session.user.created_at).getTime() < 60_000
-                  : false;
-
-                if (isNewUserForPostHog) {
-                  const rawProvider = session.user.app_metadata?.provider;
-                  const provider =
-                    typeof rawProvider === "string" ? rawProvider : "email";
-                  queueClientPostHogSignup(session.user.id, provider);
-                }
-              }
+              processAuthenticatedSession(session, supabase);
 
               // Note: We don't navigate here. The auth state update (below) will cause
               // React components to re-render and show authenticated content.

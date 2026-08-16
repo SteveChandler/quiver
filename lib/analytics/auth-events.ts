@@ -24,6 +24,149 @@ import { getVisitorId } from "@/lib/utils/visitor-id";
 import { captureClientPostHogEvent } from "@/lib/posthog-client";
 import { enrichWithWebAnalyticsContext } from "@/lib/analytics/web-context";
 
+export type SignupProvider = "password" | "apple" | "google";
+export type SignupRedirectState = "inline" | "pending" | "completed";
+export const SIGNUP_FLOW_TTL_MS = 15 * 60 * 1000;
+
+export interface SignupFlowContext {
+  flow_id: string;
+  provider: SignupProvider;
+  source?: string;
+  landing_page?: string;
+  redirect_path?: string;
+  redirect_state: SignupRedirectState;
+  started_at: number;
+}
+
+const SIGNUP_FLOW_KEY = "quiver_signup_flow";
+const signupTerminalFlows = new Set<string>();
+
+function createSignupFlowId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `signup_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+function normalizeSignupProvider(method: string): SignupProvider {
+  if (method === "apple") return "apple";
+  if (method === "google" || method === "google_one_tap") return "google";
+  return "password";
+}
+
+function readSignupFlow(): SignupFlowContext | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const raw = sessionStorage.getItem(SIGNUP_FLOW_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as Partial<SignupFlowContext>;
+    if (
+      typeof parsed.flow_id !== "string" ||
+      typeof parsed.provider !== "string" ||
+      typeof parsed.redirect_state !== "string" ||
+      typeof parsed.started_at !== "number"
+    ) {
+      sessionStorage.removeItem(SIGNUP_FLOW_KEY);
+      return undefined;
+    }
+    if (Date.now() - parsed.started_at > SIGNUP_FLOW_TTL_MS) {
+      sessionStorage.removeItem(SIGNUP_FLOW_KEY);
+      return undefined;
+    }
+    return parsed as SignupFlowContext;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeSignupFlow(flow: SignupFlowContext): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(SIGNUP_FLOW_KEY, JSON.stringify(flow));
+  } catch {
+    // Analytics correlation must never break auth.
+  }
+}
+
+export function getSignupFlow(): SignupFlowContext | undefined {
+  return readSignupFlow();
+}
+
+export function clearSignupFlow(flowId?: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const current = readSignupFlow();
+    if (!flowId || current?.flow_id === flowId) {
+      sessionStorage.removeItem(SIGNUP_FLOW_KEY);
+    }
+  } catch {
+    // Analytics correlation must never break auth.
+  }
+}
+
+function resolveSignupFlow(
+  method: string,
+  options?: {
+    flow_id?: string;
+    provider?: SignupProvider;
+    source?: string;
+    landing_page?: string;
+    redirect_path?: string;
+    redirect_state?: SignupRedirectState;
+    started_at?: number;
+  },
+): SignupFlowContext | undefined {
+  const existing = readSignupFlow();
+  if (options?.flow_id) {
+    const matchingExisting = existing?.flow_id === options.flow_id ? existing : undefined;
+    const startedAt = options.started_at ?? matchingExisting?.started_at;
+    if (startedAt != null && Date.now() - startedAt > SIGNUP_FLOW_TTL_MS) {
+      if (matchingExisting) clearSignupFlow(matchingExisting.flow_id);
+      return undefined;
+    }
+    return {
+      flow_id: options.flow_id,
+      provider: options.provider ?? matchingExisting?.provider ?? normalizeSignupProvider(method),
+      ...((options.source ?? matchingExisting?.source) && {
+        source: options.source ?? matchingExisting?.source,
+      }),
+      ...((options.landing_page ?? matchingExisting?.landing_page) && {
+        landing_page: options.landing_page ?? matchingExisting?.landing_page,
+      }),
+      ...((options.redirect_path ?? matchingExisting?.redirect_path) && {
+        redirect_path: options.redirect_path ?? matchingExisting?.redirect_path,
+      }),
+      redirect_state:
+        options.redirect_state ?? matchingExisting?.redirect_state ?? "inline",
+      started_at:
+        options.started_at ?? matchingExisting?.started_at ?? Date.now(),
+    };
+  }
+  return existing;
+}
+
+function isSignupTerminalAlreadyRecorded(flowId: string): boolean {
+  if (signupTerminalFlows.has(flowId)) return true;
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(`quiver_signup_terminal_${flowId}`) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markSignupTerminal(flow: SignupFlowContext): void {
+  signupTerminalFlows.add(flow.flow_id);
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.setItem(`quiver_signup_terminal_${flow.flow_id}`, "1");
+    } catch {
+      // Analytics correlation must never break auth.
+    }
+  }
+  clearSignupFlow(flow.flow_id);
+}
+
 /**
  * Fire a funnel event to the internal /api/events endpoint.
  * Errors are silently swallowed — tracking must never break the app.
@@ -241,6 +384,10 @@ export function trackLoginSuccess(params: {
   duration_ms: number;
   source?: string;
   landing_page?: string;
+  flow_id?: string;
+  redirect_path?: string;
+  redirect_state?: SignupRedirectState;
+  started_at?: number;
 }) {
   const eventParams = enrichWithWebAnalyticsContext(
     withBrowserSessionId({
@@ -248,6 +395,10 @@ export function trackLoginSuccess(params: {
       duration_ms: params.duration_ms,
       ...(params.source && { source: params.source }),
       ...(params.landing_page && { landing_page: params.landing_page }),
+      ...(params.flow_id && { flow_id: params.flow_id }),
+      ...(params.started_at && { started_at: params.started_at }),
+      ...(params.redirect_path && { redirect_path: params.redirect_path }),
+      ...(params.redirect_state && { redirect_state: params.redirect_state }),
     }),
     { pathname: params.landing_page },
   );
@@ -288,19 +439,43 @@ export function trackLoginFailed(params: {
  */
 export function trackSignupStarted(
   method: string,
-  options?: { source?: string; landing_page?: string }
-) {
+  options?: {
+    source?: string;
+    landing_page?: string;
+    flow_id?: string;
+    redirect_path?: string;
+    redirect_state?: SignupRedirectState;
+    started_at?: number;
+  },
+): SignupFlowContext {
+  const provider = normalizeSignupProvider(method);
+  const flow: SignupFlowContext = {
+    flow_id: options?.flow_id ?? createSignupFlowId(),
+    provider,
+    ...(options?.source && { source: options.source }),
+    ...(options?.landing_page && { landing_page: options.landing_page }),
+    ...(options?.redirect_path && { redirect_path: options.redirect_path }),
+    redirect_state: options?.redirect_state ?? "inline",
+    started_at: options?.started_at ?? Date.now(),
+  };
+  writeSignupFlow(flow);
   const eventParams = enrichWithWebAnalyticsContext(
     withBrowserSessionId({
-      method,
+      method: provider,
+      provider,
+      flow_id: flow.flow_id,
+      started_at: flow.started_at,
+      redirect_state: flow.redirect_state,
       timestamp: Date.now(),
       ...(options?.source && { source: options.source }),
       ...(options?.landing_page && { landing_page: options.landing_page }),
+      ...(options?.redirect_path && { redirect_path: options.redirect_path }),
     }),
     { includeSignupChannel: true, pathname: options?.landing_page }
   );
   track("signup_started", eventParams);
   fireToUserEvents("signup_started", eventParams);
+  return flow;
 }
 
 /**
@@ -315,13 +490,42 @@ export function trackSignupSuccess(params: {
   requires_verification: boolean;
   source?: string;
   landing_page?: string;
+  flow_id?: string;
+  redirect_path?: string;
+  redirect_state?: SignupRedirectState;
+  started_at?: number;
 }) {
+  const flow = resolveSignupFlow(params.method, {
+    flow_id: params.flow_id,
+    source: params.source,
+    landing_page: params.landing_page,
+    redirect_path: params.redirect_path,
+    redirect_state: params.redirect_state,
+    started_at: params.started_at,
+  });
+  if (params.flow_id && params.started_at && !flow) return;
+  if (flow && isSignupTerminalAlreadyRecorded(flow.flow_id)) return;
+  if (flow) markSignupTerminal(flow);
+  const provider = flow?.provider ?? normalizeSignupProvider(params.method);
   const eventParams = enrichWithWebAnalyticsContext(
     withBrowserSessionId({
-      method: params.method,
+      method: provider,
+      provider,
       requires_verification: params.requires_verification,
-      ...(params.source && { source: params.source }),
-      ...(params.landing_page && { landing_page: params.landing_page }),
+      ...((params.source ?? flow?.source) && {
+        source: params.source ?? flow?.source,
+      }),
+      ...((params.landing_page ?? flow?.landing_page) && {
+        landing_page: params.landing_page ?? flow?.landing_page,
+      }),
+      ...(flow && { flow_id: flow.flow_id }),
+      ...(flow && { started_at: flow.started_at }),
+      ...(flow && {
+        redirect_state: params.redirect_state ?? flow.redirect_state,
+      }),
+      ...((params.redirect_path ?? flow?.redirect_path) && {
+        redirect_path: params.redirect_path ?? flow?.redirect_path,
+      }),
     }),
     { includeSignupChannel: true, pathname: params.landing_page }
   );
@@ -339,13 +543,42 @@ export function trackSignupFailed(params: {
   error_type: string;
   source?: string;
   landing_page?: string;
+  flow_id?: string;
+  redirect_path?: string;
+  redirect_state?: SignupRedirectState;
+  started_at?: number;
 }) {
+  const flow = resolveSignupFlow(params.method, {
+    flow_id: params.flow_id,
+    source: params.source,
+    landing_page: params.landing_page,
+    redirect_path: params.redirect_path,
+    redirect_state: params.redirect_state,
+    started_at: params.started_at,
+  });
+  if (params.flow_id && params.started_at && !flow) return;
+  if (flow && isSignupTerminalAlreadyRecorded(flow.flow_id)) return;
+  if (flow) markSignupTerminal(flow);
+  const provider = flow?.provider ?? normalizeSignupProvider(params.method);
   const eventParams = enrichWithWebAnalyticsContext(
     withBrowserSessionId({
-      method: params.method,
+      method: provider,
+      provider,
       error_type: params.error_type,
-      ...(params.source && { source: params.source }),
-      ...(params.landing_page && { landing_page: params.landing_page }),
+      ...((params.source ?? flow?.source) && {
+        source: params.source ?? flow?.source,
+      }),
+      ...((params.landing_page ?? flow?.landing_page) && {
+        landing_page: params.landing_page ?? flow?.landing_page,
+      }),
+      ...(flow && { flow_id: flow.flow_id }),
+      ...(flow && { started_at: flow.started_at }),
+      ...(flow && {
+        redirect_state: params.redirect_state ?? flow.redirect_state,
+      }),
+      ...((params.redirect_path ?? flow?.redirect_path) && {
+        redirect_path: params.redirect_path ?? flow?.redirect_path,
+      }),
     }),
     { includeSignupChannel: true, pathname: params.landing_page },
   );

@@ -3,7 +3,13 @@ import { act, render } from "@testing-library/react";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import { GoogleOneTap } from "@/components/auth/google-one-tap";
 import { useAuth } from "@/context/auth-context";
-import { trackLoginFailed } from "@/lib/analytics/auth-events";
+import {
+  trackSignupStarted,
+  trackSignupSuccess,
+  trackSignupFailed,
+  trackLoginSuccess,
+  clearSignupFlow,
+} from "@/lib/analytics/auth-events";
 import { createClient } from "@/lib/supabase/client";
 import { safeGetItem } from "@/lib/utils/safe-storage";
 
@@ -20,8 +26,9 @@ jest.mock("@/lib/analytics/auth-events", () => ({
   trackAuthProviderSelected: jest.fn(),
   trackSignupStarted: jest.fn(),
   trackSignupSuccess: jest.fn(),
+  trackSignupFailed: jest.fn(),
   trackLoginSuccess: jest.fn(),
-  trackLoginFailed: jest.fn(),
+  clearSignupFlow: jest.fn(),
 }));
 
 jest.mock("@/lib/utils/safe-storage", () => ({
@@ -57,6 +64,13 @@ describe("GoogleOneTap", () => {
 
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
     (safeGetItem as jest.Mock).mockReturnValue(null);
+    (trackSignupStarted as jest.Mock).mockReturnValue({
+      flow_id: "test-flow-id",
+      provider: "google",
+      source: "google_one_tap",
+      redirect_state: "inline",
+      started_at: Date.now(),
+    });
 
     window.google = {
       accounts: {
@@ -121,13 +135,110 @@ describe("GoogleOneTap", () => {
       provider: "google",
       token: "mock-google-jwt",
     });
-    expect(trackLoginFailed).toHaveBeenCalledWith({
-      method: "google_one_tap",
+    expect(trackSignupFailed).toHaveBeenCalledWith({
+      method: "google",
       error_type: "token_exchange_failed",
       source: "google_one_tap",
+      flow_id: "test-flow-id",
+      started_at: expect.any(Number),
     });
-    expect(JSON.stringify((trackLoginFailed as jest.Mock).mock.calls)).not.toContain(
+    expect(JSON.stringify((trackSignupFailed as jest.Mock).mock.calls)).not.toContain(
       "raw provider failure",
     );
+  });
+
+  it("emits the canonical signup outcome for a new One Tap user", async () => {
+    const signInWithIdToken = jest.fn().mockResolvedValue({
+      data: { user: { created_at: new Date().toISOString() } },
+      error: null,
+    });
+    (createClient as jest.Mock).mockReturnValue({
+      auth: { signInWithIdToken },
+    });
+
+    render(<GoogleOneTap />);
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+    });
+    if (!credentialCallback) {
+      throw new Error("Google One Tap credential callback was not initialized");
+    }
+
+    await act(async () => {
+      await credentialCallback?.({ credential: "mock-google-jwt", select_by: "user" });
+    });
+
+    expect(trackSignupSuccess).toHaveBeenCalledWith({
+      method: "google",
+      requires_verification: false,
+      source: "google_one_tap",
+      flow_id: "test-flow-id",
+      started_at: expect.any(Number),
+    });
+  });
+
+  it("records unexpected One Tap failures as signup failures", async () => {
+    const signInWithIdToken = jest.fn().mockRejectedValue(new Error("network down"));
+    (createClient as jest.Mock).mockReturnValue({
+      auth: { signInWithIdToken },
+    });
+
+    render(<GoogleOneTap />);
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+    });
+    if (!credentialCallback) {
+      throw new Error("Google One Tap credential callback was not initialized");
+    }
+
+    await act(async () => {
+      await credentialCallback?.({ credential: "mock-google-jwt", select_by: "user" });
+    });
+    expectConsoleErrors([/\[google-one-tap\] Unexpected error/]);
+
+    expect(trackSignupFailed).toHaveBeenCalledWith({
+      method: "google",
+      error_type: "unexpected_error",
+      source: "google_one_tap",
+      flow_id: "test-flow-id",
+      started_at: expect.any(Number),
+    });
+  });
+
+  it("reconciles a returning One Tap user as login with the correlated flow", async () => {
+    const signInWithIdToken = jest.fn().mockResolvedValue({
+      data: { user: { created_at: "2020-01-01T00:00:00.000Z" } },
+      error: null,
+    });
+    (createClient as jest.Mock).mockReturnValue({
+      auth: { signInWithIdToken },
+    });
+
+    render(<GoogleOneTap />);
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+    });
+    if (!credentialCallback) {
+      throw new Error("Google One Tap credential callback was not initialized");
+    }
+
+    await act(async () => {
+      await credentialCallback?.({ credential: "mock-google-jwt", select_by: "user" });
+    });
+
+    expect(trackSignupStarted).toHaveBeenCalledWith("google", expect.objectContaining({
+      source: "google_one_tap",
+      redirect_state: "inline",
+    }));
+    expect(trackLoginSuccess).toHaveBeenCalledWith({
+      method: "google",
+      duration_ms: expect.any(Number),
+      source: "google_one_tap",
+      flow_id: "test-flow-id",
+      redirect_state: "completed",
+      started_at: expect.any(Number),
+    });
+    expect(clearSignupFlow).toHaveBeenCalledTimes(1);
+    expect(clearSignupFlow).toHaveBeenCalledWith("test-flow-id");
   });
 });
