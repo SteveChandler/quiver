@@ -537,7 +537,7 @@ async function getCityWaterTempDataAvailability(
 
   const { data, error } = await supabase
     .from("enhanced_forecasts")
-    .select("forecast_date, forecast_at, water_temp")
+    .select("forecast_at, water_temp")
     .eq("beach_id", beach.id)
     .gte("forecast_at", `${startDateStr}T00:00:00Z`)
     .lt("forecast_at", `${endNextDay}T00:00:00Z`)
@@ -780,7 +780,7 @@ async function fetchWaterTempData(
   const endNextDay = new Date(new Date(endDate + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
   const { data: forecasts, error: forecastError } = await supabase
     .from("enhanced_forecasts")
-    .select("forecast_date, forecast_at, water_temp, forecast_time")
+    .select("forecast_date, forecast_at, water_temp")
     .eq("beach_id", beach.id)
     .gte("forecast_at", `${startDate}T00:00:00Z`)
     .lt("forecast_at", `${endNextDay}T00:00:00Z`)

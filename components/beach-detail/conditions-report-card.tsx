@@ -113,11 +113,10 @@ export function ConditionsReportCard({
       <div
         className="relative overflow-hidden rounded-xl border-2 border-[var(--ink)] bg-[var(--paper)] p-5 text-center text-[var(--ink)] shadow-[4px_4px_0_var(--ink)]"
         data-testid="conditions-report-success"
-        data-reduced-motion={prefersReducedMotion}
         aria-live="polite"
       >
         {!prefersReducedMotion && (
-          <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+          <div className="pointer-events-none absolute inset-0" aria-hidden="true" data-testid="conditions-report-confetti">
             {[
               { x: -42, y: -30, rotate: -20, color: "var(--q-orange)" },
               { x: 38, y: -34, rotate: 18, color: "var(--stamp-blue)" },

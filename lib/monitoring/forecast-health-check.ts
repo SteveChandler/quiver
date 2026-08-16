@@ -576,7 +576,7 @@ async function getBeachForecastCoverage(beachId: string): Promise<number> {
 
   const result = await supabase
     .from('enhanced_forecasts')
-    .select('forecast_date', { count: 'exact', head: true })
+    .select('forecast_at', { count: 'exact', head: true })
     .eq('beach_id', beachId)
     .gte('forecast_at', `${today}T00:00:00Z`)
     .lt('forecast_at', `${futureDateNextDay}T00:00:00Z`);

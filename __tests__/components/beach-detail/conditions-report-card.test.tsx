@@ -4,6 +4,7 @@ import "@testing-library/jest-dom";
 import { ConditionsReportCard } from "@/components/beach-detail/conditions-report-card";
 import { useAuth } from "@/context/auth-context";
 import { submitConditionsReport } from "@/actions/conditions-report-actions";
+import { useReducedMotion } from "framer-motion";
 
 jest.mock("@/context/auth-context");
 jest.mock("@/actions/conditions-report-actions", () => ({
@@ -18,6 +19,9 @@ jest.mock("framer-motion", () => ({
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockSubmit = submitConditionsReport as jest.MockedFunction<
   typeof submitConditionsReport
+>;
+const mockUseReducedMotion = useReducedMotion as jest.MockedFunction<
+  typeof useReducedMotion
 >;
 
 const defaultProps = {
@@ -39,6 +43,10 @@ function fillForm() {
 beforeEach(() => {
   jest.clearAllMocks();
   signIn();
+  // clearAllMocks resets call history, not implementations -- restore the
+  // reduced-motion default here so a test that overrides it cannot leak into
+  // its neighbours, even if it throws before restoring.
+  mockUseReducedMotion.mockReturnValue(true);
 });
 
 describe("ConditionsReportCard", () => {
@@ -87,15 +95,12 @@ describe("ConditionsReportCard", () => {
     fillForm();
     fireEvent.click(screen.getByRole("button", { name: "Share Report" }));
 
-    await waitFor(() => {
-      expect(screen.getByTestId("conditions-report-success")).toHaveAttribute(
-        "data-reduced-motion",
-        "true"
-      );
-    });
-    expect(
-      screen.getByText("Report shared! Thanks for helping the Blacks crew.")
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByText("Report shared! Thanks for helping the Blacks crew.")
+      ).toBeInTheDocument()
+    );
+    expect(screen.queryByTestId("conditions-report-confetti")).not.toBeInTheDocument();
     expect(screen.queryByText("community")).not.toBeInTheDocument();
   });
 
@@ -126,5 +131,23 @@ describe("ConditionsReportCard", () => {
 
     await waitFor(() => expect(onAuthRequired).toHaveBeenCalled());
     expect(mockSubmit).not.toHaveBeenCalled();
+  });
+
+  it("renders the confetti burst when reduced motion is not preferred", async () => {
+    mockUseReducedMotion.mockReturnValue(false);
+
+    mockSubmit.mockResolvedValue({
+      success: true,
+      data: { success: true, data: { intelPostId: "intel-1", sessionId: null } },
+    } as never);
+
+    render(<ConditionsReportCard {...defaultProps} />);
+    fillForm();
+    fireEvent.click(screen.getByRole("button", { name: "Share Report" }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Report shared!/)).toBeInTheDocument()
+    );
+    expect(screen.getByTestId("conditions-report-confetti")).toBeInTheDocument();
   });
 });
