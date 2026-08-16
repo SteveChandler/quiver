@@ -209,16 +209,21 @@ async function _GET(request: Request): Promise<Response> {
     schedule: SCHEDULE,
     maxRuntimeMinutes: 2,
   });
+  const startMs = Date.now();
 
   try {
-    const startMs = Date.now();
     const sitemapUrls = await loadSitemapUrls();
     if (sitemapUrls.length === 0) {
       Sentry.captureMessage("[sitemap-health] sitemap returned 0 URLs", {
         level: "error",
         tags: { cron: MONITOR_SLUG },
       });
-      completeCronCheckIn(checkInId, MONITOR_SLUG, "error");
+      await completeCronCheckIn(
+        checkInId,
+        MONITOR_SLUG,
+        "error",
+        Date.now() - startMs,
+      );
       return createSuccessResponse({
         probed: 0,
         ok: 0,
@@ -261,7 +266,12 @@ async function _GET(request: Request): Promise<Response> {
       );
     }
 
-    completeCronCheckIn(checkInId, MONITOR_SLUG, "ok");
+    await completeCronCheckIn(
+      checkInId,
+      MONITOR_SLUG,
+      "ok",
+      Date.now() - startMs,
+    );
 
     return createSuccessResponse({
       probed: probeUrls.length,
@@ -278,7 +288,12 @@ async function _GET(request: Request): Promise<Response> {
       ),
     });
   } catch (err) {
-    completeCronCheckIn(checkInId, MONITOR_SLUG, "error");
+    await completeCronCheckIn(
+      checkInId,
+      MONITOR_SLUG,
+      "error",
+      Date.now() - startMs,
+    );
     return handleApiError(err, "Sitemap health probe failed");
   }
 }

@@ -125,7 +125,8 @@ describe("sitemap health cron route", () => {
     expect(completeCronCheckIn).toHaveBeenCalledWith(
       "check-in-id",
       "sitemap-health",
-      "error"
+      "error",
+      expect.any(Number),
     );
   });
 });

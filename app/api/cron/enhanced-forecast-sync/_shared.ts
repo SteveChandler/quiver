@@ -19,7 +19,6 @@ import {
   getEnhancedShardMonitorSlug,
   getEnhancedShardSchedule,
 } from "@/lib/monitoring/sentry-cron";
-import * as Sentry from "@sentry/nextjs";
 
 // Allow up to 5 minutes for the cron job to complete (Vercel limit)
 export const MAX_DURATION_SECONDS = 300;
@@ -226,8 +225,12 @@ export async function runEnhancedForecastSync(
       ...(isSharded ? { shard, shardCount } : {}),
     });
 
-    completeCronCheckIn(checkInId, monitorSlug, failed > 0 ? "error" : "ok");
-    await Sentry.flush(2000);
+    await completeCronCheckIn(
+      checkInId,
+      monitorSlug,
+      failed > 0 ? "error" : "ok",
+      duration,
+    );
 
     return createSuccessResponse(
       {
@@ -242,8 +245,7 @@ export async function runEnhancedForecastSync(
     const duration = Date.now() - startTime;
 
     if (checkInId) {
-      completeCronCheckIn(checkInId, monitorSlug, "error");
-      await Sentry.flush(2000);
+      await completeCronCheckIn(checkInId, monitorSlug, "error", duration);
     }
 
     forecastLogger.cronFailed(
@@ -302,7 +304,3 @@ export async function runEnhancedForecastSyncHead(
     );
   }
 }
-
-
-
-
