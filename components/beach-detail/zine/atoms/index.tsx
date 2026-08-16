@@ -333,10 +333,14 @@ export function MapDoodle({
   const approachStartX = scene.oceanSide === "left" ? 30 : 370;
   const approachEndX = scene.oceanSide === "left" ? markerX - 18 : markerX + 18;
   const locationFontSize = locationName.length > 18 ? 15 : locationName.length > 14 ? 17 : 20;
+  // Request the tile at the aspect it will actually be displayed at. The frame
+  // is roughly 450px wide in the hero column, so a fixed 800x480 request got
+  // object-cover-cropped once the frame grew taller, throwing away most of the
+  // horizontal extent.
   const mapUrl = lat != null && lon != null
     ? getStaticMapImageUrl(lat, lon, {
         width: 800,
-        height: 480,
+        height: Math.min(1280, Math.max(400, Math.round((800 * height) / 450))),
         zoom: 15,
       })
     : null;
@@ -362,11 +366,9 @@ export function MapDoodle({
           <circle cx="3" cy="3" r="1.1" fill="#7FA7B8" opacity="0.55" />
         </pattern>
         {hasRealMap ? (
-          <>
-            <rect width="400" height="240" fill={`url(#${scene.patternId})`} opacity="0.18" />
-            <circle cx="200" cy="120" r="16" fill="none" stroke="#11100D" strokeWidth="2.5" filter="url(#zine-rough-edge)" />
-            <path d="M192,112 L208,128 M192,128 L208,112" stroke="#11100D" strokeWidth="2.4" strokeLinecap="round" />
-          </>
+          // Marker moved out of this stretched layer — see below. Only the dot
+          // texture stays here, where non-uniform scaling is unnoticeable.
+          <rect width="400" height="240" fill={`url(#${scene.patternId})`} opacity="0.18" />
         ) : (
           <>
             <path d={scene.oceanPath} fill="#C9D8DD" />
@@ -409,6 +411,28 @@ export function MapDoodle({
           {locationName}
         </text>
       </svg>
+      {/* The real-map marker sits in its own square, un-stretched layer. Inside
+          the preserveAspectRatio="none" overlay above it turned into an ellipse
+          as soon as the frame stopped being 400x240. The static tile is centred
+          on the beach coordinates, so dead centre is the marker's position. */}
+      {hasRealMap && (
+        <svg
+          width="44"
+          height="44"
+          viewBox="0 0 44 44"
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            pointerEvents: "none",
+          }}
+          aria-hidden
+        >
+          <circle cx="22" cy="22" r="16" fill="none" stroke="#11100D" strokeWidth="2.5" />
+          <path d="M14,14 L30,30 M14,30 L30,14" stroke="#11100D" strokeWidth="2.4" strokeLinecap="round" />
+        </svg>
+      )}
       {label && (
         <div
           style={{

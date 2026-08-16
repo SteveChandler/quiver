@@ -252,7 +252,7 @@ function TapedMapPhoto({
         <div className="relative" style={{ transform: "rotate(1.4deg)" }}>
           <span className="tape tl" aria-hidden />
           <span className="tape tr" aria-hidden />
-          <HalftonePhoto src={beachPhoto?.image_url} alt={beachPhoto ? `${beachName} surf zine photo` : undefined} label="HERO PHOTO" height={210} />
+          <HalftonePhoto src={beachPhoto?.image_url} alt={beachPhoto ? `${beachName} surf zine photo` : undefined} label="HERO PHOTO" height={300} />
           {beachPhoto?.image_url &&
           (beachPhoto.attribution || beachPhoto.attribution_html) ? (
             <PhotoAttribution
@@ -313,7 +313,7 @@ function TapedMapPhoto({
           </div>
         </div>
         <MapDoodle
-          height={180}
+          height={380}
           beachName={beachName}
           locationName={locationName}
           lat={lat}
