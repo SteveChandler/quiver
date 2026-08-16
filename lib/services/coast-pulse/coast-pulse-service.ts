@@ -41,6 +41,11 @@ import { computeSummary } from "@/lib/utils/coast-pulse-summary";
 import { haversineDistance, degreesToCardinal } from "@/lib/utils/geo-utils";
 import { getDailyIntelWaveHeightLabels } from "@/lib/services/intel/wave-height-labels";
 import {
+  rankBeaches,
+  selectBeach,
+} from "@/lib/recommendations/selection";
+import { WATER_QUALITY_HOLD_PREFETCH_BUFFER } from "@/lib/recommendations/major-event-hold/water-quality";
+import {
   DISTANCE,
   TIME,
   CACHE,
@@ -102,17 +107,25 @@ async function fetchCoastPulseData(
   // Pre-fetch beaches for cache (used by forecast and intel)
   const { data: beaches } = await supabase
     .from("beaches")
-    .select("id, name, lat, lon, wind_offshore_deg")
+    .select("id, name, lat, lon, wind_offshore_deg, timezone")
     .not("lat", "is", null)
-    .limit(PAGINATION.BEACHES_CACHE_LIMIT);
+    .limit(PAGINATION.BEACHES_CACHE_LIMIT + WATER_QUALITY_HOLD_PREFETCH_BUFFER);
 
-  const beachesCache: BeachCacheEntry[] = (beaches || []).map((b) => ({
-    id: b.id,
-    name: b.name,
-    lat: b.lat ?? 0,
-    lon: b.lon ?? 0,
-    windOffshoreDeg: b.wind_offshore_deg,
-  }));
+  const beachesCache: BeachCacheEntry[] = await rankBeaches(
+    (beaches || []).map((b) => ({
+      id: b.id,
+      name: b.name,
+      lat: b.lat ?? 0,
+      lon: b.lon ?? 0,
+      windOffshoreDeg: b.wind_offshore_deg,
+      timezone: b.timezone,
+    })),
+    {
+      compare: (left, right) =>
+        haversineDistance(lat, lon, left.lat, left.lon) -
+        haversineDistance(lat, lon, right.lat, right.lon),
+    },
+  );
 
   // If paginating (before cursor provided), only fetch intel
   if (before) {
@@ -475,15 +488,14 @@ async function fetchEnhancedForecast(
     if (!beaches.length) return [];
 
     // Find closest beach
-    let closestBeach = beaches[0];
-    let minDist = Infinity;
-    for (const beach of beaches) {
-      const dist = haversineDistance(lat, lon, beach.lat, beach.lon);
-      if (dist < minDist) {
-        minDist = dist;
-        closestBeach = beach;
-      }
-    }
+    const rankedBeaches = await rankBeaches(beaches, {
+      compare: (left, right) =>
+        haversineDistance(lat, lon, left.lat, left.lon) -
+        haversineDistance(lat, lon, right.lat, right.lon),
+    });
+    const closestBeach = rankedBeaches[0];
+    if (!closestBeach) return [];
+    const minDist = haversineDistance(lat, lon, closestBeach.lat, closestBeach.lon);
 
     if (minDist > DISTANCE.FORECAST_MAX_KM) return []; // Too far, no relevant forecast
 
@@ -566,15 +578,14 @@ async function fetchDailyIntel(
     if (!beaches.length) return null;
 
     // Find closest beach
-    let closestBeach = beaches[0];
-    let minDist = Infinity;
-    for (const beach of beaches) {
-      const dist = haversineDistance(lat, lon, beach.lat, beach.lon);
-      if (dist < minDist) {
-        minDist = dist;
-        closestBeach = beach;
-      }
-    }
+    const rankedBeaches = await rankBeaches(beaches, {
+      compare: (left, right) =>
+        haversineDistance(lat, lon, left.lat, left.lon) -
+        haversineDistance(lat, lon, right.lat, right.lon),
+    });
+    const closestBeach = rankedBeaches[0];
+    if (!closestBeach) return null;
+    const minDist = haversineDistance(lat, lon, closestBeach.lat, closestBeach.lon);
 
     if (minDist > DISTANCE.DAILY_INTEL_MAX_KM) return null; // Too far
 
@@ -601,7 +612,8 @@ async function fetchDailyIntel(
       {
         bestWindowStart: intel.best_window_start,
         bestWindowEnd: intel.best_window_end,
-      }
+      },
+      closestBeach.timezone
     );
 
     if (waveLabels.current_wave_height_label) {
@@ -689,6 +701,7 @@ async function fetchRecentIntel(
           full_name
         ),
         beaches:beach_id (
+          id,
           name
         )
       `
@@ -720,7 +733,24 @@ async function fetchRecentIntel(
       return dist <= DISTANCE.INTEL_MAX_KM;
     });
 
-    return nearbyPosts.slice(0, limit).map((post: any) => {
+    const safePosts = (
+      await Promise.all(
+        nearbyPosts.map(async (post: any) => {
+          if (
+            post.beaches?.id &&
+            !(await selectBeach({
+              id: post.beaches.id,
+              name: post.beaches.name,
+            }))
+          ) {
+            return null;
+          }
+          return post;
+        }),
+      )
+    ).filter((post): post is any => post !== null);
+
+    return safePosts.slice(0, limit).map((post: any) => {
       const rawName = post.profiles?.full_name || "Local Surfer";
       const surferName = getDisplayName(rawName, post.id);
 

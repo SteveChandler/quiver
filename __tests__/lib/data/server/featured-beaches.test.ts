@@ -7,12 +7,15 @@ import {
   sortLandingFeaturedBeaches,
 } from "@/lib/data/server/featured-beaches";
 import type { EnrichedBeach } from "@/lib/data/server/featured-beaches";
+import { FEATURED_BEACHES_LIMIT } from "@/lib/constants/featured-beaches-config";
 
 // Mock Supabase server client
 const mockFrom = jest.fn();
 const mockSupabase = {
   from: mockFrom,
 };
+const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) => beaches);
+const mockBeachCandidateLimit = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => mockSupabase),
@@ -26,6 +29,14 @@ jest.mock("next/cache", () => ({
 // Mock the query builder helper
 jest.mock("@/lib/supabase/query-builders", () => ({
   withApprovedPhotos: jest.fn((query: any) => query),
+}));
+
+jest.mock("@/lib/recommendations/major-event-hold/water-quality-visibility", () => ({
+  filterBeachesByWaterQualityVisibility: jest.fn(async (beaches: unknown[]) => beaches),
+}));
+
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
 }));
 
 /**
@@ -49,6 +60,10 @@ function setupMockQueries(
   // Create chainable query objects for both tables
   const photosChain = createChain({ data: photos, error: null });
   const beachesChain = createChain({ data: beaches, error: null });
+  beachesChain.limit.mockImplementation((value: number) => {
+    mockBeachCandidateLimit(value);
+    return beachesChain;
+  });
 
   mockFrom.mockImplementation((table: string) => {
     if (table === "beach_photos") return photosChain;
@@ -159,6 +174,31 @@ describe("getFeaturedBeaches", () => {
 
     expect(result.isNearby).toBe(false);
     expect(Array.isArray(result.beaches)).toBe(true);
+  });
+
+  it("over-fetches featured candidates before filtering held beaches", async () => {
+    setupMockQueries(PHOTOS, ALL_BEACHES);
+
+    await getFeaturedBeaches();
+
+    expect(mockBeachCandidateLimit).toHaveBeenCalledWith(
+      FEATURED_BEACHES_LIMIT * 3 + 5,
+    );
+  });
+
+  it("does not return a held beach from featured ranking", async () => {
+    mockRankBeaches.mockImplementation(async (beaches: Array<{ id: string }>) =>
+      beaches.filter((beach) => beach.id !== "held-beach"),
+    );
+    setupMockQueries(PHOTOS, [
+      { ...NJ_BEACHES[0], id: "held-beach", name: "Held Beach" },
+      NJ_BEACHES[1],
+    ]);
+
+    const result = await getFeaturedBeaches();
+
+    expect(result.beaches.map(({ id }) => id)).not.toContain("held-beach");
+    expect(mockRankBeaches).toHaveBeenCalled();
   });
 });
 

@@ -9,6 +9,10 @@ jest.mock("@/components/pricing/founding-access-cta", () => ({
   ),
 }));
 
+jest.mock("@/components/pricing/revenuecat-web-checkout-cta", () => ({
+  RevenueCatWebCheckoutCta: () => null,
+}));
+
 const BLOCKED_PUBLIC_COPY = [
   /monthly/i,
   /annual/i,
@@ -21,7 +25,7 @@ const BLOCKED_PUBLIC_COPY = [
 ] as const;
 
 describe("FoundingOfferSurface", () => {
-  it("renders the App Store trial page without web checkout or prices", () => {
+  it("renders the App Store trial page", () => {
     const { container } = render(<FoundingOfferSurface />);
 
     expect(
@@ -42,11 +46,24 @@ describe("FoundingOfferSurface", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText(/get the android beta/i)).toBeInTheDocument();
     expect(screen.queryByText(/android waitlist/i)).not.toBeInTheDocument();
+    const appStoreLinks = screen.getAllByRole("link", { name: /open app store/i });
+    expect(appStoreLinks).toHaveLength(2);
     expect(
-      screen.getByRole("link", { name: /open app store/i }),
+      appStoreLinks[0],
     ).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
     expect(screen.getByText("iPhone")).toBeInTheDocument();
-    expect(screen.getAllByText(/app store live/i).length).toBeGreaterThan(0);
+    expect(screen.getByText("Available")).toBeInTheDocument();
+    expect(screen.queryByText(/app store live/i)).not.toBeInTheDocument();
+    const trialCard = screen
+      .getByRole("heading", {
+        name: /get surf essentials that keep learning from your sessions/i,
+      })
+      .closest("section");
+    if (!trialCard) {
+      throw new Error("Expected the plans trial card section");
+    }
+    expect(trialCard).toHaveClass("torn", "torn-tb");
+    expect(trialCard).not.toHaveClass("rot-neg");
     expect(screen.getByTestId("founding-access-cta")).toBeInTheDocument();
 
     const pageText = container.textContent ?? "";
@@ -81,18 +98,31 @@ describe("FoundingOfferSurface", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("uses brand stickers and zine scraps without exposing web purchase copy", () => {
+  it("uses a section landmark inside the global main shell", () => {
+    const { container } = render(<FoundingOfferSurface />);
+
+    expect(container.querySelector("main")).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId("founding-offer-zine-surface").querySelector("section"),
+    ).toBeInTheDocument();
+  });
+
+  it("uses brand stickers and zine scraps with barrel-wave imagery", () => {
     const { container } = render(<FoundingOfferSurface />);
 
     expect(
       screen.getByTestId("founding-offer-zine-surface"),
     ).toBeInTheDocument();
     expect(screen.getAllByTestId("plans-pro-feature")).toHaveLength(7);
+    expect(
+      screen.getByRole("img", {
+        name: /surfer in a bright pink rash guard carving through the wall/i,
+      }),
+    ).toHaveAttribute("src", expect.stringContaining("hero-2-barrel-wave"));
 
     for (const sticker of [
       "halftone-circle",
       "breaking-wave",
-      "orange-tape",
       "cream-torn-strip",
       "gold-tape",
       "teal-tape",
@@ -101,11 +131,6 @@ describe("FoundingOfferSurface", () => {
       expect(
         container.querySelector(`[data-zine-sticker="${sticker}"]`),
       ).not.toBeNull();
-    }
-
-    const pageText = container.textContent ?? "";
-    for (const blockedCopy of BLOCKED_PUBLIC_COPY) {
-      expect(pageText).not.toMatch(blockedCopy);
     }
   });
 });

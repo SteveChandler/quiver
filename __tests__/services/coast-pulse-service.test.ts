@@ -22,6 +22,22 @@
 const mockRpc = jest.fn();
 const mockSelect = jest.fn();
 const mockFrom = jest.fn();
+const mockWaterQualityHeldBeachIds = new Set<string>();
+
+const mockWaterQualityClient = {
+  from: jest.fn((table: string) => ({
+    select: jest.fn(() => ({
+      in: jest.fn(async (_column: string, values: string[]) => ({
+        data: table === "water_quality_held_beaches"
+          ? [...mockWaterQualityHeldBeachIds]
+            .filter((beach_id) => values.includes(beach_id))
+            .map((beach_id) => ({ beach_id }))
+          : [],
+        error: null,
+      })),
+    })),
+  })),
+};
 
 const mockSupabaseChain = {
   from: jest.fn().mockReturnThis(),
@@ -49,6 +65,7 @@ mockSupabaseChain.from = jest.fn((table: string) => {
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => Promise.resolve(mockSupabaseChain)),
+  createSupabaseServiceRoleClient: jest.fn(() => Promise.resolve(mockWaterQualityClient)),
 }));
 
 // Mock next/cache
@@ -175,6 +192,7 @@ const SEVEN_HOURS_AGO = new Date(NOW.getTime() - 7 * 60 * 60 * 1000);
 function setupDefaultMocks() {
   fromCalls.length = 0;
   jest.clearAllMocks();
+  mockWaterQualityHeldBeachIds.clear();
 
   // Reset haversineDistance default
   (haversineDistance as jest.Mock).mockReturnValue(5);
@@ -411,6 +429,69 @@ describe("Coast Pulse Service", () => {
       // Should NOT fetch from NDBC/CDIP/tide (only intel on pagination)
       expect(ndbcMocks.getNearestNDBCStation).not.toHaveBeenCalled();
       expect(coopsMocks.fetchCOOPSData).not.toHaveBeenCalled();
+    });
+
+    test("filters held joined intel beaches before pagination consumes the limit", async () => {
+      mockWaterQualityHeldBeachIds.add("550e8400-e29b-41d4-a716-446655440000");
+      const intelPosts = [
+        {
+          id: "intel-held",
+          title: "Held post",
+          description: "Closed water",
+          emoji_rating: null,
+          created_at: ONE_HOUR_AGO.toISOString(),
+          photo_url: null,
+          latitude: 32.72,
+          longitude: -117.16,
+          confirmations_count: 2,
+          surf_conditions: null,
+          profiles: { full_name: "Surfer A" },
+          beaches: { id: "550e8400-e29b-41d4-a716-446655440000", name: "Held Beach" },
+        },
+        {
+          id: "intel-safe",
+          title: "Safe post",
+          description: "Open water",
+          emoji_rating: null,
+          created_at: new Date(NOW.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+          photo_url: null,
+          latitude: 32.72,
+          longitude: -117.16,
+          confirmations_count: 1,
+          surf_conditions: null,
+          profiles: { full_name: "Surfer B" },
+          beaches: { id: "550e8400-e29b-41d4-a716-446655440001", name: "Safe Beach" },
+        },
+      ];
+
+      let queryResolved = false;
+      mockSupabaseChain.limit = jest.fn().mockImplementation(() => {
+        const obj = { ...mockSupabaseChain };
+        if (!queryResolved) {
+          queryResolved = true;
+          obj.then = (resolve: any) => resolve({
+            data: [
+              { id: "550e8400-e29b-41d4-a716-446655440000", name: "Held Beach", lat: 32.75, lon: -117.25 },
+              { id: "550e8400-e29b-41d4-a716-446655440001", name: "Safe Beach", lat: 32.76, lon: -117.26 },
+            ],
+            error: null,
+          });
+        } else {
+          obj.then = (resolve: any) => resolve({ data: intelPosts, error: null });
+        }
+        return obj;
+      }) as any;
+
+      const result = await generateCoastPulse({
+        lat: 32.72,
+        lon: -117.16,
+        limit: 1,
+        before: new Date().toISOString(),
+      });
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].id).toBe("intel-intel-safe");
+      expect(result.items[0].source.name).not.toContain("Held Beach");
     });
 
     test("sets hasMore=true when more items exist than limit", async () => {

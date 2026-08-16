@@ -432,6 +432,7 @@ export function createMockIntelPost(
 ): IntelPost {
   return {
     id: `intel-${Date.now()}`,
+    session_id: null,
     user_id: "test-user-123",
     beach_id: "beach-123",
     title: "Conditions Report",

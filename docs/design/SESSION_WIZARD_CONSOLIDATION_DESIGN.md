@@ -549,7 +549,6 @@ export async function createLoggedSession(sessionData: SessionFormState) {
   const dbData: SessionInsert = {
     // Core fields
     user_id: user.id,
-    profile_id: user.id,
     beach_id: sessionData.selectedBeachId!,
     beach_name: sessionData.selectedBeach,
     arrival_time: combineDateTime(sessionData.selectedDate, sessionData.selectedTime),

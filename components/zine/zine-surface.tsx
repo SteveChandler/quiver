@@ -23,7 +23,11 @@ export function ZineSurface({
   className,
   stageClassName,
   paperClassName,
-  showMasthead = true,
+  // Off by default: the app header already sits directly above every zine
+  // surface with the Quiver wordmark in it, so a masthead renders as a second
+  // header repeating the brand mark. Stacked-section pages got two or three of
+  // them. Opt back in per-surface if a page ever needs an editorial masthead.
+  showMasthead = false,
   "data-testid": dataTestId = "zine-surface",
 }: ZineSurfaceProps) {
   return (

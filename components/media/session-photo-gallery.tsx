@@ -410,7 +410,7 @@ export default function SessionPhotoGallery({
           <div key={photo.id} className="relative group">
             <button
               type="button"
-              className="aspect-square w-full overflow-hidden rounded-lg bg-gray-100"
+              className="aspect-square w-full overflow-hidden rounded-lg bg-gray-100 focus-ring"
               onClick={() => openLightbox(index)}
               aria-label={
                 photo.caption
@@ -430,31 +430,31 @@ export default function SessionPhotoGallery({
               <div className="absolute inset-0 bg-black/20 opacity-0 transition-opacity group-hover:opacity-100" />
             </button>
 
-            {/* Action buttons (visible on hover) */}
+            {/* Photo actions */}
             {canEdit && (
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity space-x-1">
+              <div className="absolute top-2 right-2 space-x-1">
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="h-8 w-8 p-0 bg-white/90 hover:bg-white"
+                  className="relative h-8 w-8 p-0 bg-white/90 hover:bg-white after:absolute after:-inset-[6px] after:content-['']"
                   onClick={(e) => {
                     e.stopPropagation();
                     startEditingCaption(photo);
                   }}
-                  aria-label="Edit"
+                  aria-label={`Edit caption for session photo ${index + 1}`}
                 >
                   <Edit2 className="h-3 w-3" />
                 </Button>
                 <Button
                   variant="destructive"
                   size="sm"
-                  className="h-8 w-8 p-0 bg-white/90 hover:bg-red-50 text-red-600"
+                  className="relative h-8 w-8 p-0 bg-white/90 hover:bg-red-50 text-red-600 after:absolute after:-inset-[6px] after:content-['']"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDeletePhoto(photo.id);
                   }}
                   disabled={deletingPhotoId === photo.id}
-                  aria-label="Delete"
+                  aria-label={`Delete session photo ${index + 1}`}
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>

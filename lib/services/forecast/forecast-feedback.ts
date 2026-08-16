@@ -77,7 +77,7 @@ export const ForecastFeedbackClientPayloadSchema = z
     const isMismatch =
       input.feedbackKind === "forecast_accuracy" &&
       (input.feedbackValue === "too_low" || input.feedbackValue === "too_high");
-    if (isMismatch) return;
+    if (isMismatch || input.feedbackKind === "condition_report") return;
 
     context.addIssue({
       code: "custom",

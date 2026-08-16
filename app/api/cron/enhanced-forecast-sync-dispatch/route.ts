@@ -21,7 +21,6 @@ import {
   runEnhancedForecastSync,
   runEnhancedForecastSyncHead,
 } from "../enhanced-forecast-sync/_shared";
-import { withObservedCron } from "@/lib/cron/observability";
 
 export const maxDuration = 300;
 
@@ -37,6 +36,6 @@ async function _HEAD(request: Request): Promise<Response> {
   return runEnhancedForecastSyncHead(request as NextRequest);
 }
 
-export const GET = withObservedCron("/api/cron/enhanced-forecast-sync-dispatch", _GET);
-export const POST = withObservedCron("/api/cron/enhanced-forecast-sync-dispatch", _POST);
-export const HEAD = withObservedCron("/api/cron/enhanced-forecast-sync-dispatch", _HEAD);
+export const GET = _GET;
+export const POST = _POST;
+export const HEAD = _HEAD;

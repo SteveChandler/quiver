@@ -20,7 +20,7 @@ The Quiver codebase has evolved coordinate naming conventions:
 
 ### Critical Mapping
 
-This transformer handles the critical `lon` → `lng` transformation:
+Both the database beach shape and the transformed `SurfSpot` shape use `lon`; no coordinate rename is required:
 
 ```typescript
 // Database schema (BeachWithMetrics)
@@ -34,7 +34,7 @@ This transformer handles the critical `lon` → `lng` transformation:
 {
   coordinates: {
     lat: 32.7198,
-    lng: -117.2557  // Mapped to "lng" for map compatibility
+    lon: -117.2557  // Preserved as "lon" for map compatibility
   },
   // ... other fields
 }
@@ -88,7 +88,7 @@ const surfSpot = transformBeachToSurfSpot(beach);
 | `slug` | `slug` | Direct copy |
 | `name` | `name` | Direct copy |
 | `lat` | `coordinates.lat` | Direct copy |
-| `lon` | `coordinates.lon` | **CRITICAL: lon → lng** |
+| `lon` | `coordinates.lon` | Direct copy |
 | `city` | `citySlug` | Derived via `deriveCitySlug()` |
 | `region` | `region` | Direct copy (fallback to `{city}, {state}`) |
 | `description` | `overview` | Direct copy (fallback: "No description available.") |
@@ -330,7 +330,7 @@ export default async function LocationPage({ params }) {
       {/* Map component expects SurfSpot format */}
       <CityMapView
         spots={surfSpots}
-        center={{ lat: 32.7157, lng: -117.1611 }}
+        center={{ lat: 32.7157, lon: -117.1611 }}
         zoom={11}
       />
     </div>
@@ -426,18 +426,18 @@ const surfSpots = transformBeachesToSurfSpots(beaches);
 
 **WRONG:**
 ```typescript
-// ❌ WRONG: Assumes beach.lng exists (it doesn't)
+// ❌ WRONG: Assumes beach coordinates use a different longitude key
 const coordinates = {
   lat: beach.lat,
-  lng: beach.lng  // beach.lng is undefined!
+  lon: beach.longitude  // beach.longitude is undefined!
 };
 ```
 
 **CORRECT:**
 ```typescript
-// ✅ CORRECT: Use transformer which handles lon → lng mapping
+// ✅ CORRECT: Use the transformer, which preserves the canonical lon field
 const surfSpot = transformBeachToSurfSpot(beach);
-const coordinates = surfSpot.coordinates; // { lat, lng }
+const coordinates = surfSpot.coordinates; // { lat, lon }
 ```
 
 ### Pitfall 3: Not Validating Coordinates
@@ -483,7 +483,7 @@ The transformer provides San Diego default coordinates when beach coordinates ar
 // If beach.lat or beach.lon is null:
 const surfSpot = transformBeachToSurfSpot(beach);
 console.log(surfSpot.coordinates);
-// { lat: 32.7157, lng: -117.1611 } // San Diego center
+// { lat: 32.7157, lon: -117.1611 } // San Diego center
 
 // Always validate if you need to detect this:
 if (!validateBeachCoordinates(beach)) {
@@ -499,7 +499,7 @@ if (!validateBeachCoordinates(beach)) {
 interface BeachWithMetrics extends Beach {
   // Required coordinate fields
   lat: number;
-  lon: number;  // NOTE: "lon" not "lng"
+  lon: number;
 
   // Basic fields
   id: string;
@@ -541,10 +541,10 @@ interface SurfSpot {
   citySlug: SurfCitySlug;
   region: string;
 
-  // Coordinates (NOTE: uses "lng" not "lon")
+  // Coordinates use the canonical lat/lon shape
   coordinates: {
     lat: number;
-    lng: number;  // ← CRITICAL: "lng" for map compatibility
+    lon: number;
   };
 
   // Content
@@ -705,7 +705,7 @@ The transformer has comprehensive test coverage (>95%). See test file for full s
 ### Key Test Areas
 
 1. **Coordinate Transformation** (CRITICAL)
-   - Correct `lon` → `lng` mapping
+   - Preserve the canonical `lon` field through the transformation
    - Null coordinate defaults
    - Precision preservation
    - Hemisphere handling
@@ -799,7 +799,7 @@ Potential improvements to consider:
 
 1. **Database Field Alignment**
    - Standardize database to use `longitude` instead of `lon`
-   - Would eliminate need for lon→lng mapping
+   - Keep map-facing coordinate types aligned with the canonical lon field
    - Requires database migration
 
 2. **Additional Intent Tags**
@@ -822,7 +822,7 @@ Potential improvements to consider:
 
 ### 2025-12-03
 - Initial implementation for San Diego page redesign
-- Handles critical lon→lng coordinate mapping
+- Preserves the canonical lon coordinate through the map transformation
 - Comprehensive test suite with >95% coverage
 - Documentation created
 
@@ -831,7 +831,7 @@ Potential improvements to consider:
 The Beach to SurfSpot Transformer is a critical utility that:
 
 1. **Transforms** database beach objects to map-compatible SurfSpot format
-2. **Maps** coordinate naming from `lon` to `lng` for map components
+2. **Preserves** coordinate naming as `lat`/`lon` for map components
 3. **Validates** coordinates to prevent map rendering bugs
 4. **Derives** city slugs, intent tags, and other metadata
 5. **Provides** sensible defaults for missing data

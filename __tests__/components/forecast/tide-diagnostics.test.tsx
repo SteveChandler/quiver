@@ -5,7 +5,10 @@ import "@testing-library/jest-dom";
 import { TideWarningBanner } from "@/components/forecast/tide-warning-banner";
 import { TideVerifiedBadge } from "@/components/forecast/tide-verified-badge";
 import { TideNextExtreme } from "@/components/forecast/tide-next-extreme";
-import { TideHourlyTable } from "@/components/forecast/tide-hourly-table";
+import {
+  TideHourlyTable,
+  TideHourlyTableCompact,
+} from "@/components/forecast/tide-hourly-table";
 import { TideDiagnosticsPanel } from "@/components/forecast/tide-diagnostics-panel";
 import type {
   TideWarning,
@@ -243,6 +246,53 @@ describe("TideHourlyTable", () => {
 
     const rows = screen.getAllByTestId("tide-table-row");
     expect(rows).toHaveLength(3);
+  });
+
+  it("keeps the hourly table horizontally scrollable and keyboard reachable", () => {
+    render(<TideHourlyTable data={mockData} now={now} />);
+
+    const scrollRegion = screen.getByTestId("tide-hourly-table-scroll");
+
+    expect(scrollRegion).toHaveClass("overflow-x-auto");
+    expect(scrollRegion).not.toHaveClass("overflow-hidden");
+    expect(scrollRegion).toHaveAttribute("role", "region");
+    expect(scrollRegion).toHaveAttribute("aria-label", "Hourly tide data");
+    expect(scrollRegion).toHaveAttribute("tabIndex", "0");
+  });
+});
+
+describe("TideHourlyTableCompact", () => {
+  const now = new Date();
+  const mockData: TideHourlyPoint[] = [
+    { time: new Date(now), height: 3.2, trend: "rising" },
+    { time: new Date(now.getTime() + 3600000), height: 4.1, trend: "rising" },
+    { time: new Date(now.getTime() + 7200000), height: 4.8, trend: "peak", isHigh: true },
+    { time: new Date(now.getTime() + 10800000), height: 4.5, trend: "falling" },
+  ];
+
+  it("uses one column on small screens and two columns from md up", () => {
+    render(<TideHourlyTableCompact data={mockData} now={now} />);
+
+    const grid = screen.getByTestId("tide-hourly-table-compact-grid");
+
+    expect(grid).toHaveClass("grid-cols-1", "md:grid-cols-2");
+  });
+
+  it("keeps both compact tables horizontally scrollable and keyboard reachable", () => {
+    render(<TideHourlyTableCompact data={mockData} now={now} />);
+
+    const scrollRegions = [
+      screen.getByTestId("tide-hourly-table-compact-left-scroll"),
+      screen.getByTestId("tide-hourly-table-compact-right-scroll"),
+    ];
+
+    scrollRegions.forEach((scrollRegion) => {
+      expect(scrollRegion).toHaveClass("overflow-x-auto");
+      expect(scrollRegion).not.toHaveClass("overflow-hidden");
+      expect(scrollRegion).toHaveAttribute("role", "region");
+      expect(scrollRegion).toHaveAttribute("aria-label");
+      expect(scrollRegion).toHaveAttribute("tabIndex", "0");
+    });
   });
 });
 

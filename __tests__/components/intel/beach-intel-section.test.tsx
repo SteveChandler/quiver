@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
 import { useIntelData } from "@/hooks/use-intel-data";
 import { useAuth } from "@/context/auth-context";
@@ -9,11 +9,16 @@ import {
 } from "@/actions/intel-actions";
 import { toast } from "sonner";
 
+const mockTrack = jest.fn();
+
 // Mock dependencies
 jest.mock("@/hooks/use-intel-data");
 jest.mock("@/context/auth-context");
 jest.mock("@/actions/intel-actions");
 jest.mock("sonner");
+jest.mock("@/hooks/use-track-event", () => ({
+  useTrackEvent: () => ({ track: mockTrack }),
+}));
 jest.mock("@/components/intel/intel-post-form", () => ({
   IntelPostForm: ({ isOpen, onClose, onSuccess }: any) =>
     isOpen ? (
@@ -147,6 +152,7 @@ const mockIntelDataReturn = (overrides: {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockTrack.mockClear();
   mockUseAuth.mockReturnValue(mockAuthReturn());
   mockToast.success = jest.fn();
   mockToast.error = jest.fn();
@@ -190,7 +196,7 @@ describe("BeachIntelSection", () => {
   });
 
   describe("Empty State", () => {
-    it("shows empty state message when no posts", () => {
+    it("shows a beach-specific, low-friction reporting ask when no posts", () => {
       mockUseIntelData.mockReturnValue({
         data: { posts: [], total: 0, filters: defaultFilters },
         loading: false,
@@ -203,16 +209,21 @@ describe("BeachIntelSection", () => {
 
       render(<BeachIntelSection {...defaultProps} />);
 
-      expect(screen.getByText("No local intel yet")).toBeInTheDocument();
       expect(
         screen.getByText(
-          `Be the first to share intel about ${defaultProps.beachName}`
+          `What are conditions at ${defaultProps.beachName} right now?`
         )
       ).toBeInTheDocument();
-      expect(screen.getByText("Add First Intel")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Share a quick local check—wave size, wind, crowd, or hazards. A few taps is enough."
+        )
+      ).toBeInTheDocument();
+      expect(screen.getByText("Report current conditions")).toBeInTheDocument();
+      expect(screen.getByText("No photo or polished write-up needed.")).toBeInTheDocument();
     });
 
-    it("opens post form when clicking 'Add First Intel'", () => {
+    it("opens the compose form from the empty-state reporting ask", () => {
       mockUseIntelData.mockReturnValue({
         data: { posts: [], total: 0, filters: defaultFilters },
         loading: false,
@@ -225,7 +236,7 @@ describe("BeachIntelSection", () => {
 
       render(<BeachIntelSection {...defaultProps} />);
 
-      fireEvent.click(screen.getByText("Add First Intel"));
+      fireEvent.click(screen.getByText("Report current conditions"));
       expect(screen.getByTestId("intel-post-form")).toBeInTheDocument();
     });
   });
@@ -284,6 +295,152 @@ describe("BeachIntelSection", () => {
       // Clickable avatar present with correct user id
       const avatarBtn = screen.getByTestId("user-avatar-button");
       expect(avatarBtn).toHaveAttribute("data-user-id", mockIntelPost.user_id);
+      expect(screen.getByTestId("user-intel-card")).toBeInTheDocument();
+      expect(screen.queryByTestId("system-intel-card")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("system-author-label")).not.toBeInTheDocument();
+    });
+
+    it("renders an automated post as a Quiver system card without a personal avatar", () => {
+      const automatedPost = {
+        ...mockIntelPost,
+        id: "system-post",
+        user_id: "system-user",
+        user: {
+          id: "system-user",
+          full_name: "Quiver Forecast Bot",
+          avatar_url: "https://example.com/personal-looking-avatar.jpg",
+          is_system_account: true,
+        },
+      };
+
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [automatedPost] as any },
+      }));
+
+      render(<BeachIntelSection {...defaultProps} />);
+
+      expect(screen.getByTestId("system-intel-card")).toBeInTheDocument();
+      expect(screen.getByTestId("system-author-mark")).toHaveAttribute(
+        "aria-label",
+        "Quiver system automated report"
+      );
+      expect(screen.getByTestId("system-author-label")).toHaveTextContent(
+        "Quiver system"
+      );
+      expect(screen.getByTestId("system-post-disclosure")).toHaveTextContent(
+        "Automated report generated from forecast and beach data—not a live surfer report."
+      );
+      expect(screen.queryByTestId("user-avatar-button")).not.toBeInTheDocument();
+    });
+
+    it("tracks prompt impressions and the report-conditions CTA separately from authorship", async () => {
+      const promptPost = {
+        ...mockIntelPost,
+        id: "system-prompt-post",
+        user_id: "system-user",
+        surf_conditions: {
+          system_card: true,
+          content_class: "prompt",
+          prompt: true,
+          market_key: "ca:san-diego",
+        },
+        user: {
+          id: "system-user",
+          full_name: "Quiver Forecast Bot",
+          avatar_url: null,
+          is_system_account: true,
+        },
+      };
+
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [promptPost] as any },
+      }));
+
+      render(<BeachIntelSection {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(mockTrack).toHaveBeenCalledWith("cta_impression", expect.objectContaining({
+          beachId: undefined,
+          metadata: expect.objectContaining({
+            cta_id: "system_card_prompt",
+            card_id: "system-prompt-post",
+            prompt: true,
+          }),
+          debounceMs: 0,
+        }));
+      });
+
+      mockTrack.mockClear();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId("report-conditions"));
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId("conditions-report-card")).toBeInTheDocument();
+      });
+
+      expect(mockTrack).toHaveBeenCalledWith("cta_click", {
+        beachId: "beach123",
+        metadata: {
+          cta: "check_conditions",
+          location: "system_card_prompt",
+        },
+        debounceMs: 0,
+      });
+    });
+
+    it("renders structured conditions fields as chips", () => {
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: {
+          posts: [
+            {
+              ...mockIntelPost,
+              wave_size_range: "2-3ft",
+              vibe: "fun",
+              description: "Clean lines and a light offshore breeze",
+            },
+          ] as any,
+        },
+      }));
+
+      render(<BeachIntelSection {...defaultProps} />);
+
+      expect(screen.getByTestId("conditions-chips")).toHaveTextContent("2-3ft");
+      expect(screen.getByTestId("conditions-chips")).toHaveTextContent("🤙 Fun");
+      expect(screen.getByText("Clean lines and a light offshore breeze")).toBeInTheDocument();
+    });
+
+    it("keeps legacy conditions posts text-only when structured fields are absent", () => {
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [mockIntelPost] as any },
+      }));
+
+      render(<BeachIntelSection {...defaultProps} />);
+
+      expect(screen.queryByTestId("conditions-chips")).not.toBeInTheDocument();
+      expect(screen.getByText(mockIntelPost.description)).toBeInTheDocument();
+    });
+
+    it("resolves an approved report video only after the tile is clicked", async () => {
+      const fetchMock = jest.spyOn(global, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ url: "https://signed.example/report.mp4" }), { status: 200 }),
+      );
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: {
+          posts: [{ ...mockIntelPost, session_id: "session-report", video_media_id: "media-report" }] as any,
+        },
+      }));
+
+      render(<BeachIntelSection {...defaultProps} />);
+
+      expect(screen.getByRole("button", { name: "Play local spot report video" })).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Play local spot report video" }));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+        "/api/sessions/session-report/videos/media-report",
+      ));
+      await waitFor(() => expect(document.querySelector("video")).toHaveAttribute("src", "https://signed.example/report.mp4"));
+      fetchMock.mockRestore();
     });
 
     it("shows post count badge when posts exist", () => {

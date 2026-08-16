@@ -251,11 +251,11 @@ export function IntelConditionsFields({
                 key={option.value}
                 type="button"
                 onClick={() => onForecastAccuracyChange(option.value)}
-                className={`p-4 rounded-lg border-2 transition-all ${
+                className={`p-4 rounded-lg border-2 transition-colors ${
                   isSelected
                     ? "border-blue-500 bg-blue-50"
                     : `border-gray-200 ${option.bgColor}`
-                }`}
+                }` + " focus-ring"}
               >
                 <div className="flex flex-col items-center gap-2">
                   <IconComponent

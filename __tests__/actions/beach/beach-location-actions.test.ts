@@ -9,6 +9,15 @@ import {
 
 jest.mock('@/lib/supabase/server');
 
+jest.mock('@/lib/recommendations/major-event-hold/water-quality-visibility', () => ({
+  filterBeachesByWaterQualityVisibility: jest.fn(async (beaches) => beaches),
+}));
+
+const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) => beaches);
+jest.mock('@/lib/recommendations/selection', () => ({
+  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
+}));
+
 const mockCreate = createPublicReadClient as jest.Mock;
 
 /**
@@ -397,7 +406,11 @@ describe('getNearbyBeaches country hydration', () => {
       }),
       from: jest.fn(() => ({
         select: jest.fn(() => ({
-          in: jest.fn().mockResolvedValue(countryResult),
+          or: jest.fn(() => ({
+            is: jest.fn(() => ({
+              in: jest.fn().mockResolvedValue(countryResult),
+            })),
+          })),
         })),
       })),
     } as any;
@@ -428,15 +441,15 @@ describe('getNearbyBeaches country hydration', () => {
     expect(result.error).toBe('country lookup failed');
   });
 
-  it('fails the nearby result when country hydration is incomplete', async () => {
+  it('drops RPC rows that cannot be confirmed publicly visible', async () => {
     mockCreate.mockReturnValue(
       makeNearbySupabaseFake({ data: [], error: null }),
     );
 
     const result = await getNearbyBeaches(32.2, -117.1);
 
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('country hydration was incomplete');
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual([]);
   });
 
   it.each([null, '', '   '])(

@@ -21,6 +21,8 @@ import {
   DIRECTION_FACTOR_MIN,
   DIRECTION_FACTOR_RANGE,
   SET_WAVE_VARIANCE,
+  POPULATION_PRIOR_BUCKETS,
+  POPULATION_PRIOR_PROVENANCE,
   type BeachTerrainConfig,
   type ShoalingFactors,
   type SwellComponentInput,
@@ -579,16 +581,65 @@ describe('Wave Height Transformer', () => {
         expect(result).toBe(2.0);
       });
 
-      it('should fall through to legacy pipeline when factors is null (uncalibrated beach)', () => {
-        // ~190 CDIP-override beaches that haven't been calibrated yet stay on the legacy path.
-        // 1.7 ft @ 14s, no terrain: 1.7 * 1.0 * 1.2 (capped) * 1.0 = 2.04 → rounds to 2.0
+      it('should apply the measured population prior when factors are null', () => {
+        // Regression: uncalibrated beaches must use the measured population
+        // prior instead of the old flat 1.0 base factor. At 14s the prior is
+        // 1.119, so 1.7 × 1.119 × 1.2 = 2.28456 → 2.3ft.
         const result = transformToFaceHeight({
           rawHeightFt: 1.7,
           periodS: 14,
           swellDirectionDeg: null,
           beach: { shoaling_factors: null },
         });
-        expect(result).toBe(2.0);
+        expect(result).toBe(2.3);
+      });
+
+      it('uses the four prior factors by the existing period bucket boundaries', () => {
+        // Regression: changing a boundary or factor would move every
+        // uncalibrated beach into the wrong population correction.
+        const expectedFactors = [0.955, 1.02, 1.119, 1.139];
+        expect(POPULATION_PRIOR_BUCKETS.map((bucket) => bucket.factor)).toEqual(
+          expectedFactors,
+        );
+
+        for (const [periodS, expectedFactor] of [
+          [6, 0.955],
+          [10, 1.02],
+          [14, 1.119],
+          [18, 1.139],
+        ] as const) {
+          const result = transformToFaceHeightWithMetadata({
+            rawHeightFt: 2,
+            periodS,
+            swellDirectionDeg: null,
+            beach: { shoaling_factors: null },
+            source: 'cdip_sig',
+          });
+
+          expect(result.faceHeightFt).toBe(
+            Math.round(2 * expectedFactor * calculatePeriodFactor(periodS) * 10) / 10,
+          );
+          expect(result.provenance).toBe(POPULATION_PRIOR_PROVENANCE);
+          expect(result.isCalibrated).toBe(false);
+        }
+      });
+
+      it('does not write the prior into shoaling_factors', () => {
+        // Regression: the prior is a read-only fallback. Persisting it in the
+        // measured calibration slot would falsely promote the beach in the UI.
+        const beach: BeachTerrainConfig = { shoaling_factors: null };
+        const before = JSON.stringify(beach.shoaling_factors);
+
+        transformToFaceHeightWithMetadata({
+          rawHeightFt: 1.7,
+          periodS: 18,
+          swellDirectionDeg: null,
+          beach,
+          source: 'cdip_sig',
+        });
+
+        expect(JSON.stringify(beach.shoaling_factors)).toBe(before);
+        expect(beach.shoaling_factors).toBeNull();
       });
 
       it('should handle period exactly at bucket boundary using half-open intervals', () => {
@@ -945,6 +996,28 @@ describe('Wave Height Transformer', () => {
       });
       expect(result.faceHeightFt).toBe(3.6);
       expect(result.isCalibrated).toBe(true);
+      expect(result.provenance).toBe('measured');
+    });
+
+    it('keeps calibrated bucket output byte-for-byte unchanged and never uses the prior', () => {
+      // Regression: adding a population prior must not alter measured beach
+      // output or mutate the measured shoaling_factors payload.
+      const beach = createCalibratedBeach();
+      const before = JSON.stringify(beach);
+      const outputs = [6, 10, 14, 18].map((periodS) =>
+        transformToFaceHeightWithMetadata({
+          rawHeightFt: 2,
+          periodS,
+          swellDirectionDeg: null,
+          beach,
+          source: 'cdip_sig',
+        }),
+      );
+
+      expect(outputs.map((result) => result.faceHeightFt)).toEqual([3.2, 3.4, 4.2, 4.8]);
+      expect(outputs.every((result) => result.provenance === 'measured')).toBe(true);
+      expect(outputs.every((result) => result.isCalibrated)).toBe(true);
+      expect(JSON.stringify(beach)).toBe(before);
     });
 
     it('returns isCalibrated false for cdip_sig without shoaling factors', () => {
@@ -955,9 +1028,12 @@ describe('Wave Height Transformer', () => {
         beach: createMlOnlyBeach(),
         source: 'cdip_sig',
       });
-      // legacy pipeline: 1.7 * 1.0 * 1.2 * 1.0 = 2.04 → 2.0
-      expect(result.faceHeightFt).toBe(2.0);
+      // Regression: the uncalibrated long-period path must carry the prior
+      // provenance and value, while retaining isCalibrated=false for UI honesty.
+      // 1.7 * 1.119 * 1.2 = 2.28456 → 2.3.
+      expect(result.faceHeightFt).toBe(2.3);
       expect(result.isCalibrated).toBe(false);
+      expect(result.provenance).toBe('population_prior_v1');
     });
 
     it('returns isCalibrated false for model_swell even with factors', () => {
@@ -970,6 +1046,7 @@ describe('Wave Height Transformer', () => {
       });
       expect(result.faceHeightFt).toBe(2.0);
       expect(result.isCalibrated).toBe(false);
+      expect(result.provenance).toBe('generic');
     });
 
     it('quarantines low long-period CDIP buckets and uses the generic path', () => {
@@ -1120,7 +1197,7 @@ describe('Wave Height Transformer', () => {
       expect(result.isCalibrated).toBe(false);
     });
 
-    it('returns { 0, false } for invalid rawHeightFt', () => {
+    it('returns { 0, false, generic } for invalid rawHeightFt', () => {
       expect(
         transformToFaceHeightWithMetadata({
           rawHeightFt: -1,
@@ -1129,7 +1206,7 @@ describe('Wave Height Transformer', () => {
           beach: createCalibratedBeach(),
           source: 'cdip_sig',
         })
-      ).toEqual({ faceHeightFt: 0, isCalibrated: false });
+      ).toEqual({ faceHeightFt: 0, isCalibrated: false, provenance: 'generic' });
 
       expect(
         transformToFaceHeightWithMetadata({
@@ -1139,7 +1216,7 @@ describe('Wave Height Transformer', () => {
           beach: createCalibratedBeach(),
           source: 'cdip_sig',
         })
-      ).toEqual({ faceHeightFt: 0, isCalibrated: false });
+      ).toEqual({ faceHeightFt: 0, isCalibrated: false, provenance: 'generic' });
     });
 
     it('faceHeightFt matches transformToFaceHeight for all source gates', () => {
@@ -1646,7 +1723,7 @@ describe('Wave Height Transformer', () => {
       expect(result.faceHeightFt).toBeLessThanOrEqual(4.0);
     });
 
-    it('uncalibrated beach (null shoaling_factors) still decomposes via calculatePeriodFactor', () => {
+    it('uncalibrated beach (null shoaling_factors) still decomposes via the population prior', () => {
       const uncalibrated: BeachTerrainConfig = {
         terrain_enabled: false,
         swell_access_factors: null,
@@ -1668,12 +1745,13 @@ describe('Wave Height Transformer', () => {
         swellDirectionDeg: 247.5,
       });
 
-      // 3.0 × BASE_SHOALING × calculatePeriodFactor(14) × alignment(1.0)
-      // BASE_SHOALING=1.0, period factor at 14s = 1.2 (clamped).
-      // RMS of single component = face_1 = 3.6.
+      // Regression: decomposed and scalar paths must agree on the prior.
+      // 3.0 × 1.119 × calculatePeriodFactor(14) × alignment(1.0)
+      // = 4.0284 → 4.0ft.
       expect(result.path).toBe('decomposed');
       expect(result.isCalibrated).toBe(false);
-      expect(result.faceHeightFt).toBeCloseTo(3.6, 1);
+      expect(result.provenance).toBe('population_prior_v1');
+      expect(result.faceHeightFt).toBeCloseTo(4.0, 1);
     });
 
     it('falls back to legacy when every component is null', () => {
@@ -2081,7 +2159,8 @@ describe('Wave Height Transformer', () => {
       // Legacy fallback: raw 1.9 × bucket(7s)=1.03 = 1.957 → rounds to 2.0.
       expect(result.path).toBe('legacy');
       expect(result.faceHeightFt).toBeGreaterThan(0);
-      expect(result.faceHeightFt).toBeLessThanOrEqual(2.5);
+      // The uncalibrated prior raises the old 2.3ft result to 2.6ft.
+      expect(result.faceHeightFt).toBeLessThanOrEqual(2.6);
     });
 
     it('La Jolla Shores model SSW fixture stays in the NOAA/Surfline 2ft+ neighborhood', () => {
@@ -2150,7 +2229,8 @@ describe('Wave Height Transformer', () => {
 
       expect(result.path).toBe('decomposed');
       expect(result.faceHeightFt).toBeGreaterThan(0.5);
-      expect(result.faceHeightFt).toBeLessThanOrEqual(2.5);
+      // The uncalibrated prior raises the old 2.3ft result to 2.6ft.
+      expect(result.faceHeightFt).toBeLessThanOrEqual(2.6);
     });
 
     it('OB Pier model-source 192° long-period south swell stays nonzero despite strict window zero', () => {

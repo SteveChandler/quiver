@@ -71,7 +71,7 @@ export const TIER_COLORS: Record<ConditionTier, {
   text: string;
   badge: string;
 }> = {
-  great: {
+  epic: {
     bg: 'bg-amber-500',
     border: 'border-amber-600',
     text: 'text-white',
@@ -89,9 +89,15 @@ export const TIER_COLORS: Record<ConditionTier, {
     text: 'text-white',
     badge: 'bg-blue-300/30',
   },
-  marginal: {
+  rideable: {
     bg: 'bg-[#2D357D]',
     border: 'border-[#354090]',
+    text: 'text-slate-300',
+    badge: 'bg-slate-400/20',
+  },
+  meh: {
+    bg: 'bg-slate-600',
+    border: 'border-slate-700',
     text: 'text-slate-300',
     badge: 'bg-slate-400/20',
   },
@@ -99,10 +105,11 @@ export const TIER_COLORS: Record<ConditionTier, {
 
 /** Hex color values for each tier (for use in Recharts/SVG contexts) */
 export const TIER_COLOR_HEX: Record<ConditionTier, string> = {
-  great: "#f59e0b",
+  epic: "#f59e0b",
   good: "#10b981",
   fair: "#60a5fa",
-  marginal: "#7F96AD",
+  rideable: "#7F96AD",
+  meh: "#64748B",
 };
 
 /**
@@ -351,33 +358,22 @@ export function aggregateDayForecasts(
 /**
  * Format wave height range for display
  */
-export function formatWaveRange(minHeight: number, maxHeight: number): string {
-  if (minHeight <= 0 && maxHeight <= 0) {
-    return 'Flat';
-  }
-
-  const minInt = Math.max(0, Math.floor(minHeight));
-  const maxInt = Math.ceil(maxHeight);
-
-  if (minInt === maxInt) {
-    return `${minInt}ft`;
-  }
-
-  return `${minInt}-${maxInt}ft`;
-}
+export { formatWaveRange } from '@/lib/utils/wave-formatters';
 
 /**
  * Get tier label for accessibility
  */
 export function getTierLabel(tier: ConditionTier): string {
   switch (tier) {
-    case 'great':
-      return 'Great conditions';
+    case 'epic':
+      return 'EPIC conditions';
     case 'good':
-      return 'Good conditions';
+      return 'GOOD conditions';
     case 'fair':
-      return 'Fair conditions';
-    case 'marginal':
-      return 'Marginal conditions';
+      return 'FAIR conditions';
+    case 'rideable':
+      return 'RIDEABLE conditions';
+    case 'meh':
+      return 'MEH conditions';
   }
 }

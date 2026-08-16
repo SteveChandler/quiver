@@ -163,7 +163,7 @@ export function AlertCaptureCta({
           <div className="flex-shrink-0">
             <Button
               onClick={handleCtaClick}
-              className="rounded-full bg-[#F78E42] hover:bg-[#F78E42]/90 text-white px-6 shadow-sm hover:shadow-md font-semibold"
+              className="rounded-full bg-[#F78E42] hover:bg-[#F78E42]/90 text-[#11100D] px-6 shadow-sm hover:shadow-md font-semibold"
               data-testid="alert-capture-primary-cta"
             >
               {config.buttonText}

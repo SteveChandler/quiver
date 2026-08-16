@@ -5,6 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
 
@@ -32,8 +33,23 @@ async function _GET(request: Request): Promise<Response> {
     console.error(`${CONTEXT_TAG} delete failed:`, error);
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
-  console.log(`${CONTEXT_TAG} deleted ${count ?? 0} expired captures`);
-  return NextResponse.json({ ok: true, deleted: count ?? 0 });
+
+  const outcome = await withCronOutcome(
+    {
+      job: "/api/cron/cleanup-pending-alert-captures",
+      unit: "captures_deleted",
+      expectedMin: 1,
+      getProduced: (value) => value.deleted,
+      legitimatelyZero: (value) =>
+        value.deleted === 0
+          ? { reason: "No expired, unconsumed alert captures were present" }
+          : undefined,
+    },
+    async () => ({ deleted: count ?? 0 }),
+  );
+
+  console.log(`${CONTEXT_TAG} deleted ${outcome.deleted} expired captures`);
+  return NextResponse.json({ ok: true, ...outcome });
 }
 
 export const GET = withObservedCron("/api/cron/cleanup-pending-alert-captures", _GET);

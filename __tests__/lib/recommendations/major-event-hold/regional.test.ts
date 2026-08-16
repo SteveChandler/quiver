@@ -79,6 +79,25 @@ function decision(
   };
 }
 
+function waterQualityDecision(
+  candidateId: string,
+): MajorEventHoldCandidateDecision {
+  return {
+    candidateId,
+    evaluation: {
+      outcome: "explicit_none",
+      reasonCode: "water_quality_hold",
+      holdIds: ["water-quality:held"],
+      holdEpoch: EPOCH,
+    },
+    recommendationAvailability: {
+      state: "none",
+      reasonCode: "water_quality_hold",
+      holdEpoch: EPOCH,
+    },
+  };
+}
+
 function surfWindow(
   beachId: string,
   index: number,
@@ -392,6 +411,33 @@ describe("regional major-event hold adapter", () => {
       state: "available",
       holdEpoch: EPOCH,
     });
+  });
+
+  it("removes a water-quality-held beach from regional best-days output", () => {
+    const summary = fixture();
+    const candidates = buildRegionalMajorEventHoldCandidates(summary);
+    const heldBeachId = BEACH_IDS[0];
+    const decisions = candidates.map((candidate) =>
+      candidate.beachId === heldBeachId
+        ? waterQualityDecision(candidate.candidateId)
+        : decision(candidate.candidateId, "allow"),
+    );
+
+    const result = sanitizeRegionalForecastForMajorEventHold(
+      summary,
+      candidates,
+      decisions,
+    );
+
+    expect(result.days.flatMap(({ topBeaches }) => topBeaches).map(({ id }) => id)).not.toContain(
+      heldBeachId,
+    );
+    expect(result.bestSurfWindows?.map(({ beach }) => beach.id)).not.toContain(
+      heldBeachId,
+    );
+    expect(result.beachConditions.map(({ beachId }) => beachId)).not.toContain(
+      heldBeachId,
+    );
   });
 
   it("fails closed without erasing objective daily wave, wind, or tide data", () => {

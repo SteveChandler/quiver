@@ -212,13 +212,21 @@ describe("Map Forecast Basic Tests", () => {
       background: "#F4EBD8",
       color: "#11100D",
     });
-    expect(screen.getByText("Worth it")).toBeInTheDocument();
-    expect(screen.getByText("Maybe")).toBeInTheDocument();
-    expect(screen.getByText("Scout it")).toBeInTheDocument();
+    expect(screen.queryByText("Go now!")).toBeNull();
+    fireEvent.click(
+      within(legend).getByRole("button", { name: "Expand map legend" }),
+    );
+    expect(screen.getByText("Go now!")).toBeInTheDocument();
+    expect(screen.getByText("Go surf!")).toBeInTheDocument();
+    expect(screen.getByText("Worth a look")).toBeInTheDocument();
+    expect(screen.getByText("Slim pickings")).toBeInTheDocument();
+    expect(screen.getByText("Skip it")).toBeInTheDocument();
     expect(screen.getByText("No read")).toBeInTheDocument();
+    expect(screen.queryByText("EPIC")).toBeNull();
     expect(screen.queryByText("GOOD")).toBeNull();
     expect(screen.queryByText("FAIR")).toBeNull();
-    expect(screen.queryByText("CHECK")).toBeNull();
+    expect(screen.queryByText("RIDEABLE")).toBeNull();
+    expect(screen.queryByText("MEH")).toBeNull();
     expect(screen.queryByText("UNKNOWN")).toBeNull();
   });
 
@@ -258,8 +266,26 @@ describe("Map Forecast Basic Tests", () => {
                 ],
                 partitionsByBeach: {
                   "d030911e-71ba-4678-8bbb-cd06a30f8c42": [
-                    { s1Dir: 270, s1PeriodS: 14, s1HeightFt: 3.9 },
-                    { s1Dir: 280, s1PeriodS: 15, s1HeightFt: 4.2 },
+                    {
+                      s1Dir: 270,
+                      s1PeriodS: 14,
+                      s1HeightFt: 3.9,
+                      s2Dir: null,
+                      s2PeriodS: null,
+                      s2HeightFt: null,
+                      windDir: null,
+                      windMph: null,
+                    },
+                    {
+                      s1Dir: 280,
+                      s1PeriodS: 15,
+                      s1HeightFt: 4.2,
+                      s2Dir: null,
+                      s2PeriodS: null,
+                      s2HeightFt: null,
+                      windDir: null,
+                      windMph: null,
+                    },
                   ],
                 },
                 hasMore: false,
@@ -308,6 +334,9 @@ describe("Map Forecast Basic Tests", () => {
     );
 
     const legend = screen.getByTestId("map-condition-legend");
+    fireEvent.click(
+      within(legend).getByRole("button", { name: "Expand map legend" }),
+    );
     const selector = within(legend).getByTestId("swell-layer-selector");
 
     expect(selector).toBeInTheDocument();
@@ -318,7 +347,7 @@ describe("Map Forecast Basic Tests", () => {
     );
   });
 
-  it("should minimize the bottom legend while keeping the timeline available", async () => {
+  it("should open the bottom legend minimized while keeping the timeline available", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
 
     render(
@@ -332,11 +361,7 @@ describe("Map Forecast Basic Tests", () => {
 
     const legend = screen.getByTestId("map-condition-legend");
 
-    fireEvent.click(
-      within(legend).getByRole("button", { name: "Minimize map legend" })
-    );
-
-    expect(within(legend).queryByText("Worth it")).toBeNull();
+    expect(within(legend).queryByText("Go now!")).toBeNull();
     expect(within(legend).queryByTestId("swell-layer-selector")).toBeNull();
     expect(within(legend).getByTestId("swell-forecast-timeline")).toBeInTheDocument();
     expect(
@@ -347,8 +372,13 @@ describe("Map Forecast Basic Tests", () => {
       within(legend).getByRole("button", { name: "Expand map legend" })
     );
 
-    expect(within(legend).getByText("Worth it")).toBeInTheDocument();
+    expect(within(legend).getByText("Go now!")).toBeInTheDocument();
     expect(within(legend).getByTestId("swell-layer-selector")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(legend).getByRole("button", { name: "Minimize map legend" }),
+    );
+    expect(within(legend).queryByText("Go now!")).toBeNull();
   });
 
   it("should call Mapbox Map constructor with correct parameters", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useId } from "react";
 import { X } from "lucide-react";
 import type { AlertConditions } from "@/lib/alerts/types";
 
@@ -209,21 +209,48 @@ function ConditionRow({
   onRemove: () => void;
 }) {
   const ct = CONDITION_TYPES.find((c) => c.key === conditionKey)!;
+  const labelId = useId();
+  const rangeErrorId = useId();
 
   const updateField = (field: string, value: unknown) => {
     onChange({ ...conditions, [field]: value });
   };
 
+  // Range inversion is currently signalled by border colour alone. Surface it as
+  // text too so it survives WCAG 1.4.1 (use of colour) and screen readers.
+  const swellRangeInverted =
+    conditions.swell_height_min != null &&
+    conditions.swell_height_max != null &&
+    conditions.swell_height_max < conditions.swell_height_min;
+  const tideRangeInverted =
+    conditions.tide_height_min_ft != null &&
+    conditions.tide_height_max_ft != null &&
+    conditions.tide_height_max_ft < conditions.tide_height_min_ft;
+  // `conditions` is the shared object every row receives, so the message has to
+  // be scoped to this row's own key — otherwise a bad swell range prints the
+  // error on Wind Speed, which has no range at all.
+  const rangeInverted =
+    (conditionKey === "swell_height" && swellRangeInverted) ||
+    (conditionKey === "tide_height" && tideRangeInverted);
+
   return (
-    <div className="flex flex-col gap-2 rounded-sm border-2 border-[#11100D]/50 bg-[#FFF9EA] px-3 py-2 sm:flex-row sm:items-center">
-      <span className="min-w-[92px] font-[family-name:var(--font-space-grotesk)] text-xs font-black uppercase tracking-[0.03em] text-[#11100D]">
+    <div
+      role="group"
+      aria-labelledby={labelId}
+      className="flex flex-col gap-2 rounded-sm border-2 border-[#11100D]/50 bg-[#FFF9EA] px-3 py-2 sm:flex-row sm:items-center"
+    >
+      <span
+        id={labelId}
+        className="min-w-[92px] font-[family-name:var(--font-space-grotesk)] text-xs font-black uppercase tracking-[0.03em] text-[#11100D]"
+      >
         {ct.label}
       </span>
-      <div className="flex flex-1 flex-wrap items-center gap-2">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
         {conditionKey === "swell_height" && (
           <>
             <input
               type="number"
+              aria-label="Minimum swell size, feet"
               value={conditions.swell_height_min ?? ""}
               onChange={(e) =>
                 updateField(
@@ -239,6 +266,9 @@ function ConditionRow({
             <span className="text-xs font-bold text-[#403A2E]">to</span>
             <input
               type="number"
+              aria-label="Maximum swell size, feet"
+              aria-invalid={swellRangeInverted}
+              aria-describedby={swellRangeInverted ? rangeErrorId : undefined}
               value={conditions.swell_height_max ?? ""}
               onChange={(e) =>
                 updateField(
@@ -248,11 +278,7 @@ function ConditionRow({
               }
               placeholder="max ft"
               className={`w-16 ${inputClasses} ${
-                conditions.swell_height_min != null &&
-                conditions.swell_height_max != null &&
-                conditions.swell_height_max < conditions.swell_height_min
-                  ? "border-red-400/60"
-                  : ""
+                swellRangeInverted ? "border-red-600" : ""
               }`}
               step="0.5"
               min="0"
@@ -262,6 +288,7 @@ function ConditionRow({
         {conditionKey === "swell_period" && (
           <input
             type="number"
+            aria-label="Minimum swell period, seconds"
             value={conditions.swell_period_min ?? ""}
             onChange={(e) =>
               updateField(
@@ -294,6 +321,7 @@ function ConditionRow({
         )}
         {conditionKey === "wind_direction" && (
           <select
+            aria-label="Wind direction"
             value={conditions.wind_direction ?? ""}
             onChange={(e) =>
               updateField("wind_direction", e.target.value || undefined)
@@ -308,6 +336,7 @@ function ConditionRow({
         {conditionKey === "wind_speed" && (
           <input
             type="number"
+            aria-label="Maximum wind speed, knots"
             value={conditions.wind_speed_max_kt ?? ""}
             onChange={(e) =>
               updateField(
@@ -324,6 +353,7 @@ function ConditionRow({
           <>
             <input
               type="number"
+              aria-label="Minimum tide height, feet"
               value={conditions.tide_height_min_ft ?? ""}
               onChange={(e) =>
                 updateField(
@@ -339,6 +369,9 @@ function ConditionRow({
             <span className="text-xs font-bold text-[#403A2E]">to</span>
             <input
               type="number"
+              aria-label="Maximum tide height, feet"
+              aria-invalid={tideRangeInverted}
+              aria-describedby={tideRangeInverted ? rangeErrorId : undefined}
               value={conditions.tide_height_max_ft ?? ""}
               onChange={(e) =>
                 updateField(
@@ -348,11 +381,7 @@ function ConditionRow({
               }
               placeholder="max ft"
               className={`w-16 ${inputClasses} ${
-                conditions.tide_height_min_ft != null &&
-                conditions.tide_height_max_ft != null &&
-                conditions.tide_height_max_ft < conditions.tide_height_min_ft
-                  ? "border-red-400/60"
-                  : ""
+                tideRangeInverted ? "border-red-600" : ""
               }`}
               step="0.5"
               min="0"
@@ -361,6 +390,7 @@ function ConditionRow({
         )}
         {conditionKey === "tide_direction" && (
           <select
+            aria-label="Tide direction"
             value={conditions.tide_direction ?? ""}
             onChange={(e) =>
               updateField("tide_direction", e.target.value || undefined)
@@ -373,10 +403,19 @@ function ConditionRow({
             <option value="low">Low</option>
           </select>
         )}
+        {rangeInverted && (
+          <p
+            id={rangeErrorId}
+            role="alert"
+            className="w-full text-xs font-bold text-[#B42318]"
+          >
+            Max must be higher than min.
+          </p>
+        )}
       </div>
       <button
         onClick={onRemove}
-        className="-mr-2 flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-sm text-[#403A2E] transition-all hover:bg-red-100 hover:text-red-700 focus-visible:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 active:scale-95"
+        className="-mr-2 flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-sm text-[#403A2E] transition-[color,background-color,box-shadow,transform] hover:bg-red-100 hover:text-red-700 focus-visible:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 active:scale-95"
         aria-label={`Remove ${ct.label} condition`}
       >
         <X className="w-3.5 h-3.5" />
@@ -400,7 +439,7 @@ function CompassSelector({
           onClick={() => onChange(dir.label)}
           aria-label={`${dir.label} direction`}
           aria-pressed={value === dir.label}
-          className={`h-9 w-9 touch-action-manipulation rounded-sm border-2 font-mono text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/60 active:scale-95 ${
+          className={`h-9 w-9 touch-action-manipulation rounded-sm border-2 font-mono text-[11px] font-black transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/60 active:scale-95 ${
             value === dir.label
               ? "border-[#11100D] bg-[#F78E42] text-[#11100D]"
               : "border-[#11100D]/45 bg-[#FBF6E8] text-[#403A2E] hover:border-[#11100D]"

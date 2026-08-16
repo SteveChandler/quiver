@@ -18,6 +18,7 @@ import {
   type CanonicalSessionDecision,
 } from "@/lib/recommendations/canonical-decision";
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
+import { rankBeaches } from "@/lib/recommendations/selection";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +86,7 @@ async function coachPicksHandler(request: NextRequest) {
         candidates: [null],
         profileExperience,
         asOf: requestAsOf,
+        applyWaterQualityHolds: true,
       });
       const heldResponse = sanitizeCoachPicksForMajorEventHold(
         { picks: [] },
@@ -107,7 +109,31 @@ async function coachPicksHandler(request: NextRequest) {
     });
     if (error) throw error;
 
-    const picks = Array.isArray(data) ? data : [];
+    const rawPicks = Array.isArray(data) ? data : [];
+    const rankedPicks = await rankBeaches(
+      rawPicks.flatMap((pick, index) => (
+        isRecord(pick) && typeof pick.beach_id === "string"
+          ? [{ id: pick.beach_id, pick, index }]
+          : []
+      )),
+      {
+        compare: (left, right) => {
+          const leftScore = typeof left.pick.score === "number"
+            ? left.pick.score
+            : typeof left.pick.conditions_score === "number"
+              ? left.pick.conditions_score
+              : 0;
+          const rightScore = typeof right.pick.score === "number"
+            ? right.pick.score
+            : typeof right.pick.conditions_score === "number"
+              ? right.pick.conditions_score
+              : 0;
+          return rightScore - leftScore || left.index - right.index;
+        },
+        asOf: requestAsOf,
+      },
+    );
+    const picks = rankedPicks.map(({ pick }) => pick);
     const candidates = buildCoachPicksMajorEventHoldCandidates(
       picks,
       requestAsOf,
@@ -116,6 +142,7 @@ async function coachPicksHandler(request: NextRequest) {
       candidates,
       profileExperience,
       asOf: requestAsOf,
+      applyWaterQualityHolds: true,
     });
     const heldResponse = sanitizeCoachPicksForMajorEventHold(
       { picks },

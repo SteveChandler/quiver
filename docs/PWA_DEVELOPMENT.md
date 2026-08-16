@@ -6,6 +6,8 @@ This document describes Quiver's Progressive Web App (PWA) configuration and dev
 
 Quiver uses a PWA strategy that provides offline capabilities and native-like experience in production while preventing development issues caused by stale service worker caches.
 
+> **Retirement note (August 7, 2026):** Capacitor is not a dependency of this repository. This guide covers the current PWA and web-push implementation only; native app integration is maintained separately.
+
 ## Environment-Specific Behavior
 
 | Environment | PWA Status | Service Worker | Caching |
@@ -165,20 +167,10 @@ Located at `/public/manifest.json`:
 
 ## Mobile Integration
 
-PWA works alongside Capacitor for native mobile apps:
+The current web mobile surface is the PWA:
 
-- **Web (PWA)**: Service worker caching, push notifications via web APIs
-- **Native (Capacitor)**: Native plugins, Firebase Cloud Messaging
-
-Platform detection prevents conflicts:
-
-```typescript
-if (Capacitor.isNativePlatform()) {
-  // Use native push notification setup
-} else {
-  // Use web push (service worker)
-}
-```
+- **Web (PWA)**: Service worker caching and push notifications via web APIs
+- **Native app**: Maintained separately from this repository
 
 ## Troubleshooting
 

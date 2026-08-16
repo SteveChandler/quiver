@@ -8,10 +8,8 @@ The social components provide comprehensive community features including activit
 
 ```
 components/social/
-├── activity-feed.tsx            # Activity feed with filtering
 ├── follow-button.tsx            # Follow/unfollow functionality
 ├── followers-modal.tsx          # Followers/following list modal
-├── unified-community-feed.tsx   # Combined activity and session feed
 ├── user-profile-modal.tsx       # User profile quick view
 └── user-social-stats.tsx        # Social statistics display
 ```
@@ -22,10 +20,8 @@ components/social/
 
 ```typescript
 SocialSystem
-├── ActivityFeed (Personal/Global Activity)
 ├── FollowRelationships (User Connections)
 ├── UserProfiles (Social Identity)
-├── CommunityFeed (Unified Content)
 └── SocialStats (Engagement Metrics)
 ```
 
@@ -76,61 +72,6 @@ const handleOptimisticFollow = async (userId: string) => {
 ```
 
 ## 📊 **COMPONENT RESPONSIBILITIES**
-
-### **ActivityFeed** (Activity Stream)
-
-- **Purpose**: Display chronological activity feed with filtering
-- **Props**: `userId, limit, autoRefresh, className`
-- **Features**:
-  - Personal vs global feed modes
-  - Real-time activity updates
-  - Activity type filtering
-  - Infinite scroll pagination
-  - Auto-refresh capability
-
-**Activity Types:**
-
-```typescript
-interface ActivityFeedItem {
-  id: string;
-  user_id: string;
-  activity_type:
-    | "session_logged"
-    | "session_planned"
-    | "comment_posted"
-    | "beach_reviewed"
-    | "user_followed"
-    | "board_added";
-  entity_type: "session" | "comment" | "review" | "user" | "board";
-  entity_id: string;
-  created_at: string;
-  user: {
-    full_name: string;
-    avatar_url: string;
-  };
-}
-```
-
-**Activity Rendering:**
-
-```typescript
-const renderActivityText = (activity: ActivityFeedItem) => {
-  switch (activity.activity_type) {
-    case "session_logged":
-      return `logged a surf session at ${activity.metadata?.beach_name}`;
-    case "session_planned":
-      return `planned a surf session at ${activity.metadata?.beach_name}`;
-    case "comment_posted":
-      return `commented on a session`;
-    case "beach_reviewed":
-      return `reviewed ${activity.metadata?.beach_name}`;
-    case "user_followed":
-      return `started following ${activity.metadata?.target_user_name}`;
-    default:
-      return "had some activity";
-  }
-};
-```
 
 ### **FollowButton** (Relationship Management)
 
@@ -240,51 +181,6 @@ const fetchConnections = async () => {
   if (error) throw error;
   return data;
 };
-```
-
-### **UnifiedCommunityFeed** (Content Aggregation)
-
-- **Purpose**: Combined activity and session feed for community page
-- **Props**: `sessions, userId, loading, className`
-- **Features**:
-  - Mixed content types (activities + sessions)
-  - Chronological sorting
-  - Content deduplication
-  - Rich session previews
-  - User interaction handling
-
-**Content Aggregation:**
-
-```typescript
-type FeedItem = {
-  id: string;
-  type: "activity" | "session";
-  created_at: string;
-  data: ActivityFeedItem | SessionWithDetails;
-};
-
-const aggregatedFeed = useMemo(() => {
-  const activityItems: FeedItem[] = activities.map((activity) => ({
-    id: `activity-${activity.id}`,
-    type: "activity",
-    created_at: activity.created_at,
-    data: activity,
-  }));
-
-  const sessionItems: FeedItem[] = sessions.map((session) => ({
-    id: `session-${session.id}`,
-    type: "session",
-    created_at: session.created_at,
-    data: session,
-  }));
-
-  return [...activityItems, ...sessionItems]
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )
-    .slice(0, 50); // Limit for performance
-}, [activities, sessions]);
 ```
 
 ### **UserProfileModal** (Quick Profile View)
@@ -414,33 +310,6 @@ const debouncedSearch = useMemo(
 ```
 
 ## 🔄 **REAL-TIME FEATURES**
-
-### **Live Activity Updates**
-
-```typescript
-// Real-time activity feed updates
-useEffect(() => {
-  if (!autoRefresh) return;
-
-  const channel = supabase
-    .channel("activity_feed")
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "activities",
-        filter: userId ? `user_id=eq.${userId}` : undefined,
-      },
-      (payload) => {
-        setActivities((prev) => [payload.new as ActivityFeedItem, ...prev]);
-      }
-    )
-    .subscribe();
-
-  return () => supabase.removeChannel(channel);
-}, [userId, autoRefresh]);
-```
 
 ### **Follow Relationship Updates**
 

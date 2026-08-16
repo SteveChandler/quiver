@@ -16,11 +16,36 @@ import {
 import { YouTubeApiError } from "@/lib/youtube/types";
 import type { YouTubeCamRow, CamUpdateResult } from "@/lib/youtube/types";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
+
+interface YouTubeOutcome {
+  updated?: number;
+  processed?: number;
+  [key: string]: unknown;
+}
+
+async function recordYouTubeOutcome(result: YouTubeOutcome): Promise<YouTubeOutcome> {
+  return withCronOutcome(
+    {
+      job: "/api/cron/resolve-youtube-cams",
+      unit: "cams_updated",
+      expectedMin: 1,
+      getProduced: (value) => value.updated ?? 0,
+      legitimatelyZero: (value) =>
+        value.skip_reason === "config_missing"
+          ? { reason: "YOUTUBE_API_KEY is not configured" }
+          : value.processed === 0
+            ? { reason: "No YouTube camera rows were available to resolve" }
+            : undefined,
+    },
+    async () => result,
+  );
+}
 
 async function _GET(request: Request): Promise<Response> {
   const startTime = Date.now();
@@ -32,7 +57,7 @@ async function _GET(request: Request): Promise<Response> {
 
     const apiKey = process.env.YOUTUBE_API_KEY;
     if (!apiKey) {
-      return createSuccessResponse({
+      return createSuccessResponse(await recordYouTubeOutcome({
         status: "skipped",
         skip_reason: "config_missing",
         message: "YOUTUBE_API_KEY not set",
@@ -43,7 +68,7 @@ async function _GET(request: Request): Promise<Response> {
         cleared: 0,
         results: [],
         duration: `${Date.now() - startTime}ms`,
-      });
+      }));
     }
 
     const supabase = createSupabaseServiceRoleClient();
@@ -59,7 +84,12 @@ async function _GET(request: Request): Promise<Response> {
     }
 
     if (!camRows || camRows.length === 0) {
-      return createSuccessResponse({ message: "No YouTube cams to resolve", duration: `${Date.now() - startTime}ms` });
+      return createSuccessResponse(await recordYouTubeOutcome({
+        message: "No YouTube cams to resolve",
+        processed: 0,
+        updated: 0,
+        duration: `${Date.now() - startTime}ms`,
+      }));
     }
 
     const typedRows = camRows as YouTubeCamRow[];
@@ -185,7 +215,7 @@ async function _GET(request: Request): Promise<Response> {
     const skipped = results.filter((r) => r.action === "skipped").length;
     const cleared = results.filter((r) => r.action === "cleared").length;
 
-    return createSuccessResponse({
+    return createSuccessResponse(await recordYouTubeOutcome({
       processed: results.length,
       updated,
       unchanged,
@@ -193,7 +223,7 @@ async function _GET(request: Request): Promise<Response> {
       cleared,
       results,
       duration: `${Date.now() - startTime}ms`,
-    });
+    }));
   } catch (error) {
     console.error("[resolve-youtube-cams] Unexpected error:", error);
     return createErrorResponse("Cron failed", { error: String(error) }, 500);

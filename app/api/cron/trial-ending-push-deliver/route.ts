@@ -32,6 +32,7 @@ import {
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -82,6 +83,24 @@ interface RunSummary {
   };
   errors: number;
   durationMs: number;
+}
+
+async function recordTrialEndingOutcome(
+  result: { summary: RunSummary },
+): Promise<{ summary: RunSummary }> {
+  return withCronOutcome(
+    {
+      job: "/api/cron/trial-ending-push-deliver",
+      unit: "notifications_sent",
+      expectedMin: 1,
+      getProduced: (value) => value.summary.sent,
+      legitimatelyZero: (value) =>
+        value.summary.candidates === 0
+          ? { reason: "No trial users had an eligible push notification this cycle" }
+          : undefined,
+    },
+    async () => result,
+  );
 }
 
 // ============================================================================
@@ -139,7 +158,7 @@ async function _GET(request: Request): Promise<Response> {
     if (!trialUsers || trialUsers.length === 0) {
       summary.durationMs = Date.now() - startTime;
       console.log(`${CONTEXT_TAG} No trialing users in Day-12 window`);
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(await recordTrialEndingOutcome({ summary }));
     }
 
     const userIds = trialUsers.map((u) => u.user_id);
@@ -163,7 +182,7 @@ async function _GET(request: Request): Promise<Response> {
       console.log(
         `${CONTEXT_TAG} All ${userIds.length} candidates already pushed (idempotent skip)`
       );
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(await recordTrialEndingOutcome({ summary }));
     }
 
     // 3. Filter to users with push enabled.
@@ -188,7 +207,7 @@ async function _GET(request: Request): Promise<Response> {
       console.log(
         `${CONTEXT_TAG} No push-enabled users (${unsentUserIds.length} had push disabled)`
       );
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(await recordTrialEndingOutcome({ summary }));
     }
 
     // 4. Fetch device tokens per user (multiple devices allowed).
@@ -237,7 +256,7 @@ async function _GET(request: Request): Promise<Response> {
 
     if (candidates.length === 0) {
       summary.durationMs = Date.now() - startTime;
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(await recordTrialEndingOutcome({ summary }));
     }
 
     // 5. Phase 3e: enqueue once per candidate. The notifications-deliver
@@ -309,7 +328,7 @@ async function _GET(request: Request): Promise<Response> {
       `${CONTEXT_TAG} Completed: ${summary.sent} sent, ${summary.candidates} candidates, ${summary.durationMs}ms`
     );
 
-    return createSuccessResponse({ summary });
+    return createSuccessResponse(await recordTrialEndingOutcome({ summary }));
   } catch (error) {
     return handleApiError(error);
   }

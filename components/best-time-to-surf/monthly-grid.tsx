@@ -105,7 +105,7 @@ export function MonthlyGrid({
           return (
             <div
               key={entry.month}
-              className={`rounded-xl border bg-white p-4 shadow-sm hover:-translate-y-1 hover:shadow-xl transition-all duration-200 ${
+              className={`rounded-xl border bg-white p-4 shadow-sm hover:-translate-y-1 hover:shadow-xl transition-[transform,box-shadow] duration-200 ${
                 isPeak ? "border-green-400" : "border-gray-200"
               }`}
             >

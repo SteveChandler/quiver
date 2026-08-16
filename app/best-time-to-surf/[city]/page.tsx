@@ -714,7 +714,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
               />
             )}
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-xl border border-gray-200 bg-white p-5 hover:-translate-y-1 hover:shadow-xl transition-all duration-200">
+              <div className="rounded-xl border border-gray-200 bg-white p-5 hover:-translate-y-1 hover:shadow-xl transition-[transform,box-shadow] duration-200">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   Dawn Patrol
                 </h3>
@@ -729,7 +729,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                   <li>Best for beach breaks and exposed reef setups in {cityName}</li>
                 </ul>
               </div>
-              <div className="rounded-xl border border-gray-200 bg-white p-5 hover:-translate-y-1 hover:shadow-xl transition-all duration-200">
+              <div className="rounded-xl border border-gray-200 bg-white p-5 hover:-translate-y-1 hover:shadow-xl transition-[transform,box-shadow] duration-200">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   Afternoon Sessions
                 </h3>
@@ -765,7 +765,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                     return (
                       <div
                         key={beach.slug || beach.name}
-                        className="rounded-xl border border-gray-200 bg-white p-4 hover:-translate-y-1 hover:shadow-xl transition-all duration-200"
+                        className="rounded-xl border border-gray-200 bg-white p-4 hover:-translate-y-1 hover:shadow-xl transition-[transform,box-shadow] duration-200"
                       >
                         <div className="flex items-start gap-3">
                           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#252D6B]/10 text-[#252D6B]">

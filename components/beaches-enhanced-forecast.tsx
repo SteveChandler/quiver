@@ -804,7 +804,7 @@ export function BeachesEnhancedForecast({
                     <div className="mt-3 p-4 bg-muted/30 rounded-lg text-sm">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <h5 className="font-medium mb-2">Wave Data</h5>
+                          <h4 className="font-medium mb-2">Wave Data</h4>
                           <ul className="text-muted-foreground space-y-1">
                             <li>• NOAA WaveWatch III Global Model</li>
                             <li>• Real-time NDBC Buoy Observations</li>
@@ -812,7 +812,7 @@ export function BeachesEnhancedForecast({
                           </ul>
                         </div>
                         <div>
-                          <h5 className="font-medium mb-2">Weather & Tides</h5>
+                          <h4 className="font-medium mb-2">Weather & Tides</h4>
                           <ul className="text-muted-foreground space-y-1">
                             <li>• NOAA Weather Service API</li>
                             <li>• CO-OPS Tidal Predictions</li>
@@ -858,7 +858,7 @@ export function BeachesEnhancedForecast({
                   <div className="mt-3 p-4 bg-muted/30 rounded-lg text-sm">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <h5 className="font-medium mb-2">Wave Data</h5>
+                        <h4 className="font-medium mb-2">Wave Data</h4>
                         <ul className="text-muted-foreground space-y-1">
                           <li>• NOAA WaveWatch III Global Model</li>
                           <li>• Real-time NDBC Buoy Observations</li>
@@ -866,7 +866,7 @@ export function BeachesEnhancedForecast({
                         </ul>
                       </div>
                       <div>
-                        <h5 className="font-medium mb-2">Weather & Tides</h5>
+                        <h4 className="font-medium mb-2">Weather & Tides</h4>
                         <ul className="text-muted-foreground space-y-1">
                           <li>• NOAA Weather Service API</li>
                           <li>• CO-OPS Tidal Predictions</li>

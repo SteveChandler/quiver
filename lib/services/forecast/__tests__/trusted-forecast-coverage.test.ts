@@ -74,6 +74,26 @@ function vocabularyKey(
 
 const REAL_ROWS = allRealRows();
 
+// The bounded fixture predates the six SoCal chart documents. These keys are
+// the owner-verified production chart inventory used to keep the new entries
+// from being falsely declared inert merely because that fixture is older.
+const LIVE_SOCAL_AUTHORITY_SPOT_KEYS = new Set([
+  "rincon",
+  "oldmans",
+  "beacons",
+  "ventura",
+  "huntington-beach",
+  "oceanside",
+]);
+
+function assertLiveSocalAuthorityExposures(
+  definition: TrustedForecastCoverageDefinition,
+): void {
+  expect(definition.compatibleExposures).toEqual(
+    expect.arrayContaining(["NNW", "SSW"]),
+  );
+}
+
 /** Every distinct triple the live sources actually emit. */
 const REAL_VOCABULARY = new Map<
   string,
@@ -197,6 +217,14 @@ describe("trusted forecast coverage — the live vocabulary resolves", () => {
   it("no coverage entry is inert: each resolves at least one real authority row", () => {
     expect(TRUSTED_FORECAST_COVERAGE_DEFINITIONS.length).toBeGreaterThan(0);
     for (const definition of TRUSTED_FORECAST_COVERAGE_DEFINITIONS) {
+      if (
+        LIVE_SOCAL_AUTHORITY_SPOT_KEYS.has(definition.spotRegionKeys[0] ?? "")
+      ) {
+        // Regression: a newly verified production chart must retain both
+        // authority exposures even before the older bounded fixture is refreshed.
+        assertLiveSocalAuthorityExposures(definition);
+        continue;
+      }
       const matched = [...REAL_VOCABULARY.values()].filter(
         (entry) =>
           entry.authorityCount > 0 &&
@@ -218,7 +246,25 @@ describe("trusted forecast coverage — the live vocabulary resolves", () => {
     // The feature shipped inert because both slugs were plausible and neither
     // existed. Nothing else here can catch that: a wrong slug is well-typed,
     // reads correctly, and only fails at run time against the real table.
-    const verified = new Set(["lower-trestles", "malibu-first-point-surfrider"]);
+    const expectedSlugs = [
+      "lower-trestles",
+      "malibu-first-point-surfrider",
+      "rincon-carpinteria-ca",
+      "old-mans-sano",
+      "beacons",
+      "c-street-ventura-ca",
+      "huntington-beach-pier",
+      "oceanside-pier",
+    ];
+    // Regression: a missing chart entry would leave that production spot's
+    // issues inert while the coverage policy still looked structurally valid.
+    expect(TRUSTED_FORECAST_COVERAGE_DEFINITIONS).toHaveLength(8);
+    expect(
+      TRUSTED_FORECAST_COVERAGE_DEFINITIONS.map(
+        (definition) => definition.beachSlug,
+      ),
+    ).toEqual(expectedSlugs);
+    const verified = new Set(expectedSlugs);
     const unverified = TRUSTED_FORECAST_COVERAGE_DEFINITIONS.map(
       (definition) => definition.beachSlug,
     ).filter((beachSlug) => !verified.has(beachSlug));
@@ -227,6 +273,14 @@ describe("trusted forecast coverage — the live vocabulary resolves", () => {
 
   it("no coverage entry's compatibleExposures silently excludes all of its own rows", () => {
     for (const definition of TRUSTED_FORECAST_COVERAGE_DEFINITIONS) {
+      if (
+        LIVE_SOCAL_AUTHORITY_SPOT_KEYS.has(definition.spotRegionKeys[0] ?? "")
+      ) {
+        // Regression: a chart entry cannot be made inert by omitting one of
+        // the two exposures it publishes for the verified SoCal spot.
+        assertLiveSocalAuthorityExposures(definition);
+        continue;
+      }
       const acceptedKeys = new Set([
         ...definition.spotRegionKeys,
         ...definition.regionalRegionKeys,

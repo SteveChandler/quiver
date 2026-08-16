@@ -21,7 +21,7 @@ export function BeginnerSpotList({ cityName, stateSlug, citySlug, beaches }: Beg
         {beaches.map((beach, idx) => (
           <div
             key={beach.id}
-            className="rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 shadow-sm hover:border-blue-200 hover:shadow-md transition-all overflow-hidden"
+            className="rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 shadow-sm hover:border-blue-200 hover:shadow-md transition-[border-color,box-shadow] overflow-hidden"
           >
             <div className="flex flex-col sm:flex-row">
               {/* Photo thumbnail */}

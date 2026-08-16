@@ -1,5 +1,11 @@
 import type { Config } from "tailwindcss";
 
+// Tailwind's plain `var(--token)` form cannot generate `/opacity` utilities.
+// color-mix keeps the zine CSS variable as the source of truth while preserving
+// modifiers such as `bg-ink/40`.
+const zineColor = (variable: string, fallback: string): string =>
+  `color-mix(in srgb, var(${variable}, ${fallback}) calc(<alpha-value> * 100%), transparent)`;
+
 const config: Config = {
   darkMode: ["class", ".theme-retro-dark"],
   content: [
@@ -7,7 +13,6 @@ const config: Config = {
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "*.{js,ts,jsx,tsx,mdx}",
-    "./node_modules/onborda/dist/**/*.{js,ts,jsx,tsx}", // Onborda styles
   ],
   theme: {
     extend: {
@@ -33,6 +38,26 @@ const config: Config = {
         "sunset-orange": "#FDB84B",
         "sandy-beige": "#2D357D",
         "dark-grey": "#333333",
+        // Zine palette. Ink on paper is 16.06:1; keep these variable-backed so
+        // palette changes in app/styles/zine.css propagate to Tailwind classes.
+        ink: zineColor("--ink", "#11100D"),
+        paper: zineColor("--paper", "#F4EBD8"),
+        "paper-shadow": zineColor("--paper-shadow", "#E5D4B3"),
+        "paper-deep": zineColor("--paper-deep", "#D9C49C"),
+        "stamp-red": zineColor("--stamp-red", "#B91C1C"),
+        // Stamp blue on paper is 9.44:1.
+        "stamp-blue": zineColor("--stamp-blue", "#0B3A75"),
+        tape: zineColor("--tape", "#C8A46B"),
+        "tape-light": zineColor("--tape-light", "#DCC18B"),
+        "warning-black": zineColor("--warning-black", "#0A0A08"),
+        "hi-yellow": zineColor("--hi-yellow", "#F2C94C"),
+        ocean: zineColor("--ocean", "#7FA7B8"),
+        "q-twilight": zineColor("--q-twilight", "#252D6B"),
+        "q-bg-0": zineColor("--q-bg-0", "#0D1020"),
+        "q-bg-1": zineColor("--q-bg-1", "#1A1535"),
+        // Charming orange is 2.36:1 with white; pair it with ink text.
+        "q-orange": zineColor("--q-orange", "#F78E42"),
+        "q-cream": zineColor("--q-cream", "#F5EEDC"),
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {

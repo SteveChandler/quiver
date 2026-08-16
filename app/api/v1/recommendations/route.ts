@@ -8,6 +8,7 @@ import {
   withNoStore,
 } from "@/lib/middleware/api-wrappers";
 import { getVerifiedProfileExperience } from "@/lib/profile/skill-level";
+import { rankBeaches } from "@/lib/recommendations/selection";
 import {
   sanitizeLegacyV1RecommendationsForMajorEventHold,
   type SanitizedLegacyV1RecommendationsResponse,
@@ -57,6 +58,8 @@ const RECOMMENDATION_BEACH_SELECT = `
   wind_cross_shore_ok_kt,
   wind_onshore_bad_kt
 `;
+const RECOMMENDATION_CANDIDATE_LIMIT = 25;
+const WATER_QUALITY_HOLD_OVERFETCH = 5;
 
 function hasDegradation(degradation: DegradationInfo): boolean {
   return Object.keys(degradation).length > 0;
@@ -88,6 +91,7 @@ async function sanitizeRecommendations(
   const decisions = await evaluateMajorEventHoldCandidates({
     candidates,
     profileExperience,
+    applyWaterQualityHolds: true,
   });
   return sanitizeLegacyV1RecommendationsForMajorEventHold(
     response,
@@ -189,7 +193,8 @@ async function recommendationsHandler(
       input_lat: lat,
       input_lng: lon,
       max_distance_meters: 25000,
-      limit_count: 25,
+      limit_count:
+        RECOMMENDATION_CANDIDATE_LIMIT + WATER_QUALITY_HOLD_OVERFETCH,
     });
 
     if (!nearby.error) {
@@ -209,7 +214,9 @@ async function recommendationsHandler(
           .select(RECOMMENDATION_BEACH_SELECT)
           .in("id", orderedIds)
           .eq("is_private", false)
-          .limit(25);
+          .limit(
+            RECOMMENDATION_CANDIDATE_LIMIT + WATER_QUALITY_HOLD_OVERFETCH,
+          );
 
         const beachRows = (beachResult.data || []) as Beach[];
         const beachById = new Map(beachRows.map((b) => [b.id, b]));
@@ -245,7 +252,9 @@ async function recommendationsHandler(
         .from("beaches")
         .select(RECOMMENDATION_BEACH_SELECT)
         .eq("is_private", false)
-        .limit(25);
+        .limit(
+          RECOMMENDATION_CANDIDATE_LIMIT + WATER_QUALITY_HOLD_OVERFETCH,
+        );
 
       beaches = ((raw.data || []) as Beach[]).map((b) => ({
         ...b,
@@ -397,13 +406,25 @@ async function recommendationsHandler(
       };
     });
 
-    scored.sort((a, b) => b.score - a.score);
+    const rankedScored = await rankBeaches(
+      scored.map((recommendation) => ({
+        id: recommendation.spotId,
+        recommendation,
+      })),
+      {
+        asOf: queryTime,
+        compare: (a, b) => b.recommendation.score - a.recommendation.score,
+      },
+    );
+    const orderedScored = rankedScored
+      .map(({ recommendation }) => recommendation)
+      .slice(0, RECOMMENDATION_CANDIDATE_LIMIT);
 
-    const recommendations: Recommendation[] = scored.map(
+    const recommendations: Recommendation[] = orderedScored.map(
       ({ marine_created_at, tide_created_at, ...rec }) => rec,
     );
 
-    const topPickPool: TopPick[] = scored.map((pick, index) => {
+    const topPickPool: TopPick[] = orderedScored.map((pick, index) => {
       const { marine_created_at, tide_created_at, ...base } = pick;
 
       const marineFreshness = calculateDataFreshness(

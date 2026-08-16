@@ -189,7 +189,7 @@ export function PublicContentGate({
               <Button
                 onClick={handleSignUpClick}
                 size="lg"
-                className="w-full bg-[#F78E42] hover:bg-[#D57835] hover:shadow-[0_0_20px_rgba(247,142,66,0.3)] text-white font-heading font-semibold transition-shadow"
+                className="w-full bg-[#F78E42] hover:bg-[#D57835] hover:shadow-[0_0_20px_rgba(247,142,66,0.3)] text-[#11100D] font-heading font-semibold transition-shadow"
               >
                 {ctaButtonText}
               </Button>
@@ -197,7 +197,7 @@ export function PublicContentGate({
             <button
               type="button"
               onClick={handleSignInClick}
-              className="w-full text-sm text-white/60 hover:text-white/80 transition-colors py-2"
+              className="w-full text-sm text-white/60 hover:text-white/80 transition-colors py-2 focus-ring"
             >
               Already have an account? Log in
             </button>

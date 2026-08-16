@@ -16,6 +16,7 @@ import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
 import { processPendingEvents } from "@/lib/notifications/worker";
+import { withCronOutcome } from "@/lib/cron/outcome";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -36,7 +37,19 @@ async function _GET(request: Request): Promise<NextResponse> {
   const supabase = createSupabaseServiceRoleClient();
 
   try {
-    const summary = await processPendingEvents(supabase);
+    const summary = await withCronOutcome(
+      {
+        job: "/api/cron/notifications-deliver",
+        unit: "notifications_sent",
+        expectedMin: 1,
+        getProduced: (value) => value.by_status?.sent ?? 0,
+        legitimatelyZero: (value) =>
+          (value.fetched ?? value.processed ?? 0) === 0
+            ? { reason: "Notification queue had no pending events" }
+            : undefined,
+      },
+      () => processPendingEvents(supabase),
+    );
     return NextResponse.json(summary);
   } catch (err) {
     console.error("[notifications-deliver] fatal:", err);

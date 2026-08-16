@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bumped `next` 16.2.6 → 16.2.11 and `postcss` → 8.5.25; regenerated transitive `brace-expansion` to 1.1.18/2.1.4. Clears all open Dependabot advisories (SSRF in Server Actions/rewrites, middleware bypass, DoS, cache confusion, source-map path traversal, ReDoS).
 
 ### Added
+- **Trusted external-forecaster adjustment wired into the forecast builder, locally only** (`lib/services/forecast/trusted-forecast-{coverage,repository,persistence}.ts`, `forecast-builder.ts`). Approved coverage maps a source's `(scope_type, region_key, exposure)` to a beach; a bounded local-day decision is compared after base face transform, handoff blend and beach offset; and the adjusted height is served only once one RPC has durably recorded the decisions, applications, alerts, first-write snapshots and a matching build receipt. A definite database rejection serves byte-identical baseline; unresolved ambiguity fails retriably instead. Private forecaster ranges, hashes, evidence and internal ids stay server-side and never enter a public DTO, log or analytics event. Not deployed, not enabled in any environment.
 - In-content, device-aware install CTA (`InstallAppCtaSection`) on beach detail pages (after-tabs) and a mobile-only install link on `/welcome`, both via `NativeAppFunnelCta` with full source/surface/placement attribution (Plan 063 T1).
 
 ### Changed

@@ -220,7 +220,7 @@ export function SurfHighlightsSection({
                 type="button"
                 onClick={handleRequestLocation}
                 disabled={requesting}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-white/[0.08] text-[#9AABC6] hover:bg-white/[0.14] hover:text-white border border-white/[0.1] transition-all duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-white/[0.08] text-[#9AABC6] hover:bg-white/[0.14] hover:text-white border border-white/[0.1] transition-[color,background-color,border-color,box-shadow,opacity] duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
               >
                 <MapPin size={14} />
                 {requesting ? "Locating\u2026" : "Show spots near me"}
@@ -285,7 +285,7 @@ export function SurfHighlightsSection({
                 type="button"
                 onClick={handleNext}
                 aria-label="Next surf spots"
-                className="hidden md:flex items-center justify-center absolute -right-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/[0.08] shadow-md hover:shadow-lg hover:bg-white/[0.15] transition-all duration-300 z-10 border border-white/[0.1]"
+                className="hidden md:flex items-center justify-center absolute -right-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/[0.08] shadow-md hover:shadow-lg hover:bg-white/[0.15] transition-[background-color,box-shadow] duration-300 z-10 border border-white/[0.1] focus-ring"
               >
                 <ChevronRight className="h-5 w-5 text-white" />
               </button>

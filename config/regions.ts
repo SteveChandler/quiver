@@ -130,7 +130,8 @@ export const REGIONS: Record<string, RegionConfig> = {
 /** Number of slugs at the start of `beachSlugs` treated as "home" (high-weight) beaches. */
 export const HOME_BEACH_COUNT = 4;
 
-export const FORECAST_REGIONS = {
+/** NPC/reporting coast sections; distinct from forecast route regions. */
+export const COAST_SECTIONS = {
   norcal: { name: 'NorCal', primaryBeach: 'ocean beach', regions: ['sf-bay-area'] },
   central: { name: 'Central Coast', primaryBeach: 'steamer lane', regions: ['central-coast'] },
   socal: {

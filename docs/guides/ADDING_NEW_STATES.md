@@ -117,6 +117,7 @@ INSERT INTO beaches (
   state,
   country,
   center_lat,
+  -- Legacy beaches-table longitude column; new API/component shapes use lon.
   center_lng,
   break_type,
   wind_offshore_deg,

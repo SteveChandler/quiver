@@ -241,7 +241,7 @@ export interface ForecastErrorContext {
 ### **Error Handling Wrapper**
 
 ```typescript
-export function withErrorHandling<T extends any[], R>(
+export function withForecastErrorHandling<T extends any[], R>(
   fn: (...args: T) => Promise<R>,
   errorContext: ForecastErrorContext = {}
 ) {
@@ -356,7 +356,7 @@ export function logError(
 ```typescript
 // Forecast service with comprehensive error handling
 async function fetchWaveData(location: { lat: number; lng: number }) {
-  const operation = withErrorHandling(
+  const operation = withForecastErrorHandling(
     async () => {
       const response = await fetch(
         `/api/waves?lat=${location.lat}&lng=${location.lng}`

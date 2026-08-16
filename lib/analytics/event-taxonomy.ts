@@ -292,10 +292,6 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
   'auth_redirect_completed',
   'auth_wall_dismissed',
   'auth_wall_shown',
-  'conditions_report_duplicate',
-  'conditions_report_failed',
-  'first_win_reminder_declined',
-  'first_win_reminder_enabled',
   'forecast_alerts_enabled',
   'install_pwa',
   'invite_friend_clicked',
@@ -311,16 +307,10 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
   'quick_log_expanded',
   'referral_code_failed',
   'referral_code_generated',
-  'report_conditions_opened',
-  'session_log_from_intel',
   'set_alarm_clicked',
   'share_session_clicked',
   'share_sheet_opened',
   'user_signed_in',
-  'web_push_opt_in_attempt',
-  'web_push_opt_in_denied',
-  'web_push_opt_in_error',
-  'web_push_opt_in_success',
 ] as const;
 
 /**
@@ -329,6 +319,33 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
  * either migrate these callers to existing event names or explicitly add them.
  */
 export const KNOWN_REJECTED_USER_EVENT_EMITTERS = [
+] as const;
+
+/**
+ * Event types present in the user_events CHECK constraint but deliberately
+ * absent from VALID_EVENTS.
+ *
+ * Native `trackEvent()` inserts straight into user_events via the Supabase
+ * client, so these never transit /api/events and must not widen that route's
+ * allowlist. They are still required in the DB CHECK — before migration
+ * 20260812130000 every insert of one raised 23514 and was silently dropped,
+ * because `trackEvent` is void-dispatched and nothing surfaced the loss.
+ *
+ * Adding a native-only event means adding it here AND to a CHECK migration.
+ * The sync test fails if a CHECK entry appears in none of the three lists.
+ */
+export const NATIVE_DIRECT_INSERT_EVENTS = [
+  'onboarding_paywall_viewed',
+  'onboarding_free_selected',
+  'onboarding_purchase_started',
+  'onboarding_purchase_success',
+  'onboarding_purchase_failed',
+  'onboarding_purchase_cancelled',
+  'onboarding_restore_result',
+  'community_filter_selected',
+  'siri_shortcut_opened',
+  'garmin_connect_viewed',
+  'garmin_designated_activity_set',
 ] as const;
 
 export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [

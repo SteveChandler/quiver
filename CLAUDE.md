@@ -115,7 +115,7 @@ See `docs/GIT_WORKFLOW.md` for the full branching strategy, hotfix process, and 
 
 ## Architecture Documentation
 
-**49 `ARCHITECTURE.md` files exist.** Read the nearest relevant one before editing a directory; use `docs/ARCHITECTURE.md` as the top-level index. Follow existing patterns and avoid duplicate implementations.
+**58 `ARCHITECTURE.md` files exist.** Read the nearest relevant one before editing a directory; use `docs/ARCHITECTURE.md` as the top-level index. Follow existing patterns and avoid duplicate implementations.
 
 ---
 

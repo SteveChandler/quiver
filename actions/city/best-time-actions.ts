@@ -5,6 +5,7 @@ import { withServerAction, type ServerActionResponse } from "@/lib/server-action
 import { getRegionalData } from "@/lib/seo/regional-surf-data";
 import { buildMonthlyScores } from "@/lib/utils/surf-score-utils";
 import { getStateSurfProfile } from "@/lib/data/monthly-surf-data";
+import { rankBeaches } from "@/lib/recommendations/selection";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -101,7 +102,7 @@ export async function getBestTimeToSurfData(
 
     const { data: beaches, error } = await supabase
       .from("beaches")
-      .select("name, slug, city, state, country, best_months, skill_level, crowd_level")
+      .select("id, name, slug, city, state, country, best_months, skill_level, crowd_level")
       .ilike("city", cityName)
       .eq("state", normalizedState)
       .or("is_private.is.null,is_private.eq.false")
@@ -111,7 +112,11 @@ export async function getBestTimeToSurfData(
       throw new Error(error.message || "Failed to fetch city beaches");
     }
 
-    if (!beaches || beaches.length === 0) {
+    const visibleBeaches = (await rankBeaches(
+      (beaches ?? []).map((beach, index) => ({ id: beach.id, beach, index })),
+      { compare: (left, right) => left.index - right.index },
+    )).map(({ beach }) => beach);
+    if (visibleBeaches.length === 0) {
       return null;
     }
 
@@ -119,7 +124,7 @@ export async function getBestTimeToSurfData(
     const monthCounts: number[] = new Array(12).fill(0);
     let beachesWithMonths = 0;
 
-    for (const beach of beaches) {
+    for (const beach of visibleBeaches) {
       const bestMonths = normalizeBestMonths(beach.best_months);
       if (bestMonths.length > 0) {
         beachesWithMonths++;
@@ -145,8 +150,8 @@ export async function getBestTimeToSurfData(
           return {
             month,
             monthName: MONTH_NAMES[i],
-            bestMonthCount: stateProfile.peakMonths.includes(month)
-              ? beaches.length
+              bestMonthCount: stateProfile.peakMonths.includes(month)
+              ? visibleBeaches.length
               : 0,
             score: monthData.overallScore,
           };
@@ -162,7 +167,7 @@ export async function getBestTimeToSurfData(
         state: normalizedState,
         stateName,
         stateSlug,
-        totalBeaches: beaches.length,
+        totalBeaches: visibleBeaches.length,
         peakMonth: peakIndex + 1,
         peakMonthName: MONTH_NAMES[peakIndex],
         peakScore,
@@ -170,7 +175,7 @@ export async function getBestTimeToSurfData(
         waterTempRange: regional?.waterTempRange ?? null,
         summerWetsuit: regional?.summerWetsuit ?? null,
         winterWetsuit: regional?.winterWetsuit ?? null,
-        topBeaches: beaches.slice(0, 10).map((b) => ({
+        topBeaches: visibleBeaches.slice(0, 10).map((b) => ({
           name: b.name,
           slug: b.slug,
           city: b.city,
@@ -211,7 +216,7 @@ export async function getBestTimeToSurfData(
       state: normalizedState,
       stateName,
       stateSlug,
-      totalBeaches: beaches.length,
+      totalBeaches: visibleBeaches.length,
       peakMonth,
       peakMonthName: MONTH_NAMES[peakIndex],
       peakScore,
@@ -219,7 +224,7 @@ export async function getBestTimeToSurfData(
       waterTempRange: regional?.waterTempRange ?? null,
       summerWetsuit: regional?.summerWetsuit ?? null,
       winterWetsuit: regional?.winterWetsuit ?? null,
-      topBeaches: beaches
+      topBeaches: visibleBeaches
         .filter((b) => normalizeBestMonths(b.best_months).length > 0)
         .slice(0, 10)
         .map((b) => ({

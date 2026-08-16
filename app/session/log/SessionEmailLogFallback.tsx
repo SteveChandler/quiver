@@ -102,11 +102,11 @@ export function SessionEmailLogFallback({
             <button
               key={option.value}
               onClick={() => setSelectedRating(option.value)}
-              className={`flex-1 py-4 px-2 rounded-lg border-2 transition-all ${
+              className={`flex-1 py-4 px-2 rounded-lg border-2 transition-colors ${
                 selectedRating === option.value
                   ? "border-blue-500 bg-blue-50"
                   : "border-gray-200 bg-white hover:border-gray-300"
-              }`}
+              }` + " focus-ring"}
             >
               <div className="text-3xl mb-1">{option.emoji}</div>
               <div className="text-sm font-medium text-gray-700">
@@ -138,7 +138,7 @@ export function SessionEmailLogFallback({
         <button
           onClick={handleSubmit}
           disabled={!selectedRating || isSaving}
-          className="w-full bg-blue-500 text-white py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-blue-500 text-white py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-ring"
         >
           {isSaving ? "Saving..." : "Save"}
         </button>

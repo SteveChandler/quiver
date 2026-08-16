@@ -84,7 +84,7 @@ function WarningItem({
         <button
           type="button"
           onClick={() => onDismiss(warning.type)}
-          className={cn("p-0.5 rounded hover:bg-black/5", styles.dismiss)}
+          className={cn("p-0.5 rounded hover:bg-black/5", styles.dismiss) + " focus-ring"}
           aria-label="Dismiss warning"
         >
           <X className="h-4 w-4" />
@@ -202,7 +202,7 @@ export function TideWarningBannerCompact({
           setDismissed(true);
           warnings.forEach((w) => onDismiss?.(w.type));
         }}
-        className={cn("p-0.5 rounded hover:bg-black/5", styles.dismiss)}
+        className={cn("p-0.5 rounded hover:bg-black/5", styles.dismiss) + " focus-ring"}
         aria-label="Dismiss"
       >
         <X className="h-3 w-3" />

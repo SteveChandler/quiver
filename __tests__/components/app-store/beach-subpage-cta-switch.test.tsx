@@ -1,3 +1,5 @@
+import type { ReactElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server.node";
 import { render, screen, waitFor } from "@testing-library/react";
 
 import { BeachSubPageCtaSwitch } from "@/components/app-store/beach-subpage-cta-switch";
@@ -28,8 +30,8 @@ function setUserAgent(userAgent: string): void {
   });
 }
 
-function renderSwitch(installCtaEnabled = true): void {
-  render(
+function createSwitch(installCtaEnabled = true): ReactElement {
+  return (
     <BeachSubPageCtaSwitch
       beachId="beach-1"
       beachName="Blacks"
@@ -46,14 +48,24 @@ function renderSwitch(installCtaEnabled = true): void {
       stickySupportingText="Tide alerts for Blacks"
     >
       <div data-testid="middle-content" />
-    </BeachSubPageCtaSwitch>,
+    </BeachSubPageCtaSwitch>
   );
 }
 
 describe("BeachSubPageCtaSwitch", () => {
+  it("server-renders the alert CTA and sticky signup path", () => {
+    setUserAgent(IPHONE_SAFARI_UA);
+
+    const markup = renderToStaticMarkup(createSwitch());
+
+    expect(markup).toContain('data-testid="alert-capture-cta"');
+    expect(markup).toContain('data-testid="sticky-signup-bar"');
+    expect(markup).not.toContain('data-testid="install-app-cta"');
+  });
+
   it("shows only the install CTA for iOS Safari after client detection", async () => {
     setUserAgent(IPHONE_SAFARI_UA);
-    renderSwitch();
+    render(createSwitch());
 
     await waitFor(() => {
       expect(screen.getByTestId("install-app-cta")).toBeInTheDocument();
@@ -67,7 +79,7 @@ describe("BeachSubPageCtaSwitch", () => {
     ["non-Safari iPhone", IPHONE_CHROME_UA],
   ])("keeps the alert CTA and sticky signup path for %s", async (_name, userAgent) => {
     setUserAgent(userAgent);
-    renderSwitch();
+    render(createSwitch());
 
     await waitFor(() => {
       expect(screen.getByTestId("alert-capture-cta")).toBeInTheDocument();
@@ -78,7 +90,7 @@ describe("BeachSubPageCtaSwitch", () => {
 
   it("keeps the server-default path when the install flag is off", async () => {
     setUserAgent(IPHONE_SAFARI_UA);
-    renderSwitch(false);
+    render(createSwitch(false));
 
     await waitFor(() => {
       expect(screen.getByTestId("alert-capture-cta")).toBeInTheDocument();

@@ -550,7 +550,7 @@ The `enhanced_forecasts` table stored forecast timing as separate `forecast_date
 
 2. **`20260214180200`** -- Dropped 4 dead profile columns: `favorite_spot` (text), `favorite_spot_id` (uuid), `home_beach_ids` (uuid[]), `secondary_beaches` (uuid[]). These were superseded by `home_beach_id` (single FK) and the `favorite_beaches` join table.
 
-3. **`20260214180300`** -- Dropped `sessions.profile_id` column (redundant with `user_id` since sessions always belong to an authenticated user). Rewrote 4 RLS policies on the `sessions` table to reference `user_id` instead of the removed `profile_id`.
+3. **`20260214180300`** -- Dropped the redundant legacy session ownership column because sessions always belong to an authenticated user. Rewrote 4 RLS policies on the `sessions` table to reference `user_id`.
 
 **Impact**: Reduces schema surface area, eliminates confusing redundant columns, and ensures RLS policies reference the correct ownership field.
 

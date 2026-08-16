@@ -7,6 +7,7 @@
 
 import Link from "next/link";
 import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
+import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import type { CitySurfReportSummary, CityBeachCondition } from "@/actions/city/city-conditions-actions";
 
@@ -219,6 +220,17 @@ export function CityConditionsHero({
             >
               View Forecast →
             </Link>
+            <ContentPageAppHandoffCta
+              source={`content-city-hub-${citySlug}-${stateSlug}`}
+              surface="city_hub"
+              placement="best_right_now"
+              target={`beach:${best.beachSlug}`}
+              eyebrow={`Best right now · ${best.beachName}`}
+              title={`Keep ${best.beachName} in reach.`}
+              description="Open this spot's forecast in the Quiver app to keep checking the wave, wind, and score after you leave the page."
+              ctaLabel={`Open ${best.beachName} in the app`}
+              className="mt-4"
+            />
           </div>
         </div>
       )}

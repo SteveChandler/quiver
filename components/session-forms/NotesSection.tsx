@@ -7,6 +7,7 @@ import {
   SessionFormMode,
 } from "@/lib/constants/session-form-constants";
 import { SessionFormState } from "@/hooks/use-session-form";
+import { useId } from "react";
 
 interface NotesSectionProps {
   mode: SessionFormMode;
@@ -23,6 +24,8 @@ export function NotesSection({
   updateField,
 }: NotesSectionProps) {
   const text = getFormText(mode);
+  const notesId = useId();
+  const notesHintId = useId();
 
   return (
     <SimpleCardLayout
@@ -37,17 +40,19 @@ export function NotesSection({
       <div className="space-y-4">
         {/* Session Notes */}
         <div>
-          <label className="block text-sm font-medium mb-2">
+          <label htmlFor={notesId} className="block text-sm font-medium mb-2">
             Session Experience
           </label>
           <textarea
+            id={notesId}
+            aria-describedby={notesHintId}
             placeholder={text.notesPlaceholder}
-            className="w-full border border-[#404C92] bg-[#354090] text-[#F0F0F0] placeholder:text-[#8B9EC2] rounded-lg p-3 min-h-24 focus:ring-2 focus:ring-[#F78E42] focus:border-transparent resize-vertical"
+            className="w-full border border-[#404C92] bg-[#354090] text-[#F0F0F0] placeholder:text-[#B8C7E0] rounded-lg p-3 min-h-24 focus:ring-2 focus:ring-[#F78E42] focus:border-transparent resize-vertical"
             value={formState.notes || ""}
             onChange={(e) => updateField("notes", e.target.value)}
             rows={4}
           />
-          <p className="text-xs text-muted-foreground mt-1">
+          <p id={notesHintId} className="text-xs text-muted-foreground mt-1">
             Describe how your session went, memorable moments, or lessons learned
           </p>
         </div>

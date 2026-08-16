@@ -27,7 +27,7 @@ export default function NotFound() {
         </p>
         <Link
           href="/"
-          className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#F78E42] text-white font-semibold rounded-lg hover:bg-[#F78E42]/90 transition-colors"
+          className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#F78E42] text-[#11100D] font-semibold rounded-lg hover:bg-[#F78E42]/90 transition-colors"
         >
           Back to the lineup
         </Link>

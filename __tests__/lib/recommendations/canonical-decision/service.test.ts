@@ -9,6 +9,10 @@ type CanonicalServiceModule = {
   ) => Promise<unknown>;
 };
 
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: jest.fn(async (beaches: Array<{ id: string }>) => beaches),
+}));
+
 function loadService(): CanonicalServiceModule {
   return require("@/lib/recommendations/canonical-decision/service") as CanonicalServiceModule;
 }
@@ -82,7 +86,7 @@ describe("canonical session decision service", () => {
     });
   });
 
-  it("fails closed when discovery does not provide a resolved hold state", async () => {
+  it("still answers when discovery omits an availability state", async () => {
     const { resolveCanonicalSessionDecision } = loadService();
     const discoverSurfSpots = jest.fn().mockResolvedValue({
       recommendations: [discoveryRecommendation()],
@@ -108,9 +112,9 @@ describe("canonical session decision service", () => {
     ) as { verdict: string; reasonCode: string; selection: unknown };
 
     expect(decision).toMatchObject({
-      verdict: "no",
-      reasonCode: "hold_state_unavailable",
-      selection: null,
+      verdict: "go",
+      reasonCode: "selected_go",
+      selection: { beachId: "shores" },
     });
   });
 

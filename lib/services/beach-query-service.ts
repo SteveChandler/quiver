@@ -12,6 +12,7 @@
  */
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { applyBeachCoordinateCorrection } from "@/lib/beach-coordinate-corrections";
 import type { ServerActionResponse } from "@/lib/server-action-utils";
 import { withServerAction, withPublicDatabaseOperation } from "@/lib/server-action-utils";
 import type { Beach } from "@/types/database";
@@ -23,7 +24,7 @@ import type { Beach } from "@/types/database";
 // Selective field query for beach list - only fetch commonly needed fields
 // Updated after 20251025 migrations: location->city, latitude->lat, longitude->lon, region->state
 const BEACH_LIST_FIELDS =
-  "id, name, slug, city, lat, lon, state, country, timezone, created_at, is_private, break_type, skill_level, average_rating, review_count, description, crowd_tips, wave_tips, best_conditions_prose, seo_indexable, editorial_reviewed_at, editorial_sources";
+  "id, name, slug, city, lat, lon, timezone, state, country, created_at, is_private, break_type, skill_level, average_rating, review_count, description, crowd_tips, wave_tips, best_conditions_prose, seo_indexable, editorial_reviewed_at, editorial_sources";
 
 // Full beach detail fields for single beach queries
 const BEACH_DETAIL_FIELDS = "*";
@@ -56,8 +57,9 @@ export async function getBeachesFromDb(): Promise<ServerActionResponse<Beach[]>>
         throw new Error(result.error.message || "Database operation failed");
       }
 
-      return ((result.data ?? []) as Beach[]).filter(
-        (beach) =>
+      return ((result.data ?? []) as Beach[])
+        .map(applyBeachCoordinateCorrection)
+        .filter((beach) =>
           typeof beach.lat === "number" &&
           Number.isFinite(beach.lat) &&
           typeof beach.lon === "number" &&
@@ -87,7 +89,7 @@ export async function getBeachByIdFromDb(id: string): Promise<ServerActionRespon
 
       if (error) throw new Error(error.message || "Database operation failed");
       if (!data) throw new Error("No data returned from operation");
-      return data as Beach;
+      return applyBeachCoordinateCorrection(data as Beach);
     })
   );
 }
@@ -120,7 +122,7 @@ export async function getBeachesBySlugFromDb(slug: string): Promise<ServerAction
 
       if (error) throw error;
 
-      return (data ?? []) as Beach[];
+      return ((data ?? []) as Beach[]).map(applyBeachCoordinateCorrection);
     })
   );
 }

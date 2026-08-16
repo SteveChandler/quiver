@@ -1199,8 +1199,7 @@ CREATE POLICY "Users can delete their own session forecast snapshots"
   tide_height: number,        // ft
   confidence_score: number,   // 0-100
   data_source: string,        // "CDIP", "NOAA_NWS", "FALLBACK"
-  forecast_time: string,      // ISO timestamp
-  forecast_date: string,      // YYYY-MM-DD
+  forecast_at: string,        // ISO timestamp
   forecast_hour: number,      // 0-23
   // ... other forecast fields
 }
@@ -1275,12 +1274,12 @@ BEGIN
   END IF;
 
   -- Find the closest forecast to the session arrival_time
-  -- Matches by beach_id and forecast_date, then orders by time proximity
+  -- Matches by beach_id and forecast_at, then orders by time proximity
   SELECT to_jsonb(ef.*) INTO forecast_data
   FROM enhanced_forecasts ef
   WHERE ef.beach_id::uuid = NEW.beach_id::uuid
-    AND ef.forecast_date = NEW.arrival_time::date
-  ORDER BY ABS(EXTRACT(EPOCH FROM (ef.forecast_time::time - NEW.arrival_time::time))) ASC
+    AND ef.forecast_at IS NOT NULL
+  ORDER BY ABS(EXTRACT(EPOCH FROM (ef.forecast_at - NEW.arrival_time))) ASC
   LIMIT 1;
 
   -- Build actual conditions from session data
@@ -2831,7 +2830,7 @@ export async function GET(request: NextRequest) {
       .from("enhanced_forecasts")
       .select("*")
       .in("beach_id", beachIds)
-      .eq("forecast_date", today)
+      .gte("forecast_at", new Date(`${today}T00:00:00Z`).toISOString())
       .gte("forecast_hour", currentHour)
       .lte("forecast_hour", currentHour + 2);
 

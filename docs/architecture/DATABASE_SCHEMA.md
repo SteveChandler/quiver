@@ -26,8 +26,7 @@ Primary user-facing forecasts combining data from multiple sources. Retained for
 |--------|------|-------------|
 | `id` | UUID | Primary key |
 | `beach_id` | UUID | FK to beaches |
-| `forecast_date` | DATE | Forecast date |
-| `forecast_time` | TIME | Forecast time slot |
+| `forecast_at` | TIMESTAMPTZ | Forecast valid time |
 | `wave_height` | TEXT | Wave height (e.g., "3-5 ft") |
 | `wave_period` | TEXT | Wave period in seconds |
 | `wave_direction` | TEXT | Wave direction (e.g., "SW") |
@@ -57,10 +56,10 @@ Primary user-facing forecasts combining data from multiple sources. Retained for
 | `updated_at` | TIMESTAMPTZ | Last update time |
 
 **Indexes**:
-- `idx_enhanced_forecasts_beach_date_time` (beach_id, forecast_date, forecast_time)
+- `idx_enhanced_forecasts_beach_forecast_at` (beach_id, forecast_at)
 - `idx_enhanced_forecasts_beach_updated_at_desc` (beach_id, updated_at DESC)
 
-**Unique Constraint**: (beach_id, forecast_date, forecast_time)
+**Unique Constraint**: (beach_id, forecast_at)
 
 ---
 
@@ -162,7 +161,7 @@ Surf intelligence pre-computed 3x daily at 6am, 10am, and 2pm PT. Enables instan
 | `beach_id` | UUID | FK to beaches |
 | `generated_at` | TIMESTAMPTZ | Generation timestamp |
 | `generation_time` | TEXT | '06:00', '10:00', or '14:00' |
-| `forecast_date` | DATE | Date of forecast |
+| `forecast_at` | TIMESTAMPTZ | Forecast valid time |
 | `best_window_start` | TIME | Recommended start time |
 | `best_window_end` | TIME | Recommended end time |
 | `best_window_description` | TEXT | Human-readable description |
@@ -194,11 +193,11 @@ Surf intelligence pre-computed 3x daily at 6am, 10am, and 2pm PT. Enables instan
 | `updated_at` | TIMESTAMPTZ | Last update |
 
 **Indexes**:
-- `idx_beach_daily_intel_lookup` (beach_id, forecast_date, generation_time DESC)
+- `idx_beach_daily_intel_lookup` (beach_id, forecast_at, generation_time DESC)
 - `idx_beach_daily_intel_latest` (beach_id, generated_at DESC)
 - `idx_beach_daily_intel_cleanup` (created_at)
 
-**Unique Constraint**: (beach_id, forecast_date, generation_time)
+**Unique Constraint**: (beach_id, forecast_at, generation_time)
 
 **Retention**: 3 days via `cleanup_old_beach_intel()` function
 
@@ -213,7 +212,6 @@ Surf session logs with feedback and social features.
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUID | Primary key |
-| `profile_id` | UUID | FK to profiles |
 | `user_id` | UUID | FK to auth.users |
 | `beach_id` | UUID | FK to beaches |
 | `board_id` | UUID | FK to boards (optional) |
@@ -651,8 +649,8 @@ Filtered view of forecasts for next 10 days.
 
 ```sql
 SELECT * FROM enhanced_forecasts
-WHERE forecast_date BETWEEN current_date AND current_date + 10
-ORDER BY beach_id, forecast_date, forecast_time;
+WHERE forecast_at BETWEEN current_date AND current_date + 10
+ORDER BY beach_id, forecast_at;
 ```
 
 ---

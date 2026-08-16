@@ -9,6 +9,7 @@
  */
 
 import type { Beach } from '@/types/database';
+import { expectConsoleErrors } from '@/__tests__/setup/test-utils';
 
 // Mock data
 const mockNearbyBeach1: Partial<Beach> = {
@@ -54,7 +55,9 @@ const mockState = {
     | { data: unknown; error: unknown }
     | ((params: Record<string, unknown>) => { data: unknown; error: unknown }),
   beachesInResponse: { data: [] as unknown, error: null as unknown },
+  waterQualityHeldError: null as unknown,
   mockCalls: [] as Array<{ table: string; method: string; args: unknown[] }>,
+  heldBeachIds: new Set<string>(),
 };
 
 // Setup mocks before importing module
@@ -97,6 +100,24 @@ jest.mock('@/lib/supabase/server', () => ({
               }),
               in: jest.fn((field: string, values: unknown[]) => {
                 mockState.mockCalls.push({ table, method: 'in', args: [field, values] });
+
+                if (
+                  table === 'water_quality_held_beaches' ||
+                  table === 'beach_water_quality'
+                ) {
+                  return Promise.resolve({
+                    data:
+                      table === 'water_quality_held_beaches'
+                        ? (values as string[])
+                            .filter((id) => mockState.heldBeachIds.has(id))
+                            .map((beach_id) => ({ beach_id }))
+                        : [],
+                    error:
+                      table === 'water_quality_held_beaches'
+                        ? mockState.waterQualityHeldError
+                        : null,
+                  });
+                }
 
                 return {
                   eq: jest.fn((_eqField: string, _eqValue: unknown) => {
@@ -165,7 +186,9 @@ describe('buildCandidatePool', () => {
     mockState.favoritesResponse = { data: [], error: null };
     mockState.nearbyRpcResponse = { data: [], error: null };
     mockState.beachesInResponse = { data: [], error: null };
+    mockState.waterQualityHeldError = null;
     mockState.mockCalls = [];
+    mockState.heldBeachIds.clear();
   });
 
   describe('GPS-based beach discovery', () => {
@@ -238,6 +261,31 @@ describe('buildCandidatePool', () => {
 
       expect(result.candidates).toHaveLength(1);
       expect(result.candidates[0].id).toBe(mockNearbyBeach1.id);
+    });
+
+    it('should remove held beaches before discovery pool ordering', async () => {
+      const heldId = '550e8400-e29b-41d4-a716-446655440000';
+      const safeId = '550e8400-e29b-41d4-a716-446655440001';
+      const heldBeach = { ...mockNearbyBeach1, id: heldId };
+      const safeBeach = { ...mockNearbyBeach2, id: safeId };
+      mockState.heldBeachIds.add(heldId);
+      mockState.nearbyRpcResponse = {
+        data: [
+          { id: heldId, is_private: false, distance_meters: 1000 },
+          { id: safeId, is_private: false, distance_meters: 2000 },
+        ],
+        error: null,
+      };
+      mockState.beachesInResponse = {
+        data: [heldBeach, safeBeach],
+        error: null,
+      };
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+      });
+
+      expect(result.candidates.map((beach) => beach.id)).toEqual([safeId]);
     });
   });
 
@@ -484,7 +532,7 @@ describe('buildCandidatePool', () => {
       expect(rpcCalls.length).toBeGreaterThan(0);
       rpcCalls.forEach((call) => {
         expect((call.args[0] as Record<string, unknown>).limit_count).toBe(
-          CANDIDATE_POOL_LIMIT
+          CANDIDATE_POOL_LIMIT + 5
         );
       });
     });
@@ -630,6 +678,36 @@ describe('buildCandidatePool', () => {
   });
 
   describe('error handling', () => {
+    it('reaches discovery ranking with a non-empty pool when hold resolution is unavailable', async () => {
+      mockState.profileResponse = {
+        data: { experience_level: 'intermediate' },
+        error: null,
+      };
+      mockState.nearbyRpcResponse = {
+        data: [
+          { id: mockNearbyBeach1.id, is_private: false, distance_meters: 1000 },
+        ],
+        error: null,
+      };
+      mockState.beachesInResponse = {
+        data: [mockNearbyBeach1],
+        error: null,
+      };
+      mockState.waterQualityHeldError = {
+        code: 'PGRST500',
+        message: 'database unavailable',
+      };
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+      });
+
+      expect(result.candidates.map((beach) => beach.id)).toEqual([
+        mockNearbyBeach1.id,
+      ]);
+      expectConsoleErrors([/\[water-quality-hold:query-error\]/]);
+    });
+
     it('should return empty candidates on nearby RPC error', async () => {
       mockState.profileResponse = {
         data: { experience_level: 'intermediate' },

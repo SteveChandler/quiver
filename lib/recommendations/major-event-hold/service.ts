@@ -9,6 +9,11 @@ import {
   parseMajorEventHoldCandidate,
 } from "./evaluator";
 import { resolveMajorEventHolds } from "./repository";
+import {
+  resolveWaterQualityHolds,
+  waterQualityHoldId,
+  type WaterQualityHoldResolution,
+} from "./water-quality";
 import type {
   MajorEventHoldAuditEvent,
   MajorEventHoldAuditSink,
@@ -24,6 +29,8 @@ export interface EvaluateMajorEventHoldCandidatesInput {
   profileExperience: unknown;
   mode?: MajorEventHoldMode;
   asOf?: Date;
+  applyWaterQualityHolds?: boolean;
+  waterQualityExemptBeachIds?: readonly string[];
 }
 
 export type ResolveMajorEventHolds = (
@@ -31,8 +38,13 @@ export type ResolveMajorEventHolds = (
   options: { asOf?: Date },
 ) => Promise<MajorEventHoldResolution>;
 
+export type ResolveWaterQualityHolds = (
+  candidates: readonly MajorEventHoldCandidate[],
+) => Promise<WaterQualityHoldResolution>;
+
 export interface MajorEventHoldServiceDependencies {
   resolveHolds?: ResolveMajorEventHolds;
+  resolveWaterQualityHolds?: ResolveWaterQualityHolds;
   audit?: MajorEventHoldAuditSink;
   clock?: () => Date;
 }
@@ -72,6 +84,74 @@ function createHoldEpoch(
   return hashEpoch(
     `major-event-hold:v1|mode:${mode}|resolution:resolved|records:${versions}`,
   );
+}
+
+function createCombinedHoldEpoch(
+  majorEventEpoch: string,
+  waterQualityEpoch: string,
+): string {
+  return hashEpoch(
+    `recommendation-hold:v1|major-event:${majorEventEpoch}|water-quality:${waterQualityEpoch}`,
+  );
+}
+
+function evaluateWaterQualityHold(
+  candidate: MajorEventHoldCandidate | null,
+  resolution: WaterQualityHoldResolution,
+  holdEpoch: string,
+  exemptBeachIds: ReadonlySet<string>,
+): MajorEventHoldCandidateDecision["evaluation"] {
+  if (candidate === null) {
+    return resolution.state === "unresolved"
+      ? {
+          outcome: "explicit_none",
+          reasonCode: "hold_state_unavailable",
+          holdIds: [],
+          holdEpoch,
+        }
+      : { outcome: "allow", holdIds: [], holdEpoch };
+  }
+
+  if (exemptBeachIds.has(candidate.beachId.toLowerCase())) {
+    return { outcome: "allow", holdIds: [], holdEpoch };
+  }
+
+  const normalizedBeachId = candidate.beachId.toLowerCase();
+  const isHeld = resolution.heldBeachIds.some(
+    (beachId) => beachId.toLowerCase() === normalizedBeachId,
+  );
+  if (isHeld) {
+    return {
+      outcome: "explicit_none",
+      reasonCode: "water_quality_hold",
+      holdIds: [waterQualityHoldId(candidate.beachId)],
+      holdEpoch,
+    };
+  }
+
+  if (resolution.state === "unresolved") {
+    return {
+      outcome: "explicit_none",
+      reasonCode: "hold_state_unavailable",
+      holdIds: [],
+      holdEpoch,
+    };
+  }
+
+  return { outcome: "allow", holdIds: [], holdEpoch };
+}
+
+function combineEvaluations(
+  majorEventEvaluation: MajorEventHoldCandidateDecision["evaluation"],
+  waterQualityEvaluation: MajorEventHoldCandidateDecision["evaluation"],
+): MajorEventHoldCandidateDecision["evaluation"] {
+  if (majorEventEvaluation.outcome === "explicit_none") {
+    return majorEventEvaluation;
+  }
+  if (waterQualityEvaluation.outcome === "explicit_none") {
+    return waterQualityEvaluation;
+  }
+  return majorEventEvaluation;
 }
 
 export function serializeRecommendationAvailability(
@@ -130,6 +210,10 @@ function auditEventFor(
       };
     }
     if (decision.holdIds.length > 0) {
+      const reasonCode =
+        decision.reasonCode === "water_quality_hold"
+          ? "water_quality_hold"
+          : "major_event_hold";
       return {
         event: "would_block",
         mode,
@@ -138,7 +222,7 @@ function auditEventFor(
         cohort,
         holdIds: [...decision.holdIds],
         holdEpoch: decision.holdEpoch,
-        reasonCode: "major_event_hold",
+        reasonCode,
       };
     }
   }
@@ -146,7 +230,8 @@ function auditEventFor(
     const reasonCode = decision.reasonCode ?? "hold_state_unavailable";
     return {
       event:
-        reasonCode === "major_event_hold"
+        reasonCode === "major_event_hold" ||
+        reasonCode === "water_quality_hold"
           ? "blocked"
           : "resolution_unavailable",
       mode,
@@ -177,11 +262,54 @@ export async function evaluateMajorEventHoldCandidates(
   const resolutionAsOfDate =
     input.asOf !== undefined && validInputAsOf ? input.asOf : validClockNow;
   const resolutionAsOf = resolutionAsOfDate.toISOString();
+  const validCandidates = parsedCandidates.filter(
+    (candidate): candidate is MajorEventHoldCandidate => candidate !== null,
+  );
+  const applyWaterQualityHolds = input.applyWaterQualityHolds === true;
+  const waterQualityExemptBeachIds = new Set(
+    (input.waterQualityExemptBeachIds ?? [])
+      .filter((beachId): beachId is string => typeof beachId === "string")
+      .map((beachId) => beachId.toLowerCase()),
+  );
+
+  let waterQualityResolution: WaterQualityHoldResolution = {
+    state: "resolved",
+    heldBeachIds: [],
+    epoch: waterQualityHoldId("empty"),
+  };
+  if (applyWaterQualityHolds) {
+    if (validCandidates.length !== parsedCandidates.length) {
+      waterQualityResolution = {
+        state: "unresolved",
+        heldBeachIds: [],
+        epoch: waterQualityHoldId("unresolved"),
+      };
+    } else {
+      try {
+        const resolveWaterQuality =
+          dependencies.resolveWaterQualityHolds ?? resolveWaterQualityHolds;
+        waterQualityResolution = await resolveWaterQuality(validCandidates);
+      } catch (error) {
+        console.error("[water-quality-hold:resolution-failed]", {
+          candidateCount: validCandidates.length,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        waterQualityResolution = {
+          state: "unresolved",
+          heldBeachIds: [],
+          epoch: waterQualityHoldId("unresolved"),
+        };
+      }
+    }
+  }
 
   if (mode === "off") {
-    const holdEpoch = createHoldEpoch(mode, "off");
+    const majorEventEpoch = createHoldEpoch(mode, "off");
+    const holdEpoch = applyWaterQualityHolds
+      ? createCombinedHoldEpoch(majorEventEpoch, waterQualityResolution.epoch)
+      : majorEventEpoch;
     return parsedCandidates.map((candidate) => {
-      const evaluation = evaluateMajorEventHold({
+      const majorEventEvaluation = evaluateMajorEventHold({
         mode,
         resolutionState: "unresolved",
         holds: [],
@@ -189,6 +317,17 @@ export async function evaluateMajorEventHoldCandidates(
         candidate,
         holdEpoch,
       });
+      const evaluation = applyWaterQualityHolds
+        ? combineEvaluations(
+            majorEventEvaluation,
+            evaluateWaterQualityHold(
+              candidate,
+              waterQualityResolution,
+              holdEpoch,
+              waterQualityExemptBeachIds,
+            ),
+          )
+        : majorEventEvaluation;
       return {
         candidateId: candidate?.candidateId ?? null,
         evaluation,
@@ -198,9 +337,6 @@ export async function evaluateMajorEventHoldCandidates(
     });
   }
 
-  const validCandidates = parsedCandidates.filter(
-    (candidate): candidate is MajorEventHoldCandidate => candidate !== null,
-  );
   const resolveHolds = dependencies.resolveHolds ?? resolveMajorEventHolds;
   const audit = dependencies.audit ?? defaultMajorEventHoldAuditSink;
   let resolution: MajorEventHoldResolution = { state: "unresolved", holds: [] };
@@ -212,16 +348,32 @@ export async function evaluateMajorEventHoldCandidates(
       resolution = await resolveHolds(validCandidates, {
         asOf: resolutionAsOfDate,
       });
-    } catch {
+    } catch (error) {
+      // Failing closed here suppresses recommendations for every candidate with
+      // reasonCode "hold_state_unavailable". The audit sink records that it
+      // happened, but swallowing the error left no way to tell WHY resolution
+      // failed — a DB error, a timeout and a bad asOf are indistinguishable
+      // from the audit line alone. Keep failing closed; just say why.
+      console.error("[major-event-hold:resolution-failed]", {
+        candidateCount: validCandidates.length,
+        asOf: resolutionAsOf,
+        error: error instanceof Error ? error.message : String(error),
+      });
       resolution = { state: "unresolved", holds: [] };
     }
   }
 
-  const resolvedEpoch = createHoldEpoch(mode, resolution);
+  const majorEventEpoch = createHoldEpoch(mode, resolution);
   const unresolvedEpoch = createHoldEpoch(mode, {
     state: "unresolved",
     holds: [],
   });
+  const resolvedEpoch = applyWaterQualityHolds
+    ? createCombinedHoldEpoch(majorEventEpoch, waterQualityResolution.epoch)
+    : majorEventEpoch;
+  const unresolvedCombinedEpoch = applyWaterQualityHolds
+    ? createCombinedHoldEpoch(unresolvedEpoch, waterQualityResolution.epoch)
+    : unresolvedEpoch;
   const decisions: MajorEventHoldCandidateDecision[] = [];
 
   for (const candidate of parsedCandidates) {
@@ -235,13 +387,24 @@ export async function evaluateMajorEventHoldCandidates(
       holds: candidateResolution.holds,
       cohort,
       candidate,
-      holdEpoch: candidate === null ? unresolvedEpoch : resolvedEpoch,
+      holdEpoch: candidate === null ? unresolvedCombinedEpoch : resolvedEpoch,
     });
+    const combinedEvaluation = applyWaterQualityHolds
+      ? combineEvaluations(
+          evaluation,
+          evaluateWaterQualityHold(
+            candidate,
+            waterQualityResolution,
+            candidate === null ? unresolvedCombinedEpoch : resolvedEpoch,
+            waterQualityExemptBeachIds,
+          ),
+        )
+      : evaluation;
     const decision: MajorEventHoldCandidateDecision = {
       candidateId: candidate?.candidateId ?? null,
-      evaluation,
+      evaluation: combinedEvaluation,
       recommendationAvailability:
-        serializeRecommendationAvailability(evaluation, resolutionAsOf),
+        serializeRecommendationAvailability(combinedEvaluation, resolutionAsOf),
     };
     decisions.push(decision);
     await emitAudit(
@@ -251,10 +414,23 @@ export async function evaluateMajorEventHoldCandidates(
         candidateResolution.state,
         candidate,
         cohort,
-        evaluation,
+        combinedEvaluation,
       ),
     );
   }
 
   return decisions;
+}
+
+export async function evaluateRecommendationHoldCandidates(
+  input: Omit<
+    EvaluateMajorEventHoldCandidatesInput,
+    "applyWaterQualityHolds"
+  >,
+  dependencies: MajorEventHoldServiceDependencies = {},
+): Promise<MajorEventHoldCandidateDecision[]> {
+  return evaluateMajorEventHoldCandidates(
+    { ...input, applyWaterQualityHolds: true },
+    dependencies,
+  );
 }

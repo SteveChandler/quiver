@@ -1,5 +1,28 @@
 # Quiver Growth Metrics Framework
 
+> **Status note — 2026-08-13:** This framework has not been revised since
+> March 2026. Its February 2026 baseline predates known material events, so
+> re-derive figures before using them. The sections below identify review
+> targets; they do not replace the underlying queries or prove a current value.
+>
+> Most likely stale or unverified:
+>
+> - **Baseline, activation funnel, retention cohorts, attribution, and XP
+>   tables:** these are dated February snapshots. Their current values are
+>   unverified.
+> - **Share rate and social-event rows:** the baseline labels these as
+>   pre-instrumentation. Current values and event coverage are unverified.
+> - **AARRR overview and the WAU/MAU, retention, engagement, and referral
+>   definitions:** no post-February re-derivation is recorded here. Treat the
+>   current values and denominator coverage as unverified until rerun against
+>   current schema and event data.
+> - **Any interpretation that depends on alert receipt:** a 2026-08-10
+>   read-only production investigation found named queue rows still
+>   `sent=false` and a delivery-path `hold_state_unavailable` block before the
+>   provider boundary. Alert-driven activation or retention conclusions are
+>   therefore unverified for the affected period; this framework does not
+>   contain a replacement alert-delivery metric.
+
 **Purpose:** Define, track, and validate Quiver's growth-first strategy through measurable AARRR metrics and actionable thresholds.
 
 **Last updated:** February 2026

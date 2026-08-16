@@ -26,11 +26,15 @@ jest.mock("@/lib/utils/forecast-service-utils", () => ({
 jest.mock("@/lib/recommendations/major-event-hold/service", () => ({
   evaluateMajorEventHoldCandidates: jest.fn(),
 }));
+jest.mock("@/lib/recommendations/selection", () => ({
+  selectBeach: jest.fn(async (beach: { id: string }) => beach),
+}));
 
 import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions";
 import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 import { getBeachByIdFromDb } from "@/lib/services/beach-query-service";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
+import { selectBeach } from "@/lib/recommendations/selection";
 
 const SATURDAY_BEACH_ID = "11111111-1111-4111-8111-111111111111";
 const SUNDAY_BEACH_ID = "22222222-2222-4222-8222-222222222222";
@@ -292,6 +296,7 @@ describe("major-event hold OG routes", () => {
     expect(evaluateMajorEventHoldCandidates).toHaveBeenCalledWith(
       expect.objectContaining({ profileExperience: null }),
     );
+    expect(selectBeach).toHaveBeenCalledTimes(2);
   });
 
   it("neutralizes a weekend card when the query end is not the next server forecast instant", async () => {

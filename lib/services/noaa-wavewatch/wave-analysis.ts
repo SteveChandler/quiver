@@ -9,7 +9,10 @@
 
 import { createContextLogger } from "@/lib/logger";
 import { WAVE_REGIONS, SEASONAL_FACTORS, COMPASS_DIRECTIONS, UNIT_CONVERSIONS } from "./constants";
-import { METERS_TO_FEET, FEET_TO_METERS } from "@/lib/utils/unit-conversions";
+import {
+  FEET_TO_METERS,
+  metersToFeet as convertMetersToFeet,
+} from "@/lib/utils/unit-conversions";
 import type { NOAAValueSeries } from "./types";
 
 const log = createContextLogger("NOAAWaveWatch:WaveAnalysis");
@@ -151,7 +154,7 @@ export function getPrevailingWaveDirection(lat: number, lon: number): number {
  * @returns Wave height in feet
  */
 export function metersToFeet(meters: number): number {
-  return meters * METERS_TO_FEET;
+  return convertMetersToFeet(meters, null);
 }
 
 /**

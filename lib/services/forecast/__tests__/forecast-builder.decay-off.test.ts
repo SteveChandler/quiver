@@ -42,6 +42,7 @@ jest.mock("@/lib/utils/wave-formatters", () => {
       debug: {
         source: "model_swell",
         rawHeightFt: 3,
+        provenance: "generic",
         transformPath: "decomposed",
         componentsUsed: true,
         calibratedShoalingFired: false,

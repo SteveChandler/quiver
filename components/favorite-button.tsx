@@ -206,7 +206,7 @@ export function FavoriteButton({
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <Heart
-            className={`h-4 w-4 transition-all duration-200 ${
+            className={`h-4 w-4 transition-[color,fill,transform] duration-200 ${
               effectiveIsFavorite
                 ? "fill-red-500 text-red-500"
                 : "text-muted-foreground hover:text-red-400 hover:scale-110"

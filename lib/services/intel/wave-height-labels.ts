@@ -1,3 +1,4 @@
+import { fromZonedTime } from "date-fns-tz";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { formatWaveHeightRangeString } from "@/lib/utils/wave-formatters";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -48,12 +49,27 @@ function emptyLabels(): DailyIntelWaveHeightLabels {
   };
 }
 
+/**
+ * Convert a beach-local wall-clock date+time (as written by
+ * intel-generation-service.ts) into a UTC instant for querying
+ * enhanced_forecasts.forecast_at, which is stored in UTC.
+ */
+function toUtcInstant(
+  forecastDate: string,
+  localTime: string,
+  beachTimezone: string
+): string {
+  return fromZonedTime(`${forecastDate}T${localTime}`, beachTimezone).toISOString();
+}
+
 export async function getDailyIntelWaveHeightLabels(
   supabase: SupabaseServerClient,
   beachId: string,
   forecastDate: string,
-  windowInput: WindowInput = {}
+  windowInput: WindowInput = {},
+  beachTimezone?: string | null
 ): Promise<DailyIntelWaveHeightLabels> {
+  const tz = beachTimezone || "UTC";
   const labels = emptyLabels();
 
   try {
@@ -82,9 +98,8 @@ export async function getDailyIntelWaveHeightLabels(
         .from("enhanced_forecasts")
         .select("*")
         .eq("beach_id", beachId)
-        .eq("forecast_date", forecastDate)
-        .gte("forecast_time", windowInput.bestWindowStart)
-        .lte("forecast_time", windowInput.bestWindowEnd)
+        .gte("forecast_at", toUtcInstant(forecastDate, windowInput.bestWindowStart, tz))
+        .lte("forecast_at", toUtcInstant(forecastDate, windowInput.bestWindowEnd, tz))
         .order("forecast_at", { ascending: true })
         .limit(24);
 

@@ -197,7 +197,7 @@ export function TideVerifiedBadgeLarge({
               </div>
               <div className="h-1.5 w-full rounded-full bg-slate-200">
                 <div
-                  className={cn("h-full rounded-full transition-all", confidenceColor)}
+                  className={cn("h-full rounded-full transition-[width]", confidenceColor)}
                   style={{ width: `${Math.min(100, Math.max(0, confidenceScore))}%` }}
                 />
               </div>

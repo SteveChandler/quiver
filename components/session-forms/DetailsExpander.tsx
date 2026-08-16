@@ -51,7 +51,7 @@ export function DetailsExpander({
         className={cn(
           "w-full flex items-center justify-between py-3 px-3 -mx-3 rounded-lg text-left group",
           "hover:bg-[#354090]/30 active:bg-[#354090]/50 transition-colors duration-150"
-        )}
+        ) + " focus-ring"}
       >
         <div className="flex items-center gap-2">
           {!expanded && (

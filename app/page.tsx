@@ -12,11 +12,9 @@
 
 import { Suspense, type ReactElement } from "react";
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { AuthAwareLandingWrapper } from "@/components/landing-page/auth-aware-landing-wrapper";
 import { LandingPageSSRSection } from "@/components/landing-page/landing-page-ssr-section";
 import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
-import { getFirstTouchPlatform } from "@/lib/analytics/web-context";
 import { isAppFirstLandingEnabled } from "@/lib/flags/app-first-landing";
 
 // ISR: Revalidate every 10 minutes (aligns with featured beaches cache)
@@ -61,18 +59,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function Home(): Promise<ReactElement> {
-  const ua = (await headers()).get("user-agent") ?? "";
-  const initialPlatform = getFirstTouchPlatform(ua);
+export default function Home(): ReactElement {
   const appFirst = isAppFirstLandingEnabled();
 
   return (
     <>
       <Suspense>
-        <AuthAwareLandingWrapper
-          initialPlatform={initialPlatform}
-          appFirst={appFirst}
-        />
+        {/* Platform is detected client-side. Reading it from the request's
+            user-agent here opted the whole route out of static generation, so
+            the `revalidate` above never applied and every visit re-rendered
+            the page — including the server-side beach fetch below. The value
+            only decorates analytics query params on the download links, so
+            resolving it after mount costs nothing visible. */}
+        <AuthAwareLandingWrapper appFirst={appFirst} />
       </Suspense>
       <LandingPageSSRSection />
     </>

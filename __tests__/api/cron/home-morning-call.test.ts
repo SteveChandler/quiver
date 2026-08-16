@@ -3,7 +3,12 @@
  */
 
 const mockResolveNotificationMajorEventHold = jest.fn();
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 const mockResolveCanonicalSessionDecisionContext = jest.fn();
+const mockServiceFrom = jest.fn();
 
 jest.mock("@/lib/recommendations/major-event-hold/adapters/notification", () => ({
   resolveNotificationMajorEventHold: (...args: unknown[]) =>
@@ -12,6 +17,9 @@ jest.mock("@/lib/recommendations/major-event-hold/adapters/notification", () => 
 jest.mock("@/lib/recommendations/canonical-decision", () => ({
   resolveCanonicalSessionDecisionContext: (...args: unknown[]) =>
     mockResolveCanonicalSessionDecisionContext(...args),
+}));
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(),
 }));
 
 import {
@@ -22,6 +30,7 @@ import {
   isEligibleHomeBeachPushProfile,
   type HomeBeachPushSelectArgs,
 } from "@/lib/cron/home-beach-push-runner";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
 
 const USER_ID = "00000000-0000-4000-8000-000000000001";
@@ -55,6 +64,18 @@ function morningSelectArgs(): HomeBeachPushSelectArgs {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({
+    from: mockServiceFrom,
+  });
+  mockServiceFrom.mockImplementation(() => {
+    const chain: Record<string, jest.Mock> = {
+      select: jest.fn(),
+      in: jest.fn(),
+    };
+    chain.select.mockReturnValue(chain);
+    chain.in.mockResolvedValue({ data: [], error: null });
+    return chain;
+  });
   mockResolveNotificationMajorEventHold.mockResolvedValue({
     status: "allowed",
     candidate: null,
@@ -266,6 +287,37 @@ describe("home_morning_call helpers", () => {
         },
       },
     });
+    expect(mockResolveNotificationMajorEventHold).not.toHaveBeenCalled();
+  });
+
+  it("does not emit a NO call for a held home beach", async () => {
+    mockServiceFrom.mockImplementation((table: string) => {
+      const chain: Record<string, jest.Mock> = {
+        select: jest.fn(),
+        in: jest.fn(),
+      };
+      chain.select.mockReturnValue(chain);
+      chain.in.mockResolvedValue(
+        table === "water_quality_held_beaches"
+          ? { data: [{ beach_id: BEACH_ID }], error: null }
+          : { data: [], error: null },
+      );
+      return chain;
+    });
+    const context = await mockResolveCanonicalSessionDecisionContext();
+    mockResolveCanonicalSessionDecisionContext.mockResolvedValueOnce({
+      ...context,
+      decision: {
+        ...context.decision,
+        verdict: "no",
+        reasonCode: "below_minimum_utility",
+        selection: null,
+      },
+    });
+
+    await expect(
+      selectAndBuildMorningCall(morningSelectArgs()),
+    ).resolves.toEqual({ skipReason: "selection" });
     expect(mockResolveNotificationMajorEventHold).not.toHaveBeenCalled();
   });
 

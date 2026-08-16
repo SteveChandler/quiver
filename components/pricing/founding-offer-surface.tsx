@@ -12,9 +12,11 @@ import {
   Sparkles,
   Waves,
 } from "lucide-react";
+import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
 
 import { FoundingAccessCta } from "@/components/pricing/founding-access-cta";
+import { RevenueCatWebCheckoutCta } from "@/components/pricing/revenuecat-web-checkout-cta";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import {
   QuiverSticker,
@@ -99,13 +101,31 @@ const PRO_FEATURES = [
 }>;
 
 export function FoundingOfferSurface() {
+  const barrelWaveFigure = (
+    <figure
+      data-testid="plans-barrel-wave"
+      className="mt-4 max-w-3xl border-2 border-[#11100D] bg-[#F0E5CC] p-2 shadow-[4px_5px_0_rgba(17,16,13,0.2)] sm:mt-6 sm:p-3"
+    >
+      <div className="relative aspect-[16/9] w-full overflow-hidden">
+        <Image
+          src="/images/hero/hero-2-barrel-wave.webp"
+          alt="A surfer in a bright pink rash guard carving through the wall of a turquoise barrel wave."
+          width={1920}
+          height={1080}
+          sizes="(min-width: 1024px) 768px, calc(100vw - 2rem)"
+          className="h-full w-full object-cover"
+        />
+      </div>
+    </figure>
+  );
+
   return (
     <ZineSurface
       sectionLabel="Get the app"
       editionLabel="14 days free on iPhone"
       data-testid="founding-offer-zine-surface"
     >
-      <main>
+      <section>
         <header className="relative">
           <div
             aria-hidden
@@ -125,39 +145,34 @@ export function FoundingOfferSurface() {
 
           <ScrollReveal>
             <div className="relative max-w-3xl">
-              <div className="relative mb-5 inline-flex items-center gap-2">
-                <QuiverSticker
-                  sticker="orangeTape"
-                  className="absolute -left-7 -top-5 w-24 -rotate-12 opacity-85"
-                  sizes="6rem"
-                />
-                <span className="label-black inline-flex items-center gap-2">
-                  <Waves className="h-4 w-4" aria-hidden />
-                  App Store live
-                </span>
-              </div>
               <h1 className="zine-h1 font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
                 Get Quiver
               </h1>
-              <p className="mt-6 max-w-2xl text-xl leading-relaxed text-[#11100D]/75 sm:text-2xl">
+              <p className="mt-4 max-w-2xl text-xl leading-relaxed text-[#11100D]/75 sm:mt-6 sm:text-2xl">
                 Start the iPhone app with 14 days free. Android beta is open
                 through Google Play closed testing.
               </p>
-              <div className="mt-7 flex flex-wrap gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/65">
+              <a
+                href={IOS_APP_STORE_WEB_REDIRECT_PATH}
+                className="mt-6 inline-flex min-h-12 w-full max-w-2xl items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 font-semibold text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.35)] motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] sm:hidden"
+              >
+                {IOS_APP_STORE_CTA}
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </a>
+              <div className="mt-5 flex flex-wrap gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/65 sm:mt-7">
                 <span>14 days free</span>
-                <span aria-hidden>/</span>
-                <span>App Store live</span>
                 <span aria-hidden>/</span>
                 <span>Cancel anytime</span>
               </div>
+              {barrelWaveFigure}
             </div>
           </ScrollReveal>
         </header>
 
-        <div className="mt-12 grid gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-start">
+        <div className="mt-8 grid gap-8 lg:mt-12 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-start">
           <ScrollReveal>
             <section
-              className="torn torn-tb rot-neg relative border-2 border-[#11100D] bg-[#FBF6E8]"
+              className="torn torn-tb relative border-2 border-[#11100D] bg-[#FBF6E8]"
               aria-labelledby="plans-trial-heading"
             >
               <QuiverSticker
@@ -218,6 +233,8 @@ export function FoundingOfferSurface() {
                 Cancel anytime in Apple subscriptions.
               </p>
 
+              <RevenueCatWebCheckoutCta />
+
               <div className="mt-6 border-t-2 border-dashed border-[#11100D]/30 pt-5 sm:max-w-sm">
                 <div className="flex flex-wrap gap-2">
                   <div className="rounded-full border-2 border-[#11100D] bg-[#FFF7E6] px-3 py-2 shadow-[2px_2px_0_rgba(17,16,13,0.18)]">
@@ -226,7 +243,7 @@ export function FoundingOfferSurface() {
                       iPhone
                     </div>
                     <p className="mt-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-[#252D6B]">
-                      App Store live
+                      Available
                     </p>
                   </div>
                   <div className="rounded-full border-2 border-[#11100D] bg-[#FFF7E6] px-3 py-2 shadow-[2px_2px_0_rgba(17,16,13,0.18)]">
@@ -295,7 +312,7 @@ export function FoundingOfferSurface() {
             </section>
           </ScrollReveal>
         </div>
-      </main>
+      </section>
     </ZineSurface>
   );
 }

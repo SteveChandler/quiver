@@ -7,6 +7,7 @@
  * Schedule: 30 5 * * * (5:30am PT daily)
  */
 
+import { createHash } from 'node:crypto';
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -20,14 +21,15 @@ import {
   getRegionalBeachId,
 } from '@/lib/npc/forecast-formatter';
 import { withObservedCron } from '@/lib/cron/observability';
+import { withCronOutcome } from '@/lib/cron/outcome';
+import { isLegacyMorningForecastEnabled } from '@/lib/npc/system-card-config';
+import { insertSystemFeedPost } from '@/lib/npc/system-feed-posts';
+import { selectBeach } from '@/lib/recommendations/selection';
+import { resolveSystemIdentity, SYSTEM_IDENTITY } from '@/lib/system-identity';
 
 export const revalidate = 0;
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-// The Quiver Surf Forecast system account ID
-// This is set in the cleanup migration: 3290f65d-b474-49e2-ac5e-27de2db3fc9e
-const FORECAST_BOT_DISPLAY_NAME = 'Quiver Surf Forecast';
 
 interface RegionResult {
   region: 'norcal' | 'central' | 'socal';
@@ -48,28 +50,41 @@ async function _GET(request: Request): Promise<Response> {
       return createErrorResponse('Unauthorized', 'Invalid cron authentication', 401);
     }
 
+    if (!isLegacyMorningForecastEnabled()) {
+      return createSuccessResponse(await withCronOutcome(
+        {
+          job: '/api/cron/morning-forecast-bot',
+          unit: 'posts_published',
+          expectedMin: 1,
+          getProduced: (value) => value.summary.successful,
+          legitimatelyZero: () => ({ reason: 'Legacy morning forecast posting is disabled; system cards own this output' }),
+        },
+        async () => ({
+          summary: {
+            paused: true,
+            reason: 'legacy morning forecast route disabled; use /api/cron/system-cards',
+            successful: 0,
+            failed: 0,
+          },
+          results: [],
+        }),
+      ));
+    }
+
     const startMs = Date.now();
     const supabase = await createSupabaseServiceRoleClient();
 
-    // Find the forecast bot profile
-    const { data: botProfile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('full_name', FORECAST_BOT_DISPLAY_NAME)
-      .eq('is_system_account', true)
-      .limit(1)
-      .single();
-
-    if (profileError || !botProfile) {
-      console.error('[morning-forecast-bot] Could not find forecast bot profile:', profileError);
+    let botUserId: string;
+    try {
+      botUserId = await resolveSystemIdentity(supabase);
+    } catch (error) {
+      console.error('[morning-forecast-bot] Could not find forecast bot profile:', error);
       return createErrorResponse(
         'Bot profile not found',
-        `Could not find system account "${FORECAST_BOT_DISPLAY_NAME}"`,
+        `Could not find system account "${SYSTEM_IDENTITY.displayName}"`,
         500
       );
     }
-
-    const botUserId = botProfile.id;
     console.log(`[morning-forecast-bot] Using bot profile: ${botUserId}`);
 
     const regions: Array<'norcal' | 'central' | 'socal'> = ['norcal', 'central', 'socal'];
@@ -116,39 +131,53 @@ async function _GET(request: Request): Promise<Response> {
           .eq('id', beachId)
           .single();
 
-        // Create the intel post
-        const { data: post, error: postError } = await supabase
-          .from('intel_posts')
-          .insert({
-            user_id: botUserId,
-            beach_id: beachId,
-            latitude: beach?.lat || getRegionDefaultLat(region),
-            longitude: beach?.lon || getRegionDefaultLon(region),
-            tag: 'conditions',
-            title,
-            description,
-            is_active: true,
-            expires_at: new Date(now.getTime() + 18 * 60 * 60 * 1000).toISOString(), // 18 hours
-            created_at: now.toISOString(),
-          })
-          .select('id')
-          .single();
-
-        if (postError) {
-          console.error(`[morning-forecast-bot] Failed to create post for ${region}:`, postError);
+        const selectedBeach = await selectBeach({
+          id: beachId,
+          name: forecastData.primaryBeach?.name ?? region,
+          lat: beach?.lat ?? null,
+          lon: beach?.lon ?? null,
+        }, { asOf: now });
+        if (!selectedBeach) {
+          console.warn(`[morning-forecast-bot] Representative beach is held for ${region}`);
           results.push({
             region,
             success: false,
-            error: postError.message,
+            error: 'Representative beach is not eligible for automated posting',
           });
           continue;
         }
 
-        console.log(`[morning-forecast-bot] Created forecast post for ${region}: ${post.id}`);
+        // Create the intel post
+        const post = await insertSystemFeedPost(supabase, {
+          userId: botUserId,
+          beachId: selectedBeach.id,
+          latitude: selectedBeach.lat ?? getRegionDefaultLat(region),
+          longitude: selectedBeach.lon ?? getRegionDefaultLon(region),
+          title,
+          description,
+          dedupeHash: createHash('sha256')
+            .update(`legacy-morning:${region}:${now.toISOString().slice(0, 10)}`)
+            .digest('hex'),
+          surfConditions: null,
+          expiresAt: new Date(now.getTime() + 18 * 60 * 60 * 1000).toISOString(),
+          createdAt: now.toISOString(),
+        });
+
+        if (post.status !== 'inserted') {
+          console.error(`[morning-forecast-bot] Did not create post for ${region}: ${post.status}`);
+          results.push({
+            region,
+            success: false,
+            error: `System feed ${post.status}`,
+          });
+          continue;
+        }
+
+        console.log(`[morning-forecast-bot] Created forecast post for ${region}: ${post.postId}`);
         results.push({
           region,
           success: true,
-          postId: post.id,
+          postId: post.postId ?? undefined,
           title,
         });
       } catch (err) {
@@ -167,15 +196,23 @@ async function _GET(request: Request): Promise<Response> {
 
     console.log(`[morning-forecast-bot] Completed: ${successful} forecasts posted, ${failed} failed`);
 
-    return createSuccessResponse({
-      summary: {
-        regions: regions.length,
-        successful,
-        failed,
-        durationMs: Date.now() - startMs,
+    return createSuccessResponse(await withCronOutcome(
+      {
+        job: '/api/cron/morning-forecast-bot',
+        unit: 'posts_published',
+        expectedMin: 1,
+        getProduced: (value) => value.summary.successful,
       },
-      results,
-    });
+      async () => ({
+        summary: {
+          regions: regions.length,
+          successful,
+          failed,
+          durationMs: Date.now() - startMs,
+        },
+        results,
+      }),
+    ));
   } catch (error) {
     return handleApiError(error, 'Failed to run morning forecast bot');
   }

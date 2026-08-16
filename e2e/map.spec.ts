@@ -396,6 +396,27 @@ test.describe('Map Page - Toolbar Controls', () => {
     const mapCanvas = page.locator('canvas').first();
     await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.medium });
   });
+
+  test('keeps the complete field guide reachable on a narrow viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    const fieldGuideToggle = page.getByTestId('map-field-guide-toggle');
+    await fieldGuideToggle.click();
+
+    const panel = page.getByTestId('map-learning-panel');
+    await expect(panel).toBeVisible();
+    const appLink = panel.getByRole('link', { name: 'Get the app' });
+    await appLink.scrollIntoViewIfNeeded();
+    await expect(appLink).toBeVisible();
+
+    const appLinkBox = await appLink.boundingBox();
+    expect(appLinkBox).not.toBeNull();
+    expect(appLinkBox!.y).toBeGreaterThanOrEqual(0);
+    expect(appLinkBox!.y + appLinkBox!.height).toBeLessThanOrEqual(844);
+
+    await page.getByRole('button', { name: 'Close map field guide' }).click();
+    await expect(fieldGuideToggle).toBeFocused();
+  });
 });
 
 test.describe('Map Page - Filter Functionality', () => {
@@ -537,7 +558,7 @@ test.describe('Map Page - Search Integration', () => {
     await expect(page).toHaveURL(/\/map(?:\?.*)?$/);
     await expect(page.getByTestId('map-search-suggestions')).toHaveCount(0);
     await expect(
-      page.getByRole('button', { name: 'View Waikiki conditions' }),
+      page.getByRole('button', { name: /^View Waikiki.* conditions$/ }).first(),
     ).toBeVisible({ timeout: TIMEOUTS.long });
     await expect
       .poll(async () => {

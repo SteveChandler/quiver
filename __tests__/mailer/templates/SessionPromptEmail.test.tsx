@@ -13,13 +13,11 @@ import {
 // Mock the email formatters module
 jest.mock("@/lib/email/email-formatters", () => ({
   getConditionLabel: jest.fn((score: number) => {
-    if (score >= 85) {
-      return { label: "Perfect", color: "#10b981", emoji: "🔥" };
-    } else if (score >= 70) {
-      return { label: "Excellent", color: "#3b82f6", emoji: "✨" };
-    } else {
-      return { label: "Good", color: "#22c55e", emoji: "🌊" };
-    }
+    if (score >= 80) return { label: "EPIC", color: "#00D4AA" };
+    if (score >= 70) return { label: "GOOD", color: "#1D9E75" };
+    if (score >= 55) return { label: "FAIR", color: "#FDB84B" };
+    if (score >= 40) return { label: "RIDEABLE", color: "#888780" };
+    return { label: "MEH", color: "#5F5E5A" };
   }),
 }));
 
@@ -134,30 +132,30 @@ describe("SessionPromptEmail", () => {
   });
 
   describe("Condition Label", () => {
-    it("uses lowercase condition label for score 85 (perfect)", () => {
+    it("uses lowercase condition label for score 85 (EPIC)", () => {
       const props = makeProps({ conditionsScore: 85 });
       render(<SessionPromptEmail {...props} />);
 
       // Label is in <strong> tag
-      expect(screen.getByText("perfect")).toBeInTheDocument();
+      expect(screen.getByText("epic")).toBeInTheDocument();
       expect(screen.getByText(/Conditions were looking/i)).toBeInTheDocument();
     });
 
-    it("uses lowercase condition label for score 70 (excellent)", () => {
+    it("uses lowercase condition label for score 70 (GOOD)", () => {
       const props = makeProps({ conditionsScore: 70 });
       render(<SessionPromptEmail {...props} />);
 
       // Label is in <strong> tag
-      expect(screen.getByText("excellent")).toBeInTheDocument();
+      expect(screen.getByText("good")).toBeInTheDocument();
       expect(screen.getByText(/Conditions were looking/i)).toBeInTheDocument();
     });
 
-    it("uses lowercase condition label for score 69 (good)", () => {
+    it("uses lowercase condition label for score 69 (FAIR)", () => {
       const props = makeProps({ conditionsScore: 69 });
       render(<SessionPromptEmail {...props} />);
 
       // Label is in <strong> tag
-      expect(screen.getByText("good")).toBeInTheDocument();
+      expect(screen.getByText("fair")).toBeInTheDocument();
       expect(screen.getByText(/Conditions were looking/i)).toBeInTheDocument();
     });
   });
@@ -299,7 +297,7 @@ describe("SessionPromptEmail", () => {
 
       // Condition text with beach name and score
       expect(screen.getByText(/Conditions were looking/i)).toBeInTheDocument();
-      expect(screen.getByText("excellent")).toBeInTheDocument();
+      expect(screen.getByText("good")).toBeInTheDocument();
       expect(screen.getByText("Black's Beach")).toBeInTheDocument();
       expect(screen.getByText(/scored 70/i)).toBeInTheDocument();
 
@@ -338,7 +336,7 @@ describe("SessionPromptEmail", () => {
 
       // Condition text without surf description
       expect(screen.getByText(/Conditions were looking/i)).toBeInTheDocument();
-      expect(screen.getByText("excellent")).toBeInTheDocument();
+      expect(screen.getByText("good")).toBeInTheDocument();
       expect(screen.getByText("Black's Beach")).toBeInTheDocument();
       expect(screen.getByText(/scored 70/i)).toBeInTheDocument();
 
@@ -350,7 +348,7 @@ describe("SessionPromptEmail", () => {
       expect(screen.getByText(/Yes, I surfed!/i)).toBeInTheDocument();
     });
 
-    it("renders with perfect conditions (score 100)", () => {
+    it("renders with EPIC conditions (score 100)", () => {
       const props = makeProps({
         conditionsScore: 100,
         surfDescription: "Epic 6-8ft barrels",
@@ -358,7 +356,7 @@ describe("SessionPromptEmail", () => {
       render(<SessionPromptEmail {...props} />);
 
       expect(screen.getByText(/Conditions were looking/i)).toBeInTheDocument();
-      expect(screen.getByText("perfect")).toBeInTheDocument();
+      expect(screen.getByText("epic")).toBeInTheDocument();
       expect(screen.getByText(/scored 100/i)).toBeInTheDocument();
       expect(screen.getByText(/Epic 6-8ft barrels\./i)).toBeInTheDocument();
     });
@@ -371,7 +369,7 @@ describe("SessionPromptEmail", () => {
       render(<SessionPromptEmail {...props} />);
 
       expect(screen.getByText(/Conditions were looking/i)).toBeInTheDocument();
-      expect(screen.getByText("good")).toBeInTheDocument();
+      expect(screen.getByText("rideable")).toBeInTheDocument();
       expect(screen.getByText(/scored 45/i)).toBeInTheDocument();
       expect(screen.getByText(/Small 1-2ft wind chop\./i)).toBeInTheDocument();
     });
@@ -400,7 +398,7 @@ describe("SessionPromptEmail", () => {
       // Should have complete sentence structure
       const paragraph = screen.getByText(/Conditions were looking/i);
       expect(paragraph.textContent).toMatch(
-        /Conditions were looking perfect at Swami's yesterday \(scored 85\)\. Perfect peeling rights\. If you got out there/i
+        /Conditions were looking epic at Swami's yesterday \(scored 85\)\. Perfect peeling rights\. If you got out there/i
       );
     });
   });

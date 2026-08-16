@@ -1,0 +1,16 @@
+{
+  "versionInfo": {
+    "hasModuleVersionChanged": false,
+    "hasApiVersionChanged": false
+  },
+  "data": {
+    "Out1": {
+      "List": [],
+      "EmptyListItem": {
+        "Latitude": "",
+        "Longitude": ""
+      }
+    }
+  },
+  "rolesInfo": ","
+}

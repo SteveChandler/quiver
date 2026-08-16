@@ -41,13 +41,13 @@ export const SWELL_LAYER_COLOR: Record<SwellLayerId, string> = {
 };
 
 // Timeline materials use the same cream-paper instrument language as the legend.
-// Orange marks committed forecast progress; gold remains reserved for focus.
+// Orange marks committed forecast progress; ink keeps keyboard focus AA-visible on paper.
 export const SWELL_MAP_TIMELINE = {
   active: SWELL_LAYER_COLOR.s1,
   dayBand: "#E9DEC7",
   dayBandAlternate: "#F0E5D0",
   track: "#CDBD9C",
-  focus: SWELL_LAYER_COLOR.s2,
+  focus: SWELL_MAP_LEGEND_SURFACE.ink,
   ink: SWELL_MAP_LEGEND_SURFACE.ink,
   stickerShadow: SWELL_MAP_STICKER_SHADOW,
 } as const;

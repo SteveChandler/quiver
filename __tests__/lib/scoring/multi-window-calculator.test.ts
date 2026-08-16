@@ -5,6 +5,7 @@
  */
 
 import { calculateMultipleWindows } from '@/lib/scoring/window-calculator';
+import { scoreNativeConditionInputs } from '@/lib/scoring/native-condition-score';
 import type { BeachWithThresholds, ForecastForScoring } from '@/lib/scoring/types';
 
 // Beach config that lets conditions vary cleanly
@@ -101,6 +102,28 @@ describe('calculateMultipleWindows', () => {
 
     expect(result.windows).toHaveLength(0);
     expect(result.bestWindow).toBeNull();
+  });
+
+  it('uses a saved longboard to surface a small advanced-skill window', () => {
+    const forecasts = [
+      makeForecast(6, 1.1, 13, 0, 90, 3.5),
+      makeForecast(7, 1.1, 13, 0, 90, 3.5),
+      makeForecast(8, 1.1, 13, 0, 90, 3.5),
+      makeForecast(9, 1.1, 13, 0, 90, 3.5),
+    ];
+
+    expect(
+      calculateMultipleWindows(forecasts, baseBeach, {
+        skillLevel: 'advanced',
+      }).bestWindow,
+    ).toBeNull();
+
+    expect(
+      calculateMultipleWindows(forecasts, baseBeach, {
+        skillLevel: 'advanced',
+        boardClasses: ['longboard'],
+      }).bestWindow,
+    ).not.toBeNull();
   });
 
   it('returns all 3 windows when three viable blocks exist, ranked by avg score', () => {
@@ -207,6 +230,35 @@ describe('calculateMultipleWindows', () => {
       avgScore: expect.any(Number),
     }));
     expect(result.windows[0].avgScore).toBeGreaterThan(0);
+  });
+
+  it('exposes the score for the same peak forecast used by the character', () => {
+    const forecasts: ForecastForScoring[] = [
+      makeForecast(6, 2, 10, 8, 90, 3.5),
+      makeForecast(7, 4, 14, 1, 90, 3.5),
+      makeForecast(8, 3, 12, 5, 90, 3.5),
+      makeForecast(9, 3, 12, 5, 90, 3.5),
+    ];
+
+    const result = calculateMultipleWindows(forecasts, baseBeach);
+    const window = result.bestWindow;
+    expect(window).not.toBeNull();
+    expect(window?.peakTime).toBeDefined();
+    expect(window?.peakScore).toBeDefined();
+
+    const peakForecast = forecasts.find(
+      (forecast) => forecast.forecastTime.getTime() === window?.peakTime?.getTime(),
+    );
+    expect(peakForecast).toBeDefined();
+    expect(window?.peakScore).toBe(
+      scoreNativeConditionInputs({
+        waveHeightFt: peakForecast!.waveHeight,
+        windSpeedMph: peakForecast!.windSpeed,
+        periodSec: peakForecast!.wavePeriod,
+        tideHeightFt: peakForecast!.tideHeight,
+        tideStatus: peakForecast!.tideStatus,
+      }),
+    );
   });
 
   it('each window has start, end, peakTime, startReason, endReason, message', () => {

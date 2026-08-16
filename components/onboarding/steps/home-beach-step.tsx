@@ -315,7 +315,7 @@ export function HomeBeachStep() {
                     isCelebrating
                       ? "border border-[#F78E42] bg-[#F78E42]/10"
                       : "bg-white/[0.06] border border-white/[0.12] hover:bg-white/10"
-                  }`}
+                  }` + " focus-ring"}
                 >
                   <MapPin className="h-4 w-4 text-white/50 flex-shrink-0" />
                   <div className="min-w-0 flex-1">
@@ -371,7 +371,7 @@ export function HomeBeachStep() {
                   key={beach.id}
                   type="button"
                   onClick={() => selectBeach(beach)}
-                  className="w-full px-4 py-3 text-left hover:bg-white/[0.08] flex items-center gap-3 border-b border-white/[0.08] last:border-b-0 transition-colors"
+                  className="w-full px-4 py-3 text-left hover:bg-white/[0.08] flex items-center gap-3 border-b border-white/[0.08] last:border-b-0 transition-colors focus-ring"
                 >
                   <MapPin className="h-4 w-4 text-white/50 flex-shrink-0" />
                   <div>
@@ -414,7 +414,7 @@ export function HomeBeachStep() {
         <button
           type="submit"
           disabled={!isValid}
-          className="w-full py-3 rounded-lg bg-gradient-to-r from-[#F78E42] to-[#D57835] text-white font-semibold text-sm disabled:opacity-40 transition-opacity"
+          className="w-full py-3 rounded-lg bg-gradient-to-r from-[#F78E42] to-[#D57835] text-white font-semibold text-sm disabled:opacity-40 transition-opacity focus-ring"
         >
           Continue
         </button>

@@ -52,7 +52,9 @@ type GoogleOneTapConfig = {
 describe("GoogleOneTap", () => {
   let originalGoogle: Window["google"];
   let originalClientId: string | undefined;
+  let originalLocalhostOverride: string | undefined;
   let credentialCallback: GoogleCredentialCallback | undefined;
+  let initialize: jest.Mock;
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -60,7 +62,10 @@ describe("GoogleOneTap", () => {
 
     originalGoogle = window.google;
     originalClientId = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+    originalLocalhostOverride =
+      process.env.NEXT_PUBLIC_ENABLE_GOOGLE_ONE_TAP_LOCALHOST;
     process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID = "test-google-client-id";
+    process.env.NEXT_PUBLIC_ENABLE_GOOGLE_ONE_TAP_LOCALHOST = "true";
 
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
     (safeGetItem as jest.Mock).mockReturnValue(null);
@@ -72,12 +77,13 @@ describe("GoogleOneTap", () => {
       started_at: Date.now(),
     });
 
+    initialize = jest.fn((config: GoogleOneTapConfig) => {
+      credentialCallback = config.callback;
+    });
     window.google = {
       accounts: {
         id: {
-          initialize: jest.fn((config: GoogleOneTapConfig) => {
-            credentialCallback = config.callback;
-          }),
+          initialize,
           prompt: jest.fn(),
           cancel: jest.fn(),
           disableAutoSelect: jest.fn(),
@@ -99,8 +105,27 @@ describe("GoogleOneTap", () => {
     } else {
       process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID = originalClientId;
     }
+    if (originalLocalhostOverride === undefined) {
+      delete process.env.NEXT_PUBLIC_ENABLE_GOOGLE_ONE_TAP_LOCALHOST;
+    } else {
+      process.env.NEXT_PUBLIC_ENABLE_GOOGLE_ONE_TAP_LOCALHOST =
+        originalLocalhostOverride;
+    }
 
     jest.useRealTimers();
+  });
+
+  it("does not request a Google credential on localhost by default", async () => {
+    delete process.env.NEXT_PUBLIC_ENABLE_GOOGLE_ONE_TAP_LOCALHOST;
+
+    render(<GoogleOneTap />);
+
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+    });
+
+    expect(initialize).not.toHaveBeenCalled();
+    expect(window.google?.accounts.id.prompt).not.toHaveBeenCalled();
   });
 
   it("uses a stable error code for persisted One Tap token exchange failures", async () => {

@@ -305,7 +305,8 @@ if (error) {
 assertValidCoordinates(lat, lon, 'Database write');
 ```
 
-See [COORDINATE_VALIDATION.md](./COORDINATE_VALIDATION.md) for complete validation documentation.
+See [Runtime Coordinate Validation](#runtime-coordinate-validation) for the
+validation utility reference.
 
 ## Database Schema
 
@@ -594,7 +595,7 @@ When implementing features that use geographic coordinates:
 
 ## Related Documentation
 
-- [Coordinate Validation System](./COORDINATE_VALIDATION.md) - Runtime validation utilities
+- [Runtime Coordinate Validation](#runtime-coordinate-validation) - Runtime validation utilities
 - [Supabase Architecture](../supabase/ARCHITECTURE.md) - Database schema and conventions
 - [Components Architecture](../components/ARCHITECTURE.md) - Component patterns and structure
 - [Testing Guidelines](../e2e/ARCHITECTURE.md) - E2E testing patterns
@@ -650,3 +651,106 @@ When implementing features that use geographic coordinates:
 ---
 
 **Remember**: Coordinate naming consistency prevents bugs. When in doubt, follow this guide.
+
+## Runtime Coordinate Validation
+
+The runtime validation utilities live in `/lib/coordinate-validation.ts` and
+provide early, environment-aware checks at system boundaries. The canonical
+naming rules above still apply: use `lat`/`lon` or `latitude`/`longitude`, and
+map database fields explicitly before validation.
+
+### Utility reference
+
+- `isValidLatitude(lat)` is a type guard for values from -90 to 90 degrees;
+  it rejects undefined, null, NaN, Infinity, and out-of-range values.
+- `isValidLongitude(lon)` is a type guard for values from -180 to 180 degrees;
+  it rejects undefined, null, NaN, Infinity, and out-of-range values.
+- `isValidCoordinate(lat, lon)` returns true only when both values are valid.
+- `getCoordinateValidationError(lat, lon, context?)` returns a detailed error
+  string or null when valid. Context is included in messages such as
+  `Beach: Pacific Beach: Latitude 91 is out of range (-90 to 90)`.
+- `validateCoordinates(lat, lon, context?)` returns a boolean and logs
+  detailed warnings, coordinate values, context, and a stack in development;
+  production validation is silent.
+- `assertValidCoordinates(lat, lon, context?)` throws when invalid and is for
+  critical paths where invalid coordinates must halt execution.
+- `sanitizeCoordinates(lat, lon)` clamps finite numeric values to valid ranges,
+  returns `{ latitude: number, longitude: number }`, and returns null for
+  undefined, null, non-numeric, or NaN input. Clamping is warned about in
+  development.
+- `hasValidCoordinates(obj)` is a type guard for objects with either `lat`/`lon`
+  or `latitude`/`longitude` properties.
+
+### Validation placement
+
+The current validation pattern is:
+
+1. Validate hook inputs before making an API call. `useIntelData` uses
+   `getCoordinateValidationError`, logs detailed development context, and
+   throws an error that reaches the error boundary. Its manual-location path
+   validates before updating location state.
+2. Add development-only warnings at component boundaries. The beach intel and
+   intel-tab components validate their coordinate props and include beach name,
+   ID, latitude, and longitude in warnings. The home forecast tab warns when
+   effective coordinates are zero.
+3. Use `getCoordinateValidationError` for API and user-input error handling and
+   `assertValidCoordinates` for database writes or other critical paths.
+4. Use `hasValidCoordinates` for API responses, database results, and type
+   narrowing; use `sanitizeCoordinates` only for best-effort cleanup or legacy
+   data handling.
+
+### Environment behavior
+
+- Development uses verbose warnings, coordinate values, component context, and
+  stack traces to identify where bad data originated. Warnings do not crash the
+  application.
+- Production validation is silent at the console, should be handled gracefully
+  by the UI, and can be reported to monitoring with useful context. Invalid
+  coordinates must not crash the user experience.
+
+### Validation scenarios
+
+```typescript
+isValidCoordinate(32.7157, -117.1611) // true: San Diego
+isValidCoordinate(0, 0)              // true: Null Island
+isValidCoordinate(90, 180)            // true: maximum values
+isValidCoordinate(-90, -180)          // true: minimum values
+isValidCoordinate(91, -117.1611)      // false: latitude out of range
+isValidCoordinate(32.7157, 181)       // false: longitude out of range
+isValidCoordinate(-117.1611, 32.7157) // false: swapped coordinates
+isValidCoordinate(NaN, -117.1611)     // false
+```
+
+### Testing and debugging
+
+The validation suite is at `/__tests__/lib/coordinate-validation.test.ts` and
+covers valid ranges, NaN/undefined/null/Infinity, out-of-range values, error
+formatting, context, development/production behavior, sanitization, object
+type guards, San Diego examples, and swapped coordinates. The current suite
+contains 34 tests. Run focused checks with:
+
+```bash
+npx jest __tests__/lib/coordinate-validation.test.ts
+npx jest __tests__/hooks/use-intel-data.test.ts
+yarn test:unit
+```
+
+For debugging, inspect the browser console in development for context-rich
+warnings and stack traces. In production, inspect Sentry or the relevant
+graceful fallback (for example, inability to load local intel posts).
+
+### Adding validation to a new component
+
+1. Import `validateCoordinates` from `/lib/coordinate-validation.ts`.
+2. Validate in a development-only `useEffect` with the coordinate values and a
+   component/context label.
+3. Use `getCoordinateValidationError` in critical paths in all environments.
+4. Add tests for coordinate mapping, validation, null/NaN/out-of-range values,
+   and edge cases.
+5. Run development checks and resolve coordinate warnings before committing.
+
+### Future validation enhancements
+
+Potential additions are suspicious-precision warnings, geographic-bounds
+checks for expected regions, automatic correction of common swapped values,
+validation-failure metrics, and an admin view of beaches with suspicious data.

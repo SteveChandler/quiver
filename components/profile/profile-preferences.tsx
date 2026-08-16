@@ -309,7 +309,7 @@ export function ProfilePreferences({
                               field.value === option.value
                                 ? "border-primary bg-primary/10 font-medium"
                                 : "border-input hover:border-primary/40"
-                            )}
+                            ) + " focus-ring"}
                           >
                             <div className="font-medium">{option.label}</div>
                             <div className="text-xs text-muted-foreground">{option.desc}</div>

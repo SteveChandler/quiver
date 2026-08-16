@@ -2,7 +2,7 @@
 
 This document is the canonical, high-level overview of Quiver's architecture and an index to detailed docs. It summarizes core patterns, policies, and the current product strategy.
 
-**Last Updated:** February 2026
+**Last Updated:** August 12, 2026
 
 ---
 
@@ -15,7 +15,7 @@ This document is the canonical, high-level overview of Quiver's architecture and
 - **Python/FastAPI** (ML Service on Fly.io)
 
 **App Status**: Production-ready foundation with comprehensive tests.
-**Current Focus**: User acquisition and viral growth (7 -> 1,000 users).
+**Current Focus**: User acquisition and sustainable growth.
 
 ---
 
@@ -23,8 +23,7 @@ This document is the canonical, high-level overview of Quiver's architecture and
 
 **Mission**: A community-driven, trail-style surf app where surfers can plan sessions, share experiences, and build meaningful connections.
 
-**Critical Challenge**: Technical excellence achieved (performance, features, testing), but 7 active users.
-**Strategic Pivot**: Shift from feature perfection to **Growth Engineering**.
+**Strategic Focus**: Continue improving the product while prioritizing sustainable user growth.
 
 - **Phase 3A (Weeks 1-8)**: Viral Foundation (Social sharing, summary generation).
 - **Phase 3B (Weeks 9-16)**: Network Effects (Community features, buddy finder).
@@ -38,7 +37,6 @@ This document is the canonical, high-level overview of Quiver's architecture and
 - `components/` - Reusable UI, DRY form components (see `components/ARCHITECTURE.md`)
 - `hooks/` - Custom React hooks (see `hooks/ARCHITECTURE.md`)
 - `lib/` - Utilities, services, auth, Supabase clients (see `lib/ARCHITECTURE.md`)
-- `ml/` - Python ML service for bias correction (see `ml/ARCHITECTURE.md`)
 - `supabase/` - DB migrations, RLS, performance (see `supabase/ARCHITECTURE.md`)
 - `types/` - TypeScript domain models (see `types/ARCHITECTURE.md`)
 - `test-utils/` - Testing helpers (see `test-utils/ARCHITECTURE.md`)
@@ -46,6 +44,10 @@ This document is the canonical, high-level overview of Quiver's architecture and
 - `scripts/terrain/` - Terrain analysis for geometry scoring (see `scripts/terrain/ARCHITECTURE.md`)
 
 **Primary Reference**: `docs/STYLE_GUIDE.md` (Brand, patterns, accessibility).
+
+**Session Funnel Telemetry**: [`SESSION_FUNNEL_TELEMETRY.md`](SESSION_FUNNEL_TELEMETRY.md)
+documents the active web/native event-correlation contract, canonical joins,
+platform coverage, and post-release verification.
 
 ---
 
@@ -147,14 +149,6 @@ condition-alert sender.
 - Welcome and engagement sends use `email_send_log` for delivery logging and
   deduplication.
 
-**Documentation:**
-| Document | Description |
-|----------|-------------|
-| [Email Core Loop Design](plans/completed/2026-01-20-email-core-loop-design.md) | Original design philosophy |
-| [Re-engagement Email](features/REENGAGEMENT_EMAIL.md) | Historical design for the retired re-engagement system |
-
----
-
 ### ML System
 
 **Status**: Production (Fly.io)
@@ -162,9 +156,8 @@ condition-alert sender.
 The ML bias correction pipeline improves NOAA wave height forecast accuracy using XGBoost v3 with terrain-aware features.
 
 **Components:**
-- **Python ML Service** (`ml/`): FastAPI service on Fly.io at `https://quiver-ml.fly.dev`
-- **TypeScript Parsers** (`lib/ml/`): NOAA text parsing utilities
-- **Cron Jobs** (`app/api/cron/ml/`): Batch correction, ground truth backfill, and weekly retrain
+- **External ML Service**: Seaside service on Fly.io at `https://quiver-ml.fly.dev`
+- **Forecast Data**: Forecast and observation data are stored in Supabase for serving and evaluation
 
 **Key Features (v3):**
 - **Terrain Factors**: `swell_access_factors` and `wind_exposure_factors` per-beach (72 directional bins)
@@ -184,9 +177,6 @@ NOAA Forecast -> Parse (TS) -> Correct (Python) -> Store (Supabase)
 | Document | Description |
 |----------|-------------|
 | [ML Bias Correction](features/ML_BIAS_CORRECTION.md) | Feature overview, schema, integration |
-| [ML Service](../ml/ARCHITECTURE.md) | Python FastAPI service, XGBoost model |
-| [TypeScript Module](../lib/ml/ARCHITECTURE.md) | Parsing utilities |
-| [Cron Jobs](../app/api/cron/ml/ARCHITECTURE.md) | Vercel cron configuration |
 
 ---
 
@@ -212,7 +202,6 @@ The terrain analysis system encodes beach-specific wind shelter and swell wrap b
 |----------|-------------|
 | [Terrain Architecture](../scripts/terrain/ARCHITECTURE.md) | Full system documentation |
 | [Surf Scoring](../lib/surf/ARCHITECTURE.md) | Scoring integration details |
-| [Design Document](plans/2026-01-20-terrain-geometry-scoring-design.md) | Original design specification |
 | [Type Definitions](../types/terrain.ts) | TypeScript types and constants |
 
 **Data Flow:**
@@ -390,14 +379,16 @@ For detailed algorithm documentation, see `lib/services/ARCHITECTURE.md`.
 | **API** | [API Overview](api/README.md) | REST API architecture and endpoints |
 | **API** | [Server Actions](api/SERVER_ACTIONS.md) | Next.js server action reference |
 | **API** | [RPC Functions](api/RPC_FUNCTIONS.md) | Supabase stored procedures |
+| **API** | [API Middleware](API_MIDDLEWARE.md) | Protection wrappers and technical reference appendix |
 | **Architecture** | [URL Routing](architecture/URL_ROUTING.md) | Hierarchical URL patterns |
 | **Architecture** | [Forecast Scoring](architecture/FORECAST_SCORING.md) | Surf scoring algorithm |
+| **Operations** | [Forecast Monitoring](forecast/README.md) | Forecast freshness, recovery, deployment, and cron runbooks |
 | **Architecture** | [Cache Strategy](architecture/CACHE_STRATEGY.md) | Multi-tier caching patterns |
 | **Architecture** | [Terrain Analysis](../scripts/terrain/ARCHITECTURE.md) | Terrain-aware geometry scoring |
 | **Features** | [Attribution Tracking](features/ATTRIBUTION_TRACKING.md) | UTM and referral tracking |
 | **Features** | [City Editorial](features/CITY_EDITORIAL_CONTENT.md) | City page content system |
 | **Features** | [ML Bias Correction](features/ML_BIAS_CORRECTION.md) | Wave forecast ML correction |
-| **Features** | [Re-engagement Email](features/REENGAGEMENT_EMAIL.md) | Historical design for the retired re-engagement system |
+| **Features** | [Re-engagement Email](archive/REENGAGEMENT_EMAIL.md) | Historical design for the retired re-engagement system |
 | **Guides** | [Adding States](guides/ADDING_NEW_STATES.md) | Regional expansion guide |
 | **Components** | [Intent Components](../components/intent/ARCHITECTURE.md) | Tide intent page components |
 | **Components** | [Beginner Components](../components/beginner/ARCHITECTURE.md) | Beginner page components |
@@ -409,29 +400,29 @@ For detailed algorithm documentation, see `lib/services/ARCHITECTURE.md`.
 
 ### Mobile Architecture
 
-Two mobile strategies coexist:
+Two mobile surfaces coexist:
 
-#### Capacitor Web Wrapper (this repo)
-- **Approach**: Capacitor 8 shell wrapping the Next.js web app
-- **Key Components**: PWA manifest, Service Worker (forecast caching), Capacitor bridge
-- **Use case**: Full web feature parity on mobile, push notifications via FCM
+#### PWA Web App (this repo)
+- **Approach**: Next.js web app installable as a PWA
+- **Key Components**: PWA manifest, service worker, and web push APIs
+- **Use case**: Full web feature parity on mobile browsers and installed PWAs
 
 #### Expo Native App (`../quiver-native`)
 - **Repo**: Separate Git repo — `quiver-native`
-- **Stack**: Expo 55, React Native 0.83, Tamagui, TanStack Query, Zustand, React Navigation 7
+- **Stack**: Expo 55, React Native 0.83, TanStack Query, Zustand, React Navigation 7
 - **Backend**: Shares same Supabase instance (DB + Auth + Storage). Also calls this repo's Next.js API routes for forecasts/surf calls.
 - **Docs**: Has its own `AGENTS.md`, model context, `docs/ARCHITECTURE.md`, and inline `ARCHITECTURE.md` files
 - **Build**: EAS Build (dev/preview/production profiles) or local `npx expo run:ios/android`
 - **Bundle ID**: `app.quiversurf.native`
 
 **Key differences from web:**
-| Aspect | Web (Capacitor) | Native (Expo) |
+| Aspect | Web (PWA) | Native (Expo) |
 |--------|----------------|---------------|
 | Data fetching | `useDataFetcher` / SWR | TanStack Query |
-| Styling | Tailwind + Radix UI | Tamagui + StyleSheet |
+| Styling | Tailwind + Radix UI | React Native styling |
 | State | React Context | Zustand (auth) + TanStack Query (server) |
-| Coordinates | `center_lat`/`center_lng` (DB), `latitude`/`longitude` (props) | `lat`/`lon` |
-| Auth | Clerk + Supabase | Supabase Auth + SecureStore |
+| Coordinates | `lat`/`lon` for beach rows; `lon`/`longitude` in new API/component shapes | `lat`/`lon` |
+| Auth | Supabase Auth | Supabase Auth + SecureStore |
 
 ---
 
@@ -480,3 +471,63 @@ The Expo app's Weekend Scout uses a foreground device fix as its only geographic
 The Friday planning job accepts only location rows no older than 24 hours. It evaluates every eligible beach inside the user's configured drive range, applies canonical Week Scout scoring plus distance friction, and stores an immutable top-three snapshot. Home and saved beaches are labels only and receive no ranking bonus. Stored alert results and live refreshes are exposed separately so notification content remains reproducible when forecasts change.
 
 The cron runs hourly Thursday through Saturday UTC (`0 * * * 4-6`) and filters to exactly Friday 12 PM in each stored location timezone. Rollout preserves the existing `WEEKEND_WINDOW_ENABLED` and `WEEKEND_WINDOW_TEST_USER_IDS` controls. Migration `20260719120000_create_weekend_scout_location_snapshots.sql` is committed but requires a separately approved database application.
+
+---
+
+### Current System Boundaries and Decisions
+
+This section captures durable architecture guidance that was previously only in
+the archived system architecture guide. Claims from that guide about retired
+Capacitor mobile clients, old dependency choices, historical capacity numbers,
+and unverified cost or performance targets are intentionally not carried
+forward.
+
+#### Runtime containers
+
+- **Web application**: Next.js 16 App Router with React 19, TypeScript, Tailwind
+  CSS, Radix UI, Framer Motion, and Mapbox GL. The web app is installable as a
+  PWA.
+- **API layer**: Next.js API routes run in the same repository and are protected
+  with the shared middleware wrappers in `lib/middleware/api-wrappers/`.
+- **Native application**: Expo 55 / React Native 0.83 in the separate
+  `../quiver-native` repository. It shares Supabase Auth, database, and storage
+  and calls versioned web API routes where required. It is not a Capacitor shell.
+- **Backend platform**: Supabase provides PostgreSQL, Auth, RLS, Realtime, and
+  Storage. Vercel hosts the web application and serverless routes.
+
+#### Durable architecture decisions
+
+1. **Next.js App Router** is the web application boundary, providing route
+   rendering, API routes, and server actions in one codebase.
+2. **Supabase** is the shared data and authentication platform. User-data access
+   is enforced with RLS, and realtime consumers remove their channels on
+   cleanup.
+3. **Web/native contracts are additive.** Native-consumed API routes are
+   versioned contracts: fields are added rather than renamed, removed, or
+   repurposed in place, and failures use real HTTP error statuses.
+4. **Server actions are web-only.** Native clients use API routes for writes so
+   Bearer authentication is re-established at the route boundary.
+5. **Forecasting is service-oriented within the monolith.** Forecast ingestion,
+   transformation, storage, scoring, correction, and health monitoring remain
+   in the repository's forecast services and cron/API boundaries.
+
+#### Security boundary
+
+The active request path is defense in depth:
+
+1. HTTPS/Vercel edge delivery.
+2. Bot blocking and rate limiting where configured.
+3. Supabase cookie or Bearer authentication through API middleware.
+4. Route-level authorization and ownership checks.
+5. Supabase RLS for user-data access.
+
+The canonical middleware behavior, including Next.js 15+ Promise route-param
+resolution, is documented in [API Middleware](API_MIDDLEWARE.md). Coordinate
+validation is documented in [Coordinate Conventions](COORDINATE_CONVENTIONS.md).
+
+#### Deployment and verification boundary
+
+The repository uses Yarn 1.22.17 and Node 22. The normal local verification
+surface is TypeScript, Jest, scoped ESLint, and Playwright as appropriate to the
+change. Production deployment is Vercel-backed; remote GitHub Actions are not a
+substitute for the local gate because repository Actions are unavailable.

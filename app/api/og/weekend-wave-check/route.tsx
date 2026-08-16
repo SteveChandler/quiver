@@ -10,6 +10,7 @@ import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
+import { selectBeach } from "@/lib/recommendations/selection";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -251,6 +252,12 @@ async function resolveWeekendCard(
     return null;
   }
 
+  const [saturdayBeach, sundayBeach] = await Promise.all([
+    selectBeach(saturdayBeachResult.data),
+    selectBeach(sundayBeachResult.data),
+  ]);
+  if (!saturdayBeach || !sundayBeach) return null;
+
   const candidates = [saturdayCandidate, sundayCandidate];
   const forecastMap = await getBatchFreshForecastsFromCache(
     candidates.map(({ beachId }) => beachId),
@@ -271,6 +278,7 @@ async function resolveWeekendCard(
   const decisions = await evaluateMajorEventHoldCandidates({
     candidates,
     profileExperience: null,
+    applyWaterQualityHolds: true,
   });
   const boundary = resolveMajorEventHoldBoundary(
     candidates,
@@ -295,7 +303,7 @@ async function resolveWeekendCard(
     sundayBeachResult.data,
   );
   const saturday: ResolvedWeekendDay = {
-    beach: saturdayBeachResult.data,
+    beach: saturdayBeach,
     candidate: saturdayCandidate,
     forecasts: saturdayForecasts,
     score: saturdayScore,
@@ -303,7 +311,7 @@ async function resolveWeekendCard(
     summary: objectiveSummary(saturdayForecasts),
   };
   const sunday: ResolvedWeekendDay = {
-    beach: sundayBeachResult.data,
+    beach: sundayBeach,
     candidate: sundayCandidate,
     forecasts: sundayForecasts,
     score: sundayScore,

@@ -78,6 +78,7 @@ import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { AlertCreationPopover } from "@/components/alerts/alert-creation-popover";
 import { AnonAlertCaptureForm } from "@/components/alerts/anon-alert-capture-form";
 import type { BeachAlertMeta } from "@/lib/alerts/types";
+import { CommunityPhotoUpload } from "@/components/media/community-photo-upload";
 // trackSignupCtaClick, trackAuthModalOpened, and motion removed — only needed for removed CTAs
 
 // Alert discoverability nudge — shows for favorited beaches with no alert rules
@@ -944,7 +945,7 @@ function BeachDetailContent({
         disabled={!canGetDirections}
         data-zine-directions
         aria-label="Get directions"
-        className="group relative h-10 w-[170px] shrink-0 overflow-visible rounded-none border-0 bg-transparent px-0 text-[#F4EBD8] shadow-none transition-all duration-300 ease-out hover:bg-transparent focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] disabled:opacity-50 min-[1100px]:w-[220px]"
+        className="group relative h-10 w-[170px] shrink-0 overflow-visible rounded-none border-0 bg-transparent px-0 text-[#F4EBD8] shadow-none transition-[opacity,transform,box-shadow] duration-300 ease-out hover:bg-transparent focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] disabled:opacity-50 min-[1100px]:w-[220px]"
       >
         <span
           aria-hidden="true"
@@ -996,16 +997,6 @@ function BeachDetailContent({
             onSetupAlerts={handleOpenAlerts}
           />
         ) : null}
-        <div className="mx-auto mb-6 max-w-5xl md:hidden">
-          <BeachAlertCta
-            beachId={beach.id}
-            beachName={beach.name}
-            refreshKey={alertRulesRefreshKey}
-            onOpenAlerts={handleOpenAlerts}
-            className="bg-[#F78E42] text-white hover:bg-[#F78E42]/90"
-            freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
-          />
-        </div>
         <SessionIntelligencePilot
           beach={beach}
           canonicalPath={beachCanonicalPath}
@@ -1115,6 +1106,16 @@ function BeachDetailContent({
           </BeachTabContent>
         </BeachTabs>
 
+        {!publicMode ? (
+          <div className="mx-auto mt-10 max-w-5xl">
+            <CommunityPhotoUpload
+              targetType="beach"
+              targetId={beach.id}
+              onUploaded={() => router.refresh()}
+            />
+          </div>
+        ) : null}
+
         {afterTabsContent ? (
           <div className="mt-10">{afterTabsContent}</div>
         ) : null}
@@ -1190,7 +1191,7 @@ function BeachDetailContent({
         </DialogContent>
       </Dialog>
 
-      {/* Auth modal for HomeBeachBanner "Set Home Beach" click in publicMode.
+      {/* Auth modal for the "Set Home Beach" click in publicMode.
           BeachActions' Report Conditions and BeachAlertCta have their own
           inline modals with more specific source attribution. */}
       {publicMode && (

@@ -379,21 +379,21 @@ export function ForecastTab({
         <TabsList className="grid w-full grid-cols-3 gap-1 rounded-full border-2 border-[#11100D] bg-[#F4EBD8] p-1 shadow-[2px_2px_0_#11100D]">
           <TabsTrigger
             value="today"
-            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-all data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-[color,background-color,box-shadow] data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
           >
             <Sun className="h-4 w-4" />
             <span>Today</span>
           </TabsTrigger>
           <TabsTrigger
             value="tides"
-            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-all data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-[color,background-color,box-shadow] data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
           >
             <Waves className="h-4 w-4" />
             <span>Tides</span>
           </TabsTrigger>
           <TabsTrigger
             value="conditions"
-            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-all data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+            className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-[color,background-color,box-shadow] data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
           >
             <Globe2 className="h-4 w-4" />
             <span>Conditions</span>
@@ -560,6 +560,7 @@ export function ForecastTab({
               start: w.start.toISOString(),
               end: w.end.toISOString(),
               avgScore: w.avgScore ?? 0,
+              peakScore: w.peakScore,
               character: w.character
                 ? { label: w.character.label, category: w.character.category }
                 : undefined,

@@ -131,6 +131,48 @@ describe("embed map bridge", () => {
     ).toBeNull();
   });
 
+  it("parses a bounded marker-focus command", () => {
+    expect(
+      parseEmbedMapCommand({
+        type: "focusSelectedSpot",
+        payload: { beachId: "beach-1" },
+      }),
+    ).toEqual({
+      type: "focusSelectedSpot",
+      payload: { beachId: "beach-1" },
+    });
+    expect(
+      parseEmbedMapCommand({ type: "focusSelectedSpot", payload: {} }),
+    ).toBeNull();
+  });
+
+  it("returns focus to the selected marker when native closes its sheet", async () => {
+    mockSearchParams = new URLSearchParams();
+    const marker = document.createElement("div");
+    marker.setAttribute("data-testid", "beach-marker");
+    marker.setAttribute("data-beach-id", "beach-1");
+    const button = document.createElement("button");
+    button.setAttribute("data-marker-badge", "true");
+    marker.appendChild(button);
+    document.body.appendChild(marker);
+
+    const { EmbedMapClient } = await import("@/app/embed/map/embed-map-client");
+    const view = render(React.createElement(EmbedMapClient));
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        data: JSON.stringify({
+          type: "focusSelectedSpot",
+          payload: { beachId: "beach-1" },
+        }),
+      }));
+    });
+
+    expect(document.activeElement).toBe(button);
+    view.unmount();
+    marker.remove();
+  });
+
   it("serializes events for React Native WebView", () => {
     expect(
       serializeEmbedMapEvent({

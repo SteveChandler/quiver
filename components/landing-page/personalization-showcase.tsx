@@ -135,7 +135,7 @@ export function PersonalizationShowcase() {
         <div
           className={`
             w-full max-w-[480px] rounded-2xl p-6 sm:p-8
-            transition-all duration-700 ease-out
+            transition-[background-color,background-image,border-color,box-shadow] duration-700 ease-out
             ${
               isRevealed
                 ? "border border-ocean-blue/20 bg-gradient-to-br from-ocean-blue/5 via-white to-ocean-blue/10 ring-1 ring-ocean-blue/10 shadow-md"
@@ -291,7 +291,7 @@ export function PersonalizationShowcase() {
         <div className="mt-8 flex flex-col items-center gap-2">
           <button
             onClick={handleCtaClick}
-            className="rounded-full bg-ocean-blue px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-ocean-blue/90 active:scale-95 transition-all duration-150"
+            className="rounded-full bg-ocean-blue px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-ocean-blue/90 active:scale-95 transition-[background-color,transform] duration-150 focus-ring"
           >
             See Your Forecast
           </button>

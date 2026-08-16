@@ -112,6 +112,11 @@ describe("condition-alert-deliver: profiles embedded join resolves at runtime", 
           }),
         };
       }
+      if (table === "cron_runs") {
+        return {
+          insert: () => Promise.resolve({ error: null }),
+        };
+      }
       return {};
     });
 

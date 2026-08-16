@@ -313,6 +313,8 @@ export interface SurfDiscoveryRecommendation {
   reasons: string[];
   /** Warnings or cautions about the spot */
   warnings: string[];
+  /** Internal canonical-decision safety markers; not a recommendation endorsement. */
+  safetyOverrideReasons?: Array<'water_quality_closure'>;
   /** Top condition badges explaining why conditions are good */
   conditionBadges?: ConditionBadge[];
   /** Strategy tag for this recommendation */

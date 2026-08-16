@@ -10,6 +10,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getBeaches } from "@/actions/beach-actions";
 import { getBeachForecasts, getLatestBeachForecast } from "@/actions/forecast-actions";
 import { EARTH_RADIUS_KM } from "@/lib/utils/geo-utils";
+import { rankBeaches } from "@/lib/recommendations/selection";
 
 export interface Coordinates {
   lat: number;
@@ -67,7 +68,7 @@ async function getCachedBeaches() {
     throw new Error("Failed to fetch beaches from database");
   }
 
-  cachedBeaches = data || [];
+  cachedBeaches = await rankBeaches(data || [], { compare: () => 0 });
   cacheTimestamp = now;
   return cachedBeaches;
 }

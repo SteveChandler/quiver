@@ -28,6 +28,7 @@ import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withApprovedPhotos } from "@/lib/supabase/query-builders";
+import { rankBeaches } from "@/lib/recommendations/selection";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
@@ -63,6 +64,7 @@ async function applyRegionalMajorEventHold(
         ? [null]
         : candidates,
     profileExperience,
+    applyWaterQualityHolds: true,
   });
   return sanitizeRegionalForecastForMajorEventHold(
     summary,
@@ -91,12 +93,17 @@ export async function getRegionalSummaries(
     allBeaches = beachesResult.data;
   }
 
+  const safeBeaches = await rankBeaches(allBeaches, {
+    asOf: options.now,
+    compare: () => 0,
+  });
+
   // Collect all beach IDs across all regions for batch fetch
   const allBeachIds = new Set<string>();
   const regionBeachesMap = new Map<string, Beach[]>();
 
   for (const region of regions) {
-    const regionBeaches = getBeachesForRegion(region, allBeaches);
+    const regionBeaches = getBeachesForRegion(region, safeBeaches);
     regionBeachesMap.set(region.slug, regionBeaches);
     regionBeaches.forEach((beach) => allBeachIds.add(beach.id));
   }
@@ -238,7 +245,11 @@ export async function getRegionalSummary(
     return createEmptyRegionalSummary(region);
   }
 
-  const regionBeaches = getBeachesForRegion(region, allBeaches);
+  const safeBeaches = await rankBeaches(allBeaches, {
+    asOf: options.now,
+    compare: () => 0,
+  });
+  const regionBeaches = getBeachesForRegion(region, safeBeaches);
   if (regionBeaches.length === 0) {
     return createEmptyRegionalSummary(region);
   }

@@ -5,7 +5,6 @@
 jest.mock("server-only", () => ({}));
 
 import {
-  enforceMajorEventHoldBeforeDiscoveryTruncation,
   sanitizeSurfDiscoveryForSerializationMajorEventHold,
   type EvaluateDiscoveryHoldCandidates,
 } from "@/lib/services/discovery/major-event-hold";
@@ -38,6 +37,8 @@ function recommendation(
   const start = STARTS[index];
   return {
     kind: "beach",
+    // The orchestrator assigns this before serialization (recommendationIdFor).
+    recommendationId: `beach:${BEACH_IDS[index]}:${start}`,
     customSpotId: null,
     visibility: null,
     isOwn: false,
@@ -120,6 +121,25 @@ function blocked(candidateId: string): MajorEventHoldCandidateDecision {
   };
 }
 
+function waterQualityBlocked(
+  candidateId: string,
+): MajorEventHoldCandidateDecision {
+  return {
+    candidateId,
+    evaluation: {
+      outcome: "explicit_none",
+      reasonCode: "water_quality_hold",
+      holdIds: ["water-quality:held"],
+      holdEpoch: "epoch-1",
+    },
+    recommendationAvailability: {
+      state: "none",
+      reasonCode: "water_quality_hold",
+      holdEpoch: "epoch-1",
+    },
+  };
+}
+
 function response(
   recommendations: SurfDiscoveryRecommendation[],
 ): SurfDiscoveryResponse {
@@ -138,106 +158,9 @@ function response(
   };
 }
 
-describe("Surf Discovery major-event hold integration", () => {
-  it("evaluates the full sorted pool with verified experience and filters before maxResults", async () => {
-    const ranked = [0, 1, 2, 3].map((index) => recommendation(index));
-    const evaluate = jest.fn(
-      async (input: {
-        candidates: readonly MajorEventHoldCandidate[];
-        profileExperience: unknown;
-      }) =>
-        input.candidates.map(({ candidateId }, index) =>
-          index === 0 ? blocked(candidateId) : allow(candidateId),
-        ),
-    );
-
-    const result = await enforceMajorEventHoldBeforeDiscoveryTruncation({
-      recommendations: ranked,
-      profileExperience: "beginner",
-      maxResults: 3,
-      isPrimaryEligible: () => true,
-      evaluateCandidates: evaluate,
-    });
-
-    expect(evaluate).toHaveBeenCalledWith({
-      candidates: expect.arrayContaining([
-        {
-          candidateId: `beach:${BEACH_IDS[0]}:${STARTS[0]}`,
-          beachId: BEACH_IDS[0],
-          startsAt: STARTS[0],
-          endsAt: "2026-07-19T20:00:00.000Z",
-        },
-      ]),
-      profileExperience: "beginner",
-    });
-    expect(evaluate.mock.calls[0][0].candidates).toHaveLength(4);
-    expect(result.primaryRecommendations.map(({ beach }) => beach.name)).toEqual(
-      ["Beach 2", "Beach 3", "Beach 4"],
-    );
-    expect(result.allAllowedRecommendations).toHaveLength(3);
-    expect(result.recommendationAvailability).toEqual({
-      state: "available",
-      holdEpoch: "epoch-1",
-    });
-  });
-
-  it("scopes a custom spot candidate to its curated nearest beach ID", async () => {
-    const custom = recommendation(0, {
-      kind: "custom_spot",
-      customSpotId: "custom-spot-1",
-      beach: {
-        ...recommendation(0).beach,
-        name: "Custom Reef",
-      },
-    });
-    const evaluate = jest.fn(async (input: { candidates: readonly MajorEventHoldCandidate[] }) =>
-      input.candidates.map(({ candidateId }) => allow(candidateId)),
-    );
-
-    await enforceMajorEventHoldBeforeDiscoveryTruncation({
-      recommendations: [custom],
-      profileExperience: "advanced",
-      maxResults: 1,
-      isPrimaryEligible: () => true,
-      evaluateCandidates: evaluate,
-    });
-
-    expect(evaluate.mock.calls[0][0].candidates).toEqual([
-      expect.objectContaining({
-        candidateId: `custom:custom-spot-1:${STARTS[0]}`,
-        beachId: BEACH_IDS[0],
-      }),
-    ]);
-  });
-
-  it("fails the whole pre-truncation pool closed for malformed decisions", async () => {
-    const result = await enforceMajorEventHoldBeforeDiscoveryTruncation({
-      recommendations: [recommendation(0), recommendation(1)],
-      profileExperience: "intermediate",
-      maxResults: 1,
-      isPrimaryEligible: () => true,
-      evaluateCandidates: jest.fn(async () => []),
-    });
-
-    expect(result.primaryRecommendations).toEqual([]);
-    expect(result.allAllowedRecommendations).toEqual([]);
-    expect(result.recommendationAvailability).toMatchObject({
-      state: "none",
-      reasonCode: "hold_state_unavailable",
-    });
-  });
-
+describe("Surf Discovery major-event hold serialization boundary", () => {
   it("re-evaluates and sanitizes the post-calibration response on every serialization boundary", async () => {
-    const ordinary = await enforceMajorEventHoldBeforeDiscoveryTruncation({
-      recommendations: [recommendation(0)],
-      profileExperience: "advanced",
-      maxResults: 1,
-      isPrimaryEligible: () => true,
-      evaluateCandidates: jest.fn(async ({ candidates }) =>
-        candidates.map(({ candidateId }) => allow(candidateId)),
-      ),
-    });
-    const serializedResponse = response(ordinary.primaryRecommendations);
+    const serializedResponse = response([recommendation(0)]);
     const evaluate = jest
       .fn() as jest.MockedFunction<EvaluateDiscoveryHoldCandidates>;
     evaluate
@@ -272,5 +195,28 @@ describe("Surf Discovery major-event hold integration", () => {
       state: "none",
       reasonCode: "major_event_hold",
     });
+  });
+
+  it("still suppresses a resolved water-quality closure at the boundary", async () => {
+    const serializedResponse = response([
+      recommendation(0),
+      recommendation(1),
+    ]);
+    const evaluate: jest.MockedFunction<EvaluateDiscoveryHoldCandidates> =
+      jest.fn(async ({ candidates }) =>
+        candidates.map(({ candidateId }: MajorEventHoldCandidate, index) =>
+          index === 0 ? waterQualityBlocked(candidateId) : allow(candidateId),
+        ),
+      );
+
+    const sanitized = await sanitizeSurfDiscoveryForSerializationMajorEventHold(
+      serializedResponse,
+      "beginner",
+      evaluate,
+    );
+
+    expect(sanitized.recommendations.map(({ beach }) => beach.id)).toEqual([
+      BEACH_IDS[1],
+    ]);
   });
 });

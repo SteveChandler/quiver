@@ -37,7 +37,7 @@ export function PresetCard({ preset, onSelect, disabled, prominent }: PresetCard
       onClick={() => onSelect(preset)}
       disabled={disabled}
       aria-label={`${preset.name}: ${preset.description}`}
-      className={`w-full text-left rounded-md border-2 border-[#11100D] bg-[#F4EBD8] text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.68)] transition-all disabled:opacity-50 disabled:cursor-not-allowed motion-safe:hover:-translate-y-0.5 hover:bg-[#FFF5DF] hover:shadow-[4px_4px_0_rgba(17,16,13,0.78)] active:translate-y-0 active:shadow-[2px_2px_0_rgba(17,16,13,0.68)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 ${
+      className={`w-full text-left rounded-md border-2 border-[#11100D] bg-[#F4EBD8] text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.68)] transition-[background-color,box-shadow,transform,opacity] disabled:opacity-50 disabled:cursor-not-allowed motion-safe:hover:-translate-y-0.5 hover:bg-[#FFF5DF] hover:shadow-[4px_4px_0_rgba(17,16,13,0.78)] active:translate-y-0 active:shadow-[2px_2px_0_rgba(17,16,13,0.68)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 ${
         prominent
           ? "px-3.5 py-3"
           : "px-3 py-2.5"

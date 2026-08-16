@@ -87,7 +87,7 @@ export function AlertRuleCard({ rule, onToggle, onDelete }: AlertRuleCardProps) 
 
   return (
     <div
-      className={`flex items-center justify-between p-2.5 rounded-lg border-l-[3px] transition-all ${
+      className={`flex items-center justify-between p-2.5 rounded-lg border-l-[3px] transition-[background-color,border-color,opacity] ${
         rule.enabled
           ? "bg-[#354090]/30 border-l-[#F78E42] border border-l-[3px] border-[#404C92]/40"
           : "bg-[#252D6B]/30 border-l-[#404C92] border border-l-[3px] border-[#404C92]/20 opacity-60"
@@ -121,7 +121,7 @@ export function AlertRuleCard({ rule, onToggle, onDelete }: AlertRuleCardProps) 
           onClick={handleToggle}
           disabled={loading}
           aria-label={rule.enabled ? "Disable alert" : "Enable alert"}
-          className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded transition-all text-xs hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 active:scale-95 disabled:opacity-50 ${
+          className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded transition-[color,background-color,box-shadow,transform,opacity] text-xs hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 active:scale-95 disabled:opacity-50 ${
             rule.enabled ? "text-[#F78E42]" : "text-gray-500"
           }`}
         >
@@ -134,7 +134,7 @@ export function AlertRuleCard({ rule, onToggle, onDelete }: AlertRuleCardProps) 
         <button
           onClick={handleDelete}
           disabled={deleting}
-          className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded transition-all text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50 active:scale-95 disabled:opacity-50 ${
+          className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded transition-[color,background-color,box-shadow,transform,opacity] text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50 active:scale-95 disabled:opacity-50 ${
             confirmDelete
               ? "text-red-400 bg-red-400/10"
               : "text-gray-500 hover:text-red-400"

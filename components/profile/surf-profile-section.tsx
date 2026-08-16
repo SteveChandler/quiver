@@ -194,7 +194,7 @@ export function SurfProfileSection() {
               /* Editable Form - Only shown when editing */
               <div
                 ref={editFormRef}
-                className="transition-all duration-300 rounded-lg space-y-4"
+                className="transition-none duration-300 rounded-lg space-y-4"
               >
                 <ProfilePreferences
                   userId={user.id}
@@ -281,7 +281,7 @@ export function SurfProfileSection() {
             /* Editable Form - Only shown when editing */
             <div
               ref={editFormRef}
-              className="transition-all duration-300 rounded-lg space-y-4"
+              className="transition-none duration-300 rounded-lg space-y-4"
             >
               <ProfilePreferences
                 userId={user.id}

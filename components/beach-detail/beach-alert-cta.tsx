@@ -233,9 +233,9 @@ export function BeachAlertCta({
                 ? "Watch this spot, free"
                 : "Get alerts"
           }
-          className={`h-12 w-full px-6 text-base font-semibold rounded-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 transition-all border-2 ${
+          className={`h-12 w-full px-6 text-base font-semibold rounded-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 transition-[color,background-color,border-color,box-shadow,transform,opacity] border-2 ${
             showAlertCount && hasAlerts
-              ? "bg-[#F78E42] border-[#F78E42] text-white hover:bg-[#F78E42]/90 motion-safe:animate-[alertBreath_3s_ease-in-out_infinite] alert-breath"
+              ? "bg-[#F78E42] border-[#F78E42] text-[#11100D] hover:bg-[#F78E42]/90 motion-safe:animate-[alertBreath_3s_ease-in-out_infinite] alert-breath"
               : "border-[#F78E42] text-[#F78E42] hover:bg-[#F78E42]/10"
           } ${className ?? ""}`}
         >

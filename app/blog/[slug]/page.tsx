@@ -108,14 +108,8 @@ export default async function BlogPostPage({ params }: Props) {
       <div className="zine-page zine-tab min-h-screen bg-[#0D1020]">
         <RoughEdgeFilter />
         <div className="zine-stage pt-24">
-          <div className="zine-masthead">
-            <div className="left">
-              <span className="logo">Quiver</span>
-              <span className="rule" aria-hidden />
-              <span>Founder Notes</span>
-            </div>
-            <div>{formatPostDate(post.datePublished).toUpperCase()}</div>
-          </div>
+          {/* No masthead: the app header above already carries the Quiver
+              wordmark, so a masthead reads as a second header. */}
 
           <article
             className="zine-paper overflow-hidden"

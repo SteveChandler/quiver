@@ -17,7 +17,31 @@ jest.mock("@/lib/posthog-server", () => ({
   capturePostHogEvent: jest.fn(async () => undefined),
 }));
 
-import { processPendingEvents } from "@/lib/notifications/worker";
+const mockWaterQualityHeldBeachIds = new Set<string>();
+
+const mockWaterQualityFrom = jest.fn((table: string) => {
+  const rows =
+    table === "water_quality_held_beaches"
+      ? [...mockWaterQualityHeldBeachIds].map((beach_id) => ({ beach_id }))
+      : [];
+  const query: { select: jest.Mock; in: jest.Mock } = {
+    select: jest.fn(),
+    in: jest.fn(),
+  };
+  query.select.mockReturnValue(query);
+  query.in.mockResolvedValue({ data: rows, error: null });
+  return query;
+});
+
+jest.mock("@/lib/supabase/server", () => ({
+  ...jest.requireActual("@/lib/supabase/server"),
+  createSupabaseServiceRoleClient: jest.fn(() => ({
+    from: mockWaterQualityFrom,
+    rpc: jest.fn(async () => ({ data: [], error: null })),
+  })),
+}));
+
+import { processPendingEvents as processPendingEventsReal } from "@/lib/notifications/worker";
 import { capturePostHogEvent } from "@/lib/posthog-server";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import {
@@ -568,6 +592,79 @@ function canonicalNotificationDecision(input: {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockWaterQualityHeldBeachIds.clear();
+});
+
+const allowFixtureNotificationHold = async () => ({
+  status: "allowed" as const,
+  candidate: null,
+});
+
+async function processPendingEvents(
+  supabase: Parameters<typeof processPendingEventsReal>[0],
+  options: Parameters<typeof processPendingEventsReal>[1] = {},
+): ReturnType<typeof processPendingEventsReal> {
+  return processPendingEventsReal(supabase, {
+    ...options,
+    resolveMajorEventHold:
+      options.resolveMajorEventHold ?? allowFixtureNotificationHold,
+  });
+}
+
+describe("worker recommendation-hold integration", () => {
+  it("suppresses a Quiver feedback nudge through the worker's real resolver", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockWaterQualityHeldBeachIds.add(beachId);
+
+    const state = emptyState();
+    state.events.push(
+      buildEvent({
+        id: "evt-water-quality-worker",
+        actor_user_id: null,
+        type: "forecast_feedback_nudge",
+        entity_type: "beach",
+        entity_id: beachId,
+        payload: {
+          beach_id: beachId,
+          forecast_at: "2026-04-29T19:00:00.000Z",
+        },
+      }),
+    );
+    state.profiles.set("user-recipient", buildProfile());
+
+    const summary = await processPendingEventsReal(
+      buildMockSupabase(state) as never,
+      {
+        now: NOON_PT,
+        fcm: null,
+        resolveMajorEventHold: (input) =>
+          resolveNotificationMajorEventHold({ ...input, mode: "enforce" }),
+      },
+    );
+
+    expect(summary.by_status.skipped_disabled).toBe(1);
+    expect(state.attempts).toEqual([
+      expect.objectContaining({
+        notification_event_id: "evt-water-quality-worker",
+        channel: "push",
+        status: "skipped_disabled",
+        provider_response: {
+          audit_code: "major_event_hold",
+          reason_code: "water_quality_hold",
+        },
+      }),
+    ]);
+    expect(state.eventUpdates).toEqual([
+      {
+        id: "evt-water-quality-worker",
+        status: "processed",
+        skip_reason: "all_channels_skipped",
+      },
+    ]);
+    expect(mockWaterQualityFrom).toHaveBeenCalledWith(
+      "water_quality_held_beaches",
+    );
+  });
 });
 
 describe("processPendingEvents — empty state", () => {

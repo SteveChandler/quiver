@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { Check } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { submitConditionsReport } from "@/actions/conditions-report-actions";
 import {
@@ -11,6 +13,7 @@ import {
 } from "@/types/conditions-report";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
+import { useAuth } from "@/context/auth-context";
 
 interface ConditionsReportCardProps {
   beachId: string;
@@ -22,6 +25,8 @@ interface ConditionsReportCardProps {
   onSubmitSuccess?: () => void;
   /** Called when the user dismisses/collapses the card */
   onDismiss?: () => void;
+  /** Marks a completed report as a response to a visible system prompt. */
+  promptSeen?: boolean;
 }
 
 type FormState = "idle" | "submitting" | "success" | "already_reported" | "error";
@@ -33,15 +38,20 @@ export function ConditionsReportCard({
   onAuthRequired,
   onSubmitSuccess,
   onDismiss,
+  promptSeen = false,
 }: ConditionsReportCardProps) {
   const [waveSizeRange, setWaveSizeRange] = useState<WaveSizeRange | null>(null);
   const [vibe, setVibe] = useState<Vibe | null>(null);
   const [note, setNote] = useState("");
   const [formState, setFormState] = useState<FormState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // CTA defense-in-depth: never trust the parent's publicMode alone
+  const { user } = useAuth();
+  const prefersReducedMotion = useReducedMotion() ?? false;
+  const effectivePublicMode = publicMode || !user;
 
   const handleSubmit = useCallback(async () => {
-    if (publicMode) {
+    if (effectivePublicMode) {
       onAuthRequired?.();
       return;
     }
@@ -74,39 +84,89 @@ export function ConditionsReportCard({
       if (!inner.success) {
         if (inner.error === "ALREADY_REPORTED_TODAY") {
           setFormState("already_reported");
-          track("conditions_report_duplicate", { beach_id: beachId });
         } else {
           setFormState("error");
-          track("conditions_report_failed", { beach_id: beachId, error: inner.error });
           setErrorMessage(inner.error ?? "Something went wrong. Please try again.");
         }
         return;
       }
 
       setFormState("success");
-      track("intel_post_created", { beach_id: beachId, wave_size_range: waveSizeRange, vibe });
+      track("intel_post_created", {
+        beach_id: beachId,
+        wave_size_range: waveSizeRange,
+        vibe,
+        source: promptSeen ? "system_card_prompt" : "local_intel",
+      });
       onSubmitSuccess?.();
     } catch {
       setFormState("error");
-      track("conditions_report_failed", { beach_id: beachId, error: "unexpected_error" });
       setErrorMessage("Something went wrong. Please try again.");
     }
-  }, [publicMode, onAuthRequired, beachId, waveSizeRange, vibe, note, onSubmitSuccess]);
+  }, [effectivePublicMode, onAuthRequired, beachId, waveSizeRange, vibe, note, onSubmitSuccess, promptSeen]);
 
   const canSubmit = Boolean(waveSizeRange && vibe);
 
   // --- Success state ---
   if (formState === "success") {
     return (
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center space-y-2">
-        <p className="text-emerald-700 font-semibold text-base">
-          Report shared! Thanks for helping the community.
+      <div
+        className="relative overflow-hidden rounded-xl border-2 border-[var(--ink)] bg-[var(--paper)] p-5 text-center text-[var(--ink)] shadow-[4px_4px_0_var(--ink)]"
+        data-testid="conditions-report-success"
+        aria-live="polite"
+      >
+        {!prefersReducedMotion && (
+          <div className="pointer-events-none absolute inset-0" aria-hidden="true" data-testid="conditions-report-confetti">
+            {[
+              { x: -42, y: -30, rotate: -20, color: "var(--q-orange)" },
+              { x: 38, y: -34, rotate: 18, color: "var(--stamp-blue)" },
+              { x: -50, y: 18, rotate: 28, color: "var(--hi-yellow)" },
+              { x: 48, y: 20, rotate: -24, color: "var(--q-orange)" },
+              { x: -20, y: 42, rotate: 12, color: "var(--stamp-blue)" },
+              { x: 20, y: 42, rotate: -12, color: "var(--hi-yellow)" },
+            ].map((particle, index) => (
+              <motion.span
+                key={index}
+                className="absolute left-1/2 top-1/2 h-2 w-1 rounded-sm"
+                style={{ backgroundColor: particle.color }}
+                initial={{ opacity: 0, scale: 0, x: 0, y: 0, rotate: 0 }}
+                animate={{
+                  opacity: [0, 1, 0],
+                  scale: [0, 1, 0.8],
+                  x: particle.x,
+                  y: particle.y,
+                  rotate: particle.rotate,
+                }}
+                transition={{
+                  duration: 0.8,
+                  delay: index * 0.04,
+                  ease: "easeOut",
+                }}
+              />
+            ))}
+          </div>
+        )}
+        <motion.div
+          className="relative mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border-2 border-[var(--ink)] bg-[var(--q-orange)]"
+          initial={prefersReducedMotion ? false : { scale: 0.5, rotate: -8 }}
+          animate={prefersReducedMotion ? undefined : { scale: 1, rotate: 0 }}
+          transition={
+            prefersReducedMotion
+              ? { duration: 0 }
+              : { type: "spring", stiffness: 420, damping: 18 }
+          }
+          aria-hidden="true"
+        >
+          <Check className="h-6 w-6 stroke-[3] text-[var(--ink)]" />
+        </motion.div>
+        <p className="relative font-heading text-base font-semibold">
+          Report shared! Thanks for helping the {beachName} crew.
         </p>
         <Button
           variant="ghost"
           size="sm"
           onClick={onDismiss}
-          className="text-emerald-600 hover:text-emerald-700"
+          className="relative text-[var(--ink)] hover:bg-[var(--paper-shadow)]"
         >
           Close
         </Button>
@@ -156,7 +216,7 @@ export function ConditionsReportCard({
                 waveSizeRange === opt.value
                   ? "border-ocean-blue bg-ocean-blue text-white"
                   : "border-gray-300 bg-white text-gray-700 hover:border-ocean-blue hover:text-ocean-blue"
-              )}
+              ) + " focus-ring"}
             >
               {opt.label}
             </button>
@@ -178,7 +238,7 @@ export function ConditionsReportCard({
                 vibe === opt.value
                   ? "border-ocean-blue bg-ocean-blue text-white"
                   : "border-gray-300 bg-white text-gray-700 hover:border-ocean-blue hover:text-ocean-blue"
-              )}
+              ) + " focus-ring"}
             >
               {opt.emoji} {opt.label}
             </button>

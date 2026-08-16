@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Star, Loader2, CalendarDays, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
@@ -55,6 +55,7 @@ export function BeachHeroCompact({
 }: BeachHeroCompactProps) {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [showGhostAuthModal, setShowGhostAuthModal] = useState(false);
+  const prefersReducedMotion = useReducedMotion() ?? false;
   const rating = beach.average_rating;
   const reviewCount = beach.review_count;
   const breakType = beach.break_type || "Beach Break";
@@ -197,9 +198,13 @@ export function BeachHeroCompact({
       {publicMode && !personalizationScore && !isLoadingPersonalization && (
         <motion.div
           ref={teaserRef}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, type: "spring", stiffness: 300, damping: 25 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+          animate={prefersReducedMotion ? undefined : { opacity: 1, y: 0 }}
+          transition={
+            prefersReducedMotion
+              ? { duration: 0 }
+              : { delay: 0.3, type: "spring", stiffness: 300, damping: 25 }
+          }
           className="mb-3"
         >
           <button
@@ -208,7 +213,7 @@ export function BeachHeroCompact({
             className="group w-full sm:max-w-sm flex items-center gap-3 rounded-2xl
               border border-white/15 bg-[#252D6B]/80 backdrop-blur-sm
               p-3.5 shadow-sm
-              hover:bg-[#252D6B]/95 hover:border-white/25 transition-all duration-200"
+              hover:bg-[#252D6B]/95 hover:border-white/25 transition-colors duration-200"
           >
             <div className="flex-shrink-0 p-2 rounded-xl bg-[#F78E42]/20">
               <CalendarDays className="h-5 w-5 text-[#F78E42]" />

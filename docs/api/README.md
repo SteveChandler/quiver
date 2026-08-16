@@ -278,7 +278,7 @@ const { data, error } = await supabase.rpc('get_city_editorial', {
 
 ## Related Documentation
 
-- [System Architecture](/docs/architecture/SYSTEM_ARCHITECTURE.md) - Overall system design
+- [System Architecture](/docs/ARCHITECTURE.md) - Overall system design
 - [Database Schema](/docs/diagrams/database-schema.md) - ERD and table definitions
 - [Coordinate Conventions](/docs/COORDINATE_CONVENTIONS.md) - Lat/lon naming standards
 - [Coverage Areas](/docs/COVERAGE_AREAS.md) - Geographic coverage

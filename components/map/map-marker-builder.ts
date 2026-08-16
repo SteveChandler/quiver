@@ -11,7 +11,13 @@ export type MapMarkerDisplay = "forecast" | "points";
 
 export interface ConditionMarkerCall {
   summary: ConditionSummary;
-  label: "Worth it" | "Maybe" | "Scout it" | "No read";
+  label:
+    | "Go now!"
+    | "Go surf!"
+    | "Worth a look"
+    | "Slim pickings"
+    | "Skip it"
+    | "No read";
   gradient: string;
 }
 
@@ -25,9 +31,11 @@ export const CONDITION_MARKER_CALLS: ReadonlyArray<{
   summary: ConditionSummary;
   label: ConditionMarkerCall["label"];
 }> = [
-  { summary: "GOOD", label: "Worth it" },
-  { summary: "FAIR", label: "Maybe" },
-  { summary: "CHECK", label: "Scout it" },
+  { summary: "EPIC", label: "Go now!" },
+  { summary: "GOOD", label: "Go surf!" },
+  { summary: "FAIR", label: "Worth a look" },
+  { summary: "RIDEABLE", label: "Slim pickings" },
+  { summary: "MEH", label: "Skip it" },
   { summary: "UNKNOWN", label: "No read" },
 ];
 
@@ -50,9 +58,15 @@ export function getConditionMarkerGradient(
 ): string {
   // Derived from Quiver brand/score colors but darkened for white marker text
   // on light map tiles; raw native teal (#00D4AA) is too low-contrast here.
+  if (summary === "EPIC") {
+    return "linear-gradient(to right, #8A5A00, #B87900)";
+  }
   if (summary === "GOOD") return "linear-gradient(to right, #005B52, #008F7A)";
   if (summary === "FAIR") return "linear-gradient(to right, #8A4A12, #9E5010)";
-  if (summary === "CHECK") return "linear-gradient(to right, #334155, #475569)";
+  if (summary === "RIDEABLE") {
+    return "linear-gradient(to right, #475569, #64748B)";
+  }
+  if (summary === "MEH") return "linear-gradient(to right, #334155, #475569)";
   return "linear-gradient(to right, #5F6673, #475569)";
 }
 
@@ -168,6 +182,9 @@ export function createWaveHeightBadge(
     const canHover =
       typeof window !== "undefined" &&
       window.matchMedia("(hover: hover)").matches;
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // Create wrapper element that Mapbox will position
     const wrapper = document.createElement("div");
@@ -197,7 +214,7 @@ export function createWaveHeightBadge(
         border: 3px solid #F78E42;
         border-radius: 50%;
         pointer-events: none;
-        animation: pulse 2s infinite;
+        animation: ${reducedMotion ? "none" : "pulse 2s infinite"};
       `;
       wrapper.appendChild(selectionRing);
     }
@@ -213,8 +230,8 @@ export function createWaveHeightBadge(
     badge.setAttribute("data-marker-badge", "true");
     badge.setAttribute("data-marker-gradient", markerGradient);
     badge.style.cssText = `
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
       padding: 0;
       cursor: pointer;
@@ -239,7 +256,7 @@ export function createWaveHeightBadge(
       background: ${markerGradient};
       pointer-events: none;
       transform-origin: center;
-      transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+      transition: ${reducedMotion ? "none" : "all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1)"};
       transform: scale(${isSelected ? "1.7" : isHovered ? "1.45" : "1"});
       box-shadow: ${
         isSelected

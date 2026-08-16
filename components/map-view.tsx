@@ -46,23 +46,23 @@ function deviceTimezone(): string {
 export function resolveViewedMapTimezone({
   selectedBeach,
   loadedBeaches,
-  exploredCenter,
+  viewCenter,
 }: {
   selectedBeach: Beach | null;
   loadedBeaches: Beach[];
-  exploredCenter: { lat: number; lon: number } | null;
+  viewCenter: { lat: number; lon: number } | null;
 }): string {
   const selectedTimezone = selectedBeach?.timezone;
   if (isTimeZone(selectedTimezone)) return selectedTimezone;
 
-  if (exploredCenter) {
+  if (viewCenter) {
     const nearestBeach = loadedBeaches.reduce<Beach | null>((nearest, beach) => {
       if (!isFiniteCoord(beach.lat) || !isFiniteCoord(beach.lon) || !isTimeZone(beach.timezone)) {
         return nearest;
       }
       if (!nearest || !isFiniteCoord(nearest.lat) || !isFiniteCoord(nearest.lon)) return beach;
-      const currentDistance = (beach.lat - exploredCenter.lat) ** 2 + (beach.lon - exploredCenter.lon) ** 2;
-      const nearestDistance = (nearest.lat - exploredCenter.lat) ** 2 + (nearest.lon - exploredCenter.lon) ** 2;
+      const currentDistance = (beach.lat - viewCenter.lat) ** 2 + (beach.lon - viewCenter.lon) ** 2;
+      const nearestDistance = (nearest.lat - viewCenter.lat) ** 2 + (nearest.lon - viewCenter.lon) ** 2;
       return currentDistance < nearestDistance ? beach : nearest;
     }, null);
     if (isTimeZone(nearestBeach?.timezone)) return nearestBeach.timezone;
@@ -122,6 +122,7 @@ export function MapView() {
     sawLoading: boolean;
   } | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const fieldGuideTriggerRef = useRef<HTMLButtonElement | null>(null);
   const exploredCenterRef = useRef<{ lat: number; lon: number } | null>(null);
   const [exploredCenter, setExploredCenter] = useState<{
     lat: number;
@@ -152,6 +153,8 @@ export function MapView() {
 
   const [showSwellField, setShowSwellField] = useState(true);
   const [swellLayerId, setSwellLayerId] = useState<SwellLayerId>("s1");
+  const [locationDeniedPromptDismissed, setLocationDeniedPromptDismissed] =
+    useState(false);
   // Custom hooks for state management
   const { homeBeach, isLoading: profileLoading } = useProfileContext();
 
@@ -174,6 +177,7 @@ export function MapView() {
 
   const {
     filteredBeaches,
+    resultsQuery,
     searchQuery,
     selectedBeach,
     filters,
@@ -186,14 +190,15 @@ export function MapView() {
     clearAllFilters,
   } = useBeachSearch();
   const { customSpots } = useCustomSpots();
+  const viewCenter = exploredCenter ?? cameraCommand?.center ?? null;
   const viewTimezone = useMemo(
     () =>
       resolveViewedMapTimezone({
         selectedBeach,
         loadedBeaches: filteredBeaches,
-        exploredCenter,
+        viewCenter,
       }),
-    [exploredCenter, filteredBeaches, selectedBeach],
+    [filteredBeaches, selectedBeach, viewCenter],
   );
 
   // Load nearby beaches when user location is available - prevent duplicate calls
@@ -377,6 +382,7 @@ export function MapView() {
       searchCommandQueryRef.current = null;
       return;
     }
+    if (resultsQuery !== normalizedQuery) return;
     if (searchCommandQueryRef.current === normalizedQuery) return;
 
     const firstBeach = filteredBeaches[0];
@@ -393,7 +399,7 @@ export function MapView() {
       { source: "search", center: { lat: firstBeach.lat, lon: firstBeach.lon } },
       "explicit-command",
     );
-  }, [filteredBeaches, issueCameraCommand, searchQuery]);
+  }, [filteredBeaches, issueCameraCommand, resultsQuery, searchQuery]);
 
   // Apply filters from URL params on initial mount (e.g. /map?type=reef or /map?level=beginner)
   const VALID_BREAK_TYPES = new Set(["beach", "point", "reef", "longboard", "bodyboard"]);
@@ -490,6 +496,7 @@ export function MapView() {
   }, [clearAllFilters, stripMapUrlParams]);
 
   const handleUseMyLocation = useCallback(() => {
+    setLocationDeniedPromptDismissed(true);
     setSelectedBeach(null);
     clearSearch();
     explicitGpsRequestRef.current = {
@@ -539,9 +546,11 @@ export function MapView() {
 
   const handleCloseFieldGuide = useCallback((): void => {
     setShowFieldGuide(false);
+    fieldGuideTriggerRef.current?.focus();
   }, []);
 
   const handleSearchPromptClick = useCallback((): void => {
+    setLocationDeniedPromptDismissed(true);
     searchInputRef.current?.focus();
   }, []);
 
@@ -563,6 +572,7 @@ export function MapView() {
         showSwellField={showSwellField}
         onToggleSwellField={() => setShowSwellField((v) => !v)}
         fieldGuideVisible={fieldGuideVisible}
+        fieldGuideTriggerRef={fieldGuideTriggerRef}
         onOpenFieldGuide={handleOpenFieldGuide}
       />
 
@@ -570,7 +580,7 @@ export function MapView() {
       <div
         className={
           fieldGuideVisible
-            ? "grid flex-1 grid-rows-[minmax(320px,1fr)_auto] min-h-0 xl:grid-cols-[minmax(0,1fr)_380px] xl:grid-rows-1"
+            ? "grid flex-1 min-h-0 grid-rows-[minmax(240px,1fr)_minmax(0,1fr)] overflow-hidden xl:grid-cols-[minmax(0,1fr)_380px] xl:grid-rows-1"
             : "grid flex-1 grid-rows-1 min-h-0"
         }
       >
@@ -591,6 +601,7 @@ export function MapView() {
             onGetUserLocation={handleUseMyLocation}
             onUseDefaultLocation={handleUseDefaultLocation}
             onSearchPromptClick={handleSearchPromptClick}
+            locationDeniedPromptDismissed={locationDeniedPromptDismissed}
             onBeachSelect={handleBeachSelect}
             onMapClick={handleMapClick}
             onUserCameraInteraction={handleUserCameraInteraction}
@@ -600,16 +611,21 @@ export function MapView() {
             onSwellLayerChange={setSwellLayerId}
             swellTimelineMode="expandable-hourly"
             viewTimezone={viewTimezone}
+            timelineFocusBeachId={
+              selectedBeach?.id
+              ?? (cameraCommand?.source === "home" ? homeBeach?.id : null)
+              ?? (cameraCommand?.source === "search" ? filteredBeaches[0]?.id : null)
+            }
           />
         </div>
         {fieldGuideVisible && (
-          <div id="map-field-guide-panel" className="relative min-h-0">
+          <div id="map-field-guide-panel" className="relative min-h-0 overflow-hidden">
             {showFieldGuide && !isShareView && (
               <button
                 type="button"
                 aria-label="Close map field guide"
                 onClick={handleCloseFieldGuide}
-                className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#11100D]/20 bg-[#F5EEDC] text-[#11100D] shadow-sm transition-colors hover:bg-[#F4EBD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]"
+                className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-md border border-[#11100D]/20 bg-[#F5EEDC] text-[#11100D] shadow-sm transition-colors hover:bg-[#F4EBD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>

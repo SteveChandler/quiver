@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { TimelineDaySegment } from "@/components/map/hourly-swell-timeline";
 import {
   advancePlaybackPosition,
+  compactTimelineDayLabel,
   findAdjacentLocalDayIndex,
   SwellDayTimeline,
   type SwellDayTimelineProps,
@@ -47,6 +48,24 @@ describe("SwellDayTimeline", () => {
     expect(advancePlaybackPosition(2, 125, 10)).toBe(2.25);
     expect(advancePlaybackPosition(2.25, 125, 10)).toBe(2.5);
     expect(advancePlaybackPosition(9.9, 100, 10)).toBe(10);
+  });
+
+  it("uses readable date numbers for compact ten-day bands", () => {
+    expect(compactTimelineDayLabel("Sat 8")).toBe("8");
+    expect(compactTimelineDayLabel("Mon 17")).toBe("17");
+
+    render(<SwellDayTimeline {...createProps()} />);
+
+    expect(screen.getByTestId("timeline-day-Fri-10-compact")).toHaveTextContent("10");
+    expect(screen.getByTestId("timeline-day-Fri-10-compact")).toHaveClass(
+      "tabular-nums",
+      "sm:hidden",
+    );
+    expect(screen.getByTestId("timeline-day-Fri-10")).toHaveClass(
+      "justify-center",
+      "px-0.5",
+      "sm:px-2",
+    );
   });
 
   it("exposes the active local forecast time through the native slider", () => {
@@ -148,7 +167,11 @@ describe("SwellDayTimeline", () => {
       <SwellDayTimeline {...createProps({ index: 0 })} />,
     );
 
-    expect(screen.getByTestId("timeline-bubble")).toHaveStyle({ left: "4%" });
+    expect(screen.getByTestId("timeline-bubble")).toHaveStyle({
+      left: "0%",
+      transform: "translateX(0)",
+    });
+    expect(screen.getByTestId("timeline-bubble")).toHaveClass("whitespace-nowrap");
     expect(screen.getByTestId("timeline-track")).toHaveClass("relative");
     const dayLayer = screen.getByTestId("timeline-day-layer");
     expect(dayLayer).toHaveClass("pointer-events-none");
@@ -157,7 +180,10 @@ describe("SwellDayTimeline", () => {
     expect(screen.getByTestId("timeline-day-Sat-11")).toHaveStyle({ width: "50%" });
 
     rerender(<SwellDayTimeline {...createProps({ index: 47 })} />);
-    expect(screen.getByTestId("timeline-bubble")).toHaveStyle({ left: "96%" });
+    expect(screen.getByTestId("timeline-bubble")).toHaveStyle({
+      left: "100%",
+      transform: "translateX(-100%)",
+    });
   });
 
   it("uses inclusive boundaries to position short day segments", () => {
@@ -198,7 +224,11 @@ describe("SwellDayTimeline", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("Extension unavailable");
     const retryButton = screen.getByRole("button", { name: "Retry loading forecast hours" });
-    expect(retryButton).toHaveClass("h-11", "min-h-11");
+    expect(retryButton).toHaveClass(
+      "h-11",
+      "min-h-11",
+      "focus-visible:ring-[var(--swell-timeline-focus)]",
+    );
     fireEvent.click(retryButton);
     expect(onRetry).toHaveBeenCalledTimes(1);
 
@@ -242,7 +272,7 @@ describe("SwellDayTimeline", () => {
 
     expect(SWELL_MAP_TIMELINE).toEqual(expect.objectContaining({
       active: SWELL_LAYER_COLOR.s1,
-      focus: SWELL_LAYER_COLOR.s2,
+      focus: SWELL_MAP_LEGEND_SURFACE.ink,
       ink: SWELL_MAP_LEGEND_SURFACE.ink,
       stickerShadow: SWELL_MAP_STICKER_SHADOW,
     }));
@@ -251,7 +281,7 @@ describe("SwellDayTimeline", () => {
     expect(panel.style.getPropertyValue("--swell-timeline-ink"))
       .toBe(SWELL_MAP_LEGEND_SURFACE.ink);
     expect(panel.style.getPropertyValue("--swell-timeline-focus"))
-      .toBe(SWELL_LAYER_COLOR.s2);
+      .toBe(SWELL_MAP_LEGEND_SURFACE.ink);
     expect(panel.style.getPropertyValue("--swell-timeline-active"))
       .toBe(SWELL_LAYER_COLOR.s1);
     expect(panel.style.getPropertyValue("--swell-timeline-sticker-shadow"))
@@ -265,6 +295,10 @@ describe("SwellDayTimeline", () => {
     expect(screen.getByRole("slider", { name: "Forecast time" })).toHaveClass(
       "accent-[var(--swell-timeline-active)]",
       "focus-visible:ring-[var(--swell-timeline-focus)]",
+    );
+    expect(screen.getByTestId("timeline-visual-track")).toHaveClass(
+      "peer-focus-visible:ring-2",
+      "peer-focus-visible:ring-[var(--swell-timeline-focus)]",
     );
   });
 

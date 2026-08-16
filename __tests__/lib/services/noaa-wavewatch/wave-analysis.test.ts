@@ -1,5 +1,6 @@
 import {
   getValueAtTime,
+  metersToFeet,
   parseNOAAValidTime,
 } from '@/lib/services/noaa-wavewatch/wave-analysis';
 import type { NOAAValueSeries } from '@/lib/services/noaa-wavewatch/types';
@@ -80,5 +81,12 @@ describe('NOAA WaveWatch interval utilities', () => {
     };
 
     expect(getValueAtTime(series, Date.parse('2026-05-27T12:00:00Z'))).toBeNull();
+  });
+});
+
+describe('NOAA WaveWatch metersToFeet characterization', () => {
+  it('preserves raw conversion precision for representative model heights', () => {
+    expect(metersToFeet(1.83)).toBe(6.0039372);
+    expect(metersToFeet(0.2)).toBe(0.6561680000000001);
   });
 });

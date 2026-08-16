@@ -57,8 +57,8 @@ export {
   selectBestWindow,
   capEndTimeToTimeSlot,
   scoreForecastWindow,
+  scoreWindowConditionDetails,
   scoreWindowConditionScore,
-  scoreWindowWithEngine,
   type WindowSelectorOptions,
 } from './window-selector';
 

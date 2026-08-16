@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useId, useRef } from "react";
 import { Loader2, Mail, Radio } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -54,6 +54,9 @@ export function AlertCreationPopover({
 }: AlertCreationPopoverProps) {
   const [stage, setStage] = useState<Stage>({ step: "presets" });
   const initialPresetApplied = useRef(false);
+  const nameFieldId = useId();
+  const conditionsLabelId = useId();
+  const notifyLabelId = useId();
   const [name, setName] = useState("");
   const [notifyEmail, setNotifyEmail] = useState(true);
   const [notifyPush, setNotifyPush] = useState(true);
@@ -291,24 +294,31 @@ export function AlertCreationPopover({
             <>
               {/* Name input */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400 font-[family-name:var(--font-space-grotesk)]">
+                <label
+                  htmlFor={nameFieldId}
+                  className="block text-[11px] font-bold uppercase tracking-widest text-gray-400 font-[family-name:var(--font-space-grotesk)]"
+                >
                   Alert name
                 </label>
                 <input
+                  id={nameFieldId}
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="optional, auto generated if blank"
                   maxLength={100}
-                  className="w-full bg-[#252D6B] text-white text-sm rounded-lg px-3 py-2 border border-[#404C92] placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50 focus:border-[#F78E42] transition-colors"
+                  className="w-full bg-[#252D6B] text-white text-sm rounded-lg px-3 py-2 border border-[#404C92] placeholder:text-[#9AABC6] focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50 focus:border-[#F78E42] transition-colors"
                 />
               </div>
 
               {/* Condition builder */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400 font-[family-name:var(--font-space-grotesk)]">
+              <div className="space-y-1.5" role="group" aria-labelledby={conditionsLabelId}>
+                <span
+                  id={conditionsLabelId}
+                  className="block text-[11px] font-bold uppercase tracking-widest text-gray-400 font-[family-name:var(--font-space-grotesk)]"
+                >
                   Conditions
-                </label>
+                </span>
                 <ConditionBuilder
                   conditions={currentConditions}
                   onChange={handleConditionsChange}
@@ -316,10 +326,13 @@ export function AlertCreationPopover({
               </div>
 
               {/* Channel toggles */}
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400 font-[family-name:var(--font-space-grotesk)]">
+              <div className="space-y-2" role="group" aria-labelledby={notifyLabelId}>
+                <span
+                  id={notifyLabelId}
+                  className="block text-[11px] font-bold uppercase tracking-widest text-gray-400 font-[family-name:var(--font-space-grotesk)]"
+                >
                   Notify via
-                </label>
+                </span>
                 <div className="flex gap-3">
                   <ToggleChip
                     label="Email"
@@ -340,7 +353,7 @@ export function AlertCreationPopover({
               <Button
                 onClick={handleSave}
                 disabled={saving || !hasConditions || (!notifyEmail && !notifyPush)}
-                className="w-full bg-[#F78E42] hover:bg-[#F78E42]/90 active:scale-[0.98] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="w-full bg-[#F78E42] hover:bg-[#F78E42]/90 active:scale-[0.98] text-[#11100D] font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-[background-color,transform,opacity]"
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -422,7 +435,7 @@ function ToggleChip({
       onClick={onClick}
       aria-pressed={active}
       aria-label={`${label} notifications ${active ? "enabled" : "disabled"}`}
-      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 active:scale-95 ${
+      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 active:scale-95 ${
         active
           ? "bg-[#F78E42]/20 border-[#F78E42] text-[#F78E42]"
           : "bg-transparent border-[#404C92] text-gray-400 hover:border-gray-300"

@@ -1,3 +1,4 @@
+import type { BoardClass } from '@/lib/domains/rideability';
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
@@ -38,6 +39,7 @@ export function computeWindowDistinctionReason(
   beach: Beach,
   timezone: string,
   skillLevel?: SkillLevel | string | null,
+  boardClasses: readonly BoardClass[] = [],
 ): string | null {
   const comparisonSet = buildComparisonSet(selected, dayWindows, timezone);
   if (comparisonSet.length < 2) {
@@ -45,7 +47,7 @@ export function computeWindowDistinctionReason(
   }
 
   const scoredWindows = comparisonSet.map((forecast) =>
-    scoreWindowAxes(forecast, beach, skillLevel)
+    scoreWindowAxes(forecast, beach, skillLevel, boardClasses)
   );
   const selectedScore = scoredWindows.find(
     ({ forecast }) => forecast.forecast_at === selected.forecast_at
@@ -140,6 +142,7 @@ function scoreWindowAxes(
   forecast: EnhancedForecastEntity,
   beach: Beach,
   skillLevel?: SkillLevel | string | null,
+  boardClasses: readonly BoardClass[] = [],
 ): WindowAxisScores {
   const composite = scoreWindowWithComposite(forecast, beach);
 
@@ -150,7 +153,7 @@ function scoreWindowAxes(
       tideFit: composite.subscores.get('tideFit') ?? 0,
       baseConditions: composite.subscores.get('baseConditions') ?? 0,
     },
-    overall: scoreWindowConditionScore(forecast, beach, skillLevel),
+    overall: scoreWindowConditionScore(forecast, beach, skillLevel, null, boardClasses),
   };
 }
 

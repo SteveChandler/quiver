@@ -438,7 +438,7 @@ export interface TrustedForecastCoverageEntry {
    */
   readonly compatibleExposures: readonly string[];
   /**
-   * Approved non-WaveCast regional authority lineages, most trusted first.
+   * Approved non-WaveCast regional evidence lineages, most trusted first.
    * WaveCast has its own two higher tiers and must not be listed here.
    */
   readonly regionalAuthorityLineages: readonly string[];
@@ -534,6 +534,7 @@ export function freshnessMaxAgeHoursForSource(sourceKey: string): number {
 
 export type TrustedForecastExclusionReason =
   | "not_authority_eligible"
+  | "regional_evidence_only"
   | "non_authority_evidence_class"
   | "unspecified_measurement_basis"
   | "missing_measured_range"
@@ -599,7 +600,8 @@ const FRESHNESS_CLOCK_SKEW_TOLERANCE_HOURS = 5 / 60;
 
 /**
  * D-09/D-10 precedence tier. `null` means the row cannot act as authority for
- * this beach at all.
+ * this beach at all. Regional tiers remain useful for ordering corroborating
+ * evidence, but the selection path never allows them to become primary.
  */
 function precedenceTier(
   entry: TrustedForecastCoverageEntry,
@@ -785,10 +787,23 @@ function intrinsicIssueExclusionReason(args: {
   readonly localDate: string;
   readonly issue: TrustedForecastIssue;
   readonly buildAnchorAt: Date;
+  readonly allowRegionalEvidence?: boolean;
 }): TrustedForecastExclusionReason | null {
-  const { entry, localDate, issue, buildAnchorAt } = args;
+  const {
+    entry,
+    localDate,
+    issue,
+    buildAnchorAt,
+    allowRegionalEvidence = false,
+  } = args;
   if (issue.validLocalDate !== localDate) return "wrong_local_date";
   if (issue.issueId === null) return "unstored_issue";
+  // Scope is a hard authority boundary. Regional products remain available to
+  // callers as evidence, but they can never become a beach-specific primary,
+  // even when ingestion marks one as authority-eligible.
+  if (issue.scopeType === "regional" && !allowRegionalEvidence) {
+    return "regional_evidence_only";
+  }
   if (issue.evidenceClass !== "human_face_height_authority") {
     return "non_authority_evidence_class";
   }
@@ -828,6 +843,7 @@ export function selectTrustedForecastAuthority(
   const { entry, localDate, issues, buildAnchorAt } = args;
   const excluded: TrustedForecastExcludedIssue[] = [];
   const eligible: TrustedForecastIssue[] = [];
+  const regionalEvidence: TrustedForecastIssue[] = [];
 
   const superseded = new Set<string>(args.supersededIssueIds ?? []);
   for (const issue of issues) {
@@ -852,6 +868,21 @@ export function selectTrustedForecastAuthority(
       buildAnchorAt,
     });
     if (intrinsicReason !== null) {
+      if (intrinsicReason === "regional_evidence_only") {
+        const evidenceReason = intrinsicIssueExclusionReason({
+          entry,
+          localDate,
+          issue,
+          buildAnchorAt,
+          allowRegionalEvidence: true,
+        });
+        if (evidenceReason === null) {
+          regionalEvidence.push(issue);
+          continue;
+        }
+        excluded.push({ issue, reason: evidenceReason });
+        continue;
+      }
       excluded.push({ issue, reason: intrinsicReason });
       continue;
     }
@@ -907,23 +938,47 @@ export function selectTrustedForecastAuthority(
     }
   }
 
-  // D-09: fresh compatible spot WaveCast, then regional WaveCast, then the
-  // highest-priority configured regional authority — the comparator ranks tier
-  // first, so the sorted head is the winning tier's best row. D-10: whatever
-  // survives here activates on its own; no consensus precondition.
+  // D-09/D-10: fresh compatible spot WaveCast is the only authority tier. The
+  // regional rows collected above can corroborate that primary, but they are
+  // never admitted to this ranking and therefore cannot supply its range.
   const lineageWinners = [...bestByLineage.values()].sort((left, right) =>
     compareCandidates(entry, left, right),
   );
   if (lineageWinners.length === 0) {
-    return { primary: null, primaryTier: null, corroborators: [], excluded };
+    return {
+      primary: null,
+      primaryTier: null,
+      corroborators: [],
+      excluded: [
+        ...excluded,
+        ...regionalEvidence.map((issue) => ({
+          issue,
+          reason: "regional_evidence_only" as const,
+        })),
+      ],
+    };
   }
 
   const primary = lineageWinners[0];
+  const bestRegionalEvidenceByLineage = new Map<string, TrustedForecastIssue>();
+  for (const issue of regionalEvidence) {
+    if (issue.providerLineage === primary.providerLineage) continue;
+    const incumbent = bestRegionalEvidenceByLineage.get(issue.providerLineage);
+    if (
+      incumbent === undefined ||
+      compareCandidates(entry, issue, incumbent) < 0
+    ) {
+      bestRegionalEvidenceByLineage.set(issue.providerLineage, issue);
+    }
+  }
 
   return {
     primary,
     primaryTier: precedenceTier(entry, primary),
-    corroborators: lineageWinners.slice(1),
+    corroborators: [
+      ...lineageWinners.slice(1),
+      ...bestRegionalEvidenceByLineage.values(),
+    ],
     excluded,
   };
 }

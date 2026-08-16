@@ -333,6 +333,11 @@ export async function resolveMajorEventHolds(
   const windowEnd = endsAt.reduce((latest, value) =>
     Date.parse(value) > Date.parse(latest) ? value : latest,
   );
+  const diagnostics = {
+    candidateCount: parsedCandidates.length,
+    beachCount: beachIds.length,
+    asOf: asOf.toISOString(),
+  };
 
   try {
     const client = options.client ?? createSupabaseServiceRoleClient();
@@ -347,14 +352,43 @@ export async function resolveMajorEventHolds(
         p_window_end: windowEnd,
       },
     );
-    if (error !== null && error !== undefined) return UNRESOLVED;
-    if (!Array.isArray(data)) return UNRESOLVED;
+    if (error !== null && error !== undefined) {
+      const rpcError =
+        typeof error === "object"
+          ? (error as { code?: unknown; message?: unknown })
+          : null;
+      console.error("[major-event-hold:repository:rpc-error]", {
+        ...diagnostics,
+        error:
+          typeof rpcError?.message === "string"
+            ? rpcError.message
+            : String(error),
+        code: typeof rpcError?.code === "string" ? rpcError.code : undefined,
+      });
+      return UNRESOLVED;
+    }
+    if (!Array.isArray(data)) {
+      console.error(
+        "[major-event-hold:repository:invalid-response-shape]",
+        diagnostics,
+      );
+      return UNRESOLVED;
+    }
 
     const records: RegionalRecommendationHoldRecord[] = [];
     const holds: ResolvedMajorEventHold[] = [];
     for (const row of data) {
       const parsedRow = resolvedHoldRowSchema.safeParse(row);
-      if (!parsedRow.success) return UNRESOLVED;
+      if (!parsedRow.success) {
+        console.error("[major-event-hold:repository:invalid-hold-row]", {
+          ...diagnostics,
+          issues: parsedRow.error.issues.map(({ path, message }) => ({
+            path,
+            message,
+          })),
+        });
+        return UNRESOLVED;
+      }
       const record = toApplicationHoldRecord(parsedRow.data);
       records.push(record);
       holds.push(toResolvedHold(record));
@@ -366,24 +400,44 @@ export async function resolveMajorEventHolds(
     if (
       holds.some((hold, index) => {
         const record = records[index];
-        return (
+        const invalidated =
           record.status !== "active" ||
           record.scopeExposureClasses.length !== 0 ||
           Date.parse(record.effectiveAt) > asOfMilliseconds ||
           Date.parse(hold.expiresAt) <= asOfMilliseconds ||
           Date.parse(hold.validFrom) >= windowEndMilliseconds ||
           Date.parse(hold.validUntil) <= windowStartMilliseconds ||
-          !hold.scopeBeachIds.some((beachId) => requestedBeachIds.has(beachId))
-        );
+          !hold.scopeBeachIds.some((beachId) => requestedBeachIds.has(beachId));
+        if (invalidated) {
+          console.error("[major-event-hold:repository:hold-invalidated]", {
+            ...diagnostics,
+            recordId: record.recordId,
+            holdId: hold.holdId,
+          });
+        }
+        return invalidated;
       })
     ) {
       return UNRESOLVED;
     }
     const holdIds = holds.map(({ holdId }) => holdId);
-    if (new Set(holdIds).size !== holdIds.length) return UNRESOLVED;
+    if (new Set(holdIds).size !== holdIds.length) {
+      const duplicateHoldId = holdIds.find(
+        (holdId, index) => holdIds.indexOf(holdId) !== index,
+      );
+      console.error("[major-event-hold:repository:duplicate-hold-ids]", {
+        ...diagnostics,
+        holdId: duplicateHoldId,
+      });
+      return UNRESOLVED;
+    }
 
     return { state: "resolved", holds };
-  } catch {
+  } catch (error) {
+    console.error("[major-event-hold:repository:resolution-threw]", {
+      ...diagnostics,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return UNRESOLVED;
   }
 }

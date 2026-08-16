@@ -12,7 +12,6 @@ This is the first stop for AI coding sessions and human contributors. Prefer the
 - [`COORDINATE_CONVENTIONS.md`](COORDINATE_CONVENTIONS.md) - coordinate naming rules and mapping pitfalls.
 - [`../package.json`](../package.json) - authoritative scripts and dependency versions.
 - [`../e2e/README.md`](../e2e/README.md) - Playwright conventions when browser coverage is relevant.
-- [`MARKDOWN_INVENTORY.md`](MARKDOWN_INVENTORY.md) - full tracked markdown inventory and classification snapshot.
 
 ## Long-Running Goal / Spec Trackers
 
@@ -29,6 +28,8 @@ This is the first stop for AI coding sessions and human contributors. Prefer the
 
 - [`API_MIDDLEWARE.md`](API_MIDDLEWARE.md) and [`API_MIDDLEWARE_REFERENCE.md`](API_MIDDLEWARE_REFERENCE.md) - API wrapper patterns and reference.
 - [`SUPABASE_GUIDE.md`](SUPABASE_GUIDE.md) - database tables, access patterns, and Supabase usage.
+- [`setup/SUPABASE_SETUP.md`](setup/SUPABASE_SETUP.md) - local snapshot bootstrap and Supabase setup.
+- [`community-photos-runbook.md`](community-photos-runbook.md) and [`session-video-ugc-runbook.md`](session-video-ugc-runbook.md) - UGC media rollout, storage, moderation, and retention contracts.
 - [`TEST_ARCHITECTURE.md`](TEST_ARCHITECTURE.md), [`guides/TESTING_GUIDE.md`](guides/TESTING_GUIDE.md), and [`quick-start/RUNNING_TESTS.md`](quick-start/RUNNING_TESTS.md) - local test strategy and commands.
 - [`GIT_WORKFLOW.md`](GIT_WORKFLOW.md) - branch, main/prod, and release workflow.
 - [`STYLE_GUIDE.md`](STYLE_GUIDE.md), [`BRAND_GUIDE.md`](BRAND_GUIDE.md), and [`DESIGN_PRINCIPLES.md`](DESIGN_PRINCIPLES.md) - product design and brand standards.
@@ -46,6 +47,7 @@ This is the first stop for AI coding sessions and human contributors. Prefer the
 - [`archive/retired-2026-05-31/`](archive/retired-2026-05-31/) - retired March/Q1 strategy docs and completed implementation guides. Each file has a retirement header and replacement link.
 - [`archive/history-2026-05-31/`](archive/history-2026-05-31/) - full pre-cleanup histories for compressed active trackers.
 - [`../.planning/archive/2026-05-31-doc-cleanup/`](../.planning/archive/2026-05-31-doc-cleanup/) - full pre-cleanup `.planning` tracker histories.
+- [`../.planning/archive/2026-08-07-shipped/MARKDOWN_INVENTORY.md`](../.planning/archive/2026-08-07-shipped/MARKDOWN_INVENTORY.md) - archived generated Markdown inventory snapshot.
 - [`superpowers/plans/`](superpowers/plans/) and [`superpowers/specs/`](superpowers/specs/) - historical implementation plans/specs. Do not load by default; use only when investigating a specific completed slice.
 - [`postmortems/`](postmortems/), [`investigations/`](investigations/), [`reports/`](reports/), [`analysis/`](analysis/), and [`market-intelligence/`](market-intelligence/) - historical context unless a task names one directly.
 - [`../supabase/scratch/`](../supabase/scratch/) - migration scratch/history; use only when auditing a specific migration lineage.
@@ -78,4 +80,4 @@ Current tracked markdown snapshot after this cleanup:
 - Historical/archive: dated plans/specs/reports, Supabase scratch notes, and retired PMF/acquisition docs.
 - Unknown/needs human review: large older specs and research files listed above.
 
-See [`MARKDOWN_INVENTORY.md`](MARKDOWN_INVENTORY.md) for the full per-file classification snapshot.
+The generated Markdown inventory is archived with the shipped planning material; use `git ls-files '*.md'` for a current inventory.

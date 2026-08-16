@@ -16,12 +16,16 @@ import {
   transformToFaceHeightDecomposed,
   type BeachTerrainConfig,
   type WaveHeightSourceTag,
+  type WaveHeightTransformProvenance,
   type SwellComponentInput,
   BASE_SHOALING,
   calculatePeriodFactor,
   calculateDirectionFactor,
 } from './wave-height-transformer';
-import { METERS_TO_FEET } from './unit-conversions';
+import {
+  METERS_TO_FEET,
+  metersToFeet as convertMetersToFeet,
+} from './unit-conversions';
 import { createContextLogger } from '@/lib/logger';
 import {
   CDIP_OUTLIER_THRESHOLD,
@@ -86,18 +90,6 @@ const MIN_HEIGHT_FOR_TRANSFORM_DEBUG = 1.5;
 // ============================================================================
 // Water Temperature Formatting
 // ============================================================================
-
-/**
- * Format a water temperature for display.
- * @param temp Temperature in Fahrenheit (number, string, or null/undefined)
- * @returns Formatted string (e.g., "52°F") or "—" if no data
- */
-export function formatWaterTemp(temp?: number | string | null): string {
-  if (temp === null || temp === undefined || temp === "") return "—";
-  const numTemp = typeof temp === "string" ? parseFloat(temp) : temp;
-  if (isNaN(numTemp)) return "—";
-  return `${Math.round(numTemp)}°F`;
-}
 
 // ============================================================================
 // Human-readable size labels (from original wave-formatters.ts)
@@ -169,8 +161,8 @@ export function formatWaveHeightBucket(waveHeight?: number | string | null): str
 /**
  * Format a wave height range for display
  *
- * @param range - Tuple of [min, max] wave heights in feet
- * @param precision - "decimal" for one decimal place (default), "integer" for whole numbers
+ * Accepts a [min, max] tuple, a single NPC height, or separate horizon-strip
+ * min/max heights. Tuple calls support decimal or integer precision.
  * @returns Formatted range string (e.g., "3.5-5.0ft" or "3-5ft")
  *
  * @example
@@ -178,13 +170,39 @@ export function formatWaveHeightBucket(waveHeight?: number | string | null): str
  * formatWaveRange([3.2, 5.8])             // "3.2-5.8ft"
  * formatWaveRange([3.2, 5.8], "integer")  // "3-6ft"
  * formatWaveRange([4, 4])                 // "4.0ft"
+ * formatWaveRange(3.5)                   // "3-4ft"
+ * formatWaveRange(2, 4)                   // "2-4ft"
  * ```
  */
 export function formatWaveRange(
   range: [number, number],
-  precision: "decimal" | "integer" = "decimal"
+  precision?: "decimal" | "integer"
+): string;
+export function formatWaveRange(heightFt: number): string;
+export function formatWaveRange(minHeight: number, maxHeight: number): string;
+export function formatWaveRange(
+  rangeOrMin: [number, number] | number,
+  precisionOrMax: "decimal" | "integer" | number = "decimal"
 ): string {
-  const [min, max] = range;
+  if (typeof rangeOrMin === "number") {
+    if (typeof precisionOrMax !== "number") {
+      const lower = Math.max(0, Math.floor(rangeOrMin - 0.5));
+      const upper = Math.ceil(rangeOrMin + 0.5);
+      return `${lower}-${upper}ft`;
+    }
+
+    const minHeight = rangeOrMin;
+    const maxHeight = precisionOrMax;
+    if (minHeight <= 0 && maxHeight <= 0) return "Flat";
+
+    const minInt = Math.max(0, Math.floor(minHeight));
+    const maxInt = Math.ceil(maxHeight);
+    if (minInt === maxInt) return `${minInt}ft`;
+    return `${minInt}-${maxInt}ft`;
+  }
+
+  const [min, max] = rangeOrMin;
+  const precision = precisionOrMax === "integer" ? "integer" : "decimal";
 
   if (precision === "integer") {
     const minInt = Math.round(min);
@@ -289,7 +307,8 @@ export function clampWaveHeight(ft: number): number {
  * @returns Height in feet or undefined if invalid
  */
 export function metersToFeet(m?: number | null): number | undefined {
-  return m == null || !isFinite(m) ? undefined : m * METERS_TO_FEET;
+  const converted = convertMetersToFeet(m, null);
+  return converted == null || !isFinite(converted) ? undefined : converted;
 }
 
 /**
@@ -542,7 +561,8 @@ export interface FaceHeightParams extends WaveHeightSourceParams {
  * Convert various swell/height inputs to a display face height in feet.
  *
  * Applies beach-specific wave transformation including:
- * - Base shoaling factor (1.0x) - raw model data already accounts for shoaling
+ * - Base shoaling factor (1.0x generic; population prior for uncalibrated beaches)
+ *   - raw model data already accounts for shoaling
  * - Period amplification - longer periods = bigger faces
  * - Direction factor from terrain swell_access_factors
  *
@@ -647,6 +667,7 @@ export function toFaceHeightFeetDecomposed(
  * Fields:
  * - `source`: which raw input was actually used (after CDIP outlier checks).
  * - `rawHeightFt`: the raw input height in feet, before transformation.
+ * - `provenance`: `'measured'`, `'population_prior_v1'`, or `'generic'`.
  * - `transformPath`: which math path inside the transformer fired.
  *   - `'scalar_calibrated'`: `transformToFaceHeightWithMetadata` ran the
  *     per-beach `shoaling_factors` short-circuit (CDIP source + bucket hit).
@@ -663,6 +684,7 @@ export function toFaceHeightFeetDecomposed(
 export interface WaveHeightDebugInfo {
   source: WaveHeightSourceTag | null;
   rawHeightFt: number | null;
+  provenance: WaveHeightTransformProvenance;
   transformPath: 'scalar_calibrated' | 'scalar_generic' | 'decomposed' | null;
   componentsUsed: boolean;
   calibratedShoalingFired: boolean;
@@ -695,6 +717,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
       debug: {
         source: null,
         rawHeightFt: null,
+        provenance: 'generic',
         transformPath: null,
         componentsUsed: false,
         calibratedShoalingFired: false,
@@ -727,6 +750,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
     debug: {
       source: source.source,
       rawHeightFt: source.heightFt,
+      provenance: result.provenance,
       transformPath,
       componentsUsed: result.path === 'decomposed',
       calibratedShoalingFired: result.isCalibrated,

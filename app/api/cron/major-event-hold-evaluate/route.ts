@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import {
   evaluateOfficialRipCurrentHoldDiagnostics,
@@ -402,7 +403,19 @@ async function runEnabledEvaluation(): Promise<Response> {
   if (counts.failed > 0) {
     return safeError("append_failed", counts);
   }
-  return jsonResponse({ ok: true, status: "completed", counts });
+  return jsonResponse(await withCronOutcome(
+    {
+      job: ROUTE,
+      unit: "holds_evaluated",
+      expectedMin: 1,
+      getProduced: (value) => value.counts.evaluated,
+      legitimatelyZero: (value) =>
+        value.counts.evaluated === 0
+          ? { reason: "No fresh high-risk rip-current source rows were available" }
+          : undefined,
+    },
+    async () => ({ ok: true, status: "completed", counts }),
+  ));
 }
 
 const observedEnabledEvaluation = withObservedCron(
@@ -419,11 +432,20 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   if (process.env.MAJOR_EVENT_HOLD_AUTOMATION_ENABLED !== "true") {
-    return jsonResponse({
-      ok: true,
-      status: "disabled",
-      counts: { evaluated: 0, proposed: 0, accepted: 0, failed: 0 },
-    });
+    return jsonResponse(await withCronOutcome(
+      {
+        job: ROUTE,
+        unit: "holds_evaluated",
+        expectedMin: 1,
+        getProduced: (value) => value.counts.evaluated,
+        legitimatelyZero: () => ({ reason: "MAJOR_EVENT_HOLD_AUTOMATION_ENABLED is not true" }),
+      },
+      async () => ({
+        ok: true,
+        status: "disabled",
+        counts: { evaluated: 0, proposed: 0, accepted: 0, failed: 0 },
+      }),
+    ));
   }
 
   return observedEnabledEvaluation(request);

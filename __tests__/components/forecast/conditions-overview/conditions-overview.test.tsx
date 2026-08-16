@@ -179,12 +179,14 @@ describe("ConditionsOverview", () => {
     );
   });
 
-  it("filters otherGoodDays to only include days with score >= 60", () => {
+  // GOOD is >= 70, aligned to the go/no-go threshold so a label can never
+  // contradict the call beside it. 65 is FAIR and no longer qualifies.
+  it("filters otherGoodDays to only include days with score >= 70", () => {
     const enrichedDays = [
       createMockDay({ fullDate: "2026-02-10", score: 85 }), // best
-      createMockDay({ fullDate: "2026-02-11", score: 70 }), // good
-      createMockDay({ fullDate: "2026-02-12", score: 65 }), // good
-      createMockDay({ fullDate: "2026-02-13", score: 50 }), // excluded
+      createMockDay({ fullDate: "2026-02-11", score: 75 }), // good
+      createMockDay({ fullDate: "2026-02-12", score: 70 }), // good, on the boundary
+      createMockDay({ fullDate: "2026-02-13", score: 65 }), // FAIR — excluded
       createMockDay({ fullDate: "2026-02-14", score: 40 }), // excluded
     ];
     mockEnrichDaySummaries.mockReturnValue(enrichedDays);
@@ -198,7 +200,7 @@ describe("ConditionsOverview", () => {
       />
     );
 
-    // otherGoodDays should have 2 days (70 and 65)
+    // otherGoodDays should have 2 days (75 and 70)
     expect(screen.getByTestId("other-good-days-count")).toHaveTextContent("2");
   });
 

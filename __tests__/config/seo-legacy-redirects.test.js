@@ -22,6 +22,16 @@ function expectTemporaryRedirect(configSource, source, destination) {
 }
 
 describe("SEO legacy redirects", () => {
+  it("temporarily redirects the TikTok bio short link", () => {
+    const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
+
+    expectTemporaryRedirect(
+      configSource,
+      "/tiktok",
+      "/pbsc?utm_source=tiktok&utm_medium=bio",
+    );
+  });
+
   it("permanently redirects retired embed outreach URLs", () => {
     const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
 
@@ -44,16 +54,6 @@ describe("SEO legacy redirects", () => {
       configSource,
       "/embed-for-businesses&source=:source",
       "/for-businesses?source=:source",
-    );
-  });
-
-  it("temporarily redirects the TikTok bio short link", () => {
-    const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
-
-    expectTemporaryRedirect(
-      configSource,
-      "/tiktok",
-      "/pbsc?utm_source=tiktok&utm_medium=bio",
     );
   });
 

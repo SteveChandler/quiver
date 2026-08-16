@@ -10,10 +10,18 @@
 import { createPublicReadClient } from '@/lib/supabase/server';
 import {
   getBeachesByIntentAndCity,
+  getBeachesByIntentAndState,
   getBeachesByState,
 } from '@/actions/beach/beach-query-actions';
+const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) => beaches);
 
 jest.mock('@/lib/supabase/server');
+jest.mock('@/lib/recommendations/major-event-hold/water-quality-visibility', () => ({
+  filterBeachesByWaterQualityVisibility: jest.fn(async (beaches: Array<{ id: string }>) => beaches),
+}));
+jest.mock('@/lib/recommendations/selection', () => ({
+  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
+}));
 const mockCreate = createPublicReadClient as jest.Mock;
 
 /**
@@ -73,6 +81,27 @@ function makeMockSupabase(data: any[] = [], error: any = null) {
 describe('beach-query-actions', () => {
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('removes held beaches from intent and regional beach lists', async () => {
+    mockRankBeaches.mockImplementation(async (beaches: Array<{ id: string }>) =>
+      beaches.filter(({ id }) => id !== 'held-beach'),
+    );
+
+    makeMockSupabase([
+      { id: 'held-beach', name: 'Held Beach', city: 'San Diego', state: 'CA' },
+      { id: 'safe-beach', name: 'Safe Beach', city: 'San Diego', state: 'CA' },
+    ]);
+    const cityResult = await getBeachesByIntentAndCity('tide', 'san-diego', 'ca');
+    expect(cityResult.data?.map((beach) => beach.id)).toEqual(['safe-beach']);
+
+    makeMockSupabase([
+      { id: 'held-beach', name: 'Held Beach', city: 'San Diego', state: 'CA' },
+      { id: 'safe-beach', name: 'Safe Beach', city: 'San Diego', state: 'CA' },
+    ]);
+    const stateResult = await getBeachesByIntentAndState('tide', 'ca');
+    expect(stateResult.data?.map((beach) => beach.id)).toEqual(['safe-beach']);
+    expect(mockRankBeaches).toHaveBeenCalled();
   });
 
   describe('getBeachesByIntentAndCity', () => {

@@ -111,8 +111,13 @@ export function ForecastAccuracySummary({
             <span>Forecast Accuracy</span>
           </CardTitle>
           {onRefresh && (
-            <Button variant="ghost" size="sm" onClick={onRefresh}>
-              <RefreshCw className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRefresh}
+              aria-label="Refresh forecast accuracy"
+            >
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
             </Button>
           )}
         </div>

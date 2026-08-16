@@ -273,7 +273,7 @@ export function AndroidBetaClient({
                   className={cn(
                     handoffButtonClass,
                     "bg-[#7BDCB5] text-[#11100D] disabled:cursor-wait disabled:opacity-70",
-                  )}
+                  ) + " focus-ring"}
                 >
                   {installLinkLoading
                     ? "3 · Preparing Play install link..."
@@ -302,7 +302,7 @@ export function AndroidBetaClient({
                 <button
                   type="button"
                   onClick={handleEditEmail}
-                  className="mt-2 font-mono text-xs font-bold uppercase tracking-[0.12em] underline decoration-2 underline-offset-4"
+                  className="mt-2 font-mono text-xs font-bold uppercase tracking-[0.12em] underline decoration-2 underline-offset-4 focus-ring"
                 >
                   Use a different email
                 </button>
@@ -340,7 +340,7 @@ export function AndroidBetaClient({
                 <button
                   type="submit"
                   disabled={status === "saving"}
-                  className="inline-flex min-h-12 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0"
+                  className="inline-flex min-h-12 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0 focus-ring"
                 >
                   {status === "saving"
                     ? "Saving..."

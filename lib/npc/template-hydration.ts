@@ -139,23 +139,45 @@ function describeWaterTemp(temp: number | null): string {
 /**
  * Generate random crowd sentence
  */
-function generateCrowdSentence(personalityType: string): string {
-  const crowdLevel = Math.floor(Math.random() * 5) + 1; // 1-5
-  const crowdDescriptions: Record<number, string[]> = {
-    1: ['Lineup is basically empty.', 'Just a handful of heads out.', 'Almost solo session vibes.'],
-    2: ['Crowd is light with plenty of space.', 'Mellow crowd, easy pickings.', 'Room to move around freely.'],
-    3: ['Crowd is manageable.', 'Decent number out but respectful.', 'Standard crowd—wait your turn.'],
-    4: ['Busy lineup but friendly energy.', 'Getting crowded, stay patient.', 'Lots of bodies but waves to go around.'],
-    5: ['Packed lineup—pick your moments.', 'Full house out there today.', 'Competition for every set.'],
-  };
-  const options = crowdDescriptions[crowdLevel] || crowdDescriptions[3];
-  return options[Math.floor(Math.random() * options.length)];
+function generateCrowdSentence(): string {
+  return 'Crowd data is not available from this forecast.';
 }
 
 /**
  * Generate personality-specific closing line
  */
-function generatePersonalityCloser(personalityType: string): string {
+function generatePersonalityCloser(personalityType: string, homeRegion?: string): string {
+  const regionalClosers: Record<string, string[]> = {
+    'outer-banks': [
+      'Wind direction is the first thing I will check before the next Atlantic window.',
+      'The sandbar is the story here, so I am keeping the read local.',
+    ],
+    hawaii: [
+      'I am watching the trade-wind texture before calling the next island window.',
+      'The swell direction matters as much as the number here.',
+    ],
+    'la-santa-monica': [
+      'The west-facing LA beach break rewards an early read.',
+      'Keeping an eye on wind texture before the next city session.',
+    ],
+    'santa-barbara': [
+      'The Channel changes the feel quickly, so I am logging the details.',
+      'A measured read is useful along this coast.',
+    ],
+    'southern-maine': [
+      'Cold-water timing is part of the session plan up here.',
+      'The next call starts with the wind and the wetsuit check.',
+    ],
+    'south-jersey': [
+      'The jetties organize the read when the shorebreak starts moving.',
+      'Logging the shore detail before the next Jersey swell.',
+    ],
+  };
+  const regionalOptions = homeRegion ? regionalClosers[homeRegion] : undefined;
+  if (regionalOptions) {
+    return regionalOptions[Math.floor(Math.random() * regionalOptions.length)];
+  }
+
   const closers: Record<string, string[]> = {
     rookie: [
       'Still stoked just to be out there.',
@@ -199,7 +221,8 @@ export function buildTemplateVariables(
   beachName: string,
   conditions: SurfConditions,
   personalityType: string,
-  timestamp: Date
+  timestamp: Date,
+  homeRegion?: string,
 ): TemplateVariables {
   const hour = (timestamp.getUTCHours() + 24 - 8) % 24; // Convert to PT
 
@@ -211,8 +234,8 @@ export function buildTemplateVariables(
     tide_state: describeTide(conditions.tideHeight, conditions.tideStatus),
     water_temp: describeWaterTemp(conditions.waterTemp),
     time_of_day: describeTimeOfDay(hour),
-    crowd_sentence: generateCrowdSentence(personalityType),
-    personality_closer: generatePersonalityCloser(personalityType),
+    crowd_sentence: generateCrowdSentence(),
+    personality_closer: generatePersonalityCloser(personalityType, homeRegion),
   };
 }
 

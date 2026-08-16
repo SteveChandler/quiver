@@ -147,7 +147,11 @@ export { RequestCache };
  * without pulling in React hook code.
  */
 export function createCachedMapFetch<T>(apiPath: string, ttl: number) {
-  return (latitude: number, longitude: number): Promise<T> => {
+  return (
+    latitude: number,
+    longitude: number,
+    signal?: AbortSignal,
+  ): Promise<T> => {
     // Use aggressive rounding for buoy conditions since it's fallback data
     const precision = apiPath.includes("buoys/conditions") ? 1 : 3; // 1 decimal = ~10km zones
     const latKey = latitude.toFixed(precision);
@@ -163,6 +167,7 @@ export function createCachedMapFetch<T>(apiPath: string, ttl: number) {
     // Fetch and cache
     return fetch(`${apiPath}?latitude=${latitude}&longitude=${longitude}`, {
       headers: { Accept: "application/json" },
+      signal,
     })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);

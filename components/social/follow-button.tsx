@@ -65,7 +65,7 @@ export function FollowButton({
           toggleFollow();
         }}
         disabled={isLoading || isToggling}
-        className={`flex items-center gap-2 motion-optimized like-button-spring ripple-effect transition-all ${
+        className={`flex items-center gap-2 motion-optimized like-button-spring ripple-effect transition-[color,background-color,transform] ${
           following
             ? "hover:bg-destructive hover:text-destructive-foreground"
             : "hover:scale-105"

@@ -378,7 +378,7 @@ export default function SessionPhotoUpload({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={filePreview.url}
-                    alt="Preview"
+                    alt={`Selected photo: ${filePreview.file.name}`}
                     className="w-full h-full object-cover"
                   />
                   {filePreview.compressing && (
@@ -391,9 +391,10 @@ export default function SessionPhotoUpload({
                 <Button
                   variant="destructive"
                   size="sm"
-                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -top-2 -right-2 h-8 w-8 rounded-full p-0 after:absolute after:-inset-[6px] after:content-['']"
                   onClick={() => removeFile(filePreview.id)}
                   disabled={isUploading}
+                  aria-label={`Remove ${filePreview.file.name}`}
                 >
                   <X className="h-3 w-3" />
                 </Button>

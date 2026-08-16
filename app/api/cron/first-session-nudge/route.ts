@@ -29,6 +29,7 @@ import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import {
   buildAppEmailLink,
   buildBeachEmailLink,
@@ -96,6 +97,24 @@ interface RunSummary {
     sendFailed: number;
     logFailed: number;
   };
+}
+
+async function recordFirstSessionEmailOutcome(
+  result: { summary: RunSummary },
+): Promise<{ summary: RunSummary }> {
+  return withCronOutcome(
+    {
+      job: "/api/cron/first-session-nudge",
+      unit: "nudges_sent",
+      expectedMin: 1,
+      getProduced: (value) => value.summary.sent,
+      legitimatelyZero: (value) =>
+        value.summary.candidates === 0
+          ? { reason: "No users were eligible for the day-1 first-session email window" }
+          : undefined,
+    },
+    async () => result,
+  );
 }
 
 // ============================================================================
@@ -260,7 +279,7 @@ async function _GET(request: Request): Promise<Response> {
     if (!windowProfiles || windowProfiles.length === 0) {
       summary.durationMs = Date.now() - startTime;
       console.log(`${CONTEXT_TAG} No users in signup window`);
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(await recordFirstSessionEmailOutcome({ summary }));
     }
 
     const windowUserIds = windowProfiles.map((p) => p.id);
@@ -355,7 +374,7 @@ async function _GET(request: Request): Promise<Response> {
 
     if (deliverable.length === 0) {
       summary.durationMs = Date.now() - startTime;
-      return createSuccessResponse({ summary });
+      return createSuccessResponse(await recordFirstSessionEmailOutcome({ summary }));
     }
 
     // 5. Send emails
@@ -567,7 +586,7 @@ async function _GET(request: Request): Promise<Response> {
       `${CONTEXT_TAG} Completed: ${summary.sent} sent, ${summary.candidates} candidates, ${summary.durationMs}ms`
     );
 
-    return createSuccessResponse({ summary });
+    return createSuccessResponse(await recordFirstSessionEmailOutcome({ summary }));
   } catch (error) {
     return handleApiError(error);
   }

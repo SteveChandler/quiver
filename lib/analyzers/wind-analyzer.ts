@@ -17,18 +17,12 @@ import type {
   ConditionEvaluation,
 } from "@/types/morning-intel";
 import { formatWindSpeed } from "@/lib/formatters/surf-data";
+import { normalizeAngle } from "@/lib/domains/shared/angle-utils";
+
+export { normalizeAngle };
 
 // Ocean Beach, San Diego faces approximately WSW (260-270°)
 const OB_SHORE_NORMAL = 270; // degrees
-
-/**
- * Normalize angle to 0-360 range
- */
-export function normalizeAngle(angle: number): number {
-  while (angle < 0) angle += 360;
-  while (angle >= 360) angle -= 360;
-  return angle;
-}
 
 /**
  * Convert degrees to cardinal direction

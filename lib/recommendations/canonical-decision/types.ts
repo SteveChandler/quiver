@@ -10,6 +10,9 @@ export type CanonicalDecisionBasis =
   | "personal_match"
   | "physical_fallback"
   | "safety_override";
+export type CanonicalDecisionBasisV2 =
+  | CanonicalDecisionBasis
+  | "data_unavailable";
 export type CanonicalMatchConfidence = "low" | "medium" | "high";
 export type CanonicalDecisionSkill =
   | "beginner"
@@ -30,6 +33,7 @@ export type CanonicalDecisionReasonCode =
   | "no_candidates"
   | "unknown_skill"
   | "major_event_hold"
+  | "water_quality_hold"
   | "hold_state_unavailable"
   | "water_quality_closure"
   | "beach_skill_exceeds_user"
@@ -103,6 +107,8 @@ export interface CanonicalSessionDecision {
   scope: CanonicalDecisionScope;
   verdict: CanonicalDecisionVerdict;
   decisionBasis: CanonicalDecisionBasis;
+  /** Additive basis for clients that distinguish missing data from safety overrides. */
+  decisionBasisV2?: CanonicalDecisionBasisV2;
   reasonCode: CanonicalDecisionReasonCode;
   selection: CanonicalDecisionSelection | null;
   skillEligibility: {

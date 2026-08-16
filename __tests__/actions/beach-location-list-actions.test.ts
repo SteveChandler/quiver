@@ -10,6 +10,15 @@ jest.mock("@/lib/supabase/server", () => ({
   createPublicReadClient: jest.fn(),
 }));
 
+jest.mock("@/lib/recommendations/major-event-hold/water-quality-visibility", () => ({
+  filterBeachesByWaterQualityVisibility: jest.fn(async (beaches) => beaches),
+}));
+
+const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) => beaches);
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
+}));
+
 function createThenableQuery<T>(result: {
   data: T | null;
   error: { message: string } | null;
@@ -279,8 +288,6 @@ describe("beach-location-list-actions", () => {
     );
   });
 });
-
-
 
 
 

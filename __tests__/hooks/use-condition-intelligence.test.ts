@@ -102,9 +102,9 @@ function makeMockForecast(overrides: Partial<EnhancedForecastEntity> = {}): Enha
 }
 
 const mockForecasts: EnhancedForecastEntity[] = [
-  makeMockForecast({ forecast_at: "2026-03-25T06:00:00Z" }),
-  makeMockForecast({ forecast_at: "2026-03-25T09:00:00Z" }),
-  makeMockForecast({ forecast_at: "2026-03-25T12:00:00Z" }),
+  makeMockForecast({ forecast_at: "2026-03-25T06:00:00Z", forecast_time: "06:00:00" }),
+  makeMockForecast({ forecast_at: "2026-03-25T09:00:00Z", forecast_time: "08:00:00" }),
+  makeMockForecast({ forecast_at: "2026-03-25T12:00:00Z", forecast_time: "12:00:00" }),
 ];
 
 const mockBoards: BoardForPick[] = [
@@ -120,7 +120,8 @@ const mockWindowResult: MultiWindowResult = {
       startReason: { time: new Date("2026-03-25T06:00:00Z"), factor: "score", description: "Score above threshold" },
       endReason: { time: new Date("2026-03-25T10:00:00Z"), factor: "score", description: "Score dropped" },
       message: "Good morning window",
-      peakTime: new Date("2026-03-25T08:00:00Z"),
+      peakTime: new Date("2026-03-25T15:00:00Z"),
+      peakScore: 88,
       avgScore: 72,
       character: { label: "Dialed", category: "medium-clean" },
     },
@@ -131,7 +132,8 @@ const mockWindowResult: MultiWindowResult = {
     startReason: { time: new Date("2026-03-25T06:00:00Z"), factor: "score", description: "Score above threshold" },
     endReason: { time: new Date("2026-03-25T10:00:00Z"), factor: "score", description: "Score dropped" },
     message: "Good morning window",
-    peakTime: new Date("2026-03-25T08:00:00Z"),
+    peakTime: new Date("2026-03-25T15:00:00Z"),
+    peakScore: 88,
     avgScore: 72,
     character: { label: "Dialed", category: "medium-clean" },
   },
@@ -250,6 +252,7 @@ describe("useConditionIntelligence", () => {
     expect(optionsArg).toEqual({
       beachTimezone: mockBeachTimezone,
       skillLevel: undefined,
+      boardClasses: ["shortboard", "fish"],
     });
 
     expect(result.current.windows).toEqual(mockWindowResult.windows);
@@ -260,12 +263,27 @@ describe("useConditionIntelligence", () => {
   // 3. Board pick — authenticated with boards
   // -------------------------------------------------------------------------
 
-  it("computes board pick when user is authenticated and has boards", () => {
+  it("uses the best window peak for the score, character, and board pick", () => {
     const { result } = renderHook(() =>
       useConditionIntelligence(mockForecasts, mockBeach, mockBeachTimezone)
     );
 
     expect(mockGetConditionBoardPick).toHaveBeenCalledTimes(1);
+    const [boardForecast] = mockGetConditionBoardPick.mock.calls[0];
+    expect(boardForecast.forecastTime).toEqual(
+      new Date("2026-03-25T15:00:00Z"),
+    );
+    expect(mockGetConditionBoardPick).toHaveBeenCalledWith(
+      expect.anything(),
+      mockBoards,
+      mockBeach,
+      { kind: "scored", boardClass: null },
+    );
+    expect(result.current.todayScore).toBe(88);
+    expect(result.current.bestWindow?.character).toEqual({
+      label: "Dialed",
+      category: "medium-clean",
+    });
     expect(result.current.boardPick).toEqual(mockBoardPick);
   });
 

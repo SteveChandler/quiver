@@ -1,0 +1,21 @@
+{
+  "versionInfo": {
+    "hasModuleVersionChanged": false,
+    "hasApiVersionChanged": false
+  },
+  "data": {
+    "Out1": {
+      "List": [
+        { "Latitude": "32.53595", "Longitude": "-117.1243" },
+        { "Latitude": "32.54340957", "Longitude": "-117.12522781" },
+        { "Latitude": "32.555139", "Longitude": "-117.129323" },
+        { "Latitude": "32.56286903", "Longitude": "-117.13259046" },
+        { "Latitude": "32.5665773", "Longitude": "-117.13320503" },
+        { "Latitude": "32.57266523", "Longitude": "-117.13320101" },
+        { "Latitude": "32.57875", "Longitude": "-117.133186" },
+        { "Latitude": "32.58567857", "Longitude": "-117.13304937" }
+      ]
+    }
+  },
+  "rolesInfo": ","
+}

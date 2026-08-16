@@ -39,6 +39,7 @@ interface MapToolbarProps {
   showSwellField: boolean;
   onToggleSwellField: () => void;
   fieldGuideVisible?: boolean;
+  fieldGuideTriggerRef?: RefObject<HTMLButtonElement | null>;
   onOpenFieldGuide?: () => void;
 }
 
@@ -52,7 +53,7 @@ const BREAK_TYPE_FILTERS = [
 
 const filterChipClass = (active: boolean): string =>
   [
-    "rounded-full border-2 border-[#11100D] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.04em] transition-colors",
+    "min-h-11 rounded-full border-2 border-[#11100D] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.04em] transition-colors",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]",
     active
       ? "bg-[#F78E42] text-[#11100D]"
@@ -60,7 +61,7 @@ const filterChipClass = (active: boolean): string =>
   ].join(" ");
 
 const toolbarActionClass =
-  "h-10 w-full min-w-0 justify-center whitespace-nowrap rounded-[8px_3px_9px_4px] border-2 border-[#11100D] bg-[#F5EEDC] px-2 text-xs font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] hover:bg-[#E9DEC7] sm:px-3 sm:text-sm lg:w-auto";
+  "h-11 w-full min-w-0 justify-center whitespace-nowrap rounded-[8px_3px_9px_4px] border-2 border-[#11100D] bg-[#F5EEDC] px-2 text-xs font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] hover:bg-[#E9DEC7] sm:px-3 sm:text-sm lg:w-auto";
 
 export function MapToolbar({
   searchQuery,
@@ -78,6 +79,7 @@ export function MapToolbar({
   showSwellField,
   onToggleSwellField,
   fieldGuideVisible = false,
+  fieldGuideTriggerRef,
   onOpenFieldGuide,
 }: MapToolbarProps) {
   const suggestionsListId = useId();
@@ -170,7 +172,7 @@ export function MapToolbar({
                 }
               }}
               placeholder="Search beaches, spots, or cities"
-              className="h-10 w-full rounded-[9px_4px_10px_5px] border-2 !border-[#11100D] border-[#11100D] !bg-[#F5EEDC] bg-[#F5EEDC] py-2 pl-9 pr-10 text-sm font-medium !text-[#11100D] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.2)] outline-none transition-colors placeholder:!text-[#11100D]/55 focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+              className="h-11 w-full rounded-[9px_4px_10px_5px] border-2 !border-[#11100D] border-[#11100D] !bg-[#F5EEDC] bg-[#F5EEDC] py-2 pl-9 pr-11 text-sm font-medium !text-[#11100D] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.2)] outline-none transition-colors placeholder:!text-[#11100D]/55 focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
               style={{
                 background: SWELL_MAP_LEGEND_SURFACE.paperRaised,
                 borderColor: SWELL_MAP_LEGEND_SURFACE.border,
@@ -183,7 +185,7 @@ export function MapToolbar({
                 type="button"
                 aria-label="Clear map search"
                 onClick={onClearSearch}
-                className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-[#11100D]/65 hover:bg-[#E9DEC7] hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+                className="absolute right-0 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-md text-[#11100D]/65 hover:bg-[#E9DEC7] hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -208,7 +210,7 @@ export function MapToolbar({
                       type="button"
                       onMouseEnter={() => setActiveSuggestionIndex(index)}
                       onClick={() => selectSuggestion(index)}
-                      className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-[#E9DEC7] focus-visible:bg-[#E9DEC7] focus-visible:outline-none aria-selected:bg-[#E9DEC7]"
+                      className="flex min-h-11 w-full flex-col justify-center px-3 py-2 text-left text-sm hover:bg-[#E9DEC7] focus-visible:bg-[#E9DEC7] focus-visible:outline-none aria-selected:bg-[#E9DEC7]"
                     >
                       <span className="font-medium">{beach.name}</span>
                       {location && (
@@ -269,6 +271,7 @@ export function MapToolbar({
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
+                      aria-pressed={filters.beginnerFriendly}
                       onClick={onToggleBeginner}
                       className={filterChipClass(filters.beginnerFriendly)}
                     >
@@ -278,6 +281,7 @@ export function MapToolbar({
                       <button
                         key={type}
                         type="button"
+                        aria-pressed={filters.breakTypes.has(type)}
                         onClick={() => onToggleBreakType(type)}
                         className={filterChipClass(filters.breakTypes.has(type))}
                       >
@@ -289,7 +293,7 @@ export function MapToolbar({
                         type="button"
                         onClick={onClearAll}
                         data-testid="map-clear-all"
-                        className="rounded-full border-2 border-[#11100D] bg-[#E9DEC7] px-3 py-1.5 text-xs font-bold text-[#11100D] transition-colors hover:bg-[#D9C49C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+                        className="min-h-11 rounded-full border-2 border-[#11100D] bg-[#E9DEC7] px-3 py-1.5 text-xs font-bold text-[#11100D] transition-colors hover:bg-[#D9C49C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
                       >
                         Clear all
                       </button>
@@ -303,6 +307,7 @@ export function MapToolbar({
               type="button"
               variant="secondary"
               size="sm"
+              aria-label="Use Near Me"
               onClick={onUseMyLocation}
               className={toolbarActionClass}
             >
@@ -337,6 +342,7 @@ export function MapToolbar({
 
             {onOpenFieldGuide && (
               <Button
+                ref={fieldGuideTriggerRef}
                 type="button"
                 variant="secondary"
                 size="sm"

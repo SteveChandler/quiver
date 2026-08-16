@@ -23,20 +23,33 @@ async function communityStatsHandler(_request: NextRequest) {
           .from("beaches")
           .select("id", { count: "exact", head: true }),
 
-        // Total sessions logged (excluding bot/test sessions)
+        // Total sessions logged by real community members
         supabase
           .from("sessions")
-          .select("id", { count: "exact", head: true }),
+          .select(
+            "id, profiles!sessions_user_id_profiles_fkey!inner(is_mock)",
+            { count: "exact", head: true }
+          )
+          .or("is_mock.is.null,is_mock.eq.false", {
+            referencedTable: "profiles",
+          }),
 
-        // Total registered users
+        // Total registered real users
         supabase
           .from("profiles")
-          .select("id", { count: "exact", head: true }),
+          .select("id", { count: "exact", head: true })
+          .or("is_mock.is.null,is_mock.eq.false"),
 
         // Conditions reports filed today
         supabase
           .from("intel_posts")
-          .select("id", { count: "exact", head: true })
+          .select(
+            "id, profiles!intel_posts_user_id_fkey!inner(is_mock)",
+            { count: "exact", head: true }
+          )
+          .or("is_mock.is.null,is_mock.eq.false", {
+            referencedTable: "profiles",
+          })
           .gte(
             "created_at",
             new Date(new Date().setHours(0, 0, 0, 0)).toISOString()

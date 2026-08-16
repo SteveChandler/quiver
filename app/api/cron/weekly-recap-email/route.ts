@@ -30,6 +30,7 @@ import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { getDisplayCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 
 export const revalidate = 0;
@@ -56,6 +57,24 @@ interface RunSummary {
     noEmail: number;
     sendFailed: number;
   };
+}
+
+async function recordWeeklyRecapOutcome(
+  result: { summary: RunSummary; [key: string]: unknown },
+): Promise<{ summary: RunSummary; [key: string]: unknown }> {
+  return withCronOutcome(
+    {
+      job: "/api/cron/weekly-recap-email",
+      unit: "emails_sent",
+      expectedMin: 1,
+      getProduced: (value) => value.summary.sent,
+      legitimatelyZero: (value) =>
+        value.summary.activeUsers === 0
+          ? { reason: "No eligible users had sessions for a weekly recap" }
+          : undefined,
+    },
+    async () => result,
+  );
 }
 
 // ============================================================================
@@ -212,7 +231,7 @@ async function _GET(request: Request): Promise<Response> {
     if (!sessions || sessions.length === 0) {
       console.log(`${CONTEXT_TAG} No sessions found this week`);
       summary.durationMs = Date.now() - startTime;
-      return createSuccessResponse({ message: "No sessions found this week", summary });
+      return createSuccessResponse(await recordWeeklyRecapOutcome({ message: "No sessions found this week", summary }));
     }
 
     console.log(`${CONTEXT_TAG} Found ${sessions.length} sessions this week`);
@@ -246,7 +265,7 @@ async function _GET(request: Request): Promise<Response> {
     if (!profiles || profiles.length === 0) {
       console.log(`${CONTEXT_TAG} No eligible users found`);
       summary.durationMs = Date.now() - startTime;
-      return createSuccessResponse({ message: "No eligible users", summary });
+      return createSuccessResponse(await recordWeeklyRecapOutcome({ message: "No eligible users", summary }));
     }
 
     summary.activeUsers = profiles.length;
@@ -352,7 +371,7 @@ async function _GET(request: Request): Promise<Response> {
     );
     console.log(`   Skipped breakdown:`, summary.skipped);
 
-    return createSuccessResponse({ summary });
+    return createSuccessResponse(await recordWeeklyRecapOutcome({ summary }));
   } catch (error) {
     return handleApiError(error);
   }

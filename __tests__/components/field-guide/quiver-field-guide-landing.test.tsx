@@ -26,12 +26,35 @@ jest.mock("@/components/app-store/native-app-funnel-cta", () => ({
   ),
 }));
 
+// framer-motion resolves reduced-motion from a module-level store, so a late
+// window.matchMedia stub does not reach it. Drive the hook directly instead.
+const mockUseReducedMotion = jest.fn<boolean | null, []>(() => false);
+jest.mock("framer-motion", () => ({
+  ...jest.requireActual("framer-motion"),
+  useReducedMotion: () => mockUseReducedMotion(),
+}));
+
 describe("QuiverFieldGuideLanding", () => {
+  let play: jest.SpyInstance<Promise<void>, []>;
+
+  beforeEach(() => {
+    // jsdom has no media playback; without this every render logs
+    // "Not implemented: HTMLMediaElement.prototype.play".
+    play = jest
+      .spyOn(window.HTMLMediaElement.prototype, "play")
+      .mockResolvedValue(undefined);
+    mockUseReducedMotion.mockReturnValue(false);
+  });
+
+  afterEach(() => {
+    play.mockRestore();
+  });
+
   it("renders the landing sections and proof block", () => {
     render(<QuiverFieldGuideLanding platform="ios" />);
 
     expect(screen.getByTestId("field-guide-hero")).toBeInTheDocument();
-    expect(screen.getByTestId("field-guide-spotlight")).toBeInTheDocument();
+    expect(screen.queryByTestId("field-guide-spotlight")).not.toBeInTheDocument();
     expect(screen.getByTestId("field-guide-proof")).toBeInTheDocument();
     expect(screen.getByTestId("field-guide-coverage")).toBeInTheDocument();
     expect(screen.getByTestId("field-guide-inside-app")).toBeInTheDocument();
@@ -47,8 +70,12 @@ describe("QuiverFieldGuideLanding", () => {
     render(<QuiverFieldGuideLanding platform="ios" />);
 
     expect(
-      screen.getByRole("heading", { name: /know where to paddle out/i }),
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Know where to paddle out before dawn.",
+      }),
     ).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     const hero = screen.getByTestId("field-guide-hero");
     expect(
       within(hero).getByRole("link", { name: "Get the app" }),
@@ -59,25 +86,47 @@ describe("QuiverFieldGuideLanding", () => {
     expect(
       within(hero).getByRole("link", { name: "Watch demo" }),
     ).toHaveAttribute("href", "#demo");
+    expect(
+      within(hero).getByRole("link", { name: "Watch demo" }),
+    ).toHaveClass("underline");
+    expect(
+      within(hero).getByRole("link", { name: "Watch demo" }),
+    ).not.toHaveClass("border-2");
+    expect(
+      within(hero).getByTestId("field-guide-hero-primary-cta"),
+    ).toHaveClass("bg-[#F78E42]");
     expect(screen.getByTestId("funnel-cta")).toBeInTheDocument();
   });
 
-  it("renders the Swell View spotlight without a duplicate CTA", () => {
+  it("renders the ordered How Quiver works steps and a real product decision", () => {
     render(<QuiverFieldGuideLanding platform="ios" />);
 
-    const spotlight = screen.getByTestId("field-guide-spotlight");
     expect(
-      within(spotlight).getByRole("heading", {
-        name: /quiver's swell view is here/i,
+      screen.getByRole("heading", {
+        name: /turn a forecast into a surf plan/i,
       }),
     ).toBeInTheDocument();
-    expect(
-      within(spotlight).getByText("FREE · NEW IN THE APP"),
-    ).toBeInTheDocument();
-    // The spotlight no longer repeats the hero's "Get the app" CTA.
-    expect(
-      within(spotlight).queryByRole("link", { name: "Get the app" }),
-    ).not.toBeInTheDocument();
+    const walkthrough = screen.getByTestId("field-guide-walkthrough");
+    const steps = within(walkthrough).getByTestId(
+      "field-guide-walkthrough-steps",
+    );
+    expect(steps.tagName).toBe("OL");
+    expect(within(steps).getAllByRole("listitem")).toHaveLength(4);
+    expect(within(steps).getByText("Save your home break.")).toBeInTheDocument();
+    expect(within(steps).getByText("Add the boards in your quiver.")).toBeInTheDocument();
+    expect(within(steps).getByText("Get the surf window.")).toBeInTheDocument();
+    expect(within(steps).getByText("Log what happened in the water.")).toBeInTheDocument();
+    const walkthroughVideo = within(walkthrough)
+      .getByTestId("field-guide-walkthrough-video")
+      .querySelector<HTMLVideoElement>("video");
+    expect(walkthroughVideo).not.toBeNull();
+    expect(walkthroughVideo).toHaveAttribute("src", "/videos/buoy-loop.mp4");
+    // React assigns muted as a DOM property, so assert the property not the attribute.
+    expect(walkthroughVideo?.muted).toBe(true);
+    expect(walkthroughVideo?.loop).toBe(true);
+    // The loop speaks for itself: no caption or badge around it.
+    expect(walkthrough).not.toHaveTextContent(/real product proof/i);
+    expect(walkthrough).not.toHaveTextContent(/favorite setup/i);
   });
 
   it("renders community testimonials from real surfer feedback", () => {
@@ -86,9 +135,10 @@ describe("QuiverFieldGuideLanding", () => {
     const community = screen.getByTestId("field-guide-community");
     expect(
       within(community).getByRole("heading", {
-        name: /recent check-ins from the community/i,
+        name: /what surfers told us/i,
       }),
     ).toBeInTheDocument();
+    expect(community).toHaveTextContent(/shared with us by email/i);
     expect(community).toHaveTextContent(/swell direction, interval, and wind/i);
   });
 
@@ -150,45 +200,49 @@ describe("QuiverFieldGuideLanding", () => {
     expect(container.querySelector("[data-zine-sticker]")).not.toBeNull();
   });
 
-  it("starts the hero media slot on the poster and plays video only after request", () => {
-    const originalMatchMedia = window.matchMedia;
-    window.matchMedia = jest.fn().mockReturnValue({
-      matches: true,
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-    });
+  it("autoplays the hero video muted when the viewer allows motion", () => {
+    const { container } = render(<QuiverFieldGuideLanding platform="ios" />);
+    const media = screen.getByTestId("field-guide-hero-video");
 
-    try {
-      const { container } = render(<QuiverFieldGuideLanding platform="ios" />);
-      const media = screen.getByTestId("field-guide-hero-video");
+    const video = container.querySelector<HTMLVideoElement>(
+      '[data-testid="field-guide-hero-video"] video',
+    );
+    expect(video).not.toBeNull();
+    expect(video).toHaveAttribute("src", "/videos/quiver-landing-hero-720.mp4");
+    // Muted + inline are what let a browser autoplay at all. React assigns
+    // both as DOM properties, so assert the properties not the attributes.
+    expect(video?.muted).toBe(true);
+    expect(video?.playsInline).toBe(true);
+    expect(play).toHaveBeenCalled();
 
-      expect(
-        within(media).getByAltText("Quiver app launch video preview"),
-      ).toHaveAttribute(
-        "src",
-        expect.stringContaining("/images/hero/quiver-landing-hero-poster.jpg"),
-      );
-      expect(
-        container.querySelector('[data-testid="field-guide-hero-video"] video'),
-      ).toBeNull();
+    expect(
+      within(media).queryByRole("button", { name: "Play demo" }),
+    ).not.toBeInTheDocument();
+    expect(within(media).getByText("App preview")).toBeInTheDocument();
+    expect(media.querySelector("img")).toHaveAttribute(
+      "src",
+      expect.stringContaining("/images/hero/quiver-landing-hero-poster.jpg"),
+    );
+  });
 
-      fireEvent.click(within(media).getByRole("button", { name: "Play demo" }));
+  it("waits for an explicit play when the viewer prefers reduced motion", () => {
+    mockUseReducedMotion.mockReturnValue(true);
 
-      const video = container.querySelector(
-        '[data-testid="field-guide-hero-video"] video',
-      );
-      expect(video).not.toBeNull();
-      expect(video).toHaveAttribute(
-        "src",
-        "/videos/quiver-landing-hero-720.mp4",
-      );
-      expect(video).not.toHaveAttribute("poster");
-      expect(media.querySelector("img")).toHaveAttribute(
-        "src",
-        expect.stringContaining("/images/hero/quiver-landing-hero-poster.jpg"),
-      );
-    } finally {
-      window.matchMedia = originalMatchMedia;
+    render(<QuiverFieldGuideLanding platform="ios" />);
+    const media = screen.getByTestId("field-guide-hero-video");
+
+    expect(play).not.toHaveBeenCalled();
+
+    fireEvent.click(within(media).getByRole("button", { name: "Play demo" }));
+
+    expect(play).toHaveBeenCalled();
+  });
+
+  it("never renders an autoPlay attribute, which would break hydration", () => {
+    const { container } = render(<QuiverFieldGuideLanding platform="ios" />);
+
+    for (const video of container.querySelectorAll("video")) {
+      expect(video).not.toHaveAttribute("autoplay");
     }
   });
 

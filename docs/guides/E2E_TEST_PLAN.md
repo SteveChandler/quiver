@@ -323,7 +323,6 @@ npm run lint
 - `components/auth/sign-in-form.tsx`
 - `components/home-screen/forecast-tab.tsx`
 - `components/beach-detail.tsx`
-- `components/home/HomeBeachBanner.tsx`
 - `components/session/wizard/AnimatedSessionWizard.tsx`
 - `components/map-view.tsx`
 - `app/sessions/new/page.tsx`

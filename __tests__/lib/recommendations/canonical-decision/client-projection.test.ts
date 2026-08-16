@@ -57,6 +57,7 @@ describe("canonical discovery client projection", () => {
     const source = discovery();
     source.sessionDecision = {
       verdict: "go",
+      createdAt: "2099-07-22T18:00:00.000Z",
       expiresAt: "2099-07-22T18:15:00.000Z",
       selection: { candidateId: "candidate-2", beachId: "beach-2" },
     } as SurfDiscoveryResponse["sessionDecision"];
@@ -82,6 +83,7 @@ describe("canonical discovery client projection", () => {
       "stale selection",
       {
         verdict: "go",
+        createdAt: "2099-07-22T18:00:00.000Z",
         expiresAt: "2099-07-22T18:15:00.000Z",
         selection: { candidateId: "missing", beachId: "beach-2" },
       } as SurfDiscoveryResponse["sessionDecision"],
@@ -90,7 +92,34 @@ describe("canonical discovery client projection", () => {
       "expired decision",
       {
         verdict: "go",
+        createdAt: "2020-07-22T18:00:00.000Z",
         expiresAt: "2020-07-22T18:15:00.000Z",
+        selection: { candidateId: "candidate-2", beachId: "beach-2" },
+      } as SurfDiscoveryResponse["sessionDecision"],
+    ],
+    [
+      "missing createdAt",
+      {
+        verdict: "go",
+        expiresAt: "2099-07-22T18:15:00.000Z",
+        selection: { candidateId: "candidate-2", beachId: "beach-2" },
+      } as SurfDiscoveryResponse["sessionDecision"],
+    ],
+    [
+      "unparseable createdAt",
+      {
+        verdict: "go",
+        createdAt: "not-a-date",
+        expiresAt: "2099-07-22T18:15:00.000Z",
+        selection: { candidateId: "candidate-2", beachId: "beach-2" },
+      } as SurfDiscoveryResponse["sessionDecision"],
+    ],
+    [
+      "non-positive lifetime (createdAt at expiry)",
+      {
+        verdict: "go",
+        createdAt: "2099-07-22T18:15:00.000Z",
+        expiresAt: "2099-07-22T18:15:00.000Z",
         selection: { candidateId: "candidate-2", beachId: "beach-2" },
       } as SurfDiscoveryResponse["sessionDecision"],
     ],

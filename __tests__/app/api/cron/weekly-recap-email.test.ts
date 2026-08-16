@@ -12,6 +12,10 @@ import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { computeBestDaysForUser } from "@/lib/alerts/best-days";
 
 const mockLogDelivery = jest.fn();
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 const mockThrottle = jest.fn();
 const mockResolveNotificationMajorEventHold = jest.fn();
 

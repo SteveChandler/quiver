@@ -52,6 +52,12 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   validateCronRequest: jest.fn(() => true),
 }));
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) =>
+    handler()
+  ),
+}));
+
 describe("Implicit Preference Update Cron Job API", () => {
   const routeSource = readFileSync(
     "app/api/cron/update-implicit-preferences/route.ts",

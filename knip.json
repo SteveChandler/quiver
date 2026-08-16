@@ -17,7 +17,7 @@
     "app/**/layout.tsx",
     "app/**/route.ts",
     "app/api/**/*.{ts,tsx}",
-    "components/**/*.tsx"
+    "scripts/**/*.{ts,mjs}"
   ],
   "ignoreDependencies": [
     "webpack-bundle-analyzer",
@@ -25,7 +25,6 @@
   ],
   "ignore": [
     "**/*.d.ts",
-    "**/index.{ts,tsx}",
     "**/__tests__/**",
     "**/setup/**",
     "**/test-utils/**",

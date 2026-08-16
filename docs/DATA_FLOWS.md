@@ -96,10 +96,10 @@ flowchart TB
 
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `beaches` | Beach locations and metadata | `id`, `name`, `center_lat`, `center_lng`, `state`, `country` |
+| `beaches` | Beach locations and metadata | `id`, `name`, `center_lat`, `center_lng` (legacy), `state`, `country` |
 | `profiles` | User profiles and preferences | `id`, `home_beach_id`, `experience_level`, `surf_styles` |
 | `sessions` | Surf session logs | `id`, `user_id`, `beach_id`, `arrival_time`, `rating`, `board_snapshot` |
-| `enhanced_forecasts` | Processed surf forecasts | `beach_id`, `forecast_date`, `wave_height`, `data_source` |
+| `enhanced_forecasts` | Processed surf forecasts | `beach_id`, `forecast_at`, `wave_height`, `data_source` |
 | `marine_forecasts` | Raw marine data | `beach_id`, `ts`, `wave_height_m`, `wave_period_s` |
 | `tide_forecasts` | Tide predictions | `beach_id`, `ts`, `tide_height_m` |
 | `intel_posts` | Community intel | `id`, `beach_id`, `user_id`, `tag`, `expires_at` |

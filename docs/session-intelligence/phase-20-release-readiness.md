@@ -58,7 +58,7 @@ accepted for Phase 20 closeout.
 - `npx playwright test --list e2e/guest-session-intelligence-phase20.spec.ts e2e/guest-forecast-accuracy.spec.ts` passed.
 
 Full command evidence is recorded in
-`.planning/phases/20-app-links-analytics-and-qa/20-VERIFICATION.md`.
+`.planning/archive/2026-08-07-shipped/20-app-links-analytics-and-qa/20-VERIFICATION.md`.
 
 ## Approval Gates
 

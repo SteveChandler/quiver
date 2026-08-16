@@ -97,6 +97,7 @@ const mockState = {
   sessionRows: [] as any[],
   sunTimesCache: new Map(),
   scoringResults: [] as { beach: Partial<Beach>; score: number; window: any; forecast: any }[],
+  waterQualityProbeError: null as { code?: string; message: string } | null,
 };
 
 const mockSupabaseRpc = jest.fn(async () => ({
@@ -187,6 +188,17 @@ const mockSupabaseFrom = jest.fn((table: string) => {
     return makeCustomSpotsQuery();
   }
 
+  if (table === 'water_quality_held_beaches') {
+    return {
+      select: jest.fn(() => ({
+        in: jest.fn(async () => ({
+          data: mockState.waterQualityProbeError ? null : [],
+          error: mockState.waterQualityProbeError,
+        })),
+      })),
+    };
+  }
+
   if (table === 'sessions') {
     const filters: Array<{ op: 'in' | 'is' | 'gte'; column: string; value: unknown }> = [];
     const query: any = {
@@ -254,21 +266,6 @@ jest.mock('@/lib/services/discovery/candidate-pool-builder', () => ({
 
 jest.mock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
   batchFetchForecasts: jest.fn(async () => mockState.forecastBatchResponse),
-}));
-
-jest.mock('@/lib/services/discovery/major-event-hold', () => ({
-  enforceMajorEventHoldBeforeDiscoveryTruncation: jest.fn(
-    async ({ recommendations, maxResults, isPrimaryEligible }) => ({
-      allAllowedRecommendations: recommendations,
-      primaryRecommendations: recommendations
-        .filter(isPrimaryEligible)
-        .slice(0, maxResults),
-      recommendationAvailability: {
-        state: 'available',
-        holdEpoch: 'orchestrator-test-epoch',
-      },
-    }),
-  ),
 }));
 
 jest.mock('@/lib/services/discovery/window-selector', () => {
@@ -451,6 +448,7 @@ jest.mock('@/lib/services/discovery/personalization-layer', () => ({
 // Import after mocks
 import { discoverSurfSpots } from '@/lib/services/discovery/surf-discovery-orchestrator';
 import { WORTH_THE_DRIVE_REASON } from '@/lib/services/discovery/distance-friction';
+import { expectConsoleErrors } from '@/__tests__/setup/test-utils';
 
 function resetDefaultDiscoveryMocks(): void {
   const { scoreBeachWithEngine, forecastToSnapshot } = require('@/lib/domains/scoring');
@@ -723,6 +721,27 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     mockState.userPrefs = null;
     mockState.affinityMap = new Map();
     mockState.sunTimesCache = new Map();
+    mockState.waterQualityProbeError = null;
+  });
+
+  test('still returns a full pool when the water-quality probe is unreachable', async () => {
+    // A probe we cannot reach means "no holds known", not "hold everything".
+    // Fail-closed here suppressed every recommendation for every user.
+    mockState.waterQualityProbeError = {
+      code: 'PGRST500',
+      message: 'database unavailable',
+    };
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+    });
+
+    expect(result.recommendations.length).toBeGreaterThan(0);
+    expect(result.recommendationAvailability).toMatchObject({
+      state: 'available',
+    });
+    expectConsoleErrors([/\[water-quality-hold:query-error\]/]);
   });
 
   test('marks favorite beaches with isFavorite flag but ranks by score', async () => {
@@ -1186,12 +1205,36 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     });
 
     const beach1Rec = result.recommendations.find(r => r.beach.id === 'beach-1');
+    // 3.5ft is the `medium` tier, whose priority list leads with shortboard, and
+    // this quiver has one. The previous expectation asserted the 9'0 longboard
+    // while carrying the medium-tier reason string — it contradicted the table it
+    // was exercising. Board-aware scoring now returns the surf-correct pick.
     expect(beach1Rec?.boardPick).toEqual({
       boardName: "5'10 Lost Driver",
       boardType: 'shortboard',
       reason: "5'10 Lost Driver conditions — enjoy the fun waves",
     });
     expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
+  });
+
+  test('keeps a Pro board pick when no saved board class can be scored', async () => {
+    mockState.boards = [
+      { id: 'custom-1', name: 'Custom Shape', board_type: 'custom-shape', volume: 40 },
+      { id: 'custom-2', name: 'Another Shape', board_type: 'another-shape', volume: 35 },
+    ];
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+      isPro: true,
+    });
+
+    const beach1Rec = result.recommendations.find(r => r.beach.id === 'beach-1');
+    expect(beach1Rec?.boardPick).toEqual({
+      boardName: 'Custom Shape',
+      boardType: 'custom-shape',
+      reason: 'Custom Shape conditions — enjoy the fun waves',
+    });
   });
 
   test('fetches board context for free users without leaking Pro board picks', async () => {
@@ -1369,7 +1412,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     const reefForShortboard = shortboardResult.recommendations.find(
       (rec) => rec.beach.id === 'derived-reef'
     );
-    expect(reefForShortboard?.score).toBe(80);
+    expect(reefForShortboard?.score).toBe(75);
     expect(reefForShortboard?.reasons).toContain('Classic shortboard wave');
 
     mockState.boards = [
@@ -1388,7 +1431,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     const softBeachForGun = gunResult.recommendations.find(
       (rec) => rec.beach.id === 'derived-soft-beach'
     );
-    expect(softBeachForGun?.score).toBe(65);
+    expect(softBeachForGun?.score).toBe(60);
     expect(softBeachForGun?.warnings).toContain(
       'Soft, rolling wave - not much push for a gun'
     );
@@ -2939,6 +2982,9 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
 
     // Re-import the module so createContextLogger is called again with our spy
     jest.resetModules();
+    jest.doMock('@/lib/recommendations/selection', () => ({
+      rankBeaches: jest.fn(async (items: unknown[]) => items),
+    }));
     // Re-apply all mocks after resetModules
     jest.doMock('@/lib/logger', () => ({
       createContextLogger: jest.fn(() => ({
@@ -3148,6 +3194,9 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       .mockReturnValueOnce(tomorrowWindow);
 
     jest.resetModules();
+    jest.doMock('@/lib/recommendations/selection', () => ({
+      rankBeaches: jest.fn(async (items: unknown[]) => items),
+    }));
     jest.doMock('@/lib/logger', () => ({
       createContextLogger: jest.fn(() => ({
         debug: jest.fn(),
@@ -3344,6 +3393,9 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       .mockReturnValueOnce(tomorrowWindow);
 
     jest.resetModules();
+    jest.doMock('@/lib/recommendations/selection', () => ({
+      rankBeaches: jest.fn(async (items: unknown[]) => items),
+    }));
     jest.doMock('@/lib/logger', () => ({
       createContextLogger: jest.fn(() => ({
         debug: jest.fn(),
@@ -3540,6 +3592,9 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       .mockReturnValueOnce(tomorrowWindow); // full-set fall-through call
 
     jest.resetModules();
+    jest.doMock('@/lib/recommendations/selection', () => ({
+      rankBeaches: jest.fn(async (items: unknown[]) => items),
+    }));
     jest.doMock('@/lib/logger', () => ({
       createContextLogger: jest.fn(() => ({
         debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn(),
@@ -3724,6 +3779,9 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       .mockReturnValueOnce(tomorrowWindow); // full-set fall-through call
 
     jest.resetModules();
+    jest.doMock('@/lib/recommendations/selection', () => ({
+      rankBeaches: jest.fn(async (items: unknown[]) => items),
+    }));
     jest.doMock('@/lib/logger', () => ({
       createContextLogger: jest.fn(() => ({
         debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn(),

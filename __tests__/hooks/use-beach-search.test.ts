@@ -1,10 +1,10 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useBeachSearch } from "@/hooks/use-beach-search";
-import { getBeaches, getNearbyBeaches } from "@/actions/beach-actions";
+import { getBeaches, getNearbyBeaches } from "@/lib/map-beach-client";
 import { createMockBeaches } from "@/__tests__/setup/test-utils";
 
 // Mock the beach actions
-jest.mock("@/actions/beach-actions", () => ({
+jest.mock("@/lib/map-beach-client", () => ({
   getBeaches: jest.fn(),
   getNearbyBeaches: jest.fn(),
 }));
@@ -184,7 +184,12 @@ describe("useBeachSearch", () => {
         await result.current.loadNearbyBeaches(32.7, -117.2);
       });
 
-      expect(mockGetNearbyBeaches).toHaveBeenCalledWith(32.7, -117.2, 30);
+      expect(mockGetNearbyBeaches).toHaveBeenCalledWith(
+        32.7,
+        -117.2,
+        30,
+        expect.any(AbortSignal),
+      );
       expect(result.current.beaches).toHaveLength(5);
       expect(result.current.filteredBeaches).toHaveLength(5);
     });
@@ -296,6 +301,8 @@ describe("useBeachSearch", () => {
         sanDiegoRequest = result.current.loadNearbyBeaches(32.7, -117.2);
         hawaiiRequest = result.current.loadNearbyBeaches(21.66, -158.06);
       });
+      expect(mockGetNearbyBeaches.mock.calls[0]?.[3]?.aborted).toBe(true);
+      expect(mockGetNearbyBeaches.mock.calls[1]?.[3]?.aborted).toBe(false);
 
       await act(async () => {
         resolveHawaii({

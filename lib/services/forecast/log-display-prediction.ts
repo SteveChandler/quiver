@@ -14,7 +14,14 @@
  *  2. NEVER throws to the caller — the user-facing forecast pipeline must not
  *     block on snapshot writes. All failures are logged + swallowed.
  *  3. Env-gated: missing SUPABASE_SERVICE_ROLE_KEY → warn once + no-op.
+ *  4. First-write-wins is absolute (Phase 21, D-18). This module only ever
+ *     INSERTs with ignoreDuplicates; it must never UPDATE an existing row, and
+ *     it carries no trusted-forecast sidecar fields. The trusted layer reads
+ *     these rows and links them by `prediction_snapshot_id` inside
+ *     `persist_trusted_forecast_build`; it never writes back here, so a
+ *     snapshot stays the honest record of what was displayed at issue time.
  *
+
  * See plan: ~/.claude/plans/you-are-working-on-precious-papert.md (A3).
  */
 

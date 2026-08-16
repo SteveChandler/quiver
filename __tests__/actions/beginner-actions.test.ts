@@ -15,6 +15,25 @@ jest.mock("@/lib/community-photos", () => ({
     `${target.type}:${target.id}`,
 }));
 
+jest.mock("@/lib/recommendations/major-event-hold/water-quality-visibility", () => ({
+  filterBeachesByWaterQualityVisibility: jest.fn(
+    async (beaches: unknown[]) => beaches,
+  ),
+}));
+
+const mockRankBeaches = jest.fn(
+  async <T extends { id: string }>(
+    beaches: T[],
+    options?: { compare?: (left: T, right: T) => number },
+  ) => [...beaches].sort(options?.compare),
+);
+jest.mock("@/lib/recommendations/selection", () => ({
+  rankBeaches: (
+    beaches: Array<{ id: string }>,
+    options?: { compare?: (left: { id: string }, right: { id: string }) => number },
+  ) => mockRankBeaches(beaches, options),
+}));
+
 interface MockBeachRow {
   id: string;
   name: string;
@@ -171,6 +190,12 @@ function makeForecast(overrides: Partial<MockForecastRow>): MockForecastRow {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRankBeaches.mockImplementation(
+    async <T extends { id: string }>(
+      beaches: T[],
+      options?: { compare?: (left: T, right: T) => number },
+    ) => [...beaches].sort(options?.compare),
+  );
   beaches.length = 0;
   forecasts.length = 0;
 });

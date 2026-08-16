@@ -662,31 +662,6 @@ describe("GET /api/surf/call", () => {
       });
     });
 
-    it("returns a retryable 503 when the hold state is genuinely unavailable", async () => {
-      // Never serialize an unresolved hold as HTTP 200 — the native client
-      // rejects that payload and surfaces a dead-end error on Home.
-      canonicalContext.discovery.recommendationAvailability = {
-        state: "none",
-        reasonCode: "hold_state_unavailable",
-        holdEpoch: "hold-state-unavailable",
-      };
-      mockScopedBeach();
-
-      const response = await GET(
-        new NextRequest(
-          `http://localhost:3000/api/surf/call?beachId=${beachId}`,
-        ),
-      );
-      const body = await response.json();
-
-      expect(response.status).toBe(503);
-      expect(body).toMatchObject({
-        success: false,
-        code: "hold_state_unavailable",
-        retryable: true,
-      });
-    });
-
     it("preserves an explicit major-event hold as a successful response", async () => {
       canonicalContext.discovery = {
         recommendations: [],

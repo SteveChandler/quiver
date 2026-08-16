@@ -280,7 +280,7 @@ export function PhotoTable({
                   <TableCell>
                     <button
                       onClick={() => onPreview(photo)}
-                      className="relative h-16 w-16 overflow-hidden rounded border hover:opacity-75 transition-opacity"
+                      className="relative h-16 w-16 overflow-hidden rounded border hover:opacity-75 transition-opacity focus-ring"
                     >
                       <Image
                         src={photo.thumbUrl || photo.imageUrl}

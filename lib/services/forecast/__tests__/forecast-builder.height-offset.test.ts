@@ -71,6 +71,7 @@ jest.mock("@/lib/utils/wave-formatters", () => {
       debug: {
         source: "model_swell",
         rawHeightFt: 3,
+        provenance: "generic",
         transformPath: "decomposed",
         componentsUsed: true,
         calibratedShoalingFired: false,
@@ -551,6 +552,12 @@ const TRUSTED_NOW = new Date("2026-08-06T18:00:00.000Z");
 const TRESTLES_BEACH_ID = "aaaaaaaa-0000-4000-8000-000000000001";
 const MALIBU_BEACH_ID = "aaaaaaaa-0000-4000-8000-000000000002";
 const OTHER_BEACH_ID = "aaaaaaaa-0000-4000-8000-000000000003";
+const RINCON_BEACH_ID = "aaaaaaaa-0000-4000-8000-000000000004";
+const OLD_MANS_BEACH_ID = "aaaaaaaa-0000-4000-8000-000000000005";
+const BEACONS_BEACH_ID = "aaaaaaaa-0000-4000-8000-000000000006";
+const VENTURA_BEACH_ID = "aaaaaaaa-0000-4000-8000-000000000007";
+const HUNTINGTON_BEACH_ID = "aaaaaaaa-0000-4000-8000-000000000008";
+const OCEANSIDE_BEACH_ID = "aaaaaaaa-0000-4000-8000-000000000009";
 const trustedBeach = { ...baseBeach, id: TRESTLES_BEACH_ID } as Beach;
 const TRESTLES_DOCUMENT = "wavecast_spot_chart_live_trestles";
 
@@ -588,6 +595,12 @@ function trustedReadStore(
       data: [
         { id: TRESTLES_BEACH_ID, slug: "lower-trestles" },
         { id: MALIBU_BEACH_ID, slug: "malibu-first-point-surfrider" },
+        { id: RINCON_BEACH_ID, slug: "rincon-carpinteria-ca" },
+        { id: OLD_MANS_BEACH_ID, slug: "old-mans-sano" },
+        { id: BEACONS_BEACH_ID, slug: "beacons" },
+        { id: VENTURA_BEACH_ID, slug: "c-street-ventura-ca" },
+        { id: HUNTINGTON_BEACH_ID, slug: "huntington-beach-pier" },
+        { id: OCEANSIDE_BEACH_ID, slug: "oceanside-pier" },
       ],
       error: null,
     }),

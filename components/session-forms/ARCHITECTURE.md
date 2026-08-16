@@ -1,5 +1,7 @@
 # Session Forms Components Architecture
 
+> Current funnel telemetry contract: [`docs/SESSION_FUNNEL_TELEMETRY.md`](../../docs/SESSION_FUNNEL_TELEMETRY.md)
+
 ## PURPOSE
 
 The session forms components provide a comprehensive, multi-step session planning and logging system with forecast integration, equipment management, and community features.
@@ -161,6 +163,31 @@ When adding new condition fields to `ConditionsSection.tsx`:
 Because both code paths use `buildSessionPayload()`, a single change ensures parity.
 
 Failure to update both paths will result in data loss where the field appears to work in the UI but is never persisted to the database.
+
+## SESSION-LOG FUNNEL TELEMETRY
+
+`SessionScrollForm` creates one transient `sessionLogFlowId` per form attempt.
+The ID is carried through the web funnel events so the canonical report can
+join stages without stitching separate attempts from the same user. Funnel
+events also include `client_stage_at` for logical ordering and
+`schema_version: 1` for contract versioning.
+
+The successful web submit has two analytics outputs: the existing browser
+analytics event and an internal `/api/events` event. The internal event is the
+joinable source and includes the persisted `sessions.id` as
+`metadata.session_id`. The top-level analytics `session_id` remains the
+anonymous-browser attribution field and must not be used as the surf-session
+join key.
+
+Native session-form telemetry already supplies the same correlation fields and
+also emits validation-code arrays. The web save gate currently prevents a
+validation-failure callback, so web validation failures are not yet represented
+as `session_log_validation_failed` rows. Keep this distinction visible in
+funnel reports.
+
+When changing session-form telemetry, update the contract document and preserve
+the focused tests for flow ID propagation, persisted submit correlation, and
+event deduplication semantics.
 
 ### Historical Bug Reference (January 2025)
 
@@ -689,6 +716,6 @@ return useWizardInterface ? (
 
 ---
 
-**Last Updated**: February 2026
+**Last Updated**: August 12, 2026
 **Status**: Production-ready with Phase 2 wizard interface and comprehensive session management. SessionForm refactored: business logic extracted to handler files, shared session data builder ensures condition field parity.
-**Next Review**: After wizard A/B testing results and user feedback analysis
+**Next Review**: After wizard A/B testing results, user feedback analysis, or a session telemetry contract change

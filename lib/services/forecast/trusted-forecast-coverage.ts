@@ -176,11 +176,13 @@ export interface TrustedForecastCoverageDefinition {
 /**
  * Approved coverage.
  *
- * Deliberately small. Every accepted `region_key`/`exposure` pair below is
- * backed by rows in the 196-row real corpus produced by 21-01's shipped
- * parsers; nothing here was inferred from a page that was never captured. The
- * combinations that are real but not yet covered are enumerated with reasons in
- * `TRUSTED_FORECAST_UNCOVERED_VOCABULARY`, so expanding coverage is a data
+ * Deliberately small. The original two entries are backed by rows in the
+ * 196-row real corpus produced by 21-01's shipped parsers. The six added SoCal
+ * entries are backed by the production chart inventory and a read-only
+ * `beaches.slug` match; their chart rows were not present in that older
+ * captured fixture. Nothing here is inferred from a chart name alone. The
+ * combinations that are real but not yet covered are enumerated with reasons
+ * in `TRUSTED_FORECAST_UNCOVERED_VOCABULARY`, so expanding coverage is a data
  * change with a ratchet behind it rather than a rediscovery.
  */
 export const TRUSTED_FORECAST_COVERAGE_DEFINITIONS: readonly TrustedForecastCoverageDefinition[] =
@@ -215,6 +217,86 @@ export const TRUSTED_FORECAST_COVERAGE_DEFINITIONS: readonly TrustedForecastCove
         "against the live `beaches` table on 2026-08-08, and it was chosen " +
         "over the duplicate `malibu-surfrider-first-point-malibu-ca` because " +
         "it is the CDIP-198, terrain-calibrated row.",
+    }),
+    Object.freeze({
+      beachSlug: "rincon-carpinteria-ca",
+      localTimezone: "America/Los_Angeles",
+      spotRegionKeys: Object.freeze(["rincon"]),
+      regionalRegionKeys: Object.freeze(["socal"]),
+      compatibleExposures: Object.freeze(["NNW", "SSW"]),
+      regionalAuthorityLineages: Object.freeze([]),
+      note:
+        "WaveCast publishes a dedicated socal spot chart for `rincon` with " +
+        "NNW and SSW authority sections. The chart was matched to the live " +
+        "`beaches` row `rincon-carpinteria-ca` (Rincon, Carpinteria, CA) by " +
+        "read-only slug lookup on 2026-08-11.",
+    }),
+    Object.freeze({
+      beachSlug: "old-mans-sano",
+      localTimezone: "America/Los_Angeles",
+      spotRegionKeys: Object.freeze(["oldmans"]),
+      regionalRegionKeys: Object.freeze(["socal"]),
+      compatibleExposures: Object.freeze(["NNW", "SSW"]),
+      regionalAuthorityLineages: Object.freeze([]),
+      note:
+        "WaveCast publishes a dedicated socal spot chart for `oldmans` with " +
+        "NNW and SSW authority sections. The chart was matched to the live " +
+        "`beaches` row `old-mans-sano` (`Old Man's (SanO)`, San Clemente, " +
+        "CA), not the separate Tourmaline Old Man's row, by read-only slug " +
+        "lookup on 2026-08-11.",
+    }),
+    Object.freeze({
+      beachSlug: "beacons",
+      localTimezone: "America/Los_Angeles",
+      spotRegionKeys: Object.freeze(["beacons"]),
+      regionalRegionKeys: Object.freeze(["socal"]),
+      compatibleExposures: Object.freeze(["NNW", "SSW"]),
+      regionalAuthorityLineages: Object.freeze([]),
+      note:
+        "WaveCast publishes a dedicated socal spot chart for `beacons` with " +
+        "NNW and SSW authority sections. The chart was matched to the live " +
+        "`beaches` row `beacons` (Beacons, Encinitas, CA) by read-only slug " +
+        "lookup on 2026-08-11.",
+    }),
+    Object.freeze({
+      beachSlug: "c-street-ventura-ca",
+      localTimezone: "America/Los_Angeles",
+      spotRegionKeys: Object.freeze(["ventura"]),
+      regionalRegionKeys: Object.freeze(["socal"]),
+      compatibleExposures: Object.freeze(["NNW", "SSW"]),
+      regionalAuthorityLineages: Object.freeze([]),
+      note:
+        "WaveCast publishes a dedicated socal spot chart for `ventura` with " +
+        "NNW and SSW authority sections. The chart was matched to the live " +
+        "`beaches` row `c-street-ventura-ca` (C Street / Ventura Point, " +
+        "Ventura, CA) by read-only slug lookup on 2026-08-11.",
+    }),
+    Object.freeze({
+      beachSlug: "huntington-beach-pier",
+      localTimezone: "America/Los_Angeles",
+      spotRegionKeys: Object.freeze(["huntington-beach"]),
+      regionalRegionKeys: Object.freeze(["socal"]),
+      compatibleExposures: Object.freeze(["NNW", "SSW"]),
+      regionalAuthorityLineages: Object.freeze([]),
+      note:
+        "WaveCast publishes a dedicated socal spot chart for " +
+        "`huntington-beach` with NNW and SSW authority sections. The chart " +
+        "was matched to the live `beaches` row `huntington-beach-pier` " +
+        "(Huntington Beach Pier, Huntington Beach, CA) by read-only slug " +
+        "lookup on 2026-08-11.",
+    }),
+    Object.freeze({
+      beachSlug: "oceanside-pier",
+      localTimezone: "America/Los_Angeles",
+      spotRegionKeys: Object.freeze(["oceanside"]),
+      regionalRegionKeys: Object.freeze(["socal"]),
+      compatibleExposures: Object.freeze(["NNW", "SSW"]),
+      regionalAuthorityLineages: Object.freeze([]),
+      note:
+        "WaveCast publishes a dedicated socal spot chart for `oceanside` with " +
+        "NNW and SSW authority sections. The chart was matched to the live " +
+        "`beaches` row `oceanside-pier` (Oceanside Pier, Oceanside, CA) by " +
+        "read-only slug lookup on 2026-08-11.",
     }),
   ]);
 

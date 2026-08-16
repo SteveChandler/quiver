@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
   createErrorResponse,
@@ -9,154 +8,20 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import {
   ForecastFeedbackClientPayloadSchema,
-  buildSeasideForecastFeedbackPayload,
   type ForecastFeedbackClientPayload,
 } from "@/lib/services/forecast/forecast-feedback";
-import type { Json } from "@/types/database.generated";
-import { createServiceRoleClient } from "@/lib/supabase";
+import {
+  isForecastFeedbackServiceConfigured,
+  submitForecastFeedback,
+} from "@/lib/forecast-feedback/submit-feedback";
 
 export const dynamic = "force-dynamic";
-
-type SeasideFeedbackResponse = {
-  ok?: boolean;
-  id?: string | null;
-  contract_version?: string;
-  correlation_id?: string | null;
-};
-
-type ExistingFeedbackContext = {
-  id: string;
-  contract_version: string;
-  correlation_id: string | null;
-};
-
-const FORECAST_ACCURACY_VOTE_VALUES: Record<string, boolean> = {
-  about_right: true,
-  too_low: false,
-  too_high: false,
-};
-
-function normalizedEnv(name: string): string | null {
-  const value = process.env[name];
-  if (!value) return null;
-  const normalized = value.replace(/\\n/g, "").trim();
-  return normalized ? normalized : null;
-}
-
-function readMlServiceUrl(): string {
-  return (
-    normalizedEnv("ML_SERVICE_URL") ?? "https://quiver-ml.fly.dev"
-  ).replace(/\/+$/, "");
-}
-
-function readMlInternalSecret(): string | null {
-  return normalizedEnv("ML_INTERNAL_SECRET") ?? normalizedEnv("INTERNAL_SECRET");
-}
-
-async function parseJsonResponse(
-  response: Response,
-): Promise<SeasideFeedbackResponse | null> {
-  try {
-    return (await response.json()) as SeasideFeedbackResponse;
-  } catch {
-    return null;
-  }
-}
-
-async function findExistingFeedbackContext(
-  userId: string,
-  requestId: string,
-): Promise<ExistingFeedbackContext | null> {
-  try {
-    const serviceClient = createServiceRoleClient();
-    const { data, error } = await serviceClient
-      .from("forecast_feedback_contexts")
-      .select("id,contract_version,correlation_id")
-      .eq("user_id", userId)
-      .eq("request_id", requestId)
-      .maybeSingle();
-    if (error) return null;
-    return (data as ExistingFeedbackContext | null) ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function existingFeedbackResponse(
-  existing: ExistingFeedbackContext,
-  fallbackCorrelationId: string,
-): NextResponse {
-  return createSuccessResponse({
-    id: existing.id,
-    contractVersion: existing.contract_version,
-    correlationId: existing.correlation_id ?? fallbackCorrelationId,
-  });
-}
-
-function forecastAccuracyVoteValue(
-  input: ForecastFeedbackClientPayload,
-): boolean | null {
-  if (input.feedbackKind !== "forecast_accuracy") return null;
-  return FORECAST_ACCURACY_VOTE_VALUES[input.feedbackValue] ?? null;
-}
-
-function nonEmptyJsonRecordOrNull(
-  value: Record<string, unknown> | undefined,
-): Json | null {
-  if (!value || Object.keys(value).length === 0) return null;
-  return value as Json;
-}
-
-async function persistForecastAccuracyVote(
-  { user, supabase }: AuthenticatedContext,
-  input: ForecastFeedbackClientPayload,
-): Promise<void> {
-  const wasAccurate = forecastAccuracyVoteValue(input);
-  if (wasAccurate == null) return;
-
-  const { data: forecast, error: forecastError } = await supabase
-    .from("enhanced_forecasts")
-    .select("id")
-    .eq("beach_id", input.beachId)
-    .eq("forecast_at", input.forecastAt)
-    .maybeSingle();
-
-  if (forecastError) {
-    throw new Error("Forecast vote target lookup failed");
-  }
-
-  if (!forecast?.id) {
-    throw new Error("Forecast vote target not found");
-  }
-
-  const { error } = await supabase
-    .from("forecast_accuracy_votes")
-    .upsert(
-      {
-        user_id: user.id,
-        forecast_id: forecast.id,
-        beach_id: input.beachId,
-        was_accurate: wasAccurate,
-        actual_conditions: nonEmptyJsonRecordOrNull(input.displayedContext),
-        notes: input.feedbackNote?.trim() || null,
-        photo_url: null,
-      },
-      { onConflict: "user_id,forecast_id" },
-    )
-    .select("id")
-    .single();
-
-  if (error) {
-    throw new Error("Forecast vote storage failed");
-  }
-}
 
 async function forecastFeedbackHandler(
   request: NextRequest,
   context: AuthenticatedContext,
 ): Promise<NextResponse> {
-  const secret = readMlInternalSecret();
-  if (!secret) {
+  if (!isForecastFeedbackServiceConfigured()) {
     return createErrorResponse("Feedback service not configured", undefined, 500);
   }
 
@@ -177,78 +42,30 @@ async function forecastFeedbackHandler(
     );
   }
 
-  const correlationId = validation.data.correlationId ?? randomUUID();
-  const requestId = validation.data.requestId ?? randomUUID();
-  const existing = await findExistingFeedbackContext(
-    context.user.id,
-    requestId,
-  );
-  if (existing) return existingFeedbackResponse(existing, correlationId);
-
-  try {
-    await persistForecastAccuracyVote(context, validation.data);
-  } catch {
+  const result = await submitForecastFeedback(context, validation.data);
+  if (result.success) return createSuccessResponse(result.data);
+  if (result.reason === "not_configured") {
+    return createErrorResponse("Feedback service not configured", undefined, 500);
+  }
+  if (result.reason === "vote_storage_failed") {
     return createErrorResponse(
       "Forecast vote storage failed",
-      { correlationId },
+      { correlationId: result.correlationId },
       500,
     );
   }
-
-  const payload = buildSeasideForecastFeedbackPayload(validation.data, {
-    userId: context.user.id,
-    ingestPath: "quiver-api/forecast-feedback",
-    requestId,
-    correlationId,
-    clientSource: "quiver-web",
-    clientVersion:
-      normalizedEnv("VERCEL_GIT_COMMIT_SHA") ??
-      normalizedEnv("NEXT_PUBLIC_VERCEL_ENV"),
-  });
-
-  let response: Response;
-  try {
-    response = await fetch(`${readMlServiceUrl()}/internal/forecast-feedback`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Internal-Secret": secret,
-      },
-      body: JSON.stringify(payload),
-      cache: "no-store",
-    });
-  } catch {
-    const recovered = await findExistingFeedbackContext(
-      context.user.id,
-      requestId,
-    );
-    if (recovered) return existingFeedbackResponse(recovered, correlationId);
+  if (result.reason === "network_error") {
     return createErrorResponse(
       "Feedback storage failed",
-      { correlationId, service: "seaside", status: "network_error" },
+      { correlationId: result.correlationId, service: "seaside", status: "network_error" },
       502,
     );
   }
-
-  const responseBody = await parseJsonResponse(response);
-  if (!response.ok || responseBody?.ok !== true) {
-    const recovered = await findExistingFeedbackContext(
-      context.user.id,
-      requestId,
-    );
-    if (recovered) return existingFeedbackResponse(recovered, correlationId);
-    return createErrorResponse(
-      "Feedback storage failed",
-      { correlationId, service: "seaside", status: response.status },
-      502,
-    );
-  }
-
-  return createSuccessResponse({
-    id: responseBody.id ?? null,
-    contractVersion: responseBody.contract_version ?? payload.contract_version,
-    correlationId: responseBody.correlation_id ?? correlationId,
-  });
+  return createErrorResponse(
+    "Feedback storage failed",
+    { correlationId: result.correlationId, service: "seaside", status: result.status },
+    502,
+  );
 }
 
 export const POST = withAuth(forecastFeedbackHandler, {

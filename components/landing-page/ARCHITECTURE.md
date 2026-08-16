@@ -25,7 +25,7 @@ This document describes the server-first architecture implemented in November 20
 This repo currently uses a **hybrid** approach:
 
 - **SEO SSR beach links/cards** are rendered via `LandingPageSSRSection` in `app/layout.tsx` *outside* the Providers client boundary.
-- The `/` route body is a **client wrapper** (`AuthAwareLandingWrapper`) that:\n+  - shows landing content immediately for logged-out users (no spinner-first),\n+  - dynamically loads the authenticated dashboard (`HomeScreen`) only when a user is present (bundle split).
+- The `/` route body is a **client wrapper** (`AuthAwareLandingWrapper`) that dynamically loads `OracleHomeScreen` for authenticated users and renders `QuiverFieldGuideLanding` for unauthenticated users.
 
 ### Entry Point: `app/page.tsx`
 
@@ -42,11 +42,11 @@ export default function Home() {
 
 - SEO beach links/cards always present in HTML (SSR in `app/layout.tsx`)
 - Logged-out users get immediate landing render (no spinner-first)
-- Logged-in users load `HomeScreen` on demand (smaller initial bundle for guests)
+- Logged-in users load `OracleHomeScreen` on demand (smaller initial bundle for guests)
 
 **Performance Impact:**
 
-- Reduced initial JS shipped for logged-out `/` (bundle-splitting `HomeScreen`)
+- Reduced initial JS shipped for logged-out `/` (bundle-splitting `OracleHomeScreen`)
 - Improved first paint by avoiding auth-check spinner for guests
 
 ### Client Wrapper Structure
@@ -56,20 +56,22 @@ export default function Home() {
 The wrapper gates logged-in vs logged-out content and keeps the heavy dashboard behind a dynamic import:
 
 ```typescript
-const HomeScreenDynamic = dynamic(
-  () => import(\"@/components/home-screen\").then((m) => m.HomeScreen),
+const OracleHomeScreenDynamic = dynamic(
+  () => import(\"@/components/oracle/oracle-home-screen\").then((m) => m.OracleHomeScreen),
   { ssr: false }
 );
 
 export function AuthAwareLandingWrapper() {
   const { user, isLoading } = useAuth();
 
-  if (user) return <HomeScreenDynamic />;
+  if (user) return <OracleHomeScreenDynamic />;
   return (
     <>
       <main role=\"main\">
-        <HeroSection />
-        <LandingInteractiveSections />
+        <QuiverFieldGuideLanding
+          platform={initialPlatform}
+          appFirst={appFirst}
+        />
       </main>
     </>
   );
@@ -140,85 +142,6 @@ The current landing page favors **server-rendered content** plus:
 - **CSS/Tailwind animations** for simple entrance effects (no heavy JS animation library)
 
 If we reintroduce scroll-triggered section animations in the future, prefer adding them in a way that does **not** force server content to be withheld behind client-only skeletons.
-
-### 2. Lazy-Loaded Search
-
-**File:** `components/landing-page/hero-search-lazy.tsx`
-
-Progressive enhancement for the search component that defers heavy dependencies:
-
-```typescript
-"use client";
-
-// Lazy load the heavy BeachSearchAutocomplete component
-const BeachSearchAutocomplete = lazy(
-  () => import("@/components/beach/beach-search-autocomplete")
-);
-
-export default function HeroSearchLazy({ onQueryChange, onFallback }) {
-  const [showFullSearch, setShowFullSearch] = useState(false);
-  const [searchValue, setSearchValue] = useState("");
-
-  // Load on idle time (after critical paint)
-  useEffect(() => {
-    if (isTest) {
-      setShowFullSearch(true);
-      return;
-    }
-
-    if (typeof requestIdleCallback !== "undefined") {
-      const handle = requestIdleCallback(() => setShowFullSearch(true), {
-        timeout: 2000,
-      });
-      return () => cancelIdleCallback(handle);
-    }
-  }, []);
-
-  // Show placeholder until full search loads
-  if (!showFullSearch) {
-    return (
-      <input
-        type="text"
-        placeholder="Search by beach, spot, or region"
-        value={searchValue}
-        onChange={(e) => setSearchValue(e.target.value)}
-        onFocus={() => setShowFullSearch(true)}
-        // ... styling
-      />
-    );
-  }
-
-  return (
-    <Suspense fallback={<LoadingFallback />}>
-      <BeachSearchAutocomplete
-        initialValue={searchValue}
-        // ... props
-      />
-    </Suspense>
-  );
-}
-```
-
-**Loading Strategy:**
-
-1. Render simple input placeholder immediately (instant)
-2. Lazy load full component on:
-   - User focus (click/tap on input)
-   - Idle time (requestIdleCallback)
-   - Fallback timeout (2 seconds)
-
-**Bundle Impact:**
-
-- Defers ~300KB (cmdk package)
-- Improves TTI by ~50ms
-- Preserves user input across transition
-- No perceived delay (placeholder is functional)
-
-**Performance:**
-
-- Initial bundle: -300KB
-- TBT improvement: -50ms
-- Same UX (seamless transition)
 
 ### 3. CSS-Based Animations
 
@@ -913,68 +836,6 @@ The landing page was redesigned with AllTrails-inspired visual patterns:
 - Rounded panels: `rounded-3xl` with subtle `shadow-sm`
 - Decorative gradients: Neutral charcoal overlays (`from-black/60 via-black/20`)
 - Circular photo chips for activity navigation
-
-### UpgradeSessionSection Component
-
-**File:** `components/landing-page/upgrade-session-section.tsx`
-
-A promotional section encouraging sign-up, featuring AllTrails-style animated icons:
-
-```typescript
-// Key features:
-// 1. Animated icon cycling (Waves → MapPin → Users)
-// 2. Rounded panel with image + copy layout
-// 3. Accessible with prefers-reduced-motion support
-
-<UpgradeSessionSection />
-```
-
-**Animation Pattern:**
-
-```css
-@keyframes iconCycle {
-  0% {
-    opacity: 0;
-    transform: translateY(6px) scale(0.98);
-  }
-  8% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  25% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  33% {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.98);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.98);
-  }
-}
-
-/* Staggered delays for 3 icons */
-.iconCycle0 {
-  animation-delay: 0s;
-}
-.iconCycle1 {
-  animation-delay: 2.2s;
-}
-.iconCycle2 {
-  animation-delay: 4.4s;
-}
-```
-
-**Props:** None (uses `CONTENT.sections.upgradeSession` for copy)
-
-**Usage:**
-
-```tsx
-// In landing-page-server.tsx or similar
-<UpgradeSessionSection />
-```
 
 ### ForecastSection Interactive Switcher
 

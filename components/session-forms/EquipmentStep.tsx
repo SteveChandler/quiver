@@ -99,7 +99,7 @@ export function EquipmentStep({
             open={selectOpen}
             onOpenChange={setSelectOpen}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Board used">
               <SelectValue placeholder="Select a board" />
             </SelectTrigger>
             <SelectContent>

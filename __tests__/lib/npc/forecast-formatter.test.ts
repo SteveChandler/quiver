@@ -13,6 +13,11 @@ describe("formatWaveRange", () => {
     expect(formatWaveRange(3.5)).toBe("3-4ft");
     expect(formatWaveRange(5.0)).toBe("4-6ft");
   });
+
+  it("characterizes the single-height arity used by NPC prose", () => {
+    expect(formatWaveRange(0)).toBe("0-1ft");
+    expect(formatWaveRange(2.49)).toBe("1-3ft");
+  });
 });
 
 describe("formatWindDescription", () => {

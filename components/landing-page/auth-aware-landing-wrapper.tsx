@@ -9,7 +9,7 @@ import { hasSupabaseAuthCookie } from "@/lib/utils/supabase-cookie-utils";
 import { BODY_CLASSES, PERFORMANCE_TIMING } from "@/lib/constants/css-classes";
 import { Navbar } from "@/components/landing-page/navbar";
 import { QuiverFieldGuideLanding } from "@/components/landing-page/field-guide/quiver-field-guide-landing";
-import { OracleHomeSkeleton } from "@/components/oracle/oracle-home-skeleton";
+import { HomeZineLoading } from "@/components/oracle/zine/home-zine-states";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
-import type { FirstTouchPlatform } from "@/lib/analytics/web-context";
+import {
+  getFirstTouchPlatform,
+  type FirstTouchPlatform,
+} from "@/lib/analytics/web-context";
 
 const OracleHomeScreenDynamic = dynamic(
   () =>
@@ -28,7 +31,7 @@ const OracleHomeScreenDynamic = dynamic(
     ),
   {
     ssr: false,
-    loading: () => <OracleHomeSkeleton />,
+    loading: () => <HomeZineLoading />,
   }
 );
 
@@ -70,6 +73,16 @@ export function AuthAwareLandingWrapper({
   const didShowSignupModalRef = useRef(false);
   const [hasAuthCookie, setHasAuthCookie] = useState(false);
   const [showEmailConfirmModal, setShowEmailConfirmModal] = useState(false);
+  const [platform, setPlatform] =
+    useState<FirstTouchPlatform>(initialPlatform);
+
+  // Resolved after mount, for the same reason as the auth-cookie check below:
+  // SSR and the first client render must agree. `initialPlatform` is the
+  // pre-hydration default; the real value only affects analytics params on the
+  // download links, so correcting it a tick later is invisible.
+  useEffect(() => {
+    setPlatform(getFirstTouchPlatform());
+  }, []);
 
   // Reactive: updates when URL parameters change via soft navigation
   const isConfirmEmailSignup = searchParams.get("signup") === "confirm-email";
@@ -130,7 +143,7 @@ export function AuthAwareLandingWrapper({
     isLoading && hasAuthCookie && !(isConfirmEmailSignup && !user);
 
   if (shouldShowAuthLoading) {
-    return <OracleHomeSkeleton />;
+    return <HomeZineLoading />;
   }
 
   // Authenticated users see the Oracle home screen
@@ -147,7 +160,7 @@ export function AuthAwareLandingWrapper({
 
       <main role="main">
         <QuiverFieldGuideLanding
-          platform={initialPlatform}
+          platform={platform}
           appFirst={appFirst}
         />
       </main>

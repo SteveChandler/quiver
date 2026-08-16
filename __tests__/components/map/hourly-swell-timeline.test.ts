@@ -1,5 +1,6 @@
 import type { HourlySwellTimeline, SwellPartition } from "@/app/api/forecasts/bulk/route";
 import {
+  calendarDayTimelineHours,
   formatTimelineBubble,
   mergeHourlyTimeline,
   segmentTimelineDays,
@@ -67,6 +68,38 @@ describe("hourly swell timeline utilities", () => {
       { key: "2026-12-31", label: "Thu 31" },
       { key: "2027-01-01", label: "Fri 1" },
     ]);
+  });
+
+  it("covers exactly ten complete local calendar dates", () => {
+    const start = "2026-08-08T12:00:00.000Z";
+    const hours = calendarDayTimelineHours(start, "America/Los_Angeles", 10);
+    const timestamps = Array.from({ length: hours }, (_, offsetHours) =>
+      new Date(Date.parse(start) + offsetHours * 60 * 60 * 1000).toISOString());
+    const firstExcludedTimestamp = new Date(
+      Date.parse(start) + hours * 60 * 60 * 1000,
+    ).toISOString();
+
+    expect(hours).toBe(235);
+    expect(segmentTimelineDays(timestamps, "America/Los_Angeles")).toHaveLength(10);
+    expect(segmentTimelineDays(
+      [...timestamps, firstExcludedTimestamp],
+      "America/Los_Angeles",
+    )).toHaveLength(11);
+  });
+
+  it("preserves ten calendar dates across daylight-saving transitions", () => {
+    const start = "2026-10-31T12:00:00.000Z";
+    const hours = calendarDayTimelineHours(start, "America/Los_Angeles", 10);
+    const timestamps = Array.from({ length: hours }, (_, offsetHours) =>
+      new Date(Date.parse(start) + offsetHours * 60 * 60 * 1000).toISOString());
+
+    expect(segmentTimelineDays(timestamps, "America/Los_Angeles")).toHaveLength(10);
+    expect(timestamps.at(-1)).toBe("2026-11-10T07:00:00.000Z");
+  });
+
+  it("returns no horizon for an invalid start or non-positive day count", () => {
+    expect(calendarDayTimelineHours(undefined, "UTC", 10)).toBe(0);
+    expect(calendarDayTimelineHours("2026-08-08T12:00:00.000Z", "UTC", 0)).toBe(0);
   });
 
   it("sorts real timestamps and realigns each beach without fabricating gaps", () => {

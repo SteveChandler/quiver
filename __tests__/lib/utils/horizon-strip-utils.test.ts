@@ -63,33 +63,38 @@ import type { Beach } from '@/types/database';
 
 describe('horizon-strip-utils', () => {
   describe('getConditionTier', () => {
-    it('returns "great" for scores >= 80', () => {
-      expect(getConditionTier(80)).toBe('great');
-      expect(getConditionTier(90)).toBe('great');
-      expect(getConditionTier(100)).toBe('great');
+    it('returns "epic" for scores >= 80', () => {
+      expect(getConditionTier(80)).toBe('epic');
+      expect(getConditionTier(90)).toBe('epic');
+      expect(getConditionTier(100)).toBe('epic');
     });
 
-    it('returns "good" for scores 60-79', () => {
-      expect(getConditionTier(60)).toBe('good');
+    it('returns "good" for scores 70-79', () => {
       expect(getConditionTier(70)).toBe('good');
       expect(getConditionTier(79)).toBe('good');
     });
 
-    it('returns "fair" for scores 40-59', () => {
-      expect(getConditionTier(40)).toBe('fair');
-      expect(getConditionTier(50)).toBe('fair');
-      expect(getConditionTier(59)).toBe('fair');
+    it('returns "fair" for scores 55-69', () => {
+      expect(getConditionTier(55)).toBe('fair');
+      expect(getConditionTier(60)).toBe('fair');
+      expect(getConditionTier(69)).toBe('fair');
     });
 
-    it('returns "marginal" for scores < 40', () => {
-      expect(getConditionTier(0)).toBe('marginal');
-      expect(getConditionTier(20)).toBe('marginal');
-      expect(getConditionTier(39)).toBe('marginal');
+    it('returns "rideable" for scores 40-54', () => {
+      expect(getConditionTier(40)).toBe('rideable');
+      expect(getConditionTier(50)).toBe('rideable');
+      expect(getConditionTier(54)).toBe('rideable');
+    });
+
+    it('returns "meh" for scores < 40', () => {
+      expect(getConditionTier(0)).toBe('meh');
+      expect(getConditionTier(20)).toBe('meh');
+      expect(getConditionTier(39)).toBe('meh');
     });
 
     it('handles edge cases', () => {
-      expect(getConditionTier(-10)).toBe('marginal');
-      expect(getConditionTier(150)).toBe('great');
+      expect(getConditionTier(-10)).toBe('meh');
+      expect(getConditionTier(150)).toBe('epic');
     });
   });
 
@@ -124,19 +129,25 @@ describe('horizon-strip-utils', () => {
     it('shows range when min and max are different integers', () => {
       expect(formatWaveRange(3.0, 5.0)).toBe('3-5ft');
     });
+
+    it('characterizes the two-number arity used by horizon cards', () => {
+      expect(formatWaveRange(1.01, 1.99)).toBe('1-2ft');
+      expect(formatWaveRange(-1, 0.5)).toBe('0-1ft');
+    });
   });
 
   describe('getTierLabel', () => {
     it('returns correct labels for each tier', () => {
-      expect(getTierLabel('great')).toBe('Great conditions');
-      expect(getTierLabel('good')).toBe('Good conditions');
-      expect(getTierLabel('fair')).toBe('Fair conditions');
-      expect(getTierLabel('marginal')).toBe('Marginal conditions');
+      expect(getTierLabel('epic')).toBe('EPIC conditions');
+      expect(getTierLabel('good')).toBe('GOOD conditions');
+      expect(getTierLabel('fair')).toBe('FAIR conditions');
+      expect(getTierLabel('rideable')).toBe('RIDEABLE conditions');
+      expect(getTierLabel('meh')).toBe('MEH conditions');
     });
   });
 
   describe('TIER_COLORS', () => {
-    const tiers: ConditionTier[] = ['great', 'good', 'fair', 'marginal'];
+    const tiers: ConditionTier[] = ['epic', 'good', 'fair', 'rideable', 'meh'];
 
     it('has all required color properties for each tier', () => {
       for (const tier of tiers) {
@@ -156,8 +167,8 @@ describe('horizon-strip-utils', () => {
     });
 
     it('uses appropriate semantic colors for each tier', () => {
-      // Great should be amber/gold
-      expect(TIER_COLORS.great.bg).toContain('amber');
+      // Epic should be amber/gold
+      expect(TIER_COLORS.epic.bg).toContain('amber');
 
       // Good should be green/emerald
       expect(TIER_COLORS.good.bg).toContain('emerald');
@@ -165,8 +176,8 @@ describe('horizon-strip-utils', () => {
       // Fair should be blue
       expect(TIER_COLORS.fair.bg).toContain('blue');
 
-      // Marginal should use brand navy
-      expect(TIER_COLORS.marginal.bg).toContain('2D357D');
+      // Rideable should use brand navy
+      expect(TIER_COLORS.rideable.bg).toContain('2D357D');
     });
   });
 

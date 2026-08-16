@@ -16,6 +16,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { forecastLogger } from "@/lib/monitoring/forecast-logger";
 import { updateCdipBeachForecasts } from "@/lib/utils/forecast-server-utils";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import {
   startCronCheckIn,
   completeCronCheckIn,
@@ -107,7 +108,15 @@ export async function runEnhancedForecastSyncCdip(
     checkInId = startCronCheckIn({ slug: monitorSlug, schedule: "0 * * * *" });
 
     const { deadlineMs, timeBudgetMs, safetyMarginMs } = getCronDeadlineMs();
-    const result = await updateCdipBeachForecasts({ deadlineMs });
+    const result = await withCronOutcome(
+      {
+        job: "/api/cron/enhanced-forecast-sync-cdip",
+        unit: "forecasts_written",
+        expectedMin: 1,
+        getProduced: (value) => value.summary?.successful ?? 0,
+      },
+      () => updateCdipBeachForecasts({ deadlineMs }),
+    );
     const duration = Date.now() - startTime;
 
     const summary = (result as any)?.summary as

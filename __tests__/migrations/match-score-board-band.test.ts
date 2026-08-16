@@ -42,6 +42,9 @@ const BOARD_SHAPE: Record<BoardClass, { lo: number; hi: number }> = {
   bodyboard: { lo: 1, hi: 1 },
 };
 
+const PRODUCTION_WRAPPER_MIGRATION =
+  "20260609201625_session_fit_match_score.sql";
+
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
@@ -77,13 +80,36 @@ function boardBandAdjustment({
 
 describe("match score board band migration", () => {
   const migrationsDir = join(process.cwd(), "supabase", "migrations");
-  const migrationPath = readdirSync(migrationsDir).find((name) =>
-    name.endsWith("_match_score_board_band.sql"),
-  );
 
-  function readMigration(): string {
-    expect(migrationPath).toEqual(expect.any(String));
-    return readFileSync(join(migrationsDir, migrationPath!), "utf8");
+  function currentCoreMigration(): string {
+    const migration = readdirSync(migrationsDir)
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+      .reverse()
+      .find((name) => {
+        const sql = readFileSync(join(migrationsDir, name), "utf8");
+        return /create\s+or\s+replace\s+function\s+public\.compute_user_match_score_core\b/i.test(
+          sql,
+        );
+      });
+
+    expect(migration).toEqual(expect.any(String));
+    return migration!;
+  }
+
+  function readMigration(name = currentCoreMigration()): string {
+    return readFileSync(join(migrationsDir, name), "utf8");
+  }
+
+  function boardAliasMaps(sql: string): string[] {
+    return sql.match(/case[\s\S]*?end\s+as\s+board_class/gi) ?? [];
+  }
+
+  function expectBoardAliasParity(sql: string): void {
+    for (const [alias, boardClass] of Object.entries(BOARD_TYPE_TO_BOARD_CLASS)) {
+      expect(sql).toContain(`'${alias}'`);
+      expect(sql).toContain(`then '${boardClass}'`);
+    }
   }
 
   it("replaces only compute_user_match_score_core and preserves the wrapper", () => {
@@ -123,10 +149,24 @@ describe("match score board band migration", () => {
 
   it("keeps SQL board aliases in parity with the TypeScript board-class map", () => {
     const sql = readMigration().replace(/\s+/g, " ").toLowerCase();
+    expect(sql).toContain("'foamie'");
+    expectBoardAliasParity(sql);
+  });
 
-    for (const [alias, boardClass] of Object.entries(BOARD_TYPE_TO_BOARD_CLASS)) {
-      expect(sql).toContain(`'${alias}'`);
-      expect(sql).toContain(`then '${boardClass}'`);
+  it("guards the current core and every SQL board map it defines", () => {
+    const wrapper = readMigration(PRODUCTION_WRAPPER_MIGRATION).toLowerCase();
+    const currentCore = readMigration().toLowerCase();
+    const currentBoardMaps = boardAliasMaps(currentCore);
+
+    expect(wrapper).toContain("return public.compute_user_match_score_core");
+    expect(currentCore).toContain(
+      "create or replace function public.compute_user_match_score_core",
+    );
+    expect(currentBoardMaps).toHaveLength(2);
+
+    for (const boardMap of currentBoardMaps) {
+      expectBoardAliasParity(boardMap);
+      expect(boardMap).not.toContain("'thruster'");
     }
   });
 

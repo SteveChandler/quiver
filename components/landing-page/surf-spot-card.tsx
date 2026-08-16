@@ -115,7 +115,7 @@ export function SurfSpotCard({
     >
       <Link href={beachUrl} prefetch={false} className="block group h-full">
         {/* Dark cyberpunk card */}
-        <div className="bg-[#1E2558] rounded-2xl overflow-hidden shadow-none hover:shadow-xl hover:shadow-black/20 hover:-translate-y-1 transition-all duration-200 h-full flex flex-col glow-hover-cyan">
+        <div className="bg-[#1E2558] rounded-2xl overflow-hidden shadow-none hover:shadow-xl hover:shadow-black/20 hover:-translate-y-1 transition-[box-shadow,transform] duration-200 h-full flex flex-col glow-hover-cyan">
           {/* Image Section */}
           <div className="relative h-48 md:h-56 bg-[#171E45] overflow-hidden rounded-t-2xl">
             {/* Score badge - circular, top-left corner of image */}
@@ -132,7 +132,7 @@ export function SurfSpotCard({
               type="button"
               aria-label={`Save ${name}`}
               onClick={handleSaveClick}
-              className="absolute top-3 right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 shadow-sm hover:bg-white/20 hover:shadow-md transition-all"
+              className="absolute top-3 right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 shadow-sm hover:bg-white/20 hover:shadow-md transition-[background-color,box-shadow] focus-ring"
             >
               <Bookmark className="h-4 w-4 text-white/70" />
             </button>

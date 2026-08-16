@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+export {};
+
 const mockRpc = jest.fn();
 const mockRemove = jest.fn();
 const mockValidateCronRequest = jest.fn(() => true);
