@@ -36,6 +36,10 @@ function cdipSkipReasonFromStatus(status: number | undefined): CDIPSkipReason {
   return "cdip_unavailable";
 }
 
+function isDeterministicUnavailableStatus(status: number | undefined): boolean {
+  return status === 400 || status === 404;
+}
+
 /**
  * CDIP API client for fetching wave data from ERDDAP
  */
@@ -93,9 +97,13 @@ export class CDIPApiClient {
       });
 
       if (!response.ok) {
-        log.error(
-          `❌ CDIP API error: ${response.status} - ${response.statusText} for station ${stationId}`
-        );
+        const message =
+          `❌ CDIP API error: ${response.status} - ${response.statusText} for station ${stationId}`;
+        if (isDeterministicUnavailableStatus(response.status)) {
+          log.warn(message);
+        } else {
+          log.error(message);
+        }
         return {
           data: null,
           stationId,
@@ -142,7 +150,9 @@ export class CDIPApiClient {
       const { isCircuitBreakerOpenError } = await import("@/lib/utils/api-retry");
       const status = statusFromError(error);
 
-      if (error instanceof Error && error.name === "AbortError") {
+      if (isDeterministicUnavailableStatus(status)) {
+        log.warn(`CDIP station ${stationId} has no deterministic data (${status})`);
+      } else if (error instanceof Error && error.name === "AbortError") {
         log.error(`⏰ CDIP API request timeout for station ${stationId}`);
       } else {
         log.error(
@@ -195,9 +205,13 @@ export class CDIPApiClient {
       });
 
       if (!response.ok) {
-        log.error(
-          `CDIP metadata API error: ${response.status} - ${response.statusText}`
-        );
+        const message =
+          `CDIP metadata API error: ${response.status} - ${response.statusText}`;
+        if (isDeterministicUnavailableStatus(response.status)) {
+          log.warn(message);
+        } else {
+          log.error(message);
+        }
         return null;
       }
 
@@ -206,10 +220,15 @@ export class CDIPApiClient {
 
       return data as CDIPMetaResponse;
     } catch (error) {
-      log.error(
-        `Error fetching CDIP metadata for station ${stationId}:`,
-        error
-      );
+      const status = statusFromError(error);
+      if (isDeterministicUnavailableStatus(status)) {
+        log.warn(`CDIP metadata unavailable for station ${stationId} (${status})`);
+      } else {
+        log.error(
+          `Error fetching CDIP metadata for station ${stationId}:`,
+          error
+        );
+      }
       return null;
     }
   }

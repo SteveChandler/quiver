@@ -468,7 +468,7 @@ describe("trusted forecast coverage — the beach_id collapse-key hazard", () =>
 });
 
 describe("trusted forecast coverage — the Seaside source inventory", () => {
-  it("pins all 17 source keys so an unknown one cannot inherit a silent bound", () => {
+  it("pins all 41 canonical source keys so an unknown one cannot inherit a silent bound", () => {
     expect([...TRUSTED_FORECAST_SOURCE_KEYS]).toEqual([
       "socal",
       "hawaii",
@@ -481,6 +481,30 @@ describe("trusted forecast coverage — the Seaside source inventory", () => {
       "central_california",
       "baja",
       "nws_hawaii_srf",
+      "nws_akq_srf",
+      "nws_box_srf",
+      "nws_bro_srf",
+      "nws_car_srf",
+      "nws_chs_srf",
+      "nws_crp_srf",
+      "nws_eka_srf",
+      "nws_gum_srf",
+      "nws_gyx_srf",
+      "nws_ilm_srf",
+      "nws_jax_srf",
+      "nws_lox_srf",
+      "nws_mfl_srf",
+      "nws_mhx_srf",
+      "nws_mlb_srf",
+      "nws_mob_srf",
+      "nws_mtr_srf",
+      "nws_okx_srf",
+      "nws_phi_srf",
+      "nws_pqr_srf",
+      "nws_sgx_srf",
+      "nws_sju_srf",
+      "nws_tae_srf",
+      "nws_tbw_srf",
       "surf_institute_pnw",
       "stormsurf_pnw_links",
       "stormsurf_pnw_buoy",
