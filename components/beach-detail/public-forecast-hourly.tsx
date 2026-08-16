@@ -71,7 +71,7 @@ export function PublicForecastHourly({
     <section
       aria-labelledby="public-forecast-hourly-heading"
       data-testid="public-forecast-hourly"
-      className="mt-10 border-t-2 border-dashed border-[#0B3A75]/35 pt-6"
+      className="mt-6 border-t-2 border-dashed border-[#0B3A75]/35 pt-5"
     >
       <p className="typewriter font-bold text-[#0B3A75]">{dayLabel} by time</p>
       <h2

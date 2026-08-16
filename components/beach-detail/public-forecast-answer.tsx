@@ -199,8 +199,11 @@ export function PublicForecastAnswer({
             )}
           </div>
 
-          {/* Supporting reads, in the page's own condition-strip. */}
-          <div className="condition-strip mt-6">
+          {/* Matches the bordered fact boxes used across the zine tabs:
+              rounded-[8px] + 2px ink border + hard offset shadow. The
+              .condition-strip class draws a 1px inset instead, which read as a
+              flat unoutlined panel next to them. */}
+          <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-[8px] border-2 border-[#11100D] bg-[#11100D] shadow-[3px_3px_0_#11100D] sm:grid-cols-4">
             {[
               { label: "Primary swell", value: primarySwell },
               { label: "Wind", value: wind },
@@ -215,7 +218,7 @@ export function PublicForecastAnswer({
             ]
               .filter((cell) => cell.value)
               .map((cell) => (
-                <div key={cell.label} className="min-w-0 px-2">
+                <div key={cell.label} className="min-w-0 bg-[#EFE5CF] px-4 py-3">
                   <dt className={STRIP_LABEL}>{cell.label}</dt>
                   <dd className="mt-1 font-[var(--font-zine-display)] text-xl leading-tight text-[#11100D] sm:text-2xl">
                     {cell.value}
