@@ -24,3 +24,19 @@ if ! gitleaks protect --staged --redact --no-banner; then
   echo "False positive? Add a .gitleaks.toml allowlist entry or an inline '# gitleaks:allow' comment."
   exit 1
 fi
+
+# --- guardrails-managed ---
+touch "$(git rev-parse --git-dir)/guardrails-precommit-ran" 2>/dev/null || true
+if [ -x "/Users/stevenchandler/Desktop/dev/guardrails/guardctl" ]; then
+  guardrails_rc=0
+  "/Users/stevenchandler/Desktop/dev/guardrails/guardctl" verify --changed --quiet --mode precommit --repo "quiver" --hook || guardrails_rc=$?
+  if [ "$guardrails_rc" -eq 1 ]; then
+    echo "" >&2
+    echo "Blocked by a guard that has been proven able to fail." >&2
+    echo "Fix the finding, or: git commit --no-verify  (the bypass is recorded, not punished)." >&2
+    exit 1
+  elif [ "$guardrails_rc" -ne 0 ]; then
+    echo "guardrails: checks could not run (exit $guardrails_rc); allowing commit" >&2
+  fi
+fi
+# --- end guardrails-managed ---
