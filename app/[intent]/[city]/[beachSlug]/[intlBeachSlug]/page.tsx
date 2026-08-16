@@ -220,14 +220,6 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
           dateModified={forecastContext?.sourceDataUpdatedAt ?? undefined}
         />
 
-        <PublicForecastAnswer
-          beach={publicBeach}
-          report={surfCallReport}
-          context={forecastContext}
-          isTomorrow={surfCallIsTomorrow}
-          headingLevel="h1"
-        />
-
         <BeachDetailClient
           beach={publicBeach}
           slug={intlBeachSlug}
@@ -236,6 +228,17 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
           surfCallIsTomorrow={surfCallIsTomorrow}
           heroHeadingLevel="h2"
           freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
+          /* Server-rendered inside the zine paper above the tabs — see the
+             canonical US route for why this is not inside the forecast tab. */
+          beforeTabsContent={
+            <PublicForecastAnswer
+              beach={publicBeach}
+              report={surfCallReport}
+              context={forecastContext}
+              isTomorrow={surfCallIsTomorrow}
+              headingLevel="h1"
+            />
+          }
         />
 
         <PublicForecastHourly

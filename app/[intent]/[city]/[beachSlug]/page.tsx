@@ -275,29 +275,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           dateModified={forecastContext?.sourceDataUpdatedAt ?? undefined}
         />
 
-        <PublicForecastAnswer
-          beach={publicBeach}
-          report={surfCallReport}
-          context={forecastContext}
-          isTomorrow={surfCallIsTomorrow}
-          headingLevel="h1"
-        />
-
-        {forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
-          <div className="mx-auto mt-4 max-w-5xl px-4 sm:px-6 lg:px-8">
-            <ContentPageAppHandoffCta
-              source={`content-beach-detail-${beachSlug}`}
-              surface="beach_detail"
-              placement="above_fold_after_public_answer"
-              target={`beach:${beachSlug}`}
-              eyebrow={`Next call · ${beach.name}`}
-              title={`Watch the next good window at ${beach.name}.`}
-              description="Today's call is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
-              ctaLabel="Watch the next window in the app"
-            />
-          </div>
-        ) : null}
-
         {/* VideoObject + BroadcastEvent for live cam — earns LIVE badge in SERPs */}
         {cameraUrl && (
           <LiveCamSchema
@@ -319,6 +296,32 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           beachPhoto={beachPhoto}
           heroHeadingLevel="h2"
           freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
+          /* Server-rendered, so the machine-readable answer stays in the initial
+             HTML, but rendered inside the zine paper above the tabs rather than
+             floating above the hero as a foreign card. */
+          beforeTabsContent={
+            <div className="space-y-4">
+              <PublicForecastAnswer
+                beach={publicBeach}
+                report={surfCallReport}
+                context={forecastContext}
+                isTomorrow={surfCallIsTomorrow}
+                headingLevel="h1"
+              />
+              {forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
+                <ContentPageAppHandoffCta
+                  source={`content-beach-detail-${beachSlug}`}
+                  surface="beach_detail"
+                  placement="above_fold_after_public_answer"
+                  target={`beach:${beachSlug}`}
+                  eyebrow={`Next call · ${beach.name}`}
+                  title={`Watch the next good window at ${beach.name}.`}
+                  description="Today's call is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
+                  ctaLabel="Watch the next window in the app"
+                />
+              ) : null}
+            </div>
+          }
           afterTabsContent={
             <div className="pt-2">
               {!bannerOwnsInstallAsk && (
