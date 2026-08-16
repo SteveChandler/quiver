@@ -54,6 +54,8 @@ describe("getDailyIntelWaveHeightLabels", () => {
         .mockReturnValueOnce(windowQuery),
     };
 
+    // No beach timezone supplied: falls back to UTC, so a 06:00-09:00
+    // "local" window is treated as UTC (matches beaches with unknown tz).
     const labels = await getDailyIntelWaveHeightLabels(
       mockSupabase as any,
       "beach-1",
@@ -72,14 +74,90 @@ describe("getDailyIntelWaveHeightLabels", () => {
       "forecast_at",
       expect.any(String)
     );
-    expect(windowQuery.eq).toHaveBeenCalledWith("forecast_date", "2026-05-18");
+    expect(windowQuery.eq).toHaveBeenCalledWith("beach_id", "beach-1");
     expect(windowQuery.gte).toHaveBeenCalledWith(
-      "forecast_time",
-      "06:00:00"
+      "forecast_at",
+      "2026-05-18T06:00:00.000Z"
     );
     expect(windowQuery.lte).toHaveBeenCalledWith(
-      "forecast_time",
-      "09:00:00"
+      "forecast_at",
+      "2026-05-18T09:00:00.000Z"
+    );
+  });
+
+  it("converts a beach-local best window to UTC bounds using the beach timezone (regression: best-window query must not treat local wall-clock as UTC)", async () => {
+    const currentQuery = queryResult([]);
+    const windowQuery = queryResult([]);
+    const mockSupabase = {
+      from: jest
+        .fn()
+        .mockReturnValueOnce(currentQuery)
+        .mockReturnValueOnce(windowQuery),
+    };
+
+    // 2026-07-15 is in July: America/Los_Angeles observes PDT (UTC-7),
+    // not PST (UTC-8), because DST runs mid-March through early November.
+    // A 07:00:00-10:00:00 PDT local window is therefore 14:00:00Z-17:00:00Z,
+    // NOT 15:00:00Z-18:00:00Z (which would be the PST/UTC-8 offset).
+    await getDailyIntelWaveHeightLabels(
+      mockSupabase as any,
+      "beach-1",
+      "2026-07-15",
+      {
+        bestWindowStart: "07:00:00",
+        bestWindowEnd: "10:00:00",
+      },
+      "America/Los_Angeles"
+    );
+
+    expect(windowQuery.gte).toHaveBeenCalledWith(
+      "forecast_at",
+      "2026-07-15T14:00:00.000Z"
+    );
+    expect(windowQuery.lte).toHaveBeenCalledWith(
+      "forecast_at",
+      "2026-07-15T17:00:00.000Z"
+    );
+
+    // Without the fix, toForecastAt naively appended "Z" and would have
+    // queried 2026-07-15T07:00:00.000Z-2026-07-15T10:00:00.000Z instead —
+    // 7 hours off, which for this PDT beach is the middle of the night.
+    expect(windowQuery.gte).not.toHaveBeenCalledWith(
+      "forecast_at",
+      "2026-07-15T07:00:00.000Z"
+    );
+  });
+
+  it("converts a beach-local best window to UTC bounds during standard time (PST, UTC-8)", async () => {
+    const currentQuery = queryResult([]);
+    const windowQuery = queryResult([]);
+    const mockSupabase = {
+      from: jest
+        .fn()
+        .mockReturnValueOnce(currentQuery)
+        .mockReturnValueOnce(windowQuery),
+    };
+
+    // 2026-01-15 is in January: America/Los_Angeles observes PST (UTC-8).
+    // A 07:00:00-10:00:00 PST local window is therefore 15:00:00Z-18:00:00Z.
+    await getDailyIntelWaveHeightLabels(
+      mockSupabase as any,
+      "beach-1",
+      "2026-01-15",
+      {
+        bestWindowStart: "07:00:00",
+        bestWindowEnd: "10:00:00",
+      },
+      "America/Los_Angeles"
+    );
+
+    expect(windowQuery.gte).toHaveBeenCalledWith(
+      "forecast_at",
+      "2026-01-15T15:00:00.000Z"
+    );
+    expect(windowQuery.lte).toHaveBeenCalledWith(
+      "forecast_at",
+      "2026-01-15T18:00:00.000Z"
     );
   });
 });

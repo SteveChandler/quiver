@@ -107,7 +107,7 @@ async function fetchCoastPulseData(
   // Pre-fetch beaches for cache (used by forecast and intel)
   const { data: beaches } = await supabase
     .from("beaches")
-    .select("id, name, lat, lon, wind_offshore_deg")
+    .select("id, name, lat, lon, wind_offshore_deg, timezone")
     .not("lat", "is", null)
     .limit(PAGINATION.BEACHES_CACHE_LIMIT + WATER_QUALITY_HOLD_PREFETCH_BUFFER);
 
@@ -118,6 +118,7 @@ async function fetchCoastPulseData(
       lat: b.lat ?? 0,
       lon: b.lon ?? 0,
       windOffshoreDeg: b.wind_offshore_deg,
+      timezone: b.timezone,
     })),
     {
       compare: (left, right) =>
@@ -611,7 +612,8 @@ async function fetchDailyIntel(
       {
         bestWindowStart: intel.best_window_start,
         bestWindowEnd: intel.best_window_end,
-      }
+      },
+      closestBeach.timezone
     );
 
     if (waveLabels.current_wave_height_label) {
