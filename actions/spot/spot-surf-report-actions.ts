@@ -36,13 +36,42 @@ export interface SpotSurfReportResult {
   report: MajorEventHoldSurfCallResult;
   isTomorrow: boolean;
   forecastContext: ForecastRecommendationContext | null;
+  /** Only produced by the cached spot report; `/api/surf/call` omits it. */
+  hourlyForecasts?: PublicForecastHour[];
+  hourlyForecastDay?: PublicForecastDay;
 }
 
 interface CachedSpotSurfReportResult {
   report: SurfCallResult;
   isTomorrow: boolean;
   forecastContext: ForecastRecommendationContext | null;
+  hourlyForecasts: PublicForecastHour[];
+  hourlyForecastDay: PublicForecastDay;
 }
+
+export type PublicForecastDay = 'today' | 'tomorrow';
+
+/** Fields projected into the crawlable hourly table (keeps the cached payload small). */
+const PUBLIC_FORECAST_HOUR_FIELDS = [
+  'forecast_at',
+  'wave_height',
+  'swell_1_height',
+  'swell_1_period',
+  'swell_1_direction',
+  'swell_2_height',
+  'swell_2_period',
+  'swell_2_direction',
+  'wind_speed',
+  'wind_direction',
+  'tide_height',
+  'tide_status',
+  'confidence_score',
+] as const;
+
+export type PublicForecastHour = Pick<
+  EnhancedForecastEntity,
+  (typeof PUBLIC_FORECAST_HOUR_FIELDS)[number]
+>;
 
 export interface SpotSurfReportAuthContext {
   user: User;
@@ -444,6 +473,12 @@ function canonicalizeBeachForSurfCall(beach: Beach): Beach {
   } as unknown as Beach;
 }
 
+function toPublicForecastHour(forecast: EnhancedForecastEntity): PublicForecastHour {
+  return Object.fromEntries(
+    PUBLIC_FORECAST_HOUR_FIELDS.map(field => [field, forecast[field] ?? null]),
+  ) as PublicForecastHour;
+}
+
 /**
  * Cached surf report computation.
  *
@@ -515,6 +550,8 @@ const getCachedSurfReport = unstable_cache(
         report: buildReport(null, [], beach, {}, resolvedSkill),
         isTomorrow: false,
         forecastContext: null,
+        hourlyForecasts: [],
+        hourlyForecastDay: 'today',
       };
     }
 
@@ -523,6 +560,8 @@ const getCachedSurfReport = unstable_cache(
         report: buildReport(null, [], beach, {}, resolvedSkill),
         isTomorrow: false,
         forecastContext: null,
+        hourlyForecasts: [],
+        hourlyForecastDay: 'today',
       };
     }
 
@@ -534,6 +573,9 @@ const getCachedSurfReport = unstable_cache(
     // 4. Filter to today first; fall back to tomorrow if no viable window today
     const todayForecasts = forecasts.filter(f => extractForecastDate(f.forecast_at, beachTz) === todayStr);
     const tomorrowForecasts = forecasts.filter(f => extractForecastDate(f.forecast_at, beachTz) === tomorrowStr);
+    const hasTodayForecasts = todayForecasts.length > 0;
+    const publicHourlyForecasts = hasTodayForecasts ? todayForecasts : tomorrowForecasts;
+    const hourlyForecastDay: PublicForecastDay = hasTodayForecasts ? 'today' : 'tomorrow';
     const rideabilityBand = boardClass
       ? getRideabilityBand(resolvedSkillForBoard!.skill, boardClass)
       : null;
@@ -566,6 +608,8 @@ const getCachedSurfReport = unstable_cache(
           report: buildReport(adjustedWindow, todayForecasts, beach, { isTomorrow: false, boardNote }, resolvedSkill),
           isTomorrow: false,
           forecastContext,
+          hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
+          hourlyForecastDay,
         };
       }
     }
@@ -598,6 +642,8 @@ const getCachedSurfReport = unstable_cache(
           report: buildReport(adjustedWindow, tomorrowForecasts, beach, { isTomorrow: true, boardNote }, resolvedSkill),
           isTomorrow: true,
           forecastContext,
+          hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
+          hourlyForecastDay,
         };
       }
       return {
@@ -609,6 +655,24 @@ const getCachedSurfReport = unstable_cache(
           window: null,
           timezone: beachTz,
         }),
+        hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
+        hourlyForecastDay,
+      };
+    }
+
+    // Keep today's physical forecast crawlable even when no recommendation window exists.
+    if (todayForecasts.length > 0) {
+      return {
+        report: buildReport(null, todayForecasts, beach, { isTomorrow: false }, resolvedSkill),
+        isTomorrow: false,
+        forecastContext: buildForecastRecommendationContext({
+          beach,
+          forecasts: todayForecasts,
+          window: null,
+          timezone: beachTz,
+        }),
+        hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
+        hourlyForecastDay,
       };
     }
 
@@ -617,6 +681,8 @@ const getCachedSurfReport = unstable_cache(
       report: buildReport(null, [], beach, {}, resolvedSkill),
       isTomorrow: false,
       forecastContext: null,
+      hourlyForecasts: [],
+      hourlyForecastDay: 'today',
     };
   },
   ['spot-surf-report'],

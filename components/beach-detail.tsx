@@ -1209,7 +1209,14 @@ function BeachDetailContent({
 // Wrap BeachDetailContent in Suspense to support useSearchParams() during static generation
 export function BeachDetail(props: BeachDetailProps) {
   return (
-    <Suspense fallback={<FullPageLoader text="Loading beach details..." />}>
+    <Suspense
+      fallback={(
+        <div
+          aria-hidden="true"
+          className="min-h-[50vh] animate-pulse bg-muted/20"
+        />
+      )}
+    >
       <BeachDetailContent {...props} />
     </Suspense>
   );
