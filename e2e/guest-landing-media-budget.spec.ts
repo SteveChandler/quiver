@@ -113,7 +113,11 @@ for (const { name, viewport } of MEDIA_VIEWPORTS) {
           ALLOWED_FIRST_LOAD_MEDIA.has(assetPath),
         ),
       ).toBe(true);
-      expect(mediaRequests.length).toBeLessThanOrEqual(LANDING_MEDIA_REQUEST_BUDGET);
+      // Budget distinct assets, not raw requests. A local `next start` answers
+      // each video with range requests and fetches it twice, where a CDN serves
+      // it once, so the raw count swings with the environment and sat exactly on
+      // the limit. Distinct assets is the cost this guard is actually about.
+      expect(uniqueMedia.length).toBeLessThanOrEqual(LANDING_MEDIA_REQUEST_BUDGET);
     });
   });
 }

@@ -114,10 +114,22 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
 
+  # Smoke tests build and serve THIS pull request's code. They must not point at
+  # a deployed environment: dev.quiversurf.app serves `main`, so testing it here
+  # gated main's code on a prod PR and never exercised what was being promoted.
+  # A landing change on 2026-08-13 blocked every prod promotion for three days
+  # because of that, with nothing red on main.
+  #
+  # BASE_URL stays set, pointed at the local server. A loopback host still makes
+  # playwright.config.ts start its own webServer (shouldStartLocalWebServer), and
+  # several specs read process.env.BASE_URL directly with a hardcoded
+  # http://localhost:3000 fallback -- unsetting it sends those to port 3000 over
+  # IPv6 while the server listens on E2E_PORT. 127.0.0.1 also avoids the ::1
+  # resolution that fallback hits.
   smoke-tests:
     name: Playwright Smoke Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     needs: [build]
     steps:
       - name: Checkout code
@@ -143,8 +155,14 @@ jobs:
         env:
           CI: true
           SKIP_AUTH_SETUP: "true"
-          BASE_URL: https://dev.quiversurf.app
-          VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
+          BASE_URL: http://127.0.0.1:3000
+          # Playwright's webServer runs `yarn e2e:serve`, which builds this
+          # branch, so the build-time public env has to be present here too.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+          # Server-side reads for the data-backed health and beach specs.
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Upload test results
         if: failure()
