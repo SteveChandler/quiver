@@ -78,7 +78,6 @@ describe("canonical session decision service", () => {
         userLocation: { lat: 32.83, lon: -117.27 },
         horizonHours: 24,
         maxResults: 60,
-        preserveSafetyReasons: true,
       }),
     );
     expect(decision).toMatchObject({
@@ -87,7 +86,7 @@ describe("canonical session decision service", () => {
     });
   });
 
-  it("fails closed when discovery does not provide a resolved hold state", async () => {
+  it("still answers when discovery omits an availability state", async () => {
     const { resolveCanonicalSessionDecision } = loadService();
     const discoverSurfSpots = jest.fn().mockResolvedValue({
       recommendations: [discoveryRecommendation()],
@@ -113,9 +112,9 @@ describe("canonical session decision service", () => {
     ) as { verdict: string; reasonCode: string; selection: unknown };
 
     expect(decision).toMatchObject({
-      verdict: "no",
-      reasonCode: "hold_state_unavailable",
-      selection: null,
+      verdict: "go",
+      reasonCode: "selected_go",
+      selection: { beachId: "shores" },
     });
   });
 

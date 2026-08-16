@@ -314,9 +314,7 @@ export interface SurfDiscoveryRecommendation {
   /** Warnings or cautions about the spot */
   warnings: string[];
   /** Internal canonical-decision safety markers; not a recommendation endorsement. */
-  safetyOverrideReasons?: Array<
-    'water_quality_closure' | 'hold_state_unavailable'
-  >;
+  safetyOverrideReasons?: Array<'water_quality_closure'>;
   /** Top condition badges explaining why conditions are good */
   conditionBadges?: ConditionBadge[];
   /** Strategy tag for this recommendation */
@@ -465,8 +463,6 @@ export interface SurfDiscoveryOptions {
   overallTimeout?: number;
   /** Propagate retryable operational failures instead of returning a legacy empty response. */
   throwOnFailure?: boolean;
-  /** Preserve water-quality safety reasons for the canonical decision boundary. */
-  preserveSafetyReasons?: boolean;
   /**
    * Whether the requesting user has Pro/trial entitlement.
    * Default false: free user, similarity layer is skipped and every

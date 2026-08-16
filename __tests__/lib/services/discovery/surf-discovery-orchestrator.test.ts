@@ -97,6 +97,7 @@ const mockState = {
   sessionRows: [] as any[],
   sunTimesCache: new Map(),
   scoringResults: [] as { beach: Partial<Beach>; score: number; window: any; forecast: any }[],
+  waterQualityProbeError: null as { code?: string; message: string } | null,
 };
 
 const mockSupabaseRpc = jest.fn(async () => ({
@@ -187,6 +188,17 @@ const mockSupabaseFrom = jest.fn((table: string) => {
     return makeCustomSpotsQuery();
   }
 
+  if (table === 'water_quality_held_beaches') {
+    return {
+      select: jest.fn(() => ({
+        in: jest.fn(async () => ({
+          data: mockState.waterQualityProbeError ? null : [],
+          error: mockState.waterQualityProbeError,
+        })),
+      })),
+    };
+  }
+
   if (table === 'sessions') {
     const filters: Array<{ op: 'in' | 'is' | 'gte'; column: string; value: unknown }> = [];
     const query: any = {
@@ -254,21 +266,6 @@ jest.mock('@/lib/services/discovery/candidate-pool-builder', () => ({
 
 jest.mock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
   batchFetchForecasts: jest.fn(async () => mockState.forecastBatchResponse),
-}));
-
-jest.mock('@/lib/services/discovery/major-event-hold', () => ({
-  enforceMajorEventHoldBeforeDiscoveryTruncation: jest.fn(
-    async ({ recommendations, maxResults, isPrimaryEligible }) => ({
-      allAllowedRecommendations: recommendations,
-      primaryRecommendations: recommendations
-        .filter(isPrimaryEligible)
-        .slice(0, maxResults),
-      recommendationAvailability: {
-        state: 'available',
-        holdEpoch: 'orchestrator-test-epoch',
-      },
-    }),
-  ),
 }));
 
 jest.mock('@/lib/services/discovery/window-selector', () => {
@@ -451,6 +448,7 @@ jest.mock('@/lib/services/discovery/personalization-layer', () => ({
 // Import after mocks
 import { discoverSurfSpots } from '@/lib/services/discovery/surf-discovery-orchestrator';
 import { WORTH_THE_DRIVE_REASON } from '@/lib/services/discovery/distance-friction';
+import { expectConsoleErrors } from '@/__tests__/setup/test-utils';
 
 function resetDefaultDiscoveryMocks(): void {
   const { scoreBeachWithEngine, forecastToSnapshot } = require('@/lib/domains/scoring');
@@ -723,6 +721,27 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     mockState.userPrefs = null;
     mockState.affinityMap = new Map();
     mockState.sunTimesCache = new Map();
+    mockState.waterQualityProbeError = null;
+  });
+
+  test('still returns a full pool when the water-quality probe is unreachable', async () => {
+    // A probe we cannot reach means "no holds known", not "hold everything".
+    // Fail-closed here suppressed every recommendation for every user.
+    mockState.waterQualityProbeError = {
+      code: 'PGRST500',
+      message: 'database unavailable',
+    };
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+    });
+
+    expect(result.recommendations.length).toBeGreaterThan(0);
+    expect(result.recommendationAvailability).toMatchObject({
+      state: 'available',
+    });
+    expectConsoleErrors([/\[water-quality-hold:query-error\]/]);
   });
 
   test('marks favorite beaches with isFavorite flag but ranks by score', async () => {

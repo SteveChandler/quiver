@@ -14,19 +14,12 @@ import {
   type WaterQualityHoldResolution,
 } from "@/lib/recommendations/major-event-hold/water-quality";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
+import { createContextLogger } from "@/lib/logger";
+
+const log = createContextLogger("RecommendationSelection");
 
 declare const RankedBrand: unique symbol;
 export type RankedBeach<T> = T & { readonly [RankedBrand]: true };
-export type SelectionSafetyReason =
-  | "water_quality_closure"
-  | "hold_state_unavailable";
-export type SafetyMarkedRankedBeach<T> = RankedBeach<T> & {
-  readonly safetyOverrideReasons?: SelectionSafetyReason[];
-};
-
-type SafetyResolution =
-  | { state: "resolved"; heldBeachIds: Set<string> }
-  | { state: "unresolved"; reason: "hold_state_unavailable" };
 
 function validAsOf(asOf: Date | undefined): Date | null {
   const value = asOf ?? new Date();
@@ -62,32 +55,95 @@ function resolvedHeldBeachIds(
   return new Set(resolution.heldBeachIds.map((beachId) => beachId.toLowerCase()));
 }
 
+function describeError(error: unknown): string {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`;
+  }
+  return typeof error === "string" ? error : JSON.stringify(error);
+}
+
+type ProbeFailureCause =
+  | "invalid_as_of"
+  | "invalid_candidate_window"
+  | "resolver_returned_unresolved"
+  | "invalid_resolved_payload"
+  | "resolver_threw";
+
+/**
+ * The cause goes in the message, not just the context: log sinks that render
+ * only the message string would otherwise turn a DB error, a timeout, and bad
+ * input into the same indistinguishable line.
+ */
+function warnProbeFailed(
+  cause: ProbeFailureCause,
+  context: Record<string, unknown>,
+): void {
+  log.warn(
+    `Water-quality hold probe failed (${cause}); treating as no holds known`,
+    { cause, ...context },
+  );
+}
+
+/**
+ * Beach ids with a *resolved* water-quality closure.
+ *
+ * Fail-open by design: an unreachable, malformed, or throwing probe means "no
+ * holds are known", so the caller suppresses nothing. Only a resolved closure
+ * — a real posted advisory — ever removes a beach.
+ *
+ * Every failure is logged at `warn` with its specific cause. `lib/logger`
+ * raises the minimum level to `warn` in deployed environments, so a `debug`
+ * line here would be invisible in production, and a cause-less log makes a DB
+ * error, a timeout, and bad input indistinguishable.
+ */
 async function resolveSafeBeachIds<T extends { id: string }>(
   candidates: readonly T[],
   options?: { asOf?: Date },
-): Promise<SafetyResolution> {
-  if (candidates.length === 0) {
-    return { state: "resolved", heldBeachIds: new Set() };
-  }
+): Promise<Set<string>> {
+  if (candidates.length === 0) return new Set();
 
   const asOf = validAsOf(options?.asOf);
   if (asOf === null) {
-    return { state: "unresolved", reason: "hold_state_unavailable" };
+    warnProbeFailed("invalid_as_of", {
+      asOf: options?.asOf,
+      candidateCount: candidates.length,
+    });
+    return new Set();
   }
 
   const holdCandidates = buildHoldCandidates(candidates, asOf);
   if (holdCandidates === null) {
-    return { state: "unresolved", reason: "hold_state_unavailable" };
+    warnProbeFailed("invalid_candidate_window", {
+      asOf: asOf.toISOString(),
+      candidateCount: candidates.length,
+    });
+    return new Set();
   }
 
   try {
     const resolution = await resolveWaterQualityHolds(holdCandidates);
+    if (resolution.state === "unresolved") {
+      warnProbeFailed("resolver_returned_unresolved", {
+        candidateCount: candidates.length,
+        epoch: resolution.epoch,
+      });
+      return new Set();
+    }
     const heldBeachIds = resolvedHeldBeachIds(resolution);
-    return heldBeachIds === null
-      ? { state: "unresolved", reason: "hold_state_unavailable" }
-      : { state: "resolved", heldBeachIds };
-  } catch {
-    return { state: "unresolved", reason: "hold_state_unavailable" };
+    if (heldBeachIds === null) {
+      warnProbeFailed("invalid_resolved_payload", {
+        candidateCount: candidates.length,
+        heldBeachIds: resolution.heldBeachIds,
+      });
+      return new Set();
+    }
+    return heldBeachIds;
+  } catch (error) {
+    warnProbeFailed("resolver_threw", {
+      candidateCount: candidates.length,
+      error: describeError(error),
+    });
+    return new Set();
   }
 }
 
@@ -95,53 +151,20 @@ function brand<T>(candidate: T): RankedBeach<T> {
   return candidate as RankedBeach<T>;
 }
 
-function withSafetyReason<T extends { id: string }>(
-  candidate: T,
-  reason: SelectionSafetyReason,
-): T & { safetyOverrideReasons: SelectionSafetyReason[] } {
-  const existing = (candidate as T & {
-    safetyOverrideReasons?: readonly SelectionSafetyReason[];
-  }).safetyOverrideReasons ?? [];
-  return {
-    ...candidate,
-    safetyOverrideReasons: Array.from(new Set([...existing, reason])),
-  };
-}
-
 export async function rankBeaches<T extends { id: string }>(
   candidates: readonly T[],
   opts: {
     compare: (a: T, b: T) => number;
     asOf?: Date;
-    /** Only canonical decisions preserve blocked rows to explain their reason. */
-    preserveSafetyReasons?: boolean;
   },
-): Promise<SafetyMarkedRankedBeach<T>[]> {
-  const resolution = await resolveSafeBeachIds(candidates, opts);
-  if (resolution.state === "unresolved") {
-    if (!opts.preserveSafetyReasons) return [];
-    return candidates
-      .slice()
-      .sort(opts.compare)
-      .map((candidate) => brand(withSafetyReason(candidate, resolution.reason)));
-  }
+): Promise<RankedBeach<T>[]> {
+  const heldBeachIds = await resolveSafeBeachIds(candidates, opts);
 
   return candidates
-    .filter(
-      (candidate) =>
-        opts.preserveSafetyReasons ||
-        !resolution.heldBeachIds.has(candidate.id.toLowerCase()),
-    )
+    .filter((candidate) => !heldBeachIds.has(candidate.id.toLowerCase()))
     .slice()
     .sort(opts.compare)
-    .map((candidate) => {
-      const isHeld = resolution.heldBeachIds.has(candidate.id.toLowerCase());
-      return brand(
-        opts.preserveSafetyReasons && isHeld
-          ? withSafetyReason(candidate, "water_quality_closure")
-          : candidate,
-      );
-    });
+    .map((candidate) => brand(candidate));
 }
 
 export async function selectBeach<T extends { id: string }>(
@@ -150,11 +173,8 @@ export async function selectBeach<T extends { id: string }>(
 ): Promise<RankedBeach<T> | null> {
   if (candidate == null) return null;
 
-  const resolution = await resolveSafeBeachIds([candidate], opts);
-  if (
-    resolution.state === "unresolved" ||
-    resolution.heldBeachIds.has(candidate.id.toLowerCase())
-  ) {
+  const heldBeachIds = await resolveSafeBeachIds([candidate], opts);
+  if (heldBeachIds.has(candidate.id.toLowerCase())) {
     return null;
   }
   return brand(candidate);

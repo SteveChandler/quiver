@@ -56,10 +56,7 @@ import {
   scoreNativeForecastSlot,
 } from '@/lib/scoring/native-condition-score';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  rankBeaches,
-  type SelectionSafetyReason,
-} from '@/lib/recommendations/selection';
+import { rankBeaches } from '@/lib/recommendations/selection';
 
 // Import from other discovery modules
 import {
@@ -118,10 +115,15 @@ import { FEATURE_HERO_WINDOW_SCORE } from '@/lib/constants/feature-flags';
 import type { ScoringEngine } from '@/lib/domains/scoring';
 import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
 import { boardStyleFit } from './board-style-fit';
-import { enforceMajorEventHoldBeforeDiscoveryTruncation } from './major-event-hold';
 import { resolveForecastAlignment } from './forecast-alignment';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
+
+/**
+ * Discovery reports an available pool: it filters resolved water-quality
+ * closures per beach and never suppresses the response as a whole.
+ */
+const DISCOVERY_AVAILABILITY_HOLD_EPOCH = 'discovery-water-quality-filtered';
 
 type BoardPickRow = {
   id: unknown;
@@ -129,18 +131,6 @@ type BoardPickRow = {
   board_type: unknown;
   volume?: unknown;
 };
-
-function preserveSelectionSafetyReasons(
-  recommendation: SurfDiscoveryRecommendation,
-  reasons: readonly SelectionSafetyReason[] | undefined,
-): SurfDiscoveryRecommendation {
-  if (!reasons || reasons.length === 0) return recommendation;
-  const existing = recommendation.safetyOverrideReasons ?? [];
-  return {
-    ...recommendation,
-    safetyOverrideReasons: Array.from(new Set([...existing, ...reasons])),
-  };
-}
 
 type UserBoardContextRow = BoardPickRow & {
   session_count?: unknown;
@@ -1420,7 +1410,6 @@ async function discoverSurfSpotsInner(
     discoveryMode = 'best-window',
     isPro = false,
     includeBeachIds,
-    preserveSafetyReasons = false,
   } = options;
   // `candidatePoolLimit` (how many beaches get forecasts fetched and scored) is
   // NOT `maxResults` (how many are shown). Shrinking the pool to the size of the
@@ -2198,27 +2187,20 @@ async function discoverSurfSpotsInner(
           left.recommendation,
           right.recommendation,
         ) || left.index - right.index,
-      preserveSafetyReasons,
     },
   );
+  // `rankBeaches` has already dropped any beach with a resolved water-quality
+  // closure. An unreachable probe drops nothing, so the pool stays intact.
   const safeRecsScored = rankedRecommendations.map(
-    ({ recommendation, safetyOverrideReasons }) =>
-      preserveSelectionSafetyReasons(recommendation, safetyOverrideReasons),
+    ({ recommendation }) => recommendation,
   );
 
-  const holdPool = await enforceMajorEventHoldBeforeDiscoveryTruncation({
-    recommendations: safeRecsScored,
-    profileExperience: userSkillLevel,
-    maxResults,
-    preserveSafetyReasons,
-    isPrimaryEligible: (rec) =>
-      primaryEligibleKeys.has(recommendationKey(rec)),
-  });
-
-  // Hold filtering happens across the full sorted pool before this top-N is
-  // consumed, so an allowed rank below a blocked result can fill the response.
-  const merged =
-    holdPool.decisionRecommendations ?? holdPool.primaryRecommendations;
+  // Water-quality filtering happens across the full sorted pool before this
+  // top-N is consumed, so an allowed rank below a blocked result can fill the
+  // response.
+  const merged = safeRecsScored
+    .filter((rec) => primaryEligibleKeys.has(recommendationKey(rec)))
+    .slice(0, maxResults);
 
   // Phase 2: populate per-slot scorer outputs across each candidate's window
   // BEFORE rerank so hero-window-score's persistence/duration evidence is
@@ -2248,7 +2230,7 @@ async function discoverSurfSpotsInner(
   const rankedSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
   const finalSlice = applyWorthTheDriveReasons(rankedSlice);
   const finalSliceKeys = new Set(finalSlice.map((rec) => recommendationKey(rec)));
-  const includedSlice = holdPool.allAllowedRecommendations.filter((rec) => {
+  const includedSlice = safeRecsScored.filter((rec) => {
     if ((rec.kind ?? 'beach') === 'beach') {
       return (
         requestedIncludeBeachIdSet.has(rec.beach.id) &&
@@ -2480,7 +2462,14 @@ async function discoverSurfSpotsInner(
     },
     regionalCall,
     eveningTransition,
-    recommendationAvailability: holdPool.recommendationAvailability,
+    // Resolved water-quality closures were filtered out of the pool above.
+    // Major-event holds are resolved at the serialization boundary
+    // (`sanitizeSurfDiscoveryForSerializationMajorEventHold`), which overwrites
+    // this; discovery itself never withholds the whole response.
+    recommendationAvailability: {
+      state: 'available',
+      holdEpoch: DISCOVERY_AVAILABILITY_HOLD_EPOCH,
+    },
   };
 }
 
