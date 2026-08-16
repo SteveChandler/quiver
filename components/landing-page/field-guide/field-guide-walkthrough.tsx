@@ -97,29 +97,20 @@ export function FieldGuideWalkthrough(): ReactElement {
           ))}
         </ol>
 
-        <figure className="notebook mx-auto w-full max-w-[300px] bg-[#FFFDF4] p-4 shadow-[2px_4px_0_rgba(17,16,13,0.18)]">
+        <div className="relative mx-auto w-full max-w-[300px] -rotate-1 border-2 border-[#11100D] bg-[#11100D] p-2 shadow-[10px_10px_0_rgba(247,142,66,0.42)]">
           <div
-            className="relative aspect-[9/16] overflow-hidden border-2 border-[#11100D] bg-[#0D1020]"
+            className="relative aspect-[9/16] overflow-hidden bg-[#0D1020]"
             data-testid="field-guide-walkthrough-video"
           >
             <AutoplayVideo
               src="/videos/buoy-loop.mp4"
               ariaLabel="Quiver reading swell, wind, and tide for a break"
-              className="h-full w-full object-contain"
+              className="absolute inset-0 h-full w-full object-cover"
               playLabel="Play loop"
               playButtonClassName="absolute inset-0 flex items-center justify-center bg-[#F4EBD8]/88 font-heading text-base font-black uppercase text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#F78E42]"
             />
           </div>
-          <figcaption className="pt-4">
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#0B3A75]">
-              Real product proof
-            </p>
-            <p className="mt-2 font-mono text-sm leading-relaxed text-[#11100D]/80">
-              Every spot has a favorite setup. Quiver reads swell, wind, and
-              tide against the break before it makes a call.
-            </p>
-          </figcaption>
-        </figure>
+        </div>
       </div>
     </ZineSurface>
   );

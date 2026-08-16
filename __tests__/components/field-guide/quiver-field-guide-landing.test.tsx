@@ -124,7 +124,9 @@ describe("QuiverFieldGuideLanding", () => {
     // React assigns muted as a DOM property, so assert the property not the attribute.
     expect(walkthroughVideo?.muted).toBe(true);
     expect(walkthroughVideo?.loop).toBe(true);
-    expect(walkthrough).toHaveTextContent("Every spot has a favorite setup.");
+    // The loop speaks for itself: no caption or badge around it.
+    expect(walkthrough).not.toHaveTextContent(/real product proof/i);
+    expect(walkthrough).not.toHaveTextContent(/favorite setup/i);
   });
 
   it("renders community testimonials from real surfer feedback", () => {
