@@ -64,15 +64,15 @@ test.describe('Guest Landing Page', () => {
     // Landing page should have some content
     expect(hasHero || hasMain).toBe(true);
 
-    const spotlight = page.getByTestId('field-guide-spotlight');
-    await expect(spotlight).toBeVisible({ timeout: 5000 });
+    const walkthrough = page.getByTestId('field-guide-walkthrough');
+    await expect(walkthrough).toBeVisible({ timeout: 5000 });
     await expect(
-      spotlight.getByRole('heading', { name: /quiver's swell view is here/i }),
+      walkthrough.getByRole('heading', { name: /turn a forecast into a surf plan/i }),
     ).toBeVisible();
-    await expect(spotlight.getByText('FREE · NEW IN THE APP')).toBeVisible();
+    await expect(walkthrough.getByRole('listitem')).toHaveCount(4);
     await expect(
-      spotlight.getByRole('link', { name: 'Get the app' }),
-    ).toHaveCount(0);
+      walkthrough.getByTestId('field-guide-walkthrough-video').locator('video'),
+    ).toBeVisible();
   });
 
   test('should open auth modal when clicking login', async ({ page }) => {

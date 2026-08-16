@@ -8,11 +8,17 @@ import {
 
 const HERO_POSTER_PATH = "/images/hero/quiver-landing-hero-poster.jpg";
 const HERO_VIDEO_PATH = "/videos/quiver-landing-hero-720.mp4";
+const WALKTHROUGH_VIDEO_PATH = "/videos/buoy-loop.mp4";
 const SCREENSHOT_ROOT = "/images/app-screenshots/";
-const FIRST_LOAD_MEDIA_REQUEST_BUDGET = 5;
+const VIDEO_ROOT = "/videos/";
+// Desktop currently spends 5 (hero poster, hero video, walkthrough video,
+// local-intel screenshot); mobile spends 4. Both landing videos autoplay, so
+// they are first-load cost and must stay counted.
+const LANDING_MEDIA_REQUEST_BUDGET = 6;
 const ALLOWED_FIRST_LOAD_MEDIA = new Set([
   HERO_POSTER_PATH,
   HERO_VIDEO_PATH,
+  WALKTHROUGH_VIDEO_PATH,
   "/images/app-screenshots/local-intel-720.webp",
 ]);
 
@@ -29,9 +35,8 @@ function toLandingMediaPath(requestUrl: string): string | null {
       : url.pathname;
 
   if (!assetPath) return null;
-  if (assetPath === HERO_POSTER_PATH || assetPath === HERO_VIDEO_PATH) {
-    return assetPath;
-  }
+  if (assetPath === HERO_POSTER_PATH) return assetPath;
+  if (assetPath.startsWith(VIDEO_ROOT)) return assetPath;
   if (assetPath.startsWith(SCREENSHOT_ROOT)) return assetPath;
   return null;
 }
@@ -72,17 +77,21 @@ for (const { name, viewport } of MEDIA_VIEWPORTS) {
       });
     });
 
-    test("keeps first-load media within the documented request budget @smoke", async ({
+    test("keeps landing media within the documented request budget @smoke", async ({
       page,
     }) => {
       const mediaRequests = captureLandingMediaRequests(page);
+      const media = page.getByTestId("field-guide-hero-video");
       const response = await page.goto("/", { waitUntil: "load" });
 
       expect(response).not.toBeNull();
       expect(response!.status()).toBe(200);
+      // The hero starts on its own for viewers who allow motion, so there is
+      // no play control and the element is present from first paint.
+      await expect(media.locator("video")).toBeVisible();
       await expect(
-        page.getByTestId("field-guide-hero-video").locator("video"),
-      ).toBeVisible();
+        media.getByRole("button", { name: "Play demo" }),
+      ).toHaveCount(0);
       await expect
         .poll(
           () =>
@@ -93,16 +102,18 @@ for (const { name, viewport } of MEDIA_VIEWPORTS) {
 
       const uniqueMedia = [...new Set(mediaRequests)];
       expect(uniqueMedia).toEqual(
-        expect.arrayContaining([HERO_POSTER_PATH, HERO_VIDEO_PATH]),
+        expect.arrayContaining([
+          HERO_POSTER_PATH,
+          HERO_VIDEO_PATH,
+          WALKTHROUGH_VIDEO_PATH,
+        ]),
       );
       expect(
         uniqueMedia.every((assetPath) =>
           ALLOWED_FIRST_LOAD_MEDIA.has(assetPath),
         ),
       ).toBe(true);
-      expect(mediaRequests.length).toBeLessThanOrEqual(
-        FIRST_LOAD_MEDIA_REQUEST_BUDGET,
-      );
+      expect(mediaRequests.length).toBeLessThanOrEqual(LANDING_MEDIA_REQUEST_BUDGET);
     });
   });
 }
