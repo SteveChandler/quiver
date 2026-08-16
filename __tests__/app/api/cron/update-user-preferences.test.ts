@@ -8,6 +8,10 @@ import { NextRequest } from 'next/server';
 import { computeUserPreferences } from '@/lib/services/preference-learning-service';
 import { readFileSync } from 'fs';
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 // Mock the preference learning service
 jest.mock('@/lib/services/preference-learning-service', () => ({
   computeUserPreferences: jest.fn(),

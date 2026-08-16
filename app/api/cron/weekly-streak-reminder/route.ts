@@ -15,6 +15,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -52,6 +53,29 @@ interface RunSummary {
   };
   errors: number;
   durationMs: number;
+}
+
+interface WeeklyStreakOutcome {
+  summary: RunSummary;
+  [key: string]: unknown;
+}
+
+async function recordWeeklyStreakOutcome(
+  result: WeeklyStreakOutcome,
+): Promise<WeeklyStreakOutcome> {
+  return withCronOutcome(
+    {
+      job: "/api/cron/weekly-streak-reminder",
+      unit: "reminders_sent",
+      expectedMin: 1,
+      getProduced: (value) => value.summary.sent,
+      legitimatelyZero: (value) =>
+        value.summary.candidates === 0
+          ? { reason: "No users had an at-risk weekly streak this cycle" }
+          : undefined,
+    },
+    async () => result,
+  );
 }
 
 function dateKey(date: Date): string {
@@ -165,7 +189,7 @@ async function _GET(request: Request): Promise<Response> {
 
     if (reminderEnabledUserIds.size === 0) {
       summary.durationMs = Date.now() - startedAt;
-      return createSuccessResponse({ candidates: 0, sent: 0, skipped: summary.skipped, summary });
+      return createSuccessResponse(await recordWeeklyStreakOutcome({ candidates: 0, sent: 0, skipped: summary.skipped, summary }));
     }
 
     const { data: loggedRows, error: logError } = await (supabase as any).from("streak_reminder_log")
@@ -286,12 +310,12 @@ async function _GET(request: Request): Promise<Response> {
     }
 
     summary.durationMs = Date.now() - startedAt;
-    return createSuccessResponse({
+    return createSuccessResponse(await recordWeeklyStreakOutcome({
       candidates: sendCandidates.length,
       sent: summary.sent,
       skipped: summary.skipped,
       summary,
-    });
+    }));
   } catch (error) {
     return handleApiError(error);
   }

@@ -5,6 +5,10 @@
 import { NextRequest } from "next/server";
 import { GET } from "@/app/api/cron/ioos-sync/route";
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 // Mock dependencies
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data) => ({

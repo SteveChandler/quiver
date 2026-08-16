@@ -13,6 +13,10 @@
  * - Idempotency (safe to retry)
  */
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 import {
   setupCronTestEnvironment,
   createMockCronRequest,

@@ -14,6 +14,10 @@
 import { GET } from "@/app/api/cron/session-prompt-email/route";
 import { NextRequest } from "next/server";
 import { readFileSync } from "fs";
+
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
 const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) =>
   beaches.filter((beach) => beach.id !== "held-beach"),
 );

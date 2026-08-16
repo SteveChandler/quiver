@@ -283,6 +283,16 @@ async function _GET(request: Request): Promise<Response> {
     lookaheadHours: LOOKAHEAD_HOURS,
     profileSelectExtraFields: ["experience_level"],
     selectAndBuild: selectAndBuildMorningCall,
+    outcome: {
+      job: "/api/cron/home-morning-call",
+      unit: "calls_sent",
+      expectedMin: 1,
+      getProduced: (value) => value.sent,
+      legitimatelyZero: (value) =>
+        value.skipped || value.candidates === 0
+          ? { reason: value.skipped ? "HOME_MORNING_CALL_ENABLED is not true" : "No home-beach users had an eligible morning call" }
+          : undefined,
+    },
   });
 }
 

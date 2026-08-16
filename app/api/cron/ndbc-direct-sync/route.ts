@@ -15,6 +15,7 @@ import {
 } from "@/lib/constants/ioos-config";
 import { haversineDistance } from "@/lib/utils/geo-utils";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -82,11 +83,27 @@ async function _GET(request: Request): Promise<Response> {
     console.log(`[NDBC-Direct] Starting sync (phase=${phase})...`);
 
     if (phase === "stations") {
-      const result = await syncStations();
+      const result = await withCronOutcome(
+        {
+          job: "/api/cron/ndbc-direct-sync?phase=stations",
+          unit: "stations_synced",
+          expectedMin: 1,
+          getProduced: (value) => value.stationsUpserted,
+        },
+        syncStations,
+      );
       console.log("[NDBC-Direct] Station discovery complete:", result);
       return createSuccessResponse(result);
     } else {
-      const result = await syncObservations();
+      const result = await withCronOutcome(
+        {
+          job: "/api/cron/ndbc-direct-sync?phase=observations",
+          unit: "observations_upserted",
+          expectedMin: 1,
+          getProduced: (value) => value.observationsUpserted,
+        },
+        syncObservations,
+      );
       console.log("[NDBC-Direct] Observation sync complete:", result);
       return createSuccessResponse(result);
     }

@@ -21,6 +21,7 @@ import {
   getRegionalBeachId,
 } from '@/lib/npc/forecast-formatter';
 import { withObservedCron } from '@/lib/cron/observability';
+import { withCronOutcome } from '@/lib/cron/outcome';
 import { isLegacyMorningForecastEnabled } from '@/lib/npc/system-card-config';
 import { insertSystemFeedPost } from '@/lib/npc/system-feed-posts';
 import { selectBeach } from '@/lib/recommendations/selection';
@@ -50,15 +51,24 @@ async function _GET(request: Request): Promise<Response> {
     }
 
     if (!isLegacyMorningForecastEnabled()) {
-      return createSuccessResponse({
-        summary: {
-          paused: true,
-          reason: 'legacy morning forecast route disabled; use /api/cron/system-cards',
-          successful: 0,
-          failed: 0,
+      return createSuccessResponse(await withCronOutcome(
+        {
+          job: '/api/cron/morning-forecast-bot',
+          unit: 'posts_published',
+          expectedMin: 1,
+          getProduced: (value) => value.summary.successful,
+          legitimatelyZero: () => ({ reason: 'Legacy morning forecast posting is disabled; system cards own this output' }),
         },
-        results: [],
-      });
+        async () => ({
+          summary: {
+            paused: true,
+            reason: 'legacy morning forecast route disabled; use /api/cron/system-cards',
+            successful: 0,
+            failed: 0,
+          },
+          results: [],
+        }),
+      ));
     }
 
     const startMs = Date.now();
@@ -186,15 +196,23 @@ async function _GET(request: Request): Promise<Response> {
 
     console.log(`[morning-forecast-bot] Completed: ${successful} forecasts posted, ${failed} failed`);
 
-    return createSuccessResponse({
-      summary: {
-        regions: regions.length,
-        successful,
-        failed,
-        durationMs: Date.now() - startMs,
+    return createSuccessResponse(await withCronOutcome(
+      {
+        job: '/api/cron/morning-forecast-bot',
+        unit: 'posts_published',
+        expectedMin: 1,
+        getProduced: (value) => value.summary.successful,
       },
-      results,
-    });
+      async () => ({
+        summary: {
+          regions: regions.length,
+          successful,
+          failed,
+          durationMs: Date.now() - startMs,
+        },
+        results,
+      }),
+    ));
   } catch (error) {
     return handleApiError(error, 'Failed to run morning forecast bot');
   }

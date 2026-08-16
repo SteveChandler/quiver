@@ -8,6 +8,10 @@
  * - Score < 70 → subject has beach name but no "✨" emoji
  */
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: async (_options: unknown, handler: () => Promise<unknown>) => handler(),
+}));
+
 import { GET } from "@/app/api/cron/first-session-nudge/route";
 import { NextRequest } from "next/server";
 import { readFileSync } from "fs";

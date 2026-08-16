@@ -19,6 +19,7 @@ import { NOAACOOPSService } from "@/lib/services/noaa-coops";
 import { fanOutTidePointsToBeaches } from "../../../../../lib/services/tide-forecast-batch-utils";
 import SunCalc from "suncalc";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 
 export const revalidate = 0;
 // Vercel cron functions have a 5 minute hard limit
@@ -711,7 +712,32 @@ async function _GET(request: Request): Promise<Response> {
       console.warn("tide station-grouped ingest error", e);
     }
 
-    return createSuccessResponse({ totals });
+    const unit =
+      source === "marine"
+        ? "marine_forecasts_written"
+        : source === "tide"
+          ? "tide_forecasts_written"
+          : source === "sun"
+            ? "sun_events_written"
+            : "forecast_rows_written";
+    return createSuccessResponse(await withCronOutcome(
+      {
+        job: `/api/cron/forecasts/refresh?source=${source}`,
+        unit,
+        expectedMin: 1,
+        getProduced: (value) => {
+          if (source === "marine") return value.totals.marine;
+          if (source === "tide") return value.totals.tides;
+          if (source === "sun") return value.totals.sun;
+          return value.totals.marine + value.totals.tides + value.totals.sun;
+        },
+        legitimatelyZero: (value) =>
+          value.totals.beaches === 0
+            ? { reason: "No beaches with coordinates were targeted by this refresh" }
+            : undefined,
+      },
+      async () => ({ totals }),
+    ));
   } catch (error) {
     return handleApiError(error);
   }

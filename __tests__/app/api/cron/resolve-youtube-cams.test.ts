@@ -2,6 +2,10 @@ import { GET } from "@/app/api/cron/resolve-youtube-cams/route";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { readFileSync } from "fs";
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 jest.mock("@/lib/cron/observability", () => ({
   withObservedCron:
     <H extends (request: Request) => Promise<Response>>(

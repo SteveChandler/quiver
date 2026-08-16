@@ -53,6 +53,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import { scoreWindowWithComposite } from "@/lib/services/discovery/window-selector";
 import {
@@ -319,12 +320,21 @@ async function _GET(req: Request): Promise<Response> {
 
   if (!deliveryEnabled) {
     console.log(`${CONTEXT_TAG} skipped: ALERTS_DELIVERY_ENABLED=false`);
-    return NextResponse.json({
-      skipped: true,
-      reason: "delivery_disabled",
-      enqueued: 0,
-      evaluated: 0,
-    });
+    return NextResponse.json(await withCronOutcome(
+      {
+        job: "/api/cron/similarity-alerts",
+        unit: "alerts_queued",
+        expectedMin: 1,
+        getProduced: (value) => value.enqueued,
+        legitimatelyZero: () => ({ reason: "ALERTS_DELIVERY_ENABLED is not true" }),
+      },
+      async () => ({
+        skipped: true,
+        reason: "delivery_disabled",
+        enqueued: 0,
+        evaluated: 0,
+      }),
+    ));
   }
 
   const supabase = await createSupabaseServiceRoleClient();
@@ -402,14 +412,26 @@ async function _GET(req: Request): Promise<Response> {
       noPickSkipped,
       errors,
     });
-    return NextResponse.json({
-      evaluated,
-      enqueued,
-      dedupSkipped,
-      allowlistSkipped,
-      noPickSkipped,
-      errors,
-    });
+    return NextResponse.json(await withCronOutcome(
+      {
+        job: "/api/cron/similarity-alerts",
+        unit: "alerts_queued",
+        expectedMin: 1,
+        getProduced: (value) => value.enqueued,
+        legitimatelyZero: (value) =>
+          value.errors === 0 && (value.evaluated === 0 || value.enqueued === 0)
+            ? { reason: value.evaluated === 0 ? "No similarity-alert users were eligible" : "No eligible similarity window matched this cycle" }
+            : undefined,
+      },
+      async () => ({
+        evaluated,
+        enqueued,
+        dedupSkipped,
+        allowlistSkipped,
+        noPickSkipped,
+        errors,
+      }),
+    ));
   } catch (err) {
     console.error(`${CONTEXT_TAG} fatal error`, err);
     return NextResponse.json(

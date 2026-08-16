@@ -13,7 +13,18 @@ const SENTRY_MONITOR = {
 };
 
 async function weekendScoutCron(request: Request): Promise<Response> {
-  return runWeekendScoutCron(request);
+  return runWeekendScoutCron(request, undefined, {
+    job: "/api/cron/weekend-window",
+    unit: "windows_evaluated",
+    expectedMin: 1,
+    getProduced: (value) => value.candidates,
+    legitimatelyZero: (value) =>
+      value.skipped
+        ? { reason: "WEEKEND_WINDOW_ENABLED is not true" }
+        : value.candidates === 0
+          ? { reason: "No users were eligible for the local Friday weekend-window run" }
+          : undefined,
+  });
 }
 
 export const GET = withObservedCron(

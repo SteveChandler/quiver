@@ -1,5 +1,9 @@
 import { readFileSync } from "fs";
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 const mockFrom = jest.fn();
 const mockRpc = jest.fn();
 const mockSelect = jest.fn();

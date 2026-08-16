@@ -7,6 +7,14 @@ import { NextRequest } from "next/server";
 import { GET, POST } from "@/app/api/cron/resolve-cam-thumbnails/route";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
+jest.mock("@/lib/cron/observability", () => ({
+  withObservedCron: jest.fn((_job: string, handler: (request: Request) => Promise<Response>) => handler),
+}));
+
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: async () => ({

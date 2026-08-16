@@ -9,6 +9,7 @@ import { IntelGenerationService } from "@/lib/services/intel-generation-service"
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 import { withObservedCron } from "@/lib/cron/observability";
+import { withCronOutcome } from "@/lib/cron/outcome";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -112,21 +113,33 @@ async function _GET(request: Request): Promise<Response> {
 
     const successful = results.filter((r) => r.ok).length;
     const failed = results.length - successful;
-
-    return createSuccessResponse({
-      summary: {
-        maxBeaches,
-        processed: results.length,
-        successful,
-        failed,
-        durationMs: Date.now() - startMs,
+    const outcome = await withCronOutcome(
+      {
+        job: "/api/cron/daily-intel",
+        unit: "intel_published",
+        expectedMin: 1,
+        getProduced: (value) => value.summary.successful,
+        legitimatelyZero: (value) =>
+          value.summary.processed === 0
+            ? { reason: "No beaches with configured daily-intel preferences were eligible" }
+            : undefined,
       },
-      results,
-    });
+      async () => ({
+        summary: {
+          maxBeaches,
+          processed: results.length,
+          successful,
+          failed,
+          durationMs: Date.now() - startMs,
+        },
+        results,
+      }),
+    );
+
+    return createSuccessResponse(outcome);
   } catch (error) {
     return handleApiError(error, "Failed to run daily intel cron");
   }
 }
 
 export const GET = withObservedCron("/api/cron/daily-intel", _GET);
-

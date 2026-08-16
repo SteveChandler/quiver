@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { withObservedCron } from "@/lib/cron/observability";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -101,12 +102,29 @@ async function runRetention(request: Request): Promise<Response> {
   }
 
   const [counts] = parsed.data;
+  const outcome = await withCronOutcome(
+    {
+      job: ROUTE,
+      unit: "rows_deleted",
+      expectedMin: 1,
+      getProduced: (value) => value.rowsDeleted,
+      legitimatelyZero: (value) =>
+        value.rowsDeleted === 0
+          ? { reason: "No expired regional recommendation hold rows were present" }
+          : undefined,
+    },
+    async () => ({
+      chainsDeleted: counts.chains_deleted,
+      rowsDeleted: counts.rows_deleted,
+    }),
+  );
+
   return jsonResponse({
     ok: true,
     status: "completed",
     counts: {
-      chainsDeleted: counts.chains_deleted,
-      rowsDeleted: counts.rows_deleted,
+      chainsDeleted: outcome.chainsDeleted,
+      rowsDeleted: outcome.rowsDeleted,
     },
   });
 }

@@ -19,6 +19,10 @@
  *     window do not produce an insert.
  */
 
+jest.mock("@/lib/cron/outcome", () => ({
+  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+}));
+
 if (typeof (globalThis as any).Response?.json !== "function") {
   (globalThis as any).Response.json = (data: any, init?: ResponseInit) =>
     new Response(JSON.stringify(data), {

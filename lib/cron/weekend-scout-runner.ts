@@ -12,6 +12,7 @@ import {
   type CreateWeekendScoutSnapshotResult,
 } from '@/lib/services/discovery/weekend-scout-snapshots';
 import { selectBeach } from '@/lib/recommendations/selection';
+import { withCronOutcome, type CronOutcomeOptions } from '@/lib/cron/outcome';
 
 const MAX_LOCATION_AGE_MS = 24 * 60 * 60 * 1000;
 const MAX_LOCATION_FUTURE_SKEW_MS = 5 * 60 * 1000;
@@ -183,6 +184,7 @@ function skipKey(
 export async function runWeekendScoutCron(
   request: Request,
   dependencies?: WeekendScoutCronDependencies,
+  outcome?: CronOutcomeOptions<WeekendScoutRunSummary>,
 ): Promise<Response> {
   const startedAt = Date.now();
   const deps = dependencies ?? defaultDependencies(new Date());
@@ -202,11 +204,16 @@ export async function runWeekendScoutCron(
     durationMs: 0,
   };
 
+  const respond = async (value: WeekendScoutRunSummary): Promise<Response> =>
+    createSuccessResponse(
+      outcome ? await withCronOutcome(outcome, async () => value) : value,
+    );
+
   if (process.env.WEEKEND_WINDOW_ENABLED !== 'true') {
     summary.skipped = true;
     summary.reason = 'disabled';
     summary.durationMs = Date.now() - startedAt;
-    return createSuccessResponse(summary);
+    return respond(summary);
   }
 
   try {
@@ -314,7 +321,7 @@ export async function runWeekendScoutCron(
     }
 
     summary.durationMs = Date.now() - startedAt;
-    return createSuccessResponse(summary);
+    return respond(summary);
   } catch (error) {
     return handleApiError(error);
   }
