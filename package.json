@@ -134,6 +134,7 @@
     "seo:backlink-proxy": "node --import tsx scripts/seo/backlink-proxy.ts",
     "seo:outreach-digest": "node --import tsx scripts/seo/outreach-digest.ts",
     "seo:weekly-report": "node --import tsx scripts/seo/weekly-report.ts",
+    "reconcile:revenuecat:report": "node --import tsx scripts/revenuecat-entitlement-reconciliation.ts",
     "seo:recommend": "node --import tsx scripts/seo/recommend.ts",
     "codex:triage-tests": "codex exec \"Analyze failing Playwright tests in @tests and propose a minimal diff; respect existing helpers and fixtures.\"",
     "codex:a11y-pass": "codex exec \"Audit @app and @components for a11y; propose diffs to add labels/roles/keyboard nav, keep public APIs stable.\"",
