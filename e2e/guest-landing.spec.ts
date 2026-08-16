@@ -71,7 +71,7 @@ test.describe('Guest Landing Page', () => {
     ).toBeVisible();
     await expect(walkthrough.getByRole('listitem')).toHaveCount(4);
     await expect(
-      walkthrough.getByAltText(/5:00 PM best window/i),
+      walkthrough.getByTestId('field-guide-walkthrough-video').locator('video'),
     ).toBeVisible();
   });
 

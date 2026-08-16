@@ -1,7 +1,8 @@
-import Image from "next/image";
 import type { ReactElement } from "react";
 
 import { QuiverSticker, ZineSurface } from "@/components/zine";
+
+import { AutoplayVideo } from "./autoplay-video";
 
 interface WalkthroughStep {
   eyebrow: string;
@@ -97,14 +98,16 @@ export function FieldGuideWalkthrough(): ReactElement {
         </ol>
 
         <figure className="notebook mx-auto w-full max-w-[300px] bg-[#FFFDF4] p-4 shadow-[2px_4px_0_rgba(17,16,13,0.18)]">
-          <div className="border-2 border-[#11100D] bg-[#0D1020]">
-            <Image
-              src="/images/app-screenshots/surf-call-720.webp"
-              alt="Quiver surf call for La Jolla Shores showing a 5:00 PM best window and a Worth it recommendation"
-              width={720}
-              height={1564}
-              sizes="(min-width: 1024px) 268px, 80vw"
-              className="h-auto w-full"
+          <div
+            className="relative aspect-[9/16] overflow-hidden border-2 border-[#11100D] bg-[#0D1020]"
+            data-testid="field-guide-walkthrough-video"
+          >
+            <AutoplayVideo
+              src="/videos/buoy-loop.mp4"
+              ariaLabel="Quiver reading swell, wind, and tide for a break"
+              className="h-full w-full object-contain"
+              playLabel="Play loop"
+              playButtonClassName="absolute inset-0 flex items-center justify-center bg-[#F4EBD8]/88 font-heading text-base font-black uppercase text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#F78E42]"
             />
           </div>
           <figcaption className="pt-4">
@@ -112,8 +115,8 @@ export function FieldGuideWalkthrough(): ReactElement {
               Real product proof
             </p>
             <p className="mt-2 font-mono text-sm leading-relaxed text-[#11100D]/80">
-              At La Jolla Shores, the call is concrete: Worth it, with the
-              best window at 5:00 PM.
+              Every spot has a favorite setup. Quiver reads swell, wind, and
+              tide against the break before it makes a call.
             </p>
           </figcaption>
         </figure>
