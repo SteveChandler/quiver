@@ -9,6 +9,8 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+const SENTRY_FLUSH_TIMEOUT_MS = 2000;
+
 export type CronMonitorConfig = {
   /** Unique slug identifying this monitor in Sentry (e.g. "forecast-enhanced-shard-0") */
   slug: string;
@@ -49,18 +51,21 @@ export function startCronCheckIn(config: CronMonitorConfig): string {
 /**
  * Complete a Sentry cron check-in with ok or error status.
  */
-export function completeCronCheckIn(
+export async function completeCronCheckIn(
   checkInId: string,
   slug: string,
-  status: "ok" | "error"
-): void {
+  status: "ok" | "error",
+  durationMs?: number,
+): Promise<void> {
   if (!checkInId) return;
   try {
     Sentry.captureCheckIn({
       checkInId,
       monitorSlug: slug,
       status,
+      ...(durationMs !== undefined ? { duration: durationMs / 1000 } : {}),
     });
+    await Sentry.flush(SENTRY_FLUSH_TIMEOUT_MS);
   } catch (err) {
     if (process.env.NODE_ENV !== "test") {
       console.warn("[Sentry Cron] Failed to complete check-in", slug, status, err);

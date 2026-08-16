@@ -232,7 +232,12 @@ describe("withObservedCron", () => {
     await handler(makeAuthorizedRequest());
 
     expect(startCronCheckIn).toHaveBeenCalledWith(sentryMonitor);
-    expect(completeCronCheckIn).toHaveBeenCalledWith("check-in-1", "test-monitor", "ok");
+    expect(completeCronCheckIn).toHaveBeenCalledWith(
+      "check-in-1",
+      "test-monitor",
+      "ok",
+      expect.any(Number),
+    );
   });
 
   it("records Sentry monitor error check-ins for authorized non-2xx responses", async () => {
@@ -248,7 +253,12 @@ describe("withObservedCron", () => {
     await handler(makeAuthorizedRequest());
 
     expect(startCronCheckIn).toHaveBeenCalledWith(sentryMonitor);
-    expect(completeCronCheckIn).toHaveBeenCalledWith("check-in-1", "test-monitor", "error");
+    expect(completeCronCheckIn).toHaveBeenCalledWith(
+      "check-in-1",
+      "test-monitor",
+      "error",
+      expect.any(Number),
+    );
   });
 
   it("records Sentry monitor error check-ins before rethrowing handler errors", async () => {
@@ -266,7 +276,80 @@ describe("withObservedCron", () => {
 
     await expect(handler(makeAuthorizedRequest())).rejects.toThrow("kaboom");
     expect(startCronCheckIn).toHaveBeenCalledWith(sentryMonitor);
-    expect(completeCronCheckIn).toHaveBeenCalledWith("check-in-1", "test-monitor", "error");
+    expect(completeCronCheckIn).toHaveBeenCalledWith(
+      "check-in-1",
+      "test-monitor",
+      "error",
+      expect.any(Number),
+    );
+  });
+
+  it("does not change the response when Sentry completion fails", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+    (completeCronCheckIn as jest.Mock).mockRejectedValueOnce(new Error("flush failed"));
+
+    const handler = withObservedCron(
+      "/api/cron/test",
+      async (_req: Request) => successEnvelope({ count: 1 }),
+      sentryMonitor,
+    );
+
+    await expect(handler(makeAuthorizedRequest())).resolves.toMatchObject({ status: 200 });
+  });
+
+  it("waits for Sentry completion before resolving the response", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+    let releaseCompletion!: () => void;
+    let signalCompletionStarted!: () => void;
+    const completion = new Promise<void>((resolve) => {
+      releaseCompletion = resolve;
+    });
+    const completionStarted = new Promise<void>((resolve) => {
+      signalCompletionStarted = resolve;
+    });
+    (completeCronCheckIn as jest.Mock).mockImplementationOnce(async () => {
+      signalCompletionStarted();
+      await completion;
+    });
+
+    const handler = withObservedCron(
+      "/api/cron/test",
+      async (_req: Request) => successEnvelope({ count: 1 }),
+      sentryMonitor,
+    );
+    let responseSettled = false;
+    const responsePromise = handler(makeAuthorizedRequest()).then((response) => {
+      responseSettled = true;
+      return response;
+    });
+
+    await completionStarted;
+    await Promise.resolve();
+    expect(responseSettled).toBe(false);
+
+    releaseCompletion();
+    await expect(responsePromise).resolves.toMatchObject({ status: 200 });
+  });
+
+  it("preserves a thrown handler error when Sentry completion fails", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+    (completeCronCheckIn as jest.Mock).mockRejectedValueOnce(new Error("flush failed"));
+
+    const handler = withObservedCron(
+      "/api/cron/test",
+      async (_req: Request) => {
+        throw new Error("handler failed");
+      },
+      sentryMonitor,
+    );
+
+    await expect(handler(makeAuthorizedRequest())).rejects.toThrow("handler failed");
   });
 
   it("extracts 'error: details.error' from createErrorResponse with object details", async () => {

@@ -21,7 +21,6 @@ import {
   startCronCheckIn,
   completeCronCheckIn,
 } from "@/lib/monitoring/sentry-cron";
-import * as Sentry from "@sentry/nextjs";
 
 export const MAX_DURATION_SECONDS = 300;
 const DEFAULT_SAFETY_MARGIN_MS = 20_000;
@@ -157,8 +156,12 @@ export async function runEnhancedForecastSyncCdip(
       mode: "cdip_only",
     });
 
-    completeCronCheckIn(checkInId, monitorSlug, failed > 0 ? "error" : "ok");
-    await Sentry.flush(2000);
+    await completeCronCheckIn(
+      checkInId,
+      monitorSlug,
+      failed > 0 ? "error" : "ok",
+      duration,
+    );
 
     return createSuccessResponse(
       {
@@ -173,8 +176,7 @@ export async function runEnhancedForecastSyncCdip(
     const duration = Date.now() - startTime;
 
     if (checkInId) {
-      completeCronCheckIn(checkInId, monitorSlug, "error");
-      await Sentry.flush(2000);
+      await completeCronCheckIn(checkInId, monitorSlug, "error", duration);
     }
 
     forecastLogger.cronFailed(
@@ -194,7 +196,6 @@ export async function runEnhancedForecastSyncCdip(
     );
   }
 }
-
 export async function runEnhancedForecastSyncCdipHead(
   request: NextRequest
 ): Promise<Response> {
@@ -233,4 +234,3 @@ export async function runEnhancedForecastSyncCdipHead(
     );
   }
 }
-
