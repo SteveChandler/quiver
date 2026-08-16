@@ -1,7 +1,8 @@
-import Image from "next/image";
 import type { ReactElement } from "react";
 
 import { QuiverSticker, ZineSurface } from "@/components/zine";
+
+import { AutoplayVideo } from "./autoplay-video";
 
 interface WalkthroughStep {
   eyebrow: string;
@@ -22,8 +23,8 @@ const STEPS: WalkthroughStep[] = [
   },
   {
     eyebrow: "WHEN TO GO",
-    title: "Get one call for the window.",
-    body: "Swell, wind, tide, and forecast confidence come together in the decision. Quiver surfaces the best window and uses five labels: EPIC, GOOD, FAIR, RIDEABLE, and MEH.",
+    title: "Get the surf window.",
+    body: "Every break has a setup it likes best. Quiver reads swell, wind, tide, and forecast confidence against that one, then calls the window with five labels: EPIC, GOOD, FAIR, RIDEABLE, and MEH.",
   },
   {
     eyebrow: "KEEP LEARNING",
@@ -96,27 +97,20 @@ export function FieldGuideWalkthrough(): ReactElement {
           ))}
         </ol>
 
-        <figure className="notebook mx-auto w-full max-w-[300px] bg-[#FFFDF4] p-4 shadow-[2px_4px_0_rgba(17,16,13,0.18)]">
-          <div className="border-2 border-[#11100D] bg-[#0D1020]">
-            <Image
-              src="/images/app-screenshots/surf-call-720.webp"
-              alt="Quiver surf call for La Jolla Shores showing a 5:00 PM best window and a Worth it recommendation"
-              width={720}
-              height={1564}
-              sizes="(min-width: 1024px) 268px, 80vw"
-              className="h-auto w-full"
+        <div className="relative mx-auto w-full max-w-[300px] -rotate-1 border-2 border-[#11100D] bg-[#11100D] p-2 shadow-[10px_10px_0_rgba(247,142,66,0.42)]">
+          <div
+            className="relative aspect-[9/16] overflow-hidden bg-[#0D1020]"
+            data-testid="field-guide-walkthrough-video"
+          >
+            <AutoplayVideo
+              src="/videos/buoy-loop.mp4"
+              ariaLabel="Quiver reading swell, wind, and tide for a break"
+              className="absolute inset-0 h-full w-full object-cover"
+              playLabel="Play loop"
+              playButtonClassName="absolute inset-0 flex items-center justify-center bg-[#F4EBD8]/88 font-heading text-base font-black uppercase text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#F78E42]"
             />
           </div>
-          <figcaption className="pt-4">
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#0B3A75]">
-              Real product proof
-            </p>
-            <p className="mt-2 font-mono text-sm leading-relaxed text-[#11100D]/80">
-              At La Jolla Shores, the call is concrete: Worth it, with the
-              best window at 5:00 PM.
-            </p>
-          </figcaption>
-        </figure>
+        </div>
       </div>
     </ZineSurface>
   );
