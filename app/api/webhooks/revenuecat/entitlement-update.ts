@@ -1,9 +1,14 @@
-export const PRO_ENTITLEMENT_ID = "Quiver Pro";
+import {
+  isPaidLifetimeProductId,
+  isPromotionalProductId,
+  PROMOTIONAL_PRODUCT_PREFIX,
+} from "@/lib/subscription/revenuecat-products";
+export {
+  isPaidLifetimeProductId,
+  isPromotionalProductId,
+} from "@/lib/subscription/revenuecat-products";
 
-const PROMOTIONAL_PRODUCT_PREFIX = "rc_promo_";
-const PAID_LIFETIME_PRODUCT_IDS = new Set<string>([
-  "app.quiversurf.surf.pro.lifetime",
-]);
+export const PRO_ENTITLEMENT_ID = "Quiver Pro";
 
 export interface RCEvent {
   type: string;
@@ -37,14 +42,6 @@ export interface ExistingEntitlementRow {
   is_trialing?: boolean | null;
   expires_at?: string | null;
   product_id?: string | null;
-}
-
-export function isPromotionalProductId(productId?: string | null): boolean {
-  return Boolean(productId?.startsWith(PROMOTIONAL_PRODUCT_PREFIX));
-}
-
-export function isPaidLifetimeProductId(productId?: string | null): boolean {
-  return Boolean(productId && PAID_LIFETIME_PRODUCT_IDS.has(productId));
 }
 
 function isLifetimeProductId(productId?: string | null): boolean {
