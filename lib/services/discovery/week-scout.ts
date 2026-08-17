@@ -776,7 +776,26 @@ async function generateWeekScoutForecastInternal(
   response = {
     ...response,
     days: response.days.map((day) => {
-      const windows = day.windows.filter((window) => safeWindowIds.has(window.id));
+      // `rankedSpots` was baked into every window by rankDrafts before this
+      // safety filter ran, so dropping a beach's windows here leaves the
+      // survivors pointing at a beach that no longer has one in their bucket.
+      // The major-event-hold adapter treats that dangling reference as a
+      // structurally untrustworthy response and voids the ENTIRE week for every
+      // beach — one held spot took Week Scout dark. Prune the references with
+      // the windows so the survivors stay internally consistent.
+      const kept = day.windows.filter((window) => safeWindowIds.has(window.id));
+      const beachIdsByBucket = new Map<string, Set<string>>();
+      for (const window of kept) {
+        const bucketBeaches = beachIdsByBucket.get(window.bucket) ?? new Set<string>();
+        bucketBeaches.add(window.beachId);
+        beachIdsByBucket.set(window.bucket, bucketBeaches);
+      }
+      const windows = kept.map((window) => ({
+        ...window,
+        rankedSpots: window.rankedSpots.filter((spot) =>
+          beachIdsByBucket.get(window.bucket)?.has(spot.beachId) === true,
+        ),
+      }));
       const bestWindowId = day.bestWindowId && safeWindowIds.has(day.bestWindowId)
         ? day.bestWindowId
         : null;
