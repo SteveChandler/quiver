@@ -20,6 +20,14 @@
 -- prior state is preferable to an unverified edit of mine. They are the
 -- remaining backlog for someone who knows these spots.
 --
+-- Four of the 19 bad corrections are NOT reverted here, because migration
+-- 20260816180000 supersedes them with reviewed shoreline coordinates:
+--   brinley-avenue-bradley-beach-nj, oceano-grover-beach-ca,
+--   point-arena-manchester-beach-ca, publics
+-- supabase db push applies in timestamp order, so 180000 lands before this
+-- file. Reverting them here would undo that fix and restore the original
+-- inland values. 15 are reverted.
+--
 -- The audit rows are marked rather than deleted, so the history stays intact.
 
 BEGIN;
@@ -32,18 +40,14 @@ INSERT INTO _revert_slugs (slug) VALUES
   ('7th-street-beach-ocean-city-nj'),
   ('bandon'),
   ('bolinas-bolinas-ca'),
-  ('brinley-avenue-bradley-beach-nj'),
   ('cannon-beach-ecolaindian'),
   ('doheny'),
   ('higgins-beach-scarborough-me'),
   ('humbug-mountain-port-orford'),
   ('malibu-second-point-malibu-ca'),
   ('newport-56th-st'),
-  ('oceano-grover-beach-ca'),
   ('ocean-shores'),
   ('ogunquit-beach-ogunquit-me'),
-  ('point-arena-manchester-beach-ca'),
-  ('publics'),
   ('westport-beach'),
   ('westport-marinagroinsjetty');
 
