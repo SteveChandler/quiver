@@ -293,22 +293,29 @@ function normalizeManualBacklinkRecord(record: Record<string, unknown>): {
   };
 }
 
+// Exact stems, not substrings: a substring match swallowed AHREFS-ENRICHMENT.json
+// (Ahrefs Site Audit findings) and reported a referring domain named "ahrefs-audit".
+// Non-standard filenames still load via --manual / BACKLINK_MANUAL_EXPORT_PATHS,
+// which bypass this scan entirely.
+const MANUAL_BACKLINK_EXPORT_STEMS = new Set([
+  "ahrefs",
+  "ahrefs-webmaster-tools",
+  "moz",
+  "moz-link-explorer",
+  "link-explorer",
+  "gsc-links",
+  "search-console-links",
+  "google-search-console-links",
+  "manual-backlinks",
+  "backlinks",
+  "referring-domains",
+]);
+
 function isManualBacklinkExportFile(filePath: string): boolean {
   const name = path.basename(filePath).toLowerCase();
-  if (!/\.(csv|json)$/.test(name)) return false;
-  if (name === "backlink-proxy.json") return false;
-  return [
-    "ahrefs",
-    "moz",
-    "link-explorer",
-    "link_explorer",
-    "gsc-links",
-    "search-console-links",
-    "google-search-console-links",
-    "manual-backlinks",
-    "backlinks",
-    "referring-domains",
-  ].some((token) => name.includes(token));
+  const stem = name.match(/^(.+)\.(?:csv|json)$/)?.[1];
+  if (!stem) return false;
+  return MANUAL_BACKLINK_EXPORT_STEMS.has(stem.replace(/_/g, "-"));
 }
 
 function inferManualExportSource(filePath: string): string {

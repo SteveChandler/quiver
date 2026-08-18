@@ -288,8 +288,25 @@ export interface SurfDiscoveryRecommendation {
   window: PersonalizedForecastWindow;
   /** Full forecast data for the window */
   forecast: EnhancedForecastEntity;
-  /** Final match score (0-100) */
+  /**
+   * Surf-condition score for this window (0-100). This is the number surfaces
+   * display, and it shares its semantics with `recommendationLabel` — a high
+   * score and a hedged verdict can no longer disagree.
+   *
+   * Personalization, affinity, distance and break-behavior adjustments are NOT
+   * folded in here. They previously were, and because the sum was clamped at
+   * 100 every decent-conditions spot pinned to exactly 100: the displayed score
+   * stopped discriminating and the ranked list showed ties it did not have.
+   * Those inputs now live in the internal `rankingScore` instead.
+   */
   score: number;
+  /**
+   * Internal, non-saturating ranking value: condition score plus personalization,
+   * affinity, distance and behavior adjustments. Ordering only — never displayed,
+   * and stripped before the API response so it cannot be mistaken for `score`.
+   * Deliberately unclamped so bonuses keep separating spots above 100.
+   */
+  rankingScore?: number;
   /** Match quality category */
   matchQuality: 'perfect' | 'excellent' | 'good' | 'fair' | 'minimal';
   /**

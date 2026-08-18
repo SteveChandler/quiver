@@ -501,8 +501,11 @@ export function ConditionalResource() {
 # CLI
 npx lighthouse https://yoursite.com --view
 
-# CI/CD
-npx @lhci/cli@0.12.x autorun
+# CI/CD -- not a repo dependency, always run via npx
+npx -y @lhci/cli@0.15.1 autorun
+
+# or, from this repo (same pinned version)
+yarn lighthouse:ci
 ```
 
 **2. WebPageTest**
@@ -705,9 +708,13 @@ export default async function Page() {
 
 **Lighthouse**
 
-- CLI: `npx lighthouse <url>`
+- CLI: `npx lighthouse <url>` (`lighthouse` is a devDependency of this repo)
 - Chrome DevTools: Lighthouse tab
-- CI/CD: `@lhci/cli`
+- CI/CD: `@lhci/cli`, pinned to 0.15.1. Deliberately **not** a devDependency
+  here -- its bundled Puppeteer chain pulled a vulnerable `extract-zip` with no
+  patched release (GHSA-jmr9-qjv8-65gv). `.github/workflows/lighthouse-ci.yml`
+  installs it globally, and `yarn lighthouse:ci` runs it via npx. Do not add it
+  back to `package.json`.
 
 **WebPageTest**
 

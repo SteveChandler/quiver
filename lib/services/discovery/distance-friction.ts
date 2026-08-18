@@ -25,16 +25,31 @@ export function calculateDistancePenalty(distanceMiles?: number): number {
   return penalty === 0 ? 0 : -penalty;
 }
 
-export function compareDiscoveryRecommendations(
-  a: Pick<SurfDiscoveryRecommendation, 'score' | 'distanceMiles'>,
-  b: Pick<SurfDiscoveryRecommendation, 'score' | 'distanceMiles'>
+/**
+ * Ordering value: the internal ranking score when present, else the displayed
+ * condition score. `score` is condition-only and clamped at 100, so ranking on
+ * it directly would re-create the artificial ties this split removed.
+ */
+function orderingScore(
+  rec: Pick<SurfDiscoveryRecommendation, 'score' | 'rankingScore'>
 ): number {
+  return typeof rec.rankingScore === 'number' && Number.isFinite(rec.rankingScore)
+    ? rec.rankingScore
+    : rec.score;
+}
+
+export function compareDiscoveryRecommendations(
+  a: Pick<SurfDiscoveryRecommendation, 'score' | 'rankingScore' | 'distanceMiles'>,
+  b: Pick<SurfDiscoveryRecommendation, 'score' | 'rankingScore' | 'distanceMiles'>
+): number {
+  const aScore = orderingScore(a);
+  const bScore = orderingScore(b);
   // Quantize score into bands of width DISTANCE_TIE_BREAKER_POINTS so that
   // "within N points" is an equivalence class on each item (transitive),
   // then break ties by distance. Comparing raw a.score-b.score for the
   // tie decision is non-transitive and violates Array.sort's contract.
-  const bandA = Math.floor(a.score / DISTANCE_TIE_BREAKER_POINTS);
-  const bandB = Math.floor(b.score / DISTANCE_TIE_BREAKER_POINTS);
+  const bandA = Math.floor(aScore / DISTANCE_TIE_BREAKER_POINTS);
+  const bandB = Math.floor(bScore / DISTANCE_TIE_BREAKER_POINTS);
   if (bandA !== bandB) {
     return bandB - bandA; // higher score band first
   }
@@ -51,5 +66,5 @@ export function compareDiscoveryRecommendations(
     return distanceDelta;
   }
 
-  return b.score - a.score; // final stable tiebreak: exact score
+  return bScore - aScore; // final stable tiebreak: exact ranking score
 }

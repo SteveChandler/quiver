@@ -6,10 +6,27 @@
  * catch this — only clicking through and confirming the destination loads does.
  */
 import { expect, test } from "@playwright/test";
+import {
+  assertNoErrors,
+  type ErrorCapture,
+  setupErrorDetection,
+} from "./utils/error-detection";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe("Guest landing → /download CTA", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, {
+      context: "Guest landing to download CTA",
+    });
+  });
+
   test("the landing 'Get the app' CTA navigates to a working /download page @smoke", async ({
     page,
   }) => {
@@ -22,7 +39,10 @@ test.describe("Guest landing → /download CTA", () => {
 
     await cta.click();
 
-    await page.waitForURL(/\/download/, { timeout: 15000 });
+    await page.waitForURL(/\/download/, {
+      timeout: 15000,
+      waitUntil: "domcontentloaded",
+    });
     await expect(page.getByTestId("download-view")).toBeVisible();
   });
 });

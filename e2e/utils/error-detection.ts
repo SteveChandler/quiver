@@ -569,16 +569,15 @@ function isLocalhostUrl(url: string): boolean {
 }
 
 function isPlaceholderImageProxyFailure(url: string, status: number): boolean {
-  // 424 Failed Dependency is what `/api/image-proxy` returns when the upstream
-  // (Openverse, Surfline, placehold.co, etc.) fails — same graceful-degradation
-  // class as 400/403, just a different status code from upstream.
-  if (status !== 400 && status !== 403 && status !== 424) return false;
+  // External images are optional. Validation errors, failed dependencies, and
+  // upstream timeouts all fall back to the product's placeholder treatment.
+  if (status !== 400 && status !== 403 && status !== 424 && status !== 504) return false;
 
   const isNextImageOptimizer = url.includes('/_next/image?');
   const isImageProxyWrapped =
     url.includes('/api/image-proxy') || url.includes('api%2Fimage-proxy');
 
-  // Ignore ALL image proxy failures (400/403) since they don't affect core functionality
+  // Ignore image proxy failures since they don't affect core functionality.
   // This includes:
   // - Placeholder images (placehold.co)
   // - External images that may be unavailable (Surfline, etc.)
