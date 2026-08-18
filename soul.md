@@ -173,6 +173,8 @@ Behavior changes require corresponding test review and, where needed, test updat
 - Run `yarn deadcode` when adding or removing components, hooks, libraries, or CLI entry points, and do not introduce new unused files or exports.
 - Prefer stable user-facing selectors, explicit waits tied to real state, isolated test data, and assertions that fail when behavior breaks.
 - Diagnose failures as product bugs, test bugs, timing issues, missing setup, or environment problems. Fix actionable failures and rerun the focused check.
+- E2E specs must call `setupErrorDetection(page)` in `beforeEach` and `assertNoErrors(page, errorCapture)` in `afterEach`, assert real HTTP status codes (400/401/403/404/405), and treat a 500 as a bug. Use `throw new Error('Not implemented: <reason>')` rather than `test.skip()`, and annotate any `waitForTimeout` with an eslint-disable and a reason.
+- Define the target pattern for SEO and metadata work before editing `lib/seo/meta.ts` or related files. No trial-and-error across commits.
 - Do not add wall-clock micro-benchmarks that are expected to be stable on shared CI.
 - CI configuration and current CI results are authoritative; do not rely on a dated documentation claim about whether a workflow is active or green.
 
