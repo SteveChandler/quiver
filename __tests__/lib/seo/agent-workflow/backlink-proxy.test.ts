@@ -132,4 +132,40 @@ describe("SEO workflow backlink proxy", () => {
       { domain: "tourism.example", links: 1, domainRating: 72 },
     ]);
   });
+
+  it("ignores audit-tool output that merely mentions a backlink vendor", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "quiver-backlinks-"));
+    const exportPath = path.join(directory, "AHREFS-WEBMASTER-TOOLS.csv");
+    fs.writeFileSync(exportPath, [
+      "Referring page URL,Target URL,Dofollow Links",
+      "https://surf-school.example/blog,https://www.quiversurf.app/map,1",
+    ].join("\n"));
+
+    // Ahrefs Site Audit findings, not a backlink index. Previously matched on the
+    // "ahrefs" substring and reported a referring domain named "ahrefs-audit".
+    fs.writeFileSync(path.join(directory, "AHREFS-ENRICHMENT.json"), JSON.stringify([
+      { id: "ahrefs-external-timeout", source: "ahrefs-audit", priority: "medium" },
+    ]));
+    fs.writeFileSync(path.join(directory, "AHREFS-SCREENSHOT-INPUT.json"), "[]");
+    fs.writeFileSync(path.join(directory, "BACKLINK-PROXY.json"), "[]");
+
+    expect(discoverManualBacklinkExportFiles([directory])).toEqual([exportPath]);
+  });
+
+  it("still discovers underscored variants of documented export filenames", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "quiver-backlinks-"));
+    const exportPath = path.join(directory, "GSC_LINKS.csv");
+    fs.writeFileSync(exportPath, "Source URL,Target URL\nhttps://a.example,https://www.quiversurf.app/");
+
+    expect(discoverManualBacklinkExportFiles([directory])).toEqual([exportPath]);
+  });
+
+  it("loads non-standard filenames passed explicitly", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "quiver-backlinks-"));
+    const oddPath = path.join(directory, "partner-link-dump.csv");
+    fs.writeFileSync(oddPath, "Source URL,Target URL\nhttps://a.example,https://www.quiversurf.app/");
+
+    expect(discoverManualBacklinkExportFiles([directory])).toEqual([]);
+    expect(discoverManualBacklinkExportFiles([directory], [oddPath])).toEqual([oddPath]);
+  });
 });
