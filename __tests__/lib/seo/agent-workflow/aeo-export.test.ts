@@ -1,7 +1,9 @@
 import {
+  discoverLatestAeoCitationReport,
   extractAhrefsAeoSummary,
   extractAiReferrers,
   inspectLlmsFiles,
+  isVoidAeoCitationReport,
   parseAeoCitationReport,
 } from "@/lib/seo/agent-workflow/aeo-export";
 import fs from "node:fs";
@@ -64,6 +66,31 @@ describe("SEO workflow AEO export", () => {
       expect.objectContaining({ path: llmsPath, exists: true, lines: 2 }),
       expect.objectContaining({ exists: false, lines: 0, bytes: 0 }),
     ]);
+  });
+
+  it("skips void citation reports when discovering the latest baseline", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "aeo-citation-"));
+    fs.writeFileSync(
+      path.join(dir, "2026-07-27.md"),
+      "# AEO Citation Tracking — 2026-07-27\n\n| Segment | Cited | Total | Rate |\n|---|---:|---:|---:|\n| All queries | 8 | 30 | 26.7% |\n",
+    );
+    fs.writeFileSync(
+      path.join(dir, "2026-08-17.md"),
+      "# AEO Citation Tracking — 2026-08-17 (VOID)\n\nRate could not be reproduced.\n",
+    );
+
+    expect(discoverLatestAeoCitationReport(dir)).toBe(path.join(dir, "2026-07-27.md"));
+  });
+
+  it("treats a Status: void line as void", () => {
+    expect(isVoidAeoCitationReport("# AEO Citation Tracking — 2026-08-17\n\nStatus: void\n")).toBe(true);
+    expect(isVoidAeoCitationReport("# AEO Citation Tracking — 2026-08-18\n\nStatus: complete\n")).toBe(false);
+  });
+
+  it("returns null when every report is void", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "aeo-citation-void-"));
+    fs.writeFileSync(path.join(dir, "2026-08-17.md"), "# AEO Citation Tracking — 2026-08-17 (VOID)\n");
+    expect(discoverLatestAeoCitationReport(dir)).toBeNull();
   });
 
   it("parses the citation baseline table from an aeo-citation-tracking report", () => {

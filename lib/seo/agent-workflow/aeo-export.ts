@@ -99,13 +99,34 @@ export function inspectLlmsFiles(paths: string[]): AeoCitationInput["llmsFiles"]
   });
 }
 
+/**
+ * A run whose method could not be reproduced is marked void rather than deleted,
+ * so the evidence survives. Voiding is opt-in text in the report itself: a `(VOID)`
+ * heading or a `Status: void` line, per `docs/seo/AEO_CITATION_AUDIT.md`.
+ */
+export function isVoidAeoCitationReport(markdown: string): boolean {
+  if (/^#.*\(VOID\)/im.test(markdown)) return true;
+  const status = markdown.match(/^Status:\s*(.+)$/im)?.[1]?.trim();
+  return status ? /^voids?$/i.test(status) : false;
+}
+
+/**
+ * Newest non-void report. A void run must not become the weekly report's
+ * baseline: folding an unreproducible rate into the AEO section is worse than
+ * reporting the older number, because it publishes a method change as a trend.
+ */
 export function discoverLatestAeoCitationReport(dir: string): string | null {
   if (!fs.existsSync(dir)) return null;
   const files = fs.readdirSync(dir)
     .filter((name) => /^\d{4}-\d{2}-\d{2}\.md$/.test(name))
     .sort();
-  const last = files.at(-1);
-  return last ? path.join(dir, last) : null;
+
+  for (let index = files.length - 1; index >= 0; index -= 1) {
+    const candidate = path.join(dir, files[index]);
+    if (!isVoidAeoCitationReport(fs.readFileSync(candidate, "utf8"))) return candidate;
+  }
+
+  return null;
 }
 
 export function parseAeoCitationReport(
