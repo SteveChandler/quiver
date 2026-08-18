@@ -4,6 +4,20 @@ import type { ForecastRecommendationContext } from "@/lib/services/forecast-reco
 import { formatBeachDateTime, formatTimeInTimezone } from "@/lib/utils/date-time";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
 
+// Same contrast-checked verdict palette the in-tab surf call uses on tan paper.
+const VERDICT_COLOR: Record<string, string> = {
+  YES: "#006B5F",
+  MAYBE: "#B47A0F",
+  NO: "#5C5A57",
+};
+
+const DECK_LABEL =
+  "font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#0B3A75]";
+const DECK_VALUE =
+  "mt-0.5 font-[var(--font-zine-display)] text-3xl leading-none text-[#11100D] sm:text-4xl";
+const STRIP_LABEL =
+  "font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#11100D]";
+
 interface PublicForecastAnswerProps {
   beach: Beach;
   report: SurfCallResult | null;
@@ -124,57 +138,132 @@ export function PublicForecastAnswer({
     : null;
   const HeadingTag = headingLevel;
   const hasForecastDetails = Boolean(context?.selectedRowTime && waveHeight);
+  const provenance = [
+    validAt ? `Valid ${validAt} ${timezone}` : null,
+    sourceUpdatedAt ? `Source updated ${sourceUpdatedAt}` : null,
+    computedAt ? `Computed ${computedAt}` : null,
+    context?.contributingSources?.length
+      ? context.contributingSources.map(sourceLabel).join(", ")
+      : null,
+  ].filter(Boolean) as string[];
 
   return (
     <section
       aria-labelledby="public-forecast-answer-heading"
       data-testid="public-forecast-answer"
-      className="mx-auto max-w-5xl px-4 pt-6 sm:px-6 lg:px-8"
+      className="border-t-2 border-dashed border-[#0B3A75]/30 pt-5"
     >
-      <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          {isTomorrow ? "Tomorrow's surf forecast" : "Surf forecast"}
-        </p>
-        <HeadingTag id="public-forecast-answer-heading" className="mt-2 text-xl font-semibold text-foreground">
+      {/* Sits directly under the hero's beach name, so this is a label line,
+          not a second display headline. The full "<Beach> Surf Forecast" string
+          stays intact for the H1 contract; only its weight comes down. */}
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <HeadingTag
+          id="public-forecast-answer-heading"
+          className="max-w-xl font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#0B3A75]"
+        >
           {beach.name} Surf Forecast{titleDate}
         </HeadingTag>
-
-        {hasForecastDetails ? (
-          <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-            {waveHeight && <div><dt className="font-medium text-muted-foreground">Surf</dt><dd>{waveHeight}</dd></div>}
-            {bestWindow && <div><dt className="font-medium text-muted-foreground">Best window</dt><dd>{bestWindow}</dd></div>}
-            {report?.verdict && <div><dt className="font-medium text-muted-foreground">Verdict</dt><dd>{report.verdict}</dd></div>}
-            {report?.score != null && <div><dt className="font-medium text-muted-foreground">Score</dt><dd>{report.score}/100</dd></div>}
-            {report?.forecastConfidence != null && <div><dt className="font-medium text-muted-foreground">Confidence</dt><dd>{report.forecastConfidence}/100</dd></div>}
-            {primarySwell && <div><dt className="font-medium text-muted-foreground">Primary swell</dt><dd>{primarySwell}</dd></div>}
-            {secondarySwell && <div><dt className="font-medium text-muted-foreground">Secondary swell</dt><dd>{secondarySwell}</dd></div>}
-            {wind && <div><dt className="font-medium text-muted-foreground">Wind</dt><dd>{wind}</dd></div>}
-            {tide && <div><dt className="font-medium text-muted-foreground">Tide</dt><dd>{tide}</dd></div>}
-          </dl>
-        ) : (
-          <p className="mt-4 text-sm leading-6 text-muted-foreground">
-            Current forecast details are temporarily unavailable. Check back for the next Quiver surf call and hourly conditions.
-          </p>
+        {/* The date alone does not read as "not today" at a glance. */}
+        {isTomorrow && (
+          <span className="border border-[#11100D] px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#11100D]">
+            Tomorrow
+          </span>
         )}
-
-        {report?.whySentence && (
-          <p className="mt-5 text-sm leading-6 text-foreground">
-            <strong>Why:</strong> {report.whySentence}
-          </p>
-        )}
-
-        {(validAt || sourceUpdatedAt || computedAt) && <div className="mt-5 border-t border-border/60 pt-3 text-xs leading-5 text-muted-foreground">
-          {validAt && <p>
-            Forecast valid at {validAt} ({timezone}).
-            {isStale ? " Source data is stale; conditions may have changed." : ""}
-          </p>}
-          {sourceUpdatedAt && <p>Source data updated: {sourceUpdatedAt}.</p>}
-          {computedAt && <p>Quiver computed this answer: {computedAt}.</p>}
-          {context?.contributingSources && context.contributingSources.length > 0 && (
-            <p>Contributing sources: {context.contributingSources.map(sourceLabel).join(", ")}.</p>
-          )}
-        </div>}
       </div>
+
+      {hasForecastDetails ? (
+        <dl className="mt-4">
+          {/* Deck: the answer itself, sized to win the squint test. */}
+          <div className="flex flex-wrap items-baseline gap-x-7 gap-y-3">
+            {waveHeight && (
+              <div>
+                <dt className={DECK_LABEL}>Surf</dt>
+                <dd className={DECK_VALUE}>{waveHeight}</dd>
+              </div>
+            )}
+            {report?.verdict && (
+              <div>
+                <dt className={DECK_LABEL}>Verdict</dt>
+                <dd className={DECK_VALUE} style={{ color: VERDICT_COLOR[report.verdict] }}>
+                  {report.verdict}
+                </dd>
+              </div>
+            )}
+            {bestWindow && (
+              <div>
+                <dt className={DECK_LABEL}>Best window</dt>
+                <dd className="mt-0.5 font-mono text-lg font-bold leading-none text-[#11100D] sm:text-xl">
+                  {bestWindow}
+                </dd>
+              </div>
+            )}
+          </div>
+
+          {/* Matches the bordered fact boxes used across the zine tabs:
+              rounded-[8px] + 2px ink border + hard offset shadow. The
+              .condition-strip class draws a 1px inset instead, which read as a
+              flat unoutlined panel next to them. */}
+          <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-[8px] border-2 border-[#11100D] bg-[#11100D] shadow-[3px_3px_0_#11100D] sm:grid-cols-4">
+            {[
+              { label: "Primary swell", value: primarySwell },
+              { label: "Wind", value: wind },
+              { label: "Tide", value: tide },
+              {
+                label: "Confidence",
+                value:
+                  report?.forecastConfidence != null
+                    ? `${report.forecastConfidence}/100`
+                    : null,
+              },
+            ]
+              .filter((cell) => cell.value)
+              .map((cell) => (
+                <div key={cell.label} className="min-w-0 bg-[#EFE5CF] px-4 py-3">
+                  <dt className={STRIP_LABEL}>{cell.label}</dt>
+                  <dd className="mt-1 font-[var(--font-zine-display)] text-xl leading-tight text-[#11100D] sm:text-2xl">
+                    {cell.value}
+                  </dd>
+                </div>
+              ))}
+          </div>
+
+          {(secondarySwell || report?.score != null) && (
+            <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 font-mono text-xs text-[#11100D]/75">
+              {secondarySwell && (
+                <div className="flex gap-1.5">
+                  <dt className="font-bold uppercase tracking-[0.14em]">Secondary swell</dt>
+                  <dd>{secondarySwell}</dd>
+                </div>
+              )}
+              {report?.score != null && (
+                <div className="flex gap-1.5">
+                  <dt className="font-bold uppercase tracking-[0.14em]">Score</dt>
+                  <dd>{report.score}/100</dd>
+                </div>
+              )}
+            </div>
+          )}
+        </dl>
+      ) : (
+        <p className="mt-4 font-mono text-sm leading-6 text-[#11100D]/75">
+          Current forecast details are temporarily unavailable. Check back for the next Quiver surf call and hourly conditions.
+        </p>
+      )}
+
+      {report?.whySentence && (
+        <p className="mt-5 max-w-2xl font-mono text-sm leading-6 text-[#11100D]">
+          <strong className="font-bold">Why:</strong> {report.whySentence}
+        </p>
+      )}
+
+      {/* One provenance line, not four. Every fact a crawler needs is still
+          here; it just no longer reads as a paragraph of boilerplate. */}
+      {provenance.length > 0 && (
+        <p className="mt-4 font-mono text-[11px] leading-5 text-[#11100D]/55">
+          {provenance.join(" · ")}
+          {isStale ? " · Source data is stale; conditions may have changed." : ""}
+        </p>
+      )}
     </section>
   );
 }

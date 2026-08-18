@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# --- guardrails-managed ---
+# Detective only. Never blocks, never fails a commit.
+[ -x "/Users/stevenchandler/Desktop/dev/guardrails/guardctl" ] && "/Users/stevenchandler/Desktop/dev/guardrails/guardctl" postcommit --repo "quiver" || true

@@ -64,7 +64,7 @@ describe("PublicForecastAnswer", () => {
     );
 
     expect(screen.getByTestId("public-forecast-answer")).toBeInTheDocument();
-    expect(screen.getByText("Tomorrow's surf forecast")).toBeInTheDocument();
+    expect(screen.getByText("Tomorrow")).toBeInTheDocument();
     expect(screen.getByText(/Oceanside Harbor Surf Forecast for/)).toBeInTheDocument();
     expect(screen.getByText("2-3 ft")).toBeInTheDocument();
     expect(screen.getByText(/NOAA NWS, NOAA CO-OPS/)).toBeInTheDocument();

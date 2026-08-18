@@ -14,6 +14,7 @@ interface ZinePageShellProps {
   beachPhoto?: ZineBeachPhoto | null;
   sources?: BeachSources | null;
   heroHeadingLevel?: ZineHeroHeadingLevel;
+  heroForecastSlot?: ReactNode;
   /**
    * The tabs container is rendered here so the cream-paper styling wraps
    * the tabs row and tab content. Sits between the hero and the footer.
@@ -31,6 +32,7 @@ export function ZinePageShell({
   beachPhoto,
   sources,
   heroHeadingLevel,
+  heroForecastSlot,
   children,
 }: ZinePageShellProps) {
   return (
@@ -47,6 +49,7 @@ export function ZinePageShell({
             beachPhoto={beachPhoto}
             sources={sources}
             headingLevel={heroHeadingLevel}
+            forecastSlot={heroForecastSlot}
           />
 
           {/* Integrated tabs row + per-tab content lives inside the cream paper */}

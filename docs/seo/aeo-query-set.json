@@ -1,8 +1,10 @@
 {
   "version": 1,
-  "description": "Canonical AEO citation audit query set (30 queries: 20 informational + 10 product/brand). Used by the live 30-query AEO audit. Keep stable so citation rate is comparable week over week; append new queries rather than replacing existing ones.",
+  "description": "Canonical AEO citation audit query set (30 queries: 20 informational + 10 product/brand). Used by the live 30-query AEO audit. Keep stable so citation rate is comparable week over week; append new queries rather than replacing existing ones. Citation matching is host-based against brandDomains; the bare token \"quiver\" was removed 2026-08-18 because it matched unrelated hosts and inflated the 2026-08-17 run.",
   "site": "quiversurf.app",
-  "brandDomains": ["quiversurf.app", "quiver"],
+  "brandDomains": [
+    "quiversurf.app"
+  ],
   "segments": {
     "informational": [
       "best tide for surfing",

@@ -40,12 +40,31 @@ const VIEW_EVENT = "beach_view";
 const ABANDON_EVENT = "session_log_abandon";
 const SEARCH_EVENT = "beach_search";
 const NATIVE_NO_RESULTS_EVENT = "session_spot_search_no_results";
+/**
+ * Personalization reads these four. The fetch below deliberately does NOT filter
+ * to them: a native user can fire fifty events without touching any of these and
+ * would then read as "no activity", which is false and produces the wrong email.
+ * `activity` carries the whole stream so version D means the account really was
+ * silent. Kept exported-shaped for the routine's own reference.
+ */
 const ACTIVITY_EVENT_TYPES = [
   VIEW_EVENT,
   ABANDON_EVENT,
   SEARCH_EVENT,
   NATIVE_NO_RESULTS_EVENT,
 ] as const;
+
+/** Signals worth naming when deciding whether a quiet account hit a wall. */
+const FRICTION_EVENT_TYPES = [
+  "session_log_validation_failed",
+  "auth_failed",
+  "auth_modal_closed_without_action",
+  "client_error",
+  "empty_state_shown",
+  "paywall_opened",
+  "map_load_failed",
+  "custom_spot_failed",
+];
 
 type BeachRef = {
   id: string;
@@ -68,6 +87,16 @@ type ZeroResultSearch = {
   lastSearchedAt: string;
 };
 
+type ActivitySummary = {
+  eventCount: number;
+  platform: "native" | "web" | "native + web" | "none";
+  firstEventAt: string | null;
+  lastEventAt: string | null;
+  spanMinutes: number | null;
+  topEvents: Array<{ eventType: string; count: number }>;
+  frictionEvents: Array<{ eventType: string; count: number }>;
+};
+
 type NewUser = {
   email: string;
   greeting: string | null;
@@ -78,6 +107,7 @@ type NewUser = {
   latestAbandonedSession: AbandonedSession | null;
   completedSessionCount: number;
   zeroResultSearch: ZeroResultSearch | null;
+  activity: ActivitySummary;
 };
 
 type ProfileRow = {
@@ -155,7 +185,6 @@ async function fetchActivityEvents(
         .from("user_events")
         .select("user_id, event_type, beach_id, metadata, created_at")
         .in("user_id", ids)
-        .in("event_type", [...ACTIVITY_EVENT_TYPES])
         .gte("created_at", cutoffIso)
         // Excludes traffic tagged by the bot-ingest filter; NULL stays included.
         .not("bot_flagged", "is", true)
@@ -310,6 +339,55 @@ function toZeroResultSearch(events: EventRow[]): ZeroResultSearch | null {
   return { count: empty.length, lastSearchedAt };
 }
 
+/**
+ * Native builds stamp `app_build` / Expo launch keys into metadata; web does not.
+ * `user_events` has no platform column, so this is a heuristic, not a fact.
+ */
+function toActivitySummary(events: EventRow[]): ActivitySummary {
+  if (events.length === 0) {
+    return {
+      eventCount: 0,
+      platform: "none",
+      firstEventAt: null,
+      lastEventAt: null,
+      spanMinutes: null,
+      topEvents: [],
+      frictionEvents: [],
+    };
+  }
+
+  let native = 0;
+  let web = 0;
+  const perType = new Map<string, number>();
+  for (const event of events) {
+    const metadata = asRecord(event.metadata);
+    if ("app_build" in metadata || "expo_is_emergency_launch" in metadata) native += 1;
+    else web += 1;
+    perType.set(event.event_type, (perType.get(event.event_type) ?? 0) + 1);
+  }
+
+  const sorted = [...events].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const firstEventAt = sorted[0].created_at;
+  const lastEventAt = sorted[sorted.length - 1].created_at;
+
+  const rank = (entries: Iterable<[string, number]>) =>
+    [...entries]
+      .sort((a, b) => b[1] - a[1])
+      .map(([eventType, count]) => ({ eventType, count }));
+
+  return {
+    eventCount: events.length,
+    platform: native > 0 && web > 0 ? "native + web" : native > 0 ? "native" : "web",
+    firstEventAt,
+    lastEventAt,
+    spanMinutes: Math.round((Date.parse(lastEventAt) - Date.parse(firstEventAt)) / 60000),
+    topEvents: rank(perType).slice(0, 5),
+    frictionEvents: rank(
+      [...perType].filter(([eventType]) => FRICTION_EVENT_TYPES.includes(eventType))
+    ),
+  };
+}
+
 async function main(): Promise<void> {
   const supabase = createClient(SUPABASE_URL!, SERVICE_ROLE_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -385,6 +463,7 @@ async function main(): Promise<void> {
       ),
       completedSessionCount: userSessions.length,
       zeroResultSearch: toZeroResultSearch(userEvents),
+      activity: toActivitySummary(userEvents),
     };
   });
 

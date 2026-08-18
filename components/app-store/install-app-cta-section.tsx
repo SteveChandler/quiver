@@ -58,7 +58,7 @@ export function InstallAppCtaSection({
   return (
     <section
       aria-label="Get the Quiver app"
-      className="install-cta mx-auto my-8 max-w-2xl -rotate-1 rounded-lg rounded-tr-3xl border-2 border-[#11100D] bg-[#F4EBD8] p-5 shadow-[4px_5px_0_rgba(17,16,13,0.85)] md:rotate-0"
+      className="install-cta my-8 w-full -rotate-1 rounded-lg rounded-tr-3xl border-2 border-[#11100D] bg-[#F4EBD8] p-5 shadow-[4px_5px_0_rgba(17,16,13,0.85)] md:rotate-0"
     >
       {beachName ? (
         <p className="install-cta-eyebrow truncate font-sans text-[11px] font-semibold tracking-wide text-[#11100D]/65 uppercase">

@@ -64,75 +64,86 @@ export function PublicForecastHourly({
   const timezone = context?.timezone ?? "UTC";
   const dayLabel = forecastDay === "tomorrow" ? "Tomorrow" : "Today";
 
+  // Renders inside ZinePageShell's paper, so it carries no surface of its own —
+  // a sheet inside a sheet is the card-in-card the page reads as foreign.
+  // Column vocabulary matches DetailedForecastTable in the Forecast tab.
   return (
     <section
       aria-labelledby="public-forecast-hourly-heading"
       data-testid="public-forecast-hourly"
-      className="mx-auto max-w-5xl px-4 pt-5 sm:px-6 lg:px-8"
+      className="mt-6 border-t-2 border-dashed border-[#0B3A75]/35 pt-5"
     >
-      <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          {dayLabel} by time
-        </p>
-        <h2
-          id="public-forecast-hourly-heading"
-          className="mt-2 text-xl font-semibold text-foreground"
-        >
-          {beachName} Hourly Surf Forecast
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Forecast times are shown in {timezone}.
-        </p>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-left text-sm">
-            <caption className="sr-only">
-              {beachName} {dayLabel.toLowerCase()} hourly surf forecast with
-              surf height, Quiver recommendation, swell, wind, tide, and confidence.
-            </caption>
-            <thead>
-              <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
-                <th scope="col" className="px-3 py-2 font-medium">Time</th>
-                <th scope="col" className="px-3 py-2 font-medium">Surf height</th>
-                <th scope="col" className="px-3 py-2 font-medium">Quiver recommendation</th>
-                <th scope="col" className="px-3 py-2 font-medium">Swell</th>
-                <th scope="col" className="px-3 py-2 font-medium">Wind</th>
-                <th scope="col" className="px-3 py-2 font-medium">Tide</th>
-                <th scope="col" className="px-3 py-2 font-medium">Confidence</th>
-              </tr>
-            </thead>
-            <tbody>
-              {forecastHours.map((hour) => {
-                const inCallWindow =
-                  forecastDay === (isTomorrow ? "tomorrow" : "today") &&
-                  isWithinCallWindow(hour.forecast_at, report, context);
+      <p className="typewriter font-bold text-[#0B3A75]">{dayLabel} by time</p>
+      <h2
+        id="public-forecast-hourly-heading"
+        className="mt-1.5 font-[var(--font-zine-display)] text-2xl uppercase leading-[1.05] text-[#11100D] sm:text-3xl"
+      >
+        {beachName} Hourly Surf Forecast
+      </h2>
+      <p className="mt-2 font-mono text-xs text-[#11100D]/70">
+        Times shown in {timezone}.
+      </p>
+      <div className="mt-5 overflow-x-auto">
+        <table className="w-full min-w-[720px] border-collapse text-left font-mono text-sm text-[#11100D]">
+          <caption className="sr-only">
+            {beachName} {dayLabel.toLowerCase()} hourly surf forecast with surf
+            height, the Quiver call, swell, wind, tide, and confidence.
+          </caption>
+          <thead>
+            <tr className="border-b-2 border-[#11100D]">
+              {["Time", "Surf", "Quiver call", "Swell", "Wind", "Tide", "Confidence"].map((label) => (
+                <th
+                  key={label}
+                  scope="col"
+                  className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#0B3A75]"
+                >
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {forecastHours.map((hour) => {
+              const inCallWindow =
+                forecastDay === (isTomorrow ? "tomorrow" : "today") &&
+                isWithinCallWindow(hour.forecast_at, report, context);
 
-                return (
-                  <tr
-                    key={hour.forecast_at}
-                    data-testid="public-forecast-hour"
-                    className="border-b border-border/60 last:border-0"
-                  >
-                    <th scope="row" className="whitespace-nowrap px-3 py-3 font-medium text-foreground">
-                      {formatTimeInTimezone(hour.forecast_at, timezone)}
-                    </th>
-                    <td className="px-3 py-3">{hour.wave_height || "—"}</td>
-                    <td className="px-3 py-3">
-                      {inCallWindow ? "Best window" : "—"}
-                    </td>
-                    <td className="px-3 py-3">{swellLabel(hour)}</td>
-                    <td className="px-3 py-3">{join([hour.wind_speed, hour.wind_direction])}</td>
-                    <td className="px-3 py-3">{join([hour.tide_height, hour.tide_status], " · ")}</td>
-                    <td className="px-3 py-3">
-                      {hour.confidence_score == null
-                        ? "—"
-                        : `${Math.round(hour.confidence_score)}%`}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+              return (
+                <tr
+                  key={hour.forecast_at}
+                  data-testid="public-forecast-hour"
+                  className={`border-b border-dashed border-[#0B3A75]/25 last:border-0${
+                    inCallWindow ? " bg-[#F7E7BE]" : ""
+                  }`}
+                >
+                  <th scope="row" className="whitespace-nowrap px-3 py-2.5 text-left font-bold">
+                    {formatTimeInTimezone(hour.forecast_at, timezone)}
+                  </th>
+                  <td className="px-3 py-2.5 font-[var(--font-zine-display)] text-base leading-none">
+                    {hour.wave_height || "—"}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {inCallWindow ? (
+                      <span className="inline-block -rotate-1 border-2 border-[#11100D] bg-[#F78E42] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#11100D]">
+                        Best window
+                      </span>
+                    ) : (
+                      <span className="text-[#11100D]/30">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5">{swellLabel(hour)}</td>
+                  <td className="px-3 py-2.5">{join([hour.wind_speed, hour.wind_direction])}</td>
+                  <td className="px-3 py-2.5">{join([hour.tide_height, hour.tide_status], " · ")}</td>
+                  <td className="px-3 py-2.5">
+                    {hour.confidence_score == null
+                      ? "—"
+                      : `${Math.round(hour.confidence_score)}%`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </section>
   );
