@@ -82,6 +82,12 @@ export function getWetsuitRecommendation(tempF: number): WetsuitRecommendation {
 }
 
 /**
+ * Upper bound for a believable sea-surface reading. Warmest open ocean on record
+ * is in the mid-90s F; anything above this is a unit error or a sentinel value.
+ */
+const MAX_PLAUSIBLE_WATER_TEMP_F = 100;
+
+/**
  * Parse water temperature from various string formats
  *
  * Handles formats like:
@@ -106,8 +112,11 @@ export function parseWaterTempF(raw: string | null | undefined): number | null {
     return null;
   }
 
-  // Sanity check: water temps should be between 30-90°F
-  if (parsed < 30 || parsed > 90) {
+  // Sanity check catches unit errors and sentinels, not warm water. The old 90°F
+  // ceiling rejected real Gulf Coast summer readings (91-92°F observed at 10 TX
+  // and FL beaches), which made their water-temp pages flap in and out of
+  // noindex as the latest forecast row crossed the bound.
+  if (parsed < 30 || parsed > MAX_PLAUSIBLE_WATER_TEMP_F) {
     return null;
   }
 

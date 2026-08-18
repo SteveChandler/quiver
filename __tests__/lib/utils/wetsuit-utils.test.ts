@@ -141,8 +141,15 @@ describe("parseWaterTempF", () => {
       expect(parseWaterTempF("20°F")).toBeNull();
     });
 
-    it("returns null for temperature above 90°F (sanity check)", () => {
-      expect(parseWaterTempF("95°F")).toBeNull();
+    it("returns null for temperature above 100°F (sanity check)", () => {
+      expect(parseWaterTempF("120°F")).toBeNull();
+    });
+
+    it("accepts real Gulf Coast summer readings above 90°F", () => {
+      // Observed at 10 TX and FL beaches in Aug 2026; the old 90°F ceiling
+      // rejected these and flapped their water-temp pages into noindex.
+      expect(parseWaterTempF("91°F")).toBe(91);
+      expect(parseWaterTempF("92°F")).toBe(92);
     });
   });
 });
