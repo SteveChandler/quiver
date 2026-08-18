@@ -1,6 +1,6 @@
 # SEO Outreach Tracker
 
-Last updated: 2026-03-30
+Last updated: 2026-08-17
 
 ## How This File Works
 
@@ -65,9 +65,9 @@ wrap it in a `google.com/url` redirect before the recipient sees the live widget
 ### California
 | Target | Website | Beach slug (verified 200) | Contact channel (verified) | Status | Date | Notes |
 |--------|---------|---------------------------|----------------------------|--------|------|-------|
-| Surf Diva | surfdiva.com | `la-jolla-shores` | askadiva@surfdiva.com | sent | 2026-08-03 | |
-| Pacific Surf School | pacificsurfschool.com | `pacific-beach` | pacificsurf@pacificsurf.org | sent | 2026-08-03 | |
-| Corky Carroll's Surf School | corkysurfschool.com | `huntington-beach-pier` | info@surfschool.net | sent | 2026-08-03 | |
+| Surf Diva | surfdiva.com | `la-jolla-shores` | askadiva@surfdiva.com | sent | 2026-08-03 | Follow-up drafted twice (08-10, 08-17) and neither sent. Delete one. |
+| Pacific Surf School | pacificsurfschool.com | `pacific-beach` | pacificsurf@pacificsurf.org | sent | 2026-08-03 | Follow-up drafted twice (08-10, 08-17) and neither sent. Delete one. |
+| Corky Carroll's Surf School | corkysurfschool.com | `huntington-beach-pier` | info@surfschool.net | sent | 2026-08-03 | Follow-up drafted twice (08-10, 08-17) and neither sent. Delete one. |
 | Santa Cruz Surf School | santacruzsurfschool.com | `steamer-lane-santa-cruz-ca` | **needs manual check** — site 200, no email/phone in raw HTML (JS-rendered) | queued | | |
 | Nor Cal Surf Shop | norcalsurfshop.com | `linda-mar-pacifica-ca` | mia@norcalsurfshop.com | queued | | Contact form also present |
 
@@ -119,9 +119,31 @@ wrap it in a `google.com/url` redirect before the recipient sees the live widget
 
 ## Coastal Businesses (Hotels, Tourism, Shops)
 
-| Target | Website | Nearest Beach | Status | Date | Notes |
-|--------|---------|---------------|--------|------|-------|
-| | | | | | Agent will populate via web search |
+> **Recovered 2026-08-17.** These rows were created by the 2026-08-17 cloud run,
+> whose tracker commit (`88cfe03`) never pushed. The rows were reconstructed from
+> the Gmail drafts themselves, which are the surviving record. The routine now
+> runs locally and writes this file directly.
+
+| Target | Website | Nearest Beach (verified 200) | Contact | Status | Date | Notes |
+|--------|---------|------------------------------|---------|--------|------|-------|
+| Surf N' Wear Beach House | surfnwear.com | `leadbetter-santa-barbara-ca` | online@surfnwear.com | drafted | 2026-08-17 | |
+| Glide Surf Co | glidesurfco.com | `asbury-park-asbury-park-nj` | info@glidesurfco.com | drafted | 2026-08-17 | |
+| Corolla Surf Shop | corollasurfshop.com | `corolla-corolla-nc` | info@corollasurfshop.com | drafted | 2026-08-17 | |
+| The Inn at Cocoa Beach | theinnatcocoabeach.com | `cocoa-beach-pier-cocoa-beach-fl` | reservations@theinnatcocoabeach.com | drafted | 2026-08-17 | |
+| Cleanline Surf | cleanlinesurf.com | `cannon-beach-ecolaindian` | support@cleanlinesurf.com | drafted | 2026-08-05 | **DUPLICATE — see below.** |
+
+### Cleanline Surf duplicate (open, needs Steven)
+
+Cleanline was drafted twice to the same address:
+
+- 2026-08-05, using `cannon-beach-ecolaindian` (Cannon Beach, their actual town).
+- 2026-08-17, using `short-sands-manzanita-or` (15 miles south), because the
+  cloud run had no tracker row for the first draft and believed Quiver had no
+  Cannon Beach slug. It does. Both slugs return 200 and render conditions;
+  verified 2026-08-17.
+
+**Delete the 2026-08-17 Short Sands draft and keep the Cannon Beach one.** Then
+set this row to `sent` with the date it actually goes out.
 
 ---
 
