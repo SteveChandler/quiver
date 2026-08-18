@@ -50,6 +50,7 @@
     "test:e2e:smoke": "playwright test --grep @smoke",
     "test:e2e:smoke:headed": "playwright test --grep @smoke --headed",
     "test:e2e:smoke:dev": "TEST_ENV=dev BASE_URL=https://dev.quiversurf.app playwright test --grep @smoke",
+    "test:e2e:prod-gate": "playwright test e2e/guest-app-download-cta.spec.ts e2e/guest-app-handoff.spec.ts e2e/guest-download.spec.ts e2e/guest-landing-media-budget.spec.ts e2e/guest-landing.spec.ts e2e/guest-service-health.spec.ts e2e/guest-smoke.spec.ts --grep @smoke --project=guest",
     "test:e2e:surfline-parity": "RUN_INFRA_TESTS=true RUN_SURFLINE_PARITY=1 SKIP_AUTH_SETUP=true SKIP_E2E_CLEANUP=true TEST_ENV=dev BASE_URL=https://dev.quiversurf.app playwright test api/surfline-parity.spec.ts --project=auth --workers=1",
     "test:e2e:cleanup": "TEST_ENV=dev tsx e2e/scripts/cleanup-test-data.ts",
     "test:e2e:cleanup:dry-run": "TEST_ENV=dev tsx e2e/scripts/cleanup-test-data.ts --dry-run",

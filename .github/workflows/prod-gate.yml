@@ -112,7 +112,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+          NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
 
   # Smoke tests build and serve THIS pull request's code. They must not point at
   # a deployed environment: dev.quiversurf.app serves `main`, so testing it here
@@ -150,17 +150,44 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install chromium --with-deps
 
+      - name: Validate smoke environment
+        run: |
+          node <<'NODE'
+          const required = [
+            "NEXT_PUBLIC_SUPABASE_URL",
+            "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+            "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN",
+            "SUPABASE_SERVICE_ROLE_KEY",
+          ];
+          const missing = required.filter((key) => !process.env[key]?.trim());
+          if (missing.length > 0) {
+            throw new Error(`Missing required smoke environment: ${missing.join(", ")}`);
+          }
+
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL.trim();
+          const parsedUrl = new URL(supabaseUrl);
+          if (parsedUrl.pathname !== "/" || /\\[nr]/.test(supabaseUrl)) {
+            throw new Error("NEXT_PUBLIC_SUPABASE_URL must be an origin without an escaped newline");
+          }
+          NODE
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
       - name: Run smoke tests
-        run: npx playwright test --grep @smoke --project=guest
+        run: yarn test:e2e:prod-gate
         env:
           CI: true
           SKIP_AUTH_SETUP: "true"
+          SKIP_E2E_CLEANUP: "true"
           BASE_URL: http://127.0.0.1:3000
           # Playwright's webServer runs `yarn e2e:serve`, which builds this
           # branch, so the build-time public env has to be present here too.
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+          NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
           # Server-side reads for the data-backed health and beach specs.
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 

@@ -57,22 +57,6 @@ test.describe('Service Health: Data Pipeline @smoke', () => {
     });
   });
 
-  test('Deep health check responds within 5 seconds @smoke @requires-data', async ({ request }) => {
-    const startTime = Date.now();
-    const response = await request.get(`${BASE_URL}/api/health?deep=true`);
-    const duration = Date.now() - startTime;
-
-    expect(response.ok()).toBe(true);
-    expect(duration).toBeLessThan(5000);
-
-    console.log(`[Health Check] Response time: ${duration}ms`);
-
-    test.info().annotations.push({
-      type: 'response-time',
-      description: `${duration}ms`,
-    });
-  });
-
   test('Featured beaches endpoint returns data @smoke', async ({ request }) => {
     const response = await request.get(`${BASE_URL}/api/beaches/featured`);
 

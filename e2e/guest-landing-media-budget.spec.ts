@@ -11,8 +11,8 @@ const HERO_VIDEO_PATH = "/videos/quiver-landing-hero-720.mp4";
 const WALKTHROUGH_VIDEO_PATH = "/videos/buoy-loop.mp4";
 const SCREENSHOT_ROOT = "/images/app-screenshots/";
 const VIDEO_ROOT = "/videos/";
-// Desktop currently spends 5 (hero poster, hero video, walkthrough video,
-// local-intel screenshot); mobile spends 4. Both landing videos autoplay, so
+// Desktop currently spends 4 (hero poster, hero video, walkthrough video,
+// local-intel screenshot); mobile spends 3. Both landing videos autoplay, so
 // they are first-load cost and must stay counted.
 const LANDING_MEDIA_REQUEST_BUDGET = 6;
 const ALLOWED_FIRST_LOAD_MEDIA = new Set([
@@ -82,7 +82,7 @@ for (const { name, viewport } of MEDIA_VIEWPORTS) {
     }) => {
       const mediaRequests = captureLandingMediaRequests(page);
       const media = page.getByTestId("field-guide-hero-video");
-      const response = await page.goto("/", { waitUntil: "load" });
+      const response = await page.goto("/", { waitUntil: "domcontentloaded" });
 
       expect(response).not.toBeNull();
       expect(response!.status()).toBe(200);
@@ -93,12 +93,12 @@ for (const { name, viewport } of MEDIA_VIEWPORTS) {
         media.getByRole("button", { name: "Play demo" }),
       ).toHaveCount(0);
       await expect
-        .poll(
-          () =>
-            mediaRequests.filter((assetPath) => assetPath === HERO_VIDEO_PATH)
-              .length,
+        .poll(() =>
+          [HERO_POSTER_PATH, HERO_VIDEO_PATH, WALKTHROUGH_VIDEO_PATH].every(
+            (assetPath) => mediaRequests.includes(assetPath),
+          ),
         )
-        .toBeGreaterThanOrEqual(1);
+        .toBe(true);
 
       const uniqueMedia = [...new Set(mediaRequests)];
       expect(uniqueMedia).toEqual(
@@ -142,7 +142,7 @@ test.describe("Guest landing hero media safety gates", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     const mediaRequests = captureLandingMediaRequests(page);
 
-    const response = await page.goto("/", { waitUntil: "load" });
+    const response = await page.goto("/", { waitUntil: "domcontentloaded" });
 
     expect(response).not.toBeNull();
     expect(response!.status()).toBe(200);
@@ -165,7 +165,7 @@ test.describe("Guest landing hero media safety gates", () => {
     });
     const mediaRequests = captureLandingMediaRequests(page);
 
-    const response = await page.goto("/", { waitUntil: "load" });
+    const response = await page.goto("/", { waitUntil: "domcontentloaded" });
 
     expect(response).not.toBeNull();
     expect(response!.status()).toBe(200);
