@@ -1097,12 +1097,54 @@ export function computeWindowSlotScores(
 
 interface DiscoveryDisplayScore {
   displayConditionScore: number;
+  /** Condition-only, clamped 0-100. Displayed, and drives the verdict. */
   total: number;
+  /**
+   * Condition score plus personalization/affinity/distance/board-fit, left
+   * UNCLAMPED on purpose. Clamping this at 100 is what collapsed the ranked
+   * list into ties: a spot at 88 conditions and one at 97 both landed on 100
+   * once a +12 personalization bonus was added. Ordering only.
+   */
+  rankingTotal: number;
   matchQuality: DetailedScore['matchQuality'];
 }
 
 function clampDiscoveryScore(score: number): number {
   return Math.max(0, Math.min(100, score));
+}
+
+/**
+ * The number surfaces display: conditions only, clamped to the 0-100 scale the
+ * UI and the verdict thresholds both assume.
+ */
+export function toDisplayConditionScore(conditionScore: number): number {
+  return clampDiscoveryScore(conditionScore);
+}
+
+/**
+ * The number that decides order. Personalization, affinity, distance and
+ * board-fit belong here and nowhere else.
+ *
+ * Deliberately NOT clamped. When these bonuses were added into the displayed
+ * score and the sum was capped at 100, every spot with decent conditions
+ * reached the cap: ten recommendations rendered as "Score 100" and the ranked
+ * list showed an order it could not justify. Leaving the ranking value
+ * unbounded keeps those spots separable above the display ceiling.
+ */
+export function composeRankingScore(args: {
+  conditionScore: number;
+  affinityBonus: number;
+  distancePenalty: number;
+  personalizationBonus: number;
+  boardStyleFitPoints: number;
+}): number {
+  return (
+    args.conditionScore +
+    args.affinityBonus +
+    args.distancePenalty +
+    args.personalizationBonus +
+    args.boardStyleFitPoints
+  );
 }
 
 function buildDiscoveryDisplayScore(args: {
@@ -1128,13 +1170,18 @@ function buildDiscoveryDisplayScore(args: {
 
   return {
     displayConditionScore,
-    total: clampDiscoveryScore(
-      displayConditionScore +
-        args.affinityBonus +
-        args.distancePenalty +
-        args.personalizationBonus +
-        args.boardStyleFitPoints
-    ),
+    // Displayed + verdict: conditions only, so the number and the label mean
+    // the same thing.
+    total: toDisplayConditionScore(displayConditionScore),
+    // Ranking: personalization still decides order, it just no longer
+    // contaminates (or saturates) the public number.
+    rankingTotal: composeRankingScore({
+      conditionScore: displayConditionScore,
+      affinityBonus: args.affinityBonus,
+      distancePenalty: args.distancePenalty,
+      personalizationBonus: args.personalizationBonus,
+      boardStyleFitPoints: args.boardStyleFitPoints,
+    }),
     matchQuality: nativeMatchQuality === 'skip' ? 'minimal' : nativeMatchQuality,
   };
 }
@@ -1155,7 +1202,7 @@ async function scoreBeachForDiscovery(args: {
   personalizationReasons?: string[];
   dominantBoardClass?: BoardClass | null;
   boardClasses?: readonly BoardClass[];
-}): Promise<DetailedScore> {
+}): Promise<DetailedScore & { rankingTotal: number }> {
   const { beach, forecast, userSkillLevel, distanceMiles } = args;
 
   // Keep domain-engine details for reasons/subscores; replace the displayed
@@ -1194,6 +1241,7 @@ async function scoreBeachForDiscovery(args: {
   const detailedScore = {
     ...explanationScore,
     total: displayScore.total,
+    rankingTotal: displayScore.rankingTotal,
     matchQuality: displayScore.matchQuality,
   };
   if (persBonus !== 0) {
@@ -1821,6 +1869,9 @@ async function discoverSurfSpotsInner(
       // Score to 0 and demote to 'fair' (lowest non-skip tier) so the beach
       // sorts last but still surfaces with a clear health warning.
       detailedScore.total = 0;
+      // Rank it last too — zeroing only the displayed score would leave a
+      // health-closed beach sorting above open ones on its ranking value.
+      detailedScore.rankingTotal = 0;
       detailedScore.matchQuality = 'fair';
       detailedScore.warnings = ['Water quality closure — health advisory active'];
     } else if (wqStatus === 'advisory') {
@@ -1838,7 +1889,10 @@ async function discoverSurfSpotsInner(
       behaviorScore
     );
     if (behaviorApplied.appliedBehaviorScore > 0) {
-      detailedScore.total = behaviorApplied.score;
+      // Session-history boost describes the surfer, not the surf, so it moves
+      // ranking only. It used to be added into the displayed total, pushing
+      // already-good spots into the 100 ceiling.
+      detailedScore.rankingTotal += behaviorApplied.appliedBehaviorScore;
       detailedScore.subscores.behaviorBonus = behaviorApplied.appliedBehaviorScore;
       detailedScore.reasons = [
         ...behaviorScore.reasons,
@@ -1921,6 +1975,7 @@ async function discoverSurfSpotsInner(
       window: responseWindow,
       forecast: bestWindowForecast,
       score: detailedScore.total,
+      rankingScore: detailedScore.rankingTotal,
       matchQuality: detailedScore.matchQuality,
       character: conditionCharacter,
       // Carry the SpotProfile through so hero-ranking's setupSuitability
@@ -1988,6 +2043,7 @@ async function discoverSurfSpotsInner(
 
       if (wqStatus === 'closure') {
         customDetailedScore.total = 0;
+        customDetailedScore.rankingTotal = 0;
         customDetailedScore.matchQuality = 'fair';
         customDetailedScore.warnings = ['Water quality closure — health advisory active'];
       } else if (wqStatus === 'advisory') {
@@ -2065,6 +2121,7 @@ async function discoverSurfSpotsInner(
         window: { ...responseWindow },
         forecast: bestWindowForecast,
         score: customDetailedScore.total,
+        rankingScore: customDetailedScore.rankingTotal,
         matchQuality: customDetailedScore.matchQuality,
         character: customConditionCharacter,
         spotProfile: beachToSpotProfile(customBeach),

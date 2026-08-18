@@ -19,7 +19,11 @@ import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discove
 import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision';
-import type { SurfDiscoveryEntitlement, TimeSlot } from '@/types/personalization';
+import type {
+  SurfDiscoveryEntitlement,
+  SurfDiscoveryResponse,
+  TimeSlot,
+} from '@/types/personalization';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30; // Allow 30s for GPS discovery + batch forecast fetching
@@ -327,7 +331,30 @@ async function surfDiscoveryHandler(
     recommendations: gatedDiscovery.recommendations,
   });
 
-  return createSuccessResponse(gatedDiscovery);
+  // `rankingScore` is an internal ordering value. Ranking has already happened
+  // by this point, so strip it here rather than shipping a second, larger
+  // number next to `score` that a client could mistake for the real one.
+  return createSuccessResponse(stripInternalRankingScore(gatedDiscovery));
+}
+
+/**
+ * Removes the internal ranking value from every recommendation on the way out.
+ * `score` (condition-only) is the public contract; `rankingScore` exists solely
+ * so personalization can order spots without saturating that public number.
+ */
+export function stripInternalRankingScore(
+  discovery: SurfDiscoveryResponse
+): SurfDiscoveryResponse {
+  const strip = (
+    recs: SurfDiscoveryResponse['recommendations'] | undefined
+  ): SurfDiscoveryResponse['recommendations'] | undefined =>
+    recs?.map(({ rankingScore: _rankingScore, ...rest }) => rest);
+
+  return {
+    ...discovery,
+    recommendations: strip(discovery.recommendations) ?? discovery.recommendations,
+    includedRecommendations: strip(discovery.includedRecommendations),
+  };
 }
 
 // Compose: auth first (inner), then rate limit (outer)

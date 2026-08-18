@@ -405,7 +405,11 @@ describe('discoverSurfSpots — personal match evidence stays separate from phys
 
     expect(ids).toContain('beach-1');
     expect(ids.indexOf('beach-2')).toBeLessThan(ids.indexOf('beach-1'));
-    expect(beach1?.score).toBe(69);
+    // The demotion is a ranking effect. The displayed condition score is
+    // unchanged at 75 — which is what this suite's title has always claimed:
+    // personal-match evidence stays separate from the physical score.
+    expect(beach1?.score).toBe(75);
+    expect(beach1!.rankingScore!).toBeLessThan(beach1!.score);
     expect(beach1?.subscores.personalizationBonus).toBe(-6);
   });
 });

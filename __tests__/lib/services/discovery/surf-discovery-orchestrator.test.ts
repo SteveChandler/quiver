@@ -828,7 +828,11 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     // Verify beach-2 IS in results (no longer excluded based on score)
     const beach2Rec = result.recommendations.find(r => r.beach.id === 'beach-2');
     expect(beach2Rec?.isFavorite).toBe(true);
-    expect(beach2Rec?.score).toBeLessThan(50);
+    // Displayed score is the condition score; the distance penalty is a ranking
+    // input now, so it no longer silently lowers the number on the card.
+    expect(beach2Rec?.score).toBe(50);
+    // Distance friction still demotes it, but in ranking only.
+    expect(beach2Rec!.rankingScore!).toBeLessThan(beach2Rec!.score);
 
     // Verify it's sorted to the end due to low score
     const lastRec = result.recommendations[result.recommendations.length - 1];
@@ -1412,7 +1416,10 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     const reefForShortboard = shortboardResult.recommendations.find(
       (rec) => rec.beach.id === 'derived-reef'
     );
-    expect(reefForShortboard?.score).toBe(75);
+    // Board-style fit depends on the user's quiver, so it is a ranking input:
+    // the displayed score stays the condition score, ranking carries the +5.
+    expect(reefForShortboard?.score).toBe(70);
+    expect(reefForShortboard?.rankingScore).toBe(75);
     expect(reefForShortboard?.reasons).toContain('Classic shortboard wave');
 
     mockState.boards = [
@@ -1431,7 +1438,10 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     const softBeachForGun = gunResult.recommendations.find(
       (rec) => rec.beach.id === 'derived-soft-beach'
     );
-    expect(softBeachForGun?.score).toBe(60);
+    // Same split on the penalty side: conditions are 70, the gun mismatch (-10)
+    // demotes it in ranking without rewriting the measured condition score.
+    expect(softBeachForGun?.score).toBe(70);
+    expect(softBeachForGun?.rankingScore).toBe(60);
     expect(softBeachForGun?.warnings).toContain(
       'Soft, rolling wave - not much push for a gun'
     );
@@ -2212,7 +2222,7 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     expect(calculatePersonalizationBonus).toHaveBeenCalledTimes(4);
   });
 
-  test('personalization bonus flows into final score', async () => {
+  test('personalization bonus flows into the ranking score, not the displayed score', async () => {
     const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
 
     // Mock personalization to give beach-1 a big bonus
@@ -2232,8 +2242,12 @@ describe('discoverSurfSpots - Personalization Integration', () => {
 
     const beach1 = result.recommendations.find(r => r.beach.id === 'beach-1');
     expect(beach1).toMatchObject({ score: expect.any(Number) });
-    // Score should be higher than the base 75 due to personalization
-    expect(beach1!.score).toBeGreaterThan(75);
+    // The displayed score is conditions only, so personalization must NOT move
+    // it — folding bonuses in here is what pinned every decent spot to 100.
+    expect(beach1!.score).toBe(75);
+    // It moves the ranking value instead: +5 affinity +15 personalization.
+    expect(beach1!.rankingScore).toBe(95);
+    expect(beach1!.rankingScore!).toBeGreaterThan(beach1!.score);
     // Personalization reasons should appear in the reasons array
     expect(beach1!.reasons).toEqual(expect.arrayContaining([
       'Matches your preferred break type',
@@ -2243,7 +2257,7 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     expect(beach1!.subscores.personalizationBonus).toBe(15);
   });
 
-  test('post-personalization score applies bonuses after native base score', async () => {
+  test('post-personalization bonuses apply to ranking while the displayed score stays the native base', async () => {
     const { scoreBeachWithEngine, forecastToSnapshot } = require('@/lib/domains/scoring');
     const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
 
@@ -2296,7 +2310,10 @@ describe('discoverSurfSpots - Personalization Integration', () => {
       maxResults: 1,
     });
 
-    expect(result.recommendations[0].score).toBe(67);
+    // Displayed: the native condition score alone (51), not 51+4+12.
+    expect(result.recommendations[0].score).toBe(51);
+    // Ranking: bonuses still applied on top, unclamped.
+    expect(result.recommendations[0].rankingScore).toBe(67);
     expect(result.recommendations[0].subscores.affinityBonus).toBe(4);
     expect(result.recommendations[0].subscores.personalizationBonus).toBe(12);
   });
@@ -2362,7 +2379,14 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     });
 
     expect(result.recommendations[0].beach.id).toBe('beach-1');
-    expect(result.recommendations[0].score).toBeGreaterThan(74);
+    // The behaviour boost describes the surfer's history, not the surf, so it
+    // lifts ranking without inflating the condition score on the card. The
+    // test name's promise — lift without replacing forecast quality — is now
+    // literally true of the displayed number.
+    expect(result.recommendations[0].score).toBe(70);
+    expect(result.recommendations[0].rankingScore!).toBeGreaterThan(
+      result.recommendations[0].score,
+    );
     expect(result.recommendations[0].subscores.behaviorBonus).toBeGreaterThan(0);
     expect(result.recommendations[0].reasons).toEqual(
       expect.arrayContaining(['Recent completed sessions back this break'])
