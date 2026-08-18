@@ -159,8 +159,23 @@ Two gotchas are written into the prompts: `seo:technical-audit` silently ignores
 `--audit-date`, and the Brand-Vault audit folder is named by **UTC** date, so
 after ~17:00 Pacific it is tomorrow's.
 
-**The cloud versions must be disabled**, or both copies run and draft duplicate
-emails. That is exactly the failure already visible in Gmail this week.
+**Cloud versions disabled 2026-08-18** via the routines API, so the two copies
+cannot both run and draft duplicate emails:
+
+| Routine | id | Was |
+| --- | --- | --- |
+| AEO Citation Monitor | `trig_01PPhyo1rkSXXtY8HrgH6q2L` | Mon 03:00 UTC |
+| Backlink and Broken Link Scanner | `trig_01QoMjJG8k1xxgifcAcfqQLN` | Mon 16:00 UTC |
+| SEO Outreach Drafter | `trig_01GQqeKUxVqWiyGJgoG8nf3v` | Mon 16:00 UTC |
+
+They are disabled, not deleted; deletion is only available at
+https://claude.ai/code/routines. Re-enabling any of them re-creates the
+duplicate-draft failure already visible in Gmail this week.
+
+One reason not to re-enable the outreach one as-is: its prompt instructed the
+agent to pitch `quiversurf.app/forecast-accuracy` as proof Quiver is "the only
+surf forecast that publishes ML accuracy data publicly". The benchmark does not
+support that framing, and the local replacement prompt bans that link.
 
 ## The pattern worth keeping
 
