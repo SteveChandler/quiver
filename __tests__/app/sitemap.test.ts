@@ -14,6 +14,13 @@
  * - forecasts: Forecast hub and regional forecast pages
  */
 
+// The sitemap reads sub-page coverage through unstable_cache so it lands on the
+// same revalidate window as the force-static sub-pages. Jest has no incremental
+// cache context, so pass the loader through unchanged.
+jest.mock("next/cache", () => ({
+  unstable_cache: jest.fn((fn: unknown) => fn),
+}));
+
 import sitemap, {
   buildBeachRoutes,
   buildIntentRoutes,
@@ -86,7 +93,29 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
 }));
 
-function createCoverageQueryMock() {
+// Coverage is no longer "a row exists" -- the sitemap now runs the same
+// predicates the sub-pages do (a detectable tide extreme, a parseable water
+// temperature), so these fixtures have to carry real values, not bare ids.
+function coverageRowsFor(table: string, beachIds: string[]): unknown[] {
+  if (table === "tide_forecasts") {
+    // Falls then rises: yields both a high (first point) and a low (index 1).
+    const heights = [1.0, 0.5, 1.2];
+    return beachIds.flatMap((beach_id) =>
+      heights.map((tide_height_m, hour) => ({
+        beach_id,
+        ts: new Date(Date.UTC(2026, 7, 8, 18 + hour)).toISOString(),
+        tide_height_m,
+      })),
+    );
+  }
+  return beachIds.map((beach_id) => ({
+    beach_id,
+    water_temp: "68°F",
+    forecast_at: "2026-08-08T18:00:00.000Z",
+  }));
+}
+
+function createCoverageQueryMock(table = "enhanced_forecasts") {
   let beachIds: string[] = [];
   const query = {
     select: jest.fn(),
@@ -105,7 +134,7 @@ function createCoverageQueryMock() {
   query.lt.mockReturnValue(query);
   query.not.mockReturnValue(query);
   query.limit.mockImplementation(async () => ({
-    data: beachIds.map((beachId) => ({ beach_id: beachId })),
+    data: coverageRowsFor(table, beachIds),
     error: null,
   }));
   return query;
@@ -134,7 +163,7 @@ describe("Sitemap Generation", () => {
     jest.clearAllMocks();
 
     (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({
-      from: jest.fn(() => createCoverageQueryMock()),
+      from: jest.fn((table: string) => createCoverageQueryMock(table)),
     });
 
     (getForecastIndexabilityForBeaches as jest.Mock).mockImplementation(

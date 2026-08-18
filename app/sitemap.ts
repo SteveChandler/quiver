@@ -27,6 +27,12 @@ import { learnArticles } from "@/lib/data/learn-articles";
 import { INDEXABLE_SEO_FUNNEL_PAGES } from "@/lib/seo/funnel-pages";
 import { getReviewedCityEditorialContent } from "@/actions/city/city-editorial-actions";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { parseWaterTempF } from "@/lib/utils/wetsuit-utils";
+import {
+  findNextTideExtremes,
+  type TideHeightRow,
+} from "@/lib/seo/tide-meta-data";
 import {
   cityEditorialKey,
   evaluateBeachIndexability,
@@ -111,11 +117,24 @@ export interface BeachSubPageCoverage {
   waterTempCoverage: ReadonlySet<string>;
 }
 
-interface BeachCoverageRow {
+interface TideCoverageRow {
   beach_id: string | null;
+  ts: string | null;
+  tide_height_m: number | null;
 }
 
-const BEACH_COVERAGE_BATCH_SIZE = 20;
+interface WaterTempCoverageRow {
+  beach_id: string | null;
+  water_temp: string | null;
+  forecast_at: string | null;
+}
+
+// PostgREST caps a response at 1000 rows regardless of .limit(). Coverage now
+// reads every row per beach (24 hourly tide points, ~8 water-temp points), so
+// the batch must stay small enough that a full batch cannot reach that cap:
+// 10 beaches x 24h stays well under it even if tide granularity went 4x finer.
+const BEACH_COVERAGE_BATCH_SIZE = 10;
+const POSTGREST_MAX_ROWS = 1000;
 
 interface CityEditorialRoute {
   editorial: CityEditorialDatabaseRecord;
@@ -165,7 +184,69 @@ function batchBeachIds(ids: readonly string[]): string[][] {
   return batches;
 }
 
+/**
+ * The sub-page routes are force-static with revalidate = 3600, so the robots
+ * meta they serve is frozen for up to an hour. The sitemap is force-dynamic and
+ * re-evaluated on every request. That asymmetry lets the sitemap advertise a URL
+ * the moment its data qualifies, while the page it points at can still be
+ * serving noindex from a render up to an hour old.
+ *
+ * Reading coverage through a cache on the same window puts both sides on the
+ * same clock. It bounds the disagreement to one revalidate period instead of
+ * leaving the sitemap instantaneous against an hourly page; it does not
+ * eliminate it, because the two caches do not turn over in phase. Closing the
+ * window entirely would mean making the sub-pages dynamic.
+ */
+const SUB_PAGE_REVALIDATE_SECONDS = 3600;
+
+/** Stable, short cache key for a beach-id set (FNV-1a over the sorted ids). */
+function fingerprintBeachIds(beachIds: readonly string[]): string {
+  let hash = 0x811c9dc5;
+  for (const id of [...beachIds].sort()) {
+    for (let i = 0; i < id.length; i++) {
+      hash ^= id.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193);
+    }
+  }
+  return `${beachIds.length}-${(hash >>> 0).toString(36)}`;
+}
+
 async function getBeachSubPageCoverage(
+  beachIds: readonly string[],
+): Promise<BeachSubPageCoverage> {
+  // Sets do not survive the data cache's JSON round trip, so the cached layer
+  // deals in arrays and the Sets are rebuilt here.
+  const load = unstable_cache(
+    async () => {
+      const coverage = await fetchBeachSubPageCoverage(beachIds);
+      return {
+        tideCoverage: [...coverage.tideCoverage],
+        waterTempCoverage: [...coverage.waterTempCoverage],
+      };
+    },
+    ["beach-sub-page-coverage", fingerprintBeachIds(beachIds)],
+    { revalidate: SUB_PAGE_REVALIDATE_SECONDS },
+  );
+
+  const { tideCoverage, waterTempCoverage } = await load();
+  return {
+    tideCoverage: new Set(tideCoverage),
+    waterTempCoverage: new Set(waterTempCoverage),
+  };
+}
+
+function warnIfTruncated(rowCount: number, label: string): void {
+  if (rowCount < POSTGREST_MAX_ROWS) return;
+  // Truncation would silently drop beaches from the sitemap rather than error,
+  // so make it loud instead of letting a clean-looking sitemap hide it.
+  console.error(
+    `Sitemap: ${label} coverage response hit the ${POSTGREST_MAX_ROWS}-row cap; ` +
+      "coverage for this batch is incomplete and pages may be omitted. " +
+      "Lower BEACH_COVERAGE_BATCH_SIZE.",
+  );
+}
+
+async function fetchBeachSubPageCoverage(
   beachIds: readonly string[],
 ): Promise<BeachSubPageCoverage> {
   const tideCoverage = new Set<string>();
@@ -194,19 +275,19 @@ async function getBeachSubPageCoverage(
         const [tideResponse, waterTempResponse] = await Promise.all([
           supabase
             .from("tide_forecasts")
-            .select("beach_id")
+            .select("beach_id, ts, tide_height_m")
             .in("beach_id", batch)
             .gte("ts", now.toISOString())
             .lt("ts", tideEnd.toISOString())
-            .limit(1000),
+            .limit(POSTGREST_MAX_ROWS),
           supabase
             .from("enhanced_forecasts")
-            .select("beach_id")
+            .select("beach_id, water_temp, forecast_at")
             .in("beach_id", batch)
             .gte("forecast_at", `${today}T00:00:00.000Z`)
             .lt("forecast_at", tomorrow.toISOString())
             .not("water_temp", "is", null)
-            .limit(1000),
+            .limit(POSTGREST_MAX_ROWS),
         ]);
 
         return { tideResponse, waterTempResponse };
@@ -219,8 +300,23 @@ async function getBeachSubPageCoverage(
           message: tideResponse.error.message,
         });
       } else {
-        for (const row of (tideResponse.data ?? []) as BeachCoverageRow[]) {
-          if (row.beach_id) tideCoverage.add(row.beach_id);
+        const rows = (tideResponse.data ?? []) as TideCoverageRow[];
+        warnIfTruncated(rows.length, "tide");
+        const byBeach = new Map<string, TideHeightRow[]>();
+        for (const row of rows) {
+          if (!row.beach_id || !row.ts) continue;
+          const series = byBeach.get(row.beach_id) ?? [];
+          series.push({ ts: row.ts, tide_height_m: row.tide_height_m });
+          byBeach.set(row.beach_id, series);
+        }
+        // Same predicate the sub-page runs: rows alone are not coverage, a
+        // detectable high or low is. Ordering is done here rather than in the
+        // query so coverage does not depend on the database returning sorted
+        // rows.
+        for (const [beachId, series] of byBeach) {
+          series.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
+          const { nextHigh, nextLow } = findNextTideExtremes(series);
+          if (nextHigh || nextLow) tideCoverage.add(beachId);
         }
       }
 
@@ -229,8 +325,26 @@ async function getBeachSubPageCoverage(
           message: waterTempResponse.error.message,
         });
       } else {
-        for (const row of (waterTempResponse.data ?? []) as BeachCoverageRow[]) {
-          if (row.beach_id) waterTempCoverage.add(row.beach_id);
+        const rows = (waterTempResponse.data ?? []) as WaterTempCoverageRow[];
+        warnIfTruncated(rows.length, "water-temperature");
+        // Pick the newest row per beach -- the one getWaterTempMetaData would
+        // select -- then apply the same parse and validity bounds. A present
+        // but unparseable reading is not coverage.
+        const newest = new Map<string, WaterTempCoverageRow>();
+        for (const row of rows) {
+          if (!row.beach_id) continue;
+          const current = newest.get(row.beach_id);
+          if (
+            !current ||
+            Date.parse(row.forecast_at ?? "") > Date.parse(current.forecast_at ?? "")
+          ) {
+            newest.set(row.beach_id, row);
+          }
+        }
+        for (const [beachId, row] of newest) {
+          if (parseWaterTempF(row.water_temp) !== null) {
+            waterTempCoverage.add(beachId);
+          }
         }
       }
     }
