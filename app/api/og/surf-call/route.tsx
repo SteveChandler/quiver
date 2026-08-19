@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { type NextRequest } from "next/server";
 
 import { buildSmartQrHandoffUrl } from "@/lib/constants/app-handoff";
-import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions";
+import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
 import { parseMajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/evaluator";
 import { getBeachByIdFromDb } from "@/lib/services/beach-query-service";
 import {

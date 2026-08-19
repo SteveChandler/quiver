@@ -32,7 +32,7 @@ import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { pickBestUsaBeachMatch } from "@/lib/utils/beach-matching-utils";
 import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
-import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions";
+import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
 import { getSpotFeaturedPhoto } from "@/actions/spot/spot-data-actions";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import {

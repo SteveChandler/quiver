@@ -17,7 +17,7 @@ jest.mock("next/og", () => ({
 jest.mock("@/lib/services/beach-query-service", () => ({
   getBeachByIdFromDb: jest.fn(),
 }));
-jest.mock("@/actions/spot/spot-surf-report-actions", () => ({
+jest.mock("@/lib/services/spot-surf-report-service", () => ({
   getSpotSurfReportPublic: jest.fn(),
 }));
 jest.mock("@/lib/utils/forecast-service-utils", () => ({
@@ -30,7 +30,7 @@ jest.mock("@/lib/recommendations/selection", () => ({
   selectBeach: jest.fn(async (beach: { id: string }) => beach),
 }));
 
-import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions";
+import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
 import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 import { getBeachByIdFromDb } from "@/lib/services/beach-query-service";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";

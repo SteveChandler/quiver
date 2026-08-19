@@ -263,7 +263,7 @@ const ALLOWED_CONSOLE_PATTERNS = [
   /Admin server action error:/,
   /API Error:/,
   /\[ForecastError\]/,
-  /\[getSpotSurfReport\]/,
+  /\[getSpotSurfReportPublic\]/,
   /\[CDIPApiClient\]/,
   /\[CDIP\] Failed/,
   /Error processing invitee/,

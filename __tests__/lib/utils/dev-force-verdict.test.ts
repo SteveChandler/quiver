@@ -6,7 +6,7 @@
  */
 
 import { applyForceVerdict } from '@/lib/utils/dev-force-verdict';
-import type { SpotSurfReportResult } from '@/actions/spot/spot-surf-report-actions';
+import type { SpotSurfReportResult } from '@/lib/services/spot-surf-report-service';
 import type { SurfCallResult } from '@/lib/utils/surf-call-logic';
 import type { RecommendationAvailability } from '@/lib/recommendations/major-event-hold/types';
 

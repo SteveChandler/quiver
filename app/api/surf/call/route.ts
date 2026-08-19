@@ -7,7 +7,7 @@ import {
   validateOrError,
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
-import type { SpotSurfReportResult } from '@/actions/spot/spot-surf-report-actions';
+import type { SpotSurfReportResult } from '@/lib/services/spot-surf-report-service';
 import type { Beach } from '@/types/database';
 import { applyForceVerdict } from '@/lib/utils/dev-force-verdict';
 import { normalizeBoardClass } from '@/lib/domains/rideability';
@@ -263,8 +263,11 @@ async function surfCallHandler(
       'timezone, break_type, skill_level, cdip_station, cdip_eligible, ' +
       'wind_offshore_deg, wind_offshore_tol_deg, ' +
       'wind_cross_shore_ok_kt, wind_onshore_bad_kt, ' +
+      'max_wind_onshore_mph, max_wind_any_mph, ' +
+      'swell_window_min_deg, swell_window_max_deg, ' +
       'swell_window_center_deg, swell_window_halfwidth_deg, ' +
       'swell_access_factors, wind_exposure_factors, ' +
+      'shoaling_factors, ' +
       'preferred_tide_direction, preferred_tide_ft_min, ' +
       'preferred_tide_ft_max, tide_direction_sensitivity, preference_model, ' +
       'features, hazards, average_rating, review_count, deleted_at',

@@ -6,7 +6,7 @@ import GenericBeachDetailPage, {
   generateMetadata,
 } from "@/app/[intent]/[city]/[beachSlug]/page";
 import { getBeachesBySlug } from "@/actions/beach/beach-query-actions";
-import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions";
+import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
@@ -46,11 +46,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 // Mock dependencies used during page rendering
-jest.mock("@/actions/spot/spot-surf-report-actions", () => ({
-  getSpotSurfReport: jest.fn().mockResolvedValue({
-    report: null,
-    isTomorrow: false,
-  }),
+jest.mock("@/lib/services/spot-surf-report-service", () => ({
   getSpotSurfReportPublic: jest.fn().mockResolvedValue({
     report: null,
     isTomorrow: false,

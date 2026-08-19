@@ -1,7 +1,7 @@
 import type {
   PublicForecastDay,
   PublicForecastHour,
-} from "@/actions/spot/spot-surf-report-actions";
+} from "@/lib/services/spot-surf-report-service";
 import type { ForecastRecommendationContext } from "@/lib/services/forecast-recommendation-context";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { formatTimeInTimezone } from "@/lib/utils/date-time";
