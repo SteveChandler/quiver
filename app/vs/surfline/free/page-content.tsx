@@ -410,7 +410,7 @@ export default async function VsSurflineFreePage() {
         />
 
         <div className="relative mx-auto grid max-w-7xl gap-7 lg:grid-cols-[minmax(0,1.02fr)_minmax(380px,0.98fr)] lg:items-end">
-          <div className="relative space-y-5 md:space-y-7">
+          <div className="zine-measure relative space-y-5 md:space-y-7">
             <QuiverSticker
               sticker="orangeTape"
               className="absolute -top-10 right-2 hidden w-32 rotate-[5deg] opacity-90 lg:block"

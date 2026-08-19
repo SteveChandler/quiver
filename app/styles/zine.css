@@ -500,8 +500,17 @@
 }
 
 /* ─── Page H1 (zine is the page) ─────────────────────────── */
+/* Display type sizes off the viewport, which overflows when the heading sits in
+   a narrow grid column — a long unbreakable word (e.g. "ALTERNATIVE?") renders
+   wider than its track and spills over neighbouring content. Inside a
+   `.zine-measure` container the `cqw` term sizes off the COLUMN instead; with
+   no container ancestor `cqw` resolves against the viewport, where the larger
+   value loses the `min()` and behaviour is unchanged. */
 .zine-tab .zine-h1 {
-  font-size: clamp(48px, 8vw, 96px);
+  font-size: clamp(48px, min(8vw, 13cqw), 96px);
+}
+.zine-measure {
+  container-type: inline-size;
 }
 .zine-tab .zine-h1-suffix {
   display: block;
