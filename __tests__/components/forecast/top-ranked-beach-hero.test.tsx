@@ -36,12 +36,15 @@ const beach: BeachConditionSummary = {
 };
 
 describe("TopRankedBeachHero", () => {
-  it("uses the region name and shows the ranked beach, score call, window, and wave height", () => {
+  it("uses one current qualifying window for the score call and window display", () => {
     const selectorWindow = {
       startIso: "2026-08-12T07:00:00Z",
       endIso: "2026-08-12T09:00:00Z",
       peakIso: "2026-08-12T08:00:00Z",
+      timezone: "UTC",
       localTimeLabel: "7:00 AM-9:00 AM",
+      score: 83,
+      verdict: "Worth it" as const,
       confidence: {
         level: "high" as const,
         score: 84,
@@ -55,7 +58,7 @@ describe("TopRankedBeachHero", () => {
       <TopRankedBeachHero
         beach={beach}
         regionName="San Diego"
-        beachTimezone="UTC"
+        now={new Date("2026-08-12T08:00:00Z")}
         imageUrl="https://images.example/ocean-beach.webp"
         bestSurfWindow={selectorWindow}
       />
@@ -80,6 +83,36 @@ describe("TopRankedBeachHero", () => {
     expect(screen.queryByText("Approved beach photo")).not.toBeInTheDocument();
   });
 
+  it("does not render an immediate action for a future qualifying window", () => {
+    render(
+      <TopRankedBeachHero
+        beach={beach}
+        regionName="San Diego"
+        now={new Date("2026-08-12T08:00:00Z")}
+        bestSurfWindow={{
+          startIso: "2026-08-13T07:00:00Z",
+          endIso: "2026-08-13T09:00:00Z",
+          peakIso: "2026-08-13T08:00:00Z",
+          timezone: "UTC",
+          localTimeLabel: "7:00 AM-9:00 AM",
+          score: 83,
+          verdict: "Worth it",
+          confidence: {
+            level: "high",
+            score: 84,
+            summary: "High confidence",
+            reasons: [],
+          },
+          positives: ["Good wave size"],
+        }}
+      />
+    );
+
+    expect(screen.getByText("Worth it · Thu, Aug 13")).toBeInTheDocument();
+    expect(screen.getByText("7:00 AM-9:00 AM")).toBeInTheDocument();
+    expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
+  });
+
   it("uses the supplied region name for other regions", () => {
     render(
       <TopRankedBeachHero
@@ -94,10 +127,17 @@ describe("TopRankedBeachHero", () => {
   });
 
   it("does not fabricate a beach image when neither approved imagery nor satellite is available", () => {
-    render(<TopRankedBeachHero beach={beach} regionName="San Diego" />);
+    render(
+      <TopRankedBeachHero
+        beach={beach}
+        regionName="San Diego"
+        now={new Date("2026-08-12T08:00:00Z")}
+      />
+    );
 
     expect(screen.getByText("Surf window")).toBeInTheDocument();
     expect(screen.getByText("No qualifying window")).toBeInTheDocument();
+    expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
     expect(screen.queryByText("Best window")).not.toBeInTheDocument();
     expect(screen.getByText("No approved image on file")).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();

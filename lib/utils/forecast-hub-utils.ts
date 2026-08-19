@@ -133,11 +133,13 @@ export async function getRegionalSummaries(
       regionBeaches,
       regionForecastMap
     );
+    const selectionNow = options.now ?? summary.generatedAt;
+    summary.generatedAt = selectionNow;
     if (options.includeBestSurfWindows !== false) {
       summary.bestSurfWindows = buildBestSurfWindowsForRegion(
         regionBeaches,
         regionForecastMap,
-        options,
+        { ...options, now: selectionNow },
       );
     }
     summaries[region.slug] = await applyRegionalMajorEventHold(
@@ -270,12 +272,14 @@ export async function getRegionalSummary(
     regionBeaches,
     regionForecastMap
   );
+  const selectionNow = options.now ?? summary.generatedAt;
+  summary.generatedAt = selectionNow;
 
   if (options.includeBestSurfWindows !== false) {
     summary.bestSurfWindows = buildBestSurfWindowsForRegion(
       regionBeaches,
       regionForecastMap,
-      options
+      { ...options, now: selectionNow }
     );
   }
 

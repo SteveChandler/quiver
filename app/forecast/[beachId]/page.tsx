@@ -298,13 +298,15 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
             <TopRankedBeachHero
               beach={topBeach}
               regionName={region.name}
-              beachTimezone={topBeachRecord?.timezone}
+              now={summary.generatedAt}
               imageUrl={approvedTopBeachImage}
               mapImageUrl={satelliteFallbackUrl}
               bestSurfWindow={
-                summary.bestSurfWindows?.find(
-                  (window) => window.beach.id === topBeach.beachId,
-                ) ?? null
+                summary.recommendationAvailability?.state === "available"
+                  ? summary.bestSurfWindows?.find(
+                      (window) => window.beach.id === topBeach.beachId,
+                    ) ?? null
+                  : null
               }
             />
           )}

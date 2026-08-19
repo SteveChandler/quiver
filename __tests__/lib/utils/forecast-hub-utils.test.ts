@@ -455,6 +455,8 @@ describe("forecast-hub-utils", () => {
       expect(getBatchFreshForecastsFromCache).toHaveBeenCalledTimes(1);
       const regionOne = result["test-region-1"];
       const regionTwo = result["test-region-2"];
+      expect(regionOne?.generatedAt).toEqual(SURF_WINDOW_NOW);
+      expect(regionTwo?.generatedAt).toEqual(SURF_WINDOW_NOW);
       expect(regionOne).toMatchObject({
         region: expect.objectContaining({ slug: "test-region-1" }),
       });

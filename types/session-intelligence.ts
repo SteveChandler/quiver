@@ -156,6 +156,7 @@ export interface SurfWindowRecommendation extends SurfWindowLinks {
   startIso: string;
   endIso: string;
   peakIso: string;
+  timezone: string;
   forecastAt: string;
   localTimeLabel: string;
   score: number;

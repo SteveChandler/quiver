@@ -49,6 +49,7 @@ function recommendationFixture(
     startIso: "2026-06-03T14:00:00.000Z",
     endIso: "2026-06-03T16:30:00.000Z",
     peakIso: "2026-06-03T15:00:00.000Z",
+    timezone: "America/Los_Angeles",
     forecastAt: "2026-06-03T14:00:00.000Z",
     localTimeLabel: getPreviewLocalTimeLabel(rank),
     score: 86 - rank * 8,

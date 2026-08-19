@@ -270,6 +270,7 @@ function homepageRecommendation(
     startIso,
     endIso,
     peakIso,
+    timezone: recommendation.window.timezone,
     forecastAt: recommendation.forecast.forecast_at,
     localTimeLabel: timeLabel,
     score,
