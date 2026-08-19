@@ -50,7 +50,7 @@ function shortBeginnerReason(raw: string): string {
  */
 function formatSimilarityPush(
   match: MatchingWindow,
-  decision?: PushDecisionVerdict,
+  _decision?: PushDecisionVerdict,
 ): PushContent {
   const snap = match.conditions_snapshot as {
     alert_type?: string;
@@ -71,13 +71,7 @@ function formatSimilarityPush(
     timeZone: match.beach_timezone,
   });
 
-  const scoreLabel = decision === "go"
-    ? "Firing"
-    : decision === "no"
-      ? "Not ideal"
-      : decision === "maybe"
-        ? "Worth a look"
-        : [score, label].filter(Boolean).join(" ");
+  const scoreLabel = [score, label].filter(Boolean).join(" ");
   const titleParts = [match.beach_name];
   if (scoreLabel) titleParts.push(scoreLabel);
   titleParts.push(`${weekday} ${time}`);
@@ -87,7 +81,11 @@ function formatSimilarityPush(
     // Intentionally generic — don't fabricate wind/wave details the cron
     // didn't capture at enqueue time.
     body: "Conditions match your profile today.",
-    data: { type: "similarity_match", beach_id: match.beach_id, forecast_at: forecastAt },
+    data: {
+      type: "similarity_match",
+      beach_id: match.beach_id,
+      forecast_at: forecastAt,
+    },
   };
 }
 
@@ -96,11 +94,13 @@ export function formatPushNotification(
   decision?: PushDecisionVerdict,
   primaryMatch?: MatchingWindow,
 ): PushContent {
-  const orderedMatches = primaryMatch && matches.includes(primaryMatch)
-    ? [primaryMatch, ...matches.filter((match) => match !== primaryMatch)]
-    : matches;
+  const orderedMatches =
+    primaryMatch && matches.includes(primaryMatch)
+      ? [primaryMatch, ...matches.filter((match) => match !== primaryMatch)]
+      : matches;
   const topMatch = orderedMatches[0];
-  if (!topMatch) throw new Error("formatPushNotification requires at least one match");
+  if (!topMatch)
+    throw new Error("formatPushNotification requires at least one match");
   const topSnap = (topMatch.conditions_snapshot ?? {}) as {
     alert_type?: string;
   };
@@ -109,7 +109,10 @@ export function formatPushNotification(
   // similarity_match variant. If a user has both a similarity_match and
   // condition-alert queued for the same day, fall through to the consolidated
   // copy so we don't silently drop the other matches from the notification.
-  if (orderedMatches.length === 1 && topSnap.alert_type === "similarity_match") {
+  if (
+    orderedMatches.length === 1 &&
+    topSnap.alert_type === "similarity_match"
+  ) {
     return formatSimilarityPush(topMatch, decision);
   }
 
@@ -118,7 +121,7 @@ export function formatPushNotification(
     const timeWindow = formatTitleWindow(
       topMatch.window_start,
       topMatch.window_end,
-      topMatch.beach_timezone
+      topMatch.beach_timezone,
     );
     const isBeginnerWindow =
       typeof snap.beginner_window_reason === "string" &&
@@ -126,14 +129,14 @@ export function formatPushNotification(
     // A beginner-window rule is intentionally about approachable surf, not
     // a universal quality claim. Keep the actual wave range in the body and
     // avoid calling a 1–2 ft window "Firing" on the lock screen.
-    const titleLabel = decision === "go"
-      ? "Firing"
-      : decision === "no"
-        ? "Not ideal"
-        : decision === "maybe"
-          ? "Worth a look"
-          : isBeginnerWindow
-            ? "Beginner-friendly"
+    const titleLabel = isBeginnerWindow
+      ? "Beginner-friendly"
+      : decision === "go"
+        ? "Firing"
+        : decision === "no"
+          ? "Not ideal"
+          : decision === "maybe"
+            ? "Worth a look"
             : qualityWord(topMatch.best_score);
     const title = `${titleLabel} — ${topMatch.beach_name}, ${timeWindow}`;
 
@@ -148,10 +151,12 @@ export function formatPushNotification(
     const periodValue =
       typeof snap.wave_period === "number" && Number.isFinite(snap.wave_period)
         ? snap.wave_period
-        : typeof snap.swell_1_period === "number" && Number.isFinite(snap.swell_1_period)
-        ? snap.swell_1_period
-        : null;
-    const period = periodValue !== null ? ` @ ${formatSwellPeriod(periodValue)}` : "";
+        : typeof snap.swell_1_period === "number" &&
+            Number.isFinite(snap.swell_1_period)
+          ? snap.swell_1_period
+          : null;
+    const period =
+      periodValue !== null ? ` @ ${formatSwellPeriod(periodValue)}` : "";
     const wind =
       typeof snap.wind_speed === "number" && Number.isFinite(snap.wind_speed)
         ? `, ${formatWindSpeed(snap.wind_speed * KNOTS_TO_MPH)}`
@@ -159,7 +164,7 @@ export function formatPushNotification(
     const bodyTimeWindow = formatTimeRange(
       topMatch.window_start,
       topMatch.window_end,
-      topMatch.beach_timezone
+      topMatch.beach_timezone,
     );
     const core = `${topMatch.beach_name} ${bodyTimeWindow} — ${waveHeight}${period}${wind}`;
 
@@ -172,7 +177,8 @@ export function formatPushNotification(
     const withReason = beginnerReason ? `${core}, ${beginnerReason}` : core;
 
     let body = withReason.length <= MAX_BODY_LENGTH ? withReason : core;
-    if (body.length > MAX_BODY_LENGTH) body = body.substring(0, MAX_BODY_LENGTH - 3) + "...";
+    if (body.length > MAX_BODY_LENGTH)
+      body = body.substring(0, MAX_BODY_LENGTH - 3) + "...";
     return {
       title,
       body,
@@ -186,9 +192,10 @@ export function formatPushNotification(
 
   // Canonical producers pass their selected match explicitly. Keep it first so
   // lock-screen identity and summary order cannot drift from the decision.
-  const sorted = primaryMatch && matches.includes(primaryMatch)
-    ? orderedMatches
-    : [...matches].sort((a, b) => b.best_score - a.best_score);
+  const sorted =
+    primaryMatch && matches.includes(primaryMatch)
+      ? orderedMatches
+      : [...matches].sort((a, b) => b.best_score - a.best_score);
   const best = sorted[0];
   const others = sorted.length - 1;
   const title = `${best.beach_name} + ${others} more break${others === 1 ? "" : "s"} today`;
@@ -197,11 +204,14 @@ export function formatPushNotification(
   const parts: string[] = [];
   for (let i = 0; i < showCount; i++) {
     const m = sorted[i];
-    parts.push(`${m.beach_name} ${formatTimeRange(m.window_start, m.window_end, m.beach_timezone)}`);
+    parts.push(
+      `${m.beach_name} ${formatTimeRange(m.window_start, m.window_end, m.beach_timezone)}`,
+    );
   }
   let body = parts.join(" · ");
   if (sorted.length > 2) body += ` and ${sorted.length - 2} more`;
-  if (body.length > MAX_BODY_LENGTH) body = body.substring(0, MAX_BODY_LENGTH - 3) + "...";
+  if (body.length > MAX_BODY_LENGTH)
+    body = body.substring(0, MAX_BODY_LENGTH - 3) + "...";
   return {
     title,
     body,
@@ -217,16 +227,25 @@ export function formatPushNotification(
  * Title window: en-dash, meridiem collapsed when shared ("7–9 AM"), so the
  * lock-screen line reads tight. Body uses formatTimeRange (hyphen, full).
  */
-function formatTitleWindow(start: string, end: string, timezone: string): string {
+function formatTitleWindow(
+  start: string,
+  end: string,
+  timezone: string,
+): string {
   const opts: Intl.DateTimeFormatOptions = {
     hour: "numeric",
     hour12: true,
     timeZone: timezone,
   };
-  const startParts = new Intl.DateTimeFormat("en-US", opts).formatToParts(new Date(start));
-  const endParts = new Intl.DateTimeFormat("en-US", opts).formatToParts(new Date(end));
+  const startParts = new Intl.DateTimeFormat("en-US", opts).formatToParts(
+    new Date(start),
+  );
+  const endParts = new Intl.DateTimeFormat("en-US", opts).formatToParts(
+    new Date(end),
+  );
   const startHour = startParts.find((p) => p.type === "hour")?.value ?? "";
-  const startMeridiem = startParts.find((p) => p.type === "dayPeriod")?.value ?? "";
+  const startMeridiem =
+    startParts.find((p) => p.type === "dayPeriod")?.value ?? "";
   const endHour = endParts.find((p) => p.type === "hour")?.value ?? "";
   const endMeridiem = endParts.find((p) => p.type === "dayPeriod")?.value ?? "";
 
@@ -237,7 +256,10 @@ function formatTitleWindow(start: string, end: string, timezone: string): string
 }
 
 function formatTimeRange(start: string, end: string, timezone: string): string {
-  const opts: Intl.DateTimeFormatOptions = { hour: "numeric", timeZone: timezone };
+  const opts: Intl.DateTimeFormatOptions = {
+    hour: "numeric",
+    timeZone: timezone,
+  };
   const startStr = new Date(start).toLocaleTimeString("en-US", opts);
   const endStr = new Date(end).toLocaleTimeString("en-US", opts);
   return `${startStr}-${endStr}`;

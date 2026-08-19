@@ -16,7 +16,9 @@ import { NextRequest } from "next/server";
 import { readFileSync } from "fs";
 
 jest.mock("@/lib/cron/outcome", () => ({
-  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+  withCronOutcome: jest.fn(
+    async (_options: unknown, handler: () => Promise<unknown>) => handler(),
+  ),
 }));
 
 // ============================================================================
@@ -30,7 +32,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
         success: true,
         data,
         timestamp: new Date().toISOString(),
-      })
+      }),
     ),
     status,
   })),
@@ -41,7 +43,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
         error,
         details,
         timestamp: new Date().toISOString(),
-      })
+      }),
     ),
     status,
   })),
@@ -51,7 +53,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
-      })
+      }),
     ),
     status: 500,
   })),
@@ -86,7 +88,11 @@ function buildQuery(table: string) {
   builder.eq = jest.fn(() => builder);
   builder.gte = jest.fn(() => builder);
   builder.lte = jest.fn(() => Promise.resolve(resolved));
-  builder.in = jest.fn(() => Promise.resolve(resolved));
+  builder.in = jest.fn(() =>
+    table === "user_devices"
+      ? { is: jest.fn(() => Promise.resolve(resolved)) }
+      : Promise.resolve(resolved),
+  );
   builder.insert = jest.fn((payload: unknown) => {
     // cron_runs comes from withObservedCron, not the handler — exclude it
     // from the spy so existing assertions about handler-level inserts hold.
@@ -110,7 +116,8 @@ jest.mock("@/lib/supabase/server", () => ({
 // Retain the FCM mock as a defensive guard so any future regression is caught.
 const mockSendPushNotifications = jest.fn().mockResolvedValue(undefined);
 jest.mock("@/lib/services/push-notifications", () => ({
-  sendPushNotifications: (...args: unknown[]) => mockSendPushNotifications(...args),
+  sendPushNotifications: (...args: unknown[]) =>
+    mockSendPushNotifications(...args),
 }));
 
 const mockEnqueueNotification = jest.fn();
@@ -124,7 +131,7 @@ jest.mock("@/lib/notifications/enqueue", () => ({
 
 const mockRequest = (
   headers: Record<string, string> = {},
-  url = "http://localhost/api/cron/trial-ending-push-deliver"
+  url = "http://localhost/api/cron/trial-ending-push-deliver",
 ) =>
   ({
     url,
@@ -139,7 +146,10 @@ function resetTables() {
 }
 
 function seed(table: string, data: unknown[]) {
-  tableState[table] = { ...(tableState[table] ?? {}), select: { data, error: null } };
+  tableState[table] = {
+    ...(tableState[table] ?? {}),
+    select: { data, error: null },
+  };
 }
 
 // ============================================================================
@@ -149,7 +159,7 @@ function seed(table: string, data: unknown[]) {
 describe("Trial-Ending Push Cron", () => {
   const routeSource = readFileSync(
     "app/api/cron/trial-ending-push-deliver/route.ts",
-    "utf8"
+    "utf8",
   );
   let consoleLogSpy: jest.SpyInstance;
 
@@ -166,19 +176,30 @@ describe("Trial-Ending Push Cron", () => {
     validateCronRequest.mockReturnValue(true);
 
     const apiUtils = require("@/lib/middleware/api-wrappers");
-    apiUtils.createSuccessResponse.mockImplementation((data: unknown, status = 200) => ({
-      json: jest.fn(() =>
-        Promise.resolve({ success: true, data, timestamp: new Date().toISOString() })
-      ),
-      status,
-    }));
+    apiUtils.createSuccessResponse.mockImplementation(
+      (data: unknown, status = 200) => ({
+        json: jest.fn(() =>
+          Promise.resolve({
+            success: true,
+            data,
+            timestamp: new Date().toISOString(),
+          }),
+        ),
+        status,
+      }),
+    );
     apiUtils.createErrorResponse.mockImplementation(
       (error: unknown, details: unknown, status = 500) => ({
         json: jest.fn(() =>
-          Promise.resolve({ success: false, error, details, timestamp: new Date().toISOString() })
+          Promise.resolve({
+            success: false,
+            error,
+            details,
+            timestamp: new Date().toISOString(),
+          }),
         ),
         status,
-      })
+      }),
     );
     apiUtils.handleApiError.mockImplementation((error: unknown) => ({
       json: jest.fn(() =>
@@ -186,7 +207,7 @@ describe("Trial-Ending Push Cron", () => {
           success: false,
           error: error instanceof Error ? error.message : "Unknown error",
           timestamp: new Date().toISOString(),
-        })
+        }),
       ),
       status: 500,
     }));
@@ -217,7 +238,9 @@ describe("Trial-Ending Push Cron", () => {
 
     it("accepts Bearer cron token", async () => {
       seed("user_entitlements", []);
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
       expect(data.success).toBe(true);
     });
@@ -226,7 +249,9 @@ describe("Trial-Ending Push Cron", () => {
   describe("Empty pipeline", () => {
     it("returns empty summary when no users are in the Day-12 window", async () => {
       seed("user_entitlements", []);
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -238,11 +263,17 @@ describe("Trial-Ending Push Cron", () => {
 
   describe("Idempotency", () => {
     it("skips users that already have a trial_ending_push_log row", async () => {
-      const trialEndsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
-      seed("user_entitlements", [{ user_id: "u-1", trial_ends_at: trialEndsAt }]);
+      const trialEndsAt = new Date(
+        Date.now() + 2 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      seed("user_entitlements", [
+        { user_id: "u-1", trial_ends_at: trialEndsAt },
+      ]);
       seed("trial_ending_push_log", [{ user_id: "u-1" }]);
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -255,12 +286,18 @@ describe("Trial-Ending Push Cron", () => {
 
   describe("Preference / token filters", () => {
     it("skips users with push notifications disabled", async () => {
-      const trialEndsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
-      seed("user_entitlements", [{ user_id: "u-2", trial_ends_at: trialEndsAt }]);
+      const trialEndsAt = new Date(
+        Date.now() + 2 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      seed("user_entitlements", [
+        { user_id: "u-2", trial_ends_at: trialEndsAt },
+      ]);
       seed("trial_ending_push_log", []);
       seed("profiles", [{ id: "u-2", notif_push_enabled: false }]);
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -271,13 +308,19 @@ describe("Trial-Ending Push Cron", () => {
     });
 
     it("skips users with no device tokens (and does NOT write log row)", async () => {
-      const trialEndsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
-      seed("user_entitlements", [{ user_id: "u-3", trial_ends_at: trialEndsAt }]);
+      const trialEndsAt = new Date(
+        Date.now() + 2 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      seed("user_entitlements", [
+        { user_id: "u-3", trial_ends_at: trialEndsAt },
+      ]);
       seed("trial_ending_push_log", []);
       seed("profiles", [{ id: "u-3", notif_push_enabled: true }]);
       seed("user_devices", []);
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -290,13 +333,19 @@ describe("Trial-Ending Push Cron", () => {
 
   describe("Happy path (Phase 3e: enqueues via notifications pipeline)", () => {
     it("enqueues a trial_ending event and writes one log row per candidate", async () => {
-      const trialEndsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
-      seed("user_entitlements", [{ user_id: "u-4", trial_ends_at: trialEndsAt }]);
+      const trialEndsAt = new Date(
+        Date.now() + 2 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      seed("user_entitlements", [
+        { user_id: "u-4", trial_ends_at: trialEndsAt },
+      ]);
       seed("trial_ending_push_log", []);
       seed("profiles", [{ id: "u-4", notif_push_enabled: true }]);
       seed("user_devices", [{ user_id: "u-4", device_token: "token-abc" }]);
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -323,7 +372,7 @@ describe("Trial-Ending Push Cron", () => {
             title: "Trial ends in 2 days",
             trial_ends_at: trialEndsAt,
           }),
-        })
+        }),
       );
 
       expect(mockInsert).toHaveBeenCalledTimes(1);
@@ -337,8 +386,12 @@ describe("Trial-Ending Push Cron", () => {
     });
 
     it("logs once per user even when the user has multiple device tokens", async () => {
-      const trialEndsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
-      seed("user_entitlements", [{ user_id: "u-5", trial_ends_at: trialEndsAt }]);
+      const trialEndsAt = new Date(
+        Date.now() + 2 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      seed("user_entitlements", [
+        { user_id: "u-5", trial_ends_at: trialEndsAt },
+      ]);
       seed("trial_ending_push_log", []);
       seed("profiles", [{ id: "u-5", notif_push_enabled: true }]);
       seed("user_devices", [
@@ -346,7 +399,9 @@ describe("Trial-Ending Push Cron", () => {
         { user_id: "u-5", device_token: "android-token" },
       ]);
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.success).toBe(true);

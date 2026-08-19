@@ -10,6 +10,7 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import { toForecastForScoring } from '@/lib/scoring';
 import { getConditionBoardPick } from '@/lib/scoring/board-pick';
 import { scoreWindowForSelection } from '@/lib/services/discovery/window-selector/window-scorer';
+import { getScoringEngine } from '@/lib/services/discovery/window-selector/scoring-engine-singleton';
 
 // Mock beaches
 const mockBeach: Partial<Beach> = {
@@ -238,11 +239,50 @@ describe('scoreForecastWindow', () => {
       swell_2_direction: '0',
     });
 
-    const details = scoreWindowConditionDetails(forecast, mockBeach as Beach);
-    const ranking = scoreWindowForSelection(forecast, mockBeach as Beach);
+    const fullBeach = {
+      ...mockBeach,
+      break_type: null,
+      aspect_deg: null,
+      bottom_type: null,
+    } as Beach;
+    const details = scoreWindowConditionDetails(forecast, fullBeach);
+    const ranking = scoreWindowForSelection(forecast, fullBeach);
 
     expect(details.score).toBeLessThanOrEqual(65);
     expect(ranking).toBeLessThanOrEqual(65);
+  });
+
+  it('runs the composite engine once per selection score', () => {
+    const forecast = createForecast({});
+    const scoreSpy = jest.spyOn(getScoringEngine(), 'score');
+    const fullBeach = {
+      ...mockBeach,
+      break_type: null,
+      aspect_deg: null,
+      bottom_type: null,
+    } as Beach;
+
+    scoreWindowForSelection(forecast, fullBeach);
+
+    expect(scoreSpy).toHaveBeenCalledTimes(1);
+    scoreSpy.mockRestore();
+  });
+
+  it('does not force a minimal threshold-only beach through the composite adapter', () => {
+    const forecast = createForecast({});
+    const scoreSpy = jest.spyOn(getScoringEngine(), 'score');
+
+    const details = scoreWindowConditionDetails(forecast, {
+      id: 'minimal-beach',
+      name: 'Minimal Beach',
+      wind_offshore_deg: 270,
+      wind_offshore_tol_deg: 45,
+    });
+
+    expect(details.score).toBeGreaterThanOrEqual(0);
+    expect(details.decisionCeiling).toBe(100);
+    expect(scoreSpy).not.toHaveBeenCalled();
+    scoreSpy.mockRestore();
   });
 });
 

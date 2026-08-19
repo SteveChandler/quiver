@@ -37,7 +37,7 @@ function candidateFromMatch(match: MatchingWindow): CanonicalDecisionCandidate {
     match.forecast_id ??
     (typeof snapshotForecastId === "string" && snapshotForecastId.length > 0
       ? snapshotForecastId
-      : "");
+      : canonicalAlertCandidateId(match));
 
   return {
     candidateId: canonicalAlertCandidateId(match),

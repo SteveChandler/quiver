@@ -18,10 +18,10 @@ import type {
   MatchQuality,
   ScoringEngineConfig,
   ScoringDecisionEffect,
-} from './types';
-import { DEFAULT_SCORING_CONFIG } from './types';
-import { waveHeightCeiling } from './wave-height-ceiling';
-import { windChopCeiling } from './wind-chop-ceiling';
+} from "./types";
+import { DEFAULT_SCORING_CONFIG } from "./types";
+import { waveHeightCeiling } from "./wave-height-ceiling";
+import { windChopCeiling } from "./wind-chop-ceiling";
 
 /**
  * Scoring engine that orchestrates multiple scorer plugins.
@@ -63,7 +63,7 @@ export class ScoringEngine {
    */
   score(input: ScorerInput): CompositeScore {
     if (this.scorers.length === 0) {
-      return this.createEmptyResult('No scorers registered');
+      return this.createEmptyResult("No scorers registered");
     }
 
     const results: ScorerResult[] = [];
@@ -77,8 +77,8 @@ export class ScoringEngine {
         // Early exit if any scorer triggers skip
         if (result.skip) {
           return this.createSkipResult(
-            result.skipReason ?? 'Conditions not favorable',
-            results
+            result.skipReason ?? "Conditions not favorable",
+            results,
           );
         }
       } catch (error) {
@@ -96,13 +96,13 @@ export class ScoringEngine {
    */
   private aggregateResults(
     results: ScorerResult[],
-    input: ScorerInput
+    input: ScorerInput,
   ): CompositeScore {
     // Filter out zero-weight results
     const weightedResults = results.filter((r) => r.weight > 0);
 
     if (weightedResults.length === 0) {
-      return this.createEmptyResult('No weighted scores available');
+      return this.createEmptyResult("No weighted scores available");
     }
 
     // Normalize weights
@@ -134,12 +134,17 @@ export class ScoringEngine {
       (current, effect) => Math.min(current, effect.verdictCeiling ?? 100),
       100,
     );
-    const total = Math.min(rawTotal, ceiling, chopCeiling?.ceiling ?? 100, effectCeiling);
+    const total = Math.min(
+      rawTotal,
+      ceiling,
+      chopCeiling?.ceiling ?? 100,
+      effectCeiling,
+    );
 
     if (ceiling < rawTotal) {
       const heightStr = Number.isFinite(input.snapshot.waveHeight)
         ? input.snapshot.waveHeight.toFixed(1)
-        : 'unknown';
+        : "unknown";
       const capMessage = `Small wave (${heightStr}ft) caps score at ${ceiling}`;
       allReasons.push(capMessage);
       allWarnings.push(capMessage);
@@ -150,7 +155,11 @@ export class ScoringEngine {
     }
     if (effectCeiling < rawTotal) {
       for (const effect of allEffects) {
-        if (effect.verdictCeiling !== undefined && effect.verdictCeiling < rawTotal) {
+        if (
+          effect.verdictCeiling !== undefined &&
+          effect.verdictCeiling < rawTotal &&
+          !allWarnings.includes(effect.message)
+        ) {
           allWarnings.push(effect.message);
         }
       }
@@ -179,11 +188,11 @@ export class ScoringEngine {
   private classifyScore(score: number): MatchQuality {
     const { qualityThresholds } = this.config;
 
-    if (score >= qualityThresholds.perfect) return 'perfect';
-    if (score >= qualityThresholds.excellent) return 'excellent';
-    if (score >= qualityThresholds.good) return 'good';
-    if (score >= qualityThresholds.fair) return 'fair';
-    return 'skip';
+    if (score >= qualityThresholds.perfect) return "perfect";
+    if (score >= qualityThresholds.excellent) return "excellent";
+    if (score >= qualityThresholds.good) return "good";
+    if (score >= qualityThresholds.fair) return "fair";
+    return "skip";
   }
 
   /**
@@ -191,7 +200,7 @@ export class ScoringEngine {
    */
   private createSkipResult(
     reason: string,
-    results: ScorerResult[]
+    results: ScorerResult[],
   ): CompositeScore {
     const subscores = new Map<string, number>();
     results.forEach((r) => subscores.set(r.name, r.score));
@@ -201,12 +210,15 @@ export class ScoringEngine {
     return {
       total: 0,
       subscores,
-      matchQuality: 'skip',
+      matchQuality: "skip",
       reasons: [],
-      warnings: this.dedupeAndLimit([reason, ...allWarnings], this.config.maxReasons),
+      warnings: this.dedupeAndLimit(
+        [reason, ...allWarnings],
+        this.config.maxReasons,
+      ),
       skipReason: reason,
       confidence: 0,
-      effects: results.flatMap((result) => result.effects ?? []),
+      effects: dedupeEffects(results.flatMap((result) => result.effects ?? [])),
     };
   }
 
@@ -217,7 +229,7 @@ export class ScoringEngine {
     return {
       total: 0,
       subscores: new Map(),
-      matchQuality: 'skip',
+      matchQuality: "skip",
       reasons: [],
       warnings: [reason],
       skipReason: reason,
@@ -235,10 +247,12 @@ export class ScoringEngine {
   }
 }
 
-function dedupeEffects(effects: ScoringDecisionEffect[]): ScoringDecisionEffect[] {
+function dedupeEffects(
+  effects: ScoringDecisionEffect[],
+): ScoringDecisionEffect[] {
   const seen = new Set<string>();
   return effects.filter((effect) => {
-    const key = `${effect.code}:${effect.message}:${effect.verdictCeiling ?? ''}`;
+    const key = `${effect.code}:${effect.message}:${effect.verdictCeiling ?? ""}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -250,7 +264,7 @@ function dedupeEffects(effects: ScoringDecisionEffect[]): ScoringDecisionEffect[
  * This is the main factory function for creating scoring engines.
  */
 export function createScoringEngine(
-  config?: Partial<ScoringEngineConfig>
+  config?: Partial<ScoringEngineConfig>,
 ): ScoringEngine {
   return new ScoringEngine(config);
 }
@@ -262,7 +276,7 @@ export function createScoringEngine(
 export function scoreWithPlugins(
   input: ScorerInput,
   plugins: ScorerPlugin[],
-  config?: Partial<ScoringEngineConfig>
+  config?: Partial<ScoringEngineConfig>,
 ): CompositeScore {
   const engine = createScoringEngine(config);
   engine.registerAll(plugins);

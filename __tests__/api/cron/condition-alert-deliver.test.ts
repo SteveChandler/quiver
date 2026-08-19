@@ -1888,7 +1888,7 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
     expect(call.entityId).toBe(BEACH_2);
   });
 
-  it("fails closed when canonical push selection has no forecast identity", async () => {
+  it("uses a stable synthetic forecast identity for queued compatibility rows", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
       conditions_snapshot: { wave_height: 3 },
@@ -1905,25 +1905,29 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(mockEnqueueNotification).not.toHaveBeenCalled();
-    expect(store.deliveryInserts).toHaveLength(0);
-    expect(store.attemptInserts).toEqual([
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(
       expect.objectContaining({
-        queue_id: QUEUE_1,
-        rule_id: RULE_1,
-        user_id: USER_A,
-        channel: "push",
-        status: "skipped_disabled",
-        skip_reason: expect.stringMatching(/^canonical_decision:/),
+        payload: expect.objectContaining({
+          session_decision: expect.objectContaining({
+            selection: expect.objectContaining({
+              forecastRef: expect.objectContaining({
+                forecastId: `alert:${RULE_1}:${BEACH_1}:2026-04-26T13:00:00Z`,
+              }),
+            }),
+          }),
+        }),
       }),
-    ]);
+    );
+    expect(store.deliveryInserts).toHaveLength(1);
+    expect(store.attemptInserts).toEqual([]);
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
     expect(body).toMatchObject({
-      pushSent: 0,
+      pushSent: 1,
       queueMarked: 1,
       queue_marked_by_reason: {
-        canonical_safety_rejected: 1,
-        delivered: 0,
+        canonical_safety_rejected: 0,
+        delivered: 1,
       },
     });
     expectQueueReasonTotals(body);

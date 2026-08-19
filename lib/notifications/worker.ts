@@ -151,7 +151,7 @@ function backoffFor(attemptCount: number): number {
 function earliestDate(dates: Date[]): Date | null {
   if (dates.length === 0) return null;
   return dates.reduce((earliest, date) =>
-    date.getTime() < earliest.getTime() ? date : earliest
+    date.getTime() < earliest.getTime() ? date : earliest,
   );
 }
 
@@ -273,17 +273,28 @@ interface SurfAlertSlot {
   priority: 1 | 2 | 3;
 }
 
-export function getSurfAlertSlot(event: SurfAlertCandidate): SurfAlertSlot | null {
+export function getSurfAlertSlot(
+  event: SurfAlertCandidate,
+): SurfAlertSlot | null {
   if (!isKnownNotificationType(event.type)) return null;
 
   const priority = getRegistryEntry(event.type).surfAlertPriority;
-  const alertDate = typeof event.payload.alert_date === "string"
-    ? event.payload.alert_date
-    : null;
-  const beachId = event.entity_id ??
-    (typeof event.payload.beach_id === "string" ? event.payload.beach_id : null);
+  const alertDate =
+    typeof event.payload.alert_date === "string"
+      ? event.payload.alert_date
+      : null;
+  const beachId =
+    event.entity_id ??
+    (typeof event.payload.beach_id === "string"
+      ? event.payload.beach_id
+      : null);
 
-  if (!priority || !alertDate || !/^\d{4}-\d{2}-\d{2}$/.test(alertDate) || !beachId) {
+  if (
+    !priority ||
+    !alertDate ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(alertDate) ||
+    !beachId
+  ) {
     return null;
   }
 
@@ -291,7 +302,9 @@ export function getSurfAlertSlot(event: SurfAlertCandidate): SurfAlertSlot | nul
 }
 
 /** Selects the preferred candidate per slot and priority-orders its fallbacks. */
-export function selectSurfAlertWinners<T extends SurfAlertCandidate>(events: T[]): {
+export function selectSurfAlertWinners<T extends SurfAlertCandidate>(
+  events: T[],
+): {
   winners: T[];
   redundant: T[];
 } {
@@ -332,7 +345,7 @@ export function selectSurfAlertWinners<T extends SurfAlertCandidate>(events: T[]
 
 function channelDecision(
   status: NotificationDeliveryStatus,
-  details: Omit<ChannelDecision, "status"> = {}
+  details: Omit<ChannelDecision, "status"> = {},
 ): ChannelDecision {
   return { status, ...details };
 }
@@ -341,7 +354,7 @@ function channelDecision(
 
 export async function processPendingEvents(
   supabase: ServiceClient,
-  opts: ProcessOptions = {}
+  opts: ProcessOptions = {},
 ): Promise<ProcessSummary> {
   const batchSize = opts.batchSize ?? DEFAULT_BATCH_SIZE;
   const now = opts.now ?? new Date();
@@ -378,7 +391,10 @@ export async function processPendingEvents(
   if (events.length === 0) return summary;
 
   const arbitration = selectSurfAlertWinners(
-    events.map((event) => ({ ...event, payload: event.payload as Record<string, unknown> })),
+    events.map((event) => ({
+      ...event,
+      payload: event.payload as Record<string, unknown>,
+    })),
   );
   // Evaluate the preferred candidate first, but do not cancel fallbacks until
   // the winner reaches the actual push boundary. A disabled forecast alert
@@ -390,14 +406,17 @@ export async function processPendingEvents(
 
   const priorAttempts = await loadAttemptsForEvents(
     supabase,
-    dispatchEvents.map((e) => e.id)
+    dispatchEvents.map((e) => e.id),
   );
 
   // Track events that stay pending after the tick so we can release their
   // claim and let the next tick retry. Phase 5c: nextAttemptAt is also
   // captured so we can space out retries with backoff (1m/5m/30m) instead
   // of hammering FCM every minute on transient failures.
-  const pendingReleases: Array<{ eventId: string; nextAttemptAt: Date | null }> = [];
+  const pendingReleases: Array<{
+    eventId: string;
+    nextAttemptAt: Date | null;
+  }> = [];
 
   for (const event of dispatchEvents) {
     const eventAttempts = priorAttempts.get(event.id) ?? [];
@@ -426,13 +445,15 @@ export async function processPendingEvents(
       // failed here because the failure may be transient (DB blip, network).
       console.error(
         `[notifications/worker] uncaught error processing event ${event.id}:`,
-        err
+        err,
       );
       summary.pending_after_run++;
       // Unknown failure mode — schedule a backoff to avoid tight retry loop.
       pendingReleases.push({
         eventId: event.id,
-        nextAttemptAt: new Date(now.getTime() + backoffFor(event.attempt_count)),
+        nextAttemptAt: new Date(
+          now.getTime() + backoffFor(event.attempt_count),
+        ),
       });
     }
   }
@@ -444,7 +465,7 @@ export async function processPendingEvents(
 
 function tallyOutcome(
   summary: ProcessSummary,
-  outcome: ProcessOneOutcome
+  outcome: ProcessOneOutcome,
 ): void {
   if (outcome === "processed") summary.processed++;
   else if (outcome === "all-skipped") {
@@ -494,7 +515,7 @@ async function processOne(
       event.id,
       "failed",
       "unknown_type",
-      claimToken
+      claimToken,
     );
     return { outcome: "failed", nextAttemptAt: null };
   }
@@ -515,7 +536,7 @@ async function processOne(
   } catch (err) {
     console.error(
       `[notifications/worker] profile query errored for event ${event.id}:`,
-      err
+      err,
     );
     // Transient lookup failure — backoff before next tick to avoid hammering.
     return {
@@ -529,7 +550,7 @@ async function processOne(
       event.id,
       "failed",
       "recipient_profile_missing",
-      claimToken
+      claimToken,
     );
     return { outcome: "failed", nextAttemptAt: null };
   }
@@ -541,11 +562,13 @@ async function processOne(
     } catch (err) {
       console.error(
         `[notifications/worker] actor query errored for event ${event.id}:`,
-        err
+        err,
       );
       return {
         outcome: "pending",
-        nextAttemptAt: new Date(now.getTime() + backoffFor(event.attempt_count)),
+        nextAttemptAt: new Date(
+          now.getTime() + backoffFor(event.attempt_count),
+        ),
       };
     }
   }
@@ -561,7 +584,10 @@ async function processOne(
   const ctx: BuildCtx = {
     recipientUserId: event.recipient_user_id,
     actorUserId: event.actor_user_id,
-    recipient: { display_name: profile.display_name, timezone: profile.timezone },
+    recipient: {
+      display_name: profile.display_name,
+      timezone: profile.timezone,
+    },
     actor: actor ? { display_name: actor.display_name } : null,
   };
 
@@ -569,7 +595,9 @@ async function processOne(
   const newAttempts: NotificationDeliveryAttemptInsert[] = [];
   const quietHoursRetryTimes: Date[] = [];
   const channelOutcomes = new Map<NotificationChannel, ChannelOutcome>();
-  let hasSentDelivery = priorAttempts.some((attempt) => attempt.status === "sent");
+  let hasSentDelivery = priorAttempts.some(
+    (attempt) => attempt.status === "sent",
+  );
   let surfAlertRejected = false;
   let terminalCancellationReason: string | null = null;
 
@@ -585,7 +613,7 @@ async function processOne(
 
     // Retry cap reached? Stop trying — channel is permanently failed.
     const failureCount = prior.filter((a) =>
-      FAILURE_STATUSES.has(a.status)
+      FAILURE_STATUSES.has(a.status),
     ).length;
     if (failureCount >= MAX_FAILED_ATTEMPTS_PER_CHANNEL) {
       channelOutcomes.set(channel, "failed");
@@ -644,7 +672,7 @@ async function processOne(
       } catch (err) {
         console.error(
           `[notifications/worker] onChannelOutcome hook threw for event ${event.id} (${event.type}/${channel}):`,
-          err
+          err,
         );
       }
     }
@@ -680,7 +708,10 @@ async function processOne(
   }
 
   if (newAttempts.length > 0) {
-    const attemptsInserted = await insertDeliveryAttempts(supabase, newAttempts);
+    const attemptsInserted = await insertDeliveryAttempts(
+      supabase,
+      newAttempts,
+    );
     if (attemptsInserted && profile.allow_implicit_tracking === true) {
       await captureDeliveryAttemptEvents(event, newAttempts);
     }
@@ -712,7 +743,7 @@ async function processOne(
     supabase,
     event.id,
     channelOutcomes,
-    claimToken
+    claimToken,
   );
 
   // Phase 5c: schedule backoff for retryable failures so the next tick
@@ -722,15 +753,13 @@ async function processOne(
   let nextAttemptAt: Date | null = null;
   if (outcome === "pending") {
     const hasRetryableFailure = newAttempts.some((a) =>
-      FAILURE_STATUSES.has(a.status as NotificationDeliveryStatus)
+      FAILURE_STATUSES.has(a.status as NotificationDeliveryStatus),
     );
     const hasDeferredQuietHours = newAttempts.some(
-      (a) => a.status === "deferred_quiet_hours"
+      (a) => a.status === "deferred_quiet_hours",
     );
     if (hasRetryableFailure) {
-      nextAttemptAt = new Date(
-        now.getTime() + backoffFor(event.attempt_count)
-      );
+      nextAttemptAt = new Date(now.getTime() + backoffFor(event.attempt_count));
       // Phase 5m: surface the unhealthy retry path separately from the
       // healthy "user said quiet hours, we respect it" path.
       summary.retry_scheduled_count++;
@@ -744,7 +773,7 @@ async function processOne(
 }
 
 function priorTerminalOutcome(
-  prior: NotificationDeliveryAttemptRow[]
+  prior: NotificationDeliveryAttemptRow[],
 ): ChannelOutcome | null {
   for (const a of prior) {
     if (a.status === "sent") return "sent";
@@ -754,7 +783,7 @@ function priorTerminalOutcome(
 }
 
 function groupAttemptsByChannel(
-  attempts: NotificationDeliveryAttemptRow[]
+  attempts: NotificationDeliveryAttemptRow[],
 ): Map<NotificationChannel, NotificationDeliveryAttemptRow[]> {
   const m = new Map<NotificationChannel, NotificationDeliveryAttemptRow[]>();
   for (const a of attempts) {
@@ -769,7 +798,7 @@ async function finalizeEventStatus(
   supabase: ServiceClient,
   eventId: string,
   outcomes: Map<NotificationChannel, ChannelOutcome>,
-  claimToken: string
+  claimToken: string,
 ): Promise<ProcessOneOutcome> {
   const values = Array.from(outcomes.values());
   if (values.length === 0) {
@@ -778,13 +807,13 @@ async function finalizeEventStatus(
       eventId,
       "processed",
       "surface_disabled",
-      claimToken
+      claimToken,
     );
     return "all-skipped";
   }
 
   const allTerminal = values.every(
-    (o) => o === "sent" || o === "skipped" || o === "failed"
+    (o) => o === "sent" || o === "skipped" || o === "failed",
   );
   if (!allTerminal) {
     // At least one channel is still retrying — leave event pending. Don't
@@ -805,7 +834,7 @@ async function finalizeEventStatus(
       eventId,
       "failed",
       "all_channels_failed",
-      claimToken
+      claimToken,
     );
     return "failed";
   }
@@ -818,7 +847,7 @@ async function finalizeEventStatus(
     eventId,
     "processed",
     "all_channels_skipped",
-    claimToken
+    claimToken,
   );
   return "all-skipped";
 }
@@ -881,17 +910,26 @@ async function processChannel(
   // the active-event partial unique index (which only sees pending/processing).
   if (channel === "push" && def.cooldownMs && def.cooldownMs > 0) {
     const cooldownStartIso = new Date(
-      now.getTime() - def.cooldownMs
+      now.getTime() - def.cooldownMs,
     ).toISOString();
     const cooldownClient = supabase as unknown as {
       from(t: "notification_delivery_attempts"): {
         select(s: string): {
-          eq(c: "channel", v: NotificationChannel): {
-            eq(c: "status", v: NotificationDeliveryStatus): {
-              gte(c: "created_at", v: string): {
+          eq(
+            c: "channel",
+            v: NotificationChannel,
+          ): {
+            eq(
+              c: "status",
+              v: NotificationDeliveryStatus,
+            ): {
+              gte(
+                c: "created_at",
+                v: string,
+              ): {
                 in(
                   c: "notification_event_id",
-                  v: string[]
+                  v: string[],
                 ): {
                   limit(n: number): Promise<{
                     data: Array<{ id: string }> | null;
@@ -903,13 +941,20 @@ async function processChannel(
           };
         };
       };
-      from(
-        t: "notification_events"
-      ): {
+      from(t: "notification_events"): {
         select(s: string): {
-          eq(c: "recipient_user_id", v: string): {
-            eq(c: "type", v: string): {
-              gte(c: "created_at", v: string): Promise<{
+          eq(
+            c: "recipient_user_id",
+            v: string,
+          ): {
+            eq(
+              c: "type",
+              v: string,
+            ): {
+              gte(
+                c: "created_at",
+                v: string,
+              ): Promise<{
                 data: Array<{ id: string }> | null;
                 error: { message: string; code?: string } | null;
               }>;
@@ -927,7 +972,7 @@ async function processChannel(
     if (eventsErr) {
       console.error(
         `[notifications/worker] cooldown lookup (events) failed for event ${event.id}:`,
-        eventsErr
+        eventsErr,
       );
       // Fall through — we'd rather risk a within-cooldown send than lose the
       // notification on a transient query error.
@@ -944,7 +989,7 @@ async function processChannel(
       if (attemptsErr) {
         console.error(
           `[notifications/worker] cooldown lookup (attempts) failed for event ${event.id}:`,
-          attemptsErr
+          attemptsErr,
         );
       } else if (sentAttempts && sentAttempts.length > 0) {
         return channelDecision("skipped_cooldown");
@@ -1041,9 +1086,13 @@ async function resolveHoldSuppression(
 
 function resolveQuietWindow(
   def: NotificationTypeDef,
-  payload: Json
+  payload: Json,
 ): { start: number; end: number } {
-  if (typeof payload === "object" && payload !== null && !Array.isArray(payload)) {
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    !Array.isArray(payload)
+  ) {
     const record = payload as Record<string, unknown>;
     const start =
       typeof record.quiet_hours_start === "number"
@@ -1076,8 +1125,6 @@ function resolveQuietWindow(
 
 // ─── Push dispatch ───────────────────────────────────────────────────────────
 
-type DeliveryTargetClaim = { installation_id: string; status: string; claim_version: number };
-
 function installationIdFor(device: DeviceRow): string | null {
   return device.installation_id ?? null;
 }
@@ -1086,9 +1133,15 @@ function tokenFingerprint(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-function sanitizeProviderText(text: string, devices: readonly DeviceRow[]): string {
+function sanitizeProviderText(
+  text: string,
+  devices: readonly DeviceRow[],
+): string {
   return devices.reduce(
-    (safe, device) => safe.split(device.device_token).join(`[token:${tokenFingerprint(device.device_token)}]`),
+    (safe, device) =>
+      safe
+        .split(device.device_token)
+        .join(`[token:${tokenFingerprint(device.device_token)}]`),
     text,
   );
 }
@@ -1103,38 +1156,37 @@ async function claimInstallationTargets(
   eventId: string,
   devices: DeviceRow[],
 ): Promise<DeviceRow[]> {
-  const identified = devices.filter((device) => installationIdFor(device) !== null);
+  const identified = devices.filter(
+    (device) => installationIdFor(device) !== null,
+  );
   if (identified.length === 0) return devices;
 
-  const targetClient = supabase as unknown as {
-    from(table: "notification_delivery_targets"): {
-      upsert(rows: Array<Record<string, unknown>>, options?: { onConflict?: string; ignoreDuplicates?: boolean }): Promise<{ error: { code?: string; message: string } | null }>;
-    };
-    rpc(name: "claim_notification_delivery_targets", args: Record<string, unknown>): Promise<{
-      data: DeliveryTargetClaim[] | null;
-      error: { message: string } | null;
-    }>;
-  };
   const rows = identified.map((device) => ({
     notification_event_id: eventId,
     installation_id: device.installation_id as string,
     token_fingerprint: tokenFingerprint(device.device_token),
   }));
-  const inserted = await targetClient.from("notification_delivery_targets").upsert(rows, {
-    onConflict: "notification_event_id,installation_id",
-    ignoreDuplicates: true,
-  });
+  const inserted = await supabase
+    .from("notification_delivery_targets")
+    .upsert(rows, {
+      onConflict: "notification_event_id,installation_id",
+      ignoreDuplicates: true,
+    });
   if (inserted.error && inserted.error.code !== "23505") {
-    throw new Error(`notification target ledger insert failed: ${inserted.error.message}`);
+    throw new Error(
+      `notification target ledger insert failed: ${inserted.error.message}`,
+    );
   }
   const claimId = crypto.randomUUID();
-  const claimed = await targetClient.rpc("claim_notification_delivery_targets", {
+  const claimed = await supabase.rpc("claim_notification_delivery_targets", {
     p_event_id: eventId,
     p_installation_ids: rows.map((row) => row.installation_id),
     p_claim_id: claimId,
   });
   if (claimed.error) {
-    throw new Error(`notification target claim failed: ${claimed.error.message}`);
+    throw new Error(
+      `notification target claim failed: ${claimed.error.message}`,
+    );
   }
   const claimedByInstallation = new Map(
     (claimed.data ?? [])
@@ -1144,9 +1196,17 @@ async function claimInstallationTargets(
   return [
     ...devices.filter((device) => installationIdFor(device) === null),
     ...identified.flatMap((device) => {
-      const target = claimedByInstallation.get(device.installation_id as string);
+      const target = claimedByInstallation.get(
+        device.installation_id as string,
+      );
       if (!target) return [];
-      return [{ ...device, delivery_claim_id: claimId, delivery_claim_version: target.claim_version }];
+      return [
+        {
+          ...device,
+          delivery_claim_id: claimId,
+          delivery_claim_version: target.claim_version,
+        },
+      ];
     }),
   ];
 }
@@ -1176,38 +1236,26 @@ async function dispatchPush(
     });
   }
 
-  const deviceReader = supabase as unknown as {
-    from(table: "user_devices"): {
-      select(columns: string): {
-        eq(column: string, value: string): Promise<{
-          data: unknown[] | null;
-          error: { message: string } | null;
-        }> & {
-          is(column: string, value: null): Promise<{
-            data: unknown[] | null;
-            error: { message: string } | null;
-          }>;
-        };
-      };
-    };
-  };
-  const { data: devices, error: devicesError } = await deviceReader
+  const { data: devices, error: devicesError } = await supabase
     .from("user_devices")
-    .select("id, device_token, installation_id, retired_at, platform, app_version, build_number")
+    .select(
+      "id, device_token, installation_id, retired_at, platform, app_version, build_number",
+    )
     .eq("user_id", event.recipient_user_id)
     .is("retired_at", null);
 
   if (devicesError) {
     console.error(
       `[notifications/worker] device lookup failed for ${event.recipient_user_id}:`,
-      devicesError
+      devicesError,
     );
     return channelDecision("failed_internal", {
       errorMessage: devicesError.message,
     });
   }
-  const deviceList = ((devices ?? []) as DeviceRow[])
-    .filter((device) => device.retired_at == null);
+  const deviceList = ((devices ?? []) as DeviceRow[]).filter(
+    (device) => device.retired_at == null,
+  );
   if (deviceList.length === 0) {
     return channelDecision("skipped_no_device");
   }
@@ -1292,23 +1340,29 @@ async function dispatchPush(
       safeMessage,
     );
     try {
-      await finalizeInstallationTargets(supabase, event.id, dispatchableDevices, {
-        success: 0,
-        failed: 0,
-        invalidTokens: [],
-        errors: [safeMessage],
-        outcomes: dispatchableDevices
-          .filter((device) => installationIdFor(device) !== null)
-          .map((device) => ({
-            token: device.device_token,
-            status: "unknown" as const,
-            invalidToken: false,
-          })),
-      });
+      await finalizeInstallationTargets(
+        supabase,
+        event.id,
+        dispatchableDevices,
+        {
+          success: 0,
+          failed: 0,
+          invalidTokens: [],
+          errors: [safeMessage],
+          outcomes: dispatchableDevices
+            .filter((device) => installationIdFor(device) !== null)
+            .map((device) => ({
+              token: device.device_token,
+              status: "unknown" as const,
+              invalidToken: false,
+            })),
+        },
+      );
     } catch (finalizeError) {
-      const finalizeMessage = finalizeError instanceof Error
-        ? finalizeError.message
-        : String(finalizeError);
+      const finalizeMessage =
+        finalizeError instanceof Error
+          ? finalizeError.message
+          : String(finalizeError);
       console.error(
         `[notifications/worker] ambiguous push target finalization failed for event ${event.id}:`,
         sanitizeProviderText(finalizeMessage, dispatchableDevices),
@@ -1321,12 +1375,12 @@ async function dispatchPush(
   }
 
   if (result.invalidTokens.length > 0) {
-    const deviceTable = supabase.from("user_devices") as unknown as {
-      update: (row: unknown) => { eq: (column: string, value: string) => { in: (column: string, values: string[]) => { is: (column: string, value: null) => Promise<unknown> } } };
-    };
-    await deviceTable
-      .update({ retired_at: new Date().toISOString(), retired_reason: "provider_invalid_token" })
-      .eq("user_id", event.recipient_user_id)
+    await supabase
+      .from("user_devices")
+      .update({
+        retired_at: new Date().toISOString(),
+        retired_reason: "provider_invalid_token",
+      })
       .in("device_token", result.invalidTokens)
       .is("retired_at", null);
   }
@@ -1341,17 +1395,28 @@ async function dispatchPush(
     invalidTokenCount: result.invalidTokens.length,
     errors: safeErrors,
   };
-  await finalizeInstallationTargets(
-    supabase,
-    event.id,
-    dispatchableDevices,
-    safeResult,
-  );
+  try {
+    await finalizeInstallationTargets(
+      supabase,
+      event.id,
+      dispatchableDevices,
+      safeResult,
+    );
+  } catch (finalizeError) {
+    const finalizeMessage =
+      finalizeError instanceof Error
+        ? finalizeError.message
+        : String(finalizeError);
+    console.error(
+      `[notifications/worker] push target finalization failed after provider response for event ${event.id}:`,
+      sanitizeProviderText(finalizeMessage, dispatchableDevices),
+    );
+  }
   const errorMessage =
     safeErrors[0] ??
     (result.failed > 0 ? "Push provider returned failed deliveries" : null);
 
-  if (result.success > 0 && result.failed === 0) {
+  if (result.success > 0) {
     return channelDecision("sent", {
       providerResponse,
       errorMessage,
@@ -1381,22 +1446,27 @@ async function finalizeInstallationTargets(
     outcomes: PushDeliveryOutcome[];
   },
 ): Promise<void> {
-  const targets = devices.filter((device) => installationIdFor(device) !== null);
+  const targets = devices.filter(
+    (device) => installationIdFor(device) !== null,
+  );
   if (targets.length === 0) return;
-  const rpcClient = supabase as unknown as {
-    rpc(name: "finalize_notification_delivery_target", args: Record<string, unknown>): Promise<{ error: { message: string } | null }>;
-    from(table: "notification_delivery_targets"): {
-      select(columns: string): { eq(column: string, value: string): { in(column: string, values: string[]): Promise<{ data: Array<{ id: string; installation_id: string; claim_id: string; claim_version: number }> | null; error: { message: string } | null }> } };
-    };
-  };
-  const lookup = await rpcClient.from("notification_delivery_targets")
+  const lookup = await supabase
+    .from("notification_delivery_targets")
     .select("id, installation_id, claim_id, claim_version")
     .eq("notification_event_id", eventId)
-    .in("installation_id", targets.map((device) => device.installation_id as string));
-  if (lookup.error) throw new Error(`notification target lookup failed: ${lookup.error.message}`);
+    .in(
+      "installation_id",
+      targets.map((device) => device.installation_id as string),
+    );
+  if (lookup.error)
+    throw new Error(
+      `notification target lookup failed: ${lookup.error.message}`,
+    );
   const invalid = new Set(result.invalidTokens);
   for (const target of lookup.data ?? []) {
-    const device = targets.find((candidate) => candidate.installation_id === target.installation_id);
+    const device = targets.find(
+      (candidate) => candidate.installation_id === target.installation_id,
+    );
     if (
       !device ||
       device.delivery_claim_id !== target.claim_id ||
@@ -1408,21 +1478,29 @@ async function finalizeInstallationTargets(
     const outcome = result.outcomes.find(
       (candidate) => candidate.token === device.device_token,
     );
-    const status = outcome?.status
-      ?? (invalid.has(device.device_token) ? "failed" : "unknown");
-    const finalized = await rpcClient.rpc("finalize_notification_delivery_target", {
-      p_target_id: target.id,
-      p_claim_id: device.delivery_claim_id,
-      p_claim_version: device.delivery_claim_version,
-      p_status: status,
-      p_provider_response: { success: result.success, failed: result.failed },
-      p_error_message: status === "unknown"
-        ? "provider outcome ambiguous; dispatch will not be retried"
-        : outcome?.error
-          ? sanitizeProviderText(outcome.error, targets)
-          : null,
-    });
-    if (finalized.error) throw new Error(`notification target finalize failed: ${finalized.error.message}`);
+    const status =
+      outcome?.status ??
+      (invalid.has(device.device_token) ? "failed" : "unknown");
+    const finalized = await supabase.rpc(
+      "finalize_notification_delivery_target",
+      {
+        p_target_id: target.id,
+        p_claim_id: device.delivery_claim_id,
+        p_claim_version: device.delivery_claim_version,
+        p_status: status,
+        p_provider_response: { success: result.success, failed: result.failed },
+        p_error_message:
+          status === "unknown"
+            ? "provider outcome ambiguous; dispatch will not be retried"
+            : outcome?.error
+              ? sanitizeProviderText(outcome.error, targets)
+              : undefined,
+      },
+    );
+    if (finalized.error)
+      throw new Error(
+        `notification target finalize failed: ${finalized.error.message}`,
+      );
   }
 }
 
@@ -1432,7 +1510,7 @@ async function dispatchInApp(
   supabase: ServiceClient,
   event: NotificationEventRow,
   def: NotificationTypeDef,
-  ctx: BuildCtx
+  ctx: BuildCtx,
 ): Promise<NotificationDeliveryStatus> {
   if (!def.buildInAppPayload) return "failed_internal";
   const payloadRecord = (event.payload ?? {}) as Record<string, unknown>;
@@ -1447,7 +1525,7 @@ async function dispatchInApp(
   if (error) {
     console.error(
       `[notifications/worker] notifications insert failed for event ${event.id}:`,
-      error
+      error,
     );
     return "failed_internal";
   }
@@ -1474,14 +1552,18 @@ const EVENT_COLUMN_LIST =
 async function claimPendingEvents(
   supabase: ServiceClient,
   limit: number,
-  claimToken: string
+  claimToken: string,
 ): Promise<NotificationEventRow[]> {
   const leaseSeconds = Math.ceil(CLAIM_STALE_AFTER_MS / 1000);
 
   const rpcClient = supabase as unknown as {
     rpc(
       name: "claim_notification_events",
-      args: { p_batch_size: number; p_lease_seconds: number; p_claim_token: string }
+      args: {
+        p_batch_size: number;
+        p_lease_seconds: number;
+        p_claim_token: string;
+      },
     ): Promise<{
       data: NotificationEventRow[] | null;
       error: { message: string; code?: string } | null;
@@ -1496,7 +1578,7 @@ async function claimPendingEvents(
 
   if (error) {
     throw new Error(
-      `notification_events claim failed: ${error.message}${error.code ? ` (code=${error.code})` : ""}`
+      `notification_events claim failed: ${error.message}${error.code ? ` (code=${error.code})` : ""}`,
     );
   }
 
@@ -1518,7 +1600,7 @@ async function claimPendingEvents(
 async function releaseClaims(
   supabase: ServiceClient,
   releases: Array<{ eventId: string; nextAttemptAt: Date | null }>,
-  claimToken: string
+  claimToken: string,
 ): Promise<void> {
   if (releases.length === 0) return;
 
@@ -1530,8 +1612,14 @@ async function releaseClaims(
         claim_token: null;
         next_attempt_at: string | null;
       }): {
-        eq(c: string, v: string): {
-          eq(c: string, v: string): Promise<{
+        eq(
+          c: string,
+          v: string,
+        ): {
+          eq(
+            c: string,
+            v: string,
+          ): Promise<{
             error: { message: string; code?: string } | null;
           }>;
         };
@@ -1553,7 +1641,7 @@ async function releaseClaims(
     if (error) {
       console.error(
         `[notifications/worker] releaseClaims failed for ${eventId} (will be reclaimed via stale TTL):`,
-        error
+        error,
       );
     }
   }
@@ -1566,7 +1654,7 @@ async function releaseClaims(
  */
 async function loadAttemptsForEvents(
   supabase: ServiceClient,
-  eventIds: string[]
+  eventIds: string[],
 ): Promise<Map<string, NotificationDeliveryAttemptRow[]>> {
   const result = new Map<string, NotificationDeliveryAttemptRow[]>();
   if (eventIds.length === 0) return result;
@@ -1574,7 +1662,10 @@ async function loadAttemptsForEvents(
   const client = supabase as unknown as {
     from(t: "notification_delivery_attempts"): {
       select(s: string): {
-        in(c: string, v: string[]): Promise<{
+        in(
+          c: string,
+          v: string[],
+        ): Promise<{
           data: NotificationDeliveryAttemptRow[] | null;
           error: { message: string; code?: string } | null;
         }>;
@@ -1585,13 +1676,13 @@ async function loadAttemptsForEvents(
   const { data, error } = await client
     .from("notification_delivery_attempts")
     .select(
-      "id, notification_event_id, channel, status, provider_response, error_message, created_at"
+      "id, notification_event_id, channel, status, provider_response, error_message, created_at",
     )
     .in("notification_event_id", eventIds);
 
   if (error) {
     throw new Error(
-      `notification_delivery_attempts fetch failed: ${error.message}${error.code ? ` (code=${error.code})` : ""}`
+      `notification_delivery_attempts fetch failed: ${error.message}${error.code ? ` (code=${error.code})` : ""}`,
     );
   }
 
@@ -1610,18 +1701,18 @@ async function loadAttemptsForEvents(
  */
 async function loadProfile(
   supabase: ServiceClient,
-  userId: string
+  userId: string,
 ): Promise<ProfileRow | null> {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, display_name, timezone, experience_level, allow_implicit_tracking, notif_push_enabled, notif_email_enabled, notif_inapp_enabled, notif_likes, notif_follows, notif_reminders, notif_xp_updates, notif_forecast_alerts, notif_water_quality, notif_similarity_alerts"
+      "id, display_name, timezone, experience_level, allow_implicit_tracking, notif_push_enabled, notif_email_enabled, notif_inapp_enabled, notif_likes, notif_follows, notif_reminders, notif_xp_updates, notif_forecast_alerts, notif_water_quality, notif_similarity_alerts",
     )
     .eq("id", userId)
     .maybeSingle();
   if (error) {
     throw new Error(
-      `profiles lookup failed for user ${userId}: ${error.message}`
+      `profiles lookup failed for user ${userId}: ${error.message}`,
     );
   }
   return (data as ProfileRow | null) ?? null;
@@ -1629,7 +1720,7 @@ async function loadProfile(
 
 async function loadActorProfile(
   supabase: ServiceClient,
-  userId: string
+  userId: string,
 ): Promise<{ id: string; display_name: string | null } | null> {
   const { data, error } = await supabase
     .from("profiles")
@@ -1638,7 +1729,7 @@ async function loadActorProfile(
     .maybeSingle();
   if (error) {
     throw new Error(
-      `actor profile lookup failed for user ${userId}: ${error.message}`
+      `actor profile lookup failed for user ${userId}: ${error.message}`,
     );
   }
   return (data as { id: string; display_name: string | null } | null) ?? null;
@@ -1646,7 +1737,7 @@ async function loadActorProfile(
 
 async function insertDeliveryAttempts(
   supabase: ServiceClient,
-  rows: NotificationDeliveryAttemptInsert[]
+  rows: NotificationDeliveryAttemptInsert[],
 ): Promise<boolean> {
   const client = supabase as unknown as {
     from(t: "notification_delivery_attempts"): {
@@ -1666,7 +1757,7 @@ async function insertDeliveryAttempts(
 }
 
 function summarizeProviderResponse(
-  response: Json | null | undefined
+  response: Json | null | undefined,
 ): Record<string, unknown> {
   if (!response || typeof response !== "object" || Array.isArray(response)) {
     return {};
@@ -1698,7 +1789,7 @@ function summarizeProviderResponse(
 
 async function captureDeliveryAttemptEvents(
   event: NotificationEventRow,
-  attempts: NotificationDeliveryAttemptInsert[]
+  attempts: NotificationDeliveryAttemptInsert[],
 ): Promise<void> {
   for (const attempt of attempts) {
     try {
@@ -1729,7 +1820,7 @@ async function captureDeliveryAttemptEvents(
     } catch (error) {
       console.error(
         `[notifications/worker] PostHog capture failed for event ${event.id} (${attempt.channel}/${attempt.status}):`,
-        error
+        error,
       );
     }
   }
@@ -1740,13 +1831,19 @@ async function markEventTerminal(
   eventId: string,
   status: "processed" | "failed" | "cancelled",
   skipReason: string | null,
-  claimToken: string
+  claimToken: string,
 ): Promise<void> {
   const client = supabase as unknown as {
     from(t: "notification_events"): {
       update(row: Record<string, unknown>): {
-        eq(c: string, v: string): {
-          eq(c: string, v: string): Promise<{ error: { message: string } | null }>;
+        eq(
+          c: string,
+          v: string,
+        ): {
+          eq(
+            c: string,
+            v: string,
+          ): Promise<{ error: { message: string } | null }>;
         };
       };
     };
@@ -1769,7 +1866,7 @@ async function markEventTerminal(
   if (error) {
     console.error(
       `[notifications/worker] mark event ${eventId} ${status} failed:`,
-      error
+      error,
     );
   }
 }

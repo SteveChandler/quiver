@@ -42,6 +42,7 @@ import {
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
 import { isGscPerformanceProtected } from "@/lib/seo/gsc-performance-protection";
+import { unstable_cache } from "next/cache";
 
 const BEACH_WITH_FRESH_FORECAST = {
   id: "windansea",
@@ -122,6 +123,7 @@ function createCoverageQueryMock(table = "enhanced_forecasts") {
     in: jest.fn(),
     gte: jest.fn(),
     lt: jest.fn(),
+    lte: jest.fn(),
     not: jest.fn(),
     limit: jest.fn(),
   };
@@ -132,6 +134,7 @@ function createCoverageQueryMock(table = "enhanced_forecasts") {
   });
   query.gte.mockReturnValue(query);
   query.lt.mockReturnValue(query);
+  query.lte.mockReturnValue(query);
   query.not.mockReturnValue(query);
   query.limit.mockImplementation(async () => ({
     data: coverageRowsFor(table, beachIds),
@@ -269,6 +272,21 @@ describe("Sitemap Generation", () => {
       const homeRoute = result.find((r) => r.url === `${baseUrl}/`);
 
       expect(homeRoute).not.toBeUndefined();
+    });
+
+    it("keys beach coverage cache entries with a collision-resistant digest", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [BEACH_WITH_FRESH_FORECAST],
+      });
+
+      await sitemap();
+
+      expect(unstable_cache).toHaveBeenCalledWith(
+        expect.any(Function),
+        ["beach-sub-page-coverage", expect.stringMatching(/^1-[a-f0-9]{64}$/)],
+        { revalidate: 3600 },
+      );
     });
 
     it("should include /features route", async () => {

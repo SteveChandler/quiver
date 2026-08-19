@@ -94,16 +94,30 @@ BEGIN
       AND p_installation_id IS NOT NULL
     );
   INSERT INTO public.user_devices (user_id, installation_id, platform, device_token,
-    app_version, build_number, os_version, expo_sdk, timezone, updated_at)
+    app_version, build_number, os_version, expo_sdk, timezone,
+    expo_update_id, expo_channel, expo_runtime_version,
+    expo_is_embedded_launch, expo_is_emergency_launch, updated_at)
   VALUES (p_user_id, p_installation_id, p_platform, p_device_token,
     p_metadata->>'app_version', p_metadata->>'build_number', p_metadata->>'os_version',
-    p_metadata->>'expo_sdk', p_metadata->>'timezone', now())
+    p_metadata->>'expo_sdk', p_metadata->>'timezone',
+    p_metadata->>'expo_update_id', p_metadata->>'expo_channel',
+    p_metadata->>'expo_runtime_version',
+    (p_metadata->>'expo_is_embedded_launch')::boolean,
+    (p_metadata->>'expo_is_emergency_launch')::boolean, now())
   ON CONFLICT (installation_id) WHERE installation_id IS NOT NULL AND retired_at IS NULL
   DO UPDATE SET user_id = excluded.user_id, platform = excluded.platform,
     device_token = excluded.device_token,
-    app_version = excluded.app_version, build_number = excluded.build_number,
-    os_version = excluded.os_version, expo_sdk = excluded.expo_sdk,
-    timezone = excluded.timezone, retired_at = NULL, retired_reason = NULL, updated_at = now()
+    app_version = CASE WHEN p_metadata ? 'app_version' THEN excluded.app_version ELSE user_devices.app_version END,
+    build_number = CASE WHEN p_metadata ? 'build_number' THEN excluded.build_number ELSE user_devices.build_number END,
+    os_version = CASE WHEN p_metadata ? 'os_version' THEN excluded.os_version ELSE user_devices.os_version END,
+    expo_sdk = CASE WHEN p_metadata ? 'expo_sdk' THEN excluded.expo_sdk ELSE user_devices.expo_sdk END,
+    timezone = CASE WHEN p_metadata ? 'timezone' THEN excluded.timezone ELSE user_devices.timezone END,
+    expo_update_id = CASE WHEN p_metadata ? 'expo_update_id' THEN excluded.expo_update_id ELSE user_devices.expo_update_id END,
+    expo_channel = CASE WHEN p_metadata ? 'expo_channel' THEN excluded.expo_channel ELSE user_devices.expo_channel END,
+    expo_runtime_version = CASE WHEN p_metadata ? 'expo_runtime_version' THEN excluded.expo_runtime_version ELSE user_devices.expo_runtime_version END,
+    expo_is_embedded_launch = CASE WHEN p_metadata ? 'expo_is_embedded_launch' THEN excluded.expo_is_embedded_launch ELSE user_devices.expo_is_embedded_launch END,
+    expo_is_emergency_launch = CASE WHEN p_metadata ? 'expo_is_emergency_launch' THEN excluded.expo_is_emergency_launch ELSE user_devices.expo_is_emergency_launch END,
+    retired_at = NULL, retired_reason = NULL, updated_at = now()
   RETURNING * INTO v_row;
   RETURN v_row;
 END $$;
@@ -132,11 +146,16 @@ BEGIN
   -- compatibility row under the active partial index.
   UPDATE public.user_devices
   SET platform = p_platform,
-    app_version = p_metadata->>'app_version',
-    build_number = p_metadata->>'build_number',
-    os_version = p_metadata->>'os_version',
-    expo_sdk = p_metadata->>'expo_sdk',
-    timezone = p_metadata->>'timezone',
+    app_version = CASE WHEN p_metadata ? 'app_version' THEN p_metadata->>'app_version' ELSE app_version END,
+    build_number = CASE WHEN p_metadata ? 'build_number' THEN p_metadata->>'build_number' ELSE build_number END,
+    os_version = CASE WHEN p_metadata ? 'os_version' THEN p_metadata->>'os_version' ELSE os_version END,
+    expo_sdk = CASE WHEN p_metadata ? 'expo_sdk' THEN p_metadata->>'expo_sdk' ELSE expo_sdk END,
+    timezone = CASE WHEN p_metadata ? 'timezone' THEN p_metadata->>'timezone' ELSE timezone END,
+    expo_update_id = CASE WHEN p_metadata ? 'expo_update_id' THEN p_metadata->>'expo_update_id' ELSE expo_update_id END,
+    expo_channel = CASE WHEN p_metadata ? 'expo_channel' THEN p_metadata->>'expo_channel' ELSE expo_channel END,
+    expo_runtime_version = CASE WHEN p_metadata ? 'expo_runtime_version' THEN p_metadata->>'expo_runtime_version' ELSE expo_runtime_version END,
+    expo_is_embedded_launch = CASE WHEN p_metadata ? 'expo_is_embedded_launch' THEN (p_metadata->>'expo_is_embedded_launch')::boolean ELSE expo_is_embedded_launch END,
+    expo_is_emergency_launch = CASE WHEN p_metadata ? 'expo_is_emergency_launch' THEN (p_metadata->>'expo_is_emergency_launch')::boolean ELSE expo_is_emergency_launch END,
     updated_at = now()
   WHERE user_id = p_user_id
     AND device_token = p_device_token
@@ -146,11 +165,16 @@ BEGIN
   IF FOUND THEN RETURN v_row; END IF;
 
   INSERT INTO public.user_devices (user_id, platform, device_token,
-    app_version, build_number, os_version, expo_sdk, timezone, updated_at)
+    app_version, build_number, os_version, expo_sdk, timezone,
+    expo_update_id, expo_channel, expo_runtime_version,
+    expo_is_embedded_launch, expo_is_emergency_launch, updated_at)
   VALUES (p_user_id, p_platform, p_device_token,
     p_metadata->>'app_version', p_metadata->>'build_number',
     p_metadata->>'os_version', p_metadata->>'expo_sdk',
-    p_metadata->>'timezone', now())
+    p_metadata->>'timezone', p_metadata->>'expo_update_id',
+    p_metadata->>'expo_channel', p_metadata->>'expo_runtime_version',
+    (p_metadata->>'expo_is_embedded_launch')::boolean,
+    (p_metadata->>'expo_is_emergency_launch')::boolean, now())
   RETURNING * INTO v_row;
   RETURN v_row;
 END $$;

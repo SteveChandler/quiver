@@ -146,9 +146,9 @@ interface RunSummary {
   durationMs: number;
 }
 
-async function recordFirstSessionPushOutcome(
-  result: { summary: RunSummary },
-): Promise<{ summary: RunSummary }> {
+async function recordFirstSessionPushOutcome(result: {
+  summary: RunSummary;
+}): Promise<{ summary: RunSummary }> {
   return withCronOutcome(
     {
       job: "/api/cron/first-session-nudge-push",
@@ -157,7 +157,10 @@ async function recordFirstSessionPushOutcome(
       getProduced: (value) => value.summary.sent,
       legitimatelyZero: (value) =>
         value.summary.total === 0
-          ? { reason: "No users were eligible for the day-7 first-session push window" }
+          ? {
+              reason:
+                "No users were eligible for the day-7 first-session push window",
+            }
           : undefined,
     },
     async () => result,
@@ -171,7 +174,7 @@ async function recordFirstSessionPushOutcome(
 async function fetchFiringConfidence(
   supabase: ReturnType<typeof createSupabaseServiceRoleClient>,
   beachId: string,
-  timezone?: string | null
+  timezone?: string | null,
 ): Promise<FiringConfidence | null> {
   if (!isValidIanaTimezone(timezone) || !isUuid(beachId)) return null;
   const beachTimezone = timezone;
@@ -197,7 +200,7 @@ async function fetchFiringConfidence(
     if (error) {
       console.warn(
         `${CONTEXT_TAG} confidence lookup failed for beach ${beachId}:`,
-        error.message
+        error.message,
       );
       return null;
     }
@@ -217,7 +220,10 @@ async function fetchFiringConfidence(
       },
     };
   } catch (err) {
-    console.warn(`${CONTEXT_TAG} confidence lookup threw for beach ${beachId}:`, err);
+    console.warn(
+      `${CONTEXT_TAG} confidence lookup threw for beach ${beachId}:`,
+      err,
+    );
     return null;
   }
 }
@@ -280,10 +286,10 @@ function getStrictUtcDayBounds(
 async function resolveCohort(
   supabase: ReturnType<typeof createSupabaseServiceRoleClient>,
   candidate: Candidate,
-  beachById: Map<string, BeachRow>
+  beachById: Map<string, BeachRow>,
 ): Promise<ResolvedCohort> {
   const beach = candidate.home_beach_id
-    ? beachById.get(candidate.home_beach_id) ?? null
+    ? (beachById.get(candidate.home_beach_id) ?? null)
     : null;
   const beachName = beach?.name ?? null;
 
@@ -323,7 +329,7 @@ async function resolveCohort(
   const confidence = await fetchFiringConfidence(
     supabase,
     candidate.home_beach_id,
-    beach.timezone
+    beach.timezone,
   );
   if (
     confidence !== null &&
@@ -359,7 +365,11 @@ async function _GET(request: Request): Promise<Response> {
 
   try {
     if (!validateCronRequest(request)) {
-      return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
+      return createErrorResponse(
+        "Unauthorized",
+        "Invalid cron authentication",
+        401,
+      );
     }
 
     console.log(`${CONTEXT_TAG} Starting first-session-nudge-push run`);
@@ -395,10 +405,10 @@ async function _GET(request: Request): Promise<Response> {
     //    trigger, so we can filter there without hitting auth.users directly.
     const now = new Date();
     const signupAfter = new Date(
-      now.getTime() - SIGNUP_MAX_DAYS * 24 * 60 * 60 * 1000
+      now.getTime() - SIGNUP_MAX_DAYS * 24 * 60 * 60 * 1000,
     ).toISOString();
     const signupBefore = new Date(
-      now.getTime() - SIGNUP_MIN_DAYS * 24 * 60 * 60 * 1000
+      now.getTime() - SIGNUP_MIN_DAYS * 24 * 60 * 60 * 1000,
     ).toISOString();
 
     const { data: windowProfiles, error: profilesError } = await supabase
@@ -414,7 +424,9 @@ async function _GET(request: Request): Promise<Response> {
     if (!windowProfiles || windowProfiles.length === 0) {
       summary.durationMs = Date.now() - startTime;
       console.log(`${CONTEXT_TAG} No profiles in signup window`);
-      return createSuccessResponse(await recordFirstSessionPushOutcome({ summary }));
+      return createSuccessResponse(
+        await recordFirstSessionPushOutcome({ summary }),
+      );
     }
 
     const windowUserIds = windowProfiles.map((p) => p.id);
@@ -427,19 +439,27 @@ async function _GET(request: Request): Promise<Response> {
       .eq("nudge_type", NUDGE_TYPE);
 
     if (logError) {
-      throw new Error(`Failed to query activation_push_log: ${logError.message}`);
+      throw new Error(
+        `Failed to query activation_push_log: ${logError.message}`,
+      );
     }
 
     const alreadyLoggedIds = new Set(
-      ((alreadyLogged ?? []) as Array<{ user_id: string }>).map((r) => r.user_id)
+      ((alreadyLogged ?? []) as Array<{ user_id: string }>).map(
+        (r) => r.user_id,
+      ),
     );
     summary.skipped.already_logged = alreadyLoggedIds.size;
 
     const unloggedIds = windowUserIds.filter((id) => !alreadyLoggedIds.has(id));
     if (unloggedIds.length === 0) {
       summary.durationMs = Date.now() - startTime;
-      console.log(`${CONTEXT_TAG} All ${windowUserIds.length} candidates already pushed`);
-      return createSuccessResponse(await recordFirstSessionPushOutcome({ summary }));
+      console.log(
+        `${CONTEXT_TAG} All ${windowUserIds.length} candidates already pushed`,
+      );
+      return createSuccessResponse(
+        await recordFirstSessionPushOutcome({ summary }),
+      );
     }
 
     // 3. Session-count filter — drop anyone at >= SESSION_COUNT_THRESHOLD.
@@ -455,18 +475,26 @@ async function _GET(request: Request): Promise<Response> {
 
     const sessionCountByUser = new Map<string, number>();
     for (const s of sessionRows ?? []) {
-      sessionCountByUser.set(s.user_id, (sessionCountByUser.get(s.user_id) ?? 0) + 1);
+      sessionCountByUser.set(
+        s.user_id,
+        (sessionCountByUser.get(s.user_id) ?? 0) + 1,
+      );
     }
 
     const underThresholdIds = unloggedIds.filter(
-      (id) => (sessionCountByUser.get(id) ?? 0) < SESSION_COUNT_THRESHOLD
+      (id) => (sessionCountByUser.get(id) ?? 0) < SESSION_COUNT_THRESHOLD,
     );
-    summary.skipped.at_3_sessions = unloggedIds.length - underThresholdIds.length;
+    summary.skipped.at_3_sessions =
+      unloggedIds.length - underThresholdIds.length;
 
     if (underThresholdIds.length === 0) {
       summary.durationMs = Date.now() - startTime;
-      console.log(`${CONTEXT_TAG} No users under ${SESSION_COUNT_THRESHOLD}-session cap`);
-      return createSuccessResponse(await recordFirstSessionPushOutcome({ summary }));
+      console.log(
+        `${CONTEXT_TAG} No users under ${SESSION_COUNT_THRESHOLD}-session cap`,
+      );
+      return createSuccessResponse(
+        await recordFirstSessionPushOutcome({ summary }),
+      );
     }
 
     // 4. Email-confirmation gate — skip the "invisible cohort" (confirmed=null).
@@ -476,7 +504,7 @@ async function _GET(request: Request): Promise<Response> {
     for (let i = 0; i < underThresholdIds.length; i += BATCH_SIZE) {
       const batch = underThresholdIds.slice(i, i + BATCH_SIZE);
       const results = await Promise.all(
-        batch.map((id) => supabase.auth.admin.getUserById(id))
+        batch.map((id) => supabase.auth.admin.getUserById(id)),
       );
       for (let j = 0; j < results.length; j++) {
         const authUser = results[j].data?.user;
@@ -496,7 +524,9 @@ async function _GET(request: Request): Promise<Response> {
     if (confirmedIds.length === 0) {
       summary.durationMs = Date.now() - startTime;
       console.log(`${CONTEXT_TAG} No email-confirmed candidates`);
-      return createSuccessResponse(await recordFirstSessionPushOutcome({ summary }));
+      return createSuccessResponse(
+        await recordFirstSessionPushOutcome({ summary }),
+      );
     }
 
     // 5. Push-enabled filter via profiles.notif_push_enabled.
@@ -518,18 +548,18 @@ async function _GET(request: Request): Promise<Response> {
     if (pushEnabledIds.size === 0) {
       summary.durationMs = Date.now() - startTime;
       console.log(`${CONTEXT_TAG} No push-enabled candidates`);
-      return createSuccessResponse(await recordFirstSessionPushOutcome({ summary }));
+      return createSuccessResponse(
+        await recordFirstSessionPushOutcome({ summary }),
+      );
     }
 
     // 6. Device tokens — users without one are skipped and NOT logged (so
     //    re-registration still wins within the window).
-    const deviceQuery = supabase
+    const { data: devices, error: devicesError } = await supabase
       .from("user_devices")
       .select("user_id, device_token")
-      .in("user_id", Array.from(pushEnabledIds));
-    const { data: devices, error: devicesError } = await (typeof (deviceQuery as { is?: unknown }).is === "function"
-      ? deviceQuery.is("retired_at" as never, null)
-      : deviceQuery);
+      .in("user_id", Array.from(pushEnabledIds))
+      .is("retired_at", null);
 
     if (devicesError) {
       throw new Error(`Failed to query user_devices: ${devicesError.message}`);
@@ -571,7 +601,7 @@ async function _GET(request: Request): Promise<Response> {
           home_beach_id: p.home_beach_id as string | null,
           experience_level: (p.experience_level as string | null) ?? null,
         },
-      ])
+      ]),
     );
 
     const candidates: Candidate[] = [];
@@ -602,12 +632,14 @@ async function _GET(request: Request): Promise<Response> {
       `${CONTEXT_TAG} ${candidates.length} candidates ` +
         `(${windowProfiles.length} window, ${summary.skipped.already_logged} already logged, ` +
         `${summary.skipped.at_3_sessions} at cap, ${summary.skipped.no_email_confirmed} unconfirmed, ` +
-        `${summary.skipped.push_disabled} push-disabled, ${summary.skipped.no_token} no token)`
+        `${summary.skipped.push_disabled} push-disabled, ${summary.skipped.no_token} no token)`,
     );
 
     if (candidates.length === 0) {
       summary.durationMs = Date.now() - startTime;
-      return createSuccessResponse(await recordFirstSessionPushOutcome({ summary }));
+      return createSuccessResponse(
+        await recordFirstSessionPushOutcome({ summary }),
+      );
     }
 
     // 9. Batch-load beach names for cohort copy (only beaches actually in use).
@@ -615,8 +647,8 @@ async function _GET(request: Request): Promise<Response> {
       new Set(
         candidates
           .map((c) => c.home_beach_id)
-          .filter((id): id is string => Boolean(id))
-      )
+          .filter((id): id is string => Boolean(id)),
+      ),
     );
 
     const beachById = new Map<string, BeachRow>();
@@ -628,7 +660,7 @@ async function _GET(request: Request): Promise<Response> {
       if (beachesError) {
         console.warn(
           `${CONTEXT_TAG} beach lookup failed:`,
-          beachesError.message
+          beachesError.message,
         );
       } else {
         for (const b of beaches ?? []) {
@@ -698,7 +730,7 @@ async function _GET(request: Request): Promise<Response> {
         if (!enqueueResult.enqueued && enqueueResult.reason !== "duplicate") {
           console.error(
             `${CONTEXT_TAG} Enqueue failed for ${candidate.user_id}:`,
-            enqueueResult
+            enqueueResult,
           );
           summary.skipped.send_failed++;
           summary.errors++;
@@ -716,8 +748,9 @@ async function _GET(request: Request): Promise<Response> {
               beach_name: resolved.beach_name,
               confidence_score: resolved.confidence_score,
               device_count: candidate.device_tokens.length,
-              notification_event_id:
-                enqueueResult.enqueued ? enqueueResult.eventId : null,
+              notification_event_id: enqueueResult.enqueued
+                ? enqueueResult.eventId
+                : null,
               method: "enqueued_via_pipeline",
             },
           });
@@ -725,7 +758,7 @@ async function _GET(request: Request): Promise<Response> {
         if (insertError) {
           console.error(
             `${CONTEXT_TAG} log insert failed for ${candidate.user_id}:`,
-            insertError
+            insertError,
           );
           summary.skipped.log_failed++;
           // Still counted as sent — event is enqueued. Next tick noops on PK conflict.
@@ -734,12 +767,12 @@ async function _GET(request: Request): Promise<Response> {
         summary.sent++;
         console.log(
           `${CONTEXT_TAG} Enqueued ${resolved.cohort} for ${candidate.user_id} ` +
-            `(${candidate.device_tokens.length} device${candidate.device_tokens.length === 1 ? "" : "s"})`
+            `(${candidate.device_tokens.length} device${candidate.device_tokens.length === 1 ? "" : "s"})`,
         );
       } catch (candidateError) {
         console.error(
           `${CONTEXT_TAG} Error processing ${candidate.user_id}:`,
-          candidateError
+          candidateError,
         );
         summary.skipped.send_failed++;
         summary.errors++;
@@ -748,10 +781,12 @@ async function _GET(request: Request): Promise<Response> {
 
     summary.durationMs = Date.now() - startTime;
     console.log(
-      `${CONTEXT_TAG} Completed: ${summary.sent} sent, ${summary.total} candidates, ${summary.durationMs}ms`
+      `${CONTEXT_TAG} Completed: ${summary.sent} sent, ${summary.total} candidates, ${summary.durationMs}ms`,
     );
 
-    return createSuccessResponse(await recordFirstSessionPushOutcome({ summary }));
+    return createSuccessResponse(
+      await recordFirstSessionPushOutcome({ summary }),
+    );
   } catch (error) {
     return handleApiError(error);
   }
@@ -760,5 +795,5 @@ async function _GET(request: Request): Promise<Response> {
 export const GET = withObservedCron(
   "/api/cron/first-session-nudge-push",
   _GET,
-  SENTRY_MONITOR
+  SENTRY_MONITOR,
 );

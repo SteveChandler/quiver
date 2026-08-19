@@ -85,9 +85,9 @@ interface RunSummary {
   durationMs: number;
 }
 
-async function recordTrialEndingOutcome(
-  result: { summary: RunSummary },
-): Promise<{ summary: RunSummary }> {
+async function recordTrialEndingOutcome(result: {
+  summary: RunSummary;
+}): Promise<{ summary: RunSummary }> {
   return withCronOutcome(
     {
       job: "/api/cron/trial-ending-push-deliver",
@@ -96,7 +96,10 @@ async function recordTrialEndingOutcome(
       getProduced: (value) => value.summary.sent,
       legitimatelyZero: (value) =>
         value.summary.candidates === 0
-          ? { reason: "No trial users had an eligible push notification this cycle" }
+          ? {
+              reason:
+                "No trial users had an eligible push notification this cycle",
+            }
           : undefined,
     },
     async () => result,
@@ -112,7 +115,11 @@ async function _GET(request: Request): Promise<Response> {
 
   try {
     if (!validateCronRequest(request)) {
-      return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
+      return createErrorResponse(
+        "Unauthorized",
+        "Invalid cron authentication",
+        401,
+      );
     }
 
     console.log(`${CONTEXT_TAG} Starting trial-ending-push-deliver run`);
@@ -135,10 +142,10 @@ async function _GET(request: Request): Promise<Response> {
 
     const now = new Date();
     const windowStart = new Date(
-      now.getTime() + WINDOW_START_HOURS * 60 * 60 * 1000
+      now.getTime() + WINDOW_START_HOURS * 60 * 60 * 1000,
     ).toISOString();
     const windowEnd = new Date(
-      now.getTime() + WINDOW_END_HOURS * 60 * 60 * 1000
+      now.getTime() + WINDOW_END_HOURS * 60 * 60 * 1000,
     ).toISOString();
 
     // 1. Find trialing users with trial_ends_at in the window.
@@ -152,7 +159,9 @@ async function _GET(request: Request): Promise<Response> {
       .lte("trial_ends_at", windowEnd);
 
     if (trialError) {
-      throw new Error(`Failed to query user_entitlements: ${trialError.message}`);
+      throw new Error(
+        `Failed to query user_entitlements: ${trialError.message}`,
+      );
     }
 
     if (!trialUsers || trialUsers.length === 0) {
@@ -170,7 +179,9 @@ async function _GET(request: Request): Promise<Response> {
       .in("user_id", userIds);
 
     if (logError) {
-      throw new Error(`Failed to query trial_ending_push_log: ${logError.message}`);
+      throw new Error(
+        `Failed to query trial_ending_push_log: ${logError.message}`,
+      );
     }
 
     const alreadySentIds = new Set((alreadySent ?? []).map((r) => r.user_id));
@@ -180,7 +191,7 @@ async function _GET(request: Request): Promise<Response> {
     if (unsentUserIds.length === 0) {
       summary.durationMs = Date.now() - startTime;
       console.log(
-        `${CONTEXT_TAG} All ${userIds.length} candidates already pushed (idempotent skip)`
+        `${CONTEXT_TAG} All ${userIds.length} candidates already pushed (idempotent skip)`,
       );
       return createSuccessResponse(await recordTrialEndingOutcome({ summary }));
     }
@@ -198,26 +209,24 @@ async function _GET(request: Request): Promise<Response> {
     const pushEnabledIds = new Set(
       (profiles ?? [])
         .filter((p) => p.notif_push_enabled === true)
-        .map((p) => p.id)
+        .map((p) => p.id),
     );
     summary.skipped.noPushPref = unsentUserIds.length - pushEnabledIds.size;
 
     if (pushEnabledIds.size === 0) {
       summary.durationMs = Date.now() - startTime;
       console.log(
-        `${CONTEXT_TAG} No push-enabled users (${unsentUserIds.length} had push disabled)`
+        `${CONTEXT_TAG} No push-enabled users (${unsentUserIds.length} had push disabled)`,
       );
       return createSuccessResponse(await recordTrialEndingOutcome({ summary }));
     }
 
     // 4. Fetch device tokens per user (multiple devices allowed).
-    const deviceQuery = supabase
+    const { data: devices, error: devicesError } = await supabase
       .from("user_devices")
       .select("user_id, device_token")
-      .in("user_id", Array.from(pushEnabledIds));
-    const { data: devices, error: devicesError } = await (typeof (deviceQuery as { is?: unknown }).is === "function"
-      ? deviceQuery.is("retired_at" as never, null)
-      : deviceQuery);
+      .in("user_id", Array.from(pushEnabledIds))
+      .is("retired_at", null);
 
     if (devicesError) {
       throw new Error(`Failed to query user_devices: ${devicesError.message}`);
@@ -233,7 +242,7 @@ async function _GET(request: Request): Promise<Response> {
     // Build final candidate list. Users with push enabled but no token
     // are counted as skipped (and NOT logged, so re-registration works).
     const trialEndsByUser = new Map(
-      trialUsers.map((u) => [u.user_id, u.trial_ends_at as string])
+      trialUsers.map((u) => [u.user_id, u.trial_ends_at as string]),
     );
 
     const candidates: TrialCandidate[] = [];
@@ -254,7 +263,7 @@ async function _GET(request: Request): Promise<Response> {
 
     summary.candidates = candidates.length;
     console.log(
-      `${CONTEXT_TAG} ${candidates.length} candidates (${trialUsers.length} in window, ${summary.skipped.alreadySent} already sent, ${summary.skipped.noPushPref} push-disabled, ${summary.skipped.noDeviceToken} no token)`
+      `${CONTEXT_TAG} ${candidates.length} candidates (${trialUsers.length} in window, ${summary.skipped.alreadySent} already sent, ${summary.skipped.noPushPref} push-disabled, ${summary.skipped.noDeviceToken} no token)`,
     );
 
     if (candidates.length === 0) {
@@ -282,7 +291,7 @@ async function _GET(request: Request): Promise<Response> {
         if (!enqueueResult.enqueued && enqueueResult.reason !== "duplicate") {
           console.error(
             `${CONTEXT_TAG} Enqueue failed for user ${candidate.user_id}:`,
-            enqueueResult
+            enqueueResult,
           );
           summary.skipped.sendFailed++;
           summary.errors++;
@@ -297,8 +306,9 @@ async function _GET(request: Request): Promise<Response> {
             trial_ends_at: candidate.trial_ends_at,
             meta: {
               device_count: candidate.device_tokens.length,
-              notification_event_id:
-                enqueueResult.enqueued ? enqueueResult.eventId : null,
+              notification_event_id: enqueueResult.enqueued
+                ? enqueueResult.eventId
+                : null,
               method: "enqueued_via_pipeline",
             },
           });
@@ -306,7 +316,7 @@ async function _GET(request: Request): Promise<Response> {
         if (insertError) {
           console.error(
             `${CONTEXT_TAG} Failed to log send for user ${candidate.user_id}:`,
-            insertError
+            insertError,
           );
           summary.skipped.logFailed++;
           // Still count as sent — event is enqueued. Next tick noops on PK conflict.
@@ -314,12 +324,12 @@ async function _GET(request: Request): Promise<Response> {
 
         summary.sent++;
         console.log(
-          `${CONTEXT_TAG} Enqueued for user ${candidate.user_id} (${candidate.device_tokens.length} device${candidate.device_tokens.length === 1 ? "" : "s"})`
+          `${CONTEXT_TAG} Enqueued for user ${candidate.user_id} (${candidate.device_tokens.length} device${candidate.device_tokens.length === 1 ? "" : "s"})`,
         );
       } catch (candidateError) {
         console.error(
           `${CONTEXT_TAG} Error processing user ${candidate.user_id}:`,
-          candidateError
+          candidateError,
         );
         summary.skipped.sendFailed++;
         summary.errors++;
@@ -328,7 +338,7 @@ async function _GET(request: Request): Promise<Response> {
 
     summary.durationMs = Date.now() - startTime;
     console.log(
-      `${CONTEXT_TAG} Completed: ${summary.sent} sent, ${summary.candidates} candidates, ${summary.durationMs}ms`
+      `${CONTEXT_TAG} Completed: ${summary.sent} sent, ${summary.candidates} candidates, ${summary.durationMs}ms`,
     );
 
     return createSuccessResponse(await recordTrialEndingOutcome({ summary }));
@@ -340,5 +350,5 @@ async function _GET(request: Request): Promise<Response> {
 export const GET = withObservedCron(
   "/api/cron/trial-ending-push-deliver",
   _GET,
-  SENTRY_MONITOR
+  SENTRY_MONITOR,
 );

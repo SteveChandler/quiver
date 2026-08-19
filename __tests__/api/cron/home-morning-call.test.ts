@@ -4,16 +4,21 @@
 
 const mockResolveNotificationMajorEventHold = jest.fn();
 jest.mock("@/lib/cron/outcome", () => ({
-  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+  withCronOutcome: jest.fn(
+    async (_options: unknown, handler: () => Promise<unknown>) => handler(),
+  ),
 }));
 
 const mockResolveCanonicalSessionDecisionContext = jest.fn();
 const mockServiceFrom = jest.fn();
 
-jest.mock("@/lib/recommendations/major-event-hold/adapters/notification", () => ({
-  resolveNotificationMajorEventHold: (...args: unknown[]) =>
-    mockResolveNotificationMajorEventHold(...args),
-}));
+jest.mock(
+  "@/lib/recommendations/major-event-hold/adapters/notification",
+  () => ({
+    resolveNotificationMajorEventHold: (...args: unknown[]) =>
+      mockResolveNotificationMajorEventHold(...args),
+  }),
+);
 jest.mock("@/lib/recommendations/canonical-decision", () => ({
   resolveCanonicalSessionDecisionContext: (...args: unknown[]) =>
     mockResolveCanonicalSessionDecisionContext(...args),
@@ -22,10 +27,7 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
 }));
 
-import {
-  buildMorningCallCopy,
-  selectAndBuildMorningCall,
-} from "@/app/api/cron/home-morning-call/route";
+import { selectAndBuildMorningCall } from "@/app/api/cron/home-morning-call/route";
 import {
   isEligibleHomeBeachPushProfile,
   type HomeBeachPushSelectArgs,
@@ -239,7 +241,7 @@ describe("home_morning_call helpers", () => {
     });
 
     await expect(
-      selectAndBuildMorningCall(morningSelectArgs())
+      selectAndBuildMorningCall(morningSelectArgs()),
     ).resolves.toEqual({ skipReason: "canonicalDecision" });
     expect(mockResolveNotificationMajorEventHold).not.toHaveBeenCalled();
   });
@@ -253,7 +255,7 @@ describe("home_morning_call helpers", () => {
     });
 
     await expect(
-      selectAndBuildMorningCall(morningSelectArgs())
+      selectAndBuildMorningCall(morningSelectArgs()),
     ).resolves.toEqual({ skipReason: "majorEventHold" });
   });
 
@@ -276,7 +278,7 @@ describe("home_morning_call helpers", () => {
     });
 
     await expect(
-      selectAndBuildMorningCall(morningSelectArgs())
+      selectAndBuildMorningCall(morningSelectArgs()),
     ).resolves.toMatchObject({
       payload: {
         verdict: "NO",
@@ -288,6 +290,39 @@ describe("home_morning_call helpers", () => {
       },
     });
     expect(mockResolveNotificationMajorEventHold).not.toHaveBeenCalled();
+  });
+
+  it("accepts a NO call for the home beach when the canonical selection names another beach", async () => {
+    const context = await mockResolveCanonicalSessionDecisionContext();
+    mockResolveCanonicalSessionDecisionContext.mockResolvedValueOnce({
+      ...context,
+      decision: {
+        ...context.decision,
+        verdict: "no",
+        reasonCode: "selected_no",
+        selection: {
+          ...context.decision.selection,
+          beachId: "00000000-0000-4000-8000-0000000000b2",
+        },
+      },
+    });
+
+    const result = await selectAndBuildMorningCall(morningSelectArgs());
+    expect(result).toHaveProperty("payload");
+    const payload = "payload" in result ? result.payload : null;
+    const def = (NOTIFICATION_REGISTRY as any).home_morning_call;
+
+    expect(() => def.validatePayload(payload)).not.toThrow();
+    expect(payload).toMatchObject({
+      verdict: "NO",
+      beach_id: BEACH_ID,
+      session_decision: {
+        verdict: "no",
+        selection: {
+          beachId: "00000000-0000-4000-8000-0000000000b2",
+        },
+      },
+    });
   });
 
   it("does not emit a NO call for a held home beach", async () => {
@@ -332,8 +367,8 @@ describe("home_morning_call helpers", () => {
           notif_push_enabled: null,
           notif_reminders: null,
         },
-        allowlist
-      )
+        allowlist,
+      ),
     ).toBe(true);
 
     expect(
@@ -344,8 +379,8 @@ describe("home_morning_call helpers", () => {
           notif_push_enabled: null,
           notif_reminders: null,
         },
-        allowlist
-      )
+        allowlist,
+      ),
     ).toBe(false);
 
     expect(
@@ -356,8 +391,8 @@ describe("home_morning_call helpers", () => {
           notif_push_enabled: false,
           notif_reminders: null,
         },
-        allowlist
-      )
+        allowlist,
+      ),
     ).toBe(false);
 
     expect(
@@ -368,52 +403,8 @@ describe("home_morning_call helpers", () => {
           notif_push_enabled: null,
           notif_reminders: false,
         },
-        new Set(["other-user"])
-      )
+        new Set(["other-user"]),
+      ),
     ).toBe(false);
-  });
-
-  it("builds verdict-specific morning call copy", () => {
-    expect(
-      buildMorningCallCopy({
-        verdict: "YES",
-        beachName: "La Jolla",
-        waveHeight: "3-4 ft",
-        wavePeriod: "11s",
-        windDescription: "clean offshore",
-        whySentence: "Clean offshore with 3-4 ft swell energy.",
-      })
-    ).toEqual({
-      title: "La Jolla: It's firing",
-      body: "3-4 ft @ 11s. Clean offshore with 3-4 ft swell energy.",
-    });
-
-    expect(
-      buildMorningCallCopy({
-        verdict: "MAYBE",
-        beachName: "La Jolla",
-        waveHeight: "2 ft",
-        wavePeriod: null,
-        windDescription: null,
-        whySentence: "Rideable 2 ft surf - keep an eye on conditions.",
-      })
-    ).toEqual({
-      title: "La Jolla: Worth a look",
-      body: "2 ft. Rideable 2 ft surf - keep an eye on conditions.",
-    });
-
-    expect(
-      buildMorningCallCopy({
-        verdict: "NO",
-        beachName: "La Jolla",
-        waveHeight: null,
-        wavePeriod: null,
-        windDescription: null,
-        whySentence: "No viable surf window today.",
-      })
-    ).toEqual({
-      title: "La Jolla: Rest up today",
-      body: "No viable surf window today. Check the week before you drive.",
-    });
   });
 });

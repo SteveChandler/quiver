@@ -35,10 +35,14 @@ async function sendViaFirebase(messages: PushMessage[]): Promise<PushResult> {
     if (!firebaseSkipWarned) {
       firebaseSkipWarned = true;
       console.error(
-        "[push-notifications] Firebase Admin SDK unavailable — FCM messages not sent. Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY."
+        "[push-notifications] Firebase Admin SDK unavailable — FCM messages not sent. Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY.",
       );
     }
-    return { success: 0, failed: messages.length, errors: ["Firebase not configured"] };
+    return {
+      success: 0,
+      failed: messages.length,
+      errors: ["Firebase not configured"],
+    };
   }
 
   const result = await dispatchPushMessages({ messages, fcm });
@@ -51,9 +55,9 @@ async function sendViaFirebase(messages: PushMessage[]): Promise<PushResult> {
       .update({
         retired_at: new Date().toISOString(),
         retired_reason: "provider_invalid_token",
-      } as never)
+      })
       .in("device_token", invalidTokens)
-      .is("retired_at" as never, null);
+      .is("retired_at", null);
     if (retireError) {
       console.error("Failed to retire invalid device tokens:", retireError);
     }
@@ -73,7 +77,9 @@ async function sendViaFirebase(messages: PushMessage[]): Promise<PushResult> {
  * Returns void for backwards compatibility with the original
  * `lib/alerts/push-sender.ts` signature.
  */
-export async function sendPushNotifications(messages: PushMessage[]): Promise<void> {
+export async function sendPushNotifications(
+  messages: PushMessage[],
+): Promise<void> {
   await sendViaFirebase(messages);
 }
 
@@ -98,7 +104,9 @@ export async function sendPushNotification({
   if (!getFirebaseAdminMessaging()) {
     if (!firebaseSkipWarned) {
       firebaseSkipWarned = true;
-      console.warn("Firebase Admin SDK not initialized, skipping push notifications");
+      console.warn(
+        "Firebase Admin SDK not initialized, skipping push notifications",
+      );
     }
     return { success: 0, failed: 0, errors: ["Firebase not configured"] };
   }
@@ -110,7 +118,7 @@ export async function sendPushNotification({
       .from("user_devices")
       .select("device_token")
       .in("user_id", userIds)
-      .is("retired_at" as never, null);
+      .is("retired_at", null);
 
     if (devicesError || !devices?.length) {
       return { success: 0, failed: 0 };
@@ -126,7 +134,7 @@ export async function sendPushNotification({
     const result = await sendViaFirebase(messages);
 
     console.log(
-      `Push notifications sent: ${result.success} success, ${result.failed} failed`
+      `Push notifications sent: ${result.success} success, ${result.failed} failed`,
     );
 
     return result;
