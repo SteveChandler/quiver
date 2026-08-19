@@ -9,10 +9,6 @@ import {
 
 jest.mock('@/lib/supabase/server');
 
-jest.mock('@/lib/recommendations/major-event-hold/water-quality-visibility', () => ({
-  filterBeachesByWaterQualityVisibility: jest.fn(async (beaches) => beaches),
-}));
-
 const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) => beaches);
 jest.mock('@/lib/recommendations/selection', () => ({
   rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),

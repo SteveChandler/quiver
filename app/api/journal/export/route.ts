@@ -4,7 +4,7 @@ import {
   createValidationError,
 } from "@/lib/middleware/api-wrappers";
 import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
-import { getSessionAnalytics } from "@/actions/analytics-actions";
+import { getSessionAnalytics } from "@/lib/analytics/session-analytics";
 import type { ExportOptions, ExportResult } from "@/types/database";
 import { format } from "date-fns";
 import { PROFILE_PUBLIC_SESSION_RELATION_SELECT } from "@/lib/profile/constants";

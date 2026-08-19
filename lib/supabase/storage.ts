@@ -1,10 +1,12 @@
 import { compress } from "image-conversion";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  SESSION_PHOTO_MAX_PER_SESSION,
+  SESSION_PHOTO_MAX_STORAGE_BYTES,
+  validateSessionPhotoInput,
+} from "@/lib/media/session-photo-policy";
 
 const STORAGE_BUCKET = "session-media";
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB per image (free tier consideration)
-const MAX_IMAGES_PER_SESSION = 5; // Limit for free tier
-const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 export interface UploadResult {
   success: boolean;
@@ -92,7 +94,7 @@ async function compressImage(file: File): Promise<File> {
     });
 
     // Return original file if it's small enough, otherwise throw
-    if (file.size <= MAX_FILE_SIZE) {
+    if (file.size <= SESSION_PHOTO_MAX_STORAGE_BYTES) {
       console.warn(
         `[Image Compression] Using original file (${(file.size / (1024 * 1024)).toFixed(2)}MB) - compression failed but size is acceptable`
       );
@@ -100,7 +102,7 @@ async function compressImage(file: File): Promise<File> {
     }
 
     throw new Error(
-      `Failed to compress image. File is ${(file.size / (1024 * 1024)).toFixed(2)}MB. Please choose an image under ${(MAX_FILE_SIZE / (1024 * 1024)).toFixed(0)}MB or try a different image format.`
+      `Failed to compress image. File is ${(file.size / (1024 * 1024)).toFixed(2)}MB. Please choose an image under ${(SESSION_PHOTO_MAX_STORAGE_BYTES / (1024 * 1024)).toFixed(0)}MB or try a different image format.`
     );
   }
 }
@@ -109,14 +111,15 @@ async function compressImage(file: File): Promise<File> {
  * Validate file before upload
  */
 function validateFile(file: File): { valid: boolean; error?: string } {
-  if (!ALLOWED_TYPES.includes(file.type)) {
+  const validationError = validateSessionPhotoInput(file);
+  if (validationError === "invalid_file_type") {
     return {
       valid: false,
       error: "Only JPEG, PNG, and WebP images are allowed.",
     };
   }
 
-  if (file.size > MAX_FILE_SIZE * 2) {
+  if (validationError === "file_too_large") {
     // Allow larger files before compression
     return {
       valid: false,
@@ -232,9 +235,10 @@ export async function uploadSessionPhoto(
     // Compress image (with fallback to original if compression fails)
     const compressedFile = await compressImage(file);
 
-    if (compressedFile.size > MAX_FILE_SIZE) {
+    // The shared storage limit applies after compression; input validation allows up to 10 MiB.
+    if (compressedFile.size > SESSION_PHOTO_MAX_STORAGE_BYTES) {
       const fileSizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
-      const maxSizeMB = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(0);
+      const maxSizeMB = (SESSION_PHOTO_MAX_STORAGE_BYTES / (1024 * 1024)).toFixed(0);
       console.error("[Upload] File too large after compression:", {
         fileSizeMB,
         maxSizeMB,
@@ -310,9 +314,9 @@ export async function uploadMultiplePhotos(
   userId: string,
   supabase: SupabaseClient
 ): Promise<UploadResult[]> {
-  if (files.length > MAX_IMAGES_PER_SESSION) {
+  if (files.length > SESSION_PHOTO_MAX_PER_SESSION) {
     throw new Error(
-      `Maximum ${MAX_IMAGES_PER_SESSION} images allowed per session`
+      `Maximum ${SESSION_PHOTO_MAX_PER_SESSION} images allowed per session`
     );
   }
 
@@ -323,9 +327,9 @@ export async function uploadMultiplePhotos(
     .eq("session_id", sessionId);
 
   const existingCount = existingPhotos?.length || 0;
-  if (existingCount + files.length > MAX_IMAGES_PER_SESSION) {
+  if (existingCount + files.length > SESSION_PHOTO_MAX_PER_SESSION) {
     throw new Error(
-      `Session can only have ${MAX_IMAGES_PER_SESSION} images total. Currently has ${existingCount}.`
+      `Session can only have ${SESSION_PHOTO_MAX_PER_SESSION} images total. Currently has ${existingCount}.`
     );
   }
 

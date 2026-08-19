@@ -1,11 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  subMonths,
-} from "date-fns";
+import { eachDayOfInterval } from "date-fns/eachDayOfInterval";
+import { endOfMonth } from "date-fns/endOfMonth";
+import { format } from "date-fns/format";
+import { startOfMonth } from "date-fns/startOfMonth";
+import { subMonths } from "date-fns/subMonths";
 
 /** Wave height trend data point */
 interface WaveHeightTrendPoint {
@@ -347,4 +345,3 @@ export async function getCalendarHeatmapData(
     };
   }
 }
-

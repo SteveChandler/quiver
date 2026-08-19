@@ -89,6 +89,7 @@ The `/app` directory follows Next.js 16 App Router conventions, implementing a m
 #### `/api/analytics/`
 
 - **Function**: User analytics and session data
+- **Implementation**: `lib/analytics/session-analytics.ts` is the API-only session analytics module
 - **Features**:
   - Session analytics aggregation
   - Calendar heatmap data
@@ -276,15 +277,6 @@ The `/app` directory follows Next.js 16 App Router conventions, implementing a m
 
 - **Function**: Basic map view
 - **Features**: Beach location display, basic interactivity
-
-#### `/map/enhanced-page.tsx`
-
-- **Function**: Advanced map interface
-- **Features**:
-  - Real-time buoy data overlay
-  - Advanced filtering
-  - Performance optimizations
-  - Loading states and error handling
 
 ---
 

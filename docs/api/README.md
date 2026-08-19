@@ -199,7 +199,7 @@ X-RateLimit-Reset: 1701600000
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/surf` | GET | Surf forecast by beach or coordinates |
-| `/api/home/personalized-forecast` | GET | Personalized recommendation |
+| `/api/surf/discover` | GET | Personalized surf-spot discovery |
 | `/api/buoys/conditions` | GET | Real-time buoy data |
 
 ### Sessions

@@ -12,9 +12,9 @@ User journal visualization and export. Shows calendar heatmap, analytics, and ex
 
 ## Data Flow
 
-- Reads from actions:
-  - `actions/analytics-actions.ts` (session analytics, calendar data)
-  - `actions/session-actions.ts` (session lists)
+- Reads session analytics and calendar data from `lib/analytics/session-analytics.ts`
+  through `app/api/analytics/sessions`
+- Reads session lists from `actions/session-actions.ts`
 - Privacy toggles route via `app/api/analytics/sessions` PATCH
 
 ## UX & State

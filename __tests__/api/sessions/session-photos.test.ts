@@ -884,6 +884,72 @@ describe("GET /api/sessions/[id]/photos", () => {
       expect(mockStorageUpload).not.toHaveBeenCalled();
     });
 
+    it("accepts input through 10 MiB before storage handling", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: sessionOwnerId, email: "owner@example.com" } },
+        error: null,
+      });
+
+      for (const size of [5 * 1024 * 1024 + 1, 10 * 1024 * 1024]) {
+        const sessionChain = createResolvedChain({
+          data: {
+            id: validSessionId,
+            user_id: sessionOwnerId,
+            image_url: null,
+          },
+          error: null,
+        });
+        const existingMediaChain = createResolvedChain({ data: [], error: null });
+        const sessionChains = [sessionChain];
+        const mediaChains = [existingMediaChain];
+        mockFrom.mockImplementation((table: string) => {
+          if (table === "sessions") return sessionChains.shift();
+          if (table === "session_media") return mediaChains.shift();
+          throw new Error(`Unexpected table ${table}`);
+        });
+        mockStorageUpload.mockResolvedValueOnce({
+          data: null,
+          error: new Error("storage unavailable"),
+        });
+        const photo = createImageFile("storage-large.jpg", "image/jpeg", size);
+
+        const request = new NextRequest(
+          `http://localhost:3000/api/sessions/${validSessionId}/photos`,
+          {
+            method: "POST",
+            body: createPhotoForm([photo]) as any,
+          },
+        );
+
+        const response = await POST(request, {
+          params: Promise.resolve({ id: validSessionId }),
+        });
+        const data = await response.json();
+
+        expect(response.status).toBe(502);
+        expect(data.details).toEqual({
+          stage: "storage_upload",
+          error_code: "storage_upload_failed",
+        });
+        expect(mockStorageUpload).toHaveBeenLastCalledWith(
+          expect.any(String),
+          photo,
+          expect.objectContaining({
+            cacheControl: "3600",
+            contentType: "image/jpeg",
+            upsert: false,
+          }),
+        );
+        const [, uploadedPhoto] = mockStorageUpload.mock.calls.at(-1) as [
+          string,
+          File,
+        ];
+        expect(uploadedPhoto).toBe(photo);
+        expect(uploadedPhoto.size).toBe(size);
+        expect(uploadedPhoto.type).toBe("image/jpeg");
+      }
+    });
+
     it("rejects uploads that would exceed five photos on the session", async () => {
       mockAuthGetUser.mockResolvedValue({
         data: { user: { id: sessionOwnerId, email: "owner@example.com" } },

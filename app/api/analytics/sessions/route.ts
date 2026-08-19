@@ -9,7 +9,7 @@ import {
 import {
   getSessionAnalytics,
   getCalendarHeatmapData,
-} from "@/actions/analytics-actions";
+} from "@/lib/analytics/session-analytics";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +18,10 @@ export const dynamic = "force-dynamic";
  *
  * Uses `withAuth` so both cookie (web) and Bearer (native) auth resolve the
  * user. The prior handler's cookie-only client returned 401 for every
- * native caller. The downstream actions (getSessionAnalytics,
- * getCalendarHeatmapData) accept the supabase client as an argument, so
- * they pick up the Bearer-scoped client from the withAuth context directly.
+ * native caller. The API-only analytics helpers in
+ * `lib/analytics/session-analytics.ts` accept the Supabase client as an
+ * argument, so they pick up the Bearer-scoped client from the withAuth context
+ * directly.
  */
 export const GET = withAuth(
   async (request: NextRequest, { user, supabase }: AuthenticatedContext) => {

@@ -38,6 +38,7 @@ import { StarRating } from "@/components/ui/star-rating";
 import { useAuth } from "@/context/auth-context";
 import type { SessionWithDetails } from "@/types/database";
 import { format } from "date-fns";
+import { SESSION_PHOTO_MAX_PER_SESSION } from "@/lib/media/session-photo-policy";
 
 type SessionPhoto = {
   id: string;
@@ -72,6 +73,10 @@ export function SessionAnnotationModal({
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
   const [sessionPhotos, setSessionPhotos] = useState<SessionPhoto[]>([]);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
+  const remainingPhotoSlots = Math.max(
+    SESSION_PHOTO_MAX_PER_SESSION - sessionPhotos.length,
+    0,
+  );
 
   const loadSessionPhotos = useCallback(async () => {
     if (!session.id) return;
@@ -296,6 +301,7 @@ export function SessionAnnotationModal({
                     variant="outline"
                     size="sm"
                     onClick={() => setShowPhotoUpload(!showPhotoUpload)}
+                    disabled={loadingPhotos || remainingPhotoSlots === 0}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Photo
@@ -308,7 +314,7 @@ export function SessionAnnotationModal({
                     <SessionPhotoUpload
                       sessionId={session.id}
                       onUploadComplete={handlePhotoUploaded}
-                      maxPhotos={10}
+                      maxPhotos={remainingPhotoSlots}
                     />
                   </div>
                 )}

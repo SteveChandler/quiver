@@ -31,10 +31,6 @@ jest.mock("@/lib/supabase/query-builders", () => ({
   withApprovedPhotos: jest.fn((query: any) => query),
 }));
 
-jest.mock("@/lib/recommendations/major-event-hold/water-quality-visibility", () => ({
-  filterBeachesByWaterQualityVisibility: jest.fn(async (beaches: unknown[]) => beaches),
-}));
-
 jest.mock("@/lib/recommendations/selection", () => ({
   rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
 }));

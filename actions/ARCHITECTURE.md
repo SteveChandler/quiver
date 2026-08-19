@@ -6,9 +6,13 @@ Centralize server actions used by UI and API routes. Actions are the single entr
 
 ## Structure
 
-- Top-level modules: `session-actions.ts`, `profile-actions.ts`, `session-media-actions.ts`, `like-actions.ts`, `social-actions.ts`, `intel-actions.ts`, `analytics-actions.ts`, `check-in-actions.ts`, `board-actions.ts`, `forecast-actions.ts`, `forecast-calibration-actions.ts`, `setup-actions.ts`, `personalization-actions.ts`
+- Top-level modules: `session-actions.ts`, `profile-actions.ts`, `session-media-actions.ts`, `like-actions.ts`, `social-actions.ts`, `intel-actions.ts`, `check-in-actions.ts`, `board-actions.ts`, `forecast-actions.ts`, `forecast-calibration-actions.ts`, `setup-actions.ts`, `personalization-actions.ts`
 - Subdomain folder `beach/` for favorites, location utilities, and queries
 - Subdomain folder `city/` for city editorial content
+
+Session analytics is API-only and lives at `lib/analytics/session-analytics.ts`;
+it is consumed by the analytics and journal export routes rather than exposed as
+a server action.
 
 **personalization-actions.ts** - Personalization status queries for progress UI. Main export: `getPersonalizationStatus()` - Returns `PersonalizationStatus`: `sessionCount`, `intelPostCount`, `hasLearnedPrefs`/`learnedConfidence`, `hasImplicitPrefs`/`implicitConfidence`, `learnedWaveRange` (min/max ft or null), `activeLayers` (0-4). Uses `withAuthenticatedAction`. Data from: user_surf_preferences, user_implicit_preferences, sessions, intel_posts. Handles PGRST116 (no row) gracefully for new users. Used by: `components/home-screen/personalization-progress.tsx`, `components/home-screen/index.tsx`
 

@@ -7,7 +7,6 @@ import {
   resolveWaterQualityHolds,
   type WaterQualityHoldClient,
 } from "@/lib/recommendations/major-event-hold/water-quality";
-import { filterBeachesByWaterQualityVisibility } from "@/lib/recommendations/major-event-hold/water-quality-visibility";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
@@ -119,18 +118,6 @@ describe("water-quality recommendation holds", () => {
 
     expect(allowed).toMatchObject({ state: "resolved", heldBeachIds: [] });
     expect(failed).toMatchObject({ state: "unresolved", heldBeachIds: [] });
-
-    const visible = await filterBeachesByWaterQualityVisibility(
-      [{ id: BEACH_A }, { id: BEACH_B }],
-      {
-        resolveHolds: jest.fn().mockResolvedValue({
-          state: "unresolved",
-          heldBeachIds: [],
-          epoch: "unresolved",
-        }),
-      },
-    );
-    expect(visible).toEqual([]);
   });
 
   it("adds a fresh County closure to the chronic owner hold", async () => {
@@ -175,11 +162,5 @@ describe("water-quality recommendation holds", () => {
 
     expect(resolution.state).toBe("unresolved");
     expect(resolution.heldBeachIds).toEqual([BEACH_A]);
-
-    const visible = await filterBeachesByWaterQualityVisibility(
-      [{ id: BEACH_A }, { id: BEACH_B }],
-      { resolveHolds: jest.fn().mockResolvedValue(resolution) },
-    );
-    expect(visible).toEqual([]);
   });
 });

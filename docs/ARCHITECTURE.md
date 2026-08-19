@@ -2,7 +2,7 @@
 
 This document is the canonical, high-level overview of Quiver's architecture and an index to detailed docs. It summarizes core patterns, policies, and the current product strategy.
 
-**Last Updated:** August 12, 2026
+**Last Updated:** August 18, 2026
 
 ---
 
@@ -36,7 +36,8 @@ This document is the canonical, high-level overview of Quiver's architecture and
 - `app/` - Next.js routes and API routes (see `app/ARCHITECTURE.md`)
 - `components/` - Reusable UI, DRY form components (see `components/ARCHITECTURE.md`)
 - `hooks/` - Custom React hooks (see `hooks/ARCHITECTURE.md`)
-- `lib/` - Utilities, services, auth, Supabase clients (see `lib/ARCHITECTURE.md`)
+- `actions/` - Web-only server actions (see `actions/ARCHITECTURE.md`)
+- `lib/` - Utilities, services, auth, Supabase clients (see local `ARCHITECTURE.md` files under `lib/`)
 - `supabase/` - DB migrations, RLS, performance (see `supabase/ARCHITECTURE.md`)
 - `types/` - TypeScript domain models (see `types/ARCHITECTURE.md`)
 - `test-utils/` - Testing helpers (see `test-utils/ARCHITECTURE.md`)
@@ -77,19 +78,19 @@ const { data, loading, error } = useDataFetcher(fetchData);
 ```
 
 **2. API Routes**
-Use centralized utilities:
+Use the public API wrapper surface for authentication, validation, responses, and
+error handling:
 
 ```ts
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import {
+  createSuccessResponse,
+  withAuth,
+} from "@/lib/middleware/api-wrappers";
 
-export async function POST(request: Request) {
-  try {
-    const result = await processRequest();
-    return createSuccessResponse(result);
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+export const POST = withAuth(async (request, { user, supabase }) => {
+  const result = await processRequest(request, user, supabase);
+  return createSuccessResponse(result);
+});
 ```
 
 **3. Server Actions**

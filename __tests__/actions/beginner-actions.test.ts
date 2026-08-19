@@ -15,12 +15,6 @@ jest.mock("@/lib/community-photos", () => ({
     `${target.type}:${target.id}`,
 }));
 
-jest.mock("@/lib/recommendations/major-event-hold/water-quality-visibility", () => ({
-  filterBeachesByWaterQualityVisibility: jest.fn(
-    async (beaches: unknown[]) => beaches,
-  ),
-}));
-
 const mockRankBeaches = jest.fn(
   async <T extends { id: string }>(
     beaches: T[],

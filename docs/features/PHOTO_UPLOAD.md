@@ -11,11 +11,24 @@ The session photo upload feature allows users to add photos to their surf sessio
 
 ### Key Features
 - **Automatic Compression** - Reduces file sizes while maintaining quality
-- **Fallback Strategy** - Uploads original if compression fails (if under 5MB)
+- **Fallback Strategy** - Uploads the original only when compression fails and it is at most 5 MiB
 - **Authentication** - Server-side authentication with RLS policies
 - **Quota Management** - 100MB storage limit per user
 - **Security** - Users can only upload to their own sessions
-- **Multi-format Support** - JPEG, PNG, WebP (with HEIC handling)
+- **Multi-format Support** - JPEG/JPG, PNG, and WebP
+
+### Shared Upload Policy
+
+The source of truth is [`lib/media/session-photo-policy.ts`](../../lib/media/session-photo-policy.ts):
+
+- JPEG/JPG/PNG/WebP are accepted.
+- Input files may be up to 10 MiB before compression.
+- Compressed output must be at most 5 MiB before storage upload.
+- A session may contain at most 5 photos.
+
+The native-facing API preserves the 10 MiB input boundary and does not perform
+server-side compression. The web storage helper performs compression and applies
+the 5 MiB post-compression limit.
 
 ---
 
@@ -79,6 +92,8 @@ USING (
 **File**: [lib/supabase/storage.ts:44-106](../../lib/supabase/storage.ts#L44-L106)
 
 ```typescript
+import { SESSION_PHOTO_MAX_STORAGE_BYTES } from "@/lib/media/session-photo-policy";
+
 async function compressImage(file: File): Promise<File> {
   try {
     // Attempt compression with quality 0.8, max 2048x2048
@@ -104,8 +119,8 @@ async function compressImage(file: File): Promise<File> {
       error: error.message
     });
 
-    // Fallback: Use original if under 5MB
-    if (file.size <= MAX_FILE_SIZE) {
+    // Fallback: Use original only if it already meets the 5 MiB storage limit
+    if (file.size <= SESSION_PHOTO_MAX_STORAGE_BYTES) {
       console.warn("[Image Compression] Using original file");
       return file;
     }
@@ -113,14 +128,14 @@ async function compressImage(file: File): Promise<File> {
     // File too large even without compression
     throw new Error(
       `Failed to compress image. File is ${(file.size / 1024 / 1024).toFixed(1)}MB. ` +
-      `Please choose an image under 5MB or try a different image format.`
+      `Please choose an image under 5 MiB or try a different image format.`
     );
   }
 }
 ```
 
 **Benefits:**
-- ✅ Handles HEIC and unusual formats gracefully
+- ✅ Handles compression failures gracefully
 - ✅ Reduces server bandwidth and storage costs
 - ✅ Provides detailed logging for debugging
 - ✅ Clear, actionable error messages
@@ -129,12 +144,13 @@ async function compressImage(file: File): Promise<File> {
 
 ```
 1. User selects image(s)
-2. Client validates file type/size (pre-compression)
+2. Client validates MIME type and the 10 MiB input limit (pre-compression)
 3. compressImage() attempts compression
    ├─ Success? → Use compressed file
    └─ Failure? → Check original size
-       ├─ Under 5MB? → Use original (with warning)
-       └─ Over 5MB? → Return error with details
+       ├─ At most 5 MiB? → Use original (with warning)
+       └─ Over 5 MiB? → Return error with details
+   └─ Compressed output over 5 MiB? → Return storage-size error
 4. uploadSessionPhoto() checks user quota
    ├─ Under 100MB? → Proceed
    └─ Over 100MB? → Return quota error with usage details
@@ -173,9 +189,9 @@ if (!can_upload) {
 
 ```
 ✓ should compress image successfully and log compression stats
-✓ should use original file when compression fails and file is under 5MB
+✓ should use original file when compression fails and file is at most 5 MiB
 ✓ should log detailed error information when compression fails
-✓ should return error when compression fails and file is over 5MB
+✓ should return error when compression fails and file is over 5 MiB
 ✓ should provide helpful error message with file size details
 ✓ should check getUserStorageUsage and validate can_upload flag
 ✓ should reject file that's too large even after successful compression
@@ -189,7 +205,7 @@ if (!can_upload) {
 - [ ] Log in to the application with a valid user account
 - [ ] Navigate to a session detail page
 - [ ] Click "Add Photos" button
-- [ ] Select a test image (JPEG, PNG, or WebP, under 5MB)
+- [ ] Select a test image (JPEG, PNG, or WebP, up to 10 MiB input)
 - [ ] Verify "X photo(s) selected" message appears
 - [ ] Click "Upload" button
 - [ ] **CRITICAL**: Verify success toast appears
@@ -204,10 +220,11 @@ if (!can_upload) {
 - [ ] Verify you can view public photos from other users
 
 #### Error Handling Tests
-- [ ] Try uploading file > 5MB → Verify clear error
+- [ ] Try uploading file > 10 MiB → Verify input-size error
+- [ ] Try an input between 5 and 10 MiB that compresses under 5 MiB → Verify upload succeeds
 - [ ] Try uploading unsupported file type → Verify clear error
 - [ ] Try uploading when at 5 photos per session limit → Verify error
-- [ ] Try uploading HEIC format → Verify fallback works
+- [ ] Try uploading HEIC format → Verify unsupported-file error
 
 #### Compression Fallback Test
 - [ ] Open browser console (F12)
@@ -272,8 +289,8 @@ LIMIT 1;
 
 **Solution**:
 - Check browser console for detailed error logs
-- If file is under 5MB, fallback should activate automatically
-- If file is over 5MB, ask user to resize image
+- If compression fails and the original is at most 5 MiB, fallback should activate automatically
+- If compression fails and the original is over 5 MiB, ask user to resize image
 
 **Console Output**:
 ```

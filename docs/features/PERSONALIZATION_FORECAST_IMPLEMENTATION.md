@@ -6,6 +6,11 @@
 > break type / crowd selectors, zod schemas, and server writes referencing these
 > columns) are historical and no longer represent current behavior. DB columns
 > will be dropped in a follow-up migration.
+>
+> This document is a historical implementation record. References to the former
+> `/api/recommendations/morning` route and its tests describe the 2025 rollout;
+> current personalized discovery uses `/api/surf/discover` and
+> `hooks/use-surf-discovery.ts`.
 
 **Version:** 2.0 (Simplified for small user base)
 **Timeline:** 4 weeks
