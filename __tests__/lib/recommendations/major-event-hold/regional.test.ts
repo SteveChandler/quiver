@@ -121,6 +121,7 @@ function surfWindow(
     startIso: STARTS_AT,
     endIso: ENDS_AT,
     peakIso: "2026-07-20T12:00:00.000Z",
+    timezone: "America/Los_Angeles",
     forecastAt: STARTS_AT,
     localTimeLabel: "5:00 AM–7:00 AM",
     score: 90 - index,

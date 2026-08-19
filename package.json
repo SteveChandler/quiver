@@ -124,6 +124,7 @@
     "seo:gsc-refresh": "node --import tsx scripts/seo/gsc-refresh.ts",
     "seo:technical-audit": "node --import tsx scripts/seo/technical-audit.ts",
     "seo:metadata-audit": "node --import tsx scripts/seo/metadata-audit.ts",
+    "check:comparison-sources": "node --import tsx scripts/check-comparison-sources.ts",
     "seo:forecast-authority-audit": "node --import tsx scripts/seo/forecast-authority-audit.ts",
     "seo:forecast-authority-benchmark": "node --import tsx scripts/seo/forecast-authority-benchmark.ts",
     "seo:enrich": "node --import tsx scripts/seo/enrich.ts",

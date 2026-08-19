@@ -33,12 +33,10 @@ function setUserAgent(userAgent: string): void {
 function createSwitch(installCtaEnabled = true): ReactElement {
   return (
     <BeachSubPageCtaSwitch
-      beachId="beach-1"
       beachName="Blacks"
       installCtaEnabled={installCtaEnabled}
       pathname="/ca/san-diego/blacks/tides"
       placement="tides-blacks"
-      pageType="tides"
       searchReferralCta={{
         ctaText: "Get Tide Alerts",
         supportingText: "Know when the tide is right at Blacks",
@@ -53,12 +51,12 @@ function createSwitch(installCtaEnabled = true): ReactElement {
 }
 
 describe("BeachSubPageCtaSwitch", () => {
-  it("server-renders the alert CTA and sticky signup path", () => {
+  it("server-renders the sticky signup path with no inline alert CTA", () => {
     setUserAgent(IPHONE_SAFARI_UA);
 
     const markup = renderToStaticMarkup(createSwitch());
 
-    expect(markup).toContain('data-testid="alert-capture-cta"');
+    expect(markup).not.toContain('data-testid="alert-capture-cta"');
     expect(markup).toContain('data-testid="sticky-signup-bar"');
     expect(markup).not.toContain('data-testid="install-app-cta"');
   });
@@ -77,12 +75,12 @@ describe("BeachSubPageCtaSwitch", () => {
   it.each([
     ["desktop Safari", DESKTOP_SAFARI_UA],
     ["non-Safari iPhone", IPHONE_CHROME_UA],
-  ])("keeps the alert CTA and sticky signup path for %s", async (_name, userAgent) => {
+  ])("keeps the sticky signup path and no inline alert CTA for %s", async (_name, userAgent) => {
     setUserAgent(userAgent);
     render(createSwitch());
 
     await waitFor(() => {
-      expect(screen.getByTestId("alert-capture-cta")).toBeInTheDocument();
+      expect(screen.queryByTestId("alert-capture-cta")).not.toBeInTheDocument();
       expect(screen.getByTestId("sticky-signup-bar")).toBeInTheDocument();
     });
     expect(screen.queryByTestId("install-app-cta")).not.toBeInTheDocument();
@@ -93,7 +91,7 @@ describe("BeachSubPageCtaSwitch", () => {
     render(createSwitch(false));
 
     await waitFor(() => {
-      expect(screen.getByTestId("alert-capture-cta")).toBeInTheDocument();
+      expect(screen.queryByTestId("alert-capture-cta")).not.toBeInTheDocument();
       expect(screen.getByTestId("sticky-signup-bar")).toBeInTheDocument();
     });
     expect(screen.queryByTestId("install-app-cta")).not.toBeInTheDocument();

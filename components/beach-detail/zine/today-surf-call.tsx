@@ -40,6 +40,8 @@ export function TodaySurfCall({
   beachTimezone,
   isTomorrow = false,
 }: TodaySurfCallProps) {
+  if (!surfCallReport) return null;
+
   const tiers = surfCallReport?.tiers ?? null;
   const userTier = surfCallReport?.userTier ?? null;
   const displayTier: TierKey | null = tiers ? selectDisplayTier(userTier) : null;

@@ -15,12 +15,15 @@ import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { SITE_URL } from "@/lib/constants/seo";
 import { buildPageMetadata } from "@/lib/seo/meta";
 
+import {
+  COMPARISON_SOURCE_LINKS,
+  COMPARISON_SOURCE_REVIEW,
+} from "./comparison-sources";
+
 export const revalidate = 604800;
 
 const PAGE_PATH = "/best-surf-forecast-app";
 const PAGE_URL = `${SITE_URL}${PAGE_PATH}`;
-const CHECKED_ON_ISO = "2026-07-08";
-const LAST_UPDATED_LABEL = "July 8, 2026";
 const APP_STORE_URL =
   "https://apps.apple.com/us/app/surf-forecast-quiver/id6759300320";
 
@@ -46,12 +49,6 @@ interface AppComparisonRow {
   why: string;
   tradeoff: string;
   sourceHref: string;
-}
-
-interface SourceLink {
-  label: string;
-  href: string;
-  note: string;
 }
 
 const COMPARISON_ROWS: AppComparisonRow[] = [
@@ -120,55 +117,16 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
   },
 ];
 
-const SOURCE_LINKS: SourceLink[] = [
-  {
-    label: "Quiver App Store listing",
-    href: APP_STORE_URL,
-    note:
-      "Quiver free listing, Pro monthly, annual, and lifetime in-app purchases, session logging, alerts, board recommendations, custom spots, and offline mode.",
-  },
-  {
-    label: "Surfline upgrade page",
-    href: "https://www.surfline.com/upgrade",
-    note:
-      "Premium and Premium+ plan positioning, 16-day forecasts, live cams, and annual pricing.",
-  },
-  {
-    label: "Surfline free vs Premium support",
-    href:
-      "https://support.surfline.com/hc/en-us/articles/32996023385243-What-do-I-get-as-a-free-vs-Premium-user",
-    note:
-      "Free, Premium, Premium with Ads, and Premium+ feature differences.",
-  },
-  {
-    label: "LazySurfer vs Quiver comparison",
-    href: "https://lazysurfer.app/compare/quiver.html",
-    note:
-      "LazySurfer pricing, cross-platform availability, and personalization framing.",
-  },
-  {
-    label: "Surf-Forecast.com app page",
-    href: "https://www.surf-forecast.com/pages/app-store",
-    note:
-      "Global spot coverage, maps, alerts, tide timing, hourly forecasts, and 16-day planning.",
-  },
-  {
-    label: "Surf Captain FAQ",
-    href: "https://surfcaptain.com/faq",
-    note:
-      "Free 5-day forecasts with ads and Surf Captain Pro 16-day forecast pricing.",
-  },
-  {
-    label: "Windy surfing guide",
-    href: "https://windy.app/guide/mini-guide-to-surfing.html",
-    note: "Wind, swell, tide, and map-reading education for surf forecasting.",
-  },
-  {
-    label: "NOAA NDBC",
-    href: "https://www.ndbc.noaa.gov/observations.shtml",
-    note: "Free buoy observations and historical observations.",
-  },
-];
+function formatVerifiedDate(lastVerified: string): string {
+  const [year, month, day] = lastVerified.split("-").map(Number);
+
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
 
 function ComparisonItemListStructuredData(): ReactElement {
   const data = {
@@ -210,13 +168,13 @@ export default function BestSurfForecastAppPage(): ReactElement {
         name="Best Surf Forecast App by Surf Job in 2026"
         description="A source-backed, capability-led surf forecast app comparison by job-to-be-done."
         url={PAGE_URL}
-        dateModified={CHECKED_ON_ISO}
+        dateModified={COMPARISON_SOURCE_REVIEW.lastVerified}
       />
       <ComparisonItemListStructuredData />
 
       <ZineSurface
         sectionLabel="App comparison"
-        editionLabel={`Checked ${CHECKED_ON_ISO}`}
+        editionLabel={`Checked ${COMPARISON_SOURCE_REVIEW.lastVerified}`}
         data-testid="best-surf-forecast-app-zine-surface"
       >
         <main className="overflow-hidden text-[#11100D]">
@@ -248,12 +206,14 @@ export default function BestSurfForecastAppPage(): ReactElement {
                 Last updated
               </div>
               <p className="mt-3 font-mono text-sm font-black uppercase tracking-[0.12em] text-[#252D6B]">
-                {LAST_UPDATED_LABEL}
+                {formatVerifiedDate(COMPARISON_SOURCE_REVIEW.lastVerified)}
               </p>
               <p className="mt-3 text-sm font-semibold leading-6 text-[#252D6B]">
                 Pricing, platform, and feature notes were checked on{" "}
-                <span className="font-mono font-black">{CHECKED_ON_ISO}</span>.
-                Plans can change, so use the source links before buying.
+                <span className="font-mono font-black">
+                  {COMPARISON_SOURCE_REVIEW.lastVerified}
+                </span>. Plans can change, so use the source links before
+                buying.
               </p>
               <p className="mt-4 border-t-2 border-[#11100D] pt-3 text-sm font-black text-[#11100D]">
                 Affiliation disclosure: Quiver is our app.
@@ -286,7 +246,8 @@ export default function BestSurfForecastAppPage(): ReactElement {
               <table className="w-full min-w-[980px] border-collapse text-sm">
                 <caption className="sr-only">
                   Capability-led comparison of surf forecast apps checked on
-                  July 8, 2026.
+                  {" "}
+                  {formatVerifiedDate(COMPARISON_SOURCE_REVIEW.lastVerified)}.
                 </caption>
                 <thead>
                   <tr className="border-b-2 border-[#11100D] bg-[#11100D] text-[#F4EBD8]">
@@ -417,10 +378,12 @@ export default function BestSurfForecastAppPage(): ReactElement {
               </div>
               <p className="mt-3 text-sm font-semibold leading-6 text-[#252D6B]">
                 Source links and comparison facts were checked on{" "}
-                <span className="font-mono font-black">{CHECKED_ON_ISO}</span>.
+                <span className="font-mono font-black">
+                  {COMPARISON_SOURCE_REVIEW.lastVerified}
+                </span>.
               </p>
               <ul className="mt-5 grid gap-3">
-                {SOURCE_LINKS.map((source) => (
+                {COMPARISON_SOURCE_LINKS.map((source) => (
                   <li
                     key={source.label}
                     className="border-t-2 border-[#11100D]/25 pt-3"

@@ -38,6 +38,8 @@ interface AlertCaptureCtaProps {
   /** Analytics source tracking identifier */
   source: string;
   className?: string;
+  /** "paper" for zine surfaces, where a navy card reads as a foreign app panel. */
+  variant?: "default" | "paper";
 }
 
 /**
@@ -53,7 +55,9 @@ export function AlertCaptureCta({
   beachName,
   source,
   className,
+  variant = "default",
 }: AlertCaptureCtaProps) {
+  const isPaper = variant === "paper";
   const { user, isLoading } = useAuth();
   const { setPendingAction } = usePendingAction();
   const { track } = useTrackEvent();
@@ -116,9 +120,9 @@ export function AlertCaptureCta({
     <>
       <div
         className={cn(
-          "rounded-2xl",
-          "bg-[#252D6B]",
-          "border border-white/10 shadow-sm",
+          isPaper
+            ? "rounded-[20px_8px_22px_10px] border-2 border-[#11100D] bg-[#FBF6E8] shadow-[3px_4px_0_rgba(17,16,13,0.2)]"
+            : "rounded-2xl bg-[#252D6B] border border-white/10 shadow-sm",
           "p-6",
           className,
         )}
@@ -129,14 +133,35 @@ export function AlertCaptureCta({
         <div className="flex flex-col gap-4">
           {/* Header */}
           <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-[#F78E42]/15 p-2 shrink-0">
-              <Waves className="h-5 w-5 text-[#F78E42]" aria-hidden="true" />
+            <div
+              className={cn(
+                "rounded-lg p-2 shrink-0",
+                isPaper ? "bg-[#F78E42]/25" : "bg-[#F78E42]/15"
+              )}
+            >
+              <Waves
+                className={cn(
+                  "h-5 w-5",
+                  isPaper ? "text-[#B56A2B]" : "text-[#F78E42]"
+                )}
+                aria-hidden="true"
+              />
             </div>
             <div className="min-w-0">
-              <h3 className="text-lg md:text-xl font-semibold text-white mb-1">
+              <h3
+                className={cn(
+                  "text-lg md:text-xl font-semibold mb-1",
+                  isPaper ? "text-[#11100D]" : "text-white"
+                )}
+              >
                 {config.headline(beachName)}
               </h3>
-              <p className="text-sm md:text-base text-white/70">
+              <p
+                className={cn(
+                  "text-sm md:text-base",
+                  isPaper ? "text-[#11100D]/75" : "text-white/70"
+                )}
+              >
                 {config.description(beachName)}
               </p>
             </div>
@@ -151,7 +176,12 @@ export function AlertCaptureCta({
               return (
                 <span
                   key={presetKey}
-                  className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70"
+                  className={cn(
+                    "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium",
+                    isPaper
+                      ? "border border-[#11100D]/20 bg-[#11100D]/[0.06] text-[#11100D]/75"
+                      : "bg-white/10 text-white/70"
+                  )}
                 >
                   {badge.label}
                 </span>
@@ -170,7 +200,12 @@ export function AlertCaptureCta({
             </Button>
           </div>
 
-          <p className="text-xs text-white/40">
+          <p
+            className={cn(
+              "text-xs",
+              isPaper ? "text-[#11100D]/60" : "text-white/40"
+            )}
+          >
             No spam. Just surf.
           </p>
         </div>

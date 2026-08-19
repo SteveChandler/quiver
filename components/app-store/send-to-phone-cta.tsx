@@ -195,12 +195,12 @@ export function SendToPhoneCta({
   return (
     <div
       className={cn(
-        "rounded-[1.25rem] border border-white/12 bg-header-end p-6 text-white shadow-[0_18px_60px_rgba(0,0,0,0.24)]",
+        "rounded-[1.25rem] border-2 border-[#11100D] bg-[#EFE5CF] p-6 text-[#11100D] shadow-[5px_6px_0_#11100D]",
         className,
       )}
     >
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-        <div className="mx-auto shrink-0 -rotate-1 rounded-[1.1rem] bg-white p-3 shadow-md">
+        <div className="mx-auto shrink-0 -rotate-1 rounded-[1.1rem] border-2 border-[#11100D] bg-[#F4EBD8] p-3 shadow-[3px_3px_0_#11100D]">
           {qrValue ? (
             <QRCodeSVG
               aria-label="Scan to open Quiver on your phone"
@@ -210,8 +210,10 @@ export function SendToPhoneCta({
               size={150}
               level="H"
               marginSize={3}
-              bgColor="#FFFFFF"
-              fgColor="#252D6B"
+              bgColor="#F4EBD8"
+              fgColor="#11100D"
+              data-background-color="#F4EBD8"
+              data-foreground-color="#11100D"
               imageSettings={{
                 src: "/quiver-app-icon-128.png",
                 width: 28,
@@ -228,7 +230,7 @@ export function SendToPhoneCta({
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="font-sans text-sm leading-6 text-white/80">
+          <p className="font-sans text-sm leading-6 text-[#11100D]/80">
             {showEmailForm
               ? "Scan to get Quiver on your phone, or email yourself the link."
               : "Scan with your phone to open Quiver."}
@@ -238,7 +240,7 @@ export function SendToPhoneCta({
             <form onSubmit={onSubmit} className="mt-3" noValidate>
               <label
                 htmlFor="send-to-phone-email"
-                className="block font-sans text-xs font-semibold uppercase tracking-widest text-white/60"
+                className="block font-sans text-xs font-semibold uppercase tracking-widest text-[#11100D]/65"
               >
                 Your email
               </label>
@@ -251,12 +253,12 @@ export function SendToPhoneCta({
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="you@email.com"
-                  className="min-h-11 flex-1 rounded-md border border-white/12 bg-white/10 px-3 font-sans text-base text-white placeholder:text-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue-decorative"
+                  className="min-h-11 flex-1 rounded-md border border-[#11100D] bg-[#F4EBD8] px-3 font-sans text-base text-[#11100D] placeholder:text-[#11100D]/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EFE5CF]"
                 />
                 <button
                   type="submit"
                   disabled={state === "sending" || !handoffId}
-                  className="inline-flex min-h-11 items-center justify-center rounded-md bg-ocean-blue-decorative px-5 font-sans text-base font-bold text-header-end transition hover:bg-[#D57835] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:bg-[#C06A25] disabled:opacity-60"
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-[#11100D] bg-ocean-blue-decorative px-5 font-sans text-base font-bold text-[#11100D] transition hover:bg-[#D57835] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EFE5CF] active:bg-[#C06A25] disabled:opacity-60"
                 >
                   {state === "sending" ? "Sending..." : "Send link"}
                 </button>
@@ -267,14 +269,14 @@ export function SendToPhoneCta({
                 className="mt-2 min-h-5 font-sans text-sm"
               >
                 {inlineError ? (
-                  <span className="text-sunset-orange">{inlineError}</span>
+                  <span className="text-[#9A3412]">{inlineError}</span>
                 ) : null}
                 {statusCopy ? (
                   <span
                     className={
                       state === "sent"
-                        ? "text-emerald-300"
-                        : "text-sunset-orange"
+                        ? "text-[#006B5F]"
+                        : "text-[#9A3412]"
                     }
                   >
                     {statusCopy}
@@ -286,7 +288,7 @@ export function SendToPhoneCta({
 
           <a
             href={IOS_APP_STORE_WEB_REDIRECT_PATH}
-            className="mt-2 inline-block font-sans text-sm text-white/72 underline underline-offset-2 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue-decorative"
+            className="mt-2 inline-block font-sans text-sm text-[#11100D]/75 underline underline-offset-2 hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EFE5CF]"
           >
             Open App Store anyway
           </a>

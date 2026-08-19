@@ -315,6 +315,19 @@ describe("Image Proxy Utils", () => {
       expect(result).not.toContain("/api/image-proxy");
     });
 
+    it.each([
+      "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot.stream",
+      "https://img.youtube.com/vi/abc123/mqdefault.jpg",
+      "https://camstills.cdn-surfline.com/some-cam/latest_small.jpg",
+    ])(
+      "should not proxy cam-thumbnail hosts served by next/image remotePatterns (%s)",
+      (url) => {
+        const result = getProxiedImageUrl(url);
+        expect(result).toBe(url);
+        expect(result).not.toContain("/api/image-proxy");
+      },
+    );
+
     it("should not proxy Supabase .in storage URLs", () => {
       const result = getProxiedImageUrl(SUPABASE_IN_URL);
       expect(result).toBe(SUPABASE_IN_URL);

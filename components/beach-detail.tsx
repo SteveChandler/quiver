@@ -243,6 +243,8 @@ interface BeachDetailProps {
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
   heroHeadingLevel?: ZineHeroHeadingLevel;
+  heroHeadingSuffix?: string;
+  heroSummarySlot?: ReactNode;
   heroForecastSlot?: ReactNode;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
@@ -274,6 +276,8 @@ function BeachDetailContent({
   waterQuality,
   beachPhoto,
   heroHeadingLevel,
+  heroHeadingSuffix,
+  heroSummarySlot,
   heroForecastSlot,
   beforeTabsContent,
   afterTabsContent,
@@ -986,6 +990,8 @@ function BeachDetailContent({
         beachPhoto={beachPhoto}
         sources={sources}
         heroHeadingLevel={heroHeadingLevel}
+        heroHeadingSuffix={heroHeadingSuffix}
+        heroSummarySlot={heroSummarySlot}
         heroForecastSlot={heroForecastSlot}
       >
         <div ref={signupCtaRef} />

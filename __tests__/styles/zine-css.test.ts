@@ -72,4 +72,25 @@ describe("zine stylesheet", () => {
       "background-color: rgba(11, 58, 117, 0.08) !important;"
     );
   });
+
+  it("uses fixed-height torn edge bands with a safe content inset", () => {
+    expect(zineCss).toContain("--zine-torn-edge-depth: 16px;");
+    expect(zineCss).toContain("--zine-torn-inset: 20px;");
+    expect(zineCss).toContain(":where(.zine-tab) .torn {");
+    expect(zineCss).toContain("padding: var(--zine-torn-inset);");
+    expect(zineCss).toContain(
+      "-webkit-mask-size: 100% var(--zine-torn-edge-depth), 100% calc(100% - var(--zine-torn-edge-depth) - var(--zine-torn-edge-depth)), 100% var(--zine-torn-edge-depth);"
+    );
+    expect(zineCss).toContain(
+      "mask-size: 100% var(--zine-torn-edge-depth), 100% calc(100% - var(--zine-torn-edge-depth) - var(--zine-torn-edge-depth)), 100% var(--zine-torn-edge-depth);"
+    );
+    expect(zineCss).not.toContain("mask-size: 100% 100%;");
+  });
+
+  it("removes decorative rotations at compact desktop widths", () => {
+    expect(zineCss).toContain("@media (max-width: 900px)");
+    expect(zineCss).toMatch(
+      /@media \(max-width: 900px\)[\s\S]*?\.zine-tab \.rot-neg\s*\{[\s\S]*?transform: none;/
+    );
+  });
 });

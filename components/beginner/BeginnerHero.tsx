@@ -105,7 +105,7 @@ export function BeginnerHero({
                 sizes="(max-width: 1024px) 100vw, 360px"
                 className="object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0F1B3D] via-[#0F1B3D]/12 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0F1B3D] via-[#0F1B3D]/10 to-transparent" />
             </>
           ) : (
             <div className="absolute inset-0 bg-[linear-gradient(135deg,#203A7C,#0F1B3D_52%,#F78E42)]" />

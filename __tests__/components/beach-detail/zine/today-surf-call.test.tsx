@@ -9,6 +9,14 @@ import { TodaySurfCall } from "@/components/beach-detail/zine/today-surf-call";
 import { createMockBeach } from "@/__tests__/setup/typed-mocks";
 
 describe("TodaySurfCall", () => {
+  it("does not invent a fallback verdict when no authorized call is available", () => {
+    const { container } = render(
+      <TodaySurfCall beach={createMockBeach({ name: "Seaside Reef" })} />,
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("labels the public call as tomorrow when the selected forecast rolls over", () => {
     render(
       <TodaySurfCall

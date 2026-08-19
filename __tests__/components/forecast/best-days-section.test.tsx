@@ -196,6 +196,22 @@ describe("BestDaysSection — analytics wiring", () => {
     trackBestConditionsClick = tracking.trackBestConditionsClick;
   });
 
+  it("does not render immediate-action copy for a future weekly best day", () => {
+    const futureBestDay = makeDaySummary({ score: 97 });
+
+    render(
+      <BestDaysSection
+        days={[futureBestDay]}
+        bestDay={futureBestDay}
+        regionName={REGION_NAME}
+        variant="zine"
+      />
+    );
+
+    expect(screen.getByTestId("zine-best-day-card")).toBeInTheDocument();
+    expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
+  });
+
   // -------------------------------------------------------------------------
   // 1. IntersectionObserver — viewed tracking
   // -------------------------------------------------------------------------

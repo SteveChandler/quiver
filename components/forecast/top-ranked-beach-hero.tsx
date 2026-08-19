@@ -4,26 +4,40 @@ import { Clock3, MapPin, Waves } from "lucide-react";
 
 import type { BeachConditionSummary } from "@/lib/utils/regional-forecast-utils";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
-import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import { formatWaveHeightDecimal } from "@/lib/utils/wave-formatters";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
 import { getScoreCall } from "./score-band-call";
 
 type HeroSurfWindow = Pick<
   SurfWindowRecommendation,
-  "startIso" | "endIso" | "peakIso" | "localTimeLabel" | "confidence" | "positives"
+  | "startIso"
+  | "endIso"
+  | "peakIso"
+  | "timezone"
+  | "localTimeLabel"
+  | "score"
+  | "verdict"
+  | "confidence"
+  | "positives"
+  | "wave"
 >;
+
+/** The window's own wave height, so the card never mixes two instants. */
+function windowWaveHeight(window: HeroSurfWindow | null | undefined): number | null {
+  const parsed = Number.parseFloat(window?.wave?.height ?? "");
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 interface TopRankedBeachHeroProps {
   beach: BeachConditionSummary;
   regionName: string;
-  beachTimezone?: string | null;
+  now?: Date;
   imageUrl?: string | null;
   mapImageUrl?: string | null;
   bestSurfWindow?: HeroSurfWindow | null;
 }
 
-function formatPeakTime(peakIso: string, timezone?: string | null): string {
+function formatPeakTime(peakIso: string, timezone: string): string {
   const peakDate = new Date(peakIso);
   if (!Number.isFinite(peakDate.getTime())) return "Not available";
 
@@ -31,22 +45,61 @@ function formatPeakTime(peakIso: string, timezone?: string | null): string {
     return new Intl.DateTimeFormat("en-US", {
       hour: "numeric",
       minute: "2-digit",
-      timeZone: resolveBeachTimezone(timezone),
+      timeZone: timezone,
     }).format(peakDate);
   } catch {
     return "Not available";
   }
 }
 
+function includesInstant(window: HeroSurfWindow, instant: Date): boolean {
+  const start = Date.parse(window.startIso);
+  const end = Date.parse(window.endIso);
+  const current = instant.getTime();
+  return (
+    Number.isFinite(start) &&
+    Number.isFinite(end) &&
+    start <= current &&
+    current <= end
+  );
+}
+
+function scheduledAction(window: HeroSurfWindow): string {
+  const start = new Date(window.startIso);
+  if (!Number.isFinite(start.getTime())) return window.verdict;
+
+  try {
+    const date = new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      timeZone: window.timezone,
+    }).format(start);
+    return `${window.verdict} · ${date}`;
+  } catch {
+    return window.verdict;
+  }
+}
+
 export function TopRankedBeachHero({
   beach,
   regionName,
-  beachTimezone,
+  now = new Date(),
   imageUrl,
   mapImageUrl,
   bestSurfWindow,
 }: TopRankedBeachHeroProps) {
-  const scoreCall = getScoreCall(beach.currentScore);
+  const selectedScore = bestSurfWindow?.score ?? beach.currentScore;
+  const scoreCall = getScoreCall(selectedScore);
+  const isLive = bestSurfWindow ? includesInstant(bestSurfWindow, now) : false;
+  // Only reframe as "upcoming" when there is a real window to point at; with no
+  // window the card falls back to the score ranking and stays "ranked first".
+  const isUpcoming = Boolean(bestSurfWindow) && !isLive;
+  const action = bestSurfWindow
+    ? isLive
+      ? scoreCall.action
+      : scheduledAction(bestSurfWindow)
+    : "Check back soon";
   const imageSource = imageUrl ?? mapImageUrl ?? null;
   const imageAlt = imageUrl
     ? `${beach.beachName} beach photo`
@@ -86,14 +139,15 @@ export function TopRankedBeachHero({
         )}
 
         <div className="absolute left-4 top-4 bg-[#F4EBD8] px-3 py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.3)]">
-          Top beach now
+          {isUpcoming ? "Next best call" : "Top beach now"}
         </div>
       </div>
 
       <div className="flex min-w-0 flex-col justify-between gap-7 p-5 sm:p-7">
         <div>
           <p className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#B56A2B]">
-            Ranked first in {regionName || "this region"}
+            {isUpcoming ? "Best upcoming window in" : "Ranked first in"}{" "}
+            {regionName || "this region"}
           </p>
           <h2 className="mt-3 break-words font-display text-3xl font-black uppercase leading-[0.95] text-[#11100D] sm:text-4xl">
             {beach.beachName}
@@ -102,14 +156,14 @@ export function TopRankedBeachHero({
 
         <div className="flex items-end gap-3 border-2 border-[#11100D] bg-[#11100D] px-4 py-3 text-[#F4EBD8]">
           <span className="text-4xl font-black tabular-nums leading-none">
-            {beach.currentScore}
+            {selectedScore}
           </span>
           <div className="min-w-0">
             <p className="font-mono text-xs font-bold uppercase tracking-[0.12em]">
               {scoreCall.label}
             </p>
             <p className="mt-1 font-display text-xl font-black leading-none text-[#F78E42]">
-              {scoreCall.action}
+              {action}
             </p>
           </div>
         </div>
@@ -118,7 +172,11 @@ export function TopRankedBeachHero({
           <div className="border-t-2 border-[#11100D]/25 pt-3">
             <dt className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#11100D]/65">
               <Clock3 className="h-4 w-4" aria-hidden="true" />
-              {bestSurfWindow ? "Best window" : "Surf window"}
+              {!bestSurfWindow
+                ? "Surf window"
+                : includesInstant(bestSurfWindow, now)
+                  ? "Surfable now"
+                  : "Next window"}
             </dt>
             {bestSurfWindow ? (
               <>
@@ -126,7 +184,7 @@ export function TopRankedBeachHero({
                   {bestSurfWindow.localTimeLabel}
                 </dd>
                 <dd className="mt-1 text-xs text-[#11100D]/65">
-                  Peak {formatPeakTime(bestSurfWindow.peakIso, beachTimezone)} ·{" "}
+                  Peak {formatPeakTime(bestSurfWindow.peakIso, bestSurfWindow.timezone)} ·{" "}
                   {bestSurfWindow.confidence.summary}
                 </dd>
                 <dd className="mt-1 text-xs text-[#11100D]/65">
@@ -135,17 +193,19 @@ export function TopRankedBeachHero({
               </>
             ) : (
               <dd className="mt-1 font-semibold text-[#11100D]">
-                No qualifying window
+                Nothing qualifying in the forecast horizon
               </dd>
             )}
           </div>
           <div className="border-t-2 border-[#11100D]/25 pt-3">
             <dt className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#11100D]/65">
               <Waves className="h-4 w-4" aria-hidden="true" />
-              Wave height
+              {isUpcoming ? "Wave height then" : "Wave height"}
             </dt>
             <dd className="mt-1 font-semibold text-[#11100D]">
-              {formatWaveHeightDecimal(beach.currentWaveHeight)}
+              {formatWaveHeightDecimal(
+                windowWaveHeight(bestSurfWindow) ?? beach.currentWaveHeight
+              )}
             </dd>
           </div>
         </dl>

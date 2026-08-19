@@ -11,7 +11,13 @@ jest.mock("@/actions/beach/beach-location-list-actions", () => ({
 
 describe("Ahrefs metadata cleanup", () => {
   it("keeps /about meta description under Ahrefs truncation threshold", () => {
-    expect(aboutMetadata.description).toContain("Why Quiver exists");
+    const headline =
+      "I built Quiver because I was tired of forecasts being wrong.";
+
+    expect(aboutMetadata.title).toEqual({ absolute: headline });
+    expect(aboutMetadata.description).toContain(headline);
+    expect(aboutMetadata.openGraph?.title).toBe(headline);
+    expect(aboutMetadata.twitter?.title).toBe(headline);
     expect(String(aboutMetadata.description).length).toBeLessThanOrEqual(160);
   });
 

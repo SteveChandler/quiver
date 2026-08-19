@@ -259,7 +259,7 @@ export default function LearnHubPage() {
                   <ScrollReveal key={article.slug} delay={articleIndex * 60}>
                     <Link
                       href={`/learn/${article.slug}`}
-                      className="group torn torn-tb flex min-h-[22rem] flex-col overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] transition-transform hover:-translate-y-1"
+                      className="group torn flex min-h-[22rem] flex-col overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] transition-transform hover:-translate-y-1"
                     >
                       <div className="relative mb-4 h-36 overflow-hidden border-2 border-[#11100D] bg-[#C8C2B0]">
                         <Image
@@ -301,7 +301,7 @@ export default function LearnHubPage() {
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="group torn torn-tb relative flex min-h-44 flex-col overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] p-5 transition-transform hover:-translate-y-1"
+                    className="group torn relative flex min-h-44 flex-col overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] p-5 transition-transform hover:-translate-y-1"
                   >
                     <QuiverSticker
                       sticker={link.sticker}

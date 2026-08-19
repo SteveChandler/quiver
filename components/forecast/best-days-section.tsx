@@ -220,6 +220,7 @@ function BestDayCard({
             score={day.score}
             size="xl"
             showLabel
+            showAction={false}
             enableGlow={isEpic}
           />
 
@@ -310,6 +311,7 @@ function BestDayCard({
               score={day.score}
               size="xl"
               showLabel
+              showAction={false}
               enableGlow={isEpic}
             />
 
