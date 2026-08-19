@@ -7,7 +7,7 @@
  * `process.env.NODE_ENV !== 'production'`.
  */
 
-import type { SpotSurfReportResult } from '@/actions/spot/spot-surf-report-actions';
+import type { SpotSurfReportResult } from '@/lib/services/spot-surf-report-service';
 import {
   narrowWindowAroundPeak,
   type SurfCallVerdict,

@@ -15,6 +15,7 @@ jest.mock("@/lib/notifications/enqueue", () => ({
 }));
 
 const mockSelect = jest.fn();
+const mockIs = jest.fn();
 const mockFrom = jest.fn(() => ({ select: mockSelect }));
 const mockServiceRole = { from: mockFrom };
 jest.mock("@/lib/supabase/server", () => ({
@@ -42,7 +43,8 @@ describe("/api/admin/broadcast-push (Phase 5i — pipeline path)", () => {
       eventId: "evt-bc-1",
     });
     // Default user_devices select returns three distinct user_ids.
-    mockSelect.mockResolvedValue({
+    mockSelect.mockReturnValue({ is: mockIs });
+    mockIs.mockResolvedValue({
       data: [
         { user_id: "user-A" },
         { user_id: "user-B" },
@@ -163,7 +165,7 @@ describe("/api/admin/broadcast-push (Phase 5i — pipeline path)", () => {
   it("forwards url and data to the enqueue payload", async () => {
     const adminUser = createMockAdminUser();
     mockAuthenticateAdmin.mockResolvedValue({ success: true, user: adminUser });
-    mockSelect.mockResolvedValue({ data: [{ user_id: "u1" }], error: null });
+    mockIs.mockResolvedValue({ data: [{ user_id: "u1" }], error: null });
 
     const req = createMockRequest(
       "POST",

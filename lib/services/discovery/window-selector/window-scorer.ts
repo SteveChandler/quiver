@@ -6,24 +6,21 @@
  * @module lib/services/discovery/window-selector/window-scorer
  */
 
-import type { Beach } from '@/types/database';
-import type { BeachWithThresholds } from '@/lib/scoring/types';
-import type { EnhancedForecastEntity } from '@/types/forecast';
-import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
-import type { CompositeScore } from '@/lib/domains/scoring';
-import type { BoardClass, RideabilityBand } from '@/lib/domains/rideability';
-import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
-import {
-  beachToSpotProfile,
-  forecastToSnapshot,
-} from '@/lib/domains/scoring';
+import type { Beach } from "@/types/database";
+import type { BeachWithThresholds } from "@/lib/scoring/types";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { getUserSurfPreferences } from "@/lib/services/preference-learning-service";
+import type { CompositeScore } from "@/lib/domains/scoring";
+import type { BoardClass, RideabilityBand } from "@/lib/domains/rideability";
+import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
+import { beachToSpotProfile, forecastToSnapshot } from "@/lib/domains/scoring";
 import {
   resolveNativeSkillLevel,
   scoreNativeForecastSlot,
-} from '@/lib/scoring/native-condition-score';
-import { getRideabilityBand } from '@/lib/domains/rideability';
-import { getDirectionDegrees } from './direction-utils';
-import { getScoringEngine } from './scoring-engine-singleton';
+} from "@/lib/scoring/native-condition-score";
+import { getRideabilityBand } from "@/lib/domains/rideability";
+import { getDirectionDegrees } from "./direction-utils";
+import { getScoringEngine } from "./scoring-engine-singleton";
 
 const SELECTOR_IDEAL_RIDEABILITY_BONUS = 4;
 const SELECTOR_ACCEPTABLE_RIDEABILITY_BONUS = 1;
@@ -53,15 +50,18 @@ const SELECTOR_OUT_OF_BAND_PENALTY_CAP = 12;
 export function scoreForecastWindow(
   forecast: EnhancedForecastEntity,
   beach: Beach,
-  userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null
+  userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null,
 ): number {
   let score = 0;
 
-  const waveHeight = parseFloat(forecast.wave_height || '0');
-  const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
-  const windSpeed = parseFloat(forecast.wind_speed || '0');
-  const windDir = getDirectionDegrees(forecast.wind_direction_deg, forecast.wind_direction);
-  const tideHeight = parseFloat(forecast.tide_height || '0') || 0;
+  const waveHeight = parseFloat(forecast.wave_height || "0");
+  const wavePeriod = parseFloat(forecast.wave_period?.replace("s", "") || "0");
+  const windSpeed = parseFloat(forecast.wind_speed || "0");
+  const windDir = getDirectionDegrees(
+    forecast.wind_direction_deg,
+    forecast.wind_direction,
+  );
+  const tideHeight = parseFloat(forecast.tide_height || "0") || 0;
 
   // 1. Wave Height Fit (0-25 points)
   if (userPrefs) {
@@ -106,7 +106,10 @@ export function scoreForecastWindow(
   }
 
   // 3. Wind Alignment (0-20 points)
-  if (beach.wind_offshore_deg !== null && beach.wind_offshore_tol_deg !== null) {
+  if (
+    beach.wind_offshore_deg !== null &&
+    beach.wind_offshore_tol_deg !== null
+  ) {
     const offshoreDir = beach.wind_offshore_deg;
     const tolerance = beach.wind_offshore_tol_deg || 30;
 
@@ -119,7 +122,7 @@ export function scoreForecastWindow(
     } else {
       const angleDiff = Math.min(
         Math.abs(windDir - offshoreDir),
-        360 - Math.abs(windDir - offshoreDir)
+        360 - Math.abs(windDir - offshoreDir),
       );
 
       if (angleDiff <= tolerance && windSpeed <= 15) {
@@ -137,16 +140,16 @@ export function scoreForecastWindow(
   }
 
   // 4. Tide Fit (0-15 points)
-  if (beach.preferred_tide_ft_min !== null && beach.preferred_tide_ft_max !== null) {
+  if (
+    beach.preferred_tide_ft_min !== null &&
+    beach.preferred_tide_ft_max !== null
+  ) {
     const idealMin = beach.preferred_tide_ft_min;
     const idealMax = beach.preferred_tide_ft_max;
 
     if (tideHeight >= idealMin && tideHeight <= idealMax) {
       score += 15;
-    } else if (
-      tideHeight >= idealMin * 0.8 &&
-      tideHeight <= idealMax * 1.2
-    ) {
+    } else if (tideHeight >= idealMin * 0.8 && tideHeight <= idealMax * 1.2) {
       score += 8;
     } else {
       score += 3;
@@ -172,6 +175,27 @@ export interface WindowConditionScoreDetails {
   score: number;
   boardClass: BoardClass | null;
   rideabilityBand: RideabilityBand | null;
+  decisionCeiling: number;
+}
+
+/** Resolve the same domain decision ceiling for every native-compatible score path. */
+function decisionEffectCeiling(
+  forecast: EnhancedForecastEntity,
+  beach: Beach,
+): number {
+  const composite = scoreWindowWithComposite(forecast, beach);
+  return (composite.effects ?? []).reduce(
+    (current, effect) => Math.min(current, effect.verdictCeiling ?? 100),
+    100,
+  );
+}
+
+function isFullBeach(beach: BeachWithThresholds): beach is Beach {
+  return (
+    Object.prototype.hasOwnProperty.call(beach, "break_type") &&
+    Object.prototype.hasOwnProperty.call(beach, "aspect_deg") &&
+    Object.prototype.hasOwnProperty.call(beach, "bottom_type")
+  );
 }
 
 /**
@@ -180,41 +204,58 @@ export interface WindowConditionScoreDetails {
  */
 export function scoreWindowConditionDetails(
   forecast: EnhancedForecastEntity,
-  _beach: BeachWithThresholds,
+  beach: BeachWithThresholds,
   skillLevel?: SkillLevel | string | null,
   rideabilityBand?: RideabilityBand | null,
   boardClasses?: readonly BoardClass[] | null,
 ): WindowConditionScoreDetails {
-  const resolvedSkillLevel = resolveNativeSkillLevel(skillLevel, 'intermediate');
+  const resolvedSkillLevel = resolveNativeSkillLevel(
+    skillLevel,
+    "intermediate",
+  );
   const uniqueBoardClasses = Array.from(new Set(boardClasses ?? []));
+  const ceiling = isFullBeach(beach)
+    ? decisionEffectCeiling(forecast, beach)
+    : 100;
+  const applyCeiling = (score: number): number => Math.min(score, ceiling);
   const baselineScore = scoreNativeForecastSlot(forecast, resolvedSkillLevel);
 
   if (uniqueBoardClasses.length === 0) {
+    const score = rideabilityBand
+      ? Math.max(
+          baselineScore,
+          scoreNativeForecastSlot(
+            forecast,
+            resolvedSkillLevel,
+            rideabilityBand,
+          ),
+        )
+      : baselineScore;
     return {
-      score: rideabilityBand
-        ? Math.max(
-            baselineScore,
-            scoreNativeForecastSlot(forecast, resolvedSkillLevel, rideabilityBand),
-          )
-        : baselineScore,
+      score: applyCeiling(score),
       boardClass: null,
       rideabilityBand: rideabilityBand ?? null,
+      decisionCeiling: ceiling,
     };
   }
 
   let best: WindowConditionScoreDetails = {
-    score: baselineScore,
+    score: applyCeiling(baselineScore),
     boardClass: null,
     rideabilityBand: null,
+    decisionCeiling: ceiling,
   };
   for (const boardClass of uniqueBoardClasses) {
     const boardBand = getRideabilityBand(resolvedSkillLevel, boardClass);
-    const score = scoreNativeForecastSlot(forecast, resolvedSkillLevel, boardBand);
+    const score = applyCeiling(
+      scoreNativeForecastSlot(forecast, resolvedSkillLevel, boardBand),
+    );
     if (score > best.score) {
       best = {
         score,
         boardClass,
         rideabilityBand: boardBand,
+        decisionCeiling: ceiling,
       };
     }
   }
@@ -263,7 +304,10 @@ export function scoreWindowForSelection(
   }
 
   return clampSelectionScore(
-    baseScore + getRideabilitySelectionAdjustment(forecast, adjustmentBand)
+    Math.min(
+      baseScore + getRideabilitySelectionAdjustment(forecast, adjustmentBand),
+      details.decisionCeiling,
+    ),
   );
 }
 
@@ -273,7 +317,7 @@ export function scoreWindowForSelection(
  */
 export function scoreWindowWithComposite(
   forecast: EnhancedForecastEntity,
-  beach: Beach
+  beach: Beach,
 ): CompositeScore {
   const engine = getScoringEngine();
   const profile = beachToSpotProfile(beach);
@@ -289,9 +333,9 @@ export function scoreWindowWithComposite(
 
 function getRideabilitySelectionAdjustment(
   forecast: EnhancedForecastEntity,
-  rideabilityBand: RideabilityBand
+  rideabilityBand: RideabilityBand,
 ): number {
-  const waveHeight = parseFloat(forecast.wave_height || '0');
+  const waveHeight = parseFloat(forecast.wave_height || "0");
   if (!Number.isFinite(waveHeight) || waveHeight <= 0) {
     return 0;
   }
@@ -307,7 +351,7 @@ function getRideabilitySelectionAdjustment(
     const under = rideabilityBand.acceptable.min - waveHeight;
     return -Math.min(
       SELECTOR_OUT_OF_BAND_PENALTY_CAP,
-      Math.round(under * SELECTOR_OUT_OF_BAND_PENALTY_PER_FOOT)
+      Math.round(under * SELECTOR_OUT_OF_BAND_PENALTY_PER_FOOT),
     );
   }
 
@@ -315,7 +359,7 @@ function getRideabilitySelectionAdjustment(
     const over = waveHeight - rideabilityBand.acceptable.max;
     return -Math.min(
       SELECTOR_OUT_OF_BAND_PENALTY_CAP,
-      Math.round(over * SELECTOR_OUT_OF_BAND_PENALTY_PER_FOOT)
+      Math.round(over * SELECTOR_OUT_OF_BAND_PENALTY_PER_FOOT),
     );
   }
 

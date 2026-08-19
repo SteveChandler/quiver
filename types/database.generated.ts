@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -1409,6 +1404,92 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ccc_access_locations"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      beach_coordinate_corrections: {
+        Row: {
+          beach_id: string
+          corrected_at: string
+          id: string
+          new_lat: number
+          new_lon: number
+          old_lat: number
+          old_lon: number
+          reason: string
+          slug: string
+        }
+        Insert: {
+          beach_id: string
+          corrected_at?: string
+          id?: string
+          new_lat: number
+          new_lon: number
+          old_lat: number
+          old_lon: number
+          reason: string
+          slug: string
+        }
+        Update: {
+          beach_id?: string
+          corrected_at?: string
+          id?: string
+          new_lat?: number
+          new_lon?: number
+          old_lat?: number
+          old_lon?: number
+          reason?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beach_coordinate_corrections_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_coordinate_corrections_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_coordinate_corrections_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_coordinate_corrections_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_coordinate_corrections_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_coordinate_corrections_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_coordinate_corrections_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
         ]
       }
@@ -7388,6 +7469,59 @@ export type Database = {
           },
         ]
       }
+      notification_delivery_targets: {
+        Row: {
+          claim_id: string | null
+          claim_version: number
+          claimed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          installation_id: string
+          notification_event_id: string
+          provider_response: Json | null
+          status: string
+          token_fingerprint: string
+          updated_at: string
+        }
+        Insert: {
+          claim_id?: string | null
+          claim_version?: number
+          claimed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          installation_id: string
+          notification_event_id: string
+          provider_response?: Json | null
+          status?: string
+          token_fingerprint: string
+          updated_at?: string
+        }
+        Update: {
+          claim_id?: string | null
+          claim_version?: number
+          claimed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          installation_id?: string
+          notification_event_id?: string
+          provider_response?: Json | null
+          status?: string
+          token_fingerprint?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_delivery_targets_notification_event_id_fkey"
+            columns: ["notification_event_id"]
+            isOneToOne: false
+            referencedRelation: "notification_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_events: {
         Row: {
           actor_user_id: string | null
@@ -11977,8 +12111,11 @@ export type Database = {
           expo_sdk: string | null
           expo_update_id: string | null
           id: string
+          installation_id: string | null
           os_version: string | null
           platform: string
+          retired_at: string | null
+          retired_reason: string | null
           timezone: string | null
           updated_at: string
           user_id: string
@@ -11995,8 +12132,11 @@ export type Database = {
           expo_sdk?: string | null
           expo_update_id?: string | null
           id?: string
+          installation_id?: string | null
           os_version?: string | null
           platform: string
+          retired_at?: string | null
+          retired_reason?: string | null
           timezone?: string | null
           updated_at?: string
           user_id: string
@@ -12013,8 +12153,11 @@ export type Database = {
           expo_sdk?: string | null
           expo_update_id?: string | null
           id?: string
+          installation_id?: string | null
           os_version?: string | null
           platform?: string
+          retired_at?: string | null
+          retired_reason?: string | null
           timezone?: string | null
           updated_at?: string
           user_id?: string
@@ -14273,6 +14416,33 @@ export type Database = {
         }
         Returns: boolean
       }
+      claim_notification_delivery_targets: {
+        Args: {
+          p_claim_id: string
+          p_event_id: string
+          p_installation_ids: string[]
+        }
+        Returns: {
+          claim_id: string | null
+          claim_version: number
+          claimed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          installation_id: string
+          notification_event_id: string
+          provider_response: Json | null
+          status: string
+          token_fingerprint: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "notification_delivery_targets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_notification_events: {
         Args: {
           p_batch_size: number
@@ -14532,6 +14702,36 @@ export type Database = {
           p_width: number
         }
         Returns: boolean
+      }
+      finalize_notification_delivery_target: {
+        Args: {
+          p_claim_id: string
+          p_claim_version: number
+          p_error_message?: string
+          p_provider_response?: Json
+          p_status: string
+          p_target_id: string
+        }
+        Returns: {
+          claim_id: string | null
+          claim_version: number
+          claimed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          installation_id: string
+          notification_event_id: string
+          provider_response: Json | null
+          status: string
+          token_fingerprint: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "notification_delivery_targets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       finalize_purged_community_spot_photos_v1: {
         Args: { p_photo_ids: string[] }
@@ -15698,6 +15898,77 @@ export type Database = {
       regional_recommendation_hold_region_keys_are_safe: {
         Args: { p_region_keys: string[] }
         Returns: boolean
+      }
+      register_device_installation: {
+        Args: {
+          p_device_token: string
+          p_installation_id: string
+          p_metadata?: Json
+          p_platform: string
+          p_user_id: string
+        }
+        Returns: {
+          app_version: string | null
+          build_number: string | null
+          created_at: string
+          device_token: string
+          expo_channel: string | null
+          expo_is_embedded_launch: boolean | null
+          expo_is_emergency_launch: boolean | null
+          expo_runtime_version: string | null
+          expo_sdk: string | null
+          expo_update_id: string | null
+          id: string
+          installation_id: string | null
+          os_version: string | null
+          platform: string
+          retired_at: string | null
+          retired_reason: string | null
+          timezone: string | null
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "user_devices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      register_legacy_device_token: {
+        Args: {
+          p_device_token: string
+          p_metadata?: Json
+          p_platform: string
+          p_user_id: string
+        }
+        Returns: {
+          app_version: string | null
+          build_number: string | null
+          created_at: string
+          device_token: string
+          expo_channel: string | null
+          expo_is_embedded_launch: boolean | null
+          expo_is_emergency_launch: boolean | null
+          expo_runtime_version: string | null
+          expo_sdk: string | null
+          expo_update_id: string | null
+          id: string
+          installation_id: string | null
+          os_version: string | null
+          platform: string
+          retired_at: string | null
+          retired_reason: string | null
+          timezone: string | null
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "user_devices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       release_android_tester_roster_sync_claim: {
         Args: { p_claim_token: string }

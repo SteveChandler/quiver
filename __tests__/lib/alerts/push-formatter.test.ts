@@ -39,6 +39,29 @@ describe("formatPushNotification", () => {
     expect(result.title).toContain("Pumping");
   });
 
+  it("canonical MAYBE/NO intent overrides quality words", () => {
+    const maybe = formatPushNotification(
+      [makeMatch({ best_score: 0.92 })],
+      "maybe",
+    );
+    const no = formatPushNotification([makeMatch({ best_score: 0.92 })], "no");
+
+    expect(maybe.title).toContain("Worth a look");
+    expect(maybe.title).not.toMatch(/Pumping|Firing/);
+    expect(no.title).toContain("Not ideal");
+    expect(no.title).not.toMatch(/Pumping|Firing/);
+  });
+
+  it("canonical GO intent controls the title even when the snapshot score is low", () => {
+    const result = formatPushNotification(
+      [makeMatch({ best_score: 0.2 })],
+      "go",
+    );
+
+    expect(result.title).toContain("Firing");
+    expect(result.title).not.toContain("Rideable");
+  });
+
   it("single-match quality word reflects mid and low bands", () => {
     const mid = formatPushNotification([makeMatch({ best_score: 0.55 })]);
     expect(mid.title).toContain("Looking good");
@@ -121,6 +144,43 @@ describe("formatPushNotification", () => {
     expect(result.body).toContain("1-2ft @ 14s");
   });
 
+  it("keeps the beginner label when the canonical verdict is go", () => {
+    const result = formatPushNotification(
+      [
+        makeMatch({
+          conditions_snapshot: {
+            wave_height: 1.5,
+            wave_period: 14,
+            beginner_window_reason: "beginner-friendly",
+          },
+        }),
+      ],
+      "go",
+    );
+
+    expect(result.title).toContain("Beginner-friendly");
+    expect(result.title).not.toContain("Firing");
+  });
+
+  it("keeps stamped similarity score copy instead of replacing it with a generic verdict", () => {
+    const result = formatPushNotification(
+      [
+        makeMatch({
+          conditions_snapshot: {
+            alert_type: "similarity_match",
+            score: 8.7,
+            label: "EPIC",
+            forecast_at: "2026-04-01T15:30:00Z",
+          },
+        }),
+      ],
+      "go",
+    );
+
+    expect(result.title).toContain("8.7 EPIC");
+    expect(result.title).not.toContain("Firing");
+  });
+
   it("drops the beginner rationale rather than triggering the truncation fallback", () => {
     const result = formatPushNotification([
       makeMatch({
@@ -162,7 +222,11 @@ describe("formatPushNotification", () => {
     const matches = [
       makeMatch({ beach_name: "Trestles", beach_id: "b2", best_score: 0.9 }),
       makeMatch({ beach_name: "Malibu", beach_id: "b3", best_score: 0.7 }),
-      makeMatch({ beach_name: "Blacks Beach", beach_id: "b1", best_score: 0.6 }),
+      makeMatch({
+        beach_name: "Blacks Beach",
+        beach_id: "b1",
+        best_score: 0.6,
+      }),
     ];
     const result = formatPushNotification(matches);
     expect(result.title).not.toBe("Conditions lining up today");
@@ -178,6 +242,35 @@ describe("formatPushNotification", () => {
     const result = formatPushNotification(matches);
     expect(result.title).toContain("Trestles");
     expect(result.title).toContain("1 more");
+  });
+
+  it("keeps an explicitly canonical primary match first", () => {
+    const lowerScorePrimary = makeMatch({
+      rule_id: "canonical-rule",
+      beach_name: "Canonical Beach",
+      beach_id: "canonical-beach",
+      best_score: 0.4,
+      best_hour: "2026-04-01T16:30:00Z",
+    });
+    const higherScoreOther = makeMatch({
+      rule_id: "score-rule",
+      beach_name: "Score Beach",
+      beach_id: "score-beach",
+      best_score: 0.95,
+    });
+
+    const result = formatPushNotification(
+      [higherScoreOther, lowerScorePrimary],
+      "maybe",
+      lowerScorePrimary,
+    );
+
+    expect(result.title).toContain("Canonical Beach");
+    expect(result.body.startsWith("Canonical Beach")).toBe(true);
+    expect(result.data).toMatchObject({
+      beach_id: "canonical-beach",
+      forecast_at: "2026-04-01T16:30:00Z",
+    });
   });
 
   it("formats two beaches", () => {

@@ -73,6 +73,35 @@ describe('Scoring Engine', () => {
       expect(result.total).toBe(80);
     });
 
+    it('deduplicates structured effects when an early skip returns', () => {
+      const duplicateEffect = {
+        code: 'crossing_swells' as const,
+        severity: 'material' as const,
+        verdictCeiling: 65,
+        message: 'Crossing swells creating choppy conditions',
+      };
+      const engine = new ScoringEngine();
+      engine.register({
+        name: 'skip-with-duplicate-effects',
+        weight: 1,
+        score: () => ({
+          name: 'skip-with-duplicate-effects',
+          score: 0,
+          weight: 1,
+          reasons: [],
+          warnings: [duplicateEffect.message],
+          skip: true,
+          skipReason: duplicateEffect.message,
+          effects: [duplicateEffect, duplicateEffect],
+        }),
+      });
+
+      const result = engine.score(createInput());
+
+      expect(result.effects).toEqual([duplicateEffect]);
+      expect(result.warnings).toEqual([duplicateEffect.message]);
+    });
+
     it('should normalize weights', () => {
       const engine = new ScoringEngine();
 

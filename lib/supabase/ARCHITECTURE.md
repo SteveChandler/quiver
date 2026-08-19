@@ -217,6 +217,11 @@ export async function getAuthenticatedAPIClient() {
 
 **File Upload Pipeline:**
 
+Session-photo validation is centralized in
+`lib/media/session-photo-policy.ts`: accepted JPEG/JPG/PNG/WebP input is limited
+to 10 MiB before compression, while `SESSION_PHOTO_MAX_STORAGE_BYTES` limits the
+compressed file to 5 MiB before the Supabase Storage upload.
+
 ```typescript
 export async function uploadSessionPhoto(
   file: File,
@@ -453,18 +458,21 @@ export function validateSupabaseConfig(): { valid: boolean; error?: string } {
 ### **File Validation**
 
 ```typescript
-function validateFile(file: File): { valid: boolean; error?: string } {
-  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-  const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+import {
+  SESSION_PHOTO_MAX_STORAGE_BYTES,
+  validateSessionPhotoInput,
+} from "@/lib/media/session-photo-policy";
 
-  if (!ALLOWED_TYPES.includes(file.type)) {
+function validateFile(file: File): { valid: boolean; error?: string } {
+  const validationError = validateSessionPhotoInput(file);
+  if (validationError === "invalid_file_type") {
     return {
       valid: false,
       error: "Only JPEG, PNG, and WebP images are allowed",
     };
   }
 
-  if (file.size > MAX_FILE_SIZE) {
+  if (validationError === "file_too_large") {
     return {
       valid: false,
       error: "File size must be less than 10MB",
@@ -480,6 +488,9 @@ function validateFile(file: File): { valid: boolean; error?: string } {
 
   return { valid: true };
 }
+
+// After compression, reject output larger than
+// SESSION_PHOTO_MAX_STORAGE_BYTES (5 MiB) before storage.upload().
 ```
 
 ## USAGE PATTERNS

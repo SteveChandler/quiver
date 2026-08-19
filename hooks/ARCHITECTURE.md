@@ -313,90 +313,13 @@ export function useEnhancedForecast({
 }
 ```
 
-#### **usePersonalizedHomeForecast** (Personalized Recommendations)
+#### **useSurfDiscovery** (Personalized Recommendations)
 
-- **Purpose**: Fetch personalized surf forecast recommendations for authenticated users
-- **Features**:
-  - User-specific forecast scoring based on preferences and history
-  - Integrates with home beach and favorite beaches
-  - Optional beach ID override
-  - Authentication-gated with automatic skip when user is not logged in
-  - Rate-limited and cached server-side (5 minutes)
-
-```typescript
-export function usePersonalizedHomeForecast({
-  homeBeachId,
-  enabled = true,
-  immediate = true,
-}: UsePersonalizedHomeForecastOptions): UsePersonalizedHomeForecastReturn {
-  const { user } = useAuth();
-
-  const fetchPersonalizedForecast = useCallback(async () => {
-    if (!user) {
-      throw new Error("User must be authenticated");
-    }
-
-    const params = new URLSearchParams();
-    if (homeBeachId) {
-      params.set("homeBeachId", homeBeachId);
-    }
-
-    const url = `/api/home/personalized-forecast${
-      params.toString() ? `?${params}` : ""
-    }`;
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || "Failed to fetch forecast");
-    }
-
-    const result = await response.json();
-    return result.data;
-  }, [user, homeBeachId]);
-
-  const { data, loading, error, refetch } = useDataFetcher(
-    fetchPersonalizedForecast,
-    {
-      immediate: immediate && enabled && !!user,
-      skip: !enabled || !user,
-    }
-  );
-
-  return {
-    recommendation: data,
-    loading,
-    error,
-    refetch,
-  };
-}
-```
-
-**Usage Example**:
-
-```typescript
-function HomePage() {
-  const { recommendation, loading, error, refetch } =
-    usePersonalizedHomeForecast({
-      immediate: true,
-      enabled: true,
-    });
-
-  if (loading) return <LoadingSpinner />;
-  if (error) return <ErrorMessage message={error} />;
-  if (!recommendation) return <NoDataMessage />;
-
-  return (
-    <ForecastCard
-      beach={recommendation.beach.name}
-      summary={recommendation.summary}
-      score={recommendation.score}
-      reasons={recommendation.reasons}
-      window={recommendation.window}
-    />
-  );
-}
-```
+- **Location**: `hooks/use-surf-discovery.ts`
+- **Purpose**: Fetch ranked surf-spot recommendations from `/api/surf/discover`
+- **Inputs**: Optional location, radius, horizon, result limit, time slot, and skill level
+- **Return value**: `discovery`, `loading`, `error`, `refetch`, `hasRecommendations`, and cache migration helpers
+- **Authentication**: Requires an authenticated user
 
 ### **useInsights** (Personalized Insights Hook) - December 2025
 

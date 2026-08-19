@@ -344,7 +344,6 @@ From `/lib/api/rate-limit-config.ts`:
 | `public-default` | 60 | 1000 | Standard public endpoints |
 | `public-showcase` | 120 | 2000 | Marketing/featured content |
 | `authenticated-default` | 120 | 5000 | Authenticated endpoints |
-| `personalized-forecast` | 10 | 100 | Personalized recommendations |
 | `surf-discovery` | 10 | 100 | Surf spot discovery |
 | `surf-insights` | 10 | 100 | Surf insights algorithm |
 

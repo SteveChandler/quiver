@@ -1997,6 +1997,7 @@ async function discoverSurfSpotsInner(
       ),
       reasons: detailedScore.reasons,
       warnings: detailedScore.warnings,
+      effects: detailedScore.effects,
       conditionBadges: detailedScore.conditionBadges,
       waveHeightBadge: detailedScore.waveHeightBadge,
       boardPick: conditionBoardPick

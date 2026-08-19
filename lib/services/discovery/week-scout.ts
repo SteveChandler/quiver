@@ -83,6 +83,22 @@ export interface WeekScoutRankedSpotResponse {
   conditionScore: number;
   rankingScore: number;
   verdict: WeekScoutVerdict;
+  /**
+   * This spot's own conditions at the window.
+   *
+   * Additive, and the point of the field: clients had only three scores per
+   * ranked spot, so every row in the list could say no more than "good
+   * conditions" — identical text for every entry, since the window's own
+   * `forecast` describes the representative beach, not each spot. The data was
+   * already computed here and discarded during the mapping below.
+   */
+  forecast: {
+    waveHeight: string | null;
+    period: string | null;
+    swellDirection: string | null;
+    windSpeed: string | null;
+    windDirection: string | null;
+  };
 }
 
 export interface WeekScoutWindowResponse {
@@ -548,6 +564,14 @@ function rankDrafts(
     conditionScore: window.conditionScore,
     rankingScore: window.rankingScore,
     verdict: window.verdict,
+    // Carry each spot's own conditions through instead of dropping them.
+    forecast: {
+      waveHeight: window.forecast.waveHeight,
+      period: window.forecast.period,
+      swellDirection: window.forecast.swellDirection,
+      windSpeed: window.forecast.windSpeed,
+      windDirection: window.forecast.windDirection,
+    },
   }));
 
   return responses.map((window) => ({ ...window, rankedSpots }));

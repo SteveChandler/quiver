@@ -19,7 +19,7 @@ import { notFound } from "next/navigation";
 import type { Beach } from "@/types/database";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
-import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions";
+import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
 import { evaluateBeachForecastIndexability, applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";

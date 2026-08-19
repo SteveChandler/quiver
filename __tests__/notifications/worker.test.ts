@@ -106,9 +106,22 @@ interface MockAttempt {
 
 interface MockDevice {
   device_token: string;
+  installation_id?: string | null;
+  retired_at?: string | null;
   platform: string | null;
   app_version: string | null;
   build_number: string | null;
+}
+
+interface MockDeliveryTarget {
+  id: string;
+  notification_event_id: string;
+  installation_id: string;
+  token_fingerprint: string;
+  status: "pending" | "sending" | "sent" | "failed" | "unknown";
+  claim_id: string | null;
+  claim_version: number;
+  claimed_at: string | null;
 }
 
 interface MockState {
@@ -125,8 +138,20 @@ interface MockState {
     status: string;
     skip_reason: string | null;
   }>;
-  eventUpdates: Array<{ id: string; status: string; skip_reason: string | null }>;
+  eventUpdates: Array<{
+    id: string;
+    status: string;
+    skip_reason: string | null;
+  }>;
   deviceDeletes: string[];
+  deviceRetirements: Array<{ tokens: string[]; reason: string }>;
+  deliveryTargets: MockDeliveryTarget[];
+  deliveryFinalizations: Array<{
+    targetId: string;
+    claimId: string;
+    claimVersion: number;
+    status: string;
+  }>;
   surfAlertSlots: Map<string, { eventId: string; priority: number }>;
   /** When set, fetch on this table throws to simulate a Supabase error. */
   errorOnSelect?: Set<string>;
@@ -134,6 +159,8 @@ interface MockState {
   errorOnProfileLookup?: Set<string>;
   /** When set, delivery-attempt inserts return this error. */
   attemptInsertError?: string;
+  /** When set, delivery-target lookup returns this error after provider dispatch. */
+  deliveryTargetLookupError?: string;
   /** Override "now" inside the mock RPC simulator. Defaults to Date.now(). */
   now?: number;
 }
@@ -190,6 +217,8 @@ function buildDevice(
 ): MockDevice {
   return {
     device_token: deviceToken,
+    installation_id: null,
+    retired_at: null,
     platform: "ios",
     app_version: "1.0.1",
     build_number: "11",
@@ -205,7 +234,7 @@ function buildMockSupabase(state: MockState) {
     batchSize: number,
     leaseSeconds: number,
     claimToken: string,
-    nowMs: number
+    nowMs: number,
   ): MockEvent[] {
     const staleCutoff = nowMs - leaseSeconds * 1000;
     const claimed: MockEvent[] = [];
@@ -248,7 +277,7 @@ function buildMockSupabase(state: MockState) {
                   col3 !== "created_at"
                 ) {
                   throw new Error(
-                    `Unexpected notification_events select chain: ${col1}/${col2}/${col3}`
+                    `Unexpected notification_events select chain: ${col1}/${col2}/${col3}`,
                   );
                 }
                 const cutoff = new Date(iso).getTime();
@@ -258,7 +287,7 @@ function buildMockSupabase(state: MockState) {
                       (e) =>
                         e.recipient_user_id === val1 &&
                         e.type === val2 &&
-                        new Date(e.created_at).getTime() >= cutoff
+                        new Date(e.created_at).getTime() >= cutoff,
                     )
                     .map((e) => ({ id: e.id })),
                   error: null,
@@ -276,7 +305,7 @@ function buildMockSupabase(state: MockState) {
             processed_at: string | null;
             next_attempt_at: string | null;
             cancel_reason: string | null;
-          }>
+          }>,
         ) => {
           // markEventTerminal: update(row).eq('id', eventId).eq('claim_token', claimToken)
           // releaseClaims:     update(row).eq('id', eventId).eq('claim_token', claimToken) — per event
@@ -293,8 +322,9 @@ function buildMockSupabase(state: MockState) {
                     e.status = "pending";
                     e.claimed_at = null;
                     e.claim_token = null;
-                    e.next_attempt_at =
-                      (row.next_attempt_at ?? null) as string | null;
+                    e.next_attempt_at = (row.next_attempt_at ?? null) as
+                      | string
+                      | null;
                   } else {
                     // markEventTerminal path
                     state.eventUpdates.push({
@@ -304,7 +334,9 @@ function buildMockSupabase(state: MockState) {
                     });
                     e.status = row.status as MockEvent["status"];
                     e.skip_reason = (row.skip_reason ?? null) as string | null;
-                    e.cancel_reason = (row.cancel_reason ?? null) as string | null;
+                    e.cancel_reason = (row.cancel_reason ?? null) as
+                      | string
+                      | null;
                     e.claim_token = null;
                     e.claimed_at = null;
                   }
@@ -325,7 +357,7 @@ function buildMockSupabase(state: MockState) {
           const buildHistoryShape = () => ({
             in: async (_col: string, ids: string[]) => ({
               data: state.attempts.filter((a) =>
-                ids.includes(a.notification_event_id)
+                ids.includes(a.notification_event_id),
               ),
               error: null,
             }),
@@ -343,7 +375,7 @@ function buildMockSupabase(state: MockState) {
                           a.channel === channelVal &&
                           a.status === statusVal &&
                           new Date(a.created_at).getTime() >= cutoff &&
-                          ids.includes(a.notification_event_id)
+                          ids.includes(a.notification_event_id),
                       );
                       return {
                         data: matches.slice(0, _n).map((m) => ({ id: m.id })),
@@ -366,7 +398,7 @@ function buildMockSupabase(state: MockState) {
               ...r,
               id: `att-${state.attempts.length + i + 1}`,
               created_at: new Date().toISOString(),
-            }))
+            })),
           );
           return { error: null };
         },
@@ -382,7 +414,7 @@ function buildMockSupabase(state: MockState) {
             channel: "push";
             status: string;
             skip_reason: string | null;
-          }>
+          }>,
         ) => {
           state.alertAttempts.push(...rows);
           return { error: null };
@@ -412,18 +444,31 @@ function buildMockSupabase(state: MockState) {
     if (table === "user_devices") {
       return {
         select: () => ({
-          eq: async (_col: string, val: string) => ({
-            data: (state.devices.get(val) ?? []).map((device) =>
-              typeof device === "string"
-                ? {
-                    device_token: device,
-                    platform: null,
-                    app_version: null,
-                    build_number: null,
-                  }
-                : device,
-            ),
-            error: null,
+          eq: (_col: string, val: string) => ({
+            is: async () => ({
+              data: (state.devices.get(val) ?? []).map((device) =>
+                typeof device === "string"
+                  ? {
+                      device_token: device,
+                      platform: null,
+                      app_version: null,
+                      build_number: null,
+                    }
+                  : device,
+              ),
+              error: null,
+            }),
+          }),
+        }),
+        update: (row: { retired_reason?: string }) => ({
+          in: (_col: string, tokens: string[]) => ({
+            is: async () => {
+              state.deviceRetirements.push({
+                tokens,
+                reason: row.retired_reason ?? "unknown",
+              });
+              return { error: null };
+            },
           }),
         }),
         delete: () => ({
@@ -434,9 +479,67 @@ function buildMockSupabase(state: MockState) {
         }),
       };
     }
+    if (table === "notification_delivery_targets") {
+      return {
+        upsert: async (rows: Array<Record<string, unknown>>) => {
+          for (const row of rows) {
+            const existing = state.deliveryTargets.find(
+              (target) =>
+                target.notification_event_id === row.notification_event_id &&
+                target.installation_id === row.installation_id,
+            );
+            if (existing) continue;
+            state.deliveryTargets.push({
+              id: `delivery-target-${state.deliveryTargets.length + 1}`,
+              notification_event_id: String(row.notification_event_id),
+              installation_id: String(row.installation_id),
+              token_fingerprint: String(row.token_fingerprint),
+              status: "pending",
+              claim_id: null,
+              claim_version: 0,
+              claimed_at: null,
+            });
+          }
+          return { error: null };
+        },
+        select: () => ({
+          eq: (_column: string, eventId: string) => ({
+            in: async (
+              _installationColumn: string,
+              installationIds: string[],
+            ) => ({
+              ...(state.deliveryTargetLookupError
+                ? {
+                    data: null,
+                    error: { message: state.deliveryTargetLookupError },
+                  }
+                : {
+                    data: state.deliveryTargets
+                      .filter(
+                        (target) =>
+                          target.notification_event_id === eventId &&
+                          installationIds.includes(target.installation_id),
+                      )
+                      .map((target) => ({
+                        id: target.id,
+                        installation_id: target.installation_id,
+                        claim_id: target.claim_id,
+                        claim_version: target.claim_version,
+                      })),
+                    error: null,
+                  }),
+            }),
+          }),
+        }),
+      };
+    }
     if (table === "notifications") {
       return {
-        insert: async (row: { user_id: string; type: string; data: unknown }) => {
+        insert: async (row: {
+          user_id: string;
+          type: string;
+          data: unknown;
+        }) => {
           state.notificationsInserts.push(row);
           return { error: null };
         },
@@ -464,14 +567,28 @@ function buildMockSupabase(state: MockState) {
           return { data: true, error: null };
         }
 
-        const existingEvent = state.events.find((event) => event.id === existing.eventId);
-        if (!existingEvent || ["processing", "processed"].includes(existingEvent.status)) {
+        const existingEvent = state.events.find(
+          (event) => event.id === existing.eventId,
+        );
+        if (
+          !existingEvent ||
+          ["processing", "processed"].includes(existingEvent.status)
+        ) {
           return { data: false, error: null };
         }
-        if (existingEvent.status !== "pending" || priority > existing.priority) {
+        if (
+          existingEvent.status !== "pending" ||
+          priority > existing.priority
+        ) {
           if (existingEvent.status === "pending") {
-            if (["forecast_alert", "similarity_match"].includes(existingEvent.type)) {
-              const queueItems = Array.isArray(existingEvent.payload.queue_items)
+            if (
+              ["forecast_alert", "similarity_match"].includes(
+                existingEvent.type,
+              )
+            ) {
+              const queueItems = Array.isArray(
+                existingEvent.payload.queue_items,
+              )
                 ? existingEvent.payload.queue_items
                 : [];
               for (const queueItem of queueItems) {
@@ -501,6 +618,56 @@ function buildMockSupabase(state: MockState) {
         }
         return { data: false, error: null };
       }
+      if (name === "claim_notification_delivery_targets") {
+        const eventId = String(args.p_event_id);
+        const installationIds = (args.p_installation_ids as string[]) ?? [];
+        const claimId = String(args.p_claim_id);
+        const now = new Date(state.now ?? Date.now()).toISOString();
+        const staleCutoff = (state.now ?? Date.now()) - 5 * 60 * 1000;
+        for (const target of state.deliveryTargets) {
+          if (
+            target.notification_event_id === eventId &&
+            target.status === "sending" &&
+            target.claimed_at !== null &&
+            new Date(target.claimed_at).getTime() < staleCutoff
+          ) {
+            target.status = "unknown";
+          }
+        }
+        const claimed = state.deliveryTargets.filter(
+          (target) =>
+            target.notification_event_id === eventId &&
+            installationIds.includes(target.installation_id) &&
+            (target.status === "pending" || target.status === "failed"),
+        );
+        for (const target of claimed) {
+          target.status = "sending";
+          target.claim_id = claimId;
+          target.claim_version += 1;
+          target.claimed_at = now;
+        }
+        return { data: claimed.map((target) => ({ ...target })), error: null };
+      }
+      if (name === "finalize_notification_delivery_target") {
+        const target = state.deliveryTargets.find(
+          (candidate) => candidate.id === args.p_target_id,
+        );
+        if (
+          target &&
+          target.status === "sending" &&
+          target.claim_id === args.p_claim_id &&
+          target.claim_version === args.p_claim_version
+        ) {
+          target.status = args.p_status as MockDeliveryTarget["status"];
+          state.deliveryFinalizations.push({
+            targetId: target.id,
+            claimId: String(args.p_claim_id),
+            claimVersion: Number(args.p_claim_version),
+            status: target.status,
+          });
+        }
+        return { data: target ?? null, error: null };
+      }
       if (name !== "claim_notification_events") {
         throw new Error(`Unexpected rpc in mock: ${name}`);
       }
@@ -514,7 +681,7 @@ function buildMockSupabase(state: MockState) {
         args.p_batch_size as number,
         args.p_lease_seconds as number,
         args.p_claim_token as string,
-        state.now ?? Date.now()
+        state.now ?? Date.now(),
       );
       return { data, error: null };
     },
@@ -531,6 +698,9 @@ function emptyState(): MockState {
     alertAttempts: [],
     eventUpdates: [],
     deviceDeletes: [],
+    deviceRetirements: [],
+    deliveryTargets: [],
+    deliveryFinalizations: [],
     surfAlertSlots: new Map(),
   };
 }
@@ -672,7 +842,7 @@ describe("processPendingEvents — empty state", () => {
     const state = emptyState();
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT }
+      { now: NOON_PT },
     );
 
     expect(summary).toEqual({
@@ -702,7 +872,7 @@ describe("processPendingEvents — happy path", () => {
     state.profiles.set("user-recipient", buildProfile());
     state.profiles.set(
       "user-actor",
-      buildProfile({ id: "user-actor", display_name: "Actor User" })
+      buildProfile({ id: "user-actor", display_name: "Actor User" }),
     );
     state.devices.set("user-recipient", ["device-token-A"]);
 
@@ -716,7 +886,7 @@ describe("processPendingEvents — happy path", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: fakeFcm as never }
+      { now: NOON_PT, fcm: fakeFcm as never },
     );
 
     expect(summary.processed).toBe(1);
@@ -727,9 +897,9 @@ describe("processPendingEvents — happy path", () => {
       expect.objectContaining({ channel: "in_app", status: "sent" }),
     ]);
     expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
-    const sentMessages = (fakeFcm.sendEach.mock.calls[0] as unknown[])[0] as Array<
-      Record<string, unknown>
-    >;
+    const sentMessages = (
+      fakeFcm.sendEach.mock.calls[0] as unknown[]
+    )[0] as Array<Record<string, unknown>>;
     expect(sentMessages[0]).toMatchObject({
       token: "device-token-A",
       notification: expect.objectContaining({
@@ -743,7 +913,7 @@ describe("processPendingEvents — happy path", () => {
       distinctId: "user-recipient",
       event: "notification_delivery_attempt",
       properties: expect.objectContaining({
-        "$insert_id": "notification_delivery_attempt:evt-1:push:1:sent",
+        $insert_id: "notification_delivery_attempt:evt-1:push:1:sent",
         notification_event_id: "evt-1",
         notification_type: "like",
         notification_channel: "push",
@@ -762,7 +932,7 @@ describe("processPendingEvents — happy path", () => {
       distinctId: "user-recipient",
       event: "notification_delivery_attempt",
       properties: expect.objectContaining({
-        "$insert_id": "notification_delivery_attempt:evt-1:in_app:1:sent",
+        $insert_id: "notification_delivery_attempt:evt-1:in_app:1:sent",
         notification_channel: "in_app",
         notification_status: "sent",
       }),
@@ -813,7 +983,7 @@ describe("processPendingEvents — happy path", () => {
     state.profiles.set("user-recipient", buildProfile());
     state.profiles.set(
       "user-actor",
-      buildProfile({ id: "user-actor", display_name: "Actor User" })
+      buildProfile({ id: "user-actor", display_name: "Actor User" }),
     );
     state.devices.set("user-recipient", ["device-token-A"]);
 
@@ -830,16 +1000,18 @@ describe("processPendingEvents — happy path", () => {
       fcm: fakeFcm as never,
     });
 
-    const sentMessages = (fakeFcm.sendEach.mock.calls[0] as unknown[])[0] as Array<{
+    const sentMessages = (
+      fakeFcm.sendEach.mock.calls[0] as unknown[]
+    )[0] as Array<{
       data?: Record<string, string>;
       android?: { notification?: { channelId?: string } };
       apns?: { payload?: { aps?: { sound?: string } } };
     }>;
     expect(sentMessages[0].data?.notification_event_id).toBe(
-      "evt-push-attribution"
+      "evt-push-attribution",
     );
     expect(sentMessages[0].data?.message_instance_id).toBe(
-      "evt-push-attribution"
+      "evt-push-attribution",
     );
     expect(sentMessages[0]).not.toHaveProperty("android");
     expect(sentMessages[0]).not.toHaveProperty("apns");
@@ -860,10 +1032,12 @@ describe("processPendingEvents — happy path", () => {
           body: "La Jolla Shores 7am-9am",
           beach_id: "beach-1",
           forecast_at: "2026-05-10T14:30:00.000Z",
-          queue_items: [{ queue_id: "queue-forecast-1", rule_id: "rule-forecast-1" }],
+          queue_items: [
+            { queue_id: "queue-forecast-1", rule_id: "rule-forecast-1" },
+          ],
         },
         dedupe_key: "forecast_alert:user-recipient:2026-05-10",
-      })
+      }),
     );
     state.profiles.set("user-recipient", buildProfile());
     state.devices.set("user-recipient", [
@@ -879,23 +1053,27 @@ describe("processPendingEvents — happy path", () => {
       sendEach: jest.fn(async () => ({
         successCount: 3,
         failureCount: 0,
-        responses: [
-          { success: true },
-          { success: true },
-          { success: true },
-        ],
+        responses: [{ success: true }, { success: true }, { success: true }],
       })),
     };
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: fakeFcm as never }
+      { now: NOON_PT, fcm: fakeFcm as never },
     );
 
     expect(summary.processed).toBe(1);
     expect(state.attempts).toEqual([
-      expect.objectContaining({ notification_event_id: "evt-forecast", channel: "push", status: "sent" }),
-      expect.objectContaining({ notification_event_id: "evt-forecast", channel: "in_app", status: "sent" }),
+      expect.objectContaining({
+        notification_event_id: "evt-forecast",
+        channel: "push",
+        status: "sent",
+      }),
+      expect.objectContaining({
+        notification_event_id: "evt-forecast",
+        channel: "in_app",
+        status: "sent",
+      }),
     ]);
     expect(state.alertAttempts).toEqual([
       {
@@ -907,7 +1085,9 @@ describe("processPendingEvents — happy path", () => {
         skip_reason: "sent",
       },
     ]);
-    const sentMessages = (fakeFcm.sendEach.mock.calls[0] as unknown[])[0] as Array<{
+    const sentMessages = (
+      fakeFcm.sendEach.mock.calls[0] as unknown[]
+    )[0] as Array<{
       android?: { notification?: { channelId?: string } };
       apns?: { payload?: { aps?: { sound?: string } } };
     }>;
@@ -943,7 +1123,9 @@ describe("processPendingEvents — happy path", () => {
           body: "La Jolla Shores 7am-9am",
           beach_id: "beach-1",
           forecast_at: "2026-05-10T14:30:00.000Z",
-          queue_items: [{ queue_id: "queue-forecast-1", rule_id: "rule-forecast-1" }],
+          queue_items: [
+            { queue_id: "queue-forecast-1", rule_id: "rule-forecast-1" },
+          ],
         },
       }),
     );
@@ -986,7 +1168,7 @@ describe("processPendingEvents — happy path", () => {
           queue_items: [{ queue_id: "queue-sim-1", rule_id: "rule-sim-1" }],
         },
         dedupe_key: "similarity_match:user-recipient:2026-05-10",
-      })
+      }),
     );
     state.profiles.set("user-recipient", buildProfile());
     state.devices.set("user-recipient", ["device-token-A"]);
@@ -1001,13 +1183,21 @@ describe("processPendingEvents — happy path", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: fakeFcm as never }
+      { now: NOON_PT, fcm: fakeFcm as never },
     );
 
     expect(summary.processed).toBe(1);
     expect(state.attempts).toEqual([
-      expect.objectContaining({ notification_event_id: "evt-similarity", channel: "push", status: "sent" }),
-      expect.objectContaining({ notification_event_id: "evt-similarity", channel: "in_app", status: "sent" }),
+      expect.objectContaining({
+        notification_event_id: "evt-similarity",
+        channel: "push",
+        status: "sent",
+      }),
+      expect.objectContaining({
+        notification_event_id: "evt-similarity",
+        channel: "in_app",
+        status: "sent",
+      }),
     ]);
     expect(state.alertAttempts).toEqual([
       {
@@ -1063,17 +1253,22 @@ describe("processPendingEvents — durable surf-alert arbitration", () => {
       }),
     );
 
-    const summary = await processPendingEvents(buildMockSupabase(state) as never, {
-      now: NOON_PT,
-      fcm: { sendEach: jest.fn() } as never,
-    });
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      {
+        now: NOON_PT,
+        fcm: { sendEach: jest.fn() } as never,
+      },
+    );
 
     expect(summary).toMatchObject({ processed: 2, skipped: 1 });
     expect(state.notificationsInserts).toHaveLength(1);
     expect(state.notificationsInserts[0]).toMatchObject({
       type: "forecast_alert",
     });
-    expect(state.events.find((event) => event.id === "evt-similarity-in-app")).toMatchObject({
+    expect(
+      state.events.find((event) => event.id === "evt-similarity-in-app"),
+    ).toMatchObject({
       status: "cancelled",
       skip_reason: "skipped_redundant",
     });
@@ -1125,18 +1320,25 @@ describe("processPendingEvents — durable surf-alert arbitration", () => {
       })),
     };
 
-    const summary = await processPendingEvents(buildMockSupabase(state) as never, {
-      now: NOON_PT,
-      fcm: fakeFcm as never,
-    });
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      {
+        now: NOON_PT,
+        fcm: fakeFcm as never,
+      },
+    );
 
     expect(summary).toMatchObject({ processed: 2, skipped: 1 });
     expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
-    expect(state.events.find((event) => event.id === "evt-home-enabled")).toMatchObject({
+    expect(
+      state.events.find((event) => event.id === "evt-home-enabled"),
+    ).toMatchObject({
       status: "processed",
       skip_reason: null,
     });
-    expect(state.surfAlertSlots.get("user-recipient:beach-1:2026-04-29")).toEqual({
+    expect(
+      state.surfAlertSlots.get("user-recipient:beach-1:2026-04-29"),
+    ).toEqual({
       eventId: "evt-home-enabled",
       priority: 1,
     });
@@ -1193,14 +1395,19 @@ describe("processPendingEvents — durable surf-alert arbitration", () => {
       }),
     );
 
-    const summary = await processPendingEvents(buildMockSupabase(state) as never, {
-      now: NOON_PT,
-      fcm: fakeFcm as never,
-    });
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      {
+        now: NOON_PT,
+        fcm: fakeFcm as never,
+      },
+    );
 
     expect(summary).toMatchObject({ processed: 1, skipped: 1 });
     expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
-    expect(state.events.find((event) => event.id === "evt-condition")).toMatchObject({
+    expect(
+      state.events.find((event) => event.id === "evt-condition"),
+    ).toMatchObject({
       status: "cancelled",
       skip_reason: "skipped_redundant",
     });
@@ -1227,7 +1434,9 @@ describe("processPendingEvents — durable surf-alert arbitration", () => {
           score: 8.4,
           label: "GOOD",
           reason: "Conditions match your best sessions",
-          queue_items: [{ queue_id: "queue-sim-pending", rule_id: "rule-sim-pending" }],
+          queue_items: [
+            { queue_id: "queue-sim-pending", rule_id: "rule-sim-pending" },
+          ],
         },
       }),
     );
@@ -1400,7 +1609,9 @@ describe("processPendingEvents — terminal skips", () => {
           body: "Clean morning window",
           beach_id: "11111111-1111-4111-8111-111111111111",
           forecast_at: "2026-04-29T19:00:00.000Z",
-          queue_items: [{ queue_id: "queue-unavailable", rule_id: "rule-unavailable" }],
+          queue_items: [
+            { queue_id: "queue-unavailable", rule_id: "rule-unavailable" },
+          ],
         },
       }),
     );
@@ -1676,30 +1887,32 @@ describe("processPendingEvents — terminal skips", () => {
     };
     let heldEventResolutionCount = 0;
     let sawClaimedSlotAtSuppression = false;
-    const resolveMajorEventHold = jest.fn(async ({ eventId }: { eventId: string }) => {
-      const candidate = {
-        candidateId: `notification:${eventId}`,
-        beachId,
-        startsAt,
-        endsAt,
-      };
-      if (eventId === "evt-held-after-claim") {
-        heldEventResolutionCount += 1;
-        if (heldEventResolutionCount === 1) {
-          return { status: "allowed" as const, candidate };
-        }
-        sawClaimedSlotAtSuppression =
-          state.surfAlertSlots.get(`user-recipient:${beachId}:2026-04-29`)?.eventId ===
-          "evt-held-after-claim";
-        return {
-          status: "suppressed" as const,
-          reasonCode: "major_event_hold" as const,
-          auditCode: "major_event_hold" as const,
-          candidate,
+    const resolveMajorEventHold = jest.fn(
+      async ({ eventId }: { eventId: string }) => {
+        const candidate = {
+          candidateId: `notification:${eventId}`,
+          beachId,
+          startsAt,
+          endsAt,
         };
-      }
-      return { status: "allowed" as const, candidate };
-    });
+        if (eventId === "evt-held-after-claim") {
+          heldEventResolutionCount += 1;
+          if (heldEventResolutionCount === 1) {
+            return { status: "allowed" as const, candidate };
+          }
+          sawClaimedSlotAtSuppression =
+            state.surfAlertSlots.get(`user-recipient:${beachId}:2026-04-29`)
+              ?.eventId === "evt-held-after-claim";
+          return {
+            status: "suppressed" as const,
+            reasonCode: "major_event_hold" as const,
+            auditCode: "major_event_hold" as const,
+            candidate,
+          };
+        }
+        return { status: "allowed" as const, candidate };
+      },
+    );
 
     const heldSummary = await processPendingEvents(
       buildMockSupabase(state) as never,
@@ -1714,7 +1927,9 @@ describe("processPendingEvents — terminal skips", () => {
     expect(sawClaimedSlotAtSuppression).toBe(true);
     expect(fakeFcm.sendEach).not.toHaveBeenCalled();
     expect(heldSummary.by_status.skipped_disabled).toBe(1);
-    expect(state.events.find((event) => event.id === "evt-held-after-claim")).toMatchObject({
+    expect(
+      state.events.find((event) => event.id === "evt-held-after-claim"),
+    ).toMatchObject({
       status: "cancelled",
       skip_reason: "major_event_hold",
       cancel_reason: "major_event_hold",
@@ -1774,11 +1989,15 @@ describe("processPendingEvents — terminal skips", () => {
 
     expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
     expect(allowedSummary.by_status.sent).toBe(1);
-    expect(state.events.find((event) => event.id === "evt-allowed-after-hold")).toMatchObject({
+    expect(
+      state.events.find((event) => event.id === "evt-allowed-after-hold"),
+    ).toMatchObject({
       status: "processed",
       skip_reason: null,
     });
-    expect(state.surfAlertSlots.get(`user-recipient:${beachId}:2026-04-29`)).toEqual({
+    expect(
+      state.surfAlertSlots.get(`user-recipient:${beachId}:2026-04-29`),
+    ).toEqual({
       eventId: "evt-allowed-after-hold",
       priority: 1,
     });
@@ -1830,24 +2049,26 @@ describe("processPendingEvents — terminal skips", () => {
       })),
     };
     let resolutionCount = 0;
-    const resolveMajorEventHold = jest.fn(async ({ eventId }: { eventId: string }) => {
-      const candidate = {
-        candidateId: `notification:${eventId}`,
-        beachId,
-        startsAt,
-        endsAt,
-      };
-      resolutionCount += 1;
-      if (eventId === "evt-partially-delivered" && resolutionCount === 2) {
-        return {
-          status: "suppressed" as const,
-          reasonCode: "major_event_hold" as const,
-          auditCode: "major_event_hold" as const,
-          candidate,
+    const resolveMajorEventHold = jest.fn(
+      async ({ eventId }: { eventId: string }) => {
+        const candidate = {
+          candidateId: `notification:${eventId}`,
+          beachId,
+          startsAt,
+          endsAt,
         };
-      }
-      return { status: "allowed" as const, candidate };
-    });
+        resolutionCount += 1;
+        if (eventId === "evt-partially-delivered" && resolutionCount === 2) {
+          return {
+            status: "suppressed" as const,
+            reasonCode: "major_event_hold" as const,
+            auditCode: "major_event_hold" as const,
+            candidate,
+          };
+        }
+        return { status: "allowed" as const, candidate };
+      },
+    );
 
     await processPendingEvents(buildMockSupabase(state) as never, {
       now: NOON_PT,
@@ -1855,7 +2076,9 @@ describe("processPendingEvents — terminal skips", () => {
       resolveMajorEventHold,
     });
 
-    expect(state.events.find((event) => event.id === "evt-partially-delivered")).toMatchObject({
+    expect(
+      state.events.find((event) => event.id === "evt-partially-delivered"),
+    ).toMatchObject({
       status: "processed",
     });
     expect(fakeFcm.sendEach).not.toHaveBeenCalled();
@@ -1891,11 +2114,15 @@ describe("processPendingEvents — terminal skips", () => {
     });
 
     expect(fakeFcm.sendEach).not.toHaveBeenCalled();
-    expect(state.events.find((event) => event.id === "evt-after-partial-delivery")).toMatchObject({
+    expect(
+      state.events.find((event) => event.id === "evt-after-partial-delivery"),
+    ).toMatchObject({
       status: "cancelled",
       skip_reason: "skipped_redundant",
     });
-    expect(state.surfAlertSlots.get(`user-recipient:${beachId}:2026-04-29`)).toEqual({
+    expect(
+      state.surfAlertSlots.get(`user-recipient:${beachId}:2026-04-29`),
+    ).toEqual({
       eventId: "evt-partially-delivered",
       priority: 3,
     });
@@ -1959,13 +2186,13 @@ describe("processPendingEvents — terminal skips", () => {
     state.events.push(buildEvent());
     state.profiles.set(
       "user-recipient",
-      buildProfile({ notif_push_enabled: false, notif_inapp_enabled: false })
+      buildProfile({ notif_push_enabled: false, notif_inapp_enabled: false }),
     );
     state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never }
+      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never },
     );
 
     expect(summary.skipped).toBe(1);
@@ -1987,7 +2214,7 @@ describe("processPendingEvents — terminal skips", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never }
+      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never },
     );
 
     expect(summary.skipped).toBe(1);
@@ -2002,7 +2229,7 @@ describe("processPendingEvents — terminal skips", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never }
+      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never },
     );
 
     expect(summary.skipped).toBe(1);
@@ -2017,7 +2244,7 @@ describe("processPendingEvents — terminal skips", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never }
+      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never },
     );
 
     expect(summary.processed).toBe(1);
@@ -2041,7 +2268,7 @@ describe("processPendingEvents — quiet hours", () => {
     state.events.push(buildEvent());
     state.profiles.set(
       "user-recipient",
-      buildProfile({ timezone: "America/Los_Angeles" })
+      buildProfile({ timezone: "America/Los_Angeles" }),
     );
     state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
     state.devices.set("user-recipient", ["device-token-A"]);
@@ -2051,7 +2278,7 @@ describe("processPendingEvents — quiet hours", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: inQuietWindow, fcm: { sendEach: jest.fn() } as never }
+      { now: inQuietWindow, fcm: { sendEach: jest.fn() } as never },
     );
 
     expect(summary.by_status.deferred_quiet_hours).toBe(1);
@@ -2075,7 +2302,7 @@ describe("processPendingEvents — quiet hours", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: new Date("2026-04-29T06:00:00Z"), fcm: fakeFcm as never }
+      { now: new Date("2026-04-29T06:00:00Z"), fcm: fakeFcm as never },
     );
 
     expect(summary.missing_timezone_count).toBe(1);
@@ -2089,7 +2316,7 @@ describe("processPendingEvents — quiet hours", () => {
     state.events.push(buildEvent());
     state.profiles.set(
       "user-recipient",
-      buildProfile({ timezone: "America/Los_Angeles" })
+      buildProfile({ timezone: "America/Los_Angeles" }),
     );
     state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
     state.devices.set("user-recipient", ["device-token-A"]);
@@ -2114,7 +2341,7 @@ describe("processPendingEvents — quiet hours", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: fakeFcm as never }
+      { now: NOON_PT, fcm: fakeFcm as never },
     );
 
     // In-app already sent → not re-inserted.
@@ -2124,7 +2351,10 @@ describe("processPendingEvents — quiet hours", () => {
     expect(summary.processed).toBe(1);
     // Only ONE new attempt this tick (push). Total = prior + 1.
     expect(state.attempts).toHaveLength(2);
-    expect(state.attempts[1]).toMatchObject({ channel: "push", status: "sent" });
+    expect(state.attempts[1]).toMatchObject({
+      channel: "push",
+      status: "sent",
+    });
   });
 });
 
@@ -2138,7 +2368,7 @@ describe("processPendingEvents — Firebase / provider failure retry", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: null }
+      { now: NOON_PT, fcm: null },
     );
 
     expect(summary.firebase_configured).toBe(false);
@@ -2157,7 +2387,7 @@ describe("processPendingEvents — Firebase / provider failure retry", () => {
           reason: "firebase_not_configured",
         }),
         error_message: "Firebase not configured",
-      })
+      }),
     );
   });
 
@@ -2186,7 +2416,7 @@ describe("processPendingEvents — Firebase / provider failure retry", () => {
         provider_response: null,
         error_message: null,
         created_at: new Date().toISOString(),
-      }))
+      })),
     );
 
     const fakeFcm = {
@@ -2195,7 +2425,7 @@ describe("processPendingEvents — Firebase / provider failure retry", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: fakeFcm as never }
+      { now: NOON_PT, fcm: fakeFcm as never },
     );
 
     // FCM not called — push channel is at the cap, no further attempts.
@@ -2237,7 +2467,7 @@ describe("processPendingEvents — Firebase / provider failure retry", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: fakeFcm as never }
+      { now: NOON_PT, fcm: fakeFcm as never },
     );
 
     expect(fakeFcm.sendEach).not.toHaveBeenCalled();
@@ -2258,7 +2488,7 @@ describe("processPendingEvents — fatal data conditions", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never }
+      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never },
     );
 
     expect(summary.failed).toBe(1);
@@ -2284,13 +2514,13 @@ describe("processPendingEvents — fatal data conditions", () => {
           body: "Daily digest disabled",
         },
         dedupe_key: "daily_forecast_summary:user-recipient:2026-05-12",
-      })
+      }),
     );
     state.profiles.set("user-recipient", buildProfile());
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never }
+      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never },
     );
 
     expect(summary.processed).toBe(1);
@@ -2312,7 +2542,7 @@ describe("processPendingEvents — fatal data conditions", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: null }
+      { now: NOON_PT, fcm: null },
     );
 
     expect(summary.failed).toBe(1);
@@ -2330,7 +2560,7 @@ describe("processPendingEvents — transient error handling", () => {
     state.errorOnSelect = new Set(["notification_events"]);
 
     await expect(
-      processPendingEvents(buildMockSupabase(state) as never, { now: NOON_PT })
+      processPendingEvents(buildMockSupabase(state) as never, { now: NOON_PT }),
     ).rejects.toThrow(/notification_events claim failed/);
 
     expectConsoleErrors([]);
@@ -2343,15 +2573,13 @@ describe("processPendingEvents — transient error handling", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: null }
+      { now: NOON_PT, fcm: null },
     );
 
     expect(summary.pending_after_run).toBe(1);
     expect(summary.failed).toBe(0);
     expect(state.eventUpdates).toEqual([]);
-    expectConsoleErrors([
-      /profile query errored for event/,
-    ]);
+    expectConsoleErrors([/profile query errored for event/]);
   });
 
   it("does not emit PostHog delivery analytics when attempt insert fails", async () => {
@@ -2381,7 +2609,7 @@ describe("processPendingEvents — transient error handling", () => {
 });
 
 describe("processPendingEvents — push provider details", () => {
-  it("FCM invalid token error → token pruned from user_devices", async () => {
+  it("FCM invalid token error → token retired from user_devices", async () => {
     const state = emptyState();
     state.events.push(buildEvent());
     state.profiles.set("user-recipient", buildProfile());
@@ -2410,7 +2638,9 @@ describe("processPendingEvents — push provider details", () => {
       fcm: fakeFcm as never,
     });
 
-    expect(state.deviceDeletes).toEqual(["bad-token"]);
+    expect(state.deviceRetirements).toEqual([
+      { tokens: ["bad-token"], reason: "provider_invalid_token" },
+    ]);
   });
 
   it("failed provider responses persist provider_response and error_message", async () => {
@@ -2451,7 +2681,7 @@ describe("processPendingEvents — push provider details", () => {
           errors: ["messaging/internal-error: provider down"],
         }),
         error_message: "messaging/internal-error: provider down",
-      })
+      }),
     );
     expect(capturePostHogEvent).toHaveBeenCalledWith({
       distinctId: "user-recipient",
@@ -2491,18 +2721,22 @@ describe("processPendingEvents — push provider details", () => {
         })),
       };
 
-      const summary = await processPendingEvents(buildMockSupabase(state) as never, {
-        now: NOON_PT,
-        fcm: fakeFcm as never,
-      });
+      const summary = await processPendingEvents(
+        buildMockSupabase(state) as never,
+        {
+          now: NOON_PT,
+          fcm: fakeFcm as never,
+        },
+      );
 
       expect(summary.processed).toBe(1);
       expect(fakeFcm.sendEach).not.toHaveBeenCalled();
       expect(global.fetch).toHaveBeenCalledWith(
         "https://exp.host/--/api/v2/push/send",
-        expect.objectContaining({ method: "POST" })
+        expect.objectContaining({ method: "POST" }),
       );
-      const request = (global.fetch as jest.Mock).mock.calls[0][1] as RequestInit;
+      const request = (global.fetch as jest.Mock).mock
+        .calls[0][1] as RequestInit;
       const [expoPayload] = JSON.parse(request.body as string);
       expect(expoPayload).not.toHaveProperty("sound");
       expect(expoPayload).not.toHaveProperty("channelId");
@@ -2558,7 +2792,8 @@ describe("processPendingEvents — push provider details", () => {
 
       expect(summary.processed).toBe(1);
       expect(fakeFcm.sendEach).not.toHaveBeenCalled();
-      const request = (global.fetch as jest.Mock).mock.calls[0][1] as RequestInit;
+      const request = (global.fetch as jest.Mock).mock
+        .calls[0][1] as RequestInit;
       expect(JSON.parse(request.body as string)).toEqual([
         expect.objectContaining({
           sound: "quiver-alert.wav",
@@ -2570,6 +2805,218 @@ describe("processPendingEvents — push provider details", () => {
   });
 });
 
+describe("processPendingEvents — identified-install delivery ledger", () => {
+  function identifiedState(devices: Array<string | MockDevice>): MockState {
+    const state = emptyState();
+    state.events.push(buildEvent({ id: "evt-install-ledger" }));
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", devices);
+    return state;
+  }
+
+  function successfulFcm() {
+    return {
+      sendEach: jest.fn(async (messages: Array<{ token?: string }>) => ({
+        successCount: messages.length,
+        failureCount: 0,
+        responses: messages.map(() => ({ success: true })),
+      })),
+    };
+  }
+
+  it("claims and finalizes an identified installation once", async () => {
+    const state = identifiedState([
+      buildDevice("identified-token", { installation_id: "install-1" }),
+    ]);
+    const fcm = successfulFcm();
+    const supabase = buildMockSupabase(state) as never;
+
+    await processPendingEvents(supabase, { now: NOON_PT, fcm: fcm as never });
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.deliveryTargets).toMatchObject([
+      { installation_id: "install-1", status: "sent", claim_version: 1 },
+    ]);
+    expect(state.deliveryFinalizations).toHaveLength(1);
+    expect(state.deliveryFinalizations[0].status).toBe("sent");
+
+    // Re-run the same event after the event lease is made pending again. The
+    // event-level worker claim succeeds, but the durable target is already sent.
+    const event = state.events[0];
+    event.status = "pending";
+    event.claim_token = null;
+    event.claimed_at = null;
+    state.attempts.length = 0;
+    await processPendingEvents(supabase, { now: NOON_PT, fcm: fcm as never });
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.deliveryFinalizations).toHaveLength(1);
+  });
+
+  it("keeps legacy compatibility delivery while ledger-guarding identified rows", async () => {
+    const state = identifiedState([
+      buildDevice("legacy-token"),
+      buildDevice("identified-token", { installation_id: "install-1" }),
+    ]);
+    const fcm = successfulFcm();
+    const supabase = buildMockSupabase(state) as never;
+
+    await processPendingEvents(supabase, { now: NOON_PT, fcm: fcm as never });
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(
+      fcm.sendEach.mock.calls[0][0].map(
+        (message: { token?: string }) => message.token,
+      ),
+    ).toEqual(["legacy-token", "identified-token"]);
+    expect(state.deliveryTargets).toMatchObject([
+      { installation_id: "install-1", status: "sent" },
+    ]);
+
+    const event = state.events[0];
+    event.status = "pending";
+    event.claim_token = null;
+    event.claimed_at = null;
+    state.attempts.length = 0;
+    await processPendingEvents(supabase, { now: NOON_PT, fcm: fcm as never });
+    expect(fcm.sendEach).toHaveBeenCalledTimes(2);
+    expect(
+      fcm.sendEach.mock.calls[1][0].map(
+        (message: { token?: string }) => message.token,
+      ),
+    ).toEqual(["legacy-token"]);
+  });
+
+  it("treats partial legacy fan-out as sent so successful devices are not retried", async () => {
+    const state = identifiedState([
+      buildDevice("legacy-success"),
+      buildDevice("legacy-transient-failure"),
+    ]);
+    const fcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 1,
+        responses: [
+          { success: true },
+          {
+            success: false,
+            error: { code: "messaging/internal-error", message: "transient" },
+          },
+        ],
+      })),
+    };
+    const supabase = buildMockSupabase(state) as never;
+
+    await processPendingEvents(supabase, { now: NOON_PT, fcm: fcm as never });
+    await processPendingEvents(supabase, {
+      now: new Date(NOON_PT.getTime() + 2 * 60 * 1000),
+      fcm: fcm as never,
+    });
+
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.events[0]).toMatchObject({
+      status: "processed",
+      next_attempt_at: null,
+    });
+    expect(state.attempts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          channel: "push",
+          status: "sent",
+          provider_response: expect.objectContaining({ success: 1, failed: 1 }),
+        }),
+      ]),
+    );
+  });
+
+  it("does not retry a successful provider send when target finalization fails", async () => {
+    const state = identifiedState([
+      buildDevice("identified-token", { installation_id: "install-1" }),
+      buildDevice("legacy-token"),
+    ]);
+    state.deliveryTargetLookupError = "temporary target lookup failure";
+    const fcm = successfulFcm();
+    const supabase = buildMockSupabase(state) as never;
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    await processPendingEvents(supabase, { now: NOON_PT, fcm: fcm as never });
+    await processPendingEvents(supabase, {
+      now: new Date(NOON_PT.getTime() + 2 * 60 * 1000),
+      fcm: fcm as never,
+    });
+
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.events[0]).toMatchObject({ status: "processed" });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "push target finalization failed after provider response",
+      ),
+      expect.stringContaining("temporary target lookup failure"),
+    );
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("finalizes an ambiguous provider outcome as unknown and never reclaims it", async () => {
+    const state = identifiedState([
+      buildDevice("identified-token", { installation_id: "install-1" }),
+    ]);
+    const fcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 0,
+        failureCount: 1,
+        responses: [],
+      })),
+    };
+    const supabase = buildMockSupabase(state) as never;
+
+    await processPendingEvents(supabase, { now: NOON_PT, fcm: fcm as never });
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.deliveryTargets).toMatchObject([
+      { installation_id: "install-1", status: "unknown", claim_version: 1 },
+    ]);
+    expect(state.deliveryFinalizations[0].status).toBe("unknown");
+
+    const event = state.events[0];
+    event.status = "pending";
+    event.claim_token = null;
+    event.claimed_at = null;
+    await processPendingEvents(supabase, { now: NOON_PT, fcm: fcm as never });
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.deliveryFinalizations).toHaveLength(1);
+  });
+
+  it("does not let a late claim finalize a newer target claim", async () => {
+    const state = emptyState();
+    state.deliveryTargets.push({
+      id: "delivery-target-1",
+      notification_event_id: "evt-install-ledger",
+      installation_id: "install-1",
+      token_fingerprint: "fingerprint",
+      status: "sending",
+      claim_id: "new-claim",
+      claim_version: 2,
+      claimed_at: NOON_PT.toISOString(),
+    });
+    const supabase = buildMockSupabase(state) as unknown as {
+      rpc: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+    };
+
+    await supabase.rpc("finalize_notification_delivery_target", {
+      p_target_id: "delivery-target-1",
+      p_claim_id: "old-claim",
+      p_claim_version: 1,
+      p_status: "sent",
+    });
+
+    expect(state.deliveryTargets[0]).toMatchObject({
+      status: "sending",
+      claim_id: "new-claim",
+      claim_version: 2,
+    });
+    expect(state.deliveryFinalizations).toHaveLength(0);
+  });
+});
+
 describe("processPendingEvents — atomic claim (concurrency)", () => {
   it("claims pending event by setting claimed_at; concurrent worker sees nothing claimable", async () => {
     const state = emptyState();
@@ -2577,7 +3024,7 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
     state.profiles.set("user-recipient", buildProfile());
     state.profiles.set(
       "user-actor",
-      buildProfile({ id: "user-actor", display_name: "Actor User" })
+      buildProfile({ id: "user-actor", display_name: "Actor User" }),
     );
     state.devices.set("user-recipient", ["device-token-A"]);
 
@@ -2592,7 +3039,7 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
     // Worker A claims and processes the event end-to-end.
     const summaryA = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: fakeFcm as never }
+      { now: NOON_PT, fcm: fakeFcm as never },
     );
     expect(summaryA.fetched).toBe(1);
     expect(summaryA.processed).toBe(1);
@@ -2602,7 +3049,7 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
     // somehow happen, no double-dispatch.
     const summaryB = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: fakeFcm as never }
+      { now: NOON_PT, fcm: fakeFcm as never },
     );
     expect(summaryB.fetched).toBe(0);
 
@@ -2619,7 +3066,7 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
     state.profiles.set("user-recipient", buildProfile());
     state.profiles.set(
       "user-actor",
-      buildProfile({ id: "user-actor", display_name: "Actor User" })
+      buildProfile({ id: "user-actor", display_name: "Actor User" }),
     );
     state.devices.set("user-recipient", ["device-token-A"]);
 
@@ -2651,7 +3098,9 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
     });
 
     expect(a.fetched + b.fetched).toBe(1);
-    expect(fakeFcmA.sendEach.mock.calls.length + fakeFcmB.sendEach.mock.calls.length).toBe(1);
+    expect(
+      fakeFcmA.sendEach.mock.calls.length + fakeFcmB.sendEach.mock.calls.length,
+    ).toBe(1);
   });
 
   it("releases claim on retryable quiet-hours channels and schedules the next claim for window end", async () => {
@@ -2664,12 +3113,12 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
         type: "like",
         payload: { session_id: "sess-1", beach_name: "Mavericks" },
         dedupe_key: "like:sess-1:user-recipient",
-      })
+      }),
     );
     state.profiles.set("user-recipient", buildProfile());
     state.profiles.set(
       "user-actor",
-      buildProfile({ id: "user-actor", display_name: "Actor User" })
+      buildProfile({ id: "user-actor", display_name: "Actor User" }),
     );
     state.devices.set("user-recipient", ["device-token-A"]);
 
@@ -2706,7 +3155,7 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
     state.profiles.set("user-recipient", buildProfile());
     state.profiles.set(
       "user-actor",
-      buildProfile({ id: "user-actor", display_name: "Actor User" })
+      buildProfile({ id: "user-actor", display_name: "Actor User" }),
     );
     state.devices.set("user-recipient", ["device-token-A"]);
 
@@ -2721,7 +3170,7 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: fakeFcm as never }
+      { now: NOON_PT, fcm: fakeFcm as never },
     );
 
     expect(summary.fetched).toBe(1);
@@ -2740,12 +3189,12 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
         status: "processing",
         claimed_at: recent,
         claim_token: "00000000-0000-0000-0000-000000000001",
-      })
+      }),
     );
     state.profiles.set("user-recipient", buildProfile());
     state.profiles.set(
       "user-actor",
-      buildProfile({ id: "user-actor", display_name: "Actor User" })
+      buildProfile({ id: "user-actor", display_name: "Actor User" }),
     );
     state.devices.set("user-recipient", ["device-token-A"]);
 
@@ -2759,7 +3208,7 @@ describe("processPendingEvents — atomic claim (concurrency)", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: fakeFcm as never }
+      { now: NOON_PT, fcm: fakeFcm as never },
     );
 
     expect(summary.fetched).toBe(0);
@@ -2778,7 +3227,7 @@ describe("processPendingEvents — Phase 5c backoff scheduling", () => {
     state.profiles.set("user-recipient", buildProfile());
     state.profiles.set(
       "user-actor",
-      buildProfile({ id: "user-actor", display_name: "Actor User" })
+      buildProfile({ id: "user-actor", display_name: "Actor User" }),
     );
     state.devices.set("user-recipient", ["device-token-A"]);
 
@@ -2803,7 +3252,7 @@ describe("processPendingEvents — Phase 5c backoff scheduling", () => {
     state.profiles.set("user-recipient", buildProfile());
     state.profiles.set(
       "user-actor",
-      buildProfile({ id: "user-actor", display_name: "Actor User" })
+      buildProfile({ id: "user-actor", display_name: "Actor User" }),
     );
     state.devices.set("user-recipient", ["device-token-A"]);
 
@@ -2827,7 +3276,7 @@ describe("processPendingEvents — Phase 5c backoff scheduling", () => {
     state.events.push(buildEvent());
     state.profiles.set(
       "user-recipient",
-      buildProfile({ timezone: "America/Los_Angeles" })
+      buildProfile({ timezone: "America/Los_Angeles" }),
     );
     state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
     state.devices.set("user-recipient", ["device-token-A"]);
@@ -2852,7 +3301,7 @@ describe("processPendingEvents — Phase 5m observability counters", () => {
 
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never }
+      { now: NOON_PT, fcm: { sendEach: jest.fn() } as never },
     );
 
     expect(summary.unknown_type_count).toBe(1);
@@ -2862,10 +3311,7 @@ describe("processPendingEvents — Phase 5m observability counters", () => {
   it("missing_timezone_count increments when recipient profile has no timezone", async () => {
     const state = emptyState();
     state.events.push(buildEvent());
-    state.profiles.set(
-      "user-recipient",
-      buildProfile({ timezone: null })
-    );
+    state.profiles.set("user-recipient", buildProfile({ timezone: null }));
     state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
 
     const summary = await processPendingEvents(
@@ -2879,7 +3325,7 @@ describe("processPendingEvents — Phase 5m observability counters", () => {
             responses: [{ success: true }],
           })),
         } as never,
-      }
+      },
     );
 
     expect(summary.missing_timezone_count).toBe(1);
@@ -2899,7 +3345,7 @@ describe("processPendingEvents — Phase 5m observability counters", () => {
       {
         now: ELEVEN_PM_PT,
         fcm: { sendEach: jest.fn() } as never,
-      }
+      },
     );
 
     expect(summary.deferred_quiet_hours_count).toBe(1);
@@ -2916,7 +3362,7 @@ describe("processPendingEvents — Phase 5m observability counters", () => {
     // FCM null → failed_provider for the push channel; in-app still sends.
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: null as never }
+      { now: NOON_PT, fcm: null as never },
     );
 
     expect(summary.retry_scheduled_count).toBe(1);
@@ -2927,7 +3373,8 @@ describe("processPendingEvents — Phase 5m observability counters", () => {
 describe("processPendingEvents — Phase 5g per-type cooldown", () => {
   // The `like` registry entry has no cooldown set in production; we patch it
   // for these tests and restore in afterEach so other tests are unaffected.
-  const registry = require("@/lib/notifications/registry").NOTIFICATION_REGISTRY;
+  const registry =
+    require("@/lib/notifications/registry").NOTIFICATION_REGISTRY;
   let originalCooldown: number | undefined;
 
   beforeEach(() => {
@@ -2953,7 +3400,7 @@ describe("processPendingEvents — Phase 5g per-type cooldown", () => {
         status: "processed",
         created_at: priorCreated,
         dedupe_key: "like:sess-old:user-actor",
-      })
+      }),
     );
     state.attempts.push({
       id: "att-prior-1",
@@ -2970,7 +3417,7 @@ describe("processPendingEvents — Phase 5g per-type cooldown", () => {
         id: "evt-new",
         created_at: new Date("2026-04-29T19:00:00Z").toISOString(),
         dedupe_key: "like:sess-new:user-actor",
-      })
+      }),
     );
     state.profiles.set("user-recipient", buildProfile());
     state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
@@ -2979,7 +3426,7 @@ describe("processPendingEvents — Phase 5g per-type cooldown", () => {
     const fakeFcm = { sendEach: jest.fn() };
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: fakeFcm as never }
+      { now: NOON_PT, fcm: fakeFcm as never },
     );
 
     expect(fakeFcm.sendEach).not.toHaveBeenCalled();
@@ -3002,7 +3449,7 @@ describe("processPendingEvents — Phase 5g per-type cooldown", () => {
         status: "processed",
         created_at: priorCreated,
         dedupe_key: "like:sess-old:user-actor",
-      })
+      }),
     );
     state.attempts.push({
       id: "att-prior-1",
@@ -3018,7 +3465,7 @@ describe("processPendingEvents — Phase 5g per-type cooldown", () => {
         id: "evt-new",
         created_at: new Date("2026-04-29T19:00:00Z").toISOString(),
         dedupe_key: "like:sess-new:user-actor",
-      })
+      }),
     );
     state.profiles.set("user-recipient", buildProfile());
     state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
@@ -3033,7 +3480,7 @@ describe("processPendingEvents — Phase 5g per-type cooldown", () => {
     };
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: fakeFcm as never }
+      { now: NOON_PT, fcm: fakeFcm as never },
     );
 
     expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
@@ -3051,7 +3498,7 @@ describe("processPendingEvents — Phase 5g per-type cooldown", () => {
         status: "processed",
         created_at: priorCreated,
         dedupe_key: "like:sess-old:user-actor",
-      })
+      }),
     );
     state.attempts.push({
       id: "att-prior-1",
@@ -3067,7 +3514,7 @@ describe("processPendingEvents — Phase 5g per-type cooldown", () => {
         id: "evt-new",
         created_at: new Date("2026-04-29T19:00:00Z").toISOString(),
         dedupe_key: "like:sess-new:user-actor",
-      })
+      }),
     );
     state.profiles.set("user-recipient", buildProfile());
     state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
@@ -3082,7 +3529,7 @@ describe("processPendingEvents — Phase 5g per-type cooldown", () => {
     };
     const summary = await processPendingEvents(
       buildMockSupabase(state) as never,
-      { now: NOON_PT, fcm: fakeFcm as never }
+      { now: NOON_PT, fcm: fakeFcm as never },
     );
 
     expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);

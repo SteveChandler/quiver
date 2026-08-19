@@ -22,12 +22,6 @@ jest.mock("next/cache", () => ({
 jest.mock("@/lib/supabase/server", () => ({
   createPublicReadClient: jest.fn(() => mockChain),
 }));
-jest.mock("@/lib/recommendations/major-event-hold/water-quality-visibility", () => ({
-  filterBeachesByWaterQualityVisibility: jest.fn(
-    async (conditions: Array<{ id: string }>) =>
-      conditions.filter((condition) => condition.id !== "held-beach"),
-  ),
-}));
 jest.mock("@/lib/recommendations/selection", () => ({
   rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
 }));

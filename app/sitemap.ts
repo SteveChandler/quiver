@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { createHash } from "node:crypto";
 
 import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
 import { getAllForecastRegionSlugs } from "@/lib/data/forecast-regions";
@@ -27,6 +28,12 @@ import { learnArticles } from "@/lib/data/learn-articles";
 import { INDEXABLE_SEO_FUNNEL_PAGES } from "@/lib/seo/funnel-pages";
 import { getReviewedCityEditorialContent } from "@/actions/city/city-editorial-actions";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { parseWaterTempF } from "@/lib/utils/wetsuit-utils";
+import {
+  findNextTideExtremes,
+  type TideHeightRow,
+} from "@/lib/seo/tide-meta-data";
 import {
   cityEditorialKey,
   evaluateBeachIndexability,
@@ -111,11 +118,24 @@ export interface BeachSubPageCoverage {
   waterTempCoverage: ReadonlySet<string>;
 }
 
-interface BeachCoverageRow {
+interface TideCoverageRow {
   beach_id: string | null;
+  ts: string | null;
+  tide_height_m: number | null;
 }
 
-const BEACH_COVERAGE_BATCH_SIZE = 20;
+interface WaterTempCoverageRow {
+  beach_id: string | null;
+  water_temp: string | null;
+  forecast_at: string | null;
+}
+
+// PostgREST caps a response at 1000 rows regardless of .limit(). Coverage now
+// reads every row per beach (24 hourly tide points, ~8 water-temp points), so
+// the batch must stay small enough that a full batch cannot reach that cap:
+// 10 beaches x 24h stays well under it even if tide granularity went 4x finer.
+const BEACH_COVERAGE_BATCH_SIZE = 10;
+const POSTGREST_MAX_ROWS = 1000;
 
 interface CityEditorialRoute {
   editorial: CityEditorialDatabaseRecord;
@@ -126,10 +146,8 @@ export function isBeachIndexableForSitemap(
   beach: SitemapBeachEditorialFields,
   canonicalPath = "/",
 ): boolean {
-  return evaluateBeachIndexability(
-    toBeachEditorialInput(beach),
-    canonicalPath,
-  ).indexable;
+  return evaluateBeachIndexability(toBeachEditorialInput(beach), canonicalPath)
+    .indexable;
 }
 
 function isCityRouteIndexable(
@@ -146,9 +164,7 @@ function isCityRouteIndexable(
   ).indexable;
 }
 
-function hasUsableSitemapCountry(
-  beach: { country?: string | null },
-): boolean {
+function hasUsableSitemapCountry(beach: { country?: string | null }): boolean {
   // Older callers may omit country entirely; keep that legacy USA behavior.
   // An explicitly present null/blank value is unknown and cannot be canonical.
   return (
@@ -165,7 +181,65 @@ function batchBeachIds(ids: readonly string[]): string[][] {
   return batches;
 }
 
+/**
+ * The sub-page routes are force-static with revalidate = 3600, so the robots
+ * meta they serve is frozen for up to an hour. The sitemap is force-dynamic and
+ * re-evaluated on every request. That asymmetry lets the sitemap advertise a URL
+ * the moment its data qualifies, while the page it points at can still be
+ * serving noindex from a render up to an hour old.
+ *
+ * Reading coverage through a cache on the same window puts both sides on the
+ * same clock. It bounds the disagreement to one revalidate period instead of
+ * leaving the sitemap instantaneous against an hourly page; it does not
+ * eliminate it, because the two caches do not turn over in phase. Closing the
+ * window entirely would mean making the sub-pages dynamic.
+ */
+const SUB_PAGE_REVALIDATE_SECONDS = 3600;
+
+/** Stable collision-resistant cache key for a beach-id set. */
+function fingerprintBeachIds(beachIds: readonly string[]): string {
+  const digest = createHash("sha256")
+    .update([...beachIds].sort().join("\n"))
+    .digest("hex");
+  return `${beachIds.length}-${digest}`;
+}
+
 async function getBeachSubPageCoverage(
+  beachIds: readonly string[],
+): Promise<BeachSubPageCoverage> {
+  // Sets do not survive the data cache's JSON round trip, so the cached layer
+  // deals in arrays and the Sets are rebuilt here.
+  const load = unstable_cache(
+    async () => {
+      const coverage = await fetchBeachSubPageCoverage(beachIds);
+      return {
+        tideCoverage: [...coverage.tideCoverage],
+        waterTempCoverage: [...coverage.waterTempCoverage],
+      };
+    },
+    ["beach-sub-page-coverage", fingerprintBeachIds(beachIds)],
+    { revalidate: SUB_PAGE_REVALIDATE_SECONDS },
+  );
+
+  const { tideCoverage, waterTempCoverage } = await load();
+  return {
+    tideCoverage: new Set(tideCoverage),
+    waterTempCoverage: new Set(waterTempCoverage),
+  };
+}
+
+function warnIfTruncated(rowCount: number, label: string): void {
+  if (rowCount < POSTGREST_MAX_ROWS) return;
+  // Truncation would silently drop beaches from the sitemap rather than error,
+  // so make it loud instead of letting a clean-looking sitemap hide it.
+  console.error(
+    `Sitemap: ${label} coverage response hit the ${POSTGREST_MAX_ROWS}-row cap; ` +
+      "coverage for this batch is incomplete and pages may be omitted. " +
+      "Lower BEACH_COVERAGE_BATCH_SIZE.",
+  );
+}
+
+async function fetchBeachSubPageCoverage(
   beachIds: readonly string[],
 ): Promise<BeachSubPageCoverage> {
   const tideCoverage = new Set<string>();
@@ -194,19 +268,19 @@ async function getBeachSubPageCoverage(
         const [tideResponse, waterTempResponse] = await Promise.all([
           supabase
             .from("tide_forecasts")
-            .select("beach_id")
+            .select("beach_id, ts, tide_height_m")
             .in("beach_id", batch)
             .gte("ts", now.toISOString())
-            .lt("ts", tideEnd.toISOString())
-            .limit(1000),
+            .lte("ts", tideEnd.toISOString())
+            .limit(POSTGREST_MAX_ROWS),
           supabase
             .from("enhanced_forecasts")
-            .select("beach_id")
+            .select("beach_id, water_temp, forecast_at")
             .in("beach_id", batch)
             .gte("forecast_at", `${today}T00:00:00.000Z`)
             .lt("forecast_at", tomorrow.toISOString())
             .not("water_temp", "is", null)
-            .limit(1000),
+            .limit(POSTGREST_MAX_ROWS),
         ]);
 
         return { tideResponse, waterTempResponse };
@@ -219,8 +293,23 @@ async function getBeachSubPageCoverage(
           message: tideResponse.error.message,
         });
       } else {
-        for (const row of (tideResponse.data ?? []) as BeachCoverageRow[]) {
-          if (row.beach_id) tideCoverage.add(row.beach_id);
+        const rows = (tideResponse.data ?? []) as TideCoverageRow[];
+        warnIfTruncated(rows.length, "tide");
+        const byBeach = new Map<string, TideHeightRow[]>();
+        for (const row of rows) {
+          if (!row.beach_id || !row.ts) continue;
+          const series = byBeach.get(row.beach_id) ?? [];
+          series.push({ ts: row.ts, tide_height_m: row.tide_height_m });
+          byBeach.set(row.beach_id, series);
+        }
+        // Same predicate the sub-page runs: rows alone are not coverage, a
+        // detectable high or low is. Ordering is done here rather than in the
+        // query so coverage does not depend on the database returning sorted
+        // rows.
+        for (const [beachId, series] of byBeach) {
+          series.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
+          const { nextHigh, nextLow } = findNextTideExtremes(series);
+          if (nextHigh || nextLow) tideCoverage.add(beachId);
         }
       }
 
@@ -229,8 +318,27 @@ async function getBeachSubPageCoverage(
           message: waterTempResponse.error.message,
         });
       } else {
-        for (const row of (waterTempResponse.data ?? []) as BeachCoverageRow[]) {
-          if (row.beach_id) waterTempCoverage.add(row.beach_id);
+        const rows = (waterTempResponse.data ?? []) as WaterTempCoverageRow[];
+        warnIfTruncated(rows.length, "water-temperature");
+        // Pick the newest row per beach -- the one getWaterTempMetaData would
+        // select -- then apply the same parse and validity bounds. A present
+        // but unparseable reading is not coverage.
+        const newest = new Map<string, WaterTempCoverageRow>();
+        for (const row of rows) {
+          if (!row.beach_id) continue;
+          const current = newest.get(row.beach_id);
+          if (
+            !current ||
+            Date.parse(row.forecast_at ?? "") >
+              Date.parse(current.forecast_at ?? "")
+          ) {
+            newest.set(row.beach_id, row);
+          }
+        }
+        for (const [beachId, row] of newest) {
+          if (parseWaterTempF(row.water_temp) !== null) {
+            waterTempCoverage.add(beachId);
+          }
         }
       }
     }
@@ -263,22 +371,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const beachesResponse = await getBeaches();
   const allBeaches =
     beachesResponse.success && beachesResponse.data ? beachesResponse.data : [];
-  const [forecastIndexabilityByBeachId, beachSubPageCoverage] = await Promise.all([
-    getForecastIndexabilityForBeaches(
-      allBeaches.map((beach) => ({ id: beach.id, timezone: beach.timezone })),
-    ),
-    getBeachSubPageCoverage(allBeaches.map((beach) => beach.id)),
-  ]);
+  const [forecastIndexabilityByBeachId, beachSubPageCoverage] =
+    await Promise.all([
+      getForecastIndexabilityForBeaches(
+        allBeaches.map((beach) => ({ id: beach.id, timezone: beach.timezone })),
+      ),
+      getBeachSubPageCoverage(allBeaches.map((beach) => beach.id)),
+    ]);
   const reviewedCityEditorial = await getReviewedCityEditorialContent();
   const cityEditorialRoutes = new Map<string, CityEditorialRoute>();
-  const selectedCityEditorial = new Map<string, (typeof reviewedCityEditorial)[number]>();
+  const selectedCityEditorial = new Map<
+    string,
+    (typeof reviewedCityEditorial)[number]
+  >();
   const editorialRows = [...reviewedCityEditorial].sort((left, right) => {
     const leftReviewed = left.editorial_reviewed_at ? 0 : 1;
     const rightReviewed = right.editorial_reviewed_at ? 0 : 1;
     if (leftReviewed !== rightReviewed) return leftReviewed - rightReviewed;
-    const reviewedComparison = (right.editorial_reviewed_at ?? "").localeCompare(left.editorial_reviewed_at ?? "");
+    const reviewedComparison = (
+      right.editorial_reviewed_at ?? ""
+    ).localeCompare(left.editorial_reviewed_at ?? "");
     if (reviewedComparison !== 0) return reviewedComparison;
-    const updatedComparison = (right.updated_at ?? "").localeCompare(left.updated_at ?? "");
+    const updatedComparison = (right.updated_at ?? "").localeCompare(
+      left.updated_at ?? "",
+    );
     if (updatedComparison !== 0) return updatedComparison;
     return (left.intent === null ? 0 : 1) - (right.intent === null ? 0 : 1);
   });
@@ -288,9 +404,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       editorial.country_slug,
       editorial.state_slug,
       editorial.city_slug,
-      editorial.intent === "general" ? null : editorial.intent ?? null,
+      editorial.intent === "general" ? null : (editorial.intent ?? null),
     );
-    if (!selectedCityEditorial.has(key)) selectedCityEditorial.set(key, editorial);
+    if (!selectedCityEditorial.has(key))
+      selectedCityEditorial.set(key, editorial);
   }
 
   for (const editorial of selectedCityEditorial.values()) {
@@ -299,7 +416,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         editorial.country_slug,
         editorial.state_slug,
         editorial.city_slug,
-        editorial.intent === "general" ? null : editorial.intent ?? null,
+        editorial.intent === "general" ? null : (editorial.intent ?? null),
       ),
       {
         editorial,
@@ -435,7 +552,10 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
  */
 export function buildBeachRoutes(
   beaches: NonNullable<Awaited<ReturnType<typeof getBeaches>>["data"]>,
-  forecastIndexabilityByBeachId: ReadonlyMap<string, ForecastIndexabilitySnapshot>,
+  forecastIndexabilityByBeachId: ReadonlyMap<
+    string,
+    ForecastIndexabilitySnapshot
+  >,
   subPageCoverage?: BeachSubPageCoverage,
 ): MetadataRoute.Sitemap {
   const subPageTypes = ["tides", "water-temp"] as const;
@@ -451,7 +571,9 @@ export function buildBeachRoutes(
     .flatMap((beach) => {
       const beachPath = buildBeachUrl(beach);
       const beachUrl = `${baseUrl}${beachPath}`;
-      const countrySlug = slugifyAscii(normalizeBeachCountry(beach.country) ?? "");
+      const countrySlug = slugifyAscii(
+        normalizeBeachCountry(beach.country) ?? "",
+      );
 
       const lastModifiedDate = latestSitemapDate(
         countrySlug === "mexico"
@@ -474,10 +596,12 @@ export function buildBeachRoutes(
 
       const candidateRoutes = [
         ...(forecastIndexable
-          ? [{
-          url: beachUrl,
-          lastModified: lastModifiedDate,
-        }]
+          ? [
+              {
+                url: beachUrl,
+                lastModified: lastModifiedDate,
+              },
+            ]
           : []),
         ...(hasDedicatedSubPages
           ? subPageTypes.flatMap((subPage) => {
@@ -487,15 +611,15 @@ export function buildBeachRoutes(
                   ? subPageCoverage.tideCoverage.has(beach.id)
                   : subPageCoverage.waterTempCoverage.has(beach.id)
                 : true;
-              return isBeachSubPageIndexable(
-                forecastSnapshot,
-                subPagePath,
-                { hasSubPageData },
-              )
-                ? [{
-                    url: `${baseUrl}${subPagePath}`,
-                    lastModified: lastModifiedDate,
-                  }]
+              return isBeachSubPageIndexable(forecastSnapshot, subPagePath, {
+                hasSubPageData,
+              })
+                ? [
+                    {
+                      url: `${baseUrl}${subPagePath}`,
+                      lastModified: lastModifiedDate,
+                    },
+                  ]
                 : [];
             })
           : []),
@@ -600,7 +724,10 @@ async function getLocationRoutes(
         // Cities without scored beaches redirect to /map, wasting crawl budget.
         // Metro areas are exempt — their content is aggregated from constituent
         // cities at runtime, so they won't appear in the per-beach validCitySlugs set.
-        if (!(location as any).isMetro && !validCitySlugs.has(`${stateSlug}/${citySlug}`)) {
+        if (
+          !(location as any).isMetro &&
+          !validCitySlugs.has(`${stateSlug}/${citySlug}`)
+        ) {
           filteredCount++;
           continue;
         }
@@ -610,7 +737,8 @@ async function getLocationRoutes(
             editorial,
             null,
             canonicalPath,
-            (location.beachCount ?? 0) >= 1 || Boolean((location as any).isMetro),
+            (location.beachCount ?? 0) >= 1 ||
+              Boolean((location as any).isMetro),
           )
         ) {
           continue;
@@ -633,7 +761,9 @@ async function getLocationRoutes(
       const citySlug = slugifyAscii(location.city);
       if (countrySlug && regionSlug && isValidCountrySlug(countrySlug)) {
         internationalHubs.add(`${baseUrl}/beaches/${countrySlug}`);
-        internationalHubs.add(`${baseUrl}/beaches/${countrySlug}/${regionSlug}`);
+        internationalHubs.add(
+          `${baseUrl}/beaches/${countrySlug}/${regionSlug}`,
+        );
       }
       if (countrySlug && regionSlug && citySlug) {
         const editorial = cityEditorialRoutes.get(
@@ -665,16 +795,22 @@ async function getLocationRoutes(
   }
 
   if (filteredCount > 0) {
-    console.log(`Sitemap: Filtered ${filteredCount} city routes without valid beaches`);
+    console.log(
+      `Sitemap: Filtered ${filteredCount} city routes without valid beaches`,
+    );
   }
 
   // Add state-level pages
-  const stateRoutes: MetadataRoute.Sitemap = [...usaStates].map((stateSlug) => ({
-    url: `${baseUrl}/beaches/usa/${stateSlug}`,
-    lastModified: SITEMAP_CONTENT_VERSIONS.locationTemplate,
-  }));
+  const stateRoutes: MetadataRoute.Sitemap = [...usaStates].map(
+    (stateSlug) => ({
+      url: `${baseUrl}/beaches/usa/${stateSlug}`,
+      lastModified: SITEMAP_CONTENT_VERSIONS.locationTemplate,
+    }),
+  );
 
-  const internationalHubRoutes: MetadataRoute.Sitemap = [...internationalHubs].map((url) => ({
+  const internationalHubRoutes: MetadataRoute.Sitemap = [
+    ...internationalHubs,
+  ].map((url) => ({
     url,
     lastModified: SITEMAP_CONTENT_VERSIONS.locationTemplate,
   }));
@@ -700,17 +836,31 @@ export async function buildIntentRoutes(
   // Skill-based intents that require cities to have matching beach skill levels
   const BEGINNER_INTENTS = new Set(["beginner", "longboard"]);
   const FILTERED_INTENTS = new Set(["beginner", "longboard", "least-crowded"]);
-  const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
+  const intents = [
+    "beginner",
+    "least-crowded",
+    "tide",
+    "water-temp",
+    "longboard",
+    "dawn-patrol",
+    "sunset",
+  ];
 
   const routes: MetadataRoute.Sitemap = [];
 
   // City-level intent pages (database-driven)
   try {
     const citiesResult = await getAllCitiesWithBeachSkills(1);
-    if (citiesResult.success && citiesResult.data && citiesResult.data.length > 0) {
+    if (
+      citiesResult.success &&
+      citiesResult.data &&
+      citiesResult.data.length > 0
+    ) {
       // Filter to US-only cities (non-US cities lack state codes for disambiguation)
       const usCities = citiesResult.data.filter(
-        (c) => c.country?.toUpperCase() === "USA" || c.country?.toUpperCase() === "US"
+        (c) =>
+          c.country?.toUpperCase() === "USA" ||
+          c.country?.toUpperCase() === "US",
       );
       const collisionMap = COLLISION_CITY_MAP;
 
@@ -724,7 +874,11 @@ export async function buildIntentRoutes(
       }
 
       for (const cityRecord of usCities) {
-        const citySlug = buildCitySlug(cityRecord.city, cityRecord.state, collisionMap);
+        const citySlug = buildCitySlug(
+          cityRecord.city,
+          cityRecord.state,
+          collisionMap,
+        );
         if (!citySlug) continue;
 
         // Single-beach cities: allow only in thin states (<20 beaches) WITH editorial content
@@ -736,20 +890,32 @@ export async function buildIntentRoutes(
         // For cities with exactly 2 beaches, require editorial quality content
         // (description + at least one editorial field on both beaches).
         // Cities with 3+ beaches have sufficient content depth without this check.
-        if (cityRecord.beachCount === 2 && !cityRecord.hasEditorialContent) continue;
+        if (cityRecord.beachCount === 2 && !cityRecord.hasEditorialContent)
+          continue;
 
         for (const intent of intents) {
           const editorial = cityEditorialRoutes.get(
-            cityEditorialKey("usa", cityRecord.state, cityToSlug(cityRecord.city), intent),
+            cityEditorialKey(
+              "usa",
+              cityRecord.state,
+              cityToSlug(cityRecord.city),
+              intent,
+            ),
           );
           // Filter skill-based and crowd-based intents to cities with matching beaches.
           // This ensures empty intent pages are NOT included in the sitemap.
           if (FILTERED_INTENTS.has(intent)) {
-            if (BEGINNER_INTENTS.has(intent) && !cityRecord.hasBeginnerBeaches) continue;
-            if (intent === "least-crowded" && !cityRecord.hasLeastCrowdedBeaches) continue;
+            if (BEGINNER_INTENTS.has(intent) && !cityRecord.hasBeginnerBeaches)
+              continue;
+            if (
+              intent === "least-crowded" &&
+              !cityRecord.hasLeastCrowdedBeaches
+            )
+              continue;
           }
           if (intent === "tide" && cityRecord.hasTideData === false) continue;
-          if (intent === "water-temp" && cityRecord.hasWaterTempData === false) continue;
+          if (intent === "water-temp" && cityRecord.hasWaterTempData === false)
+            continue;
 
           const canonicalPath = `/${intent}/${citySlug}`;
           const dataRich =
@@ -850,16 +1016,18 @@ function getCamRoutes(): MetadataRoute.Sitemap {
  * Curated SEO funnel pages.
  */
 function getSeoFunnelRoutes(): MetadataRoute.Sitemap {
-  return INDEXABLE_SEO_FUNNEL_PAGES
-    .filter((page) => !isStateIntentPath(page.path))
-    .map((page) => ({
-      url: `${baseUrl}${page.path}`,
-      lastModified: SITEMAP_CONTENT_VERSIONS.seoFunnelContent,
-    }));
+  return INDEXABLE_SEO_FUNNEL_PAGES.filter(
+    (page) => !isStateIntentPath(page.path),
+  ).map((page) => ({
+    url: `${baseUrl}${page.path}`,
+    lastModified: SITEMAP_CONTENT_VERSIONS.seoFunnelContent,
+  }));
 }
 
 function isStateIntentPath(path: string): boolean {
-  const match = path.match(/^\/(beginner|least-crowded|tide|water-temp|longboard|dawn-patrol|sunset)\/([a-z]{2})$/);
+  const match = path.match(
+    /^\/(beginner|least-crowded|tide|water-temp|longboard|dawn-patrol|sunset)\/([a-z]{2})$/,
+  );
   return Boolean(match?.[2] && isValidStateSlug(match[2]));
 }
 
@@ -914,7 +1082,10 @@ async function getBestTimeToSurfRoutes(
 
     return [...routes, ...cityRoutes];
   } catch (error) {
-    console.error("Sitemap: Failed to generate best-time-to-surf routes", error);
+    console.error(
+      "Sitemap: Failed to generate best-time-to-surf routes",
+      error,
+    );
     return routes;
   }
 }
@@ -955,7 +1126,7 @@ function getLearnRoutes(): MetadataRoute.Sitemap {
       lastModified: learnArticles.reduce<string>(
         (latest, article) =>
           (article.dateModified ?? article.datePublished ?? "") > latest
-            ? article.dateModified ?? article.datePublished ?? latest
+            ? (article.dateModified ?? article.datePublished ?? latest)
             : latest,
         SITEMAP_CONTENT_VERSIONS.learnContentFallback,
       ),

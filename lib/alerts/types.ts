@@ -67,6 +67,7 @@ export interface BeachAlertMeta {
 }
 
 export interface ForecastHour {
+  forecast_id?: string;
   forecast_at: string;
   wave_height: number | null;
   wave_period: number | null;
@@ -92,6 +93,8 @@ export interface MatchingWindow {
   window_start: string;
   window_end: string;
   best_hour: string;
+  /** The selected enhanced_forecasts row identity, when sourced from a live row. */
+  forecast_id?: string;
   best_score: number;
   conditions_snapshot: Record<string, unknown>;
   notify_email: boolean;

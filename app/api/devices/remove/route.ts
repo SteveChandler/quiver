@@ -24,10 +24,14 @@ type DevicePlatform = (typeof VALID_PLATFORMS)[number];
 interface RemoveDeviceRequestBody {
   platform?: unknown;
   device_token?: unknown;
+  installation_id?: unknown;
 }
 
 function isValidPlatform(value: unknown): value is DevicePlatform {
-  return typeof value === "string" && VALID_PLATFORMS.includes(value as DevicePlatform);
+  return (
+    typeof value === "string" &&
+    VALID_PLATFORMS.includes(value as DevicePlatform)
+  );
 }
 
 async function parseRemoveDeviceRequestBody(
@@ -45,52 +49,94 @@ async function parseRemoveDeviceRequestBody(
   }
 }
 
-export const POST = withAuth(async (request: NextRequest, { user, supabase }) => {
-  const body = await parseRemoveDeviceRequestBody(request);
-  const { platform, device_token } = body;
+export const POST = withAuth(
+  async (request: NextRequest, { user, supabase }) => {
+    const body = await parseRemoveDeviceRequestBody(request);
+    const { platform, device_token, installation_id } = body;
 
-  if (!platform) {
-    return createErrorResponse("platform is required", undefined, 400);
-  }
-
-  if (!isValidPlatform(platform)) {
-    return createErrorResponse(
-      'Invalid platform. Must be "ios", "android", or "web"',
-      undefined,
-      400,
-    );
-  }
-
-  if (device_token != null && typeof device_token !== "string") {
-    return createErrorResponse("device_token must be a string", undefined, 400);
-  }
-
-  if (device_token != null) {
-    // Token-scoped removal
-    const { error } = await supabase
-      .from("user_devices")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("platform", platform)
-      .eq("device_token", device_token);
-
-    if (error) {
-      console.error("Device token removal failed:", error);
-      throw error;
+    if (!platform) {
+      return createErrorResponse("platform is required", undefined, 400);
     }
-  } else {
-    // Platform-scoped removal (native sign-out path — no token available)
-    const { error } = await supabase
-      .from("user_devices")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("platform", platform);
 
-    if (error) {
-      console.error("Device platform removal failed:", error);
-      throw error;
+    if (!isValidPlatform(platform)) {
+      return createErrorResponse(
+        'Invalid platform. Must be "ios", "android", or "web"',
+        undefined,
+        400,
+      );
     }
-  }
 
-  return createSuccessResponse({ message: "Device removed successfully", platform });
-}, { errorMessage: "Failed to remove device" });
+    if (device_token != null && typeof device_token !== "string") {
+      return createErrorResponse(
+        "device_token must be a string",
+        undefined,
+        400,
+      );
+    }
+    if (
+      installation_id != null &&
+      (typeof installation_id !== "string" ||
+        installation_id.trim().length === 0 ||
+        installation_id.length > 200)
+    ) {
+      return createErrorResponse(
+        "installation_id must be a non-empty string",
+        undefined,
+        400,
+      );
+    }
+
+    if (installation_id != null) {
+      const { error } = await supabase
+        .from("user_devices")
+        .update({
+          retired_at: new Date().toISOString(),
+          retired_reason: "logout",
+        })
+        .eq("user_id", user.id)
+        .eq("installation_id", installation_id)
+        .is("retired_at", null);
+      if (error) throw error;
+    } else if (device_token != null) {
+      // Token-scoped removal
+      const { error } = await supabase
+        .from("user_devices")
+        .update({
+          retired_at: new Date().toISOString(),
+          retired_reason: "logout",
+        })
+        .eq("user_id", user.id)
+        .eq("platform", platform)
+        .eq("device_token", device_token)
+        .is("retired_at", null);
+
+      if (error) {
+        console.error("Device token removal failed:", error);
+        throw error;
+      }
+    } else {
+      // Platform-scoped retirement (legacy sign-out path — exact installation is
+      // unknowable, so do not claim the legacy physical invariant is solved).
+      const { error } = await supabase
+        .from("user_devices")
+        .update({
+          retired_at: new Date().toISOString(),
+          retired_reason: "logout_platform_legacy",
+        })
+        .eq("user_id", user.id)
+        .eq("platform", platform)
+        .is("retired_at", null);
+
+      if (error) {
+        console.error("Device platform removal failed:", error);
+        throw error;
+      }
+    }
+
+    return createSuccessResponse({
+      message: "Device removed successfully",
+      platform,
+    });
+  },
+  { errorMessage: "Failed to remove device" },
+);

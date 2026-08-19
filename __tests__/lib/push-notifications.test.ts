@@ -44,9 +44,11 @@ describe("Push Notifications Service", () => {
 
       mockSupabaseFrom.mockReturnValue({
         select: jest.fn<any>().mockReturnValue({
-          in: jest.fn<any>().mockResolvedValue({
-            data: mockDevices,
-            error: null,
+          in: jest.fn<any>().mockReturnValue({
+            is: jest.fn<any>().mockResolvedValue({
+              data: mockDevices,
+              error: null,
+            }),
           }),
         }),
       });
@@ -146,12 +148,13 @@ describe("Push Notifications Service", () => {
     });
 
     it("prunes invalid tokens from user_devices", async () => {
-      const mockDeleteIn = jest.fn<any>().mockResolvedValue({ error: null });
-      const mockDelete = jest.fn<any>().mockReturnValue({ in: mockDeleteIn });
+      const mockRetireIs = jest.fn<any>().mockResolvedValue({ error: null });
+      const mockRetireIn = jest.fn<any>().mockReturnValue({ is: mockRetireIs });
+      const mockRetireUpdate = jest.fn<any>().mockReturnValue({ in: mockRetireIn });
 
       mockSupabaseFrom.mockImplementation((table: string) => {
         if (table === "user_devices") {
-          return { delete: mockDelete };
+          return { update: mockRetireUpdate };
         }
         return {};
       });
@@ -177,8 +180,11 @@ describe("Push Notifications Service", () => {
         { to: "stale-token", title: "T", body: "B" },
       ]);
 
-      expect(mockDelete).toHaveBeenCalled();
-      expect(mockDeleteIn).toHaveBeenCalledWith("device_token", ["stale-token"]);
+      expect(mockRetireUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ retired_reason: "provider_invalid_token" }),
+      );
+      expect(mockRetireIn).toHaveBeenCalledWith("device_token", ["stale-token"]);
+      expect(mockRetireIs).toHaveBeenCalledWith("retired_at", null);
     });
 
     it("routes Expo push tokens through Expo Push Service", async () => {

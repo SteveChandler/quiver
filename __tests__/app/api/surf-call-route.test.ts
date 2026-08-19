@@ -201,7 +201,7 @@ describe("GET /api/surf/call", () => {
 
   it("uses the canonical decision as the Surf Call verdict authority", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
-    mockBeachQuery({
+    const beachQuery = mockBeachQuery({
       id: beachId,
       name: "Ocean Beach Pier",
       slug: "ocean-beach-pier",
@@ -223,6 +223,14 @@ describe("GET /api/surf/call", () => {
           throwOnFailure: true,
         }),
       }),
+    );
+    expect(beachQuery.select).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "max_wind_onshore_mph, max_wind_any_mph, swell_window_min_deg, swell_window_max_deg",
+      ),
+    );
+    expect(beachQuery.select).toHaveBeenCalledWith(
+      expect.stringContaining("shoaling_factors"),
     );
     expect(body.data.sessionDecision).toMatchObject({
       decisionId: "d".repeat(64),

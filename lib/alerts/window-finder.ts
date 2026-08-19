@@ -6,6 +6,7 @@ export interface FoundWindow {
   window_start: string;
   window_end: string;
   best_hour: string;
+  forecast_id?: string;
   best_score: number;
   conditions_snapshot: Record<string, unknown>;
 }
@@ -83,6 +84,7 @@ function buildWindow(
     window_start: hours[0].forecast_at,
     window_end: new Date(lastHourEndMs).toISOString(),
     best_hour: best.forecast_at,
+    forecast_id: best.forecast_id,
     best_score: bestScore,
     conditions_snapshot: {
       wave_height: best.wave_height,
@@ -94,6 +96,7 @@ function buildWindow(
       wind_direction_deg: best.wind_direction_deg,
       tide_height: best.tide_height,
       tide_status: best.tide_status,
+      ...(best.forecast_id ? { forecast_id: best.forecast_id } : {}),
       ...(conditions.beginner_sandy_window
         ? {
             beginner_window_reason: buildBeginnerWindowReason(conditions, best),

@@ -23,8 +23,9 @@ let firebaseSkipWarned = false;
 
 /**
  * Core Firebase Admin sender. Takes fully-built messages, fans out via
- * `sendEach`, and prunes tokens rejected with invalid-token errors from
- * `user_devices`. All other senders in this module delegate here.
+ * `sendEach`, and retires invalid provider tokens globally. A provider token
+ * is not user-scoped, and retaining rows for the same invalid token would
+ * cause every future fan-out to rediscover the same dead target.
  */
 async function sendViaFirebase(messages: PushMessage[]): Promise<PushResult> {
   if (messages.length === 0) return { success: 0, failed: 0 };
@@ -34,25 +35,31 @@ async function sendViaFirebase(messages: PushMessage[]): Promise<PushResult> {
     if (!firebaseSkipWarned) {
       firebaseSkipWarned = true;
       console.error(
-        "[push-notifications] Firebase Admin SDK unavailable — FCM messages not sent. Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY."
+        "[push-notifications] Firebase Admin SDK unavailable — FCM messages not sent. Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY.",
       );
     }
-    return { success: 0, failed: messages.length, errors: ["Firebase not configured"] };
+    return {
+      success: 0,
+      failed: messages.length,
+      errors: ["Firebase not configured"],
+    };
   }
 
   const result = await dispatchPushMessages({ messages, fcm });
   const invalidTokens = result.invalidTokens;
 
   if (invalidTokens.length > 0) {
-    console.log(`Pruning ${invalidTokens.length} invalid device tokens`);
     const supabase = createSupabaseServiceRoleClient();
-    const { error: deleteError } = await supabase
+    const { error: retireError } = await supabase
       .from("user_devices")
-      .delete()
-      .in("device_token", invalidTokens);
-
-    if (deleteError) {
-      console.error("Failed to prune invalid tokens:", deleteError);
+      .update({
+        retired_at: new Date().toISOString(),
+        retired_reason: "provider_invalid_token",
+      })
+      .in("device_token", invalidTokens)
+      .is("retired_at", null);
+    if (retireError) {
+      console.error("Failed to retire invalid device tokens:", retireError);
     }
   }
 
@@ -70,7 +77,9 @@ async function sendViaFirebase(messages: PushMessage[]): Promise<PushResult> {
  * Returns void for backwards compatibility with the original
  * `lib/alerts/push-sender.ts` signature.
  */
-export async function sendPushNotifications(messages: PushMessage[]): Promise<void> {
+export async function sendPushNotifications(
+  messages: PushMessage[],
+): Promise<void> {
   await sendViaFirebase(messages);
 }
 
@@ -95,7 +104,9 @@ export async function sendPushNotification({
   if (!getFirebaseAdminMessaging()) {
     if (!firebaseSkipWarned) {
       firebaseSkipWarned = true;
-      console.warn("Firebase Admin SDK not initialized, skipping push notifications");
+      console.warn(
+        "Firebase Admin SDK not initialized, skipping push notifications",
+      );
     }
     return { success: 0, failed: 0, errors: ["Firebase not configured"] };
   }
@@ -106,14 +117,15 @@ export async function sendPushNotification({
     const { data: devices, error: devicesError } = await supabase
       .from("user_devices")
       .select("device_token")
-      .in("user_id", userIds);
+      .in("user_id", userIds)
+      .is("retired_at", null);
 
     if (devicesError || !devices?.length) {
       return { success: 0, failed: 0 };
     }
 
-    const messages: PushMessage[] = devices.map((d) => ({
-      to: d.device_token,
+    const messages: PushMessage[] = devices.map((device) => ({
+      to: device.device_token,
       title,
       body,
       ...(data ? { data } : {}),
@@ -122,7 +134,7 @@ export async function sendPushNotification({
     const result = await sendViaFirebase(messages);
 
     console.log(
-      `Push notifications sent: ${result.success} success, ${result.failed} failed`
+      `Push notifications sent: ${result.success} success, ${result.failed} failed`,
     );
 
     return result;

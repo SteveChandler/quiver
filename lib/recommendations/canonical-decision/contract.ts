@@ -48,6 +48,12 @@ const personalMatchEvidenceSchema = z.object({
   sessionCount: z.number().int().nonnegative(),
   reasons: z.array(z.string().min(1)),
 }).strict();
+const decisionEffectSchema = z.object({
+  code: z.string().min(1),
+  severity: z.enum(["informational", "material", "severe"]),
+  verdictCeiling: z.number().finite().min(0).max(100).optional(),
+  message: z.string().min(1),
+}).strict();
 const selectionSchema = z.object({
   candidateId: z.string().min(1),
   beachId: z.string().min(1),
@@ -65,6 +71,7 @@ const selectionSchema = z.object({
     conditionScore: z.number().finite(),
     recommendationLabel: z.enum(["Worth it", "Maybe", "Skip"]).nullable(),
     personalMatch: personalMatchEvidenceSchema.nullable(),
+    effects: z.array(decisionEffectSchema).optional(),
   }).strict(),
 }).strict();
 
@@ -96,6 +103,7 @@ export const canonicalSessionDecisionSchema = z.object({
   selection: selectionSchema.nullable(),
   skillEligibility: skillEligibilitySchema,
   holdEpoch: z.string().min(1),
+  effects: z.array(decisionEffectSchema).optional(),
 }).strict().superRefine((decision, context) => {
   if (decision.verdict === "go" && decision.reasonCode !== "selected_go") {
     context.addIssue({

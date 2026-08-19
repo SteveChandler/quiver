@@ -35,6 +35,69 @@ function formatTideTime(ts: string | Date, timezone: string = DEFAULT_TIMEZONE):
   });
 }
 
+const METERS_TO_FEET = 3.28084;
+
+export interface TideHeightRow {
+  ts: string;
+  tide_height_m: number | null;
+}
+
+export interface NextTideExtremes {
+  nextHigh: { ts: string; heightFt: number } | null;
+  nextLow: { ts: string; heightFt: number } | null;
+}
+
+/**
+ * Find the next high and low tide from an ascending series of hourly heights.
+ *
+ * Shared deliberately: the sitemap and the sub-page's generateMetadata must
+ * decide "does this beach have tide data" from the same computation, or a URL
+ * can be listed in the sitemap while the page it points at answers noindex.
+ * A beach with rows but no detectable extreme is NOT covered.
+ */
+export function findNextTideExtremes(
+  rows: readonly TideHeightRow[],
+): NextTideExtremes {
+  let nextHigh: NextTideExtremes["nextHigh"] = null;
+  let nextLow: NextTideExtremes["nextLow"] = null;
+
+  // Check first data point as potential extreme (edge case)
+  if (rows.length >= 2) {
+    const first = rows[0].tide_height_m;
+    const second = rows[1].tide_height_m;
+    if (first !== null && second !== null) {
+      // First point is high if it's higher than second
+      if (first > second) {
+        nextHigh = { ts: rows[0].ts, heightFt: first * METERS_TO_FEET };
+      }
+      // First point is low if it's lower than second
+      if (first < second) {
+        nextLow = { ts: rows[0].ts, heightFt: first * METERS_TO_FEET };
+      }
+    }
+  }
+
+  // Simple peak detection: look for direction changes
+  for (let i = 1; i < rows.length - 1; i++) {
+    const prev = rows[i - 1].tide_height_m;
+    const curr = rows[i].tide_height_m;
+    const next = rows[i + 1].tide_height_m;
+
+    if (prev !== null && curr !== null && next !== null) {
+      if (curr > prev && curr > next && !nextHigh) {
+        nextHigh = { ts: rows[i].ts, heightFt: curr * METERS_TO_FEET };
+      }
+      if (curr < prev && curr < next && !nextLow) {
+        nextLow = { ts: rows[i].ts, heightFt: curr * METERS_TO_FEET };
+      }
+    }
+
+    if (nextHigh && nextLow) break;
+  }
+
+  return { nextHigh, nextLow };
+}
+
 /**
  * Get tide metadata for SEO purposes.
  *
@@ -91,58 +154,13 @@ export const getTideMetaData = cache(
         return nullResult;
       }
 
-      // Find next high and low from the hourly data
-      // We look for local maxima/minima in the tide heights
-      let nextHigh: { ts: string; height: number } | null = null;
-      let nextLow: { ts: string; height: number } | null = null;
-
-      // Check first data point as potential extreme (edge case)
-      if (rows.length >= 2) {
-        const first = rows[0].tide_height_m;
-        const second = rows[1].tide_height_m;
-        if (first !== null && second !== null) {
-          // First point is high if it's higher than second
-          if (first > second && !nextHigh) {
-            nextHigh = { ts: rows[0].ts, height: first * 3.28084 };
-          }
-          // First point is low if it's lower than second
-          if (first < second && !nextLow) {
-            nextLow = { ts: rows[0].ts, height: first * 3.28084 };
-          }
-        }
-      }
-
-      // Simple peak detection: look for direction changes
-      for (let i = 1; i < rows.length - 1; i++) {
-        const prev = rows[i - 1].tide_height_m;
-        const curr = rows[i].tide_height_m;
-        const next = rows[i + 1].tide_height_m;
-
-        if (prev !== null && curr !== null && next !== null) {
-          // Local maximum (high tide)
-          if (curr > prev && curr > next && !nextHigh) {
-            nextHigh = {
-              ts: rows[i].ts,
-              height: curr * 3.28084, // Convert meters to feet
-            };
-          }
-          // Local minimum (low tide)
-          if (curr < prev && curr < next && !nextLow) {
-            nextLow = {
-              ts: rows[i].ts,
-              height: curr * 3.28084, // Convert meters to feet
-            };
-          }
-        }
-
-        if (nextHigh && nextLow) break;
-      }
+      const { nextHigh, nextLow } = findNextTideExtremes(rows);
 
       return {
         nextHighTime: nextHigh ? formatTideTime(nextHigh.ts, timezone) : null,
         nextLowTime: nextLow ? formatTideTime(nextLow.ts, timezone) : null,
-        nextHighHeight: nextHigh ? Math.round(nextHigh.height * 10) / 10 : null,
-        nextLowHeight: nextLow ? Math.round(nextLow.height * 10) / 10 : null,
+        nextHighHeight: nextHigh ? Math.round(nextHigh.heightFt * 10) / 10 : null,
+        nextLowHeight: nextLow ? Math.round(nextLow.heightFt * 10) / 10 : null,
       };
     } catch (error) {
       console.error("[getTideMetaData] Error fetching tide data:", {

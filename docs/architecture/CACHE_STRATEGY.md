@@ -299,7 +299,6 @@ This table is intentionally pragmatic: it reflects what is implemented in `app/a
 | `/api/forecasts/update-enhanced`    | Public            | CDN              | `s-maxage=600, swr=3600`        | Cached forecast reads with staleness semantics                                |
 | `/api/surf/discover`                | Auth/personalized | Private + ETag   | `private, max-age=300, swr=900` | Uses ETag and private caching (per-user)                                      |
 | `/api/surf/insights`                | Auth/personalized | Private          | `private, max-age=300`          | User-specific insights                                                        |
-| `/api/home/personalized-forecast`   | Auth/personalized | Private          | `private, max-age=300`          | Deprecated wrapper over discovery                                             |
 
 ## Cache Invalidation
 

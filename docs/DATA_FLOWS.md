@@ -732,8 +732,8 @@ Output: PersonalizedInsights
 ```
 1. User opens app
 2. AuthContext provides user session
-3. usePersonalizedHomeForecast hook triggers
-4. GET /api/surf/discover (or /api/home/personalized-forecast)
+3. useSurfDiscovery hook triggers
+4. GET /api/surf/discover
 5. SurfDiscoveryService.getRecommendation():
    a. Build candidate pool (home beach + favorites)
    b. getFreshForecastFromCache() per beach (no API calls)

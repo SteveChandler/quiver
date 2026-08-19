@@ -80,6 +80,19 @@ function mockSuccessfulDeviceRegistration(
 
     return { upsert: mockUpsert };
   });
+  mockSupabase.rpc.mockImplementation(async (_name: string, args: Record<string, unknown>) => {
+    const metadata = (args.p_metadata ?? {}) as Record<string, unknown>;
+    const result = await mockUpsert(
+      {
+        user_id: args.p_user_id,
+        platform: args.p_platform,
+        device_token: args.p_device_token,
+        ...metadata,
+      },
+      { onConflict: "user_id,device_token" },
+    );
+    return result ?? { error: null };
+  });
 
   return { mockUpsert, mockProfileUpdate, mockProfileEq, mockProfileIs };
 }
@@ -540,6 +553,9 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       (mockSupabase.from as jest.Mock).mockReturnValue({
         upsert: mockUpsert,
       });
+      mockSupabase.rpc.mockResolvedValue({
+        error: { message: "Database connection failed" },
+      });
 
       const request = createMockRequest(
         "POST",
@@ -571,6 +587,12 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       });
       (mockSupabase.from as jest.Mock).mockReturnValue({
         upsert: mockUpsert,
+      });
+      mockSupabase.rpc.mockResolvedValue({
+        error: {
+          message: "duplicate key value violates unique constraint",
+          code: "23505",
+        },
       });
 
       const request = createMockRequest(
@@ -907,18 +929,18 @@ describe("Device Token API - DELETE /api/devices/upsert", () => {
       mockAuthenticatedUser(mockSupabase, mockUser);
 
       const mockEq = jest.fn().mockReturnThis();
-      const mockDelete = jest.fn().mockReturnValue({
+      const mockUpdate = jest.fn().mockReturnValue({
         eq: mockEq,
       });
       mockEq.mockImplementation((field: string, value: string) => {
         if (field === "device_token") {
-          return { error: null };
+          return { is: jest.fn().mockResolvedValue({ error: null }) };
         }
         return { eq: mockEq };
       });
 
       (mockSupabase.from as jest.Mock).mockReturnValue({
-        delete: mockDelete,
+        update: mockUpdate,
       });
 
       const request = createMockRequest(
@@ -936,7 +958,10 @@ describe("Device Token API - DELETE /api/devices/upsert", () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(mockDelete).toHaveBeenCalled();
+      expect(mockUpdate).toHaveBeenCalledWith({
+        retired_at: expect.any(String),
+        retired_reason: "logout",
+      });
       expect(mockEq).toHaveBeenCalledWith("user_id", mockUser.id);
       expect(mockEq).toHaveBeenCalledWith(
         "device_token",
@@ -949,18 +974,18 @@ describe("Device Token API - DELETE /api/devices/upsert", () => {
       mockAuthenticatedUser(mockSupabase, mockUser);
 
       const mockEq = jest.fn().mockReturnThis();
-      const mockDelete = jest.fn().mockReturnValue({
+      const mockUpdate = jest.fn().mockReturnValue({
         eq: mockEq,
       });
       mockEq.mockImplementation((field: string, value: string) => {
         if (field === "device_token") {
-          return { error: null };
+          return { is: jest.fn().mockResolvedValue({ error: null }) };
         }
         return { eq: mockEq };
       });
 
       (mockSupabase.from as jest.Mock).mockReturnValue({
-        delete: mockDelete,
+        update: mockUpdate,
       });
 
       const request = createMockRequest(
@@ -1027,18 +1052,22 @@ describe("Device Token API - DELETE /api/devices/upsert", () => {
       mockAuthenticatedUser(mockSupabase, mockUser);
 
       const mockEq = jest.fn().mockReturnThis();
-      const mockDelete = jest.fn().mockReturnValue({
+      const mockUpdate = jest.fn().mockReturnValue({
         eq: mockEq,
       });
       mockEq.mockImplementation((field: string) => {
         if (field === "device_token") {
-          return { error: { message: "Database error during deletion" } };
+          return {
+            is: jest.fn().mockResolvedValue({
+              error: { message: "Database error during deletion" },
+            }),
+          };
         }
         return { eq: mockEq };
       });
 
       (mockSupabase.from as jest.Mock).mockReturnValue({
-        delete: mockDelete,
+        update: mockUpdate,
       });
 
       const request = createMockRequest(
@@ -1065,19 +1094,19 @@ describe("Device Token API - DELETE /api/devices/upsert", () => {
       mockAuthenticatedUser(mockSupabase, mockUser);
 
       const mockEq = jest.fn().mockReturnThis();
-      const mockDelete = jest.fn().mockReturnValue({
+      const mockUpdate = jest.fn().mockReturnValue({
         eq: mockEq,
       });
       mockEq.mockImplementation((field: string) => {
         if (field === "device_token") {
           // No error even if token doesn't exist
-          return { error: null };
+          return { is: jest.fn().mockResolvedValue({ error: null }) };
         }
         return { eq: mockEq };
       });
 
       (mockSupabase.from as jest.Mock).mockReturnValue({
-        delete: mockDelete,
+        update: mockUpdate,
       });
 
       const request = createMockRequest(

@@ -102,15 +102,19 @@ const navigateLightbox = (direction: "prev" | "next") => {
 
 **File Validation System:**
 
+The shared policy in `lib/media/session-photo-policy.ts` is the source of truth:
+it accepts JPEG/JPG/PNG/WebP input up to 10 MiB before compression. The storage
+helper separately enforces a 5 MiB limit after compression.
+
 ```typescript
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB before compression
-const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+import { validateSessionPhotoInput } from "@/lib/media/session-photo-policy";
 
 const validateFile = (file: File): string | null => {
-  if (!ALLOWED_TYPES.includes(file.type)) {
+  const validationError = validateSessionPhotoInput(file);
+  if (validationError === "invalid_file_type") {
     return "Only JPEG, PNG, and WebP images are allowed";
   }
-  if (file.size > MAX_FILE_SIZE) {
+  if (validationError === "file_too_large") {
     return "File size must be less than 10MB";
   }
   return null;
@@ -357,12 +361,14 @@ onDrop = { handleDrop };
 ### **File Security**
 
 ```typescript
-// Strict file type validation
-const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+// Shared input policy: accepted MIME types and the 10 MiB pre-compression limit.
+import {
+  SESSION_PHOTO_MAX_STORAGE_BYTES,
+} from "@/lib/media/session-photo-policy";
 
-// Size limits with user feedback
-if (file.size > MAX_FILE_SIZE) {
-  return "File size must be less than 10MB";
+// Storage policy: the compressed output must be at most 5 MiB.
+if (compressedFile.size > SESSION_PHOTO_MAX_STORAGE_BYTES) {
+  return "File is too large after compression";
 }
 
 // Storage quota enforcement

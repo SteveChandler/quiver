@@ -58,13 +58,6 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   validateCronRequest: jest.fn(() => true),
 }));
 
-jest.mock("@/lib/recommendations/major-event-hold/water-quality-visibility", () => ({
-  filterBeachesByWaterQualityVisibility: jest.fn(
-    async (beaches: Array<{ id: string }>) =>
-      beaches.filter((beach) => beach.id !== "held-beach"),
-  ),
-}));
-
 jest.mock("@/lib/recommendations/selection", () => ({
   rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
 }));

@@ -74,6 +74,22 @@ describe('Swell Interference Scorer', () => {
   });
 
   describe('analyzed two-swell path — relevance gate applies', () => {
+    it('emits a material structured effect for crossing secondary energy above 10%', () => {
+      const result = swellInterferenceScorer.score(createInput({
+        primarySwell: createSwellComponent(4, 14, 270),
+        secondarySwell: createSwellComponent(2, 10, 0),
+      }));
+
+      expect(result.warnings).toContain('Crossing swells creating choppy conditions');
+      expect(result.effects).toEqual([
+        expect.objectContaining({
+          code: 'crossing_swells',
+          severity: 'material',
+          verdictCeiling: 65,
+        }),
+      ]);
+    });
+
     it('does not attenuate an aligned 12s + 12s pair', () => {
       const input = createInput({
         primarySwell: createSwellComponent(3, 12, 270),

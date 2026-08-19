@@ -11,11 +11,8 @@ const mockFrom = jest.fn();
 const mockSelect = jest.fn();
 const mockIn = jest.fn();
 const mockLimit = jest.fn();
-const mockFilterWaterQuality = jest.fn(async (beaches: Array<{ id: string }>) =>
-  beaches.filter((beach) => beach.id !== "held-beach"),
-);
 const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) =>
-  mockFilterWaterQuality(beaches),
+  beaches.filter((beach) => beach.id !== "held-beach"),
 );
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -32,11 +29,6 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
     withRateLimit: (handler: any) => handler,
   };
 });
-
-jest.mock("@/lib/recommendations/major-event-hold/water-quality-visibility", () => ({
-  filterBeachesByWaterQualityVisibility: (beaches: Array<{ id: string }>) =>
-    mockFilterWaterQuality(beaches),
-}));
 
 jest.mock("@/lib/recommendations/selection", () => ({
   rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),

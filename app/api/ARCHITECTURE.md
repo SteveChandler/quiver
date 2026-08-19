@@ -199,6 +199,7 @@ export const GET = withAuth(handler);
 - **Methods**: `GET`, `PATCH`
 - **Authentication**: User session validation
 - **Function**: Provides session analytics and privacy controls
+- **Implementation**: Reads analytics and calendar data from `lib/analytics/session-analytics.ts`
 - **Features**:
   - User-specific data isolation (`userId=me` pattern)
   - Calendar heatmap data generation
@@ -617,6 +618,16 @@ export const GET = withAuth(handler);
   - Temporary download URL generation
 - **Security**: User data isolation and authentication
 
+### 📸 `/sessions/[id]/photos` - Session Photo Media
+
+#### `/sessions/[id]/photos/route.ts`
+
+- **Methods**: `GET`, `POST`
+- **Authentication**: Optional for public-session reads; required for uploads and private-session reads
+- **Function**: Lists session media and uploads owner-scoped session photos
+- **Policy**: `lib/media/session-photo-policy.ts` owns the accepted MIME types, 10 MiB input limit, and 5 MiB storage limit
+- **Behavior**: Upload failures return the established validation or stage-specific HTTP error responses and never return a successful response for a failed write
+
 ---
 
 ### 🎯 `/me` - Current User Data
@@ -850,43 +861,6 @@ import {
 
 ---
 
-### 🌅 `/recommendations/morning` - Near-Term Session Picks
-
-#### `/recommendations/morning/route.ts`
-
-- **Methods**: `POST`, `GET`
-- **Function**: Returns the best near-term 2-hour surf windows around a user-provided location.
-- **Inputs**:
-  - `POST` JSON: `{ lat: number, lon: number, radius_km?: number = 25, tz?: string = 'America/Los_Angeles', horizon_hours?: number = 5 }`
-  - `GET` query: `lat`, `lon`, optional `radius_km`, `date_local`, `tz`, `horizon_hours` (validated via `zod`)
-- **Time Window Logic**:
-  - If current local time is dark: use tomorrow's sunrise → up to 5 hours or 11:00 local, whichever is earlier
-  - Else: from now (clamped to sunrise) → min(sunset, now + `horizon_hours`)
-- **Data Sources** (see `lib/surf/`):
-  - `getBeachesNear(lat, lon, radius_km)`
-  - `getMarineForecastRange(beachId, startUtc, endUtc)`
-  - `getTideForecastRange(beachId, startUtc, endUtc)`
-  - Warms `sun_times` via `getSunTimes(beachId, localDateStr, lat, lon)`
-- **Scoring**:
-  - Limits candidate beaches to top 8 by distance before scoring to reduce load
-  - Computes top windows per-beach using `topWindowsInRange` (120-minute windows)
-  - Sorts by `meanScore` descending; returns top 3 cards via `windowBlurbDetailed`
-  - Ensures non-overlapping windows in final selection to avoid double-booking
-- **Outputs**:
-  - `{ mode: 'tomorrow_morning' | 'next_windows', title, range_local: { start, end, tz }, picks: Card[] }`
-- **Usage**:
-  - Warmed on mount by `HomeScreen` and `PlanSessionPage` when `useGeo` yields coordinates
-- **Caching**:
-  - Thin in-memory cache via `apiCache` keyed by `geohash(lat,lon,4)|localDate|radius|horizon|tz`
-  - TTL ~12 minutes (10-15 min window) to avoid hammering DB while staying fresh
-- **SQL Precompute**:
-  - Materialized view `public.mv_beach_hourly_scores` pre-joins `marine_forecasts` and `tide_forecasts` at exact timestamps for rapid reads
-  - Columns: `beach_id, ts_utc, hs_m, tp_s, swell_dir_deg, wind_spd_kts, wind_dir_deg, tide_ft, score_0_100`
-  - Indexed by `(beach_id, ts_utc)`; refreshed via `public.refresh_mv_beach_hourly_scores()`
-  - Periodic refresh scheduled every ~2h with `refresh_mv_beach_hourly_scores_and_analyze()` (pg_cron when available)
-
----
-
 ### ⏰ `/cron/forecasts/refresh` - Forecast Table Refresh
 
 #### `/cron/forecasts/refresh/route.ts`
@@ -911,43 +885,6 @@ import {
 
 ---
 
-### 🏠 `/home/personalized-forecast` - Personalized Home Screen Recommendations
-
-#### `/home/personalized-forecast/route.ts`
-
-- **Methods**: `GET`
-- **Authentication**: Required (user session)
-- **Function**: Returns personalized surf recommendation for home screen
-- **Features**:
-  - Builds candidate pool from user's home beach and favorites
-  - Scores beaches using personalized-scoring-service (affinity, preferences)
-  - Selects optimal time window (next 48 hours)
-  - Generates human-readable summary and reasons
-  - Returns best opportunity with forecast details
-- **Query Parameters**:
-  - `homeBeachId` (optional): UUID to override user's profile home beach
-- **Rate Limit**: 10 requests/minute
-- **Caching**: Private per-user cache (5 minutes)
-- **Response**: `PersonalizedForecastRecommendation | null`
-  - `beach`: Beach details with coordinates
-  - `window`: Optimal 3-hour time window (start, end, conditions)
-  - `forecast`: Full forecast data for the window
-  - `score`: Personalized score (0-100)
-  - `personalized`: Whether personalization was applied
-  - `breakdown`: Score breakdown (base, onboarding prefs, learned prefs, affinity)
-  - `summary`: Human-readable recommendation (e.g., "Best conditions at Ocean Beach tomorrow morning: 3-4 ft waves, 10 wind")
-  - `reasons`: 2-4 personalization factors (e.g., "You've surfed here frequently", "Matches your preferred wave size")
-  - `generated_at`: ISO timestamp
-- **Service Layer**: `lib/services/personalized-home-forecast-service.ts`
-- **Performance**: 3 DB queries total, parallel forecast fetching with timeout
-- **Usage**: Home screen "Where to Surf" card, personalized notifications
-
-**Design Notes**:
-
-- v1 does not support lat/lon coordinates - uses profile data only
-- Candidate pool limited to home beach + favorites for performance
-- Graceful degradation: returns null if no viable windows or forecast data unavailable
-- Future enhancement: geo-based candidate selection for current location
 
 ---
 

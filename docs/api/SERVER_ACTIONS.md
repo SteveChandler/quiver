@@ -451,35 +451,49 @@ async function updateBoard(
 
 ---
 
-## Analytics Actions
+## Session Analytics Module (API-only)
 
-**Location:** `actions/analytics-actions.ts`
+**Location:** `lib/analytics/session-analytics.ts`
+
+This module is consumed by the session analytics and journal export API routes. It
+is not a server action and receives the already-authenticated Supabase client.
 
 ### getSessionAnalytics
 
 Get session analytics for a user.
 
 ```typescript
-async function getSessionAnalytics(userId: string): Promise<ActionResponse<{
-  totalSessions: number;
-  totalHours: number;
-  uniqueBeaches: number;
-  averageRating: number;
-  sessionsThisMonth: number;
-  streakDays: number;
-}>>
+async function getSessionAnalytics(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<
+  | { success: true; data: SessionAnalytics }
+  | { success: false; error: string }
+>
 ```
 
-### getCalendarData
+The successful result includes `type`, `userId`, session counts, total hours,
+average rating and wave height, favorite beach, frequent boards, monthly stats,
+wave-height trend, condition ratings, and `generatedAt`.
 
-Get session data for calendar heatmap.
+### getCalendarHeatmapData
+
+Get session data for a calendar month.
 
 ```typescript
-async function getCalendarData(
+async function getCalendarHeatmapData(
+  supabase: SupabaseClient,
   userId: string,
-  year: number
-): Promise<ActionResponse<CalendarData[]>>
+  year: number,
+  month: number,
+): Promise<
+  | { success: true; data: CalendarHeatmapData[] }
+  | { success: false; error: string }
+>
 ```
+
+Each calendar entry contains the date, session count, average wave height,
+average rating, and the matching session summaries.
 
 ---
 

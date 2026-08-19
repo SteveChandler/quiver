@@ -20,6 +20,7 @@ lib/services/
 ├── personalized-scoring-service.ts           # User preference scoring
 ├── preference-learning-service.ts            # User preference learning (explicit)
 ├── surf-discovery-service.ts                 # Beach discovery and recommendations
+├── spot-surf-report-service.ts                # Public cached spot surf reports
 ├── ccc/                                          # CCC Coastal Commission amenity sync
 │   ├── ccc-sync-service.ts                      # API client, normalization, Haversine matching
 │   └── index.ts                                  # Barrel exports
@@ -88,6 +89,19 @@ DataFlow
 ├── Error Handling → Fallback Data → User Notification
 └── Rate Limiting → Queue Management → Retry Logic
 ```
+
+### **Spot Surf Report Service**
+
+`spot-surf-report-service.ts` is the canonical server-only entry point for
+cookie-free public spot surf reports. `getSpotSurfReportPublic(beach)` owns the
+15-minute cached forecast read, timezone-aware today/tomorrow selection, surf
+call computation, hourly forecast projection, and major-event hold boundary.
+
+The service canonicalizes every beach projection before entering the cache.
+The canonical field set must stay aligned with every beach field read by the
+window selector and surf-call logic, including calibrated swell and wind
+thresholds plus `shoaling_factors`; callers with narrow database selects must
+include those fields or the report can silently lose calibrated behavior.
 
 ## **DEFENSIVE PARSING OF EXTERNAL API DATA**
 

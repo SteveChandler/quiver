@@ -52,7 +52,8 @@ export const POST = withAdminAuth(async (request: NextRequest, { supabase }) => 
   // shape the legacy broadcastToActiveUsers used.
   const { data: rows, error: rowsErr } = await supabase
     .from("user_devices")
-    .select("user_id");
+    .select("user_id")
+    .is("retired_at" as never, null);
   if (rowsErr) {
     throw new Error(
       `Failed to fetch user_devices for broadcast: ${rowsErr.message}`

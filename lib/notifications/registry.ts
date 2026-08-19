@@ -151,42 +151,78 @@ const forecastFeedbackNudgeSchema = z.object({
   relevance_score: z.number().finite().optional(),
 });
 
-const homeMorningCallSchema = z.object({
-  alert_date: z.string().min(1),
-  verdict: z.enum(["YES", "MAYBE", "NO"]),
-  beach_id: z.string().min(1),
-  beach_name: z.string().optional(),
-  forecast_at: z.string().nullable().optional(),
-  policy_context: positiveRecommendationPolicyContextSchema.optional(),
-  session_decision: canonicalSessionDecisionSchema.optional(),
-  title: z.string().min(1),
-  body: z.string().min(1),
-});
+const homeMorningCallSchema = z
+  .object({
+    alert_date: z.string().min(1),
+    verdict: z.enum(["YES", "MAYBE", "NO"]),
+    beach_id: z.string().min(1),
+    beach_name: z.string().optional(),
+    forecast_at: z.string().nullable().optional(),
+    policy_context: positiveRecommendationPolicyContextSchema.optional(),
+    session_decision: canonicalSessionDecisionSchema.optional(),
+    title: z.string().min(1),
+    body: z.string().min(1),
+  })
+  .superRefine((payload, context) => {
+    if (!payload.session_decision) return;
+    const expected =
+      payload.session_decision.verdict === "go"
+        ? "YES"
+        : payload.session_decision.verdict === "maybe"
+          ? "MAYBE"
+          : "NO";
+    if (payload.verdict !== expected) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["verdict"],
+        message: "verdict must agree with session_decision.verdict",
+      });
+    }
+    if (
+      payload.session_decision.verdict !== "no" &&
+      payload.session_decision.selection &&
+      payload.session_decision.selection.beachId !== payload.beach_id
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["beach_id"],
+        message: "beach_id must agree with canonical selection",
+      });
+    }
+  });
 
-const weekendLocalDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}, "Invalid local date");
+const weekendLocalDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((value) => {
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return (
+      !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+    );
+  }, "Invalid local date");
 
-const weekendWindowSchema = z.object({
-  snapshot_id: z.string().uuid(),
-  weekend_start: weekendLocalDateSchema,
-  weekend_end: weekendLocalDateSchema,
-  qualifying_count: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-  lead_beach_id: z.string().uuid(),
-  lead_beach_name: z.string().min(1),
-  lead_window_local: z.string().min(1),
-}).strict().superRefine((payload, context) => {
-  const expectedEnd = new Date(`${payload.weekend_start}T00:00:00.000Z`);
-  expectedEnd.setUTCDate(expectedEnd.getUTCDate() + 1);
-  if (payload.weekend_end !== expectedEnd.toISOString().slice(0, 10)) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["weekend_end"],
-      message: "weekend_end must follow weekend_start",
-    });
-  }
-});
+const weekendWindowSchema = z
+  .object({
+    snapshot_id: z.string().uuid(),
+    weekend_start: weekendLocalDateSchema,
+    weekend_end: weekendLocalDateSchema,
+    qualifying_count: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    lead_beach_id: z.string().uuid(),
+    lead_beach_name: z.string().min(1),
+    lead_window_local: z.string().min(1),
+  })
+  .strict()
+  .superRefine((payload, context) => {
+    const expectedEnd = new Date(`${payload.weekend_start}T00:00:00.000Z`);
+    expectedEnd.setUTCDate(expectedEnd.getUTCDate() + 1);
+    if (payload.weekend_end !== expectedEnd.toISOString().slice(0, 10)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["weekend_end"],
+        message: "weekend_end must follow weekend_start",
+      });
+    }
+  });
 
 const weeklyStreakReminderSchema = z.object({
   streak: z.number().int().min(1),
@@ -249,7 +285,7 @@ const adminBroadcastSchema = z.object({
  * deferred_quiet_hours — the next worker tick will produce the real outcome).
  */
 function mapWorkerStatusToAlertAttempt(
-  status: NotificationDeliveryStatus
+  status: NotificationDeliveryStatus,
 ):
   | "sent"
   | "skipped_no_device"
@@ -524,7 +560,8 @@ export const NOTIFICATION_REGISTRY = {
     suppressSelfNotify: false,
     surfAlertPriority: 3,
     quietHours: DEFAULT_QUIET,
-    validatePayload: (input) => forecastAlertSchema.parse(input) as ForecastAlertPayload,
+    validatePayload: (input) =>
+      forecastAlertSchema.parse(input) as ForecastAlertPayload,
     buildPushPayload: (p) => ({
       ...SURF_ALERT_PUSH_PRESENTATION,
       title: p.title,
@@ -556,9 +593,7 @@ export const NOTIFICATION_REGISTRY = {
         ...(p.beach_id ? { beach_id: p.beach_id } : {}),
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
         ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
-        ...(p.session_decision
-          ? { session_decision: p.session_decision }
-          : {}),
+        ...(p.session_decision ? { session_decision: p.session_decision } : {}),
       },
     }),
     /**
@@ -593,7 +628,7 @@ export const NOTIFICATION_REGISTRY = {
       if (error) {
         console.error(
           `[notifications/forecast_alert.onChannelOutcome] alert_delivery_attempts insert failed for event ${event.id}:`,
-          error
+          error,
         );
       }
     },
@@ -622,9 +657,7 @@ export const NOTIFICATION_REGISTRY = {
       ) as NotificationSimilarityMatchPayload,
     buildPushPayload: (p) => {
       const waveWindow =
-        p.wave_height_ft != null &&
-        p.wave_period_s != null &&
-        p.window_local
+        p.wave_height_ft != null && p.wave_period_s != null && p.window_local
           ? `${p.wave_height_ft.toFixed(1)}ft @ ${p.wave_period_s.toFixed(0)}s · ${p.window_local}`
           : null;
       const contextDetails = [
@@ -686,9 +719,7 @@ export const NOTIFICATION_REGISTRY = {
         condition_summary: p.condition_summary,
         board_tip: p.board_tip,
         setup_tip: p.setup_tip,
-        ...(p.session_decision
-          ? { session_decision: p.session_decision }
-          : {}),
+        ...(p.session_decision ? { session_decision: p.session_decision } : {}),
       },
     }),
     /**
@@ -720,7 +751,7 @@ export const NOTIFICATION_REGISTRY = {
       if (error) {
         console.error(
           `[notifications/similarity_match.onChannelOutcome] alert_delivery_attempts insert failed for event ${event.id}:`,
-          error
+          error,
         );
       }
     },
@@ -864,18 +895,26 @@ export const NOTIFICATION_REGISTRY = {
         cohort: p.cohort,
         ...(p.beach_id ? { beach_id: p.beach_id } : {}),
         ...(p.beach_name ? { beach_name: p.beach_name } : {}),
-        ...(p.notification_category ? { notification_category: p.notification_category } : {}),
+        ...(p.notification_category
+          ? { notification_category: p.notification_category }
+          : {}),
         ...(p.trigger_source ? { trigger_source: p.trigger_source } : {}),
-        ...(p.relevance_confidence ? { relevance_confidence: p.relevance_confidence } : {}),
+        ...(p.relevance_confidence
+          ? { relevance_confidence: p.relevance_confidence }
+          : {}),
         ...(p.beach_confidence ? { beach_confidence: p.beach_confidence } : {}),
-        ...(p.assumed_attendance === false ? { assumed_attendance: false } : {}),
+        ...(p.assumed_attendance === false
+          ? { assumed_attendance: false }
+          : {}),
         ...(p.attendance_confidence_score == null
           ? {}
           : { attendance_confidence_score: p.attendance_confidence_score }),
         ...(p.beach_confidence_score == null
           ? {}
           : { beach_confidence_score: p.beach_confidence_score }),
-        ...(p.relevance_score == null ? {} : { relevance_score: p.relevance_score }),
+        ...(p.relevance_score == null
+          ? {}
+          : { relevance_score: p.relevance_score }),
       },
     }),
   } satisfies NotificationTypeDef<LogSessionNudgePayload>,
@@ -891,7 +930,9 @@ export const NOTIFICATION_REGISTRY = {
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) => forecastFeedbackNudgeSchema.parse(input),
     buildPushPayload: (p) => {
-      const highConfidence = isHighConfidenceNotification(p.relevance_confidence);
+      const highConfidence = isHighConfidenceNotification(
+        p.relevance_confidence,
+      );
 
       return {
         title:
@@ -907,18 +948,28 @@ export const NOTIFICATION_REGISTRY = {
           ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
           ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
           ...(p.deeplink ? { deeplink: p.deeplink } : {}),
-          ...(p.notification_category ? { notification_category: p.notification_category } : {}),
+          ...(p.notification_category
+            ? { notification_category: p.notification_category }
+            : {}),
           ...(p.trigger_source ? { trigger_source: p.trigger_source } : {}),
-          ...(p.relevance_confidence ? { relevance_confidence: p.relevance_confidence } : {}),
-          ...(p.beach_confidence ? { beach_confidence: p.beach_confidence } : {}),
-          ...(p.assumed_attendance === false ? { assumed_attendance: false } : {}),
+          ...(p.relevance_confidence
+            ? { relevance_confidence: p.relevance_confidence }
+            : {}),
+          ...(p.beach_confidence
+            ? { beach_confidence: p.beach_confidence }
+            : {}),
+          ...(p.assumed_attendance === false
+            ? { assumed_attendance: false }
+            : {}),
           ...(p.attendance_confidence_score == null
             ? {}
             : { attendance_confidence_score: p.attendance_confidence_score }),
           ...(p.beach_confidence_score == null
             ? {}
             : { beach_confidence_score: p.beach_confidence_score }),
-          ...(p.relevance_score == null ? {} : { relevance_score: p.relevance_score }),
+          ...(p.relevance_score == null
+            ? {}
+            : { relevance_score: p.relevance_score }),
         },
       };
     },
@@ -941,11 +992,17 @@ export const NOTIFICATION_REGISTRY = {
         type: "weekly_streak_reminder",
         streak: p.streak,
         ...(p.period_key ? { period_key: p.period_key } : {}),
-        ...(p.notification_category ? { notification_category: p.notification_category } : {}),
+        ...(p.notification_category
+          ? { notification_category: p.notification_category }
+          : {}),
         ...(p.trigger_source ? { trigger_source: p.trigger_source } : {}),
-        ...(p.relevance_confidence ? { relevance_confidence: p.relevance_confidence } : {}),
+        ...(p.relevance_confidence
+          ? { relevance_confidence: p.relevance_confidence }
+          : {}),
         ...(p.beach_confidence ? { beach_confidence: p.beach_confidence } : {}),
-        ...(p.assumed_attendance === false ? { assumed_attendance: false } : {}),
+        ...(p.assumed_attendance === false
+          ? { assumed_attendance: false }
+          : {}),
       },
     }),
   } satisfies NotificationTypeDef<WeeklyStreakReminderPayload>,
@@ -1038,12 +1095,12 @@ export const NOTIFICATION_REGISTRY = {
         const parts: string[] = [];
         if (wqs.closure_count > 0) {
           parts.push(
-            `${wqs.closure_count} closure${wqs.closure_count === 1 ? "" : "s"}`
+            `${wqs.closure_count} closure${wqs.closure_count === 1 ? "" : "s"}`,
           );
         }
         if (wqs.advisory_count > 0) {
           parts.push(
-            `${wqs.advisory_count} advisor${wqs.advisory_count === 1 ? "y" : "ies"}`
+            `${wqs.advisory_count} advisor${wqs.advisory_count === 1 ? "y" : "ies"}`,
           );
         }
         body = `${p.body} • Water quality: ${parts.join(" + ")}`;
@@ -1061,9 +1118,7 @@ export const NOTIFICATION_REGISTRY = {
         title: p.title,
         body: p.body,
         match_count: p.match_count ?? 0,
-        ...(p.forecast_summary
-          ? { forecast_summary: p.forecast_summary }
-          : {}),
+        ...(p.forecast_summary ? { forecast_summary: p.forecast_summary } : {}),
         ...(p.water_quality_summary
           ? { water_quality_summary: p.water_quality_summary }
           : {}),

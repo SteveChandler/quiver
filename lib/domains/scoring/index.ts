@@ -12,6 +12,8 @@ export type {
   CompositeScore,
   MatchQuality,
   ScoringEngineConfig,
+  ScoringDecisionEffect,
+  ScoringEffectSeverity,
 } from './types';
 
 export { SCORER_WEIGHTS, DEFAULT_SCORING_CONFIG, createSkipResult, createNeutralResult } from './types';

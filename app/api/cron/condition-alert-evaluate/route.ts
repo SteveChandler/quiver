@@ -240,6 +240,7 @@ export async function GET(request: Request) {
               if (!forecasts || forecasts.length === 0) continue;
 
               const parsed: ForecastHour[] = forecasts.map((f) => ({
+                forecast_id: typeof f.id === "string" && f.id.length > 0 ? f.id : undefined,
                 forecast_at: f.forecast_at,
                 wave_height: f.wave_height ? parseFloat(f.wave_height) : null,
                 wave_period: f.wave_period ? parseFloat(f.wave_period.replace("s", "")) : null,

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { getBeachesBySlug } from "@/actions/beach/beach-query-actions";
-import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions";
+import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
 import type { SeoDecisionConfig } from "@/lib/seo/funnel-pages";
 import { formatTimeInTimezone } from "@/lib/utils/date-time";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";

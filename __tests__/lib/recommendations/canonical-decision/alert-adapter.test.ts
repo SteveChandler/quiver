@@ -3,7 +3,11 @@ export {};
 type AlertAdapterModule = {
   buildCanonicalDecisionFromAlertMatches: (input: unknown) => {
     verdict: string;
-    selection: { candidateId: string; beachId: string } | null;
+    selection: {
+      candidateId: string;
+      beachId: string;
+      forecastRef: { forecastId: string };
+    } | null;
   };
   canonicalAlertCandidateId: (match: {
     rule_id: string;
@@ -103,5 +107,45 @@ describe("canonical alert decision adapter", () => {
     });
 
     expect(decision).toMatchObject({ verdict: "no", selection: null });
+  });
+
+  it("uses the stable alert identity when a queued row predates forecast IDs", () => {
+    const {
+      buildCanonicalDecisionFromAlertMatches,
+      canonicalAlertCandidateId,
+    } = loadAdapter();
+    const legacy = match({ conditions_snapshot: { wave_height: 3 } });
+
+    const decision = buildCanonicalDecisionFromAlertMatches({
+      anchorTime: "2026-07-22T18:00:00.000Z",
+      scope: {
+        kind: "plan_next_session",
+        windowStart: "2026-07-22T18:00:00.000Z",
+        windowEnd: "2026-07-24T18:00:00.000Z",
+        timezone: "America/Los_Angeles",
+      },
+      profileExperience: "beginner",
+      recommendationAvailability: {
+        state: "available",
+        holdEpoch: "alert-hold-1",
+      },
+      matches: [legacy],
+    });
+
+    const syntheticId = canonicalAlertCandidateId(
+      legacy as {
+        rule_id: string;
+        beach_id: string;
+        window_start: string;
+      },
+    );
+
+    expect(decision).toMatchObject({
+      verdict: "go",
+      selection: {
+        candidateId: syntheticId,
+        forecastRef: { forecastId: syntheticId },
+      },
+    });
   });
 });

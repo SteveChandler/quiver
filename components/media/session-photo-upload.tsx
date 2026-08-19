@@ -18,6 +18,11 @@ import {
   uploadSessionPhotosAction,
   getUserStorageUsageAction,
 } from "@/actions/session-media-actions";
+import {
+  SESSION_PHOTO_ACCEPT_ATTRIBUTE,
+  SESSION_PHOTO_MAX_PER_SESSION,
+  validateSessionPhotoInput,
+} from "@/lib/media/session-photo-policy";
 import { toast } from "sonner";
 
 interface SessionPhotoUploadProps {
@@ -43,13 +48,10 @@ interface StorageInfo {
   can_upload: boolean;
 }
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB before compression
-const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-
 export default function SessionPhotoUpload({
   sessionId,
   onUploadComplete,
-  maxPhotos = 5,
+  maxPhotos = SESSION_PHOTO_MAX_PER_SESSION,
   disabled = false,
 }: SessionPhotoUploadProps) {
   const [files, setFiles] = useState<FilePreview[]>([]);
@@ -85,10 +87,11 @@ export default function SessionPhotoUpload({
   };
 
   const validateFile = (file: File): string | null => {
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const validationError = validateSessionPhotoInput(file);
+    if (validationError === "invalid_file_type") {
       return "Only JPEG, PNG, and WebP images are allowed";
     }
-    if (file.size > MAX_FILE_SIZE) {
+    if (validationError === "file_too_large") {
       return "File size must be less than 10MB";
     }
     return null;
@@ -342,7 +345,7 @@ export default function SessionPhotoUpload({
         ref={fileInputRef}
         type="file"
         multiple
-        accept={ALLOWED_TYPES.join(",")}
+        accept={SESSION_PHOTO_ACCEPT_ATTRIBUTE}
         onChange={handleFileSelect}
         className="hidden"
         disabled={disabled}

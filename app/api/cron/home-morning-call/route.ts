@@ -25,6 +25,7 @@ import {
 } from "@/lib/recommendations/canonical-decision";
 import { selectBeach } from "@/lib/recommendations/selection";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
+import { buildHomeMorningCallPresentation } from "@/lib/notifications/home-morning-call-presentation";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -54,71 +55,10 @@ interface HomeMorningCallPayload {
   policy_context?: PositiveRecommendationPolicyContext;
 }
 
-interface MorningCopyInput {
-  verdict: SurfCallVerdict;
-  beachName: string;
-  waveHeight: string | null;
-  wavePeriod: string | null;
-  windDescription: string | null;
-  whySentence: string | null;
-}
-
-function sentence(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  if (!trimmed) return null;
-  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
-}
-
-function conditionLine(
-  waveHeight: string | null,
-  wavePeriod: string | null
-): string | null {
-  if (!waveHeight) return null;
-  if (!wavePeriod) return waveHeight;
-  return `${waveHeight} @ ${wavePeriod}`;
-}
-
-export function buildMorningCallCopy(input: MorningCopyInput): {
-  title: string;
-  body: string;
-} {
-  const condition = sentence(conditionLine(input.waveHeight, input.wavePeriod));
-  const why = sentence(input.whySentence ?? input.windDescription);
-
-  if (input.verdict === "YES") {
-    return {
-      title: `${input.beachName}: It's firing`,
-      body:
-        [condition, why].filter(Boolean).join(" ") ||
-        "Conditions look worth it today.",
-    };
-  }
-
-  if (input.verdict === "MAYBE") {
-    return {
-      title: `${input.beachName}: Worth a look`,
-      body:
-        [condition, why].filter(Boolean).join(" ") ||
-        "There may be a window today.",
-    };
-  }
-
-  return {
-    title: `${input.beachName}: Rest up today`,
-    body: `${why ?? "Flat or blown out today."} Check the week before you drive.`,
-  };
-}
-
-function normalizePeriod(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  if (!trimmed) return null;
-  return /\bs\b/i.test(trimmed) ? trimmed : `${trimmed}s`;
-}
-
 function filterMorningForecasts(
   forecasts: EnhancedForecastEntity[],
   timezone: string,
-  now: Date
+  now: Date,
 ): EnhancedForecastEntity[] {
   const today = getLocalDateString(now, timezone);
   return forecasts.filter((forecast) => {
@@ -139,12 +79,27 @@ function findCanonicalRecommendation(
 ): SurfDiscoveryRecommendation | null {
   const selection = decision.selection;
   if (!selection || decision.verdict === "no") return null;
-  return recommendations.find((recommendation) => (
-    recommendation.recommendationId === selection.candidateId
-    && recommendation.beach.id === selection.beachId
-    && recommendation.window.start.toISOString() === selection.windowStart
-    && recommendation.window.end.toISOString() === selection.windowEnd
-  )) ?? null;
+  const normalizedForecastAt = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const parsed = new Date(value);
+    return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+  };
+  const selectedForecastAt = normalizedForecastAt(
+    selection.forecastRef.forecastAt,
+  );
+  if (!selectedForecastAt) return null;
+  return (
+    recommendations.find(
+      (recommendation) =>
+        recommendation.recommendationId === selection.candidateId &&
+        recommendation.beach.id === selection.beachId &&
+        recommendation.window.start.toISOString() === selection.windowStart &&
+        recommendation.window.end.toISOString() === selection.windowEnd &&
+        recommendation.forecast.id === selection.forecastRef.forecastId &&
+        normalizedForecastAt(recommendation.forecast.forecast_at) ===
+          selectedForecastAt,
+    ) ?? null
+  );
 }
 
 export async function selectAndBuildMorningCall({
@@ -153,77 +108,75 @@ export async function selectAndBuildMorningCall({
   forecasts,
   timezone,
   now,
-}: HomeBeachPushSelectArgs): Promise<HomeBeachPushSelection<HomeMorningCallPayload>> {
+}: HomeBeachPushSelectArgs): Promise<
+  HomeBeachPushSelection<HomeMorningCallPayload>
+> {
   const morningForecasts = filterMorningForecasts(forecasts, timezone, now);
   if (morningForecasts.length === 0) {
     return { skipReason: "noForecast" };
   }
   const profileExperience = parseSkillLevel(
-    (profile as HomeBeachPushSelectArgs["profile"] & {
-      experience_level?: string | null;
-    }).experience_level
+    (
+      profile as HomeBeachPushSelectArgs["profile"] & {
+        experience_level?: string | null;
+      }
+    ).experience_level,
   );
   const anchorTime = now.toISOString();
-  const { decision, discovery } =
-    await resolveCanonicalSessionDecisionContext({
-      userId: profile.id,
-      profileExperience,
-      anchorTime,
-      scope: {
-        kind: "plan_next_session",
-        windowStart: anchorTime,
-        windowEnd: new Date(
-          now.getTime() + 24 * 60 * 60 * 1000,
-        ).toISOString(),
-        timezone,
-      },
-      discoveryOptions: {
-        userLocation:
-          typeof beach.lat === "number"
-          && typeof beach.lon === "number"
-          && Number.isFinite(beach.lat)
-          && Number.isFinite(beach.lon)
-            ? { lat: beach.lat, lon: beach.lon }
-            : undefined,
-        horizonHours: 24,
-        timeSlot: "dawn-patrol",
-        discoveryMode: "best-window",
-        includeBeachIds: [beach.id],
-        isPro: false,
-      },
-    });
-  const recommendation = findCanonicalRecommendation(
-    decision,
-    [
-      ...discovery.recommendations,
-      ...(discovery.includedRecommendations ?? []),
-    ],
-  );
+  const { decision, discovery } = await resolveCanonicalSessionDecisionContext({
+    userId: profile.id,
+    profileExperience,
+    anchorTime,
+    scope: {
+      kind: "plan_next_session",
+      windowStart: anchorTime,
+      windowEnd: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      timezone,
+    },
+    discoveryOptions: {
+      userLocation:
+        typeof beach.lat === "number" &&
+        typeof beach.lon === "number" &&
+        Number.isFinite(beach.lat) &&
+        Number.isFinite(beach.lon)
+          ? { lat: beach.lat, lon: beach.lon }
+          : undefined,
+      horizonHours: 24,
+      timeSlot: "dawn-patrol",
+      discoveryMode: "best-window",
+      includeBeachIds: [beach.id],
+      isPro: false,
+    },
+  });
+  const recommendation = findCanonicalRecommendation(decision, [
+    ...discovery.recommendations,
+    ...(discovery.includedRecommendations ?? []),
+  ]);
   if (decision.verdict !== "no" && !recommendation) {
     return { skipReason: "canonicalDecision" };
   }
   const sourceForecast = recommendation?.forecast ?? morningForecasts[0];
   const selectedBeachCandidate = recommendation?.beach ?? beach;
-  const selectedBeach = await selectBeach(selectedBeachCandidate, { asOf: now });
+  const selectedBeach = await selectBeach(selectedBeachCandidate, {
+    asOf: now,
+  });
   if (!selectedBeach) {
     return { skipReason: "selection" };
   }
-  const verdict: SurfCallVerdict = decision.verdict === "go"
-    ? "YES"
-    : decision.verdict === "maybe"
-      ? "MAYBE"
-      : "NO";
-  const copy = buildMorningCallCopy({
-    verdict,
-    beachName: selectedBeach.name,
-    waveHeight: sourceForecast.wave_height ?? null,
-    wavePeriod: normalizePeriod(sourceForecast.wave_period),
-    windDescription: null,
-    whySentence: recommendation?.message ?? null,
-  });
+  const verdict: SurfCallVerdict =
+    decision.verdict === "go"
+      ? "YES"
+      : decision.verdict === "maybe"
+        ? "MAYBE"
+        : "NO";
+  const copy = buildHomeMorningCallPresentation(
+    decision,
+    selectedBeach.name,
+    recommendation?.forecast ?? sourceForecast,
+  );
   const localDate = getLocalDateString(now, timezone);
-  const forecastAt = decision.selection?.forecastRef.forecastAt
-    ?? sourceForecast.forecast_at;
+  const forecastAt =
+    decision.selection?.forecastRef.forecastAt ?? sourceForecast.forecast_at;
 
   const payload: HomeMorningCallPayload = {
     alert_date: localDate,
@@ -290,7 +243,11 @@ async function _GET(request: Request): Promise<Response> {
       getProduced: (value) => value.sent,
       legitimatelyZero: (value) =>
         value.skipped || value.candidates === 0
-          ? { reason: value.skipped ? "HOME_MORNING_CALL_ENABLED is not true" : "No home-beach users had an eligible morning call" }
+          ? {
+              reason: value.skipped
+                ? "HOME_MORNING_CALL_ENABLED is not true"
+                : "No home-beach users had an eligible morning call",
+            }
           : undefined,
     },
   });
@@ -299,5 +256,5 @@ async function _GET(request: Request): Promise<Response> {
 export const GET = withObservedCron(
   "/api/cron/home-morning-call",
   _GET,
-  SENTRY_MONITOR
+  SENTRY_MONITOR,
 );

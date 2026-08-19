@@ -11,6 +11,7 @@ import { getMinRideable, MINIMUM_VIABLE_WINDOW_MINUTES } from "@/lib/utils/surf-
 import type { Beach } from "@/types/database";
 
 export type EnhancedForecastAlertRow = Record<string, unknown> & {
+  id?: string;
   forecast_at: string;
   wave_height?: string | number | null;
   wave_period?: string | number | null;
@@ -58,6 +59,7 @@ export function selectFreshAlertWindow({
 
 export function parseEnhancedForecastHour(row: EnhancedForecastAlertRow): ForecastHour {
   return {
+    forecast_id: typeof row.id === "string" && row.id.length > 0 ? row.id : undefined,
     forecast_at: row.forecast_at,
     wave_height: parseNumberish(row.wave_height),
     wave_period: parseNumberish(row.wave_period),

@@ -35,6 +35,7 @@ import {
 } from "@/actions/session-media-actions";
 import { toast } from "sonner";
 import { getTransformedUrl } from "@/lib/utils/image-utils";
+import { SESSION_PHOTO_ACCEPT_ATTRIBUTE } from "@/lib/media/session-photo-policy";
 
 interface SessionPhoto {
   id: string;
@@ -276,7 +277,7 @@ export default function SessionPhotoGallery({
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept="image/jpeg,image/jpg,image/png,image/webp"
+                accept={SESSION_PHOTO_ACCEPT_ATTRIBUTE}
                 onChange={handleFileSelect}
                 className="hidden"
               />
@@ -340,7 +341,7 @@ export default function SessionPhotoGallery({
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/jpeg,image/jpg,image/png,image/webp"
+            accept={SESSION_PHOTO_ACCEPT_ATTRIBUTE}
             onChange={handleFileSelect}
             className="hidden"
           />

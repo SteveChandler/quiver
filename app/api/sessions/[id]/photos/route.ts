@@ -12,17 +12,13 @@ import {
   type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
 import { getSessionPhotos } from "@/lib/supabase/storage";
+import {
+  SESSION_PHOTO_MAX_PER_SESSION,
+  validateSessionPhotoInput,
+} from "@/lib/media/session-photo-policy";
 import type { Database } from "@/types/database.generated";
 
 const STORAGE_BUCKET = "session-media";
-const MAX_PHOTOS_PER_SESSION = 5;
-const MAX_PHOTO_SIZE_BYTES = 10 * 1024 * 1024;
-const ALLOWED_PHOTO_TYPES = new Set([
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp",
-]);
 
 type PhotoUploadStage =
   | "validation"
@@ -111,22 +107,23 @@ function validatePhotos(photos: File[]): NextResponse | null {
     return validationError("No photos provided", "no_photos");
   }
 
-  if (photos.length > MAX_PHOTOS_PER_SESSION) {
+  if (photos.length > SESSION_PHOTO_MAX_PER_SESSION) {
     return validationError(
-      `Maximum ${MAX_PHOTOS_PER_SESSION} photos allowed per session`,
+      `Maximum ${SESSION_PHOTO_MAX_PER_SESSION} photos allowed per session`,
       "too_many_photos"
     );
   }
 
   for (const photo of photos) {
-    if (!ALLOWED_PHOTO_TYPES.has(photo.type)) {
+    const inputValidation = validateSessionPhotoInput(photo);
+    if (inputValidation === "invalid_file_type") {
       return validationError(
         "Only JPEG, PNG, and WebP images are allowed.",
         "invalid_file_type"
       );
     }
 
-    if (photo.size > MAX_PHOTO_SIZE_BYTES) {
+    if (inputValidation === "file_too_large") {
       return validationError(
         "File is too large. Please choose an image smaller than 10MB.",
         "file_too_large"
@@ -278,9 +275,12 @@ export const POST = withAuth(
       );
     }
 
-    if ((existingPhotos?.length ?? 0) + photos.length > MAX_PHOTOS_PER_SESSION) {
+    if (
+      (existingPhotos?.length ?? 0) + photos.length >
+      SESSION_PHOTO_MAX_PER_SESSION
+    ) {
       return validationError(
-        `Session can only have ${MAX_PHOTOS_PER_SESSION} photos total`,
+        `Session can only have ${SESSION_PHOTO_MAX_PER_SESSION} photos total`,
         "too_many_photos"
       );
     }

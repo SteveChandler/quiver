@@ -20,6 +20,7 @@ export interface QueueItemWithMeta {
   window_start: string;
   window_end: string;
   best_hour: string;
+  forecast_id?: string;
   conditions_snapshot: Record<string, unknown>;
   sent: boolean;
   rule_name: string;
@@ -61,6 +62,7 @@ export function consolidateQueueItems(items: QueueItemWithMeta[]): ConsolidatedA
       beach_timezone: item.beach_timezone,
       window_start: item.window_start, window_end: item.window_end,
       best_hour: item.best_hour, best_score: item.best_score,
+      forecast_id: item.forecast_id,
       conditions_snapshot: item.conditions_snapshot,
       notify_email: item.notify_email, notify_push: item.notify_push,
     }));

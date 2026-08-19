@@ -15,7 +15,9 @@
  */
 
 jest.mock("@/lib/cron/outcome", () => ({
-  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),
+  withCronOutcome: jest.fn(
+    async (_options: unknown, handler: () => Promise<unknown>) => handler(),
+  ),
 }));
 
 import { GET } from "@/app/api/cron/first-session-nudge-push/route";
@@ -29,13 +31,22 @@ import { readFileSync } from "fs";
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: jest.fn(() =>
-      Promise.resolve({ success: true, data, timestamp: new Date().toISOString() })
+      Promise.resolve({
+        success: true,
+        data,
+        timestamp: new Date().toISOString(),
+      }),
     ),
     status,
   })),
   createErrorResponse: jest.fn((error, details, status = 500) => ({
     json: jest.fn(() =>
-      Promise.resolve({ success: false, error, details, timestamp: new Date().toISOString() })
+      Promise.resolve({
+        success: false,
+        error,
+        details,
+        timestamp: new Date().toISOString(),
+      }),
     ),
     status,
   })),
@@ -45,7 +56,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
-      })
+      }),
     ),
     status: 500,
   })),
@@ -77,7 +88,10 @@ interface TableRows {
   maybeSingle?: unknown | null;
 }
 
-const tableState: Record<string, TableRows & { insertError?: { message: string } | null }> = {};
+const tableState: Record<
+  string,
+  TableRows & { insertError?: { message: string } | null }
+> = {};
 
 const mockInsert = jest.fn();
 
@@ -109,6 +123,7 @@ function buildQuery(table: string) {
   builder.order = jest.fn(chain);
   builder.limit = jest.fn(chain);
   builder.in = jest.fn(chain);
+  builder.is = jest.fn(chain);
   builder.maybeSingle = jest.fn(() => {
     mode = "maybeSingle";
     return builder;
@@ -150,7 +165,8 @@ jest.mock("@/lib/supabase/server", () => ({
 // Retain the FCM mock as a defensive guard so any future regression is caught.
 const mockSendPushNotifications = jest.fn().mockResolvedValue(undefined);
 jest.mock("@/lib/services/push-notifications", () => ({
-  sendPushNotifications: (...args: unknown[]) => mockSendPushNotifications(...args),
+  sendPushNotifications: (...args: unknown[]) =>
+    mockSendPushNotifications(...args),
 }));
 
 const mockEnqueueNotification = jest.fn();
@@ -173,7 +189,7 @@ jest.mock(
 
 const mockRequest = (
   headers: Record<string, string> = {},
-  url = "http://localhost/api/cron/first-session-nudge-push"
+  url = "http://localhost/api/cron/first-session-nudge-push",
 ) =>
   ({
     url,
@@ -230,7 +246,7 @@ function unconfirmedAuthUser(id: string) {
 describe("First-Session-Nudge Push Cron", () => {
   const routeSource = readFileSync(
     "app/api/cron/first-session-nudge-push/route.ts",
-    "utf8"
+    "utf8",
   );
   let consoleLogSpy: jest.SpyInstance;
 
@@ -281,7 +297,9 @@ describe("First-Session-Nudge Push Cron", () => {
 
     it("accepts Bearer cron token", async () => {
       seedWindow("profiles", []);
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
       expect(data.success).toBe(true);
     });
@@ -290,7 +308,9 @@ describe("First-Session-Nudge Push Cron", () => {
   describe("Empty pipeline", () => {
     it("returns empty summary when no signups are in the Day-7 window", async () => {
       seedWindow("profiles", []);
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -308,7 +328,9 @@ describe("First-Session-Nudge Push Cron", () => {
       ]);
       seedIn("activation_push_log", [{ user_id: "u-1" }]);
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -331,7 +353,9 @@ describe("First-Session-Nudge Push Cron", () => {
         { user_id: "u-cap" },
       ]);
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -351,7 +375,9 @@ describe("First-Session-Nudge Push Cron", () => {
       seedIn("user_devices", [{ user_id: "u-2sess", device_token: "tok" }]);
       seedIn("user_entitlements", []);
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -367,9 +393,13 @@ describe("First-Session-Nudge Push Cron", () => {
       ]);
       seedIn("activation_push_log", []);
       seedIn("sessions", []);
-      mockGetUserById.mockImplementation((id: string) => unconfirmedAuthUser(id));
+      mockGetUserById.mockImplementation((id: string) =>
+        unconfirmedAuthUser(id),
+      );
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -389,7 +419,9 @@ describe("First-Session-Nudge Push Cron", () => {
       mockGetUserById.mockImplementation((id: string) => confirmedAuthUser(id));
       seedIn("profiles", [{ id: "u-nop", notif_push_enabled: false }]);
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -410,7 +442,9 @@ describe("First-Session-Nudge Push Cron", () => {
       seedIn("user_devices", []);
       seedIn("user_entitlements", []);
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -431,7 +465,7 @@ describe("First-Session-Nudge Push Cron", () => {
         beachTimezone?: string | null;
         firingScore?: number | null;
         firingForecastAt?: string | null;
-      } = {}
+      } = {},
     ) => {
       const {
         home_beach_id = null,
@@ -454,7 +488,10 @@ describe("First-Session-Nudge Push Cron", () => {
       mockGetUserById.mockImplementation((id: string) => confirmedAuthUser(id));
       seedIn("profiles", [{ id: userId, notif_push_enabled: true }]);
       seedIn("user_devices", [{ user_id: userId, device_token: "tok-1" }]);
-      seedIn("user_entitlements", entitlement ? [{ user_id: userId, ...entitlement }] : []);
+      seedIn(
+        "user_entitlements",
+        entitlement ? [{ user_id: userId, ...entitlement }] : [],
+      );
       if (home_beach_id && beachName) {
         seedIn("beaches", [
           { id: home_beach_id, name: beachName, timezone: beachTimezone },
@@ -465,7 +502,7 @@ describe("First-Session-Nudge Push Cron", () => {
           "enhanced_forecasts",
           firingScore === null
             ? null
-            : { confidence_score: firingScore, forecast_at: firingForecastAt }
+            : { confidence_score: firingScore, forecast_at: firingForecastAt },
         );
       }
     };
@@ -477,7 +514,9 @@ describe("First-Session-Nudge Push Cron", () => {
         beachName: "Swami's",
       });
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.data.summary.sent).toBe(1);
@@ -501,7 +540,7 @@ describe("First-Session-Nudge Push Cron", () => {
             beach_confidence: "low",
             assumed_attendance: false,
           }),
-        })
+        }),
       );
     });
 
@@ -511,14 +550,16 @@ describe("First-Session-Nudge Push Cron", () => {
         entitlement: { is_pro: true, is_trialing: true },
       });
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.data.summary.cohorts.trialing_no_home).toBe(1);
       const call = mockEnqueueNotification.mock.calls[0][0];
       expect(call.payload.title).toBe("Set your home break");
       expect(call.payload.body).toBe(
-        "Pick a home break, then add your first session when you paddle out."
+        "Pick a home break, then add your first session when you paddle out.",
       );
       expect(call.payload.beach_id).toBeNull();
     });
@@ -534,14 +575,16 @@ describe("First-Session-Nudge Push Cron", () => {
         firingForecastAt: "2026-07-17T16:00:00.000Z",
       });
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.data.summary.cohorts.free_home_firing).toBe(1);
       const call = mockEnqueueNotification.mock.calls[0][0];
       expect(call.payload.title).toBe("Good window at your home break");
       expect(call.payload.body).toBe(
-        "Check today's forecast, and log a session if you paddle out."
+        "Check today's forecast, and log a session if you paddle out.",
       );
       expect(call.payload.beach_id).toBeNull();
       expect(call.payload.policy_context).toEqual({
@@ -578,7 +621,9 @@ describe("First-Session-Nudge Push Cron", () => {
         candidate: null,
       });
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.data.summary.sent).toBe(0);
@@ -614,7 +659,9 @@ describe("First-Session-Nudge Push Cron", () => {
         firingForecastAt: "2026-06-20T09:00:00.000Z",
       });
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.data.summary.cohorts.free_home_firing).toBe(0);
@@ -623,7 +670,9 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(mockResolveNotificationMajorEventHold).not.toHaveBeenCalled();
       const call = mockEnqueueNotification.mock.calls[0][0];
       expect(call.payload.title).toBe("Start your surf log");
-      expect(call.payload.body).toBe("Add your first session when you paddle out.");
+      expect(call.payload.body).toBe(
+        "Add your first session when you paddle out.",
+      );
     });
 
     it("free_home (no-ent) → 'How was this week?' when no entitlement row exists", async () => {
@@ -634,13 +683,17 @@ describe("First-Session-Nudge Push Cron", () => {
         firingScore: null, // no firing row
       });
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.data.summary.cohorts.free_home).toBe(1);
       const call = mockEnqueueNotification.mock.calls[0][0];
       expect(call.payload.title).toBe("Start your surf log");
-      expect(call.payload.body).toBe("Add your first session when you paddle out.");
+      expect(call.payload.body).toBe(
+        "Add your first session when you paddle out.",
+      );
     });
 
     it("free_no_home → 'Been out this week?'", async () => {
@@ -649,13 +702,17 @@ describe("First-Session-Nudge Push Cron", () => {
         entitlement: { is_pro: false, is_trialing: false },
       });
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.data.summary.cohorts.free_no_home).toBe(1);
       const call = mockEnqueueNotification.mock.calls[0][0];
       expect(call.payload.title).toBe("Been out this week?");
-      expect(call.payload.body).toBe("Set your home break and log a session to start");
+      expect(call.payload.body).toBe(
+        "Set your home break and log a session to start",
+      );
       expect(call.payload.beach_id).toBeNull();
     });
   });
@@ -675,7 +732,9 @@ describe("First-Session-Nudge Push Cron", () => {
       ]);
       seedIn("user_entitlements", []);
 
-      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" }),
+      );
       const data = await response.json();
 
       expect(data.success).toBe(true);
