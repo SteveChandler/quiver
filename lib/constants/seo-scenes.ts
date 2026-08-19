@@ -78,7 +78,14 @@ const NORTH_CAROLINA_BEGINNER_SCENE: SeoScene = {
   attribution: "Photo: Billy Hathorn / Wikimedia Commons (CC BY 3.0)",
 };
 
+const SAN_DIEGO_SCENE: SeoScene = {
+  imageSrc: "/images/hero/hero-3-windansea.webp",
+  alt: "The Windansea surf shack above the reef at sunset in La Jolla, San Diego.",
+  objectPosition: "center",
+};
+
 const CITY_SCENES: Record<string, SeoScene> = {
+  "san-diego": SAN_DIEGO_SCENE,
   "la-jolla": LA_JOLLA_SCENE,
   "san-onofre": SAN_ONOFRE_SCENE,
   "santa-cruz": SANTA_CRUZ_SCENE,

@@ -35,6 +35,7 @@ import { AnimatedScoreGauge } from "@/components/forecast/animated-score-gauge";
 import { MonthlySurfChart } from "@/components/best-time-to-surf/monthly-chart";
 import { MonthlyViewToggle } from "@/components/best-time-to-surf/monthly-view-toggle";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { QuiverSticker } from "@/components/zine/quiver-sticker";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import {
   SeoFunnelNextSteps,
@@ -582,7 +583,12 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                   {liveAnswerCopy.todayAnswer}
                 </p>
 
-                <div className="mb-5 rounded-lg border border-[#11100D]/15 bg-white p-5 text-[#11100D] shadow-sm">
+                <div className="relative mb-5 rounded-lg border border-[#11100D]/15 bg-white p-5 text-[#11100D] shadow-sm">
+                  <QuiverSticker
+                    sticker="spotTideWindow"
+                    className="absolute -right-3 -top-6 w-20 rotate-6 drop-shadow-md sm:w-24"
+                    sizes="96px"
+                  />
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#655C4C]">
                     {liveAnswerCopy.eyebrow}
                   </p>
@@ -618,7 +624,12 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                 </div>
 
                 {/* Current month hero card */}
-                <div className="flex flex-col items-center gap-6 rounded-lg border border-[#11100D]/15 bg-gradient-to-br from-[#FBF6E8]/95 to-[#EEE3C9]/75 p-6 text-[#11100D] shadow-[0_18px_38px_rgba(17,16,13,0.14)] md:flex-row md:p-8">
+                <div className="relative flex flex-col items-center gap-6 overflow-hidden rounded-lg border border-[#11100D]/15 bg-gradient-to-br from-[#FBF6E8]/95 to-[#EEE3C9]/75 p-6 text-[#11100D] shadow-[0_18px_38px_rgba(17,16,13,0.14)] md:flex-row md:p-8">
+                  <QuiverSticker
+                    sticker="spotBestSeason"
+                    className="absolute -right-4 -top-4 w-24 rotate-12 opacity-90 drop-shadow-md md:w-28"
+                    sizes="112px"
+                  />
                   {/* Seasonal average, not a live call — no "Go now!" (#569) */}
                   <AnimatedScoreGauge
                     score={currentMonthData.score}
