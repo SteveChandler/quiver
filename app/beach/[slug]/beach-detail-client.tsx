@@ -15,6 +15,7 @@ import type { BeachAmenities } from "@/types/amenities";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
 import type { ZineBeachPhoto } from "@/components/beach-detail/zine/types";
 import type { ZineHeroHeadingLevel } from "@/components/beach-detail/zine/zine-hero";
+import { useAuthenticatedForecastDecision } from "@/components/beach-detail/authenticated-forecast-decision";
 
 interface BeachDetailClientProps {
   beach: Beach;
@@ -56,6 +57,7 @@ export function BeachDetailClient({
   freeGrowthPhaseEnabled,
 }: BeachDetailClientProps) {
   const { user } = useAuth();
+  const authenticatedForecastDecision = useAuthenticatedForecastDecision();
   const { track } = useTrackEvent();
   const mountTime = useRef(Date.now());
   const beachIdRef = useRef<string | null>(null);
@@ -86,6 +88,12 @@ export function BeachDetailClient({
   useEffect(() => {
     setEffectiveSurfCallIsTomorrow(surfCallIsTomorrow ?? false);
   }, [surfCallIsTomorrow]);
+
+  useEffect(() => {
+    if (!authenticatedForecastDecision.isProvided) return;
+    setEffectiveSurfCallReport(authenticatedForecastDecision.report);
+    setEffectiveSurfCallIsTomorrow(authenticatedForecastDecision.isTomorrow);
+  }, [authenticatedForecastDecision]);
 
   useEffect(() => {
     setPersonalizationReady(false);
@@ -163,7 +171,14 @@ export function BeachDetailClient({
   }, [slug, user, track]);
 
   useEffect(() => {
-    if (!user || !beach?.id || !personalizationReady) return;
+    if (
+      !user ||
+      !beach?.id ||
+      !personalizationReady ||
+      authenticatedForecastDecision.isProvided
+    ) {
+      return;
+    }
 
     const controller = new AbortController();
 
@@ -189,7 +204,12 @@ export function BeachDetailClient({
     void fetchPersonalizedSurfCall();
 
     return () => controller.abort();
-  }, [user, beach?.id, personalizationReady]);
+  }, [
+    user,
+    beach?.id,
+    personalizationReady,
+    authenticatedForecastDecision.isProvided,
+  ]);
 
   return (
     <>

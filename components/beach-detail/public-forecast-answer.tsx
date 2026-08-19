@@ -1,8 +1,14 @@
+"use client";
+
 import type { Beach } from "@/types/database";
-import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
-import type { ForecastRecommendationContext } from "@/lib/services/forecast-recommendation-context";
 import { formatBeachDateTime, formatTimeInTimezone } from "@/lib/utils/date-time";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
+import { useAuthenticatedForecastDecision } from "@/components/beach-detail/authenticated-forecast-decision";
+import { ForecastDecisionLoginLink } from "@/components/beach-detail/forecast-decision-login-link";
+import type {
+  PublicForecastContextFacts,
+  PublicForecastReportFacts,
+} from "@/lib/utils/public-forecast-facts";
 
 // Same contrast-checked verdict palette the in-tab surf call uses on tan paper.
 const VERDICT_COLOR: Record<string, string> = {
@@ -20,10 +26,11 @@ const STRIP_LABEL =
 
 interface PublicForecastAnswerProps {
   beach: Beach;
-  report: SurfCallResult | null;
-  context: ForecastRecommendationContext | null;
+  report: PublicForecastReportFacts | null;
+  context: PublicForecastContextFacts | null;
   isTomorrow: boolean;
   headingLevel: "h1" | "h2";
+  returnTo: string;
 }
 
 function formatForecastDate(
@@ -89,7 +96,11 @@ export function PublicForecastAnswer({
   context,
   isTomorrow,
   headingLevel,
+  returnTo,
 }: PublicForecastAnswerProps) {
+  const authenticatedDecision = useAuthenticatedForecastDecision();
+  const decisionReport = authenticatedDecision.report;
+  const decisionContext = authenticatedDecision.context;
   const timezone =
     context?.timezone ??
     (beach as { timezone?: string | null }).timezone ??
@@ -97,8 +108,8 @@ export function PublicForecastAnswer({
   const forecastDate = formatForecastDate(context?.localDate, timezone);
   const waveHeight = context?.waveHeightRangeLabel ?? context?.waveHeight ?? report?.waveHeight;
   const bestWindow = formatRange(
-    context?.displayWindowStart ?? report?.bestWindowStart,
-    context?.displayWindowEnd ?? report?.bestWindowEnd,
+    decisionContext?.displayWindowStart ?? decisionReport?.bestWindowStart,
+    decisionContext?.displayWindowEnd ?? decisionReport?.bestWindowEnd,
     timezone,
   );
   const primarySwell = buildSwell(
@@ -181,11 +192,11 @@ export function PublicForecastAnswer({
                 <dd className={DECK_VALUE}>{waveHeight}</dd>
               </div>
             )}
-            {report?.verdict && (
+            {decisionReport?.verdict && (
               <div>
                 <dt className={DECK_LABEL}>Verdict</dt>
-                <dd className={DECK_VALUE} style={{ color: VERDICT_COLOR[report.verdict] }}>
-                  {report.verdict}
+                <dd className={DECK_VALUE} style={{ color: VERDICT_COLOR[decisionReport.verdict] }}>
+                  {decisionReport.verdict}
                 </dd>
               </div>
             )}
@@ -194,6 +205,22 @@ export function PublicForecastAnswer({
                 <dt className={DECK_LABEL}>Best window</dt>
                 <dd className="mt-0.5 font-mono text-lg font-bold leading-none text-[#11100D] sm:text-xl">
                   {bestWindow}
+                </dd>
+              </div>
+            )}
+            {!decisionReport?.verdict && !bestWindow && (
+              <div>
+                <dt className={DECK_LABEL}>Verdict &amp; best window</dt>
+                <dd className="mt-1.5">
+                  {authenticatedDecision.isAuthenticated ? (
+                    <span className="font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D]/60">
+                      {authenticatedDecision.isLoading
+                        ? "Loading your call…"
+                        : "Call unavailable"}
+                    </span>
+                  ) : (
+                    <ForecastDecisionLoginLink returnTo={returnTo} />
+                  )}
                 </dd>
               </div>
             )}
@@ -227,7 +254,7 @@ export function PublicForecastAnswer({
               ))}
           </div>
 
-          {(secondarySwell || report?.score != null) && (
+          {(secondarySwell || decisionReport?.score != null) && (
             <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 font-mono text-xs text-[#11100D]/75">
               {secondarySwell && (
                 <div className="flex gap-1.5">
@@ -235,10 +262,10 @@ export function PublicForecastAnswer({
                   <dd>{secondarySwell}</dd>
                 </div>
               )}
-              {report?.score != null && (
+              {decisionReport?.score != null && (
                 <div className="flex gap-1.5">
                   <dt className="font-bold uppercase tracking-[0.14em]">Score</dt>
-                  <dd>{report.score}/100</dd>
+                  <dd>{decisionReport.score}/100</dd>
                 </div>
               )}
             </div>
@@ -250,9 +277,9 @@ export function PublicForecastAnswer({
         </p>
       )}
 
-      {report?.whySentence && (
+      {decisionReport?.whySentence && (
         <p className="mt-5 max-w-2xl font-mono text-sm leading-6 text-[#11100D]">
-          <strong className="font-bold">Why:</strong> {report.whySentence}
+          <strong className="font-bold">Why:</strong> {decisionReport.whySentence}
         </p>
       )}
 

@@ -4,6 +4,7 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { PublicForecastAnswer } from "@/components/beach-detail/public-forecast-answer";
 import { PublicForecastHourly } from "@/components/beach-detail/public-forecast-hourly";
+import { AuthenticatedForecastDecisionProvider } from "@/components/beach-detail/authenticated-forecast-decision";
 import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spots";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
@@ -48,6 +49,10 @@ import {
 } from "@/lib/seo/indexability";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
+import {
+  selectPublicForecastContextFacts,
+  selectPublicForecastReportFacts,
+} from "@/lib/utils/public-forecast-facts";
 
 // Public beach data is cookie-free. Major-event hold transitions explicitly
 // revalidate affected paths, so hourly ISR remains safe between transitions.
@@ -191,6 +196,11 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     const hourlyForecasts = surfReportResult?.hourlyForecasts ?? [];
     const hourlyForecastDay = surfReportResult?.hourlyForecastDay ?? "today";
     const publicBeach = sanitizeBeachEditorialContent(beach);
+    const publicForecastReport =
+      selectPublicForecastReportFacts(surfCallReport);
+    const publicForecastContext =
+      selectPublicForecastContextFacts(forecastContext);
+    const returnTo = buildBeachUrl(publicBeach);
 
     // Validate that the beach's state matches the URL state parameter
     const expectedStateSlug = stateToSlug(beach.state);
@@ -284,81 +294,81 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         )}
 
         {/* Client detail component with auth tracking */}
-        <BeachDetailClient
-          beach={publicBeach}
-          slug={beachSlug}
-          beachTimezone={beachTimezone}
-          surfCallReport={surfCallReport}
-          surfCallIsTomorrow={surfCallIsTomorrow}
-          amenities={amenitiesResult}
-          waterQuality={waterQualityResult}
-          beachPhoto={beachPhoto}
-          heroHeadingLevel="h2"
-          heroForecastSlot={
-                <PublicForecastAnswer
-                  beach={publicBeach}
-                  report={surfCallReport}
-                  context={forecastContext}
-                  isTomorrow={surfCallIsTomorrow}
-                  headingLevel="h1"
-                />
-          }
-          freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
-          beforeTabsContent={
-            forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
-              <ContentPageAppHandoffCta
-                source={`content-beach-detail-${beachSlug}`}
-                surface="beach_detail"
-                placement="above_fold_after_public_answer"
-                target={`beach:${beachSlug}`}
-                eyebrow={`Next call · ${beach.name}`}
-                title={`Watch the next good window at ${beach.name}.`}
-                description="Today's call is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
-                ctaLabel="Watch the next window in the app"
-              />
-            ) : null
-          }
-          afterTabsContent={
-            <div className="pt-2">
-              <PublicForecastHourly
-                beachName={publicBeach.name}
-                forecastHours={hourlyForecasts}
-                report={surfCallReport}
-                context={forecastContext}
+        <AuthenticatedForecastDecisionProvider beachId={publicBeach.id}>
+          <BeachDetailClient
+            beach={publicBeach}
+            slug={beachSlug}
+            beachTimezone={beachTimezone}
+            amenities={amenitiesResult}
+            waterQuality={waterQualityResult}
+            beachPhoto={beachPhoto}
+            heroHeadingLevel="h2"
+            heroForecastSlot={
+              <PublicForecastAnswer
+                beach={publicBeach}
+                report={publicForecastReport}
+                context={publicForecastContext}
                 isTomorrow={surfCallIsTomorrow}
-                forecastDay={hourlyForecastDay}
+                headingLevel="h1"
+                returnTo={returnTo}
               />
-              {/* One ask here, not two. The home-break signup this used to stack
-                  underneath is the same ask the sticky bar already carries, so
-                  it read as the page repeating itself. The install section takes
-                  a real already-fetched figure instead — proof beats adjectives. */}
-              {!bannerOwnsInstallAsk && (
-                <div className="mt-10">
-                  <InstallAppCtaSection
-                    platform={installCtaPlatform}
-                    source={`beach-detail-${beachSlug}`}
-                    surface="beach-detail"
-                    placement="after-tabs"
-                    beachName={beach.name}
-                    proof={
-                      forecastContext?.waveHeightRangeLabel ??
-                      forecastContext?.waveHeight
-                        ? {
-                            value: (forecastContext.waveHeightRangeLabel ??
-                              forecastContext.waveHeight) as string,
-                            label: "Surf right now",
-                          }
-                        : undefined
-                    }
-                  />
-                </div>
-              )}
-              <Suspense fallback={null}>
-                <DeferredZineNearbySpots beach={beach} />
-              </Suspense>
-            </div>
-          }
-        />
+            }
+            freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
+            beforeTabsContent={
+              forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
+                <ContentPageAppHandoffCta
+                  source={`content-beach-detail-${beachSlug}`}
+                  surface="beach_detail"
+                  placement="above_fold_after_public_answer"
+                  target={`beach:${beachSlug}`}
+                  eyebrow={`Next call · ${beach.name}`}
+                  title={`Watch the next good window at ${beach.name}.`}
+                  description="Today's call is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
+                  ctaLabel="Watch the next window in the app"
+                />
+              ) : null
+            }
+            afterTabsContent={
+              <div className="pt-2">
+                <PublicForecastHourly
+                  beachName={publicBeach.name}
+                  forecastHours={hourlyForecasts}
+                  context={publicForecastContext}
+                  forecastDay={hourlyForecastDay}
+                  returnTo={returnTo}
+                />
+                {/* One ask here, not two. The home-break signup this used to stack
+                    underneath is the same ask the sticky bar already carries, so
+                    it read as the page repeating itself. The install section takes
+                    a real already-fetched figure instead — proof beats adjectives. */}
+                {!bannerOwnsInstallAsk && (
+                  <div className="mt-10">
+                    <InstallAppCtaSection
+                      platform={installCtaPlatform}
+                      source={`beach-detail-${beachSlug}`}
+                      surface="beach-detail"
+                      placement="after-tabs"
+                      beachName={beach.name}
+                      proof={
+                        forecastContext?.waveHeightRangeLabel ??
+                        forecastContext?.waveHeight
+                          ? {
+                              value: (forecastContext.waveHeightRangeLabel ??
+                                forecastContext.waveHeight) as string,
+                              label: "Surf right now",
+                            }
+                          : undefined
+                      }
+                    />
+                  </div>
+                )}
+                <Suspense fallback={null}>
+                  <DeferredZineNearbySpots beach={beach} />
+                </Suspense>
+              </div>
+            }
+          />
+        </AuthenticatedForecastDecisionProvider>
 
         <StickySignupBar
           source={`beach-detail-${beachSlug}`}
