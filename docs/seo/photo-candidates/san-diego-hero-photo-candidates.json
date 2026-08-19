@@ -1,0 +1,9 @@
+{
+  "generatedAt": "2026-08-19T19:20:49.080Z",
+  "source": "openverse",
+  "sourceFilter": "wikimedia",
+  "includeManual": true,
+  "minScore": 4,
+  "targetPath": "scripts/data/san-diego-hero-photo-targets.json",
+  "candidates": []
+}
