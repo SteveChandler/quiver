@@ -34,7 +34,7 @@ import { FAQSchema } from "@/components/seo/faq-schema";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { SITE_URL } from "@/lib/constants/seo";
 import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
-import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { LiveCamCard } from "@/app/vs/surfline/free/live-cam-card";
 import {
   FadeInSection,
   AnimatedStickerBadge,
@@ -624,33 +624,9 @@ export default async function VsSurflineFreePage() {
                 {camCount} live cams
               </span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
               {camBeaches.slice(0, 12).map((b) => (
-                <Link
-                  key={b.id}
-                  href={buildBeachUrl({ slug: b.slug, city: b.city, state: b.state })}
-                  className="rounded-md overflow-hidden border border-[#11100D] block"
-                >
-                  <div className="h-12 bg-gradient-to-br from-[#3a4896] to-[#252D6B] relative">
-                    <span className="absolute top-1 left-1 flex items-center gap-1">
-                      <span
-                        className="w-1.5 h-1.5 rounded-full bg-[#00D4AA]"
-                        aria-hidden
-                      />
-                      <span className="font-mono text-[7px] tracking-wider text-white">
-                        LIVE
-                      </span>
-                    </span>
-                  </div>
-                  <div className="bg-[#FFFDF7] px-1.5 py-1">
-                    <div className="font-sans text-[10px] font-medium text-[#11100D] leading-tight truncate">
-                      {b.name}
-                    </div>
-                    <div className="font-mono text-[7px] tracking-wide text-[#6b6557] uppercase">
-                      {b.city}, {b.state}
-                    </div>
-                  </div>
-                </Link>
+                <LiveCamCard key={b.id} beach={b} />
               ))}
             </div>
             <Link
