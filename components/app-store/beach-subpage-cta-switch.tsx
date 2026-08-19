@@ -8,18 +8,16 @@ import {
 } from "react";
 
 import { InstallAppCtaSection } from "@/components/app-store/install-app-cta-section";
-import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { shouldShowBeachSubPageInstallCta } from "@/lib/app-store/beach-subpage-install-cta";
 
 interface BeachSubPageCtaSwitchProps {
-  beachId: string;
   beachName: string;
-  children: ReactNode;
+  /** Optional wrapped content; the sub-page below-fold sections were removed. */
+  children?: ReactNode;
   installCtaEnabled: boolean;
   placement: string;
   pathname: string;
-  pageType: "tides" | "water-temp";
   proof?: { value: string; label: string };
   searchReferralCta: { ctaText: string; supportingText: string };
   source: string;
@@ -28,13 +26,11 @@ interface BeachSubPageCtaSwitchProps {
 }
 
 export function BeachSubPageCtaSwitch({
-  beachId,
   beachName,
   children,
   installCtaEnabled,
   placement,
   pathname,
-  pageType,
   proof,
   searchReferralCta,
   source,
@@ -73,17 +69,7 @@ export function BeachSubPageCtaSwitch({
             proof={proof}
           />
         </div>
-      ) : (
-        <div className="container mx-auto px-4 py-8">
-          <AlertCaptureCta
-            pageContext={pageType}
-            beachId={beachId}
-            beachName={beachName}
-            source={`${source}-inline`}
-            variant="paper"
-          />
-        </div>
-      )}
+      ) : null}
 
       {children}
 
