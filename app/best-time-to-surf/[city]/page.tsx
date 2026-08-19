@@ -619,10 +619,12 @@ export default async function BestTimeToSurfPage(props: PageParams) {
 
                 {/* Current month hero card */}
                 <div className="flex flex-col items-center gap-6 rounded-lg border border-[#11100D]/15 bg-gradient-to-br from-[#FBF6E8]/95 to-[#EEE3C9]/75 p-6 text-[#11100D] shadow-[0_18px_38px_rgba(17,16,13,0.14)] md:flex-row md:p-8">
+                  {/* Seasonal average, not a live call — no "Go now!" (#569) */}
                   <AnimatedScoreGauge
                     score={currentMonthData.score}
                     size="xl"
                     showLabel
+                    showAction={false}
                   />
                   <div className="text-center md:text-left">
                     <p className="mb-1 text-sm font-medium uppercase tracking-wide text-[#655C4C]">

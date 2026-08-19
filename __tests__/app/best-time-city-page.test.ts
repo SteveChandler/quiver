@@ -395,4 +395,16 @@ describe("best-time city SEO page", () => {
     expect(source).toContain("Monthly Breakdown");
     expect(source).toContain("path: `/best-time-to-surf/${citySlug}`");
   });
+
+  it("suppresses immediate-action copy on the seasonal month gauge", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/best-time-to-surf/[city]/page.tsx"),
+      "utf8"
+    );
+
+    const gauges = source.match(/<AnimatedScoreGauge[\s\S]*?\/>/g) ?? [];
+
+    expect(gauges).toHaveLength(1);
+    expect(gauges[0]).toContain("showAction={false}");
+  });
 });
