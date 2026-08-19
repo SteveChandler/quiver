@@ -80,6 +80,7 @@ export function BeachSubPageCtaSwitch({
             beachId={beachId}
             beachName={beachName}
             source={`${source}-inline`}
+            variant="paper"
           />
         </div>
       )}

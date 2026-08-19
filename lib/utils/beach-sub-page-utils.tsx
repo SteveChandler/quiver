@@ -15,6 +15,7 @@ import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
 import { BeachSubPageCtaSwitch } from "@/components/app-store/beach-subpage-cta-switch";
 import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
+import { ZineSurface } from "@/components/zine/zine-surface";
 import { TideSummaryHero } from "@/components/beach-detail/tide-summary-hero";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
@@ -313,7 +314,14 @@ export async function renderBeachSubPage({
         stickyCtaText={ctaConfig.ctaText}
         stickySupportingText={ctaConfig.supportingText(beach.name)}
       >
-        <div className="container mx-auto px-4 pb-8">
+        {/* These sections render below the hero's zine surface, which left them
+            sitting on the dark site background — the paper-variant components
+            put ink type straight onto navy. Give them their own cream stage so
+            the whole page reads as one field guide. */}
+        <ZineSurface
+          sectionLabel={config.breadcrumbLabel}
+          data-testid="beach-sub-page-next-steps-surface"
+        >
           <SeoFunnelNextSteps
             variant="paper"
             title={`Keep planning ${beach.name}`}
@@ -339,16 +347,16 @@ export async function renderBeachSubPage({
               },
             ]}
           />
-        </div>
 
-        <div className="container mx-auto px-4 pb-8">
-          <NearbyBeachesEnriched
-            beaches={nearbyBeaches}
-            sourceBeachName={beach.name}
-            sourceBeachLat={beach.lat}
-            sourceBeachLon={beach.lon}
-          />
-        </div>
+          <div className="mt-12">
+            <NearbyBeachesEnriched
+              beaches={nearbyBeaches}
+              sourceBeachName={beach.name}
+              sourceBeachLat={beach.lat}
+              sourceBeachLon={beach.lon}
+            />
+          </div>
+        </ZineSurface>
       </BeachSubPageCtaSwitch>
     </>
   );
