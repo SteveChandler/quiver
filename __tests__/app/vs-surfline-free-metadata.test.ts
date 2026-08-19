@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { metadata } from "@/app/vs/surfline/free/page";
 
 describe("/vs/surfline/free metadata", () => {
@@ -16,5 +19,15 @@ describe("/vs/surfline/free metadata", () => {
     expect(metadata.keywords).toEqual(
       expect.arrayContaining(["free surfline alternative"]),
     );
+  });
+
+  it("positions Quiver as a free alternative in the short answer", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/vs/surfline/free/page-content.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("Yes — Quiver is a free Surfline alternative");
+    expect(source).not.toMatch(/free[- ]to[- ]browse/i);
   });
 });

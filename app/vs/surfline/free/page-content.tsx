@@ -542,7 +542,7 @@ export default async function VsSurflineFreePage() {
               the short answer
             </div>
             <p className="font-heading text-2xl font-black leading-tight md:text-4xl">
-              Yes — Quiver is a free-to-browse Surfline alternative for the US,
+              Yes — Quiver is a free Surfline alternative for the US,
               Hawaii, Puerto Rico, and Baja. You read any beach&apos;s forecast,
               tide, and cams without paying. The personalization that learns your
               sessions is the optional Pro layer.

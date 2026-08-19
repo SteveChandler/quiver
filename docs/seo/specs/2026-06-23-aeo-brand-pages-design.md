@@ -117,7 +117,7 @@ Mandatory link graph:
 
 **Section order:**
 1. **Hero** — eyebrow `QUIVER VS SURFLINE · THE FREE READ`; Space Grotesk **900** H1 "Looking for a free Surfline alternative?"; honest subhead; rotated "Updated Jun 2026" sticker; CTAs "Start free →" (orange) + "Browse forecasts." **Stat row beneath:** `2.5M+ forecasts crunched · 280+ breaks · 70+ live cams` (Space Mono, sticker-badged).
-2. **The short answer** (AEO extractable, rotated card) — "Yes — Quiver is a free-to-browse Surfline alternative for the US, Hawaii, Puerto Rico, and Baja. You read any beach's forecast, tide, and cams without paying. What's paid is the optional personalization that learns your logged sessions."
+2. **The short answer** (AEO extractable, rotated card) — "Yes — Quiver is a free Surfline alternative for the US, Hawaii, Puerto Rico, and Baja. You read any beach's forecast, tide, and cams without paying. What's paid is the optional personalization that learns your logged sessions."
 3. **Comparison in 60 seconds** — table (honest content below).
 4. **Decision cards** — "Use Quiver if… / Use Surfline if…" (honest tradeoffs; Surfline wins international + biggest cam network).
 5. **Live cam wall** — 70+ free live cams grouped by coast (San Diego · LA · OC · SF · OR · WA · HI · Outer Banks · Maine · FL · TX), each linking to its beach forecast page → 73 internal links + location keywords. Header: "Watch any break, free."

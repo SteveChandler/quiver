@@ -15,7 +15,7 @@
 ## Ground rules (read once before starting)
 
 - **Run all commands from the `quiver/` directory with Node 22.** `yarn test:unit` = Jest; `yarn test` = Playwright — never confuse them.
-- **Copy guardrails (from spec §3):** never write a flat "free / no paywall / free forever" claim, never publish fabricated head-to-head MAE numbers vs Surfline, never present the in-sample concordance as live fact. "Free to browse, no subscription to read a forecast" is the only price claim.
+- **Copy guardrails (from spec §3):** describe Quiver as a free Surfline alternative while keeping the geographic coverage and optional Pro personalization alongside the price claim; never claim "no paywall" or "free forever," publish fabricated head-to-head MAE numbers vs Surfline, or present the in-sample concordance as live fact.
 - **`/vs/surfline` must NOT gain the word "free":** `__tests__/app/vs-surfline-metadata.test.ts` asserts `/\bfree\b/i` is absent from `/vs/surfline` metadata AND page source. Phase C edits to that file must avoid the word "free."
 - **`FAQSchema` is a deliberate no-op** (returns `null`; Google restricts FAQ rich results). FAQ copy still helps AI Overviews (they read the visible Q&A) but produces no FAQPage rich snippet — do not expect one.
 - **Beach links use `buildBeachUrl({slug, city, state})`** from `@/lib/utils/beach-url-utils` → `/<state>/<city>/<beachSlug>`. Do NOT link `/forecast/<beachSlug>` (region-only path that 301-redirects).
