@@ -12,7 +12,7 @@ import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-sche
 import Link from "next/link";
 
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
-import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
+import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spots";
 import { BeachSubPageCtaSwitch } from "@/components/app-store/beach-subpage-cta-switch";
 import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import { ZineSurface } from "@/components/zine/zine-surface";
@@ -349,7 +349,9 @@ export async function renderBeachSubPage({
           />
 
           <div className="mt-12">
-            <NearbyBeachesEnriched
+            {/* Zine variant of the same section — the enriched one paints its
+                own navy panel, which covered the cream stage. */}
+            <ZineNearbySpots
               beaches={nearbyBeaches}
               sourceBeachName={beach.name}
               sourceBeachLat={beach.lat}
