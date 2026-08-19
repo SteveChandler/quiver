@@ -19,7 +19,7 @@ describe("Best surf forecast app SEO page", () => {
     );
 
     expect(source).toContain("Affiliation disclosure: Quiver is our app.");
-    expect(source).toContain('CHECKED_ON_ISO = "2026-07-08"');
+    expect(source).toContain("COMPARISON_SOURCE_REVIEW.lastVerified");
     expect(source).toContain('href="/best-free-surf-forecast-app"');
     expect(source).toContain('href="/vs/surfline"');
     expect(source).toContain('href="/forecast-accuracy"');
