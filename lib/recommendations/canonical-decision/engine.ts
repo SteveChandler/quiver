@@ -19,6 +19,7 @@ import type {
   CanonicalDecisionSkill,
   CanonicalSessionDecision,
 } from "./types";
+import type { ScoringDecisionEffect } from "@/lib/domains/scoring/types";
 import {
   CANONICAL_SESSION_DECISION_ENGINE_VERSION,
   CANONICAL_SESSION_DECISION_SCHEMA_VERSION,
@@ -94,6 +95,13 @@ function candidateSafetyReasons(
 function physicalVerdictForCandidate(
   candidate: CanonicalDecisionCandidate,
 ): "go" | "maybe" | "no" {
+  const baseVerdict = physicalVerdictWithoutCeiling(candidate);
+  return applyVerdictCeiling(baseVerdict, verdictCeiling(candidate.effects));
+}
+
+function physicalVerdictWithoutCeiling(
+  candidate: CanonicalDecisionCandidate,
+): "go" | "maybe" | "no" {
   if (candidate.recommendationLabel === "Skip") return "no";
   if (candidate.recommendationLabel === "Maybe") return "maybe";
   if (candidate.recommendationLabel === "Worth it") return "go";
@@ -102,7 +110,30 @@ function physicalVerdictForCandidate(
   return "no";
 }
 
+function applyVerdictCeiling(
+  verdict: "go" | "maybe" | "no",
+  ceiling: number,
+): "go" | "maybe" | "no" {
+  if (ceiling < 40) return "no";
+  if (ceiling < 70 && verdict === "go") return "maybe";
+  return verdict;
+}
+
+function verdictCeiling(effects: readonly ScoringDecisionEffect[] | undefined): number {
+  return (effects ?? []).reduce(
+    (current, effect) => Math.min(current, effect.verdictCeiling ?? 100),
+    100,
+  );
+}
+
 function personalMatchVerdict(
+  candidate: CanonicalDecisionCandidate,
+): "go" | "maybe" | "no" | null {
+  const verdict = personalMatchVerdictWithoutCeiling(candidate);
+  return verdict === null ? null : applyVerdictCeiling(verdict, verdictCeiling(candidate.effects));
+}
+
+function personalMatchVerdictWithoutCeiling(
   candidate: CanonicalDecisionCandidate,
 ): "go" | "maybe" | "no" | null {
   const label = candidate.personalMatch?.label;
@@ -161,6 +192,7 @@ function decisionId(input: BuildCanonicalSessionDecisionInput): string {
         recommendationLabel: candidate.recommendationLabel ?? null,
         personalMatch: candidate.personalMatch ?? null,
         safetyOverrideReasons: candidate.safetyOverrideReasons ?? [],
+        effects: candidate.effects ?? [],
       }))
       .sort((left, right) => left.candidateId.localeCompare(right.candidateId)),
     engineVersion: CANONICAL_SESSION_DECISION_ENGINE_VERSION,
@@ -175,6 +207,7 @@ function canonicalSkill(value: unknown): CanonicalDecisionSkill {
 function selectionFor(
   candidate: CanonicalDecisionCandidate,
   skill: CanonicalDecisionSkill,
+  verdict: "go" | "maybe" | "no",
 ): CanonicalDecisionSelection {
   return {
     candidateId: candidate.candidateId,
@@ -194,9 +227,11 @@ function selectionFor(
       reasonCodes: [],
     },
     evidence: {
-      conditionScore: candidate.utilityScore,
-      recommendationLabel: candidate.recommendationLabel ?? null,
+      conditionScore: Math.min(candidate.utilityScore, verdictCeiling(candidate.effects)),
+      recommendationLabel:
+        verdict === "go" ? "Worth it" : verdict === "maybe" ? "Maybe" : "Skip",
       personalMatch: skill === "unknown" ? null : candidate.personalMatch ?? null,
+      effects: candidate.effects ?? [],
     },
   };
 }
@@ -342,7 +377,9 @@ export function buildCanonicalSessionDecision(
     decisionBasis,
     decisionBasisV2,
     reasonCode,
-    selection: hasSelection ? selectionFor(selected, skill) : null,
+    selection: hasSelection
+      ? selectionFor(selected, skill, verdict)
+      : null,
     skillEligibility: {
       skill,
       state: eligibilityState,
@@ -362,6 +399,7 @@ export function buildCanonicalSessionDecision(
               : [],
     },
     holdEpoch: input.recommendationAvailability.holdEpoch,
+    effects: selected?.effects ?? [],
   };
 
   return parseCanonicalSessionDecision(decision);

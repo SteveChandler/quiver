@@ -32,7 +32,8 @@ export const GET = withAdminAuth(async (request: NextRequest, { supabase }) => {
     digestRunsResult,
     emailLogsResult,
     pushLogsResult,
-    deviceCountResult
+    deviceCountResult,
+    activeLegacyCountResult,
   ] = await Promise.all([
     // Recent digest runs
     supabase
@@ -56,18 +57,46 @@ export const GET = withAdminAuth(async (request: NextRequest, { supabase }) => {
       .select("notification_type, status, sent_at")
       .gte("sent_at", since) as Promise<{ data: Array<{ notification_type: string; status: string; sent_at: string }> | null; error: unknown }>,
 
-    // Total registered devices
-    supabase
+    // Total active devices, with adoption state retained for rollout visibility.
+    (supabase as any)
       .from("user_devices")
       .select("platform", { count: "exact" })
+      .is("retired_at" as never, null),
+
+    (supabase as any)
+      .from("user_devices")
+      .select("id", { count: "exact", head: true })
+      .is("retired_at" as never, null)
+      .is("installation_id" as never, null)
   ]);
+
+  if (deviceCountResult.error) {
+    throw new Error(`Failed to count active devices: ${String(deviceCountResult.error)}`);
+  }
+  if (activeLegacyCountResult.error) {
+    throw new Error(
+      `Failed to count active legacy devices: ${String(activeLegacyCountResult.error)}`,
+    );
+  }
+  if (deviceCountResult.count == null || activeLegacyCountResult.count == null) {
+    throw new Error("Active device adoption counts were unavailable");
+  }
 
   // Aggregate stats using utility functions
   const emailsByType = aggregateByKey(emailLogsResult.data, (log) => log.email_type);
   const emailsByDate = aggregateByKey(emailLogsResult.data, (log) => log.local_date);
   const pushByStatus = aggregateByKey(pushLogsResult.data, (log) => log.status);
   const pushByType = aggregateByKey(pushLogsResult.data, (log) => log.notification_type);
-  const devicesByPlatform = aggregateByKey(deviceCountResult.data, (device) => device.platform);
+  const activeDeviceRows = (deviceCountResult.data ?? []) as Array<{
+    platform: string | null;
+  }>;
+  const devicesByPlatform = aggregateByKey(
+    activeDeviceRows,
+    (device) => device.platform ?? "unknown",
+  );
+  const activeLegacy = activeLegacyCountResult.count ?? 0;
+  const activeDeviceTotal = deviceCountResult.count ?? 0;
+  const activeIdentified = Math.max(0, activeDeviceTotal - activeLegacy);
 
   const stats = {
     period: { days, since },
@@ -98,6 +127,12 @@ export const GET = withAdminAuth(async (request: NextRequest, { supabase }) => {
     devices: {
       total: deviceCountResult.count || 0,
       byPlatform: devicesByPlatform,
+      activeIdentified,
+      activeLegacy,
+      identifiedAdoptionPercentage:
+        activeDeviceTotal > 0
+          ? Math.round((activeIdentified / activeDeviceTotal) * 10000) / 100
+          : null,
     },
 
     generatedAt: new Date().toISOString(),

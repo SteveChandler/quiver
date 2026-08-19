@@ -63,6 +63,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createHash } from "node:crypto";
 import type { Database, Json } from "@/types/database.generated";
 import {
   getRegistryEntry,
@@ -84,6 +85,7 @@ import { getFirebaseAdminMessaging } from "@/lib/services/firebase-admin";
 import {
   dispatchPushMessages,
   type PushMessage,
+  type PushDeliveryOutcome,
 } from "@/lib/services/push-delivery";
 import { capturePostHogEvent } from "@/lib/posthog-server";
 import { getLocalHour } from "@/lib/utils/timezone-utils";
@@ -172,10 +174,15 @@ interface ProfileRow {
 }
 
 interface DeviceRow {
+  id: string;
   device_token: string;
+  installation_id: string | null;
+  retired_at: string | null;
   platform: string | null;
   app_version: string | null;
   build_number: string | null;
+  delivery_claim_id?: string;
+  delivery_claim_version?: number;
 }
 
 export interface ProcessOptions {
@@ -1069,6 +1076,81 @@ function resolveQuietWindow(
 
 // ─── Push dispatch ───────────────────────────────────────────────────────────
 
+type DeliveryTargetClaim = { installation_id: string; status: string; claim_version: number };
+
+function installationIdFor(device: DeviceRow): string | null {
+  return device.installation_id ?? null;
+}
+
+function tokenFingerprint(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function sanitizeProviderText(text: string, devices: readonly DeviceRow[]): string {
+  return devices.reduce(
+    (safe, device) => safe.split(device.device_token).join(`[token:${tokenFingerprint(device.device_token)}]`),
+    text,
+  );
+}
+
+/**
+ * New installations are claimed in a durable per-event ledger before provider
+ * dispatch. Legacy rows have no physical identity and remain on the additive
+ * compatibility path; they are never guessed into an installation group.
+ */
+async function claimInstallationTargets(
+  supabase: ServiceClient,
+  eventId: string,
+  devices: DeviceRow[],
+): Promise<DeviceRow[]> {
+  const identified = devices.filter((device) => installationIdFor(device) !== null);
+  if (identified.length === 0) return devices;
+
+  const targetClient = supabase as unknown as {
+    from(table: "notification_delivery_targets"): {
+      upsert(rows: Array<Record<string, unknown>>, options?: { onConflict?: string; ignoreDuplicates?: boolean }): Promise<{ error: { code?: string; message: string } | null }>;
+    };
+    rpc(name: "claim_notification_delivery_targets", args: Record<string, unknown>): Promise<{
+      data: DeliveryTargetClaim[] | null;
+      error: { message: string } | null;
+    }>;
+  };
+  const rows = identified.map((device) => ({
+    notification_event_id: eventId,
+    installation_id: device.installation_id as string,
+    token_fingerprint: tokenFingerprint(device.device_token),
+  }));
+  const inserted = await targetClient.from("notification_delivery_targets").upsert(rows, {
+    onConflict: "notification_event_id,installation_id",
+    ignoreDuplicates: true,
+  });
+  if (inserted.error && inserted.error.code !== "23505") {
+    throw new Error(`notification target ledger insert failed: ${inserted.error.message}`);
+  }
+  const claimId = crypto.randomUUID();
+  const claimed = await targetClient.rpc("claim_notification_delivery_targets", {
+    p_event_id: eventId,
+    p_installation_ids: rows.map((row) => row.installation_id),
+    p_claim_id: claimId,
+  });
+  if (claimed.error) {
+    throw new Error(`notification target claim failed: ${claimed.error.message}`);
+  }
+  const claimedByInstallation = new Map(
+    (claimed.data ?? [])
+      .filter((target) => target.status === "sending")
+      .map((target) => [target.installation_id, target] as const),
+  );
+  return [
+    ...devices.filter((device) => installationIdFor(device) === null),
+    ...identified.flatMap((device) => {
+      const target = claimedByInstallation.get(device.installation_id as string);
+      if (!target) return [];
+      return [{ ...device, delivery_claim_id: claimId, delivery_claim_version: target.claim_version }];
+    }),
+  ];
+}
+
 async function dispatchPush(
   supabase: ServiceClient,
   fcm: FcmMessaging,
@@ -1094,10 +1176,26 @@ async function dispatchPush(
     });
   }
 
-  const { data: devices, error: devicesError } = await supabase
+  const deviceReader = supabase as unknown as {
+    from(table: "user_devices"): {
+      select(columns: string): {
+        eq(column: string, value: string): Promise<{
+          data: unknown[] | null;
+          error: { message: string } | null;
+        }> & {
+          is(column: string, value: null): Promise<{
+            data: unknown[] | null;
+            error: { message: string } | null;
+          }>;
+        };
+      };
+    };
+  };
+  const { data: devices, error: devicesError } = await deviceReader
     .from("user_devices")
-    .select("device_token, platform, app_version, build_number")
-    .eq("user_id", event.recipient_user_id);
+    .select("id, device_token, installation_id, retired_at, platform, app_version, build_number")
+    .eq("user_id", event.recipient_user_id)
+    .is("retired_at", null);
 
   if (devicesError) {
     console.error(
@@ -1108,7 +1206,8 @@ async function dispatchPush(
       errorMessage: devicesError.message,
     });
   }
-  const deviceList = (devices ?? []) as DeviceRow[];
+  const deviceList = ((devices ?? []) as DeviceRow[])
+    .filter((device) => device.retired_at == null);
   if (deviceList.length === 0) {
     return channelDecision("skipped_no_device");
   }
@@ -1129,10 +1228,19 @@ async function dispatchPush(
   );
   if (finalHoldSuppression) return finalHoldSuppression;
 
+  const dispatchableDevices = await claimInstallationTargets(
+    supabase,
+    event.id,
+    deviceList,
+  );
+  if (dispatchableDevices.length === 0) {
+    return channelDecision("skipped_dedup");
+  }
+
   const payloadRecord = (event.payload ?? {}) as Record<string, unknown>;
   const built = def.buildPushPayload(payloadRecord, ctx);
 
-  const messages: PushMessage[] = deviceList.map((device) => {
+  const messages: PushMessage[] = dispatchableDevices.map((device) => {
     const compatibility = resolveNotificationPresentationCompatibility({
       platform: device.platform,
       appVersion: device.app_version,
@@ -1177,32 +1285,73 @@ async function dispatchPush(
   try {
     result = await dispatchPushMessages({ messages, fcm });
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const safeMessage = sanitizeProviderText(message, dispatchableDevices);
     console.error(
       `[notifications/worker] push dispatch threw for event ${event.id}:`,
-      err
+      safeMessage,
     );
-    const message = err instanceof Error ? err.message : String(err);
+    try {
+      await finalizeInstallationTargets(supabase, event.id, dispatchableDevices, {
+        success: 0,
+        failed: 0,
+        invalidTokens: [],
+        errors: [safeMessage],
+        outcomes: dispatchableDevices
+          .filter((device) => installationIdFor(device) !== null)
+          .map((device) => ({
+            token: device.device_token,
+            status: "unknown" as const,
+            invalidToken: false,
+          })),
+      });
+    } catch (finalizeError) {
+      const finalizeMessage = finalizeError instanceof Error
+        ? finalizeError.message
+        : String(finalizeError);
+      console.error(
+        `[notifications/worker] ambiguous push target finalization failed for event ${event.id}:`,
+        sanitizeProviderText(finalizeMessage, dispatchableDevices),
+      );
+    }
     return channelDecision("failed_provider", {
       providerResponse: { reason: "dispatch_exception" },
-      errorMessage: message,
+      errorMessage: safeMessage,
     });
   }
 
   if (result.invalidTokens.length > 0) {
-    await supabase.from("user_devices").delete().in("device_token", result.invalidTokens);
+    const deviceTable = supabase.from("user_devices") as unknown as {
+      update: (row: unknown) => { eq: (column: string, value: string) => { in: (column: string, values: string[]) => { is: (column: string, value: null) => Promise<unknown> } } };
+    };
+    await deviceTable
+      .update({ retired_at: new Date().toISOString(), retired_reason: "provider_invalid_token" })
+      .eq("user_id", event.recipient_user_id)
+      .in("device_token", result.invalidTokens)
+      .is("retired_at", null);
   }
 
+  const safeErrors = result.errors.map((error) =>
+    sanitizeProviderText(error, dispatchableDevices),
+  );
+  const safeResult = { ...result, errors: safeErrors };
   const providerResponse = {
     success: result.success,
     failed: result.failed,
-    invalidTokens: result.invalidTokens,
-    errors: result.errors,
+    invalidTokenCount: result.invalidTokens.length,
+    errors: safeErrors,
   };
+  await finalizeInstallationTargets(
+    supabase,
+    event.id,
+    dispatchableDevices,
+    safeResult,
+  );
   const errorMessage =
-    result.errors[0] ??
+    safeErrors[0] ??
     (result.failed > 0 ? "Push provider returned failed deliveries" : null);
 
-  if (result.success > 0) {
+  if (result.success > 0 && result.failed === 0) {
     return channelDecision("sent", {
       providerResponse,
       errorMessage,
@@ -1218,6 +1367,63 @@ async function dispatchPush(
     providerResponse,
     errorMessage: "Push provider returned no sent or failed deliveries",
   });
+}
+
+async function finalizeInstallationTargets(
+  supabase: ServiceClient,
+  eventId: string,
+  devices: DeviceRow[],
+  result: {
+    success: number;
+    failed: number;
+    invalidTokens: string[];
+    errors: string[];
+    outcomes: PushDeliveryOutcome[];
+  },
+): Promise<void> {
+  const targets = devices.filter((device) => installationIdFor(device) !== null);
+  if (targets.length === 0) return;
+  const rpcClient = supabase as unknown as {
+    rpc(name: "finalize_notification_delivery_target", args: Record<string, unknown>): Promise<{ error: { message: string } | null }>;
+    from(table: "notification_delivery_targets"): {
+      select(columns: string): { eq(column: string, value: string): { in(column: string, values: string[]): Promise<{ data: Array<{ id: string; installation_id: string; claim_id: string; claim_version: number }> | null; error: { message: string } | null }> } };
+    };
+  };
+  const lookup = await rpcClient.from("notification_delivery_targets")
+    .select("id, installation_id, claim_id, claim_version")
+    .eq("notification_event_id", eventId)
+    .in("installation_id", targets.map((device) => device.installation_id as string));
+  if (lookup.error) throw new Error(`notification target lookup failed: ${lookup.error.message}`);
+  const invalid = new Set(result.invalidTokens);
+  for (const target of lookup.data ?? []) {
+    const device = targets.find((candidate) => candidate.installation_id === target.installation_id);
+    if (
+      !device ||
+      device.delivery_claim_id !== target.claim_id ||
+      device.delivery_claim_version !== target.claim_version
+    ) {
+      // A later worker may own this target now. Never finalize another claim.
+      continue;
+    }
+    const outcome = result.outcomes.find(
+      (candidate) => candidate.token === device.device_token,
+    );
+    const status = outcome?.status
+      ?? (invalid.has(device.device_token) ? "failed" : "unknown");
+    const finalized = await rpcClient.rpc("finalize_notification_delivery_target", {
+      p_target_id: target.id,
+      p_claim_id: device.delivery_claim_id,
+      p_claim_version: device.delivery_claim_version,
+      p_status: status,
+      p_provider_response: { success: result.success, failed: result.failed },
+      p_error_message: status === "unknown"
+        ? "provider outcome ambiguous; dispatch will not be retried"
+        : outcome?.error
+          ? sanitizeProviderText(outcome.error, targets)
+          : null,
+    });
+    if (finalized.error) throw new Error(`notification target finalize failed: ${finalized.error.message}`);
+  }
 }
 
 // ─── In-app dispatch ─────────────────────────────────────────────────────────
@@ -1477,6 +1683,8 @@ function summarizeProviderResponse(
   }
   if (Array.isArray(source.invalidTokens)) {
     summary.provider_invalid_token_count = source.invalidTokens.length;
+  } else if (typeof source.invalidTokenCount === "number") {
+    summary.provider_invalid_token_count = source.invalidTokenCount;
   }
   if (Array.isArray(source.errors)) {
     summary.provider_error_count = source.errors.length;

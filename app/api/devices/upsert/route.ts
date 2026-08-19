@@ -37,6 +37,7 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
   const {
     platform,
     device_token,
+    installation_id,
     app_version,
     build_number,
     os_version,
@@ -48,6 +49,11 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
     expo_is_embedded_launch,
     expo_is_emergency_launch,
   } = body;
+
+  if (installation_id !== undefined &&
+      (typeof installation_id !== "string" || installation_id.trim().length === 0 || installation_id.length > 200)) {
+    return NextResponse.json({ success: false, error: "installation_id must be a non-empty string" }, { status: 400 });
+  }
 
   if (!platform || !device_token) {
     return NextResponse.json(
@@ -198,11 +204,31 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
     if (value !== undefined) upsertRow[field] = value;
   }
 
-  const { error: upsertError } = await supabase
-    .from("user_devices")
-    .upsert(upsertRow as never, {
-      onConflict: "user_id,device_token",
+  let upsertError: { message: string } | null = null;
+  if (typeof installation_id === "string" && installation_id.trim()) {
+    const rpcClient = supabase as unknown as {
+      rpc(name: "register_device_installation", args: Record<string, unknown>): Promise<{ error: { message: string } | null }>;
+    };
+    const result = await rpcClient.rpc("register_device_installation", {
+      p_user_id: user.id,
+      p_installation_id: installation_id.trim(),
+      p_platform: platform,
+      p_device_token: device_token,
+      p_metadata: Object.fromEntries(Object.entries(upsertRow).filter(([key]) => key !== "user_id" && key !== "platform" && key !== "device_token")),
     });
+    upsertError = result.error;
+  } else {
+    const rpcClient = supabase as unknown as {
+      rpc(name: "register_legacy_device_token", args: Record<string, unknown>): Promise<{ error: { message: string } | null }>;
+    };
+    const result = await rpcClient.rpc("register_legacy_device_token", {
+      p_user_id: user.id,
+      p_platform: platform,
+      p_device_token: device_token,
+      p_metadata: Object.fromEntries(Object.entries(upsertRow).filter(([key]) => key !== "user_id" && key !== "platform" && key !== "device_token")),
+    });
+    upsertError = result.error;
+  }
 
   if (upsertError) {
     console.error("Device token upsert failed:", upsertError);
@@ -242,9 +268,14 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
  */
 export const DELETE = withAuth(async (request: NextRequest, { user, supabase }) => {
   const body = await request.json();
-  const { device_token } = body;
+  const { device_token, installation_id } = body;
 
-  if (!device_token) {
+  if (installation_id != null &&
+      (typeof installation_id !== "string" || installation_id.trim().length === 0 || installation_id.length > 200)) {
+    return NextResponse.json({ success: false, error: "installation_id must be a non-empty string" }, { status: 400 });
+  }
+
+  if (!device_token && !installation_id) {
     return NextResponse.json(
       {
         success: false,
@@ -255,11 +286,17 @@ export const DELETE = withAuth(async (request: NextRequest, { user, supabase }) 
     );
   }
 
-  const { error: deleteError } = await supabase
+  const query = supabase
     .from("user_devices")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("device_token", device_token);
+    .update({
+      retired_at: new Date().toISOString(),
+      retired_reason: "logout",
+    } as never)
+    .eq("user_id", user.id);
+  const scopedQuery = installation_id
+    ? query.eq("installation_id" as never, installation_id)
+    : query.eq("device_token", device_token);
+  const { error: deleteError } = await scopedQuery.is("retired_at" as never, null);
 
   if (deleteError) {
     console.error("Device token deletion failed:", deleteError);

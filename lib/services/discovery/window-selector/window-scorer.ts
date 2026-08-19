@@ -174,6 +174,18 @@ export interface WindowConditionScoreDetails {
   rideabilityBand: RideabilityBand | null;
 }
 
+/** Resolve the same domain decision ceiling for every native-compatible score path. */
+function decisionEffectCeiling(
+  forecast: EnhancedForecastEntity,
+  beach: Beach,
+): number {
+  const composite = scoreWindowWithComposite(forecast, beach);
+  return (composite.effects ?? []).reduce(
+    (current, effect) => Math.min(current, effect.verdictCeiling ?? 100),
+    100,
+  );
+}
+
 /**
  * Scores the best saved board, but never below the no-board baseline. A null
  * boardClass means no saved board improved the displayed score.
@@ -187,29 +199,34 @@ export function scoreWindowConditionDetails(
 ): WindowConditionScoreDetails {
   const resolvedSkillLevel = resolveNativeSkillLevel(skillLevel, 'intermediate');
   const uniqueBoardClasses = Array.from(new Set(boardClasses ?? []));
+  const ceiling = decisionEffectCeiling(forecast, _beach as unknown as Beach);
+  const applyCeiling = (score: number): number => Math.min(score, ceiling);
   const baselineScore = scoreNativeForecastSlot(forecast, resolvedSkillLevel);
 
   if (uniqueBoardClasses.length === 0) {
+    const score = rideabilityBand
+      ? Math.max(
+          baselineScore,
+          scoreNativeForecastSlot(forecast, resolvedSkillLevel, rideabilityBand),
+        )
+      : baselineScore;
     return {
-      score: rideabilityBand
-        ? Math.max(
-            baselineScore,
-            scoreNativeForecastSlot(forecast, resolvedSkillLevel, rideabilityBand),
-          )
-        : baselineScore,
+      score: applyCeiling(score),
       boardClass: null,
       rideabilityBand: rideabilityBand ?? null,
     };
   }
 
   let best: WindowConditionScoreDetails = {
-    score: baselineScore,
+    score: applyCeiling(baselineScore),
     boardClass: null,
     rideabilityBand: null,
   };
   for (const boardClass of uniqueBoardClasses) {
     const boardBand = getRideabilityBand(resolvedSkillLevel, boardClass);
-    const score = scoreNativeForecastSlot(forecast, resolvedSkillLevel, boardBand);
+    const score = applyCeiling(
+      scoreNativeForecastSlot(forecast, resolvedSkillLevel, boardBand),
+    );
     if (score > best.score) {
       best = {
         score,
@@ -263,7 +280,10 @@ export function scoreWindowForSelection(
   }
 
   return clampSelectionScore(
-    baseScore + getRideabilitySelectionAdjustment(forecast, adjustmentBand)
+    Math.min(
+      baseScore + getRideabilitySelectionAdjustment(forecast, adjustmentBand),
+      decisionEffectCeiling(forecast, beach),
+    ),
   );
 }
 

@@ -1,3 +1,5 @@
+import type { ScoringDecisionEffect } from '@/lib/domains/scoring/types';
+
 type CanonicalDecisionModule = {
   buildCanonicalSessionDecision: (input: unknown) => unknown;
 };
@@ -23,6 +25,7 @@ interface TestCandidate {
     sessionCount: number;
     reasons: readonly string[];
   } | null;
+  effects?: ScoringDecisionEffect[];
 }
 
 function loadEngine(): CanonicalDecisionModule {
@@ -195,6 +198,70 @@ describe("canonical session decision engine", () => {
     expect(decision.verdict).toBe("maybe");
     expect(decision.reasonCode).toBe("selected_maybe");
     expect(decision.selection).not.toBeNull();
+  });
+
+  it("applies a structured caution to both verdict evidence and the decision hash", () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const effect: ScoringDecisionEffect = {
+      code: "crossing_swells",
+      severity: "material",
+      verdictCeiling: 65,
+      message: "Crossing swells may create unstable peaks.",
+    };
+    const withEffect = buildCanonicalSessionDecision(
+      input([
+        candidate({
+          utilityScore: 95,
+          effects: [effect],
+          personalMatch: {
+            score: 9.4,
+            label: "GOOD",
+            confidence: "high",
+            sessionCount: 18,
+            reasons: ["Strong setup match"],
+          },
+        }),
+      ]),
+    ) as {
+      decisionId: string;
+      verdict: string;
+      selection: {
+        evidence: {
+          conditionScore: number;
+          recommendationLabel: string;
+          effects: ScoringDecisionEffect[];
+        };
+      } | null;
+      effects: ScoringDecisionEffect[];
+    };
+    const withoutEffect = buildCanonicalSessionDecision(
+      input([
+        candidate({
+          utilityScore: 95,
+          personalMatch: {
+            score: 9.4,
+            label: "GOOD",
+            confidence: "high",
+            sessionCount: 18,
+            reasons: ["Strong setup match"],
+          },
+        }),
+      ]),
+    ) as { decisionId: string; verdict: string };
+
+    expect(withEffect).toMatchObject({
+      verdict: "maybe",
+      selection: {
+        evidence: {
+          conditionScore: 65,
+          recommendationLabel: "Maybe",
+          effects: [effect],
+        },
+      },
+      effects: [effect],
+    });
+    expect(withEffect.decisionId).not.toBe(withoutEffect.decisionId);
+    expect(withoutEffect.verdict).toBe("go");
   });
 
   it.each([

@@ -15,7 +15,7 @@
  * Note: Primary swell alignment with beach is handled by swell-alignment-scorer.
  */
 
-import type { ScorerPlugin, ScorerInput, ScorerResult } from '../types';
+import type { ScorerPlugin, ScorerInput, ScorerResult, ScoringDecisionEffect } from '../types';
 import { SCORER_WEIGHTS, createNeutralResult } from '../types';
 import { analyzeSwell, areSwellsAligned, areSwellsCrossing } from '../../conditions';
 import { CONDITIONS_CONSTANTS } from '../../conditions';
@@ -28,6 +28,8 @@ import { getDirectionalRelevance } from './directional-relevance';
  * reasons — they're misleading on wind-chop dominated days.
  */
 const RELEVANCE_REASON_THRESHOLD = 70;
+/** A crossing secondary train is a decision-affecting caution, not copy-only. */
+const CROSSING_SWELL_VERDICT_CEILING = 65;
 
 /**
  * Swell interference scorer plugin.
@@ -104,6 +106,7 @@ export const swellInterferenceScorer: ScorerPlugin = {
     // Build reasons and warnings
     const reasons: string[] = [];
     const warnings: string[] = [];
+    const effects: ScoringDecisionEffect[] = [];
 
     if (areSwellsAligned(snapshot.primarySwell, snapshot.secondarySwell)) {
       // "Swells aligned" is a positive geometric finding, but on a 6s
@@ -113,7 +116,14 @@ export const swellInterferenceScorer: ScorerPlugin = {
         reasons.push('Swells aligned - waves combine well');
       }
     } else if (areSwellsCrossing(snapshot.primarySwell, snapshot.secondarySwell)) {
-      warnings.push('Crossing swells creating choppy conditions');
+      const message = 'Crossing swells creating choppy conditions';
+      warnings.push(message);
+      effects.push({
+        code: 'crossing_swells',
+        severity: 'material',
+        verdictCeiling: CROSSING_SWELL_VERDICT_CEILING,
+        message,
+      });
     } else {
       // In between - mild interference
       if (analysis.interferencePenalty > 5) {
@@ -133,6 +143,7 @@ export const swellInterferenceScorer: ScorerPlugin = {
       weight: SCORER_WEIGHTS.swellInterference,
       reasons,
       warnings,
+      effects,
       skip: false,
       skipReason: null,
     };

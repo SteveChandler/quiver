@@ -17,6 +17,7 @@ import type {
   CompositeScore,
   MatchQuality,
   ScoringEngineConfig,
+  ScoringDecisionEffect,
 } from './types';
 import { DEFAULT_SCORING_CONFIG } from './types';
 import { waveHeightCeiling } from './wave-height-ceiling';
@@ -112,6 +113,7 @@ export class ScoringEngine {
     const subscores = new Map<string, number>();
     const allReasons: string[] = [];
     const allWarnings: string[] = [];
+    const allEffects: ScoringDecisionEffect[] = [];
 
     for (const result of weightedResults) {
       const normalizedWeight = result.weight / totalWeight;
@@ -119,6 +121,7 @@ export class ScoringEngine {
       subscores.set(result.name, result.score);
       allReasons.push(...result.reasons);
       allWarnings.push(...result.warnings);
+      allEffects.push(...(result.effects ?? []));
     }
 
     const rawTotal = Math.round(weightedSum);
@@ -127,7 +130,11 @@ export class ScoringEngine {
     // transparent, but the final band must not overstate marginal surf.
     const ceiling = waveHeightCeiling(input.snapshot.waveHeight);
     const chopCeiling = windChopCeiling(input, subscores);
-    const total = Math.min(rawTotal, ceiling, chopCeiling?.ceiling ?? 100);
+    const effectCeiling = allEffects.reduce(
+      (current, effect) => Math.min(current, effect.verdictCeiling ?? 100),
+      100,
+    );
+    const total = Math.min(rawTotal, ceiling, chopCeiling?.ceiling ?? 100, effectCeiling);
 
     if (ceiling < rawTotal) {
       const heightStr = Number.isFinite(input.snapshot.waveHeight)
@@ -140,6 +147,13 @@ export class ScoringEngine {
     if (chopCeiling && chopCeiling.ceiling < rawTotal) {
       allReasons.push(chopCeiling.reason);
       allWarnings.push(chopCeiling.reason);
+    }
+    if (effectCeiling < rawTotal) {
+      for (const effect of allEffects) {
+        if (effect.verdictCeiling !== undefined && effect.verdictCeiling < rawTotal) {
+          allWarnings.push(effect.message);
+        }
+      }
     }
 
     const matchQuality = this.classifyScore(total);
@@ -155,6 +169,7 @@ export class ScoringEngine {
       warnings: this.dedupeAndLimit(allWarnings, this.config.maxReasons),
       skipReason: null,
       confidence,
+      effects: dedupeEffects(allEffects),
     };
   }
 
@@ -191,6 +206,7 @@ export class ScoringEngine {
       warnings: this.dedupeAndLimit([reason, ...allWarnings], this.config.maxReasons),
       skipReason: reason,
       confidence: 0,
+      effects: results.flatMap((result) => result.effects ?? []),
     };
   }
 
@@ -206,6 +222,7 @@ export class ScoringEngine {
       warnings: [reason],
       skipReason: reason,
       confidence: 0,
+      effects: [],
     };
   }
 
@@ -216,6 +233,16 @@ export class ScoringEngine {
     const unique = [...new Set(items)];
     return unique.slice(0, limit);
   }
+}
+
+function dedupeEffects(effects: ScoringDecisionEffect[]): ScoringDecisionEffect[] {
+  const seen = new Set<string>();
+  return effects.filter((effect) => {
+    const key = `${effect.code}:${effect.message}:${effect.verdictCeiling ?? ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /**

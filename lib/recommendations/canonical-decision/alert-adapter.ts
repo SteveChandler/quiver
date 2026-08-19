@@ -32,11 +32,12 @@ function waveHeightForDecision(value: unknown): string | null {
 }
 
 function candidateFromMatch(match: MatchingWindow): CanonicalDecisionCandidate {
+  const snapshotForecastId = match.conditions_snapshot.forecast_id;
   const forecastId =
-    typeof match.conditions_snapshot.forecast_id === "string" &&
-    match.conditions_snapshot.forecast_id.length > 0
-      ? match.conditions_snapshot.forecast_id
-      : `forecast:${match.beach_id}:${match.best_hour}`;
+    match.forecast_id ??
+    (typeof snapshotForecastId === "string" && snapshotForecastId.length > 0
+      ? snapshotForecastId
+      : "");
 
   return {
     candidateId: canonicalAlertCandidateId(match),

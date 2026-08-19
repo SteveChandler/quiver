@@ -211,10 +211,13 @@ async function _GET(request: Request): Promise<Response> {
     }
 
     // 4. Fetch device tokens per user (multiple devices allowed).
-    const { data: devices, error: devicesError } = await supabase
+    const deviceQuery = supabase
       .from("user_devices")
       .select("user_id, device_token")
       .in("user_id", Array.from(pushEnabledIds));
+    const { data: devices, error: devicesError } = await (typeof (deviceQuery as { is?: unknown }).is === "function"
+      ? deviceQuery.is("retired_at" as never, null)
+      : deviceQuery);
 
     if (devicesError) {
       throw new Error(`Failed to query user_devices: ${devicesError.message}`);

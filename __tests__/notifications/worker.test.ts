@@ -106,9 +106,22 @@ interface MockAttempt {
 
 interface MockDevice {
   device_token: string;
+  installation_id?: string | null;
+  retired_at?: string | null;
   platform: string | null;
   app_version: string | null;
   build_number: string | null;
+}
+
+interface MockDeliveryTarget {
+  id: string;
+  notification_event_id: string;
+  installation_id: string;
+  token_fingerprint: string;
+  status: "pending" | "sending" | "sent" | "failed" | "unknown";
+  claim_id: string | null;
+  claim_version: number;
+  claimed_at: string | null;
 }
 
 interface MockState {
@@ -127,6 +140,14 @@ interface MockState {
   }>;
   eventUpdates: Array<{ id: string; status: string; skip_reason: string | null }>;
   deviceDeletes: string[];
+  deviceRetirements: Array<{ tokens: string[]; reason: string }>;
+  deliveryTargets: MockDeliveryTarget[];
+  deliveryFinalizations: Array<{
+    targetId: string;
+    claimId: string;
+    claimVersion: number;
+    status: string;
+  }>;
   surfAlertSlots: Map<string, { eventId: string; priority: number }>;
   /** When set, fetch on this table throws to simulate a Supabase error. */
   errorOnSelect?: Set<string>;
@@ -190,6 +211,8 @@ function buildDevice(
 ): MockDevice {
   return {
     device_token: deviceToken,
+    installation_id: null,
+    retired_at: null,
     platform: "ios",
     app_version: "1.0.1",
     build_number: "11",
@@ -412,18 +435,33 @@ function buildMockSupabase(state: MockState) {
     if (table === "user_devices") {
       return {
         select: () => ({
-          eq: async (_col: string, val: string) => ({
-            data: (state.devices.get(val) ?? []).map((device) =>
-              typeof device === "string"
-                ? {
-                    device_token: device,
-                    platform: null,
-                    app_version: null,
-                    build_number: null,
-                  }
-                : device,
-            ),
-            error: null,
+          eq: (_col: string, val: string) => ({
+            is: async () => ({
+              data: (state.devices.get(val) ?? []).map((device) =>
+                typeof device === "string"
+                  ? {
+                      device_token: device,
+                      platform: null,
+                      app_version: null,
+                      build_number: null,
+                    }
+                  : device,
+              ),
+              error: null,
+            }),
+          }),
+        }),
+        update: (row: { retired_reason?: string }) => ({
+          eq: () => ({
+            in: (_col: string, tokens: string[]) => ({
+              is: async () => {
+                state.deviceRetirements.push({
+                  tokens,
+                  reason: row.retired_reason ?? "unknown",
+                });
+                return { error: null };
+              },
+            }),
           }),
         }),
         delete: () => ({
@@ -431,6 +469,50 @@ function buildMockSupabase(state: MockState) {
             state.deviceDeletes.push(...tokens);
             return { error: null };
           },
+        }),
+      };
+    }
+    if (table === "notification_delivery_targets") {
+      return {
+        upsert: async (rows: Array<Record<string, unknown>>) => {
+          for (const row of rows) {
+            const existing = state.deliveryTargets.find(
+              (target) =>
+                target.notification_event_id === row.notification_event_id &&
+                target.installation_id === row.installation_id,
+            );
+            if (existing) continue;
+            state.deliveryTargets.push({
+              id: `delivery-target-${state.deliveryTargets.length + 1}`,
+              notification_event_id: String(row.notification_event_id),
+              installation_id: String(row.installation_id),
+              token_fingerprint: String(row.token_fingerprint),
+              status: "pending",
+              claim_id: null,
+              claim_version: 0,
+              claimed_at: null,
+            });
+          }
+          return { error: null };
+        },
+        select: () => ({
+          eq: (_column: string, eventId: string) => ({
+            in: async (_installationColumn: string, installationIds: string[]) => ({
+              data: state.deliveryTargets
+                .filter(
+                  (target) =>
+                    target.notification_event_id === eventId &&
+                    installationIds.includes(target.installation_id),
+                )
+                .map((target) => ({
+                  id: target.id,
+                  installation_id: target.installation_id,
+                  claim_id: target.claim_id,
+                  claim_version: target.claim_version,
+                })),
+              error: null,
+            }),
+          }),
         }),
       };
     }
@@ -501,6 +583,56 @@ function buildMockSupabase(state: MockState) {
         }
         return { data: false, error: null };
       }
+      if (name === "claim_notification_delivery_targets") {
+        const eventId = String(args.p_event_id);
+        const installationIds = (args.p_installation_ids as string[]) ?? [];
+        const claimId = String(args.p_claim_id);
+        const now = new Date(state.now ?? Date.now()).toISOString();
+        const staleCutoff = (state.now ?? Date.now()) - 5 * 60 * 1000;
+        for (const target of state.deliveryTargets) {
+          if (
+            target.notification_event_id === eventId &&
+            target.status === "sending" &&
+            target.claimed_at !== null &&
+            new Date(target.claimed_at).getTime() < staleCutoff
+          ) {
+            target.status = "unknown";
+          }
+        }
+        const claimed = state.deliveryTargets.filter(
+          (target) =>
+            target.notification_event_id === eventId &&
+            installationIds.includes(target.installation_id) &&
+            (target.status === "pending" || target.status === "failed"),
+        );
+        for (const target of claimed) {
+          target.status = "sending";
+          target.claim_id = claimId;
+          target.claim_version += 1;
+          target.claimed_at = now;
+        }
+        return { data: claimed.map((target) => ({ ...target })), error: null };
+      }
+      if (name === "finalize_notification_delivery_target") {
+        const target = state.deliveryTargets.find(
+          (candidate) => candidate.id === args.p_target_id,
+        );
+        if (
+          target &&
+          target.status === "sending" &&
+          target.claim_id === args.p_claim_id &&
+          target.claim_version === args.p_claim_version
+        ) {
+          target.status = args.p_status as MockDeliveryTarget["status"];
+          state.deliveryFinalizations.push({
+            targetId: target.id,
+            claimId: String(args.p_claim_id),
+            claimVersion: Number(args.p_claim_version),
+            status: target.status,
+          });
+        }
+        return { data: target ?? null, error: null };
+      }
       if (name !== "claim_notification_events") {
         throw new Error(`Unexpected rpc in mock: ${name}`);
       }
@@ -531,6 +663,9 @@ function emptyState(): MockState {
     alertAttempts: [],
     eventUpdates: [],
     deviceDeletes: [],
+    deviceRetirements: [],
+    deliveryTargets: [],
+    deliveryFinalizations: [],
     surfAlertSlots: new Map(),
   };
 }
@@ -2381,7 +2516,7 @@ describe("processPendingEvents — transient error handling", () => {
 });
 
 describe("processPendingEvents — push provider details", () => {
-  it("FCM invalid token error → token pruned from user_devices", async () => {
+  it("FCM invalid token error → token retired from user_devices", async () => {
     const state = emptyState();
     state.events.push(buildEvent());
     state.profiles.set("user-recipient", buildProfile());
@@ -2410,7 +2545,9 @@ describe("processPendingEvents — push provider details", () => {
       fcm: fakeFcm as never,
     });
 
-    expect(state.deviceDeletes).toEqual(["bad-token"]);
+    expect(state.deviceRetirements).toEqual([
+      { tokens: ["bad-token"], reason: "provider_invalid_token" },
+    ]);
   });
 
   it("failed provider responses persist provider_response and error_message", async () => {
@@ -2567,6 +2704,141 @@ describe("processPendingEvents — push provider details", () => {
     } finally {
       global.fetch = originalFetch;
     }
+  });
+});
+
+describe("processPendingEvents — identified-install delivery ledger", () => {
+  function identifiedState(devices: Array<string | MockDevice>): MockState {
+    const state = emptyState();
+    state.events.push(buildEvent({ id: "evt-install-ledger" }));
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", devices);
+    return state;
+  }
+
+  function successfulFcm() {
+    return {
+      sendEach: jest.fn(async (messages: Array<{ token?: string }>) => ({
+        successCount: messages.length,
+        failureCount: 0,
+        responses: messages.map(() => ({ success: true })),
+      })),
+    };
+  }
+
+  it("claims and finalizes an identified installation once", async () => {
+    const state = identifiedState([
+      buildDevice("identified-token", { installation_id: "install-1" }),
+    ]);
+    const fcm = successfulFcm();
+    const supabase = buildMockSupabase(state) as never;
+
+    await processPendingEvents(supabase, { now: NOON_PT, fcm: fcm as never });
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.deliveryTargets).toMatchObject([
+      { installation_id: "install-1", status: "sent", claim_version: 1 },
+    ]);
+    expect(state.deliveryFinalizations).toHaveLength(1);
+    expect(state.deliveryFinalizations[0].status).toBe("sent");
+
+    // Re-run the same event after the event lease is made pending again. The
+    // event-level worker claim succeeds, but the durable target is already sent.
+    const event = state.events[0];
+    event.status = "pending";
+    event.claim_token = null;
+    event.claimed_at = null;
+    state.attempts.length = 0;
+    await processPendingEvents(supabase, { now: NOON_PT, fcm: fcm as never });
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.deliveryFinalizations).toHaveLength(1);
+  });
+
+  it("keeps legacy compatibility delivery while ledger-guarding identified rows", async () => {
+    const state = identifiedState([
+      buildDevice("legacy-token"),
+      buildDevice("identified-token", { installation_id: "install-1" }),
+    ]);
+    const fcm = successfulFcm();
+    const supabase = buildMockSupabase(state) as never;
+
+    await processPendingEvents(supabase, { now: NOON_PT, fcm: fcm as never });
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(fcm.sendEach.mock.calls[0][0].map((message: { token?: string }) => message.token))
+      .toEqual(["legacy-token", "identified-token"]);
+    expect(state.deliveryTargets).toMatchObject([
+      { installation_id: "install-1", status: "sent" },
+    ]);
+
+    const event = state.events[0];
+    event.status = "pending";
+    event.claim_token = null;
+    event.claimed_at = null;
+    state.attempts.length = 0;
+    await processPendingEvents(supabase, { now: NOON_PT, fcm: fcm as never });
+    expect(fcm.sendEach).toHaveBeenCalledTimes(2);
+    expect(fcm.sendEach.mock.calls[1][0].map((message: { token?: string }) => message.token))
+      .toEqual(["legacy-token"]);
+  });
+
+  it("finalizes an ambiguous provider outcome as unknown and never reclaims it", async () => {
+    const state = identifiedState([
+      buildDevice("identified-token", { installation_id: "install-1" }),
+    ]);
+    const fcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 0,
+        failureCount: 1,
+        responses: [],
+      })),
+    };
+    const supabase = buildMockSupabase(state) as never;
+
+    await processPendingEvents(supabase, { now: NOON_PT, fcm: fcm as never });
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.deliveryTargets).toMatchObject([
+      { installation_id: "install-1", status: "unknown", claim_version: 1 },
+    ]);
+    expect(state.deliveryFinalizations[0].status).toBe("unknown");
+
+    const event = state.events[0];
+    event.status = "pending";
+    event.claim_token = null;
+    event.claimed_at = null;
+    await processPendingEvents(supabase, { now: NOON_PT, fcm: fcm as never });
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.deliveryFinalizations).toHaveLength(1);
+  });
+
+  it("does not let a late claim finalize a newer target claim", async () => {
+    const state = emptyState();
+    state.deliveryTargets.push({
+      id: "delivery-target-1",
+      notification_event_id: "evt-install-ledger",
+      installation_id: "install-1",
+      token_fingerprint: "fingerprint",
+      status: "sending",
+      claim_id: "new-claim",
+      claim_version: 2,
+      claimed_at: NOON_PT.toISOString(),
+    });
+    const supabase = buildMockSupabase(state) as unknown as {
+      rpc: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+    };
+
+    await supabase.rpc("finalize_notification_delivery_target", {
+      p_target_id: "delivery-target-1",
+      p_claim_id: "old-claim",
+      p_claim_version: 1,
+      p_status: "sent",
+    });
+
+    expect(state.deliveryTargets[0]).toMatchObject({
+      status: "sending",
+      claim_id: "new-claim",
+      claim_version: 2,
+    });
+    expect(state.deliveryFinalizations).toHaveLength(0);
   });
 });
 

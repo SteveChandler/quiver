@@ -25,6 +25,7 @@ import {
 } from "@/lib/recommendations/canonical-decision";
 import { selectBeach } from "@/lib/recommendations/selection";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
+import { buildHomeMorningCallPresentation } from "@/lib/notifications/home-morning-call-presentation";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -109,12 +110,6 @@ export function buildMorningCallCopy(input: MorningCopyInput): {
   };
 }
 
-function normalizePeriod(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  if (!trimmed) return null;
-  return /\bs\b/i.test(trimmed) ? trimmed : `${trimmed}s`;
-}
-
 function filterMorningForecasts(
   forecasts: EnhancedForecastEntity[],
   timezone: string,
@@ -139,11 +134,20 @@ function findCanonicalRecommendation(
 ): SurfDiscoveryRecommendation | null {
   const selection = decision.selection;
   if (!selection || decision.verdict === "no") return null;
+  const normalizedForecastAt = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const parsed = new Date(value);
+    return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+  };
+  const selectedForecastAt = normalizedForecastAt(selection.forecastRef.forecastAt);
+  if (!selectedForecastAt) return null;
   return recommendations.find((recommendation) => (
     recommendation.recommendationId === selection.candidateId
     && recommendation.beach.id === selection.beachId
     && recommendation.window.start.toISOString() === selection.windowStart
     && recommendation.window.end.toISOString() === selection.windowEnd
+    && recommendation.forecast.id === selection.forecastRef.forecastId
+    && normalizedForecastAt(recommendation.forecast.forecast_at) === selectedForecastAt
   )) ?? null;
 }
 
@@ -213,14 +217,11 @@ export async function selectAndBuildMorningCall({
     : decision.verdict === "maybe"
       ? "MAYBE"
       : "NO";
-  const copy = buildMorningCallCopy({
-    verdict,
-    beachName: selectedBeach.name,
-    waveHeight: sourceForecast.wave_height ?? null,
-    wavePeriod: normalizePeriod(sourceForecast.wave_period),
-    windDescription: null,
-    whySentence: recommendation?.message ?? null,
-  });
+  const copy = buildHomeMorningCallPresentation(
+    decision,
+    selectedBeach.name,
+    recommendation?.forecast ?? sourceForecast,
+  );
   const localDate = getLocalDateString(now, timezone);
   const forecastAt = decision.selection?.forecastRef.forecastAt
     ?? sourceForecast.forecast_at;

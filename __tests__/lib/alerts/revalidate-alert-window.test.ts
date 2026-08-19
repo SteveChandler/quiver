@@ -38,6 +38,7 @@ describe("selectFreshAlertWindow", () => {
       now: new Date("2026-05-13T14:00:00Z"),
       forecastRows: [
         {
+          id: "enhanced-forecast-15z",
           forecast_at: "2026-05-13T15:00:00Z",
           wave_height: "0.7 ft",
           wave_period: "8s",
@@ -50,6 +51,7 @@ describe("selectFreshAlertWindow", () => {
           tide_status: "Falling",
         },
         {
+          id: "enhanced-forecast-18z",
           forecast_at: "2026-05-13T18:00:00Z",
           wave_height: "1.9 ft",
           wave_period: "8s",
@@ -68,6 +70,7 @@ describe("selectFreshAlertWindow", () => {
       window_start: "2026-05-13T18:00:00Z",
       window_end: "2026-05-13T19:00:00.000Z",
       best_hour: "2026-05-13T18:00:00Z",
+      forecast_id: "enhanced-forecast-18z",
       conditions_snapshot: expect.objectContaining({ wave_height: 1.9 }),
     });
   });

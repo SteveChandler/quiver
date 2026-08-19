@@ -104,4 +104,33 @@ describe("canonical alert decision adapter", () => {
 
     expect(decision).toMatchObject({ verdict: "no", selection: null });
   });
+
+  it("fails closed for candidates without a real enhanced forecast row ID", () => {
+    const { buildCanonicalDecisionFromAlertMatches } = loadAdapter();
+
+    const decision = buildCanonicalDecisionFromAlertMatches({
+        anchorTime: "2026-07-22T18:00:00.000Z",
+        scope: {
+          kind: "plan_next_session",
+          windowStart: "2026-07-22T18:00:00.000Z",
+          windowEnd: "2026-07-24T18:00:00.000Z",
+          timezone: "America/Los_Angeles",
+        },
+        profileExperience: "beginner",
+        recommendationAvailability: {
+          state: "available",
+          holdEpoch: "alert-hold-1",
+        },
+        matches: [match({ conditions_snapshot: { wave_height: 3 } })],
+      });
+
+    expect(decision).toMatchObject({
+      verdict: "no",
+      reasonCode: "invalid_candidate",
+      selection: null,
+      skillEligibility: {
+        reasonCodes: expect.arrayContaining(["invalid_candidate"]),
+      },
+    });
+  });
 });

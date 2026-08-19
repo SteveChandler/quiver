@@ -67,6 +67,16 @@ function createMockQueryChain(data: any, error: any = null) {
   return Promise.resolve(chain);
 }
 
+function createFilterResult(result: { data: unknown; error: unknown; count: number | null }) {
+  const terminal = Promise.resolve(result) as Promise<typeof result> & {
+    is: jest.Mock;
+    not: jest.Mock;
+  };
+  terminal.is = jest.fn().mockReturnValue(terminal);
+  terminal.not = jest.fn().mockReturnValue(terminal);
+  return terminal;
+}
+
 describe("/api/admin/delivery-stats", () => {
   let cleanup: () => void;
   let restoreEnv: () => void;
@@ -84,6 +94,8 @@ describe("/api/admin/delivery-stats", () => {
     // Default mock implementation for from()
     mockSupabaseClient.from.mockReturnValue({
       select: jest.fn().mockReturnValue({
+        is: jest.fn().mockReturnValue(createFilterResult({ data: [], error: null, count: 0 })),
+        not: jest.fn().mockReturnValue(createFilterResult({ data: [], error: null, count: 0 })),
         gte: jest.fn().mockReturnValue({
           order: jest.fn().mockReturnValue({
             limit: jest.fn().mockResolvedValue({ data: [], error: null }),
@@ -174,9 +186,9 @@ describe("/api/admin/delivery-stats", () => {
 
       // Mock device count data
       const deviceCountData = [
-        { platform: "ios" },
-        { platform: "ios" },
-        { platform: "android" },
+        { platform: "ios", installation_id: "install-1" },
+        { platform: "ios", installation_id: null },
+        { platform: "android", installation_id: "install-2" },
       ];
       const digestSelect = jest.fn().mockReturnValue({
         gte: jest.fn().mockReturnValue({
@@ -206,9 +218,18 @@ describe("/api/admin/delivery-stats", () => {
           }),
         })
         .mockReturnValueOnce({
-          select: jest
-            .fn()
-            .mockResolvedValue({ data: deviceCountData, error: null, count: 3 }),
+          select: jest.fn().mockReturnValue({
+            is: jest.fn().mockReturnValue(
+              createFilterResult({ data: deviceCountData, error: null, count: 3 })
+            ),
+          }),
+        })
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            is: jest.fn().mockReturnValue(
+              createFilterResult({ data: null, error: null, count: 1 })
+            ),
+          }),
         });
 
       const request = createMockRequest(
@@ -263,6 +284,65 @@ describe("/api/admin/delivery-stats", () => {
       // Verify devices
       expect(data.data.devices.total).toBe(3);
       expect(data.data.devices.byPlatform).toEqual({ android: 1, ios: 2 });
+      expect(data.data.devices.activeIdentified).toBe(2);
+      expect(data.data.devices.activeLegacy).toBe(1);
+      expect(data.data.devices.identifiedAdoptionPercentage).toBe(66.67);
+    });
+
+    it("fails closed when the active legacy count query errors", async () => {
+      const adminUser = createMockAdminUser();
+      mockAuthenticateAdmin.mockResolvedValue({
+        success: true,
+        user: adminUser,
+      });
+
+      mockSupabaseClient.from
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            gte: jest.fn().mockReturnValue({
+              order: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            gte: jest.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        })
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            gte: jest.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        })
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            is: jest.fn().mockReturnValue(
+              createFilterResult({ data: [], error: null, count: 5 }),
+            ),
+          }),
+        })
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            is: jest.fn().mockReturnValue(
+              createFilterResult({
+                data: null,
+                error: { message: "legacy count unavailable" },
+                count: null,
+              }),
+            ),
+          }),
+        });
+
+      const response = await GET(
+        createMockRequest("GET", "http://localhost:3000/api/admin/delivery-stats"),
+      );
+
+      expect(response.status).toBe(500);
+      const data = await response.json();
+      expect(data.error).toBe("Failed to fetch delivery statistics");
+      expect(data.data?.devices?.identifiedAdoptionPercentage).toBeUndefined();
     });
 
     it("accepts custom days parameter", async () => {
@@ -276,6 +356,9 @@ describe("/api/admin/delivery-stats", () => {
       // Mock empty data for simplicity
       mockSupabaseClient.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
+          is: jest.fn().mockReturnValue(
+            createFilterResult({ data: [], error: null, count: 0 }),
+          ),
           gte: jest.fn().mockReturnValue({
             order: jest.fn().mockReturnValue({
               limit: jest.fn().mockResolvedValue({ data: [], error: null }),
@@ -307,6 +390,9 @@ describe("/api/admin/delivery-stats", () => {
       // Mock empty data
       mockSupabaseClient.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
+          is: jest.fn().mockReturnValue(
+            createFilterResult({ data: [], error: null, count: 0 }),
+          ),
           gte: jest.fn().mockReturnValue({
             order: jest.fn().mockReturnValue({
               limit: jest.fn().mockResolvedValue({ data: [], error: null }),
@@ -338,6 +424,9 @@ describe("/api/admin/delivery-stats", () => {
       // Mock empty data
       mockSupabaseClient.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
+          is: jest.fn().mockReturnValue(
+            createFilterResult({ data: [], error: null, count: 0 }),
+          ),
           gte: jest.fn().mockReturnValue({
             order: jest.fn().mockReturnValue({
               limit: jest.fn().mockResolvedValue({ data: [], error: null }),
@@ -369,6 +458,9 @@ describe("/api/admin/delivery-stats", () => {
       // Mock empty data
       mockSupabaseClient.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
+          is: jest.fn().mockReturnValue(
+            createFilterResult({ data: [], error: null, count: 0 }),
+          ),
           gte: jest.fn().mockReturnValue({
             order: jest.fn().mockReturnValue({
               limit: jest.fn().mockResolvedValue({ data: [], error: null }),
@@ -442,6 +534,7 @@ describe("/api/admin/delivery-stats", () => {
       // Mock empty data for all queries
       mockSupabaseClient.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
+          is: jest.fn().mockReturnValue(createFilterResult({ data: [], error: null, count: 0 })),
           gte: jest.fn().mockReturnValue({
             order: jest.fn().mockReturnValue({
               limit: jest.fn().mockResolvedValue({ data: [], error: null }),
@@ -504,9 +597,14 @@ describe("/api/admin/delivery-stats", () => {
           }),
         })
         .mockReturnValueOnce({
-          select: jest
-            .fn()
-            .mockResolvedValue({ data: [], error: null, count: 0 }),
+          select: jest.fn().mockReturnValue({
+            is: jest.fn().mockReturnValue(createFilterResult({ data: [], error: null, count: 0 })),
+          }),
+        })
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            is: jest.fn().mockReturnValue(createFilterResult({ data: null, error: null, count: 0 })),
+          }),
         });
 
       const request = createMockRequest(
@@ -569,9 +667,14 @@ describe("/api/admin/delivery-stats", () => {
           }),
         })
         .mockReturnValueOnce({
-          select: jest
-            .fn()
-            .mockResolvedValue({ data: [], error: null, count: 0 }),
+          select: jest.fn().mockReturnValue({
+            is: jest.fn().mockReturnValue(createFilterResult({ data: [], error: null, count: 0 })),
+          }),
+        })
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            is: jest.fn().mockReturnValue(createFilterResult({ data: null, error: null, count: 0 })),
+          }),
         });
 
       const request = createMockRequest(
@@ -631,9 +734,14 @@ describe("/api/admin/delivery-stats", () => {
           }),
         })
         .mockReturnValueOnce({
-          select: jest
-            .fn()
-            .mockResolvedValue({ data: [], error: null, count: 0 }),
+          select: jest.fn().mockReturnValue({
+            is: jest.fn().mockReturnValue(createFilterResult({ data: [], error: null, count: 0 })),
+          }),
+        })
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            is: jest.fn().mockReturnValue(createFilterResult({ data: null, error: null, count: 0 })),
+          }),
         });
 
       const request = createMockRequest(
@@ -684,6 +792,7 @@ describe("/api/admin/delivery-stats", () => {
       // Mock empty data
       mockSupabaseClient.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
+          is: jest.fn().mockReturnValue(createFilterResult({ data: [], error: null, count: 0 })),
           gte: jest.fn().mockReturnValue({
             order: jest.fn().mockReturnValue({
               limit: jest.fn().mockResolvedValue({ data: [], error: null }),

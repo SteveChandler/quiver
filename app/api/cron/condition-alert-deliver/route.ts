@@ -20,7 +20,12 @@ import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withCronOutcome } from "@/lib/cron/outcome";
-import { sendEmail, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
+import {
+  sendEmail,
+  MAIL_FROM,
+  MAIL_REPLY_TO,
+  getBaseUrl,
+} from "@/lib/mailer/client";
 import {
   buildConditionsLine,
   ConsolidatedAlertEmail,
@@ -35,7 +40,10 @@ import {
 import { buildConsolidatedSubject } from "@/lib/alerts/consolidated-subject";
 import { formatPushNotification } from "@/lib/alerts/push-formatter";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
-import { generateDisableToken, generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
+import {
+  generateDisableToken,
+  generateEmailUnsubscribeToken,
+} from "@/lib/alerts/email-token";
 import type { AttemptStatus } from "@/lib/alerts/throttle";
 import { cooldownDecision, weeklyCapDecision } from "@/lib/alerts/throttle";
 import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
@@ -196,7 +204,7 @@ function enabledChannels(item: QueueItemWithMeta): Channel[] {
 
 function toRevalidationBeachMeta(
   beachId: string,
-  beach: BeachEmbed
+  beach: BeachEmbed,
 ): AlertRevalidationBeachMeta | null {
   if (
     typeof beach.lat !== "number" ||
@@ -239,7 +247,9 @@ function parseQueuedBestScore(value: unknown): number {
   return ALERT_MIN_DELIVERABLE_SCORE;
 }
 
-function resolveRuleWeeklyCap(conditions?: AlertConditions | null): number | null {
+function resolveRuleWeeklyCap(
+  conditions?: AlertConditions | null,
+): number | null {
   const value = conditions?.max_frequency_per_week;
   if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
     return null;
@@ -248,7 +258,7 @@ function resolveRuleWeeklyCap(conditions?: AlertConditions | null): number | nul
 }
 
 function resolveQuietHoursOverride(
-  items: QueueItemWithMeta[]
+  items: QueueItemWithMeta[],
 ): { quiet_hours_start: number; quiet_hours_end: number } | null {
   for (const item of items) {
     const start =
@@ -276,13 +286,17 @@ function resolveQuietHoursOverride(
   return null;
 }
 
-function waveLabelFromSnapshot(snapshot: Record<string, unknown>): string | null {
+function waveLabelFromSnapshot(
+  snapshot: Record<string, unknown>,
+): string | null {
   const value = snapshot.wave_height;
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   return formatWaveHeightRange(value);
 }
 
-function buildRenderedMatchDetails(matches: MatchingWindow[]): Array<Record<string, unknown>> {
+function buildRenderedMatchDetails(
+  matches: MatchingWindow[],
+): Array<Record<string, unknown>> {
   return matches.map((match) => ({
     rule_id: match.rule_id,
     rule_name: match.rule_name,
@@ -309,9 +323,13 @@ function buildAlertSessionDecision(args: {
     .map((match) => Date.parse(match.window_end))
     .filter(Number.isFinite);
   const scopeStart =
-    starts.length > 0 ? new Date(Math.min(...starts)).toISOString() : anchorTime.toISOString();
+    starts.length > 0
+      ? new Date(Math.min(...starts)).toISOString()
+      : anchorTime.toISOString();
   const scopeEnd =
-    ends.length > 0 ? new Date(Math.max(...ends)).toISOString() : anchorTime.toISOString();
+    ends.length > 0
+      ? new Date(Math.max(...ends)).toISOString()
+      : anchorTime.toISOString();
 
   return buildCanonicalDecisionFromAlertMatches({
     anchorTime: anchorTime.toISOString(),
@@ -338,14 +356,13 @@ function selectedAlertMatch(
   const candidateId = decision.selection?.candidateId;
   if (!candidateId) return null;
   return (
-    matches.find(
-      (match) => canonicalAlertCandidateId(match) === candidateId,
-    ) ?? null
+    matches.find((match) => canonicalAlertCandidateId(match) === candidateId) ??
+    null
   );
 }
 
 function policyContextForMatch(
-  match: MatchingWindow | undefined
+  match: MatchingWindow | undefined,
 ): PositiveRecommendationPolicyContext | null {
   if (!match) return null;
   const startsAtMs = Date.parse(match.window_start);
@@ -382,7 +399,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     allowlistRaw
       .split(",")
       .map((s) => s.trim())
-      .filter(Boolean)
+      .filter(Boolean),
   );
   const recordedAttemptsByQueue = new Map<string, RecordedAttempt[]>();
   const deliveryAcceptedQueueIds = new Set<string>();
@@ -406,7 +423,11 @@ export async function GET(request: Request): Promise<NextResponse> {
       skip_reason: args.skipReason ?? null,
     });
     if (error) {
-      console.error(`${CONTEXT_TAG} attempt-write-failed:`, error.message, args);
+      console.error(
+        `${CONTEXT_TAG} attempt-write-failed:`,
+        error.message,
+        args,
+      );
       return;
     }
     const attempts = recordedAttemptsByQueue.get(args.queueId) ?? [];
@@ -418,9 +439,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     recordedAttemptsByQueue.set(args.queueId, attempts);
   }
 
-  async function persistShadowOutcome(
-    item: QueueItemWithMeta,
-  ): Promise<void> {
+  async function persistShadowOutcome(item: QueueItemWithMeta): Promise<void> {
     const outcome = shadowOutcomesByQueue.get(item.id);
     if (!outcome) {
       throw new Error(`missing shadow outcome for queue row ${item.id}`);
@@ -448,11 +467,14 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   async function refreshQueueItemFromLatestForecasts(
-    item: QueueItemWithMeta
+    item: QueueItemWithMeta,
   ): Promise<QueueItemWithMeta | null> {
     if (!item.conditions || !item.beach_meta) return item;
 
-    const { start, end } = getUtcDayBounds(item.alert_date, item.beach_timezone);
+    const { start, end } = getUtcDayBounds(
+      item.alert_date,
+      item.beach_timezone,
+    );
     const { data: forecastRows, error } = await supabase
       .from("enhanced_forecasts")
       .select("*")
@@ -464,7 +486,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     if (error) {
       console.warn(
         `${CONTEXT_TAG} forecast revalidation failed for queue ${item.id}; using queued snapshot:`,
-        error.message
+        error.message,
       );
       return item;
     }
@@ -483,13 +505,19 @@ export async function GET(request: Request): Promise<NextResponse> {
       window_start: freshWindow.window_start,
       window_end: freshWindow.window_end,
       best_hour: freshWindow.best_hour,
+      forecast_id: freshWindow.forecast_id,
       best_score: freshWindow.best_score,
-      conditions_snapshot: freshWindow.conditions_snapshot,
+      conditions_snapshot: {
+        ...freshWindow.conditions_snapshot,
+        ...(freshWindow.forecast_id
+          ? { forecast_id: freshWindow.forecast_id }
+          : {}),
+      },
     };
   }
 
   async function persistRefreshedQueueItem(
-    item: QueueItemWithMeta
+    item: QueueItemWithMeta,
   ): Promise<void> {
     const update: AlertQueueRefreshUpdateWithBestScore = {
       window_start: item.window_start,
@@ -506,7 +534,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     if (error) {
       throw new Error(
-        `failed to persist refreshed alert_queue row ${item.id}: ${error.message}`
+        `failed to persist refreshed alert_queue row ${item.id}: ${error.message}`,
       );
     }
   }
@@ -530,9 +558,12 @@ export async function GET(request: Request): Promise<NextResponse> {
           if (
             result.errors === 0 &&
             result.queueMarked > 0 &&
-            result.queue_marked_by_reason.delivery_disabled === result.queueMarked
+            result.queue_marked_by_reason.delivery_disabled ===
+              result.queueMarked
           ) {
-            return { reason: "Condition-alert delivery is disabled by feature flag" };
+            return {
+              reason: "Condition-alert delivery is disabled by feature flag",
+            };
           }
           return undefined;
         },
@@ -570,11 +601,14 @@ export async function GET(request: Request): Promise<NextResponse> {
             .update({ sent: true })
             .in("id", queueIds);
           if (error) {
-            console.error(`${CONTEXT_TAG} Failed to mark queue items consumed`, {
-              reason,
-              queue_ids: queueIds,
-              error: error.message,
-            });
+            console.error(
+              `${CONTEXT_TAG} Failed to mark queue items consumed`,
+              {
+                reason,
+                queue_ids: queueIds,
+                error: error.message,
+              },
+            );
             result.errors++;
             return false;
           }
@@ -616,11 +650,12 @@ export async function GET(request: Request): Promise<NextResponse> {
           const enabled = enabledChannels(item);
           if (enabled.length === 0) return "no_enabled_channels";
 
-          const recordedUnresolved = (recordedAttemptsByQueue.get(item.id) ?? [])
-            .filter(
-              (attempt) =>
-                attempt.skipReason === "major_event_hold:hold_state_unavailable",
-            );
+          const recordedUnresolved = (
+            recordedAttemptsByQueue.get(item.id) ?? []
+          ).filter(
+            (attempt) =>
+              attempt.skipReason === "major_event_hold:hold_state_unavailable",
+          );
           if (recordedUnresolved.length === 0) {
             return "unrecorded_consumption";
           }
@@ -651,7 +686,9 @@ export async function GET(request: Request): Promise<NextResponse> {
 
           const attempts = recordedAttemptsByQueue.get(item.id) ?? [];
           if (attempts.length === 0) return "unrecorded_consumption";
-          if (attempts.some((attempt) => attempt.status === "shadow_withheld")) {
+          if (
+            attempts.some((attempt) => attempt.status === "shadow_withheld")
+          ) {
             return "shadow_withheld";
           }
           if (attempts.some((attempt) => attempt.status === "sent")) {
@@ -660,7 +697,8 @@ export async function GET(request: Request): Promise<NextResponse> {
           if (
             attempts.some(
               (attempt) =>
-                attempt.skipReason === "major_event_hold:hold_state_unavailable",
+                attempt.skipReason ===
+                "major_event_hold:hold_state_unavailable",
             )
           ) {
             return unresolvedHoldDisposition(item);
@@ -702,6 +740,11 @@ export async function GET(request: Request): Promise<NextResponse> {
               attempt.skipReason === "major_event_hold:major_event_hold"
             ) {
               deliberateReasons.add("major_event_hold");
+            } else if (
+              attempt.status === "skipped_disabled" &&
+              attempt.skipReason?.startsWith("canonical_decision:")
+            ) {
+              deliberateReasons.add("canonical_safety_rejected");
             }
           }
 
@@ -719,7 +762,8 @@ export async function GET(request: Request): Promise<NextResponse> {
         //    500ing the whole cron (blocks all alert types, including similarity).
         const { data: rawItems, error: queueError } = await supabase
           .from("alert_queue")
-          .select(`
+          .select(
+            `
             id, user_id, rule_id, beach_id, alert_date, send_at,
             window_start, window_end, best_hour, best_score, conditions_snapshot, sent,
             alert_rules!inner(name, preset_type, notify_email, notify_push, conditions),
@@ -730,13 +774,15 @@ export async function GET(request: Request): Promise<NextResponse> {
               swell_window_center_deg, swell_window_halfwidth_deg,
               break_type, skill_level
             )
-          `)
+          `,
+          )
           .eq("sent", false)
           .lte("send_at", new Date().toISOString())
           .order("send_at", { ascending: true });
 
         if (queueError) throw queueError;
-        const queueRows = (rawItems ?? []) as unknown as AlertQueueRowWithBestScore[];
+        const queueRows = (rawItems ??
+          []) as unknown as AlertQueueRowWithBestScore[];
         if (queueRows.length === 0) {
           console.log(`${CONTEXT_TAG} No due queue items`);
           return { ...result, message: "No items due" };
@@ -744,16 +790,18 @@ export async function GET(request: Request): Promise<NextResponse> {
 
         console.log(`${CONTEXT_TAG} Found ${queueRows.length} due queue items`);
 
-        const { data: unresolvedHoldAttemptsRaw, error: unresolvedHoldAttemptsError } =
-          await supabase
-            .from("alert_delivery_attempts")
-            .select("queue_id, channel")
-            .in(
-              "queue_id",
-              queueRows.map((row) => row.id),
-            )
-            .eq("status", "skipped_disabled")
-            .eq("skip_reason", "major_event_hold:hold_state_unavailable");
+        const {
+          data: unresolvedHoldAttemptsRaw,
+          error: unresolvedHoldAttemptsError,
+        } = await supabase
+          .from("alert_delivery_attempts")
+          .select("queue_id, channel")
+          .in(
+            "queue_id",
+            queueRows.map((row) => row.id),
+          )
+          .eq("status", "skipped_disabled")
+          .eq("skip_reason", "major_event_hold:hold_state_unavailable");
         if (unresolvedHoldAttemptsError) throw unresolvedHoldAttemptsError;
 
         const unresolvedCountsByQueueChannel = new Map<string, number>();
@@ -779,6 +827,10 @@ export async function GET(request: Request): Promise<NextResponse> {
         const allItems: QueueItemWithMeta[] = queueRows.map((row) => {
           const rule = row.alert_rules as unknown as RuleEmbed;
           const beach = row.beaches as unknown as BeachEmbed;
+          const conditionsSnapshot = (row.conditions_snapshot ?? {}) as Record<
+            string,
+            unknown
+          >;
           return {
             id: row.id,
             user_id: row.user_id,
@@ -789,7 +841,11 @@ export async function GET(request: Request): Promise<NextResponse> {
             window_start: row.window_start,
             window_end: row.window_end,
             best_hour: row.best_hour,
-            conditions_snapshot: (row.conditions_snapshot ?? {}) as Record<string, unknown>,
+            forecast_id:
+              typeof conditionsSnapshot.forecast_id === "string"
+                ? conditionsSnapshot.forecast_id
+                : undefined,
+            conditions_snapshot: conditionsSnapshot,
             sent: row.sent,
             rule_name: rule.name,
             preset_type: rule.preset_type,
@@ -813,10 +869,14 @@ export async function GET(request: Request): Promise<NextResponse> {
         //     CRITICAL — otherwise the email path tries to render forecast
         //     match data and the push title is wrong.
         const similarityItems = allItems.filter(
-          (i) => (i.conditions_snapshot as Record<string, unknown>)?.alert_type === "similarity_match"
+          (i) =>
+            (i.conditions_snapshot as Record<string, unknown>)?.alert_type ===
+            "similarity_match",
         );
         const forecastItems = allItems.filter(
-          (i) => (i.conditions_snapshot as Record<string, unknown>)?.alert_type !== "similarity_match"
+          (i) =>
+            (i.conditions_snapshot as Record<string, unknown>)?.alert_type !==
+            "similarity_match",
         );
 
         const items: QueueItemWithMeta[] = [];
@@ -840,7 +900,8 @@ export async function GET(request: Request): Promise<NextResponse> {
                 userId: item.user_id,
                 channel,
                 status: "skipped_stale_forecast",
-                skipReason: "fresh forecast no longer matches the queued alert rule",
+                skipReason:
+                  "fresh forecast no longer matches the queued alert rule",
               });
             }
           }
@@ -857,7 +918,8 @@ export async function GET(request: Request): Promise<NextResponse> {
         }
         const scoreEligibleItems = items.filter(
           (item) =>
-            parseQueuedBestScore(item.best_score) >= ALERT_MIN_DELIVERABLE_SCORE,
+            parseQueuedBestScore(item.best_score) >=
+            ALERT_MIN_DELIVERABLE_SCORE,
         );
 
         // 3. Fetch profile data for the queue's user set in a single query.
@@ -881,7 +943,9 @@ export async function GET(request: Request): Promise<NextResponse> {
         const userIds = Array.from(new Set(queueRows.map((r) => r.user_id)));
         const { data: profileRows, error: profilesError } = await supabase
           .from("profiles")
-          .select("id, email, display_name, notif_email_enabled, notif_push_enabled, timezone, experience_level")
+          .select(
+            "id, email, display_name, notif_email_enabled, notif_push_enabled, timezone, experience_level",
+          )
           .in("id", userIds);
 
         if (profilesError) throw profilesError;
@@ -893,7 +957,9 @@ export async function GET(request: Request): Promise<NextResponse> {
 
         // 3b. Fetch recent 'sent' attempts once for cooldown (per-rule, 24h) and
         //     weekly cap (per-user, 7d) decisions. The 7d window covers both.
-        const sinceWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const sinceWeek = new Date(
+          Date.now() - 7 * 24 * 60 * 60 * 1000,
+        ).toISOString();
         const { data: recentSentRaw, error: recentSentError } = await supabase
           .from("alert_delivery_attempts")
           .select("rule_id, user_id, attempted_at")
@@ -901,11 +967,13 @@ export async function GET(request: Request): Promise<NextResponse> {
           .gte("attempted_at", sinceWeek);
         if (recentSentError) throw recentSentError;
 
-        const recentSent = (recentSentRaw ?? []).map((r: { rule_id: string; user_id: string; attempted_at: string }) => ({
-          rule_id: r.rule_id,
-          user_id: r.user_id,
-          attempted_at: new Date(r.attempted_at),
-        }));
+        const recentSent = (recentSentRaw ?? []).map(
+          (r: { rule_id: string; user_id: string; attempted_at: string }) => ({
+            rule_id: r.rule_id,
+            user_id: r.user_id,
+            attempted_at: new Date(r.attempted_at),
+          }),
+        );
 
         // 4. Resolve active operator holds and record the canonical decision
         // for shadow observability. The user's matched rules remain the
@@ -955,7 +1023,9 @@ export async function GET(request: Request): Promise<NextResponse> {
           });
           if (!forecastDeliveryEnabled) {
             for (const item of userItems) {
-              const held = heldCandidateIds.has(canonicalAlertCandidateId(item));
+              const held = heldCandidateIds.has(
+                canonicalAlertCandidateId(item),
+              );
               shadowOutcomesByQueue.set(item.id, {
                 status: "shadow_withheld",
                 verdict: held ? "no" : decision.verdict,
@@ -1003,13 +1073,16 @@ export async function GET(request: Request): Promise<NextResponse> {
           result.processed++;
           const contributingItems = deliverableItems.filter(
             (item) =>
-              item.user_id === payload.user_id && item.beach_id === payloadBeachId,
+              item.user_id === payload.user_id &&
+              item.beach_id === payloadBeachId,
           );
           const emailItems = contributingItems.filter((i) => i.notify_email);
           const pushItems = contributingItems.filter((i) => i.notify_push);
           const profile = profilesByUser.get(payload.user_id);
           if (!profile) {
-            console.warn(`${CONTEXT_TAG} No profile found for user ${payload.user_id}, skipping`);
+            console.warn(
+              `${CONTEXT_TAG} No profile found for user ${payload.user_id}, skipping`,
+            );
             for (const item of emailItems) {
               await recordAttempt({
                 queueId: item.id,
@@ -1044,14 +1117,22 @@ export async function GET(request: Request): Promise<NextResponse> {
           //   skipped_cooldown > skipped_user_cap > skipped_dedup_collision >
           //   skipped_channel_disabled > skipped_no_device > failed_provider > sent.
           const throttleNow = new Date();
-          const cooldownByRule = new Map<string, ReturnType<typeof cooldownDecision>>();
-          function cooldownFor(ruleId: string): ReturnType<typeof cooldownDecision> {
+          const cooldownByRule = new Map<
+            string,
+            ReturnType<typeof cooldownDecision>
+          >();
+          function cooldownFor(
+            ruleId: string,
+          ): ReturnType<typeof cooldownDecision> {
             const cached = cooldownByRule.get(ruleId);
             if (cached) return cached;
             const decision = cooldownDecision({
               ruleId,
               now: throttleNow,
-              recentSentAttempts: recentSent.map((r) => ({ rule_id: r.rule_id, attempted_at: r.attempted_at })),
+              recentSentAttempts: recentSent.map((r) => ({
+                rule_id: r.rule_id,
+                attempted_at: r.attempted_at,
+              })),
               windowHours: 24,
             });
             cooldownByRule.set(ruleId, decision);
@@ -1060,7 +1141,10 @@ export async function GET(request: Request): Promise<NextResponse> {
           const userCap = weeklyCapDecision({
             userId: payload.user_id,
             now: throttleNow,
-            recentSentAttempts: recentSent.map((r) => ({ user_id: r.user_id, attempted_at: r.attempted_at })),
+            recentSentAttempts: recentSent.map((r) => ({
+              user_id: r.user_id,
+              attempted_at: r.attempted_at,
+            })),
             cap: 10,
           });
 
@@ -1069,7 +1153,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           // Cooldown is checked first (higher priority), then user cap.
           async function applyThrottle(
             channelItems: QueueItemWithMeta[],
-            channel: Channel
+            channel: Channel,
           ): Promise<QueueItemWithMeta[]> {
             const survivors: QueueItemWithMeta[] = [];
             for (const item of channelItems) {
@@ -1088,7 +1172,7 @@ export async function GET(request: Request): Promise<NextResponse> {
               const ruleCap = resolveRuleWeeklyCap(item.conditions);
               if (ruleCap !== null) {
                 const count = recentSent.filter(
-                  (attempt) => attempt.rule_id === item.rule_id
+                  (attempt) => attempt.rule_id === item.rule_id,
                 ).length;
                 if (count >= ruleCap) {
                   await recordAttempt({
@@ -1125,14 +1209,21 @@ export async function GET(request: Request): Promise<NextResponse> {
           // alerts have a pre-dawn send_at (after the 04:00 window end), so this
           // rarely triggers — it's an edge-case correctness fix.
           const emailQuietHoursOverride = resolveQuietHoursOverride(emailItems);
-          const recipientTimezone = resolveNotificationTimezone(profile.timezone);
-          const recipientLocalHour = getLocalHour(new Date(), recipientTimezone);
+          const recipientTimezone = resolveNotificationTimezone(
+            profile.timezone,
+          );
+          const recipientLocalHour = getLocalHour(
+            new Date(),
+            recipientTimezone,
+          );
           const emailInQuietHours =
             emailItems.length > 0 &&
             isInQuietWindow(
               recipientLocalHour,
-              emailQuietHoursOverride?.quiet_hours_start ?? DEFAULT_QUIET.windowStart,
-              emailQuietHoursOverride?.quiet_hours_end ?? DEFAULT_QUIET.windowEnd
+              emailQuietHoursOverride?.quiet_hours_start ??
+                DEFAULT_QUIET.windowStart,
+              emailQuietHoursOverride?.quiet_hours_end ??
+                DEFAULT_QUIET.windowEnd,
             );
 
           // Queue ids whose EMAIL item was deferred this run because the
@@ -1211,14 +1302,15 @@ export async function GET(request: Request): Promise<NextResponse> {
                   }
                 } else {
                   // Dedup: only send if no email delivery recorded today
-                  const { data: existingEmail, error: existingEmailError } = await supabase
-                    .from("alert_deliveries")
-                    .select("id")
-                    .eq("user_id", payload.user_id)
-                    .eq("beach_id", payloadBeachId)
-                    .eq("alert_date", payload.alert_date)
-                    .eq("channel", "email")
-                    .limit(1);
+                  const { data: existingEmail, error: existingEmailError } =
+                    await supabase
+                      .from("alert_deliveries")
+                      .select("id")
+                      .eq("user_id", payload.user_id)
+                      .eq("beach_id", payloadBeachId)
+                      .eq("alert_date", payload.alert_date)
+                      .eq("channel", "email")
+                      .limit(1);
                   if (existingEmailError) throw existingEmailError;
 
                   if (existingEmail && existingEmail.length > 0) {
@@ -1229,20 +1321,32 @@ export async function GET(request: Request): Promise<NextResponse> {
                         userId: payload.user_id,
                         channel: "email",
                         status: "skipped_dedup_collision",
-                        skipReason: "alert_deliveries row already exists for (user, date, email)",
+                        skipReason:
+                          "alert_deliveries row already exists for (user, date, email)",
                       });
                     }
                   } else {
-                    const survivorRuleIds = new Set(emailSurvivors.map((i) => i.rule_id));
+                    const survivorRuleIds = new Set(
+                      emailSurvivors.map((i) => i.rule_id),
+                    );
                     const candidateEmailMatches = payload.matches
-                      .filter((m) => m.notify_email && survivorRuleIds.has(m.rule_id))
-                      .map((m) => ({ ...m, disable_token: generateDisableToken(m.rule_id) }));
+                      .filter(
+                        (m) => m.notify_email && survivorRuleIds.has(m.rule_id),
+                      )
+                      .map((m) => ({
+                        ...m,
+                        disable_token: generateDisableToken(m.rule_id),
+                      }));
                     const manageAlertsUrl = `${baseUrl}/settings`;
-                    const unsubscribeToken = generateEmailUnsubscribeToken(payload.user_id);
+                    const unsubscribeToken = generateEmailUnsubscribeToken(
+                      payload.user_id,
+                    );
                     const unsubscribeUrl =
                       `${baseUrl}/api/alerts/unsubscribe-email?user_id=${payload.user_id}` +
                       `&token=${unsubscribeToken}`;
-                    const alertDate = new Date(payload.alert_date).toLocaleDateString("en-US", {
+                    const alertDate = new Date(
+                      payload.alert_date,
+                    ).toLocaleDateString("en-US", {
                       weekday: "long",
                       month: "long",
                       day: "numeric",
@@ -1262,8 +1366,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                       emailMatches,
                       alertDate,
                     );
-                    const sendResult =
-                      !forecastDeliveryEnabled
+                    const sendResult = !forecastDeliveryEnabled
                       ? { data: null, error: null }
                       : await sendEmail({
                           from: MAIL_FROM,
@@ -1285,9 +1388,14 @@ export async function GET(request: Request): Promise<NextResponse> {
                     if (!forecastDeliveryEnabled) {
                       addShadowChannel(emailSurvivors, "email");
                     } else if (sendError) {
-                      console.error(`${CONTEXT_TAG} Email send failed for user ${payload.user_id}:`, sendError);
+                      console.error(
+                        `${CONTEXT_TAG} Email send failed for user ${payload.user_id}:`,
+                        sendError,
+                      );
                       result.errors++;
-                      const errorMessage = (sendError as { message?: string })?.message ?? String(sendError);
+                      const errorMessage =
+                        (sendError as { message?: string })?.message ??
+                        String(sendError);
                       for (const item of emailSurvivors) {
                         await recordAttempt({
                           queueId: item.id,
@@ -1303,22 +1411,24 @@ export async function GET(request: Request): Promise<NextResponse> {
                         deliveryAcceptedQueueIds.add(item.id);
                       }
                       // Write dedup record
-                      const { error: deliveryInsertError } = await supabase.from("alert_deliveries").insert({
-                        user_id: payload.user_id,
-                        beach_id: payloadBeachId,
-                        alert_date: payload.alert_date,
-                        channel: "email",
-                        payload: {
-                          match_count: emailMatches.length,
-                          beaches: emailMatches.map((m) => m.beach_name),
-                          matches: renderedEmailMatches,
-                        } as import("@/types/database.generated").Json,
-                      });
+                      const { error: deliveryInsertError } = await supabase
+                        .from("alert_deliveries")
+                        .insert({
+                          user_id: payload.user_id,
+                          beach_id: payloadBeachId,
+                          alert_date: payload.alert_date,
+                          channel: "email",
+                          payload: {
+                            match_count: emailMatches.length,
+                            beaches: emailMatches.map((m) => m.beach_name),
+                            matches: renderedEmailMatches,
+                          } as import("@/types/database.generated").Json,
+                        });
 
                       if (deliveryInsertError) {
                         console.error(
                           `${CONTEXT_TAG} Email sent but alert_deliveries insert failed for user ${payload.user_id}:`,
-                          deliveryInsertError
+                          deliveryInsertError,
                         );
                         result.errors++;
                         for (const item of emailSurvivors) {
@@ -1345,7 +1455,9 @@ export async function GET(request: Request): Promise<NextResponse> {
                         });
 
                         result.emailSent++;
-                        console.log(`${CONTEXT_TAG} Email sent to user ${payload.user_id} (${emailMatches.length} matches)`);
+                        console.log(
+                          `${CONTEXT_TAG} Email sent to user ${payload.user_id} (${emailMatches.length} matches)`,
+                        );
 
                         for (const item of emailSurvivors) {
                           await recordAttempt({
@@ -1392,14 +1504,15 @@ export async function GET(request: Request): Promise<NextResponse> {
                     });
                   }
                 } else {
-                  const { data: existingPush, error: existingPushError } = await supabase
-                    .from("alert_deliveries")
-                    .select("id")
-                    .eq("user_id", payload.user_id)
-                    .eq("beach_id", payloadBeachId)
-                    .eq("alert_date", payload.alert_date)
-                    .eq("channel", "push")
-                    .limit(1);
+                  const { data: existingPush, error: existingPushError } =
+                    await supabase
+                      .from("alert_deliveries")
+                      .select("id")
+                      .eq("user_id", payload.user_id)
+                      .eq("beach_id", payloadBeachId)
+                      .eq("alert_date", payload.alert_date)
+                      .eq("channel", "push")
+                      .limit(1);
                   if (existingPushError) throw existingPushError;
 
                   if (existingPush && existingPush.length > 0) {
@@ -1410,7 +1523,8 @@ export async function GET(request: Request): Promise<NextResponse> {
                         userId: payload.user_id,
                         channel: "push",
                         status: "skipped_dedup_collision",
-                        skipReason: "alert_deliveries row already exists for (user, date, push)",
+                        skipReason:
+                          "alert_deliveries row already exists for (user, date, push)",
                       });
                     }
                   } else {
@@ -1419,20 +1533,43 @@ export async function GET(request: Request): Promise<NextResponse> {
                     // worker handles devices, FCM, retries, and per-channel
                     // pref enforcement. The `notif_push_enabled` master gate
                     // above is kept as a cheap producer-side pre-filter.
-                    const survivorRuleIdsPush = new Set(pushSurvivors.map((i) => i.rule_id));
+                    const survivorRuleIdsPush = new Set(
+                      pushSurvivors.map((i) => i.rule_id),
+                    );
                     const candidatePushMatches = payload.matches.filter(
-                      (m) => m.notify_push && survivorRuleIdsPush.has(m.rule_id)
+                      (m) =>
+                        m.notify_push && survivorRuleIdsPush.has(m.rule_id),
                     );
                     const pushDecision = buildAlertSessionDecision({
                       matches: candidatePushMatches,
                       profileExperience,
                     });
-                    const pushMatches = candidatePushMatches;
+                    const primaryPushMatch = selectedAlertMatch(
+                      candidatePushMatches,
+                      pushDecision,
+                    );
+                    const canonicalSelectionRejected =
+                      primaryPushMatch === null;
+                    const pushMatches = primaryPushMatch
+                      ? [
+                          primaryPushMatch,
+                          ...candidatePushMatches.filter(
+                            (match) => match !== primaryPushMatch,
+                          ),
+                        ]
+                      : candidatePushMatches;
                     const renderedPushMatches =
                       buildRenderedMatchDetails(pushMatches);
-                    const { title, body, data: pushData } =
-                      formatPushNotification(pushMatches);
-                    const topMatch = pushMatches[0];
+                    const {
+                      title,
+                      body,
+                      data: pushData,
+                    } = formatPushNotification(
+                      pushMatches,
+                      pushDecision.verdict,
+                      primaryPushMatch ?? undefined,
+                    );
+                    const topMatch = primaryPushMatch ?? undefined;
                     const quietHoursOverride =
                       resolveQuietHoursOverride(pushSurvivors);
                     const topPolicyContext = policyContextForMatch(topMatch);
@@ -1465,25 +1602,49 @@ export async function GET(request: Request): Promise<NextResponse> {
                         rule_id: s.rule_id,
                       })),
                     };
-                    const enqueueResult =
-                      !forecastDeliveryEnabled
+                    const enqueueResult = canonicalSelectionRejected
+                      ? {
+                          enqueued: false as const,
+                          reason: "canonical_safety_rejected" as const,
+                        }
+                      : !forecastDeliveryEnabled
                         ? {
                             enqueued: false as const,
                             reason: "shadow_withheld" as const,
                           }
-                      : await enqueueNotification({
-                          type: "forecast_alert",
-                          recipientUserId: payload.user_id,
-                          entityType: "beach",
-                          entityId: topMatch?.beach_id ?? null,
-                          payload: pushPayload,
-                          dedupeKey: `forecast_alert:${payload.user_id}:${payloadBeachId}:${payload.alert_date}`,
-                        }).catch((err) => {
-                          console.error(`${CONTEXT_TAG} enqueue threw for user ${payload.user_id}:`, err);
-                          return { enqueued: false as const, reason: "internal_error" as const };
-                        });
+                        : await enqueueNotification({
+                            type: "forecast_alert",
+                            recipientUserId: payload.user_id,
+                            entityType: "beach",
+                            entityId: topMatch?.beach_id ?? null,
+                            payload: pushPayload,
+                            dedupeKey: `forecast_alert:${payload.user_id}:${payloadBeachId}:${payload.alert_date}`,
+                          }).catch((err) => {
+                            console.error(
+                              `${CONTEXT_TAG} enqueue threw for user ${payload.user_id}:`,
+                              err,
+                            );
+                            return {
+                              enqueued: false as const,
+                              reason: "internal_error" as const,
+                            };
+                          });
 
                     if (
+                      !enqueueResult.enqueued &&
+                      enqueueResult.reason === "canonical_safety_rejected"
+                    ) {
+                      for (const item of pushSurvivors) {
+                        await recordAttempt({
+                          queueId: item.id,
+                          ruleId: item.rule_id,
+                          userId: payload.user_id,
+                          channel: "push",
+                          status: "skipped_disabled",
+                          skipReason: `canonical_decision:${pushDecision.reasonCode}`,
+                        });
+                      }
+                    } else if (
                       !enqueueResult.enqueued &&
                       enqueueResult.reason === "shadow_withheld"
                     ) {
@@ -1498,30 +1659,32 @@ export async function GET(request: Request): Promise<NextResponse> {
                       // not "we've delivered" — actual delivery is recorded by
                       // the worker via the forecast_alert onChannelOutcome hook
                       // (per-rule rows in alert_delivery_attempts).
-                      const { error: deliveryInsertError } = await supabase.from("alert_deliveries").insert({
-                        user_id: payload.user_id,
-                        beach_id: payloadBeachId,
-                        alert_date: payload.alert_date,
-                        channel: "push",
-                        payload: {
-                          match_count: pushMatches.length,
-                          notification_event_id: enqueueResult.eventId,
-                          method: "enqueued_via_pipeline",
-                          matches: renderedPushMatches,
-                          session_decision_id: pushDecision.decisionId,
-                        } as import("@/types/database.generated").Json,
-                      });
+                      const { error: deliveryInsertError } = await supabase
+                        .from("alert_deliveries")
+                        .insert({
+                          user_id: payload.user_id,
+                          beach_id: payloadBeachId,
+                          alert_date: payload.alert_date,
+                          channel: "push",
+                          payload: {
+                            match_count: pushMatches.length,
+                            notification_event_id: enqueueResult.eventId,
+                            method: "enqueued_via_pipeline",
+                            matches: renderedPushMatches,
+                            session_decision_id: pushDecision.decisionId,
+                          } as import("@/types/database.generated").Json,
+                        });
 
                       if (deliveryInsertError) {
                         console.error(
                           `${CONTEXT_TAG} Push enqueued but alert_deliveries insert failed for user ${payload.user_id}:`,
-                          deliveryInsertError
+                          deliveryInsertError,
                         );
                         result.errors++;
                       } else {
                         result.pushSent++;
                         console.log(
-                          `${CONTEXT_TAG} Push enqueued for user ${payload.user_id} (event ${enqueueResult.eventId})`
+                          `${CONTEXT_TAG} Push enqueued for user ${payload.user_id} (event ${enqueueResult.eventId})`,
                         );
                       }
 
@@ -1541,13 +1704,14 @@ export async function GET(request: Request): Promise<NextResponse> {
                           userId: payload.user_id,
                           channel: "push",
                           status: "skipped_dedup_collision",
-                          skipReason: "notification_events dedupe_key collision",
+                          skipReason:
+                            "notification_events dedupe_key collision",
                         });
                       }
                     } else {
                       console.error(
                         `${CONTEXT_TAG} enqueue failed for user ${payload.user_id}:`,
-                        enqueueResult
+                        enqueueResult,
                       );
                       result.errors++;
                       for (const item of pushSurvivors) {
@@ -1599,7 +1763,10 @@ export async function GET(request: Request): Promise<NextResponse> {
             }
             await markQueueItemsByReason(processedItemsByReason);
           } catch (userErr) {
-            console.error(`${CONTEXT_TAG} Error processing user ${payload.user_id}:`, userErr);
+            console.error(
+              `${CONTEXT_TAG} Error processing user ${payload.user_id}:`,
+              userErr,
+            );
             result.errors++;
           }
         }
@@ -1619,7 +1786,9 @@ export async function GET(request: Request): Promise<NextResponse> {
           const profile = profilesByUser.get(item.user_id);
 
           if (!profile) {
-            console.warn(`${CONTEXT_TAG} No profile found for similarity user ${item.user_id}, skipping`);
+            console.warn(
+              `${CONTEXT_TAG} No profile found for similarity user ${item.user_id}, skipping`,
+            );
             await recordAttempt({
               queueId: item.id,
               ruleId: item.rule_id,
@@ -1685,7 +1854,8 @@ export async function GET(request: Request): Promise<NextResponse> {
             const similarityWindowEnd = Number.isFinite(similarityForecastAtMs)
               ? new Date(similarityForecastAtMs + 60 * 60 * 1000).toISOString()
               : "";
-            let storedSimilarityDecision: CanonicalSessionDecision | null = null;
+            let storedSimilarityDecision: CanonicalSessionDecision | null =
+              null;
             try {
               storedSimilarityDecision = parseCanonicalSessionDecision(
                 snap.session_decision,
@@ -1748,7 +1918,11 @@ export async function GET(request: Request): Promise<NextResponse> {
                 : { confidence: optionalNumberField(snap.confidence) }),
               ...(optionalStringField(snap.condition_summary) == null
                 ? {}
-                : { condition_summary: optionalStringField(snap.condition_summary) }),
+                : {
+                    condition_summary: optionalStringField(
+                      snap.condition_summary,
+                    ),
+                  }),
               ...(optionalStringField(snap.board_tip) == null
                 ? {}
                 : { board_tip: optionalStringField(snap.board_tip) }),
@@ -1789,6 +1963,10 @@ export async function GET(request: Request): Promise<NextResponse> {
                 ...snap,
                 wave_height: snap.wave_height_ft,
               },
+              forecast_id:
+                typeof snap.forecast_id === "string"
+                  ? snap.forecast_id
+                  : undefined,
               notify_email: false,
               notify_push: true,
             };
@@ -1810,13 +1988,13 @@ export async function GET(request: Request): Promise<NextResponse> {
               const reasonCode =
                 similarityHold.status === "suppressed"
                   ? similarityHold.reasonCode
-                  : notificationDecision?.reasonCode ?? "no_candidates";
+                  : (notificationDecision?.reasonCode ?? "no_candidates");
               shadowOutcomesByQueue.set(item.id, {
                 status: "shadow_withheld",
                 verdict:
                   similarityHold.status === "suppressed"
                     ? "no"
-                    : notificationDecision?.verdict ?? "no",
+                    : (notificationDecision?.verdict ?? "no"),
                 reason_code: reasonCode,
                 preset_type: item.preset_type ?? null,
                 would_use_channels: [],
@@ -1889,8 +2067,14 @@ export async function GET(request: Request): Promise<NextResponse> {
                 `similarity_match:${item.user_id}:${item.beach_id}:` +
                 `${similarityForecastAt}:${notificationDecision.decisionId}`,
             }).catch((err) => {
-              console.error(`${CONTEXT_TAG} similarity enqueue threw for user ${item.user_id}:`, err);
-              return { enqueued: false as const, reason: "internal_error" as const };
+              console.error(
+                `${CONTEXT_TAG} similarity enqueue threw for user ${item.user_id}:`,
+                err,
+              );
+              return {
+                enqueued: false as const,
+                reason: "internal_error" as const,
+              };
             });
 
             if (enqueueResult.enqueued) {
@@ -1903,7 +2087,7 @@ export async function GET(request: Request): Promise<NextResponse> {
               if (marked) {
                 result.pushSent++;
                 console.log(
-                  `${CONTEXT_TAG} Similarity push enqueued for user ${item.user_id} (event ${enqueueResult.eventId})`
+                  `${CONTEXT_TAG} Similarity push enqueued for user ${item.user_id} (event ${enqueueResult.eventId})`,
                 );
               }
             } else if (enqueueResult.reason === "duplicate") {
@@ -1923,7 +2107,7 @@ export async function GET(request: Request): Promise<NextResponse> {
               // Permanent — don't retry. Mark queue sent + record the failure.
               console.error(
                 `${CONTEXT_TAG} similarity enqueue rejected invalid payload for user ${item.user_id}:`,
-                enqueueResult
+                enqueueResult,
               );
               result.errors++;
               await recordAttempt({
@@ -1940,7 +2124,7 @@ export async function GET(request: Request): Promise<NextResponse> {
               // next tick can retry. Record the attempt for observability.
               console.error(
                 `${CONTEXT_TAG} similarity enqueue failed for user ${item.user_id}:`,
-                enqueueResult
+                enqueueResult,
               );
               result.errors++;
               await recordAttempt({
@@ -1953,7 +2137,10 @@ export async function GET(request: Request): Promise<NextResponse> {
               });
             }
           } catch (similarityErr) {
-            console.error(`${CONTEXT_TAG} Error processing similarity user ${item.user_id}:`, similarityErr);
+            console.error(
+              `${CONTEXT_TAG} Error processing similarity user ${item.user_id}:`,
+              similarityErr,
+            );
             result.errors++;
           }
         }

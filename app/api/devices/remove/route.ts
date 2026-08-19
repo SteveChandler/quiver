@@ -24,6 +24,7 @@ type DevicePlatform = (typeof VALID_PLATFORMS)[number];
 interface RemoveDeviceRequestBody {
   platform?: unknown;
   device_token?: unknown;
+  installation_id?: unknown;
 }
 
 function isValidPlatform(value: unknown): value is DevicePlatform {
@@ -47,7 +48,7 @@ async function parseRemoveDeviceRequestBody(
 
 export const POST = withAuth(async (request: NextRequest, { user, supabase }) => {
   const body = await parseRemoveDeviceRequestBody(request);
-  const { platform, device_token } = body;
+  const { platform, device_token, installation_id } = body;
 
   if (!platform) {
     return createErrorResponse("platform is required", undefined, 400);
@@ -64,27 +65,50 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
   if (device_token != null && typeof device_token !== "string") {
     return createErrorResponse("device_token must be a string", undefined, 400);
   }
+  if (
+    installation_id != null &&
+    (typeof installation_id !== "string" ||
+      installation_id.trim().length === 0 ||
+      installation_id.length > 200)
+  ) {
+    return createErrorResponse(
+      "installation_id must be a non-empty string",
+      undefined,
+      400,
+    );
+  }
 
-  if (device_token != null) {
+  if (installation_id != null) {
+    const { error } = await supabase
+      .from("user_devices")
+      .update({ retired_at: new Date().toISOString(), retired_reason: "logout" } as never)
+      .eq("user_id", user.id)
+      .eq("installation_id" as never, installation_id)
+      .is("retired_at" as never, null);
+    if (error) throw error;
+  } else if (device_token != null) {
     // Token-scoped removal
     const { error } = await supabase
       .from("user_devices")
-      .delete()
+      .update({ retired_at: new Date().toISOString(), retired_reason: "logout" } as never)
       .eq("user_id", user.id)
       .eq("platform", platform)
-      .eq("device_token", device_token);
+      .eq("device_token", device_token)
+      .is("retired_at" as never, null);
 
     if (error) {
       console.error("Device token removal failed:", error);
       throw error;
     }
   } else {
-    // Platform-scoped removal (native sign-out path — no token available)
+    // Platform-scoped retirement (legacy sign-out path — exact installation is
+    // unknowable, so do not claim the legacy physical invariant is solved).
     const { error } = await supabase
       .from("user_devices")
-      .delete()
+      .update({ retired_at: new Date().toISOString(), retired_reason: "logout_platform_legacy" } as never)
       .eq("user_id", user.id)
-      .eq("platform", platform);
+      .eq("platform", platform)
+      .is("retired_at" as never, null);
 
     if (error) {
       console.error("Device platform removal failed:", error);

@@ -23,8 +23,9 @@ let firebaseSkipWarned = false;
 
 /**
  * Core Firebase Admin sender. Takes fully-built messages, fans out via
- * `sendEach`, and prunes tokens rejected with invalid-token errors from
- * `user_devices`. All other senders in this module delegate here.
+ * `sendEach`, and retires invalid provider tokens globally. A provider token
+ * is not user-scoped, and retaining rows for the same invalid token would
+ * cause every future fan-out to rediscover the same dead target.
  */
 async function sendViaFirebase(messages: PushMessage[]): Promise<PushResult> {
   if (messages.length === 0) return { success: 0, failed: 0 };
@@ -44,15 +45,17 @@ async function sendViaFirebase(messages: PushMessage[]): Promise<PushResult> {
   const invalidTokens = result.invalidTokens;
 
   if (invalidTokens.length > 0) {
-    console.log(`Pruning ${invalidTokens.length} invalid device tokens`);
     const supabase = createSupabaseServiceRoleClient();
-    const { error: deleteError } = await supabase
+    const { error: retireError } = await supabase
       .from("user_devices")
-      .delete()
-      .in("device_token", invalidTokens);
-
-    if (deleteError) {
-      console.error("Failed to prune invalid tokens:", deleteError);
+      .update({
+        retired_at: new Date().toISOString(),
+        retired_reason: "provider_invalid_token",
+      } as never)
+      .in("device_token", invalidTokens)
+      .is("retired_at" as never, null);
+    if (retireError) {
+      console.error("Failed to retire invalid device tokens:", retireError);
     }
   }
 
@@ -106,14 +109,15 @@ export async function sendPushNotification({
     const { data: devices, error: devicesError } = await supabase
       .from("user_devices")
       .select("device_token")
-      .in("user_id", userIds);
+      .in("user_id", userIds)
+      .is("retired_at" as never, null);
 
     if (devicesError || !devices?.length) {
       return { success: 0, failed: 0 };
     }
 
-    const messages: PushMessage[] = devices.map((d) => ({
-      to: d.device_token,
+    const messages: PushMessage[] = devices.map((device) => ({
+      to: device.device_token,
       title,
       body,
       ...(data ? { data } : {}),

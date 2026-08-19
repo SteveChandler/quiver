@@ -32,7 +32,8 @@ jest.mock("@/lib/api-utils", () => ({
 
 // Mock Supabase client — shared by bearer and cookie auth paths in withAuth
 const mockUpsert = jest.fn();
-const mockDelete = jest.fn();
+const mockRpc = jest.fn();
+const mockUpdate = jest.fn();
 const mockProfileUpdate = jest.fn();
 const mockProfileEq = jest.fn();
 const mockProfileIs = jest.fn();
@@ -44,7 +45,7 @@ const mockSupabase = {
     if (table === "user_devices") {
       return {
         upsert: mockUpsert,
-        delete: mockDelete,
+        update: mockUpdate,
       };
     }
     if (table === "profiles") {
@@ -54,6 +55,7 @@ const mockSupabase = {
     }
     return {};
   }),
+  rpc: mockRpc,
 };
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -66,6 +68,19 @@ jest.mock("@/lib/supabase/bearer-client", () => ({
 describe("Device Token API", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRpc.mockImplementation(async (_name: string, args: Record<string, unknown>) => {
+      const metadata = (args.p_metadata ?? {}) as Record<string, unknown>;
+      const result = await mockUpsert(
+        {
+          user_id: args.p_user_id,
+          platform: args.p_platform,
+          device_token: args.p_device_token,
+          ...metadata,
+        },
+        { onConflict: "user_id,device_token" },
+      );
+      return result ?? { error: null };
+    });
     mockProfileIs.mockResolvedValue({ error: null });
     mockProfileEq.mockImplementation((_field: string, _value: string) => ({
       error: null,
@@ -314,12 +329,12 @@ describe("Device Token API", () => {
       });
 
       const mockEq = jest.fn().mockReturnThis();
-      mockDelete.mockReturnValue({
+      mockUpdate.mockReturnValue({
         eq: mockEq,
       });
       mockEq.mockImplementation((field: string, value: string) => {
         if (field === "device_token") {
-          return { error: null };
+          return { is: jest.fn().mockResolvedValue({ error: null }) };
         }
         return { eq: mockEq };
       });
@@ -336,7 +351,10 @@ describe("Device Token API", () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(mockDelete).toHaveBeenCalled();
+      expect(mockUpdate).toHaveBeenCalledWith({
+        retired_at: expect.any(String),
+        retired_reason: "logout",
+      });
     });
 
     it("should require authentication for deletion", async () => {
@@ -357,11 +375,7 @@ describe("Device Token API", () => {
 
       expect(response.status).toBe(401);
       expect(data.success).toBe(false);
-      expect(mockDelete).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
     });
   });
 });
-
-
-
-

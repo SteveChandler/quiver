@@ -100,6 +100,7 @@ function toCanonicalCandidate(
     safetyOverrideReasons: Array.from(
       new Set([...markedReasons, ...safetyOverrideReasons]),
     ),
+    effects: recommendation.effects ?? [],
   };
 }
 

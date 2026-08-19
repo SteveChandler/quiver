@@ -9,6 +9,7 @@ import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { toForecastForScoring } from '@/lib/scoring';
 import { getConditionBoardPick } from '@/lib/scoring/board-pick';
+import { scoreWindowForSelection } from '@/lib/services/discovery/window-selector/window-scorer';
 
 // Mock beaches
 const mockBeach: Partial<Beach> = {
@@ -223,6 +224,25 @@ describe('scoreForecastWindow', () => {
     expect(numericScore).toBeGreaterThan(0);
     expect(composite.reasons.length).toBeGreaterThan(0);
     expect(Number.isFinite(composite.confidence)).toBe(true);
+  });
+
+  it('caps both displayed and selection ranking scores for crossing swells', () => {
+    const forecast = createForecast({
+      wave_height: '4',
+      wave_period: '14s',
+      swell_1_height: '4',
+      swell_1_period: '14',
+      swell_1_direction: '270',
+      swell_2_height: '2',
+      swell_2_period: '10',
+      swell_2_direction: '0',
+    });
+
+    const details = scoreWindowConditionDetails(forecast, mockBeach as Beach);
+    const ranking = scoreWindowForSelection(forecast, mockBeach as Beach);
+
+    expect(details.score).toBeLessThanOrEqual(65);
+    expect(ranking).toBeLessThanOrEqual(65);
   });
 });
 

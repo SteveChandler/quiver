@@ -16,6 +16,15 @@ export interface PushDispatchResult {
   failed: number;
   invalidTokens: string[];
   errors: string[];
+  /** Internal correlation only; never persist the token field. */
+  outcomes: PushDeliveryOutcome[];
+}
+
+export interface PushDeliveryOutcome {
+  token: string;
+  status: "sent" | "failed" | "unknown";
+  invalidToken: boolean;
+  error?: string;
 }
 
 interface DispatchPushMessagesOptions {
@@ -59,7 +68,7 @@ async function dispatchFcmMessages(
   fcm: messaging.Messaging | null
 ): Promise<PushDispatchResult> {
   if (messages.length === 0) {
-    return { success: 0, failed: 0, invalidTokens: [], errors: [] };
+    return { success: 0, failed: 0, invalidTokens: [], errors: [], outcomes: [] };
   }
   if (!fcm) {
     return {
@@ -67,6 +76,12 @@ async function dispatchFcmMessages(
       failed: messages.length,
       invalidTokens: [],
       errors: ["Firebase not configured"],
+      outcomes: messages.map((message) => ({
+        token: message.to,
+        status: "unknown",
+        invalidToken: false,
+        error: "Firebase not configured",
+      })),
     };
   }
 
@@ -83,22 +98,53 @@ async function dispatchFcmMessages(
   }));
 
   const response = await fcm.sendEach(firebaseMessages);
+  const responseItems = Array.isArray(response?.responses) ? response.responses : [];
   const invalidTokens: string[] = [];
   const errors: string[] = [];
-  response.responses.forEach((resp, idx) => {
+  const outcomes: PushDeliveryOutcome[] = messages.map((message, idx) => {
+    const responseItem = responseItems[idx];
+    if (!responseItem) {
+      return { token: message.to, status: "unknown", invalidToken: false };
+    }
+    if (responseItem.success) {
+      return { token: message.to, status: "sent", invalidToken: false };
+    }
+    const error = responseItem.error
+      ? `${responseItem.error.code}: ${responseItem.error.message}`
+      : "FCM delivery outcome was ambiguous";
+    const invalidToken = Boolean(
+      responseItem.error && FCM_INVALID_TOKEN_ERROR_CODES.has(responseItem.error.code),
+    );
+    return {
+      token: message.to,
+      status: invalidToken ? "failed" : "unknown",
+      invalidToken,
+      error,
+    };
+  });
+  responseItems.forEach((resp, idx) => {
+    const message = messages[idx];
+    if (!message) return;
     if (resp.error) {
       errors.push(`${resp.error.code}: ${resp.error.message}`);
     }
     if (resp.error && FCM_INVALID_TOKEN_ERROR_CODES.has(resp.error.code)) {
-      invalidTokens.push(messages[idx].to);
+      invalidTokens.push(message.to);
     }
   });
 
+  const success = typeof response?.successCount === "number"
+    ? response.successCount
+    : outcomes.filter((outcome) => outcome.status === "sent").length;
+  const failed = typeof response?.failureCount === "number"
+    ? response.failureCount
+    : messages.length - success;
   return {
-    success: response.successCount,
-    failed: response.failureCount,
+    success,
+    failed,
     invalidTokens,
     errors,
+    outcomes,
   };
 }
 
@@ -107,7 +153,7 @@ async function dispatchExpoMessages(
   fetchImpl: typeof fetch
 ): Promise<PushDispatchResult> {
   if (messages.length === 0) {
-    return { success: 0, failed: 0, invalidTokens: [], errors: [] };
+    return { success: 0, failed: 0, invalidTokens: [], errors: [], outcomes: [] };
   }
 
   const payload = messages.map((m) => ({
@@ -141,6 +187,12 @@ async function dispatchExpoMessages(
       failed: messages.length,
       invalidTokens: [],
       errors: [`Expo push request failed with HTTP ${response.status}`],
+      outcomes: messages.map((message) => ({
+        token: message.to,
+        status: "unknown",
+        invalidToken: false,
+        error: `Expo push request failed with HTTP ${response.status}`,
+      })),
     };
   }
 
@@ -155,6 +207,22 @@ async function dispatchExpoMessages(
 
   const tickets = Array.isArray(body.data) ? body.data : [];
   const invalidTokens: string[] = [];
+  const outcomes: PushDeliveryOutcome[] = messages.map((message, idx) => {
+    const ticket = tickets[idx];
+    if (!ticket || (ticket.status !== "ok" && ticket.status !== "error")) {
+      return { token: message.to, status: "unknown", invalidToken: false };
+    }
+    if (ticket.status === "ok") return { token: message.to, status: "sent", invalidToken: false };
+    const invalidToken = Boolean(
+      ticket.details?.error && EXPO_INVALID_TOKEN_ERRORS.has(ticket.details.error),
+    );
+    return {
+      token: message.to,
+      status: "failed",
+      invalidToken,
+      ...(ticket.message ? { error: ticket.message } : {}),
+    };
+  });
   const errors = (body.errors ?? [])
     .map((e) => e.message)
     .filter((m): m is string => !!m);
@@ -177,7 +245,7 @@ async function dispatchExpoMessages(
     failed += messages.length - tickets.length;
   }
 
-  return { success, failed, invalidTokens, errors };
+  return { success, failed, invalidTokens, errors, outcomes };
 }
 
 export async function dispatchPushMessages({
@@ -198,5 +266,6 @@ export async function dispatchPushMessages({
     failed: expoResult.failed + fcmResult.failed,
     invalidTokens: [...expoResult.invalidTokens, ...fcmResult.invalidTokens],
     errors: [...expoResult.errors, ...fcmResult.errors],
+    outcomes: [...expoResult.outcomes, ...fcmResult.outcomes],
   };
 }

@@ -50,6 +50,19 @@ export interface ScorerResult {
 
   /** Reason for skipping (if skip is true) */
   readonly skipReason: string | null;
+
+  /** Structured decision effects. Strings remain presentation-only context. */
+  readonly effects?: readonly ScoringDecisionEffect[];
+}
+
+export type ScoringEffectSeverity = 'informational' | 'material' | 'severe';
+
+export interface ScoringDecisionEffect {
+  readonly code: 'crossing_swells' | (string & {});
+  readonly severity: ScoringEffectSeverity;
+  /** Maximum condition/verdict score when this effect is present. */
+  readonly verdictCeiling?: number;
+  readonly message: string;
 }
 
 /**
@@ -99,6 +112,9 @@ export interface CompositeScore {
 
   /** Confidence in the score (0-100, based on data quality) */
   readonly confidence: number;
+
+  /** Structured cautions/effects that must survive every adapter boundary. */
+  readonly effects?: readonly ScoringDecisionEffect[];
 }
 
 /**

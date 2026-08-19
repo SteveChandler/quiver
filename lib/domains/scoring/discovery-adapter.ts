@@ -227,6 +227,7 @@ export function compositeToDetailedScore(
     matchQuality,
     reasons: [...composite.reasons].slice(0, 5),
     warnings: [...composite.warnings],
+    effects: [...(composite.effects ?? [])],
     conditionBadges: [], // Will be generated separately if needed
   };
 }

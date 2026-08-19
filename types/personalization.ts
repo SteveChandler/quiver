@@ -14,6 +14,7 @@ import type { SpotProfile } from "@/lib/domains/spot-profile/types";
 import type { RecommendationsV2Response } from "@/lib/services/discovery/recommendations-v2";
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import type { CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision/types";
+import type { ScoringDecisionEffect } from "@/lib/domains/scoring/types";
 
 // ============================================================================
 // Time Slot Filter Types
@@ -205,6 +206,8 @@ export interface DetailedScore {
   reasons: string[];
   /** Warnings about conditions, skill level, or crowding */
   warnings: string[];
+  /** Structured scoring effects; decisions must not be inferred from warning strings. */
+  effects?: ScoringDecisionEffect[];
   /** Top condition badges explaining why conditions are good */
   conditionBadges?: ConditionBadge[];
   /** Wave height display badge (e.g., "2-3ft") */
@@ -330,6 +333,8 @@ export interface SurfDiscoveryRecommendation {
   reasons: string[];
   /** Warnings or cautions about the spot */
   warnings: string[];
+  /** Structured condition effects carried into canonical decisions and presentation. */
+  effects?: ScoringDecisionEffect[];
   /** Internal canonical-decision safety markers; not a recommendation endorsement. */
   safetyOverrideReasons?: Array<'water_quality_closure'>;
   /** Top condition badges explaining why conditions are good */

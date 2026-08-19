@@ -161,6 +161,28 @@ const homeMorningCallSchema = z.object({
   session_decision: canonicalSessionDecisionSchema.optional(),
   title: z.string().min(1),
   body: z.string().min(1),
+}).superRefine((payload, context) => {
+  if (!payload.session_decision) return;
+  const expected = payload.session_decision.verdict === "go"
+    ? "YES"
+    : payload.session_decision.verdict === "maybe"
+      ? "MAYBE"
+      : "NO";
+  if (payload.verdict !== expected) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["verdict"],
+      message: "verdict must agree with session_decision.verdict",
+    });
+  }
+  if (payload.session_decision.selection &&
+      payload.session_decision.selection.beachId !== payload.beach_id) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["beach_id"],
+      message: "beach_id must agree with canonical selection",
+    });
+  }
 });
 
 const weekendLocalDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {

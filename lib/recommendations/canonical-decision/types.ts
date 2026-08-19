@@ -1,4 +1,5 @@
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
+import type { ScoringDecisionEffect } from "@/lib/domains/scoring/types";
 
 export const CANONICAL_SESSION_DECISION_SCHEMA_VERSION =
   "canonical-session-decision.v1" as const;
@@ -72,6 +73,7 @@ export interface CanonicalDecisionCandidate {
   recommendationLabel?: "Worth it" | "Maybe" | "Skip";
   personalMatch?: CanonicalPersonalMatchEvidence | null;
   safetyOverrideReasons?: CanonicalDecisionReasonCode[];
+  effects?: ScoringDecisionEffect[];
 }
 
 export interface CanonicalDecisionSelection {
@@ -95,6 +97,7 @@ export interface CanonicalDecisionSelection {
     conditionScore: number;
     recommendationLabel: "Worth it" | "Maybe" | "Skip" | null;
     personalMatch: CanonicalPersonalMatchEvidence | null;
+    effects?: ScoringDecisionEffect[];
   };
 }
 
@@ -117,6 +120,7 @@ export interface CanonicalSessionDecision {
     reasonCodes: CanonicalDecisionReasonCode[];
   };
   holdEpoch: string;
+  effects?: ScoringDecisionEffect[];
 }
 
 export interface BuildCanonicalSessionDecisionInput {

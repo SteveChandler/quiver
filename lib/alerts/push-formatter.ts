@@ -14,6 +14,8 @@ interface PushContent {
   data: { type: string; beach_id: string; forecast_at?: string };
 }
 
+export type PushDecisionVerdict = "go" | "maybe" | "no";
+
 /**
  * Map a normalized window quality (best_score, 0..1) to a punchy, honest,
  * brand-consistent word. NOT the 0-100 composite — do not route through
@@ -46,7 +48,10 @@ function shortBeginnerReason(raw: string): string {
  * from the stamped score + label, and the body stays generic because the
  * evaluator does not snapshot wind/wave context.
  */
-function formatSimilarityPush(match: MatchingWindow): PushContent {
+function formatSimilarityPush(
+  match: MatchingWindow,
+  decision?: PushDecisionVerdict,
+): PushContent {
   const snap = match.conditions_snapshot as {
     alert_type?: string;
     score?: number;
@@ -66,7 +71,13 @@ function formatSimilarityPush(match: MatchingWindow): PushContent {
     timeZone: match.beach_timezone,
   });
 
-  const scoreLabel = [score, label].filter(Boolean).join(" ");
+  const scoreLabel = decision === "go"
+    ? "Firing"
+    : decision === "no"
+      ? "Not ideal"
+      : decision === "maybe"
+        ? "Worth a look"
+        : [score, label].filter(Boolean).join(" ");
   const titleParts = [match.beach_name];
   if (scoreLabel) titleParts.push(scoreLabel);
   titleParts.push(`${weekday} ${time}`);
@@ -80,8 +91,16 @@ function formatSimilarityPush(match: MatchingWindow): PushContent {
   };
 }
 
-export function formatPushNotification(matches: MatchingWindow[]): PushContent {
-  const topMatch = matches[0];
+export function formatPushNotification(
+  matches: MatchingWindow[],
+  decision?: PushDecisionVerdict,
+  primaryMatch?: MatchingWindow,
+): PushContent {
+  const orderedMatches = primaryMatch && matches.includes(primaryMatch)
+    ? [primaryMatch, ...matches.filter((match) => match !== primaryMatch)]
+    : matches;
+  const topMatch = orderedMatches[0];
+  if (!topMatch) throw new Error("formatPushNotification requires at least one match");
   const topSnap = (topMatch.conditions_snapshot ?? {}) as {
     alert_type?: string;
   };
@@ -90,11 +109,11 @@ export function formatPushNotification(matches: MatchingWindow[]): PushContent {
   // similarity_match variant. If a user has both a similarity_match and
   // condition-alert queued for the same day, fall through to the consolidated
   // copy so we don't silently drop the other matches from the notification.
-  if (matches.length === 1 && topSnap.alert_type === "similarity_match") {
-    return formatSimilarityPush(topMatch);
+  if (orderedMatches.length === 1 && topSnap.alert_type === "similarity_match") {
+    return formatSimilarityPush(topMatch, decision);
   }
 
-  if (matches.length === 1) {
+  if (orderedMatches.length === 1) {
     const snap = topMatch.conditions_snapshot;
     const timeWindow = formatTitleWindow(
       topMatch.window_start,
@@ -107,9 +126,15 @@ export function formatPushNotification(matches: MatchingWindow[]): PushContent {
     // A beginner-window rule is intentionally about approachable surf, not
     // a universal quality claim. Keep the actual wave range in the body and
     // avoid calling a 1–2 ft window "Firing" on the lock screen.
-    const titleLabel = isBeginnerWindow
-      ? "Beginner-friendly"
-      : qualityWord(topMatch.best_score);
+    const titleLabel = decision === "go"
+      ? "Firing"
+      : decision === "no"
+        ? "Not ideal"
+        : decision === "maybe"
+          ? "Worth a look"
+          : isBeginnerWindow
+            ? "Beginner-friendly"
+            : qualityWord(topMatch.best_score);
     const title = `${titleLabel} — ${topMatch.beach_name}, ${timeWindow}`;
 
     // Match the email's units + rounding so push and email don't disagree.
@@ -159,9 +184,11 @@ export function formatPushNotification(matches: MatchingWindow[]): PushContent {
     };
   }
 
-  // The consolidator sorts matches by best_score desc; sort defensively in case
-  // a caller passes an unsorted list so the title always leads with the best.
-  const sorted = [...matches].sort((a, b) => b.best_score - a.best_score);
+  // Canonical producers pass their selected match explicitly. Keep it first so
+  // lock-screen identity and summary order cannot drift from the decision.
+  const sorted = primaryMatch && matches.includes(primaryMatch)
+    ? orderedMatches
+    : [...matches].sort((a, b) => b.best_score - a.best_score);
   const best = sorted[0];
   const others = sorted.length - 1;
   const title = `${best.beach_name} + ${others} more break${others === 1 ? "" : "s"} today`;

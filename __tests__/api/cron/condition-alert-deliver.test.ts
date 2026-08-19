@@ -42,8 +42,8 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
 }));
 
 jest.mock("@/lib/cron/outcome", () => ({
-  withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) =>
-    handler()
+  withCronOutcome: jest.fn(
+    async (_options: unknown, handler: () => Promise<unknown>) => handler(),
   ),
 }));
 
@@ -91,10 +91,13 @@ jest.mock("@/lib/notifications/enqueue", () => ({
 }));
 
 const mockResolveNotificationMajorEventHold = jest.fn();
-jest.mock("@/lib/recommendations/major-event-hold/adapters/notification", () => ({
-  resolveNotificationMajorEventHold: (...args: unknown[]) =>
-    mockResolveNotificationMajorEventHold(...args),
-}));
+jest.mock(
+  "@/lib/recommendations/major-event-hold/adapters/notification",
+  () => ({
+    resolveNotificationMajorEventHold: (...args: unknown[]) =>
+      mockResolveNotificationMajorEventHold(...args),
+  }),
+);
 
 // ---- Mock email-token (deterministic) ----
 jest.mock("@/lib/alerts/email-token", () => ({
@@ -187,8 +190,12 @@ function makeChain(rowsResolver: () => any[], onTerminal?: () => void) {
     not: jest.fn(() => chain),
     order: jest.fn(() => chain),
     limit: jest.fn(() => chain),
-    single: jest.fn(() => Promise.resolve({ data: rowsResolver()[0] ?? null, error: null })),
-    maybeSingle: jest.fn(() => Promise.resolve({ data: rowsResolver()[0] ?? null, error: null })),
+    single: jest.fn(() =>
+      Promise.resolve({ data: rowsResolver()[0] ?? null, error: null }),
+    ),
+    maybeSingle: jest.fn(() =>
+      Promise.resolve({ data: rowsResolver()[0] ?? null, error: null }),
+    ),
     then: jest.fn((resolve: any) => {
       onTerminal?.();
       return resolve({ data: rowsResolver(), error: null });
@@ -230,19 +237,25 @@ function mockFrom(table: string) {
         (d) =>
           (f.user_id == null || d.user_id === f.user_id) &&
           (f.alert_date == null || d.alert_date === f.alert_date) &&
-          (f.channel == null || d.channel === f.channel)
+          (f.channel == null || d.channel === f.channel),
       );
     });
     chain.then = jest.fn((resolve: any) =>
       resolve({
-        data: store.deliverySelectError ? null : chain._filters && store.existingDeliveries.filter(
-          (d) =>
-            (chain._filters.user_id == null || d.user_id === chain._filters.user_id) &&
-            (chain._filters.alert_date == null || d.alert_date === chain._filters.alert_date) &&
-            (chain._filters.channel == null || d.channel === chain._filters.channel)
-        ),
+        data: store.deliverySelectError
+          ? null
+          : chain._filters &&
+            store.existingDeliveries.filter(
+              (d) =>
+                (chain._filters.user_id == null ||
+                  d.user_id === chain._filters.user_id) &&
+                (chain._filters.alert_date == null ||
+                  d.alert_date === chain._filters.alert_date) &&
+                (chain._filters.channel == null ||
+                  d.channel === chain._filters.channel),
+            ),
         error: store.deliverySelectError,
-      })
+      }),
     );
     chain.insert = jest.fn((row: DeliveryRow) => {
       store.deliveryInserts.push(row);
@@ -252,7 +265,7 @@ function mockFrom(table: string) {
   }
   if (table === "user_devices") {
     return makeChain(() =>
-      store.deviceRows.map((d) => ({ device_token: d.device_token }))
+      store.deviceRows.map((d) => ({ device_token: d.device_token })),
     );
   }
   if (table === "alert_delivery_attempts") {
@@ -267,8 +280,10 @@ function mockFrom(table: string) {
       return store.seededAttempts.filter((a) => {
         if (f.queue_id?.in && !f.queue_id.in.includes(a.queue_id)) return false;
         if (f.status != null && a.status !== f.status) return false;
-        if (f.skip_reason != null && a.skip_reason !== f.skip_reason) return false;
-        if (f.attempted_at__gte != null && a.attempted_at < f.attempted_at__gte) return false;
+        if (f.skip_reason != null && a.skip_reason !== f.skip_reason)
+          return false;
+        if (f.attempted_at__gte != null && a.attempted_at < f.attempted_at__gte)
+          return false;
         return true;
       });
     });
@@ -278,14 +293,20 @@ function mockFrom(table: string) {
           ? null
           : store.seededAttempts.filter((a) => {
               const f = chain._filters;
-              if (f.queue_id?.in && !f.queue_id.in.includes(a.queue_id)) return false;
+              if (f.queue_id?.in && !f.queue_id.in.includes(a.queue_id))
+                return false;
               if (f.status != null && a.status !== f.status) return false;
-              if (f.skip_reason != null && a.skip_reason !== f.skip_reason) return false;
-              if (f.attempted_at__gte != null && a.attempted_at < f.attempted_at__gte) return false;
+              if (f.skip_reason != null && a.skip_reason !== f.skip_reason)
+                return false;
+              if (
+                f.attempted_at__gte != null &&
+                a.attempted_at < f.attempted_at__gte
+              )
+                return false;
               return true;
             }),
         error: store.recentAttemptsError,
-      })
+      }),
     );
     chain.insert = jest.fn((row: AttemptRow) => {
       store.attemptInserts.push(row);
@@ -311,6 +332,7 @@ const USER_A = "00000000-0000-0000-0000-000000000001";
 const USER_B = "00000000-0000-0000-0000-000000000002";
 const RULE_1 = "00000000-0000-0000-0000-0000000000a1";
 const BEACH_1 = "00000000-0000-0000-0000-0000000000b1";
+const BEACH_2 = "00000000-0000-0000-0000-0000000000b2";
 const QUEUE_1 = "00000000-0000-0000-0000-0000000000c1";
 const mockConsolidatedAlertEmail = ConsolidatedAlertEmail as jest.Mock;
 
@@ -326,7 +348,10 @@ function seedQueueRow(overrides: Partial<any> = {}) {
     window_end: "2026-04-26T15:00:00Z",
     best_hour: "2026-04-26T14:00:00Z",
     best_score: 0.8,
-    conditions_snapshot: { wave_height: 3 },
+    conditions_snapshot: {
+      wave_height: 3,
+      forecast_id: "enhanced-forecast-queued",
+    },
     sent: false,
     alert_rules: {
       name: "Test rule",
@@ -356,10 +381,13 @@ function seedProfile(overrides: Partial<any> = {}) {
 }
 
 function makeRequest(): Request {
-  return new Request("https://quiversurf.app/api/cron/condition-alert-deliver", {
-    method: "GET",
-    headers: { authorization: "Bearer dummy" },
-  });
+  return new Request(
+    "https://quiversurf.app/api/cron/condition-alert-deliver",
+    {
+      method: "GET",
+      headers: { authorization: "Bearer dummy" },
+    },
+  );
 }
 
 function expectQueueReasonTotals(body: {
@@ -442,7 +470,10 @@ afterEach(() => {
 });
 
 describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows", () => {
-  const routeSource = readFileSync("app/api/cron/condition-alert-deliver/route.ts", "utf8");
+  const routeSource = readFileSync(
+    "app/api/cron/condition-alert-deliver/route.ts",
+    "utf8",
+  );
 
   it("uses the API wrapper barrel for cron request validation", () => {
     expect(routeSource).not.toContain("@/lib/api-utils");
@@ -452,8 +483,12 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   });
 
   it("routes every sent=true write through the reason-accounting helper", () => {
-    expect([...routeSource.matchAll(/\.update\(\{ sent: true \}\)/g)]).toHaveLength(1);
-    expect([...routeSource.matchAll(/result\.queueMarked \+=/g)]).toHaveLength(1);
+    expect([
+      ...routeSource.matchAll(/\.update\(\{ sent: true \}\)/g),
+    ]).toHaveLength(1);
+    expect([...routeSource.matchAll(/result\.queueMarked \+=/g)]).toHaveLength(
+      1,
+    );
     expect(routeSource).toContain("async function markQueueItemsConsumed");
   });
 
@@ -469,7 +504,10 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       },
     });
     seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
-    store.deviceRows.push({ user_id: USER_A, device_token: "ExpoPushToken[abc]" });
+    store.deviceRows.push({
+      user_id: USER_A,
+      device_token: "ExpoPushToken[abc]",
+    });
 
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
@@ -523,9 +561,17 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       "73040cff-afe9-4fa0-a874-2016203fc015";
     seedQueueRow({
       user_id: USER_B,
-      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+      alert_rules: {
+        name: "Test rule",
+        notify_email: true,
+        notify_push: false,
+      },
     });
-    seedProfile({ id: USER_B, notif_email_enabled: true, notif_push_enabled: false });
+    seedProfile({
+      id: USER_B,
+      notif_email_enabled: true,
+      notif_push_enabled: false,
+    });
 
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
@@ -551,7 +597,11 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+      alert_rules: {
+        name: "Test rule",
+        notify_email: true,
+        notify_push: false,
+      },
     });
     seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
 
@@ -565,14 +615,14 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
         unsubscribeUrl:
           `https://quiversurf.app/api/alerts/unsubscribe-email?user_id=${USER_A}` +
           "&token=test-unsubscribe-token",
-      })
+      }),
     );
     expect(mockConsolidatedAlertEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         unsubscribeUrl:
           `https://quiversurf.app/api/alerts/unsubscribe-email?user_id=${USER_A}` +
           "&token=test-unsubscribe-token",
-      })
+      }),
     );
     expect(mockSendPushNotifications).not.toHaveBeenCalled();
 
@@ -582,16 +632,18 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       alert_date: "2026-04-26",
       channel: "email",
     });
-    expect(mockLogDelivery).toHaveBeenCalledWith(expect.objectContaining({
-      userId: USER_A,
-      emailType: "conditions_alert",
-      subject: expect.stringMatching(/^Test Beach: surf window /),
-      meta: expect.objectContaining({
-        match_count: expect.any(Number),
-        beaches: expect.any(Array),
+    expect(mockLogDelivery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: USER_A,
+        emailType: "conditions_alert",
+        subject: expect.stringMatching(/^Test Beach: surf window /),
+        meta: expect.objectContaining({
+          match_count: expect.any(Number),
+          beaches: expect.any(Array),
+        }),
+        resendMessageId: "msg-1",
       }),
-      resendMessageId: "msg-1",
-    }));
+    );
 
     expect(store.attemptInserts).toHaveLength(1);
     expect(store.attemptInserts[0]).toMatchObject({
@@ -610,7 +662,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expectQueueReasonTotals(body);
   });
 
-  it("sends a beginner user's forecast alert for an expert beach", async () => {
+  it("sends email but rejects push when an expert beach has no canonical selection", async () => {
     seedQueueRow({
       best_score: 95,
       alert_rules: {
@@ -634,21 +686,20 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
 
     expect(res.status).toBe(200);
     expect(mockEmailsSend).toHaveBeenCalledTimes(1);
-    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
-    expect(mockEnqueueNotification.mock.calls[0][0].payload.session_decision).toMatchObject({
-      verdict: "no",
-      reasonCode: "beach_skill_exceeds_user",
-      skillEligibility: {
-        skill: "beginner",
-        state: "ineligible",
-        reasonCodes: expect.arrayContaining(["beach_skill_exceeds_user"]),
-      },
-    });
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
     expect(store.attemptInserts).toContainEqual(
       expect.objectContaining({
         queue_id: QUEUE_1,
         channel: "email",
         status: "sent",
+      }),
+    );
+    expect(store.attemptInserts).toContainEqual(
+      expect.objectContaining({
+        queue_id: QUEUE_1,
+        channel: "push",
+        status: "skipped_disabled",
+        skip_reason: "canonical_decision:beach_skill_exceeds_user",
       }),
     );
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
@@ -657,33 +708,37 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
   it.each([
     { verdict: "no", bestScore: 20 },
     { verdict: "maybe", bestScore: 50 },
-  ])("sends when the canonical verdict is $verdict", async ({ verdict, bestScore }) => {
-    seedQueueRow({
-      best_score: bestScore,
-      alert_rules: {
-        name: "Matched user rule",
-        notify_email: true,
-        notify_push: true,
-      },
-    });
-    seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
+  ])(
+    "sends when the canonical verdict is $verdict",
+    async ({ verdict, bestScore }) => {
+      seedQueueRow({
+        best_score: bestScore,
+        alert_rules: {
+          name: "Matched user rule",
+          notify_email: true,
+          notify_push: true,
+        },
+      });
+      seedProfile({ notif_email_enabled: true, notif_push_enabled: true });
 
-    const res = await GET(makeRequest());
+      const res = await GET(makeRequest());
 
-    expect(res.status).toBe(200);
-    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
-    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
-    expect(
-      mockEnqueueNotification.mock.calls[0][0].payload.session_decision.verdict,
-    ).toBe(verdict);
-    expect(store.attemptInserts).toContainEqual(
-      expect.objectContaining({
-        queue_id: QUEUE_1,
-        channel: "email",
-        status: "sent",
-      }),
-    );
-  });
+      expect(res.status).toBe(200);
+      expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+      expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+      expect(
+        mockEnqueueNotification.mock.calls[0][0].payload.session_decision
+          .verdict,
+      ).toBe(verdict);
+      expect(store.attemptInserts).toContainEqual(
+        expect.objectContaining({
+          queue_id: QUEUE_1,
+          channel: "email",
+          status: "sent",
+        }),
+      );
+    },
+  );
 
   it("sends when major-event hold state is unavailable", async () => {
     seedQueueRow({
@@ -764,7 +819,11 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+      alert_rules: {
+        name: "Test rule",
+        notify_email: true,
+        notify_push: false,
+      },
     });
     seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
     mockEmailsSend.mockResolvedValue({
@@ -772,7 +831,9 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       error: { message: "provider unavailable" },
     });
 
-    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     const res = await GET(makeRequest());
     consoleErrorSpy.mockRestore();
     const body = await res.json();
@@ -798,11 +859,17 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     store.deliveryInsertError = new Error("dedupe insert failed");
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+      alert_rules: {
+        name: "Test rule",
+        notify_email: true,
+        notify_push: false,
+      },
     });
     seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
 
-    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     const res = await GET(makeRequest());
     consoleErrorSpy.mockRestore();
     expect(res.status).toBe(200);
@@ -833,7 +900,11 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       rule_id: "00000000-0000-0000-0000-0000000000a2",
       beach_id: "00000000-0000-0000-0000-0000000000b2",
       best_score: 0.35,
-      alert_rules: { name: "Lower score rule", notify_email: true, notify_push: false },
+      alert_rules: {
+        name: "Lower score rule",
+        notify_email: true,
+        notify_push: false,
+      },
       beaches: {
         name: "Lower Score Beach",
         timezone: "America/Los_Angeles",
@@ -845,7 +916,11 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       rule_id: "00000000-0000-0000-0000-0000000000a3",
       beach_id: "00000000-0000-0000-0000-0000000000b3",
       best_score: 0.95,
-      alert_rules: { name: "Higher score rule", notify_email: true, notify_push: false },
+      alert_rules: {
+        name: "Higher score rule",
+        notify_email: true,
+        notify_push: false,
+      },
       beaches: {
         name: "Higher Score Beach",
         timezone: "America/Los_Angeles",
@@ -967,7 +1042,11 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+      alert_rules: {
+        name: "Test rule",
+        notify_email: true,
+        notify_push: false,
+      },
     });
     seedProfile({
       email: null,
@@ -995,7 +1074,11 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
 
   it("existing delivery dedupes a matched forecast alert", async () => {
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+      alert_rules: {
+        name: "Test rule",
+        notify_email: true,
+        notify_push: false,
+      },
     });
     seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
     store.existingDeliveries.push({
@@ -1022,7 +1105,11 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
 
   it("a rule with no enabled channels does not deliver", async () => {
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: false, notify_push: false },
+      alert_rules: {
+        name: "Test rule",
+        notify_email: false,
+        notify_push: false,
+      },
     });
     seedProfile();
 
@@ -1045,7 +1132,11 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
         name: "Mellow session at your home break",
         notify_email: true,
         notify_push: false,
-        conditions: { swell_height_min: 1.5, swell_height_max: 4, wind_speed_max_kt: 8 },
+        conditions: {
+          swell_height_min: 1.5,
+          swell_height_max: 4,
+          wind_speed_max_kt: 8,
+        },
       },
       beaches: {
         id: BEACH_1,
@@ -1189,7 +1280,9 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
           conditions_snapshot: expect.objectContaining({ wave_height: 2.1 }),
         },
       });
-      expect(store.queueRefreshUpdates[0].values.best_score).toEqual(expect.any(Number));
+      expect(store.queueRefreshUpdates[0].values.best_score).toEqual(
+        expect.any(Number),
+      );
       expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
       expect(store.deliveryInserts[0].payload).toMatchObject({
         match_count: 1,
@@ -1221,7 +1314,6 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       jest.useRealTimers();
     }
   });
-
 });
 
 describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
@@ -1230,11 +1322,17 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     store.recentAttemptsError = new Error("attempt history failed");
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+      alert_rules: {
+        name: "Test rule",
+        notify_email: true,
+        notify_push: false,
+      },
     });
     seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
 
-    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     const res = await GET(makeRequest());
     consoleErrorSpy.mockRestore();
 
@@ -1249,7 +1347,11 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+      alert_rules: {
+        name: "Test rule",
+        notify_email: true,
+        notify_push: false,
+      },
     });
     seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
 
@@ -1286,7 +1388,11 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+      alert_rules: {
+        name: "Test rule",
+        notify_email: true,
+        notify_push: false,
+      },
     });
     seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
 
@@ -1297,12 +1403,18 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
       const hourJitter = i; // unique timestamps
       store.seededAttempts.push({
         queue_id: `00000000-0000-0000-0000-${String(i).padStart(12, "0")}`,
-        rule_id: `00000000-0000-0000-0000-${String(i).padStart(8, "0")}cap`.slice(0, 36),
+        rule_id:
+          `00000000-0000-0000-0000-${String(i).padStart(8, "0")}cap`.slice(
+            0,
+            36,
+          ),
         user_id: USER_A,
         channel: "email",
         status: "sent",
         attempted_at: new Date(
-          Date.now() - dayOffset * 24 * 60 * 60 * 1000 - hourJitter * 60 * 60 * 1000
+          Date.now() -
+            dayOffset * 24 * 60 * 60 * 1000 -
+            hourJitter * 60 * 60 * 1000,
         ).toISOString(),
       });
     }
@@ -1350,7 +1462,7 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
         channel: "email",
         status: "sent",
         attempted_at: new Date(
-          Date.now() - (i + 2) * 24 * 60 * 60 * 1000
+          Date.now() - (i + 2) * 24 * 60 * 60 * 1000,
         ).toISOString(),
       });
     }
@@ -1472,7 +1584,11 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
     try {
       seedQueueRow({
         send_at: "2026-04-26T05:00:00Z",
-        alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+        alert_rules: {
+          name: "Test rule",
+          notify_email: true,
+          notify_push: false,
+        },
       });
       seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
 
@@ -1497,7 +1613,11 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
     try {
       seedQueueRow({
         send_at: "2026-04-26T05:00:00Z",
-        alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+        alert_rules: {
+          name: "Test rule",
+          notify_email: true,
+          notify_push: false,
+        },
       });
       seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
 
@@ -1567,7 +1687,7 @@ describe("condition-alert-deliver — email quiet-hours guard", () => {
     await GET(makeRequest());
 
     const sentForRule = store.attemptInserts.filter(
-      (a) => a.rule_id === RULE_1 && a.status === "sent"
+      (a) => a.rule_id === RULE_1 && a.status === "sent",
     );
     expect(sentForRule).toHaveLength(0);
   });
@@ -1580,10 +1700,12 @@ describe("condition-alert-deliver — orphaned queue rows", () => {
       alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
     });
 
-    const consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const consoleWarnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => {});
     const res = await GET(makeRequest());
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("No profile found for user")
+      expect.stringContaining("No profile found for user"),
     );
     consoleWarnSpy.mockRestore();
     expect(res.status).toBe(503);
@@ -1611,7 +1733,7 @@ describe("condition-alert-deliver — orphaned queue rows", () => {
           channel: "push",
           status: "failed_internal",
         }),
-      ])
+      ]),
     );
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
@@ -1672,7 +1794,7 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
       channel: "push",
     });
     expect((store.deliveryInserts[0].payload as any).method).toBe(
-      "enqueued_via_pipeline"
+      "enqueued_via_pipeline",
     );
 
     // The cron no longer pre-writes status='sent' rows to alert_delivery_attempts
@@ -1681,6 +1803,130 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
     // status. So no push-channel attempt row should exist at this point.
     const pushAttempt = store.attemptInserts.find((a) => a.channel === "push");
     expect(pushAttempt).toBeUndefined();
+  });
+
+  it("uses the canonical eligible selection for distinct push provenance", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    seedQueueRow({
+      id: "00000000-0000-0000-0000-0000000000d1",
+      rule_id: "00000000-0000-0000-0000-0000000000e1",
+      best_score: 0.95,
+      window_start: "2026-04-26T13:00:00Z",
+      window_end: "2026-04-26T15:00:00Z",
+      best_hour: "2026-04-26T14:00:00Z",
+      alert_rules: {
+        name: "Score-first",
+        notify_email: false,
+        notify_push: true,
+      },
+      conditions_snapshot: { wave_height: 8 },
+      beaches: {
+        name: "Expert Point",
+        timezone: "America/Los_Angeles",
+        skill_level: "expert",
+      },
+    });
+    seedQueueRow({
+      id: "00000000-0000-0000-0000-0000000000d2",
+      rule_id: "00000000-0000-0000-0000-0000000000e2",
+      best_score: 0.7,
+      beach_id: BEACH_2,
+      window_start: "2026-04-26T16:00:00Z",
+      window_end: "2026-04-26T18:00:00Z",
+      best_hour: "2026-04-26T17:00:00Z",
+      alert_rules: {
+        name: "Personal-first",
+        notify_email: false,
+        notify_push: true,
+      },
+      conditions_snapshot: {
+        wave_height: 2,
+        forecast_id: "enhanced-forecast-mellow-cove-17z",
+      },
+      beaches: {
+        name: "Mellow Cove",
+        timezone: "America/Los_Angeles",
+        skill_level: "beginner",
+      },
+    });
+    seedProfile({ notif_email_enabled: false, notif_push_enabled: true });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    const call = mockEnqueueNotification.mock.calls
+      .map(([event]) => event)
+      .find((event) => event.entityId === BEACH_2);
+    expect(call).toEqual(expect.objectContaining({ entityId: BEACH_2 }));
+    if (!call) throw new Error("Expected the Mellow Cove notification event");
+    const payload = call.payload;
+    const selectedCandidateId =
+      "alert:00000000-0000-0000-0000-0000000000e2:" +
+      `${BEACH_2}:2026-04-26T16:00:00Z`;
+    expect(payload.session_decision.selection.candidateId).toBe(
+      selectedCandidateId,
+    );
+    expect(payload.session_decision.selection.forecastRef).toEqual({
+      forecastId: "enhanced-forecast-mellow-cove-17z",
+      beachId: BEACH_2,
+      forecastAt: "2026-04-26T17:00:00Z",
+    });
+    expect(payload.title).toContain("Mellow Cove");
+    expect(payload.body).toContain("Mellow Cove 9 AM-11 AM");
+    expect(payload.beach_id).toBe(BEACH_2);
+    expect(payload.forecast_at).toBe("2026-04-26T17:00:00Z");
+    expect(payload.matches[0]).toMatchObject({
+      beach_id: BEACH_2,
+      best_hour: "2026-04-26T17:00:00Z",
+    });
+    expect(payload.policy_context).toEqual({
+      kind: "positive_session_recommendation",
+      beach_id: BEACH_2,
+      starts_at: "2026-04-26T16:00:00Z",
+      ends_at: "2026-04-26T18:00:00Z",
+    });
+    expect(call.entityId).toBe(BEACH_2);
+  });
+
+  it("fails closed when canonical push selection has no forecast identity", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    seedQueueRow({
+      conditions_snapshot: { wave_height: 3 },
+      alert_rules: {
+        name: "Missing forecast identity",
+        preset_type: "mellow_session",
+        notify_email: false,
+        notify_push: true,
+      },
+    });
+    seedProfile({ notif_email_enabled: false, notif_push_enabled: true });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(store.deliveryInserts).toHaveLength(0);
+    expect(store.attemptInserts).toEqual([
+      expect.objectContaining({
+        queue_id: QUEUE_1,
+        rule_id: RULE_1,
+        user_id: USER_A,
+        channel: "push",
+        status: "skipped_disabled",
+        skip_reason: expect.stringMatching(/^canonical_decision:/),
+      }),
+    ]);
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    expect(body).toMatchObject({
+      pushSent: 0,
+      queueMarked: 1,
+      queue_marked_by_reason: {
+        canonical_safety_rejected: 1,
+        delivered: 0,
+      },
+    });
+    expectQueueReasonTotals(body);
   });
 
   it("counts push delivery-row insert failure after enqueue without pre-writing a sent attempt", async () => {
@@ -1695,7 +1941,9 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
     });
     seedProfile({ notif_email_enabled: false, notif_push_enabled: true });
 
-    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     const res = await GET(makeRequest());
     consoleErrorSpy.mockRestore();
     expect(res.status).toBe(200);
@@ -1705,14 +1953,20 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
     expect(body.pushSent).toBe(0);
     expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
     expect(store.deliveryInserts).toHaveLength(1);
-    expect(store.attemptInserts.find((a) => a.channel === "push")).toBeUndefined();
+    expect(
+      store.attemptInserts.find((a) => a.channel === "push"),
+    ).toBeUndefined();
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 
   it("records skipped_dedup_collision when enqueue returns duplicate", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: false, notify_push: true },
+      alert_rules: {
+        name: "Test rule",
+        notify_email: false,
+        notify_push: true,
+      },
     });
     seedProfile({ notif_email_enabled: false, notif_push_enabled: true });
     mockEnqueueNotification.mockResolvedValueOnce({
@@ -1733,7 +1987,11 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   it("records failed_internal when enqueue returns internal_error", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: false, notify_push: true },
+      alert_rules: {
+        name: "Test rule",
+        notify_email: false,
+        notify_push: true,
+      },
     });
     seedProfile({ notif_email_enabled: false, notif_push_enabled: true });
     mockEnqueueNotification.mockResolvedValueOnce({
@@ -1741,11 +1999,13 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
       reason: "internal_error",
     });
 
-    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     const res = await GET(makeRequest());
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining("enqueue failed for user"),
-      expect.objectContaining({ reason: "internal_error" })
+      expect.objectContaining({ reason: "internal_error" }),
     );
     consoleErrorSpy.mockRestore();
     expect(res.status).toBe(503);
@@ -1762,7 +2022,11 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   it("does NOT enqueue when notif_push_enabled=false", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: false, notify_push: true },
+      alert_rules: {
+        name: "Test rule",
+        notify_email: false,
+        notify_push: true,
+      },
     });
     seedProfile({ notif_email_enabled: false, notif_push_enabled: false });
 
@@ -1843,6 +2107,7 @@ function seedSimilarityQueueRow(overrides: Partial<any> = {}) {
       score: 8.5,
       label: "EPIC",
       forecast_at: "2026-05-04T15:00:00Z",
+      forecast_id: `similarity-alert:${BEACH_SIM}:2026-05-04T15:00:00Z`,
       rule_id: RULE_SIM,
       beach_id: BEACH_SIM,
       beach_slug: "ocean-beach-sf",
@@ -1892,7 +2157,11 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
     // similarity row should go through enqueueNotification with type=similarity_match.
     seedSimilarityQueueRow();
     seedQueueRow({
-      alert_rules: { name: "Forecast rule", notify_email: false, notify_push: true },
+      alert_rules: {
+        name: "Forecast rule",
+        notify_email: false,
+        notify_push: true,
+      },
     });
     seedProfile({ notif_email_enabled: false, notif_push_enabled: true });
 
@@ -1948,7 +2217,9 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
 
     // Similarity DOES NOT pre-write an alert_delivery_attempts row on success
     // (mirror of forecast_alert — the worker's onChannelOutcome hook does it).
-    const simAttempts = store.attemptInserts.filter((a) => a.queue_id === QUEUE_SIM);
+    const simAttempts = store.attemptInserts.filter(
+      (a) => a.queue_id === QUEUE_SIM,
+    );
     expect(simAttempts).toHaveLength(0);
 
     // Both queue rows marked sent.
@@ -2042,7 +2313,9 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
     expect(res.status).toBe(200);
 
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
-    const simAttempts = store.attemptInserts.filter((a) => a.queue_id === QUEUE_SIM);
+    const simAttempts = store.attemptInserts.filter(
+      (a) => a.queue_id === QUEUE_SIM,
+    );
     expect(simAttempts).toHaveLength(1);
     expect(simAttempts[0]).toMatchObject({
       queue_id: QUEUE_SIM,
@@ -2066,7 +2339,9 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
     expect(res.status).toBe(200);
 
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
-    const simAttempts = store.attemptInserts.filter((a) => a.queue_id === QUEUE_SIM);
+    const simAttempts = store.attemptInserts.filter(
+      (a) => a.queue_id === QUEUE_SIM,
+    );
     expect(simAttempts).toHaveLength(1);
     expect(simAttempts[0]).toMatchObject({
       queue_id: QUEUE_SIM,
@@ -2094,7 +2369,9 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
     expect(res.status).toBe(200);
 
     expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
-    const simAttempts = store.attemptInserts.filter((a) => a.queue_id === QUEUE_SIM);
+    const simAttempts = store.attemptInserts.filter(
+      (a) => a.queue_id === QUEUE_SIM,
+    );
     expect(simAttempts).toHaveLength(1);
     expect(simAttempts[0]).toMatchObject({
       queue_id: QUEUE_SIM,
@@ -2117,17 +2394,21 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
       message: "supabase blip",
     });
 
-    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     const res = await GET(makeRequest());
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining("similarity enqueue failed for user"),
-      expect.objectContaining({ reason: "internal_error" })
+      expect.objectContaining({ reason: "internal_error" }),
     );
     consoleErrorSpy.mockRestore();
     expect(res.status).toBe(200);
 
     expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
-    const simAttempts = store.attemptInserts.filter((a) => a.queue_id === QUEUE_SIM);
+    const simAttempts = store.attemptInserts.filter(
+      (a) => a.queue_id === QUEUE_SIM,
+    );
     expect(simAttempts).toHaveLength(1);
     expect(simAttempts[0]).toMatchObject({
       queue_id: QUEUE_SIM,
@@ -2152,16 +2433,20 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
       message: "beach_id: Required",
     });
 
-    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     const res = await GET(makeRequest());
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining("similarity enqueue rejected invalid payload"),
-      expect.objectContaining({ reason: "invalid_payload" })
+      expect.objectContaining({ reason: "invalid_payload" }),
     );
     consoleErrorSpy.mockRestore();
     expect(res.status).toBe(503);
 
-    const simAttempts = store.attemptInserts.filter((a) => a.queue_id === QUEUE_SIM);
+    const simAttempts = store.attemptInserts.filter(
+      (a) => a.queue_id === QUEUE_SIM,
+    );
     expect(simAttempts).toHaveLength(1);
     expect(simAttempts[0]).toMatchObject({
       queue_id: QUEUE_SIM,
@@ -2240,7 +2525,7 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
         channel: "push",
         status: "sent",
         attempted_at: new Date(
-          Date.now() - (i + 1) * 24 * 60 * 60 * 1000
+          Date.now() - (i + 1) * 24 * 60 * 60 * 1000,
         ).toISOString(),
       });
     }
@@ -2250,7 +2535,7 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
 
     expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
     expect(mockEnqueueNotification.mock.calls[0][0].type).toBe(
-      "similarity_match"
+      "similarity_match",
     );
   });
 });
