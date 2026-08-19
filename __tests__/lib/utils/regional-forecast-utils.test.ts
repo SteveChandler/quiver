@@ -576,31 +576,34 @@ describe("aggregateRegionalForecast", () => {
     // Start with poor conditions and improve significantly
     const forecasts: EnhancedForecastEntity[] = [];
 
-    // First forecast: poor conditions (low score)
-    forecasts.push(
-      createMockForecast("beach-1", today, "06:00", {
-        wave_height: "0.5",
-        wind_direction: "W (onshore)",
-        swell_1_period: "6",
-      })
-    );
-
-    // Next forecasts: first stay weak, then improve into the beginner ideal.
-    for (let i = 1; i < 8; i++) {
-      forecasts.push(
-        createMockForecast("beach-1", today, `${6 + i * 3}:00`, {
-          wave_height: i < 3 ? `${0.5 + i * 0.1}` : "2.0",
-          wind_direction: "E (offshore)",
-          swell_1_period: i < 3 ? "7" : "14",
-        })
-      );
+    // Weak morning, then improving into the beginner ideal. Hours are
+    // zero-padded and stay inside the day so every row parses as a real
+    // instant — `9:00`/`24:00`/`27:00` do not, and silently dropped out.
+    const weak: Partial<EnhancedForecastEntity> = {
+      wave_height: "0.5",
+      wind_direction: "W (onshore)",
+      swell_1_period: "6",
+    };
+    const strong: Partial<EnhancedForecastEntity> = {
+      wave_height: "2.0",
+      wind_direction: "E (offshore)",
+      swell_1_period: "14",
+    };
+    for (const time of ["06:00", "09:00", "12:00"]) {
+      forecasts.push(createMockForecast("beach-1", today, time, weak));
+    }
+    for (const time of ["15:00", "18:00", "21:00"]) {
+      forecasts.push(createMockForecast("beach-1", today, time, strong));
     }
     forecastMap.set("beach-1", forecasts);
 
+    // Anchor "now" before the series starts, otherwise the assertion depends on
+    // the wall-clock time the suite happens to run at.
     const summary = aggregateRegionalForecast(
       mockRegion,
       [mockBeaches[0]],
-      forecastMap
+      forecastMap,
+      { now: new Date(`${today}T05:00:00Z`) }
     );
 
     const beach1Summary = summary.beachConditions.find(
@@ -650,5 +653,98 @@ describe("aggregateRegionalForecast", () => {
     for (let i = 1; i < scores.length; i++) {
       expect(scores[i - 1]).toBeGreaterThanOrEqual(scores[i]);
     }
+  });
+});
+
+describe("aggregateRegionalForecast — current-conditions reference instant", () => {
+  const today = futureDateString(0);
+  const EPIC: Partial<EnhancedForecastEntity> = {
+    wave_height: "3.0",
+    wind_direction: "E (offshore)",
+    swell_1_period: "16",
+  };
+  const POOR: Partial<EnhancedForecastEntity> = {
+    wave_height: "0.3",
+    wind_direction: "W (onshore)",
+    swell_1_period: "6",
+  };
+
+  function dawnAndEvening(
+    beachId: string,
+    dawn: Partial<EnhancedForecastEntity>,
+    evening: Partial<EnhancedForecastEntity>
+  ): EnhancedForecastEntity[] {
+    return [
+      createMockForecast(beachId, today, "06:00", dawn),
+      createMockForecast(beachId, today, "21:00", evening),
+    ];
+  }
+
+  it("scores the hours ahead rather than the already-passed dawn rows", () => {
+    const forecastMap = new Map<string, EnhancedForecastEntity[]>();
+    forecastMap.set("beach-1", dawnAndEvening("beach-1", EPIC, POOR));
+
+    const beforeDawn = aggregateRegionalForecast(
+      mockRegion,
+      [mockBeaches[0]],
+      forecastMap,
+      { now: new Date(`${today}T05:00:00Z`) }
+    );
+    const afternoon = aggregateRegionalForecast(
+      mockRegion,
+      [mockBeaches[0]],
+      forecastMap,
+      { now: new Date(`${today}T20:00:00Z`) }
+    );
+
+    // Same data, later reference instant: the epic dawn window has passed, so
+    // the "now" score must fall rather than keep advertising it.
+    expect(afternoon.beachConditions[0].currentScore).toBeLessThan(
+      beforeDawn.beachConditions[0].currentScore
+    );
+  });
+
+  it("ranks the beach that is good now above one that was only good at dawn", () => {
+    const forecastMap = new Map<string, EnhancedForecastEntity[]>();
+    forecastMap.set("beach-1", dawnAndEvening("beach-1", EPIC, POOR));
+    forecastMap.set("beach-2", dawnAndEvening("beach-2", POOR, EPIC));
+
+    const summary = aggregateRegionalForecast(
+      mockRegion,
+      [mockBeaches[0], mockBeaches[1]],
+      forecastMap,
+      { now: new Date(`${today}T20:00:00Z`) }
+    );
+
+    expect(summary.beachConditions[0].beachId).toBe("beach-2");
+  });
+
+  it("reports the wave height of the upcoming row, not the dawn row", () => {
+    const forecastMap = new Map<string, EnhancedForecastEntity[]>();
+    forecastMap.set("beach-1", dawnAndEvening("beach-1", EPIC, POOR));
+
+    const summary = aggregateRegionalForecast(
+      mockRegion,
+      [mockBeaches[0]],
+      forecastMap,
+      { now: new Date(`${today}T20:00:00Z`) }
+    );
+
+    expect(summary.beachConditions[0].currentWaveHeight).toBeCloseTo(0.3);
+  });
+
+  it("still ranks a beach once its forecast horizon is exhausted", () => {
+    const forecastMap = new Map<string, EnhancedForecastEntity[]>();
+    forecastMap.set("beach-1", dawnAndEvening("beach-1", EPIC, POOR));
+
+    const summary = aggregateRegionalForecast(
+      mockRegion,
+      [mockBeaches[0]],
+      forecastMap,
+      { now: new Date(`${today}T23:59:00Z`) }
+    );
+
+    expect(summary.beachConditions).toHaveLength(1);
+    expect(summary.beachConditions[0].currentScore).toBeGreaterThan(0);
   });
 });

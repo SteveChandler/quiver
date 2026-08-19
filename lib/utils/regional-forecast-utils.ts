@@ -424,9 +424,14 @@ export function detectSwellEvents(
 export function aggregateRegionalForecast(
   region: ForecastRegion,
   beaches: Beach[],
-  forecastMap: Map<string, EnhancedForecastEntity[]>
+  forecastMap: Map<string, EnhancedForecastEntity[]>,
+  options: { now?: Date } = {}
 ): RegionalForecastSummary {
-  const generatedAt = new Date();
+  // Same reference instant the window selector uses, so "now" means the same
+  // thing in the ranking score and in the surf window beside it.
+  const referenceNow = options.now ?? new Date();
+  const referenceMs = referenceNow.getTime();
+  const generatedAt = referenceNow;
   const days: DaySummary[] = [];
 
   // Group forecasts by date
@@ -451,7 +456,7 @@ export function aggregateRegionalForecast(
   // Filter to today and future dates, then take first 7 days.
   // Use HST offset (-10h) as the earliest US timezone so we never
   // prematurely filter out "today" for any US-based user.
-  const nowWithOffset = new Date(Date.now() - 10 * 60 * 60 * 1000);
+  const nowWithOffset = new Date(referenceMs - 10 * 60 * 60 * 1000);
   const today = nowWithOffset.toISOString().split("T")[0]; // YYYY-MM-DD
   const sortedDates = Array.from(dateMap.keys())
     .filter((date) => date >= today)
@@ -610,20 +615,34 @@ export function aggregateRegionalForecast(
     const forecasts = forecastMap.get(beach.id);
     if (!forecasts || forecasts.length === 0) continue;
 
-    // Current score (first forecast)
-    const currentForecasts = forecasts
-      .filter((forecast) => forecast.forecast_at?.split("T")[0] === sortedDates[0])
+    // Current score: the next few hours from the reference instant, NOT the
+    // day's first rows. Scoring dawn rows in the afternoon reported a stale
+    // "EPIC" for conditions that had already passed, contradicting the
+    // future-only surf window rendered beside it.
+    const chronological = forecasts
+      .filter((forecast) => Boolean(forecast.forecast_at))
       .sort(
         (left, right) =>
           Date.parse(left.forecast_at) - Date.parse(right.forecast_at),
-      )
-      .slice(0, 3);
+      );
+    const upcoming = chronological.filter(
+      (forecast) => Date.parse(forecast.forecast_at) >= referenceMs,
+    );
+    // Once a beach's horizon is exhausted, fall back to its most recent rows
+    // so it still ranks rather than dropping out of the region entirely.
+    const currentForecasts = (
+      upcoming.length > 0 ? upcoming : chronological.slice(-3)
+    ).slice(0, 3);
     const currentInterval = resolveForecastInterval(currentForecasts);
     const currentScore = calculateDayScore(currentForecasts, beach);
     const currentWaveHeight = parseFloat(currentForecasts[0]?.wave_height || "0");
 
-    // Calculate trend
-    const next24hForecasts = forecasts.slice(0, 8); // Next 24 hours (3hr intervals)
+    // Trend over the next 24h, taken from the same now-anchored chronological
+    // series as currentScore — comparing it against raw insertion order made
+    // "improving"/"declining" a comparison between two different baselines.
+    const next24hForecasts = (
+      upcoming.length > 0 ? upcoming : chronological
+    ).slice(0, 8);
     const scores = next24hForecasts.map((f) => calculateDayScore([f], beach));
     const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
     const trend: "improving" | "steady" | "declining" =

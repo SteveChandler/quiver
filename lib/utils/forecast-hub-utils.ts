@@ -128,12 +128,13 @@ export async function getRegionalSummaries(
     }
 
     // Aggregate into regional summary
+    const selectionNow = options.now ?? new Date();
     const summary = aggregateRegionalForecast(
       region,
       regionBeaches,
-      regionForecastMap
+      regionForecastMap,
+      { now: selectionNow }
     );
-    const selectionNow = options.now ?? summary.generatedAt;
     summary.generatedAt = selectionNow;
     if (options.includeBestSurfWindows !== false) {
       summary.bestSurfWindows = buildBestSurfWindowsForRegion(
@@ -267,12 +268,13 @@ export async function getRegionalSummary(
     }
   }
 
+  const selectionNow = options.now ?? new Date();
   const summary = aggregateRegionalForecast(
     region,
     regionBeaches,
-    regionForecastMap
+    regionForecastMap,
+    { now: selectionNow }
   );
-  const selectionNow = options.now ?? summary.generatedAt;
   summary.generatedAt = selectionNow;
 
   if (options.includeBestSurfWindows !== false) {

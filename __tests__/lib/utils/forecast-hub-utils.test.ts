@@ -399,6 +399,8 @@ describe("forecast-hub-utils", () => {
         expect.anything(),
         [safeBeach],
         expect.any(Map),
+        // Same reference instant the window selector is given.
+        expect.objectContaining({ now: expect.any(Date) }),
       );
     });
 
