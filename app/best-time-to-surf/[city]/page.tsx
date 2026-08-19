@@ -661,10 +661,13 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                 </div>
               </div>
               {heroScene && (
+                /* 4:3 rather than stretched to the column height: a 16:9 photo
+                   forced that tall only shows ~37% of its width. */
                 <SeoScenePanel
                   scene={heroScene}
                   priority
-                  mediaClassName="h-full min-h-[300px] lg:min-h-full"
+                  className="lg:self-start"
+                  mediaClassName="aspect-[4/3] min-h-[240px]"
                 />
               )}
             </div>

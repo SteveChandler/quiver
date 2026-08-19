@@ -79,9 +79,10 @@ const NORTH_CAROLINA_BEGINNER_SCENE: SeoScene = {
 };
 
 const SAN_DIEGO_SCENE: SeoScene = {
-  imageSrc: "/images/hero/hero-3-windansea.webp",
-  alt: "The Windansea surf shack above the reef at sunset in La Jolla, San Diego.",
-  objectPosition: "center",
+  imageSrc: "/images/seo-scenes/la-jolla-scripps-clean.webp",
+  alt: "Morning swell lines breaking past Scripps Pier in San Diego.",
+  // Keep the pier and the breaking swell in frame when cropped to a tall panel.
+  objectPosition: "40% 60%",
 };
 
 const CITY_SCENES: Record<string, SeoScene> = {
