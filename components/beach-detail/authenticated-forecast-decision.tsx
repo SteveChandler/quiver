@@ -19,6 +19,7 @@ interface AuthenticatedForecastDecision {
   isTomorrow: boolean;
   isLoading: boolean;
   isAuthenticated: boolean;
+  /** False when no provider is mounted above the consumer (legacy /beach/[slug] route) — tells it to keep its own fetch. */
   isProvided: boolean;
 }
 

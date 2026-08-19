@@ -1,9 +1,8 @@
-import { existsSync } from "fs";
 import Image from "next/image";
-import { join } from "path";
 
 import { PhotoAttribution } from "@/components/photos/photo-attribution";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
+import { publicImageExists } from "@/lib/utils/public-image-exists";
 import { cn } from "@/lib/utils";
 
 export interface BeachIndexPhotoData {
@@ -19,12 +18,6 @@ interface BeachIndexPhotoProps {
   imageClassName?: string;
   priority?: boolean;
   sizes: string;
-  showAttribution?: boolean;
-}
-
-function publicImageExists(src: string): boolean {
-  if (!src.startsWith("/")) return true;
-  return existsSync(join(process.cwd(), "public", src.slice(1)));
 }
 
 export function BeachIndexPhoto({
@@ -34,7 +27,6 @@ export function BeachIndexPhoto({
   imageClassName,
   priority = false,
   sizes,
-  showAttribution = true,
 }: BeachIndexPhotoProps) {
   const hasPhoto = Boolean(photo && publicImageExists(photo.src));
 
@@ -63,7 +55,7 @@ export function BeachIndexPhoto({
           </div>
         )}
       </div>
-      {showAttribution && hasPhoto && photo?.attributionHtml ? (
+      {hasPhoto && photo?.attributionHtml ? (
         <figcaption className="mt-2 font-mono text-[10px] uppercase tracking-[0.08em] text-[#11100D]/65">
           Credit: {" "}
           <PhotoAttribution

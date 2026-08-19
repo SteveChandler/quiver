@@ -238,7 +238,6 @@ export default async function UsaStatesIndexPage() {
                               photo={photo}
                               fallbackLabel={`${state.stateName} coast`}
                               sizes="96px"
-                              showAttribution={Boolean(photo.attributionHtml)}
                             />
                           ) : (
                             <div
