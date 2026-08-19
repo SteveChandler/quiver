@@ -107,6 +107,26 @@ export function ZineHero({
         </div>
 
         {forecastSlot ? <div className="mt-6">{forecastSlot}</div> : null}
+
+        {/* Hero prose sits in the left column so it fills the space beside the
+            taller photo/map stack rather than leaving dead cream paper there. */}
+        {beach.best_conditions_prose && (
+          <p
+            className="mt-6"
+            style={{
+              fontFamily:
+                "var(--font-zine-marker), 'Permanent Marker', cursive",
+              fontWeight: 400,
+              fontSize: 22,
+              color: "#11100D",
+              letterSpacing: "-0.01em",
+              lineHeight: 1.25,
+              maxWidth: "78ch",
+            }}
+          >
+            {beach.best_conditions_prose}
+          </p>
+        )}
       </div>
 
       <TapedMapPhoto
@@ -121,26 +141,6 @@ export function ZineHero({
         features={beach.features}
       />
       </div>
-
-      {/* Hero prose — full width below the grid so long descriptions
-          breathe into the empty cream paper instead of stacking inside
-          the narrow left column when the photo/map column ends short. */}
-      {beach.best_conditions_prose && (
-        <p
-          className="mt-6"
-          style={{
-            fontFamily: "var(--font-zine-marker), 'Permanent Marker', cursive",
-            fontWeight: 400,
-            fontSize: 22,
-            color: "#11100D",
-            letterSpacing: "-0.01em",
-            lineHeight: 1.25,
-            maxWidth: "78ch",
-          }}
-        >
-          {beach.best_conditions_prose}
-        </p>
-      )}
     </section>
   );
 }

@@ -365,6 +365,15 @@
   line-height: 1.05;
   text-align: center;
 }
+/* Polaroid beside a tall display headline: goes portrait so it rises to the top
+   of its track instead of sitting bottom-aligned under a column of dead space.
+   Stops short of filling the full height — a landscape photo cropped that
+   narrow loses its composition. */
+@media (min-width: 1024px) {
+  .zine-tab .polaroid.polaroid-fill .photo {
+    aspect-ratio: 3 / 4;
+  }
+}
 
 /* spot summary strip */
 .zine-tab .summary-strip {

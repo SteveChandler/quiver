@@ -326,7 +326,7 @@ export function RegionalCallHero({
           </div>
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#252D6B]/92 via-[#252D6B]/78 to-[#252D6B]/88"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#252D6B]/90 via-[#252D6B]/80 to-[#252D6B]/85"
           />
         </>
       )}

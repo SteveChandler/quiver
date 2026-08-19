@@ -81,13 +81,13 @@ export default async function BeachesIndexPage() {
 
           <section
             aria-label="Regions"
-            className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-start"
+            className="grid gap-8 lg:grid-cols-2 lg:items-stretch"
           >
             <Link
               href="/beaches/usa"
-              className="group block rounded-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-4 focus-visible:ring-offset-[#F4EBD8]"
+              className="group block h-full rounded-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-4 focus-visible:ring-offset-[#F4EBD8]"
             >
-              <article className="torn torn-tb rot-1 border-2 border-[#11100D] transition-transform group-hover:-translate-y-1">
+              <article className="torn torn-tb rot-1 flex h-full flex-col border-2 border-[#11100D] transition-transform group-hover:-translate-y-1">
                 <BeachIndexPhoto
                   photo={USA_PHOTO}
                   fallbackLabel="United States coast"
@@ -112,7 +112,7 @@ export default async function BeachesIndexPage() {
                   Browse surf spots across 16 coastal states from California to
                   Maine. Over 5,000 beaches with live forecasts.
                 </p>
-                <span className="mt-5 inline-flex font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#0B3A75] group-hover:underline">
+                <span className="mt-auto inline-flex pt-5 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#0B3A75] group-hover:underline">
                   Browse the states →
                 </span>
               </article>
@@ -120,9 +120,9 @@ export default async function BeachesIndexPage() {
 
             <Link
               href="/beaches/mexico"
-              className="group block rounded-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-4 focus-visible:ring-offset-[#F4EBD8] lg:mt-16"
+              className="group block h-full rounded-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-4 focus-visible:ring-offset-[#F4EBD8]"
             >
-              <article className="polaroid rot-3 transition-transform group-hover:-translate-y-1">
+              <article className="polaroid rot-3 flex h-full flex-col transition-transform group-hover:-translate-y-1">
                 <div className="tape tr" aria-hidden />
                 <BeachIndexPhoto
                   photo={mexicoPhoto}
@@ -130,7 +130,7 @@ export default async function BeachesIndexPage() {
                   sizes="(min-width: 1024px) 440px, (min-width: 640px) 70vw, calc(100vw - 52px)"
                   imageClassName="transition-transform duration-500 group-hover:scale-105"
                 />
-                <div className="px-2 pb-2 pt-4">
+                <div className="flex flex-1 flex-col px-2 pb-2 pt-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="typewriter mb-2">Southbound field notes</p>
@@ -148,7 +148,7 @@ export default async function BeachesIndexPage() {
                     Explore surf breaks along Baja California and the Pacific
                     coast. World-class waves without the crowds.
                   </p>
-                  <span className="mt-5 inline-flex font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#0B3A75] group-hover:underline">
+                  <span className="mt-auto inline-flex pt-5 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#0B3A75] group-hover:underline">
                     Head for Baja →
                   </span>
                 </div>
