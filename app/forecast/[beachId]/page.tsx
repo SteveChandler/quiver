@@ -144,7 +144,25 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
   const summary = await getRegionalSummary(region, beaches, {
     includeBestSurfWindows: true,
   });
-  const topBeach = summary.beachConditions[0] ?? null;
+  // The hero answers "where do I surf now", which is a question about a
+  // surfable SESSION, not an instantaneous score. Lead with the region's best
+  // window so its beach, score, and window all come from one selection; a
+  // beach ranked first on a momentary score but carrying no qualifying window
+  // is what produced "EPIC" beside "No qualifying window". When nothing is
+  // live right now the window engine's next-best entry still answers the
+  // question, so point at that rather than going silent.
+  const leadWindow =
+    summary.recommendationAvailability?.state === "available"
+      ? summary.bestSurfWindows?.[0] ?? null
+      : null;
+  const topBeach =
+    (leadWindow
+      ? summary.beachConditions.find(
+          (condition) => condition.beachId === leadWindow.beach.id,
+        )
+      : null) ??
+    summary.beachConditions[0] ??
+    null;
   const topBeachRecord = topBeach
     ? beaches.find((beach) => beach.id === topBeach.beachId)
     : null;

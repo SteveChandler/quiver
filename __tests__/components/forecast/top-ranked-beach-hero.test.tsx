@@ -111,6 +111,15 @@ describe("TopRankedBeachHero", () => {
     expect(screen.getByText("Worth it · Thu, Aug 13")).toBeInTheDocument();
     expect(screen.getByText("7:00 AM-9:00 AM")).toBeInTheDocument();
     expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
+
+    // A window that has not started yet is signposted as the next call rather
+    // than presented as a live one.
+    expect(screen.getByText("Next window")).toBeInTheDocument();
+    expect(screen.getByText("Next best call")).toBeInTheDocument();
+    expect(
+      screen.getByText("Best upcoming window in San Diego")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Top beach now")).not.toBeInTheDocument();
   });
 
   it("uses the supplied region name for other regions", () => {
@@ -136,7 +145,9 @@ describe("TopRankedBeachHero", () => {
     );
 
     expect(screen.getByText("Surf window")).toBeInTheDocument();
-    expect(screen.getByText("No qualifying window")).toBeInTheDocument();
+    expect(
+      screen.getByText("Nothing qualifying in the forecast horizon")
+    ).toBeInTheDocument();
     expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
     expect(screen.queryByText("Best window")).not.toBeInTheDocument();
     expect(screen.getByText("No approved image on file")).toBeInTheDocument();
