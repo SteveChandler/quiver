@@ -28,6 +28,8 @@ interface BeachDetailClientProps {
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
   heroHeadingLevel?: ZineHeroHeadingLevel;
+  heroHeadingSuffix?: string;
+  heroSummarySlot?: ReactNode;
   heroForecastSlot?: ReactNode;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
@@ -46,6 +48,8 @@ export function BeachDetailClient({
   waterQuality,
   beachPhoto,
   heroHeadingLevel,
+  heroHeadingSuffix,
+  heroSummarySlot,
   heroForecastSlot,
   beforeTabsContent,
   afterTabsContent,
@@ -202,6 +206,8 @@ export function BeachDetailClient({
         waterQuality={waterQuality}
         beachPhoto={beachPhoto}
         heroHeadingLevel={heroHeadingLevel}
+        heroHeadingSuffix={heroHeadingSuffix}
+        heroSummarySlot={heroSummarySlot}
         heroForecastSlot={heroForecastSlot}
         beforeTabsContent={beforeTabsContent}
         afterTabsContent={afterTabsContent}

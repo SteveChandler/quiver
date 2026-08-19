@@ -180,7 +180,7 @@ export async function renderBeachSubPage({
   const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
   const hasTideHero = pageType === "tides" &&
     Boolean(tideMeta?.nextHighTime || tideMeta?.nextLowTime);
-  const hasWaterTempHero = pageType === "water-temp" &&
+  const hasWaterTempSummary = pageType === "water-temp" &&
     waterTempMeta?.tempF != null;
   // One real figure from data this render already has (React-cached, no extra
   // queries). A number the visitor can check beats a list of claims - but only
@@ -264,13 +264,7 @@ export async function renderBeachSubPage({
       {hasTideHero && tideMeta && (
         <TideSummaryHero beachName={beach.name} tideData={tideMeta} />
       )}
-      {hasWaterTempHero && waterTempMeta && (
-        <WaterTempSummaryHero
-          beachName={beach.name}
-          waterTempData={waterTempMeta}
-        />
-      )}
-      {!hasTideHero && !hasWaterTempHero && (
+      {!hasTideHero && !hasWaterTempSummary && (
         <BeachSubPageCrawlIntro copy={crawlCopy} />
       )}
 
@@ -280,7 +274,20 @@ export async function renderBeachSubPage({
         beachTimezone={beachTimezone}
         defaultTab={config.defaultTab}
         defaultSubTab={config.defaultSubTab}
-        heroHeadingLevel="h2"
+        heroHeadingLevel={hasWaterTempSummary ? "h1" : "h2"}
+        heroHeadingSuffix={
+          hasWaterTempSummary ? "Water Temp & Wetsuit Guide" : undefined
+        }
+        heroSummarySlot={
+          hasWaterTempSummary && waterTempMeta ? (
+            <WaterTempSummaryHero
+              beachName={beach.name}
+              seasonalTrendsHref={`/water-temp/${cityToSlug(beach.city)}#seasonal-trends`}
+              seasonalTrendsLocation={beach.city || "the area"}
+              waterTempData={waterTempMeta}
+            />
+          ) : undefined
+        }
       />
 
       <BeachSubPageCtaSwitch
