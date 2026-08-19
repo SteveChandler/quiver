@@ -52,6 +52,14 @@ describe("TopRankedBeachHero", () => {
         reasons: ["Forecast model row is present"],
       },
       positives: ["Good wave size"],
+      // The card reads height from the window it is describing, not from the
+      // region's separate "current conditions" reading.
+      wave: {
+        height: "4.2",
+        period: "14",
+        direction: "W",
+        summary: "4.2ft at 14s",
+      },
     };
 
     render(
@@ -104,6 +112,12 @@ describe("TopRankedBeachHero", () => {
             reasons: [],
           },
           positives: ["Good wave size"],
+          wave: {
+            height: "3.7",
+            period: "14",
+            direction: "W",
+            summary: "3.7ft at 14s",
+          },
         }}
       />
     );
@@ -111,6 +125,11 @@ describe("TopRankedBeachHero", () => {
     expect(screen.getByText("Worth it · Thu, Aug 13")).toBeInTheDocument();
     expect(screen.getByText("7:00 AM-9:00 AM")).toBeInTheDocument();
     expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
+
+    // Height belongs to the upcoming window, not the region's current reading.
+    expect(screen.getByText("Wave height then")).toBeInTheDocument();
+    expect(screen.getByText("3.7ft")).toBeInTheDocument();
+    expect(screen.queryByText("4.2ft")).not.toBeInTheDocument();
 
     // A window that has not started yet is signposted as the next call rather
     // than presented as a live one.

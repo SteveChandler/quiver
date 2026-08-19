@@ -19,7 +19,14 @@ type HeroSurfWindow = Pick<
   | "verdict"
   | "confidence"
   | "positives"
+  | "wave"
 >;
+
+/** The window's own wave height, so the card never mixes two instants. */
+function windowWaveHeight(window: HeroSurfWindow | null | undefined): number | null {
+  const parsed = Number.parseFloat(window?.wave?.height ?? "");
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 interface TopRankedBeachHeroProps {
   beach: BeachConditionSummary;
@@ -193,10 +200,12 @@ export function TopRankedBeachHero({
           <div className="border-t-2 border-[#11100D]/25 pt-3">
             <dt className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#11100D]/65">
               <Waves className="h-4 w-4" aria-hidden="true" />
-              Wave height
+              {isUpcoming ? "Wave height then" : "Wave height"}
             </dt>
             <dd className="mt-1 font-semibold text-[#11100D]">
-              {formatWaveHeightDecimal(beach.currentWaveHeight)}
+              {formatWaveHeightDecimal(
+                windowWaveHeight(bestSurfWindow) ?? beach.currentWaveHeight
+              )}
             </dd>
           </div>
         </dl>

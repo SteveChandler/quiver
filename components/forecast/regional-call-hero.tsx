@@ -453,7 +453,9 @@ export function RegionalCallHero({
             transform: stickerTransform(11, 7, -30, "-3deg"),
           }}
         >
-          <span className="inline-flex items-center gap-2 font-[var(--font-handwritten)] text-2xl leading-tight text-[#F78E42] md:text-3xl">
+          {/* Gold rather than orange: over the photo scrim the orange sat at
+              2.9:1, under AA even for large display text. */}
+          <span className="inline-flex items-center gap-2 font-[var(--font-handwritten)] text-2xl leading-tight text-[#FDB84B] md:text-3xl">
             <span className="whitespace-nowrap">{pullquote}</span>
             <Share2
               aria-hidden="true"
@@ -462,7 +464,7 @@ export function RegionalCallHero({
           </span>
           <span
             aria-hidden="true"
-            className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-[#F78E42]/65 transition-colors group-hover:text-[#F78E42]"
+            className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-[#F4EBD8] transition-colors group-hover:text-[#FDB84B]"
           >
             Tap to share
           </span>
