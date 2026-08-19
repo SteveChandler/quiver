@@ -15,6 +15,7 @@ import { formatFullDateWithYear } from "@/lib/utils/date-time";
 import { getRegionalSummary } from "@/lib/utils/forecast-hub-utils";
 import { getBeachesForRegion } from "@/lib/utils/regional-forecast-utils";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
+import { getCurrentUser } from "@/lib/auth/admin";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
@@ -108,6 +109,7 @@ export default async function ForecastPage(props: {
  * Enhanced with ocean background, animated gauges, and scroll reveals.
  */
 async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
+  const user = await getCurrentUser();
   // Fetch all beaches once
   const beachesResult = await getBeaches();
   if (!beachesResult.success || !beachesResult.data) {
@@ -347,6 +349,7 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
             showViewAll={true}
             className="mb-16"
             variant="zine"
+            showScores={user !== null}
           />
 
           <ScrollReveal variant="fadeUp" delay={200}>
