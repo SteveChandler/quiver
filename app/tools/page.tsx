@@ -134,17 +134,6 @@ const TOOLS = [
   },
 ];
 
-const TOOL_CARD_ROTATIONS = [
-  "rot-1",
-  "rot-2",
-  "rot-3",
-  "rot-4",
-  "rot-neg",
-  "rot-1",
-  "rot-2",
-  "rot-3",
-] as const;
-
 export default function ToolsIndexPage(): ReactElement {
   return (
     <>
@@ -360,11 +349,7 @@ export default function ToolsIndexPage(): ReactElement {
                     <ScrollReveal key={tool.slug} delay={(index % 3) * 50}>
                       <Link
                         href={href}
-                        className={`group block h-full border-2 border-[#11100D] bg-[#FBF6E8] p-3 shadow-[2px_3px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] ${
-                          TOOL_CARD_ROTATIONS[
-                            index % TOOL_CARD_ROTATIONS.length
-                          ]
-                        }`}
+                        className="group block h-full border-2 border-[#11100D] bg-[#FBF6E8] p-3 shadow-[2px_3px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
                       >
                         <div className="relative overflow-hidden border-2 border-[#11100D] bg-[#D9C49C]">
                           <div className="relative aspect-[16/10]">
