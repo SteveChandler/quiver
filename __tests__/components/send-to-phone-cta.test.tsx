@@ -89,6 +89,35 @@ describe("SendToPhoneCta", () => {
     expect(fallback).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
   });
 
+  it("uses an ink-on-paper panel, input, and QR palette", async () => {
+    const { container } = render(<SendToPhoneCta {...baseProps} />);
+
+    expect(container.firstChild).toHaveClass(
+      "bg-[#EFE5CF]",
+      "text-[#11100D]",
+      "border-[#11100D]",
+    );
+    expect(screen.getByLabelText(/email/i)).toHaveClass(
+      "bg-[#F4EBD8]",
+      "text-[#11100D]",
+      "border-[#11100D]",
+    );
+    expect(screen.getByRole("button", { name: /send link/i })).toHaveClass(
+      "bg-ocean-blue-decorative",
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("app-handoff-qr")).toHaveAttribute(
+        "data-foreground-color",
+        "#11100D",
+      );
+      expect(screen.getByTestId("app-handoff-qr")).toHaveAttribute(
+        "data-background-color",
+        "#F4EBD8",
+      );
+    });
+  });
+
   it("adds the rollout cohort to QR render tracking when provided", () => {
     render(<SendToPhoneCta {...baseProps} cohort="app_first" />);
 
