@@ -25,6 +25,10 @@
   --q-orange: #F78E42;
   --q-cream: #F5EEDC;
 
+  /* torn paper geometry */
+  --zine-torn-edge-depth: 16px;
+  --zine-torn-inset: 20px;
+
   /* font stacks — first family is the next/font variable, then design fallbacks */
   --f-rough: var(--font-zine-display), 'Bowlby One', 'Big Shoulders Stencil', var(--font-heading), 'Space Grotesk', sans-serif;
   --f-stencil: var(--font-zine-display), 'Bowlby One', var(--font-heading), 'Space Grotesk', sans-serif;
@@ -129,16 +133,16 @@
 .zine-tab .zine-paper > * { position: relative; z-index: 1; }
 
 /* ─── Universal: torn paper module ───────────────────────── */
-.zine-tab .torn {
+:where(.zine-tab) .torn {
   position: relative;
   background: var(--paper);
   background-image: radial-gradient(circle at 30% 70%, rgba(0,0,0,0.04), transparent 60%);
-  padding: 16px 18px;
+  padding: var(--zine-torn-inset);
   box-shadow:
     2px 3px 0 rgba(0,0,0,0.18),
     0 8px 18px rgba(0,0,0,0.12);
 }
-.zine-tab .torn::before {
+:where(.zine-tab) .torn::before {
   content: "";
   position: absolute; inset: 0;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='9'/><feColorMatrix values='0 0 0 0 0.32 0 0 0 0 0.25 0 0 0 0 0.15 0 0 0 0.13 0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>");
@@ -150,11 +154,21 @@
 /* deckled edge masks for torn modules — top + bottom torn */
 .zine-tab .torn-tb {
   -webkit-mask-image:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 100' preserveAspectRatio='none'><path d='M0,8 C40,4 70,14 110,7 C150,1 190,12 230,5 C270,1 310,11 350,4 C390,2 430,13 470,7 C510,2 550,12 600,5 C650,1 690,11 730,5 C770,1 820,12 860,5 C900,2 940,11 1000,6 L1000,94 C950,98 910,88 870,95 C820,99 770,89 720,95 C670,99 630,88 590,94 C540,99 500,89 450,95 C400,99 360,88 320,94 C270,99 220,88 180,94 C140,99 80,89 40,95 C20,98 0,94 0,94 Z' fill='black'/></svg>");
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 16' preserveAspectRatio='none'><path d='M0,7 C40,3 70,10 110,6 C150,1 190,9 230,5 C270,2 310,9 350,4 C390,2 430,10 470,6 C510,2 550,9 600,5 C650,1 690,9 730,5 C770,2 820,10 860,5 C900,2 940,9 1000,5 L1000,16 L0,16 Z' fill='black'/></svg>"),
+    linear-gradient(black, black),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 16' preserveAspectRatio='none'><path d='M0,0 H1000 V10 C950,15 910,7 870,12 C820,15 770,8 720,12 C670,15 630,7 590,11 C540,15 500,8 450,12 C400,15 360,7 320,11 C270,15 220,7 180,11 C140,15 80,8 40,12 C20,15 0,11 0,11 Z' fill='black'/></svg>");
   mask-image:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 100' preserveAspectRatio='none'><path d='M0,8 C40,4 70,14 110,7 C150,1 190,12 230,5 C270,1 310,11 350,4 C390,2 430,13 470,7 C510,2 550,12 600,5 C650,1 690,11 730,5 C770,1 820,12 860,5 C900,2 940,11 1000,6 L1000,94 C950,98 910,88 870,95 C820,99 770,89 720,95 C670,99 630,88 590,94 C540,99 500,89 450,95 C400,99 360,88 320,94 C270,99 220,88 180,94 C140,99 80,89 40,95 C20,98 0,94 0,94 Z' fill='black'/></svg>");
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 16' preserveAspectRatio='none'><path d='M0,7 C40,3 70,10 110,6 C150,1 190,9 230,5 C270,2 310,9 350,4 C390,2 430,10 470,6 C510,2 550,9 600,5 C650,1 690,9 730,5 C770,2 820,10 860,5 C900,2 940,9 1000,5 L1000,16 L0,16 Z' fill='black'/></svg>"),
+    linear-gradient(black, black),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 16' preserveAspectRatio='none'><path d='M0,0 H1000 V10 C950,15 910,7 870,12 C820,15 770,8 720,12 C670,15 630,7 590,11 C540,15 500,8 450,12 C400,15 360,7 320,11 C270,15 220,7 180,11 C140,15 80,8 40,12 C20,15 0,11 0,11 Z' fill='black'/></svg>");
+  -webkit-mask-position: top, center, bottom;
+  mask-position: top, center, bottom;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% var(--zine-torn-edge-depth), 100% calc(100% - var(--zine-torn-edge-depth) - var(--zine-torn-edge-depth)), 100% var(--zine-torn-edge-depth);
+  mask-size: 100% var(--zine-torn-edge-depth), 100% calc(100% - var(--zine-torn-edge-depth) - var(--zine-torn-edge-depth)), 100% var(--zine-torn-edge-depth);
+  -webkit-mask-composite: source-over, source-over;
+  mask-composite: add, add;
 }
 
 /* ─── Tape pieces ────────────────────────────────────────── */
@@ -398,6 +412,16 @@
 .zine-tab .rot-3 { transform: rotate(-1.4deg); }
 .zine-tab .rot-4 { transform: rotate(2deg); }
 .zine-tab .rot-neg { transform: rotate(-2.2deg); }
+
+@media (max-width: 900px) {
+  .zine-tab .rot-1,
+  .zine-tab .rot-2,
+  .zine-tab .rot-3,
+  .zine-tab .rot-4,
+  .zine-tab .rot-neg {
+    transform: none;
+  }
+}
 
 /* ─── Mobile (<= 640px) ─────────────────────────────────── */
 @media (max-width: 640px) {

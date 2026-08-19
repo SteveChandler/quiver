@@ -48,9 +48,10 @@ describe("FoundingOfferSurface", () => {
     expect(screen.queryByText(/android waitlist/i)).not.toBeInTheDocument();
     const appStoreLinks = screen.getAllByRole("link", { name: /open app store/i });
     expect(appStoreLinks).toHaveLength(2);
-    expect(
-      appStoreLinks[0],
-    ).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
+    appStoreLinks.forEach((link) => {
+      expect(link).toHaveAttribute("href", IOS_APP_STORE_WEB_REDIRECT_PATH);
+      expect(link).toHaveClass("focus-visible:ring-2");
+    });
     expect(screen.getByText("iPhone")).toBeInTheDocument();
     expect(screen.getByText("Available")).toBeInTheDocument();
     expect(screen.queryByText(/app store live/i)).not.toBeInTheDocument();
