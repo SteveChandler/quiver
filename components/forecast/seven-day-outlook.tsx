@@ -41,16 +41,33 @@ function daySubtitle(
     : "Marginal — longboard day.";
 }
 
-function trendIcon(delta: number): {
+function trendIcon(
+  delta: number,
+  variant: "default" | "zine",
+): {
   label: string;
   char: string;
   color: string;
 } {
-  if (delta >= 5)
-    return { label: "building", char: "↗", color: "text-emerald-400" };
-  if (delta <= -5)
-    return { label: "dropping", char: "↘", color: "text-rose-400" };
-  return { label: "holding", char: "→", color: "text-white/50" };
+  if (delta >= 5) {
+    return {
+      label: "building",
+      char: "↗",
+      color: variant === "zine" ? "text-[#166534]" : "text-emerald-400",
+    };
+  }
+  if (delta <= -5) {
+    return {
+      label: "dropping",
+      char: "↘",
+      color: variant === "zine" ? "text-[#9F1239]" : "text-rose-400",
+    };
+  }
+  return {
+    label: "holding",
+    char: "→",
+    color: variant === "zine" ? "text-[#4B453D]" : "text-white/50",
+  };
 }
 
 export function SevenDayOutlook({
@@ -115,7 +132,7 @@ export function SevenDayOutlook({
       aria-labelledby="seven-day-outlook-heading"
       className={
         isZine
-          ? "mb-10 min-w-0 rounded-[24px_10px_28px_12px] border-2 border-[#11100D] bg-[#252D6B] p-4 text-white shadow-[4px_5px_0_rgba(17,16,13,0.22)] sm:p-5"
+          ? "torn torn-tb mb-10 min-w-0 border-2 border-[#11100D] bg-[#FBF6E8] p-4 text-[#11100D] sm:p-5"
           : "mb-10 min-w-0"
       }
       data-testid="seven-day-outlook"
@@ -124,7 +141,7 @@ export function SevenDayOutlook({
         id="seven-day-outlook-heading"
         className={
           isZine
-            ? "mb-4 font-display text-3xl font-black uppercase leading-tight text-[#F4EBD8]"
+            ? "label-black mb-5 font-display text-2xl font-black uppercase leading-tight"
             : "mb-4 font-[var(--font-heading)] text-2xl font-bold text-white"
         }
       >
@@ -132,10 +149,20 @@ export function SevenDayOutlook({
       </h2>
 
       {recommendationsAvailable ? (
-        <SwellArc points={arcPoints} peakIndex={Math.max(0, peakIndex)} />
+        <SwellArc
+          points={arcPoints}
+          peakIndex={Math.max(0, peakIndex)}
+          variant={variant}
+        />
       ) : null}
 
-      <ol className="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04]">
+      <ol
+        className={
+          isZine
+            ? "divide-y-2 divide-dashed divide-[#11100D]/30 border-y-2 border-[#11100D] bg-[#FBF6E8]"
+            : "divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04]"
+        }
+      >
         {summary.days.map((day, idx) => {
           const scoreColors = recommendationsAvailable
             ? getScoreColorClasses(day.score)
@@ -146,7 +173,7 @@ export function SevenDayOutlook({
             day.score === peakScore &&
             peakScore > 0;
           const prevScore = idx > 0 ? summary.days[idx - 1].score : day.score;
-          const trend = trendIcon(day.score - prevScore);
+          const trend = trendIcon(day.score - prevScore, variant);
           const monthDay = `${day.date.getUTCMonth() + 1}/${day.date.getUTCDate()}`;
 
           return (
@@ -155,24 +182,36 @@ export function SevenDayOutlook({
               data-testid={`outlook-day-${idx}`}
               data-peak={isPeak ? "true" : undefined}
               className={[
-                "relative flex items-center gap-4 px-4 py-4 sm:px-5",
-                isPeak ? "bg-[#F78E42]/[0.08]" : "",
+                "relative flex items-center gap-3 px-3 py-4 sm:gap-4 sm:px-5",
+                isPeak
+                  ? isZine
+                    ? "bg-[#FDB84B]/20"
+                    : "bg-[#F78E42]/[0.08]"
+                  : "",
               ].join(" ")}
             >
               {/* Peak accent — left edge Charming Orange bar */}
               {isPeak ? (
                 <span
                   aria-hidden="true"
-                  className="absolute inset-y-2 left-0 w-1 rounded-r bg-[#F78E42]"
+                  className={
+                    isZine
+                      ? "absolute inset-x-3 bottom-1 h-1 bg-[#F78E42]"
+                      : "absolute inset-y-2 left-0 w-1 rounded-r bg-[#F78E42]"
+                  }
                 />
               ) : null}
 
               {/* Day + date */}
               <div className="w-20 shrink-0 sm:w-24">
-                <div className="font-[var(--font-heading)] text-sm font-semibold uppercase tracking-wide text-white">
+                <div
+                  className={`font-[var(--font-heading)] text-sm font-semibold uppercase tracking-wide ${isZine ? "text-[#11100D]" : "text-white"}`}
+                >
                   {day.dayOfWeek.slice(0, 3)}
                 </div>
-                <div className="font-mono text-xs text-white/50">
+                <div
+                  className={`font-mono text-xs ${isZine ? "text-[#11100D]/60" : "text-white/50"}`}
+                >
                   {monthDay}
                 </div>
               </div>
@@ -182,8 +221,10 @@ export function SevenDayOutlook({
                 <div className="shrink-0">
                   <span
                     className={[
-                      "inline-flex h-9 min-w-[2.5rem] items-center justify-center rounded-full px-2 text-sm font-bold text-white",
-                      scoreColors.bg,
+                      "inline-flex h-9 min-w-[2.5rem] items-center justify-center rounded-full px-2 font-mono text-sm font-bold",
+                      isZine
+                        ? scoreColors.paperBadge
+                        : `${scoreColors.bg} text-white`,
                     ].join(" ")}
                     aria-label={`Score ${day.score} out of 100 (${scoreColors.label})`}
                   >
@@ -195,10 +236,14 @@ export function SevenDayOutlook({
               {/* Waves + callout */}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-                  <span className="font-[var(--font-heading)] text-base font-semibold text-white">
+                  <span
+                    className={`font-[var(--font-heading)] text-base font-semibold ${isZine ? "text-[#11100D]" : "text-white"}`}
+                  >
                     {waves}
                   </span>
-                  <span className="font-mono text-xs uppercase tracking-wide text-white/55">
+                  <span
+                    className={`font-mono text-xs uppercase tracking-wide ${isZine ? "text-[#11100D]/65" : "text-white/55"}`}
+                  >
                     {day.windConditions === "offshore"
                       ? "offshore"
                       : day.windConditions === "light"
@@ -207,11 +252,15 @@ export function SevenDayOutlook({
                   </span>
                 </div>
                 {recommendationsAvailable ? (
-                  <div className="truncate text-sm text-white/70">
+                  <div
+                    className={`truncate text-sm ${isZine ? "text-[#11100D]/75" : "text-white/70"}`}
+                  >
                     {daySubtitle(day.windConditions, day.score)}
                   </div>
                 ) : (
-                  <div className="truncate text-sm text-white/70">
+                  <div
+                    className={`truncate text-sm ${isZine ? "text-[#11100D]/75" : "text-white/70"}`}
+                  >
                     {day.dominantTideStatus
                       ? `${day.dominantTideStatus} tide`
                       : "Tide status pending"}

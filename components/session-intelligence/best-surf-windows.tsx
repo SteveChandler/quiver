@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import Image from "next/image";
 import { ArrowRight, Clock, Tags } from "lucide-react";
 
+import { HalftonePhoto } from "@/components/beach-detail/zine/atoms";
 import { QuiverSticker } from "@/components/zine/quiver-sticker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ export interface BestSurfWindowsProps {
   surface?: string;
   className?: string;
   layout?: "cards" | "feature-list";
+  variant?: "default" | "zine";
   /** Suppress the inner title/subtitle block (the section keeps aria-label={title}) */
   hideHeader?: boolean;
 }
@@ -43,15 +45,49 @@ function verdictClasses(verdict: SurfWindowRecommendation["verdict"]): string {
   return "border-[#F78E42]/35 bg-[#F78E42]/10 text-[#FFD2B7]";
 }
 
+function paperVerdictClasses(
+  verdict: SurfWindowRecommendation["verdict"],
+): string {
+  if (verdict === "Worth it") {
+    return "border-[#166534] bg-[#166534]/10 text-[#14532D]";
+  }
+  if (verdict === "Maybe") {
+    return "border-[#B56A2B] bg-[#FDB84B]/25 text-[#713F12]";
+  }
+  return "border-[#9F1239] bg-[#9F1239]/10 text-[#881337]";
+}
+
 function ConditionRow({
   sticker,
   label,
   value,
+  variant = "default",
 }: {
   sticker: QuiverStickerKey;
   label: string;
   value: string;
+  variant?: "default" | "zine";
 }) {
+  if (variant === "zine") {
+    return (
+      <div className="flex min-w-0 items-center gap-2 border-b border-[#11100D]/20 px-2 py-3 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
+        <QuiverSticker
+          sticker={sticker}
+          className="h-8 w-8 shrink-0 object-contain"
+          sizes="32px"
+        />
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#11100D]/65">
+            {label}
+          </p>
+          <p className="text-sm font-semibold leading-snug text-[#11100D]">
+            {value}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-3 rounded-[12px_6px_14px_8px] border border-white/8 bg-white/[0.03] px-3 py-2 shadow-[2px_3px_0_rgba(0,0,0,0.12)]">
       <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px_4px_14px_6px] bg-[#252D6B]/45 shadow-[2px_3px_0_rgba(0,0,0,0.18)]">
@@ -629,6 +665,223 @@ function CompactWindowRow({
   );
 }
 
+function ZineWindowEntry({
+  recommendation,
+  ctaLabel,
+  surface,
+}: {
+  recommendation: SurfWindowRecommendation;
+  ctaLabel?: string;
+  surface: string;
+}) {
+  const { track } = useTrackEvent();
+  const tracking = buildSurfWindowTrackingContext(recommendation, surface);
+  const beach = recommendation.beach;
+  const locality =
+    [beach.city, beach.state].filter(Boolean).join(", ") ||
+    beach.region ||
+    null;
+  const webUrl = recommendation.canonicalWebUrl;
+  const photoUrl = beach.photoUrl?.trim() ?? "";
+  const photoSrc = photoUrl.length > 0 ? getProxiedImageUrl(photoUrl) : null;
+
+  function handleWebClick(): void {
+    if (!webUrl) return;
+    void track("surf_window_click", {
+      beachId: beach.id,
+      metadata: buildSurfWindowTrackingMetadata(tracking, {
+        targetHref: webUrl,
+        linkType: "web",
+      }),
+      debounceMs: 0,
+    });
+  }
+
+  const titleHeading = (
+    <h3 className="font-heading text-2xl font-bold leading-tight text-[#11100D] sm:text-3xl">
+      {beach.name}
+    </h3>
+  );
+
+  return (
+    <article
+      data-testid="surf-window-card"
+      data-variant="zine"
+      className="relative bg-[#FBF6E8] py-6 text-[#11100D] first:pt-2 last:pb-2"
+    >
+      <div
+        className={cn(
+          "grid gap-5",
+          photoSrc && "md:grid-cols-[minmax(10rem,0.7fr)_minmax(0,1.3fr)]",
+        )}
+      >
+        {photoSrc ? (
+          <div className="polaroid rot-neg self-start">
+            <span className="tape tl" aria-hidden="true" />
+            {webUrl ? (
+              <a
+                href={webUrl}
+                aria-label={`View ${beach.name} forecast`}
+                onClick={handleWebClick}
+                className="photo block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
+              >
+                <HalftonePhoto
+                  src={photoSrc}
+                  alt={`Surf photo of ${beach.name}`}
+                  height={220}
+                />
+              </a>
+            ) : (
+              <div className="photo">
+                <HalftonePhoto
+                  src={photoSrc}
+                  alt={`Surf photo of ${beach.name}`}
+                  height={220}
+                />
+              </div>
+            )}
+            <p className="cap">{beach.name}</p>
+          </div>
+        ) : null}
+
+        <div className="min-w-0 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className="circled shrink-0 bg-[#FDB84B]/35"
+                  aria-label={`Rank ${recommendation.rank}`}
+                >
+                  {recommendation.rank}
+                </span>
+                <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[0.08em] text-[#11100D]/75">
+                  <Clock
+                    className="h-4 w-4 text-[#B56A2B]"
+                    aria-hidden="true"
+                  />
+                  {recommendation.localTimeLabel}
+                </span>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "border px-2.5 py-1 font-mono text-[11px] font-bold uppercase",
+                    paperVerdictClasses(recommendation.verdict),
+                  )}
+                >
+                  {recommendation.verdict}
+                </Badge>
+              </div>
+              {webUrl ? (
+                <a
+                  href={webUrl}
+                  onClick={handleWebClick}
+                  className="block decoration-[#B56A2B] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
+                >
+                  {titleHeading}
+                </a>
+              ) : (
+                titleHeading
+              )}
+              {locality ? (
+                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#11100D]/65">
+                  {locality}
+                </p>
+              ) : null}
+            </div>
+            <div
+              className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full border-[3px] border-double border-[#0B3A75] bg-[#F4EBD8] text-[#0B3A75] shadow-sm"
+              aria-label={`Surf window score ${recommendation.score}`}
+            >
+              <span className="font-heading text-xl font-black leading-none">
+                {recommendation.score}
+              </span>
+              <span className="font-mono text-[9px] font-bold uppercase">
+                score
+              </span>
+            </div>
+          </div>
+
+          <p className="border-l-4 border-[#F78E42] pl-3 font-[var(--font-handwritten)] text-xl font-bold leading-snug text-[#11100D]/85">
+            {recommendation.headline}
+          </p>
+
+          <div
+            className="condition-strip grid-cols-1 sm:grid-cols-3"
+            role="group"
+            aria-label={`Conditions for ${beach.name}`}
+          >
+            <ConditionRow
+              sticker="spotSwellMatch"
+              label="Wave"
+              value={recommendation.wave.summary}
+              variant="zine"
+            />
+            <ConditionRow
+              sticker="spotWindRead"
+              label="Wind"
+              value={recommendation.wind.summary}
+              variant="zine"
+            />
+            <ConditionRow
+              sticker="spotTideWindow"
+              label="Tide"
+              value={recommendation.tide.summary}
+              variant="zine"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 border-b border-dashed border-[#11100D]/30 pb-4">
+            <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#11100D]/70">
+              <Tags className="h-3.5 w-3.5" aria-hidden="true" />
+              Best for
+            </span>
+            {recommendation.bestFor.map((tag) => (
+              <Badge
+                key={tag}
+                variant="outline"
+                className="border-[#11100D]/35 bg-[#F0E5CC] text-[11px] text-[#11100D]"
+              >
+                {tag}
+              </Badge>
+            ))}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {webUrl ? (
+              <Button
+                asChild
+                size="sm"
+                className="h-10 w-full bg-[#F78E42] text-[#11100D] shadow-sm hover:bg-[#F78E42]/90"
+              >
+                <a
+                  href={webUrl}
+                  data-testid="surf-window-web-cta"
+                  onClick={handleWebClick}
+                >
+                  <span>View spot forecast</span>
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </a>
+              </Button>
+            ) : null}
+            <AppDeepLinkCTA
+              links={recommendation}
+              label={ctaLabel}
+              variant="ghost"
+              tracking={tracking}
+              className="w-full border-[#11100D]/45 bg-transparent text-[#11100D] hover:bg-[#F0E5CC] hover:text-[#11100D]"
+            />
+          </div>
+          <WhyThisCall
+            recommendation={recommendation}
+            surface={surface}
+            variant="zine"
+          />
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export function BestSurfWindows({
   recommendations,
   title = "Best surf windows",
@@ -639,6 +892,7 @@ export function BestSurfWindows({
   className,
   layout = "cards",
   hideHeader = false,
+  variant = "default",
 }: BestSurfWindowsProps) {
   const { track } = useTrackEvent();
   const trackedImpressions = useRef<Set<string>>(new Set());
@@ -663,13 +917,27 @@ export function BestSurfWindows({
     return (
       <section
         data-testid="best-surf-windows"
+        data-variant={variant}
         aria-label={title}
         className={cn("space-y-3", className)}
       >
         {hideHeader ? null : (
-          <h2 className="font-heading text-xl font-semibold text-white">{title}</h2>
+          <h2
+            className={cn(
+              "font-heading text-xl font-semibold",
+              variant === "zine" ? "text-[#11100D]" : "text-white",
+            )}
+          >
+            {title}
+          </h2>
         )}
-        <p role="status" className="text-sm text-white/65">
+        <p
+          role="status"
+          className={cn(
+            "text-sm",
+            variant === "zine" ? "text-[#11100D]/65" : "text-white/65",
+          )}
+        >
           No recommended surf windows are available yet.
         </p>
       </section>
@@ -680,9 +948,42 @@ export function BestSurfWindows({
     return null;
   }
 
+  if (variant === "zine") {
+    return (
+      <section
+        data-testid="best-surf-windows"
+        data-variant="zine"
+        aria-label={title}
+        className={cn("space-y-5 text-[#11100D]", className)}
+      >
+        {hideHeader ? null : (
+          <div className="space-y-2">
+            <h2 className="label-black font-display text-2xl font-black uppercase leading-tight">
+              {title}
+            </h2>
+            {subtitle ? (
+              <p className="text-sm text-[#11100D]/70">{subtitle}</p>
+            ) : null}
+          </div>
+        )}
+        <div className="divide-y-2 divide-dashed divide-[#11100D]/35">
+          {visibleRecommendations.map((recommendation) => (
+            <ZineWindowEntry
+              key={recommendation.windowId}
+              recommendation={recommendation}
+              ctaLabel={ctaLabel}
+              surface={surface}
+            />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section
       data-testid="best-surf-windows"
+      data-variant="default"
       aria-label={title}
       className={cn("space-y-4", className)}
     >
