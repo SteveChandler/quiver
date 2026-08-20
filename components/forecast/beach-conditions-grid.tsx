@@ -410,9 +410,9 @@ export function BeachConditionsGrid({
                 isZine ? "text-[#B56A2B] hover:text-[#11100D]" : "text-primary hover:text-primary/80"
               )}
             >
-              View all{" "}
-              <AnimatedCounter value={beaches.length} duration={400} /> beaches
-              &rarr;
+              {/* One string expression: SWC eats the leading space of a
+                  multi-line JSX text child that contains an HTML entity. */}
+              {`View all ${beaches.length} beaches →`}
             </Link>
           )}
         </div>
@@ -472,7 +472,7 @@ export function BeachConditionsGrid({
                 isZine ? "text-[#B56A2B] hover:text-[#11100D]" : "text-primary hover:text-primary/80"
               )}
             >
-              View all {beaches.length} beaches &rarr;
+              {`View all ${beaches.length} beaches →`}
             </Link>
           </div>
         </ScrollReveal>
