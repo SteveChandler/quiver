@@ -205,7 +205,8 @@ export default async function CamsRegionPage({ params }: PageProps) {
           <section className="pb-4">
             <div className="mx-auto max-w-3xl border-2 border-[#11100D] bg-[#252D6B] p-8 text-center text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.28)]">
               <h2 className="font-[var(--font-zine-display)] text-4xl uppercase leading-none tracking-normal">
-                Know a {region.name} cam we&apos;re missing?
+                Know a {region.name}{" "}
+                cam we&apos;re missing?
               </h2>
               <p className="mt-3 font-sans text-[#F4EBD8]/75">
                 Send it over and we&apos;ll review it for the directory.

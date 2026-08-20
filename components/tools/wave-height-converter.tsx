@@ -386,7 +386,7 @@ export function WaveHeightConverter() {
           <p>
             <strong className="text-white">Hawaiian scale</strong> has
             roots in traditional Hawaiian surfing culture. It reports waves at
-            roughly half the face height. A &ldquo;6-foot Hawaiian&rdquo; wave has a face
+            roughly half the face height. A “6-foot Hawaiian” wave has a face
             height of around 10–12 feet. The reasoning: Hawaiian surfers
             measured the back of the wave (the less intimidating side).
           </p>
