@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "12.2.3 (519615d)"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -34,6 +39,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      _backup_beach_timezones_20260820: {
+        Row: {
+          captured_at: string
+          city: string | null
+          id: string
+          lat: number | null
+          lon: number | null
+          name: string | null
+          old_timezone: string
+          state: string | null
+        }
+        Insert: {
+          captured_at?: string
+          city?: string | null
+          id: string
+          lat?: number | null
+          lon?: number | null
+          name?: string | null
+          old_timezone: string
+          state?: string | null
+        }
+        Update: {
+          captured_at?: string
+          city?: string | null
+          id?: string
+          lat?: number | null
+          lon?: number | null
+          name?: string | null
+          old_timezone?: string
+          state?: string | null
+        }
+        Relationships: []
+      }
+      _backup_beach_timezones_fl_20260820: {
+        Row: {
+          captured_at: string
+          city: string | null
+          id: string
+          lat: number | null
+          lon: number | null
+          name: string | null
+          old_timezone: string
+          state: string | null
+        }
+        Insert: {
+          captured_at?: string
+          city?: string | null
+          id: string
+          lat?: number | null
+          lon?: number | null
+          name?: string | null
+          old_timezone: string
+          state?: string | null
+        }
+        Update: {
+          captured_at?: string
+          city?: string | null
+          id?: string
+          lat?: number | null
+          lon?: number | null
+          name?: string | null
+          old_timezone?: string
+          state?: string | null
+        }
+        Relationships: []
+      }
       account_deletions: {
         Row: {
           comments_anonymized: number
@@ -3007,6 +3078,83 @@ export type Database = {
           },
         ]
       }
+      beach_traffic_weights: {
+        Row: {
+          allocation_tier: string
+          beach_id: string
+          computed_at: string
+          market_key: string
+          views_30d: number
+          weight: number
+        }
+        Insert: {
+          allocation_tier: string
+          beach_id: string
+          computed_at?: string
+          market_key: string
+          views_30d?: number
+          weight?: number
+        }
+        Update: {
+          allocation_tier?: string
+          beach_id?: string
+          computed_at?: string
+          market_key?: string
+          views_30d?: number
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beach_traffic_weights_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_traffic_weights_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_traffic_weights_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_traffic_weights_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_traffic_weights_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_traffic_weights_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_traffic_weights_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+        ]
+      }
       beach_water_quality: {
         Row: {
           beach_id: string
@@ -3184,7 +3332,7 @@ export type Database = {
           terrain_params_hash: string | null
           terrain_status: string | null
           tide_direction_sensitivity: string | null
-          timezone: string | null
+          timezone: string
           warnings: string[] | null
           wave_punchiness_ai: number | null
           wave_punchiness_ai_confidence: number | null
@@ -3268,7 +3416,7 @@ export type Database = {
           terrain_params_hash?: string | null
           terrain_status?: string | null
           tide_direction_sensitivity?: string | null
-          timezone?: string | null
+          timezone: string
           warnings?: string[] | null
           wave_punchiness_ai?: number | null
           wave_punchiness_ai_confidence?: number | null
@@ -3352,7 +3500,7 @@ export type Database = {
           terrain_params_hash?: string | null
           terrain_status?: string | null
           tide_direction_sensitivity?: string | null
-          timezone?: string | null
+          timezone?: string
           warnings?: string[] | null
           wave_punchiness_ai?: number | null
           wave_punchiness_ai_confidence?: number | null
@@ -4558,36 +4706,279 @@ export type Database = {
           },
         ]
       }
+      county_beach_advisories: {
+        Row: {
+          advisory_type: string
+          beach_id: string | null
+          county_latitude: number
+          county_longitude: number
+          created_at: string
+          fetched_at: string
+          id: string
+          match_distance_meters: number | null
+          raw_payload: Json
+          raw_payload_hash: string
+          run_id: string
+          source_identifier: string
+          source_name: string
+          source_site_identifier: string
+          source_url: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          advisory_type: string
+          beach_id?: string | null
+          county_latitude: number
+          county_longitude: number
+          created_at?: string
+          fetched_at: string
+          id?: string
+          match_distance_meters?: number | null
+          raw_payload: Json
+          raw_payload_hash: string
+          run_id: string
+          source_identifier: string
+          source_name: string
+          source_site_identifier: string
+          source_url: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          advisory_type?: string
+          beach_id?: string | null
+          county_latitude?: number
+          county_longitude?: number
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          match_distance_meters?: number | null
+          raw_payload?: Json
+          raw_payload_hash?: string
+          run_id?: string
+          source_identifier?: string
+          source_name?: string
+          source_site_identifier?: string
+          source_url?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "county_beach_advisories_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "county_beach_advisories_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "county_beach_advisories_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "county_beach_advisories_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "county_beach_advisories_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "county_beach_advisories_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "county_beach_advisories_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "county_beach_advisories_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "county_beach_advisory_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      county_beach_advisory_ingest_state: {
+        Row: {
+          accepted_version_sequence: number | null
+          accepted_version_token: string | null
+          circuit_open: boolean
+          consecutive_failures: number
+          created_at: string
+          last_error: string | null
+          last_failure_at: string | null
+          last_request_at: string | null
+          last_success_at: string | null
+          next_attempt_at: string | null
+          observed_version_sequence: number | null
+          observed_version_token: string | null
+          source_identifier: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_version_sequence?: number | null
+          accepted_version_token?: string | null
+          circuit_open?: boolean
+          consecutive_failures?: number
+          created_at?: string
+          last_error?: string | null
+          last_failure_at?: string | null
+          last_request_at?: string | null
+          last_success_at?: string | null
+          next_attempt_at?: string | null
+          observed_version_sequence?: number | null
+          observed_version_token?: string | null
+          source_identifier: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_version_sequence?: number | null
+          accepted_version_token?: string | null
+          circuit_open?: boolean
+          consecutive_failures?: number
+          created_at?: string
+          last_error?: string | null
+          last_failure_at?: string | null
+          last_request_at?: string | null
+          last_success_at?: string | null
+          next_attempt_at?: string | null
+          observed_version_sequence?: number | null
+          observed_version_token?: string | null
+          source_identifier?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      county_beach_advisory_runs: {
+        Row: {
+          advisory_count: number
+          closure_count: number
+          completed_at: string | null
+          created_at: string
+          error_kind: string | null
+          error_message: string | null
+          fetched_at: string
+          id: string
+          match_rate: number | null
+          source_identifier: string
+          status: string
+          unmatched_site_count: number
+          version_sequence: number
+          version_token: string
+          warning_count: number
+        }
+        Insert: {
+          advisory_count?: number
+          closure_count?: number
+          completed_at?: string | null
+          created_at?: string
+          error_kind?: string | null
+          error_message?: string | null
+          fetched_at: string
+          id?: string
+          match_rate?: number | null
+          source_identifier: string
+          status: string
+          unmatched_site_count?: number
+          version_sequence: number
+          version_token: string
+          warning_count?: number
+        }
+        Update: {
+          advisory_count?: number
+          closure_count?: number
+          completed_at?: string | null
+          created_at?: string
+          error_kind?: string | null
+          error_message?: string | null
+          fetched_at?: string
+          id?: string
+          match_rate?: number | null
+          source_identifier?: string
+          status?: string
+          unmatched_site_count?: number
+          version_sequence?: number
+          version_token?: string
+          warning_count?: number
+        }
+        Relationships: []
+      }
       cron_runs: {
         Row: {
           duration_ms: number | null
           error_message: string | null
+          expected_max: number | null
+          expected_min: number | null
           finished_at: string | null
           id: string
+          job: string
+          legitimately_zero_reason: string | null
+          produced: number | null
+          ran_at: string
           route: string
           started_at: string
           status: string
           summary: Json | null
+          unit: string | null
         }
         Insert: {
           duration_ms?: number | null
           error_message?: string | null
+          expected_max?: number | null
+          expected_min?: number | null
           finished_at?: string | null
           id?: string
+          job: string
+          legitimately_zero_reason?: string | null
+          produced?: number | null
+          ran_at?: string
           route: string
           started_at?: string
           status: string
           summary?: Json | null
+          unit?: string | null
         }
         Update: {
           duration_ms?: number | null
           error_message?: string | null
+          expected_max?: number | null
+          expected_min?: number | null
           finished_at?: string | null
           id?: string
+          job?: string
+          legitimately_zero_reason?: string | null
+          produced?: number | null
+          ran_at?: string
           route?: string
           started_at?: string
           status?: string
           summary?: Json | null
+          unit?: string | null
         }
         Relationships: []
       }
@@ -12858,6 +13249,74 @@ export type Database = {
           },
         ]
       }
+      water_quality_held_beaches: {
+        Row: {
+          beach_id: string
+          created_at: string
+          reason: string | null
+        }
+        Insert: {
+          beach_id: string
+          created_at?: string
+          reason?: string | null
+        }
+        Update: {
+          beach_id?: string
+          created_at?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "water_quality_held_beaches_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "water_quality_held_beaches_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "water_quality_held_beaches_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "water_quality_held_beaches_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "water_quality_held_beaches_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "water_quality_held_beaches_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "water_quality_held_beaches_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+        ]
+      }
       weekend_scout_snapshots: {
         Row: {
           contract_version: string
@@ -13181,6 +13640,18 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      zz_luna_test: {
+        Row: {
+          i: number | null
+        }
+        Insert: {
+          i?: number | null
+        }
+        Update: {
+          i?: number | null
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -16281,6 +16752,29 @@ export type Database = {
         Returns: {
           alert_queue_id: string
           inserted: boolean
+        }[]
+      }
+      try_insert_system_feed_post: {
+        Args: {
+          p_beach_daily_cap?: number
+          p_beach_id: string
+          p_beach_weekly_cap?: number
+          p_created_at: string
+          p_daily_cap?: number
+          p_dedupe_hash: string
+          p_description: string
+          p_expires_at: string
+          p_is_active: boolean
+          p_latitude: number
+          p_longitude: number
+          p_surf_conditions: Json
+          p_tag: string
+          p_title: string
+          p_user_id: string
+        }
+        Returns: {
+          post_id: string
+          status: string
         }[]
       }
       unaccent: { Args: { "": string }; Returns: string }

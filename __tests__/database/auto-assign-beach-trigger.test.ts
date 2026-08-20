@@ -95,6 +95,7 @@ beforeAll(async () => {
       name: TEST_BEACH.name,
       lat: TEST_BEACH.lat,
       lon: TEST_BEACH.lon,
+      timezone: "America/Los_Angeles",
       region: "pacific",
       country: "US",
       state: "CA",

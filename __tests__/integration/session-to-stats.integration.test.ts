@@ -94,6 +94,7 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
             name: "Test Beach for Stats Flow",
             lat: 33.7,
             lon: -118.4,
+            timezone: "America/Los_Angeles",
             region: "test",
           })
           .select("id")
