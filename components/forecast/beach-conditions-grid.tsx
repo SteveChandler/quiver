@@ -16,6 +16,7 @@ import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
 import { getScoreCall } from "./score-band-call";
 import { ScoreBadge } from "./score-badge";
+import { ScoreLoginLink } from "./score-login-link";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { QuiverSticker } from "@/components/zine";
@@ -46,19 +47,8 @@ export interface BeachConditionsGridProps {
   className?: string;
   /** Visual treatment variant */
   variant?: "default" | "zine";
-  /** Whether personalized score values are available to this viewer */
+  /** Whether score values are available to this viewer */
   showScores?: boolean;
-}
-
-function ScoreLoginLink({ regionSlug }: { regionSlug: string }) {
-  return (
-    <Link
-      href={`/auth/sign-in?redirectTo=/forecast/${regionSlug}`}
-      className="inline-flex font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#11100D] underline decoration-[#B56A2B] decoration-2 underline-offset-4 transition-colors hover:text-[#B56A2B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
-    >
-      Log in to get your score
-    </Link>
-  );
 }
 
 /**

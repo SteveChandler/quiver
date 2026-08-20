@@ -91,6 +91,52 @@ describe("TopRankedBeachHero", () => {
     expect(screen.queryByText("Approved beach photo")).not.toBeInTheDocument();
   });
 
+  it("shows guests a login CTA without the numeric score or score-band call", () => {
+    render(
+      <TopRankedBeachHero
+        beach={beach}
+        regionName="San Diego"
+        regionSlug="san-diego"
+        showScores={false}
+        now={new Date("2026-08-12T08:00:00Z")}
+        bestSurfWindow={{
+          startIso: "2026-08-12T07:00:00Z",
+          endIso: "2026-08-12T09:00:00Z",
+          peakIso: "2026-08-12T08:00:00Z",
+          timezone: "UTC",
+          localTimeLabel: "7:00 AM-9:00 AM",
+          score: 83,
+          verdict: "Worth it",
+          confidence: {
+            level: "high",
+            score: 84,
+            summary: "High confidence",
+            reasons: [],
+          },
+          positives: ["Good wave size"],
+          wave: {
+            height: "4.2",
+            period: "14",
+            direction: "W",
+            summary: "4.2ft at 14s",
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByText("Ranked first in San Diego")).toBeInTheDocument();
+    expect(screen.getByText("7:00 AM-9:00 AM")).toBeInTheDocument();
+    expect(screen.queryByText("83")).not.toBeInTheDocument();
+    expect(screen.queryByText("EPIC")).not.toBeInTheDocument();
+    expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Log in to see scores" })
+    ).toHaveAttribute(
+      "href",
+      "/auth/sign-in?redirectTo=/forecast/san-diego"
+    );
+  });
+
   it("does not render an immediate action for a future qualifying window", () => {
     render(
       <TopRankedBeachHero

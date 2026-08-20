@@ -544,16 +544,19 @@ describe("BestDaysSection — analytics wiring", () => {
 });
 
 describe("BestDaysSection — paper score treatment", () => {
-  it("uses the shared ink badge and keeps interactive day cards free of torn masks", () => {
+  it("shows authenticated users numeric gauges and score badges", () => {
     render(
       <BestDaysSection
         days={ALL_DAYS}
         bestDay={BEST_DAY}
         regionName={REGION_NAME}
+        regionSlug="san-diego"
+        showScores
         variant="zine"
       />
     );
 
+    expect(screen.getByTestId("animated-score-gauge")).toHaveTextContent("85");
     expect(screen.getAllByTestId("score-badge")).toHaveLength(3);
     for (const badge of screen.getAllByTestId("score-badge")) {
       expect(badge).toHaveClass("bg-[#11100D]", "text-[#F4EBD8]");
@@ -562,6 +565,37 @@ describe("BestDaysSection — paper score treatment", () => {
 
     for (const card of screen.getAllByRole("button")) {
       expect(card).not.toHaveClass("torn", "torn-tb");
+    }
+  });
+
+  it("shows guests login CTAs without numeric gauges or score badges", () => {
+    render(
+      <BestDaysSection
+        days={ALL_DAYS}
+        bestDay={BEST_DAY}
+        regionName={REGION_NAME}
+        regionSlug="san-diego"
+        showScores={false}
+        variant="zine"
+      />
+    );
+
+    expect(screen.getByText("Tuesday, Mar 10")).toBeInTheDocument();
+    expect(screen.getByText("Wednesday")).toBeInTheDocument();
+    expect(screen.queryByTestId("animated-score-gauge")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("score-badge")).not.toBeInTheDocument();
+    expect(screen.queryByText("85")).not.toBeInTheDocument();
+    expect(screen.queryByText("72")).not.toBeInTheDocument();
+
+    const loginLinks = screen.getAllByRole("link", {
+      name: "Log in to see scores",
+    });
+    expect(loginLinks).toHaveLength(1);
+    for (const link of loginLinks) {
+      expect(link).toHaveAttribute(
+        "href",
+        "/auth/sign-in?redirectTo=/forecast/san-diego"
+      );
     }
   });
 });

@@ -318,6 +318,8 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
             <TopRankedBeachHero
               beach={topBeach}
               regionName={region.name}
+              regionSlug={region.slug}
+              showScores={user !== null}
               now={summary.generatedAt}
               imageUrl={approvedTopBeachImage}
               mapImageUrl={satelliteFallbackUrl}
@@ -335,6 +337,8 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
             days={summary.days}
             bestDay={summary.bestDay}
             regionName={region.name}
+            regionSlug={region.slug}
+            showScores={user !== null}
             className="mb-16"
             variant="zine"
           />

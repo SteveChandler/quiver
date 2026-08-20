@@ -7,6 +7,7 @@ import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { formatWaveHeightDecimal } from "@/lib/utils/wave-formatters";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
 import { getScoreCall } from "./score-band-call";
+import { ScoreLoginLink } from "./score-login-link";
 
 type HeroSurfWindow = Pick<
   SurfWindowRecommendation,
@@ -35,6 +36,8 @@ interface TopRankedBeachHeroProps {
   imageUrl?: string | null;
   mapImageUrl?: string | null;
   bestSurfWindow?: HeroSurfWindow | null;
+  regionSlug?: string;
+  showScores?: boolean;
 }
 
 function formatPeakTime(peakIso: string, timezone: string): string {
@@ -88,6 +91,8 @@ export function TopRankedBeachHero({
   imageUrl,
   mapImageUrl,
   bestSurfWindow,
+  regionSlug,
+  showScores = true,
 }: TopRankedBeachHeroProps) {
   const selectedScore = bestSurfWindow?.score ?? beach.currentScore;
   const scoreCall = getScoreCall(selectedScore);
@@ -154,19 +159,23 @@ export function TopRankedBeachHero({
           </h2>
         </div>
 
-        <div className="flex items-end gap-3 border-2 border-[#11100D] bg-[#11100D] px-4 py-3 text-[#F4EBD8]">
-          <span className="text-4xl font-black tabular-nums leading-none">
-            {selectedScore}
-          </span>
-          <div className="min-w-0">
-            <p className="font-mono text-xs font-bold uppercase tracking-[0.12em]">
-              {scoreCall.label}
-            </p>
-            <p className="mt-1 font-display text-xl font-black leading-none text-[#F78E42]">
-              {action}
-            </p>
+        {showScores ? (
+          <div className="flex items-end gap-3 border-2 border-[#11100D] bg-[#11100D] px-4 py-3 text-[#F4EBD8]">
+            <span className="text-4xl font-black tabular-nums leading-none">
+              {selectedScore}
+            </span>
+            <div className="min-w-0">
+              <p className="font-mono text-xs font-bold uppercase tracking-[0.12em]">
+                {scoreCall.label}
+              </p>
+              <p className="mt-1 font-display text-xl font-black leading-none text-[#F78E42]">
+                {action}
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          regionSlug && <ScoreLoginLink regionSlug={regionSlug} />
+        )}
 
         <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
           <div className="border-t-2 border-[#11100D]/25 pt-3">

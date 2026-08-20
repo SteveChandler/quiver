@@ -43,7 +43,7 @@ describe("BeachConditionsGrid", () => {
     );
 
     const loginLinks = screen.getAllByRole("link", {
-      name: "Log in to get your score",
+      name: "Log in to see scores",
     });
     expect(loginLinks).toHaveLength(2);
     for (const link of loginLinks) {
@@ -71,7 +71,7 @@ describe("BeachConditionsGrid", () => {
     expect(screen.getAllByText("EPIC")).toHaveLength(2);
     expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: "Log in to get your score" })
+      screen.queryByRole("link", { name: "Log in to see scores" })
     ).not.toBeInTheDocument();
   });
 });

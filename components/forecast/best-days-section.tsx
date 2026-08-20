@@ -13,6 +13,7 @@ import { getScoreColorClasses, SCORE_THRESHOLDS } from "@/lib/utils/score-color-
 import { formatWaveRange } from "@/lib/utils/wave-formatters";
 
 import { ScoreBadge } from "./score-badge";
+import { ScoreLoginLink } from "./score-login-link";
 import { AnimatedScoreGauge } from "./animated-score-gauge";
 import { WaveBackground } from "@/components/ui/ocean-background";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
@@ -52,6 +53,10 @@ export interface BestDaysSectionProps {
   className?: string;
   /** Visual treatment variant */
   variant?: "default" | "zine";
+  /** Region slug for the score login return path */
+  regionSlug?: string;
+  /** Whether score values are available to this viewer */
+  showScores?: boolean;
 }
 
 /**
@@ -66,6 +71,7 @@ interface BestDayCardProps {
   index?: number;
   /** Click handler for analytics tracking */
   onClick?: () => void;
+  showScores: boolean;
 }
 
 /**
@@ -192,6 +198,7 @@ function BestDayCard({
   variant = "default",
   index = 0,
   onClick,
+  showScores,
 }: BestDayCardProps) {
   const scoreColors = getScoreColorClasses(day.score);
   const windInfo = getWindInfo(day.windConditions);
@@ -216,13 +223,15 @@ function BestDayCard({
           className="absolute -right-5 -top-5 w-24 rotate-12 opacity-85 drop-shadow-md"
         />
         <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center">
-          <AnimatedScoreGauge
-            score={day.score}
-            size="xl"
-            showLabel
-            showAction={false}
-            enableGlow={isEpic}
-          />
+          {showScores && (
+            <AnimatedScoreGauge
+              score={day.score}
+              size="xl"
+              showLabel
+              showAction={false}
+              enableGlow={isEpic}
+            />
+          )}
 
           <div className="flex-1 space-y-5">
             <div>
@@ -307,13 +316,15 @@ function BestDayCard({
         <CardContent className="p-6 relative z-10">
           <div className="flex flex-col md:flex-row md:items-center gap-6">
             {/* Animated Score Gauge - Large with Label */}
-            <AnimatedScoreGauge
-              score={day.score}
-              size="xl"
-              showLabel
-              showAction={false}
-              enableGlow={isEpic}
-            />
+            {showScores && (
+              <AnimatedScoreGauge
+                score={day.score}
+                size="xl"
+                showLabel
+                showAction={false}
+                enableGlow={isEpic}
+              />
+            )}
 
             {/* Day Info */}
             <div className="flex-1 space-y-4">
@@ -378,12 +389,14 @@ function BestDayCard({
           aria-label={`Surf day: ${day.dayOfWeek}`}
         >
           <div className="flex items-start gap-3">
-            <div className="transition-transform duration-200 group-hover:scale-110">
-              <ScoreBadge
-                score={day.score}
-                className={scoreColors.paperBadge}
-              />
-            </div>
+            {showScores && (
+              <div className="transition-transform duration-200 group-hover:scale-110">
+                <ScoreBadge
+                  score={day.score}
+                  className={scoreColors.paperBadge}
+                />
+              </div>
+            )}
 
             <div className="min-w-0 flex-1">
               <h4 className="font-display text-lg font-black uppercase leading-tight text-[#11100D]">
@@ -426,9 +439,11 @@ function BestDayCard({
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             {/* Score Badge with hover scale */}
-            <div className="transition-transform duration-200 group-hover:scale-110">
-              <ScoreBadge score={day.score} />
-            </div>
+            {showScores && (
+              <div className="transition-transform duration-200 group-hover:scale-110">
+                <ScoreBadge score={day.score} />
+              </div>
+            )}
 
             {/* Day Info */}
             <div className="flex-1 min-w-0">
@@ -472,6 +487,7 @@ function BestDayCard({
  *   days={regionalSummary.days}
  *   bestDay={regionalSummary.bestDay}
  *   regionName="San Diego"
+ *   regionSlug="san-diego"
  * />
  * ```
  */
@@ -481,6 +497,8 @@ export function BestDaysSection({
   regionName,
   className,
   variant = "default",
+  regionSlug,
+  showScores = true,
 }: BestDaysSectionProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const hasTrackedView = useRef(false);
@@ -530,6 +548,9 @@ export function BestDaysSection({
           <p className={cn(isZine ? "text-[#11100D]/66" : "text-muted-foreground")}>
             Based on wave height, wind conditions, and swell quality
           </p>
+          {!showScores && regionSlug && (
+            <ScoreLoginLink regionSlug={regionSlug} />
+          )}
         </div>
       </ScrollReveal>
 
@@ -539,6 +560,7 @@ export function BestDaysSection({
           day={bestDay}
           isHero
           variant={variant}
+          showScores={showScores}
           // regionName passed as beachName - these are region-level day cards, not beach-specific
           onClick={() => trackBestConditionsClick(regionName, 1, bestDay.score)}
         />
@@ -565,6 +587,7 @@ export function BestDaysSection({
                 day={day}
                 index={index}
                 variant={variant}
+                showScores={showScores}
                 // regionName passed as beachName - these are region-level day cards, not beach-specific
                 onClick={() => trackBestConditionsClick(regionName, index + 2, day.score)}
               />
