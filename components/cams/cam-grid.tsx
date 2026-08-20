@@ -48,8 +48,11 @@ export function CamGrid({ beaches, groupByRegion = false }: CamGridProps) {
                 href={`/cams/${region.slug}`}
                 className="font-mono text-xs font-black uppercase tracking-[0.12em] text-[#0B3A75] underline decoration-[#F78E42] decoration-2 underline-offset-4 transition hover:text-[#11100D]"
               >
-                View all {regionBeaches.length}{" "}
-                {regionBeaches.length === 1 ? "cam" : "cams"} &rarr;
+                {/* One string expression: SWC eats the leading space of a
+                    multi-line JSX text child that contains an HTML entity. */}
+                {`View all ${regionBeaches.length} ${
+                  regionBeaches.length === 1 ? "cam" : "cams"
+                } →`}
               </Link>
             </div>
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
