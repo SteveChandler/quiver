@@ -28,7 +28,9 @@ describe("Free surf reports SEO metadata", () => {
     expect(source).toContain("279+ beaches");
     expect(source).toContain("$0 forecast paywall");
     expect(source).toContain("without a forecast paywall");
-    expect(source).toContain("href: \"/best-free-surf-forecast-app\"");
+    expect(source).toContain(
+      "href: \"/best-surf-forecast-app#best-free-surf-forecast-app\"",
+    );
     expect(source).toContain("href: \"/vs/surfline/free\"");
     expect(source).toContain("href: \"/features\"");
     expect(source).not.toContain("\"@type\": \"SoftwareApplication\"");
