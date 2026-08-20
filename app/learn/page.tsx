@@ -87,9 +87,9 @@ const CATEGORIES: {
     sticker: "spotWindRead",
     slugs: [
       "best-time-of-day-to-surf",
-      "why-waves-better-in-morning",
       "is-it-safe-to-surf-after-rain",
       "what-wetsuit-thickness-do-i-need",
+      "how-does-water-temperature-affect-surfing",
     ],
   },
   {
@@ -98,6 +98,7 @@ const CATEGORIES: {
     sticker: "singleFin",
     slugs: [
       "best-surf-conditions-for-beginners",
+      "surf-paddling-for-beginners",
       "what-size-surfboard-should-i-get",
       "how-long-to-learn-to-surf",
       "surf-etiquette-rules",
@@ -116,7 +117,11 @@ const CATEGORIES: {
     label: "Local Beginner Breaks",
     desc: "Beginner-friendly local lineups and what to check before you go.",
     sticker: "spotLocation",
-    slugs: ["beginner-breaks-san-diego", "beginner-breaks-santa-cruz"],
+    slugs: [
+      "beginner-breaks-san-diego",
+      "beginner-breaks-orange-county",
+      "beginner-breaks-santa-cruz",
+    ],
   },
 ];
 

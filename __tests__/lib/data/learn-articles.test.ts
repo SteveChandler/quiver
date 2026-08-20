@@ -32,12 +32,6 @@ const expectedLearnMetadata = [
       "Groundswell comes from distant storms with 12+ second period and organized waves. Wind swell comes from local wind with 5-9 second period and choppy surf.",
   },
   {
-    slug: "why-waves-better-in-morning",
-    title: "Why Waves Are Better in the Morning: Wind Explained",
-    description:
-      "Morning surf is usually cleaner because overnight land cooling creates offshore wind. Learn when dawn patrol works and when it does not.",
-  },
-  {
     slug: "how-do-tides-work",
     title: "How Tides Work for Surfing: Tide Timing Guide",
     description:
