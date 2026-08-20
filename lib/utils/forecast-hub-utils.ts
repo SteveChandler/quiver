@@ -128,16 +128,19 @@ export async function getRegionalSummaries(
     }
 
     // Aggregate into regional summary
+    const selectionNow = options.now ?? new Date();
     const summary = aggregateRegionalForecast(
       region,
       regionBeaches,
-      regionForecastMap
+      regionForecastMap,
+      { now: selectionNow }
     );
+    summary.generatedAt = selectionNow;
     if (options.includeBestSurfWindows !== false) {
       summary.bestSurfWindows = buildBestSurfWindowsForRegion(
         regionBeaches,
         regionForecastMap,
-        options,
+        { ...options, now: selectionNow },
       );
     }
     summaries[region.slug] = await applyRegionalMajorEventHold(
@@ -265,17 +268,20 @@ export async function getRegionalSummary(
     }
   }
 
+  const selectionNow = options.now ?? new Date();
   const summary = aggregateRegionalForecast(
     region,
     regionBeaches,
-    regionForecastMap
+    regionForecastMap,
+    { now: selectionNow }
   );
+  summary.generatedAt = selectionNow;
 
   if (options.includeBestSurfWindows !== false) {
     summary.bestSurfWindows = buildBestSurfWindowsForRegion(
       regionBeaches,
       regionForecastMap,
-      options
+      { ...options, now: selectionNow }
     );
   }
 

@@ -30,6 +30,12 @@ export interface AnimatedScoreGaugeProps {
   /** Whether to show the quality label below the gauge */
   showLabel?: boolean;
   /**
+   * Whether to show the immediate-action phrase ("Go now!" etc.) under the
+   * quality label. Must be false for future-day/ranking contexts, where
+   * immediate-action copy is wrong (#569).
+   */
+  showAction?: boolean;
+  /**
    * Optional condition character to show below the gauge number.
    * Only rendered when size is "lg" or "xl" and showLabel is true.
    */
@@ -119,6 +125,7 @@ export function AnimatedScoreGauge({
   score,
   size = "md",
   showLabel = false,
+  showAction = true,
   character,
   duration = 1200,
   enableGlow = true,
@@ -275,7 +282,11 @@ export function AnimatedScoreGauge({
               config.fontSize,
               labelTextClass
             )}
-            aria-label={`Score: ${score}, ${scoreCall.label}. ${scoreCall.action}`}
+            aria-label={
+              showAction
+                ? `Score: ${score}, ${scoreCall.label}. ${scoreCall.action}`
+                : `Score: ${score}, ${scoreCall.label}`
+            }
           >
             {displayScore}
           </span>
@@ -296,17 +307,19 @@ export function AnimatedScoreGauge({
           >
             {scoreCall.label}
           </span>
-          <span
-            className={cn(
-              "font-medium",
-              config.labelSize,
-              labelTextClass,
-              !hasAnimated && !reducedMotion && "opacity-0",
-              hasAnimated && "motion-safe:animate-fade-in"
-            )}
-          >
-            {scoreCall.action}
-          </span>
+          {showAction && (
+            <span
+              className={cn(
+                "font-medium",
+                config.labelSize,
+                labelTextClass,
+                !hasAnimated && !reducedMotion && "opacity-0",
+                hasAnimated && "motion-safe:animate-fade-in"
+              )}
+            >
+              {scoreCall.action}
+            </span>
+          )}
 
           {/*
            * Condition character label — lg/xl sizes only, non-hero variant.

@@ -46,6 +46,19 @@ export interface BeachConditionsGridProps {
   className?: string;
   /** Visual treatment variant */
   variant?: "default" | "zine";
+  /** Whether personalized score values are available to this viewer */
+  showScores?: boolean;
+}
+
+function ScoreLoginLink({ regionSlug }: { regionSlug: string }) {
+  return (
+    <Link
+      href={`/auth/sign-in?redirectTo=/forecast/${regionSlug}`}
+      className="inline-flex font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#11100D] underline decoration-[#B56A2B] decoration-2 underline-offset-4 transition-colors hover:text-[#B56A2B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
+    >
+      Log in to get your score
+    </Link>
+  );
 }
 
 /**
@@ -111,10 +124,14 @@ function TrendIndicator({
 function BeachConditionRow({
   beach,
   index,
+  regionSlug,
+  showScores,
   variant = "default",
 }: {
   beach: BeachConditionSummary;
   index: number;
+  regionSlug: string;
+  showScores: boolean;
   variant?: "default" | "zine";
 }) {
   const scoreCall = getScoreCall(beach.currentScore);
@@ -147,7 +164,7 @@ function BeachConditionRow({
         <div className="flex items-center gap-1.5">
           <Calendar className={cn("h-4 w-4", isZine ? "text-[#11100D]/58" : "text-muted-foreground")} />
           <span className={cn("text-sm", isZine && "text-[#11100D]/72")}>{beach.bestDay}</span>
-          {beach.bestDayScore > 0 && (
+          {showScores && beach.bestDayScore > 0 && (
             <span
               className={cn(
                 "text-xs",
@@ -176,22 +193,23 @@ function BeachConditionRow({
         <TrendIndicator trend={beach.trend} variant={variant} />
       </TableCell>
       <TableCell>
-        <div className="flex items-center gap-2">
-          <div className="transition-transform duration-200 hover:scale-110">
-            <ScoreBadge
-              score={beach.currentScore}
-              className={getScoreColorClasses(beach.currentScore).paperBadge}
-            />
+        {showScores ? (
+          <div className="flex items-center gap-2">
+            <div className="transition-transform duration-200 hover:scale-110">
+              <ScoreBadge
+                score={beach.currentScore}
+                className={getScoreColorClasses(beach.currentScore).paperBadge}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col">
+              <span className="text-xs font-bold text-[#11100D]">
+                {scoreCall.label}
+              </span>
+            </div>
           </div>
-          <div className="flex min-w-0 flex-col">
-            <span className="text-xs font-bold text-[#11100D]">
-              {scoreCall.label}
-            </span>
-            <span className="text-[11px] leading-tight text-[#11100D]">
-              {scoreCall.action}
-            </span>
-          </div>
-        </div>
+        ) : (
+          <ScoreLoginLink regionSlug={regionSlug} />
+        )}
       </TableCell>
     </TableRow>
   );
@@ -203,10 +221,14 @@ function BeachConditionRow({
 function BeachConditionCard({
   beach,
   index,
+  regionSlug,
+  showScores,
   variant = "default",
 }: {
   beach: BeachConditionSummary;
   index: number;
+  regionSlug: string;
+  showScores: boolean;
   variant?: "default" | "zine";
 }) {
   const scoreCall = getScoreCall(beach.currentScore);
@@ -225,12 +247,14 @@ function BeachConditionCard({
         <CardContent className={cn("p-4", isZine && "relative z-10")}>
           <div className="flex items-start gap-3">
             {/* Score Badge with hover scale */}
-            <div className="transition-transform duration-200 group-hover:scale-110">
-              <ScoreBadge
-                score={beach.currentScore}
-                className={getScoreColorClasses(beach.currentScore).paperBadge}
-              />
-            </div>
+            {showScores && (
+              <div className="transition-transform duration-200 group-hover:scale-110">
+                <ScoreBadge
+                  score={beach.currentScore}
+                  className={getScoreColorClasses(beach.currentScore).paperBadge}
+                />
+              </div>
+            )}
 
             {/* Beach Info */}
             <div className="flex-1 min-w-0">
@@ -246,9 +270,15 @@ function BeachConditionCard({
               </Link>
 
               {/* Score Label */}
-              <p className="mt-0.5 text-xs font-medium text-[#11100D]">
-                {scoreCall.label} · {scoreCall.action}
-              </p>
+              {showScores ? (
+                <p className="mt-0.5 text-xs font-medium text-[#11100D]">
+                  {scoreCall.label}
+                </p>
+              ) : (
+                <div className="mt-1">
+                  <ScoreLoginLink regionSlug={regionSlug} />
+                </div>
+              )}
 
               {/* Quick Stats with animated wave height */}
               <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
@@ -272,7 +302,7 @@ function BeachConditionCard({
                 <span>
                   Best: <span className="font-medium">{beach.bestDay}</span>
                 </span>
-                {beach.bestDayScore > 0 && (
+                {showScores && beach.bestDayScore > 0 && (
                   <span
                     className={cn(
                       "font-medium",
@@ -315,6 +345,7 @@ export function BeachConditionsGrid({
   showViewAll = true,
   className,
   variant = "default",
+  showScores = true,
 }: BeachConditionsGridProps) {
   // Sort beaches by current score (highest first) and limit display
   const displayBeaches = beaches
@@ -406,6 +437,8 @@ export function BeachConditionsGrid({
                   key={beach.beachId}
                   beach={beach}
                   index={index}
+                  regionSlug={regionSlug}
+                  showScores={showScores}
                   variant={variant}
                 />
               ))}
@@ -421,6 +454,8 @@ export function BeachConditionsGrid({
             key={beach.beachId}
             beach={beach}
             index={index}
+            regionSlug={regionSlug}
+            showScores={showScores}
             variant={variant}
           />
         ))}

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 import FeaturesPage, { metadata } from "@/app/features/page";
@@ -29,14 +29,17 @@ jest.mock("@/components/pricing/android-waitlist-cta", () => ({
     source,
     surface,
     placement,
+    className,
   }: {
     children: ReactNode;
     source: string;
     surface: string;
     placement: string;
+    className?: string;
   }) => (
     <button
       type="button"
+      className={className}
       data-testid="android-waitlist-cta"
       data-source={source}
       data-surface={surface}
@@ -127,6 +130,21 @@ describe("FeaturesPage", () => {
     expect(
       screen.getByRole("link", { name: /read how free surf reports work/i }),
     ).toHaveAttribute("href", "/free-surf-reports");
+
+    const finalPanel = screen
+      .getByRole("heading", {
+        name: /make tomorrow's forecast about your surfing/i,
+      })
+      .closest("section");
+    expect(finalPanel).toHaveClass("torn", "torn-tb", "rot-neg");
+    expect(
+      within(finalPanel!).getByRole("link", { name: /open app store/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(finalPanel!).getByRole("button", {
+        name: /get the android beta/i,
+      }),
+    ).toBeInTheDocument();
   });
 
   it("removes the old beach-directory experience from the features route", () => {

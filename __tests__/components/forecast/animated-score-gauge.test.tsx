@@ -29,4 +29,20 @@ describe("AnimatedScoreGauge score vocabulary", () => {
     expect(screen.getByText(label)).toBeInTheDocument();
     expect(screen.getByText(action)).toBeInTheDocument();
   });
+
+  it.each([
+    [73, "GOOD", "Go surf!"],
+    [83, "EPIC", "Go now!"],
+  ])(
+    "keeps the %s band label but drops the action phrase when showAction is false",
+    (score, label, action) => {
+      render(<AnimatedScoreGauge score={score} showLabel showAction={false} />);
+
+      expect(screen.getByText(label)).toBeInTheDocument();
+      expect(screen.queryByText(action)).not.toBeInTheDocument();
+      expect(
+        screen.getByLabelText(`Score: ${score}, ${label}`)
+      ).toBeInTheDocument();
+    }
+  );
 });

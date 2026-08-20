@@ -24,7 +24,11 @@ export function SeoScenePanel({
         className
       )}
     >
-      <div className={cn("relative aspect-[16/9] min-h-[260px]", mediaClassName)}>
+      {/* `w-full` keeps the width bound to the figure. Without it, a caller that
+          stretches the height (`h-full`) lets `aspect-[16/9]` drive width FROM
+          that height, blowing the media past the figure so `overflow-hidden`
+          crops the photo's left edge and `object-position` never applies. */}
+      <div className={cn("relative w-full aspect-[16/9] min-h-[260px]", mediaClassName)}>
         <Image
           src={scene.imageSrc}
           alt={scene.alt}

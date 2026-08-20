@@ -36,12 +36,15 @@ const beach: BeachConditionSummary = {
 };
 
 describe("TopRankedBeachHero", () => {
-  it("uses the region name and shows the ranked beach, score call, window, and wave height", () => {
+  it("uses one current qualifying window for the score call and window display", () => {
     const selectorWindow = {
       startIso: "2026-08-12T07:00:00Z",
       endIso: "2026-08-12T09:00:00Z",
       peakIso: "2026-08-12T08:00:00Z",
+      timezone: "UTC",
       localTimeLabel: "7:00 AM-9:00 AM",
+      score: 83,
+      verdict: "Worth it" as const,
       confidence: {
         level: "high" as const,
         score: 84,
@@ -49,13 +52,21 @@ describe("TopRankedBeachHero", () => {
         reasons: ["Forecast model row is present"],
       },
       positives: ["Good wave size"],
+      // The card reads height from the window it is describing, not from the
+      // region's separate "current conditions" reading.
+      wave: {
+        height: "4.2",
+        period: "14",
+        direction: "W",
+        summary: "4.2ft at 14s",
+      },
     };
 
     render(
       <TopRankedBeachHero
         beach={beach}
         regionName="San Diego"
-        beachTimezone="UTC"
+        now={new Date("2026-08-12T08:00:00Z")}
         imageUrl="https://images.example/ocean-beach.webp"
         bestSurfWindow={selectorWindow}
       />
@@ -80,6 +91,56 @@ describe("TopRankedBeachHero", () => {
     expect(screen.queryByText("Approved beach photo")).not.toBeInTheDocument();
   });
 
+  it("does not render an immediate action for a future qualifying window", () => {
+    render(
+      <TopRankedBeachHero
+        beach={beach}
+        regionName="San Diego"
+        now={new Date("2026-08-12T08:00:00Z")}
+        bestSurfWindow={{
+          startIso: "2026-08-13T07:00:00Z",
+          endIso: "2026-08-13T09:00:00Z",
+          peakIso: "2026-08-13T08:00:00Z",
+          timezone: "UTC",
+          localTimeLabel: "7:00 AM-9:00 AM",
+          score: 83,
+          verdict: "Worth it",
+          confidence: {
+            level: "high",
+            score: 84,
+            summary: "High confidence",
+            reasons: [],
+          },
+          positives: ["Good wave size"],
+          wave: {
+            height: "3.7",
+            period: "14",
+            direction: "W",
+            summary: "3.7ft at 14s",
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByText("Worth it · Thu, Aug 13")).toBeInTheDocument();
+    expect(screen.getByText("7:00 AM-9:00 AM")).toBeInTheDocument();
+    expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
+
+    // Height belongs to the upcoming window, not the region's current reading.
+    expect(screen.getByText("Wave height then")).toBeInTheDocument();
+    expect(screen.getByText("3.7ft")).toBeInTheDocument();
+    expect(screen.queryByText("4.2ft")).not.toBeInTheDocument();
+
+    // A window that has not started yet is signposted as the next call rather
+    // than presented as a live one.
+    expect(screen.getByText("Next window")).toBeInTheDocument();
+    expect(screen.getByText("Next best call")).toBeInTheDocument();
+    expect(
+      screen.getByText("Best upcoming window in San Diego")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Top beach now")).not.toBeInTheDocument();
+  });
+
   it("uses the supplied region name for other regions", () => {
     render(
       <TopRankedBeachHero
@@ -94,10 +155,19 @@ describe("TopRankedBeachHero", () => {
   });
 
   it("does not fabricate a beach image when neither approved imagery nor satellite is available", () => {
-    render(<TopRankedBeachHero beach={beach} regionName="San Diego" />);
+    render(
+      <TopRankedBeachHero
+        beach={beach}
+        regionName="San Diego"
+        now={new Date("2026-08-12T08:00:00Z")}
+      />
+    );
 
     expect(screen.getByText("Surf window")).toBeInTheDocument();
-    expect(screen.getByText("No qualifying window")).toBeInTheDocument();
+    expect(
+      screen.getByText("Nothing qualifying in the forecast horizon")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Go now!")).not.toBeInTheDocument();
     expect(screen.queryByText("Best window")).not.toBeInTheDocument();
     expect(screen.getByText("No approved image on file")).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();

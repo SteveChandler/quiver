@@ -58,7 +58,7 @@ export function RegionalBestSurfWindows({
       aria-labelledby="best-windows-this-week-heading"
       className={
         isZine
-          ? "mb-10 rounded-[24px_10px_28px_12px] border-2 border-[#11100D] bg-[#252D6B] p-4 shadow-[4px_5px_0_rgba(17,16,13,0.22)] sm:p-6"
+          ? "torn torn-tb mb-10 border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-6 sm:px-6"
           : "mb-10"
       }
     >
@@ -68,6 +68,7 @@ export function RegionalBestSurfWindows({
         title="Best windows this week"
         subtitle={`The strongest upcoming surf calls across ${regionName}.`}
         surface="regional_forecast"
+        variant={variant}
       />
     </section>
   );

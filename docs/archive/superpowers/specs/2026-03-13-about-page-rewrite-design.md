@@ -30,8 +30,8 @@ Rewrite the about page as a **founder letter** — first person, casual, direct.
 
 ### Section 1: Hero
 - **Background:** `bg-[#252D6B]` (Deep Twilight navy)
-- **Heading:** "I built Quiver because I was tired of being wrong."
-- **Subtext:** "Wrong about the swell. Wrong about the wind. Wrong about whether it was even worth getting out of bed at 5am."
+- **Heading:** "I built Quiver because I was tired of forecasts being wrong."
+- **Subtext:** "Forecasts missed the swell. Missed the wind. Missed whether it was even worth getting out of bed at 5am."
 - **Animation:** Simple `motion` fade-in on heading and subtext. No spinning wave icon, no animated counters.
 - **Reduced motion:** Honors `prefers-reduced-motion` — content appears immediately without animation.
 
@@ -89,8 +89,8 @@ Replace `ABOUT_CONTENT` in `lib/constants/content.ts`. New structure:
 ```ts
 export const ABOUT_CONTENT = {
   hero: {
-    title: "I built Quiver because I was tired of being wrong.",
-    subtitle: "Wrong about the swell. Wrong about the wind. Wrong about whether it was even worth getting out of bed at 5am.",
+    title: "I built Quiver because I was tired of forecasts being wrong.",
+    subtitle: "Forecasts missed the swell. Missed the wind. Missed whether it was even worth getting out of bed at 5am.",
   },
   problem: [
     "I was checking five different apps before every session. Surfline for the cam, Magic Seaweed for the swell, NOAA for the wind, some tide app, and then a group text to see if anyone was going out. And half the time I'd show up and conditions were nothing like what any of them said.",

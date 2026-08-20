@@ -78,7 +78,15 @@ const NORTH_CAROLINA_BEGINNER_SCENE: SeoScene = {
   attribution: "Photo: Billy Hathorn / Wikimedia Commons (CC BY 3.0)",
 };
 
+const SAN_DIEGO_SCENE: SeoScene = {
+  imageSrc: "/images/seo-scenes/la-jolla-scripps-clean.webp",
+  alt: "Morning swell lines breaking past Scripps Pier in San Diego.",
+  // Keep the pier and the breaking swell in frame when cropped to a tall panel.
+  objectPosition: "40% 60%",
+};
+
 const CITY_SCENES: Record<string, SeoScene> = {
+  "san-diego": SAN_DIEGO_SCENE,
   "la-jolla": LA_JOLLA_SCENE,
   "san-onofre": SAN_ONOFRE_SCENE,
   "santa-cruz": SANTA_CRUZ_SCENE,

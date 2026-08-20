@@ -1,0 +1,20 @@
+[
+  {
+    "slug": "san-diego-hero",
+    "name": "San Diego surf lineup",
+    "city": "San Diego",
+    "state": "CA",
+    "country": "USA",
+    "query": "San Diego surfing lineup waves",
+    "notes": "Hero imagery for /best-time-to-surf/san-diego. Needs a surf-conditions shot (rideable waves and/or a lineup), at least 1600px wide, landscape. Reject sea-lion/pinniped scenery, empty sand, and wave pools."
+  },
+  {
+    "slug": "ocean-beach-san-diego",
+    "name": "Ocean Beach Pier",
+    "city": "San Diego",
+    "state": "CA",
+    "country": "USA",
+    "query": "Ocean Beach Pier San Diego surf",
+    "notes": "Pier plus breaking swell reads as tide-and-conditions context. Replaces the 800x600 OceanBeachSurfers asset."
+  }
+]

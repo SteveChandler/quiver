@@ -1,9 +1,8 @@
-import { existsSync } from "fs";
-import { join } from "path";
 import Image from "next/image";
 import { ImageIcon } from "lucide-react";
 
 import type { SeoImage } from "@/lib/seo/funnel-pages";
+import { publicImageExists } from "@/lib/utils/public-image-exists";
 
 interface SeoImageFrameProps {
   image: SeoImage;
@@ -11,11 +10,6 @@ interface SeoImageFrameProps {
   className?: string;
   showCaption?: boolean;
   sizes?: string;
-}
-
-function publicImageExists(src: string): boolean {
-  if (!src.startsWith("/")) return true;
-  return existsSync(join(process.cwd(), "public", src.slice(1)));
 }
 
 export function SeoImageFrame({

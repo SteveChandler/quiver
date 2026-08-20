@@ -22,6 +22,9 @@ interface ZineHeroProps {
   beachPhoto?: ZineBeachPhoto | null;
   sources?: BeachSources | null;
   headingLevel?: ZineHeroHeadingLevel;
+  headingSuffix?: string;
+  /** Route-specific answer, shown directly below the beach location. */
+  summarySlot?: ReactNode;
   /** Server-rendered forecast answer, shown in the hero's left column. */
   forecastSlot?: ReactNode;
 }
@@ -31,6 +34,8 @@ export function ZineHero({
   beachPhoto,
   sources,
   headingLevel = "h1",
+  headingSuffix,
+  summarySlot,
   forecastSlot,
 }: ZineHeroProps) {
   const skill = (beach.skill_level || "All").toUpperCase();
@@ -60,6 +65,9 @@ export function ZineHero({
           }}
         >
           {beach.name}
+          {headingSuffix ? (
+            <span className="zine-h1-suffix">{headingSuffix}</span>
+          ) : null}
         </HeadingTag>
         {locationName && (
           <p
@@ -77,6 +85,8 @@ export function ZineHero({
             {locationName}
           </p>
         )}
+
+        {summarySlot ? <div className="mt-5">{summarySlot}</div> : null}
 
         <div className="flex flex-wrap items-center gap-4 md:gap-6 mt-5">
           <MetaItem icon={<SkillBars size={28} />} label={skill} />
@@ -97,6 +107,26 @@ export function ZineHero({
         </div>
 
         {forecastSlot ? <div className="mt-6">{forecastSlot}</div> : null}
+
+        {/* Hero prose sits in the left column so it fills the space beside the
+            taller photo/map stack rather than leaving dead cream paper there. */}
+        {beach.best_conditions_prose && (
+          <p
+            className="mt-6"
+            style={{
+              fontFamily:
+                "var(--font-zine-marker), 'Permanent Marker', cursive",
+              fontWeight: 400,
+              fontSize: 22,
+              color: "#11100D",
+              letterSpacing: "-0.01em",
+              lineHeight: 1.25,
+              maxWidth: "78ch",
+            }}
+          >
+            {beach.best_conditions_prose}
+          </p>
+        )}
       </div>
 
       <TapedMapPhoto
@@ -111,26 +141,6 @@ export function ZineHero({
         features={beach.features}
       />
       </div>
-
-      {/* Hero prose — full width below the grid so long descriptions
-          breathe into the empty cream paper instead of stacking inside
-          the narrow left column when the photo/map column ends short. */}
-      {beach.best_conditions_prose && (
-        <p
-          className="mt-6"
-          style={{
-            fontFamily: "var(--font-zine-marker), 'Permanent Marker', cursive",
-            fontWeight: 400,
-            fontSize: 22,
-            color: "#11100D",
-            letterSpacing: "-0.01em",
-            lineHeight: 1.25,
-            maxWidth: "78ch",
-          }}
-        >
-          {beach.best_conditions_prose}
-        </p>
-      )}
     </section>
   );
 }

@@ -43,9 +43,9 @@ New `ABOUT_CONTENT` (replaces lines 17-74):
 ```ts
 export const ABOUT_CONTENT = {
   hero: {
-    title: "I built Quiver because I was tired of being wrong.",
+    title: "I built Quiver because I was tired of forecasts being wrong.",
     subtitle:
-      "Wrong about the swell. Wrong about the wind. Wrong about whether it was even worth getting out of bed at 5am.",
+      "Forecasts missed the swell. Missed the wind. Missed whether it was even worth getting out of bed at 5am.",
   },
   problem: [
     "I was checking five different apps before every session. Surfline for the cam, Magic Seaweed for the swell, NOAA for the wind, some tide app, and then a group text to see if anyone was going out. And half the time I'd show up and conditions were nothing like what any of them said.",

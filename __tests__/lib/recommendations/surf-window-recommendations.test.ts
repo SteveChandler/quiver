@@ -93,6 +93,7 @@ describe("buildSurfWindowRecommendations", () => {
     expect(result.recommendations).toHaveLength(3);
     expect(result.recommendations.map((item) => item.rank)).toEqual([1, 2, 3]);
     expect(result.recommendations[0].windowId).toContain("beach-1");
+    expect(result.recommendations[0].timezone).toBe("America/Los_Angeles");
     expect(result.recommendations[0].appDeepLink).toContain("/app/spot/test-beach?window=");
     expect(result.recommendations[0].universalLink).toMatch(/^https:\/\/example.com\/app\/spot\/test-beach\?window=/);
     expect(result.recommendations[0].canonicalWebUrl).toBe(

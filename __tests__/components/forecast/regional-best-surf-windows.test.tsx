@@ -25,6 +25,7 @@ function makeRecommendation(
     startIso: "2026-06-03T14:00:00.000Z",
     endIso: "2026-06-03T16:30:00.000Z",
     peakIso: "2026-06-03T15:00:00.000Z",
+    timezone: "America/Los_Angeles",
     forecastAt: "2026-06-03T14:00:00.000Z",
     localTimeLabel: "7:00-9:30 AM",
     score: 86 - rank,
@@ -94,6 +95,24 @@ describe("RegionalBestSurfWindows", () => {
       screen.queryByText("Window 1 looks worth it at Blacks")
     ).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /why this call/i })[0]).toBeVisible();
+  });
+
+  it("passes the paper editorial variant through the regional zine surface", () => {
+    render(
+      <RegionalBestSurfWindows
+        regionName="Southern California"
+        recommendations={[makeRecommendation(1)]}
+        variant="zine"
+      />
+    );
+
+    const region = screen.getByTestId("regional-best-surf-windows");
+    const windows = screen.getByTestId("best-surf-windows");
+
+    expect(region.className).toContain("bg-[#FBF6E8]");
+    expect(windows).toHaveAttribute("data-variant", "zine");
+    expect(region.innerHTML).not.toMatch(/#252D6B|#2D357D|#1a2051/i);
+    expect(screen.getByText("Window 1 looks worth it at Blacks")).toBeVisible();
   });
 
   it("renders up to five regional windows to avoid a lonely final card", () => {
