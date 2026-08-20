@@ -18,7 +18,12 @@ jest.mock("@vercel/analytics/react", () => ({
 }));
 
 jest.mock("@vercel/speed-insights/next", () => ({
-  SpeedInsights: () => <div data-testid="vercel-speed-insights" />,
+  SpeedInsights: ({ sampleRate }: { sampleRate?: number }) => (
+    <div
+      data-testid="vercel-speed-insights"
+      data-sample-rate={sampleRate}
+    />
+  ),
 }));
 
 import { AnalyticsLoader } from "@/components/analytics/analytics-loader";
@@ -29,12 +34,14 @@ describe("AnalyticsLoader (Vercel Web Analytics)", () => {
     expect(screen.getByTestId("vercel-analytics")).toBeInTheDocument();
   });
 
-  it("mounts the Vercel Speed Insights component", () => {
+  it("samples 10% of sessions with Vercel Speed Insights", () => {
     render(<AnalyticsLoader />);
-    expect(screen.getByTestId("vercel-speed-insights")).toBeInTheDocument();
+    expect(screen.getByTestId("vercel-speed-insights")).toHaveAttribute(
+      "data-sample-rate",
+      "0.1",
+    );
   });
 });
-
 
 
 

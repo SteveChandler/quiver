@@ -289,7 +289,8 @@ npx playwright test --grep auth   # E2E tests matching "auth"
 
 **Web Application:**
 
-- Automatic Preview deployment to Vercel on merge to `main`
+- Automatic Preview deployment for runtime changes merged to `main`; docs- and
+  test-only commits skip the Vercel build
 - Automatic Production deployment from `prod`
 - PR branch previews are opt-in via `preview/<description>` branches
 - URL: [www.quiversurf.app](https://www.quiversurf.app)
@@ -308,7 +309,7 @@ graph LR
     PR -.->|Optional preview/** branch| Preview[Vercel Preview]
     PR -->|Tests Pass| Review[Code Review]
     Review -->|Approved| Main[Merge to Main]
-    Main -->|Auto Deploy| DevPreview[dev.quiversurf.app]
+    Main -->|Runtime changes| DevPreview[dev.quiversurf.app]
     DevPreview -->|Promote via prod| Prod[Production]
     Main -.->|Manual| Mobile[Mobile Build]
     Mobile -.->|Submit| Stores[App Stores]

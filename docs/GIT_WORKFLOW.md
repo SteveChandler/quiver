@@ -33,6 +33,8 @@ Vercel automatic Git deployments are intentionally limited in `vercel.json`:
 - `prod` deploys to Production
 - `preview/**` branches deploy when a PR explicitly needs a branch preview
 - Routine `feat/**`, `fix/**`, `chore/**`, and `codex/**` branches do not deploy
+- Commits limited to documentation, planning files, tests, or GitHub workflows skip
+  the Vercel build; any unrecognized path still builds by default
 
 If a PR needs its own Vercel preview, create it from a `preview/<description>`
 branch. Otherwise, rely on local verification and the `main` preview after merge.
