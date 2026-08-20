@@ -28,12 +28,15 @@ const APP_STORE_URL =
   "https://apps.apple.com/us/app/surf-forecast-quiver/id6759300320";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Best Surf Forecast App by Surf Job in 2026",
+  title: "Best Surf Forecast Apps: Free & Paid Picks for 2026",
   description:
-    "A capability-led 2026 surf forecast app comparison: Quiver, Surfline, LazySurfer, Surf-Forecast.com, Surf Captain, Windy, and NDBC.",
+    "Compare the best paid and free surf forecast apps for 2026, including Quiver, Surfline, Windy, and more, with clear free-tier limits.",
   path: PAGE_PATH,
   keywords: [
     "best surf forecast app",
+    "best free surf forecast app",
+    "free surf forecast app",
+    "best free surf report app",
     "best surf report app 2026",
     "surf forecast app comparison",
     "surfline alternative",
@@ -47,16 +50,32 @@ interface AppComparisonRow {
   job: string;
   bestPick: string;
   why: string;
+  freeTier: string;
   tradeoff: string;
   sourceHref: string;
 }
+
+const FREE_FAQ_ITEMS = [
+  {
+    question: "What is the best free surf forecast app?",
+    answer:
+      "For iPhone surfers who want forecasts, conditions, tides, session logging, and a small alert setup without paying, Quiver is our pick. Surfline is the better fit when live cams and expert reports matter most, while Windy and NDBC are better for reading raw maps or buoy observations.",
+  },
+  {
+    question: "Can I use Quiver without paying?",
+    answer:
+      "Yes. Quiver's free tier includes forecasts, conditions, and tides for 280+ breaks; session logging with a free account; and one watched beach with up to three alert rules. The personal match score, ranked session windows, and personal alerts require Quiver Pro.",
+  },
+] as const;
 
 const COMPARISON_ROWS: AppComparisonRow[] = [
   {
     job: "Personal daily call and session-learning loop",
     bestPick: "Quiver",
     why:
-      "Quiver turns forecast data into a beach-level call, then uses logged sessions, board context, alerts, and similarity signals to make the next call more personal.",
+      "Quiver Pro turns forecast data into a beach-level call, then uses logged sessions, board context, alerts, and similarity signals to make the next call more personal.",
+    freeTier:
+      "Free: forecasts, conditions, and tides for 280+ breaks; session logging with a free account; one watched beach with up to three alert rules. Pro only: personal match score, ranked session windows, and personal alerts.",
     tradeoff:
       "iPhone-first today; not the best pick if your main need is a huge live-cam network.",
     sourceHref: APP_STORE_URL,
@@ -66,6 +85,8 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     bestPick: "Surfline",
     why:
       "Surfline remains the strongest pick for live cams, expert reports, 16-day forecasts, and global coverage.",
+    freeTier:
+      "Free tier; Premium $119.99/yr; Premium+ $149.99/yr; App Store 4.7 stars from about 30K ratings (checked on 2026-06-24).",
     tradeoff:
       "The strongest cam and premium features sit behind paid plans, and the product is less centered on your personal session history.",
     sourceHref: "https://www.surfline.com/upgrade",
@@ -75,6 +96,8 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     bestPick: "LazySurfer",
     why:
       "LazySurfer is the closest session-driven personalization competitor and publicly compares itself around per-user prediction and ratings history.",
+    freeTier:
+      "Paid personalized session-driven forecasting; no price captured in source notes (checked on 2026-06-24).",
     tradeoff:
       "Its own comparison positions Quiver as cheaper annually, while LazySurfer has broader platform availability.",
     sourceHref: "https://lazysurfer.app/compare/quiver.html",
@@ -84,6 +107,8 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     bestPick: "Surf-Forecast.com",
     why:
       "Surf-Forecast.com is useful when you want broad spot coverage, wave maps, tide timing, alerts, and 16-day planning.",
+    freeTier:
+      "Free web and app with hourly and 16-day forecasts noted in source check (checked on 2026-06-24).",
     tradeoff:
       "It is a broad forecast product, not a personal session-learning app.",
     sourceHref: "https://www.surf-forecast.com/pages/app-store",
@@ -93,6 +118,8 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     bestPick: "Surf Captain",
     why:
       "Surf Captain is useful when you want straightforward 5-day free forecasts or a low-cost Pro path to 16-day local forecasts for covered regions.",
+    freeTier:
+      "Free 5-day forecast with ads; Pro $19.99/yr for 16-day forecasts (checked on 2026-06-24).",
     tradeoff:
       "It is a simple forecast product, not a personal session-learning app or broad live-cam network.",
     sourceHref: "https://surfcaptain.com/faq",
@@ -102,6 +129,7 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     bestPick: "Windy",
     why:
       "Windy is strongest when you want to inspect raw wind, swell, and weather layers yourself instead of receiving a finished surf call.",
+    freeTier: "Free raw swell and wind maps (checked on 2026-06-24).",
     tradeoff:
       "You still need to translate model layers into beach-specific surf quality.",
     sourceHref: "https://windy.app/guide/mini-guide-to-surfing.html",
@@ -111,6 +139,7 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     bestPick: "NDBC",
     why:
       "NOAA NDBC is the cleanest free source for buoy observations and historical station data.",
+    freeTier: "Free NOAA buoy observations (checked on 2026-06-24).",
     tradeoff:
       "It is not a consumer surf app and does not convert observations into a local paddle-out recommendation.",
     sourceHref: "https://www.ndbc.noaa.gov/observations.shtml",
@@ -126,6 +155,48 @@ function formatVerifiedDate(lastVerified: string): string {
     timeZone: "UTC",
     year: "numeric",
   }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
+/**
+ * Quiver's SoftwareApplication markup lives on exactly one page so the
+ * aggregateRating + Offer requirements stay satisfied. That role moved here on
+ * 2026-08-19 when /best-free-surf-forecast-app was consolidated into this page.
+ * Do not duplicate this block onto other landing pages — see
+ * __tests__/app/ahrefs-structured-data-regressions.test.ts.
+ */
+function SoftwareApplicationStructuredData(): ReactElement {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Quiver Surf App",
+    applicationCategory: "SportsApplication",
+    operatingSystem: "iOS",
+    url: APP_STORE_URL,
+    description:
+      "iPhone surf forecast app covering 280+ US, Hawaii, Puerto Rico, and Baja breaks, with free forecasts, tides, and session logging.",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: "5.0",
+      ratingCount: "4",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Quiver",
+      url: SITE_URL,
+    },
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  );
 }
 
 function ComparisonItemListStructuredData(): ReactElement {
@@ -155,6 +226,28 @@ function ComparisonItemListStructuredData(): ReactElement {
   );
 }
 
+function FreeIntentFaqStructuredData(): ReactElement {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FREE_FAQ_ITEMS.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  );
+}
+
 export default function BestSurfForecastAppPage(): ReactElement {
   return (
     <>
@@ -170,7 +263,9 @@ export default function BestSurfForecastAppPage(): ReactElement {
         url={PAGE_URL}
         dateModified={COMPARISON_SOURCE_REVIEW.lastVerified}
       />
+      <SoftwareApplicationStructuredData />
       <ComparisonItemListStructuredData />
+      <FreeIntentFaqStructuredData />
 
       <ZineSurface
         sectionLabel="App comparison"
@@ -241,9 +336,43 @@ export default function BestSurfForecastAppPage(): ReactElement {
             </div>
           </section>
 
+          <section
+            id="best-free-surf-forecast-app"
+            className="px-1 py-12"
+          >
+            <div className="border-2 border-[#11100D] bg-[#F8EFD8] p-6 shadow-[8px_8px_0_rgba(17,16,13,0.2)] md:p-8">
+              <p className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#9E5010]">
+                Free app answer
+              </p>
+              <h2 className="mt-2 font-heading text-4xl font-black uppercase leading-none text-[#11100D] md:text-5xl">
+                What is the best free surf forecast app?
+              </h2>
+              <div className="mt-5 grid gap-4 text-base font-semibold leading-7 text-[#252D6B] md:text-lg md:leading-8">
+                <p>
+                  For iPhone surfers who want forecast basics and session
+                  logging without paying, Quiver is our pick. The free tier
+                  includes forecasts, conditions, and tides for 280+ breaks;
+                  session logging with a free account; and one watched beach
+                  with up to three alert rules. The personal match score,
+                  ranked session windows, and personal alerts are Quiver Pro
+                  only.
+                </p>
+                <p>
+                  The best free choice changes with the job. Surfline offers a
+                  free tier, while Premium and Premium+ are paid. Surf-Forecast.com
+                  offers free web and app forecasts. Surf Captain has a free
+                  5-day forecast with ads, with 16-day forecasts in paid Pro.
+                  Windy provides free raw swell and wind maps, and NDBC provides
+                  free NOAA buoy observations. LazySurfer&apos;s session-driven
+                  personalization is paid.
+                </p>
+              </div>
+            </div>
+          </section>
+
           <section className="px-1 py-12">
             <div className="overflow-x-auto border-2 border-[#11100D] bg-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.2)]">
-              <table className="w-full min-w-[980px] border-collapse text-sm">
+              <table className="w-full min-w-[1180px] border-collapse text-sm">
                 <caption className="sr-only">
                   Capability-led comparison of surf forecast apps checked on
                   {" "}
@@ -268,6 +397,12 @@ export default function BestSurfForecastAppPage(): ReactElement {
                       className="px-4 py-4 text-left font-heading text-xs font-black uppercase tracking-[0.08em]"
                     >
                       Why
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-4 text-left font-heading text-xs font-black uppercase tracking-[0.08em] text-[#F78E42]"
+                    >
+                      Free / paid boundary
                     </th>
                     <th
                       scope="col"
@@ -305,6 +440,9 @@ export default function BestSurfForecastAppPage(): ReactElement {
                       <td className="max-w-[360px] px-4 py-4 align-top font-semibold leading-6 text-[#252D6B]">
                         {row.why}
                       </td>
+                      <td className="max-w-[360px] px-4 py-4 align-top font-semibold leading-6 text-[#252D6B]">
+                        {row.freeTier}
+                      </td>
                       <td className="max-w-[340px] px-4 py-4 align-top font-semibold leading-6 text-[#252D6B]">
                         {row.tradeoff}
                       </td>
@@ -312,6 +450,36 @@ export default function BestSurfForecastAppPage(): ReactElement {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </section>
+
+          <section className="px-1 py-8">
+            <p className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#9E5010]">
+              Free app FAQ
+            </p>
+            <h2 className="mt-2 font-heading text-4xl font-black uppercase leading-none text-[#11100D] md:text-5xl">
+              Free surf forecast app questions
+            </h2>
+            <div className="mt-5 grid gap-3">
+              {FREE_FAQ_ITEMS.map((item) => (
+                <details
+                  key={item.question}
+                  className="group border-2 border-[#11100D] bg-[#F4EBD8] shadow-[5px_5px_0_rgba(17,16,13,0.18)]"
+                >
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-heading text-lg font-black text-[#11100D]">
+                    {item.question}
+                    <span
+                      className="shrink-0 text-[#9E5010] transition-transform group-open:rotate-180"
+                      aria-hidden
+                    >
+                      ↓
+                    </span>
+                  </summary>
+                  <p className="border-t-2 border-[#11100D] px-5 py-4 font-semibold leading-7 text-[#252D6B]">
+                    {item.answer}
+                  </p>
+                </details>
+              ))}
             </div>
           </section>
 
@@ -329,7 +497,7 @@ export default function BestSurfForecastAppPage(): ReactElement {
               </h2>
               <div className="mt-6 grid gap-3">
                 <Link
-                  href="/best-free-surf-forecast-app"
+                  href="#best-free-surf-forecast-app"
                   className="inline-flex items-center gap-2 font-bold text-[#252D6B] underline-offset-4 hover:text-[#9E5010] hover:underline"
                 >
                   Compare the best free surf forecast apps
@@ -340,6 +508,20 @@ export default function BestSurfForecastAppPage(): ReactElement {
                   className="inline-flex items-center gap-2 font-bold text-[#252D6B] underline-offset-4 hover:text-[#9E5010] hover:underline"
                 >
                   See what Quiver gives you for free
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </Link>
+                <Link
+                  href="/surf-session-log"
+                  className="inline-flex items-center gap-2 font-bold text-[#252D6B] underline-offset-4 hover:text-[#9E5010] hover:underline"
+                >
+                  See how Quiver logs surf sessions
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </Link>
+                <Link
+                  href="/personal-surf-forecast"
+                  className="inline-flex items-center gap-2 font-bold text-[#252D6B] underline-offset-4 hover:text-[#9E5010] hover:underline"
+                >
+                  See how Quiver matches forecast conditions to you
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Link>
                 <Link

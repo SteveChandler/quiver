@@ -114,7 +114,7 @@ const REPORT_STEPS: ReportStep[] = [
 
 const INTERNAL_LINKS: ReportLink[] = [
   {
-    href: "/best-free-surf-forecast-app",
+    href: "/best-surf-forecast-app#best-free-surf-forecast-app",
     title: "Best free surf forecast app",
     description:
       "Compare Quiver, Surfline, Surf-Forecast.com, Surf Captain, LazySurfer, Windy, and NDBC.",

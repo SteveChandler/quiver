@@ -5,7 +5,6 @@ const NON_APP_LANDING_PAGES = [
   "app/for-businesses/page.tsx",
   "app/for-surf-schools/page.tsx",
   "app/free-surf-reports/page.tsx",
-  "app/best-surf-forecast-app/page.tsx",
   "app/vs/surfline/page.tsx",
   "app/vs/surfline/free/page-content.tsx",
 ];
@@ -23,7 +22,7 @@ describe("Ahrefs structured-data regressions", () => {
 
   it("keeps the eligible app page rating and an explicit offer price", () => {
     const source = readFileSync(
-      join(process.cwd(), "app/best-free-surf-forecast-app/page.tsx"),
+      join(process.cwd(), "app/best-surf-forecast-app/page.tsx"),
       "utf8",
     );
 
