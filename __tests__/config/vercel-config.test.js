@@ -23,6 +23,10 @@ describe("vercel.json", () => {
   it("skips docs-only commits but builds runtime changes", () => {
     const configPath = path.join(process.cwd(), "vercel.json");
     const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    const vercelIgnore = fs.readFileSync(
+      path.join(process.cwd(), ".vercelignore"),
+      "utf8",
+    );
     const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), "vercel-ignore-"));
     const git = (...args) =>
       execFileSync("git", args, { cwd: repoPath, stdio: "ignore" });
@@ -32,6 +36,8 @@ describe("vercel.json", () => {
         env: { ...process.env, ...env },
         shell: true,
       }).status;
+
+    expect(vercelIgnore).not.toMatch(/^\/\.git\/$/m);
 
     try {
       git("init");
