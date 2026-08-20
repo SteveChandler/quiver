@@ -116,6 +116,19 @@ export default tseslint.config(
           message:
             "WCAG AA contrast failure: full-opacity orange with text-white is 2.36:1. Use bg-ocean-blue with text-white (5.82:1) or keep orange with text-[#11100D] (8.07:1).",
         },
+        // SWC drops the LEADING whitespace of a JSX text node that contains an
+        // HTML entity and a newline; Babel keeps it. When that whitespace is
+        // significant — a space touching a sibling on the same line — it
+        // vanishes from the build only, so the source reads correctly while the
+        // page renders "Southern Californiacam". Trailing whitespace is safe.
+        // To confirm a suspected site, compile the file with the repo's own SWC
+        // (next/dist/build/swc) and read the emitted string literals.
+        {
+          selector:
+            "JSXText[value=/^[ \\t]+[\\s\\S]*\\n/][raw=/&(#x?[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/]",
+          message:
+            "SWC drops this leading space: the text node holds an HTML entity and a newline. Use the literal character (— – → · “ ” are all allowed) or move the space into {\" \"}.",
+        },
       ],
     },
   },

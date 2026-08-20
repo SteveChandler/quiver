@@ -197,9 +197,10 @@ export default function DataDeletionPage() {
               encrypted backups for up to 30 days, after which it is permanently overwritten.
             </p>
             <p>
-              <strong className="text-[#11100D]">Reversal:</strong> account deletion is
-              permanent. We do not maintain a recovery window. If you&apos;d like to take a break
-              instead, you can sign out and your data will remain unchanged.
+              <strong className="text-[#11100D]">Reversal:</strong>{" "}
+              account deletion is permanent. We do not maintain a recovery window.
+              If you&apos;d like to take a break instead, you can sign out and your
+              data will remain unchanged.
             </p>
           </div>
         </section>

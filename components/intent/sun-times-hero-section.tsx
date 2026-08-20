@@ -183,7 +183,7 @@ export function SunTimesHeroSection({ data, mode }: SunTimesHeroSectionProps) {
 
           {/* Attribution */}
           <p className="text-xs text-gray-500">
-            Data from {data.beachName} &middot; Updated daily
+            Data from {data.beachName} · Updated daily
           </p>
         </CardContent>
       </Card>

@@ -158,8 +158,8 @@ export default function DawnPatrolPage() {
               <p>
                 This calculator shows first light, sunrise, sunset, and golden
                 hour times for any of our monitored beaches, plus the{" "}
-                <strong className="text-white">tide state at dawn</strong> so
-                you know whether conditions will be rising or falling when you
+                <strong className="text-white">tide state at dawn</strong>{" "}
+                so you know whether conditions will be rising or falling when you
                 hit the water. Data comes from astronomical calculations
                 adjusted for your beach&#39;s exact coordinates and timezone.
               </p>

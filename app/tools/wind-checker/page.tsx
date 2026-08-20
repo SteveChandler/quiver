@@ -136,19 +136,19 @@ export default async function WindCheckerPage({ searchParams }: Props) {
             <div className="space-y-3 text-sm text-[#B8C7E0] leading-relaxed">
               <p>
                 <strong className="text-white">Offshore wind</strong> blows from
-                land toward the ocean &mdash; it grooms incoming waves into
-                clean, well-defined lines. A light offshore at 5&ndash;15 mph is
+                land toward the ocean — it grooms incoming waves into clean,
+                well-defined lines. A light offshore at 5–15 mph is
                 ideal. Above 20 mph it hollows waves but makes paddling out
                 difficult.
               </p>
               <p>
                 <strong className="text-white">Onshore wind</strong> blows from
-                ocean toward land &mdash; it chops up the wave surface. The
+                ocean toward land — it chops up the wave surface. The
                 stronger the onshore, the messier the conditions.
               </p>
               <p>
                 <strong className="text-white">Cross-shore wind</strong> runs
-                parallel to the beach &mdash; it creates some chop on one side
+                parallel to the beach — it creates some chop on one side
                 but is usually more rideable than onshore. Wind data is sourced
                 from the{" "}
                 <strong className="text-white">
