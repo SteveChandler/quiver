@@ -234,6 +234,7 @@ function cleanOpenverseThumbUrl(url: string): string {
  * URLs that should NOT be proxied:
  * - Relative URLs (e.g., '/images/logo.png')
  * - Supabase storage URLs
+ * - Cam-thumbnail hosts already served directly by next/image remotePatterns
  * - URLs from the app's own domain
  * - null, undefined, or empty strings
  *
@@ -243,6 +244,18 @@ function cleanOpenverseThumbUrl(url: string): string {
  * @param url - The image URL to check
  * @returns true if the URL should be proxied, false otherwise
  */
+/**
+ * External hosts whitelisted in next.config.mjs images.remotePatterns whose
+ * URLs must stay un-proxied — /api/image-proxy's allowlist rejects them.
+ */
+const DIRECT_REMOTE_IMAGE_HOSTS = new Set([
+  "storage.hdontap.com",
+  "img.youtube.com",
+  "camstills.cdn-surfline.com",
+  "ccn-media.coastalcameranetwork.com",
+  "cdn.target-video.com",
+]);
+
 function shouldProxyUrl(url: string | null | undefined): boolean {
   // Handle null, undefined, or empty strings
   if (!url || url.trim() === '') {
@@ -265,6 +278,16 @@ function shouldProxyUrl(url: string | null | undefined): boolean {
 
   // Don't proxy Supabase storage URLs (use centralized check)
   if (isSupabaseStorageUrl(url)) {
+    return false;
+  }
+
+  // Don't proxy cam-thumbnail hosts: next/image remotePatterns serves them
+  // directly, and the proxy's photo-source allowlist rejects them with 403.
+  try {
+    if (DIRECT_REMOTE_IMAGE_HOSTS.has(new URL(url).hostname)) {
+      return false;
+    }
+  } catch {
     return false;
   }
 

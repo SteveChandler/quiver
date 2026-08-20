@@ -11,8 +11,9 @@ import {
 describe("lib/constants/content invariants", () => {
   test("ABOUT_CONTENT has required structure and non-empty strings", () => {
     // Hero
-    expect(typeof ABOUT_CONTENT.hero.title).toBe("string");
-    expect(ABOUT_CONTENT.hero.title.length).toBeGreaterThan(0);
+    expect(ABOUT_CONTENT.hero.title).toBe(
+      "I built Quiver because I was tired of forecasts being wrong.",
+    );
     expect(typeof ABOUT_CONTENT.hero.subtitle).toBe("string");
     expect(ABOUT_CONTENT.hero.subtitle.length).toBeGreaterThan(0);
 
@@ -87,5 +88,4 @@ describe("lib/constants/content invariants", () => {
     expect(FEATURES_EXTENDED_CONTENT.hero.subtitle.length).toBeGreaterThan(0);
   });
 });
-
 

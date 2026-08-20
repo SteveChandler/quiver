@@ -381,6 +381,7 @@ function buildRecommendation(
     startIso,
     endIso,
     peakIso,
+    timezone: window.timezone,
     forecastAt: row.forecast_at,
     localTimeLabel,
     score,

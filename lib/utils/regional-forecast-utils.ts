@@ -8,6 +8,8 @@
  * @module lib/utils/regional-forecast-utils
  */
 
+import { formatInTimeZone } from "date-fns-tz";
+
 import type { ForecastRegion } from "@/lib/data/forecast-regions";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -16,6 +18,46 @@ import type { RecommendationAvailability } from "@/lib/recommendations/major-eve
 import { getWaveSizeDescription } from "@/lib/utils/wave-formatters";
 import { classifyWindDirection } from "@/lib/utils/wind-classification";
 import { scoreNativeForecastDay } from "@/lib/scoring/native-condition-score";
+import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
+
+/**
+ * Weekday for a calendar date. The date is pinned to UTC noon and read back in
+ * UTC so the label can never drift onto a neighbouring day on a server whose
+ * zone is behind UTC — the same convention the day cards use for the date they
+ * print beside this weekday.
+ */
+function weekdayForDate(dateString: string): string {
+  return new Date(`${dateString}T12:00:00Z`).toLocaleDateString("en-US", {
+    weekday: "long",
+    timeZone: "UTC",
+  });
+}
+
+/**
+ * The timezone shared by most of a region's beaches.
+ *
+ * Taken by majority rather than from the first row because a handful of beaches
+ * carry a wrong stamp — Galveston, Corpus Christi and Long Island are all
+ * recorded as America/Los_Angeles — and one of those must not decide the
+ * calendar for an entire region.
+ */
+function resolveRegionTimezone(beaches: Beach[]): string {
+  const counts = new Map<string, number>();
+  for (const beach of beaches) {
+    if (!beach.timezone) continue;
+    counts.set(beach.timezone, (counts.get(beach.timezone) ?? 0) + 1);
+  }
+
+  let resolved = DEFAULT_TIMEZONE;
+  let highest = 0;
+  for (const [timezone, count] of counts) {
+    if (count > highest) {
+      resolved = timezone;
+      highest = count;
+    }
+  }
+  return resolved;
+}
 
 interface ForecastInterval {
   windowStart: string;
@@ -424,19 +466,35 @@ export function detectSwellEvents(
 export function aggregateRegionalForecast(
   region: ForecastRegion,
   beaches: Beach[],
-  forecastMap: Map<string, EnhancedForecastEntity[]>
+  forecastMap: Map<string, EnhancedForecastEntity[]>,
+  options: { now?: Date } = {}
 ): RegionalForecastSummary {
-  const generatedAt = new Date();
+  // Same reference instant the window selector uses, so "now" means the same
+  // thing in the ranking score and in the surf window beside it.
+  const referenceNow = options.now ?? new Date();
+  const referenceMs = referenceNow.getTime();
+  const generatedAt = referenceNow;
   const days: DaySummary[] = [];
+
+  // One timezone for the whole region, so the day a row is filed under, the day
+  // that counts as "today", and the weekday printed on the card all describe the
+  // same calendar day. Bucketing on the UTC date part instead filed a Pacific
+  // evening under tomorrow.
+  const regionTimezone = resolveRegionTimezone(beaches);
 
   // Group forecasts by date
   const dateMap = new Map<string, Map<string, EnhancedForecastEntity[]>>();
 
   for (const [beachId, forecasts] of forecastMap.entries()) {
     for (const forecast of forecasts) {
-      // Prefer forecast_at (extract date part), fallback to forecast_date
+      // Prefer forecast_at (resolved to the region's calendar day), fallback to
+      // forecast_date, which is already a bare local date.
       const date = forecast.forecast_at
-        ? forecast.forecast_at.split('T')[0]
+        ? formatInTimeZone(
+            new Date(forecast.forecast_at),
+            regionTimezone,
+            "yyyy-MM-dd",
+          )
         : forecast.forecast_date;
       if (!dateMap.has(date)) {
         dateMap.set(date, new Map());
@@ -448,11 +506,10 @@ export function aggregateRegionalForecast(
     }
   }
 
-  // Filter to today and future dates, then take first 7 days.
-  // Use HST offset (-10h) as the earliest US timezone so we never
-  // prematurely filter out "today" for any US-based user.
-  const nowWithOffset = new Date(Date.now() - 10 * 60 * 60 * 1000);
-  const today = nowWithOffset.toISOString().split("T")[0]; // YYYY-MM-DD
+  // Filter to today and future dates, then take first 7 days. "Today" is the
+  // region's calendar day; the previous -10h HST fudge existed only because
+  // this comparison was made against a UTC date.
+  const today = formatInTimeZone(referenceNow, regionTimezone, "yyyy-MM-dd");
   const sortedDates = Array.from(dateMap.keys())
     .filter((date) => date >= today)
     .sort()
@@ -572,7 +629,7 @@ export function aggregateRegionalForecast(
     days.push({
       date,
       dateString,
-      dayOfWeek: date.toLocaleDateString("en-US", { weekday: "long" }),
+      dayOfWeek: weekdayForDate(dateString),
       score: dayScore,
       avgWaveHeight,
       waveRange,
@@ -610,20 +667,34 @@ export function aggregateRegionalForecast(
     const forecasts = forecastMap.get(beach.id);
     if (!forecasts || forecasts.length === 0) continue;
 
-    // Current score (first forecast)
-    const currentForecasts = forecasts
-      .filter((forecast) => forecast.forecast_at?.split("T")[0] === sortedDates[0])
+    // Current score: the next few hours from the reference instant, NOT the
+    // day's first rows. Scoring dawn rows in the afternoon reported a stale
+    // "EPIC" for conditions that had already passed, contradicting the
+    // future-only surf window rendered beside it.
+    const chronological = forecasts
+      .filter((forecast) => Boolean(forecast.forecast_at))
       .sort(
         (left, right) =>
           Date.parse(left.forecast_at) - Date.parse(right.forecast_at),
-      )
-      .slice(0, 3);
+      );
+    const upcoming = chronological.filter(
+      (forecast) => Date.parse(forecast.forecast_at) >= referenceMs,
+    );
+    // Once a beach's horizon is exhausted, fall back to its most recent rows
+    // so it still ranks rather than dropping out of the region entirely.
+    const currentForecasts = (
+      upcoming.length > 0 ? upcoming : chronological.slice(-3)
+    ).slice(0, 3);
     const currentInterval = resolveForecastInterval(currentForecasts);
     const currentScore = calculateDayScore(currentForecasts, beach);
     const currentWaveHeight = parseFloat(currentForecasts[0]?.wave_height || "0");
 
-    // Calculate trend
-    const next24hForecasts = forecasts.slice(0, 8); // Next 24 hours (3hr intervals)
+    // Trend over the next 24h, taken from the same now-anchored chronological
+    // series as currentScore — comparing it against raw insertion order made
+    // "improving"/"declining" a comparison between two different baselines.
+    const next24hForecasts = (
+      upcoming.length > 0 ? upcoming : chronological
+    ).slice(0, 8);
     const scores = next24hForecasts.map((f) => calculateDayScore([f], beach));
     const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
     const trend: "improving" | "steady" | "declining" =
@@ -638,8 +709,7 @@ export function aggregateRegionalForecast(
         const dayScore = calculateDayScore(beachForecasts, beach);
         if (dayScore > bestDayScore) {
           bestDayScore = dayScore;
-          const date = new Date(dateString + "T00:00:00Z");
-          bestDayName = date.toLocaleDateString("en-US", { weekday: "long" });
+          bestDayName = weekdayForDate(dateString);
         }
       }
     }

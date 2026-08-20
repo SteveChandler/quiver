@@ -9,9 +9,9 @@ import { AboutCtaButtons } from "./about-cta-buttons";
 export const revalidate = 3600;
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "About Quiver — Why I Built This",
+  title: "I built Quiver because I was tired of forecasts being wrong.",
   description:
-    "Why Quiver exists: live buoy, wind, tide, and beach context in one surf forecast app, built so surfers can make the call without checking five apps.",
+    "I built Quiver because I was tired of forecasts being wrong. See why Quiver puts live buoy, wind, tide, and beach context in one surf forecast app.",
   path: "/about",
   keywords: [
     "about Quiver",
@@ -38,7 +38,7 @@ export default function AboutPage() {
             <p className="label-black mb-5">From the founder</p>
           </ScrollReveal>
           <ScrollReveal delay={80}>
-            <h1 className="zine-h1 font-black uppercase leading-[0.9] tracking-normal text-[#11100D]">
+            <h1 className="zine-h1 max-w-5xl break-words font-black uppercase leading-[0.9] tracking-normal text-[#11100D] [text-wrap:balance]">
               {hero.title}
             </h1>
           </ScrollReveal>

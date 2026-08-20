@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { createMockBeach } from "@/__tests__/setup/typed-mocks";
 import { ZineHero } from "@/components/beach-detail/zine/zine-hero";
+import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
 
 describe("ZineHero heading level", () => {
@@ -26,6 +27,48 @@ describe("ZineHero heading level", () => {
     expect(
       screen.queryByRole("heading", { level: 1, name: "Seaside Reef" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("integrates the water-temperature guide into the beach identity hero", () => {
+    const beach = createMockBeach({
+      name: "Ocean Beach",
+      city: "San Diego",
+      state: "CA",
+    });
+
+    render(
+      <ZineHero
+        beach={beach}
+        headingSuffix="Water Temp & Wetsuit Guide"
+        summarySlot={
+          <WaterTempSummaryHero
+            beachName={beach.name}
+            seasonalTrendsHref="/water-temp/san-diego#seasonal-trends"
+            seasonalTrendsLocation="San Diego"
+            waterTempData={{ tempF: 67, wetsuitRec: "3/2mm fullsuit" }}
+          />
+        }
+      />,
+    );
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Ocean Beach Water Temp & Wetsuit Guide",
+      }),
+    ).toBeInTheDocument();
+
+    const summary = screen.getByLabelText(
+      "Current water temperature at Ocean Beach",
+    );
+    expect(summary).toHaveTextContent("67°F");
+    expect(summary).toHaveTextContent("19°C");
+    expect(summary).toHaveTextContent("Mild");
+    expect(summary).toHaveTextContent("3/2mm fullsuit");
+    expect(
+      screen.getByRole("link", { name: /seasonal water trends for san diego/i }),
+    ).toHaveAttribute("href", "/water-temp/san-diego#seasonal-trends");
   });
 
   it("uses the beach coordinates to render a real static location map", () => {

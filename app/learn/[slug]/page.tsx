@@ -132,7 +132,7 @@ export default async function LearnArticlePage({ params }: Props) {
             <span className="text-[#11100D]">{article.title}</span>
           </nav>
 
-          <header className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+          <header className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-stretch">
             <ScrollReveal>
               <div className="relative">
                 <QuiverSticker
@@ -157,8 +157,8 @@ export default async function LearnArticlePage({ params }: Props) {
               </div>
             </ScrollReveal>
 
-            <ScrollReveal delay={80}>
-              <div className="polaroid rot-2">
+            <ScrollReveal delay={80} className="lg:h-full">
+              <div className="polaroid polaroid-fill rot-2">
                 <div className="photo">
                   <Image
                     src={article.heroImage}

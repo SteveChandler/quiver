@@ -20,7 +20,7 @@
  * @module components/forecast/swell-arc
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 export interface SwellArcPoint {
   dayOfWeek: string;
@@ -32,6 +32,7 @@ export interface SwellArcPoint {
 interface SwellArcProps {
   points: SwellArcPoint[];
   peakIndex: number;
+  variant?: "default" | "zine";
 }
 
 const VIEWBOX_WIDTH = 1000;
@@ -84,7 +85,7 @@ function smoothPath(pts: PlottedPoint[]): string {
     const cp2x = p2.x - (p3.x - p1.x) / 6;
     const cp2y = p2.y - (p3.y - p1.y) / 6;
     path.push(
-      `C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`
+      `C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`,
     );
   }
   return path.join(" ");
@@ -96,12 +97,20 @@ function areaPath(pts: PlottedPoint[]): string {
   return `${top} L ${pts[pts.length - 1].x.toFixed(2)} ${VIEWBOX_HEIGHT - PADDING_Y_BOTTOM} L ${pts[0].x.toFixed(2)} ${VIEWBOX_HEIGHT - PADDING_Y_BOTTOM} Z`;
 }
 
-export function SwellArc({ points, peakIndex }: SwellArcProps) {
+export function SwellArc({
+  points,
+  peakIndex,
+  variant = "default",
+}: SwellArcProps) {
   const [activeIndex, setActiveIndex] = useState<number>(peakIndex);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [isStuck, setIsStuck] = useState(false);
   const initializedRef = useRef(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const gradientId = useId().replace(/:/g, "");
+  const areaGradientId = `swell-arc-area-${gradientId}`;
+  const strokeGradientId = `swell-arc-stroke-${gradientId}`;
+  const isZine = variant === "zine";
 
   const scorePoints = useMemo(() => plotScore(points), [points]);
 
@@ -120,9 +129,7 @@ export function SwellArc({ points, peakIndex }: SwellArcProps) {
   useEffect(() => {
     if (points.length === 0) return;
     const rows = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '[data-testid^="outlook-day-"]'
-      )
+      document.querySelectorAll<HTMLElement>('[data-testid^="outlook-day-"]'),
     );
     if (rows.length === 0) return;
 
@@ -131,7 +138,9 @@ export function SwellArc({ points, peakIndex }: SwellArcProps) {
       (entries) => {
         for (const entry of entries) {
           const idx = Number(
-            entry.target.getAttribute("data-testid")?.replace("outlook-day-", "")
+            entry.target
+              .getAttribute("data-testid")
+              ?.replace("outlook-day-", ""),
           );
           if (!Number.isFinite(idx)) continue;
           ratios.set(idx, entry.isIntersecting ? entry.intersectionRatio : 0);
@@ -154,7 +163,7 @@ export function SwellArc({ points, peakIndex }: SwellArcProps) {
       {
         rootMargin: "-25% 0px -55% 0px",
         threshold: [0, 0.25, 0.5, 0.75, 1],
-      }
+      },
     );
     rows.forEach((row) => observer.observe(row));
     return () => observer.disconnect();
@@ -171,7 +180,7 @@ export function SwellArc({ points, peakIndex }: SwellArcProps) {
         if (!entry) return;
         setIsStuck(!entry.isIntersecting && entry.boundingClientRect.top < 0);
       },
-      { threshold: [0, 1] }
+      { threshold: [0, 1] },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
@@ -180,8 +189,10 @@ export function SwellArc({ points, peakIndex }: SwellArcProps) {
   if (scorePoints.length === 0) return null;
 
   const active =
-    scorePoints[Math.min(activeIndex, scorePoints.length - 1)] ?? scorePoints[0];
-  const peak = scorePoints[Math.min(peakIndex, scorePoints.length - 1)] ?? scorePoints[0];
+    scorePoints[Math.min(activeIndex, scorePoints.length - 1)] ??
+    scorePoints[0];
+  const peak =
+    scorePoints[Math.min(peakIndex, scorePoints.length - 1)] ?? scorePoints[0];
   const activePoint =
     points[Math.min(activeIndex, points.length - 1)] ?? points[0];
 
@@ -205,22 +216,35 @@ export function SwellArc({ points, peakIndex }: SwellArcProps) {
           // with 4-8px of breathing room. z-20 sits ABOVE the outlook list
           // but BELOW both the app-header (z-50) and the mobile
           // StickySignupBar (z-50), so collisions are impossible.
-          "sticky top-[calc(var(--site-header-height,72px))] z-20 mb-3 overflow-hidden rounded-2xl border bg-[#1a2051]/90 px-3 py-3 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.55)] backdrop-blur-sm transition-[border-color,box-shadow] duration-300",
+          "sticky top-[calc(var(--site-header-height,72px))] z-20 mb-3 overflow-hidden border px-3 py-3 transition-[border-color,box-shadow] duration-300",
+          isZine
+            ? "bg-[#F0E5CC] shadow-sm"
+            : "rounded-2xl bg-[#11100D]/90 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.55)] backdrop-blur-sm",
           isStuck
-            ? "border-[#F78E42]/50 shadow-[0_10px_36px_-14px_rgba(247,142,66,0.45)]"
-            : "border-white/10",
+            ? isZine
+              ? "border-[#11100D] shadow-md"
+              : "border-[#F78E42]/50 shadow-[0_10px_36px_-14px_rgba(247,142,66,0.45)]"
+            : isZine
+              ? "border-[#11100D]/45"
+              : "border-white/10",
         ].join(" ")}
       >
         <div className="mb-1.5 flex items-end justify-between gap-3 px-1">
           <div className="flex items-baseline gap-2">
-            <span className="font-[var(--font-heading)] text-xs font-semibold uppercase tracking-[0.18em] text-white/75">
+            <span
+              className={`font-[var(--font-heading)] text-xs font-semibold uppercase tracking-[0.18em] ${isZine ? "text-[#11100D]" : "text-white/75"}`}
+            >
               Swell arc
             </span>
-            <span className="font-mono text-[0.68rem] uppercase tracking-wide text-white/40">
+            <span
+              className={`font-mono text-[0.68rem] uppercase tracking-wide ${isZine ? "text-[#11100D]/55" : "text-white/40"}`}
+            >
               score · 7d
             </span>
           </div>
-          <span className="font-mono text-[0.72rem] uppercase tracking-wide text-[#F78E42]/90">
+          <span
+            className={`font-mono text-[0.72rem] font-bold uppercase tracking-wide ${isZine ? "text-[#713F12]" : "text-[#F78E42]/90"}`}
+          >
             {activePoint?.dayOfWeek?.slice(0, 3) ?? ""}
             {" · "}
             {activePoint?.score ?? 0}/100
@@ -237,13 +261,13 @@ export function SwellArc({ points, peakIndex }: SwellArcProps) {
           className="block h-[112px] w-full"
         >
           <defs>
-            <linearGradient id="swell-arc-area" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={areaGradientId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#F78E42" stopOpacity="0.32" />
               <stop offset="100%" stopColor="#F78E42" stopOpacity="0" />
             </linearGradient>
-            <linearGradient id="swell-arc-stroke" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#7fb0ff" />
-              <stop offset="55%" stopColor="#c7a3ff" />
+            <linearGradient id={strokeGradientId} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={isZine ? "#0B3A75" : "#7fb0ff"} />
+              <stop offset="55%" stopColor={isZine ? "#11100D" : "#c7a3ff"} />
               <stop offset="100%" stopColor="#F78E42" />
             </linearGradient>
           </defs>
@@ -254,7 +278,7 @@ export function SwellArc({ points, peakIndex }: SwellArcProps) {
             y1={VIEWBOX_HEIGHT - PADDING_Y_BOTTOM}
             x2={VIEWBOX_WIDTH - PADDING_X}
             y2={VIEWBOX_HEIGHT - PADDING_Y_BOTTOM}
-            stroke="rgba(255,255,255,0.15)"
+            stroke={isZine ? "rgba(17,16,13,0.28)" : "rgba(255,255,255,0.15)"}
             strokeWidth={1}
             strokeDasharray="2 4"
           />
@@ -262,7 +286,7 @@ export function SwellArc({ points, peakIndex }: SwellArcProps) {
           {/* Filled area under the score curve */}
           <path
             d={areaPath(scorePoints)}
-            fill="url(#swell-arc-area)"
+            fill={`url(#${areaGradientId})`}
             style={{
               animation: reduceMotion
                 ? "none"
@@ -274,7 +298,7 @@ export function SwellArc({ points, peakIndex }: SwellArcProps) {
           <path
             d={smoothPath(scorePoints)}
             fill="none"
-            stroke="url(#swell-arc-stroke)"
+            stroke={`url(#${strokeGradientId})`}
             strokeWidth={2.5}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -294,8 +318,16 @@ export function SwellArc({ points, peakIndex }: SwellArcProps) {
               cx={p.x}
               cy={p.y}
               r={i === activeIndex ? 5.5 : 3}
-              fill={i === activeIndex ? "#F78E42" : "rgba(255,255,255,0.65)"}
-              stroke={i === activeIndex ? "#fff" : "none"}
+              fill={
+                i === activeIndex
+                  ? "#F78E42"
+                  : isZine
+                    ? "rgba(17,16,13,0.68)"
+                    : "rgba(255,255,255,0.65)"
+              }
+              stroke={
+                i === activeIndex ? (isZine ? "#11100D" : "#fff") : "none"
+              }
               strokeWidth={i === activeIndex ? 1.5 : 0}
               style={{
                 transition: reduceMotion
@@ -322,7 +354,7 @@ export function SwellArc({ points, peakIndex }: SwellArcProps) {
             y={Math.max(12, active.y - 10)}
             textAnchor="middle"
             className="font-mono"
-            fill="rgba(255,255,255,0.85)"
+            fill={isZine ? "rgba(17,16,13,0.88)" : "rgba(255,255,255,0.85)"}
             fontSize="11"
             style={{
               transition: reduceMotion ? "none" : "x 260ms ease, y 260ms ease",

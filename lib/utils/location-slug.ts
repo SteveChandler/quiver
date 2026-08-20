@@ -152,7 +152,7 @@ export function normalizeCountry(country: string | null | undefined): string {
     return "USA";
   }
 
-  if (normalized === "MX" || normalized === "MEXICO") {
+  if (normalized === "MX" || normalized === "MEX" || normalized === "MEXICO") {
     return "Mexico";
   }
 

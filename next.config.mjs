@@ -361,6 +361,23 @@ const nextConfig = {
         permanent: true,
       },
       {
+        // Consolidated 2026-08-19: near-duplicate of /learn/best-time-of-day-to-surf
+        // (same thermal-wind topic, same section structure). The surviving page was
+        // the indexed one; this page's unique material was merged into it.
+        source: "/learn/why-waves-better-in-morning",
+        destination: "/learn/best-time-of-day-to-surf",
+        permanent: true,
+      },
+      {
+        // Consolidated 2026-08-19: this page and /best-surf-forecast-app were
+        // cannibalizing each other in search. /best-surf-forecast-app already
+        // outranked this page for its own target query, so it survives and
+        // absorbed the free-tier content.
+        source: "/best-free-surf-forecast-app",
+        destination: "/best-surf-forecast-app",
+        permanent: true,
+      },
+      {
         source: "/surfline-alternative",
         destination: "/vs/surfline",
         permanent: true,

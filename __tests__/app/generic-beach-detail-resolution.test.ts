@@ -418,7 +418,8 @@ describe("GenericBeachDetailPage slug resolution", () => {
         }),
       ],
     });
-    (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(freshForecastResult());
+    const forecastResult = freshForecastResult();
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(forecastResult);
 
     const page = await GenericBeachDetailPage({
       params: Promise.resolve({
@@ -434,8 +435,12 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(getHeadingTexts(html, 2)).toContain("Del Mar Hourly Surf Forecast");
     expect(html).toContain('data-testid="public-forecast-hourly"');
     expect((html.match(/data-testid="public-forecast-hour"/g) ?? [])).toHaveLength(3);
-    expect(html.match(/84\/100/g)).toHaveLength(1);
-    expect(html).toContain("Best window");
+    expect(html).not.toContain("84/100");
+    expect(html).not.toMatch(/>\s*(?:YES|MAYBE|NO)\s*</);
+    expect(html).not.toContain(forecastResult.report.bestWindowStart);
+    expect(html).not.toContain(forecastResult.report.bestWindowEnd);
+    expect(html).toContain("Sign in to reveal");
+    expect(html).not.toContain(">Best window</span>");
     expect(html).toContain("17s SW");
     expect(html).toContain("3.2 ft · Rising");
     expect(html).toContain("92%");

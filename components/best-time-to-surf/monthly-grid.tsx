@@ -120,7 +120,12 @@ export function MonthlyGrid({
                     </span>
                   )}
                 </div>
-                <AnimatedScoreGauge score={entry.score} size="sm" />
+                {/* Seasonal average, not a live call — no "Go now!" (#569) */}
+                <AnimatedScoreGauge
+                  score={entry.score}
+                  size="sm"
+                  showAction={false}
+                />
               </div>
 
               <div className="space-y-2 text-xs text-gray-600">

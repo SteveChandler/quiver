@@ -1,18 +1,20 @@
+"use client";
+
 import type {
   PublicForecastDay,
   PublicForecastHour,
 } from "@/lib/services/spot-surf-report-service";
-import type { ForecastRecommendationContext } from "@/lib/services/forecast-recommendation-context";
-import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { formatTimeInTimezone } from "@/lib/utils/date-time";
+import { useAuthenticatedForecastDecision } from "@/components/beach-detail/authenticated-forecast-decision";
+import { ForecastDecisionLoginLink } from "@/components/beach-detail/forecast-decision-login-link";
+import type { PublicForecastContextFacts } from "@/lib/utils/public-forecast-facts";
 
 interface PublicForecastHourlyProps {
   beachName: string;
   forecastHours: PublicForecastHour[];
-  report: SurfCallResult | null;
-  context: ForecastRecommendationContext | null;
-  isTomorrow: boolean;
+  context: PublicForecastContextFacts | null;
   forecastDay: PublicForecastDay;
+  returnTo: string;
 }
 
 function join(parts: (string | null | undefined)[], separator = " "): string {
@@ -36,15 +38,11 @@ function swellLabel(hour: PublicForecastHour): string {
 
 function isWithinCallWindow(
   forecastAt: string,
-  report: SurfCallResult | null,
-  context: ForecastRecommendationContext | null,
+  start: string,
+  end: string,
 ): boolean {
-  const startMs = Date.parse(
-    context?.displayWindowStart ?? report?.bestWindowStart ?? "",
-  );
-  const endMs = Date.parse(
-    context?.displayWindowEnd ?? report?.bestWindowEnd ?? "",
-  );
+  const startMs = Date.parse(start);
+  const endMs = Date.parse(end);
   if (Number.isNaN(startMs) || Number.isNaN(endMs)) return false;
 
   const forecastMs = Date.parse(forecastAt);
@@ -54,11 +52,11 @@ function isWithinCallWindow(
 export function PublicForecastHourly({
   beachName,
   forecastHours,
-  report,
   context,
-  isTomorrow,
   forecastDay,
+  returnTo,
 }: PublicForecastHourlyProps) {
+  const authenticatedDecision = useAuthenticatedForecastDecision();
   if (forecastHours.length === 0) return null;
 
   const timezone = context?.timezone ?? "UTC";
@@ -98,6 +96,13 @@ export function PublicForecastHourly({
                   className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#0B3A75]"
                 >
                   {label}
+                  {label === "Quiver call" &&
+                  !authenticatedDecision.report &&
+                  !authenticatedDecision.isAuthenticated ? (
+                    <span className="mt-1 block normal-case tracking-normal">
+                      <ForecastDecisionLoginLink returnTo={returnTo} compact />
+                    </span>
+                  ) : null}
                 </th>
               ))}
             </tr>
@@ -105,8 +110,18 @@ export function PublicForecastHourly({
           <tbody>
             {forecastHours.map((hour) => {
               const inCallWindow =
-                forecastDay === (isTomorrow ? "tomorrow" : "today") &&
-                isWithinCallWindow(hour.forecast_at, report, context);
+                Boolean(authenticatedDecision.report) &&
+                forecastDay ===
+                  (authenticatedDecision.isTomorrow ? "tomorrow" : "today") &&
+                isWithinCallWindow(
+                  hour.forecast_at,
+                  authenticatedDecision.context?.displayWindowStart ??
+                    authenticatedDecision.report?.bestWindowStart ??
+                    "",
+                  authenticatedDecision.context?.displayWindowEnd ??
+                    authenticatedDecision.report?.bestWindowEnd ??
+                    "",
+                );
 
               return (
                 <tr

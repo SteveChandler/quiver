@@ -12,12 +12,9 @@ import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-sche
 import Link from "next/link";
 
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
-import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
 import { BeachSubPageCtaSwitch } from "@/components/app-store/beach-subpage-cta-switch";
-import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import { TideSummaryHero } from "@/components/beach-detail/tide-summary-hero";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
-import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import type { Beach } from "@/types/database";
 import type { Metadata } from "next";
@@ -155,32 +152,16 @@ export async function renderBeachSubPage({
   const subPagePath = `${beachPath}/${pageType}`;
   const installCtaEnabled = isBeachSubPageInstallCtaEnabled();
 
-  // Fetch dataset schema data in parallel with nearby beaches — uses React cache()
-  // so no extra DB queries when generateBeachSubPageMetadata already called these.
-  const [nearbyBeachesRaw, tideMeta, waterTempMeta] = await Promise.all([
-    (async (): Promise<Beach[]> => {
-      try {
-        if (beach.lat && beach.lon) {
-          const result = await getNearbyBeaches(beach.lat, beach.lon, 25);
-          if (result?.success && result.data) {
-            return result.data
-              .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
-              .slice(0, 4);
-          }
-        }
-      } catch {
-        // Gracefully degrade — nearby beaches are not critical
-      }
-      return [];
-    })(),
+  // Fetch dataset schema data — uses React cache() so no extra DB queries when
+  // generateBeachSubPageMetadata already called these.
+  const [tideMeta, waterTempMeta] = await Promise.all([
     pageType === "tides" ? getTideMetaData(beach.id) : Promise.resolve(null),
     pageType === "water-temp" ? getWaterTempMetaData(beach.id) : Promise.resolve(null),
   ]);
 
-  const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
   const hasTideHero = pageType === "tides" &&
     Boolean(tideMeta?.nextHighTime || tideMeta?.nextLowTime);
-  const hasWaterTempHero = pageType === "water-temp" &&
+  const hasWaterTempSummary = pageType === "water-temp" &&
     waterTempMeta?.tempF != null;
   // One real figure from data this render already has (React-cached, no extra
   // queries). A number the visitor can check beats a list of claims - but only
@@ -264,13 +245,7 @@ export async function renderBeachSubPage({
       {hasTideHero && tideMeta && (
         <TideSummaryHero beachName={beach.name} tideData={tideMeta} />
       )}
-      {hasWaterTempHero && waterTempMeta && (
-        <WaterTempSummaryHero
-          beachName={beach.name}
-          waterTempData={waterTempMeta}
-        />
-      )}
-      {!hasTideHero && !hasWaterTempHero && (
+      {!hasTideHero && !hasWaterTempSummary && (
         <BeachSubPageCrawlIntro copy={crawlCopy} />
       )}
 
@@ -280,16 +255,27 @@ export async function renderBeachSubPage({
         beachTimezone={beachTimezone}
         defaultTab={config.defaultTab}
         defaultSubTab={config.defaultSubTab}
-        heroHeadingLevel="h2"
+        heroHeadingLevel={hasWaterTempSummary ? "h1" : "h2"}
+        heroHeadingSuffix={
+          hasWaterTempSummary ? "Water Temp & Wetsuit Guide" : undefined
+        }
+        heroSummarySlot={
+          hasWaterTempSummary && waterTempMeta ? (
+            <WaterTempSummaryHero
+              beachName={beach.name}
+              seasonalTrendsHref={`/water-temp/${cityToSlug(beach.city)}#seasonal-trends`}
+              seasonalTrendsLocation={beach.city || "the area"}
+              waterTempData={waterTempMeta}
+            />
+          ) : undefined
+        }
       />
 
       <BeachSubPageCtaSwitch
-        beachId={beach.id}
         beachName={beach.name}
         installCtaEnabled={installCtaEnabled}
         placement={`${pageType}-${beachSlug}`}
         pathname={subPagePath}
-        pageType={pageType}
         proof={installCtaProof ?? undefined}
         searchReferralCta={
           pageType === "tides"
@@ -305,44 +291,7 @@ export async function renderBeachSubPage({
         source={ctaSource}
         stickyCtaText={ctaConfig.ctaText}
         stickySupportingText={ctaConfig.supportingText(beach.name)}
-      >
-        <div className="container mx-auto px-4 pb-8">
-          <SeoFunnelNextSteps
-            variant="paper"
-            title={`Keep planning ${beach.name}`}
-            description={`Use this ${config.breadcrumbLabel.toLowerCase()} page as one signal, then check the full forecast, nearby breaks, and the companion condition page.`}
-            steps={[
-              {
-                label: `Open the full ${beach.name} forecast`,
-                href: beachPath,
-                description: "Return to the full spot page for forecast, reviews, intel, and sessions.",
-              },
-              {
-                label: pageType === "tides" ? "Check water temperature" : "Watch the tide window",
-                href: pageType === "tides" ? `${beachPath}/water-temp` : `${beachPath}/tides`,
-                description:
-                  pageType === "tides"
-                    ? "Pair the tide call with gear and water-temperature context."
-                    : "Pair water temperature with the next useful tide shift.",
-              },
-              {
-                label: "Compare nearby surf spots",
-                href: "/map",
-                description: "Use the map when this spot is not the right call.",
-              },
-            ]}
-          />
-        </div>
-
-        <div className="container mx-auto px-4 pb-8">
-          <NearbyBeachesEnriched
-            beaches={nearbyBeaches}
-            sourceBeachName={beach.name}
-            sourceBeachLat={beach.lat}
-            sourceBeachLon={beach.lon}
-          />
-        </div>
-      </BeachSubPageCtaSwitch>
+      />
     </>
   );
 }

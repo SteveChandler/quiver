@@ -87,9 +87,9 @@ const CATEGORIES: {
     sticker: "spotWindRead",
     slugs: [
       "best-time-of-day-to-surf",
-      "why-waves-better-in-morning",
       "is-it-safe-to-surf-after-rain",
       "what-wetsuit-thickness-do-i-need",
+      "how-does-water-temperature-affect-surfing",
     ],
   },
   {
@@ -98,6 +98,7 @@ const CATEGORIES: {
     sticker: "singleFin",
     slugs: [
       "best-surf-conditions-for-beginners",
+      "surf-paddling-for-beginners",
       "what-size-surfboard-should-i-get",
       "how-long-to-learn-to-surf",
       "surf-etiquette-rules",
@@ -116,7 +117,11 @@ const CATEGORIES: {
     label: "Local Beginner Breaks",
     desc: "Beginner-friendly local lineups and what to check before you go.",
     sticker: "spotLocation",
-    slugs: ["beginner-breaks-san-diego", "beginner-breaks-santa-cruz"],
+    slugs: [
+      "beginner-breaks-san-diego",
+      "beginner-breaks-orange-county",
+      "beginner-breaks-santa-cruz",
+    ],
   },
 ];
 
@@ -259,7 +264,7 @@ export default function LearnHubPage() {
                   <ScrollReveal key={article.slug} delay={articleIndex * 60}>
                     <Link
                       href={`/learn/${article.slug}`}
-                      className="group torn torn-tb flex min-h-[22rem] flex-col overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] transition-transform hover:-translate-y-1"
+                      className="group torn flex min-h-[22rem] flex-col overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] transition-transform hover:-translate-y-1"
                     >
                       <div className="relative mb-4 h-36 overflow-hidden border-2 border-[#11100D] bg-[#C8C2B0]">
                         <Image
@@ -301,7 +306,7 @@ export default function LearnHubPage() {
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="group torn torn-tb relative flex min-h-44 flex-col overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] p-5 transition-transform hover:-translate-y-1"
+                    className="group torn relative flex min-h-44 flex-col overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] p-5 transition-transform hover:-translate-y-1"
                   >
                     <QuiverSticker
                       sticker={link.sticker}

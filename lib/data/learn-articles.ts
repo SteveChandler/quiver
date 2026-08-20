@@ -252,11 +252,6 @@ export const learnArticles: LearnArticle[] = [
         content: `<p>Use this order every time you open a surf report:</p><ol><li><strong>Period</strong>: is this weak windswell or ground swell?</li><li><strong>Direction</strong>: does my spot actually receive this angle?</li><li><strong>Wind</strong>: clean, cross, or blown out?</li><li><strong>Tide</strong>: is the break in its usable window?</li><li><strong>Height</strong>: now that I trust the setup, how big is it really?</li></ol><p>If you want to get good fast, log a few notes after every surf: period, direction, tide, wind, and which board felt right. After 10 to 20 sessions at the same beach, the numbers stop being abstract and start matching what you feel in the water.</p><p>The data behind those checks is public and transparent: NOAA/NWS WaveWatch-style marine forecasts, NDBC/CDIP/IOOS buoy observations where available, NOAA CO-OPS tides, and Open-Meteo for some wind and extended-horizon coverage. The hard part is not getting numbers. It's learning which numbers matter most for your break.</p><p>Want the read done for you? Quiver scores 280+ breaks by tide, wind, and swell and learns the days you rate — see <a href="/vs/surfline/free">how it compares to Surfline</a> or <a href="/roadmap">vote on what we build next</a>. Runs in any browser, or <a href="/app">get the iOS app</a>.</p>`,
         keyTakeaway:
           "Read surf reports in the same order every time so you stop chasing a misleading height number.",
-        image: {
-          src: "/images/OceanBeachSurfers.webp",
-          alt: "Surfers checking conditions from the beach before choosing boards",
-          position: "right",
-        },
       },
     ],
     faqs: [
@@ -567,6 +562,24 @@ export const learnArticles: LearnArticle[] = [
         href: "/learn/swell-period-explained",
         description:
           "Understand why long-period swells are easier for beginners to learn on.",
+      },
+      {
+        label: "Surf Paddling for Beginners",
+        href: "/learn/surf-paddling-for-beginners",
+        description:
+          "Paddling technique is the skill that gates every other one.",
+      },
+      {
+        label: "Best Beginner Surf Spots in San Diego",
+        href: "/learn/beginner-breaks-san-diego",
+        description:
+          "Where these conditions actually show up on the San Diego coast.",
+      },
+      {
+        label: "Best Beginner Surf Spots in Santa Cruz",
+        href: "/learn/beginner-breaks-santa-cruz",
+        description:
+          "Where these conditions actually show up around Santa Cruz.",
       },
     ],
   },
@@ -1195,8 +1208,9 @@ export const learnArticles: LearnArticle[] = [
     title: "How Accurate Are Surf Forecasts? 3-Day vs 10-Day Guide",
     description:
       "How accurate are surf forecasts? Learn how lead time changes uncertainty, what buoys measure, and what a fair forecast comparison requires.",
-    readingTimeMin: 3,
+    readingTimeMin: 7,
     datePublished: "2026-03-30",
+    dateModified: "2026-08-19",
     heroImage: "/images/learn/learn-misty-lineup.jpg",
     thumbnailImage: "/images/learn/learn-misty-lineup.jpg",
     keywords: [
@@ -1211,9 +1225,9 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>Forecast accuracy is not one universal number. It changes with lead time, location, the variable being predicted, and the observation used as ground truth. A fair test saves the forecast before conditions arrive, then checks the same variable at the same place and time. Offshore significant wave height from a buoy can validate an offshore-height forecast; it cannot validate breaking face height at a beach by itself. Quiver has not completed a same-sample comparison against other surf forecasts, so it does not claim an accuracy ranking.</p>`,
+        content: `<p>Surf forecasts are useful estimates, not exact promises. Their reliability changes with <strong>lead time, swell source, coastline exposure, local wind, tide, and the quantity being predicted</strong>. A forecast issued for the next 12 hours has more observed data behind it than a map for day eight, but even the near-term call can miss a fast wind shift or the way one sandbar focuses a swell. Use a forecast to narrow the likely window, then verify it with current wind, buoy trends, cameras where available, and what you see from shore.</p><p>There is no honest universal accuracy percentage. Offshore significant wave height, breaking face height, arrival time, wind, and wave quality are different targets. Quiver has not completed a same-sample comparison against other surf forecasts and does not claim an accuracy ranking.</p>`,
         keyTakeaway:
-          "Judge a forecast by its lead time, variable, ground truth, and saved sample — not by a ranking built from different measurements.",
+          "Treat every forecast as a range of likely outcomes, and judge it by lead time, variable, location, and matching observations.",
         image: {
           src: "/images/learn/learn-misty-lineup.jpg",
           alt: "Surfer in misty conditions — forecast vs reality",
@@ -1221,18 +1235,53 @@ export const learnArticles: LearnArticle[] = [
         },
       },
       {
-        id: "detail",
-        heading: "Where Forecasts Are Accurate — and Where They Fail",
-        content: `<p>Global wave models describe the open ocean on a grid. They do not directly observe how a specific reef, canyon, sandbar, tide, or local wind turns that offshore energy into breaking surf. Buoys add real observations, but they still measure the sea state at the sensor rather than the wave face at the beach.</p><p>That is why a useful evaluation keeps two questions separate: did the forecast describe offshore significant wave height, and did the surf-height call match what broke at the beach? The first can use time-matched buoy observations. The second needs a documented conversion and consistent on-beach observations. The <strong>quiversurf.app/forecast-accuracy</strong> page explains the method and its limits.</p>`,
+        id: "lead-time",
+        heading: "Accuracy Changes With Lead Time",
+        content: `<p>Think in planning bands rather than a single trustworthy-or-not label. Inside <strong>0-24 hours</strong>, the swell has often reached nearby buoys and the short-term wind picture is clearer, so you can choose a session window. At <strong>2-3 days</strong>, use the forecast to choose between days while leaving room for timing and size changes. At <strong>5-7 days</strong>, track whether a swell event is developing, not whether Tuesday at 7 AM will be shoulder high. At <strong>8-10 days</strong>, treat individual heights and arrival hours as scenarios.</p><p>A useful decision rule is to look for stability between updates. If direction, period, and arrival time remain similar across several runs, confidence is higher. If the peak jumps six or twelve hours or the swell angle keeps moving, keep plans flexible even when the headline height barely changes.</p>`,
         keyTakeaway:
-          "Buoys can check the offshore sea state. Breaking surf at the beach is a separate measurement problem.",
+          "Use 0-3 days for session decisions, 5-7 days for event tracking, and 8-10 days only for tentative scenarios.",
       },
       {
-        id: "practical",
-        heading: "What This Means for Your Session",
-        content: `<p>Trust the <strong>0-3 day forecast window</strong> for planning sessions. Use the 5-7 day view to track incoming swell systems, but don't commit to plans based on it — too much can change. Always <strong>cross-check the forecast against real-time buoy data</strong> 1-3 hours before your session. If the nearest NDBC buoy shows 3 feet but the forecast says 5 feet, the swell hasn't arrived yet or the model over-predicted. Build local knowledge: after 20+ sessions comparing Quiver's forecast to what you actually see, you'll develop an intuitive calibration for your break that no model can replace.</p>`,
+        id: "measurement",
+        heading: "Know What the Number Measures",
+        content: `<p>An offshore buoy usually reports <strong>significant wave height</strong>, a statistical description of the sea state at the sensor. A surf report may describe breaking faces, Hawaiian scale, backs of waves, or a broad human category such as waist-to-chest high. Those values are not interchangeable. A buoy several miles offshore also cannot see the final transformation over a reef, canyon, point, or shallow sandbar.</p><p>Before calling a forecast wrong, compare like with like: same timestamp, same location, same height definition, and the forecast that was available before the observation. A screenshot taken after a model update is not a fair record of yesterday's prediction. The <strong>forecast-accuracy</strong> page documents Quiver's evaluation method and limitations.</p>`,
         keyTakeaway:
-          "Plan sessions from the 3-day window. Always cross-check the forecast against buoy data before paddling out.",
+          "An offshore buoy can check an offshore forecast; it cannot directly verify the breaking face at your beach.",
+      },
+      {
+        id: "local-transform",
+        heading: "Why the Same Offshore Swell Produces Different Surf",
+        content: `<p>Models describe energy moving through an ocean grid. Your break adds another layer. A swell inside one beach's open window may be partly blocked at the next cove. Long-period energy can refract around a point or focus through a submarine canyon. A beach break can change after one storm rearranges its bars. Tide can turn a soft shoulder into a closeout or make a shallow reef unsuitable.</p><p>This is why two beaches ten miles apart can receive the same offshore swell and show different size and shape. If the offshore data looks right but the beach call misses repeatedly in one direction or tide range, the likely issue is local transformation rather than the entire swell forecast. Record the exception instead of inventing a universal correction.</p>`,
+        keyTakeaway:
+          "Separate offshore swell quality from the local bathymetry, exposure, and tide that turn it into breaking waves.",
+      },
+      {
+        id: "fast-changing-inputs",
+        heading: "Wind and Mixed Swells Create the Hardest Calls",
+        content: `<p>A clean, established groundswell is generally easier to track than a short-lived local wind swell. Local wind can build texture quickly, shift direction between forecast intervals, or arrive earlier at an exposed beach than at a sheltered one. Mixed swells add another trap: the displayed primary swell may not be the one producing the best sets at your peak.</p><p>Check the components, not only the combined height. A modest long-period swell from the useful direction can matter more than a larger short-period component aimed poorly at the break. When wind is forecast near the onshore-offshore boundary for your beach, a small direction error can flip the practical result. That is a low-confidence session even if the wave-height line looks stable.</p>`,
+        keyTakeaway:
+          "Confidence should drop when local wind is changing quickly, multiple swells overlap, or direction sits near the edge of a break's window.",
+      },
+      {
+        id: "verification",
+        heading: "Run a Three-Check Verification Before Leaving",
+        content: `<p>First, compare the latest buoy trend with the forecasted arrival: are height and dominant period rising, flat, or falling? A swell may be late, but a distant buoy can also represent a different exposure. Second, check the most recent wind observation against the forecast. A predicted light offshore that is already moderate onshore should change the plan. Third, inspect a camera or the beach itself for actual breaking size, crowd, current, and surface quality.</p><p>If one check disagrees, investigate rather than automatically trusting either source. If two disagree, downgrade confidence and choose a flexible option. Current observations still do not make surfing safe; heed lifeguards, posted warnings, closures, and your own judgment at the beach.</p>`,
+        keyTakeaway:
+          "Verify the buoy trend, current wind, and the beach itself; two conflicting checks are a reason to downgrade the plan.",
+      },
+      {
+        id: "personal-calibration",
+        heading: "Build a Calibration for One Break",
+        content: `<p>Keep a short log for <strong>10-20 sessions</strong>: forecasted swell height, period and direction; predicted wind and tide; actual paddle-out time; and a plain-language result such as undercalled, close, or overcalled. Note where you stood, because a beach break may vary by several peaks. Patterns become useful only when the measurement stays consistent.</p><p>Look for conditional rules: “This south swell needs at least 14 seconds to wrap,” or “The main peak gets soft above a certain tide.” Do not turn a handful of memorable days into a formula. Seasonal sand movement can invalidate last month's relationship, and a rule learned on a long-period groundswell may not apply to local wind swell.</p>`,
+        keyTakeaway:
+          "A consistent 10-20-session log can reveal local patterns, but those patterns remain conditional on season, swell type, and tide.",
+      },
+      {
+        id: "fair-comparison",
+        heading: "How to Compare Two Forecasts Fairly",
+        content: `<p>Save both forecasts at the same issue time for the same beach and lead-time bucket. Decide beforehand whether you are scoring offshore height, breaking height, peak arrival, wind, or another variable. Use the same observation source and tolerance for both. Then repeat across enough ordinary and difficult events that one lucky swell does not decide the result.</p><p>Comparisons fail when one service is checked at a buoy and another against a camera, when updated forecasts replace the original predictions, or when “looked better” substitutes for a defined measurement. Until Quiver has a same-sample comparison with documented definitions and results, it is honest to explain the method without claiming to be more accurate than another provider.</p>`,
+        keyTakeaway:
+          "A fair comparison requires saved forecasts, identical samples and definitions, and the same ground truth for every provider.",
       },
     ],
     faqs: [
@@ -1254,7 +1303,17 @@ export const learnArticles: LearnArticle[] = [
       {
         question: "Should I trust a 10-day forecast?",
         answer:
-          "No. Use it to spot incoming swell systems and general trends. Weather chaos makes anything beyond 7 days unreliable. By 3 days out, the forecast is much more accurate — check again then before committing.",
+          "Use it to notice a possible swell pattern, not to commit to an exact session time or height. Recheck around five days, three days, the night before, and again against current observations.",
+      },
+      {
+        question: "Can a buoy tell me exactly how big my beach will be?",
+        answer:
+          "No. A buoy measures the sea state at its location. Swell direction, period, shelter, refraction, bathymetry, tide, and local wind determine how that energy breaks at your beach.",
+      },
+      {
+        question: "Why did the forecast miss the swell arrival time?",
+        answer:
+          "The storm track or generation area may have changed, different periods travel at different speeds, or the buoy and beach may sit on different paths. Watch the trend across upstream and local observations rather than one timestamp.",
       },
     ],
     relatedLinks: [
@@ -1283,8 +1342,9 @@ export const learnArticles: LearnArticle[] = [
     title: "Best Time of Day to Surf: Dawn Patrol vs Glass-Off",
     description:
       "Find the best time of day to surf: dawn patrol, midday wind risk, and glass-off windows, plus how to check today's local forecast.",
-    readingTimeMin: 2,
+    readingTimeMin: 7,
     datePublished: "2026-03-30",
+    dateModified: "2026-08-19",
     heroImage: "/images/learn/learn-dawn-patrol.jpg",
     thumbnailImage: "/images/learn/learn-dawn-patrol.jpg",
     keywords: [
@@ -1294,87 +1354,6 @@ export const learnArticles: LearnArticle[] = [
       "glass off surfing",
       "morning surf vs afternoon",
       "best time of day waves",
-    ],
-    sections: [
-      {
-        id: "answer",
-        heading: "The Short Answer",
-        content: `<p>Early morning (<strong>dawn patrol, 5:30-8 AM</strong>) and late afternoon (<strong>4-6 PM glass-off</strong>) produce the cleanest waves at most breaks. Land cools overnight, creating natural <strong>offshore wind flow</strong> that holds up wave faces. By mid-morning, solar heating reverses the gradient, bringing onshore chop. This thermal cycle — measured by NDBC coastal anemometers — repeats daily along every US coast from Malibu to Montauk.</p>`,
-        keyTakeaway:
-          "Dawn patrol (5:30-8 AM) and glass-off (4-6 PM) are the best windows because thermal wind patterns create offshore conditions at those times.",
-        image: {
-          src: "/images/learn/learn-dawn-patrol.jpg",
-          alt: "Surfers heading out at golden hour during dawn patrol",
-          position: "right",
-        },
-      },
-      {
-        id: "detail",
-        heading: "The Thermal Wind Cycle That Drives Surf Quality",
-        content: `<p>At night, land loses heat faster than the ocean. By dawn, land is cooler, creating a <strong>pressure gradient</strong> that pulls air from land to sea — offshore wind. This smooths the ocean surface ("glassy") and holds up wave faces. Between <strong>9-11 AM</strong>, solar heating warms the land, equalizing temperatures. By midday, land is hotter, pulling air from sea to land — <strong>onshore wind</strong>. Waves turn choppy and blown out. In late afternoon (4-6 PM), heating fades and onshore wind dies — the <strong>glass-off</strong> window. It's shorter and less reliable than dawn patrol (30-90 minutes vs. 2-3 hours), but can produce stunning conditions.</p><p>Exceptions: cold fronts, marine layers, and strong synoptic winds can override the thermal cycle. Always check the wind forecast — some days are offshore all day, and some are onshore from dawn.</p>`,
-        keyTakeaway:
-          "Overnight cooling creates 2-3 hours of morning offshore. Midday heating flips it onshore. Late-afternoon glass-off gives a second shorter window.",
-      },
-      {
-        id: "practical",
-        heading: "What This Means for Your Session",
-        content: `<p>Check Quiver's 3-hour wind forecast the night before. If offshore is predicted until 10 AM, set your alarm for first light. If the forecast shows offshore all day (cold front or persistent high pressure), you can afford to sleep in. On <strong>classic thermal days</strong>, be in the water by 6:30-7 AM and plan to surf 1.5-2 hours. The crowd peaks at 8-9 AM — getting in 30 minutes earlier means more waves with fewer people. For the glass-off window, check if onshore wind is forecast to die before sunset — if it persists until dark, skip it. Weekday dawn patrol is the ultimate cheat code: best conditions, fewest people.</p>`,
-        keyTakeaway:
-          "Check wind the night before. On thermal days, paddle out by 6:30 AM. Weekday dawn patrol gives best conditions with fewest crowds.",
-      },
-    ],
-    faqs: [
-      {
-        question: "Is dawn patrol always the best time?",
-        answer:
-          "Usually, but not always. Some days a cold front keeps wind offshore all day. Other days, marine fog locks in glassy conditions until noon. And occasionally dawn brings strong offshore that's actually too strong. Check the forecast — don't just assume dawn is best.",
-      },
-      {
-        question: "What is glass-off?",
-        answer:
-          "Glass-off is when afternoon onshore wind dies before sunset, leaving the ocean surface smooth ('glassy'). It typically lasts 30-90 minutes. Conditions can be excellent but the window is shorter and less predictable than dawn patrol.",
-      },
-      {
-        question: "Does time of day affect wave size?",
-        answer:
-          "No. Swell size is determined by ocean storms, not time of day. But wave quality changes dramatically — the same 4-foot swell looks completely different with offshore wind at 7 AM versus onshore wind at 2 PM.",
-      },
-      {
-        question: "Why do crowds peak at 8-9 AM?",
-        answer:
-          "Most surfers work 9-5 and want to squeeze in a session before the office. By arriving 30-60 minutes before the crowd peak, you get clean waves with open peaks. The pre-dawn hardcore crowd is small and usually respectful.",
-      },
-    ],
-    relatedLinks: [
-      {
-        label: "Offshore vs Onshore Wind",
-        href: "/learn/offshore-vs-onshore-wind-surfing",
-        description: "Why wind direction matters more than wind speed.",
-      },
-      {
-        label: "Why Waves Are Better in the Morning",
-        href: "/learn/why-waves-better-in-morning",
-        description: "The thermal physics behind dawn patrol.",
-      },
-      {
-        label: "Check Wind Forecast",
-        href: "/forecast",
-        description:
-          "See the 3-hour wind forecast for your break tonight.",
-      },
-    ],
-  },
-
-  {
-    slug: "why-waves-better-in-morning",
-    title: "Why Waves Are Better in the Morning: Wind Explained",
-    description:
-      "Morning surf is usually cleaner because overnight land cooling creates offshore wind. Learn when dawn patrol works and when it does not.",
-    readingTimeMin: 2,
-    datePublished: "2026-03-30",
-    heroImage: "/images/hero/hero-4-beach-sunset.webp",
-    thumbnailImage: "/images/hero/hero-4-beach-sunset.webp",
-    keywords: [
       "why waves better morning",
       "morning surf better",
       "glassy conditions",
@@ -1386,57 +1365,106 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>Overnight, land cools faster than the ocean, creating a <strong>temperature gradient</strong> that pulls wind from land to sea — <strong>offshore flow</strong>. This holds up wave faces and smooths the surface into <strong>"glassy" conditions</strong>. By mid-morning (9-11 AM), solar heating reverses the gradient, pulling air from the cooler sea to the warmer land — <strong>onshore wind</strong>. This adds chop and destroys wave shape. The thermal cycle repeats daily at nearly every coastal location monitored by NDBC stations.</p>`,
+        content: `<p>The best time of day is the window when <strong>swell, wind, tide, daylight, and crowd level</strong> line up at your break. Dawn often wins because overnight cooling can leave light land-to-sea or calm wind before daytime heating builds an onshore sea breeze. A late-afternoon glass-off can offer a second chance when that breeze fades. Neither window is automatic: a front, trade wind, marine layer, canyon wind, or unfavorable tide can make midday or another hour the better call.</p><p>Start with the swell window, then compare wind direction and speed by hour, tide stage, and sunrise or sunset. Treat familiar times such as 5:30-8 AM or 4-6 PM as examples, not universal rules.</p>`,
         keyTakeaway:
-          "Morning waves are cleaner because overnight cooling creates offshore wind that holds up wave faces. Solar heating reverses this by midday.",
+          "Choose the overlap of swell, favorable wind, workable tide, and daylight; dawn is a common pattern, not a guarantee.",
+        image: {
+          src: "/images/learn/learn-dawn-patrol.jpg",
+          alt: "Surfers heading out at golden hour during dawn patrol",
+          position: "right",
+        },
       },
       {
-        id: "detail",
-        heading: "The Physics: Land-Sea Thermal Circulation",
-        content: `<p>This is the <strong>land-sea breeze cycle</strong>, a well-studied meteorological phenomenon. Land has lower heat capacity than water — it heats and cools <strong>2-3x faster</strong>. By dawn, coastal land may be 10-15°F cooler than the adjacent ocean surface. Cool air sinks over land, flows seaward at the surface (offshore), and warm air rises over the ocean to complete the circulation cell.</p><p>The offshore component is typically <strong>3-8 knots</strong> at dawn, enough to smooth the surface without making paddling difficult. As the sun rises, land heats rapidly. By 10-11 AM, land and ocean temperatures equalize — a brief calm period. By noon, land is significantly warmer, and the circulation reverses: onshore flow at <strong>8-15+ knots</strong>. This is why NDBC coastal wind stations consistently show offshore readings before 8 AM and onshore by midday along the California, Florida, and East Coast shorelines.</p>`,
+        id: "thermal-cycle",
+        heading: "Why Waves Are Often Cleaner in the Morning",
+        content: `<p>Land changes temperature faster than the adjacent ocean. Overnight, the ground loses heat and the air above it cools. When that cooler, denser air flows toward relatively warmer water, a west-facing beach may receive an easterly <strong>offshore land breeze</strong>. Light offshore wind smooths small surface chop and pushes against the breaking lip, helping the face stay organized.</p><p>After sunrise, land warms. If the larger weather pattern is weak enough, rising warm air over land draws cooler marine air shoreward and establishes an <strong>onshore sea breeze</strong>. The change is a circulation, not a stopwatch. Terrain, cloud cover, season, and the land-ocean temperature contrast determine whether the switch happens early, late, or not at all.</p>`,
         keyTakeaway:
-          "Land heats and cools 2-3x faster than ocean. Dawn brings 3-8 knot offshore; by noon, 8-15+ knot onshore. NDBC stations confirm this pattern coast-wide.",
+          "Morning quality often comes from the land-breeze side of a land-sea thermal circulation, which daytime heating may reverse.",
       },
       {
-        id: "practical",
-        heading: "What This Means for Your Session",
-        content: `<p>The <strong>offshore window</strong> typically lasts from first light until 9-10 AM — roughly 2-3 hours. On clear days with strong solar heating, it's shorter. On overcast or foggy mornings, it can extend past noon. Check Quiver's wind forecast the night before to see exactly when the switch happens at your break. If the forecast shows "offshore 5 kts until 10 AM, onshore 12 kts by noon," your golden window is <strong>6-9:30 AM</strong>. Some breaks benefit from specific wind directions — a NE wind is offshore for west-facing beaches but onshore for east-facing ones. Know your break's orientation.</p>`,
+        id: "wind-reading",
+        heading: "Translate Wind Direction for Your Beach",
+        content: `<p>“East wind” is not automatically offshore. It describes where wind comes from, and the result depends on beach orientation. An east wind is offshore at a west-facing beach, onshore at an east-facing beach, and cross-shore on many north- or south-facing stretches. Curved bays and headlands complicate the compass relationship further.</p><p>Use a map to identify the direction the beach faces, then compare hourly wind arrows. As a practical screen, <strong>calm to light favorable wind</strong> usually deserves a look; increasing cross-onshore or onshore wind lowers surface quality. Strong offshore wind can also be a poor choice because it blows spray into your vision, makes entry and paddling harder, and can carry a surfer or board seaward. Conditions and ability still decide.</p>`,
         keyTakeaway:
-          "The offshore window lasts 2-3 hours from dawn. Check the wind forecast to know exactly when it switches at your break.",
+          "Convert the forecasted compass direction into offshore, cross-shore, or onshore for the exact beach rather than relying on a generic label.",
+      },
+      {
+        id: "tide-and-swell",
+        heading: "Let Tide and Swell Override the Alarm Clock",
+        content: `<p>Clean wind cannot fix the wrong tide or a swell outside the break's exposure window. A reef may become too shallow near low tide; a steep beach can backwash near high tide; a point may need enough water over an inside section; and a beach break may work best only while a particular bar has a usable depth. Those relationships are local and can change with sand movement.</p><p>Compare the best wind window with the tide curve. If dawn is clean but the known tide window arrives at 11 AM, check whether wind remains acceptable until then. If not, choose the less compromised combination rather than chasing one perfect variable. Posted closures, lifeguard guidance, current, visibility, and your own judgment take priority over any timing rule.</p>`,
+        keyTakeaway:
+          "The best hour is the best overlap, not necessarily the cleanest wind hour; tide and swell exposure can be decisive.",
+      },
+      {
+        id: "glass-off",
+        heading: "When an Afternoon Glass-Off Is Worth Watching",
+        content: `<p>A glass-off happens when daytime wind weakens enough for the surface to smooth, often as heating fades late in the day. Watch the hourly trend: a steady drop toward calm before sunset is more promising than a forecast that remains onshore through dark. Also check the live observation, because the fade can occur earlier or later than the model interval.</p><p>The window may last less than an hour, and smooth water does not mean the swell improved. Afternoon tide, crowd, glare, and limited daylight may erase the advantage. Decide on a latest safe entry time and leave margin to return before visibility becomes poor. If wind is still building or the tide is moving out of range, glass-off is a hope rather than a plan.</p>`,
+        keyTakeaway:
+          "Look for a measured wind decrease before sunset and enough tide and daylight margin; smooth water alone is not a complete session call.",
+      },
+      {
+        id: "exceptions",
+        heading: "Know When the Morning Pattern Does Not Apply",
+        content: `<p>Large-scale, or synoptic, weather can overpower the local thermal circulation. Fronts, strong pressure gradients, persistent trade winds, Santa Ana-type offshore events, and coastal lows may set the wind from midnight through afternoon. A morning can therefore start choppy, stay strongly offshore, or improve later after a front passes.</p><p>Fog and marine cloud can delay land heating and the sea-breeze transition, but fog is not proof of offshore wind. It can arrive with onshore flow, reduce visibility, and hide sets or landmarks. The land-sea cycle occurs on many coasts, yet it is not equally strong worldwide: high latitudes, monsoon regimes, exposed islands, and windy seasons may be controlled mainly by broader weather. Check the local pattern rather than exporting a California schedule.</p>`,
+        keyTakeaway:
+          "Fronts and regional wind regimes can dominate; fog may delay heating but can also arrive with onshore wind and poor visibility.",
+      },
+      {
+        id: "decision-routine",
+        heading: "Use a Night-Before and Beach-Arrival Check",
+        content: `<p>The night before, shortlist two windows: a primary session and a fallback. Compare hourly wind, tide stage, swell direction and period, sunrise or sunset, and any advisories. In the morning, check whether the actual wind and buoy trend match the forecast. A one-hour timing shift is common enough that flexibility matters more than a rigid alarm.</p><p>At the beach, watch at least two or three set cycles. Check surface texture outside, current, the paddle route, crowd movement, and whether the expected peak is working. If the forecast and ocean disagree, trust the observed conditions while staying within your ability. No timing method makes surfing safe; defer to lifeguards and posted conditions and choose not to paddle out when the situation is unclear.</p>`,
+        keyTakeaway:
+          "Plan a primary and fallback window, then confirm the call from shore across several sets before deciding.",
       },
     ],
     faqs: [
       {
-        question: "Are waves ever better in the afternoon?",
+        question: "Is dawn patrol always the best time?",
         answer:
-          "Yes. Glass-off (4-6 PM) can produce excellent conditions when onshore dies before sunset. Also, some days have cold fronts or high pressure that keep wind offshore all day. And strong synoptic wind patterns can override the thermal cycle entirely.",
+          "No. Dawn is favored when the local land breeze is light and the tide and swell also work. A front, strong regional wind, poor visibility, current, or the wrong tide can make another window better or make the session unsuitable.",
       },
       {
-        question: "Does this happen everywhere in the world?",
+        question: "What is glass-off?",
         answer:
-          "The land-sea breeze cycle occurs at almost every coastline globally. It's strongest in tropical and subtropical regions with strong solar heating. In polar regions or during winter at high latitudes, synoptic wind patterns often dominate over thermal effects.",
+          "Glass-off is the surface cleanup that occurs when daytime wind weakens, often late in the afternoon. It can be brief or fail to occur, so compare the forecasted trend with current observations and preserve enough daylight for the session.",
+      },
+      {
+        question: "Does time of day affect wave size?",
+        answer:
+          "The swell source does not grow because it is morning, but tide, local wind swell, and surface texture can change what breaks at the beach. Time of day mainly affects local wind and the practical quality of a given swell.",
       },
       {
         question: "Why are some mornings still choppy?",
         answer:
-          "Strong weather systems override the thermal cycle. A passing cold front or sustained low-pressure system creates synoptic-scale winds that overpower the gentle land breeze. Always check the broader weather pattern, not just assume mornings will be glassy.",
+          "A front, coastal low, trade wind, or other large-scale pressure pattern can overpower the weak land breeze. Leftover wind chop from overnight can also remain after the local wind eases.",
       },
       {
         question: "Does fog extend the offshore window?",
         answer:
-          "Yes. Fog and marine layers block solar radiation from heating the land, delaying the thermal reversal. On foggy mornings common in Northern California and the Pacific Northwest, offshore conditions can persist past noon.",
+          "It can delay solar heating and postpone a sea-breeze switch, but fog does not guarantee offshore wind. Marine fog often accompanies onshore flow and reduces visibility, so verify wind and conditions rather than using fog alone.",
+      },
+      {
+        question: "Does the morning pattern hold worldwide?",
+        answer:
+          "Land-sea thermal circulation occurs on many coastlines, but its strength and timing vary. Seasonal trade winds, monsoons, fronts, high-latitude weather, island terrain, and local topography can dominate the daily cycle.",
       },
     ],
     relatedLinks: [
       {
-        label: "Best Time of Day to Surf",
-        href: "/learn/best-time-of-day-to-surf",
-        description: "Dawn patrol and glass-off — the two best windows.",
-      },
-      {
         label: "Offshore vs Onshore Wind",
         href: "/learn/offshore-vs-onshore-wind-surfing",
-        description: "How wind direction shapes wave quality.",
+        description: "Why wind direction matters more than wind speed.",
+      },
+      {
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
+        description: "Combine wind, tide, swell, and local observations.",
+      },
+      {
+        label: "Check Wind Forecast",
+        href: "/forecast",
+        description:
+          "See the 3-hour wind forecast for your break tonight.",
       },
     ],
   },
@@ -1609,8 +1637,9 @@ export const learnArticles: LearnArticle[] = [
     title: "What Size Surfboard Should I Get?",
     description:
       "Beginners: 8-9 foot soft-top foamie with 60-80 liters of volume, roughly 1-3 feet taller than you. Volume determines paddle ease and stability. After 50+ sessions of consistent wave-catching, size down to a 7-foot funboard. Shortboards (5'8\"-6'4\") are for intermediate surfers with 100+ sessions.",
-    readingTimeMin: 3,
+    readingTimeMin: 7,
     datePublished: "2026-03-30",
+    dateModified: "2026-08-19",
     heroImage: "/images/activities/longboarding.webp",
     thumbnailImage: "/images/activities/longboarding.webp",
     keywords: [
@@ -1625,9 +1654,9 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>Beginners need an <strong>8-9 foot soft-top (foamie)</strong> with <strong>60-80 liters</strong> of volume — roughly 1-3 feet taller than you. Volume (in liters) determines paddle ease and stability, not length alone. Brands like Wavestorm, Catch Surf, and ISLE make quality beginner boards for <strong>$200-400</strong>. After 50+ sessions of consistent wave-catching, size down to a <strong>7-foot funboard</strong>. Shortboards (5'8"-6'4", 25-35 liters) are for intermediate surfers with <strong>100+ sessions</strong> and strong paddle fitness.</p>`,
+        content: `<p>For a first board, most adults should begin their search around an <strong>8-9 foot soft-top with roughly 60-90 liters</strong>, then adjust for body weight, paddle fitness, wave type, and storage. Length is only one dimension. Width, thickness, outline, and volume decide whether the board glides early and stays steady during a pop-up.</p><p>The correct first board is the one that lets you catch many manageable waves while maintaining control. A smaller board is not automatic progress. If you are missing waves, sinking the tail while paddling, or standing only after the wave has broken, add glide and stability before blaming technique. For the rest of the starter kit, use the <a href="/learn/what-equipment-to-start-surfing">beginner equipment checklist</a>.</p>`,
         keyTakeaway:
-          "Start with an 8-9 ft foamie (60-80 liters). Volume determines paddle ease. Size down only after 50+ sessions of consistent wave-catching.",
+          "Start around 8-9 feet and 60-90 liters, then fit the board to your weight, wave type, control, and actual wave-catching rate.",
         image: {
           src: "/images/activities/longboarding.webp",
           alt: "Longboarder riding a mellow wave — bigger boards catch more waves",
@@ -1637,16 +1666,44 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "detail",
         heading: "Why Volume Matters More Than Length",
-        content: `<p><strong>Volume (liters)</strong> measures how much the board floats. More float = easier paddling = more waves caught = faster learning. A 180-lb beginner needs roughly <strong>70-80 liters</strong>. That same person on a shortboard at 28 liters will catch almost nothing for months. The formula: <strong>body weight (kg) × 0.4-0.5 = starting volume in liters</strong> for beginners.</p><p>Foamies are specifically designed for learning: soft foam top won't cut you or others, wide nose catches waves easily, and thick rails provide stability for pop-ups. Don't listen to anyone who says "start on a shortboard to learn faster" — this is the single most common bad advice in surfing. It's like learning to drive in a race car. You'll spend months frustration-paddling and catching nothing when a foamie would have you riding 10+ waves per session from day one.</p>`,
+        content: `<p><strong>Volume</strong> is a useful flotation clue, but it is not a complete sizing formula. Two 70-liter boards can feel different if one is long and narrow while the other is short, wide, and thick. Length and a fuller nose improve glide; width adds side-to-side stability; thickness adds float; rail and tail shape affect how easily the board turns and holds.</p><p>Use liters as a guardrail. A lighter, fit beginner in gentle whitewater may manage the lower end of the 60-90-liter starting band. A heavier surfer, infrequent surfer, or learner at a weak beach usually benefits from the upper end or more. If the deck sinks noticeably while you paddle or the board stalls between strokes, it is probably under-volumed for the job.</p>`,
         keyTakeaway:
-          "Volume (liters) = float = wave-catching ability. Beginners: body weight (kg) × 0.4-0.5. Never start on a shortboard — it delays learning by months.",
+          "Use volume as a guardrail, then check how length, width, thickness, and outline distribute that float.",
       },
       {
         id: "practical",
         heading: "What This Means for Your Session",
-        content: `<p><strong>Board progression path</strong>: Foamie (0-50 sessions) → Funboard/Mid-length (50-150 sessions) → Shortboard (150+ sessions). Each step down costs 15-20 liters of volume, so expect a learning curve at each transition. You'll go from catching 15 waves per session on the foamie to catching 5 on the funboard until your paddle fitness adapts. Buy your first foamie <strong>used if possible</strong> — Craigslist, Facebook Marketplace, and local surf shops sell used Wavestorms for $50-100. You'll outgrow it in 6-12 months. Your second board (funboard) is worth investing in new ($400-600) because you'll ride it longer.</p>`,
+        content: `<p>Size down when your current board limits a specific skill, not because a calendar says it is time. A useful readiness check is whether you can catch unbroken waves without being pushed, angle the takeoff both ways, trim down the line, turn around efficiently, and keep control through the inside on most ordinary sessions.</p><p>Change one variable at a time. Moving from an 8-foot foam board near 70 liters to a 7-foot hard board near 45 liters changes length, volume, rails, weight, and durability at once. A fuller 7'6"-8'0" mid-length can make the transition easier. Keep the larger board so you can compare wave count on weak days instead of forcing the smaller board into unsuitable surf.</p>`,
         keyTakeaway:
-          "Foamie → funboard → shortboard over 12-24 months. Buy first foamie used ($50-100). Invest in a quality funboard for your second board.",
+          "Downsize only to solve a clear limitation, and change one major dimension at a time so you can tell what helped.",
+      },
+      {
+        id: "weight-bands",
+        heading: "Use Weight Bands as a Starting Filter",
+        content: `<p>For an adult beginner in mellow surf, a practical shop-floor screen is <strong>7'6"-8'0" and 55-70 liters below about 150 lb</strong>, <strong>8'0"-9'0" and 65-85 liters from about 150-200 lb</strong>, and <strong>9'0" or larger with 80-100+ liters above about 200 lb</strong>. These are broad starting bands, not engineering limits.</p><p>Move upward when you surf less than weekly, have limited shoulder endurance, learn in weak waves, or want maximum stability. Move toward the lower edge only when you have strong paddle fitness, frequent coaching, and a controlled learner wave. Children need a board they can carry and control; an adult-sized 9-footer can be too much even if it floats them easily.</p>`,
+        keyTakeaway:
+          "Start with a weight band, then move up for weaker waves or less paddle fitness and down only when control and coaching support it.",
+      },
+      {
+        id: "wave-type",
+        heading: "Match the Board to the Waves You Will Actually Surf",
+        content: `<p>Weak, rolling surf rewards length, foam, and glide. A board that catches a one-to-two-foot reform early may feel bulky in steeper, faster waves. Conversely, a compact board designed for a steep pocket can be frustrating at a soft beach where the wave barely pushes.</p><p>Base the purchase on the conditions you will surf <strong>most often</strong>, not the best photo from the local break. If lessons happen in waist-deep whitewater, stability and safe control matter more than turning response. If the only suitable learner wave has a long walk or tight storage, test whether you can carry and transport the board before buying. Never choose a more demanding wave merely to justify a smaller board.</p>`,
+        keyTakeaway:
+          "Size for your ordinary learner wave and transport reality, not for rare good days or an aspirational board category.",
+      },
+      {
+        id: "fit-test",
+        heading: "Run a Rental Test Before Buying",
+        content: `<p>Rent or borrow two nearby sizes in similar conditions. Count <strong>wave attempts, waves caught, clean pop-ups, and controlled finishes</strong> over 30-60 minutes. If the smaller board cuts the successful wave count roughly in half without unlocking a skill you can use, it is too large a step. If both perform similarly and you can carry and control the smaller one, the smaller size may be reasonable.</p><p>Do not compare a clean small day on one board with a windy larger day on another. Ask a reputable instructor or shop to watch your paddling position and takeoff rather than recommending from height alone. A board that floats you but is too wide to paddle comfortably can also be the wrong fit.</p>`,
+        keyTakeaway:
+          "Compare nearby sizes in the same conditions and measure successful waves, not how advanced the smaller board looks.",
+      },
+      {
+        id: "used-board-check",
+        heading: "Check Whether a Used Board Still Matches Its Label",
+        content: `<p>On a soft-top, check for a waterlogged feel, delamination or bubbles, torn fin boxes, loose leash plug, and a slick or badly creased deck. On a hard board, inspect the nose, tail, rails, fin boxes, and deck for open cracks or soft spots. Repaired cosmetic damage can be fine; unrepaired damage that admits water changes weight and durability.</p><p>Confirm the printed dimensions and volume when available, but do not assume every “8-foot beginner board” has the same stability. Install the fins and leash, lift the board, and lie on it if the seller allows. A low price does not help if the board is difficult to control or needs immediate structural repair.</p>`,
+        keyTakeaway:
+          "Inspect condition, dimensions, and control together; damage or an unusual outline can make the labeled size misleading.",
       },
     ],
     faqs: [
@@ -1668,7 +1725,17 @@ export const learnArticles: LearnArticle[] = [
       {
         question: "Does board shape matter for beginners?",
         answer:
-          "Width and thickness matter more than shape details. Wider = more stable. Thicker = more float. For beginners, anything over 21 inches wide and 3 inches thick works. Ignore rocker profiles, tail shapes, and fin setups until intermediate level.",
+          "Yes, although fine design details matter less than glide and stability at first. A fuller nose, generous width, adequate thickness, and forgiving rails usually help. No single width or thickness guarantees a good fit.",
+      },
+      {
+        question: "Should I size a surfboard from my height?",
+        answer:
+          "Height helps with stance and carrying, but body weight, paddle fitness, volume distribution, wave power, and skill are more useful. Two surfers of equal height may need very different boards.",
+      },
+      {
+        question: "Is the smallest board I can stand on the right size?",
+        answer:
+          "No. Standing once does not prove that you can paddle, catch waves early, position safely, and control the board for a full session. Choose by repeatable wave count and control.",
       },
     ],
     relatedLinks: [
@@ -1768,6 +1835,11 @@ export const learnArticles: LearnArticle[] = [
         href: "/learn/surf-etiquette-rules",
         description: "Know the rules before you paddle into the lineup.",
       },
+      {
+        label: "Surf Paddling for Beginners",
+        href: "/learn/surf-paddling-for-beginners",
+        description: "The technique that shortens the learning curve most.",
+      },
     ],
   },
 
@@ -1776,8 +1848,9 @@ export const learnArticles: LearnArticle[] = [
     title: "What Are the Rules of Surf Etiquette?",
     description:
       "The cardinal rule: the surfer closest to the peak (breaking part of the wave) has priority. Never drop in (take off on someone else's wave). Don't snake (paddle around someone to steal priority). Paddle wide around the lineup. Control your board. Respect locals. These prevent collisions and injuries.",
-    readingTimeMin: 3,
+    readingTimeMin: 7,
     datePublished: "2026-03-30",
+    dateModified: "2026-08-19",
     heroImage: "/images/learn/learn-surfer-watching.jpg",
     thumbnailImage: "/images/learn/learn-surfer-watching.jpg",
     keywords: [
@@ -1792,23 +1865,51 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>The cardinal rule: the surfer <strong>closest to the peak</strong> (the breaking part of the wave) has <strong>right of way</strong>. Never <strong>"drop in"</strong> — don't take off on a wave someone else is already riding. Don't <strong>"snake"</strong> — don't paddle around someone to steal priority. Paddle <strong>wide around</strong> the lineup, not through it. Control your board at all times. Respect locals. Apologize for mistakes. These aren't suggestions — they prevent collisions that cause real injuries at breaks from Malibu to Pipeline.</p>`,
+        content: `<p>The surfer already riding or taking off <strong>closest to the breaking peak</strong> normally has priority. Do not take off in front of that surfer, repeatedly paddle around people to gain position, or abandon your board where it can hit someone. Return to the lineup by the channel or wide shoulder when one exists, and avoid the rider's open face.</p><p>Etiquette is a collision-reduction system, not a guarantee of safety or a license for aggression. Conditions, local signs, contest rules, lessons, and lifeguard directions can change how an area operates. If you cannot identify the peak, exit route, or other surfers' paths, watch longer or choose a less crowded, more manageable place.</p>`,
         keyTakeaway:
           "Closest to the peak has priority. Never drop in. Don't snake. Paddle wide. Control your board. Respect locals.",
       },
       {
         id: "detail",
         heading: "The Six Rules Every Surfer Must Know",
-        content: `<p><strong>1. Right of way</strong>: Whoever is closest to the peak (where the wave first breaks) has priority. If someone is deeper than you, the wave is theirs. On a peak that breaks both ways (an A-frame), one person goes left and one goes right — communicate.</p><p><strong>2. Don't drop in</strong>: If someone is already up and riding, do not take off in front of them. This is the most dangerous violation — it causes collisions and broken boards.</p><p><strong>3. Don't snake</strong>: Paddling around someone to get closer to the peak and steal priority. Even if technically closer, it's aggressive and disrespectful.</p><p><strong>4. Paddle wide</strong>: When returning to the lineup, paddle around the breaking zone, not through it. Paddling through puts you in the path of riding surfers.</p><p><strong>5. Control your board</strong>: Never ditch your board when a wave comes. Use duck dives or turtle rolls. A loose board is a projectile that can injure others.</p><p><strong>6. Respect the lineup</strong>: Wait your turn. Don't paddle straight to the peak and take the first wave. Locals who surf the spot daily have earned respect through years of commitment.</p>`,
+        content: `<p><strong>1. Honor priority:</strong> the surfer closest to the breaking part of the wave generally has the first opportunity. <strong>2. Do not drop in:</strong> if someone is riding toward you, do not take off across their path. <strong>3. Do not snake:</strong> repeated repositioning around the next surfer to manufacture priority breaks the rotation.</p><p><strong>4. Paddle out of the riding line:</strong> use a channel or broken-water route when practical. <strong>5. Maintain board control:</strong> leave enough space that a fall does not send equipment into someone else. <strong>6. Share the set:</strong> observe who has been waiting and avoid taking every wave from the deepest position.</p><p>These rules interact. Being technically deepest does not excuse a last-second paddle around someone, and a paddler trapped inside should move predictably rather than making a sudden crossing.</p>`,
         keyTakeaway:
           "Six rules: right of way (closest to peak), no drop-ins, no snaking, paddle wide, control your board, respect the lineup order.",
       },
       {
         id: "practical",
         heading: "What This Means for Your Session",
-        content: `<p>As a beginner, <strong>start at the shoulder</strong> (the less critical part of the wave), not the peak. Watch the lineup for 10 minutes before paddling out to understand the hierarchy and wave patterns. Catch waves that others don't want — inside reforms, smaller sets, wide shoulders. This builds your skills without creating conflict. If you accidentally drop in, <strong>kick out immediately and apologize</strong>. Everyone makes mistakes — own them. As you progress and earn respect, you'll naturally move closer to the peak. Surf <strong>less crowded breaks</strong> when possible — fewer people means more waves and less etiquette stress.</p>`,
+        content: `<p>Watch from shore for at least <strong>two or three set cycles</strong>. Identify where waves first break, whether the peak shifts, which direction riders travel, where people paddle back out, and whether a lesson zone or swimming area is marked. Count how many surfers are competing for each peak; a small wave with ten people can demand more judgment than a larger empty reform.</p><p>Beginners usually learn more in a designated lesson or whitewater area than by sitting on a crowded main peak. If you join a lineup, start wide enough to observe without blocking riders. Take a wave only when you have checked both directions. If the crowd, current, or takeoff is beyond your control, leaving is good judgment, not a breach of etiquette.</p>`,
         keyTakeaway:
-          "Start at the shoulder, watch 10 minutes before paddling out, catch the leftovers, apologize for mistakes, choose less crowded breaks.",
+          "Read several sets from shore, identify traffic lanes and marked zones, and choose a peak where you can stay predictable and controlled.",
+      },
+      {
+        id: "priority-cases",
+        heading: "Resolve Priority on A-Frames and Shifting Peaks",
+        content: `<p>On an A-frame, two surfers may be able to ride away from the peak in opposite directions. Call <strong>“left”</strong> or <strong>“right”</strong> early enough for the other surfer to react. Do not assume the split if either line closes into the other or if someone is already committed.</p><p>At a shifting beach break, priority resets with the location of each peak; sitting in one place does not reserve every wave nearby. At a point or reef, a clearer takeoff zone may create a rotation. Notice who has just ridden and who has waited through a set. When uncertain, yield and reset. One missed wave costs less than two surfers making incompatible takeoff decisions.</p>`,
+        keyTakeaway:
+          "Communicate on split peaks, recognize that shifting peaks change priority, and yield whenever two plans are unclear.",
+      },
+      {
+        id: "paddling-path",
+        heading: "Choose the Least Disruptive Paddle Path",
+        content: `<p>If a channel exists, paddle around the breaking zone. When caught inside with a rider approaching, move toward the already-broken whitewater when that route is available, leaving the clean face to the rider. Do not race unpredictably across the face at the last second. The rider should also maintain control and avoid aiming at paddlers.</p><p>Sometimes there is no harmless route: a closeout beach break may fill the whole inside, or current may prevent a wide paddle. Create more spacing before the next wave and accept being pushed back rather than ditching the board into people behind you. A leash does not make a released board controlled.</p>`,
+        keyTakeaway:
+          "Use channels and broken water, move predictably, and accept lost ground when crossing a rider's line would create conflict.",
+      },
+      {
+        id: "mistakes",
+        heading: "Handle Mistakes Without Escalating",
+        content: `<p>If you realize you have dropped in, stop entering the rider's path: straighten toward the foam or exit over the shoulder only when you can do so without another collision. A short, direct apology after the wave is enough. Explain only if the other surfer asks; arguing about intention rarely helps.</p><p>If someone drops in on you, prioritize avoiding contact. A calm reminder may resolve an honest mistake. Repeated dangerous behavior, threats, or a crowd that prevents safe spacing are reasons to move peaks, leave the water, or alert a lifeguard where appropriate. Etiquette does not require confronting an aggressive person, and “localism” never justifies violence or harassment.</p>`,
+        keyTakeaway:
+          "Exit a mistaken ride without crossing paths, apologize plainly, and disengage from repeated or aggressive conflict.",
+      },
+      {
+        id: "board-control",
+        heading: "Make Board Control a Spacing Decision",
+        content: `<p>Before paddling for a wave, ask whether there is a clear zone in front, beside, and behind you if you fall. More speed, a longer board, stronger current, and a crowded inside all require more room. Do not take off directly behind another learner or aim toward swimmers.</p><p>Practice prone turns, stopping, turtle rolls or other board-control techniques in manageable conditions with qualified instruction. No technique works in every situation, and holding a board can itself become difficult in powerful whitewater. If you are repeatedly losing the board or cannot keep a buffer equal to at least the board-and-leash reach, choose smaller surf or a less crowded area and heed lifeguard guidance.</p>`,
+        keyTakeaway:
+          "Leave a buffer for the full reach of your board and leash, and step down in conditions when you cannot maintain it.",
       },
     ],
     faqs: [
@@ -1820,7 +1921,7 @@ export const learnArticles: LearnArticle[] = [
       {
         question: "What is localism and how do I deal with it?",
         answer:
-          "Localism is territorial behavior by regular surfers at specific breaks. It ranges from cold shoulders to verbal aggression. Handle it by being respectful: don't take set waves, don't paddle to the peak immediately, surf the shoulder, and be friendly. Most locals warm up to respectful visitors.",
+          "Localism is territorial behavior that can range from a closed rotation to harassment. Observe the established flow and be courteous, but you do not owe anyone tolerance for threats or violence. Disengage, leave, or contact lifeguards or authorities when appropriate.",
       },
       {
         question: "Is it okay to surf near surf schools?",
@@ -1831,6 +1932,16 @@ export const learnArticles: LearnArticle[] = [
         question: "What do I do if I get dropped in on?",
         answer:
           "Stay calm. If they didn't see you, a simple 'hey, I was on that one' is fine. Most people apologize immediately. If it keeps happening, they're either oblivious or aggressive — move to a different peak rather than escalating.",
+      },
+      {
+        question: "Does a surfer farther outside always have priority?",
+        answer:
+          "No. Priority usually follows the surfer closest to the breaking peak who is committed to that wave, not whoever sits farthest offshore. Positioning gained by snaking also does not create respectful priority.",
+      },
+      {
+        question: "Should I ditch my board if whitewater is too strong?",
+        answer:
+          "Do not release it when anyone may be within the board-and-leash reach. If you cannot maintain control in the conditions, create more distance, return to shore, and choose a smaller or less crowded session with appropriate instruction.",
       },
     ],
     relatedLinks: [
@@ -1857,8 +1968,9 @@ export const learnArticles: LearnArticle[] = [
     title: "What Is a Beach Break vs Reef Break vs Point Break?",
     description:
       "Beach breaks: waves break over shifting sandbars, peaks move around, falls are forgiving. Best for beginners. Reef breaks: waves break over rock or coral, consistent shape, shallow and dangerous. Point breaks: waves peel along a headland or jetty, long rides, consistent direction. Examples: Huntington Beach (beach), Pipeline (reef), Rincon (point).",
-    readingTimeMin: 3,
+    readingTimeMin: 7,
     datePublished: "2026-03-30",
+    dateModified: "2026-08-19",
     heroImage: "/images/activities/reef-breaks.webp",
     thumbnailImage: "/images/activities/reef-breaks.webp",
     keywords: [
@@ -1873,9 +1985,9 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p><strong>Beach breaks</strong>: waves break over shifting sandbars. Peaks move around, falls land on sand — forgiving and best for beginners. Example: Huntington Beach, CA. <strong>Reef breaks</strong>: waves break over rock or coral. Consistent shape but shallow and dangerous when you fall. Example: Pipeline, Oahu. <strong>Point breaks</strong>: waves peel along a headland, jetty, or rocky point. Long, predictable rides. Example: Rincon, Santa Barbara. Most surfers start on beach breaks and progress to reef and point breaks as skills develop.</p>`,
+        content: `<p>A <strong>beach break</strong> breaks over sand that can shift after storms and strong currents. A <strong>reef break</strong> breaks over relatively fixed rock or coral. A <strong>point break</strong> peels along a headland or other projecting feature, often over rock, reef, or sand. The labels describe bottom and coastline geometry; they do not assign skill level or safety.</p><p>Use the type to predict what may stay fixed: takeoff location, peeling direction, paddle channel, and tide sensitivity. Then check the actual swell, water depth, current, crowd, entry, and posted conditions. A small reef can be approachable with local guidance while a powerful beach break can be unsuitable for a beginner.</p>`,
         keyTakeaway:
-          "Three types: beach break (sand, shifting, forgiving), reef break (rock/coral, consistent, dangerous), point break (headland, long rides).",
+          "Break type explains the bottom and wave geometry, not whether today's conditions suit your ability.",
         image: {
           src: "/images/activities/reef-breaks.webp",
           alt: "Wave breaking over a shallow reef — consistent but dangerous",
@@ -1885,16 +1997,44 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "detail",
         heading: "How Each Break Type Works",
-        content: `<p><strong>Beach breaks</strong> form when swell hits sandbars. Bars shift weekly with tides and currents, so peaks move — you might surf a different spot every session. Waves tend to close out (break all at once) more often. Wipeouts are low-risk because you land on sand. They work across more tide ranges and swell directions. Examples: Huntington Beach, Ocean Beach SF, New Jersey shore breaks.</p><p><strong>Reef breaks</strong> form over permanent underwater structure. The fixed bottom creates a <strong>consistent wave shape</strong> — the peak breaks in the same spot with the same geometry every time. This produces high-quality, predictable waves but is dangerous: falls land on sharp, shallow reef. Depth matters hugely — most reef breaks need <strong>mid-to-high tide</strong> for safety. Examples: Pipeline (Oahu), Uluwatu (Bali), Cloudbreak (Fiji).</p><p><strong>Point breaks</strong> form where swell wraps around a headland, jetty, or rocky point. The wave peels consistently in one direction, creating <strong>long rides</strong> (100+ yards at good point breaks). Paddling out is usually easier because there's a channel alongside the point. Examples: Rincon (CA), Malibu (CA), J-Bay (South Africa).</p>`,
+        content: `<p><strong>Beach breaks</strong> depend on bars, troughs, and channels made from sand. One peak may offer a clean left today and close out after the next storm. The moving bottom rewards fresh observation rather than old directions.</p><p><strong>Reef breaks</strong> use a more fixed underwater contour, so the takeoff and peeling line are often repeatable. The reef may be flat, sharp, deep, shallow, exposed at low tide, or covered by enough water to be invisible; the category alone cannot tell you the consequence of a fall.</p><p><strong>Point breaks</strong> form as swell bends and breaks along a point. Some have long one-direction walls and a protected channel, while others section, run fast, or carry strong current down the line. A point can also be a reef break because “point” describes the coastline and “reef” describes the bottom.</p>`,
         keyTakeaway:
-          "Beach breaks shift and close out but are safe. Reef breaks are consistent but dangerous. Point breaks give long rides with easy paddle-outs.",
+          "Sand moves, reef stays comparatively fixed, and points organize swell along a coastline—but each type has wide variation.",
       },
       {
         id: "practical",
         heading: "What This Means for Your Session",
-        content: `<p>As a beginner, <strong>start exclusively on beach breaks</strong> — the forgiving sand bottom and shifting peaks mean you can practice without injury risk. Once you're riding green waves confidently (3-6 months), try a <strong>mellow point break</strong> on a small day — the long rides accelerate your turns and speed generation. Save reef breaks for when you're intermediate (1+ year, confident duck diving, solid wave reading). Use Quiver's break-type filter on the surf map to find beaches matched to your level. When surfing reef breaks, <strong>always check tide</strong> — many become dangerous at low tide when the reef is exposed. Reef booties protect your feet and build confidence.</p>`,
+        content: `<p>For a learner, prioritize a designated lesson area with <strong>small broken waves, room between people, a manageable current, straightforward entry, and lifeguard or instructor guidance</strong>. That is often a sandy beach, but “beach break” does not guarantee those traits. Shorebreak, rip channels, heavy closeouts, and moving peaks can make a sandy beach a poor choice.</p><p>Before trying a point or reef, be able to turn the board quickly, catch unbroken waves in a chosen direction, exit a ride on command, and follow a defined paddle route without crossing riders. Ask a reputable local instructor about suitable tide and swell windows. Do not use months surfed as the deciding threshold; control in comparable conditions matters more.</p>`,
         keyTakeaway:
-          "Start on beach breaks, progress to mellow point breaks, save reef breaks for intermediate level. Check tide before reef sessions.",
+          "Choose by controllable conditions and a clear route, not by assuming every sandy break is beginner-friendly.",
+      },
+      {
+        id: "shore-read",
+        heading: "Identify the Break Type From Shore",
+        content: `<p>At a beach break, look for several peaks, gaps in whitewater, and surfers shifting position as the bars focus different sets. Darker or calmer channels can mark deeper water and current, not a safe swimming lane. At a reef, repeated waves usually begin near the same landmark and follow a similar line. Exposed rock or coral at low tide is an obvious clue, but a submerged reef may show no surface marker.</p><p>At a point, watch whether sets wrap around a headland and peel along the shoreline. Follow several riders from takeoff to exit and note where they paddle back. Mixed breaks are common: a point may feed into a beach section, or a jetty may stabilize sand like a short point.</p>`,
+        keyTakeaway:
+          "Watch multiple sets for fixed takeoffs, shifting peaks, channels, and the coastline path before assigning a label or choosing a route.",
+      },
+      {
+        id: "tide-effects",
+        heading: "Expect Tide to Affect Each Bottom Differently",
+        content: `<p>On a beach break, a rising or falling tide changes water depth over every bar. A peak may soften, improve briefly, then stop breaking. On a reef, tide can change the clearance over rock or coral and the speed at which a wave stands up. On a point, tide may affect the takeoff, inside connection, entry rocks, and current separately.</p><p>Do not import a rule such as “reef equals high tide.” Some reefs become fuller at high tide; others stop breaking or develop backwash. Use a documented local range, observe the bottom at a lower tide from shore, and ask lifeguards or experienced local guidance. If you cannot verify depth, entry, and exit, choose another location.</p>`,
+        keyTakeaway:
+          "Tide changes depth and connection differently at every bottom; local observation beats a break-type shortcut.",
+      },
+      {
+        id: "tradeoffs",
+        heading: "Compare the Trade-Offs That Affect a Session",
+        content: `<p>Beach breaks offer multiple peaks and often more room to spread out, but the correct takeoff can move between sets and the paddle-out may lack a channel. Reefs offer a repeatable line for learning a wave, yet fixed takeoffs concentrate crowds and mistakes occur over a fixed bottom. Points can deliver long rides and a recognizable route, but long rides also mean long paddles, current, and a tight priority rotation.</p><p>Decide which uncertainty you can manage. If your wave reading is developing, a clearly marked mellow takeoff may help—but only if depth, crowd, and entry fit. If crowd stress is the main issue, a broad small beach may offer more space even when individual waves are less predictable.</p>`,
+        keyTakeaway:
+          "Trade moving peaks against fixed-bottom exposure, crowd concentration, ride length, paddle distance, and current.",
+      },
+      {
+        id: "decision-checklist",
+        heading: "Use a Break-Specific Go/No-Go Checklist",
+        content: `<p>For a beach break, ask: where are the rip channels, is shorebreak blocking entry, are peaks closing out, and is there enough space? For a reef, ask: what is the actual depth, where are the entry and exit, does the tide expose hazards, and can you follow the fixed line? For a point, ask: which swell angle connects, how strong is the down-line current, where does the ride end, and how will you return?</p><p>For every type, check lifeguard instructions, posted closures, wind, tide, swell, water quality, crowd, and your ability to control the board. A “good” break type can still be the wrong call today. When any critical answer is unknown, watch longer, ask qualified local guidance, or do not enter.</p>`,
+        keyTakeaway:
+          "Ask the questions unique to the bottom, then apply the same condition, crowd, and ability checks to every break.",
       },
     ],
     faqs: [
@@ -1906,7 +2046,7 @@ export const learnArticles: LearnArticle[] = [
       {
         question: "Why are reef breaks more dangerous?",
         answer:
-          "Falls can land you on sharp coral or rock in 2-3 feet of water. Cuts, broken bones, and head injuries are possible. At low tide, the reef may be barely submerged. Reef breaks demand experience, awareness, and ideally a helmet for heavy waves.",
+          "A fixed rock or coral bottom can be shallow, uneven, or sharp, and entry and exit may cross the same surface. Risk varies greatly with depth, tide, wave power, and the particular reef; local guidance and posted conditions matter.",
       },
       {
         question: "What about jetty breaks and rivermouth breaks?",
@@ -1916,7 +2056,17 @@ export const learnArticles: LearnArticle[] = [
       {
         question: "Which break type is best for longboarding?",
         answer:
-          "Point breaks are ideal for longboarding — the long, mellow peeling waves give you time for cross-stepping and noseriding. Malibu, First Point and Rincon are classic longboard waves. Beach breaks work too, especially on small, clean days.",
+          "A long, slower peeling point is a classic match, but small beach peaks and mellow reefs can also work. Wave shape, crowd, entry, and board control matter more than the label alone.",
+      },
+      {
+        question: "Is a point break always a reef break?",
+        answer:
+          "No. A point describes the projecting coastline that organizes the wave. Its bottom may be rock, coral, cobble, sand, or a mixture, so a point can overlap with reef or sand-bottom classifications.",
+      },
+      {
+        question: "Are sandy bottoms safe to fall on?",
+        answer:
+          "No bottom makes a wipeout safe. Sand can be shallow or hard-packed, and the wave, board, leash, current, and other people remain hazards. Avoid diving headfirst and follow qualified local guidance.",
       },
     ],
     relatedLinks: [
@@ -1944,8 +2094,9 @@ export const learnArticles: LearnArticle[] = [
     title: "What Equipment Do I Need to Start Surfing?",
     description:
       "Essential gear: soft-top surfboard (8-9 ft foamie, $200-400), leash (6-9 ft matched to board length), wetsuit (thickness matched to water temperature), and wax (temperature-specific). Optional: rash guard, earplugs, reef booties. Total starter budget: $300-600. Skip the shortboard.",
-    readingTimeMin: 2,
+    readingTimeMin: 7,
     datePublished: "2026-03-30",
+    dateModified: "2026-08-19",
     heroImage: "/images/learn/learn-surfer-walks.jpg",
     thumbnailImage: "/images/learn/learn-surfer-walks.jpg",
     keywords: [
@@ -1960,45 +2111,83 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p><strong>Essential</strong>: soft-top surfboard (8-9 ft foamie, <strong>$200-400</strong>), leash (6-9 ft, matched to board length, <strong>$20-35</strong>), wetsuit (thickness per water temp, <strong>$150-350</strong>), and wax (temperature-specific, <strong>$3-5</strong>). <strong>Optional but recommended</strong>: rash guard ($25-40, sun and chafe protection), earplugs ($15-30, prevents surfer's ear), reef booties ($30-60, rocky entries). Total starter budget: <strong>$300-600</strong>. Buy the foamie used if possible — Wavestorm on Craigslist for $50-100.</p>`,
+        content: `<p>You need a <strong>board suited to learning, compatible fins, a sound leash, traction, and exposure protection for the actual water and weather</strong>. For most first sessions, the simplest route is a lesson or rental package that includes an 8-9 foot soft-top, leash, and wetsuit. That lets you test the activity, fit, and local conditions before storing a large board.</p><p>Bring drinking water, a towel or changing layer, a secure key plan, and broad-spectrum water-resistant sun protection. Add booties, earplugs, gloves, or a hood only when temperature, entry, or personal needs justify them. Equipment does not make conditions safe; follow lifeguards and posted rules and stay within your ability.</p>`,
         keyTakeaway:
-          "Four essentials: foamie board, leash, wetsuit, wax. Total budget $300-600. Buy the board used to save money.",
+          "Start with board, fins, leash, traction, and condition-appropriate exposure protection; rent first to learn what fits.",
       },
       {
         id: "detail",
         heading: "The Essential Gear Breakdown",
-        content: `<p><strong>Board</strong>: 8-9 ft soft-top foamie. Wavestorm, Catch Surf, or ISLE. Soft foam won't cut you or others. Wide and thick for stability. This is non-negotiable for beginners — shortboards delay learning by months.</p><p><strong>Leash</strong>: Attaches your ankle to the board. Match length to board length (8 ft board = 8-9 ft leash). Buy a quality one from FCS, Dakine, or Creatures — a broken leash means a lost board and a dangerous swim. Replace annually.</p><p><strong>Wetsuit</strong>: Matched to water temperature. See our <a href="/learn/what-wetsuit-thickness-do-i-need">wetsuit thickness guide</a>. Check real-time water temp on Quiver before buying. O'Neill, Xcel, Rip Curl, and Patagonia are reliable brands.</p><p><strong>Wax</strong>: Applied to the deck for grip. Use temperature-specific wax — cold water wax in warm water melts off. Basecoat first, then topcoat. Sex Wax and Sticky Bumps are the standards. $3-5 per bar, lasts several sessions.</p>`,
+        content: `<p><strong>Board and fins:</strong> choose a high-volume soft-top intended for learners, with every fin seated firmly and no sharp or loose hardware. Board sizing is its own decision; use the <a href="/learn/what-size-surfboard-should-i-get">surfboard sizing guide</a> rather than buying from height alone.</p><p><strong>Leash:</strong> match it roughly to board length so the board is not held unusually close after a fall. Inspect the cord, swivels, rail saver, cuff, and hook-and-loop closure before every session. A leash is board-retrieval equipment, not a substitute for swimming ability or board control.</p><p><strong>Traction:</strong> many soft-tops need suitable wax; some textured decks do not. Use the temperature grade on the wrapper and confirm the board maker allows wax. Apply a light, even pattern where hands and feet land rather than building slippery lumps.</p>`,
         keyTakeaway:
-          "Foamie board (non-negotiable), leash matched to board length, wetsuit matched to water temp, temperature-specific wax. Quality leash is a safety item.",
+          "Check board, fins, leash, and traction as a system, and never treat the leash as your swimming plan.",
       },
       {
         id: "practical",
         heading: "What This Means for Your Session",
-        content: `<p><strong>Budget strategy</strong>: Buy the foamie used ($50-100), invest in a new wetsuit (your body, your fit — $150-350), buy leash and wax new (cheap and important). Total: <strong>$225-450</strong>. Skip everything else until you're surfing regularly. After 50+ sessions, invest in a funboard ($400-600) as your second board. The foamie becomes your small-wave fun board — you'll keep it forever. <strong>Don't buy</strong>: a shortboard (too small), a hard top (too dangerous for beginners), expensive fins (you won't notice the difference), a board bag (yet — store it in the garage). Prioritize water time over gear — an experienced surfer on a Wavestorm outperforms a beginner on a $800 custom board every time.</p>`,
+        content: `<p>Use three buying stages. For sessions one through three, rent or take a lesson and note board dimensions, wetsuit thickness, suit size, and anything that rubbed or leaked. If you plan to surf only a few times per season, continued rental avoids storage, transport, and repair costs. If you will surf regularly, buy the items where fit and condition matter most.</p><p>A realistic new-kit total often lands in the <strong>several-hundred-dollar range</strong>, but local prices and included accessories vary. Compare a package against the line items: board, fins, leash, wax, suit, and tax. A cheap used board that needs fins and a leash may not beat a complete rental. Spend first on fit, intact equipment, and instruction, not cosmetic upgrades.</p>`,
         keyTakeaway:
-          "Buy foamie used, wetsuit new. Skip shortboards and extras. Prioritize water time over gear investment.",
+          "Rent for the first few sessions, price the complete system, and prioritize fit and condition over upgrades.",
+      },
+      {
+        id: "wetsuit-fit",
+        heading: "Choose Exposure Protection by Water, Air, and Session Length",
+        content: `<p>A wetsuit should be snug through the torso and lower back without restricting a full paddle stroke or breathing. Large folds flush cold water; a collar that gaps when you move is a warning sign. Try several sizes and brands because the same labeled size can fit shoulders, torso, and legs differently.</p><p>Use the <a href="/learn/what-wetsuit-thickness-do-i-need">wetsuit thickness guide</a> as a starting point, then account for wind chill, air temperature, sun, personal cold tolerance, and how long you will be sitting between waves. A hood, gloves, or booties can extend comfort in cold water, but added thickness reduces feel and dexterity. If you are shivering, numb, confused, or losing coordination, leave the water and seek appropriate help.</p>`,
+        keyTakeaway:
+          "Fit the suit through a full paddle motion and adjust thickness for water, air, wind, duration, and personal cold tolerance.",
+      },
+      {
+        id: "accessories",
+        heading: "Add Accessories Only for a Defined Problem",
+        content: `<p><strong>Rash guards</strong> reduce board and wetsuit chafe and add sun coverage. <strong>Surf earplugs</strong> may help regular cold-water surfers while still allowing some hearing, but they require cleaning and a secure fit. <strong>Booties</strong> add warmth and can help on rough entries, yet they do not make sharp reef or slippery rock harmless. Ask local lifeguards or instructors about entry hazards before relying on footwear.</p><p>A changing mat or waterproof tub keeps sand and salt out of the car. A board bag makes sense for roof transport, travel, or protecting a hard board; a sock may be enough for indoor storage. Skip action cameras and premium fins until you can explain the problem they solve.</p>`,
+        keyTakeaway:
+          "Buy each accessory to solve a specific exposure, chafe, transport, or entry problem—not because it appears in a generic bundle.",
+      },
+      {
+        id: "transport-storage",
+        heading: "Plan Transport and Storage Before the Board Arrives",
+        content: `<p>Measure the vehicle interior, elevator, stair turn, and storage wall before choosing a nine-foot board. For roof transport, use racks or pads designed for the vehicle and board, follow their load instructions, use suitable straps, and recheck tension after the first few minutes. Do not run a strap or board where it interferes with doors, visibility, or vehicle controls.</p><p>Rinse salt and sand from the leash, suit, and moving hardware with fresh water, then dry gear out of intense sun. Store the board away from heat that can damage foam or lamination. Dry the wetsuit inside out first on a broad hanger or folded support; thin wire hangers can stress the shoulders.</p>`,
+        keyTakeaway:
+          "A beginner kit must fit your vehicle and storage space, and routine rinsing and shaded drying preserve the parts you depend on.",
+      },
+      {
+        id: "pre-session-check",
+        heading: "Use a 60-Second Pre-Session Equipment Check",
+        content: `<p>Before leaving home, confirm the fins are present and tight, the leash has no cuts or damaged swivels, the cuff closes fully, the board has no open damage, and the suit and wax match the conditions. Pack water, sun protection, towel, dry clothes, and any required parking or access item. At the beach, attach the leash only when appropriate for the entry and keep the board controlled around other people.</p><p>If a fin box is loose, a leash connection is frayed, or a board is taking on water, do not improvise the session. Rent a replacement or get the equipment repaired. Even sound gear cannot remove ocean hazards, so combine the check with lifeguard advice, posted conditions, and a shore assessment.</p>`,
+        keyTakeaway:
+          "Check fins, leash, board damage, suit, traction, and shore conditions every time; replace or repair questionable equipment before entering.",
       },
     ],
     faqs: [
       {
         question: "Do I need surf lessons or just gear?",
         answer:
-          "Both. Gear gets you in the water; lessons teach you technique. 2-3 lessons ($80-150 each) save months of self-teaching and prevent bad habits. Most surf schools include board and wetsuit rental, so you can try before buying your own gear.",
+          "A qualified lesson is a practical first purchase because it usually includes suitable equipment and covers local entry, board control, and basic etiquette. Gear alone does not teach those decisions.",
       },
       {
         question: "Can I rent gear instead of buying?",
         answer:
-          "Yes, rentals run $20-40/session at most beach shops. Rent for your first 3-5 sessions to confirm you enjoy surfing before investing. But buying a used foamie pays for itself after 5 rental sessions.",
+          "Yes. Rental is often the better choice for the first few sessions, occasional trips, or anyone without transport and storage. Compare current local rates and what the package includes rather than assuming a fixed break-even point.",
       },
       {
         question: "Do I need fins for a foamie?",
         answer:
-          "Most foamies come with soft flexible fins pre-installed. These are fine for learning. Don't upgrade fins until you're on a fiberglass board. The stock fins on a Wavestorm work perfectly for beginners.",
+          "Yes. Most beginner soft-tops include compatible fins, but confirm they are installed firmly and that no hardware is sharp or damaged. Use the manufacturer's fin system rather than forcing an incompatible replacement.",
       },
       {
         question: "What about sunscreen?",
         answer:
-          "Yes — reef-safe zinc sunscreen (SPF 50) on face, ears, and neck. Reapply every 90 minutes. Water reflection intensifies UV exposure. A rash guard provides more reliable sun protection than sunscreen alone for your torso and arms.",
+          "Use broad-spectrum, water-resistant sun protection as directed on its label and cover exposed skin with suitable clothing where practical. Reapply according to the product instructions, especially after toweling off.",
+      },
+      {
+        question: "Should I buy a used wetsuit?",
+        answer:
+          "Only if it fits through the shoulders, torso, neck, and limbs and the seams, zipper, and neoprene are sound. A badly fitted bargain can flush water, restrict paddling, or need replacement quickly.",
+      },
+      {
+        question: "Do I need a repair kit in my starter setup?",
+        answer:
+          "Not for the first rental sessions. Once you own a board, keep manufacturer-compatible repair supplies at home for minor damage, but have structural cracks, loose fin boxes, or uncertain repairs assessed by a shop.",
       },
     ],
     relatedLinks: [
@@ -2103,6 +2292,11 @@ export const learnArticles: LearnArticle[] = [
         label: "Beach Break vs Reef Break",
         href: "/learn/beach-break-vs-reef-break-vs-point-break",
         description: "Rip currents are most common at beach breaks.",
+      },
+      {
+        label: "Best Beginner Surf Spots in San Diego",
+        href: "/learn/beginner-breaks-san-diego",
+        description: "Beginner-friendly San Diego breaks and their rip patterns.",
       },
     ],
   },
@@ -2746,6 +2940,241 @@ export const learnArticles: LearnArticle[] = [
         href: "/forecasts/rincon",
         description:
           "A calibrated forecast in action at one of California's most direction-sensitive points.",
+      },
+    ],
+  },
+  {
+    slug: "how-does-water-temperature-affect-surfing",
+    title: "How Does Water Temperature Affect Surfing?",
+    description:
+      "Learn how water temperature affects surfing through wetsuit choice, session length, cold shock, fatigue, comfort, and local wind—not wave height.",
+    readingTimeMin: 6,
+    datePublished: "2026-08-19",
+    heroImage: "/images/learn/learn-tide-pools.jpg",
+    thumbnailImage: "/images/learn/learn-tide-pools.jpg",
+    keywords: [
+      "how does water temperature affect surfing",
+      "surfing water temperature",
+      "cold water surfing",
+      "surfing wetsuit temperature",
+      "cold shock surfing",
+      "water temperature surf conditions",
+    ],
+    sections: [
+      {
+        id: "short-answer",
+        heading: "The Short Answer",
+        content: `<p>Water temperature does <strong>not</strong> change swell height or make waves larger. It changes the surfer's experience: what thermal protection to wear, how long a session stays comfortable, and how quickly cold shock or fatigue can reduce breathing control, coordination, and judgment. Check the water temperature separately from wave height, period, wind, and tide before deciding whether the session fits you and your gear.</p>`,
+        keyTakeaway:
+          "Water temperature affects your body and equipment choices, not the height of the waves.",
+      },
+      {
+        id: "wetsuit-choice",
+        heading: "Water Temperature Determines What You Wear",
+        content: `<p>Your wetsuit slows heat loss by trapping a thin layer of water and limiting circulation against the skin. Warmer water may call for trunks, a rash guard, or a thin spring suit; cooler water usually requires a full suit, then boots, gloves, and a hood as temperatures fall. Suit needs also vary with wind, air temperature, sun, body size, cold tolerance, and how active you are.</p><p>Use water temperature as a starting point, then adjust for the whole session. A shaded dawn patrol with strong wind can feel much colder than a sunny afternoon in the same ocean temperature. See the <a href="/learn/what-wetsuit-thickness-do-i-need">wetsuit thickness guide</a> for a practical range chart.</p>`,
+        keyTakeaway:
+          "Choose thermal protection from the water temperature, then account for wind, air temperature, sun, and personal tolerance.",
+      },
+      {
+        id: "cold-shock",
+        heading: "Cold Shock Changes the First Minutes",
+        content: `<p>Sudden immersion in cold water can trigger an involuntary gasp, rapid breathing, and a spike in heart rate. That response can make a rushed paddle-out harder and becomes more serious if you enter without control of your breathing. A well-fitting wetsuit helps, but it does not remove the need to enter deliberately and stay within your experience.</p><p>If breathing does not settle, you feel chest pain, or you lose control of your hands and movement, leave the water and seek help. Surfers with heart or respiratory conditions should get individualized medical guidance before cold-water sessions.</p>`,
+        keyTakeaway:
+          "Cold water can disrupt breathing immediately; enter deliberately and end the session if control does not return.",
+      },
+      {
+        id: "fatigue-session-length",
+        heading: "Cold Shortens Useful Session Time",
+        content: `<p>As the body cools, muscles and joints can feel stiffer, paddling becomes less efficient, and fine motor control can fade. That matters when gripping rails, fastening a leash, timing a pop-up, or making a calm decision in current. The useful session often ends before severe shivering begins.</p><p>Watch for persistent shivering, numb fingers, clumsy movement, confusion, or unusual fatigue. Those are reasons to return to shore, warm up gradually, and avoid paddling back out simply to reach a planned session length.</p>`,
+        keyTakeaway:
+          "End the session when cold begins reducing coordination or judgment, not when the clock says you are done.",
+      },
+      {
+        id: "waves-and-wind",
+        heading: "Temperature Does Not Create Bigger Surf",
+        content: `<p>Swell height comes from wind transferring energy to the ocean over distance and time, then from how that swell interacts with the local seafloor and coastline. The temperature of the water at your beach does not add height to an arriving swell.</p><p>Temperature gradients can still matter indirectly. Differences between warmer land and cooler ocean help drive local sea breezes, while seasonal ocean patterns can influence weather over larger scales. That local wind may smooth, texture, or disrupt the surf depending on its direction and strength. The wind affects the waves; the water temperature itself is not changing the swell height.</p>`,
+        keyTakeaway:
+          "Separate temperature from swell: land-ocean temperature gradients can drive local wind, and that wind can affect surf quality.",
+      },
+      {
+        id: "planning",
+        heading: "Plan the Session With Temperature in Context",
+        content: `<p>Check the current water temperature alongside air temperature, wind, weather, wave size, period, tide, and the time you expect to spend outside. Bring a dry layer for afterward, confirm that the wetsuit seals and moves properly, and remember that a suit that worked last month may not fit today's upwelling or seasonal change.</p><p>Quiver beach pages show water temperature and wetsuit guidance as part of the session check. Treat that guidance as a starting point rather than a guarantee of comfort, because cold tolerance and equipment condition vary by surfer.</p>`,
+        keyTakeaway:
+          "Use current water temperature and wetsuit guidance as part of a full conditions check, then adjust for your body and gear.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Does warmer water make waves bigger for surfing?",
+        answer:
+          "No. Water temperature at the beach does not determine swell height. Wave size comes from the generating wind, swell travel, and how the swell interacts with the coastline and seafloor.",
+      },
+      {
+        question: "What water temperature is too cold to surf?",
+        answer:
+          "There is no single cutoff for everyone. The answer depends on exposure gear, experience, health, wind, air temperature, and session length. If you cannot control your breathing or cold reduces coordination or judgment, get out.",
+      },
+      {
+        question: "Why do I get tired faster when surfing in cold water?",
+        answer:
+          "Your body spends energy limiting heat loss, while cooling muscles and joints can become stiffer and less efficient. A restrictive or poorly fitting wetsuit can also make paddling harder.",
+      },
+      {
+        question: "Can I surf cold water without a wetsuit?",
+        answer:
+          "Brief exposure is possible for some trained people, but cold shock and rapid heat loss can impair breathing and movement. Most surfers use thermal protection matched to the temperature and conditions.",
+      },
+      {
+        question: "Does water temperature affect surfboard performance?",
+        answer:
+          "For a normal session, the main effect is on the surfer rather than the board. Temperature can slightly change material stiffness or wax choice, but it does not replace wave height, period, wind, tide, and board design as the main performance factors.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "What Wetsuit Thickness Do I Need?",
+        href: "/learn/what-wetsuit-thickness-do-i-need",
+        description:
+          "Match common water-temperature ranges to wetsuit thickness and accessories.",
+      },
+      {
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
+        description:
+          "Combine water temperature with swell, wind, tide, and wave height.",
+      },
+      {
+        label: "Best Time of Day to Surf",
+        href: "/learn/best-time-of-day-to-surf",
+        description:
+          "Understand how wind and air temperature can change the feel of a session.",
+      },
+      {
+        label: "Check Current Water Temperature",
+        href: "/forecast",
+        description:
+          "Review current conditions and wetsuit guidance before heading out.",
+      },
+    ],
+  },
+  {
+    slug: "beginner-breaks-orange-county",
+    title: "Best Beginner Surf Spots in Orange County",
+    description:
+      "Compare beginner surf spots in Orange County, including Doheny, Bolsa Chica, Blackies, Old Man's, and Huntington Beach, plus conditions to check.",
+    readingTimeMin: 7,
+    datePublished: "2026-08-19",
+    heroImage: "/images/activities/beginner-friendly.webp",
+    thumbnailImage: "/images/activities/beginner-friendly.webp",
+    keywords: [
+      "beginner surf spots orange county",
+      "best beginner surf spots orange county",
+      "learn to surf orange county",
+      "Doheny beginner surfing",
+      "Bolsa Chica beginner surfing",
+      "Blackies Newport beginner surfing",
+    ],
+    sections: [
+      {
+        id: "short-answer",
+        heading: "The Short Answer",
+        content: `<p>Orange County has several places where beginners can find manageable waves when the swell, tide, wind, and crowd line up. <strong>Doheny State Beach</strong> is the usual first choice for soft rollers; <strong>Bolsa Chica</strong> and <strong>Blackies in Newport Beach</strong> offer sand-bottom practice; <strong>San Onofre's Old Man's</strong> is known for slower longboard waves; and <strong>Huntington Beach south of the pier</strong> can work on smaller, cleaner days. None is automatically suitable every day, so check a current report and watch multiple sets from shore.</p>`,
+        keyTakeaway:
+          "Choose the day's conditions, not just a famous spot name, and confirm the wave pattern from shore before entering.",
+      },
+      {
+        id: "doheny-old-mans",
+        heading: "Doheny and Old Man's for Slower Waves",
+        content: `<p><strong>Doheny State Beach</strong> in Dana Point is a classic learner option when the surf is small. The inside commonly offers soft whitewater and slower waves, but the bottom includes cobbles and rocks, the takeoff zones can be crowded, and larger south swells add speed and current. Stay clear of the harbor entrance and use the designated surf area.</p><p><strong>Old Man's at San Onofre</strong>, just south of the Orange County line, is a common OC surf trip because its broad peaks and rolling shoulders suit longboards on smaller days. It can still be crowded, the cobble bottom is uneven, and stronger swells create long paddles and more powerful sets. Check access and parking conditions before driving.</p>`,
+        keyTakeaway:
+          "Doheny and Old Man's favor slower longboard-style waves on smaller days, but rocks, crowds, and swell size still matter.",
+      },
+      {
+        id: "bolsa-blackies",
+        heading: "Bolsa Chica and Blackies for Sand-Bottom Practice",
+        content: `<p><strong>Bolsa Chica State Beach</strong> has a long sandy shoreline with room to look for a softer peak. It is still an exposed beach break: short-period windswell can close out, afternoon wind can roughen the surface, and shifting sandbars can create rip currents. Beginners should favor small days, stay near staffed areas, and avoid assuming one section behaves like the next.</p><p><strong>Blackies</strong>, on the north side of Newport Pier, is popular with beginners and longboarders when waves are small. The pier can influence current, the lineup gets busy, and larger or lower-tide surf can become faster than its mellow reputation suggests. Keep distance from the pilings and practice in uncrowded whitewater before joining an outside peak.</p>`,
+        keyTakeaway:
+          "Sand bottoms make Bolsa Chica and Blackies practical learning options, but current, closeouts, crowds, and pier hazards require attention.",
+      },
+      {
+        id: "huntington",
+        heading: "When Huntington Beach Works for Beginners",
+        content: `<p><strong>Huntington Beach south of the pier</strong> can offer multiple sandbar peaks and accessible whitewater when the forecast is small and wind is light. It is more exposed than Doheny, so the same incoming swell can produce steeper waves, stronger currents, and frequent closeouts. The pier area also attracts crowds and experienced surfers.</p><p>Look for a clearly separated, smaller inside zone rather than paddling toward the main peak. Keep well away from the pier, swimmers, and other boards. If sets are breaking across the whole beach or the current keeps moving you downshore, choose a more sheltered session or take a lesson.</p>`,
+        keyTakeaway:
+          "Huntington can work on small, clean days, but its exposure and current demand a more selective call than a sheltered learner break.",
+      },
+      {
+        id: "conditions",
+        heading: "Conditions to Check Before You Go",
+        content: `<p>Start with <strong>wave height, period, wind, tide, and swell direction</strong>. For early practice, look for small surf with enough space between sets to regain control. Longer period can add more force than the height alone suggests, while onshore wind can make even small surf disorganized. Tide effects vary with the sandbar or reef, so use spot-specific guidance.</p><ul><li><strong>Check a current report:</strong> conditions can change between breakfast and arrival.</li><li><strong>Watch several sets:</strong> the quiet minute after a set is not the full pattern.</li><li><strong>Identify current and exits:</strong> note where surfers drift and where you can return to shore.</li><li><strong>Respect closures and lifeguards:</strong> posted restrictions and local direction override a general guide.</li></ul>`,
+        keyTakeaway:
+          "A beginner-friendly location only fits when the day's height, period, wind, tide, crowd, and current are manageable.",
+      },
+      {
+        id: "lessons-etiquette",
+        heading: "Lessons, Equipment, and Lineup Etiquette",
+        content: `<p>A lesson is useful for learning board control, the day's entry and exit, rip-current recognition, and where beginners are expected to practice. Use a high-volume soft-top with a leash in good condition, and choose a wetsuit from the current water temperature rather than the season alone.</p><p>Carry the board at your side, never between you and an incoming wave. Leave generous space, do not abandon the board, and do not paddle directly into an established peak before you can turn and stop reliably. At Doheny, Blackies, Old Man's, and other busy longboard lineups, waiting your turn and avoiding drop-ins matters as much as standing up.</p>`,
+        keyTakeaway:
+          "A lesson, suitable soft-top, and basic board-control etiquette make a crowded learner lineup more manageable for everyone.",
+      },
+    ],
+    faqs: [
+      {
+        question: "What is the best beginner surf spot in Orange County?",
+        answer:
+          "Doheny State Beach is the most common starting point because smaller days can produce soft inside waves. It is not suitable in every condition, so check the current report, crowd, and designated surf area before entering.",
+      },
+      {
+        question: "Is Bolsa Chica good for beginner surfers?",
+        answer:
+          "It can be on small, clean days, especially for whitewater practice over sand. Because it is exposed, shifting sandbars, closeouts, wind, and rip currents can make other days a poor fit.",
+      },
+      {
+        question: "Can beginners surf at Blackies in Newport Beach?",
+        answer:
+          "Yes, when the surf is small and there is room to practice, but the lineup can be crowded and the pier affects the risk picture. Stay away from pilings and do not join an outside peak before you can control your board.",
+      },
+      {
+        question: "Is Huntington Beach south of the pier beginner-friendly?",
+        answer:
+          "Sometimes. Small wave height, light wind, a manageable period, and a softer sandbar can create a useful beginner window. Larger swells, closeouts, current, or heavy crowds are reasons to choose another spot.",
+      },
+      {
+        question: "When is the best time for a beginner to surf in Orange County?",
+        answer:
+          "There is no guaranteed hour, but mornings often have lighter wind. Check the current spot report, tide, swell period, and crowd, then watch multiple sets because seasonal swell and local wind can override the usual pattern.",
+      },
+      {
+        question: "Do I need a wetsuit to surf in Orange County?",
+        answer:
+          "Often, especially outside the warmest late-summer periods. Check the current water and air temperature, wind, session length, and your cold tolerance before choosing a spring suit or full suit.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Beginner Surf Spots in San Diego",
+        href: "/learn/beginner-breaks-san-diego",
+        description:
+          "Compare learner breaks farther south and the conditions each needs.",
+      },
+      {
+        label: "Beginner Surf Spots in Santa Cruz",
+        href: "/learn/beginner-breaks-santa-cruz",
+        description:
+          "Compare colder-water beginner options on the Central Coast.",
+      },
+      {
+        label: "Best Surf Conditions for Beginners",
+        href: "/learn/best-surf-conditions-for-beginners",
+        description:
+          "Learn how height, period, wind, tide, and crowds shape a beginner window.",
+      },
+      {
+        label: "Beginner Surf in Huntington Beach",
+        href: "/beginner/huntington-beach",
+        description:
+          "Check the current learner call and conditions for Huntington Beach.",
       },
     ],
   },

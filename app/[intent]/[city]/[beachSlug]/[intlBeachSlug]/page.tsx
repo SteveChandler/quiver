@@ -3,6 +3,7 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { PublicForecastAnswer } from "@/components/beach-detail/public-forecast-answer";
 import { PublicForecastHourly } from "@/components/beach-detail/public-forecast-hourly";
+import { AuthenticatedForecastDecisionProvider } from "@/components/beach-detail/authenticated-forecast-decision";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import type { Metadata } from "next";
 import { buildDynamicBeachMetadata, buildPageMetadata } from "@/lib/seo/meta";
@@ -23,6 +24,10 @@ import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service
 import { evaluateBeachForecastIndexability, applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
+import {
+  selectPublicForecastContextFacts,
+  selectPublicForecastReportFacts,
+} from "@/lib/utils/public-forecast-facts";
 
 // The route only reads public beach data; cache on demand instead of rendering
 // every crawler request from scratch.
@@ -187,6 +192,10 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
     const forecastContext = surfReportResult?.forecastContext ?? null;
     const hourlyForecasts = surfReportResult?.hourlyForecasts ?? [];
     const hourlyForecastDay = surfReportResult?.hourlyForecastDay ?? "today";
+    const publicForecastReport =
+      selectPublicForecastReportFacts(surfCallReport);
+    const publicForecastContext =
+      selectPublicForecastContextFacts(forecastContext);
 
     return (
       <>
@@ -220,36 +229,36 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
           dateModified={forecastContext?.sourceDataUpdatedAt ?? undefined}
         />
 
-        <BeachDetailClient
-          beach={publicBeach}
-          slug={intlBeachSlug}
-          beachTimezone={beachTimezone}
-          surfCallReport={surfCallReport}
-          surfCallIsTomorrow={surfCallIsTomorrow}
-          heroHeadingLevel="h2"
-          heroForecastSlot={
+        <AuthenticatedForecastDecisionProvider beachId={publicBeach.id}>
+          <BeachDetailClient
+            beach={publicBeach}
+            slug={intlBeachSlug}
+            beachTimezone={beachTimezone}
+            heroHeadingLevel="h2"
+            heroForecastSlot={
               <PublicForecastAnswer
                 beach={publicBeach}
-                report={surfCallReport}
-                context={forecastContext}
+                report={publicForecastReport}
+                context={publicForecastContext}
                 isTomorrow={surfCallIsTomorrow}
                 headingLevel="h1"
+                returnTo={beachUrl}
               />
-          }
-          freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
-          /* Server-rendered inside the zine paper above the tabs — see the
-             canonical US route for why this is not inside the forecast tab. */
-          afterTabsContent={
-            <PublicForecastHourly
-              beachName={publicBeach.name}
-              forecastHours={hourlyForecasts}
-              report={surfCallReport}
-              context={forecastContext}
-              isTomorrow={surfCallIsTomorrow}
-              forecastDay={hourlyForecastDay}
-            />
-          }
-        />
+            }
+            freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
+            /* Server-rendered inside the zine paper above the tabs — see the
+               canonical US route for why this is not inside the forecast tab. */
+            afterTabsContent={
+              <PublicForecastHourly
+                beachName={publicBeach.name}
+                forecastHours={hourlyForecasts}
+                context={publicForecastContext}
+                forecastDay={hourlyForecastDay}
+                returnTo={beachUrl}
+              />
+            }
+          />
+        </AuthenticatedForecastDecisionProvider>
       </>
     );
   } catch (error) {
