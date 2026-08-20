@@ -91,7 +91,7 @@ export function AnalyticsLoader() {
       <Analytics />
 
       {/* Vercel Speed Insights (Core Web Vitals monitoring) */}
-      <SpeedInsights />
+      <SpeedInsights sampleRate={0.1} />
 
       {/* Google Analytics (GA4) - Load on ALL pages for attribution */}
       {GA_ID && (

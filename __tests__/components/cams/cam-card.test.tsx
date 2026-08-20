@@ -85,4 +85,28 @@ describe("CamCard", () => {
       CAM_CARD_FALLBACK_IMAGE_URL,
     );
   });
+
+  it("keeps a space before the arrow in the hover label", () => {
+    render(<CamCard beach={baseBeach} />);
+
+    expect(screen.getByText("Watch live cam →")).toBeInTheDocument();
+  });
+
+  it("keeps a space before the arrow when no preview is available", () => {
+    render(
+      <CamCard
+        beach={{
+          ...baseBeach,
+          camera_url: "https://example.com/some-cam",
+          thumbnail_url: null,
+          photo_url: null,
+        }}
+      />,
+    );
+
+    fireEvent.error(screen.getByAltText("Test Beach live camera"));
+
+    expect(screen.getByText("Preview unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Open cam page →")).toBeInTheDocument();
+  });
 });

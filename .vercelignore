@@ -7,7 +7,6 @@ __tests__/
 /.next/
 /reports/
 /.planning/
-/.git/
 /.claude/
 /.agents/
 /.superpowers/
