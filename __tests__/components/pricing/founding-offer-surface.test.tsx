@@ -83,10 +83,9 @@ describe("FoundingOfferSurface", () => {
     expect(screen.getByText("Best spot + paddle window")).toBeInTheDocument();
     expect(screen.getByText("Board-aware picks")).toBeInTheDocument();
     expect(screen.getByText("Similarity alerts")).toBeInTheDocument();
-    expect(screen.getByText("Custom spots")).toBeInTheDocument();
     expect(screen.getByText("Unlimited favorites")).toBeInTheDocument();
     expect(screen.getByText("Offline session saving")).toBeInTheDocument();
-    expect(screen.getAllByTestId("plans-pro-feature")).toHaveLength(7);
+    expect(screen.getAllByTestId("plans-pro-feature")).toHaveLength(6);
     expect(screen.queryByText("Offline maps")).not.toBeInTheDocument();
     expect(screen.getByText(/today:/i)).toBeInTheDocument();
     expect(screen.getByText(/day 12:/i)).toBeInTheDocument();
@@ -114,7 +113,7 @@ describe("FoundingOfferSurface", () => {
     expect(
       screen.getByTestId("founding-offer-zine-surface"),
     ).toBeInTheDocument();
-    expect(screen.getAllByTestId("plans-pro-feature")).toHaveLength(7);
+    expect(screen.getAllByTestId("plans-pro-feature")).toHaveLength(6);
     expect(
       screen.getByRole("img", {
         name: /surfer in a bright pink rash guard carving through the wall/i,
