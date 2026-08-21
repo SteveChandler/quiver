@@ -437,7 +437,7 @@ async function _GET(request: Request): Promise<Response> {
 
           subject =
             conditionsScore !== null && conditionsScore >= 70
-              ? `✨ ${beachName} — conditions are looking good`
+              ? `${beachName} — conditions are looking good`
               : `${beachName} — check tomorrow's forecast`;
 
           const ctaUrl = beachData?.slug

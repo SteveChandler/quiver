@@ -276,7 +276,7 @@ describe("SessionPromptEmail", () => {
 
       expect(
         screen.getByText(
-          /Your session logs help the community and improve our forecasts\./i
+          /Your session log is the record you'll compare the next call against\./i
         )
       ).toBeInTheDocument();
     });
@@ -307,7 +307,7 @@ describe("SessionPromptEmail", () => {
       // Motivational message
       expect(
         screen.getByText(
-          /Your session logs help the community and improve our forecasts\./i
+          /Your session log is the record you'll compare the next call against\./i
         )
       ).toBeInTheDocument();
 

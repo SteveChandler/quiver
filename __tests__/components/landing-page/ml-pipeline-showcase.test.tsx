@@ -76,9 +76,9 @@ describe("MLPipelineShowcase", () => {
     expect(screen.getByText("Quiver makes the call.")).toBeInTheDocument();
     expect(screen.getByText("You check the beach.")).toBeInTheDocument();
     expect(screen.getByText("You log the session.")).toBeInTheDocument();
-    expect(screen.getByText("Quiver tunes the next one.")).toBeInTheDocument();
+    expect(screen.getByText("Quiver compares the next one.")).toBeInTheDocument();
     expect(
-      screen.getByText(/your surf forecast gets smarter when you log what happened/i),
+      screen.getByText(/your logged days sit next to the next call/i),
     ).toBeInTheDocument();
 
     await waitFor(() => {

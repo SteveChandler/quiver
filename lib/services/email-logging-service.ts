@@ -17,7 +17,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Email type enum matching database constraint from migration 20260203120000
+ * Email type enum matching the email_send_log_email_type_check constraint.
+ * Last widened by migration 20260821140000 (trial invitation).
  */
 export type EmailType =
   | "welcome"
@@ -27,7 +28,12 @@ export type EmailType =
   | "conditions_alert"
   | "session_prompt"
   | "first_session_nudge"
-  | "swell_watch";
+  | "swell_watch"
+  | "trial_started"
+  | "trial_ending"
+  | "trial_ended"
+  | "trial_invitation"
+  | "founder_story";
 
 /**
  * Email log entry with all optional fields for flexibility

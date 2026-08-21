@@ -60,9 +60,9 @@ const LOOP_STEPS: LoopStep[] = [
   },
   {
     number: "4",
-    title: "Quiver tunes the next one.",
+    title: "Quiver compares the next one.",
     body:
-      "Your surf forecast gets smarter when you log what happened, without treating every note like buoy truth.",
+      "Your logged days sit next to the next call, so you can see how a new window stacks up against sessions you actually surfed.",
     sticker: "spotSwellMatch",
     chips: ["Signal", "Preference", "Next call"],
     cardClassName: "md:rotate-[0.55deg]",

@@ -331,6 +331,35 @@ export function Sticker({
   );
 }
 
+/**
+ * Full-width hand-drawn divider strip. Unlike <Sticker> this carries no radius,
+ * shadow, or rotation — it is a printed rule, not a pasted-on sticker. One PNG
+ * rather than nine so it survives every email client's table quirks in one
+ * request.
+ */
+export function StickerStrip({ width = 544 }: { width?: number }) {
+  const asset = QUIVER_STICKER_ASSETS.lineStrip;
+  const height = Math.round((width / asset.width) * asset.height);
+  return (
+    <div style={{ textAlign: "center", padding: "6px 0 2px" }}>
+      <img
+        src={`${getBaseUrl()}${asset.src}`}
+        alt=""
+        width={width}
+        height={height}
+        style={{
+          display: "block",
+          border: 0,
+          margin: "0 auto",
+          width: "100%",
+          maxWidth: width,
+          height: "auto",
+        }}
+      />
+    </div>
+  );
+}
+
 /** Beach-club badge for a named beach, or null when no curated badge exists. */
 export function BeachBadge({
   beach,

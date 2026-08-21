@@ -1,0 +1,6 @@
+<svg viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <title>Longboard</title>
+  <path d="M50 8 C31 9 21 37 20 87 C19 137 29 180 48 192 C67 181 78 138 79 88 C80 39 69 10 50 8 Z" stroke="currentColor" fill="none"/>
+  <path d="M50 12 C49 58 50 111 48 188" stroke="currentColor" fill="none"/>
+  <path d="M48 169 C40 174 40 184 47 188 C54 182 55 175 48 169 Z" stroke="currentColor" fill="none"/>
+</svg>

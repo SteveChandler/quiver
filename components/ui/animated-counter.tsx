@@ -81,20 +81,15 @@ export function AnimatedCounter({
   animateOnView = true,
   threshold = 0.5,
 }: AnimatedCounterProps) {
-  // SSR: Initialize with real value so Google indexes correct numbers.
-  // Client: Reset to 0 after hydration to preserve count-up animation.
+  // Always holds the real value until a count-up actually starts. Resetting to
+  // 0 on hydration instead left every counter that never scrolled into view
+  // displaying 0 to anything reading the DOM without scrolling — print,
+  // screenshots, Cmd+F, OG-image renderers and search crawlers included.
   const [displayValue, setDisplayValue] = useState(value);
   const [hasAnimated, setHasAnimated] = useState(false);
-  const [isHydrated, setIsHydrated] = useState(false);
   const elementRef = useRef<HTMLSpanElement>(null);
   const animationRef = useRef<number | undefined>(undefined);
   const reducedMotion = useReducedMotion();
-
-  // After hydration, reset to 0 so the animation can count up
-  useEffect(() => {
-    setIsHydrated(true);
-    setDisplayValue(0);
-  }, []);
 
   // Format the display value
   const formattedValue = useCallback(
@@ -109,15 +104,12 @@ export function AnimatedCounter({
 
   // Animation function
   const animate = useCallback(() => {
-    if (reducedMotion) {
-      // Skip animation for reduced motion preference
-      setDisplayValue(value);
-      setHasAnimated(true);
-      return;
-    }
-
     const startTime = performance.now();
     const startValue = 0;
+
+    // The count-up owns the reset to 0, so a counter that never animates keeps
+    // the true value rather than falling back to a wrong one.
+    setDisplayValue(startValue);
 
     const updateValue = (currentTime: number) => {
       const elapsed = currentTime - startTime;
@@ -135,12 +127,12 @@ export function AnimatedCounter({
     };
 
     animationRef.current = requestAnimationFrame(updateValue);
-  }, [value, duration, reducedMotion]);
+  }, [value, duration]);
 
   // Intersection observer for scroll-triggered animation
   useEffect(() => {
-    // Don't start observing until hydrated (displayValue has been reset to 0)
-    if (!isHydrated) return;
+    // Reduced motion gets the true value and no observer at all.
+    if (reducedMotion || hasAnimated) return;
 
     if (!animateOnView) {
       // Animate immediately if not waiting for scroll
@@ -170,7 +162,25 @@ export function AnimatedCounter({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [animate, animateOnView, hasAnimated, isHydrated, threshold]);
+  }, [animate, animateOnView, hasAnimated, reducedMotion, threshold]);
+
+  // Track prop changes that land before any count-up has run.
+  useEffect(() => {
+    if (!hasAnimated) {
+      setDisplayValue(value);
+    }
+  }, [value, hasAnimated]);
+
+  // The observer effect short-circuits once animation is done, so its cleanup
+  // can no longer be relied on to cancel a frame still in flight at unmount.
+  useEffect(
+    () => () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    },
+    []
+  );
 
   // Update value if prop changes after initial animation
   useEffect(() => {

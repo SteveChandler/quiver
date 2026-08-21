@@ -7,6 +7,7 @@ import {
   Footer,
   PaperPanel,
   Stamp,
+  StickerStrip,
   Wordmark,
 } from "@/lib/mailer/components";
 import {
@@ -22,26 +23,29 @@ import {
   PAPER_INK,
   STICKER_ROTATIONS,
   TEAL,
+  TEXT,
 } from "@/lib/mailer/theme";
 
-export interface FirstSessionNudgeEmailProps {
+export interface TrialInvitationEmailProps {
   displayName: string | null;
-  logSessionUrl: string;
+  beachName: string | null;
+  ctaUrl: string;
   unsubscribeUrl: string;
 }
 
-export function FirstSessionNudgeEmail({
+export function TrialInvitationEmail({
   displayName,
-  logSessionUrl,
+  beachName,
+  ctaUrl,
   unsubscribeUrl,
-}: FirstSessionNudgeEmailProps) {
-  const greeting = displayName ? `Hey ${displayName}!` : "Hey there!";
+}: TrialInvitationEmailProps) {
+  const greeting = displayName ? `Hey ${displayName},` : "Hey,";
+  const spot = beachName ?? "your home break";
 
   return (
     <EmailShell>
       <Wordmark />
 
-      {/* Masthead — onboarding headline + rotated DAY 1 stamp */}
       <tr>
         <td {...cellBg(CANVAS, { padding: "26px 28px 20px" })}>
           <table
@@ -54,19 +58,19 @@ export function FirstSessionNudgeEmail({
             <tbody>
               <tr>
                 <td style={{ verticalAlign: "top" }}>
-                  <Eyebrow color={GOLD}>First session</Eyebrow>
+                  <Eyebrow color={GOLD}>Quiver Pro</Eyebrow>
                   <h1
                     style={{
                       fontFamily: FONT_DISPLAY,
                       fontWeight: 700,
-                      fontSize: 28,
-                      lineHeight: 1.05,
+                      fontSize: 29,
+                      lineHeight: 1.06,
                       color: CREAM,
                       margin: 0,
                       transform: `rotate(${STICKER_ROTATIONS.softNeg})`,
                     }}
                   >
-                    Your first forecast&apos;s up.
+                    Two weeks of the Pro. Free.
                   </h1>
                 </td>
                 <td
@@ -75,7 +79,7 @@ export function FirstSessionNudgeEmail({
                   style={{ verticalAlign: "top", width: 78 }}
                 >
                   <Stamp fontSize={12} padding="11px 13px">
-                    DAY 1
+                    14 DAYS
                   </Stamp>
                 </td>
               </tr>
@@ -84,48 +88,94 @@ export function FirstSessionNudgeEmail({
         </td>
       </tr>
 
-      {/* Body */}
       <tr>
         <td {...cellBg(CARD, { padding: "24px 28px" })}>
           <p
             style={{
               fontFamily: FONT_BODY,
               fontSize: 15,
-              lineHeight: 1.5,
-              color: MUTED,
-              margin: "0 0 20px",
+              lineHeight: 1.55,
+              color: TEXT,
+              margin: "0 0 18px",
             }}
           >
             {greeting}
           </p>
 
-          {/* Value prop — cream paper note */}
+          <p
+            style={{
+              fontFamily: FONT_BODY,
+              fontSize: 15,
+              lineHeight: 1.55,
+              color: TEXT,
+              margin: "0 0 18px",
+            }}
+          >
+            You&apos;ve got {spot} set as your home break. The free forecast gives
+            you the data. That stays free either way.
+          </p>
+
           <PaperPanel rotation={STICKER_ROTATIONS.softNeg}>
-            <Eyebrow color={TEAL}>Why the log matters</Eyebrow>
+            <Eyebrow color={TEAL}>The call layer</Eyebrow>
             <p
               style={{
                 fontFamily: FONT_DISPLAY,
                 fontWeight: 500,
                 fontSize: 15,
-                lineHeight: 1.4,
+                lineHeight: 1.45,
                 color: PAPER_INK,
                 margin: 0,
               }}
             >
-              Three sessions in, you&apos;ve got a record of your own
-              days&mdash;size, wind, time of day&mdash;to compare the next call
-              against.
+              Pro adds the call layer on top: the surf-call verdict for {spot},
+              how the window matches sessions you&apos;ve logged, board picks from
+              your quiver, and alerts that find the window before it arrives.
+              Two breaks ten minutes apart don&apos;t handle the same swell the same
+              way. The call layer is where that shows up.
             </p>
           </PaperPanel>
 
-          {/* CTA — rotated orange button */}
-          <div style={{ textAlign: "center", padding: "18px 0 2px" }}>
-            <CTAButton href={logSessionUrl}>Log your first session</CTAButton>
+          <div style={{ textAlign: "center", padding: "20px 0 4px" }}>
+            <CTAButton href={ctaUrl}>Start your free 14-day trial</CTAButton>
           </div>
+
+          <p
+            style={{
+              fontFamily: FONT_BODY,
+              fontSize: 14,
+              lineHeight: 1.5,
+              color: MUTED,
+              margin: "18px 0 0",
+              textAlign: "center",
+            }}
+          >
+            $4.99/mo or $39.99/yr after the trial. The first charge comes only
+            after the full 14 days. Cancel any time before then and you
+            aren&apos;t charged.
+          </p>
+        </td>
+      </tr>
+
+      <tr>
+        <td {...cellBg(CARD, { padding: "0 28px 22px" })}>
+          <StickerStrip />
         </td>
       </tr>
 
       <Footer>
+        <p
+          style={{
+            fontFamily: FONT_MONO,
+            fontSize: 11,
+            lineHeight: 1.6,
+            color: MUTED,
+            margin: "0 0 8px",
+          }}
+        >
+          — Steve
+          <br />
+          quiversurf.app
+        </p>
         <p
           style={{
             fontFamily: FONT_MONO,
@@ -135,7 +185,7 @@ export function FirstSessionNudgeEmail({
             margin: 0,
           }}
         >
-          You just signed up for Quiver ·{" "}
+          You use Quiver free ·{" "}
           <a
             href={unsubscribeUrl}
             style={{ color: MUTED, textDecoration: "underline" }}

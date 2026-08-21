@@ -49,13 +49,13 @@ export const FEATURE_CARDS = [
     icon: Star,
     title: "Tuned to You",
     description:
-      "Your surf forecast gets smarter when you log what happened. Quiver learns your spots, your wave range, and when you like to go.",
+      "Log what happened and Quiver scores new windows against your own sessions — your spots, your wave range, and when you like to go.",
     iconBgColor: "bg-sunset-orange/10",
     iconColor: "text-sunset-orange",
     features: [
       {
         icon: Star,
-        text: "Learns from your sessions",
+        text: "Match score built from your sessions",
         color: "text-sunset-orange",
       },
       {
@@ -65,7 +65,7 @@ export const FEATURE_CARDS = [
       },
       {
         icon: Brain,
-        text: "Gets sharper every session you log",
+        text: "Every log is a day to compare against",
         color: "text-sunset-orange",
       },
     ],
@@ -174,7 +174,7 @@ export const FEATURE_CARDS = [
     icon: Users,
     title: "Community",
     description:
-      "Share sessions, post photos, and connect with surfers at your local breaks. The more you share, the smarter Quiver gets for everyone.",
+      "Share sessions, post photos, and connect with surfers at your local breaks. Real reports put eyes on the breaks the cams miss.",
     iconBgColor: "bg-[#F78E42]/10",
     iconColor: "text-[#F78E42]",
     features: [
@@ -272,7 +272,7 @@ export const CONTENT = {
   hero: {
     title: "One surf call, then a smarter next one.",
     subtitle:
-      "Quiver forecasts the session, you check the beach, log what happened, and the model keeps tuning your local call.",
+      "Quiver lays out the window beach by beach — swell, wind, tide, and the red flags — so you make the call. Log what happened and you've got your own days to compare the next one against.",
     cta: "Get my surf call",
     secondaryCta: "Find your spots",
     benefits: [
@@ -314,9 +314,9 @@ export const CONTENT = {
         "From finding surf buddies to sharing epic sessions, your complete surf community platform",
     },
     cta: {
-      title: "Make the next surf call sharper",
+      title: "Check it, surf it, log it",
       subtitle:
-        "Check the forecast, surf the session, log what happened, and help Quiver keep tuning your local calls.",
+        "Check the forecast, surf the session, log what happened — and build the record you'll compare every next call against.",
     },
   },
 } as const;

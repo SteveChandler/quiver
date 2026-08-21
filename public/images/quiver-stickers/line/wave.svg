@@ -1,0 +1,6 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <title>Breaking wave</title>
+  <path d="M8 75 C20 76 25 63 36 58 C51 50 67 56 73 68 C70 51 61 39 46 34 C62 22 84 31 90 53 C96 73 77 88 55 86 C36 84 23 77 8 75 Z" stroke="currentColor" fill="none"/>
+  <path d="M46 34 C53 35 58 40 59 46 C52 42 44 44 38 50" stroke="currentColor" fill="none"/>
+  <path d="M17 83 C28 80 34 89 46 84 C57 80 63 90 77 84" stroke="currentColor" fill="none"/>
+</svg>

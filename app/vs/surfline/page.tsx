@@ -848,8 +848,9 @@ export default function VsSurflinePage() {
       <section className="px-4 pb-8">
         <div className="mx-auto max-w-7xl border-y-2 border-[#11100D] py-4">
           <p className="text-center text-xs font-semibold leading-5 text-[#252D6B]">
-            <strong>Disclosure:</strong> This page is published by Quiver. We have
-            done our best to represent Surfline&apos;s features and pricing
+            <strong>Disclosure:</strong>{" "}
+            This page is published by Quiver. We have done our best to represent
+            Surfline&apos;s features and pricing
             accurately based on publicly available information checked on June 23, 2026.
             Surfline is a trademark of Surfline/Wavetrak, Inc. Quiver is not
             affiliated with or endorsed by Surfline. Pricing and features may have
