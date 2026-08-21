@@ -1,0 +1,8 @@
+<svg viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <title>Hanging wetsuit</title>
+  <path d="M39 18 C42 11 57 10 62 18 L71 25 L92 56 C90 65 84 70 77 71 L65 50 L66 116 L75 190 C69 192 60 192 56 188 L50 132 L43 189 C37 192 28 192 25 188 L34 116 L35 50 L23 72 C16 70 10 65 8 57 L29 26 Z" stroke="currentColor" fill="none"/>
+  <path d="M39 18 C43 27 57 28 62 18" stroke="currentColor" fill="none"/>
+  <path d="M50 28 C48 56 51 86 50 118" stroke="currentColor" fill="none"/>
+  <path d="M34 94 C43 99 57 99 66 94" stroke="currentColor" fill="none"/>
+  <path d="M25 188 C33 184 38 185 43 189 M56 188 C63 184 68 185 75 190" stroke="currentColor" fill="none"/>
+</svg>

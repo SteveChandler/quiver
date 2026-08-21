@@ -1,0 +1,7 @@
+<svg viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <title>Fish surfboard</title>
+  <path d="M50 8 C29 10 10 44 8 92 C8 136 19 174 37 191 L50 179 L63 192 C82 173 92 136 92 91 C90 44 72 10 50 8 Z" stroke="currentColor" fill="none"/>
+  <path d="M50 13 C49 61 51 126 50 178" stroke="currentColor" fill="none"/>
+  <path d="M31 161 C23 169 25 181 37 188" stroke="currentColor" fill="none"/>
+  <path d="M69 161 C77 169 75 181 63 188" stroke="currentColor" fill="none"/>
+</svg>

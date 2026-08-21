@@ -1,0 +1,7 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <title>Pint glass</title>
+  <path d="M20 14 C34 11 67 12 81 15 C78 38 75 66 69 89 C56 92 42 91 31 89 C26 66 23 39 20 14 Z" stroke="currentColor" fill="none"/>
+  <path d="M22 25 C31 21 39 28 49 24 C58 20 68 28 79 23" stroke="currentColor" fill="none"/>
+  <path d="M32 34 C31 48 34 68 38 80" stroke="currentColor" fill="none"/>
+  <path d="M65 34 C66 48 63 68 60 80" stroke="currentColor" fill="none"/>
+</svg>

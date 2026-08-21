@@ -1,0 +1,8 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <title>Steaming diner mug</title>
+  <path d="M18 42 C19 59 17 78 28 87 C38 92 59 91 68 84 C73 73 72 57 72 42 C56 39 34 40 18 42 Z" stroke="currentColor" fill="none"/>
+  <path d="M73 51 C88 47 92 56 89 67 C87 78 79 82 71 76" stroke="currentColor" fill="none"/>
+  <path d="M31 33 C24 27 37 21 30 14" stroke="currentColor" fill="none"/>
+  <path d="M47 32 C40 25 53 20 47 11" stroke="currentColor" fill="none"/>
+  <path d="M62 33 C56 27 68 22 63 15" stroke="currentColor" fill="none"/>
+</svg>

@@ -62,6 +62,18 @@ const CASES: OutcomeWiringCase[] = [
   },
   { name: "NOAA buoy reference sync", route: "sync-buoys", unit: "buoys_synced" },
   {
+    name: "trial lifecycle email",
+    route: "trial-lifecycle-email",
+    unit: "emails_sent",
+    legitimatelyZero: true,
+  },
+  {
+    name: "trial invitation email",
+    route: "trial-invitation-email",
+    unit: "emails_sent",
+    legitimatelyZero: true,
+  },
+  {
     name: "implicit preferences",
     route: "update-implicit-preferences",
     unit: "preferences_recomputed",
