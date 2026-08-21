@@ -4,6 +4,8 @@ import {
   advancePlaybackPosition,
   compactTimelineDayLabel,
   findAdjacentLocalDayIndex,
+  timelineDayLabelClasses,
+  timelineDayLabelWidthPercent,
   SwellDayTimeline,
   type SwellDayTimelineProps,
 } from "@/components/map/swell-field/swell-day-timeline";
@@ -50,22 +52,86 @@ describe("SwellDayTimeline", () => {
     expect(advancePlaybackPosition(9.9, 100, 10)).toBe(10);
   });
 
-  it("uses readable date numbers for compact ten-day bands", () => {
+  it("falls back to the viewport breakpoint for day labels before the track is measured", () => {
     expect(compactTimelineDayLabel("Sat 8")).toBe("8");
     expect(compactTimelineDayLabel("Mon 17")).toBe("17");
+    expect(timelineDayLabelWidthPercent(0, 1, 12)).toBeCloseTo(16.67, 1);
+    expect(timelineDayLabelClasses(null)).toEqual({
+      full: "hidden truncate sm:inline",
+      compact: "tabular-nums sm:hidden",
+    });
 
     render(<SwellDayTimeline {...createProps()} />);
 
-    expect(screen.getByTestId("timeline-day-Fri-10-compact")).toHaveTextContent("10");
+    expect(screen.getByTestId("timeline-day-Fri-10")).toHaveClass("text-xs");
     expect(screen.getByTestId("timeline-day-Fri-10-compact")).toHaveClass(
       "tabular-nums",
       "sm:hidden",
     );
-    expect(screen.getByTestId("timeline-day-Fri-10")).toHaveClass(
-      "justify-center",
-      "px-0.5",
-      "sm:px-2",
+  });
+
+  it("picks the full or short day label from the measured band width, not the viewport", () => {
+    expect(timelineDayLabelClasses(63)).toEqual({ full: "hidden", compact: "inline tabular-nums" });
+    expect(timelineDayLabelClasses(64)).toEqual({ full: "inline truncate", compact: "hidden tabular-nums" });
+
+    const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function measure(this: HTMLElement) {
+      const rect = originalRect.call(this);
+      if (this.dataset.testid === "timeline-track") {
+        return { ...rect, width: 600, toJSON: () => ({}) } as DOMRect;
+      }
+      return rect;
+    };
+    try {
+      const hourly = Array.from({ length: 12 }, (_, index) =>
+        new Date(Date.UTC(2026, 6, 10, index)).toISOString(),
+      );
+      render(
+        <SwellDayTimeline
+          {...createProps({
+            timestamps: hourly,
+            timezone: "UTC",
+            daySegments: [
+              // 2/12 of 600px = 100px: wide enough for "Fri 10".
+              { key: "2026-07-10", label: "Fri 10", startIndex: 0, endIndex: 1 },
+              // 1/12 of 600px = 50px: date number only.
+              { key: "2026-07-11", label: "Sat 11", startIndex: 2, endIndex: 2 },
+              { key: "2026-07-12", label: "Sun 12", startIndex: 3, endIndex: 11 },
+            ],
+          })}
+        />,
+      );
+
+      expect(screen.getByTestId("timeline-day-Fri-10-compact")).toHaveClass("hidden");
+      expect(screen.getByTestId("timeline-day-Sat-11-compact")).toHaveClass("inline");
+      expect(screen.getByTestId("timeline-day-Sat-11-compact")).toHaveTextContent("11");
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalRect;
+    }
+  });
+
+  it("labels a midday current-day segment Today without changing its proportional width", () => {
+    const middayTimestamps = Array.from({ length: 24 }, (_, index) =>
+      new Date(Date.UTC(2026, 6, 10, 12 + index)).toISOString(),
     );
+
+    render(
+      <SwellDayTimeline
+        {...createProps({
+          timestamps: middayTimestamps,
+          timezone: "UTC",
+          daySegments: [
+            { key: "2026-07-10", label: "Fri 10", startIndex: 0, endIndex: 11 },
+            { key: "2026-07-11", label: "Sat 11", startIndex: 12, endIndex: 23 },
+          ],
+        })}
+      />,
+    );
+
+    const today = screen.getByTestId("timeline-day-Fri-10");
+    expect(today).toHaveStyle({ width: "50%" });
+    expect(today).toHaveTextContent("Today · 12h left");
+    expect(today).toHaveAttribute("title", "Today · 12h left");
   });
 
   it("exposes the active local forecast time through the native slider", () => {
@@ -73,7 +139,7 @@ describe("SwellDayTimeline", () => {
 
     expect(screen.getByRole("slider", { name: "Forecast time" }))
       .toHaveAttribute("aria-valuetext", "Fri 10 — 2 PM HST");
-    expect(screen.getByTestId("timeline-day-Fri-10")).toHaveTextContent("Fri 10");
+    expect(screen.getByTestId("timeline-day-Fri-10")).toHaveTextContent("Today");
     expect(screen.queryByText("Pacific/Honolulu")).not.toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
@@ -237,7 +303,7 @@ describe("SwellDayTimeline", () => {
 
     rerender(<SwellDayTimeline {...createProps({ isExhausted: true })} />);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Forecast ends Sat 11 — 1 PM HST",
+      "2-day forecast · ends Sat 11 — 1 PM HST",
     );
   });
 
