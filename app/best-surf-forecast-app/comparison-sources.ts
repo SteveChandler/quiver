@@ -16,7 +16,7 @@ export const COMPARISON_SOURCE_LINKS: readonly ComparisonSourceLink[] = [
     label: "Quiver App Store listing",
     href: "https://apps.apple.com/us/app/surf-forecast-quiver/id6759300320",
     note:
-      "Quiver free listing, Pro monthly, annual, and lifetime in-app purchases, session logging, alerts, board recommendations, custom spots, and offline mode.",
+      "Quiver free listing with custom spots and session logging, plus Pro monthly, annual, and lifetime in-app purchases for alerts, board recommendations, and offline mode.",
   },
   {
     label: "Surfline upgrade page",

@@ -13,11 +13,17 @@
  */
 
 import { renderHook, act, waitFor } from "@testing-library/react";
+import { useHomeDiscoveryRequestMetrics } from "@/hooks/use-home-discovery-request-metrics";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
+import { captureClientPostHogEventAfterConsent } from "@/lib/posthog-client";
 
 const mockUser = { id: "user-123", email: "test@example.com" };
 jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(() => ({ user: mockUser })),
+}));
+
+jest.mock("@/lib/posthog-client", () => ({
+  captureClientPostHogEventAfterConsent: jest.fn(),
 }));
 
 const response = {
@@ -68,6 +74,49 @@ describe("useSurfDiscovery resume revalidation", () => {
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("does not revalidate when focus arrives during the initial Home request", async () => {
+    let releaseInitial: (() => void) | undefined;
+    global.fetch = jest
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseInitial = () =>
+              resolve({ ok: true, json: async () => ({ data: response }) });
+          }),
+      );
+
+    const { result } = renderHook(() => {
+      const recordHomeDiscoveryRequest = useHomeDiscoveryRequestMetrics();
+      return useSurfDiscovery({
+        immediate: true,
+        suppressInitialResume: true,
+        onRequest: () => recordHomeDiscoveryRequest("primary"),
+      });
+    });
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    expect(captureClientPostHogEventAfterConsent).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+      document.dispatchEvent(new Event("visibilitychange"));
+      releaseInitial?.();
+    });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(captureClientPostHogEventAfterConsent).toHaveBeenCalledTimes(1);
+    expect(captureClientPostHogEventAfterConsent).toHaveBeenCalledWith(
+      "home_discovery_request",
+      {
+        home_load_id: expect.any(String),
+        request_number: 1,
+        source: "primary",
+      },
+    );
+  });
+
   it("queues a resume that arrives after the coalescing window, mid-flight", async () => {
     // A hold can activate after the in-flight request already read hold state
     // server-side, so a genuinely later resume signal must not be swallowed by
@@ -93,6 +142,7 @@ describe("useSurfDiscovery resume revalidation", () => {
 
     const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
       window.dispatchEvent(new Event("focus"));
@@ -102,6 +152,10 @@ describe("useSurfDiscovery resume revalidation", () => {
     // Well past the pairing window — a separate resume, not the focus/
     // visibilitychange pair from one tab switch.
     nowSpy.mockReturnValue(base + 5_000);
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
     act(() => {
       document.dispatchEvent(new Event("visibilitychange"));
     });

@@ -421,4 +421,31 @@ describe("maskFieldToWater", () => {
     maskFieldToWater(field, map, { width: 800, height: 600, waterLayerIds: ["water"] });
     expect(queried).toBe(false);
   });
+
+  it("reuses camera-scoped water verdicts for rebuilt fields", () => {
+    const cache = new Map<string, boolean>();
+    let queryCount = 0;
+    const map: WaterMaskMap = {
+      project: () => ({ x: 100, y: 100 }),
+      queryRenderedFeatures: () => {
+        queryCount += 1;
+        return [{}];
+      },
+    };
+
+    maskFieldToWater(makeField(), map, {
+      width: 800,
+      height: 600,
+      waterLayerIds: ["water"],
+      waterMaskCache: cache,
+    });
+    maskFieldToWater(makeField(), map, {
+      width: 800,
+      height: 600,
+      waterLayerIds: ["water"],
+      waterMaskCache: cache,
+    });
+
+    expect(queryCount).toBe(2);
+  });
 });

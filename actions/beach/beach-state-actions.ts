@@ -7,11 +7,11 @@ import { rankBeaches } from "@/lib/recommendations/selection";
 import { WATER_QUALITY_HOLD_PREFETCH_BUFFER } from "@/lib/recommendations/major-event-hold/water-quality";
 
 const STATE_MAP_BEACH_FIELDS =
-  "id, name, slug, city, lat, lon, state, country, created_at, is_private, geog, skill_level, break_type, average_rating, review_count";
+  "id, name, slug, city, lat, lon, timezone, state, country, created_at, is_private, geog, skill_level, break_type, average_rating, review_count";
 
 type StateMapBeachRow = Pick<
   Beach,
-  "id" | "name" | "slug" | "city" | "lat" | "lon" | "state" | "country" | "created_at" | "is_private" | "geog" | "skill_level" | "break_type" | "average_rating" | "review_count"
+  "id" | "name" | "slug" | "city" | "lat" | "lon" | "timezone" | "state" | "country" | "created_at" | "is_private" | "geog" | "skill_level" | "break_type" | "average_rating" | "review_count"
 >;
 
 /**
@@ -31,6 +31,9 @@ function toFullBeach(row: StateMapBeachRow): Beach {
     is_private: row.is_private,
     lat: row.lat ?? null,
     lon: row.lon ?? null,
+    // Carry the real timezone: beach-defaults fills an unset one with
+    // DEFAULT_TIMEZONE, which map-view would then trust as a valid zone.
+    timezone: row.timezone,
     slug: row.slug ?? null,
     state: row.state ?? null,
     skill_level: row.skill_level ?? null,

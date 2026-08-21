@@ -6,6 +6,7 @@
  */
 
 import {
+  findCanonicalTimezoneFromCoords,
   findTimezoneFromCoords,
   getLocalHour,
   getTimezoneFromCoords,
@@ -178,6 +179,49 @@ describe('timezone-utils', () => {
       expect(findTimezoneFromCoords(Number.NaN, -117.1611)).toBeNull();
       expect(findTimezoneFromCoords(91, -117.1611)).toBeNull();
       expect(findTimezoneFromCoords(32.7157, -181)).toBeNull();
+    });
+  });
+
+  describe('findCanonicalTimezoneFromCoords', () => {
+    it('returns the canonical zone where the merged dataset would collapse it', () => {
+      // geo-tz/now merges these into America/Caracas and America/Los_Angeles
+      // because the offsets currently match. Persisted values must not.
+      expect(findCanonicalTimezoneFromCoords(18.458392, -67.164863)).toBe(
+        'America/Puerto_Rico'
+      );
+      expect(findCanonicalTimezoneFromCoords(32.262, -116.995)).toBe(
+        'America/Tijuana'
+      );
+    });
+
+    it('agrees with the merged dataset where no merging occurs', () => {
+      expect(findCanonicalTimezoneFromCoords(32.7157, -117.1611)).toBe(
+        'America/Los_Angeles'
+      );
+      expect(findCanonicalTimezoneFromCoords(21.3069, -157.8583)).toBe(
+        'Pacific/Honolulu'
+      );
+    });
+
+    it('resolves the beaches repaired on 2026-08-20', () => {
+      // Galveston - 61st Street Pier and Robert Moses State Park, which sat on
+      // America/Los_Angeles until the timezone repair.
+      expect(findCanonicalTimezoneFromCoords(29.26477, -94.82505)).toBe(
+        'America/Chicago'
+      );
+      expect(findCanonicalTimezoneFromCoords(40.6231559, -73.2598405)).toBe(
+        'America/New_York'
+      );
+      // Pensacola Pier, west of the Apalachicola River and therefore Central.
+      expect(findCanonicalTimezoneFromCoords(30.33008, -87.14253)).toBe(
+        'America/Chicago'
+      );
+    });
+
+    it('returns null for invalid coordinates rather than defaulting', () => {
+      expect(findCanonicalTimezoneFromCoords(Number.NaN, -117.1611)).toBeNull();
+      expect(findCanonicalTimezoneFromCoords(91, -117.1611)).toBeNull();
+      expect(findCanonicalTimezoneFromCoords(32.7157, -181)).toBeNull();
     });
   });
 

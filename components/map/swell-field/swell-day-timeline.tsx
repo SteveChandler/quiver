@@ -37,15 +37,30 @@ const deltaByKey: Record<string, number> = {
   ArrowRight: 1,
   ArrowUp: 1,
 };
-const PLAYBACK_VISUAL_FRAME_MS = 500;
+export const PLAYBACK_TARGET_DURATION_MS = 18_000;
+const DEFAULT_PLAYBACK_VISUAL_FRAME_MS = 500;
+const MIN_PLAYBACK_VISUAL_FRAME_MS = 50;
+const MAX_PLAYBACK_VISUAL_FRAME_MS = 750;
 const FIELD_UPDATE_INTERVAL_MS = 100;
+// "Mon 17" at 12px bold uppercase plus padding; below this a band shows the date number only.
+const FULL_DAY_LABEL_MIN_PX = 64;
+
+export function getPlaybackVisualFrameMs(timestampCount: number): number {
+  const frameCount = Math.max(1, Math.floor(timestampCount) - 1);
+  const targetFrameMs = PLAYBACK_TARGET_DURATION_MS / frameCount;
+  return Math.min(
+    MAX_PLAYBACK_VISUAL_FRAME_MS,
+    Math.max(MIN_PLAYBACK_VISUAL_FRAME_MS, targetFrameMs),
+  );
+}
 
 export function advancePlaybackPosition(
   current: number,
   elapsedMs: number,
   maxIndex: number,
+  visualFrameMs = DEFAULT_PLAYBACK_VISUAL_FRAME_MS,
 ): number {
-  return Math.min(maxIndex, current + elapsedMs / PLAYBACK_VISUAL_FRAME_MS);
+  return Math.min(maxIndex, current + elapsedMs / visualFrameMs);
 }
 
 interface LocalTimestampParts {
@@ -134,6 +149,61 @@ function dayTestId(label: string): string {
 
 export function compactTimelineDayLabel(label: string): string {
   return label.match(/\d+$/)?.[0] ?? label;
+}
+
+export function timelineDayLabelWidthPercent(
+  startIndex: number,
+  endIndex: number,
+  timestampCount: number,
+): number {
+  if (timestampCount <= 0 || endIndex < startIndex) return 0;
+  return ((endIndex - startIndex + 1) / timestampCount) * 100;
+}
+
+function isPartialCurrentDaySegment(
+  segment: TimelineDaySegment,
+  segmentIndex: number,
+  timezone: string,
+  timestamps: string[],
+): boolean {
+  if (segmentIndex !== 0 || segment.startIndex !== 0) return false;
+  return localTimestampParts(timestamps[0], timezone).wallMinutes > 0;
+}
+
+function timelineSegmentLabels(
+  segment: TimelineDaySegment,
+  segmentIndex: number,
+  timestamps: string[],
+  timezone: string,
+): { full: string; compact: string; hint: string | undefined } {
+  const isPartial = isPartialCurrentDaySegment(segment, segmentIndex, timezone, timestamps);
+  if (!isPartial) {
+    return {
+      full: segment.label,
+      compact: compactTimelineDayLabel(segment.label),
+      hint: undefined,
+    };
+  }
+
+  const remainingHours = segment.endIndex - segment.startIndex + 1;
+  return {
+    full: "Today",
+    compact: "Today",
+    hint: `${remainingHours}h left`,
+  };
+}
+
+export function timelineDayLabelClasses(
+  segmentWidthPx: number | null,
+): { full: string; compact: string } {
+  // Unknown width (no layout yet, or jsdom): fall back to the viewport breakpoint.
+  if (segmentWidthPx == null) {
+    return { full: "hidden truncate sm:inline", compact: "tabular-nums sm:hidden" };
+  }
+  if (segmentWidthPx < FULL_DAY_LABEL_MIN_PX) {
+    return { full: "hidden", compact: "inline tabular-nums" };
+  }
+  return { full: "inline truncate", compact: "hidden tabular-nums" };
 }
 
 function TimelineStatus({
@@ -250,16 +320,32 @@ export function SwellDayTimeline({
 }: SwellDayTimelineProps): ReactElement | null {
   const finalTimestamp = timestamps.at(-1);
   const exhaustionLabel = finalTimestamp
-    ? `Forecast ends ${formatTimelineBubble(finalTimestamp, timezone)}`
+    ? `${daySegments.length}-day forecast · ends ${formatTimelineBubble(finalTimestamp, timezone)}`
     : "No forecast hours available";
   const safeIndex = clampIndex(index, timestamps.length);
   const canPlay = timestamps.length > 1;
   const maxIndex = Math.max(0, timestamps.length - 1);
+  const visualFrameMs = getPlaybackVisualFrameMs(timestamps.length);
   const [visualIndex, setVisualIndex] = useState(safeIndex);
   const visualIndexRef = useRef(safeIndex);
   const controlledIndexRef = useRef(safeIndex);
   const maxIndexRef = useRef(maxIndex);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [trackWidth, setTrackWidth] = useState(0);
   const onPlaybackPositionChangeRef = useRef(onPlaybackPositionChange);
+
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const measure = (): void => {
+      setTrackWidth(track.getBoundingClientRect().width);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     onPlaybackPositionChangeRef.current = onPlaybackPositionChange;
@@ -292,6 +378,7 @@ export function SwellDayTimeline({
           visualIndexRef.current,
           frameTime - lastFrameTime,
           maxIndexRef.current,
+          visualFrameMs,
         );
         visualIndexRef.current = next;
         setVisualIndex(next);
@@ -308,7 +395,7 @@ export function SwellDayTimeline({
     };
     animationFrame = window.requestAnimationFrame(animate);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [isPlaying]);
+  }, [isPlaying, visualFrameMs]);
 
   if (timestamps.length === 0) {
     if (!error && !isLoadingMore && !isExhausted) return null;
@@ -372,7 +459,21 @@ export function SwellDayTimeline({
           )}
         </Button>
 
-        <div data-testid="timeline-track" className="relative min-w-0 flex-1 pt-9">
+        <div ref={trackRef} data-testid="timeline-track" className="relative min-w-0 flex-1 pt-9">
+          {error ? null : (
+            <div
+              data-testid="timeline-status-inline"
+              className="pointer-events-none absolute right-0 top-0 max-w-[60%] text-right leading-4 [&>div]:truncate"
+            >
+              <TimelineStatus
+                error={null}
+                isLoadingMore={isLoadingMore}
+                isExhausted={isExhausted}
+                onRetry={onRetry}
+                exhaustionLabel={exhaustionLabel}
+              />
+            </div>
+          )}
           <div
             data-testid="timeline-bubble"
             className="absolute z-10 whitespace-nowrap border border-[var(--swell-timeline-ink)] px-2 py-1 text-xs font-bold tabular-nums shadow-[var(--swell-timeline-sticker-shadow)]"
@@ -430,13 +531,26 @@ export function SwellDayTimeline({
                 if (endIndex < startIndex) return null;
 
                 const left = (startIndex / timestamps.length) * 100;
-                const width = ((endIndex - startIndex + 1) / timestamps.length) * 100;
+                const width = timelineDayLabelWidthPercent(
+                  startIndex,
+                  endIndex,
+                  timestamps.length,
+                );
+                const labels = timelineSegmentLabels(
+                  segment,
+                  segmentIndex,
+                  timestamps,
+                  timezone,
+                );
+                const segmentWidthPx = trackWidth > 0 ? (trackWidth * width) / 100 : null;
+                const labelClasses = timelineDayLabelClasses(segmentWidthPx);
 
                 return (
                   <div
                     key={segment.key}
                     data-testid={dayTestId(segment.label)}
-                    className="absolute bottom-0 top-0 flex min-w-0 items-center justify-center border-r border-[var(--swell-timeline-ink)] px-0.5 text-[10px] font-bold uppercase tracking-[0.04em] last:border-r-0 sm:justify-start sm:px-2 sm:tracking-[0.08em]"
+                    title={labels.hint ? `${labels.full} · ${labels.hint}` : labels.full}
+                    className="absolute bottom-0 top-0 flex min-w-0 items-center justify-center border-r border-[var(--swell-timeline-ink)] px-0.5 text-xs font-bold uppercase tracking-[0.04em] last:border-r-0 sm:justify-start sm:px-2 sm:tracking-[0.08em]"
                     style={{
                       left: `${left}%`,
                       width: `${width}%`,
@@ -445,12 +559,19 @@ export function SwellDayTimeline({
                         : SWELL_MAP_TIMELINE.dayBandAlternate,
                     }}
                   >
-                    <span className="hidden truncate sm:inline">{segment.label}</span>
+                    <span className={labelClasses.full}>
+                      {labels.full}
+                      {labels.hint ? (
+                        <span className="font-medium normal-case tracking-normal">
+                          {` · ${labels.hint}`}
+                        </span>
+                      ) : null}
+                    </span>
                     <span
                       data-testid={`${dayTestId(segment.label)}-compact`}
-                      className="tabular-nums sm:hidden"
+                      className={labelClasses.compact}
                     >
-                      {compactTimelineDayLabel(segment.label)}
+                      {labels.compact}
                     </span>
                   </div>
                 );
@@ -459,16 +580,17 @@ export function SwellDayTimeline({
           </div>
         </div>
       </div>
-
-      <div className="mt-1 min-h-4 pl-14">
-        <TimelineStatus
-          error={error}
-          isLoadingMore={isLoadingMore}
-          isExhausted={isExhausted}
-          onRetry={onRetry}
-          exhaustionLabel={exhaustionLabel}
-        />
-      </div>
+      {error ? (
+        <div className="mt-1 pl-14">
+          <TimelineStatus
+            error={error}
+            isLoadingMore={isLoadingMore}
+            isExhausted={isExhausted}
+            onRetry={onRetry}
+            exhaustionLabel={exhaustionLabel}
+          />
+        </div>
+      ) : null}
     </TimelineShell>
   );
 }

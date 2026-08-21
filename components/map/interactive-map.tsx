@@ -81,6 +81,7 @@ import {
   type FlowComponentId,
   type FlowField,
 } from "@/components/map/swell-field/field-sampler";
+import { embedTimelineArrayPositionForHourOffset } from "@/components/map/embed-map-timeline";
 import {
   createSwellParticleLayer,
   resolveParticleCount,
@@ -614,6 +615,10 @@ export function InteractiveMap({
     Map<string, SwellPartition[]>
   >(new Map());
   const [hourlyTimelineSeed, setHourlyTimelineSeed] = useState<HourlySwellTimeline | null>(null);
+  const waterMaskCacheRef = useRef<{
+    cameraKey: string;
+    verdicts: Map<string, boolean>;
+  } | null>(null);
   const [hourlyTimelineBeachIds, setHourlyTimelineBeachIds] = useState<string[]>([]);
   // Loader-resolved beaches that partitionsMap is keyed by (the prop may be empty).
   const [swellFieldBeaches, setSwellFieldBeaches] = useState<Beach[]>([]);
@@ -867,12 +872,17 @@ export function InteractiveMap({
   const activeEmbedHourlyPartitionsMap = useMemo(() => {
     const active = new Map<string, SwellPartition>();
     if (!hourlyTimelineSeed) return active;
+    const position = embedTimelineArrayPositionForHourOffset(
+      hourlyTimelineSeed.timestamps,
+      swellTimelineIndex,
+    );
+    if (position === undefined) return active;
 
     for (const beachId of Object.keys(hourlyTimelineSeed.partitionsByBeach)) {
-      const partition = partitionAtAbsoluteTimelineIndex(
+      const partition = partitionAtAbsoluteTimelinePosition(
         hourlyTimelineSeed,
         beachId,
-        swellTimelineIndex,
+        position,
       );
       if (partition) active.set(beachId, partition);
     }
@@ -1597,6 +1607,23 @@ export function InteractiveMap({
       return; // can't read the style yet → leave the field intact
     }
     if (waterLayerIds.length === 0) return;
+    const bounds = map.getBounds();
+    const center = map.getCenter();
+    const cameraKey = JSON.stringify({
+      west: bounds?.getWest() ?? null,
+      south: bounds?.getSouth() ?? null,
+      east: bounds?.getEast() ?? null,
+      north: bounds?.getNorth() ?? null,
+      centerLng: center.lng,
+      centerLat: center.lat,
+      zoom: map.getZoom(),
+      width: map.getCanvas().clientWidth,
+      height: map.getCanvas().clientHeight,
+      waterLayerIds,
+    });
+    if (waterMaskCacheRef.current?.cameraKey !== cameraKey) {
+      waterMaskCacheRef.current = { cameraKey, verdicts: new Map() };
+    }
     const canvas = map.getCanvas();
     for (const component of maskable) {
       const field = flowFieldsRef.current[component];
@@ -1608,6 +1635,7 @@ export function InteractiveMap({
           width: canvas.clientWidth,
           height: canvas.clientHeight,
           waterLayerIds,
+          waterMaskCache: waterMaskCacheRef.current.verdicts,
         }
       );
     }
@@ -1655,6 +1683,12 @@ export function InteractiveMap({
       Math.max(Number.isFinite(swellTimelineIndex) ? swellTimelineIndex : 0, 0),
       Math.max(0, swellTimelineSteps.length - 1)
     );
+    const embedTimelinePosition = isEmbedHourlyTimeline && hourlyTimelineSeed
+      ? embedTimelineArrayPositionForHourOffset(
+          hourlyTimelineSeed.timestamps,
+          swellTimelineIndex,
+        )
+      : undefined;
     // Build a flow field per active component (one for a single layer, three for
     // combined); leave the rest empty so stale fields never render.
     const nextFields: Record<"s1" | "s2" | "wind", FlowField> = {
@@ -1678,7 +1712,13 @@ export function InteractiveMap({
               expandablePlaybackPosition,
             )
           : isEmbedHourlyTimeline
-            ? partitionAtAbsoluteTimelineIndex(hourlyTimelineSeed, beach.id, swellTimelineIndex)
+            ? embedTimelinePosition === undefined
+              ? undefined
+              : partitionAtAbsoluteTimelinePosition(
+                  hourlyTimelineSeed,
+                  beach.id,
+                  embedTimelinePosition,
+                )
           : partitionAtTimelinePosition(
               beach.id,
               timelinePosition,
@@ -1748,6 +1788,7 @@ export function InteractiveMap({
     const map = mapRef.current;
     if (!map || !isMapReady || !showSwellField) return;
     const remask = (): void => {
+      waterMaskCacheRef.current = null;
       applyWaterMask(map);
       map.triggerRepaint();
     };

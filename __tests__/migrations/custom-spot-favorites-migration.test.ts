@@ -3,6 +3,7 @@ import { join } from "path";
 
 describe("custom spot favorites migration", () => {
   let migrationSQL: string;
+  let freeTierMigrationSQL: string;
 
   beforeAll(() => {
     const migrationDir = join(__dirname, "../../supabase/migrations");
@@ -12,6 +13,10 @@ describe("custom spot favorites migration", () => {
     );
     if (!migrationFile) throw new Error("Migration file not found: *custom_spot_favorites*");
     migrationSQL = readFileSync(join(migrationDir, migrationFile), "utf-8");
+    freeTierMigrationSQL = readFileSync(
+      join(migrationDir, "20260821150000_make_custom_spots_free_tier.sql"),
+      "utf-8",
+    );
   });
 
   it("is wrapped in BEGIN/COMMIT", () => {
@@ -65,5 +70,25 @@ describe("custom spot favorites migration", () => {
     expect(migrationSQL).toMatch(/CREATE OR REPLACE FUNCTION public\.remove_custom_spot_favorite_on_soft_delete/i);
     expect(migrationSQL).toMatch(/AFTER UPDATE OF deleted_at ON public\.custom_spots/i);
     expect(migrationSQL).toMatch(/DELETE FROM public\.favorite_beaches\s+WHERE custom_spot_id = NEW\.id/i);
+  });
+
+  it("makes custom spots free without removing ownership or favorite linkage", () => {
+    const createFunction = freeTierMigrationSQL.match(
+      /CREATE OR REPLACE FUNCTION public\.create_custom_spot_guarded[\s\S]*?\n\$\$;/i,
+    )?.[0] ?? "";
+
+    expect(freeTierMigrationSQL).toMatch(/^BEGIN;/m);
+    expect(freeTierMigrationSQL).toMatch(/^COMMIT;/m);
+    expect(createFunction).toMatch(/INSERT INTO public\.custom_spots/i);
+    expect(createFunction).toMatch(/INSERT INTO public\.favorite_beaches/i);
+    expect(createFunction).not.toContain("favorite_quota_exceeded");
+    expect(createFunction).not.toContain("free_favorites_limit");
+  });
+
+  it("counts only curated beaches for the free favorites quota", () => {
+    expect(freeTierMigrationSQL).toMatch(
+      /FROM public\.favorite_beaches fb\s+WHERE fb\.user_id = current_user_id\s+AND fb\.beach_id IS NOT NULL/i,
+    );
+    expect(freeTierMigrationSQL).toMatch(/IF p_custom_spot_id IS NULL THEN[\s\S]*favorite_quota_exceeded/i);
   });
 });

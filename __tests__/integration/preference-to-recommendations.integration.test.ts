@@ -95,12 +95,14 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
               name: "Test Beach 1 - Small Waves",
               lat: 33.7,
               lon: -118.4,
+              timezone: "America/Los_Angeles",
               region: "test",
             },
             {
               name: "Test Beach 2 - Big Waves",
               lat: 33.8,
               lon: -118.5,
+              timezone: "America/Los_Angeles",
               region: "test",
             },
           ])

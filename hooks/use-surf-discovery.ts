@@ -40,6 +40,8 @@ interface UseSurfDiscoveryOptions {
   enabled?: boolean;
   /** Whether to fetch immediately on mount (default: true) */
   immediate?: boolean;
+  /** Avoid treating initial Home visibility events as a second request. */
+  suppressInitialResume?: boolean;
   /** Optional callback immediately before an API request starts */
   onRequest?: () => void;
   /** Optional callback when discovery results are fetched successfully */
@@ -122,6 +124,7 @@ export function useSurfDiscovery(
     userSkillLevel,
     enabled = true,
     immediate = true,
+    suppressInitialResume = false,
     onRequest,
     onSuccess,
     onError,
@@ -132,6 +135,7 @@ export function useSurfDiscovery(
 
   const userLat = userLocation?.lat;
   const userLon = userLocation?.lon;
+  const hasCompletedRequestRef = useRef(false);
 
   // Compute a stable options hash from primitive values (avoid using `options` object identity).
   const optionsHash = useMemo(() => {
@@ -233,7 +237,9 @@ export function useSurfDiscovery(
     }
 
     const discoveryData = result.data as SurfDiscoveryResponse;
-    return projectCanonicalDiscoverySurface(discoveryData);
+    const projectedData = projectCanonicalDiscoverySurface(discoveryData);
+    hasCompletedRequestRef.current = true;
+    return projectedData;
   }, [
     user,
     userLat,
@@ -326,6 +332,13 @@ export function useSurfDiscovery(
 
   const revalidateOnResume = useCallback(() => {
     if (!enabled || !immediate || !user) return;
+    if (
+      suppressInitialResume &&
+      loading &&
+      !hasCompletedRequestRef.current
+    ) {
+      return;
+    }
 
     setResumeRevalidationPending(true);
 
@@ -351,7 +364,14 @@ export function useSurfDiscovery(
       return;
     }
     startResumeRevalidation();
-  }, [enabled, immediate, loading, startResumeRevalidation, user]);
+  }, [
+    enabled,
+    immediate,
+    loading,
+    startResumeRevalidation,
+    suppressInitialResume,
+    user,
+  ]);
 
   useEffect(() => {
     if (!enabled || !immediate || !user) {
