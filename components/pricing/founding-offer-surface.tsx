@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   CloudOff,
   Heart,
-  MapPinned,
   Navigation,
   Smartphone,
   Sparkles,
@@ -74,12 +73,6 @@ const PRO_FEATURES = [
     title: "Similarity alerts",
     body: "Get nudged when a setup starts matching your best logged sessions.",
     sticker: "tealTape",
-  },
-  {
-    icon: MapPinned,
-    title: "Custom spots",
-    body: "Create and forecast the tucked-away breaks you actually care about.",
-    sticker: "creamTornStrip",
   },
   {
     icon: Heart,
