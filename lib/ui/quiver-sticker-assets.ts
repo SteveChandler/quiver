@@ -210,6 +210,19 @@ export const QUIVER_STICKER_ASSETS = {
     width: 304,
     height: 215,
   },
+  /**
+   * Hand-drawn line-art divider strip: boards, wetsuit, cups, wave, van.
+   * Source SVGs live in public/images/quiver-stickers/line/ — the strip is
+   * composed from them, so edit the SVGs and recompose rather than editing
+   * the PNG. Cream at 78% so it reads as a printed rule, not a headline.
+   */
+  lineStrip: {
+    slug: "line-strip",
+    src: "/images/quiver-stickers/line-strip.png",
+    alt: "",
+    width: 1160,
+    height: 196,
+  },
 } as const satisfies Record<string, QuiverStickerAsset>;
 
 export type QuiverStickerKey = keyof typeof QUIVER_STICKER_ASSETS;

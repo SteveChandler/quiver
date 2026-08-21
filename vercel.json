@@ -94,6 +94,14 @@
       "schedule": "30 18 * * *"
     },
     {
+      "path": "/api/cron/trial-lifecycle-email",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/trial-invitation-email",
+      "schedule": "30 16 * * *"
+    },
+    {
       "path": "/api/cron/first-session-nudge",
       "schedule": "30 */6 * * *"
     },

@@ -1,0 +1,8 @@
+<svg viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <title>Shortboard</title>
+  <path d="M50 8 C38 14 29 46 28 91 C27 134 34 176 49 192 C64 177 73 135 72 91 C71 47 63 15 50 8 Z" stroke="currentColor" fill="none"/>
+  <path d="M50 13 C49 61 50 119 49 188" stroke="currentColor" fill="none"/>
+  <path d="M49 166 C44 172 44 182 49 188 C54 181 54 172 49 166 Z" stroke="currentColor" fill="none"/>
+  <path d="M38 171 C34 177 35 184 43 188" stroke="currentColor" fill="none"/>
+  <path d="M61 171 C65 177 64 184 56 188" stroke="currentColor" fill="none"/>
+</svg>

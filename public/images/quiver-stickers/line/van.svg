@@ -1,0 +1,9 @@
+<svg viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <title>Camper van with surfboard</title>
+  <path d="M15 42 C43 38 128 38 158 41 C171 43 183 54 188 68 L188 83 L176 87 L27 87 L13 80 C12 67 13 54 15 42 Z" stroke="currentColor" fill="none"/>
+  <path d="M42 40 C47 29 55 23 66 21 L147 21 C153 22 157 28 160 40" stroke="currentColor" fill="none"/>
+  <path d="M39 19 C69 12 126 13 158 17 C164 18 164 23 157 25 C121 27 74 26 40 24 C34 23 34 20 39 19 Z" stroke="currentColor" fill="none"/>
+  <path d="M59 44 L58 82 M64 46 C82 43 101 44 116 46 L115 66 L64 66 Z M122 45 C136 44 149 45 158 48 L166 65 L122 65 Z" stroke="currentColor" fill="none"/>
+  <path d="M38 87 C38 76 45 70 54 71 C64 72 69 79 67 88 M143 87 C143 77 150 71 159 72 C168 73 172 80 170 87" stroke="currentColor" fill="none"/>
+  <path d="M12 76 L8 77 M188 76 L192 78" stroke="currentColor" fill="none"/>
+</svg>
