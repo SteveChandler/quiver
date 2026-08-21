@@ -17,9 +17,11 @@ import {
   createErrorResponse,
   createSuccessResponse,
   handleApiError,
+  withAuth,
   withRateLimit,
 } from "@/lib/middleware/api-wrappers";
-import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import type { AuthenticatedContext } from "@/lib/middleware/api-wrappers/types";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { sendEmail, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { generateWelcomeEmail } from "@/lib/mailer/welcome-email";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
@@ -30,18 +32,14 @@ export const runtime = "nodejs";
 const CONTEXT_TAG = "[send-welcome-email]";
 const EMAIL_TYPE = "welcome" as const;
 
-// NOTE: cookie-only auth is intentional — called server-side right after
-// signup when cookies are the authoritative session. Native never calls this.
-async function handler(request: NextRequest) {
+// Auth accepts both paths on purpose. Web calls this from the SSR cookie
+// session right after signup; native calls it from `useFinalizeOnboarding`
+// with a Bearer token once the home beach is committed. Before that, native
+// signups received no welcome email at all — the cron backstop only covers
+// unconfirmed-24h and no-home-beach-48h, so a user who onboarded cleanly on
+// iOS fell through every case.
+async function handler(request: NextRequest, { user }: AuthenticatedContext) {
   try {
-    // Verify the user is authenticated
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return createErrorResponse("Unauthorized", "Must be authenticated", 401);
-    }
-
     // Use service role for database operations
     const serviceSupabase = await createSupabaseServiceRoleClient();
 
@@ -152,4 +150,4 @@ async function handler(request: NextRequest) {
 }
 
 // Apply rate limiting: authenticated users only, generous limits
-export const POST = withRateLimit(handler, "authenticated-default");
+export const POST = withRateLimit(withAuth(handler), "authenticated-default");
