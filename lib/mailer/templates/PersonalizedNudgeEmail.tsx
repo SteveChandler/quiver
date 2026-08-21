@@ -281,7 +281,7 @@ export function PersonalizedNudgeEmail({
                   margin: "12px 0 2px",
                 }}
               >
-                After you surf, log it to sharpen your forecasts.
+                After you surf, log it so you can compare the next call.
               </p>
             </>
           )}

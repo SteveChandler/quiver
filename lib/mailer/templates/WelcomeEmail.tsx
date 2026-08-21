@@ -6,6 +6,7 @@ import {
   Eyebrow,
   Footer,
   PaperPanel,
+  StickerStrip,
   Wordmark,
 } from "@/lib/mailer/components";
 import {
@@ -92,8 +93,14 @@ export function WelcomeEmail({
               textAlign: "center",
             }}
           >
-            Every session you log levels you up and makes the forecast smarter.
+            Every session you log becomes a day you can compare the next call against.
           </p>
+        </td>
+      </tr>
+
+      <tr>
+        <td {...cellBg(CARD, { padding: "0 28px 22px" })}>
+          <StickerStrip />
         </td>
       </tr>
 

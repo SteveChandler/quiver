@@ -29,8 +29,10 @@ describe("WelcomeEmail", () => {
       expect(email.subject).toBe(WELCOME_EMAIL_SUBJECT);
       expect(email.subject).toBe("Your forecast is live");
       expect(html).toContain("Your Blacks forecast is dialed");
-      expect(html).toContain("Quiver just tells you. Yes or no. Best window.");
-      expect(html).toContain("Every session you log sharpens the call.");
+      expect(html).toContain("Quiver lays out the window: size, wind, tide, and the red flags");
+      expect(html).toContain(
+        "Every session you log becomes a day you can compare the next call against."
+      );
       expect(html).toContain("— Steven");
     });
 
@@ -92,7 +94,9 @@ describe("WelcomeEmail", () => {
       expect(html).toContain(
         "One thing left — pick your home beach so we can dial the forecast to it."
       );
-      expect(html).toContain("Once your home break is set, Quiver just tells you.");
+      expect(html).toContain(
+        "Once your home break is set, Quiver lays out the window"
+      );
       expect(html).toContain("— Steven");
     });
 

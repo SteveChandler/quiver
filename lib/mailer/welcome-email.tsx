@@ -38,8 +38,8 @@ function deriveWelcomeContent({
     return {
       headline: `Your ${homeBeachName} forecast is dialed`,
       bodyParagraphs: [
-        "You know that 5 a.m. moment — alarm goes off, still not sure if it's worth it. Quiver just tells you. Yes or no. Best window. That's it.",
-        "Every session you log sharpens the call.",
+        "You know that 5 a.m. moment — alarm goes off, still not sure if it's worth the drive. Quiver lays out the window: size, wind, tide, and the red flags, so you can make your own call in about ten seconds.",
+        "Log what you actually get, and every new call has your own days to compare against.",
       ],
       ctaHref: buildBeachEmailLink({
         origin: baseUrl,
@@ -57,7 +57,7 @@ function deriveWelcomeContent({
     headline: "Your forecast is live",
     bodyParagraphs: [
       "One thing left — pick your home beach so we can dial the forecast to it.",
-      "You know that 5 a.m. moment — alarm goes off, still not sure if it's worth it. Once your home break is set, Quiver just tells you. Yes or no. Best window. That's it.",
+      "You know that 5 a.m. moment — alarm goes off, still not sure if it's worth the drive. Once your home break is set, Quiver lays out the window: size, wind, tide, and the red flags, so you can make your own call in about ten seconds.",
     ],
     ctaHref: buildAppEmailLink({
       origin: baseUrl,
@@ -86,7 +86,7 @@ function generateWelcomeEmailText(content: WelcomeContent): string {
     "",
     `${ctaLabel}: ${content.ctaHref}`,
     "",
-    "Every session you log levels you up and makes the forecast smarter.",
+    "Every session you log becomes a day you can compare the next call against.",
     "",
     "— Steven",
     "quiversurf.app",

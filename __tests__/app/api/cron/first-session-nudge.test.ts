@@ -521,7 +521,7 @@ describe("First Session Nudge Cron Job API", () => {
       );
     });
 
-    it("sends personalized template with ✨ subject when score >= 70 (onboarded user with intel)", async () => {
+    it("sends personalized template with conditions subject when score >= 70 (onboarded user with intel)", async () => {
       setupSupabaseChain({
         profiles: [
           {
@@ -557,7 +557,7 @@ describe("First Session Nudge Cron Job API", () => {
       expect(data.data.summary.sent).toBe(1);
       expect(mockEmailsSend).toHaveBeenCalledWith(
         expect.objectContaining({
-          subject: "✨ Rincon — conditions are looking good",
+          subject: "Rincon — conditions are looking good",
         })
       );
     });
