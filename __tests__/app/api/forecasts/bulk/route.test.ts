@@ -4,7 +4,10 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { GET } from "@/app/api/forecasts/bulk/route";
+import {
+  fetchHourlySwellTimelineRows,
+  GET,
+} from "@/app/api/forecasts/bulk/route";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
 import { getBatchSunTimes } from "@/lib/services/discovery";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
@@ -544,6 +547,31 @@ describe("/api/forecasts/bulk", () => {
     mockSupabaseClient.from = jest.fn(() =>
       queryChain({ data: null, error: null }),
     ) as any;
+  });
+
+  it("chunks hourly timeline rows by beach to avoid the PostgREST row cap", async () => {
+    const beachIds = Array.from({ length: 20 }, (_, index) => `beach-${index}`);
+    const { hourlyTimelineChain, nextHourlyTimelineChain } = mockBulkQueries({
+      extensionOnly: true,
+    });
+
+    const result = await fetchHourlySwellTimelineRows(
+      mockSupabaseClient as never,
+      beachIds,
+      new Date("2026-07-10T20:00:00.000Z"),
+      new Date("2026-07-11T20:00:00.000Z"),
+    );
+
+    expect(result).toEqual({ data: [], error: null });
+    expect(mockSupabaseClient.from).toHaveBeenCalledTimes(2);
+    expect(hourlyTimelineChain.in).toHaveBeenCalledWith(
+      "beach_id",
+      beachIds.slice(0, 10),
+    );
+    expect(nextHourlyTimelineChain.in).toHaveBeenCalledWith(
+      "beach_id",
+      beachIds.slice(10),
+    );
   });
 
   afterEach(() => {

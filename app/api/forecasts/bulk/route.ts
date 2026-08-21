@@ -534,7 +534,7 @@ function buildHourlySwellTimeline(
   };
 }
 
-async function fetchHourlySwellTimelineRows(
+export async function fetchHourlySwellTimelineRows(
   supabase: SupabaseClient<Database>,
   beachIds: string[],
   start: Date,
@@ -544,20 +544,36 @@ async function fetchHourlySwellTimelineRows(
   error: { message: string } | null;
 }> {
   const anchorTimestamps = timelineAnchorTimestamps(start, end);
-  const { data, error } = await supabase
-    .from("enhanced_forecasts")
-    .select(HOURLY_TIMELINE_SELECT)
-    .in("beach_id", beachIds)
-    .in("forecast_at", anchorTimestamps)
-    .gte("forecast_at", new Date(start.getTime() - HOURLY_SAMPLE_HALO_MS).toISOString())
-    .lt("forecast_at", new Date(end.getTime() + HOURLY_SAMPLE_HALO_MS).toISOString())
-    .order("forecast_at", { ascending: true })
-    .order("beach_id", { ascending: true });
-
-  if (error) return { data: null, error: { message: error.message } };
+  const chunks: string[][] = [];
+  for (let index = 0; index < beachIds.length; index += 10) {
+    chunks.push(beachIds.slice(index, index + 10));
+  }
+  const chunkResults = await Promise.all(
+    chunks.map((chunk) =>
+      supabase
+        .from("enhanced_forecasts")
+        .select(HOURLY_TIMELINE_SELECT)
+        .in("beach_id", chunk)
+        .in("forecast_at", anchorTimestamps)
+        .gte("forecast_at", new Date(start.getTime() - HOURLY_SAMPLE_HALO_MS).toISOString())
+        .lt("forecast_at", new Date(end.getTime() + HOURLY_SAMPLE_HALO_MS).toISOString())
+        .order("forecast_at", { ascending: true })
+        .order("beach_id", { ascending: true }),
+    ),
+  );
+  const rows: unknown[] = [];
+  for (const result of chunkResults) {
+    if (result.error) return { data: null, error: { message: result.error.message } };
+    if (result.data?.length === 1000) {
+      console.warn(
+        "⚠️ [fetchHourlySwellTimelineRows] Chunk returned exactly 1000 rows — possible PostgREST truncation",
+      );
+    }
+    rows.push(...(result.data ?? []));
+  }
 
   return {
-    data: (data ?? []) as unknown as EnhancedForecastEntity[],
+    data: rows as EnhancedForecastEntity[],
     error: null,
   };
 }
