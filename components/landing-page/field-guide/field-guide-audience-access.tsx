@@ -13,7 +13,7 @@ const AUDIENCES = [
 const ACCESS_POINTS = [
   "Public forecast data stays free forever",
   "No paywall for basic beach reads",
-  "Pro adds board-aware picks, alerts, custom spots, offline session saving, and personal forecasting",
+  "Pro adds board-aware picks, alerts, offline session saving, and personal forecasting",
 ] as const;
 
 export function FieldGuideAudienceAccess(): ReactElement {
@@ -50,8 +50,8 @@ export function FieldGuideAudienceAccess(): ReactElement {
           One surf app. Go Pro when it’s time to lock in.
         </h2>
         <p className="mx-auto mt-4 max-w-2xl font-mono text-sm leading-relaxed text-[#11100D]/70 sm:text-base">
-          Public forecast data is free forever. Upgrade for board-aware picks,
-          smart alerts, custom spots, offline session saving, and personal
+          Public forecast data and custom spots are free forever. Upgrade for
+          board-aware picks, smart alerts, offline session saving, and personal
           forecasting that learns from your boards, spots, alerts, and saved
           sessions.
         </p>

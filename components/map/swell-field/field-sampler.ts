@@ -117,6 +117,8 @@ export interface WaterMaskOptions {
   height: number;
   /** Basemap layer ids that count as water. */
   waterLayerIds: string[];
+  /** Camera-scoped cell verdicts reused while forecast time changes. */
+  waterMaskCache?: Map<string, boolean>;
 }
 
 /**
@@ -138,6 +140,17 @@ export function maskFieldToWater(
   if (options.waterLayerIds.length === 0) return;
   for (const cell of field.cells) {
     if (cell.speed === 0 && cell.alpha === 0) continue; // already dead
+    const cacheKey = `${cell.lon}:${cell.lat}`;
+    const cachedIsWater = options.waterMaskCache?.get(cacheKey);
+    if (cachedIsWater !== undefined) {
+      if (!cachedIsWater) {
+        cell.speed = 0;
+        cell.alpha = 0;
+        cell.vx = 0;
+        cell.vy = 0;
+      }
+      continue;
+    }
     try {
       const pt = map.project([cell.lon, cell.lat]);
       // Outside the rendered viewport → can't reliably query; leave it alone.
@@ -147,6 +160,7 @@ export function maskFieldToWater(
       const hits = map.queryRenderedFeatures([pt.x, pt.y], {
         layers: options.waterLayerIds,
       });
+      options.waterMaskCache?.set(cacheKey, Boolean(hits && hits.length > 0));
       if (!hits || hits.length === 0) {
         // No water feature here → land → blank the cell.
         cell.speed = 0;

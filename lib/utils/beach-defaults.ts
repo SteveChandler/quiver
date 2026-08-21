@@ -14,6 +14,7 @@
  */
 
 import type { Beach } from "@/types/database";
+import { DEFAULT_TIMEZONE } from "./timezone-constants";
 
 /**
  * Partial Beach object containing ONLY the fields that can be provided.
@@ -45,7 +46,7 @@ function getBeachDefaults(): Omit<
     region_id: null,
     slug: null,
     geog: null,
-    timezone: null,
+    timezone: DEFAULT_TIMEZONE,
     nws_forecast_zone: null,
     nws_office: null,
 

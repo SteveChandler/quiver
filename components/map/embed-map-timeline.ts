@@ -9,12 +9,13 @@ export const LEGACY_EMBED_TIMELINE_STEPS = [
   "+21h",
 ] as const;
 
+export const HOURLY_EMBED_TIMELINE_HORIZON_HOURS = 12 * 24;
 export const HOURLY_EMBED_TIMELINE_STEPS = Array.from(
-  { length: 43 },
+  { length: HOURLY_EMBED_TIMELINE_HORIZON_HOURS + 1 },
   (_, hourOffset) => hourOffset,
 ) as number[];
 
-const MAX_HOURLY_EMBED_TIMELINE_INDEX = HOURLY_EMBED_TIMELINE_STEPS.length - 1;
+export const MAX_HOURLY_EMBED_TIMELINE_INDEX = HOURLY_EMBED_TIMELINE_STEPS.length - 1;
 const HOUR_MS = 60 * 60 * 1000;
 
 function validForecastAt(value: unknown): value is string {
@@ -66,12 +67,62 @@ export function forecastAtForEmbedTimelineIndex(
   timestamps: readonly (string | undefined)[],
   index: number,
 ): string | undefined {
-  if (!Number.isInteger(index) || index < 0 || index > MAX_HOURLY_EMBED_TIMELINE_INDEX) {
+  if (
+    !Number.isInteger(index) ||
+    index < 0 ||
+    index > MAX_HOURLY_EMBED_TIMELINE_INDEX
+  ) {
     return undefined;
   }
 
-  const timestamp = timestamps[index];
-  return validForecastAt(timestamp) ? timestamp : undefined;
+  const firstTimestamp = timestamps.find((timestamp) => validForecastAt(timestamp));
+  if (!firstTimestamp) return undefined;
+  const firstEpoch = Date.parse(firstTimestamp);
+  const targetEpoch = firstEpoch + index * HOUR_MS;
+  const lastTimestamp = [...timestamps]
+    .reverse()
+    .find((timestamp) => validForecastAt(timestamp));
+  if (!lastTimestamp || targetEpoch > Date.parse(lastTimestamp)) return undefined;
+
+  return new Date(targetEpoch).toISOString();
+}
+
+export function embedTimelineArrayPositionForHourOffset(
+  timestamps: readonly (string | undefined)[],
+  hourOffset: number,
+): number | undefined {
+  if (
+    !Number.isFinite(hourOffset) ||
+    hourOffset < 0 ||
+    hourOffset > MAX_HOURLY_EMBED_TIMELINE_INDEX
+  ) {
+    return undefined;
+  }
+
+  const validTimestamps = timestamps
+    .map((timestamp, index) => ({
+      epoch: validForecastAt(timestamp) ? Date.parse(timestamp) : NaN,
+      index,
+    }))
+    .filter(({ epoch }) => Number.isFinite(epoch));
+  if (validTimestamps.length === 0) return undefined;
+
+  const targetEpoch = validTimestamps[0].epoch + hourOffset * HOUR_MS;
+  if (targetEpoch < validTimestamps[0].epoch || targetEpoch > validTimestamps.at(-1)!.epoch) {
+    return undefined;
+  }
+
+  for (let index = 0; index < validTimestamps.length - 1; index += 1) {
+    const left = validTimestamps[index];
+    const right = validTimestamps[index + 1];
+    if (targetEpoch === left.epoch) return left.index;
+    if (targetEpoch <= right.epoch) {
+      const progress = (targetEpoch - left.epoch) / (right.epoch - left.epoch);
+      return left.index + progress * (right.index - left.index);
+    }
+  }
+
+  return validTimestamps.at(-1)!.index;
 }
 
 function formatAbsoluteHourlyEmbedTimelineLabel(

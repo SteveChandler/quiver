@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isAdmin, type AdminUser } from "@/lib/auth/admin";
 import { applyBeachCoordinateCorrection } from "@/lib/beach-coordinate-corrections";
+import { findCanonicalTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import {
   createCachedResponse,
   createSuccessResponse,
@@ -122,8 +123,27 @@ async function beachesPostHandler(
   const body = await request.json();
   const { id, name, lat, lon } = body;
 
-  if (!name || !lat || !lon) {
+  if (!name || lat == null || lon == null) {
     return createValidationError("Name, lat, and lon are required");
+  }
+
+  const latitude = Number(lat);
+  const longitude = Number(lon);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return createValidationError("Lat and lon must be numbers");
+  }
+
+  // beaches.timezone is NOT NULL with no default, and moving a beach can move it
+  // across a timezone boundary — so both the create and the update path must
+  // resolve it from the coordinates being written. Leaving a stale timezone
+  // behind on a move is how Gulf Coast beaches ended up on Pacific time.
+  const timezone = findCanonicalTimezoneFromCoords(latitude, longitude);
+
+  if (!timezone) {
+    return createValidationError(
+      "Could not resolve a timezone for those coordinates"
+    );
   }
 
   let result;
@@ -134,8 +154,9 @@ async function beachesPostHandler(
       .from("beaches")
       .update({
         name,
-        lat,
-        lon,
+        lat: latitude,
+        lon: longitude,
+        timezone,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
@@ -147,8 +168,9 @@ async function beachesPostHandler(
       .from("beaches")
       .insert({
         name,
-        lat,
-        lon,
+        lat: latitude,
+        lon: longitude,
+        timezone,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })

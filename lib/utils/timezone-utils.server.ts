@@ -8,17 +8,20 @@
  * the browser.
  */
 
+import { find as findCanonical } from "geo-tz";
 import { find } from "geo-tz/now";
 import { DEFAULT_TIMEZONE } from "./timezone-constants";
 
 export { DEFAULT_TIMEZONE } from "./timezone-constants";
 export { getLocalHour, isNightHour } from "./timezone-utils.shared";
 
-/**
- * Resolve a coordinate timezone without substituting a geographic default.
- * Use this when timezone is part of persisted location truth.
- */
-export function findTimezoneFromCoords(lat: number, lon: number): string | null {
+type ZoneLookup = (lat: number, lon: number) => string[];
+
+function resolveZone(
+  lookup: ZoneLookup,
+  lat: number,
+  lon: number
+): string | null {
   if (
     !Number.isFinite(lat) ||
     !Number.isFinite(lon) ||
@@ -31,13 +34,45 @@ export function findTimezoneFromCoords(lat: number, lon: number): string | null 
   }
 
   try {
-    const timezone = find(lat, lon)[0];
+    const timezone = lookup(lat, lon)[0];
     if (!timezone) return null;
     new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date(0));
     return timezone;
   } catch {
     return null;
   }
+}
+
+/**
+ * Resolve a coordinate timezone without substituting a geographic default.
+ * Use this when timezone is part of persisted location truth.
+ *
+ * Uses the offset-merged `geo-tz/now` dataset — right for local-time math, wrong
+ * for anything persisted. Use `findCanonicalTimezoneFromCoords` for writes.
+ */
+export function findTimezoneFromCoords(lat: number, lon: number): string | null {
+  return resolveZone(find, lat, lon);
+}
+
+/**
+ * Resolve the CANONICAL IANA zone for a coordinate, for values written to the
+ * database.
+ *
+ * `geo-tz/now` merges zones that currently share an offset: it returns
+ * 'America/Caracas' for Puerto Rico and 'America/Los_Angeles' for Baja
+ * California. The full dataset used here returns 'America/Puerto_Rico' and
+ * 'America/Tijuana'.
+ *
+ * Returns null rather than a default: a beach whose coordinates cannot be
+ * resolved should be rejected, not silently filed in Pacific time. That silent
+ * default is what put 9 Gulf Coast and Long Island beaches 2-3 hours off until
+ * the 2026-08-20 repair.
+ */
+export function findCanonicalTimezoneFromCoords(
+  lat: number,
+  lon: number
+): string | null {
+  return resolveZone(findCanonical, lat, lon);
 }
 
 /**

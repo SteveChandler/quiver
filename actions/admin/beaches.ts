@@ -10,6 +10,7 @@
 import { withAdminActionAndUser } from "@/lib/server-action-utils/admin";
 import { recordAdminEvent } from "@/lib/logging/admin-audit";
 import { beachFormSchema, beachUpdateSchema } from "@/lib/validation/admin/beach-schema";
+import { findCanonicalTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import type { Beach } from "@/types/database";
 import type { AdminUser } from "@/lib/auth/admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -84,6 +85,19 @@ export const createBeach = withAdminActionAndUser(
       throw new Error("Latitude and longitude are required to create a beach");
     }
 
+    // beaches.timezone is NOT NULL with no default, so every local-time
+    // computation for this beach depends on getting it right here.
+    const timezone = findCanonicalTimezoneFromCoords(
+      validated.latitude,
+      validated.longitude
+    );
+
+    if (!timezone) {
+      throw new Error(
+        `Could not resolve a timezone for ${validated.latitude}, ${validated.longitude}; check the coordinates`
+      );
+    }
+
     // Create beach
     const { data, error } = await supabaseAdmin
       .from("beaches")
@@ -93,6 +107,7 @@ export const createBeach = withAdminActionAndUser(
         country: validated.country,
         lat: validated.latitude,
         lon: validated.longitude,
+        timezone,
         break_type: validated.break_type,
         skill_level: validated.skill_level ?? undefined,
         is_private: validated.is_private,
@@ -127,10 +142,12 @@ export const updateBeach = withAdminActionAndUser(
     // Validate input
     const validated = beachUpdateSchema.parse(formData);
 
-    // Get the existing beach for audit logging
+    // Get the existing beach for audit logging, and for its current coordinates
+    // so a partial lat-only or lon-only update still resolves a timezone from
+    // the full resulting position.
     const { data: existingBeach } = await supabaseAdmin
       .from("beaches")
-      .select("name, region")
+      .select("name, region, lat, lon")
       .eq("id", beachId)
       .single();
 
@@ -146,6 +163,27 @@ export const updateBeach = withAdminActionAndUser(
     };
     if (validated.latitude != null) updatePayload.lat = validated.latitude;
     if (validated.longitude != null) updatePayload.lon = validated.longitude;
+
+    // Moving a beach can move it across a timezone boundary. Leaving the stored
+    // timezone behind is how Gulf Coast beaches ended up on Pacific time.
+    if (validated.latitude != null || validated.longitude != null) {
+      const nextLat = validated.latitude ?? existingBeach?.lat;
+      const nextLon = validated.longitude ?? existingBeach?.lon;
+
+      if (nextLat == null || nextLon == null) {
+        throw new Error(
+          "Cannot resolve a timezone for the updated coordinates: the beach has no existing lat/lon to combine with"
+        );
+      }
+
+      const timezone = findCanonicalTimezoneFromCoords(nextLat, nextLon);
+      if (!timezone) {
+        throw new Error(
+          `Could not resolve a timezone for ${nextLat}, ${nextLon}; check the coordinates`
+        );
+      }
+      updatePayload.timezone = timezone;
+    }
 
     const { data, error } = await supabaseAdmin
       .from("beaches")

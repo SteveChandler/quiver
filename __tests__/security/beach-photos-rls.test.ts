@@ -101,6 +101,7 @@ global.Response = undici.Response;
         country: "USA",
         lat: 32.7157,
         lon: -117.1611,
+        timezone: "America/Los_Angeles",
       })
       .select()
       .single();
