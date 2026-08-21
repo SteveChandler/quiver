@@ -78,8 +78,8 @@ export function TrialEndedEmail({
               margin: "0 0 18px",
             }}
           >
-            {greeting} your trial ended and you didn&apos;t stay on Pro.
-            That&apos;s a useful signal, and I&apos;d like the detail behind it.
+            {greeting} your trial ended and you didn’t stay on Pro.
+            That’s a useful signal, and I’d like the detail behind it.
           </p>
 
           <PaperPanel rotation={STICKER_ROTATIONS.softNeg}>

@@ -103,7 +103,7 @@ export function TrialStartedEmail({
               margin: "0 0 18px",
             }}
           >
-            {greeting} here&apos;s the one thing worth doing today.
+            {greeting} here’s the one thing worth doing today.
           </p>
 
           <PaperPanel rotation={STICKER_ROTATIONS.softNeg}>
@@ -119,8 +119,8 @@ export function TrialStartedEmail({
               }}
             >
               Open {spot} and read the call: the verdict, why it landed there,
-              and the red flags underneath it. That&apos;s the part you&apos;re
-              trialling, and it&apos;s the part I most want you to argue with.
+              and the red flags underneath it. That’s the part you’re
+              trialling, and it’s the part I most want you to argue with.
             </p>
           </PaperPanel>
 
@@ -181,7 +181,7 @@ export function TrialStartedEmail({
             }}
           >
             <strong style={{ color: CREAM }}>Custom spots.</strong> Drop a pin
-            on the break that isn&apos;t in the catalog. Those are free, but
+            on the break that isn’t in the catalog. Those are free, but
             they are what make the calls yours.
           </p>
 
