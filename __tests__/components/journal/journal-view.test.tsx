@@ -268,7 +268,7 @@ describe("JournalView", () => {
     expect(screen.getByText("No Sessions Yet")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Every session you log makes your forecast sharper. Start logging to see your progression and improve forecasts for your community."
+        "Every session you log becomes a day you can compare the next call against. Start logging to see your progression."
       )
     ).toBeInTheDocument();
     expect(screen.getByText("Log Your First Session")).toBeInTheDocument();
