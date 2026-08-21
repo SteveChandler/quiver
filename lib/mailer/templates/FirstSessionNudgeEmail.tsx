@@ -101,7 +101,7 @@ export function FirstSessionNudgeEmail({
 
           {/* Value prop — cream paper note */}
           <PaperPanel rotation={STICKER_ROTATIONS.softNeg}>
-            <Eyebrow color={TEAL}>How it learns</Eyebrow>
+            <Eyebrow color={TEAL}>Why the log matters</Eyebrow>
             <p
               style={{
                 fontFamily: FONT_DISPLAY,
@@ -112,9 +112,9 @@ export function FirstSessionNudgeEmail({
                 margin: 0,
               }}
             >
-              Three sessions in, Quiver learns your wave size, wind tolerance,
-              and best time slots — so you always know when it matches your
-              style.
+              Three sessions in, you&apos;ve got a record of your own
+              days&mdash;size, wind, time of day&mdash;to compare the next call
+              against.
             </p>
           </PaperPanel>
 

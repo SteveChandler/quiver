@@ -140,7 +140,7 @@ export function SessionPromptEmail({
                 margin: 0,
               }}
             >
-              Your session logs help the community and improve our forecasts.
+              Your session log is the record you&apos;ll compare the next call against.
             </p>
           </PaperPanel>
 
