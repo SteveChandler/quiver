@@ -4,6 +4,8 @@ import {
   advancePlaybackPosition,
   compactTimelineDayLabel,
   findAdjacentLocalDayIndex,
+  getPlaybackVisualFrameMs,
+  PLAYBACK_TARGET_DURATION_MS,
   timelineDayLabelClasses,
   timelineDayLabelWidthPercent,
   SwellDayTimeline,
@@ -50,6 +52,18 @@ describe("SwellDayTimeline", () => {
     expect(advancePlaybackPosition(2, 125, 10)).toBe(2.25);
     expect(advancePlaybackPosition(2.25, 125, 10)).toBe(2.5);
     expect(advancePlaybackPosition(9.9, 100, 10)).toBe(10);
+  });
+
+  it("adapts playback duration to short and full forecast horizons", () => {
+    const shortHorizonFrameMs = getPlaybackVisualFrameMs(24 + 1);
+    const threeDayHorizonFrameMs = getPlaybackVisualFrameMs(72 + 1);
+    const fullHorizonFrameMs = getPlaybackVisualFrameMs(240 + 1);
+
+    expect(shortHorizonFrameMs * 24).toBe(PLAYBACK_TARGET_DURATION_MS);
+    expect(threeDayHorizonFrameMs * 72).toBe(PLAYBACK_TARGET_DURATION_MS);
+    expect(fullHorizonFrameMs * 240).toBe(PLAYBACK_TARGET_DURATION_MS);
+    expect(advancePlaybackPosition(0, PLAYBACK_TARGET_DURATION_MS, 240, fullHorizonFrameMs))
+      .toBe(240);
   });
 
   it("falls back to the viewport breakpoint for day labels before the track is measured", () => {

@@ -37,17 +37,30 @@ const deltaByKey: Record<string, number> = {
   ArrowRight: 1,
   ArrowUp: 1,
 };
-const PLAYBACK_VISUAL_FRAME_MS = 500;
+export const PLAYBACK_TARGET_DURATION_MS = 18_000;
+const DEFAULT_PLAYBACK_VISUAL_FRAME_MS = 500;
+const MIN_PLAYBACK_VISUAL_FRAME_MS = 50;
+const MAX_PLAYBACK_VISUAL_FRAME_MS = 750;
 const FIELD_UPDATE_INTERVAL_MS = 100;
 // "Mon 17" at 12px bold uppercase plus padding; below this a band shows the date number only.
 const FULL_DAY_LABEL_MIN_PX = 64;
+
+export function getPlaybackVisualFrameMs(timestampCount: number): number {
+  const frameCount = Math.max(1, Math.floor(timestampCount) - 1);
+  const targetFrameMs = PLAYBACK_TARGET_DURATION_MS / frameCount;
+  return Math.min(
+    MAX_PLAYBACK_VISUAL_FRAME_MS,
+    Math.max(MIN_PLAYBACK_VISUAL_FRAME_MS, targetFrameMs),
+  );
+}
 
 export function advancePlaybackPosition(
   current: number,
   elapsedMs: number,
   maxIndex: number,
+  visualFrameMs = DEFAULT_PLAYBACK_VISUAL_FRAME_MS,
 ): number {
-  return Math.min(maxIndex, current + elapsedMs / PLAYBACK_VISUAL_FRAME_MS);
+  return Math.min(maxIndex, current + elapsedMs / visualFrameMs);
 }
 
 interface LocalTimestampParts {
@@ -312,6 +325,7 @@ export function SwellDayTimeline({
   const safeIndex = clampIndex(index, timestamps.length);
   const canPlay = timestamps.length > 1;
   const maxIndex = Math.max(0, timestamps.length - 1);
+  const visualFrameMs = getPlaybackVisualFrameMs(timestamps.length);
   const [visualIndex, setVisualIndex] = useState(safeIndex);
   const visualIndexRef = useRef(safeIndex);
   const controlledIndexRef = useRef(safeIndex);
@@ -364,6 +378,7 @@ export function SwellDayTimeline({
           visualIndexRef.current,
           frameTime - lastFrameTime,
           maxIndexRef.current,
+          visualFrameMs,
         );
         visualIndexRef.current = next;
         setVisualIndex(next);
@@ -380,7 +395,7 @@ export function SwellDayTimeline({
     };
     animationFrame = window.requestAnimationFrame(animate);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [isPlaying]);
+  }, [isPlaying, visualFrameMs]);
 
   if (timestamps.length === 0) {
     if (!error && !isLoadingMore && !isExhausted) return null;
