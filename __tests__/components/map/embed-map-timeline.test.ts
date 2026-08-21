@@ -1,5 +1,6 @@
 import {
   HOURLY_EMBED_TIMELINE_STEPS,
+  embedTimelineArrayPositionForHourOffset,
   forecastAtForEmbedTimelineIndex,
   formatEmbedMapTimelineLabel,
   hourlyEmbedTimelineLabels,
@@ -9,10 +10,10 @@ import {
 describe("embed map hourly timeline", () => {
   const now = new Date(2026, 6, 9, 15, 30);
 
-  it("exposes every hour from now through +42h", () => {
-    expect(HOURLY_EMBED_TIMELINE_STEPS).toHaveLength(43);
+  it("exposes every hour from now through +12 days", () => {
+    expect(HOURLY_EMBED_TIMELINE_STEPS).toHaveLength(12 * 24 + 1);
     expect(HOURLY_EMBED_TIMELINE_STEPS[0]).toBe(0);
-    expect(HOURLY_EMBED_TIMELINE_STEPS[42]).toBe(42);
+    expect(HOURLY_EMBED_TIMELINE_STEPS.at(-1)).toBe(12 * 24);
   });
 
   it("formats same-day and next-day labels for the standalone embed", () => {
@@ -43,9 +44,9 @@ describe("embed map hourly timeline", () => {
 
     const labels = hourlyEmbedTimelineLabels(now, timestamps, "Invalid/Timezone");
 
-    expect(labels).toHaveLength(43);
+    expect(labels).toHaveLength(12 * 24 + 1);
     expect(labels[0]).toBe("Fri 8 PM");
-    expect(labels[1]).toBe("4 PM");
+    expect(labels[1]).toBe("Fri 9 PM");
     expect(labels[2]).toBe("Fri 10 PM");
     expect(labels[3]).toBe("6 PM");
   });
@@ -61,5 +62,32 @@ describe("embed map hourly timeline", () => {
     expect(
       forecastAtForEmbedTimelineIndex(["2026-07-10T20:30:00.000Z"], 0),
     ).toBeUndefined();
+  });
+
+  it("resolves hour offsets from 3-hourly timestamps instead of array indexes", () => {
+    const timestamps = [
+      "2026-07-10T00:00:00.000Z",
+      "2026-07-10T03:00:00.000Z",
+      "2026-07-10T06:00:00.000Z",
+    ];
+
+    expect(forecastAtForEmbedTimelineIndex(timestamps, 3)).toBe(
+      "2026-07-10T03:00:00.000Z",
+    );
+    expect(embedTimelineArrayPositionForHourOffset(timestamps, 1)).toBeCloseTo(1 / 3);
+    expect(embedTimelineArrayPositionForHourOffset(timestamps, 3)).toBe(1);
+  });
+
+  it("resolves hourly timestamps without applying a cadence divisor", () => {
+    const timestamps = [
+      "2026-07-10T00:00:00.000Z",
+      "2026-07-10T01:00:00.000Z",
+      "2026-07-10T02:00:00.000Z",
+    ];
+
+    expect(forecastAtForEmbedTimelineIndex(timestamps, 2)).toBe(
+      "2026-07-10T02:00:00.000Z",
+    );
+    expect(embedTimelineArrayPositionForHourOffset(timestamps, 2)).toBe(2);
   });
 });
