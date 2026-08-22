@@ -1,4 +1,5 @@
 import React from "react";
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const mockAddControl = jest.fn();
@@ -545,15 +546,20 @@ describe("Map Forecast Basic Tests", () => {
 
   it("should handle fetch errors gracefully", async () => {
     mockFetch.mockRejectedValue(new Error("Network error"));
-    
+
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    const consoleSpy = jest.spyOn(console, "error").mockImplementation();
-    
+
     expect(() => {
       render(<InteractiveMap />);
     }).not.toThrow();
-    
-    consoleSpy.mockRestore();
+
+    // The preload path reports the failed beaches fetch rather than swallowing
+    // it; the point of this test is that the map still mounts. Declared after
+    // the render because expectConsoleErrors inspects what was already logged.
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalled();
+    });
+    expectConsoleErrors([/Public beaches list fetch failed/]);
   });
 
   it("should format wave heights correctly", () => {

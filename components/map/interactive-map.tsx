@@ -2281,7 +2281,7 @@ export function InteractiveMap({
         // it once and zoom is the more informative signal.
         const prevZoom = prevZoomRef.current;
         const prevCenter = prevCenterRef.current;
-        const [longitude, latitude] = center.toArray();
+        const { lng: longitude, lat: latitude } = center;
         // First idle after mount has no prior tracked state — seed the refs
         // and skip emission so we don't fire a spurious zoom event for a
         // viewport the user never actually moved.
@@ -2552,7 +2552,7 @@ export function InteractiveMap({
         ).__quiverMapDebugCenter = { lat: center.lat, lon: center.lng };
       }
       const pendingLeashCommand = pendingLeashCommandRef.current;
-      const [longitude, latitude] = map.getCenter().toArray();
+      const { lng: longitude, lat: latitude } = map.getCenter();
       if (
         pendingLeashCommand &&
         cameraCommandContainsCenter(pendingLeashCommand, {
@@ -2683,7 +2683,7 @@ export function InteractiveMap({
       // normalization; a real camera move reconciles through moveend.
       if (lastPopulateKeyRef.current !== null) return;
       const center = mapRef.current.getCenter();
-      const [longitude, latitude] = center.toArray();
+      const { lng: longitude, lat: latitude } = center;
       void populateLocations(latitude, longitude);
     }
   }, [isMapReady, populateLocations]);
