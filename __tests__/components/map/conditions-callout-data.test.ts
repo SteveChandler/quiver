@@ -25,9 +25,9 @@ describe("resolveCalloutComponents", () => {
     expect(out[2]).toMatchObject({ name: "WIND", bearingDeg: 230, label: "8 mph", color: "#00D4AA" });
   });
 
-  it("prefers swellDirOm over s1Dir for the primary swell bearing", () => {
+  it("prefers s1Dir over swellDirOm for the primary swell bearing", () => {
     const out = resolveCalloutComponents({ ...EMPTY, swellDirOm: 305, s1Dir: 290, s1PeriodS: 9, s1HeightFt: 3 });
-    expect(out[0].bearingDeg).toBe(305);
+    expect(out[0].bearingDeg).toBe(290);
   });
 
   it("omits a component with null direction", () => {

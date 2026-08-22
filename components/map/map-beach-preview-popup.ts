@@ -131,7 +131,7 @@ export function createBeachPreviewPopupContent({
   }
 
   const swellDirection = partition
-    ? partition.swellDirOm ?? partition.s1Dir
+    ? partition.s1Dir ?? partition.swellDirOm
     : null;
   if (isFiniteNumber(swellDirection)) {
     // Show swell height alongside direction so a beach with real swell never reads

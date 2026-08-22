@@ -1489,7 +1489,7 @@ describe("InteractiveMap", () => {
           conditionSummary: "GOOD",
           waveHeight: "2-3ft",
           swellPeriod: "14s",
-          swellDirection: "WNW",
+          swellDirection: "W",
           isCalibrated: false,
           windSpeed: "6 mph",
           windDirection: "W",

@@ -112,7 +112,7 @@ describe("partitionToPoint", () => {
   });
 
   it.each(["s1", "combined"] as const)(
-    "uses Open-Meteo swell direction before s1Dir for %s",
+    "uses s1Dir before Open-Meteo swell direction for %s",
     (layerId) => {
       const point = partitionToPoint(
         -117.2,
@@ -121,7 +121,7 @@ describe("partitionToPoint", () => {
         layerId
       );
 
-      expect(point?.dir).toBe(215);
+      expect(point?.dir).toBe(270);
     }
   );
 

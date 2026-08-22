@@ -315,7 +315,7 @@ function mapSpotConditions(
   );
   const waveLabel = context.displayForecastMap.get(beachId)?.label?.trim();
   const rawWaveHeight = context.waveHeightMap.get(beachId);
-  const swellDirection = partition?.swellDirOm ?? partition?.s1Dir;
+  const swellDirection = partition?.s1Dir ?? partition?.swellDirOm;
 
   return {
     conditionSummary: context.conditionSummaryMap.get(beachId) ?? null,

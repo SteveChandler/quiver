@@ -327,7 +327,7 @@ export function partitionToPoint(
     };
   }
   // "s1" and "combined" both anchor on the primary swell.
-  const dir = partition.swellDirOm ?? partition.s1Dir;
+  const dir = partition.s1Dir ?? partition.swellDirOm;
   if (dir == null) return null;
   return {
     lon,

@@ -107,7 +107,7 @@ describe("map marker preview popup", () => {
 
   it("renders live surf, swell, wind, and spot details when partition data exists", () => {
     const partition: SwellPartition = {
-      s1Dir: null,
+      s1Dir: 280,
       swellDirOm: 293,
       s1PeriodS: 14,
       s1HeightFt: 3.5,
@@ -125,7 +125,7 @@ describe("map marker preview popup", () => {
     });
 
     expect(content).toHaveTextContent("SURF · 3-4 ft · 14s");
-    expect(content).toHaveTextContent("SWELL · 3.5ft · from WNW");
+    expect(content).toHaveTextContent("SWELL · 3.5ft · from W");
     expect(content).toHaveTextContent("WIND · WSW 8 mph");
     expect(content).toHaveTextContent("SPOT · San Diego, CA");
   });

@@ -27,7 +27,7 @@ function swellLabel(heightFt: number, periodS: number | null): string {
 export function resolveCalloutComponents(p: SwellPartition): CalloutComponent[] {
   const out: CalloutComponent[] = [];
 
-  const s1Dir = isReal(p.swellDirOm) ? p.swellDirOm : p.s1Dir;
+  const s1Dir = isReal(p.s1Dir) ? p.s1Dir : p.swellDirOm;
   if (isReal(s1Dir) && isReal(p.s1HeightFt) && p.s1HeightFt > 0) {
     out.push({ kind: "s1", name: "SWELL", bearingDeg: s1Dir, label: swellLabel(p.s1HeightFt, p.s1PeriodS), color: CONDITIONS_CALLOUT_COLORS.s1 });
   }
