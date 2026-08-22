@@ -108,8 +108,11 @@ function nullGfsValues(): Pick<
 }
 
 export function isGfsWaveShadowCaptureEnabled(): boolean {
-  if (GFS_WAVE_SHADOW_CAPTURE_DISABLED) return false;
-  return process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED === "true";
+  // GFS_WAVE_SHADOW_CAPTURE_DISABLED is the only control. A
+  // GFS_WAVE_SHADOW_CAPTURE_ENABLED env var used to be consulted here, but the
+  // constant short-circuited it, so the var could never turn capture on and
+  // reading it only implied a switch that did not exist.
+  return !GFS_WAVE_SHADOW_CAPTURE_DISABLED;
 }
 
 export function isAllZeroWaveHeightPayload(
