@@ -59,6 +59,7 @@ import {
 } from "@/lib/alerts/revalidate-alert-window";
 import type { AlertConditions } from "@/lib/alerts/types";
 import type { MatchingWindow } from "@/lib/alerts/types";
+import { isAlertsDeliveryEnabled } from "@/lib/flags/alerts-delivery";
 import { isForecastAlertDeliveryEnabled } from "@/lib/flags/forecast-alert-delivery";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
@@ -392,8 +393,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   // Env-driven gates. Default OFF for safety; staged rollout via allowlist.
   const forecastDeliveryEnabled = isForecastAlertDeliveryEnabled();
-  const similarityDeliveryEnabled =
-    process.env.ALERTS_DELIVERY_ENABLED === "true";
+  const similarityDeliveryEnabled = isAlertsDeliveryEnabled();
   const allowlistRaw = process.env.ALERTS_DELIVERY_USER_ALLOWLIST ?? "";
   const allowlist = new Set(
     allowlistRaw

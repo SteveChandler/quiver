@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isAlertsDeliveryEnabled } from "@/lib/flags/alerts-delivery";
 import {
   withAuth,
   createSuccessResponse,
@@ -224,7 +225,7 @@ export const POST = withAuth(
       user.id,
       supabase,
       {
-        alertDeliveryPaused: process.env.ALERTS_DELIVERY_ENABLED !== "true",
+        alertDeliveryPaused: !isAlertsDeliveryEnabled(),
         betaAccessRequired:
           process.env.PERSONALIZATION_BETA_REQUIRED === "true" ||
           request.headers.get("x-quiver-beta-access") === "required",

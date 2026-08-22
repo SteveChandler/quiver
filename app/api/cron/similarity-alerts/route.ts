@@ -44,6 +44,7 @@
 // matches.
 
 import { NextResponse } from "next/server";
+import { isAlertsDeliveryEnabled } from "@/lib/flags/alerts-delivery";
 
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -312,7 +313,7 @@ async function _GET(req: Request): Promise<Response> {
     return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
   }
 
-  const deliveryEnabled = process.env.ALERTS_DELIVERY_ENABLED === "true";
+  const deliveryEnabled = isAlertsDeliveryEnabled();
   const allowlistRaw = process.env.ALERTS_DELIVERY_USER_ALLOWLIST ?? "";
   const allowlist = new Set(
     allowlistRaw.split(",").map((s) => s.trim()).filter(Boolean),

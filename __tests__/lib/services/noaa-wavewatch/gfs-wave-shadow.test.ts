@@ -44,24 +44,15 @@ function payload(overrides: Partial<NonNullable<OpenMeteoMarineResponse["hourly"
 }
 
 describe("GFS-Wave shadow capture helpers", () => {
-  const originalEnabled = process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED;
-
-  afterEach(() => {
-    if (originalEnabled === undefined) {
-      delete process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED;
-    } else {
-      process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED = originalEnabled;
-    }
-  });
-
-  it("is hard-disabled even when the legacy env flag is enabled", () => {
+  it("is controlled solely by GFS_WAVE_SHADOW_CAPTURE_DISABLED", () => {
     expect(GFS_WAVE_SHADOW_CAPTURE_DISABLED).toBe(true);
-
-    delete process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED;
     expect(isGfsWaveShadowCaptureEnabled()).toBe(false);
 
+    // No env var can turn capture on: the removed GFS_WAVE_SHADOW_CAPTURE_ENABLED
+    // was always short-circuited by the constant above.
     process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED = "true";
     expect(isGfsWaveShadowCaptureEnabled()).toBe(false);
+    delete process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED;
   });
 
   it("classifies an all-zero wave_height payload as missing-source data", () => {
