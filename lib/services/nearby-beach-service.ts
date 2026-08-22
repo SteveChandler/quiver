@@ -9,6 +9,15 @@ export const MAX_NEARBY_RADIUS_MILES = 50;
 export const MAX_NEARBY_LIMIT = 50;
 const WATER_QUALITY_HOLD_OVERFETCH = 5;
 const MAX_FALLBACK_CANDIDATES = 200;
+const NEARBY_BEACH_CACHE_TTL_MS = 5 * 60 * 1000;
+const MAX_NEARBY_BEACH_CACHE_ENTRIES = 250;
+
+interface NearbyBeachCacheEntry {
+  expiresAt: number;
+  result: Promise<NearbyBeachResult>;
+}
+
+const nearbyBeachCache = new Map<string, NearbyBeachCacheEntry>();
 
 export interface NearbyBeachQuery {
   radiusMiles: number;
@@ -213,4 +222,43 @@ export async function getNearbyBeachesFromDb(
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
+}
+
+export async function getCachedNearbyBeachesFromDb(
+  latitude: number,
+  longitude: number,
+  radiusMiles = 30,
+  limit = 20,
+): Promise<NearbyBeachResult> {
+  const normalized = normalizeNearbyBeachQuery(radiusMiles, limit);
+  const cacheKey = [
+    latitude.toFixed(3),
+    longitude.toFixed(3),
+    normalized.radiusMiles,
+    normalized.limit,
+  ].join(":");
+  const now = Date.now();
+  const cached = nearbyBeachCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) return cached.result;
+  if (cached) nearbyBeachCache.delete(cacheKey);
+
+  const result = getNearbyBeachesFromDb(
+    latitude,
+    longitude,
+    normalized.radiusMiles,
+    normalized.limit,
+  );
+  nearbyBeachCache.set(cacheKey, {
+    expiresAt: now + NEARBY_BEACH_CACHE_TTL_MS,
+    result,
+  });
+
+  if (nearbyBeachCache.size > MAX_NEARBY_BEACH_CACHE_ENTRIES) {
+    const oldestKey = nearbyBeachCache.keys().next().value as string | undefined;
+    if (oldestKey) nearbyBeachCache.delete(oldestKey);
+  }
+
+  const resolved = await result;
+  if (!resolved.success) nearbyBeachCache.delete(cacheKey);
+  return resolved;
 }

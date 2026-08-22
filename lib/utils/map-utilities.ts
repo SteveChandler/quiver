@@ -75,17 +75,17 @@ export function getOffshorePosition(
  * @returns True if viewport has changed significantly
  */
 export function hasViewportChanged(
-  current: { lat: number; lng: number; zoom: number },
-  previous: { lat: number; lng: number; zoom: number } | null
+  current: { lat: number; lon: number; zoom: number },
+  previous: { lat: number; lon: number; zoom: number } | null
 ): boolean {
   if (!previous) return true;
 
-  // Use larger threshold for lat/lng to reduce calls (0.01 degrees ≈ 1km)
+  // Use larger coordinate thresholds to reduce calls (0.01 degrees ≈ 1km)
   const latChanged = Math.abs(current.lat - previous.lat) >= 0.01;
-  const lngChanged = Math.abs(current.lng - previous.lng) >= 0.01;
+  const lonChanged = Math.abs(current.lon - previous.lon) >= 0.01;
   const zoomChanged = Math.abs(current.zoom - previous.zoom) >= 1;
 
-  return latChanged || lngChanged || zoomChanged;
+  return latChanged || lonChanged || zoomChanged;
 }
 
 /**

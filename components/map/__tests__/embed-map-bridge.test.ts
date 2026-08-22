@@ -252,6 +252,28 @@ describe("embed map bridge", () => {
     });
   });
 
+  it("posts presentationReady after the useful map surface is assembled", async () => {
+    const postMessage = jest.fn();
+    Object.defineProperty(window, "ReactNativeWebView", {
+      configurable: true,
+      value: { postMessage },
+    });
+    const { EmbedMapClient } = await import("@/app/embed/map/embed-map-client");
+
+    render(React.createElement(EmbedMapClient));
+    const onMapPresentationReady = mockInteractiveMapProps.onMapPresentationReady as
+      | (() => void)
+      | undefined;
+
+    act(() => {
+      onMapPresentationReady?.();
+    });
+
+    expect(postMessage).toHaveBeenCalledWith(
+      '{"type":"presentationReady","payload":{}}',
+    );
+  });
+
   it("keeps legacy native forecast events index-only", async () => {
     mockSearchParams = new URLSearchParams("timeIndex=99");
     const postMessage = jest.fn();

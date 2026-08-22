@@ -118,6 +118,7 @@ type HourlyTimelineWindowParseResult =
  *
  * Query params:
  * - beachIds: comma-separated list of beach IDs (required)
+ * - timelineOnly=true: hourly timeline phase-2 response without forecast enrichment
  *
  * Returns:
  * {
@@ -617,12 +618,22 @@ async function fetchHourlySwellTimeline(
   timeline: HourlySwellTimeline | null;
   error: { message: string } | null;
 }> {
-  const { data: rows, error: rowsError } = await fetchHourlySwellTimelineRows(
+  const rowsPromise = fetchHourlySwellTimelineRows(
     supabase,
     beachIds,
     window.start,
     window.end,
   );
+  const nextStartPromise = fetchNextHourlySwellTimelineStart(
+    supabase,
+    beachIds,
+    window.end,
+  );
+  const [rowsResult, nextStartResult] = await Promise.all([
+    rowsPromise,
+    nextStartPromise,
+  ]);
+  const { data: rows, error: rowsError } = rowsResult;
   if (rowsError || !rows) {
     return {
       timeline: null,
@@ -630,8 +641,7 @@ async function fetchHourlySwellTimeline(
     };
   }
 
-  const { nextStart, error: nextStartError } =
-    await fetchNextHourlySwellTimelineStart(supabase, beachIds, window.end);
+  const { nextStart, error: nextStartError } = nextStartResult;
   if (nextStartError) return { timeline: null, error: nextStartError };
 
   return {
@@ -714,7 +724,7 @@ function beachTodayDate(beach: Beach, now: Date): string {
   });
 }
 
-async function bulkForecastHandler(
+export async function bulkForecastHandler(
   request: NextRequest,
   context: OptionalAuthContext
 ): Promise<NextResponse> {
@@ -723,6 +733,19 @@ async function bulkForecastHandler(
     const beachIdsParam = searchParams.get("beachIds");
     const forecastAtParam = searchParams.get("forecastAt");
     const isHourlyTimeline = searchParams.get("timeline") === "hourly";
+    const timelineOnlyParam = searchParams.get("timelineOnly");
+    if (
+      timelineOnlyParam !== null
+      && timelineOnlyParam !== "true"
+      && timelineOnlyParam !== "false"
+    ) {
+      return createValidationError("timelineOnly must be true or false");
+    }
+    const isHourlyTimelineOnly =
+      isHourlyTimeline && timelineOnlyParam === "true";
+    if (timelineOnlyParam === "true" && !isHourlyTimeline) {
+      return createValidationError("timelineOnly requires timeline=hourly");
+    }
     const isHourlyTimelineExtension =
       isHourlyTimeline && searchParams.has("timelineStart");
     const hourlyTimelineParseResult = isHourlyTimeline
@@ -764,7 +787,7 @@ async function bulkForecastHandler(
     const timelineBeachIds = timelineBeachIdResult?.beachIds ?? [];
     const { supabase, user } = context;
 
-    if (isHourlyTimelineExtension && hourlyTimelineWindow) {
+    if ((isHourlyTimelineExtension || isHourlyTimelineOnly) && hourlyTimelineWindow) {
       const { timeline, error } = await fetchHourlySwellTimeline(
         supabase,
         timelineBeachIds,
@@ -778,11 +801,49 @@ async function bulkForecastHandler(
         );
       }
 
+      if (isHourlyTimelineOnly) {
+        return createSuccessResponse({
+          ...emptyBulkForecastResponse,
+          hourlySwellTimeline: timeline,
+          recommendationAvailability: UNAVAILABLE_RECOMMENDATION,
+        });
+      }
+
       return createSuccessResponse({
         hourlySwellTimeline: timeline,
         recommendationAvailability: UNAVAILABLE_RECOMMENDATION,
       });
     }
+
+    const fetchWindow = resolveForecastFetchWindow(forecastAtParam);
+    const forecastPromise = fetchBulkForecastRowsWithV51Display(
+      supabase,
+      limitedBeachIds,
+      fetchWindow.start,
+      fetchWindow.end
+    );
+    const hourlyTimelinePromise = hourlyTimelineWindow
+      ? fetchHourlySwellTimeline(supabase, timelineBeachIds, hourlyTimelineWindow)
+      : Promise.resolve(null);
+    const beachPromise = supabase
+      .from("beaches")
+      .select(BULK_BEACH_SELECT)
+      .in("id", limitedBeachIds);
+    const beachEnrichmentPromise = Promise.resolve(beachPromise).then(
+      async (beachResult) => {
+        if (beachResult.error || fetchWindow.selectedAt !== null) {
+          return { beachResult, sunTimesCache: undefined };
+        }
+        const scoringBeachRows = (beachResult.data || []) as unknown as Beach[];
+        const todayDates = Array.from(
+          new Set(
+            scoringBeachRows.map((beach) => beachTodayDate(beach, new Date()))
+          )
+        );
+        const sunTimesCache = await getBatchSunTimes(limitedBeachIds, todayDates);
+        return { beachResult, sunTimesCache };
+      },
+    );
 
     const [userSkillLevel, boardClasses] = await Promise.all([
       getProfileExperienceLevel(supabase, user?.id),
@@ -798,29 +859,38 @@ async function bulkForecastHandler(
             )))
         : Promise.resolve<BoardClass[]>([]),
     ]);
-    const fetchWindow = resolveForecastFetchWindow(forecastAtParam);
-
-    const {
-      data,
-      timelineRows,
-      error,
-    } = await fetchBulkForecastRowsWithV51Display(
-      supabase,
-      limitedBeachIds,
-      fetchWindow.start,
-      fetchWindow.end
+    const hourlyTimelineSettledPromise = hourlyTimelinePromise.then(
+      (value) => ({ status: "fulfilled" as const, value }),
+      (reason: unknown) => ({ status: "rejected" as const, reason }),
     );
-
-    if (error) {
+    const beachEnrichmentSettledPromise = beachEnrichmentPromise.then(
+      (value) => ({ status: "fulfilled" as const, value }),
+      (reason: unknown) => ({ status: "rejected" as const, reason }),
+    );
+    const forecastResult = await forecastPromise;
+    if (forecastResult.error) {
+      const { error } = forecastResult;
       console.error("Error fetching bulk forecasts:", error);
       return handleApiError(new Error(error.message), "Failed to fetch bulk forecasts");
     }
+    const [hourlyTimelineSettled, beachEnrichmentSettled] = await Promise.all([
+      hourlyTimelineSettledPromise,
+      beachEnrichmentSettledPromise,
+    ]);
+    if (hourlyTimelineSettled.status === "rejected") {
+      throw hourlyTimelineSettled.reason;
+    }
+    if (beachEnrichmentSettled.status === "rejected") {
+      throw beachEnrichmentSettled.reason;
+    }
+
+    const hourlyTimelineResult = hourlyTimelineSettled.value;
+    const { beachResult, sunTimesCache } = beachEnrichmentSettled.value;
+    const { data, timelineRows } = forecastResult;
 
     let hourlySwellTimeline: HourlySwellTimeline | undefined;
-    if (hourlyTimelineWindow) {
-      const { timeline, error: hourlyTimelineError } =
-        await fetchHourlySwellTimeline(supabase, timelineBeachIds, hourlyTimelineWindow);
-
+    if (hourlyTimelineResult) {
+      const { timeline, error: hourlyTimelineError } = hourlyTimelineResult;
       if (hourlyTimelineError || !timeline) {
         console.error("Error fetching hourly swell timeline:", hourlyTimelineError);
         return handleApiError(
@@ -866,10 +936,7 @@ async function bulkForecastHandler(
     // calibrated pipeline. Beaches missing from this query (errors, soft
     // deletes) default to `false`.
     const isCalibratedMap: Record<string, boolean> = {};
-    const { data: beachRows, error: beachError } = await supabase
-      .from("beaches")
-      .select(BULK_BEACH_SELECT)
-      .in("id", limitedBeachIds);
+    const { data: beachRows, error: beachError } = beachResult;
 
     if (beachError) {
       console.error("Error fetching beach calibration status:", beachError);
@@ -891,16 +958,6 @@ async function bulkForecastHandler(
       scoringBeachRows.forEach((row) => {
         isCalibratedMap[row.id] = row.shoaling_factors !== null;
       });
-
-      const todayDates = Array.from(
-        new Set(
-          scoringBeachRows.map((beach) => beachTodayDate(beach, new Date()))
-        )
-      );
-      const sunTimesCache =
-        fetchWindow.selectedAt === null
-          ? await getBatchSunTimes(limitedBeachIds, todayDates)
-          : undefined;
 
       for (const beach of scoringBeachRows) {
         const beachForecasts = forecastsByBeach.get(beach.id) ?? [];

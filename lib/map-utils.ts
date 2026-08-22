@@ -496,6 +496,33 @@ export interface StaticMapPin {
   color?: string;
 }
 
+export function getStaticMapViewportImageUrl({
+  latitude,
+  longitude,
+  width,
+  height,
+  zoom,
+  style = "mapbox/streets-v11",
+}: {
+  latitude: number;
+  longitude: number;
+  width: number;
+  height: number;
+  zoom: number;
+  style?: string;
+}): string | null {
+  const accessToken =
+    process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
+    (process as any).env?.NEXT_PUBLIC_MAPBOX_TOKEN;
+  if (!accessToken || !isValidCoordinates(latitude, longitude)) return null;
+
+  const imageWidth = Math.max(1, Math.min(1280, Math.round(width)));
+  const imageHeight = Math.max(1, Math.min(1280, Math.round(height)));
+  const camera = `${longitude},${latitude},${zoom},0`;
+
+  return `https://api.mapbox.com/styles/v1/${style}/static/${camera}/${imageWidth}x${imageHeight}@2x?access_token=${accessToken}`;
+}
+
 /**
  * Generate a multi-pin static map URL with an auto-fitted viewport.
  *

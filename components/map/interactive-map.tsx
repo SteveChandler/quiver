@@ -36,6 +36,8 @@ import {
   loadBeachesAndWaveHeights,
   parseHourlySwellTimeline,
   type ConditionSummary,
+  type BeachLoaderResult,
+  type ForecastLoadStatus,
 } from "@/components/map/map-beach-loader";
 import { createBeachPreviewPopupContent } from "@/components/map/map-beach-preview-popup";
 import {
@@ -96,6 +98,7 @@ import type { CustomSpot } from "@/hooks/use-custom-spots";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import type { MapCameraCommand } from "@/components/map/map-camera-command";
+import { MapPreloadPreview } from "@/components/map/map-preload-preview";
 import {
   formatSwellPeriod,
   formatWaveHeightRange,
@@ -162,13 +165,13 @@ function clearMapDebugCenter(): void {
 
 export function cameraCommandContainsCenter(
   command: MapCameraCommand,
-  center: { lat: number; lng: number },
+  center: { lat: number; lon: number },
 ): boolean {
   if (command.bounds) {
     const [[west, south], [east, north]] = command.bounds;
     return (
-      center.lng >= west &&
-      center.lng <= east &&
+      center.lon >= west &&
+      center.lon <= east &&
       center.lat >= south &&
       center.lat <= north
     );
@@ -177,7 +180,7 @@ export function cameraCommandContainsCenter(
   if (!command.center) return true;
   return (
     Math.abs(center.lat - command.center.lat) <= 0.05 &&
-    Math.abs(center.lng - command.center.lon) <= 0.05
+    Math.abs(center.lon - command.center.lon) <= 0.05
   );
 }
 
@@ -353,6 +356,7 @@ interface InteractiveMapProps {
   onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
   onDisplayForecastsChange?: (map: Map<string, ForecastDisplay | undefined>) => void;
   onMapReady?: () => void;
+  onMapPresentationReady?: () => void;
   className?: string;
   regionViewport?: {
     region: string;
@@ -361,6 +365,8 @@ interface InteractiveMapProps {
     bounds?: [[number, number], [number, number]];
     zoom?: number;
   } | null;
+  initialNearbyBeachesPromise?: Promise<unknown> | null;
+  initialForecastResponsePromise?: Promise<unknown> | null;
   beaches?: Beach[]; // Filtered beaches to display on map (if provided, skips API fetch)
   customSpots?: CustomSpot[];
   autoNavigateOnMarkerClick?: boolean; // Whether marker clicks auto-navigate to beach page (default: true)
@@ -517,8 +523,11 @@ export function InteractiveMap({
   onWaveHeightsChange,
   onDisplayForecastsChange,
   onMapReady,
+  onMapPresentationReady,
   className = "h-full w-full",
   regionViewport,
+  initialNearbyBeachesPromise = null,
+  initialForecastResponsePromise = null,
   beaches,
   customSpots = EMPTY_CUSTOM_SPOTS,
   autoNavigateOnMarkerClick = true,
@@ -579,12 +588,15 @@ export function InteractiveMap({
   const populateRequestIdRef = useRef(0);
   const populateAbortControllerRef = useRef<AbortController | null>(null);
   const forecastUnavailableRef = useRef(false);
+  const swellFieldDataInvalidatedRef = useRef(false);
   const lastViewportRef = useRef<{
     lat: number;
-    lng: number;
+    lon: number;
     zoom: number;
   } | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [isMapPresentationReady, setIsMapPresentationReady] = useState(false);
+  const hasNotifiedMapPresentationReadyRef = useRef(false);
   const [mapLoadFailure, setMapLoadFailure] =
     useState<MapLoadFailure | null>(null);
   const [mapRetryNonce, setMapRetryNonce] = useState(0);
@@ -670,6 +682,7 @@ export function InteractiveMap({
   const onWaveHeightsChangeRef = useRef(onWaveHeightsChange);
   const onDisplayForecastsChangeRef = useRef(onDisplayForecastsChange);
   const onMapReadyRef = useRef(onMapReady);
+  const onMapPresentationReadyRef = useRef(onMapPresentationReady);
   const onPlacementPinChangeRef = useRef(onPlacementPinChange);
   const onMapLoadFailureRef = useRef(onMapLoadFailure);
   const onHourlyTimelineLoadedRef = useRef(onHourlyTimelineLoaded);
@@ -679,9 +692,9 @@ export function InteractiveMap({
   const activeUserCameraGestureRef = useRef<"pan" | "zoom" | "rotate" | null>(null);
   // Typed broadly; handleMoveEnd & populateLocations are assigned via sync effects below
   const handleMoveEndRef = useRef<((...args: any[]) => any) | null>(null);
-  const populateLocationsRef = useRef<((lat: number, lng: number) => Promise<void>) | null>(null);
+  const populateLocationsRef = useRef<((lat: number, lon: number) => Promise<void>) | null>(null);
   // Instrumentation refs for pan/zoom classification and single-fire events
-  const prevCenterRef = useRef<{ lat: number; lng: number } | null>(null);
+  const prevCenterRef = useRef<{ lat: number; lon: number } | null>(null);
   const prevZoomRef = useRef<number | null>(null);
   const mountedAtRef = useRef<number>(
     typeof performance !== "undefined" ? performance.now() : 0
@@ -749,6 +762,10 @@ export function InteractiveMap({
   }, [onMapReady]);
 
   useEffect(() => {
+    onMapPresentationReadyRef.current = onMapPresentationReady;
+  }, [onMapPresentationReady]);
+
+  useEffect(() => {
     onPlacementPinChangeRef.current = onPlacementPinChange;
   }, [onPlacementPinChange]);
 
@@ -794,6 +811,21 @@ export function InteractiveMap({
       "/api/beaches/nearby",
       CACHE_TTL.MAP_NEARBY_BEACHES
     )
+  );
+  const initialNearbyBeachesPromiseRef = useRef(initialNearbyBeachesPromise);
+  const initialForecastResponsePromiseRef = useRef(initialForecastResponsePromise);
+  const fetchNearbyBeachesWithPreload = useCallback(
+    async (latitude: number, longitude: number, signal?: AbortSignal): Promise<unknown> => {
+      const preloaded = initialNearbyBeachesPromiseRef.current;
+      if (preloaded) {
+        initialNearbyBeachesPromiseRef.current = null;
+        const result = await preloaded;
+        if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+        if (result && typeof result === "object" && "data" in result) return result;
+      }
+      return fetchNearbyBeaches.current(latitude, longitude, signal);
+    },
+    [],
   );
 
   const timelineTimezone = viewTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC";
@@ -871,7 +903,7 @@ export function InteractiveMap({
   }, [expandableTimeline.index, expandableTimeline.partitionsByBeach]);
   const activeEmbedHourlyPartitionsMap = useMemo(() => {
     const active = new Map<string, SwellPartition>();
-    if (!hourlyTimelineSeed) return active;
+    if (!hourlyTimelineSeed) return new Map(partitionsMap);
     const position = embedTimelineArrayPositionForHourOffset(
       hourlyTimelineSeed.timestamps,
       swellTimelineIndex,
@@ -887,7 +919,7 @@ export function InteractiveMap({
       if (partition) active.set(beachId, partition);
     }
     return active;
-  }, [hourlyTimelineSeed, swellTimelineIndex]);
+  }, [hourlyTimelineSeed, partitionsMap, swellTimelineIndex]);
 
   useEffect(() => {
     const activePartitions = isExpandableTimeline
@@ -1210,6 +1242,7 @@ export function InteractiveMap({
     lastPopulateKeyRef.current = null;
     lastViewportRef.current = null;
     forecastUnavailableRef.current = false;
+    swellFieldDataInvalidatedRef.current = true;
     partitionsMapRef.current = new Map();
     hourlyTimelineBeachIdsRef.current = [];
     flowFieldsRef.current = {
@@ -1229,8 +1262,8 @@ export function InteractiveMap({
 
   // Helper to check if viewport has significantly changed
   const hasViewportChanged = useCallback(
-    (lat: number, lng: number, zoom: number): boolean => {
-      return checkViewportChanged({ lat, lng, zoom }, lastViewportRef.current);
+    (lat: number, lon: number, zoom: number): boolean => {
+      return checkViewportChanged({ lat, lon, zoom }, lastViewportRef.current);
     },
     []
   );
@@ -1323,9 +1356,9 @@ export function InteractiveMap({
       let beachCount = 0;
       for (const b of beachesRef.current) {
         const lat = b.lat;
-        const lng = b.lon;
-        if (lat == null || lng == null) continue;
-        if (lat >= south && lat <= north && lng >= west && lng <= east) {
+        const longitude = b.lon;
+        if (lat == null || longitude == null) continue;
+        if (lat >= south && lat <= north && longitude >= west && longitude <= east) {
           beachCount += 1;
         }
       }
@@ -1486,8 +1519,7 @@ export function InteractiveMap({
   const populateLocations = useCallback(
     async (latitude: number, longitude: number) => {
       const map = mapRef.current;
-      if (!map || !isMapReadyRef.current) return;
-      const zoom = map.getZoom();
+      const zoom = map?.getZoom() ?? initialZoom;
       // Include beaches state in cache key: undefined vs empty array vs populated array
       const beachesKey = beaches === undefined
         ? "none"
@@ -1515,56 +1547,199 @@ export function InteractiveMap({
       populateRequestIdRef.current = requestId;
       forecastUnavailableRef.current = false;
       setSwellFieldLoadStatus("loading");
+      if (swellTimelineMode === "hourly") {
+        const emptyWaveHeights = new Map<string, number | undefined>();
+        const emptyDisplayForecasts = new Map<string, ForecastDisplay | undefined>();
+        setWaveHeightMap(emptyWaveHeights);
+        setDisplayForecastMap(emptyDisplayForecasts);
+        setWaterTempMap(new Map());
+        setConditionScoreMap(new Map());
+        setConditionSummaryMap(new Map());
+        setIsCalibratedMap(new Map());
+        setPartitionsMap(new Map());
+        setPartitionsTimelineMap(new Map());
+        setHourlyTimelineSeed(null);
+        onWaveHeightsChangeRef.current?.(emptyWaveHeights);
+        onDisplayForecastsChangeRef.current?.(emptyDisplayForecasts);
+        onHourlyTimelineLoadedRef.current?.(null);
+      }
       try {
+        let committedWaveHeightMap = new Map<string, number | undefined>();
+        let committedDisplayForecastMap = new Map<string, ForecastDisplay | undefined>();
+        let committedWaterTempMap = new Map<string, string | undefined>();
+        let committedConditionScoreMap = new Map<string, number | undefined>();
+        let committedConditionSummaryMap = new Map<string, ConditionSummary>();
+        let committedIsCalibratedMap = new Map<string, boolean>();
+        let committedPartitionsMap = new Map<string, SwellPartition>();
+        let committedPartitionsTimelineMap = new Map<string, SwellPartition[]>();
+        let timelinePromise: Promise<BeachLoaderResult> | null = null;
+        const startTimelineLoad = (locations: Beach[]): void => {
+          if (swellTimelineMode !== "hourly" || timelinePromise) return;
+          const pendingTimeline = loadBeachesAndWaveHeights(
+            latitude,
+            longitude,
+            locations,
+            { fetchNearbyBeaches: fetchNearbyBeachesWithPreload },
+            {
+              timeline: "hourly",
+              timelineHours: FULL_FORECAST_TIMELINE_HOURS,
+              timelineFocusBeachId,
+              timelineOnly: true,
+              signal: abortController.signal,
+            },
+          );
+          void pendingTimeline.catch(() => undefined);
+          timelinePromise = pendingTimeline;
+        };
+        const onLocationsResolved = (locations: Beach[]): void => {
+          if (
+            requestId !== populateRequestIdRef.current ||
+            abortController.signal.aborted
+          ) {
+            return;
+          }
+          setSwellFieldBeaches(locations);
+        };
+        const mergeMapEntries = <T,>(
+          current: Map<string, T>,
+          next: Map<string, T>,
+          merge: boolean,
+        ): Map<string, T> => {
+          if (!merge) return next;
+          return new Map([...current, ...next]);
+        };
+        const commitResult = (
+          result: BeachLoaderResult,
+          merge: boolean,
+          statusOverride?: ForecastLoadStatus,
+        ): void => {
+          committedWaveHeightMap = mergeMapEntries(
+            committedWaveHeightMap,
+            result.waveHeightMap,
+            merge,
+          );
+          committedDisplayForecastMap = mergeMapEntries(
+            committedDisplayForecastMap,
+            result.displayForecastMap,
+            merge,
+          );
+          committedWaterTempMap = mergeMapEntries(
+            committedWaterTempMap,
+            result.waterTempMap,
+            merge,
+          );
+          committedConditionScoreMap = mergeMapEntries(
+            committedConditionScoreMap,
+            result.conditionScoreMap,
+            merge,
+          );
+          committedConditionSummaryMap = mergeMapEntries(
+            committedConditionSummaryMap,
+            result.conditionSummaryMap,
+            merge,
+          );
+          committedIsCalibratedMap = mergeMapEntries(
+            committedIsCalibratedMap,
+            result.isCalibratedMap,
+            merge,
+          );
+          committedPartitionsMap = mergeMapEntries(
+            committedPartitionsMap,
+            result.partitionsMap,
+            merge,
+          );
+          committedPartitionsTimelineMap = mergeMapEntries(
+            committedPartitionsTimelineMap,
+            result.partitionsTimelineMap,
+            merge,
+          );
+
+          setWaveHeightMap(committedWaveHeightMap);
+          setDisplayForecastMap(committedDisplayForecastMap);
+          setWaterTempMap(committedWaterTempMap);
+          setConditionScoreMap(committedConditionScoreMap);
+          setConditionSummaryMap(committedConditionSummaryMap);
+          setIsCalibratedMap(committedIsCalibratedMap);
+          setPartitionsMap(committedPartitionsMap);
+          setPartitionsTimelineMap(committedPartitionsTimelineMap);
+          setSwellFieldBeaches(result.locations);
+          const loadStatus = statusOverride ?? result.forecastStatus;
+          swellFieldDataInvalidatedRef.current = false;
+          forecastUnavailableRef.current = loadStatus === "unavailable";
+          setSwellFieldLoadStatus(loadStatus);
+          onWaveHeightsChangeRef.current?.(committedWaveHeightMap);
+          onDisplayForecastsChangeRef.current?.(committedDisplayForecastMap);
+        };
+        const applyTimelineResult = (result: BeachLoaderResult): void => {
+          if (swellTimelineMode === "hourly") {
+            setHourlyTimelineSeed(result.hourlySwellTimeline);
+            onHourlyTimelineLoadedRef.current?.(result.hourlySwellTimeline);
+          }
+          if (swellTimelineMode === "expandable-hourly") {
+            const beachIds = result.hourlyTimelineBeachIds;
+            hourlyTimelineBeachIdsRef.current = beachIds;
+            setHourlyTimelineBeachIds(beachIds);
+            setHourlyTimelineSeed(result.hourlySwellTimeline);
+          }
+        };
         // Clean up existing markers when provided beaches change
         if (beaches !== undefined) {
           cleanupMarkers();
         }
 
-        const result = await loadBeachesAndWaveHeights(
+        const preloadedForecast = initialForecastResponsePromiseRef.current;
+        initialForecastResponsePromiseRef.current = null;
+        const initialResult = await loadBeachesAndWaveHeights(
           latitude,
           longitude,
           beaches,
-          { fetchNearbyBeaches: fetchNearbyBeaches.current },
-          swellTimelineMode === "legacy"
-            ? { signal: abortController.signal }
-            : {
+          { fetchNearbyBeaches: fetchNearbyBeachesWithPreload },
+          swellTimelineMode === "expandable-hourly"
+            ? {
                 timeline: "hourly",
-                timelineHours:
-                  swellTimelineMode === "expandable-hourly"
-                    ? INITIAL_EXPANDABLE_TIMELINE_HOURS
-                    : FULL_FORECAST_TIMELINE_HOURS,
+                timelineHours: INITIAL_EXPANDABLE_TIMELINE_HOURS,
                 timelineFocusBeachId,
                 signal: abortController.signal,
+                onLocationsResolved,
+              }
+            : {
+                signal: abortController.signal,
+                initialForecastResponsePromise: preloadedForecast,
+                onLocationsResolved,
               },
         );
         if (requestId !== populateRequestIdRef.current) return;
+        commitResult(initialResult, false);
 
-        // Store wave heights and water temps for clustering
-        setWaveHeightMap(result.waveHeightMap);
-        setDisplayForecastMap(result.displayForecastMap);
-        setWaterTempMap(result.waterTempMap);
-        setConditionScoreMap(result.conditionScoreMap);
-        setConditionSummaryMap(result.conditionSummaryMap);
-        setIsCalibratedMap(result.isCalibratedMap);
-        setPartitionsMap(result.partitionsMap);
-        setPartitionsTimelineMap(result.partitionsTimelineMap);
-        setSwellFieldBeaches(result.locations);
-        forecastUnavailableRef.current =
-          result.forecastStatus === "unavailable";
-        setSwellFieldLoadStatus(result.forecastStatus);
         if (swellTimelineMode === "hourly") {
-          setHourlyTimelineSeed(result.hourlySwellTimeline);
-          onHourlyTimelineLoadedRef.current?.(result.hourlySwellTimeline);
+          // Current forecasts and partitions are useful immediately. The absolute
+          // timeline is loaded separately so its long horizon cannot delay pins.
+          let timelineResult: BeachLoaderResult;
+          try {
+            startTimelineLoad(initialResult.locations);
+            timelineResult = await timelinePromise!;
+          } catch (error) {
+            if (requestId !== populateRequestIdRef.current) return;
+            if (abortController.signal.aborted) return;
+            forecastUnavailableRef.current =
+              initialResult.forecastStatus === "unavailable";
+            setSwellFieldLoadStatus(initialResult.forecastStatus);
+            setHourlyTimelineSeed(null);
+            onHourlyTimelineLoadedRef.current?.(null);
+            console.warn("Failed to load hourly forecast timeline", error);
+            return;
+          }
+          if (requestId !== populateRequestIdRef.current) return;
+          const timelineStatus =
+            timelineResult.forecastStatus === "ready"
+              ? "ready"
+              : initialResult.forecastStatus;
+          forecastUnavailableRef.current = timelineStatus === "unavailable";
+          setSwellFieldLoadStatus(timelineStatus);
+          applyTimelineResult(timelineResult);
+        } else {
+          applyTimelineResult(initialResult);
         }
-        if (swellTimelineMode === "expandable-hourly") {
-          const beachIds = result.hourlyTimelineBeachIds;
-          hourlyTimelineBeachIdsRef.current = beachIds;
-          setHourlyTimelineBeachIds(beachIds);
-          setHourlyTimelineSeed(result.hourlySwellTimeline);
-        }
-        onWaveHeightsChangeRef.current?.(result.waveHeightMap);
-        onDisplayForecastsChangeRef.current?.(result.displayForecastMap);
       } catch (e) {
         if (requestId !== populateRequestIdRef.current) return;
         if (abortController.signal.aborted) return;
@@ -1578,7 +1753,14 @@ export function InteractiveMap({
         }
       }
     },
-    [beaches, cleanupMarkers, swellTimelineMode, timelineFocusBeachId]
+    [
+      beaches,
+      cleanupMarkers,
+      fetchNearbyBeachesWithPreload,
+      initialZoom,
+      swellTimelineMode,
+      timelineFocusBeachId,
+    ]
   );
 
   useEffect(() => {
@@ -1652,10 +1834,17 @@ export function InteractiveMap({
     };
     if (!map || !isMapReady || !showSwellField) {
       resetFields();
-      setSwellFieldLoadStatus("loading");
       return;
     }
-    if (swellFieldLoadStatus === "loading") {
+    const hasPartitionData =
+      partitionsMap.size > 0 ||
+      partitionsTimelineMap.size > 0 ||
+      hourlyTimelineSeed !== null ||
+      Object.keys(expandableTimeline.partitionsByBeach).length > 0;
+    if (
+      swellFieldLoadStatus === "loading" &&
+      (swellFieldDataInvalidatedRef.current || !hasPartitionData)
+    ) {
       resetFields();
       return;
     }
@@ -1667,7 +1856,6 @@ export function InteractiveMap({
     const b = map.getBounds();
     if (!b) {
       resetFields();
-      setSwellFieldLoadStatus("loading");
       return;
     }
     const bounds = {
@@ -1713,13 +1901,15 @@ export function InteractiveMap({
             )
           : isEmbedHourlyTimeline
             ? embedTimelinePosition === undefined
-              ? undefined
+              ? Math.round(swellTimelineIndex) === 0
+                ? partitionsMap.get(beach.id)
+                : undefined
               : partitionAtAbsoluteTimelinePosition(
                   hourlyTimelineSeed,
                   beach.id,
                   embedTimelinePosition,
                 )
-          : partitionAtTimelinePosition(
+            : partitionAtTimelinePosition(
               beach.id,
               timelinePosition,
               partitionsTimelineMap,
@@ -2091,6 +2281,7 @@ export function InteractiveMap({
         // it once and zoom is the more informative signal.
         const prevZoom = prevZoomRef.current;
         const prevCenter = prevCenterRef.current;
+        const [longitude, latitude] = center.toArray();
         // First idle after mount has no prior tracked state — seed the refs
         // and skip emission so we don't fire a spurious zoom event for a
         // viewport the user never actually moved.
@@ -2102,15 +2293,15 @@ export function InteractiveMap({
         const centerChanged =
           !isInitialIdle &&
           prevCenter != null &&
-          (Math.abs(center.lat - prevCenter.lat) > CENTER_EPS ||
-            Math.abs(center.lng - prevCenter.lng) > CENTER_EPS);
+          (Math.abs(latitude - prevCenter.lat) > CENTER_EPS ||
+            Math.abs(longitude - prevCenter.lon) > CENTER_EPS);
         const action: 'zoom' | 'pan' | null = zoomChanged
           ? 'zoom'
           : centerChanged
             ? 'pan'
             : null;
         prevZoomRef.current = zoom;
-        prevCenterRef.current = { lat: center.lat, lng: center.lng };
+        prevCenterRef.current = { lat: latitude, lon: longitude };
 
         // Track zoom/pan (include viewport center, bounds, and visible counts
         // for geographic cohort analysis). Skip if nothing meaningful changed
@@ -2153,13 +2344,13 @@ export function InteractiveMap({
         }
 
         // Only fetch if viewport has significantly changed
-        if (!hasViewportChanged(center.lat, center.lng, zoom)) {
+        if (!hasViewportChanged(latitude, longitude, zoom)) {
           return;
         }
-        lastViewportRef.current = { lat: center.lat, lng: center.lng, zoom };
+        lastViewportRef.current = { lat: latitude, lon: longitude, zoom };
 
         // Only populate locations with enhanced forecast data
-        await populateLocations(center.lat, center.lng);
+        await populateLocations(latitude, longitude);
       }, 1500), // Increased debounce time since we're caching aggressively
     [populateLocations, hasViewportChanged, getMapViewportMetadata]
   );
@@ -2185,7 +2376,7 @@ export function InteractiveMap({
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: "mapbox://styles/mapbox/streets-v11",
-      center: [initialCenterRef.current[1], initialCenterRef.current[0]], // lng, lat
+      center: [initialCenterRef.current[1], initialCenterRef.current[0]], // longitude, latitude
       zoom: initialZoom,
       attributionControl: false,
       logoPosition: "top-left",
@@ -2361,9 +2552,13 @@ export function InteractiveMap({
         ).__quiverMapDebugCenter = { lat: center.lat, lon: center.lng };
       }
       const pendingLeashCommand = pendingLeashCommandRef.current;
+      const [longitude, latitude] = map.getCenter().toArray();
       if (
         pendingLeashCommand &&
-        cameraCommandContainsCenter(pendingLeashCommand, map.getCenter())
+        cameraCommandContainsCenter(pendingLeashCommand, {
+          lat: latitude,
+          lon: longitude,
+        })
       ) {
         pendingLeashCommandRef.current = null;
         appliedLeashKeyRef.current = null;
@@ -2466,11 +2661,30 @@ export function InteractiveMap({
     };
   }, []);
 
-  // Initial population when map becomes ready
+  // Start geometry and forecast I/O while Mapbox loads its style. Marker creation
+  // still waits for map readiness, but its data should already be available then.
+  useEffect(() => {
+    if (beaches !== undefined) return;
+    const [latitude, longitude] = initialCenterRef.current;
+    lastViewportRef.current = {
+      lat: latitude,
+      lon: longitude,
+      zoom: initialZoom,
+    };
+    void populateLocations(latitude, longitude);
+  }, [beaches, initialZoom, populateLocations]);
+
+  // Reconcile against Mapbox's actual center when the style becomes ready.
   useEffect(() => {
     if (isMapReady && mapRef.current) {
+      // The mount-time request already targets the initial camera and may carry
+      // the embed's preloaded forecast response. Keep either its active or
+      // completed result instead of replacing it for Mapbox's tiny center
+      // normalization; a real camera move reconciles through moveend.
+      if (lastPopulateKeyRef.current !== null) return;
       const center = mapRef.current.getCenter();
-      populateLocations(center.lat, center.lng);
+      const [longitude, latitude] = center.toArray();
+      void populateLocations(latitude, longitude);
     }
   }, [isMapReady, populateLocations]);
 
@@ -2490,8 +2704,22 @@ export function InteractiveMap({
     }
 
     const map = mapRef.current;
+    const isInitialNativeViewport =
+      regionViewport.region === "native" &&
+      lastRegionViewportKeyRef.current === null;
 
-    invalidateSwellForecastState();
+    if (isInitialNativeViewport) {
+      // Native may resolve its nearest-beach center just after the embed starts.
+      // This first correction reuses the mount-time nearby result, so seed the
+      // corrected camera as handled before easeTo's moveend can replace it.
+      lastViewportRef.current = {
+        lat: regionViewport.center[0],
+        lon: regionViewport.center[1],
+        zoom: regionViewport.zoom ?? map.getZoom(),
+      };
+    } else {
+      invalidateSwellForecastState();
+    }
     releaseSwellFieldLeash(map);
 
     if (regionViewport.bounds) {
@@ -2864,6 +3092,18 @@ export function InteractiveMap({
       };
       instrumentationWindow.__quiverMapVisibleMarkerCount = activeMarkerIds.size;
     }
+    const presentationReady =
+      activeMarkerIds.size > 0 ||
+      beaches !== undefined ||
+      swellFieldLoadStatus !== "loading";
+    if (presentationReady && !hasNotifiedMapPresentationReadyRef.current) {
+      hasNotifiedMapPresentationReadyRef.current = true;
+      // Notify the native host in the same commit that attaches the first useful
+      // markers. Waiting for another React effect adds a bridge/render round trip
+      // before the native static preview can be removed.
+      onMapPresentationReadyRef.current?.();
+    }
+    setIsMapPresentationReady(presentationReady);
   }, [
     clusters,
     customSpots,
@@ -2878,6 +3118,9 @@ export function InteractiveMap({
     markerDisplay,
     clusterClickBehavior,
     router,
+    beaches,
+    markerBeaches.length,
+    swellFieldLoadStatus,
   ]);
 
   const swellTimeline =
@@ -2962,6 +3205,8 @@ export function InteractiveMap({
                 shouldRestoreMapFocusRef.current = true;
                 setMapLoadFailure(null);
                 setIsMapReady(false);
+                setIsMapPresentationReady(false);
+                hasNotifiedMapPresentationReadyRef.current = false;
                 setMapRetryNonce((current) => current + 1);
               }}
             >
@@ -2969,14 +3214,21 @@ export function InteractiveMap({
             </button>
           </div>
         </div>
-      ) : !isMapReady ? (
+      ) : !isMapPresentationReady ? (
         <div
-          className="absolute inset-0 z-20 flex items-center justify-center bg-[#80C8E2]"
+          className="pointer-events-none absolute inset-0 z-20 flex items-start justify-center bg-[#80C8E2] pt-3"
           data-testid="map-loading-overlay"
           role="status"
           aria-live="polite"
         >
-          <div className="flex items-center gap-2 rounded-lg border border-white/25 bg-[#151C36]/90 px-4 py-3 text-sm font-medium text-white shadow-lg">
+          <MapPreloadPreview
+            beaches={markerBeaches}
+            center={initialCenterRef.current}
+            zoom={initialZoom}
+            conditionSummaryMap={conditionSummaryMap}
+            displayForecastMap={displayForecastMap}
+          />
+          <div className="relative flex items-center gap-2 rounded-lg border border-white/25 bg-[#151C36]/90 px-4 py-3 text-sm font-medium text-white shadow-lg">
             <LoaderCircle
               className="h-4 w-4 motion-safe:animate-spin"
               aria-hidden="true"

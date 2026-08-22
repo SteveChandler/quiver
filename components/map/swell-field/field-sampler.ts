@@ -104,6 +104,7 @@ export interface ScreenPoint {
  * and query rendered features at a point against specific layers.
  */
 export interface WaterMaskMap {
+  areTilesLoaded?: () => boolean;
   project(lngLat: [number, number]): ScreenPoint;
   queryRenderedFeatures(
     point: [number, number],
@@ -138,6 +139,13 @@ export function maskFieldToWater(
   options: WaterMaskOptions
 ): void {
   if (options.waterLayerIds.length === 0) return;
+  // An empty rendered-feature query is indistinguishable from land until the
+  // basemap tiles are ready. Since masking mutates the field, querying early can
+  // permanently blank every in-viewport swell cell for this map session.
+  if (typeof map.areTilesLoaded === "function" && !map.areTilesLoaded()) return;
+  const pendingLandCells: FlowField["cells"] = [];
+  let queriedCellCount = 0;
+  let waterHitCount = 0;
   for (const cell of field.cells) {
     if (cell.speed === 0 && cell.alpha === 0) continue; // already dead
     const cacheKey = `${cell.lon}:${cell.lat}`;
@@ -160,17 +168,30 @@ export function maskFieldToWater(
       const hits = map.queryRenderedFeatures([pt.x, pt.y], {
         layers: options.waterLayerIds,
       });
-      options.waterMaskCache?.set(cacheKey, Boolean(hits && hits.length > 0));
+      queriedCellCount += 1;
       if (!hits || hits.length === 0) {
-        // No water feature here → land → blank the cell.
-        cell.speed = 0;
-        cell.alpha = 0;
-        cell.vx = 0;
-        cell.vy = 0;
+        pendingLandCells.push(cell);
+      } else {
+        waterHitCount += 1;
+        options.waterMaskCache?.set(cacheKey, true);
       }
     } catch {
       // Transient projection/query failure → treat as water, leave the cell.
     }
+  }
+  // Some Mapbox styles temporarily expose layer ids before their rendered
+  // features are queryable. Treat an all-negative pass as untrusted; otherwise
+  // one cached load can irreversibly erase the complete coastal flow field.
+  const minimumTrustedWaterHits = queriedCellCount >= 12
+    ? Math.max(2, Math.ceil(queriedCellCount * 0.1))
+    : 1;
+  if (waterHitCount < minimumTrustedWaterHits) return;
+  for (const cell of pendingLandCells) {
+    options.waterMaskCache?.set(`${cell.lon}:${cell.lat}`, false);
+    cell.speed = 0;
+    cell.alpha = 0;
+    cell.vx = 0;
+    cell.vy = 0;
   }
 }
 

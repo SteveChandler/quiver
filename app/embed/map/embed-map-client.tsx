@@ -163,6 +163,37 @@ export function EmbedMapClient() {
     return { lat, lon };
   }, [searchParams]);
   const initialZoom = finiteParam(searchParams.get("zoom")) ?? DEFAULT_ZOOM;
+  const [initialBootstrapPromise] = useState<Promise<unknown> | null>(() => {
+    if (typeof window === "undefined" || !window.ReactNativeWebView) return null;
+    const params = new URLSearchParams({
+      latitude: String(initialCenter.lat),
+      longitude: String(initialCenter.lon),
+    });
+    return fetch(`/api/map/bootstrap?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+    }).then((response) => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    }).catch(() => null);
+  });
+  const initialNearbyBeachesPromise = useMemo<Promise<unknown> | null>(() => {
+    if (!initialBootstrapPromise) return null;
+    return initialBootstrapPromise.then((result) => {
+      if (!result || typeof result !== "object" || !("data" in result)) return null;
+      const data = result.data;
+      if (!data || typeof data !== "object" || !("beaches" in data)) return null;
+      return { data: Array.isArray(data.beaches) ? data.beaches : [] };
+    });
+  }, [initialBootstrapPromise]);
+  const initialForecastResponsePromise = useMemo<Promise<unknown> | null>(() => {
+    if (!initialBootstrapPromise) return null;
+    return initialBootstrapPromise.then((result) => {
+      if (!result || typeof result !== "object" || !("data" in result)) return null;
+      const data = result.data;
+      if (!data || typeof data !== "object" || !("forecast" in data)) return null;
+      return data.forecast;
+    }).catch(() => null);
+  }, [initialBootstrapPromise]);
   const [layerId, setLayerId] = useState<EmbedMapSwellLayerId>(
     layerParam(searchParams.get("layer")),
   );
@@ -280,6 +311,10 @@ export function EmbedMapClient() {
   const handleMapReady = useCallback((): void => {
     postReady(currentViewportRef.current);
   }, [postReady]);
+
+  const handleMapPresentationReady = useCallback((): void => {
+    postEvent({ type: "presentationReady", payload: {} });
+  }, [postEvent]);
 
   useEffect(() => {
     if (sentReadyRef.current) return;
@@ -490,6 +525,8 @@ export function EmbedMapClient() {
       <InteractiveMap
         initialCenter={[initialCenter.lat, initialCenter.lon]}
         initialZoom={initialZoom}
+        initialNearbyBeachesPromise={initialNearbyBeachesPromise}
+        initialForecastResponsePromise={initialForecastResponsePromise}
         autoNavigateOnMarkerClick={false}
         className="absolute inset-0 h-full w-full"
         clusterClickBehavior="expand"
@@ -499,6 +536,7 @@ export function EmbedMapClient() {
         onLocationClick={handleBeachSelect}
         onMapLoadFailure={handleMapLoadFailure}
         onMapReady={handleMapReady}
+        onMapPresentationReady={handleMapPresentationReady}
         onMapClick={handleMapClick}
         onHourlyTimelineLoaded={isHourlyTimeline ? handleHourlyTimelineLoaded : undefined}
         onPlacementPinChange={handlePlacementPinChange}
