@@ -43,3 +43,19 @@ The weekly GSC refresh reads `docs/seo/ctr-watchlist.json` and renders this coho
 - `/best-time-to-surf/malibu`
 - `/surf-report/newport-beach-today` (9 impressions in the latest mixed window)
 - `/surf-report/malibu-today` (4 impressions in the latest mixed window)
+
+## 2026-08-23 La Jolla Checkpoint
+
+The mixed 28-day window initially obscured the result of the 2026-08-05
+decision-first snippet change. An isolated 15-day comparison shows the
+post-change window (2026-08-06 through 2026-08-20) at 4 clicks, 17,068
+impressions, 0.0234% CTR, and average position 7.87. The equal-length
+pre-change window (2026-07-22 through 2026-08-05) produced 5 clicks, 8,224
+impressions, 0.0608% CTR, and average position 8.23.
+
+CTR fell 61.5% even as average position improved. GSC query rows are dominated
+by `la jolla surf report today`, `la jolla shores surf report today`, and close
+variants, so the generic `surf window` title did not match the visible demand.
+The next scoped test uses `La Jolla Surf Report Today: Tide, Wind & Swell` while
+preserving the seasonal H1 and content contract. Measure the first complete
+post-deployment 15-day window against this 0.0234% baseline before another edit.

@@ -94,6 +94,15 @@ function getCanonicalHref(html: string): string | null {
   return null;
 }
 
+function getAnchorHrefs(html: string): string[] {
+  const anchors = html.match(/<a\b[^>]*>/gi) ?? [];
+
+  return anchors.flatMap((anchor) => {
+    const href = getTagAttribute(anchor, 'href');
+    return href ? [href] : [];
+  });
+}
+
 function getHeadingTexts(html: string, level: 1 | 2): string[] {
   const pattern = new RegExp(`<h${level}\\b[^>]*>([\\s\\S]*?)<\\/h${level}>`, 'gi');
 
@@ -419,6 +428,19 @@ test.describe('Route HTML Contracts', () => {
       const html = await getHtml(request, '/mexico/baja-california/rosarito/alfonsos');
 
       expect(getHeadingTexts(html, 1).join(' ')).toMatch(/alfonsos/i);
+    });
+
+    test('indexed Baja hub exposes canonical Rosarito crawl links in HTML', async ({ request }) => {
+      const html = await getHtml(request, '/beaches/mexico/baja-california');
+      const anchorHrefs = getAnchorHrefs(html);
+
+      expect(anchorHrefs).toEqual(
+        expect.arrayContaining([
+          '/mexico/baja-california/rosarito',
+          '/mexico/baja-california/rosarito/alfonsos',
+          '/mexico/baja-california/rosarito/el-morro-point-k375',
+        ]),
+      );
     });
 
     test('Doheny loads without the removed snapshot or supporting guide links', async ({ request }) => {

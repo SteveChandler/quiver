@@ -3,8 +3,8 @@
     {
       "canonicalPath": "/best-time-to-surf/la-jolla",
       "label": "La Jolla best-time page",
-      "monitorUntil": "2026-07-26",
-      "reason": "June 29 CTR treatment needs one fully post-change 28-day GSC window."
+      "monitorUntil": "2026-09-07",
+      "reason": "The August 23 exact-query snippet treatment needs one complete 15-day GSC window before another rewrite."
     },
     {
       "canonicalPath": "/best-time-to-surf/newport-beach",

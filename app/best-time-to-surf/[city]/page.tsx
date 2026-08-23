@@ -83,6 +83,15 @@ interface BestTimeMetadataCopy {
 export function buildBestTimeMetadataCopy(
   cityName: string,
 ): BestTimeMetadataCopy {
+  if (cityName === "La Jolla") {
+    return {
+      title: "La Jolla Surf Report Today: Tide, Wind & Swell",
+      description:
+        "La Jolla surf report today: see the best tide and wind window, live wave height and swell, plus current conditions at Shores, Scripps, and Tourmaline.",
+      h1: "Best La Jolla surf window today: tide and conditions",
+    };
+  }
+
   const detailedTitle = `Best ${cityName} surf window today: tide & wind`;
   const compactTitle = `${cityName} surf window today: tide & wind`;
   const detailedDescription = `${cityName}'s best surf window today: check tide, wind, swell, and live conditions at nearby spots, plus seasonal patterns for planning your next session.`;
