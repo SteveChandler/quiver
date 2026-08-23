@@ -933,6 +933,18 @@ async function bulkForecastHandler(
           });
           display = headline?.display ?? null;
           scoreForecast = headline?.window.sourceForecast ?? null;
+          if (!display) {
+            // After the last daylight window of the local day there is no
+            // "today's best window" — but current conditions still exist, and
+            // every map marker and spot sheet reads these two maps. Withhold the
+            // recommendation, not the measurement: fall back to the row nearest
+            // now, the same row the swell-partition path already resolves.
+            const currentRow = nearestForecastRow(beachForecasts, nowMs);
+            if (currentRow) {
+              display = resolveSelectedHourDisplay(currentRow);
+              scoreForecast = currentRow;
+            }
+          }
         }
 
         if (display) {

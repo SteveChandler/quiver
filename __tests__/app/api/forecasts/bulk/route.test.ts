@@ -744,6 +744,39 @@ describe("/api/forecasts/bulk", () => {
     expect(data.data.forecasts).toEqual({ "beach-1": 2.7 });
   });
 
+  it("falls back to the row nearest now when no today headline window remains (after sunset)", async () => {
+    // Evening: selectBestWindow finds no remaining daylight window, so
+    // resolveTodayHeadline returns null. Markers and the spot sheet must still
+    // get current conditions rather than an empty map and SURF UNKNOWN.
+    const eveningRow = forecastRow(BOUND_BEACH_ID, "2.1", 1);
+    const tomorrowRow = forecastRow(BOUND_BEACH_ID, "2.8", 12);
+    (resolveTodayHeadline as jest.Mock).mockImplementationOnce(() => null);
+    mockBulkQueries({
+      forecastRows: [eveningRow, tomorrowRow],
+      beachRows: [beachRow(BOUND_BEACH_ID)],
+    });
+
+    const response = await GET(
+      createMockRequest(
+        "GET",
+        `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}`,
+        { headers: { "x-forwarded-for": "203.0.113.242" } },
+      ),
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
+
+    expect(data.data.displayForecasts[BOUND_BEACH_ID]).toMatchObject({
+      forecastAt: eveningRow.forecast_at,
+    });
+    expect(data.data.forecasts).toEqual({ [BOUND_BEACH_ID]: 2.1 });
+    // The fallback row is scored too (mock scorer returns 72 → GOOD), so the
+    // marker keeps a verdict instead of falling to UNKNOWN.
+    expect(data.data.conditionSummaries[BOUND_BEACH_ID]).toBe("GOOD");
+  });
+
   it("limits, trims, and filters beach IDs before querying", async () => {
     const beachIds = Array.from({ length: 60 }, (_, i) => `beach-${i}`);
     const { forecastChain } = mockBulkQueries();
