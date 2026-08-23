@@ -41,6 +41,10 @@ import {
 export const dynamic = 'force-dynamic';
 
 const BULK_CANDIDATE_DURATION_MS = 3 * 60 * 60 * 1000;
+// A forecast row may stand in for "current conditions" only within one
+// 3-hourly slot of now. Beyond that we are showing a stale or next-day row
+// as current, which is worse than an honest gap.
+const CURRENT_CONDITIONS_TOLERANCE_MS = 3 * 60 * 60 * 1000;
 const UNAVAILABLE_RECOMMENDATION: RecommendationAvailability = {
   state: "none",
   reasonCode: "hold_state_unavailable",
@@ -997,7 +1001,12 @@ export async function bulkForecastHandler(
             // recommendation, not the measurement: fall back to the row nearest
             // now, the same row the swell-partition path already resolves.
             const currentRow = nearestForecastRow(beachForecasts, nowMs);
-            if (currentRow) {
+            const currentRowMs = currentRow ? forecastTimeMs(currentRow) : null;
+            if (
+              currentRow &&
+              currentRowMs != null &&
+              Math.abs(currentRowMs - nowMs) <= CURRENT_CONDITIONS_TOLERANCE_MS
+            ) {
               display = resolveSelectedHourDisplay(currentRow);
               scoreForecast = currentRow;
             }
