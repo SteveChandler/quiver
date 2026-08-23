@@ -864,6 +864,73 @@ describe("/api/forecasts/bulk", () => {
     expect(data.data.forecasts).toEqual({ "beach-1": 2.7 });
   });
 
+  it("falls back to the row nearest now when no today headline window remains (after sunset)", async () => {
+    // 20:30 PT: selectBestWindow finds no remaining daylight window, so
+    // resolveTodayHeadline returns null. Markers and the spot sheet must still
+    // get current conditions rather than an empty map and SURF UNKNOWN.
+    jest.setSystemTime(Date.parse("2026-07-08T03:30:00.000Z")); // 20:30 PDT
+    // Farther row first so "first row wins" would fail; nearest is 1h in the past.
+    const laterRow = forecastRow(BOUND_BEACH_ID, "2.8", 2.5);
+    const currentRow = forecastRow(BOUND_BEACH_ID, "2.1", -1);
+    (resolveTodayHeadline as jest.Mock).mockImplementationOnce(() => null);
+    mockBulkQueries({
+      forecastRows: [laterRow, currentRow],
+      beachRows: [beachRow(BOUND_BEACH_ID)],
+    });
+
+    const response = await GET(
+      createMockRequest(
+        "GET",
+        `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}`,
+        { headers: { "x-forwarded-for": "203.0.113.242" } },
+      ),
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
+
+    expect(data.data.displayForecasts[BOUND_BEACH_ID]).toMatchObject({
+      forecastAt: currentRow.forecast_at,
+      context: "selected_hour",
+    });
+    expect(data.data.forecasts).toEqual({ [BOUND_BEACH_ID]: 2.1 });
+    // The fallback row is scored too (mock scorer returns 72 → GOOD), bound to
+    // a hold candidate at the row's own time, so the marker keeps a verdict.
+    expect(data.data.conditionScores).toEqual({ [BOUND_BEACH_ID]: 72 });
+    expect(data.data.conditionSummaries[BOUND_BEACH_ID]).toBe("GOOD");
+    expect(data.data.recommendationAvailability).toMatchObject({ state: "available" });
+  });
+
+  it("does not present a stale or next-day row as current when no row is within one slot of now", async () => {
+    jest.setSystemTime(Date.parse("2026-07-08T03:30:00.000Z")); // 20:30 PDT
+    const staleRow = forecastRow(BOUND_BEACH_ID, "2.1", -6);
+    const tomorrowRow = forecastRow(BOUND_BEACH_ID, "2.8", 9);
+    (resolveTodayHeadline as jest.Mock).mockImplementationOnce(() => null);
+    mockBulkQueries({
+      forecastRows: [staleRow, tomorrowRow],
+      beachRows: [beachRow(BOUND_BEACH_ID)],
+    });
+
+    const response = await GET(
+      createMockRequest(
+        "GET",
+        `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}`,
+        { headers: { "x-forwarded-for": "203.0.113.243" } },
+      ),
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
+
+    // Honest gap beats a wrong "current": no display, no height, no score.
+    expect(data.data.displayForecasts).toEqual({});
+    expect(data.data.forecasts).toEqual({});
+    expect(data.data.conditionScores).toEqual({});
+    expect(data.data.conditionSummaries[BOUND_BEACH_ID]).toBe("UNKNOWN");
+  });
+
   it("limits, trims, and filters beach IDs before querying", async () => {
     const beachIds = Array.from({ length: 60 }, (_, i) => `beach-${i}`);
     const { forecastChain } = mockBulkQueries();
