@@ -7,7 +7,7 @@ Quiver Web is one execution surface inside the local multi-repository Quiver wor
 The local Mac workspace binds the company roles as follows:
 
 - **SOL / CEO:** Claude Fable 5 (`claude-fable-5`).
-- **Luna / COO and execution lead:** Claude Code's `opus` model alias, which should resolve to the latest Opus model available to the local installation.
+- **Luna / COO and execution lead:** Codex Sol (`gpt-5.6-sol`) at medium reasoning.
 
 These bindings are owned by the workspace control plane, not this repository. Do not silently swap SOL and Luna or promote a repository worker into either company role.
 

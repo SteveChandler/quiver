@@ -60,6 +60,7 @@ const appBatchSize = numberFromEnv("DATAFORSEO_APP_BATCH_SIZE", 10);
 const appPollMs = numberFromEnv("DATAFORSEO_APP_POLL_MS", 120000);
 const appPollIntervalMs = numberFromEnv("DATAFORSEO_APP_POLL_INTERVAL_MS", 5000);
 const requestTimeoutMs = numberFromEnv("DATAFORSEO_TIMEOUT_MS", 15000);
+const googleRequestTimeoutMs = numberFromEnv("DATAFORSEO_GOOGLE_TIMEOUT_MS", 45000);
 const requestRetries = numberFromEnv("DATAFORSEO_REQUEST_RETRIES", 3);
 const requestRetryDelayMs = numberFromEnv("DATAFORSEO_REQUEST_RETRY_DELAY_MS", 500);
 const exporterDeadlineMs = numberFromEnv("DATAFORSEO_DEADLINE_MS", 240000);
@@ -204,6 +205,7 @@ async function fetchGoogleRankings(
         })),
         deadline,
         "googleRankings",
+        googleRequestTimeoutMs,
       );
 
       const tasks = extractTasks(raw);
@@ -412,11 +414,12 @@ async function postDataForSeo(
   body: unknown,
   deadline: ExportDeadline,
   phase: DataForSeoExportPhase,
+  timeoutOverrideMs?: number,
 ): Promise<unknown> {
   return requestDataForSeo(async () => {
     deadline.assertRemaining(phase);
     const controller = new AbortController();
-    const timeoutMs = Math.min(requestTimeoutMs, deadline.timeRemaining());
+    const timeoutMs = Math.min(timeoutOverrideMs ?? requestTimeoutMs, deadline.timeRemaining());
     return fetchWithRetry(`${apiBase}${endpoint}`, {
       method: "POST",
       headers: {
