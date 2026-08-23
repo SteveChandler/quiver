@@ -58,6 +58,48 @@ type CityEntry = {
   cityName: string;
 };
 
+const BAJA_CALIFORNIA_FEATURED_LINKS = [
+  {
+    href: "/mexico/baja-california/rosarito",
+    label: "Rosarito surf guide",
+  },
+  {
+    href: "/mexico/baja-california/rosarito/alfonsos",
+    label: "Alfonsos surf report",
+  },
+  {
+    href: "/mexico/baja-california/rosarito/el-morro-point-k375",
+    label: "El Morro Point surf report",
+  },
+] as const;
+
+function FeaturedBajaLinks({ stateSlug }: { stateSlug: string }) {
+  if (stateSlug !== "baja-california") return null;
+
+  return (
+    <section aria-labelledby="featured-baja-links" className="mt-10">
+      <h2
+        id="featured-baja-links"
+        className="text-xl font-semibold text-slate-900 mb-3"
+      >
+        Featured Baja surf guides
+      </h2>
+      <ul className="grid gap-2 sm:grid-cols-3">
+        {BAJA_CALIFORNIA_FEATURED_LINKS.map((link) => (
+          <li key={link.href}>
+            <Link
+              href={link.href}
+              className="block h-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-medium text-slate-800 transition-colors hover:border-ocean-blue hover:text-ocean-blue"
+            >
+              {link.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export default async function MexicoStatePage(
   props: {
     params: Promise<{ state: string }>;
@@ -77,6 +119,7 @@ export default async function MexicoStatePage(
         <p className="mt-3 text-gray-600">
           We couldn&apos;t load this state right now. Try again soon.
         </p>
+        <FeaturedBajaLinks stateSlug={stateSlug} />
       </div>
     );
   }
@@ -156,6 +199,8 @@ export default async function MexicoStatePage(
           </ul>
         </div>
       </section>
+
+      <FeaturedBajaLinks stateSlug={stateSlug} />
     </div>
   );
 }

@@ -345,6 +345,10 @@ export function BeachConditionsGrid({
 
   const hasMoreBeaches = beaches.length > maxBeaches;
   const isZine = variant === "zine";
+  // Built as a string rather than JSX text: SWC drops the leading whitespace of
+  // a JSX text node that contains an HTML entity and a newline, so
+  // `{n} beaches &rarr;` across two lines rendered "View all 35beaches →".
+  const viewAllLabel = `View all ${beaches.length} beaches →`;
 
   if (beaches.length === 0) {
     return (
@@ -400,9 +404,7 @@ export function BeachConditionsGrid({
                 isZine ? "text-[#B56A2B] hover:text-[#11100D]" : "text-primary hover:text-primary/80"
               )}
             >
-              {/* One string expression: SWC eats the leading space of a
-                  multi-line JSX text child that contains an HTML entity. */}
-              {`View all ${beaches.length} beaches →`}
+              {viewAllLabel}
             </Link>
           )}
         </div>
@@ -462,7 +464,7 @@ export function BeachConditionsGrid({
                 isZine ? "text-[#B56A2B] hover:text-[#11100D]" : "text-primary hover:text-primary/80"
               )}
             >
-              {`View all ${beaches.length} beaches →`}
+              {viewAllLabel}
             </Link>
           </div>
         </ScrollReveal>

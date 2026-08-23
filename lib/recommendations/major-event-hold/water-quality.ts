@@ -319,10 +319,17 @@ export async function resolveWaterQualityHolds(
     const resolutionSnapshot: string[] = [];
     let unresolved = false;
 
-    const { data: heldData, error: heldError } = await client
+    const heldQuery = client
       .from("water_quality_held_beaches")
       .select("beach_id")
       .in("beach_id", requestedBeachIds);
+    const qualityQuery = client
+      .from("beach_water_quality")
+      .select(WATER_QUALITY_SELECT)
+      .in("beach_id", requestedBeachIds);
+    const qualityResultPromise = Promise.resolve(qualityQuery);
+    void qualityResultPromise.catch(() => undefined);
+    const { data: heldData, error: heldError } = await heldQuery;
 
     if (heldError !== null && heldError !== undefined) {
       if (hasErrorCode(heldError, MISSING_TABLE_ERROR_CODE)) {
@@ -345,6 +352,7 @@ export async function resolveWaterQualityHolds(
         return unresolvedResolution();
       }
     }
+    const { data, error } = await qualityResultPromise;
     if (!unresolved && !Array.isArray(heldData)) {
       console.error("[water-quality-hold:invalid-response-shape]", {
         beachCount: requestedBeachIds.length,
@@ -374,11 +382,6 @@ export async function resolveWaterQualityHolds(
       knownHeldBeachIds.push(parsed.data.beach_id);
       resolutionSnapshot.push(`${parsed.data.beach_id}:owner-hold`);
     }
-
-    const { data, error } = await client
-      .from("beach_water_quality")
-      .select(WATER_QUALITY_SELECT)
-      .in("beach_id", requestedBeachIds);
 
     if (error !== null && error !== undefined) {
       console.error("[water-quality-hold:query-error]", {

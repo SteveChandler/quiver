@@ -69,7 +69,11 @@ export interface BeachLoaderOptions {
   timelineStart?: string;
   timelineHours?: number;
   timelineFocusBeachId?: string | null;
+  timelineOnly?: boolean;
   signal?: AbortSignal;
+  initialForecastResponsePromise?: Promise<unknown> | null;
+  /** Expose resolved beach geometry before forecast enrichment completes. */
+  onLocationsResolved?: (locations: Beach[]) => void;
 }
 
 const REQUIRED_SWELL_PARTITION_KEYS = [
@@ -274,6 +278,10 @@ export async function loadBeachesAndWaveHeights(
     locations = locations.slice(0, 20);
   }
 
+  if (providedBeaches === undefined) {
+    options.onLocationsResolved?.(locations);
+  }
+
   // Fetch wave heights for all beaches rendered by the map markers.
   const waveHeightMap = new Map<string, number | undefined>();
   const displayForecastMap = new Map<string, ForecastDisplay | undefined>();
@@ -300,14 +308,29 @@ export async function loadBeachesAndWaveHeights(
       const allBeachIds = beachesForWaveData
         .map((beach) => beach.id)
         .filter(Boolean) as string[];
+      let initialForecastResponsePromise = options.initialForecastResponsePromise;
 
       const results = await fetchInBatches({
         items: allBeachIds,
         batchSize: API_BATCH_CONFIG.BEACH_ID_BATCH_SIZE,
         fetchBatch: async (batchIds) => {
+          if (
+            initialForecastResponsePromise &&
+            options.timeline === undefined &&
+            batchIds.length === allBeachIds.length
+          ) {
+            const preloaded = initialForecastResponsePromise;
+            initialForecastResponsePromise = null;
+            const data = await preloaded;
+            assertNotAborted(options.signal);
+            if (data && typeof data === "object") {
+              return { data, expectedBeachIds: batchIds };
+            }
+          }
           const searchParams = new URLSearchParams({ beachIds: batchIds.join(",") });
           if (options.timeline === "hourly") {
             searchParams.set("timeline", "hourly");
+            if (options.timelineOnly) searchParams.set("timelineOnly", "true");
             searchParams.set("timelineBeachIds", hourlyTimelineBeachIds.join(","));
             if (options.timelineStart) searchParams.set("timelineStart", options.timelineStart);
             if (options.timelineHours !== undefined) {

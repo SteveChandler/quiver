@@ -38,7 +38,7 @@ const UPDATED_SURF_REPORT_SLUGS = [
 const UPDATED_BEST_TIME_PAGES = [
   {
     path: "/best-time-to-surf/la-jolla",
-    title: "Best La Jolla surf window today: tide & wind",
+    title: "La Jolla Surf Report Today: Tide, Wind & Swell",
     h1: "Best La Jolla surf window today: tide and conditions",
     surfReportLabel: "Open today's Scripps Pier surf report",
     surfReportHref: "/surf-report/scripps-pier-today",

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
 import {
-  getNearbyBeachesFromDb,
+  getCachedNearbyBeachesFromDb,
   normalizeNearbyBeachQuery,
 } from "@/lib/services/nearby-beach-service";
 import {
@@ -41,7 +41,7 @@ async function nearbyBeachesHandler(request: NextRequest) {
   }
 
   try {
-    const result = await getNearbyBeachesFromDb(
+    const result = await getCachedNearbyBeachesFromDb(
       coords.lat,
       coords.lon,
       query.radiusMiles,

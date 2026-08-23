@@ -35,6 +35,7 @@ export type EmbedMapCommand =
 
 export type EmbedMapEvent =
   | { type: "ready"; payload: { viewport: EmbedMapViewport } }
+  | { type: "presentationReady"; payload: Record<string, never> }
   | { type: "loadFailed"; payload: { reason: string } }
   | { type: "viewportChanged"; payload: EmbedMapViewport }
   | {

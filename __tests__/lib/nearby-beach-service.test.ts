@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import {
+  getCachedNearbyBeachesFromDb,
   getNearbyBeachesFromDb,
   normalizeNearbyBeachQuery,
 } from "@/lib/services/nearby-beach-service";
@@ -72,6 +73,19 @@ describe("nearby beach service", () => {
       limit_count: 55,
     });
     expect(mockSupabase.from).not.toHaveBeenCalled();
+  });
+
+  it("coalesces nearby queries for the same rounded map region", async () => {
+    mockSupabase.rpc.mockResolvedValue({ data: [], error: null });
+
+    const first = getCachedNearbyBeachesFromDb(31.12341, -118.54321, 30, 20);
+    const second = getCachedNearbyBeachesFromDb(31.12344, -118.54324, 30, 20);
+
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { success: true, data: [], fallbackUsed: false },
+      { success: true, data: [], fallbackUsed: false },
+    ]);
+    expect(mockSupabase.rpc).toHaveBeenCalledTimes(1);
   });
 
   it("returns only rows confirmed public and non-deleted", async () => {

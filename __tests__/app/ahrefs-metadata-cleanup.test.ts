@@ -26,7 +26,7 @@ describe("Ahrefs metadata cleanup", () => {
     expect(String(beachesUsaMetadata.description).length).toBeLessThanOrEqual(160);
   });
 
-  it("links Mexico state hubs to the canonical short city route", async () => {
+  it("links the indexed Baja hub to canonical Rosarito routes", async () => {
     (getAllBeachLocations as jest.Mock).mockResolvedValue({
       success: true,
       data: [
@@ -47,6 +47,47 @@ describe("Ahrefs metadata cleanup", () => {
     expect(screen.getByRole("link", { name: "Rosarito" })).toHaveAttribute(
       "href",
       "/mexico/baja-california/rosarito",
+    );
+    expect(
+      screen.getByRole("link", { name: "Rosarito surf guide" }),
+    ).toHaveAttribute("href", "/mexico/baja-california/rosarito");
+    expect(
+      screen.getByRole("link", { name: "Alfonsos surf report" }),
+    ).toHaveAttribute(
+      "href",
+      "/mexico/baja-california/rosarito/alfonsos",
+    );
+    expect(
+      screen.getByRole("link", { name: "El Morro Point surf report" }),
+    ).toHaveAttribute(
+      "href",
+      "/mexico/baja-california/rosarito/el-morro-point-k375",
+    );
+  });
+
+  it("keeps canonical Rosarito crawl links when location data is unavailable", async () => {
+    (getAllBeachLocations as jest.Mock).mockResolvedValue({
+      success: false,
+      error: "Location service unavailable",
+    });
+
+    render(
+      await MexicoStatePage({
+        params: Promise.resolve({ state: "baja-california" }),
+      }),
+    );
+
+    expect(
+      screen.getByRole("link", { name: "Alfonsos surf report" }),
+    ).toHaveAttribute(
+      "href",
+      "/mexico/baja-california/rosarito/alfonsos",
+    );
+    expect(
+      screen.getByRole("link", { name: "El Morro Point surf report" }),
+    ).toHaveAttribute(
+      "href",
+      "/mexico/baja-california/rosarito/el-morro-point-k375",
     );
   });
 });

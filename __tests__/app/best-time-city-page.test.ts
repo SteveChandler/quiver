@@ -160,7 +160,6 @@ describe("best-time city SEO page", () => {
   );
 
   it.each([
-    "La Jolla",
     "Huntington Beach",
     "Santa Cruz",
     "Laguna Beach",
@@ -182,6 +181,23 @@ describe("best-time city SEO page", () => {
     expect(copy.description).toContain("wind, swell, and live conditions");
     expect(copy.h1).toBe(
       `Best ${cityName} surf window today: tide and conditions`,
+    );
+  });
+
+  it("matches La Jolla metadata to its dominant surf-report query family", () => {
+    const copy = buildBestTimeMetadataCopy("La Jolla");
+    const renderedTitle = `${copy.title} | Quiver`;
+
+    expect(renderedTitle.length).toBeLessThanOrEqual(60);
+    expect(copy.description.length).toBeGreaterThanOrEqual(150);
+    expect(copy.description.length).toBeLessThanOrEqual(160);
+    expect(copy.title).toBe(
+      "La Jolla Surf Report Today: Tide, Wind & Swell",
+    );
+    expect(copy.description).toContain("La Jolla surf report today");
+    expect(copy.description).toContain("Shores, Scripps, and Tourmaline");
+    expect(copy.h1).toBe(
+      "Best La Jolla surf window today: tide and conditions",
     );
   });
 

@@ -466,6 +466,17 @@ function queryChain<T>(result: QueryResult<T>) {
   return chain;
 }
 
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolvePromise: (value: T) => void = () => {};
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return { promise, resolve: resolvePromise };
+}
+
 function mockBulkQueries(
   options: {
     forecastRows?: ForecastRow[] | null;
@@ -663,6 +674,115 @@ describe("/api/forecasts/bulk", () => {
     expect(mockSupabaseClient.from).toHaveBeenCalledWith("enhanced_forecasts");
     expect(forecastChain.in).toHaveBeenCalledWith("beach_id", ["beach-1"]);
     expect(data.data.forecasts["beach-1"]).toBe(1.2);
+  });
+
+  it("starts hourly timeline and beach metadata reads before the main forecast resolves", async () => {
+    const forecastRead = deferred<QueryResult<ForecastRow[]>>();
+    let timelineReadStarted = false;
+    let beachReadStarted = false;
+    const forecastChain = queryChain<ForecastRow[]>({
+      data: null,
+      error: null,
+    });
+    forecastChain.then.mockImplementation(
+      (onResolve: (value: QueryResult<ForecastRow[]>) => unknown) =>
+        forecastRead.promise.then(onResolve),
+    );
+    const timelineChain = queryChain<ForecastRow[]>({
+      data: [],
+      error: null,
+    });
+    timelineChain.then.mockImplementation(
+      (onResolve: (value: QueryResult<ForecastRow[]>) => unknown) => {
+        timelineReadStarted = true;
+        return Promise.resolve(onResolve({ data: [], error: null }));
+      },
+    );
+    const beachChain = queryChain<BeachRow[]>({
+      data: [beachRow("beach-1")],
+      error: null,
+    });
+    beachChain.then.mockImplementation(
+      (onResolve: (value: QueryResult<BeachRow[]>) => unknown) => {
+        beachReadStarted = true;
+        return Promise.resolve(onResolve({ data: [beachRow("beach-1")], error: null }));
+      },
+    );
+    let enhancedForecastCalls = 0;
+    mockSupabaseClient.from = jest.fn((table: string) => {
+      if (table === "enhanced_forecasts") {
+        enhancedForecastCalls += 1;
+        return enhancedForecastCalls === 1 ? forecastChain : timelineChain;
+      }
+      if (table === "beaches") return beachChain;
+      return queryChain({ data: null, error: null });
+    }) as any;
+
+    const responsePromise = GET(
+      createHourlyTimelineRequest(
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly",
+      ),
+    );
+    let readsStartedBeforeForecastResolved = false;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      if (timelineReadStarted && beachReadStarted) {
+        readsStartedBeforeForecastResolved = true;
+        break;
+      }
+      await Promise.resolve();
+    }
+
+    forecastRead.resolve({
+      data: [forecastRow("beach-1", "1.2")],
+      error: null,
+    });
+    await responsePromise;
+
+    expect(readsStartedBeforeForecastResolved).toBe(true);
+  });
+
+  it("starts the hourly timeline continuation read before timeline rows resolve", async () => {
+    const timelineRowsRead = deferred<QueryResult<ForecastRow[]>>();
+    let continuationReadStarted = false;
+    const timelineChain = queryChain<ForecastRow[]>({ data: [], error: null });
+    timelineChain.then.mockImplementation(
+      (onResolve: (value: QueryResult<ForecastRow[]>) => unknown) =>
+        timelineRowsRead.promise.then(onResolve),
+    );
+    const continuationChain = queryChain<ForecastRow[]>({ data: [], error: null });
+    continuationChain.then.mockImplementation(
+      (onResolve: (value: QueryResult<ForecastRow[]>) => unknown) => {
+        continuationReadStarted = true;
+        return Promise.resolve(onResolve({ data: [], error: null }));
+      },
+    );
+    let enhancedForecastCalls = 0;
+    mockSupabaseClient.from = jest.fn((table: string) => {
+      if (table === "enhanced_forecasts") {
+        enhancedForecastCalls += 1;
+        return enhancedForecastCalls === 1 ? timelineChain : continuationChain;
+      }
+      return queryChain({ data: null, error: null });
+    }) as any;
+
+    const responsePromise = GET(
+      createHourlyTimelineRequest(
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly&timelineStart=2026-07-10T20:00:00.000Z&timelineHours=2",
+      ),
+    );
+    let continuationStartedBeforeRowsResolved = false;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      if (continuationReadStarted) {
+        continuationStartedBeforeRowsResolved = true;
+        break;
+      }
+      await Promise.resolve();
+    }
+
+    timelineRowsRead.resolve({ data: [], error: null });
+    await responsePromise;
+
+    expect(continuationStartedBeforeRowsResolved).toBe(true);
   });
 
   it("fetches forecasts for multiple beaches", async () => {
@@ -1300,6 +1420,104 @@ describe("/api/forecasts/bulk", () => {
     expect(getBatchSunTimes).not.toHaveBeenCalled();
     expect(scoreWindowConditionScore).not.toHaveBeenCalled();
     expect(beachChain.select).not.toHaveBeenCalled();
+  });
+
+  it("supports a validated timeline-only hourly request without forecast enrichment", async () => {
+    const { hourlyTimelineChain, nextHourlyTimelineChain, beachChain } = mockBulkQueries({
+      hourlyTimelineRows: [
+        hourlyTimelineRow("beach-1", "2", "2026-07-10T20:00:00.000Z"),
+      ],
+      nextHourlyTimelineRows: [],
+      extensionOnly: true,
+    });
+
+    const response = await GET(
+      createHourlyTimelineRequest(
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly&timelineOnly=true&timelineHours=336",
+      ),
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+    expect(data.data).toEqual(expect.objectContaining({
+      forecasts: {},
+      displayForecasts: {},
+      waterTemps: {},
+      isCalibrated: {},
+      conditionScores: {},
+      conditionSummaries: {},
+      swellPartitions: {},
+      swellPartitionTimeline: {},
+      hourlySwellTimeline: expect.any(Object),
+      recommendationAvailability: {
+        state: "none",
+        reasonCode: "hold_state_unavailable",
+        holdEpoch: "hold-state-unavailable",
+      },
+    }));
+    expect(data.data.hourlySwellTimeline?.timestamps).toHaveLength(336);
+    expect(hourlyTimelineChain.select).toHaveBeenCalledTimes(1);
+    expect(nextHourlyTimelineChain.select).toHaveBeenCalledWith("forecast_at");
+    expect(mockSupabaseClient.from).toHaveBeenCalledTimes(2);
+    expect(getProfileExperienceLevel).not.toHaveBeenCalled();
+    expect(mockEvaluateMajorEventHoldCandidates).not.toHaveBeenCalled();
+    expect(beachChain.select).not.toHaveBeenCalled();
+  });
+
+  it("rejects timeline-only requests without hourly timeline mode", async () => {
+    const response = await GET(
+      createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timelineOnly=true",
+      ),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      error: "timelineOnly requires timeline=hourly",
+    });
+    expect(mockSupabaseClient.from).not.toHaveBeenCalled();
+  });
+
+  it("keeps the main forecast error when auxiliary reads reject", async () => {
+    const forecastChain = queryChain<ForecastRow[]>({
+      data: null,
+      error: { message: "Database connection failed" },
+    });
+    const timelineRowsChain = queryChain<ForecastRow[]>({ data: [], error: null });
+    timelineRowsChain.then.mockImplementation(
+      (_onResolve: unknown, onReject: (error: Error) => void) => {
+        onReject(new Error("Timeline transport failed"));
+        return Promise.resolve();
+      },
+    );
+    const continuationChain = queryChain<ForecastRow[]>({ data: [], error: null });
+    const beachChain = queryChain<BeachRow[]>({ data: [], error: null });
+    beachChain.then.mockImplementation(
+      (_onResolve: unknown, onReject: (error: Error) => void) => {
+        onReject(new Error("Beach transport failed"));
+        return Promise.resolve();
+      },
+    );
+    let enhancedForecastCalls = 0;
+    mockSupabaseClient.from = jest.fn((table: string) => {
+      if (table === "enhanced_forecasts") {
+        enhancedForecastCalls += 1;
+        return [forecastChain, timelineRowsChain, continuationChain][enhancedForecastCalls - 1];
+      }
+      if (table === "beaches") return beachChain;
+      return queryChain({ data: null, error: null });
+    }) as any;
+
+    const response = await GET(
+      createHourlyTimelineRequest(
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly",
+      ),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.error).toContain("Failed to fetch bulk forecasts");
   });
 
   it("continues at the requested window end when the next row is later", async () => {

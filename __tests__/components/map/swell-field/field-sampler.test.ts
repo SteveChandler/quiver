@@ -112,7 +112,7 @@ describe("partitionToPoint", () => {
   });
 
   it.each(["s1", "combined"] as const)(
-    "uses Open-Meteo swell direction before s1Dir for %s",
+    "uses s1Dir before Open-Meteo swell direction for %s",
     (layerId) => {
       const point = partitionToPoint(
         -117.2,
@@ -121,7 +121,7 @@ describe("partitionToPoint", () => {
         layerId
       );
 
-      expect(point?.dir).toBe(215);
+      expect(point?.dir).toBe(270);
     }
   );
 
@@ -402,6 +402,75 @@ describe("maskFieldToWater", () => {
     maskFieldToWater(field, map, { width: 800, height: 600, waterLayerIds: [] });
     expect(queried).toBe(false);
     expect(field.cells[0].speed).toBe(0.5);
+  });
+
+  it("does not destructively mask before rendered map tiles are ready", () => {
+    const field = makeField();
+    let queried = false;
+    const map: WaterMaskMap = {
+      areTilesLoaded: () => false,
+      project: () => ({ x: 100, y: 100 }),
+      queryRenderedFeatures: () => {
+        queried = true;
+        return [];
+      },
+    };
+
+    maskFieldToWater(field, map, {
+      width: 800,
+      height: 600,
+      waterLayerIds: ["water"],
+    });
+
+    expect(queried).toBe(false);
+    expect(field.cells[0].speed).toBe(0.5);
+    expect(field.cells[1].speed).toBe(0.5);
+  });
+
+  it("keeps the field intact when the rendered-style query has no water hits", () => {
+    const field = makeField();
+    const map: WaterMaskMap = {
+      areTilesLoaded: () => true,
+      project: () => ({ x: 100, y: 100 }),
+      queryRenderedFeatures: () => [],
+    };
+
+    maskFieldToWater(field, map, {
+      width: 800,
+      height: 600,
+      waterLayerIds: ["water"],
+    });
+
+    expect(field.cells[0].speed).toBe(0.5);
+    expect(field.cells[1].speed).toBe(0.5);
+  });
+
+  it("keeps a large field intact when only a partial tile reports water", () => {
+    const field: FlowField = {
+      cols: 20,
+      rows: 1,
+      cells: Array.from({ length: 20 }, (_, index) => ({
+        lon: -117.3 + index * 0.01,
+        lat: 32.7,
+        vx: 1,
+        vy: 0,
+        speed: 0.5,
+        alpha: 0.6,
+      })),
+    };
+    const map: WaterMaskMap = {
+      areTilesLoaded: () => true,
+      project: ([lon]) => ({ x: Math.round((lon + 117.3) * 1000), y: 100 }),
+      queryRenderedFeatures: ([x]) => (x === 0 ? [{}] : []),
+    };
+
+    maskFieldToWater(field, map, {
+      width: 800,
+      height: 600,
+      waterLayerIds: ["water"],
+    });
+
+    expect(field.cells.every((cell) => cell.speed === 0.5)).toBe(true);
   });
 
   it("skips already-dead cells", () => {

@@ -8,7 +8,10 @@ import {
   type WaterQualityHoldClient,
 } from "@/lib/recommendations/major-event-hold/water-quality";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
-import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
+import {
+  expectConsoleErrors,
+  expectConsoleWarnings,
+} from "@/__tests__/setup/test-utils";
 
 const BEACH_A = "11111111-1111-4111-8111-111111111111";
 const BEACH_B = "22222222-2222-4222-8222-222222222222";
@@ -103,6 +106,148 @@ describe("water-quality recommendation holds", () => {
 
     expect(resolution.state).toBe("resolved");
     expect(resolution.heldBeachIds).toEqual([BEACH_A, BEACH_B, BEACH_C]);
+  });
+
+  it("starts owner and sampled water-quality reads concurrently", async () => {
+    type DeferredQueryResult = { data: unknown; error: unknown };
+    type DeferredQuery = {
+      in: () => PromiseLike<DeferredQueryResult>;
+      eq: (column: string, value: string) => DeferredQuery;
+      order: (
+        column: string,
+        options?: { ascending?: boolean },
+      ) => DeferredQuery;
+      limit: (count: number) => DeferredQuery;
+      then<TResult1 = DeferredQueryResult, TResult2 = never>(
+        onfulfilled?:
+          | ((
+              value: DeferredQueryResult,
+            ) => TResult1 | PromiseLike<TResult1>)
+          | null,
+        onrejected?:
+          | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+          | null,
+      ): PromiseLike<TResult1 | TResult2>;
+    };
+    const startedTables: string[] = [];
+    let resolveOwnerQuery!: (value: DeferredQueryResult) => void;
+    let resolveQualityQuery!: (value: DeferredQueryResult) => void;
+    const ownerQuery = new Promise<DeferredQueryResult>(
+      (resolve) => {
+        resolveOwnerQuery = resolve;
+      },
+    );
+    const qualityQuery = new Promise<DeferredQueryResult>(
+      (resolve) => {
+        resolveQualityQuery = resolve;
+      },
+    );
+    const client: WaterQualityHoldClient = {
+      from: jest.fn((table) => {
+        const result =
+          table === "water_quality_held_beaches"
+            ? ownerQuery
+            : table === "beach_water_quality"
+              ? qualityQuery
+              : table === "county_beach_advisory_runs"
+                ? Promise.resolve({
+                    data: [
+                      {
+                        id: "44444444-4444-4444-8444-444444444444",
+                        fetched_at: new Date().toISOString(),
+                      },
+                    ],
+                    error: null,
+                  })
+              : Promise.resolve({ data: [], error: null });
+        const query: DeferredQuery = {
+          in: jest.fn(() => {
+            startedTables.push(table);
+            return result;
+          }),
+          eq: jest.fn(() => query),
+          order: jest.fn(() => query),
+          limit: jest.fn(() => query),
+          then: <TResult1 = DeferredQueryResult, TResult2 = never>(
+            onfulfilled?:
+              | ((
+                  value: DeferredQueryResult,
+                ) => TResult1 | PromiseLike<TResult1>)
+              | null,
+            onrejected?:
+              | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+              | null,
+          ) => Promise.resolve(result).then(onfulfilled, onrejected),
+        };
+        return { select: jest.fn(() => query) };
+      }),
+    } as unknown as WaterQualityHoldClient;
+
+    const resolutionPromise = resolveWaterQualityHolds([candidate(BEACH_A)], {
+      client,
+    });
+
+    expect(startedTables).toEqual([
+      "water_quality_held_beaches",
+      "beach_water_quality",
+    ]);
+
+    resolveOwnerQuery({ data: [], error: null });
+    resolveQualityQuery({ data: [], error: null });
+    await expect(resolutionPromise).resolves.toMatchObject({
+      state: "resolved",
+      heldBeachIds: [],
+    });
+  });
+
+  it("fails open on a missing owner table without waiting for sampled quality", async () => {
+    type QueryResult = { data: unknown; error: unknown };
+    type Query = {
+      in: () => PromiseLike<QueryResult>;
+      eq: () => Query;
+      order: () => Query;
+      limit: () => Query;
+      then<TResult1 = QueryResult, TResult2 = never>(
+        onfulfilled?:
+          | ((value: QueryResult) => TResult1 | PromiseLike<TResult1>)
+          | null,
+        onrejected?:
+          | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+          | null,
+      ): PromiseLike<TResult1 | TResult2>;
+    };
+    let rejectQuality!: (reason: unknown) => void;
+    const qualityQuery = new Promise<QueryResult>((_, reject) => {
+      rejectQuality = reject;
+    });
+    const client: WaterQualityHoldClient = {
+      from: jest.fn((table) => {
+        const result: PromiseLike<QueryResult> =
+          table === "water_quality_held_beaches"
+            ? Promise.resolve({ data: [], error: { code: "42P01" } })
+            : table === "beach_water_quality"
+              ? qualityQuery
+              : Promise.resolve({ data: [], error: null });
+        const query: Query = {
+          in: jest.fn(() => result),
+          eq: jest.fn(() => query),
+          order: jest.fn(() => query),
+          limit: jest.fn(() => query),
+          then: (onfulfilled, onrejected) =>
+            Promise.resolve(result).then(onfulfilled, onrejected),
+        };
+        return { select: jest.fn(() => query) };
+      }),
+    } as unknown as WaterQualityHoldClient;
+
+    const resolution = await resolveWaterQualityHolds([candidate(BEACH_A)], {
+      client,
+    });
+    expectConsoleWarnings([/\[water-quality-hold:table-missing\]/]);
+
+    expect(resolution).toMatchObject({ state: "resolved", heldBeachIds: [] });
+    rejectQuality(new Error("sampled lookup failed"));
+    await Promise.resolve();
   });
 
   it("allows unknown or unsampled status but excludes every beach on lookup failure", async () => {

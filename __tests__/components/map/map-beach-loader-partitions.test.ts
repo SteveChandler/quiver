@@ -41,6 +41,42 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it("exposes nearby geometry before bulk forecast enrichment resolves", async () => {
+    const resolvedBeach = beach("nearby", 32.71, -117.21);
+    let resolveBulk!: (response: Response) => void;
+    const bulkResponse = new Promise<Response>((resolve) => {
+      resolveBulk = resolve;
+    });
+    global.fetch = jest.fn(() => bulkResponse) as unknown as typeof fetch;
+    const onLocationsResolved = jest.fn();
+
+    const resultPromise = loadBeachesAndWaveHeights(
+      32.7,
+      -117.2,
+      undefined,
+      { fetchNearbyBeaches: async () => ({ data: [resolvedBeach] }) },
+      { onLocationsResolved },
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(onLocationsResolved).toHaveBeenCalledWith([resolvedBeach]);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/forecasts/bulk?beachIds=nearby",
+      { signal: undefined },
+    );
+
+    resolveBulk({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { forecasts: {} } }),
+    } as Response);
+    await expect(resultPromise).resolves.toMatchObject({
+      locations: [resolvedBeach],
+    });
+  });
+
   it("parses swellPartitions from the bulk response into partitionsMap", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -165,11 +201,12 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
         timeline: "hourly",
         timelineStart: "2026-07-10T20:00:00.000Z",
         timelineHours: 48,
+        timelineOnly: true,
       },
     );
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "/api/forecasts/bulk?beachIds=a&timeline=hourly&timelineBeachIds=a&timelineStart=2026-07-10T20%3A00%3A00.000Z&timelineHours=48",
+      "/api/forecasts/bulk?beachIds=a&timeline=hourly&timelineOnly=true&timelineBeachIds=a&timelineStart=2026-07-10T20%3A00%3A00.000Z&timelineHours=48",
       { signal: undefined },
     );
   });
