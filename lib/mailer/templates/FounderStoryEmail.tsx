@@ -5,7 +5,6 @@ import {
   EmailShell,
   Footer,
   PaperPanel,
-  Stamp,
   StickerStrip,
   Wordmark,
 } from "@/lib/mailer/components";
@@ -45,17 +44,12 @@ export function FounderStoryEmail({
 
       <tr>
         <td {...cellBg(CANVAS, { padding: "30px 28px 26px" })}>
-          <div style={{ marginBottom: 18 }}>
-            <Stamp fontSize={11} padding="9px 12px">
-              WHY THIS EXISTS
-            </Stamp>
-          </div>
           <h1
             style={{
               fontFamily: FONT_DISPLAY,
               fontWeight: 700,
-              fontSize: 38,
-              lineHeight: 1.02,
+              fontSize: 30,
+              lineHeight: 1.06,
               color: CREAM,
               margin: 0,
               transform: `rotate(${STICKER_ROTATIONS.softNeg})`,
@@ -129,7 +123,7 @@ export function FounderStoryEmail({
                 margin: 0,
               }}
             >
-              The data wasn&apos;t missing. The decision was.
+              The data was all there. The feedback wasn&rsquo;t.
             </p>
           </PaperPanel>
 
@@ -144,6 +138,37 @@ export function FounderStoryEmail({
             }}
           >
             I built Quiver because I wanted to make it simple.
+          </p>
+
+          <p
+            style={{
+              fontFamily: FONT_BODY,
+              fontSize: 15,
+              lineHeight: 1.55,
+              color: TEXT,
+              margin: "14px 0 0",
+            }}
+          >
+            Quiver can already adjust a beach&rsquo;s forecast from what
+            surfers report. That wiring is built and running. What it needs is
+            reports, and right now there aren&rsquo;t enough. Chicken and egg: a
+            break only gets sharper once enough people say what it actually did
+            there.
+          </p>
+
+          <p
+            style={{
+              fontFamily: FONT_BODY,
+              fontSize: 15,
+              lineHeight: 1.55,
+              color: TEXT,
+              margin: "14px 0 0",
+            }}
+          >
+            So when we get a beach wrong, tell us. Two places: rate the forecast
+            when you log a session, or file a conditions report from the beach
+            page. Every report is the next session at that break getting a
+            better read.
           </p>
 
           <p
@@ -173,7 +198,7 @@ export function FounderStoryEmail({
               textAlign: "center",
             }}
           >
-            It&apos;s early, and it will still get calls wrong. That&apos;s
+            It&apos;s early, and it will still be wrong sometimes. That&apos;s
             exactly why I want real surfers on it. Reply and tell me where it
             helps or breaks. I read every one.
           </p>

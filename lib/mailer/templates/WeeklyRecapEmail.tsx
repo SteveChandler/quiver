@@ -10,6 +10,7 @@ import {
   PaperPanel,
   Stamp,
   Sticker,
+  StickerStrip,
   Wordmark,
 } from "@/lib/mailer/components";
 import { beachBadgeUrl } from "@/lib/mailer/stickers";
@@ -368,6 +369,12 @@ export function WeeklyRecapEmail({
           <div style={{ textAlign: "center", padding: "18px 0 2px" }}>
             <CTAButton href={ctaUrl}>See your quiver</CTAButton>
           </div>
+        </td>
+      </tr>
+
+      <tr>
+        <td {...cellBg(CARD, { padding: "0 28px 22px" })}>
+          <StickerStrip />
         </td>
       </tr>
 

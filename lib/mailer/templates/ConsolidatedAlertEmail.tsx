@@ -8,6 +8,7 @@ import {
   EmailShell,
   Eyebrow,
   Footer,
+  StickerStrip,
   Wordmark,
 } from "@/lib/mailer/components";
 import { beachBadgeUrl } from "@/lib/mailer/stickers";
@@ -231,6 +232,12 @@ export function ConsolidatedAlertEmail({
           </tr>
         );
       })}
+
+      <tr>
+        <td {...cellBg(CARD, { padding: "0 28px 22px" })}>
+          <StickerStrip />
+        </td>
+      </tr>
 
       <Footer>
         <p
