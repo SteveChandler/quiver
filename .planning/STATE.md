@@ -16,34 +16,56 @@ progress:
 
 ## Current Goal
 
-Turn broad web beach utility and native surf calls into a measurable repeat-use loop without assuming every web visitor is a surfer or introducing duplicate ownership, alert, routing, or session systems.
+Turn broad web beach utility and native surf calls into a measurable repeat-use loop without assuming every web visitor is a surfer or introducing duplicate ownership, alert, routing, session, analytics, or release systems.
 
 ## Current Status
 
 Phase: 20.1
 Plan: 20.1-01
-Status: Planned — ready to execute
+Status: Planned — inflight/release audit and mock review required before implementation
 Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/STATE-full-history.md](archive/2026-05-31-doc-cleanup/STATE-full-history.md)
 
-Progress: 20 of 22 roadmap phases complete. Phase 20.1 execution progress: 0 of 6 planned plans complete, 0%. Phase 21 remains planned with 0 of 5 plans complete and is sequenced after Phase 20.1.
+Progress: 20 of 22 roadmap phases complete. Phase 20.1 execution progress: 0 of 6 planned plans complete, 0%.
+
+Phase 21 remains sequenced after Phase 20.1 for roadmap execution, but it is **not a clean untouched future phase**: its current summaries describe uncommitted implementation in worktrees for Plans 21-03 and 21-04, plus completed read-only verification in 21-05 with rollout blocked. Plan 20.1-01 must preserve and reconcile that work before any adjacent files are edited.
 
 ## Active Requirements
 
 - Execute BFR-01 through BFR-12 from `.planning/REQUIREMENTS.md`.
+- Treat `.planning/phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-INFLIGHT-AUDIT.md` and `20.1-MOCKS.md` as mandatory Phase 20.1 execution inputs.
 - Preserve Phase 13 controlled refactor evidence in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Preserve Phase 20 app-link, attribution, baseline, and QA foundations rather than creating a second handoff system.
-- Preserve approval gates for deploys, production mutations, production flags, outbound sends, native releases, payment actions, and entitlement changes.
+- Preserve or explicitly retire unique branch/worktree work before touching overlapping files; branch names and merge state are not release truth.
+- Preserve the Phase 21 trusted-forecast worktrees until their uncommitted changes have a recorded land/preserve/retire disposition.
+- Preserve approval gates for deploys, production mutations, production flags, outbound sends, native releases, payment actions, App Store actions, and entitlement changes.
 - Update planning state only with durable decisions, current gaps, validation outcomes, and next actions.
 
 ## Open Gaps
+
+### Phase 20.1 product gaps
 
 - The web receives broad coastal utility traffic but has almost no durable beach ownership, intent qualification, or owned return destination.
 - Many web visitors may not be surfers; a surf-qualified denominator and exact handoff-through-first-open funnel do not yet exist.
 - Native Home can silently reset or rerank context, and the all-user Week Scout stability rollout requires current build/configuration and physical telemetry proof.
 - Alert/watch and session feedback adoption is too low to establish that either currently drives retention.
-- Phase 20.1 has context, research, validation, and six executable plans, but no implementation or production/device evidence yet.
-- Native `/app/spot/:slug` routing is simulator-verified through the app scheme. Full HTTPS universal-link and App Store first-open context recovery remain signed physical validation lanes in Phase 20.1.
-- Phase 21 is fully researched/planned but queued until Phase 20.1 has an explicit evidence-backed rollout disposition.
+- Phase 20.1 has context, research, validation, an inflight audit, six low-fidelity mocks, and six executable plans, but no application implementation or production/device evidence yet.
+
+### Inflight and release-truth gaps
+
+- `quiver#605` is an open `main -> prod` promotion. Phase 20.1 web release work must be rebased/rechecked after it resolves.
+- `feat/redeem-success-page` contains unique old work that overlaps water-temperature/app-CTA surfaces and needs an explicit retire/rebuild/cherry-pick decision.
+- Native `main` and `release/ota-build16-main-parity-20260822` are diverged. The exact production/TestFlight binary, runtime, channel, update ID, and source commit have not been established in this planning branch.
+- `quiver-native#131` is binary-gated and far behind current `main`; it requires a rebuild/rebase or close decision before another binary train is planned.
+- Post-merge native PR #156 still has a production migration, web counterpart work, and device verification gaps.
+- Unique stale branches still touch native Home/BeachHero and Looking Ahead; their content must be retired or explicitly preserved before Phase 20.1 edits those contracts.
+- Native `/app/spot/:slug` routing is simulator-verified through the app scheme. Full HTTPS universal-link and App Store first-open context recovery remain signed physical validation lanes.
+
+### Phase 21 preservation gap
+
+- Phase 21 Plans 21-03 and 21-04 are documented as implemented in worktrees but uncommitted; Plan 21-05 read-only verification is complete and reports rollout blocked before implementation integration. The worktrees, exact diffs, owners, and intended branch targets must be audited before Phase 20.1 or a future Phase 21 execution claims a clean baseline.
+
+### Other open work
+
 - Phase 13 is complete. Future refactor candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Public launch deploy/alias status may have changed outside the repo and must be checked live before public claims.
 
@@ -55,8 +77,10 @@ Progress: 20 of 22 roadmap phases complete. Phase 20.1 execution progress: 0 of 
 - A water-temperature, tide, weather, or beach-page view alone never qualifies a visitor as a surfer.
 - Web utility retention and surf-qualified web-to-native activation are measured separately from native product retention.
 - Native keeps `Now`, `Best`, and `My spots`; Phase 20.1 does not add Planning, Decision, or Execution stages.
+- The six Phase 20.1 mocks lock hierarchy, state, copy semantics, and continuity—not final pixels, production art, or App Store creative. Implementations must map them to current components and document deviations.
 - Week Scout stability must be enabled for all production users after approved release, with rollback, device, and PostHog evidence.
 - Home changes must identify their real cause: mode, location, candidate set, filter, startup refinement, or forecast shift.
+- Fast initial data acquisition may remain, but a provisional result cannot masquerade as a settled recommendation that silently swaps after delayed context arrives.
 - The first watched-call action reuses existing alert infrastructure; the first outcome reuses existing recommendation/session feedback and can be completed without a full log.
 - No generic beach native app, new ML model, generic streak system, broad social feed, worldwide rollout, or localization is included in Phase 20.1.
 - Launch objective remains iOS downloads from qualified demand, not generic web awareness.
@@ -68,22 +92,29 @@ Progress: 20 of 22 roadmap phases complete. Phase 20.1 execution progress: 0 of 
 - Launch reporting uses existing event primitives extended with safe BFR events.
 - Sentry cron monitor ownership and critical alert routing were completed in Phase 12.
 - Remaining production `@/lib/api-utils` imports outside wrapper internals were closed in Phase 13.
+- Branch cleanup or worktree removal is never performed from branch names alone; uncommitted work is audited first.
 
 ## Next Actions
 
-- Execute Phase 20.1 Plan 20.1-01 to publish the cross-repository reuse audit and locked implementation patterns.
-- Execute Plan 20.1-02 to define beach ownership, intent, exact-handoff, watch, outcome, analytics, and experiment contracts.
-- After the contract wave passes, execute 20.1-03 web ownership, 20.1-04 exact handoff, and 20.1-05 native continuity/watch in parallel where file ownership permits.
-- Complete 20.1-06 with one-tap outcome feedback, approved physical-device/production validation, segmented before/after/holdout analysis, and a requirement-by-requirement rollout decision.
-- Resume Phase 21 only after Phase 20.1 is verified as expand, continued pilot, revise, or roll back.
-- Preserve approval gates for deployment, schema mutation, production flags, outbound sends, native publication, payment, and entitlement actions.
+1. Execute the new Task 0 in Phase 20.1 Plan 20.1-01:
+   - refresh open PRs, unique branches, worktrees, releases, migrations, OTA/binary truth, and direct issue collisions;
+   - fill the W/N/X disposition gates in `20.1-INFLIGHT-AUDIT.md`;
+   - preserve/reconcile the Phase 21 worktrees;
+   - freeze implementation file ownership.
+2. Complete the cross-repository reuse audit and map all six mocks to current post-merge components and the actual distributed release artifact.
+3. Execute Plan 20.1-02 only after the audit/pattern outputs name one ownership, handoff, watch, outcome, analytics, and experiment contract.
+4. Execute Plans 20.1-03, 20.1-04, and 20.1-05 in parallel only when file ownership is disjoint and their branch/release blockers are resolved.
+5. Complete Plan 20.1-06 with approved physical-device/production validation, segmented before/after/holdout analysis, and a requirement-by-requirement expand, continued-pilot, revise, or rollback decision.
+6. Resume Phase 21 roadmap execution only after its existing worktrees are reconciled and Phase 20.1 has an explicit evidence-backed rollout disposition.
+7. Preserve approval gates for deployment, schema mutation, production flags, outbound sends, native publication, App Store actions, payment, and entitlement changes.
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
 - Phase 20.1 added on 2026-08-24 as an urgent cross-repository insertion after Phase 20: durable anonymous beach follow, My Coast, conservative intent qualification, exact surf handoff, Home continuity, all-user Week Scout stability, one-tap watched calls, bounded updates, lightweight outcomes, and causal/guardrail evidence.
-- Phase 21 added: Multi-Forecaster Forecast Adjustment and Production Ingestion, coordinated by Quiver with Seaside as the production-ingestion workstream; it now follows Phase 20.1.
+- Phase 20.1 was revised the same day to include six low-fidelity web/native behavioral mocks and an explicit audit of open PRs, branch ancestry, release divergence, uncommitted worktrees, merged-but-unreleased work, and issue collisions.
+- Phase 21 added Multi-Forecaster Forecast Adjustment and Production Ingestion, coordinated by Quiver with Seaside as the production-ingestion workstream. It follows Phase 20.1 in roadmap sequencing, while its already-existing uncommitted work is preserved and audited rather than discarded.
 - Phases 14-20 added the Session Intelligence v1 addendum.
 - Phase 14 completed documentation-only guardrails, template inventory, data availability, risk/schema checks, app-link/deeplink checks, and analytics validation.
 - Phase 15 planned the recommendation model, top-window selection, shared helper, source flags, links, and verification.
@@ -99,4 +130,4 @@ Progress: 20 of 22 roadmap phases complete. Phase 20.1 execution progress: 0 of 
 
 ## Historical Notes
 
-The previous state file held detailed accumulated decisions from Phases 1-12. That history is archived because it is useful for audit but too large for future Codex sessions to load by default. Current sessions should read this file, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`, `.planning/PROJECT.md`, the Phase 20.1 folder, and [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) first.
+The previous state file held detailed accumulated decisions from Phases 1-12. That history is archived because it is useful for audit but too large for future Codex sessions to load by default. Current sessions should read this file, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`, the complete Phase 20.1 folder including mocks/inflight audit, `.planning/PROJECT.md`, and [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) first.
