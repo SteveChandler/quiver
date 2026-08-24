@@ -8,6 +8,7 @@ import {
   Footer,
   PaperPanel,
   Stamp,
+  StickerStrip,
   Wordmark,
 } from "@/lib/mailer/components";
 import { getConditionLabel } from "@/lib/email/email-formatters";
@@ -285,6 +286,12 @@ export function PersonalizedNudgeEmail({
               </p>
             </>
           )}
+        </td>
+      </tr>
+
+      <tr>
+        <td {...cellBg(CARD, { padding: "0 28px 22px" })}>
+          <StickerStrip />
         </td>
       </tr>
 

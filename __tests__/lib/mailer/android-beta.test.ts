@@ -7,6 +7,9 @@ export {};
 jest.mock("@/lib/mailer/client", () => ({
   MAIL_FROM: "Quiver <invites@send.quiversurf.app>",
   MAIL_REPLY_TO: "Quiver <invites@send.quiversurf.app>",
+  // Wordmark renders the brand lockup as an absolute-URL <img>, so every
+  // template now resolves getBaseUrl at render time.
+  getBaseUrl: () => "https://www.quiversurf.app",
   resend: {
     emails: {
       send: mockSend,

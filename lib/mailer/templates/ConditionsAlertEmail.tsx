@@ -7,6 +7,7 @@ import {
   Eyebrow,
   Footer,
   Stamp,
+  StickerStrip,
   Wordmark,
 } from "@/lib/mailer/components";
 import {
@@ -610,6 +611,12 @@ export function ConditionsAlertEmail({
       </tr>
 
       {/* Footer */}
+      <tr>
+        <td {...cellBg(CARD, { padding: "0 28px 22px" })}>
+          <StickerStrip />
+        </td>
+      </tr>
+
       <Footer>
         <p
           style={{

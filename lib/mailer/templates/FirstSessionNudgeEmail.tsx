@@ -7,6 +7,7 @@ import {
   Footer,
   PaperPanel,
   Stamp,
+  StickerStrip,
   Wordmark,
 } from "@/lib/mailer/components";
 import {
@@ -122,6 +123,12 @@ export function FirstSessionNudgeEmail({
           <div style={{ textAlign: "center", padding: "18px 0 2px" }}>
             <CTAButton href={logSessionUrl}>Log your first session</CTAButton>
           </div>
+        </td>
+      </tr>
+
+      <tr>
+        <td {...cellBg(CARD, { padding: "0 28px 22px" })}>
+          <StickerStrip />
         </td>
       </tr>
 

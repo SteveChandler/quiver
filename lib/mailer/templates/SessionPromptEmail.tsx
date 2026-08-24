@@ -7,6 +7,7 @@ import {
   Eyebrow,
   Footer,
   PaperPanel,
+  StickerStrip,
   Wordmark,
 } from "@/lib/mailer/components";
 import { getConditionLabel } from "@/lib/email/email-formatters";
@@ -156,6 +157,12 @@ export function SessionPromptEmail({
               No, I didn&apos;t surf
             </CTAButton>
           </div>
+        </td>
+      </tr>
+
+      <tr>
+        <td {...cellBg(CARD, { padding: "0 28px 22px" })}>
+          <StickerStrip />
         </td>
       </tr>
 
