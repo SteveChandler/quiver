@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Low-fidelity surf-qualified web comparison and exact Quiver app handoff</title>
+  <desc id="desc">A web comparison names a leading beach and time, keeps alternatives tied to their own windows, and opens the exact call in native.</desc>
+  <rect width="1440" height="900" fill="#F6EFE3"/>
+  <rect x="0" y="0" width="1440" height="72" fill="#0B1830"/>
+  <text x="56" y="45" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="28" font-weight="700">QUIVER</text>
+  <text x="1328" y="44" fill="#B8C4D6" font-family="Arial, sans-serif" font-size="16" text-anchor="end">Surf comparison</text>
+  <rect x="48" y="94" width="1344" height="42" rx="8" fill="#E9DDCB"/>
+  <text x="68" y="121" fill="#6A5D50" font-family="Arial, sans-serif" font-size="15">LOW-FIDELITY MOCK · SURF-QUALIFIED VISITOR · EXACT CONTEXT HANDOFF</text>
+
+  <text x="64" y="204" fill="#0B1830" font-family="Arial, sans-serif" font-size="45" font-weight="700">Best nearby surf tomorrow morning</text>
+  <text x="64" y="242" fill="#52647B" font-family="Arial, sans-serif" font-size="17">For an intermediate surfer · within 30 minutes · as of 8:12 PM</text>
+
+  <rect x="64" y="282" width="820" height="432" rx="26" fill="#172A49"/>
+  <rect x="98" y="316" width="150" height="34" rx="17" fill="#DDEFEA"/>
+  <text x="173" y="338" fill="#176C62" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle">BEST NEXT 24H</text>
+  <text x="98" y="410" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="46" font-weight="700">Scripps</text>
+  <text x="98" y="454" fill="#F28C45" font-family="Arial, sans-serif" font-size="26" font-weight="700">6:40–8:10 AM</text>
+  <text x="98" y="500" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="21">3–4 ft · 14 s · light N wind · rising mid tide</text>
+  <text x="98" y="548" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="18">Why it leads: cleaner through the middle of the window.</text>
+  <text x="98" y="580" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="18">Board: 6'8 midlength</text>
+  <line x1="98" y1="610" x2="850" y2="610" stroke="#385171" stroke-width="2"/>
+  <text x="98" y="648" fill="#91A5BF" font-family="Arial, sans-serif" font-size="15">Call ID ws_20260825_scripps_am · forecast generated 8:12 PM</text>
+  <rect x="98" y="672" width="392" height="58" rx="14" fill="#F28C45"/>
+  <text x="294" y="708" fill="#0B1830" font-family="Arial, sans-serif" font-size="19" font-weight="700" text-anchor="middle">Open this exact call in Quiver</text>
+  <rect x="510" y="672" width="220" height="58" rx="14" fill="#223B60" stroke="#68809F"/>
+  <text x="620" y="708" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="17" text-anchor="middle">Keep on web</text>
+
+  <rect x="920" y="282" width="472" height="432" rx="26" fill="#FFFDF8" stroke="#D7C8B4" stroke-width="2"/>
+  <text x="956" y="330" fill="#0B1830" font-family="Arial, sans-serif" font-size="23" font-weight="700">Other opportunities</text>
+  <text x="956" y="358" fill="#52647B" font-family="Arial, sans-serif" font-size="14">Each keeps its own time. Not called a runner-up.</text>
+  <rect x="956" y="390" width="400" height="112" rx="16" fill="#F2EEE7"/>
+  <text x="978" y="424" fill="#0B1830" font-family="Arial, sans-serif" font-size="21" font-weight="700">Del Mar</text>
+  <text x="978" y="454" fill="#F28C45" font-family="Arial, sans-serif" font-size="16" font-weight="700">7:20–8:50 AM</text>
+  <text x="978" y="482" fill="#52647B" font-family="Arial, sans-serif" font-size="15">Slightly larger · wind arrives earlier</text>
+  <rect x="956" y="518" width="400" height="112" rx="16" fill="#F2EEE7"/>
+  <text x="978" y="552" fill="#0B1830" font-family="Arial, sans-serif" font-size="21" font-weight="700">Tourmaline</text>
+  <text x="978" y="582" fill="#F28C45" font-family="Arial, sans-serif" font-size="16" font-weight="700">9:00–10:30 AM</text>
+  <text x="978" y="610" fill="#52647B" font-family="Arial, sans-serif" font-size="15">Cleaner later · smaller and softer</text>
+  <text x="956" y="676" fill="#52647B" font-family="Arial, sans-serif" font-size="14">Compare another beach</text>
+
+  <rect x="64" y="754" width="1328" height="104" rx="18" fill="#E9DDCB"/>
+  <text x="92" y="788" fill="#0B1830" font-family="Arial, sans-serif" font-size="17" font-weight="700">Handoff contract</text>
+  <text x="92" y="816" fill="#52647B" font-family="Arial, sans-serif" font-size="15">Preserve beach + window + mode + call ID + source page + anonymous attribution token.</text>
+  <text x="92" y="842" fill="#52647B" font-family="Arial, sans-serif" font-size="15">If the window expires before native opens, show the old call and explain the truthful current replacement.</text>
+</svg>
