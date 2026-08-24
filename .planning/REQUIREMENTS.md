@@ -10,7 +10,7 @@ Track active requirements for the go-live/refactor and retention planning state 
 
 ## Current Status
 
-Phases 14-20 are complete. Phase 20.1 is the active urgent insertion for durable web beach ownership, conservative surf-intent qualification, exact web-to-native context, native recommendation continuity, watched calls, and lightweight outcome feedback. Phase 21 remains planned after Phase 20.1 and adds production multi-forecaster ingestion and a bounded, auditable trusted-adjustment layer.
+Phases 14-20 are complete. Phase 20.1 is the active urgent insertion for durable web beach ownership, conservative surf-intent qualification, exact web-to-native context, native recommendation continuity, watched calls, and useful decision-return evidence. Phase 21 remains planned after Phase 20.1 and adds production multi-forecaster ingestion and a bounded, auditable trusted-adjustment layer.
 
 Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, release-quality, PBSC, Sentry, and controlled-refactor work is historical for this tracker unless a future task reopens it.
 
@@ -40,9 +40,9 @@ Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, relea
 - **BFR-07**: Native Home preserves or explicitly expires the user's existing `Now`, `Best`, or `My spots` mode, prevents delayed startup context from silently replacing a settled hero, and attributes visible recommendation changes to the actual mode, location, candidate, filter, startup, or forecast cause.
 - **BFR-08**: Week Scout stability is shipped enabled for all production users through the approved mobile build/configuration, retains incumbents through sub-margin revisions, replaces passed/missing/unsafe/unrideable/Skip or materially outscored incumbents, remains rollback-capable, and emits physical-production telemetry.
 - **BFR-09**: An eligible native Home or Beach Detail call can be watched in one tap by extending the existing alert/watch infrastructure with known beach/window/mode/recommendation context; advanced tuning is optional and duplicate watches are idempotent.
-- **BFR-10**: Watched-call delivery is limited to deduped, preference-respecting, capped, quiet-hour-aware still-on, material-change, clearly better-nearby, and post-window feedback updates that open the exact context or a truthful current fallback.
-- **BFR-11**: A watched window can receive a one-tap 1-5 outcome with known beach/window/recommendation/board context prefilled, offline/retry support, optional linkage to the existing full session log, and a receipt that describes only actual persisted learning/evidence effects.
-- **BFR-12**: Team can evaluate general coastal utility, surf-qualified web conversion, existing-user web behavior, exact handoff, Home continuity, watched-call return, outcome response, D1/D7 retention, notification quality, SEO/page-intent, and performance through reproducible segmented before/after/holdout queries with safe metadata, sample sizes, maturity rules, and test/emulator filters.
+- **BFR-10**: Watched-call delivery is limited to deduped, preference-respecting, capped, quiet-hour-aware `still on`, material-change, and clearly-better-nearby updates that open the exact context or a truthful current fallback; generic engagement and automatic post-window session prompts are not part of this retention hypothesis.
+- **BFR-11**: The existing native quick-log/session flow is treated as shipped baseline behavior, not a new Phase 20.1 feature or success metric. Watched-call context may be passed into that existing flow only when a user independently chooses to log; Phase 20.1 does not add a second one-tap outcome surface, receipt, reminder, or session store.
+- **BFR-12**: Team can evaluate general coastal utility, surf-qualified web conversion, existing-user web behavior, exact handoff, Home continuity, watch creation, meaningful-update eligibility/delivery/open, exact watched-call reopen, manual return, D1/D7 retention, notification quality, SEO/page-intent, and performance through reproducible segmented before/after/holdout queries with safe metadata, sample sizes, maturity rules, and test/emulator filters. Session starts/submits remain secondary diagnostics and guardrails, not the primary retention outcome.
 
 ### Multi-Forecaster Adjustment
 
@@ -61,7 +61,8 @@ Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, relea
 - Current web ownership is too weak to determine whether broad utility visitors will return after following a beach.
 - The surf-qualified web-to-native funnel lacks complete handoff-through-first-open/context-resolution coverage.
 - Native Home continuity and all-user Week Scout stability need implementation/release verification against current build profiles and physical production telemetry.
-- Watch, notification, and lightweight outcome adoption is too small to support causal retention claims.
+- Watch and alert adoption is too small to support a retention claim.
+- Native one-tap quick logging already exists and did not materially change product retention or sales; additional session-friction work is not an open Phase 20.1 hypothesis.
 - Phase 21 research and executable plans are complete; implementation and approval-gated production verification remain queued after Phase 20.1.
 - Future candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Wrapper-internal helper collapse remains future work outside the completed Phase 13 checkpoint.
@@ -72,7 +73,9 @@ Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, relea
 - Web serves broad coastal utility; native remains surf-specialized.
 - The durable object is a beach; temporary surf calls/windows attach to it.
 - General web visitors are not treated as failed app conversions. Surf-qualified conversion is measured with its own denominator.
-- Phase 20.1 extends existing favorites/follows, alert/watch, app-link, attribution, recommendation, session feedback, offline, and analytics primitives before creating anything new.
+- Phase 20.1 extends existing favorites/follows, alert/watch, app-link, attribution, recommendation, and analytics primitives before creating anything new.
+- Existing native quick log/session logging is retained as an optional downstream action but is not the Phase 20.1 retention bet, north-star metric, or justification for a new outcome prompt.
+- The native retention hypothesis is that Quiver remembers the accepted call, notices a decision-relevant change, and brings the surfer back with a clear explanation.
 - No generic beach native app, Planning/Decision/Execution state machine, new ML model, generic streak system, broad social feed, worldwide rollout, or localization is included in Phase 20.1.
 - Monetization, CMS-style blog management, broad automated lifecycle nurture, and dedicated launch dashboards remain deferred unless the retention loop proves need and value.
 - Production database migrations, deploys, aliases, production flags, outbound sends, native builds/OTA updates, entitlement changes, and payment actions require explicit approval.
@@ -81,12 +84,13 @@ Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, relea
 
 ## Next Actions
 
-- Execute Phase 20.1 Plan 20.1-01 reuse audit, then Plan 20.1-02 contracts.
+- Execute Phase 20.1 Plan 20.1-01 reuse audit, including a baseline audit of the already-shipped quick-log/session path and its non-impact.
+- Execute Plan 20.1-02 contracts without designing another outcome/session surface.
 - Execute Plans 20.1-03, 20.1-04, and 20.1-05 in parallel only after the contract wave passes.
-- Complete Plan 20.1-06 with approved device/production evidence and mature segmented retention/guardrail review.
+- Complete Plan 20.1-06 as a watched-call return, notification-quality, and causal evidence gate—not an outcome-feature implementation plan.
 - Resume Phase 21 after Phase 20.1 has an explicit expand, continued-pilot, revise, or rollback disposition.
 - Preserve approval gates for deploys, production mutations, production flags, outbound sends, native releases, payment actions, and entitlement changes.
 
 ## Historical Notes
 
-The full pre-cleanup requirements file included 54 v1 requirements mapped across launch messaging, public zine refresh, landing page, pricing, blog, App Store/mobile messaging, outreach/social, analytics/reporting, release quality, PBSC route verification, Sentry observability, and controlled refactor completion. Completed sections were compressed because they are no longer the active planning surface.
+The full pre-cleanup requirements file included 54 v1 requirements mapped across launch messaging, public zine refresh, landing page, pricing, blog, App Store/mobile messaging, outreach/social, analytics/reporting, release quality, PBSC route verification, Sentry observability, and controlled-refactor completion. Completed sections were compressed because they are no longer the active planning surface.
