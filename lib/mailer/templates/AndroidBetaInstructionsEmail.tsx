@@ -6,6 +6,7 @@ import {
   Eyebrow,
   Footer,
   PaperPanel,
+  StickerStrip,
   Wordmark,
 } from "@/lib/mailer/components";
 import {
@@ -138,6 +139,12 @@ export function AndroidBetaInstructionsEmail({
           >
             Tester group: {groupUrl}
           </p>
+        </td>
+      </tr>
+
+      <tr>
+        <td {...cellBg(CARD, { padding: "0 28px 22px" })}>
+          <StickerStrip />
         </td>
       </tr>
 

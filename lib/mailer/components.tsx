@@ -86,17 +86,53 @@ export function Wordmark({ dateline }: { dateline?: string }) {
         >
           <tbody>
             <tr>
-              <td
-                align="left"
-                style={{
-                  fontFamily: FONT_DISPLAY,
-                  fontWeight: 700,
-                  fontSize: 20,
-                  letterSpacing: "3px",
-                  color: CREAM,
-                }}
-              >
-                QUIVER
+              <td align="left">
+                {/* Icon + wordmark lockup rather than the full brand lockup
+                    image: /quiver-app-icon-128.png is already deployed, and an
+                    email's <img> src must resolve on production the moment the
+                    mail is opened. The one-piece lockup at
+                    public/images/quiver-email-logo.png is ready to swap in here
+                    once it has shipped. Text beside the icon also means the
+                    brand still reads when a client blocks images. */}
+                <table
+                  role="presentation"
+                  cellPadding={0}
+                  cellSpacing={0}
+                  style={{ borderCollapse: "collapse" }}
+                >
+                  <tbody>
+                    <tr>
+                      <td style={{ verticalAlign: "middle", lineHeight: 0, paddingRight: 10 }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element -- Email clients can't use next/image; a plain absolute-URL <img> is required. */}
+                        <img
+                          src={`${getBaseUrl()}/quiver-app-icon-128.png`}
+                          alt=""
+                          width={32}
+                          height={32}
+                          style={{
+                            display: "block",
+                            border: 0,
+                            width: 32,
+                            height: 32,
+                            borderRadius: 7,
+                          }}
+                        />
+                      </td>
+                      <td
+                        style={{
+                          verticalAlign: "middle",
+                          fontFamily: FONT_DISPLAY,
+                          fontWeight: 700,
+                          fontSize: 20,
+                          letterSpacing: "3px",
+                          color: CREAM,
+                        }}
+                      >
+                        QUIVER
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </td>
               {dateline ? (
                 <td

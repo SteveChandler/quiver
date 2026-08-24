@@ -65,9 +65,13 @@ const EMPTY_SIGNALS: ConditionsAlertEmailProps["signals"] = {
 
 describe("ConditionsAlertEmail", () => {
   describe("Masthead + dateline", () => {
-    it("renders the QUIVER wordmark and dateline", () => {
+    it("renders the Quiver lockup and dateline", () => {
       const { container } = render(<ConditionsAlertEmail {...makeProps()} />);
+      // Icon plus wordmark: the text has to survive an image-blocking client,
+      // and the icon src must be an asset that is actually deployed.
       expect(container.textContent).toContain("QUIVER");
+      const icon = container.querySelector('img[src*="quiver-app-icon"]');
+      expect(icon).not.toBeNull();
       expect(container.textContent).toContain("FRI · JUN 13");
     });
 

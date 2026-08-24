@@ -7,6 +7,7 @@ import {
   Footer,
   PaperPanel,
   Sticker,
+  StickerStrip,
   Wordmark,
 } from "@/lib/mailer/components";
 import {
@@ -126,6 +127,12 @@ export function AppLinkEmail({ appUrl }: AppLinkEmailProps) {
               {appUrl}
             </p>
           </PaperPanel>
+        </td>
+      </tr>
+
+      <tr>
+        <td {...cellBg(CARD, { padding: "0 28px 22px" })}>
+          <StickerStrip />
         </td>
       </tr>
 

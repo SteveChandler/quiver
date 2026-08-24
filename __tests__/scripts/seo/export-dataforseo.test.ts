@@ -119,6 +119,82 @@ describe("export-dataforseo script", () => {
     }
   });
 
+  it("gives Google live-SERP responses a longer budget than shared requests", async () => {
+    const server = http.createServer((request, response) => {
+      response.setHeader("content-type", "application/json");
+
+      if (request.url === "/v3/serp/google/organic/live/advanced") {
+        setTimeout(() => {
+          response.end(JSON.stringify({
+            status_code: 20000,
+            status_message: "Ok.",
+            tasks: [{
+              result: [{
+                items: [{
+                  type: "organic",
+                  domain: "www.quiversurf.app",
+                  url: "https://www.quiversurf.app/",
+                  title: "Quiver",
+                  rank_absolute: 2,
+                }],
+              }],
+            }],
+          }));
+        }, 150);
+        return;
+      }
+
+      response.end(JSON.stringify({
+        status_code: 20000,
+        status_message: "Ok.",
+        tasks: [{ result: [{ items: [] }] }],
+      }));
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Expected local test server address");
+      }
+      const cwd = makeTempWorkspace({
+        google: {
+          domain: "quiversurf.app",
+          device: "mobile",
+          depth: 100,
+          keywords: ["surf forecast app"],
+          locations: [{ name: "United States", code: 2840 }],
+        },
+        aso: {
+          depth: 100,
+          platforms: ["ios"],
+          keywords: [],
+          quiver: { iosAppId: "6759300320" },
+        },
+        competitors: [],
+      });
+      const outputPath = path.join(cwd, "DATAFORSEO-EXPORT.json");
+
+      await runExporter(cwd, outputPath, {
+        DATAFORSEO_API_BASE: `http://127.0.0.1:${address.port}`,
+        DATAFORSEO_ENABLED: "true",
+        DATAFORSEO_LOGIN: "login",
+        DATAFORSEO_PASSWORD: "password",
+        DATAFORSEO_TIMEOUT_MS: "100",
+        DATAFORSEO_REQUEST_RETRIES: "1",
+        NODE_ENV: "test",
+      });
+
+      expect(JSON.parse(fs.readFileSync(outputPath, "utf8"))).toMatchObject({
+        status: "complete",
+        googleRankings: [{ keyword: "surf forecast app", quiverRank: 2 }],
+        missing: [],
+      });
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   it("skips Android ASO checks when the watchlist only enables iOS", async () => {
     const requests: Array<{ path: string; body: unknown }> = [];
     const server = createDataForSeoServer(requests);
@@ -371,6 +447,7 @@ describe("export-dataforseo script", () => {
         DATAFORSEO_LOGIN: "login",
         DATAFORSEO_PASSWORD: "password",
         DATAFORSEO_TIMEOUT_MS: "100",
+        DATAFORSEO_GOOGLE_TIMEOUT_MS: "100",
         DATAFORSEO_REQUEST_RETRIES: "1",
         NODE_ENV: "test",
       });

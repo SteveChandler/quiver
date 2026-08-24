@@ -40,7 +40,7 @@ import { FounderStoryEmail } from "../lib/mailer/templates/FounderStoryEmail";
 const CAMPAIGN = "founder_story_2026_08";
 const EMAIL_TYPE = "founder_story";
 const UTM_CONTENT = "day_1_founder_email";
-const DEFAULT_SUBJECT = "The surf call I wanted did not exist";
+const DEFAULT_SUBJECT = "Too many wasted drives.";
 const SEND_GAP_MS = 650; // stay under Resend's 2 rps
 
 interface Recipient {
@@ -90,16 +90,20 @@ function buildText(name: string | null, ctaLink: string): string {
     "",
     "Cams don't cover every break. And two spots ten minutes apart don't handle the same swell the same way.",
     "",
-    "The data wasn't missing. The decision was.",
+    "The data was all there. The feedback wasn't.",
     "",
     "I built Quiver because I wanted to make it simple.",
+    "",
+    "Quiver can already adjust a beach's forecast from what surfers report. That wiring is built and running. What it needs is reports, and right now there aren't enough. Chicken and egg: a break only gets sharper once enough people say what it actually did there.",
+    "",
+    "So when we get a beach wrong, tell us. Two places: rate the forecast when you log a session, or file a conditions report from the beach page. Every report is the next session at that break getting a better read.",
     "",
     "For the next two weeks I'm asking a small group of surfers to use Pro for one real surf decision.",
     "",
     "Start your free 14-day Quiver Pro trial and find the best window for your next surf:",
     ctaLink,
     "",
-    "It's early, and it will still get calls wrong. That's exactly why I want real surfers on it. Reply and tell me where it helps or breaks. I read every one.",
+    "It's early, and it will still be wrong sometimes. That's exactly why I want real surfers on it. Reply and tell me where it helps or breaks. I read every one.",
     "",
     "— Steve",
     "quiversurf.app",
@@ -277,7 +281,14 @@ async function main(): Promise<void> {
     }
 
     sent++;
-    console.log(`SENT  ${recipient.email}${userId ? " (user, logged)" : " (non-user, receipt only)"}`);
+    console.log(
+      `SENT  ${recipient.email}` +
+        (isTest
+          ? " (test — not logged, still eligible for the real send)"
+          : userId
+            ? " (user, logged)"
+            : " (non-user, receipt only)")
+    );
     receipts.push({ email: recipient.email, status: "sent", user_id: userId, handoff_id: handoffId, message_instance_id: messageInstanceId, resend_message_id: data?.id ?? null, at: stamp });
 
     await new Promise((resolve) => setTimeout(resolve, SEND_GAP_MS));

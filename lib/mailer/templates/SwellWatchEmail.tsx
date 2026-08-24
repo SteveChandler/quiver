@@ -7,6 +7,7 @@ import {
   Eyebrow,
   Footer,
   Stamp,
+  StickerStrip,
   Wordmark,
 } from "@/lib/mailer/components";
 import {
@@ -233,6 +234,12 @@ export function SwellWatchEmail({
           </div>
 
           <CTAButton href={ctaUrl}>Check {beachName} forecast</CTAButton>
+        </td>
+      </tr>
+
+      <tr>
+        <td {...cellBg(CARD, { padding: "0 28px 22px" })}>
+          <StickerStrip />
         </td>
       </tr>
 
