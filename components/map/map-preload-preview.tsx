@@ -171,7 +171,10 @@ export function MapPreloadPreview({
             style={{
               left: `calc(50% + ${offset.x}px)`,
               top: `calc(50% + ${offset.y}px)`,
-              background: getConditionMarkerGradient(summary),
+              background: getConditionMarkerGradient(
+                summary,
+                "waterQualityHold" in beach && beach.waterQualityHold === true,
+              ),
             }}
             data-testid="map-preload-marker"
             data-condition-summary={summary}

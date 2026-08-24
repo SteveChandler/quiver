@@ -17,6 +17,7 @@ export interface ConditionMarkerCall {
     | "Worth a look"
     | "Slim pickings"
     | "Skip it"
+    | "Water quality advisory"
     | "No read";
   gradient: string;
 }
@@ -25,6 +26,7 @@ export interface MarkerPreviewData {
   waveLabel?: string | null;
   conditionSummary?: ConditionSummary;
   conditionScore?: number;
+  waterQualityHold?: boolean;
 }
 
 export const CONDITION_MARKER_CALLS: ReadonlyArray<{
@@ -54,10 +56,14 @@ export function getWaterTempBadgeColor(temp?: string | null): string {
 }
 
 export function getConditionMarkerGradient(
-  summary: ConditionSummary = "UNKNOWN"
+  summary: ConditionSummary = "UNKNOWN",
+  waterQualityHold = false,
 ): string {
   // Derived from Quiver brand/score colors but darkened for white marker text
   // on light map tiles; raw native teal (#00D4AA) is too low-contrast here.
+  if (waterQualityHold) {
+    return "linear-gradient(to right, #991B1B, #B91C1C)";
+  }
   if (summary === "EPIC") {
     return "linear-gradient(to right, #8A5A00, #B87900)";
   }
@@ -72,11 +78,20 @@ export function getConditionMarkerGradient(
 
 export function getConditionMarkerCall({
   conditionSummary,
+  waterQualityHold,
 }: {
   conditionSummary?: ConditionSummary;
   conditionScore?: number;
+  waterQualityHold?: boolean;
 }): ConditionMarkerCall {
   const summary = conditionSummary ?? "UNKNOWN";
+  if (waterQualityHold) {
+    return {
+      summary,
+      label: "Water quality advisory",
+      gradient: getConditionMarkerGradient(summary, true),
+    };
+  }
   const label =
     CONDITION_MARKER_CALLS.find((item) => item.summary === summary)?.label ??
     "No read";
@@ -131,6 +146,8 @@ export interface MarkerBuilderDeps {
   conditionSummary?: ConditionSummary;
   /** 0-100 condition score, reserved for tooltips/analytics */
   conditionScore?: number;
+  /** Map visibility warning; does not make the beach recommendation-eligible. */
+  waterQualityHold?: boolean;
   /** Marker shape mode: forecast keeps the default map; points keeps embed markers compact. */
   markerDisplay?: MapMarkerDisplay;
   /** Marker coordinate used to anchor the preview popup */
@@ -191,6 +208,10 @@ export function createWaveHeightBadge(
     wrapper.setAttribute("data-testid", "beach-marker");
     wrapper.setAttribute("data-beach-id", location.id);
     wrapper.setAttribute("data-condition-summary", conditionSummary);
+    wrapper.setAttribute(
+      "data-water-quality-hold",
+      String(deps.waterQualityHold === true),
+    );
     if (typeof deps.conditionScore === "number") {
       wrapper.setAttribute("data-condition-score", String(deps.conditionScore));
     }
@@ -222,9 +243,16 @@ export function createWaveHeightBadge(
     // Create the actual badge element as a child
     const badge = document.createElement("button");
     badge.type = "button";
-    badge.setAttribute("aria-label", `View ${location.name} conditions`);
+    badge.setAttribute(
+      "aria-label",
+      deps.waterQualityHold
+        ? `${location.name} water quality advisory`
+        : `View ${location.name} conditions`,
+    );
     const markerGradient =
-      displayMode === "water-temp"
+      deps.waterQualityHold
+        ? getConditionMarkerGradient(conditionSummary, true)
+        : displayMode === "water-temp"
         ? getWaterTempBadgeColor(deps.waterTemp)
         : getWaveHeightBadgeColor(conditionSummary);
     badge.setAttribute("data-marker-badge", "true");
@@ -280,6 +308,7 @@ export function createWaveHeightBadge(
           waveLabel: hasPreviewWaveLabel,
           conditionSummary,
           conditionScore: deps.conditionScore,
+          waterQualityHold: deps.waterQualityHold,
         });
       }
     });
@@ -319,6 +348,7 @@ export function createWaveHeightBadge(
             waveLabel: hasPreviewWaveLabel,
             conditionSummary,
             conditionScore: deps.conditionScore,
+            waterQualityHold: deps.waterQualityHold,
           });
         }
         return;

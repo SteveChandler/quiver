@@ -290,6 +290,7 @@ export interface MapSpotConditions {
 }
 
 interface MapSpotConditionsContext {
+  beaches: Beach[];
   partitionsMap: Map<string, SwellPartition>;
   partitionsTimelineMap: Map<string, SwellPartition[]>;
   timelineIndex: number;
@@ -301,6 +302,14 @@ interface MapSpotConditionsContext {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function hasWaterQualityHold(beach: Beach | undefined): boolean {
+  return (
+    beach !== undefined &&
+    "waterQualityHold" in beach &&
+    beach.waterQualityHold === true
+  );
 }
 
 function mapSpotConditions(
@@ -316,9 +325,14 @@ function mapSpotConditions(
   const waveLabel = context.displayForecastMap.get(beachId)?.label?.trim();
   const rawWaveHeight = context.waveHeightMap.get(beachId);
   const swellDirection = partition?.s1Dir ?? partition?.swellDirOm;
+  const waterQualityHold = hasWaterQualityHold(
+    context.beaches.find((beach) => beach.id === beachId),
+  );
 
   return {
-    conditionSummary: context.conditionSummaryMap.get(beachId) ?? null,
+    conditionSummary: waterQualityHold
+      ? "WATER QUALITY ADVISORY"
+      : context.conditionSummaryMap.get(beachId) ?? null,
     waveHeight: waveLabel || (isFiniteNumber(rawWaveHeight)
       ? formatWaveHeightRange(rawWaveHeight)
       : null),
@@ -1173,6 +1187,7 @@ export function InteractiveMap({
         waveLabel: preview.waveLabel,
         conditionSummary: preview.conditionSummary,
         conditionScore: preview.conditionScore,
+        waterQualityHold: preview.waterQualityHold,
         partition: partitionsMapRef.current.get(location.id),
       });
       content.addEventListener("mouseenter", clearBeachPreviewCloseTimer);
@@ -1420,6 +1435,7 @@ export function InteractiveMap({
         waveHeightLabel: displayForecastMap.get(location.id)?.label ?? null,
         conditionScore: conditionScoreMap.get(location.id),
         conditionSummary: conditionSummaryMap.get(location.id),
+        waterQualityHold: hasWaterQualityHold(location),
         previewLngLat,
         // In the embed, tapping a pin opens the conditions callout (arrows + name +
         // temp + Full forecast). The marker preview popup would show the SAME numbers
@@ -2779,8 +2795,13 @@ export function InteractiveMap({
 
         // Update badge scale and background
         if (badge) {
+          const waterQualityHold = hasWaterQualityHold(
+            beachesRef.current?.find((beach) => beach.id === beachId),
+          );
           const gradient =
-            displayMode === "water-temp"
+            waterQualityHold
+              ? getConditionMarkerGradient("UNKNOWN", true)
+              : displayMode === "water-temp"
               ? getWaterTempBadgeColor(waterTempMap.get(beachId))
               : getConditionMarkerGradient(
                   conditionSummaryMap.get(beachId) ?? "UNKNOWN"
@@ -2802,8 +2823,13 @@ export function InteractiveMap({
             ? "scale(1.2)"
             : "scale(1)";
 
+          const waterQualityHold = hasWaterQualityHold(
+            beachesRef.current?.find((beach) => beach.id === beachId),
+          );
           const gradient =
-            displayMode === "water-temp"
+            waterQualityHold
+              ? getConditionMarkerGradient("UNKNOWN", true)
+              : displayMode === "water-temp"
               ? getWaterTempBadgeColor(waterTempMap.get(beachId))
               : getConditionMarkerGradient(
                   conditionSummaryMap.get(beachId) ?? "UNKNOWN"
@@ -3007,6 +3033,7 @@ export function InteractiveMap({
             waveLabel: displayForecastMap.get(location.id)?.label ?? null,
             conditionScore: conditionScoreMap.get(location.id),
             conditionSummary: conditionSummaryMap.get(location.id),
+            waterQualityHold: hasWaterQualityHold(location),
             waterTemp: waterTempMap.get(location.id),
             lngLat,
             displayMode,

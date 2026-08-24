@@ -141,7 +141,7 @@ describe("nearby beach service", () => {
     ]);
   });
 
-  it("does not return a held beach from nearby recommendations", async () => {
+  it("returns held beaches for map visibility with an additive warning flag", async () => {
     mockSupabase.rpc.mockResolvedValue({
       data: [
         {
@@ -175,7 +175,10 @@ describe("nearby beach service", () => {
       getNearbyBeachesFromDb(32.7, -117.2, 30, 20),
     ).resolves.toMatchObject({
       success: true,
-      data: [{ id: "safe-beach" }],
+      data: [
+        { id: "held-beach", waterQualityHold: true },
+        { id: "safe-beach", waterQualityHold: false },
+      ],
     });
   });
 

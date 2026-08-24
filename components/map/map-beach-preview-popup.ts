@@ -10,6 +10,7 @@ interface BeachPreviewPopupContentOptions {
   waveLabel?: string | null;
   conditionSummary?: ConditionSummary;
   conditionScore?: number;
+  waterQualityHold?: boolean;
   partition?: SwellPartition;
 }
 
@@ -72,6 +73,7 @@ export function createBeachPreviewPopupContent({
   waveLabel,
   conditionSummary,
   conditionScore,
+  waterQualityHold,
   partition,
 }: BeachPreviewPopupContentOptions): HTMLElement {
   const root = document.createElement("div");
@@ -101,6 +103,7 @@ export function createBeachPreviewPopupContent({
   const call = getConditionMarkerCall({
     conditionSummary,
     conditionScore,
+    waterQualityHold,
   });
   // No quality read -> hide the verdict entirely. Showing "No read" next to real
   // swell/wind reads as broken; absence is cleaner than a negative badge.

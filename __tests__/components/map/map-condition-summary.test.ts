@@ -2,6 +2,7 @@ import type { Beach } from "@/types/database";
 import { loadBeachesAndWaveHeights } from "@/components/map/map-beach-loader";
 import {
   createWaveHeightBadge,
+  getConditionMarkerCall,
   getConditionMarkerGradient,
   getWaterTempBadgeColor,
 } from "@/components/map/map-marker-builder";
@@ -72,6 +73,23 @@ describe("map condition summaries", () => {
     expect(result.conditionSummaryMap.get("beach-unknown")).toBe("UNKNOWN");
   });
 
+  it("retains the nearby water-quality hold flag for marker construction", async () => {
+    const heldBeach = {
+      ...beach("held-beach"),
+      waterQualityHold: true,
+    };
+    const result = await loadBeachesAndWaveHeights(
+      32.75,
+      -117.25,
+      undefined,
+      {
+        fetchNearbyBeaches: jest.fn(async () => ({ data: [heldBeach] })),
+      },
+    );
+
+    expect(result.locations).toEqual([heldBeach]);
+  });
+
   it("renders wave-height markers with condition semantics and gradients", () => {
     const marker = createWaveHeightBadge(beach("beach-fair"), 2.0, {
       favoriteBeachIds: new Set(),
@@ -132,6 +150,39 @@ describe("map condition summaries", () => {
       width: "15px",
       height: "15px",
       borderRadius: "50%",
+    });
+  });
+
+  it("renders held beaches red with a non-positive accessible advisory label", () => {
+    const marker = createWaveHeightBadge(beach("held-beach"), 4.0, {
+      favoriteBeachIds: new Set(),
+      selectedBeachId: null,
+      hoveredBeachId: null,
+      onHoverChange: jest.fn(),
+      onSelectChange: jest.fn(),
+      router: { push: jest.fn() },
+      autoNavigate: false,
+      conditionSummary: "EPIC",
+      waterQualityHold: true,
+    });
+    const badge = getBadge(marker);
+    const markerGradient = getConditionMarkerGradient("EPIC", true);
+    const call = getConditionMarkerCall({
+      conditionSummary: "EPIC",
+      waterQualityHold: true,
+    });
+
+    expect(markerGradient).toBe(
+      "linear-gradient(to right, #991B1B, #B91C1C)",
+    );
+    expect(badge).toHaveAttribute("data-marker-gradient", markerGradient);
+    expect(badge).toHaveAttribute(
+      "aria-label",
+      "Beach held-beach water quality advisory",
+    );
+    expect(call).toMatchObject({
+      label: "Water quality advisory",
+      gradient: markerGradient,
     });
   });
 });
