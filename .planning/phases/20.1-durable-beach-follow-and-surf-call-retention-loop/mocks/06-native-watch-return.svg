@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Low-fidelity meaningful watched-call return flow</title>
+  <desc id="desc">Three phone frames show a quiet active watch with no meaningful change, a material change notification, and the exact prior-current watched context reopened in Quiver.</desc>
+  <rect width="1440" height="900" fill="#F6EFE3"/>
+  <text x="64" y="62" fill="#0B1830" font-family="Arial, sans-serif" font-size="34" font-weight="700">Meaningful update → exact watched-call return</text>
+  <text x="64" y="94" fill="#52647B" font-family="Arial, sans-serif" font-size="16">LOW-FIDELITY MOCK · QUIET WHEN NOTHING CHANGED · NO NEW SESSION PROMPT</text>
+
+  <!-- No meaningful change -->
+  <rect x="54" y="128" width="404" height="704" rx="44" fill="#081426" stroke="#243957" stroke-width="5"/>
+  <rect x="76" y="158" width="360" height="644" rx="28" fill="#0F2038"/>
+  <text x="100" y="198" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="19" font-weight="700">Watching</text>
+  <rect x="100" y="228" width="312" height="86" rx="18" fill="#DDEFEA"/>
+  <text x="256" y="260" fill="#176C62" font-family="Arial, sans-serif" font-size="18" font-weight="700" text-anchor="middle">✓ Scripps call active</text>
+  <text x="256" y="288" fill="#176C62" font-family="Arial, sans-serif" font-size="13" text-anchor="middle">No meaningful change · no push sent</text>
+  <rect x="100" y="338" width="312" height="244" rx="24" fill="#172A49"/>
+  <text x="124" y="374" fill="#91A5BF" font-family="Arial, sans-serif" font-size="13" font-weight="700">ACCEPTED CALL</text>
+  <text x="124" y="418" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="28" font-weight="700">Scripps</text>
+  <text x="124" y="452" fill="#F28C45" font-family="Arial, sans-serif" font-size="19" font-weight="700">6:40–8:10 AM</text>
+  <text x="124" y="488" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="14">Updated 5:22 AM · same beach/window</text>
+  <text x="124" y="520" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="14">Del Mar gained 3 points · below threshold</text>
+  <rect x="124" y="540" width="180" height="42" rx="13" fill="#223B60" stroke="#68809F"/>
+  <text x="214" y="566" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="15" text-anchor="middle">Open watched call</text>
+  <text x="100" y="648" fill="#91A5BF" font-family="Arial, sans-serif" font-size="13">Manual reopen is measured separately.</text>
+  <text x="100" y="680" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="14">Quiver does not invent an alert to drive a visit.</text>
+  <text x="100" y="730" fill="#91A5BF" font-family="Arial, sans-serif" font-size="13">Existing Quick Log remains elsewhere.</text>
+
+  <!-- Material notification -->
+  <rect x="518" y="128" width="404" height="704" rx="44" fill="#081426" stroke="#243957" stroke-width="5"/>
+  <rect x="540" y="158" width="360" height="644" rx="28" fill="#0F2038"/>
+  <text x="564" y="198" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="19" font-weight="700">Notification</text>
+  <rect x="564" y="228" width="312" height="142" rx="20" fill="#F7E8E3"/>
+  <text x="588" y="260" fill="#8A4B40" font-family="Arial, sans-serif" font-size="14" font-weight="700">CALL CHANGED</text>
+  <text x="588" y="294" fill="#0B1830" font-family="Arial, sans-serif" font-size="23" font-weight="700">Del Mar now leads</text>
+  <text x="588" y="324" fill="#6E5B57" font-family="Arial, sans-serif" font-size="14">Scripps turns onshore earlier.</text>
+  <text x="588" y="348" fill="#6E5B57" font-family="Arial, sans-serif" font-size="13">6:55–8:20 AM · updated 5:41 AM</text>
+  <rect x="564" y="396" width="312" height="210" rx="24" fill="#172A49"/>
+  <text x="588" y="432" fill="#91A5BF" font-family="Arial, sans-serif" font-size="13" font-weight="700">WHY QUIVER INTERRUPTED</text>
+  <text x="588" y="468" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="15">• Previous incumbent became unsafe</text>
+  <text x="588" y="500" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="15">• New call is materially better</text>
+  <text x="588" y="532" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="14">Not a mode, GPS, or filter change</text>
+  <rect x="588" y="550" width="248" height="48" rx="14" fill="#F28C45"/>
+  <text x="712" y="580" fill="#0B1830" font-family="Arial, sans-serif" font-size="16" font-weight="700" text-anchor="middle">Open exact update</text>
+  <text x="564" y="666" fill="#91A5BF" font-family="Arial, sans-serif" font-size="13">Supported types: Still on · Call changed · Better nearby</text>
+  <text x="564" y="716" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="14">No “How was it?” prompt is added here.</text>
+
+  <!-- Exact reopen/history -->
+  <rect x="982" y="128" width="404" height="704" rx="44" fill="#081426" stroke="#243957" stroke-width="5"/>
+  <rect x="1004" y="158" width="360" height="644" rx="28" fill="#0F2038"/>
+  <text x="1028" y="198" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="19" font-weight="700">Watched call</text>
+  <rect x="1028" y="228" width="312" height="90" rx="18" fill="#49321F" stroke="#F28C45"/>
+  <text x="1052" y="258" fill="#F28C45" font-family="Arial, sans-serif" font-size="13" font-weight="700">UPDATED SINCE YOU WATCHED</text>
+  <text x="1052" y="288" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="17">Scripps → Del Mar</text>
+  <text x="1052" y="308" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="12">Material forecast change</text>
+  <rect x="1028" y="342" width="312" height="126" rx="18" fill="#172A49"/>
+  <text x="1052" y="374" fill="#91A5BF" font-family="Arial, sans-serif" font-size="12">PREVIOUS</text>
+  <text x="1052" y="404" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="17">Scripps · 6:40–8:10 AM</text>
+  <text x="1052" y="434" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="13">Accepted 8:18 PM</text>
+  <rect x="1028" y="486" width="312" height="142" rx="18" fill="#172A49"/>
+  <text x="1052" y="518" fill="#F28C45" font-family="Arial, sans-serif" font-size="12">CURRENT</text>
+  <text x="1052" y="550" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="24" font-weight="700">Del Mar</text>
+  <text x="1052" y="580" fill="#F28C45" font-family="Arial, sans-serif" font-size="17" font-weight="700">6:55–8:20 AM</text>
+  <text x="1052" y="608" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="13">Wind arrives later here.</text>
+  <rect x="1028" y="654" width="148" height="46" rx="14" fill="#F6EFE3"/>
+  <text x="1102" y="683" fill="#0B1830" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle">Watch new call</text>
+  <rect x="1190" y="654" width="150" height="46" rx="14" fill="#223B60" stroke="#68809F"/>
+  <text x="1265" y="683" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="15" text-anchor="middle">View history</text>
+  <text x="1028" y="746" fill="#91A5BF" font-family="Arial, sans-serif" font-size="13">The return event is exact-context resolution.</text>
+
+  <rect x="54" y="856" width="1332" height="30" rx="10" fill="#E9DDCB"/>
+  <text x="720" y="877" fill="#52647B" font-family="Arial, sans-serif" font-size="13" text-anchor="middle">Retention hypothesis: Quiver earns the reopen by remembering and explaining the call—not by asking for another session rating.</text>
+</svg>
