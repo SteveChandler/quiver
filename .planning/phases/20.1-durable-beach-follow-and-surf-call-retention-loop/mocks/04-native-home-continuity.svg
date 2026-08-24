@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Low-fidelity native Home continuity states</title>
+  <desc id="desc">Three phone frames show a Best recommendation at night, the retained call in the morning after a small change, and a clearly explained material replacement.</desc>
+  <rect width="1440" height="900" fill="#F6EFE3"/>
+  <text x="64" y="62" fill="#0B1830" font-family="Arial, sans-serif" font-size="34" font-weight="700">Native Home continuity</text>
+  <text x="64" y="94" fill="#52647B" font-family="Arial, sans-serif" font-size="16">LOW-FIDELITY MOCK · NOW / BEST / MY SPOTS REMAIN THE PRODUCT MODEL</text>
+
+  <!-- Phone 1 -->
+  <rect x="70" y="128" width="388" height="706" rx="42" fill="#081426" stroke="#243957" stroke-width="5"/>
+  <rect x="92" y="158" width="344" height="646" rx="26" fill="#0F2038"/>
+  <text x="116" y="200" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="20" font-weight="700">8:18 PM · Home</text>
+  <rect x="116" y="226" width="84" height="38" rx="19" fill="#223B60"/>
+  <text x="158" y="251" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="14" text-anchor="middle">Now</text>
+  <rect x="208" y="226" width="118" height="38" rx="19" fill="#F28C45"/>
+  <text x="267" y="251" fill="#0B1830" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">Best next 24h</text>
+  <rect x="334" y="226" width="78" height="38" rx="19" fill="#223B60"/>
+  <text x="373" y="251" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="14" text-anchor="middle">My spots</text>
+  <rect x="116" y="292" width="296" height="358" rx="24" fill="#172A49"/>
+  <text x="142" y="334" fill="#91A5BF" font-family="Arial, sans-serif" font-size="14" font-weight="700">BEST NEXT 24H</text>
+  <text x="142" y="390" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="37" font-weight="700">Scripps</text>
+  <text x="142" y="430" fill="#F28C45" font-family="Arial, sans-serif" font-size="22" font-weight="700">6:40–8:10 AM</text>
+  <text x="142" y="470" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="17">3–4 ft · 14 s · light N</text>
+  <text x="142" y="504" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="15">Cleaner before the tide fills in.</text>
+  <text x="142" y="536" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="15">Bring the 6'8 midlength.</text>
+  <line x1="142" y1="565" x2="386" y2="565" stroke="#385171"/>
+  <text x="142" y="596" fill="#91A5BF" font-family="Arial, sans-serif" font-size="13">Accepted 8:18 PM · Medium confidence</text>
+  <rect x="142" y="612" width="220" height="48" rx="13" fill="#F6EFE3"/>
+  <text x="252" y="642" fill="#0B1830" font-family="Arial, sans-serif" font-size="16" font-weight="700" text-anchor="middle">Watch this call</text>
+  <text x="116" y="706" fill="#91A5BF" font-family="Arial, sans-serif" font-size="14">State A · night before</text>
+  <text x="116" y="734" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="15">Persist selected mode + accepted call.</text>
+
+  <!-- Phone 2 -->
+  <rect x="526" y="128" width="388" height="706" rx="42" fill="#081426" stroke="#243957" stroke-width="5"/>
+  <rect x="548" y="158" width="344" height="646" rx="26" fill="#0F2038"/>
+  <text x="572" y="200" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="20" font-weight="700">5:42 AM · Home</text>
+  <rect x="572" y="226" width="84" height="38" rx="19" fill="#223B60"/>
+  <text x="614" y="251" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="14" text-anchor="middle">Now</text>
+  <rect x="664" y="226" width="118" height="38" rx="19" fill="#F28C45"/>
+  <text x="723" y="251" fill="#0B1830" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">Best next 24h</text>
+  <rect x="790" y="226" width="78" height="38" rx="19" fill="#223B60"/>
+  <text x="829" y="251" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="14" text-anchor="middle">My spots</text>
+  <rect x="572" y="282" width="296" height="58" rx="14" fill="#DDEFEA"/>
+  <text x="720" y="307" fill="#176C62" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle">Your Scripps call still holds</text>
+  <text x="720" y="327" fill="#176C62" font-family="Arial, sans-serif" font-size="12" text-anchor="middle">Updated measurements · same accepted window</text>
+  <rect x="572" y="356" width="296" height="302" rx="24" fill="#172A49"/>
+  <text x="598" y="398" fill="#91A5BF" font-family="Arial, sans-serif" font-size="14" font-weight="700">BEST NEXT 24H</text>
+  <text x="598" y="450" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="37" font-weight="700">Scripps</text>
+  <text x="598" y="490" fill="#F28C45" font-family="Arial, sans-serif" font-size="22" font-weight="700">6:50–8:15 AM</text>
+  <text x="598" y="530" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="17">3–4 ft · 14 s · light N</text>
+  <text x="598" y="566" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="15">Window moved 10 minutes later.</text>
+  <text x="598" y="596" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="15">Del Mar gained 3 points — not enough to switch.</text>
+  <text x="572" y="706" fill="#91A5BF" font-family="Arial, sans-serif" font-size="14">State B · small revision</text>
+  <text x="572" y="734" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="15">Restore Best. Refresh facts, retain incumbent.</text>
+
+  <!-- Phone 3 -->
+  <rect x="982" y="128" width="388" height="706" rx="42" fill="#081426" stroke="#243957" stroke-width="5"/>
+  <rect x="1004" y="158" width="344" height="646" rx="26" fill="#0F2038"/>
+  <text x="1028" y="200" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="20" font-weight="700">5:42 AM · Home</text>
+  <rect x="1028" y="226" width="84" height="38" rx="19" fill="#223B60"/>
+  <text x="1070" y="251" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="14" text-anchor="middle">Now</text>
+  <rect x="1120" y="226" width="118" height="38" rx="19" fill="#F28C45"/>
+  <text x="1179" y="251" fill="#0B1830" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">Best next 24h</text>
+  <rect x="1246" y="226" width="78" height="38" rx="19" fill="#223B60"/>
+  <text x="1285" y="251" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="14" text-anchor="middle">My spots</text>
+  <rect x="1028" y="282" width="296" height="86" rx="14" fill="#F7E8E3"/>
+  <text x="1050" y="310" fill="#8A4B40" font-family="Arial, sans-serif" font-size="15" font-weight="700">CALL CHANGED</text>
+  <text x="1050" y="338" fill="#0B1830" font-family="Arial, sans-serif" font-size="15">Scripps → Del Mar</text>
+  <text x="1050" y="358" fill="#6E5B57" font-family="Arial, sans-serif" font-size="12">Wind timing changed · challenger +12</text>
+  <rect x="1028" y="384" width="296" height="274" rx="24" fill="#172A49"/>
+  <text x="1054" y="426" fill="#91A5BF" font-family="Arial, sans-serif" font-size="14" font-weight="700">BEST NEXT 24H</text>
+  <text x="1054" y="478" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="37" font-weight="700">Del Mar</text>
+  <text x="1054" y="518" fill="#F28C45" font-family="Arial, sans-serif" font-size="22" font-weight="700">6:55–8:25 AM</text>
+  <text x="1054" y="558" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="17">3–5 ft · cleaner longer</text>
+  <text x="1054" y="594" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="15">Scripps now turns onshore earlier.</text>
+  <text x="1028" y="706" fill="#91A5BF" font-family="Arial, sans-serif" font-size="14">State C · material replacement</text>
+  <text x="1028" y="734" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="15">Name old call, new call, and actual cause.</text>
+
+  <rect x="70" y="854" width="1300" height="30" rx="10" fill="#E9DDCB"/>
+  <text x="720" y="875" fill="#52647B" font-family="Arial, sans-serif" font-size="14" text-anchor="middle">A mode expiration is a fourth state: “Showing what is best now. Your last view was Best next 24h.”</text>
+</svg>

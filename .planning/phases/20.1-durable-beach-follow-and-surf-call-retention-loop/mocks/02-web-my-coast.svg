@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Low-fidelity My Coast web dashboard mock</title>
+  <desc id="desc">A broad coastal dashboard shows followed beaches and changes for water temperature, tide, water quality, and wind without assuming surf intent.</desc>
+  <rect width="1440" height="900" fill="#F6EFE3"/>
+  <rect x="0" y="0" width="1440" height="72" fill="#0B1830"/>
+  <text x="56" y="45" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="28" font-weight="700">QUIVER</text>
+  <text x="1230" y="44" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="16">My Coast</text>
+  <circle cx="1348" cy="36" r="18" fill="#F28C45"/>
+
+  <rect x="48" y="94" width="1344" height="42" rx="8" fill="#E9DDCB"/>
+  <text x="68" y="121" fill="#6A5D50" font-family="Arial, sans-serif" font-size="15">LOW-FIDELITY MOCK · UNKNOWN INTENT: NO SURF RANKING SHOWN</text>
+
+  <text x="64" y="204" fill="#0B1830" font-family="Arial, sans-serif" font-size="48" font-weight="700">My Coast</text>
+  <text x="64" y="240" fill="#52647B" font-family="Arial, sans-serif" font-size="18">What changed at the beaches you follow?</text>
+  <rect x="1120" y="184" width="272" height="52" rx="14" fill="#172A49"/>
+  <text x="1256" y="216" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="17" font-weight="700" text-anchor="middle">+ Follow another beach</text>
+
+  <rect x="64" y="286" width="412" height="472" rx="24" fill="#FFFDF8" stroke="#D7C8B4" stroke-width="2"/>
+  <rect x="64" y="286" width="412" height="96" rx="24" fill="#172A49"/>
+  <text x="94" y="330" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="26" font-weight="700">Scripps</text>
+  <text x="94" y="359" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="15">Updated 18 min ago</text>
+  <rect x="94" y="414" width="352" height="72" rx="14" fill="#EDF7F4"/>
+  <text x="116" y="444" fill="#176C62" font-family="Arial, sans-serif" font-size="15" font-weight="700">WATER</text>
+  <text x="416" y="456" fill="#0B1830" font-family="Arial, sans-serif" font-size="28" font-weight="700" text-anchor="end">69°F</text>
+  <text x="116" y="476" fill="#52647B" font-family="Arial, sans-serif" font-size="14">+1.4° since last week</text>
+  <rect x="94" y="502" width="352" height="72" rx="14" fill="#F2EEE7"/>
+  <text x="116" y="532" fill="#52647B" font-family="Arial, sans-serif" font-size="15" font-weight="700">TIDE</text>
+  <text x="416" y="544" fill="#0B1830" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="end">Rising</text>
+  <text x="116" y="564" fill="#52647B" font-family="Arial, sans-serif" font-size="14">High 10:42 AM · 4.8 ft</text>
+  <rect x="94" y="590" width="352" height="72" rx="14" fill="#F2EEE7"/>
+  <text x="116" y="620" fill="#52647B" font-family="Arial, sans-serif" font-size="15" font-weight="700">WATER QUALITY</text>
+  <text x="416" y="632" fill="#4F8A63" font-family="Arial, sans-serif" font-size="21" font-weight="700" text-anchor="end">Clear</text>
+  <text x="116" y="652" fill="#52647B" font-family="Arial, sans-serif" font-size="14">No active advisory</text>
+  <text x="94" y="710" fill="#F28C45" font-family="Arial, sans-serif" font-size="16" font-weight="700">Open Scripps →</text>
+
+  <rect x="514" y="286" width="412" height="472" rx="24" fill="#FFFDF8" stroke="#D7C8B4" stroke-width="2"/>
+  <rect x="514" y="286" width="412" height="96" rx="24" fill="#172A49"/>
+  <text x="544" y="330" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="26" font-weight="700">La Jolla Shores</text>
+  <text x="544" y="359" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="15">Updated 24 min ago</text>
+  <rect x="544" y="414" width="352" height="72" rx="14" fill="#EDF7F4"/>
+  <text x="566" y="444" fill="#176C62" font-family="Arial, sans-serif" font-size="15" font-weight="700">WATER</text>
+  <text x="866" y="456" fill="#0B1830" font-family="Arial, sans-serif" font-size="28" font-weight="700" text-anchor="end">70°F</text>
+  <text x="566" y="476" fill="#52647B" font-family="Arial, sans-serif" font-size="14">No material change</text>
+  <rect x="544" y="502" width="352" height="72" rx="14" fill="#F2EEE7"/>
+  <text x="566" y="532" fill="#52647B" font-family="Arial, sans-serif" font-size="15" font-weight="700">WIND</text>
+  <text x="866" y="544" fill="#0B1830" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="end">4 mph</text>
+  <text x="566" y="564" fill="#52647B" font-family="Arial, sans-serif" font-size="14">Calmer before noon</text>
+  <rect x="544" y="590" width="352" height="72" rx="14" fill="#F2EEE7"/>
+  <text x="566" y="620" fill="#52647B" font-family="Arial, sans-serif" font-size="15" font-weight="700">WATER QUALITY</text>
+  <text x="866" y="632" fill="#4F8A63" font-family="Arial, sans-serif" font-size="21" font-weight="700" text-anchor="end">Clear</text>
+  <text x="566" y="652" fill="#52647B" font-family="Arial, sans-serif" font-size="14">No active advisory</text>
+  <text x="544" y="710" fill="#F28C45" font-family="Arial, sans-serif" font-size="16" font-weight="700">Open La Jolla Shores →</text>
+
+  <rect x="964" y="286" width="412" height="472" rx="24" fill="#FFFDF8" stroke="#D7C8B4" stroke-width="2"/>
+  <rect x="964" y="286" width="412" height="96" rx="24" fill="#172A49"/>
+  <text x="994" y="330" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="26" font-weight="700">Coronado</text>
+  <text x="994" y="359" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="15">One source unavailable</text>
+  <rect x="994" y="414" width="352" height="72" rx="14" fill="#EDF7F4"/>
+  <text x="1016" y="444" fill="#176C62" font-family="Arial, sans-serif" font-size="15" font-weight="700">WATER</text>
+  <text x="1316" y="456" fill="#0B1830" font-family="Arial, sans-serif" font-size="28" font-weight="700" text-anchor="end">68°F</text>
+  <text x="1016" y="476" fill="#52647B" font-family="Arial, sans-serif" font-size="14">-0.8° since yesterday</text>
+  <rect x="994" y="502" width="352" height="72" rx="14" fill="#F2EEE7"/>
+  <text x="1016" y="532" fill="#52647B" font-family="Arial, sans-serif" font-size="15" font-weight="700">TIDE</text>
+  <text x="1316" y="544" fill="#0B1830" font-family="Arial, sans-serif" font-size="24" font-weight="700" text-anchor="end">Falling</text>
+  <text x="1016" y="564" fill="#52647B" font-family="Arial, sans-serif" font-size="14">Low 1:14 PM · 0.7 ft</text>
+  <rect x="994" y="590" width="352" height="72" rx="14" fill="#F7E8E3"/>
+  <text x="1016" y="620" fill="#8A4B40" font-family="Arial, sans-serif" font-size="15" font-weight="700">WATER QUALITY</text>
+  <text x="1316" y="632" fill="#8A4B40" font-family="Arial, sans-serif" font-size="18" font-weight="700" text-anchor="end">Unavailable</text>
+  <text x="1016" y="652" fill="#6E5B57" font-family="Arial, sans-serif" font-size="14">Last checked 6:10 AM</text>
+  <text x="994" y="710" fill="#F28C45" font-family="Arial, sans-serif" font-size="16" font-weight="700">Open Coronado →</text>
+
+  <rect x="64" y="792" width="1312" height="66" rx="14" fill="#E9DDCB"/>
+  <text x="92" y="820" fill="#0B1830" font-family="Arial, sans-serif" font-size="17" font-weight="700">No surf assumptions</text>
+  <text x="92" y="845" fill="#52647B" font-family="Arial, sans-serif" font-size="15">If the visitor explicitly selects Surf, these same followed beaches gain a separate surf comparison module.</text>
+</svg>
