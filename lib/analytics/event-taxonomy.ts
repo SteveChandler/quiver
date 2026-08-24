@@ -1,6 +1,69 @@
+import { FollowTopic } from '@/types/beach-follow';
+
 // =============================================================================
 // Event Configuration
 // =============================================================================
+
+export const BFR_WEB_EVENT_TYPES = [
+  'beach_follow_started',
+  'beach_follow_saved_local',
+  'beach_follow_sync_started',
+  'beach_follow_sync_completed',
+  'follow_topic_changed',
+  'visitor_intent_selected',
+  'surf_intent_qualified',
+  'my_coast_viewed',
+  'my_coast_beach_opened',
+] as const;
+
+export const BFR_ANONYMOUS_EVENT_TYPES = [
+  'beach_follow_started',
+  'beach_follow_saved_local',
+  'follow_topic_changed',
+  'visitor_intent_selected',
+  'surf_intent_qualified',
+  'my_coast_viewed',
+  'my_coast_beach_opened',
+] as const;
+
+export const BFR_INTENT_STATES = ['explicit', 'inferred', 'unknown'] as const;
+export const BFR_INTENT_REASONS = [
+  'explicit_surfing',
+  'explicit_non_surf',
+  'high_intent_action',
+  'multiple_surf_signals',
+  'insufficient_surf_signals',
+  'utility_only',
+  'no_evidence',
+] as const;
+export const BFR_TOPICS: readonly FollowTopic[] = Object.values(FollowTopic);
+export const BFR_PAGE_TYPES = [
+  'beach_detail',
+  'beach_water_temp',
+  'city_water_temp',
+  'my_coast',
+  'other',
+] as const;
+export const BFR_FALLBACK_CLASSIFICATIONS = [
+  'exact',
+  'expired',
+  'invalid',
+  'removed_window',
+  'beach_only',
+] as const;
+export const BFR_HANDOFF_CONTEXTS = ['exact_call'] as const;
+export const BFR_EXACT_CALL_HANDOFF_EVENTS = {
+  started: 'app_handoff_link_opened',
+  resolved: 'app_handoff_native_open',
+} as const;
+
+export type BfrIntentState = (typeof BFR_INTENT_STATES)[number];
+export type BfrIntentReason = (typeof BFR_INTENT_REASONS)[number];
+export type BfrTopic = (typeof BFR_TOPICS)[number];
+export type BfrPageType = (typeof BFR_PAGE_TYPES)[number];
+export type BfrFallbackClassification =
+  (typeof BFR_FALLBACK_CLASSIFICATIONS)[number];
+export type BfrHandoffContext = (typeof BFR_HANDOFF_CONTEXTS)[number];
 
 export const VALID_EVENTS = [
   // Implicit preference learning events
@@ -281,6 +344,9 @@ export const VALID_EVENTS = [
   'app_handoff_native_open',
   // Android beta lead capture (public waitlist form with anonymous session id)
   'android_lead_captured',
+  // Durable beach-follow and return-loop measurement. Exact-call handoff
+  // reuses app_handoff_link_opened/app_handoff_native_open with bounded context.
+  ...BFR_WEB_EVENT_TYPES,
 ] as const;
 
 export type EventType = (typeof VALID_EVENTS)[number];
@@ -346,6 +412,17 @@ export const NATIVE_DIRECT_INSERT_EVENTS = [
   'siri_shortcut_opened',
   'garmin_connect_viewed',
   'garmin_designated_activity_set',
+  'watched_call_created',
+  'watched_call_already_exists',
+  'watched_call_update_eligible',
+  'watched_call_update_suppressed',
+  'watched_call_update_delivered',
+  'watched_call_update_opened',
+  'watched_call_manual_reopened',
+  'watched_call_context_resolved',
+  'home_mode_restored',
+  'home_mode_expired',
+  'home_recommendation_changed',
 ] as const;
 
 export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
@@ -407,6 +484,7 @@ export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   'app_handoff_native_open',
   // Android beta lead capture can be submitted before authentication.
   'android_lead_captured',
+  ...BFR_ANONYMOUS_EVENT_TYPES,
 ] as const;
 
 /**

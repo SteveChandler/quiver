@@ -1,10 +1,18 @@
 import {
   ANONYMOUS_ALLOWED_EVENTS,
+  BFR_FALLBACK_CLASSIFICATIONS,
+  BFR_EXACT_CALL_HANDOFF_EVENTS,
+  BFR_HANDOFF_CONTEXTS,
+  BFR_INTENT_REASONS,
+  BFR_INTENT_STATES,
+  BFR_PAGE_TYPES,
+  BFR_TOPICS,
   EXTERNAL_ANALYTICS_ONLY_EVENTS,
   PRE_AUTH_ONLY_EVENTS,
   VALID_EVENTS,
   type EventType,
 } from "@/lib/analytics/event-taxonomy";
+import { FollowTopic } from "@/types/beach-follow";
 import { EVENT_WEIGHTS } from "@/types/implicit-preferences";
 
 const appHandoffEvents = [
@@ -27,6 +35,56 @@ const appleOrphanRecoveryFlaggedEvent =
   "apple_orphan_recovery_flagged" as const satisfies EventType;
 
 describe("event taxonomy", () => {
+  it("exposes only bounded BFR property vocabularies", () => {
+    expect(BFR_INTENT_STATES).toEqual(["explicit", "inferred", "unknown"]);
+    expect(BFR_INTENT_REASONS).toEqual([
+      "explicit_surfing",
+      "explicit_non_surf",
+      "high_intent_action",
+      "multiple_surf_signals",
+      "insufficient_surf_signals",
+      "utility_only",
+      "no_evidence",
+    ]);
+    expect(BFR_TOPICS).toEqual(Object.values(FollowTopic));
+    expect(BFR_TOPICS).toEqual([
+      "surf",
+      "water_temp",
+      "tide",
+      "water_quality",
+      "wind",
+      "general",
+    ]);
+    expect(BFR_PAGE_TYPES).toEqual([
+      "beach_detail",
+      "beach_water_temp",
+      "city_water_temp",
+      "my_coast",
+      "other",
+    ]);
+    expect(BFR_FALLBACK_CLASSIFICATIONS).toEqual([
+      "exact",
+      "expired",
+      "invalid",
+      "removed_window",
+      "beach_only",
+    ]);
+    expect(BFR_HANDOFF_CONTEXTS).toEqual(["exact_call"]);
+    expect(BFR_EXACT_CALL_HANDOFF_EVENTS).toEqual({
+      started: "app_handoff_link_opened",
+      resolved: "app_handoff_native_open",
+    });
+    expect(JSON.stringify({
+      BFR_INTENT_STATES,
+      BFR_INTENT_REASONS,
+      BFR_TOPICS,
+      BFR_PAGE_TYPES,
+      BFR_FALLBACK_CLASSIFICATIONS,
+      BFR_HANDOFF_CONTEXTS,
+      BFR_EXACT_CALL_HANDOFF_EVENTS,
+    })).not.toMatch(/email|search|query|lat|lon|coordinate|notes|token/i);
+  });
+
   it("allows app handoff funnel events for anonymous and signed-in users", () => {
     for (const event of appHandoffEvents) {
       expect(VALID_EVENTS).toContain(event);

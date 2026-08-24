@@ -13,6 +13,13 @@ export const EXPERIMENT_KEYS: readonly ExperimentKey[] = [
 
 export type ExperimentArm = 0 | 1;
 
+export const BFR_HOLDOUT_EXPERIMENT_KEY = 'bfr-follow-holdout-v1' as const;
+export type BfrHoldoutArm = 'holdout' | 'treatment';
+export interface BfrHoldoutAssignment {
+  experimentKey: typeof BFR_HOLDOUT_EXPERIMENT_KEY;
+  arm: BfrHoldoutArm;
+}
+
 /**
  * arm = first byte (big-endian, index 0) of SHA-256(UTF-8(userId ':' key)) mod 2.
  * userId is normalized to canonical lowercase UUID to match Postgres uuid::text.
@@ -25,4 +32,13 @@ export function experimentArm(userId: string, experimentKey: string): Experiment
     .digest();
 
   return (digest[0] % 2) as ExperimentArm;
+}
+
+/** Stable for signed-in UUIDs and anonymous visitor identifiers alike. */
+export function bfrHoldoutAssignment(subjectId: string): BfrHoldoutAssignment {
+  const arm = experimentArm(subjectId, BFR_HOLDOUT_EXPERIMENT_KEY);
+  return {
+    experimentKey: BFR_HOLDOUT_EXPERIMENT_KEY,
+    arm: arm === 0 ? 'holdout' : 'treatment',
+  };
 }

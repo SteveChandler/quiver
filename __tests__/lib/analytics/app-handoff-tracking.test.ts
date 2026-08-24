@@ -60,4 +60,21 @@ describe("app-handoff-tracking", () => {
     expect(JSON.stringify(body)).not.toContain("@");
     expect(body.metadata.email_domain).toBe("gmail.com");
   });
+
+  it("cannot throw into exact-link actions when either analytics sink fails", () => {
+    (track as jest.Mock).mockImplementationOnce(() => {
+      throw new Error("PostHog unavailable");
+    });
+    fetchMock.mockImplementationOnce(() => {
+      throw new Error("events API unavailable");
+    });
+
+    expect(() =>
+      trackAppHandoffView({
+        source: "exact_call",
+        handoff_context: "exact_call",
+        fallback_classification: "exact",
+      })
+    ).not.toThrow();
+  });
 });

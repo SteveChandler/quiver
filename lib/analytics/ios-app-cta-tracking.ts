@@ -67,13 +67,31 @@ function fireToUserEvents(
 }
 
 export function trackIosAppCtaView(metadata: IosAppCtaMetadata): void {
-  const enriched = buildIosAppCtaMetadata(metadata);
-  track(IOS_APP_CTA_VIEW_EVENT, enriched);
+  let enriched: IosAppCtaMetadata;
+  try {
+    enriched = buildIosAppCtaMetadata(metadata);
+  } catch {
+    return;
+  }
+  try {
+    track(IOS_APP_CTA_VIEW_EVENT, enriched);
+  } catch {
+    // Product analytics is best effort and must not block the CTA.
+  }
   fireToUserEvents("cta_impression", enriched);
 }
 
 export function trackIosAppCtaClick(metadata: IosAppCtaMetadata): void {
-  const enriched = buildIosAppCtaMetadata(metadata);
-  track(IOS_APP_CTA_CLICK_EVENT, enriched);
+  let enriched: IosAppCtaMetadata;
+  try {
+    enriched = buildIosAppCtaMetadata(metadata);
+  } catch {
+    return;
+  }
+  try {
+    track(IOS_APP_CTA_CLICK_EVENT, enriched);
+  } catch {
+    // Product analytics is best effort and must not block the CTA.
+  }
   fireToUserEvents("cta_click", enriched);
 }

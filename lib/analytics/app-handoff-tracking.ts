@@ -1,6 +1,10 @@
 import { track } from "@/lib/analytics";
 import { deriveSeoPageContextFromPath } from "@/lib/analytics/web-context";
 import { getVisitorId } from "@/lib/utils/visitor-id";
+import type {
+  BfrFallbackClassification,
+  BfrHandoffContext,
+} from "@/lib/analytics/event-taxonomy";
 
 export const APP_HANDOFF_VIEW_EVENT = "app_handoff_view";
 export const APP_HANDOFF_QR_RENDERED_EVENT = "app_handoff_qr_rendered";
@@ -29,7 +33,18 @@ export interface AppHandoffMetadata {
   /** Domain only - NEVER the full email address. */
   email_domain?: string;
   viewport_width?: number;
+  handoff_context?: BfrHandoffContext;
+  fallback_classification?: BfrFallbackClassification;
   [key: string]: unknown;
+}
+
+export interface ExactCallHandoffMetadata {
+  source: string;
+  handoff_context: BfrHandoffContext;
+  fallback_classification: BfrFallbackClassification;
+  surface?: string;
+  placement?: string;
+  platform?: "ios" | "android" | "desktop";
 }
 
 function enrich(metadata: AppHandoffMetadata): AppHandoffMetadata {
@@ -64,12 +79,21 @@ function fireToUserEvents(
 }
 
 function emit(eventType: AppHandoffEvent, metadata: AppHandoffMetadata): void {
-  const enriched = enrich({
-    viewport_width:
-      typeof window !== "undefined" ? window.innerWidth : undefined,
-    ...metadata,
-  });
-  track(eventType, enriched);
+  let enriched: AppHandoffMetadata;
+  try {
+    enriched = enrich({
+      viewport_width:
+        typeof window !== "undefined" ? window.innerWidth : undefined,
+      ...metadata,
+    });
+  } catch {
+    return;
+  }
+  try {
+    track(eventType, enriched);
+  } catch {
+    // Product analytics is best effort and must not block the handoff.
+  }
   fireToUserEvents(eventType, enriched);
 }
 

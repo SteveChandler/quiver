@@ -1,4 +1,8 @@
-import { experimentArm } from "@/lib/experiments/assignment-hash";
+import {
+  BFR_HOLDOUT_EXPERIMENT_KEY,
+  bfrHoldoutAssignment,
+  experimentArm,
+} from "@/lib/experiments/assignment-hash";
 
 describe("experimentArm", () => {
   it.each([
@@ -24,4 +28,18 @@ describe("experimentArm", () => {
     );
     expect(new Set(values)).toEqual(new Set([1]));
   });
+
+  it.each(["user-123", "anon-visitor-456"])(
+    "assigns a stable BFR holdout arm for %s",
+    (subjectId) => {
+      const assignments = Array.from({ length: 10 }, () =>
+        bfrHoldoutAssignment(subjectId)
+      );
+      expect(new Set(assignments.map((assignment) => assignment.arm)).size).toBe(1);
+      expect(assignments[0]).toEqual({
+        experimentKey: BFR_HOLDOUT_EXPERIMENT_KEY,
+        arm: expect.stringMatching(/^(holdout|treatment)$/),
+      });
+    }
+  );
 });
