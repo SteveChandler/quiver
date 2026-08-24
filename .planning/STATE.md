@@ -18,23 +18,26 @@ progress:
 
 Turn broad web beach utility and native surf calls into a measurable repeat-use loop without assuming every web visitor is a surfer or introducing duplicate ownership, alert, routing, session, analytics, or release systems.
 
-The native retention hypothesis is now explicit: Quiver earns a return by remembering and explaining a watched call—not by reducing session-log friction again.
+The native retention hypothesis is explicit: Quiver earns a return by remembering and explaining a watched call—not by reducing session-log friction again.
 
 ## Current Status
 
 Phase: 20.1
 Plan: 20.1-01
-Status: Planned — inflight/release audit and mock review required before implementation
+Status: Planned — inflight/release audit, local tech-debt branch reconciliation, and mock review required before implementation
 Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/STATE-full-history.md](archive/2026-05-31-doc-cleanup/STATE-full-history.md)
 
 Progress: 20 of 22 roadmap phases complete. Phase 20.1 execution progress: 0 of 6 planned plans complete, 0%.
 
 Phase 21 remains sequenced after Phase 20.1 for roadmap execution, but it is not a clean untouched future phase: current summaries describe uncommitted implementation in worktrees for Plans 21-03 and 21-04, plus completed read-only verification in 21-05 with rollout blocked. Plan 20.1-01 must preserve and reconcile that work before adjacent files are edited.
 
+The local branch `claude/tech-debt-audit-codex-973g1t` is now a mandatory Phase 20.1 workflow input. It was not visible as a pushed ref in the connected Quiver repositories when added, so its repository, worktree, head SHA, committed/uncommitted changes, issue output, and file ownership must be captured locally before affected native plans proceed.
+
 ## Active Requirements
 
 - Execute BFR-01 through BFR-12 from `.planning/REQUIREMENTS.md`.
-- Treat `20.1-INFLIGHT-AUDIT.md` and `20.1-MOCKS.md` as mandatory Phase 20.1 execution inputs.
+- Treat `20.1-INFLIGHT-AUDIT.md`, `20.1-TECH-DEBT-BRANCH.md`, and `20.1-MOCKS.md` as mandatory Phase 20.1 execution inputs.
+- Locate and reconcile `claude/tech-debt-audit-codex-973g1t` before finalizing native ownership, deep-link, analytics, Home, Week Scout, favorites, refresh, or watched-call contracts.
 - Treat native Home quick log, one-tap rating, session prefill, reminders, and full SessionForm as existing baseline/non-regression behavior, not a new Phase 20.1 product surface or primary metric.
 - Preserve Phase 13 controlled refactor evidence in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Preserve Phase 20 app-link, attribution, baseline, and QA foundations rather than creating a second handoff system.
@@ -52,10 +55,11 @@ Phase 21 remains sequenced after Phase 20.1 for roadmap execution, but it is not
 - Native Home can silently reset or rerank context, and the all-user Week Scout stability rollout requires current build/configuration and physical telemetry proof.
 - Watch and alert adoption is too low to establish that either currently drives retention.
 - Native one-tap sessions already exist and did not materially move retention or sales. Another outcome prompt, receipt, reminder, or friction pass is not an open Phase 20.1 hypothesis.
-- Phase 20.1 has context, research, validation, an inflight audit, six corrected low-fidelity mocks, and six executable plans, but no application implementation or production/device evidence yet.
+- Phase 20.1 has context, research, validation, an inflight audit, a dedicated tech-debt branch integration contract, six corrected low-fidelity mocks, and six executable plans, but no application implementation or production/device evidence yet.
 
 ### Inflight and release-truth gaps
 
+- `claude/tech-debt-audit-codex-973g1t` is not currently visible as a remote ref in the connected Quiver repositories. Its expected native worktree and durable findings must be located and exported/pushed before removal or cross-machine reliance.
 - `quiver#605` is an open `main -> prod` promotion. Phase 20.1 web release work must be rebased/rechecked after it resolves.
 - `feat/redeem-success-page` contains unique old work that overlaps water-temperature/app-CTA surfaces and needs an explicit retire/rebuild/cherry-pick decision.
 - Native `main` and `release/ota-build16-main-parity-20260822` are diverged. The exact production/TestFlight binary, runtime, channel, update ID, and source commit have not been established in this planning branch.
@@ -82,6 +86,9 @@ Phase 21 remains sequenced after Phase 20.1 for roadmap execution, but it is not
 - Web utility retention and surf-qualified web-to-native activation are measured separately from native product retention.
 - Native keeps `Now`, `Best`, and `My spots`; Phase 20.1 does not add Planning, Decision, or Execution stages.
 - The six Phase 20.1 mocks lock hierarchy, state, copy semantics, and continuity—not final pixels, production art, or App Store creative. Mock 06 is useful watched-call return, not a session/outcome flow.
+- `claude/tech-debt-audit-codex-973g1t` is an audit/dependency input, not the automatic implementation base. Each logical slice must be classified as reference-only, land audit artifacts, bounded cherry-pick, separate rebased PR, superseded, or retire.
+- No tech-debt branch or worktree is deleted before committed/uncommitted work and durable findings are captured.
+- Broad technical-debt remediation remains independent unless a specific change is required to satisfy a BFR acceptance criterion.
 - Week Scout stability must be enabled for all production users after approved release, with rollback, device, and PostHog evidence.
 - Home changes must identify their real cause: mode, location, candidate set, filter, startup refinement, or forecast shift.
 - Fast initial data acquisition may remain, but a provisional result cannot masquerade as a settled recommendation that silently swaps after delayed context arrives.
@@ -102,17 +109,18 @@ Phase 21 remains sequenced after Phase 20.1 for roadmap execution, but it is not
 
 ## Next Actions
 
-1. Execute Task 0 in Phase 20.1 Plan 20.1-01:
+1. Locate `claude/tech-debt-audit-codex-973g1t` in the expected `quiver-native` repository or another Quiver worktree; capture its head, merge base, ahead/behind, committed/uncommitted changes, issues, and release/config impact.
+2. Execute Task 0 in Phase 20.1 Plan 20.1-01:
    - refresh PRs, unique branches, worktrees, releases, migrations, OTA/binary truth, and direct issue collisions;
-   - fill W/N/X disposition gates;
-   - preserve/reconcile Phase 21 worktrees;
+   - fill W/N/X disposition gates plus the tech-debt branch disposition;
+   - preserve/reconcile the tech-debt branch and Phase 21 worktrees;
    - freeze implementation file ownership.
-2. Complete the cross-repository reuse audit, including the existing quick-log baseline and non-impact, and map all six corrected mocks to current components and the actual distributed release artifact.
-3. Execute Plan 20.1-02 only after audit/pattern outputs name one ownership, handoff, watch, meaningful-update, exact-reopen, analytics, and experiment contract—with no new outcome/session contract.
-4. Execute Plans 20.1-03, 20.1-04, and 20.1-05 in parallel only when file ownership is disjoint and their branch/release blockers are resolved.
-5. Complete Plan 20.1-06 as a watched-call return and notification-quality evidence gate with mature before/after/holdout analysis.
-6. Resume Phase 21 roadmap execution only after its existing worktrees are reconciled and Phase 20.1 has an evidence-backed rollout disposition.
-7. Preserve approval gates for deployment, schema mutation, production flags, outbound sends, native publication, App Store actions, payment, and entitlement changes.
+3. Complete the cross-repository reuse audit, including tech-debt findings, the existing quick-log baseline and non-impact, and all six corrected mock mappings against current components and the distributed release artifact.
+4. Execute Plan 20.1-02 only after audit/pattern outputs name one ownership, handoff, watch, meaningful-update, exact-reopen, analytics, and experiment contract—with no new outcome/session contract.
+5. Execute Plans 20.1-03, 20.1-04, and 20.1-05 in parallel only when file ownership is disjoint and their branch/release blockers are resolved.
+6. Complete Plan 20.1-06 as a watched-call return and notification-quality evidence gate with mature before/after/holdout analysis, separating retention work from independent tech-debt remediation.
+7. Resume Phase 21 roadmap execution only after its existing worktrees are reconciled and Phase 20.1 has an evidence-backed rollout disposition.
+8. Preserve approval gates for deployment, schema mutation, production flags, outbound sends, native publication, App Store actions, payment, and entitlement changes.
 
 ## Accumulated Context
 
@@ -121,9 +129,10 @@ Phase 21 remains sequenced after Phase 20.1 for roadmap execution, but it is not
 - Phase 20.1 was added on 2026-08-24 for anonymous beach follow, My Coast, conservative intent qualification, exact surf handoff, Home continuity, all-user Week Scout stability, one-tap watched calls, bounded updates, and causal/guardrail evidence.
 - The phase was revised the same day to include six web/native behavioral mocks and an explicit audit of PRs, branches, release divergence, uncommitted worktrees, merged-but-unreleased work, and issue collisions.
 - The phase was corrected again after confirming one-tap native sessions were already shipped and did not move the needle. Outcome/session implementation was removed; watched-call return became the explicit retention hypothesis.
+- `claude/tech-debt-audit-codex-973g1t` was then added as a mandatory local/worktree audit lane so its technical-debt findings and overlapping changes are reconciled before native Phase 20.1 implementation.
 - Phase 21 adds Multi-Forecaster Forecast Adjustment and Production Ingestion and follows Phase 20.1 in roadmap sequencing while existing uncommitted work is preserved and audited.
 - Phases 14-20 established Session Intelligence, utility-safe SEO surfaces, exact app links, attribution, baseline measurement, and release verification.
 
 ## Historical Notes
 
-The previous state file held detailed accumulated decisions from Phases 1-12. That history is archived because it is useful for audit but too large for future Codex sessions to load by default. Current sessions should read this file, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`, the complete Phase 20.1 folder including corrected mocks/inflight audit, `.planning/PROJECT.md`, and [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) first.
+The previous state file held detailed accumulated decisions from Phases 1-12. That history is archived because it is useful for audit but too large for future Codex sessions to load by default. Current sessions should read this file, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`, the complete Phase 20.1 folder including `20.1-TECH-DEBT-BRANCH.md`, corrected mocks, and inflight audit, `.planning/PROJECT.md`, and [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) first.
