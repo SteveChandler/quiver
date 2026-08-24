@@ -75,4 +75,23 @@ describe("createConditionsCalloutElement", () => {
     const { element } = createConditionsCalloutElement({ beachName: "Del Mar", tempLabel: "68°", components: [] });
     expect(element.querySelector("[data-callout-pulse]")).not.toBeNull();
   });
+
+  it.each([
+    ["closure", "Closed — county water-quality data"],
+    ["advisory", "Advisory — county water-quality data"],
+  ] as const)(
+    "renders unmistakable county wording for a %s",
+    (waterQualityStatus, expectedCopy) => {
+      const { element } = createConditionsCalloutElement({
+        beachName: "Del Mar",
+        tempLabel: "68°",
+        components: [S1],
+        waterQualityStatus,
+      });
+      const badge = element.querySelector("[data-callout-water-quality]");
+
+      expect(badge).toHaveTextContent(expectedCopy);
+      expect(badge).toHaveAttribute("aria-label", expectedCopy);
+    },
+  );
 });

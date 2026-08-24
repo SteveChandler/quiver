@@ -312,6 +312,16 @@ function hasWaterQualityHold(beach: Beach | undefined): boolean {
   );
 }
 
+function getWaterQualityStatus(
+  beach: Beach | undefined,
+): "advisory" | "closure" | null {
+  if (beach === undefined || !("waterQualityStatus" in beach)) return null;
+  return beach.waterQualityStatus === "advisory" ||
+    beach.waterQualityStatus === "closure"
+    ? beach.waterQualityStatus
+    : null;
+}
+
 function mapSpotConditions(
   beachId: string,
   context: MapSpotConditionsContext,
@@ -1104,6 +1114,7 @@ export function InteractiveMap({
     const components = partition ? resolveCalloutComponents(partition) : [];
     const tempLabel = formatTempLabel(ctx.waterTempMap.get(beach.id));
     const beachHref = getBeachHrefSafe(beach) ?? undefined;
+    const waterQualityStatus = getWaterQualityStatus(beach);
     // Shrink the callout to fit narrow viewports: at full size the arrows run off a
     // phone screen and the ring looks oversized. Sized so the arrow span stays within
     // ~78% of the viewport, capped at 1 for desktop.
@@ -1118,6 +1129,7 @@ export function InteractiveMap({
       tempLabel,
       components,
       beachHref,
+      waterQualityStatus,
       scale: calloutScale,
     });
     // An active callout is the immediate interaction target. Keep it above the
@@ -1137,7 +1149,15 @@ export function InteractiveMap({
       components.map((c) => `${c.name} ${c.label}`).join("; ") || "no current reading";
     element.setAttribute(
       "aria-label",
-      `${beach.name}${tempLabel ? `, ${tempLabel}` : ""} surf conditions: ${conditionsRead}`
+      `${beach.name}${tempLabel ? `, ${tempLabel}` : ""}${
+        waterQualityStatus
+          ? `, ${
+              waterQualityStatus === "closure"
+                ? "closed"
+                : "under advisory"
+            } according to county water-quality data`
+          : ""
+      } surf conditions: ${conditionsRead}`
     );
     activeCalloutRef.current = { marker, beachId: beach.id };
     // Record what this build rendered so playback ticks that land on the same

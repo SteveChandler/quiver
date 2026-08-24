@@ -33,6 +33,10 @@ export const WATER_QUALITY_STATUSES = [
   "unknown",
 ] as const;
 export type WaterQualityStatus = (typeof WATER_QUALITY_STATUSES)[number];
+export type WaterQualityHoldStatus = Extract<
+  WaterQualityStatus,
+  "advisory" | "closure"
+>;
 
 const WATER_QUALITY_SELECT = [
   "beach_id",
@@ -119,6 +123,7 @@ export interface WaterQualityHoldClient {
 export interface WaterQualityHoldResolution {
   state: "resolved" | "unresolved";
   heldBeachIds: string[];
+  waterQualityStatusByBeachId: Record<string, WaterQualityHoldStatus>;
   epoch: string;
 }
 
@@ -134,10 +139,14 @@ function hashSnapshot(snapshot: string): string {
 function unresolvedResolution(
   heldBeachIds: readonly string[] = [],
   snapshot: readonly string[] = [],
+  waterQualityStatusByBeachId: Readonly<
+    Record<string, WaterQualityHoldStatus>
+  > = {},
 ): WaterQualityHoldResolution {
   return {
     state: "unresolved",
     heldBeachIds: [...new Set(heldBeachIds)].sort(),
+    waterQualityStatusByBeachId: { ...waterQualityStatusByBeachId },
     epoch: hashSnapshot(
       `water-quality:v2|unresolved|${[...snapshot].sort().join("|")}`,
     ),
@@ -147,10 +156,14 @@ function unresolvedResolution(
 function resolvedResolution(
   heldBeachIds: readonly string[],
   snapshot: readonly string[],
+  waterQualityStatusByBeachId: Readonly<
+    Record<string, WaterQualityHoldStatus>
+  > = {},
 ): WaterQualityHoldResolution {
   return {
     state: "resolved",
-    heldBeachIds: [...heldBeachIds].sort(),
+    heldBeachIds: [...new Set(heldBeachIds)].sort(),
+    waterQualityStatusByBeachId: { ...waterQualityStatusByBeachId },
     epoch: hashSnapshot(`water-quality:v2|${[...snapshot].sort().join("|")}`),
   };
 }
@@ -158,7 +171,24 @@ function resolvedResolution(
 interface CountyLiveHoldResolution {
   state: "resolved" | "unresolved";
   heldBeachIds: string[];
+  waterQualityStatusByBeachId: Record<string, WaterQualityHoldStatus>;
   snapshot: string[];
+}
+
+function moreSevereWaterQualityStatus(
+  left: WaterQualityHoldStatus | undefined,
+  right: WaterQualityHoldStatus,
+): WaterQualityHoldStatus {
+  // Sources can lag or update independently; use the more severe state so a
+  // County closure can never be softened to an advisory by another source.
+  if (left === "closure" || right === "closure") return "closure";
+  return "advisory";
+}
+
+function countyAdvisoryToHoldStatus(
+  advisoryType: string,
+): WaterQualityHoldStatus {
+  return advisoryType === "closure" ? "closure" : "advisory";
 }
 
 async function resolveCountyLiveHolds(
@@ -173,6 +203,7 @@ async function resolveCountyLiveHolds(
     return {
       state: "resolved",
       heldBeachIds: [],
+      waterQualityStatusByBeachId: {},
       snapshot: ["county-live:client-unavailable"],
     };
   }
@@ -185,6 +216,7 @@ async function resolveCountyLiveHolds(
     return {
       state: "unresolved",
       heldBeachIds: [],
+      waterQualityStatusByBeachId: {},
       snapshot: ["county-live:run-query-error"],
     };
   }
@@ -192,6 +224,7 @@ async function resolveCountyLiveHolds(
     return {
       state: "unresolved",
       heldBeachIds: [],
+      waterQualityStatusByBeachId: {},
       snapshot: ["county-live:no-completed-run"],
     };
   }
@@ -206,6 +239,7 @@ async function resolveCountyLiveHolds(
     return {
       state: "unresolved",
       heldBeachIds: [],
+      waterQualityStatusByBeachId: {},
       snapshot: ["county-live:invalid-run"],
     };
   }
@@ -218,6 +252,7 @@ async function resolveCountyLiveHolds(
     return {
       state: "unresolved",
       heldBeachIds: [],
+      waterQualityStatusByBeachId: {},
       snapshot: ["county-live:stale"],
     };
   }
@@ -229,6 +264,7 @@ async function resolveCountyLiveHolds(
     return {
       state: "resolved",
       heldBeachIds: [],
+      waterQualityStatusByBeachId: {},
       snapshot: ["county-live:client-unavailable"],
     };
   }
@@ -240,6 +276,7 @@ async function resolveCountyLiveHolds(
     return {
       state: "unresolved",
       heldBeachIds: [],
+      waterQualityStatusByBeachId: {},
       snapshot: ["county-live:advisory-query-error"],
     };
   }
@@ -247,17 +284,23 @@ async function resolveCountyLiveHolds(
     return {
       state: "unresolved",
       heldBeachIds: [],
+      waterQualityStatusByBeachId: {},
       snapshot: ["county-live:invalid-advisory-list"],
     };
   }
 
   const requested = new Set(requestedBeachIds);
   const heldBeachIds: string[] = [];
+  const waterQualityStatusByBeachId: Record<
+    string,
+    WaterQualityHoldStatus
+  > = {};
   for (const row of advisoryData) {
     if (typeof row !== "object" || row === null) {
       return {
         state: "unresolved",
         heldBeachIds: [],
+        waterQualityStatusByBeachId: {},
         snapshot: ["county-live:invalid-advisory-row"],
       };
     }
@@ -275,18 +318,27 @@ async function resolveCountyLiveHolds(
       return {
         state: "unresolved",
         heldBeachIds: [],
+        waterQualityStatusByBeachId: {},
         snapshot: ["county-live:invalid-advisory-row"],
       };
     }
     if (typeof value.beach_id === "string") {
       const normalizedBeachId = value.beach_id.toLowerCase();
-      if (requested.has(normalizedBeachId)) heldBeachIds.push(normalizedBeachId);
+      if (requested.has(normalizedBeachId)) {
+        heldBeachIds.push(normalizedBeachId);
+        waterQualityStatusByBeachId[normalizedBeachId] =
+          moreSevereWaterQualityStatus(
+            waterQualityStatusByBeachId[normalizedBeachId],
+            countyAdvisoryToHoldStatus(value.advisory_type),
+          );
+      }
     }
   }
 
   return {
     state: "resolved",
     heldBeachIds: [...new Set(heldBeachIds)],
+    waterQualityStatusByBeachId,
     snapshot: [
       `county-live:fresh:${(run as { fetched_at: string }).fetched_at}`,
       `county-live:held:${[...new Set(heldBeachIds)].sort().join(",")}`,
@@ -425,11 +477,18 @@ export async function resolveWaterQualityHolds(
     }
 
     const heldBeachIds: string[] = [];
+    const waterQualityStatusByBeachId: Record<
+      string,
+      WaterQualityHoldStatus
+    > = {};
     const snapshot: string[] = [];
     for (const beachId of requestedBeachIds) {
       const row = rowsByBeachId.get(beachId);
       if (ownerHeldBeachIds.has(beachId)) {
         heldBeachIds.push(beachId);
+        if (row?.status === "advisory" || row?.status === "closure") {
+          waterQualityStatusByBeachId[beachId] = row.status;
+        }
         snapshot.push(`${beachId}:owner-hold`);
         continue;
       }
@@ -443,8 +502,10 @@ export async function resolveWaterQualityHolds(
         continue;
       }
 
-      const shouldHold = row.status === "advisory" || row.status === "closure";
-      if (shouldHold) heldBeachIds.push(beachId);
+      if (row.status === "advisory" || row.status === "closure") {
+        heldBeachIds.push(beachId);
+        waterQualityStatusByBeachId[beachId] = row.status;
+      }
       snapshot.push(`${beachId}:real:${row.status}`);
     }
 
@@ -455,6 +516,15 @@ export async function resolveWaterQualityHolds(
     );
     if (liveResolution.state === "resolved") {
       heldBeachIds.push(...liveResolution.heldBeachIds);
+      for (const [beachId, status] of Object.entries(
+        liveResolution.waterQualityStatusByBeachId,
+      )) {
+        waterQualityStatusByBeachId[beachId] =
+          moreSevereWaterQualityStatus(
+            waterQualityStatusByBeachId[beachId],
+            status,
+          );
+      }
       snapshot.push(...liveResolution.snapshot);
     } else {
       unresolved = true;
@@ -462,8 +532,16 @@ export async function resolveWaterQualityHolds(
     }
 
     return unresolved
-      ? unresolvedResolution(heldBeachIds, [...resolutionSnapshot, ...snapshot])
-      : resolvedResolution(heldBeachIds, [...resolutionSnapshot, ...snapshot]);
+      ? unresolvedResolution(
+          heldBeachIds,
+          [...resolutionSnapshot, ...snapshot],
+          waterQualityStatusByBeachId,
+        )
+      : resolvedResolution(
+          heldBeachIds,
+          [...resolutionSnapshot, ...snapshot],
+          waterQualityStatusByBeachId,
+        );
   } catch (error) {
     console.error("[water-quality-hold:resolution-threw]", {
       beachCount: requestedBeachIds.length,

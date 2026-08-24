@@ -21,12 +21,31 @@ const mockSupabase = {
   rpc: jest.fn(),
   from: jest.fn(() => mockQuery),
 };
-const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) =>
-  beaches.filter((beach) => beach.id !== "held-beach"),
+const mockRankBeaches = jest.fn(
+  async (
+    beaches: Array<{ id: string }>,
+    options?: {
+      onWaterQualityResolution?: (resolution: {
+        waterQualityStatusByBeachId: Record<string, "advisory" | "closure">;
+      }) => void;
+    },
+  ) => {
+    options?.onWaterQualityResolution?.({
+      waterQualityStatusByBeachId: { "held-beach": "closure" },
+    });
+    return beaches.filter((beach) => beach.id !== "held-beach");
+  },
 );
 
 jest.mock("@/lib/recommendations/selection", () => ({
-  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
+  rankBeaches: (
+    beaches: Array<{ id: string }>,
+    options?: {
+      onWaterQualityResolution?: (resolution: {
+        waterQualityStatusByBeachId: Record<string, "advisory" | "closure">;
+      }) => void;
+    },
+  ) => mockRankBeaches(beaches, options),
 }));
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -176,8 +195,16 @@ describe("nearby beach service", () => {
     ).resolves.toMatchObject({
       success: true,
       data: [
-        { id: "held-beach", waterQualityHold: true },
-        { id: "safe-beach", waterQualityHold: false },
+        {
+          id: "held-beach",
+          waterQualityHold: true,
+          waterQualityStatus: "closure",
+        },
+        {
+          id: "safe-beach",
+          waterQualityHold: false,
+          waterQualityStatus: null,
+        },
       ],
     });
   });

@@ -41,6 +41,7 @@ describe("GET /api/map/bootstrap", () => {
           lat: 32.857,
           lon: -117.257,
           waterQualityHold: true,
+          waterQualityStatus: "closure",
         },
       ],
     });
@@ -59,6 +60,7 @@ describe("GET /api/map/bootstrap", () => {
       expect.objectContaining({
         id: "la-jolla-shores",
         waterQualityHold: true,
+        waterQualityStatus: "closure",
       }),
     ]);
   });

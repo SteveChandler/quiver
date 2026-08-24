@@ -82,3 +82,61 @@ Expected test logging remained: the forecast-hub failure-path tests emit their e
 - Did not add advisory kind. The current ranking boundary exposes held membership, not the winning advisory source/type; adding it would require widening the shared resolver or duplicating hold queries beyond this scoped visibility fix.
 - Did not alter the database, add or run migrations, deploy, promote, open a PR, or modify the native repository.
 - Did not run E2E tests or a production build; the requested service/API/marker behavior is covered by focused unit tests, and no E2E files were changed.
+
+## Closure vs advisory follow-up
+
+### Severity resolution
+
+The shared water-quality resolver now returns
+`waterQualityStatusByBeachId: Record<string, 'advisory' | 'closure'>` alongside
+the unchanged `heldBeachIds`. Sampled `beach_water_quality.status` and fresh
+`county_beach_advisories.advisory_type` values are merged per beach. If the
+sources disagree, the more severe state wins: `closure` overrides `advisory`.
+Owner-held beaches without either known status remain held without inventing a
+kind.
+
+The nearby/map API keeps `waterQualityHold: boolean` and adds exactly:
+
+```ts
+waterQualityStatus: 'advisory' | 'closure' | null
+```
+
+`rankBeaches()` and `selectBeach()` retain their existing selection behavior.
+The nearby service only observes the already-resolved status metadata while it
+restores held beaches for map visibility.
+
+### Callout copy and accessibility
+
+- Closure: `Closed — county water-quality data`
+- Advisory: `Advisory — county water-quality data`
+
+Both states use explicit wording in the visible badge and its accessible name;
+colour is not the differentiator. The badge uses `#FFF7E8` text on `#2E2A26`
+for **13.37:1** contrast. Its `#F2A24C` border against `#2E2A26` is **6.81:1**.
+The badge is positioned in the scaled center-to-link corridor, above the
+`Full forecast →` pill, with an opaque surface over radial arrows.
+
+### Follow-up commands and results
+
+- FAIL (expected test-first red state) — `DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS="--require dotenv/config" yarn test:unit --runInBand __tests__/lib/recommendations/major-event-hold/water-quality.test.ts __tests__/lib/nearby-beach-service.test.ts __tests__/app/api/map/bootstrap.test.ts __tests__/components/map/conditions-callout.test.ts __tests__/lib/recommendations/selection.test.ts` — 3 suites failed, 2 passed; 4 tests failed, 29 passed because the new resolver status, nearby field, and callout badge were not implemented yet.
+- PASS — `yarn typecheck` — TypeScript completed with no errors after the initial implementation.
+- PASS — `DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS="--require dotenv/config" yarn test:unit --runInBand __tests__/lib/recommendations/major-event-hold/water-quality.test.ts __tests__/lib/nearby-beach-service.test.ts __tests__/app/api/map/bootstrap.test.ts __tests__/components/map/conditions-callout.test.ts __tests__/lib/recommendations/selection.test.ts` — 5 suites, 33 tests.
+- PASS — `npx eslint --max-warnings=0 components/map/conditions-callout.ts components/map/interactive-map.tsx lib/recommendations/major-event-hold/service.ts lib/recommendations/major-event-hold/water-quality.ts lib/recommendations/selection/index.ts lib/services/nearby-beach-service.ts types/api/map.ts` — zero warnings/errors.
+- FAIL (format check only; no files rewritten) — `./node_modules/.bin/prettier --check components/map/conditions-callout.ts components/map/interactive-map.tsx lib/recommendations/major-event-hold/service.ts lib/recommendations/major-event-hold/water-quality.ts lib/recommendations/selection/index.ts lib/services/nearby-beach-service.ts types/api/map.ts __tests__/api/coach-picks.radius.test.ts __tests__/app/api/map/bootstrap.test.ts __tests__/components/map/conditions-callout.test.ts __tests__/lib/nearby-beach-service.test.ts __tests__/lib/recommendations/major-event-hold/service.test.ts __tests__/lib/recommendations/major-event-hold/water-quality.test.ts` — 12 existing files do not match whole-file Prettier formatting; no broad formatting churn was applied.
+- PASS — `DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS="--require dotenv/config" yarn test:unit --runInBand __tests__/lib/recommendations/major-event-hold/water-quality.test.ts __tests__/lib/recommendations/major-event-hold/service.test.ts __tests__/lib/recommendations/selection.test.ts __tests__/lib/nearby-beach-service.test.ts __tests__/app/api/map/bootstrap.test.ts __tests__/components/map/conditions-callout.test.ts __tests__/components/map/map-condition-summary.test.ts __tests__/components/map/interactive-map.test.tsx __tests__/lib/utils/forecast-hub-utils.test.ts __tests__/api/coach-picks.radius.test.ts` — initial broad run: 10 suites, 123 tests.
+- FAIL (fixed) — `yarn typecheck` — TypeScript rejected a status assignment that was not narrowed from the full sampled-status union. The condition was narrowed inline.
+- PASS — `yarn lint` — ESLint completed with zero warnings/errors in the same validation pass.
+- PASS — `yarn typecheck` — final TypeScript run completed with no errors.
+- PASS — local WCAG calculation for `#FFF7E8` on `#2E2A26` and `#F2A24C` on `#2E2A26` — 13.37:1 and 6.81:1 respectively.
+- PASS — final `DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS="--require dotenv/config" yarn test:unit --runInBand __tests__/lib/recommendations/major-event-hold/water-quality.test.ts __tests__/lib/recommendations/major-event-hold/service.test.ts __tests__/lib/recommendations/selection.test.ts __tests__/lib/nearby-beach-service.test.ts __tests__/app/api/map/bootstrap.test.ts __tests__/components/map/conditions-callout.test.ts __tests__/components/map/map-condition-summary.test.ts __tests__/components/map/interactive-map.test.tsx __tests__/lib/utils/forecast-hub-utils.test.ts __tests__/api/coach-picks.radius.test.ts` — 10 suites, 123 tests.
+- PASS — final `yarn lint` — ESLint completed with zero warnings/errors.
+- PASS — `git diff --check` — no whitespace errors.
+
+Expected test logging remained in failure-path coverage: the map loader's mocked
+500 warning, forecast-hub fetch errors, missing-table/query-error water-quality
+logs, the bounded-fallback warning, and the unset `NEXT_PUBLIC_SITE_URL`
+environment warning.
+
+No E2E test was added or changed: the behavior is isolated resolver/API/DOM
+logic covered by unit tests. No production deployment, migration, promotion, or
+PR action was performed.

@@ -3,6 +3,7 @@ import { createPublicReadClient } from "@/lib/supabase/server";
 import { normalizeBeachCountry } from "@/lib/utils/beach-url-utils";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import { rankBeaches } from "@/lib/recommendations/selection";
+import type { WaterQualityHoldStatus } from "@/lib/recommendations/major-event-hold/water-quality";
 import type { Beach } from "@/types/database";
 import type { MapBeach } from "@/types/api/map";
 
@@ -111,8 +112,17 @@ async function rankNearbyBeachesForMap<T extends Beach>(
   nearbyRows: readonly T[],
   compare: (left: T, right: T) => number,
   limit: number,
-): Promise<Array<T & { waterQualityHold: boolean }>> {
-  const rankedNearbyRows = await rankBeaches(nearbyRows, { compare });
+): Promise<MapBeach[]> {
+  let waterQualityStatusByBeachId: Record<
+    string,
+    WaterQualityHoldStatus
+  > = {};
+  const rankedNearbyRows = await rankBeaches(nearbyRows, {
+    compare,
+    onWaterQualityResolution: (resolution) => {
+      waterQualityStatusByBeachId = resolution.waterQualityStatusByBeachId;
+    },
+  });
   const safeBeachIds = new Set(
     rankedNearbyRows.map((beach) => beach.id.toLowerCase()),
   );
@@ -121,6 +131,8 @@ async function rankNearbyBeachesForMap<T extends Beach>(
     .map((beach) => ({
       ...beach,
       waterQualityHold: !safeBeachIds.has(beach.id.toLowerCase()),
+      waterQualityStatus:
+        waterQualityStatusByBeachId[beach.id.toLowerCase()] ?? null,
     }))
     .sort(compare)
     .slice(0, limit);
