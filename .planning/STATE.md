@@ -18,6 +18,8 @@ progress:
 
 Turn broad web beach utility and native surf calls into a measurable repeat-use loop without assuming every web visitor is a surfer or introducing duplicate ownership, alert, routing, session, analytics, or release systems.
 
+The native retention hypothesis is now explicit: Quiver earns a return by remembering and explaining a watched call—not by reducing session-log friction again.
+
 ## Current Status
 
 Phase: 20.1
@@ -27,12 +29,13 @@ Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/STATE-full-h
 
 Progress: 20 of 22 roadmap phases complete. Phase 20.1 execution progress: 0 of 6 planned plans complete, 0%.
 
-Phase 21 remains sequenced after Phase 20.1 for roadmap execution, but it is **not a clean untouched future phase**: its current summaries describe uncommitted implementation in worktrees for Plans 21-03 and 21-04, plus completed read-only verification in 21-05 with rollout blocked. Plan 20.1-01 must preserve and reconcile that work before any adjacent files are edited.
+Phase 21 remains sequenced after Phase 20.1 for roadmap execution, but it is not a clean untouched future phase: current summaries describe uncommitted implementation in worktrees for Plans 21-03 and 21-04, plus completed read-only verification in 21-05 with rollout blocked. Plan 20.1-01 must preserve and reconcile that work before adjacent files are edited.
 
 ## Active Requirements
 
 - Execute BFR-01 through BFR-12 from `.planning/REQUIREMENTS.md`.
-- Treat `.planning/phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-INFLIGHT-AUDIT.md` and `20.1-MOCKS.md` as mandatory Phase 20.1 execution inputs.
+- Treat `20.1-INFLIGHT-AUDIT.md` and `20.1-MOCKS.md` as mandatory Phase 20.1 execution inputs.
+- Treat native Home quick log, one-tap rating, session prefill, reminders, and full SessionForm as existing baseline/non-regression behavior, not a new Phase 20.1 product surface or primary metric.
 - Preserve Phase 13 controlled refactor evidence in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Preserve Phase 20 app-link, attribution, baseline, and QA foundations rather than creating a second handoff system.
 - Preserve or explicitly retire unique branch/worktree work before touching overlapping files; branch names and merge state are not release truth.
@@ -47,8 +50,9 @@ Phase 21 remains sequenced after Phase 20.1 for roadmap execution, but it is **n
 - The web receives broad coastal utility traffic but has almost no durable beach ownership, intent qualification, or owned return destination.
 - Many web visitors may not be surfers; a surf-qualified denominator and exact handoff-through-first-open funnel do not yet exist.
 - Native Home can silently reset or rerank context, and the all-user Week Scout stability rollout requires current build/configuration and physical telemetry proof.
-- Alert/watch and session feedback adoption is too low to establish that either currently drives retention.
-- Phase 20.1 has context, research, validation, an inflight audit, six low-fidelity mocks, and six executable plans, but no application implementation or production/device evidence yet.
+- Watch and alert adoption is too low to establish that either currently drives retention.
+- Native one-tap sessions already exist and did not materially move retention or sales. Another outcome prompt, receipt, reminder, or friction pass is not an open Phase 20.1 hypothesis.
+- Phase 20.1 has context, research, validation, an inflight audit, six corrected low-fidelity mocks, and six executable plans, but no application implementation or production/device evidence yet.
 
 ### Inflight and release-truth gaps
 
@@ -77,57 +81,49 @@ Phase 21 remains sequenced after Phase 20.1 for roadmap execution, but it is **n
 - A water-temperature, tide, weather, or beach-page view alone never qualifies a visitor as a surfer.
 - Web utility retention and surf-qualified web-to-native activation are measured separately from native product retention.
 - Native keeps `Now`, `Best`, and `My spots`; Phase 20.1 does not add Planning, Decision, or Execution stages.
-- The six Phase 20.1 mocks lock hierarchy, state, copy semantics, and continuity—not final pixels, production art, or App Store creative. Implementations must map them to current components and document deviations.
+- The six Phase 20.1 mocks lock hierarchy, state, copy semantics, and continuity—not final pixels, production art, or App Store creative. Mock 06 is useful watched-call return, not a session/outcome flow.
 - Week Scout stability must be enabled for all production users after approved release, with rollback, device, and PostHog evidence.
 - Home changes must identify their real cause: mode, location, candidate set, filter, startup refinement, or forecast shift.
 - Fast initial data acquisition may remain, but a provisional result cannot masquerade as a settled recommendation that silently swaps after delayed context arrives.
-- The first watched-call action reuses existing alert infrastructure; the first outcome reuses existing recommendation/session feedback and can be completed without a full log.
+- `Watch this call` reuses existing alert infrastructure. Decision-relevant updates are `Still on`, `Call changed`, and `Better nearby`; no update is sent when nothing meaningful changed.
+- Existing quick log/session behavior remains optional and independent. Phase 20.1 does not add a watched-call outcome, post-window prompt, learning receipt, reminder, or second session store.
+- Session events remain secondary diagnostics and non-regression guardrails, not the primary retention outcome.
 - No generic beach native app, new ML model, generic streak system, broad social feed, worldwide rollout, or localization is included in Phase 20.1.
 - Launch objective remains iOS downloads from qualified demand, not generic web awareness.
-- Product story is forecast -> check -> watch/log -> improve.
+- Product story for this phase is forecast -> check -> watch -> useful return.
 - Founding access remains waitlist-safe until RevenueCat Web Billing and entitlement sync are proven.
 - Brand-Vault is the source of truth for public launch visuals.
-- Session Intelligence UI should use Brand-Vault visual assets, especially the mirrored sticker-sheet assets in `public/images/quiver-stickers`, before inventing new decorative art.
+- Session Intelligence UI should use Brand-Vault visual assets before inventing new decorative art.
 - Reddit remains comment-first unless explicitly reopened.
-- Launch reporting uses existing event primitives extended with safe BFR events.
+- Launch reporting uses existing event primitives extended with safe BFR follow/handoff/watch/update/reopen events.
 - Sentry cron monitor ownership and critical alert routing were completed in Phase 12.
 - Remaining production `@/lib/api-utils` imports outside wrapper internals were closed in Phase 13.
 - Branch cleanup or worktree removal is never performed from branch names alone; uncommitted work is audited first.
 
 ## Next Actions
 
-1. Execute the new Task 0 in Phase 20.1 Plan 20.1-01:
-   - refresh open PRs, unique branches, worktrees, releases, migrations, OTA/binary truth, and direct issue collisions;
-   - fill the W/N/X disposition gates in `20.1-INFLIGHT-AUDIT.md`;
-   - preserve/reconcile the Phase 21 worktrees;
+1. Execute Task 0 in Phase 20.1 Plan 20.1-01:
+   - refresh PRs, unique branches, worktrees, releases, migrations, OTA/binary truth, and direct issue collisions;
+   - fill W/N/X disposition gates;
+   - preserve/reconcile Phase 21 worktrees;
    - freeze implementation file ownership.
-2. Complete the cross-repository reuse audit and map all six mocks to current post-merge components and the actual distributed release artifact.
-3. Execute Plan 20.1-02 only after the audit/pattern outputs name one ownership, handoff, watch, outcome, analytics, and experiment contract.
+2. Complete the cross-repository reuse audit, including the existing quick-log baseline and non-impact, and map all six corrected mocks to current components and the actual distributed release artifact.
+3. Execute Plan 20.1-02 only after audit/pattern outputs name one ownership, handoff, watch, meaningful-update, exact-reopen, analytics, and experiment contract—with no new outcome/session contract.
 4. Execute Plans 20.1-03, 20.1-04, and 20.1-05 in parallel only when file ownership is disjoint and their branch/release blockers are resolved.
-5. Complete Plan 20.1-06 with approved physical-device/production validation, segmented before/after/holdout analysis, and a requirement-by-requirement expand, continued-pilot, revise, or rollback decision.
-6. Resume Phase 21 roadmap execution only after its existing worktrees are reconciled and Phase 20.1 has an explicit evidence-backed rollout disposition.
+5. Complete Plan 20.1-06 as a watched-call return and notification-quality evidence gate with mature before/after/holdout analysis.
+6. Resume Phase 21 roadmap execution only after its existing worktrees are reconciled and Phase 20.1 has an evidence-backed rollout disposition.
 7. Preserve approval gates for deployment, schema mutation, production flags, outbound sends, native publication, App Store actions, payment, and entitlement changes.
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
-- Phase 20.1 added on 2026-08-24 as an urgent cross-repository insertion after Phase 20: durable anonymous beach follow, My Coast, conservative intent qualification, exact surf handoff, Home continuity, all-user Week Scout stability, one-tap watched calls, bounded updates, lightweight outcomes, and causal/guardrail evidence.
-- Phase 20.1 was revised the same day to include six low-fidelity web/native behavioral mocks and an explicit audit of open PRs, branch ancestry, release divergence, uncommitted worktrees, merged-but-unreleased work, and issue collisions.
-- Phase 21 added Multi-Forecaster Forecast Adjustment and Production Ingestion, coordinated by Quiver with Seaside as the production-ingestion workstream. It follows Phase 20.1 in roadmap sequencing, while its already-existing uncommitted work is preserved and audited rather than discarded.
-- Phases 14-20 added the Session Intelligence v1 addendum.
-- Phase 14 completed documentation-only guardrails, template inventory, data availability, risk/schema checks, app-link/deeplink checks, and analytics validation.
-- Phase 15 planned the recommendation model, top-window selection, shared helper, source flags, links, and verification.
-- Phase 16 completed reusable Session Intelligence UI components, dev-only preview route, component tests, and responsive guest Playwright coverage.
-- Phase 17 completed the limited pilot on spot, regional forecast, and authenticated homepage surfaces. Focused unit/guest/auth checks passed; the full auth Playwright bundle remained locally unstable under three workers because regional forecast and homepage fetches timed out under parallel load.
-- Phase 18 completed rollout eligibility/source guards, generic/beginner public answers, utility handoffs, best-time plus Malibu enrichment, guest browser QA, and measurement docs.
-- Phase 19 completed the forecast-accuracy trust page, including live/building states, claim gating, methodology/limits, Dataset structured data, and guest browser coverage.
-- Phase 20 plan 20-01 completed app-link route alignment, AASA/assetlinks handling, exact `/app/spot/{slug}?window=...` links, and noindex fallback.
-- Phase 20 plan 20-02 completed seven Session Intelligence measurement events, anonymous allowance, zero implicit-preference weighting, additive event constraints, and production allowlist migration verification.
-- Phase 20 plan 20-03 documented GSC, PostHog, Vercel, app CTA, deep-link, multi-page, bounce, route-performance, and after-check baselines without claiming lift.
-- Phase 20 plan 20-04 completed public QA and guest browser coverage for app-link fallback, sampled Session Intelligence surfaces, canonical/schema checks, and required viewports.
-- Phase 20 plan 20-05 closed the live AASA and `/app/spot/*` production blocker after approved deploy. Simulator native app-scheme evidence was accepted; signed iOS HTTPS handoff remained deferred.
+- Phase 20.1 was added on 2026-08-24 for anonymous beach follow, My Coast, conservative intent qualification, exact surf handoff, Home continuity, all-user Week Scout stability, one-tap watched calls, bounded updates, and causal/guardrail evidence.
+- The phase was revised the same day to include six web/native behavioral mocks and an explicit audit of PRs, branches, release divergence, uncommitted worktrees, merged-but-unreleased work, and issue collisions.
+- The phase was corrected again after confirming one-tap native sessions were already shipped and did not move the needle. Outcome/session implementation was removed; watched-call return became the explicit retention hypothesis.
+- Phase 21 adds Multi-Forecaster Forecast Adjustment and Production Ingestion and follows Phase 20.1 in roadmap sequencing while existing uncommitted work is preserved and audited.
+- Phases 14-20 established Session Intelligence, utility-safe SEO surfaces, exact app links, attribution, baseline measurement, and release verification.
 
 ## Historical Notes
 
-The previous state file held detailed accumulated decisions from Phases 1-12. That history is archived because it is useful for audit but too large for future Codex sessions to load by default. Current sessions should read this file, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`, the complete Phase 20.1 folder including mocks/inflight audit, `.planning/PROJECT.md`, and [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) first.
+The previous state file held detailed accumulated decisions from Phases 1-12. That history is archived because it is useful for audit but too large for future Codex sessions to load by default. Current sessions should read this file, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`, the complete Phase 20.1 folder including corrected mocks/inflight audit, `.planning/PROJECT.md`, and [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) first.
