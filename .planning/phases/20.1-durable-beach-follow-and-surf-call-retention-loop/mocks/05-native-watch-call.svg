@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Low-fidelity native Watch this call flow</title>
+  <desc id="desc">Two phone frames show a recommendation with a one-tap Watch this call action and an idempotent watched confirmation with advanced tuning secondary.</desc>
+  <rect width="1440" height="900" fill="#F6EFE3"/>
+  <text x="64" y="62" fill="#0B1830" font-family="Arial, sans-serif" font-size="34" font-weight="700">One-tap Watch this call</text>
+  <text x="64" y="94" fill="#52647B" font-family="Arial, sans-serif" font-size="16">LOW-FIDELITY MOCK · REUSE ALERT INFRASTRUCTURE · ADVANCED SETUP IS OPTIONAL</text>
+
+  <rect x="172" y="126" width="438" height="718" rx="46" fill="#081426" stroke="#243957" stroke-width="5"/>
+  <rect x="196" y="156" width="390" height="658" rx="28" fill="#0F2038"/>
+  <text x="222" y="198" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="20" font-weight="700">Home · Best next 24h</text>
+  <rect x="222" y="230" width="338" height="376" rx="26" fill="#172A49"/>
+  <text x="250" y="272" fill="#91A5BF" font-family="Arial, sans-serif" font-size="14" font-weight="700">BEST NEXT 24H</text>
+  <text x="250" y="330" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="40" font-weight="700">Scripps</text>
+  <text x="250" y="372" fill="#F28C45" font-family="Arial, sans-serif" font-size="23" font-weight="700">6:40–8:10 AM</text>
+  <text x="250" y="416" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="17">3–4 ft · 14 s · light N</text>
+  <text x="250" y="454" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="15">Cleaner before the tide fills in.</text>
+  <text x="250" y="486" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="15">Bring 6'8 midlength.</text>
+  <line x1="250" y1="520" x2="532" y2="520" stroke="#385171"/>
+  <text x="250" y="550" fill="#91A5BF" font-family="Arial, sans-serif" font-size="13">Call ID + accepted score + generated time captured</text>
+  <rect x="250" y="566" width="282" height="60" rx="16" fill="#F28C45"/>
+  <text x="391" y="603" fill="#0B1830" font-family="Arial, sans-serif" font-size="19" font-weight="700" text-anchor="middle">Watch this call</text>
+  <text x="222" y="672" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="16" font-weight="700">One tap automatically includes</text>
+  <text x="222" y="704" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="15">Beach · mode · window · decision · board · freshness</text>
+  <text x="222" y="746" fill="#91A5BF" font-family="Arial, sans-serif" font-size="14">Permission request follows the tap, not app launch.</text>
+
+  <path d="M678 460 L756 460" stroke="#F28C45" stroke-width="6" stroke-linecap="round"/>
+  <path d="M742 444 L760 460 L742 476" fill="none" stroke="#F28C45" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="830" y="126" width="438" height="718" rx="46" fill="#081426" stroke="#243957" stroke-width="5"/>
+  <rect x="854" y="156" width="390" height="658" rx="28" fill="#0F2038"/>
+  <text x="880" y="198" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="20" font-weight="700">Scripps · watched</text>
+  <rect x="880" y="228" width="338" height="82" rx="16" fill="#DDEFEA"/>
+  <text x="1049" y="260" fill="#176C62" font-family="Arial, sans-serif" font-size="18" font-weight="700" text-anchor="middle">✓ Watching this call</text>
+  <text x="1049" y="286" fill="#176C62" font-family="Arial, sans-serif" font-size="13" text-anchor="middle">Quiver will interrupt only for a useful update.</text>
+  <rect x="880" y="332" width="338" height="264" rx="24" fill="#172A49"/>
+  <text x="906" y="374" fill="#91A5BF" font-family="Arial, sans-serif" font-size="14" font-weight="700">WATCHED CONTEXT</text>
+  <text x="906" y="418" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="24" font-weight="700">Scripps · 6:40–8:10 AM</text>
+  <text x="906" y="456" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="15">Best next 24h · accepted 8:18 PM</text>
+  <text x="906" y="488" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="15">Board: 6'8 midlength</text>
+  <text x="906" y="530" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="15">Updates enabled</text>
+  <text x="906" y="558" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="14">Still on · Call changed · Better nearby · Outcome</text>
+  <rect x="880" y="620" width="160" height="54" rx="14" fill="#223B60" stroke="#68809F"/>
+  <text x="960" y="653" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="16" text-anchor="middle">Tune alert</text>
+  <rect x="1054" y="620" width="164" height="54" rx="14" fill="#223B60" stroke="#68809F"/>
+  <text x="1136" y="653" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="16" text-anchor="middle">Stop watching</text>
+  <text x="880" y="720" fill="#91A5BF" font-family="Arial, sans-serif" font-size="14">Duplicate tap returns this same watch.</text>
+  <text x="880" y="750" fill="#91A5BF" font-family="Arial, sans-serif" font-size="14">No duplicate rule or notification schedule.</text>
+
+  <rect x="172" y="862" width="1096" height="26" rx="10" fill="#E9DDCB"/>
+  <text x="720" y="880" fill="#52647B" font-family="Arial, sans-serif" font-size="13" text-anchor="middle">The existing expert condition-alert composer remains available through Tune alert, but is not the first step.</text>
+</svg>
