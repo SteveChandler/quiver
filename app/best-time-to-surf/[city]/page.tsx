@@ -125,12 +125,12 @@ const BEST_TIME_CTR_OVERRIDES: Record<string, BestTimeCtrOverride> = {
     weekSuffix:
       "If the seasonal guide says yes but Scripps or Shores shows tide or wind trouble, let the live report win.",
     surfReportCue:
-      "Open the Scripps Pier or Tourmaline surf report first, then use this page to decide whether the current setup matches La Jolla's stronger seasonal windows.",
+      "Open the La Jolla surf report first for the city-level call, then compare Scripps Pier or Tourmaline as secondary spot reads before using this seasonal guide.",
     surfReportStep: {
-      label: "Open today's Scripps Pier surf report",
-      href: "/surf-report/scripps-pier-today",
+      label: "Open today's La Jolla surf report",
+      href: "/surf-report/la-jolla-today",
       description:
-        "Use the spot-specific wave height, wind, tide, and backup notes before applying the La Jolla season guide.",
+        "Use the city-level La Jolla report to compare Shores, Windansea, and Scripps wave height, wind, tide, and backup notes.",
     },
   },
   "newport-beach": {
