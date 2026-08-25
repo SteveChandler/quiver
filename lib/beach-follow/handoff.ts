@@ -329,7 +329,12 @@ export function classifyHandoffResolution(
     return {
       classification: "replaced",
       context,
-      replacement: availability.replacement,
+      replacement: {
+        beachId: availability.replacement.beachId,
+        slug: availability.replacement.slug,
+        windowId: availability.replacement.windowId,
+        recommendationId: availability.replacement.recommendationId,
+      },
       reason: "window_replaced",
     };
   }

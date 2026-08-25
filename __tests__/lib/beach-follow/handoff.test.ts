@@ -333,6 +333,42 @@ describe("exact handoff context", () => {
     });
   });
 
+  it("normalizes the identical replacement fixture to IDs-only output", () => {
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+    if (!parsed.ok) throw new Error("Expected valid fixture");
+    const { context } = parsed;
+    const replacementWithExtras = {
+      beachId: BEACH_ID,
+      slug: "ocean-beach",
+      windowId: "2026-08-25T16:00:00.000Z",
+      recommendationId: `beach:${BEACH_ID}:2026-08-25T16:00:00.000Z`,
+      email: "surfer@example.com",
+      handoff_token: "secret",
+    };
+    const result = classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
+      now: NOW,
+      beachExists: true,
+      exactWindowExists: false,
+      replacement: replacementWithExtras,
+    });
+
+    expect(result).toEqual({
+      classification: "replaced",
+      context,
+      replacement: {
+        beachId: BEACH_ID,
+        slug: "ocean-beach",
+        windowId: "2026-08-25T16:00:00.000Z",
+        recommendationId: `beach:${BEACH_ID}:2026-08-25T16:00:00.000Z`,
+      },
+      reason: "window_replaced",
+    });
+    if (result.classification !== "replaced") {
+      throw new Error("Expected replaced result");
+    }
+    expect(result.replacement).not.toBe(replacementWithExtras);
+  });
+
   it("classifies the identical cross-beach replacement fixture as beach-only", () => {
     const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
     if (!parsed.ok) throw new Error("Expected valid fixture");
