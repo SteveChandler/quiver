@@ -1,5 +1,6 @@
 import {
   type FollowedBeach,
+  type FollowTopicTombstone,
   type LocalFollowMutationResult,
   type MergeInput,
   type MergeResult,
@@ -21,18 +22,47 @@ function rowsMatch(left: FollowedBeach, right: FollowedBeach): boolean {
   );
 }
 
-function unionRows(server: FollowedBeach, anon: FollowedBeach): FollowedBeach {
+function unionRows(
+  server: FollowedBeach,
+  anon: FollowedBeach,
+  topicTombstones: readonly FollowTopicTombstone[]
+): FollowedBeach {
+  const latestRemovalByTopic = new Map(
+    topicTombstones
+      .filter((tombstone) => tombstone.beachId === anon.beachId)
+      .map((tombstone) => [tombstone.topic, tombstone.removedAt])
+  );
+  const topics = normalizeFollowTopics([...server.topics, ...anon.topics])
+    .filter((topic) => {
+      const removedAt = latestRemovalByTopic.get(topic);
+      if (!removedAt) return true;
+      const latestAddition = [
+        server.topics.includes(topic) ? server.updatedAt : null,
+        anon.topics.includes(topic) ? anon.updatedAt : null,
+      ]
+        .filter((value): value is string => value !== null)
+        .sort((left, right) => Date.parse(right) - Date.parse(left))[0];
+      return latestAddition !== undefined
+        && Date.parse(latestAddition) > Date.parse(removedAt);
+    });
+  const latestAppliedRemoval = topicTombstones
+    .filter((tombstone) => (
+      tombstone.beachId === anon.beachId
+      && !topics.includes(tombstone.topic)
+    ))
+    .map((tombstone) => tombstone.removedAt)
+    .sort((left, right) => Date.parse(right) - Date.parse(left))[0];
+
   return {
     beachId: server.beachId,
-    topics: normalizeFollowTopics([...server.topics, ...anon.topics]),
+    topics,
     createdAt:
       Date.parse(server.createdAt) <= Date.parse(anon.createdAt)
         ? server.createdAt
         : anon.createdAt,
-    updatedAt:
-      Date.parse(server.updatedAt) >= Date.parse(anon.updatedAt)
-        ? server.updatedAt
-        : anon.updatedAt,
+    updatedAt: [server.updatedAt, anon.updatedAt, latestAppliedRemoval]
+      .filter((value): value is string => value !== undefined)
+      .sort((left, right) => Date.parse(right) - Date.parse(left))[0],
   };
 }
 
@@ -70,13 +100,26 @@ export function acknowledgeBeachFollowMerge(
   const tombstones = normalization.state.tombstones.filter((tombstone) =>
     serverByBeachId.has(tombstone.beachId)
   );
+  const topicTombstones = normalization.state.topicTombstones.filter(
+    (tombstone) => {
+      const serverRow = serverByBeachId.get(tombstone.beachId);
+      return serverRow !== undefined
+        && serverRow.topics.includes(tombstone.topic)
+        && Date.parse(serverRow.updatedAt) <= Date.parse(tombstone.removedAt);
+    }
+  );
   const state = {
     ...normalization.state,
     follows,
     tombstones,
+    topicTombstones,
   };
 
-  return follows.length === 0 && tombstones.length === 0
+  return (
+    follows.length === 0
+    && tombstones.length === 0
+    && topicTombstones.length === 0
+  )
     ? { status: "applied", state }
     : { status: "sync_required", state };
 }
@@ -100,7 +143,9 @@ export function mergeBeachFollows(input: MergeInput): MergeResult {
     };
   }
   const normalizedPendingCount =
-    normalization.state.follows.length + normalization.state.tombstones.length;
+    normalization.state.follows.length
+    + normalization.state.tombstones.length
+    + normalization.state.topicTombstones.length;
   const isPlannableFollowOverflow =
     normalization.state.follows.length > MAX_FOLLOWED_BEACHES
     && normalizedPendingCount <= MAX_PENDING_FOLLOW_OPERATIONS;
@@ -149,7 +194,11 @@ export function mergeBeachFollows(input: MergeInput): MergeResult {
     if (deletedBeachIds.has(anonRow.beachId)) continue;
     const serverRow = serverByBeachId.get(anonRow.beachId);
     if (serverRow) {
-      const unioned = unionRows(serverRow, anonRow);
+      const unioned = unionRows(
+        serverRow,
+        anonRow,
+        anonState.topicTombstones
+      );
       retainedByBeachId.set(anonRow.beachId, unioned);
       if (!rowsMatch(serverRow, unioned)) rowsToInsert.push(unioned);
       continue;
@@ -174,9 +223,10 @@ export function mergeBeachFollows(input: MergeInput): MergeResult {
     residualLocalState: isPlannableFollowOverflow
       ? anonState
       : {
-          version: 1,
+          version: 2,
           follows: [],
           tombstones: [],
+          topicTombstones: [],
           bfrHoldoutAssignment: anonState.bfrHoldoutAssignment,
         },
     clearedTombstones: isPlannableFollowOverflow

@@ -19,6 +19,12 @@ export interface FollowTombstone {
   removedAt: string;
 }
 
+export interface FollowTopicTombstone {
+  beachId: string;
+  topic: FollowTopic;
+  removedAt: string;
+}
+
 export interface BfrHoldoutAssignmentRecord {
   subjectId: string;
   experimentKey: "bfr-follow-holdout-v1";
@@ -34,7 +40,15 @@ export interface LocalFollowStateV1 {
   bfrHoldoutAssignment: BfrHoldoutAssignmentRecord | null;
 }
 
-export type LocalFollowState = LocalFollowStateV1;
+export interface LocalFollowStateV2 {
+  version: 2;
+  follows: FollowedBeach[];
+  tombstones: FollowTombstone[];
+  topicTombstones: FollowTopicTombstone[];
+  bfrHoldoutAssignment: BfrHoldoutAssignmentRecord | null;
+}
+
+export type LocalFollowState = LocalFollowStateV2;
 
 export interface AccountFollowState {
   scope: "account";
@@ -47,7 +61,7 @@ export type LocalFollowMutationResult =
   | { status: "unsupported_version"; opaqueEnvelope: unknown };
 
 /**
- * Normalization preserves over-limit v1 state for sync and future envelopes
+ * Normalization preserves over-limit current state for sync and future envelopes
  * opaquely until a compatible migrator is available.
  */
 export type LocalFollowNormalizationResult = LocalFollowMutationResult;
