@@ -384,11 +384,6 @@ function FeatureWindowPanel({
             handoff={exactHandoffContext(recommendation)}
             handoffSurface="beach_detail"
             intentEvidence={SURF_COMPARISON_INTENT}
-            generalFollow={{
-              beachId: recommendation.beach.id,
-              beachName: recommendation.beach.name,
-              pageType: "beach_detail",
-            }}
           />
           <WhyThisCall recommendation={recommendation} surface={surface} />
         </div>
@@ -602,11 +597,6 @@ function WindowCard({
           handoff={exactHandoffContext(recommendation)}
           handoffSurface="beach_detail"
           intentEvidence={SURF_COMPARISON_INTENT}
-          generalFollow={{
-            beachId: recommendation.beach.id,
-            beachName: recommendation.beach.name,
-            pageType: "beach_detail",
-          }}
         />
         <WhyThisCall recommendation={recommendation} surface={surface} />
       </div>
@@ -931,11 +921,6 @@ function ZineWindowEntry({
               handoff={exactHandoffContext(recommendation)}
               handoffSurface="beach_detail"
               intentEvidence={SURF_COMPARISON_INTENT}
-              generalFollow={{
-                beachId: recommendation.beach.id,
-                beachName: recommendation.beach.name,
-                pageType: "beach_detail",
-              }}
               className="w-full border-[#11100D]/45 bg-transparent text-[#11100D] hover:bg-[#F0E5CC] hover:text-[#11100D]"
             />
           </div>

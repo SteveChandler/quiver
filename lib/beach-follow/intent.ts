@@ -23,6 +23,16 @@ export interface IntentSignals {
   exactSurfWindowHandoff?: boolean;
 }
 
+/**
+ * Intent evidence carried alongside a handoff CTA. Previously read from the
+ * beach-follow local store; since that surface was removed, callers supply it
+ * directly from the surface they render on.
+ */
+export interface LocalBeachIntentEvidence {
+  explicitChoice: ExplicitBeachIntent | null;
+  signals: IntentSignals;
+}
+
 export type IntentEvidenceState = "explicit" | "inferred" | "unknown";
 
 export type IntentEvidenceSource =

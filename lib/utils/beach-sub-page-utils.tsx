@@ -15,7 +15,6 @@ import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { BeachSubPageCtaSwitch } from "@/components/app-store/beach-subpage-cta-switch";
 import { TideSummaryHero } from "@/components/beach-detail/tide-summary-hero";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
-import { BeachFollowPilot } from "@/components/beach-follow";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import type { Beach } from "@/types/database";
 import type { Metadata } from "next";
@@ -30,7 +29,6 @@ import { notFound } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { isBeachSubPageInstallCtaEnabled } from "@/lib/flags/beach-subpage-install-cta";
-import { FollowTopic } from "@/types/beach-follow";
 import {
   buildBeachSubPageCrawlCopy,
   type BeachSubPageCrawlCopy,
@@ -272,15 +270,6 @@ export async function renderBeachSubPage({
           ) : undefined
         }
       />
-
-      {pageType === "water-temp" && (
-        <BeachFollowPilot
-          beachId={beach.id}
-          beachName={beach.name}
-          defaultTopic={FollowTopic.WaterTemp}
-          pageType="beach_water_temp"
-        />
-      )}
 
       <BeachSubPageCtaSwitch
         beachName={beach.name}

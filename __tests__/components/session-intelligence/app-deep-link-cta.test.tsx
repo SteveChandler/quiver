@@ -17,12 +17,6 @@ jest.mock("@/hooks/use-track-event", () => ({
   useTrackEvent: () => ({ track: mockTrack }),
 }));
 
-jest.mock("@/components/beach-follow", () => ({
-  BeachFollowPilot: ({ beachName }: { beachName: string }) => (
-    <button>Follow {beachName}</button>
-  ),
-}));
-
 const BEACH_ID = "11111111-1111-4111-8111-111111111111";
 const HANDOFF_ID = "33333333-3333-4333-8333-333333333333";
 const EXACT_CONTEXT: HandoffContext = {
@@ -38,12 +32,6 @@ const EXACT_CONTEXT: HandoffContext = {
     mode: HandoffRecommendationMode.Best,
     verdict: HandoffRecommendationVerdict.Go,
   },
-};
-
-const GENERAL_FOLLOW = {
-  beachId: BEACH_ID,
-  beachName: "Ocean Beach",
-  pageType: "beach_detail" as const,
 };
 
 const EXPLICIT_SURF = {
@@ -212,7 +200,6 @@ describe("AppDeepLinkCTA", () => {
         handoffId={HANDOFF_ID}
         handoffSurface="beach_detail"
         intentEvidence={intentEvidence}
-        generalFollow={GENERAL_FOLLOW}
         now={new Date("2026-08-25T12:15:00.000Z")}
       />,
     );
@@ -238,7 +225,7 @@ describe("AppDeepLinkCTA", () => {
       explicitChoice: "swimming" as const,
       signals: { utilityPageViewCount: 1, surfSpecificSignalCount: 3 },
     }],
-  ])("keeps the existing general follow action primary for %s intent", (_label, intentEvidence) => {
+  ])("renders no app handoff for %s intent", (_label, intentEvidence) => {
     render(
       <AppDeepLinkCTA
         links={makeLinks()}
@@ -246,12 +233,13 @@ describe("AppDeepLinkCTA", () => {
         handoffId={HANDOFF_ID}
         handoffSurface="beach_detail"
         intentEvidence={intentEvidence}
-        generalFollow={GENERAL_FOLLOW}
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Follow Ocean Beach" })).toBeVisible();
-    expect(screen.queryByText(/exact call/i)).not.toBeInTheDocument();
+    // A water-temperature or tide reader is never surf-qualified, so the
+    // handoff CTA must not render at all (BFR-01).
+    expect(screen.queryByTestId("app-deep-link-cta")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
   it.each([
@@ -265,7 +253,6 @@ describe("AppDeepLinkCTA", () => {
         handoffId={HANDOFF_ID}
         handoffSurface="beach_detail"
         intentEvidence={EXPLICIT_SURF}
-        generalFollow={GENERAL_FOLLOW}
         now={new Date("2026-08-25T13:00:00.000Z")}
       />,
     );
@@ -287,7 +274,6 @@ describe("AppDeepLinkCTA", () => {
         handoffId={HANDOFF_ID}
         handoffSurface="beach_detail"
         intentEvidence={EXPLICIT_SURF}
-        generalFollow={GENERAL_FOLLOW}
         now={new Date("2026-08-25T12:15:00.000Z")}
       />,
     );
