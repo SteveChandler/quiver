@@ -548,6 +548,93 @@ describe("POST /api/alerts/rules — duplicate similarity_match guard", () => {
   });
 });
 
+describe("POST /api/alerts/rules — watched_call idempotency", () => {
+  const watchedCall = {
+    version: 1,
+    recommendationId: "recommendation-1",
+    sourceSurface: "home_hero",
+    mode: "best",
+    beachId: "beach-home",
+    windowStart: "2026-08-26T14:00:00.000Z",
+    windowEnd: "2026-08-26T16:00:00.000Z",
+    forecastAt: "2026-08-25T12:00:00.000Z",
+    recommendationState: "ready_today",
+    conditionScore: 82,
+    personalMatchScore: 76,
+    overallScore: 80,
+    reasonType: "forecast_conditions",
+    dedupeKey: "watched-call.v1:beach-home:recommendation-1",
+  };
+
+  it("returns the existing enabled watch instead of inserting a duplicate", async () => {
+    mockExistingRules = [
+      userRule({
+        id: "rule-existing",
+        preset_type: "watched_call",
+        conditions: { watched_call: watchedCall },
+      }),
+    ];
+
+    const response = await POST(makeReq({
+      beach_id: "beach-home",
+      name: "Watch Swamis",
+      preset_type: "watched_call",
+      conditions: {
+        local_time_start: "05:00",
+        local_time_end: "11:00",
+        watched_call: watchedCall,
+      },
+      notify_push: true,
+      notify_email: false,
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data).toMatchObject({
+      id: "rule-existing",
+      already_exists: true,
+    });
+    expect(insertSpy).not.toHaveBeenCalled();
+  });
+
+  it("creates the first watched call with its bounded identity intact", async () => {
+    const response = await POST(makeReq({
+      beach_id: "beach-home",
+      name: "Watch Swamis",
+      preset_type: "watched_call",
+      conditions: {
+        local_time_start: "05:00",
+        local_time_end: "11:00",
+        watched_call: watchedCall,
+      },
+      notify_push: true,
+      notify_email: false,
+    }));
+
+    expect(response.status).toBe(201);
+    expect(insertSpy).toHaveBeenCalledWith(expect.objectContaining({
+      preset_type: "watched_call",
+      conditions: expect.objectContaining({ watched_call: watchedCall }),
+    }));
+  });
+
+  it("rejects watched-call identities with out-of-range scores", async () => {
+    const response = await POST(makeReq({
+      beach_id: "beach-home",
+      name: "Watch Swamis",
+      preset_type: "watched_call",
+      conditions: {
+        watched_call: { ...watchedCall, overallScore: 101 },
+      },
+      notify_push: true,
+      notify_email: false,
+    }));
+
+    expect(response.status).toBe(400);
+    expect(insertSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe("POST /api/alerts/rules — condition alert validation", () => {
   it("fails closed when the profile lookup for the beginner-window guard fails", async () => {
     mockProfileError = { message: "profile lookup failed" };

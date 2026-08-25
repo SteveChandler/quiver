@@ -61,6 +61,7 @@ const mockSelectActionableAlertWindow = jest.fn<any, any[]>(
   (windows: any[]) => windows[0] ?? null
 );
 const mockResolveNotificationMajorEventHold = jest.fn();
+const mockDiscoverSurfSpots = jest.fn();
 
 jest.mock("@/lib/alerts/window-finder", () => ({
   findMatchingWindows: (...args: any[]) => mockFindMatchingWindows(...args),
@@ -97,6 +98,9 @@ jest.mock("@/lib/recommendations/major-event-hold/adapters/notification", () => 
   resolveNotificationMajorEventHold: (...args: unknown[]) =>
     mockResolveNotificationMajorEventHold(...args),
 }));
+jest.mock("@/lib/services/surf-discovery-service", () => ({
+  discoverSurfSpots: (...args: unknown[]) => mockDiscoverSurfSpots(...args),
+}));
 
 // ---- Store + mock Supabase ----
 
@@ -115,8 +119,9 @@ interface Store {
   deliveriesError: Error | null;
   forecasts: any[]; // enhanced_forecasts
   forecastsError: Error | null;
+  sessions: any[];
   queueUpserts: any[];
-  ruleUpdates: { id: string; last_matched_at: string }[];
+  ruleUpdates: Array<{ id: string; [key: string]: unknown }>;
 }
 
 const store: Store = {
@@ -128,6 +133,7 @@ const store: Store = {
   deliveriesError: null,
   forecasts: [],
   forecastsError: null,
+  sessions: [],
   queueUpserts: [],
   ruleUpdates: [],
 };
@@ -155,10 +161,12 @@ function makeChain(rowsResolver: () => any[], onUpsert?: (row: any) => void) {
     _limit: null as number | null,
     select: jest.fn(() => chain),
     eq: jest.fn((_col: string, val: any) => { chain._filters[_col] = val; return chain; }),
+    is: jest.fn((_col: string, val: any) => { chain._filters[_col] = val; return chain; }),
     neq: jest.fn((_col: string, val: any) => { chain._neqFilters[_col] = val; return chain; }),
     or: jest.fn((filter: string) => { chain._orFilters.push(filter); return chain; }),
     in: jest.fn((_col: string, vals: any[]) => { chain._filters[`${_col}__in`] = vals; return chain; }),
     gte: jest.fn(() => chain),
+    lte: jest.fn(() => chain),
     lt: jest.fn(() => chain),
     order: jest.fn(() => chain),
     limit: jest.fn((value: number) => { chain._limit = value; return chain; }),
@@ -231,6 +239,8 @@ function mockFrom(table: string) {
         return chain;
       }
       return makeChain(() => store.forecasts);
+    case "sessions":
+      return makeChain(() => store.sessions);
     case "alert_queue":
       return makeChain(() => [], (row) => store.queueUpserts.push(row));
     default:
@@ -360,6 +370,7 @@ beforeEach(() => {
   store.deliveriesError = null;
   store.forecasts = [];
   store.forecastsError = null;
+  store.sessions = [];
   store.queueUpserts = [];
   store.ruleUpdates = [];
 
@@ -379,6 +390,7 @@ beforeEach(() => {
     status: "allowed",
     candidate: null,
   });
+  mockDiscoverSurfSpots.mockResolvedValue({ recommendations: [] });
   mockSelectActionableAlertWindow.mockImplementation(
     (windows: any[]) => windows[0] ?? null
   );
@@ -676,6 +688,134 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     // No queue upserts, no rule updates
     expect(store.queueUpserts).toHaveLength(0);
     expect(store.ruleUpdates).toHaveLength(0);
+  });
+
+  it("does not let generic beach delivery dedupe suppress a watched-call update", async () => {
+    seedRule({
+      preset_type: "watched_call",
+      conditions: {
+        swell_height_min: 2,
+        watched_call: {
+          version: 1,
+          recommendationId: "recommendation-1",
+          sourceSurface: "home_hero",
+          mode: "best",
+          beachId: BEACH_1,
+          windowStart: "2026-04-26T14:00:00Z",
+          windowEnd: "2026-04-26T16:00:00Z",
+          forecastAt: "2026-04-26T10:00:00Z",
+          recommendationState: "ready_today",
+          conditionScore: 82,
+          personalMatchScore: 76,
+          overallScore: 80,
+          reasonType: "forecast_conditions",
+          dedupeKey: "watched-call.v1:recommendation-1",
+        },
+      },
+    });
+    seedProfile();
+    seedBeach();
+    seedForecast();
+    seedMatchingWindow(0.81);
+    store.deliveries.push({ user_id: USER_A, beach_id: BEACH_1, alert_date: "2026-04-26" });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ evaluated: 1, queued: 1 });
+    expect(store.queueUpserts[0]).toMatchObject({
+      conditions_snapshot: {
+        alert_type: "watched_call_update",
+        payload: { category: "still_on", recommendation_id: "recommendation-1" },
+      },
+    });
+  });
+
+  it("feeds a materially stronger discovery candidate into the watched-call evaluator", async () => {
+    seedRule({
+      preset_type: "watched_call",
+      conditions: {
+        swell_height_min: 2,
+        watched_call: {
+          version: 1,
+          recommendationId: "recommendation-1",
+          sourceSurface: "home_hero",
+          mode: "best",
+          beachId: BEACH_1,
+          windowStart: "2026-04-26T14:00:00Z",
+          windowEnd: "2026-04-26T16:00:00Z",
+          forecastAt: "2026-04-26T10:00:00Z",
+          recommendationState: "ready_today",
+          conditionScore: 80,
+          personalMatchScore: 70,
+          overallScore: 80,
+          reasonType: "forecast_conditions",
+          dedupeKey: "watched-call.v1:recommendation-1",
+        },
+      },
+    });
+    seedProfile();
+    seedBeach();
+    seedForecast();
+    seedMatchingWindow(0.81);
+    mockDiscoverSurfSpots.mockResolvedValueOnce({
+      recommendations: [{
+        recommendationId: "nearby-1",
+        beach: { id: BEACH_2, name: "Nearby Beach" },
+        window: {
+          start: new Date("2026-04-26T14:30:00Z"),
+          end: new Date("2026-04-26T16:30:00Z"),
+        },
+        forecast: { forecast_at: "2026-04-26T12:00:00Z" },
+        score: 95,
+        recommendationLabel: "Worth it",
+        similarity: { state: "ready", score: 8.5 },
+      }],
+    });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(store.queueUpserts[0]).toMatchObject({
+      beach_id: BEACH_2,
+      conditions_snapshot: {
+        alert_type: "watched_call_update",
+        payload: { category: "better_nearby", recommendation_id: "nearby-1" },
+      },
+    });
+  });
+
+  it("retires a terminal watched call after an in-window session suppresses post-window delivery", async () => {
+    seedRule({
+      preset_type: "watched_call",
+      conditions: {
+        watched_call: {
+          version: 1,
+          recommendationId: "recommendation-1",
+          sourceSurface: "beach_detail",
+          mode: "beach-detail",
+          beachId: BEACH_1,
+          windowStart: "2026-04-26T09:00:00Z",
+          windowEnd: "2026-04-26T10:00:00Z",
+          forecastAt: "2026-04-26T07:00:00Z",
+          recommendationState: "ready_today",
+          conditionScore: 82,
+          personalMatchScore: 76,
+          overallScore: 80,
+          reasonType: "forecast_conditions",
+          dedupeKey: "watched-call.v1:recommendation-1",
+        },
+      },
+    });
+    seedProfile();
+    seedBeach();
+    store.sessions.push({ id: "session-1", status: "completed" });
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(store.queueUpserts).toHaveLength(0);
+    expect(store.ruleUpdates).toContainEqual({ id: RULE_1, enabled: false });
   });
 
   it("treats alert delivery dedupe lookup failures as errors instead of queueing duplicates", async () => {

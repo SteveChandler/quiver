@@ -4,6 +4,7 @@ import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { findMatchingWindows } from "@/lib/alerts/window-finder";
+import { evaluateWatchedCall } from "@/lib/alerts/watched-call-evaluator";
 import { selectActionableAlertWindow } from "@/lib/alerts/actionable-window-selector";
 import { filterToDaylight, getDaylightWindow } from "@/lib/alerts/sunrise";
 import { CAPS, resolveEntitlement } from "@/lib/alerts/entitlements";
@@ -16,6 +17,7 @@ import type { Beach } from "@/types/database";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
 import type { RecommendationHoldReasonCode } from "@/lib/recommendations/major-event-hold/types";
+import { discoverSurfSpots } from "@/lib/services/surf-discovery-service";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -42,6 +44,62 @@ type AlertQueueInsertWithBestScore =
   Database["public"]["Tables"]["alert_queue"]["Insert"] & {
     best_score: number;
   };
+
+function watchedWindowId(
+  watched: NonNullable<AlertConditions["watched_call"]>,
+  window: { window_start: string; window_end: string; forecast_id?: string },
+  index: number,
+): string {
+  const overlap = Math.max(
+    0,
+    Math.min(Date.parse(watched.windowEnd), Date.parse(window.window_end))
+      - Math.max(Date.parse(watched.windowStart), Date.parse(window.window_start)),
+  );
+  const shorter = Math.min(
+    Date.parse(watched.windowEnd) - Date.parse(watched.windowStart),
+    Date.parse(window.window_end) - Date.parse(window.window_start),
+  );
+  if (shorter > 0 && overlap / shorter >= 0.5) return watched.recommendationId;
+  return window.forecast_id ?? `${watched.beachId}:${window.window_start}:${index}`;
+}
+
+function watchedCallPayload(args: {
+  evaluation: ReturnType<typeof evaluateWatchedCall>;
+  watched: NonNullable<AlertConditions["watched_call"]>;
+  beachName: string;
+}): Record<string, unknown> | null {
+  if (args.evaluation.delivery !== "eligible") return null;
+  const current = args.evaluation.update?.currentIdentity.recommendation;
+  const category = args.evaluation.category;
+  const title = category === "still_on"
+    ? `Still on at ${args.beachName}`
+    : category === "call_changed"
+      ? `Call changed at ${args.beachName}`
+      : category === "better_nearby"
+        ? `Better nearby than ${args.beachName}`
+        : `Watched window ended at ${args.beachName}`;
+  const body = category === "still_on"
+    ? "Your watched window is still on."
+    : category === "call_changed"
+      ? "The strongest useful window changed."
+      : category === "better_nearby"
+        ? "A nearby useful window is materially stronger."
+        : "Your watched window has ended.";
+  return {
+    category,
+    cause: args.evaluation.update?.cause ?? "window_passed",
+    alert_rule_id: args.evaluation.update?.priorIdentity.alertRule.id,
+    beach_id: current?.beachId ?? args.watched.beachId,
+    beach_name: args.beachName,
+    recommendation_id: current?.recommendationId ?? args.watched.recommendationId,
+    prior_recommendation_id: args.watched.recommendationId,
+    window_start: current?.windowStart ?? args.watched.windowStart,
+    window_end: current?.windowEnd ?? args.watched.windowEnd,
+    forecast_at: current?.forecastAt ?? args.watched.forecastAt,
+    title,
+    body,
+  };
+}
 
 interface ConditionAlertEvaluationSummary {
   status: "ok" | "degraded";
@@ -204,7 +262,8 @@ export async function GET(request: Request) {
                 .filter((beachId: unknown): beachId is string => typeof beachId === "string"),
             );
             const eligibleRules = userRules.filter(
-              (rule) => !deliveredBeachIds.has(rule.beach_id),
+              (rule) => rule.preset_type === "watched_call"
+                || !deliveredBeachIds.has(rule.beach_id),
             );
             if (eligibleRules.length === 0) {
               result.skipped += userRules.length;
@@ -219,13 +278,151 @@ export async function GET(request: Request) {
               (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
             );
             const activeRules = sortedRules.slice(0, caps.totalRules);
+            let nearbyRecommendations: Awaited<ReturnType<typeof discoverSurfSpots>>["recommendations"] = [];
+            const activeWatchedRule = activeRules.find((rule) => {
+              const watchedCall = (rule.conditions as AlertConditions).watched_call;
+              return rule.preset_type === "watched_call"
+                && watchedCall
+                && Date.now() < Date.parse(watchedCall.windowEnd);
+            });
+            if (activeWatchedRule) {
+              const anchorBeach = beachesById.get(activeWatchedRule.beach_id)!;
+              const discovery = await discoverSurfSpots(userId, {
+                userLocation: { lat: anchorBeach.lat, lon: anchorBeach.lon },
+                horizonHours: 72,
+                maxResults: 10,
+                includeBeachIds: activeRules
+                  .filter((rule) => rule.preset_type === "watched_call")
+                  .map((rule) => rule.beach_id),
+                isPro: tier === "premium",
+              });
+              nearbyRecommendations = discovery.recommendations;
+            }
+
+            const queueWatchedUpdate = async (args: {
+              rule: (typeof activeRules)[number];
+              watched: NonNullable<AlertConditions["watched_call"]>;
+              beach: BeachAlertMeta;
+              evaluation: ReturnType<typeof evaluateWatchedCall>;
+            }): Promise<boolean> => {
+              const payload = watchedCallPayload({
+                evaluation: args.evaluation,
+                watched: args.watched,
+                beachName: args.beach.name,
+              });
+              if (!payload || args.evaluation.delivery !== "eligible") {
+                result.skipped++;
+                return !args.evaluation.keepWatchActive;
+              }
+              const postWindow = args.evaluation.category === "post_window";
+              if (!postWindow) {
+                const hold = await resolveNotificationMajorEventHold({
+                  eventId: `condition-alert-evaluate:${args.rule.id}:${String(payload.window_start)}`,
+                  type: "forecast_alert",
+                  payload: {
+                    beach_id: String(payload.beach_id),
+                    configured_beach_id: args.rule.beach_id,
+                    forecast_at: payload.forecast_at,
+                    policy_context: {
+                      kind: "positive_session_recommendation",
+                      beach_id: String(payload.beach_id),
+                      starts_at: String(payload.window_start),
+                      ends_at: String(payload.window_end),
+                    },
+                  },
+                  profileExperience,
+                });
+                if (hold.status === "suppressed") {
+                  result.skipped++;
+                  result.skipped_by_reason[hold.reasonCode]++;
+                  return false;
+                }
+              }
+              const queueStart = postWindow
+                ? args.watched.windowEnd
+                : String(payload.window_start);
+              const queueEnd = postWindow
+                ? new Date(Date.parse(queueStart) + 1).toISOString()
+                : String(payload.window_end);
+              const queueRow: AlertQueueInsertWithBestScore = {
+                user_id: userId,
+                rule_id: args.rule.id,
+                beach_id: String(payload.beach_id),
+                alert_date: userLocalDate,
+                send_at: new Date().toISOString(),
+                window_start: queueStart,
+                window_end: queueEnd,
+                best_hour: String(payload.forecast_at ?? queueStart),
+                best_score: args.watched.overallScore / 100,
+                conditions_snapshot: {
+                  alert_type: "watched_call_update",
+                  dedupe_key: args.evaluation.dedupeKey,
+                  payload,
+                } as import("@/types/database.generated").Json,
+              };
+              const { error } = await supabase.from("alert_queue").upsert(
+                queueRow,
+                { onConflict: "rule_id,alert_date,window_start", ignoreDuplicates: true },
+              );
+              if (error) {
+                console.error(`${CONTEXT_TAG} Failed to queue watched-call update:`, error);
+                result.errors++;
+                return false;
+              }
+              result.matched++;
+              result.queued++;
+              return true;
+            };
 
             for (const rule of activeRules) {
               result.evaluated++;
               const beach = beachesById.get(rule.beach_id) as BeachAlertMeta;
               const conditions = rule.conditions as AlertConditions;
+              const watched = rule.preset_type === "watched_call"
+                ? conditions.watched_call
+                : undefined;
 
               const { start: todayStart, end: todayEnd } = getUtcDayBounds(userLocalDate, beach.timezone);
+
+              if (watched && Date.now() >= Date.parse(watched.windowEnd)) {
+                const { data: responses, error: responseError } = await supabase
+                  .from("sessions")
+                  .select("id")
+                  .eq("user_id", userId)
+                  .eq("beach_id", watched.beachId)
+                  .eq("status", "completed")
+                  .is("deleted_at", null)
+                  .gte("arrival_time", watched.windowStart)
+                  .lte("arrival_time", watched.windowEnd)
+                  .limit(1);
+                if (responseError) throw responseError;
+                const evaluation = evaluateWatchedCall({
+                  alertRule: { id: rule.id, beach_id: rule.beach_id },
+                  watched,
+                  localDate: userLocalDate,
+                  generatedAt: new Date().toISOString(),
+                  scorerVersion: "condition-alert-v1",
+                  candidateFingerprint: watched.beachId,
+                  requestFingerprint: `${watched.beachId}:${watched.mode}`,
+                  bestWindowId: null,
+                  windows: [],
+                  now: new Date(),
+                  alreadyResponded: (responses?.length ?? 0) > 0,
+                  lastStillOnAt: null,
+                });
+                const terminalHandled = await queueWatchedUpdate({ rule, watched, beach, evaluation });
+                if (terminalHandled && !evaluation.keepWatchActive) {
+                  const { error: retireError } = await supabase
+                    .from("alert_rules")
+                    .update({ enabled: false })
+                    .eq("id", rule.id);
+                  if (retireError) {
+                    console.error(`${CONTEXT_TAG} Failed to retire watched call:`, retireError);
+                    result.errors++;
+                  }
+                }
+                continue;
+              }
 
               const { data: forecasts, error: forecastsError } = await supabase
                 .from("enhanced_forecasts")
@@ -332,6 +529,64 @@ export async function GET(request: Request) {
               });
               if (windows.length === 0) {
                 result.skipped_unsurfable++;
+                continue;
+              }
+
+              if (watched) {
+                const stableWindows = windows.map((window, index) => ({
+                  id: watchedWindowId(watched, window, index),
+                  bucket: "morning" as const,
+                  start: window.window_start,
+                  end: window.window_end,
+                  peakTime: window.best_hour,
+                  beachId: rule.beach_id,
+                  rankingScore: window.best_score * 100,
+                  verdict: "worth_it" as const,
+                  rideable: true,
+                  safe: true,
+                }));
+                const winner = stableWindows.reduce<(typeof stableWindows)[number] | null>(
+                  (best, candidate) => !best || candidate.rankingScore > best.rankingScore
+                    ? candidate
+                    : best,
+                  null,
+                );
+                const nearby = nearbyRecommendations.find((recommendation) =>
+                  recommendation.kind !== "custom_spot"
+                  && recommendation.beach.id !== watched.beachId,
+                );
+                const evaluation = evaluateWatchedCall({
+                  alertRule: { id: rule.id, beach_id: rule.beach_id },
+                  watched,
+                  localDate: userLocalDate,
+                  generatedAt: new Date().toISOString(),
+                  scorerVersion: "condition-alert-v1",
+                  candidateFingerprint: watched.beachId,
+                  requestFingerprint: `${watched.beachId}:${watched.mode}`,
+                  bestWindowId: winner?.id ?? null,
+                  windows: stableWindows,
+                  now: new Date(),
+                  alreadyResponded: false,
+                  lastStillOnAt: null,
+                  nearbyRecommendation: nearby ? {
+                    recommendationId: nearby.recommendationId
+                      ?? `beach:${nearby.beach.id}:${nearby.forecast.forecast_at}`,
+                    beachId: nearby.beach.id,
+                    windowStart: nearby.window.start.toISOString(),
+                    windowEnd: nearby.window.end.toISOString(),
+                    forecastAt: nearby.forecast.forecast_at,
+                    recommendationState: nearby.recommendationLabel === "Worth it"
+                      ? "ready_today"
+                      : "available",
+                    conditionScore: nearby.score,
+                    personalMatchScore: nearby.similarity?.state === "ready"
+                      ? Math.max(0, Math.min(100, nearby.similarity.score * 10))
+                      : 0,
+                    overallScore: nearby.score,
+                    reasonType: "forecast_conditions",
+                  } : undefined,
+                });
+                await queueWatchedUpdate({ rule, watched, beach, evaluation });
                 continue;
               }
 

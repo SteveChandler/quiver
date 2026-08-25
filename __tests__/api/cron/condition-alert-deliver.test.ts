@@ -380,6 +380,38 @@ function seedProfile(overrides: Partial<any> = {}) {
   });
 }
 
+function seedWatchedQueueRow(
+  category: "still_on" | "call_changed" | "better_nearby" | "post_window" = "call_changed",
+) {
+  seedQueueRow({
+    conditions_snapshot: {
+      alert_type: "watched_call_update",
+      dedupe_key: `watched-call.v1:${category}:rule-1`,
+      payload: {
+        category,
+        cause: category === "call_changed" ? "forecast_materially_changed" : "forecast_refreshed",
+        alert_rule_id: RULE_1,
+        beach_id: BEACH_1,
+        beach_name: "Test Beach",
+        recommendation_id: "recommendation-2",
+        prior_recommendation_id: "recommendation-1",
+        window_start: "2026-04-26T13:00:00.000Z",
+        window_end: "2026-04-26T15:00:00.000Z",
+        forecast_at: "2026-04-26T14:00:00.000Z",
+        title: "Call changed at Test Beach",
+        body: "The strongest useful window changed.",
+      },
+    },
+    alert_rules: {
+      name: "Watch Test Beach",
+      preset_type: "watched_call",
+      notify_email: false,
+      notify_push: true,
+      conditions: { max_frequency_per_week: 3 },
+    },
+  });
+}
+
 function makeRequest(): Request {
   return new Request(
     "https://quiversurf.app/api/cron/condition-alert-deliver",
@@ -1313,6 +1345,96 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     } finally {
       jest.useRealTimers();
     }
+  });
+});
+
+describe("condition-alert-deliver — watched-call queue", () => {
+  it("enqueues a bounded watched update through the notification worker", async () => {
+    seedWatchedQueueRow();
+    seedProfile();
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(expect.objectContaining({
+      type: "watched_call_update",
+      recipientUserId: USER_A,
+      dedupeKey: "watched-call.v1:call_changed:rule-1",
+      payload: expect.objectContaining({
+        category: "call_changed",
+        alert_rule_id: RULE_1,
+        queue_items: [{ queue_id: QUEUE_1, rule_id: RULE_1 }],
+      }),
+    }));
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+
+  it("uses the category cooldown before enqueue", async () => {
+    seedWatchedQueueRow("call_changed");
+    seedProfile();
+    store.seededAttempts.push({
+      queue_id: "prior", rule_id: RULE_1, user_id: USER_A, channel: "push",
+      status: "sent", attempted_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+      skip_reason: "watched_call:call_changed:sent",
+    });
+
+    await GET(makeRequest());
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: QUEUE_1,
+      status: "skipped_cooldown",
+    }));
+  });
+
+  it("honors the watched rule weekly cap", async () => {
+    seedWatchedQueueRow("call_changed");
+    seedProfile();
+    for (let index = 1; index <= 3; index++) {
+      store.seededAttempts.push({
+        queue_id: `prior-${index}`, rule_id: RULE_1, user_id: USER_A, channel: "push",
+        status: "sent", attempted_at: new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString(),
+      });
+    }
+
+    await GET(makeRequest());
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: QUEUE_1,
+      status: "skipped_user_cap",
+    }));
+  });
+
+  it("honors the disabled push channel", async () => {
+    seedWatchedQueueRow();
+    seedProfile({ notif_push_enabled: false });
+
+    await GET(makeRequest());
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      queue_id: QUEUE_1,
+      status: "skipped_channel_disabled",
+    }));
+  });
+
+  it("consumes a duplicate but leaves an internal enqueue failure retryable", async () => {
+    seedWatchedQueueRow();
+    seedProfile();
+    mockEnqueueNotification.mockResolvedValueOnce({ enqueued: false, reason: "duplicate" });
+    await GET(makeRequest());
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      status: "skipped_dedup_collision",
+    }));
+
+    store.alertQueueRows = [];
+    store.attemptInserts = [];
+    store.queueUpdates = [];
+    seedWatchedQueueRow();
+    mockEnqueueNotification.mockResolvedValueOnce({ enqueued: false, reason: "internal_error" });
+    await GET(makeRequest());
+    expect(store.queueUpdates).toEqual([]);
+    expect(store.attemptInserts).toContainEqual(expect.objectContaining({
+      status: "failed_internal",
+    }));
   });
 });
 

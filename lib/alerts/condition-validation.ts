@@ -7,6 +7,7 @@ export interface AlertConditionValidationResult {
 }
 
 const CONDITION_KEYS = new Set<keyof AlertConditions>([
+  "watched_call",
   "swell_height_min",
   "swell_height_max",
   "swell_direction_min_deg",
@@ -31,6 +32,7 @@ const CONDITION_KEYS = new Set<keyof AlertConditions>([
 ]);
 
 const MEANINGFUL_KEYS = new Set<keyof AlertConditions>([
+  "watched_call",
   "swell_height_min",
   "swell_height_max",
   "swell_direction_min_deg",
@@ -65,6 +67,47 @@ function isTime(value: unknown): value is string {
 
 function isHour(value: unknown): value is number {
   return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 23;
+}
+
+const WATCHED_CALL_KEYS = new Set([
+  "version", "recommendationId", "sourceSurface", "mode", "beachId",
+  "windowStart", "windowEnd", "forecastAt", "recommendationState",
+  "conditionScore", "personalMatchScore", "overallScore", "reasonType",
+  "dedupeKey",
+]);
+
+function isIsoDate(value: unknown): value is string {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function isBoundedString(value: unknown, maxLength: number): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= maxLength;
+}
+
+function isScore(value: unknown): value is number {
+  return isFiniteNumber(value) && value >= 0 && value <= 100;
+}
+
+function isWatchedCall(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (Object.keys(value).some((key) => !WATCHED_CALL_KEYS.has(key))) return false;
+  return value.version === 1
+    && isBoundedString(value.recommendationId, 256)
+    && ["home_hero", "home_also_worth_it", "explore_for_you", "beach_detail", "surf_window_adjacent"]
+      .includes(String(value.sourceSurface))
+    && ["now", "best", "my-spots", "beach-detail"].includes(String(value.mode))
+    && isBoundedString(value.beachId, 128)
+    && isIsoDate(value.windowStart)
+    && isIsoDate(value.windowEnd)
+    && Date.parse(value.windowEnd) > Date.parse(value.windowStart)
+    && (value.forecastAt === null || isIsoDate(value.forecastAt))
+    && isBoundedString(value.recommendationState, 64)
+    && isScore(value.conditionScore)
+    && isScore(value.personalMatchScore)
+    && isScore(value.overallScore)
+    && isBoundedString(value.reasonType, 128)
+    && isBoundedString(value.dedupeKey, 1024)
+    && value.dedupeKey.startsWith("watched-call.v1:");
 }
 
 function validateNumber(
@@ -110,6 +153,10 @@ export function validateConditionAlertInput(args: {
   }
 
   const input = args.conditions;
+
+  if (presetType === "watched_call" && !isWatchedCall(input.watched_call)) {
+    return { ok: false, message: "watched_call requires a valid bounded identity." };
+  }
 
   if (isSimilarity) {
     const unsupported = Object.keys(input).filter((key) =>

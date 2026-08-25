@@ -16,6 +16,7 @@ const PRESET_CONFIG: Record<
   daily_check_in: { label: "Daily", accentClass: "bg-[#E6E0D1] text-[#2D2A24]" },
   weekend_warrior: { label: "Weekend", accentClass: "bg-[#FFF3C4] text-[#4A3B08]" },
   after_work: { label: "Evening", accentClass: "bg-[#FFE0F0] text-[#4A1030]" },
+  watched_call: { label: "Watch", accentClass: "bg-[#DDEEFF] text-[#173355]" },
 };
 
 interface PresetCardProps {
