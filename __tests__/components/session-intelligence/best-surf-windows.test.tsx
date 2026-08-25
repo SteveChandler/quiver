@@ -255,8 +255,14 @@ describe("BestSurfWindows", () => {
     }
   });
 
-  it("keeps the app deep link as a ghost secondary CTA", () => {
-    render(<BestSurfWindows recommendations={[makeRecommendation(1)]} />);
+  it("degrades to a beach-only handoff when exact identity is unavailable", () => {
+    render(
+      <BestSurfWindows
+        recommendations={[
+          makeRecommendation(1, { recommendationId: undefined }),
+        ]}
+      />
+    );
 
     const appCta = screen.getByTestId("app-deep-link-cta");
     expect(appCta).toBeInTheDocument();
@@ -265,6 +271,9 @@ describe("BestSurfWindows", () => {
       "href",
       "https://www.quiversurf.app/app/spot/ocean-beach"
     );
+    expect(
+      new URL(appCta.getAttribute("href")!).searchParams.has("window")
+    ).toBe(false);
   });
 
   it("carries exact handoff context for a production-shaped recommendation", () => {
