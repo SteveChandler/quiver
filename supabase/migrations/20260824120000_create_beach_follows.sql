@@ -1,5 +1,51 @@
 BEGIN;
 
+-- A CHECK cannot contain a subquery, so this immutable helper validates every
+-- JSON value. The regex bounds the accepted grammar and numeric offset; the
+-- cast rejects impossible calendar dates that a format check cannot detect.
+CREATE FUNCTION public.beach_follow_topic_added_at_is_valid(value jsonb)
+RETURNS boolean
+LANGUAGE plpgsql
+IMMUTABLE
+STRICT
+SET search_path = ''
+AS $$
+DECLARE
+  entry record;
+  candidate text;
+BEGIN
+  IF pg_catalog.jsonb_typeof(value) <> 'object' THEN
+    RETURN false;
+  END IF;
+
+  FOR entry IN
+    SELECT item.value
+    FROM pg_catalog.jsonb_each(value) AS item
+  LOOP
+    IF pg_catalog.jsonb_typeof(entry.value) <> 'string' THEN
+      RETURN false;
+    END IF;
+
+    candidate := entry.value #>> '{}';
+    IF
+      length(candidate) > 35
+      OR candidate !~ '^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]([.][0-9]{1,9})?(Z|[+-]((0[0-9]|1[0-3]):[0-5][0-9]|14:00))$'
+    THEN
+      RETURN false;
+    END IF;
+
+    BEGIN
+      PERFORM candidate::pg_catalog.timestamptz;
+    EXCEPTION
+      WHEN invalid_datetime_format OR datetime_field_overflow THEN
+        RETURN false;
+    END;
+  END LOOP;
+
+  RETURN true;
+END;
+$$;
+
 -- Beach follows intentionally do not extend favorite_beaches. The free-tier
 -- favorites cap of three would make anonymous merge lossy and entitlement-
 -- changing, while favorite_beaches also feeds alert rules and cron/email
@@ -40,6 +86,7 @@ CREATE TABLE public.beach_follows (
       topic_added_at,
       '$.* ? (@.type() != "string")'
     )
+    AND public.beach_follow_topic_added_at_is_valid(topic_added_at)
   )
 );
 
@@ -92,5 +139,6 @@ CREATE TRIGGER beach_follows_touch_updated_at
 -- Rollback (manual, only before consumers depend on this additive table):
 -- DROP TABLE public.beach_follows;
 -- DROP FUNCTION public.touch_beach_follows_updated_at();
+-- DROP FUNCTION public.beach_follow_topic_added_at_is_valid(jsonb);
 
 COMMIT;

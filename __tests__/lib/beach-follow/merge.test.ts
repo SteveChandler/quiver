@@ -430,6 +430,62 @@ describe("anonymous beach-follow merge", () => {
     expect(result.accountState.follows).toEqual([]);
   });
 
+  it("applies a whole-follow tombstone per topic and retains only later additions", () => {
+    const serverRow = serverFollow(
+      BEACH_A,
+      [FollowTopic.Surf, FollowTopic.Tide],
+      "2026-08-24T15:00:00.000Z",
+      {
+        [FollowTopic.Surf]: "2026-08-24T10:00:00.000Z",
+        [FollowTopic.Tide]: "2026-08-24T15:00:00.000Z",
+      }
+    );
+    const anonState = appliedState(removeFollow(
+      createLocalFollowState(),
+      BEACH_A,
+      "2026-08-24T14:00:00.000Z"
+    ));
+
+    const result = mergeBeachFollows({
+      anonState,
+      serverRows: [serverRow],
+    });
+
+    const retainedRow = {
+      ...serverRow,
+      topics: [FollowTopic.Tide],
+      topicAddedAt: {
+        [FollowTopic.Tide]: "2026-08-24T15:00:00.000Z",
+      },
+    };
+    expect(result.rowsToDelete).toEqual([]);
+    expect(result.rowsToInsert).toEqual([retainedRow]);
+    expect(result.accountState.follows).toEqual([retainedRow]);
+  });
+
+  it("ignores trigger-rewritten updatedAt when a whole-follow tombstone applies", () => {
+    const serverRow = serverFollow(
+      BEACH_A,
+      [FollowTopic.Surf],
+      "2026-08-24T16:00:00.000Z",
+      { [FollowTopic.Surf]: "2026-08-24T14:00:00.000Z" }
+    );
+    const anonState = appliedState(removeFollow(
+      createLocalFollowState(),
+      BEACH_A,
+      "2026-08-24T14:00:00.000Z"
+    ));
+
+    const result = mergeBeachFollows({
+      anonState,
+      serverRows: [serverRow],
+    });
+
+    expect(result.rowsToDelete).toEqual([BEACH_A]);
+    expect(result.rowsToInsert).toEqual([]);
+    expect(result.accountState.follows).toEqual([]);
+  });
+
   it.each([
     ["newer follow survives", SECOND_TIME, FIRST_TIME, false],
     ["newer tombstone applies", FIRST_TIME, SECOND_TIME, true],
@@ -455,9 +511,8 @@ describe("anonymous beach-follow merge", () => {
       expect(result.rowsToDelete).toEqual(shouldDelete ? [BEACH_A] : []);
       expect(result.rowsToInsert).toEqual(shouldDelete ? [] : [{
         beachId: BEACH_A,
-        topics: [FollowTopic.Surf, FollowTopic.Tide],
+        topics: [FollowTopic.Tide],
         topicAddedAt: {
-          [FollowTopic.Surf]: EARLIER_TIME,
           [FollowTopic.Tide]: SECOND_TIME,
         },
         createdAt: FIRST_TIME,
@@ -783,6 +838,45 @@ describe("anonymous beach-follow merge", () => {
     });
   });
 
+  it.each([
+    [
+      "stale",
+      {
+        [FollowTopic.General]: FIRST_TIME,
+        [FollowTopic.Surf]: SECOND_TIME,
+      },
+    ],
+    [
+      "partial",
+      { [FollowTopic.General]: SECOND_TIME },
+    ],
+  ] as const)(
+    "keeps a local follow pending when server topicAddedAt is %s",
+    (_, topicAddedAt) => {
+      const localFollow = serverFollow(
+        BEACH_A,
+        [FollowTopic.Surf, FollowTopic.General],
+        SECOND_TIME
+      );
+      const anonState: LocalFollowState = {
+        version: 3,
+        follows: [localFollow],
+        tombstones: [],
+        topicTombstones: [],
+        bfrHoldoutAssignment: null,
+      };
+
+      expect(acknowledgeBeachFollowMerge({
+        residualLocalState: anonState,
+        postWriteServerRows: [{
+          ...localFollow,
+          topicAddedAt,
+          updatedAt: "2026-08-24T16:00:00.000Z",
+        }],
+      })).toEqual({ status: "sync_required", state: anonState });
+    }
+  );
+
   it("does not clear oversized follows without server confirmation", () => {
     const follows = Array.from(
       { length: MAX_FOLLOWED_BEACHES + 5 },
@@ -870,7 +964,15 @@ describe("anonymous beach-follow merge", () => {
       bfrHoldoutAssignment: null,
     };
     const incompleteServerRows = [
-      serverFollow(BEACH_A, [FollowTopic.Surf, FollowTopic.Tide], FIRST_TIME),
+      serverFollow(
+        BEACH_A,
+        [FollowTopic.Surf, FollowTopic.Tide],
+        FIRST_TIME,
+        {
+          [FollowTopic.Surf]: FIRST_TIME,
+          [FollowTopic.Tide]: SECOND_TIME,
+        }
+      ),
     ];
 
     const acknowledged = acknowledgeBeachFollowMerge({
@@ -898,7 +1000,7 @@ describe("anonymous beach-follow merge", () => {
         BEACH_A,
         [FollowTopic.Tide],
         SECOND_TIME,
-        { [FollowTopic.Tide]: FIRST_TIME }
+        { [FollowTopic.Tide]: SECOND_TIME }
       ),
     ]);
   });

@@ -401,7 +401,41 @@ describe("local beach-follow state", () => {
       ...follow,
       topicAddedAt: { [FollowTopic.Tide]: updatedAt },
     }] : []);
-    expect(normalized.tombstones).toEqual(followWins ? [] : [tombstone]);
+    expect(normalized.tombstones).toEqual([tombstone]);
+  });
+
+  it("resolves a whole-follow tombstone per causal topic addition time", () => {
+    const tombstone = {
+      beachId: BEACH_A,
+      removedAt: "2026-08-24T13:00:00.000Z",
+    };
+    const normalized = appliedState(normalizeLocalFollowState({
+      version: 3,
+      follows: [{
+        beachId: BEACH_A,
+        topics: [FollowTopic.Surf, FollowTopic.Tide],
+        topicAddedAt: {
+          [FollowTopic.Surf]: "2026-08-24T12:00:00.000Z",
+          [FollowTopic.Tide]: "2026-08-24T14:00:00.000Z",
+        },
+        createdAt: FIRST_TIME,
+        updatedAt: "2026-08-24T16:00:00.000Z",
+      }],
+      tombstones: [tombstone],
+      topicTombstones: [],
+      bfrHoldoutAssignment: null,
+    }));
+
+    expect(normalized.follows).toEqual([{
+      beachId: BEACH_A,
+      topics: [FollowTopic.Tide],
+      topicAddedAt: {
+        [FollowTopic.Tide]: "2026-08-24T14:00:00.000Z",
+      },
+      createdAt: FIRST_TIME,
+      updatedAt: "2026-08-24T16:00:00.000Z",
+    }]);
+    expect(normalized.tombstones).toEqual([tombstone]);
   });
 
   it("quarantines an oversized valid follow envelope without truncation", () => {

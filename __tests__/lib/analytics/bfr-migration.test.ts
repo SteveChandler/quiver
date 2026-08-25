@@ -55,6 +55,26 @@ describe("BFR migrations", () => {
     expect(beachFollowsMigrationSql).toContain(
       "@.type() != \"string\""
     );
+    expect(beachFollowsMigrationSql).toContain(
+      "CREATE FUNCTION public.beach_follow_topic_added_at_is_valid(value jsonb)"
+    );
+    expect(beachFollowsMigrationSql).toContain("IMMUTABLE");
+    expect(beachFollowsMigrationSql).toContain("length(candidate) > 35");
+    expect(beachFollowsMigrationSql).toContain(
+      "candidate !~ '^[0-9]{4}-(0[1-9]|1[0-2])"
+    );
+    expect(beachFollowsMigrationSql).toContain(
+      "(Z|[+-]((0[0-9]|1[0-3]):[0-5][0-9]|14:00))$'"
+    );
+    expect(beachFollowsMigrationSql).toContain(
+      "candidate::pg_catalog.timestamptz"
+    );
+    expect(beachFollowsMigrationSql).toContain(
+      "public.beach_follow_topic_added_at_is_valid(topic_added_at)"
+    );
+    expect(beachFollowsMigrationSql).toContain(
+      "invalid_datetime_format OR datetime_field_overflow"
+    );
   });
 
   it("additively extends the existing check without applying destructive data changes", () => {

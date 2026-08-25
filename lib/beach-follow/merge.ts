@@ -2,6 +2,7 @@ import {
   type FollowedBeach,
   type FollowTopicAddedAt,
   type FollowTopicTombstone,
+  type FollowTombstone,
   type LocalFollowMutationResult,
   type MergeInput,
   type MergeResult,
@@ -29,6 +30,7 @@ function rowsMatch(left: FollowedBeach, right: FollowedBeach): boolean {
 function unionRows(
   server: FollowedBeach,
   anon: FollowedBeach | undefined,
+  wholeTombstone: FollowTombstone | undefined,
   topicTombstones: readonly FollowTopicTombstone[]
 ): FollowedBeach {
   const latestRemovalByTopic = new Map(
@@ -55,19 +57,30 @@ function unionRows(
   );
   const topics = candidateTopics
     .filter((topic) => {
-      const removedAt = latestRemovalByTopic.get(topic);
-      if (!removedAt) return true;
       const latestAddition = topicAddedAt[topic];
-      return latestAddition !== undefined
-        && Date.parse(latestAddition) > Date.parse(removedAt);
+      if (latestAddition === undefined) return false;
+      const removalTimes = [
+        wholeTombstone?.removedAt,
+        latestRemovalByTopic.get(topic),
+      ].filter((value): value is string => value !== undefined);
+      return removalTimes.every(
+        (removedAt) => Date.parse(latestAddition) > Date.parse(removedAt)
+      );
     });
-  const latestAppliedRemoval = topicTombstones
-    .filter((tombstone) => (
-      tombstone.beachId === server.beachId
-      && candidateTopics.includes(tombstone.topic)
-      && !topics.includes(tombstone.topic)
-    ))
-    .map((tombstone) => tombstone.removedAt)
+  const removedTopics = candidateTopics.filter(
+    (topic) => !topics.includes(topic)
+  );
+  const latestAppliedRemoval = [
+    ...(wholeTombstone && removedTopics.length > 0
+      ? [wholeTombstone.removedAt]
+      : []),
+    ...topicTombstones
+      .filter((tombstone) => (
+        tombstone.beachId === server.beachId
+        && removedTopics.includes(tombstone.topic)
+      ))
+      .map((tombstone) => tombstone.removedAt),
+  ]
     .sort((left, right) => Date.parse(right) - Date.parse(left))[0];
 
   return {
@@ -94,11 +107,14 @@ function serverConfirmsFollow(
   if (server.beachId !== local.beachId) return false;
 
   const persistedTopics = new Set(server.topics);
-  const expectedTopics = new Set([...server.topics, ...local.topics]);
-  return (
-    persistedTopics.size === expectedTopics.size
-    && [...expectedTopics].every((topic) => persistedTopics.has(topic))
-  );
+  return local.topics.every((topic) => {
+    if (!persistedTopics.has(topic)) return false;
+    const persistedAddedAt = server.topicAddedAt[topic];
+    const localAddedAt = local.topicAddedAt[topic];
+    return persistedAddedAt !== undefined
+      && localAddedAt !== undefined
+      && Date.parse(persistedAddedAt) >= Date.parse(localAddedAt);
+  });
 }
 
 export interface AcknowledgeBeachFollowMergeInput {
@@ -114,9 +130,15 @@ export function acknowledgeBeachFollowMerge(
 
   const serverRows = dedupeFollowedBeaches(input.postWriteServerRows);
   const serverByBeachId = new Map(serverRows.map((row) => [row.beachId, row]));
+  const rawServerByBeachId = new Map(
+    input.postWriteServerRows.map((row) => [row.beachId, row])
+  );
   const follows = normalization.state.follows.filter((localRow) => {
     const serverRow = serverByBeachId.get(localRow.beachId);
-    return !serverRow || !serverConfirmsFollow(serverRow, localRow);
+    const rawServerRow = rawServerByBeachId.get(localRow.beachId);
+    return !serverRow
+      || !rawServerRow
+      || !serverConfirmsFollow(rawServerRow, localRow);
   });
   const tombstones = normalization.state.tombstones.filter((tombstone) =>
     serverByBeachId.has(tombstone.beachId)
@@ -188,33 +210,21 @@ export function mergeBeachFollows(input: MergeInput): MergeResult {
   }
   const anonState = normalization.state;
   const serverByBeachId = new Map(serverRows.map((row) => [row.beachId, row]));
-  const deletedBeachIds = new Set(
-    anonState.tombstones
-      .filter((tombstone) => {
-        const serverRow = serverByBeachId.get(tombstone.beachId);
-        return !serverRow
-          || Date.parse(tombstone.removedAt) >= Date.parse(serverRow.updatedAt);
-      })
-      .map((tombstone) => tombstone.beachId)
-  );
-  const rowsToDelete = serverRows
-    .filter((row) => deletedBeachIds.has(row.beachId))
-    .map((row) => row.beachId)
-    .sort();
-  const retainedServerRows = serverRows.filter(
-    (row) => !deletedBeachIds.has(row.beachId)
+  const wholeTombstoneByBeachId = new Map(
+    anonState.tombstones.map((tombstone) => [tombstone.beachId, tombstone])
   );
   const retainedByBeachId = new Map<string, FollowedBeach>();
   const rowsToInsert: FollowedBeach[] = [];
-  const rowsToDeleteSet = new Set(rowsToDelete);
+  const rowsToDeleteSet = new Set<string>();
   const anonByBeachId = new Map(
     anonState.follows.map((row) => [row.beachId, row])
   );
 
-  for (const serverRow of retainedServerRows) {
+  for (const serverRow of serverRows) {
     const unioned = unionRows(
       serverRow,
       anonByBeachId.get(serverRow.beachId),
+      wholeTombstoneByBeachId.get(serverRow.beachId),
       anonState.topicTombstones
     );
     if (unioned.topics.length === 0) {
@@ -226,7 +236,6 @@ export function mergeBeachFollows(input: MergeInput): MergeResult {
   }
 
   for (const anonRow of anonState.follows) {
-    if (deletedBeachIds.has(anonRow.beachId)) continue;
     const serverRow = serverByBeachId.get(anonRow.beachId);
     if (serverRow) continue;
 

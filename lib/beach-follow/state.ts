@@ -353,12 +353,17 @@ export function normalizeLocalFollowState(
     .map((follow) => ({
       ...follow,
       topics: follow.topics.filter((topic) => {
-        const tombstone = topicTombstoneByKey.get(
+        const wholeTombstone = tombstoneByBeachId.get(follow.beachId);
+        const topicTombstone = topicTombstoneByKey.get(
           `${follow.beachId}:${topic}`
         );
-        return !tombstone
-          || Date.parse(follow.topicAddedAt[topic] ?? follow.updatedAt)
-            > Date.parse(tombstone.removedAt);
+        const addedAt = follow.topicAddedAt[topic] ?? follow.updatedAt;
+        return (
+          (!wholeTombstone
+            || Date.parse(addedAt) > Date.parse(wholeTombstone.removedAt))
+          && (!topicTombstone
+            || Date.parse(addedAt) > Date.parse(topicTombstone.removedAt))
+        );
       }),
     }))
     .map((follow) => ({
@@ -370,30 +375,16 @@ export function normalizeLocalFollowState(
       ),
     }))
     .filter((follow) => follow.topics.length > 0)
-    .filter((follow) => {
-      const tombstone = tombstoneByBeachId.get(follow.beachId);
-      return !tombstone
-        || Date.parse(follow.updatedAt) > Date.parse(tombstone.removedAt);
-    })
     .sort(
       (left, right) =>
         Date.parse(left.updatedAt) - Date.parse(right.updatedAt) ||
         left.beachId.localeCompare(right.beachId)
     );
-  const retainedFollowBeachIds = new Set(
-    follows.map((follow) => follow.beachId)
-  );
-  const tombstones = dedupedTombstones.filter(
-    (tombstone) => !retainedFollowBeachIds.has(tombstone.beachId)
-  );
-  const retainedTombstoneBeachIds = new Set(
-    tombstones.map((tombstone) => tombstone.beachId)
-  );
+  const tombstones = dedupedTombstones;
   const followByBeachId = new Map(
     follows.map((follow) => [follow.beachId, follow])
   );
   const topicTombstones = dedupedTopicTombstones.filter((tombstone) => {
-    if (retainedTombstoneBeachIds.has(tombstone.beachId)) return false;
     const follow = followByBeachId.get(tombstone.beachId);
     return !follow
       || !follow.topics.includes(tombstone.topic)
