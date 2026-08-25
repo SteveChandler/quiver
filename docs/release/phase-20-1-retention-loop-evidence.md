@@ -191,10 +191,12 @@ be. The requirement is closed by removal of the surface, not by evidence that it
 
 ### What was removed and what survives
 
-Commit `6997d0977` (`chore(follow): remove My Coast and the beach-follow surface`) deletes the
+Commit `c66058c7a` (`chore(follow): remove My Coast and the beach-follow surface`) deletes the
 `/my-coast` page and API route, the Follow control and its water-temperature and beach sub-page
 placements, local follow state, the anonymous-to-account sync boundary, and the **unapplied**
-`beach_follows` migration — 6,106 deletions against 83 insertions. Nothing linked to `/my-coast`
+`beach_follows` migration — 6,106 deletions against 83 insertions. Two follow-up commits
+(`40b41cced`, `ab68be94c`) drop the component props and type declarations that the removal
+orphaned. Nothing linked to `/my-coast`
 from site navigation and web `main` was never promoted, so **no user ever saw this surface**;
 there is no rollback to plan and no production state to reconcile.
 
