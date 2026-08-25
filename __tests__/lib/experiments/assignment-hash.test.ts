@@ -1,8 +1,15 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import {
+  experimentArm,
+} from "@/lib/experiments/assignment-hash";
 import {
   BFR_HOLDOUT_EXPERIMENT_KEY,
   bfrHoldoutAssignment,
-  experimentArm,
-} from "@/lib/experiments/assignment-hash";
+} from "@/lib/experiments/bfr-holdout";
+
+const ASSIGNED_AT = "2026-08-24T12:00:00.000Z";
 
 describe("experimentArm", () => {
   it.each([
@@ -33,13 +40,37 @@ describe("experimentArm", () => {
     "assigns a stable BFR holdout arm for %s",
     (subjectId) => {
       const assignments = Array.from({ length: 10 }, () =>
-        bfrHoldoutAssignment(subjectId)
+        bfrHoldoutAssignment(subjectId, ASSIGNED_AT)
       );
       expect(new Set(assignments.map((assignment) => assignment.arm)).size).toBe(1);
       expect(assignments[0]).toEqual({
+        subjectId,
         experimentKey: BFR_HOLDOUT_EXPERIMENT_KEY,
         arm: expect.stringMatching(/^(holdout|treatment)$/),
+        assignedAt: ASSIGNED_AT,
+        version: 1,
       });
     }
   );
+
+  it("keeps the BFR assignment module browser-safe", () => {
+    const source = readFileSync(
+      join(process.cwd(), "lib/experiments/bfr-holdout.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/(?:node:)?crypto|createHash|Buffer/);
+  });
+
+  it("produces a rough 50/50 split over deterministic identifiers", () => {
+    const assignments = Array.from({ length: 400 }, (_, index) =>
+      bfrHoldoutAssignment(`anon-${index}`, ASSIGNED_AT)
+    );
+    const treatmentCount = assignments.filter(
+      (assignment) => assignment.arm === "treatment"
+    ).length;
+
+    expect(treatmentCount).toBeGreaterThanOrEqual(160);
+    expect(treatmentCount).toBeLessThanOrEqual(240);
+  });
 });

@@ -1,4 +1,5 @@
 import {
+  type BfrHoldoutAssignmentRecord,
   FollowTopic,
   type FollowedBeach,
   type FollowTombstone,
@@ -7,7 +8,10 @@ import {
 
 export const LOCAL_FOLLOW_STATE_VERSION = 1 as const;
 export const MAX_FOLLOWED_BEACHES = 50;
+export const MAX_BEACH_ID_LENGTH = 36;
 
+const CANONICAL_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const TOPIC_ORDER: readonly FollowTopic[] = [
   FollowTopic.Surf,
   FollowTopic.WaterTemp,
@@ -24,7 +28,12 @@ interface FollowInput {
 }
 
 export function createLocalFollowState(): LocalFollowState {
-  return { version: LOCAL_FOLLOW_STATE_VERSION, follows: [], tombstones: [] };
+  return {
+    version: LOCAL_FOLLOW_STATE_VERSION,
+    follows: [],
+    tombstones: [],
+    bfrHoldoutAssignment: null,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -37,8 +46,34 @@ function isValidDate(value: unknown): value is string {
 
 function normalizeBeachId(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  const beachId = value.trim();
-  return beachId.length > 0 ? beachId : null;
+  if (value.length !== MAX_BEACH_ID_LENGTH) return null;
+  return CANONICAL_UUID_PATTERN.test(value) ? value : null;
+}
+
+function normalizeBfrHoldoutAssignment(
+  value: unknown
+): BfrHoldoutAssignmentRecord | null {
+  if (!isRecord(value)) return null;
+  if (
+    value.version !== 1 ||
+    value.experimentKey !== "bfr-follow-holdout-v1" ||
+    (value.arm !== "holdout" && value.arm !== "treatment") ||
+    typeof value.subjectId !== "string" ||
+    value.subjectId.length === 0 ||
+    value.subjectId.length > 200 ||
+    /[\u0000-\u001F\u007F]/.test(value.subjectId) ||
+    !isValidDate(value.assignedAt)
+  ) {
+    return null;
+  }
+
+  return {
+    subjectId: value.subjectId,
+    experimentKey: value.experimentKey,
+    arm: value.arm,
+    assignedAt: value.assignedAt,
+    version: value.version,
+  };
 }
 
 export function normalizeFollowTopics(value: unknown): FollowTopic[] {
@@ -135,15 +170,29 @@ function parseState(value: unknown): unknown {
 
 export function normalizeLocalFollowState(value: unknown): LocalFollowState {
   const parsed = parseState(value);
-  if (!isRecord(parsed) || !Array.isArray(parsed.follows)) {
+  if (!isRecord(parsed)) {
     return createLocalFollowState();
   }
 
-  const tombstones = Array.isArray(parsed.tombstones)
-    ? dedupeTombstones(parsed.tombstones)
+  let source: Record<string, unknown>;
+  switch (parsed.version) {
+    case 0:
+      source = { ...parsed, tombstones: [], bfrHoldoutAssignment: null };
+      break;
+    case LOCAL_FOLLOW_STATE_VERSION:
+      source = parsed;
+      break;
+    default:
+      return createLocalFollowState();
+  }
+
+  if (!Array.isArray(source.follows)) return createLocalFollowState();
+
+  const tombstones = Array.isArray(source.tombstones)
+    ? dedupeTombstones(source.tombstones)
     : [];
   const removedBeachIds = new Set(tombstones.map((item) => item.beachId));
-  const follows = dedupeFollowedBeaches(parsed.follows)
+  const follows = dedupeFollowedBeaches(source.follows)
     .filter((follow) => !removedBeachIds.has(follow.beachId))
     .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt))
     .slice(-MAX_FOLLOWED_BEACHES);
@@ -152,6 +201,9 @@ export function normalizeLocalFollowState(value: unknown): LocalFollowState {
     version: LOCAL_FOLLOW_STATE_VERSION,
     follows,
     tombstones,
+    bfrHoldoutAssignment: normalizeBfrHoldoutAssignment(
+      source.bfrHoldoutAssignment
+    ),
   };
 }
 

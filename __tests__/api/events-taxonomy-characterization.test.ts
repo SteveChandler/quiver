@@ -61,6 +61,7 @@ const HISTORICAL_SESSION_EVENTS = [
 ] as const;
 
 const BFR_NATIVE_EVENTS = [
+  "watched_call_exposed",
   "watched_call_created",
   "watched_call_already_exists",
   "watched_call_update_eligible",

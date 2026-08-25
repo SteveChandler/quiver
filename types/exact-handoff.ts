@@ -9,7 +9,7 @@ export enum HandoffSourceSurface {
 export enum HandoffRecommendationMode {
   Now = "now",
   Best = "best",
-  MySpots = "my_spots",
+  MySpots = "my-spots",
 }
 
 export enum HandoffRecommendationVerdict {

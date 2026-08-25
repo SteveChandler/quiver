@@ -11,11 +11,25 @@ import {
 } from "@/types/exact-handoff";
 
 const NOW = new Date("2026-08-24T12:00:00.000Z");
+const SERIALIZED_V1_CONTEXT = JSON.stringify({
+  v: 1,
+  beachId: "11111111-1111-4111-8111-111111111111",
+  slug: "pleasure-point",
+  windowId: "2026-08-25T14:00:00.000Z",
+  sourceSurface: "surf_comparison",
+  generatedAt: "2026-08-24T12:00:00.000Z",
+  expiresAt: "2026-08-24T12:30:00.000Z",
+  priorRecommendation: {
+    recommendationId: "recommendation-456",
+    mode: "my-spots",
+    verdict: "go",
+  },
+});
 
 function validContext() {
   return buildHandoffContext(
     {
-      beachId: "beach-123",
+      beachId: "11111111-1111-4111-8111-111111111111",
       slug: "pleasure-point",
       windowId: "2026-08-25T14:00:00.000Z",
       sourceSurface: HandoffSourceSurface.SurfComparison,
@@ -44,11 +58,22 @@ describe("exact handoff context", () => {
     ).toEqual({ classification: "exact", context });
   });
 
+  it("accepts the canonical serialized v1 fixture with my-spots mode", () => {
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+
+    expect(parsed).toMatchObject({
+      ok: true,
+      context: { priorRecommendation: { mode: "my-spots" } },
+    });
+  });
+
   it("expires to a truthful beach-only fallback", () => {
-    const context = validContext();
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+    if (!parsed.ok) throw new Error("Expected valid fixture");
+    const { context } = parsed;
 
     expect(
-      classifyHandoffResolution(context, {
+      classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
         now: new Date("2026-08-24T12:31:00.000Z"),
         beachExists: true,
         exactWindowExists: true,
@@ -75,7 +100,9 @@ describe("exact handoff context", () => {
   });
 
   it("classifies a removed window as replaced when current truth has a replacement", () => {
-    const context = validContext();
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+    if (!parsed.ok) throw new Error("Expected valid fixture");
+    const { context } = parsed;
     const replacement = {
       beachId: context.beachId,
       slug: context.slug,
@@ -84,7 +111,7 @@ describe("exact handoff context", () => {
     };
 
     expect(
-      classifyHandoffResolution(context, {
+      classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
         now: NOW,
         beachExists: true,
         exactWindowExists: false,
@@ -99,10 +126,12 @@ describe("exact handoff context", () => {
   });
 
   it("falls back to the beach when a removed window has no replacement", () => {
-    const context = validContext();
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+    if (!parsed.ok) throw new Error("Expected valid fixture");
+    const { context } = parsed;
 
     expect(
-      classifyHandoffResolution(context, {
+      classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
         now: NOW,
         beachExists: true,
         exactWindowExists: false,
@@ -112,6 +141,16 @@ describe("exact handoff context", () => {
       context,
       reason: "window_removed",
     });
+  });
+
+  it("classifies the identical missing-beach fixture as invalid", () => {
+    expect(
+      classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
+        now: NOW,
+        beachExists: false,
+        exactWindowExists: false,
+      }),
+    ).toEqual({ classification: "invalid", reason: "beach_removed" });
   });
 
   it("tolerates unsupported versions by classifying them as invalid", () => {

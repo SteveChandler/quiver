@@ -16,6 +16,7 @@ DECLARE
     'surf_intent_qualified',
     'my_coast_viewed',
     'my_coast_beach_opened',
+    'watched_call_exposed',
     'watched_call_created',
     'watched_call_already_exists',
     'watched_call_update_eligible',

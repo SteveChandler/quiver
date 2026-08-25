@@ -19,10 +19,19 @@ export interface FollowTombstone {
   removedAt: string;
 }
 
+export interface BfrHoldoutAssignmentRecord {
+  subjectId: string;
+  experimentKey: "bfr-follow-holdout-v1";
+  arm: "holdout" | "treatment";
+  assignedAt: string;
+  version: 1;
+}
+
 export interface LocalFollowStateV1 {
   version: 1;
   follows: FollowedBeach[];
   tombstones: FollowTombstone[];
+  bfrHoldoutAssignment: BfrHoldoutAssignmentRecord | null;
 }
 
 export type LocalFollowState = LocalFollowStateV1;

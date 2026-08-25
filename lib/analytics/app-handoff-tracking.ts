@@ -4,6 +4,7 @@ import { getVisitorId } from "@/lib/utils/visitor-id";
 import type {
   BfrFallbackClassification,
   BfrHandoffContext,
+  BfrHandoffResolutionReason,
 } from "@/lib/analytics/event-taxonomy";
 
 export const APP_HANDOFF_VIEW_EVENT = "app_handoff_view";
@@ -35,6 +36,7 @@ export interface AppHandoffMetadata {
   viewport_width?: number;
   handoff_context?: BfrHandoffContext;
   fallback_classification?: BfrFallbackClassification;
+  reason?: BfrHandoffResolutionReason;
   [key: string]: unknown;
 }
 
@@ -42,6 +44,7 @@ export interface ExactCallHandoffMetadata {
   source: string;
   handoff_context: BfrHandoffContext;
   fallback_classification: BfrFallbackClassification;
+  reason?: BfrHandoffResolutionReason;
   surface?: string;
   placement?: string;
   platform?: "ios" | "android" | "desktop";

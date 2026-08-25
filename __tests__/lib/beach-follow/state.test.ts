@@ -1,4 +1,5 @@
 import {
+  MAX_BEACH_ID_LENGTH,
   MAX_FOLLOWED_BEACHES,
   addFollow,
   createLocalFollowState,
@@ -10,6 +11,12 @@ import { FollowTopic } from "@/types/beach-follow";
 
 const FIRST_TIME = "2026-08-24T12:00:00.000Z";
 const SECOND_TIME = "2026-08-24T13:00:00.000Z";
+const BEACH_A = "11111111-1111-4111-8111-111111111111";
+const BEACH_B = "22222222-2222-4222-8222-222222222222";
+
+function beachIdFor(index: number): string {
+  return `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+}
 
 describe("local beach-follow state", () => {
   it("creates an empty versioned envelope", () => {
@@ -17,6 +24,7 @@ describe("local beach-follow state", () => {
       version: 1,
       follows: [],
       tombstones: [],
+      bfrHoldoutAssignment: null,
     });
   });
 
@@ -24,20 +32,20 @@ describe("local beach-follow state", () => {
     const added = addFollow(
       createLocalFollowState(),
       {
-        beachId: "beach-a",
+        beachId: BEACH_A,
         topics: [FollowTopic.Tide, FollowTopic.Surf, FollowTopic.Tide],
       },
       FIRST_TIME
     );
     const duplicate = addFollow(
       added,
-      { beachId: "beach-a", topics: [FollowTopic.Wind] },
+      { beachId: BEACH_A, topics: [FollowTopic.Wind] },
       SECOND_TIME
     );
 
     expect(duplicate.follows).toEqual([
       {
-        beachId: "beach-a",
+        beachId: BEACH_A,
         topics: [FollowTopic.Surf, FollowTopic.Tide, FollowTopic.Wind],
         createdAt: FIRST_TIME,
         updatedAt: SECOND_TIME,
@@ -48,14 +56,14 @@ describe("local beach-follow state", () => {
   it("updates topics without creating an absent follow", () => {
     const state = addFollow(
       createLocalFollowState(),
-      { beachId: "beach-a", topics: [FollowTopic.General] },
+      { beachId: BEACH_A, topics: [FollowTopic.General] },
       FIRST_TIME
     );
 
     expect(
       updateFollowTopics(
         state,
-        "beach-a",
+        BEACH_A,
         [FollowTopic.WaterTemp, FollowTopic.Tide],
         SECOND_TIME
       ).follows[0]
@@ -64,29 +72,30 @@ describe("local beach-follow state", () => {
       updatedAt: SECOND_TIME,
     });
     expect(
-      updateFollowTopics(state, "missing", [FollowTopic.Surf], SECOND_TIME)
+      updateFollowTopics(state, BEACH_B, [FollowTopic.Surf], SECOND_TIME)
     ).toEqual(state);
   });
 
   it("removes a follow and writes one deterministic tombstone", () => {
     const state = addFollow(
       createLocalFollowState(),
-      { beachId: "beach-a", topics: [FollowTopic.WaterQuality] },
+      { beachId: BEACH_A, topics: [FollowTopic.WaterQuality] },
       FIRST_TIME
     );
-    const removed = removeFollow(state, "beach-a", SECOND_TIME);
+    const removed = removeFollow(state, BEACH_A, SECOND_TIME);
 
     expect(removed).toEqual({
       version: 1,
       follows: [],
-      tombstones: [{ beachId: "beach-a", removedAt: SECOND_TIME }],
+      tombstones: [{ beachId: BEACH_A, removedAt: SECOND_TIME }],
+      bfrHoldoutAssignment: null,
     });
-    expect(removeFollow(removed, "beach-a", SECOND_TIME)).toEqual(removed);
+    expect(removeFollow(removed, BEACH_A, SECOND_TIME)).toEqual(removed);
   });
 
-  it("migrates v0 and unknown-version envelopes to normalized v1", () => {
+  it("migrates only known versions and recovers future versions to empty", () => {
     const legacyFollow = {
-      beachId: "beach-a",
+      beachId: BEACH_A,
       topics: ["tide", "invalid", "tide"],
       createdAt: FIRST_TIME,
       updatedAt: FIRST_TIME,
@@ -98,6 +107,7 @@ describe("local beach-follow state", () => {
       version: 1,
       follows: [{ ...legacyFollow, topics: [FollowTopic.Tide] }],
       tombstones: [],
+      bfrHoldoutAssignment: null,
     });
     expect(
       normalizeLocalFollowState({
@@ -105,7 +115,32 @@ describe("local beach-follow state", () => {
         follows: [legacyFollow],
         tombstones: [],
       })
-    ).toMatchObject({ version: 1, follows: [{ beachId: "beach-a" }] });
+    ).toEqual(createLocalFollowState());
+  });
+
+  it("drops corrupt beach IDs while retaining canonical UUID rows", () => {
+    const validFollow = {
+      beachId: BEACH_A,
+      topics: [FollowTopic.Surf],
+      createdAt: FIRST_TIME,
+      updatedAt: FIRST_TIME,
+    };
+    const invalidIds = [
+      "not-a-uuid",
+      BEACH_A.toUpperCase(),
+      `1${"0".repeat(MAX_BEACH_ID_LENGTH)}`,
+    ];
+
+    const normalized = normalizeLocalFollowState({
+      version: 1,
+      follows: [
+        validFollow,
+        ...invalidIds.map((beachId) => ({ ...validFollow, beachId })),
+      ],
+      tombstones: [],
+    });
+
+    expect(normalized.follows).toEqual([validFollow]);
   });
 
   it("recovers from corrupt JSON and invalid shapes without throwing", () => {
@@ -122,7 +157,7 @@ describe("local beach-follow state", () => {
     const oversized = {
       version: 1,
       follows: Array.from({ length: MAX_FOLLOWED_BEACHES + 5 }, (_, index) => ({
-        beachId: `beach-${index}`,
+        beachId: beachIdFor(index),
         topics: [FollowTopic.General],
         createdAt: new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString(),
         updatedAt: new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString(),
@@ -133,7 +168,7 @@ describe("local beach-follow state", () => {
     const normalized = normalizeLocalFollowState(oversized);
 
     expect(normalized.follows).toHaveLength(MAX_FOLLOWED_BEACHES);
-    expect(normalized.follows[0].beachId).toBe("beach-5");
-    expect(normalized.follows.at(-1)?.beachId).toBe("beach-54");
+    expect(normalized.follows[0].beachId).toBe(beachIdFor(5));
+    expect(normalized.follows.at(-1)?.beachId).toBe(beachIdFor(54));
   });
 });

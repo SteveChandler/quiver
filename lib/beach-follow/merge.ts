@@ -4,8 +4,6 @@ import {
   type MergeResult,
 } from "@/types/beach-follow";
 import {
-  MAX_FOLLOWED_BEACHES,
-  createLocalFollowState,
   dedupeFollowedBeaches,
   normalizeFollowTopics,
   normalizeLocalFollowState,
@@ -64,7 +62,6 @@ export function mergeBeachFollows(input: MergeInput): MergeResult {
       continue;
     }
 
-    if (retainedByBeachId.size >= MAX_FOLLOWED_BEACHES) continue;
     retainedByBeachId.set(anonRow.beachId, anonRow);
     rowsToInsert.push(anonRow);
   }
@@ -76,10 +73,12 @@ export function mergeBeachFollows(input: MergeInput): MergeResult {
   return {
     rowsToInsert,
     rowsToDelete,
-    mergedState:
-      mergedFollows.length === 0
-        ? createLocalFollowState()
-        : { version: 1, follows: mergedFollows, tombstones: [] },
+    mergedState: {
+      version: 1,
+      follows: mergedFollows,
+      tombstones: [],
+      bfrHoldoutAssignment: anonState.bfrHoldoutAssignment,
+    },
     clearedTombstones: anonState.tombstones
       .map((tombstone) => tombstone.beachId)
       .sort(),

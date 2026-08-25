@@ -3,6 +3,7 @@ import {
   BFR_FALLBACK_CLASSIFICATIONS,
   BFR_EXACT_CALL_HANDOFF_EVENTS,
   BFR_HANDOFF_CONTEXTS,
+  BFR_HANDOFF_RESOLUTION_REASONS,
   BFR_INTENT_REASONS,
   BFR_INTENT_STATES,
   BFR_PAGE_TYPES,
@@ -64,10 +65,17 @@ describe("event taxonomy", () => {
     ]);
     expect(BFR_FALLBACK_CLASSIFICATIONS).toEqual([
       "exact",
-      "expired",
-      "invalid",
-      "removed_window",
+      "replaced",
       "beach_only",
+      "invalid",
+    ]);
+    expect(BFR_HANDOFF_RESOLUTION_REASONS).toEqual([
+      "window_replaced",
+      "expired",
+      "window_removed",
+      "malformed",
+      "unsupported_version",
+      "beach_removed",
     ]);
     expect(BFR_HANDOFF_CONTEXTS).toEqual(["exact_call"]);
     expect(BFR_EXACT_CALL_HANDOFF_EVENTS).toEqual({
@@ -80,6 +88,7 @@ describe("event taxonomy", () => {
       BFR_TOPICS,
       BFR_PAGE_TYPES,
       BFR_FALLBACK_CLASSIFICATIONS,
+      BFR_HANDOFF_RESOLUTION_REASONS,
       BFR_HANDOFF_CONTEXTS,
       BFR_EXACT_CALL_HANDOFF_EVENTS,
     })).not.toMatch(/email|search|query|lat|lon|coordinate|notes|token/i);

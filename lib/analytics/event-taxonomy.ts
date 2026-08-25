@@ -46,10 +46,17 @@ export const BFR_PAGE_TYPES = [
 ] as const;
 export const BFR_FALLBACK_CLASSIFICATIONS = [
   'exact',
-  'expired',
-  'invalid',
-  'removed_window',
+  'replaced',
   'beach_only',
+  'invalid',
+] as const;
+export const BFR_HANDOFF_RESOLUTION_REASONS = [
+  'window_replaced',
+  'expired',
+  'window_removed',
+  'malformed',
+  'unsupported_version',
+  'beach_removed',
 ] as const;
 export const BFR_HANDOFF_CONTEXTS = ['exact_call'] as const;
 export const BFR_EXACT_CALL_HANDOFF_EVENTS = {
@@ -63,6 +70,8 @@ export type BfrTopic = (typeof BFR_TOPICS)[number];
 export type BfrPageType = (typeof BFR_PAGE_TYPES)[number];
 export type BfrFallbackClassification =
   (typeof BFR_FALLBACK_CLASSIFICATIONS)[number];
+export type BfrHandoffResolutionReason =
+  (typeof BFR_HANDOFF_RESOLUTION_REASONS)[number];
 export type BfrHandoffContext = (typeof BFR_HANDOFF_CONTEXTS)[number];
 
 export const VALID_EVENTS = [
@@ -412,6 +421,7 @@ export const NATIVE_DIRECT_INSERT_EVENTS = [
   'siri_shortcut_opened',
   'garmin_connect_viewed',
   'garmin_designated_activity_set',
+  'watched_call_exposed',
   'watched_call_created',
   'watched_call_already_exists',
   'watched_call_update_eligible',
