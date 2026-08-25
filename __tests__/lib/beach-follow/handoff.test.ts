@@ -19,6 +19,9 @@ const OTHER_BEACH_ID = "22222222-2222-4222-8222-222222222222";
 const SURF_DISCOVER_BEACH_ID = "a3e9d10c-92e9-4302-b808-a3de0c2eca22";
 const SURF_DISCOVER_RECOMMENDATION_ID =
   "beach:a3e9d10c-92e9-4302-b808-a3de0c2eca22:2026-08-18T00:00:00+00:00";
+const CUSTOM_SURF_DISCOVER_BEACH_ID = "02dfc45e-f7f8-4fdc-8008-6ce14e2839f5";
+const CUSTOM_SURF_DISCOVER_RECOMMENDATION_ID =
+  "custom:c2041cb9-5682-4a4d-ab03-edb7c10dfeb5:2026-08-18T00:00:00+00:00";
 const SERIALIZED_V1_CONTEXT = JSON.stringify({
   v: 1,
   beachId: BEACH_ID,
@@ -57,6 +60,20 @@ const SURF_DISCOVER_CONTEXT = JSON.stringify({
   expiresAt: "2026-08-24T12:30:00.000Z",
   priorRecommendation: {
     recommendationId: SURF_DISCOVER_RECOMMENDATION_ID,
+    mode: "my-spots",
+    verdict: "go",
+  },
+});
+const CUSTOM_SURF_DISCOVER_CONTEXT = JSON.stringify({
+  v: 1,
+  beachId: CUSTOM_SURF_DISCOVER_BEACH_ID,
+  slug: "torrance-beach-rat-beach",
+  windowId: "2026-08-18T00:00:00.000Z",
+  sourceSurface: "surf_comparison",
+  generatedAt: "2026-08-24T12:00:00.000Z",
+  expiresAt: "2026-08-24T12:30:00.000Z",
+  priorRecommendation: {
+    recommendationId: CUSTOM_SURF_DISCOVER_RECOMMENDATION_ID,
     mode: "my-spots",
     verdict: "go",
   },
@@ -154,6 +171,33 @@ describe("exact handoff context", () => {
       context: {
         priorRecommendation: {
           recommendationId: SURF_DISCOVER_RECOMMENDATION_ID,
+        },
+      },
+    });
+  });
+
+  it("MUST-ACCEPT the checked-in custom surf-discover recommendation ID unchanged", () => {
+    const parsed = parseHandoffContext(CUSTOM_SURF_DISCOVER_CONTEXT);
+
+    expect(parsed).toMatchObject({
+      ok: true,
+      context: {
+        beachId: CUSTOM_SURF_DISCOVER_BEACH_ID,
+        priorRecommendation: {
+          recommendationId: CUSTOM_SURF_DISCOVER_RECOMMENDATION_ID,
+        },
+      },
+    });
+    expect(classifyHandoffResolution(CUSTOM_SURF_DISCOVER_CONTEXT, {
+      now: NOW,
+      beachExists: true,
+      exactWindowExists: true,
+    })).toMatchObject({
+      classification: "exact",
+      context: {
+        beachId: CUSTOM_SURF_DISCOVER_BEACH_ID,
+        priorRecommendation: {
+          recommendationId: CUSTOM_SURF_DISCOVER_RECOMMENDATION_ID,
         },
       },
     });

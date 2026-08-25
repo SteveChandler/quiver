@@ -110,6 +110,18 @@ function isRecommendationId(value: unknown): value is string {
   return Boolean(match && recommendationInstantMillis(match[3]) !== null);
 }
 
+function isRecommendationOwnedByBeach(
+  recommendationId: string,
+  beachId: string,
+): boolean {
+  const structuredRecommendation = recommendationId.match(
+    STRUCTURED_RECOMMENDATION_PATTERN,
+  );
+  return !structuredRecommendation ||
+    structuredRecommendation[1] === "custom" ||
+    structuredRecommendation[2] === beachId;
+}
+
 function isSlug(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -183,13 +195,9 @@ function isPriorRecommendationSummary(
     return false;
   }
 
-  const structuredRecommendation = typeof value.recommendationId === "string"
-    ? value.recommendationId.match(STRUCTURED_RECOMMENDATION_PATTERN)
-    : null;
-
   return (
     isRecommendationId(value.recommendationId) &&
-    (!structuredRecommendation || structuredRecommendation[2] === contextBeachId) &&
+    isRecommendationOwnedByBeach(value.recommendationId, contextBeachId) &&
     typeof value.mode === "string" &&
     RECOMMENDATION_MODES.has(value.mode) &&
     typeof value.verdict === "string" &&
@@ -233,11 +241,7 @@ function isReplacementIdentity(
     return false;
   }
 
-  const structuredRecommendation = value.recommendationId.match(
-    STRUCTURED_RECOMMENDATION_PATTERN,
-  );
-  return !structuredRecommendation
-    || structuredRecommendation[2] === value.beachId;
+  return isRecommendationOwnedByBeach(value.recommendationId, value.beachId);
 }
 
 export function buildHandoffContext(
