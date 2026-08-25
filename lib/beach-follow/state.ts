@@ -4,6 +4,7 @@ import {
   type FollowedBeach,
   type FollowTombstone,
   type LocalFollowMutationResult,
+  type LocalFollowNormalizationResult,
   type LocalFollowState,
 } from "@/types/beach-follow";
 
@@ -188,10 +189,12 @@ function parseState(value: unknown): unknown {
   }
 }
 
-export function normalizeLocalFollowState(value: unknown): LocalFollowState {
+export function normalizeLocalFollowState(
+  value: unknown
+): LocalFollowNormalizationResult {
   const parsed = parseState(value);
   if (!isRecord(parsed)) {
-    return createLocalFollowState();
+    return applied(createLocalFollowState());
   }
 
   let source: Record<string, unknown>;
@@ -203,10 +206,12 @@ export function normalizeLocalFollowState(value: unknown): LocalFollowState {
       source = parsed;
       break;
     default:
-      return createLocalFollowState();
+      return applied(createLocalFollowState());
   }
 
-  if (!Array.isArray(source.follows)) return createLocalFollowState();
+  if (!Array.isArray(source.follows)) {
+    return applied(createLocalFollowState());
+  }
 
   const tombstones = Array.isArray(source.tombstones)
     ? dedupeTombstones(source.tombstones)
@@ -221,7 +226,7 @@ export function normalizeLocalFollowState(value: unknown): LocalFollowState {
     )
     .slice(-MAX_FOLLOWED_BEACHES);
 
-  return {
+  const state: LocalFollowState = {
     version: LOCAL_FOLLOW_STATE_VERSION,
     follows,
     tombstones,
@@ -229,6 +234,11 @@ export function normalizeLocalFollowState(value: unknown): LocalFollowState {
       source.bfrHoldoutAssignment
     ),
   };
+
+  if (pendingOperationCount(state) > MAX_PENDING_FOLLOW_OPERATIONS) {
+    return syncRequired(state);
+  }
+  return applied(state);
 }
 
 function applied(state: LocalFollowState): LocalFollowMutationResult {
@@ -248,7 +258,9 @@ export function addFollow(
   input: FollowInput,
   now: string
 ): LocalFollowMutationResult {
-  const normalized = normalizeLocalFollowState(state);
+  const normalization = normalizeLocalFollowState(state);
+  if (normalization.status === "sync_required") return normalization;
+  const normalized = normalization.state;
   const beachId = normalizeBeachId(input.beachId);
   const topics = normalizeFollowTopics(input.topics);
   const normalizedNow = normalizeInstant(now);
@@ -260,6 +272,9 @@ export function addFollow(
   const existingTombstone = normalized.tombstones.some(
     (item) => item.beachId === beachId
   );
+  if (!existing && normalized.follows.length >= MAX_FOLLOWED_BEACHES) {
+    return syncRequired(normalized);
+  }
   if (
     !existing &&
     !existingTombstone &&
@@ -280,18 +295,16 @@ export function addFollow(
         updatedAt: normalizedNow,
       };
 
-  return applied(
-    normalizeLocalFollowState({
-      ...normalized,
-      follows: [
-        ...normalized.follows.filter((follow) => follow.beachId !== beachId),
-        nextFollow,
-      ],
-      tombstones: normalized.tombstones.filter(
-        (item) => item.beachId !== beachId
-      ),
-    })
-  );
+  return normalizeLocalFollowState({
+    ...normalized,
+    follows: [
+      ...normalized.follows.filter((follow) => follow.beachId !== beachId),
+      nextFollow,
+    ],
+    tombstones: normalized.tombstones.filter(
+      (item) => item.beachId !== beachId
+    ),
+  });
 }
 
 export function updateFollowTopics(
@@ -300,7 +313,9 @@ export function updateFollowTopics(
   topicsInput: readonly FollowTopic[],
   now: string
 ): LocalFollowMutationResult {
-  const normalized = normalizeLocalFollowState(state);
+  const normalization = normalizeLocalFollowState(state);
+  if (normalization.status === "sync_required") return normalization;
+  const normalized = normalization.state;
   const beachId = normalizeBeachId(beachIdInput);
   const topics = normalizeFollowTopics(topicsInput);
   const normalizedNow = normalizeInstant(now);
@@ -311,16 +326,14 @@ export function updateFollowTopics(
     return applied(normalized);
   }
 
-  return applied(
-    normalizeLocalFollowState({
-      ...normalized,
-      follows: normalized.follows.map((follow) =>
-        follow.beachId === beachId
-          ? { ...follow, topics, updatedAt: normalizedNow }
-          : follow
-      ),
-    })
-  );
+  return normalizeLocalFollowState({
+    ...normalized,
+    follows: normalized.follows.map((follow) =>
+      follow.beachId === beachId
+        ? { ...follow, topics, updatedAt: normalizedNow }
+        : follow
+    ),
+  });
 }
 
 export function removeFollow(
@@ -328,7 +341,9 @@ export function removeFollow(
   beachIdInput: string,
   now: string
 ): LocalFollowMutationResult {
-  const normalized = normalizeLocalFollowState(state);
+  const normalization = normalizeLocalFollowState(state);
+  if (normalization.status === "sync_required") return normalization;
+  const normalized = normalization.state;
   const beachId = normalizeBeachId(beachIdInput);
   const normalizedNow = normalizeInstant(now);
   if (!beachId || !normalizedNow) return applied(normalized);
@@ -354,16 +369,14 @@ export function removeFollow(
     return syncRequired(normalized);
   }
 
-  return applied(
-    normalizeLocalFollowState({
-      ...normalized,
-      follows: normalized.follows.filter(
-        (follow) => follow.beachId !== beachId
-      ),
-      tombstones: [
-        ...normalized.tombstones.filter((item) => item.beachId !== beachId),
-        { beachId, removedAt: normalizedNow },
-      ],
-    })
-  );
+  return normalizeLocalFollowState({
+    ...normalized,
+    follows: normalized.follows.filter(
+      (follow) => follow.beachId !== beachId
+    ),
+    tombstones: [
+      ...normalized.tombstones.filter((item) => item.beachId !== beachId),
+      { beachId, removedAt: normalizedNow },
+    ],
+  });
 }

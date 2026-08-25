@@ -1,6 +1,7 @@
 import { mergeBeachFollows } from "@/lib/beach-follow/merge";
 import { bfrHoldoutAssignment } from "@/lib/experiments/bfr-holdout";
 import {
+  MAX_PENDING_FOLLOW_OPERATIONS,
   addFollow,
   createLocalFollowState,
   normalizeLocalFollowState,
@@ -150,9 +151,9 @@ describe("anonymous beach-follow merge", () => {
       follows: expect.any(Array),
     });
     expect(result.accountState.follows).toHaveLength(52);
-    expect(normalizeLocalFollowState(result.residualLocalState)).toEqual(
-      result.residualLocalState
-    );
+    expect(
+      appliedState(normalizeLocalFollowState(result.residualLocalState))
+    ).toEqual(result.residualLocalState);
     expect(result.rowsToInsert.map((row) => row.beachId)).toEqual([
       beachIdFor("anon", 0),
       beachIdFor("anon", 1),
@@ -197,5 +198,33 @@ describe("anonymous beach-follow merge", () => {
     expect(result.rowsToDelete).toEqual(
       serverRows.map((row) => row.beachId).sort()
     );
+  });
+
+  it("does not build a delete plan from a quarantined 101-tombstone envelope", () => {
+    const tombstones = Array.from(
+      { length: MAX_PENDING_FOLLOW_OPERATIONS + 1 },
+      (_, index) => ({
+        beachId: beachIdFor("server", index),
+        removedAt: SECOND_TIME,
+      })
+    );
+    const serverRows = tombstones.map(({ beachId }) =>
+      serverFollow(beachId, [FollowTopic.General])
+    );
+
+    const result = mergeBeachFollows({
+      anonState: {
+        version: 1,
+        follows: [],
+        tombstones,
+        bfrHoldoutAssignment: null,
+      },
+      serverRows,
+    });
+
+    expect(result.status).toBe("sync_required");
+    expect(result.rowsToDelete).toEqual([]);
+    expect(result.clearedTombstones).toEqual([]);
+    expect(result.residualLocalState.tombstones).toEqual(tombstones);
   });
 });

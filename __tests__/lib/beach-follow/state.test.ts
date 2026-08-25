@@ -116,7 +116,9 @@ describe("local beach-follow state", () => {
     };
 
     expect(
-      normalizeLocalFollowState({ version: 0, follows: [legacyFollow] })
+      appliedState(
+        normalizeLocalFollowState({ version: 0, follows: [legacyFollow] })
+      )
     ).toMatchObject({
       version: 1,
       follows: [{ ...legacyFollow, topics: [FollowTopic.Tide] }],
@@ -124,11 +126,13 @@ describe("local beach-follow state", () => {
       bfrHoldoutAssignment: null,
     });
     expect(
-      normalizeLocalFollowState({
-        version: 99,
-        follows: [legacyFollow],
-        tombstones: [],
-      })
+      appliedState(
+        normalizeLocalFollowState({
+          version: 99,
+          follows: [legacyFollow],
+          tombstones: [],
+        })
+      )
     ).toEqual(createLocalFollowState());
   });
 
@@ -145,26 +149,30 @@ describe("local beach-follow state", () => {
       `1${"0".repeat(MAX_BEACH_ID_LENGTH)}`,
     ];
 
-    const normalized = normalizeLocalFollowState({
-      version: 1,
-      follows: [
-        validFollow,
-        ...invalidIds.map((beachId) => ({ ...validFollow, beachId })),
-      ],
-      tombstones: [],
-    });
+    const normalized = appliedState(
+      normalizeLocalFollowState({
+        version: 1,
+        follows: [
+          validFollow,
+          ...invalidIds.map((beachId) => ({ ...validFollow, beachId })),
+        ],
+        tombstones: [],
+      })
+    );
 
     expect(normalized.follows).toEqual([validFollow]);
   });
 
   it("recovers from corrupt JSON and invalid shapes without throwing", () => {
-    expect(normalizeLocalFollowState("{broken-json")).toEqual(
+    expect(appliedState(normalizeLocalFollowState("{broken-json"))).toEqual(
       createLocalFollowState()
     );
-    expect(normalizeLocalFollowState({ follows: "not-an-array" })).toEqual(
+    expect(
+      appliedState(normalizeLocalFollowState({ follows: "not-an-array" }))
+    ).toEqual(createLocalFollowState());
+    expect(appliedState(normalizeLocalFollowState(null))).toEqual(
       createLocalFollowState()
     );
-    expect(normalizeLocalFollowState(null)).toEqual(createLocalFollowState());
   });
 
   it("enforces the followed-beach bound deterministically", () => {
@@ -179,7 +187,7 @@ describe("local beach-follow state", () => {
       tombstones: [],
     };
 
-    const normalized = normalizeLocalFollowState(oversized);
+    const normalized = appliedState(normalizeLocalFollowState(oversized));
 
     expect(normalized.follows).toHaveLength(MAX_FOLLOWED_BEACHES);
     expect(normalized.follows[0].beachId).toBe(beachIdFor(5));
@@ -223,43 +231,109 @@ describe("local beach-follow state", () => {
     ).toEqual({ status: "sync_required", state });
   });
 
-  it("normalizes strict ISO instants and orders retention by epoch milliseconds", () => {
-    const normalized = normalizeLocalFollowState({
+  it("returns sync_required instead of evicting a follow at the 50-to-51 boundary", () => {
+    const state: LocalFollowState = {
+      ...createLocalFollowState(),
+      follows: Array.from({ length: MAX_FOLLOWED_BEACHES }, (_, index) => ({
+        beachId: beachIdFor(index),
+        topics: [FollowTopic.General],
+        createdAt: new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString(),
+        updatedAt: new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString(),
+      })),
+    };
+
+    const result = addFollow(
+      state,
+      {
+        beachId: beachIdFor(MAX_FOLLOWED_BEACHES),
+        topics: [FollowTopic.Surf],
+      },
+      SECOND_TIME
+    );
+
+    expect(result).toEqual({ status: "sync_required", state });
+    expect(result.state.follows).toHaveLength(MAX_FOLLOWED_BEACHES);
+    expect(result.state.follows.map((follow) => follow.beachId)).toEqual(
+      state.follows.map((follow) => follow.beachId)
+    );
+
+    const updated = updateFollowTopics(
+      state,
+      beachIdFor(0),
+      [FollowTopic.Surf, FollowTopic.Tide],
+      SECOND_TIME
+    );
+    expect(updated.status).toBe("applied");
+    expect(updated.state.follows).toHaveLength(MAX_FOLLOWED_BEACHES);
+    expect(updated.state.follows.find(
+      (follow) => follow.beachId === beachIdFor(0)
+    )?.topics).toEqual([FollowTopic.Surf, FollowTopic.Tide]);
+  });
+
+  it("quarantines 101 persisted tombstones without truncating them", () => {
+    const tombstones = Array.from(
+      { length: MAX_PENDING_FOLLOW_OPERATIONS + 1 },
+      (_, index) => ({
+        beachId: beachIdFor(index),
+        removedAt: new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString(),
+      })
+    );
+
+    expect(normalizeLocalFollowState({
       version: 1,
-      follows: [
-        {
-          beachId: BEACH_A,
-          topics: [FollowTopic.Surf],
-          createdAt: "2026-08-24T05:00:00-07:00",
-          updatedAt: "2026-08-24T12:00:01Z",
-        },
-        {
-          beachId: BEACH_B,
-          topics: [FollowTopic.Tide],
-          createdAt: FIRST_TIME,
-          updatedAt: "2026-08-24T11:59:59.500Z",
-        },
-        {
-          beachId: BEACH_C,
-          topics: [FollowTopic.General],
-          createdAt: FIRST_TIME,
-          updatedAt: `August 24, 2026 ${" ".repeat(1_000)}`,
-        },
-      ],
-      tombstones: [
-        {
-          beachId: beachIdFor(90),
-          removedAt: "2026-08-24T06:00:00-07:00",
-        },
-      ],
-      bfrHoldoutAssignment: {
-        subjectId: "anon-1",
-        experimentKey: "bfr-follow-holdout-v1",
-        arm: "treatment",
-        assignedAt: "2026-08-24T05:00:00-07:00",
+      follows: [],
+      tombstones,
+      bfrHoldoutAssignment: null,
+    })).toEqual({
+      status: "sync_required",
+      state: {
         version: 1,
+        follows: [],
+        tombstones,
+        bfrHoldoutAssignment: null,
       },
     });
+  });
+
+  it("normalizes strict ISO instants and orders retention by epoch milliseconds", () => {
+    const normalized = appliedState(
+      normalizeLocalFollowState({
+        version: 1,
+        follows: [
+          {
+            beachId: BEACH_A,
+            topics: [FollowTopic.Surf],
+            createdAt: "2026-08-24T05:00:00-07:00",
+            updatedAt: "2026-08-24T12:00:01Z",
+          },
+          {
+            beachId: BEACH_B,
+            topics: [FollowTopic.Tide],
+            createdAt: FIRST_TIME,
+            updatedAt: "2026-08-24T11:59:59.500Z",
+          },
+          {
+            beachId: BEACH_C,
+            topics: [FollowTopic.General],
+            createdAt: FIRST_TIME,
+            updatedAt: `August 24, 2026 ${" ".repeat(1_000)}`,
+          },
+        ],
+        tombstones: [
+          {
+            beachId: beachIdFor(90),
+            removedAt: "2026-08-24T06:00:00-07:00",
+          },
+        ],
+        bfrHoldoutAssignment: {
+          subjectId: "anon-1",
+          experimentKey: "bfr-follow-holdout-v1",
+          arm: "treatment",
+          assignedAt: "2026-08-24T05:00:00-07:00",
+          version: 1,
+        },
+      })
+    );
 
     expect(normalized.follows.map((follow) => follow.beachId)).toEqual([
       BEACH_B,

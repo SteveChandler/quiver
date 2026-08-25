@@ -45,12 +45,20 @@ export type LocalFollowMutationResult =
   | { status: "applied"; state: LocalFollowState }
   | { status: "sync_required"; state: LocalFollowState };
 
+/**
+ * Normalization quarantines an over-limit persisted envelope as sync_required.
+ * The returned state stays lossless so callers can sync or recover it safely.
+ */
+export type LocalFollowNormalizationResult = LocalFollowMutationResult;
+
 export interface MergeInput {
   anonState: unknown;
   serverRows: readonly FollowedBeach[];
 }
 
 export interface MergeResult {
+  /** sync_required means no local rows or tombstones were applied or cleared. */
+  status: "applied" | "sync_required";
   /** Rows that callers should upsert; existing rows may carry newly unioned topics. */
   rowsToInsert: FollowedBeach[];
   rowsToDelete: string[];

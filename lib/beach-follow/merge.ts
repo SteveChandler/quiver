@@ -34,8 +34,24 @@ function unionRows(server: FollowedBeach, anon: FollowedBeach): FollowedBeach {
 }
 
 export function mergeBeachFollows(input: MergeInput): MergeResult {
-  const anonState = normalizeLocalFollowState(input.anonState);
+  const normalization = normalizeLocalFollowState(input.anonState);
   const serverRows = dedupeFollowedBeaches(input.serverRows);
+  if (normalization.status === "sync_required") {
+    return {
+      status: "sync_required",
+      rowsToInsert: [],
+      rowsToDelete: [],
+      accountState: {
+        scope: "account",
+        follows: serverRows.sort((left, right) =>
+          left.beachId.localeCompare(right.beachId)
+        ),
+      },
+      residualLocalState: normalization.state,
+      clearedTombstones: [],
+    };
+  }
+  const anonState = normalization.state;
   const serverByBeachId = new Map(serverRows.map((row) => [row.beachId, row]));
   const deletedBeachIds = new Set(
     anonState.tombstones.map((tombstone) => tombstone.beachId)
@@ -71,6 +87,7 @@ export function mergeBeachFollows(input: MergeInput): MergeResult {
   );
 
   return {
+    status: "applied",
     rowsToInsert,
     rowsToDelete,
     accountState: {
