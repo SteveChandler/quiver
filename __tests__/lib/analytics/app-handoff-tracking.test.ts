@@ -11,6 +11,7 @@ jest.mock("@/lib/analytics", () => ({ track: jest.fn() }));
 import { track } from "@/lib/analytics";
 
 describe("app-handoff-tracking", () => {
+  const HANDOFF_ID = "33333333-3333-4333-8333-333333333333";
   const fetchMock = jest.fn<Promise<Response>, [RequestInfo | URL, RequestInit]>(
     () => Promise.resolve(new Response("{}")),
   );
@@ -74,6 +75,7 @@ describe("app-handoff-tracking", () => {
 
     expect(() =>
       trackExactCallHandoffLinkOpened({
+        handoff_id: HANDOFF_ID,
         source: "exact_call",
         handoff_context: "exact_call",
         fallback_classification: "exact",
@@ -83,6 +85,7 @@ describe("app-handoff-tracking", () => {
 
   it("sanitizes dedicated exact-call metadata before both sinks", () => {
     const unsafeMetadata = {
+      handoff_id: HANDOFF_ID,
       source: "exact_call",
       handoff_context: "exact_call",
       fallback_classification: "replaced",
@@ -98,6 +101,7 @@ describe("app-handoff-tracking", () => {
     expect(track).toHaveBeenCalledWith(
       APP_HANDOFF_LINK_OPENED_EVENT,
       expect.objectContaining({
+        handoff_id: HANDOFF_ID,
         source: "exact_call",
         handoff_context: "exact_call",
         fallback_classification: "replaced",
@@ -116,8 +120,42 @@ describe("app-handoff-tracking", () => {
     }
   });
 
+  it("emits the exact-call start with its canonical handoff ID", () => {
+    trackExactCallHandoffLinkOpened({
+      handoff_id: HANDOFF_ID,
+      source: "exact_call",
+      handoff_context: "exact_call",
+      fallback_classification: "exact",
+    });
+
+    expect(track).toHaveBeenCalledWith(
+      APP_HANDOFF_LINK_OPENED_EVENT,
+      expect.objectContaining({ handoff_id: HANDOFF_ID }),
+    );
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0][1] as RequestInit).body as string,
+    );
+    expect(body).toMatchObject({
+      eventType: APP_HANDOFF_LINK_OPENED_EVENT,
+      metadata: { handoff_id: HANDOFF_ID },
+    });
+  });
+
+  it("rejects token-like exact-call handoff IDs before either sink", () => {
+    trackExactCallHandoffLinkOpened({
+      handoff_id: "shared-campaign-token",
+      source: "exact_call",
+      handoff_context: "exact_call",
+      fallback_classification: "exact",
+    });
+
+    expect(track).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("keeps the exact-call input type closed", () => {
     const metadata: ExactCallHandoffMetadata = {
+      handoff_id: HANDOFF_ID,
       source: "exact_call",
       handoff_context: "exact_call",
       fallback_classification: "exact",

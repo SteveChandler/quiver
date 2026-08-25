@@ -48,6 +48,7 @@ export interface AppHandoffMetadata {
 }
 
 export interface ExactCallHandoffMetadata {
+  handoff_id: string;
   source: "exact_call";
   handoff_context: BfrHandoffContext;
   fallback_classification: BfrFallbackClassification;
@@ -57,6 +58,7 @@ export interface ExactCallHandoffMetadata {
 }
 
 const EXACT_CALL_ALLOWED_KEYS = new Set<keyof ExactCallHandoffMetadata>([
+  "handoff_id",
   "source",
   "handoff_context",
   "fallback_classification",
@@ -64,6 +66,8 @@ const EXACT_CALL_ALLOWED_KEYS = new Set<keyof ExactCallHandoffMetadata>([
   "surface",
   "platform",
 ]);
+const EXACT_CALL_HANDOFF_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const EXACT_CALL_FALLBACKS = new Set<string>(BFR_FALLBACK_CLASSIFICATIONS);
 const EXACT_CALL_CONTEXTS = new Set<string>(BFR_HANDOFF_CONTEXTS);
 const EXACT_CALL_REASONS = new Set<string>(BFR_HANDOFF_RESOLUTION_REASONS);
@@ -115,6 +119,12 @@ function sanitizeExactCallMetadata(
     )
   ) as Partial<ExactCallHandoffMetadata>;
 
+  if (
+    typeof sanitized.handoff_id !== "string" ||
+    !EXACT_CALL_HANDOFF_ID_PATTERN.test(sanitized.handoff_id)
+  ) {
+    return null;
+  }
   if (sanitized.source !== "exact_call") return null;
   if (!EXACT_CALL_CONTEXTS.has(sanitized.handoff_context ?? "")) return null;
   if (

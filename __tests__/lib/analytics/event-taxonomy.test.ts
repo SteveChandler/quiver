@@ -90,8 +90,10 @@ describe("event taxonomy", () => {
     expect(BFR_HANDOFF_CONTEXTS).toEqual(["exact_call"]);
     expect(BFR_EXACT_CALL_HANDOFF_EVENTS).toEqual({
       started: "app_handoff_link_opened",
-      resolved: "app_handoff_native_open",
+      nativeOpened: "app_handoff_native_open",
+      resolved: "watched_call_context_resolved",
     });
+    expect(new Set(Object.values(BFR_EXACT_CALL_HANDOFF_EVENTS)).size).toBe(3);
     expect(JSON.stringify({
       BFR_INTENT_STATES,
       BFR_INTENT_REASONS,

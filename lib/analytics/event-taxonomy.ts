@@ -68,7 +68,8 @@ export const BFR_HANDOFF_RESOLUTION_REASONS = [
 export const BFR_HANDOFF_CONTEXTS = ['exact_call'] as const;
 export const BFR_EXACT_CALL_HANDOFF_EVENTS = {
   started: 'app_handoff_link_opened',
-  resolved: 'app_handoff_native_open',
+  nativeOpened: 'app_handoff_native_open',
+  resolved: 'watched_call_context_resolved',
 } as const;
 
 export type BfrIntentState = (typeof BFR_INTENT_STATES)[number];
