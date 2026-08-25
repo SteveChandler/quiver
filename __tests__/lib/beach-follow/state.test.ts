@@ -187,6 +187,42 @@ describe("local beach-follow state", () => {
     );
   });
 
+  it("normalizes follows and tombstones independently in a v1 envelope", () => {
+    expect(appliedState(normalizeLocalFollowState({
+      version: 1,
+      follows: null,
+      tombstones: [{ beachId: BEACH_A, removedAt: SECOND_TIME }],
+      bfrHoldoutAssignment: null,
+    }))).toEqual({
+      version: 1,
+      follows: [],
+      tombstones: [{ beachId: BEACH_A, removedAt: SECOND_TIME }],
+      bfrHoldoutAssignment: null,
+    });
+
+    expect(appliedState(normalizeLocalFollowState({
+      version: 1,
+      follows: [{
+        beachId: BEACH_B,
+        topics: [FollowTopic.Surf],
+        createdAt: FIRST_TIME,
+        updatedAt: SECOND_TIME,
+      }],
+      tombstones: null,
+      bfrHoldoutAssignment: null,
+    }))).toEqual({
+      version: 1,
+      follows: [{
+        beachId: BEACH_B,
+        topics: [FollowTopic.Surf],
+        createdAt: FIRST_TIME,
+        updatedAt: SECOND_TIME,
+      }],
+      tombstones: [],
+      bfrHoldoutAssignment: null,
+    });
+  });
+
   it("quarantines an oversized valid follow envelope without truncation", () => {
     const validFollows = Array.from(
       { length: MAX_FOLLOWED_BEACHES + 5 },

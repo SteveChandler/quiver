@@ -125,6 +125,22 @@ describe("anonymous beach-follow merge", () => {
     expect(retry.clearedTombstones).toEqual([]);
   });
 
+  it("preserves an explicit removal when the v1 follows array is corrupt", () => {
+    const result = mergeBeachFollows({
+      anonState: {
+        version: 1,
+        follows: null,
+        tombstones: [{ beachId: BEACH_A, removedAt: SECOND_TIME }],
+        bfrHoldoutAssignment: null,
+      },
+      serverRows: [serverFollow(BEACH_A, [FollowTopic.Surf])],
+    });
+
+    expect(result.rowsToDelete).toEqual([BEACH_A]);
+    expect(result.accountState).toEqual({ scope: "account", follows: [] });
+    expect(result.clearedTombstones).toEqual([BEACH_A]);
+  });
+
   it("is a no-op after the first merge result is persisted", () => {
     const anonState = appliedState(addFollow(
       createLocalFollowState(),

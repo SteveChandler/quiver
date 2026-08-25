@@ -234,15 +234,13 @@ export function normalizeLocalFollowState(
       return applied(createLocalFollowState());
   }
 
-  if (!Array.isArray(source.follows)) {
-    return applied(createLocalFollowState());
-  }
-
   const tombstones = Array.isArray(source.tombstones)
     ? dedupeTombstones(source.tombstones)
     : [];
   const removedBeachIds = new Set(tombstones.map((item) => item.beachId));
-  const follows = dedupeFollowedBeaches(source.follows)
+  const follows = dedupeFollowedBeaches(
+    Array.isArray(source.follows) ? source.follows : []
+  )
     .filter((follow) => !removedBeachIds.has(follow.beachId))
     .sort(
       (left, right) =>
