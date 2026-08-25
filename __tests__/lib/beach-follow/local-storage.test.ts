@@ -1,8 +1,13 @@
 import {
   LOCAL_BEACH_FOLLOW_STORAGE_KEY,
+  LOCAL_MY_COAST_VIEW_STORAGE_KEY,
   addLocalBeachFollow,
   ensureLocalBfrAssignment,
+  persistLocalBeachIntentChoice,
+  persistMyCoastViewRecords,
+  readLocalBeachIntentEvidence,
   readLocalBeachFollowState,
+  readMyCoastViewRecords,
   removeLocalBeachFollow,
   updateLocalBeachFollowTopics,
 } from "@/lib/beach-follow/local-storage";
@@ -159,5 +164,66 @@ describe("local beach-follow storage adapter", () => {
     expect(snapshot.status).toBe("sync_required");
     expect(assigned.status).toBe("sync_required");
     expect(storage.getItem(LOCAL_BEACH_FOLLOW_STORAGE_KEY)).toBe(futureEnvelope);
+  });
+
+  it("persists explicit intent evidence in the same storage adapter", () => {
+    const storage = createMemoryStorage();
+
+    expect(persistLocalBeachIntentChoice("surfing", storage)).toBe(true);
+    expect(readLocalBeachIntentEvidence(storage)).toMatchObject({
+      explicitChoice: "surfing",
+      signals: {
+        utilityPageViewCount: 0,
+        surfSpecificSignalCount: 0,
+      },
+    });
+  });
+
+  it("bounds recorded My Coast views to the follow contract limit", () => {
+    const storage = createMemoryStorage();
+    const records = Object.fromEntries(Array.from({ length: 52 }, (_, index) => [
+      `beach-${index}`,
+      {
+        recordedAt: FIRST_TIME,
+        forecastUpdatedAt: FIRST_TIME,
+        waterTempF: 68,
+        tideStatus: "Rising",
+        windSpeedMph: 8,
+        windDirection: "W",
+        waveHeightFt: 3,
+        waterQualityStatus: "good",
+      },
+    ]));
+
+    expect(persistMyCoastViewRecords(records, storage)).toBe(true);
+    expect(Object.keys(readMyCoastViewRecords(storage))).toHaveLength(50);
+    expect(storage.getItem(LOCAL_MY_COAST_VIEW_STORAGE_KEY)).not.toContain(
+      '"beach-0"',
+    );
+  });
+
+  it("drops corrupt My Coast view fields instead of exposing them to rendering", () => {
+    const storage = createMemoryStorage();
+    storage.setItem(LOCAL_MY_COAST_VIEW_STORAGE_KEY, JSON.stringify({
+      [BEACH_ID]: {
+        recordedAt: FIRST_TIME,
+        waterTempF: "hot",
+        tideStatus: 42,
+      },
+      invalid: { recordedAt: "not-a-date" },
+    }));
+
+    expect(readMyCoastViewRecords(storage)).toEqual({
+      [BEACH_ID]: {
+        recordedAt: FIRST_TIME,
+        forecastUpdatedAt: null,
+        waterTempF: null,
+        tideStatus: null,
+        windSpeedMph: null,
+        windDirection: null,
+        waveHeightFt: null,
+        waterQualityStatus: null,
+      },
+    });
   });
 });

@@ -15,6 +15,7 @@ import {
 import {
   addLocalBeachFollow,
   ensureLocalBfrAssignment,
+  persistLocalBeachIntentChoice,
   readLocalBeachFollowState,
   removeLocalBeachFollow,
   type LocalBeachFollowSnapshot,
@@ -235,7 +236,9 @@ export function BeachFollowControl({
   const handleIntent = useCallback(
     (choice: ExplicitBeachIntent | null) => {
       setShowIntentPrompt(false);
-      if (!choice || !analyticsBase) return;
+      if (!choice) return;
+      persistLocalBeachIntentChoice(choice);
+      if (!analyticsBase) return;
       const qualification = qualifyBeachIntent(choice, {
         utilityPageViewCount: 1,
         surfSpecificSignalCount: 0,
@@ -379,7 +382,7 @@ export function BeachFollowControl({
         source="beach-follow-sync"
         contextMessage={{
           title: "Sync beach follows",
-          description: "Create an account to keep your beaches across devices.",
+          description: "Sync beaches, topics, and My Coast across devices.",
         }}
       />
     </section>

@@ -1,6 +1,7 @@
 import {
   addFollow,
   createLocalFollowState,
+  MAX_FOLLOWED_BEACHES,
   normalizeLocalFollowState,
   removeFollow,
   updateFollowTopics,
@@ -12,8 +13,14 @@ import {
   type LocalFollowMutationResult,
   type LocalFollowState,
 } from "@/types/beach-follow";
+import {
+  type ExplicitBeachIntent,
+  type IntentSignals,
+} from "@/lib/beach-follow/intent";
 
 export const LOCAL_BEACH_FOLLOW_STORAGE_KEY = "quiver_beach_follow_state";
+export const LOCAL_BEACH_INTENT_STORAGE_KEY = "quiver_beach_intent_evidence";
+export const LOCAL_MY_COAST_VIEW_STORAGE_KEY = "quiver_my_coast_views";
 
 export type LocalBeachFollowStorageStatus =
   | "ready"
@@ -55,6 +62,19 @@ function persistState(
   } catch {
     return false;
   }
+}
+
+export function persistLocalBeachFollowState(
+  state: LocalFollowState,
+  status: "ready" | "sync_required",
+  storage?: Storage | null,
+): LocalBeachFollowSnapshot {
+  const persisted = persistState(state, storage);
+  return {
+    state,
+    status: persisted ? status : "unavailable",
+    persisted,
+  };
 }
 
 export function readLocalBeachFollowState(
@@ -186,4 +206,165 @@ export function ensureLocalBfrAssignment(
     status: persisted ? snapshot.status : "unavailable",
     persisted,
   };
+}
+
+export interface LocalBeachIntentEvidence {
+  explicitChoice: ExplicitBeachIntent | null;
+  signals: IntentSignals;
+}
+
+export interface MyCoastViewRecord {
+  recordedAt: string;
+  forecastUpdatedAt: string | null;
+  waterTempF: number | null;
+  tideStatus: string | null;
+  windSpeedMph: number | null;
+  windDirection: string | null;
+  waveHeightFt: number | null;
+  waterQualityStatus: string | null;
+}
+
+export type MyCoastViewRecords = Record<string, MyCoastViewRecord>;
+
+const EMPTY_INTENT_EVIDENCE: LocalBeachIntentEvidence = {
+  explicitChoice: null,
+  signals: {
+    utilityPageViewCount: 0,
+    surfSpecificSignalCount: 0,
+  },
+};
+
+const EXPLICIT_INTENTS = new Set<ExplicitBeachIntent>([
+  "surfing",
+  "swimming",
+  "beach_days",
+  "fishing",
+  "diving_paddling",
+  "other",
+]);
+
+function readJsonStorage(key: string, storage?: Storage | null): unknown {
+  const target = resolveStorage(storage);
+  if (!target) return null;
+
+  try {
+    const raw = target.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeJsonStorage(
+  key: string,
+  value: unknown,
+  storage?: Storage | null,
+): boolean {
+  const target = resolveStorage(storage);
+  if (!target) return false;
+
+  try {
+    target.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function readLocalBeachIntentEvidence(
+  storage?: Storage | null,
+): LocalBeachIntentEvidence {
+  const value = readJsonStorage(LOCAL_BEACH_INTENT_STORAGE_KEY, storage);
+  if (!value || typeof value !== "object") return EMPTY_INTENT_EVIDENCE;
+
+  const record = value as Record<string, unknown>;
+  const explicitChoice = EXPLICIT_INTENTS.has(
+    record.explicitChoice as ExplicitBeachIntent,
+  )
+    ? (record.explicitChoice as ExplicitBeachIntent)
+    : null;
+  const signals = record.signals && typeof record.signals === "object"
+    ? record.signals as Record<string, unknown>
+    : {};
+
+  return {
+    explicitChoice,
+    signals: {
+      utilityPageViewCount:
+        typeof signals.utilityPageViewCount === "number"
+          ? signals.utilityPageViewCount
+          : 0,
+      surfSpecificSignalCount:
+        typeof signals.surfSpecificSignalCount === "number"
+          ? signals.surfSpecificSignalCount
+          : 0,
+      spotComparison: signals.spotComparison === true,
+      detailedSwellWindTideOpen: signals.detailedSwellWindTideOpen === true,
+      surfAlertSaved: signals.surfAlertSaved === true,
+      exactSurfWindowHandoff: signals.exactSurfWindowHandoff === true,
+    },
+  };
+}
+
+export function persistLocalBeachIntentChoice(
+  explicitChoice: ExplicitBeachIntent,
+  storage?: Storage | null,
+): boolean {
+  const current = readLocalBeachIntentEvidence(storage);
+  return writeJsonStorage(
+    LOCAL_BEACH_INTENT_STORAGE_KEY,
+    { ...current, explicitChoice },
+    storage,
+  );
+}
+
+export function readMyCoastViewRecords(
+  storage?: Storage | null,
+): MyCoastViewRecords {
+  const value = readJsonStorage(LOCAL_MY_COAST_VIEW_STORAGE_KEY, storage);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .slice(-MAX_FOLLOWED_BEACHES)
+      .flatMap(([beachId, valueRecord]): Array<[string, MyCoastViewRecord]> => {
+        if (!valueRecord || typeof valueRecord !== "object") return [];
+        const record = valueRecord as Record<string, unknown>;
+        if (
+          typeof record.recordedAt !== "string"
+          || !Number.isFinite(Date.parse(record.recordedAt))
+        ) return [];
+        const nullableString = (field: string): string | null => (
+          typeof record[field] === "string" ? record[field] : null
+        );
+        const nullableNumber = (field: string): number | null => (
+          typeof record[field] === "number" && Number.isFinite(record[field])
+            ? record[field]
+            : null
+        );
+        return [[beachId, {
+          recordedAt: record.recordedAt,
+          forecastUpdatedAt: nullableString("forecastUpdatedAt"),
+          waterTempF: nullableNumber("waterTempF"),
+          tideStatus: nullableString("tideStatus"),
+          windSpeedMph: nullableNumber("windSpeedMph"),
+          windDirection: nullableString("windDirection"),
+          waveHeightFt: nullableNumber("waveHeightFt"),
+          waterQualityStatus: nullableString("waterQualityStatus"),
+        }]];
+      }),
+  );
+}
+
+export function persistMyCoastViewRecords(
+  records: MyCoastViewRecords,
+  storage?: Storage | null,
+): boolean {
+  return writeJsonStorage(
+    LOCAL_MY_COAST_VIEW_STORAGE_KEY,
+    Object.fromEntries(
+      Object.entries(records).slice(-MAX_FOLLOWED_BEACHES),
+    ),
+    storage,
+  );
 }
