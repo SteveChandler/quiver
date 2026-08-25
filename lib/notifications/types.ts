@@ -158,7 +158,9 @@ export interface NotificationTypeDef<P = Record<string, unknown>> {
    * `skipped_cooldown`. NULL = no cooldown (default). Distinct from producer
    * dedupe_key (which prevents duplicate active events).
    */
-  cooldownMs?: number;
+  cooldownMs?: number | ((payload: P) => number);
+  /** Optional scope within a notification type, such as watched update category. */
+  cooldownKey?: (payload: P) => string | null;
   /**
    * Phase 5e: per-type override for the global per-channel retry cap.
    * Default 3. Rarely needed — set higher for types where transient

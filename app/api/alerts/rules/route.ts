@@ -189,8 +189,20 @@ export const POST = withAuth(
     // Count existing rules and distinct beaches for this user
     const { data: existingRules } = await (supabase as any)
       .from("alert_rules")
-      .select("id, beach_id, preset_type")
+      .select("id, user_id, beach_id, name, preset_type, conditions, notify_email, notify_push, enabled, created_at, updated_at")
       .eq("user_id", user.id);
+
+    if (preset_type === "watched_call") {
+      const dedupeKey = (validation.conditions?.watched_call)?.dedupeKey;
+      const existingWatch = (existingRules ?? []).find((rule: any) =>
+        rule.enabled !== false
+        && rule.preset_type === "watched_call"
+        && rule.conditions?.watched_call?.dedupeKey === dedupeKey,
+      );
+      if (existingWatch) {
+        return createSuccessResponse({ ...existingWatch, already_exists: true });
+      }
+    }
 
     // Plan V4 Agent 4: server-side dedupe for similarity_match. Auto-enable
     // (RC webhook) and a manual POST race; without this guard a Pro user
@@ -280,6 +292,22 @@ export const POST = withAuth(
       .select("*, beaches(name, slug, timezone)")
       .single();
 
+    if (insertError?.code === "23505" && preset_type === "watched_call") {
+      const dedupeKey = validation.conditions?.watched_call?.dedupeKey;
+      const { data: racedWatch, error: raceLookupError } = await (supabase as any)
+        .from("alert_rules")
+        .select("*, beaches(name, slug, timezone)")
+        .eq("user_id", user.id)
+        .eq("preset_type", "watched_call")
+        .eq("enabled", true)
+        .contains("conditions", { watched_call: { dedupeKey } })
+        .limit(1)
+        .maybeSingle();
+      if (raceLookupError) throw raceLookupError;
+      if (racedWatch) {
+        return createSuccessResponse({ ...racedWatch, already_exists: true });
+      }
+    }
     if (insertError) throw insertError;
 
     return createSuccessResponse(rule, 201);

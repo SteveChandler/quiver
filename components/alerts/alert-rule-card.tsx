@@ -15,6 +15,7 @@ const PRESET_ICONS: Record<PresetType, string> = {
   daily_check_in: "\u{2705}",
   weekend_warrior: "\u{1F4C5}",
   after_work: "\u{1F306}",
+  watched_call: "\u{1F441}\u{FE0F}",
 };
 
 interface AlertRuleCardProps {

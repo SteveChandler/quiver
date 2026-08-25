@@ -10,7 +10,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const ALERT_TYPES = ["forecast_alert", "similarity_match", "swell_watch"] as const;
+const ALERT_TYPES = [
+  "forecast_alert",
+  "similarity_match",
+  "swell_watch",
+  "watched_call_update",
+] as const;
 const DEFAULT_DAYS = 7;
 const MAX_DAYS = 7;
 const MAX_ROWS = 100;
@@ -42,6 +47,11 @@ interface AlertActivityItem {
   score: number | null;
   read_at: string | null;
   created_at: string;
+  category?: string;
+  cause?: string;
+  alert_rule_id?: string;
+  recommendation_id?: string;
+  prior_recommendation_id?: string;
 }
 
 function parseDays(rawDays: string | null): number {
@@ -203,6 +213,7 @@ function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
             ? stringFromData({}, match, ["window_end", "windowEnd"])
             : null;
 
+  const watched = row.type === "watched_call_update";
   return {
     id: row.id,
     type: row.type,
@@ -213,8 +224,8 @@ function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
     beach_name: beachName,
     forecast_at: forecastAt,
     alert_date: stringFromData(data, null, ["alert_date", "alertDate"]),
-    window_start: windowStart,
-    window_end: windowEnd,
+    window_start: watched ? nonEmptyString(data.window_start) : windowStart,
+    window_end: watched ? nonEmptyString(data.window_end) : windowEnd,
     reason,
     window_label: canonical.state === "no" ? null : stringFromData(data, match, [
       "window_label",
@@ -224,6 +235,21 @@ function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
     score: canonical.state === "no" ? null : finiteNumber(data.score),
     read_at: row.read_at,
     created_at: row.created_at,
+    ...(watched && nonEmptyString(data.category)
+      ? { category: nonEmptyString(data.category)! }
+      : {}),
+    ...(watched && nonEmptyString(data.cause)
+      ? { cause: nonEmptyString(data.cause)! }
+      : {}),
+    ...(watched && nonEmptyString(data.alert_rule_id)
+      ? { alert_rule_id: nonEmptyString(data.alert_rule_id)! }
+      : {}),
+    ...(watched && nonEmptyString(data.recommendation_id)
+      ? { recommendation_id: nonEmptyString(data.recommendation_id)! }
+      : {}),
+    ...(watched && nonEmptyString(data.prior_recommendation_id)
+      ? { prior_recommendation_id: nonEmptyString(data.prior_recommendation_id)! }
+      : {}),
   };
 }
 
