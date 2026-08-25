@@ -52,6 +52,36 @@ describe("app-handoff-tracking", () => {
     );
   });
 
+  it("preserves the exact pre-BFR metadata keys for a legacy handoff view", () => {
+    trackAppHandoffView({
+      source: "landing_hero",
+      surface: "landing-page",
+      placement: "hero_primary",
+      handoff_id: HANDOFF_ID,
+      platform: "desktop",
+    });
+
+    const postHogMetadata = (track as jest.Mock).mock.calls[0][1];
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0][1] as RequestInit).body as string,
+    );
+    const expectedKeys = [
+      "cta_family",
+      "handoff_id",
+      "page_type",
+      "placement",
+      "platform",
+      "query_intent",
+      "seo_landing_page",
+      "source",
+      "surface",
+      "viewport_width",
+    ];
+
+    expect(Object.keys(postHogMetadata).sort()).toEqual(expectedKeys);
+    expect(Object.keys(body.metadata).sort()).toEqual(expectedKeys);
+  });
+
   it("never includes a raw email - only the domain", () => {
     trackAppHandoffEmailSubmit({
       source: "landing_hero",

@@ -234,6 +234,7 @@ export const trackAppHandoffLinkOpened = <const Metadata extends AppHandoffMetad
   metadata: LegacyAppHandoffMetadata<Metadata>,
 ): void => emit(APP_HANDOFF_LINK_OPENED_EVENT, metadata);
 
+// Import is inert; Plans 20.1-03/04/05 product wiring invokes this guarded emitter.
 export const trackExactCallHandoffLinkOpened = (
   metadata: ExactCallHandoffMetadata
 ): void => emitExactCall(metadata);
