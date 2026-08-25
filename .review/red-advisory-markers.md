@@ -222,3 +222,55 @@ logs, bounded-fallback warning, and unset `NEXT_PUBLIC_SITE_URL` warning.
 No E2E test was added, changed, or run. No production build was run because the
 requested validation was typecheck, lint, and focused unit coverage. No deploy,
 promotion, migration, or PR action was performed.
+
+## Water-quality badge placement follow-up
+
+### Geometry and scale-floor clearance
+
+The callout viewBox remains `SIZE = 480`, centered at `CY = 240`, with
+`RING_R = 150`. The beach name keeps its existing baseline at `CY - 6 = 234`
+and its `20px` font size, so its conservative top edge is viewBox `y = 214`.
+The water-quality badge keeps its existing fixed `26px` minimum height.
+
+The badge center now sits halfway from the callout center to the ring's top:
+
+```ts
+const statusBadgeTop =
+  (CY - RING_R / 2) * scale - WATER_QUALITY_BADGE_HEIGHT / 2;
+```
+
+That produces these rendered edges:
+
+- Scale `1`: badge top `152px`, bottom `178px`; beach-name top `214px`, leaving
+  `36px` clearance inside the `480px` callout.
+- Scale floor `0.55`: badge top `77.75px`, bottom `103.75px`; beach-name top
+  `117.7px`, leaving `13.95px` clearance inside the `264px` callout.
+
+Because the badge bottom is above the beach-name top, it also clears the lower
+temperature label. Its horizontal centering, opaque `#2E2A26` background,
+`#F2A24C` border, `#FFF7E8` text, visible copy, and accessible name are
+unchanged. The `Full forecast →` pill remains at `(CY + 122) * scale`; its
+scale-1 `top: 362px` position is pinned by the updated unit test.
+
+### Commands and results for this follow-up
+
+- PASS — `/Users/stevenchandler/.codex/skills/git-worktree-safety-summary/scripts/git_safety_summary.sh .` — the dedicated worktree was clean before edits.
+- PASS — `git fetch origin main` — resolved latest `origin/main` to `c44f8f4c5a8024fce7a16fc2d8be294020ba9499`.
+- PASS — `git worktree add -b fix/water-quality-badge-position .worktrees/water-quality-badge-position origin/main` — created the isolated branch from the PR #609 merge.
+- PASS — `test -d /Users/stevenchandler/Desktop/dev/quiver/node_modules && test -f /Users/stevenchandler/Desktop/dev/quiver/.env.local && ln -s /Users/stevenchandler/Desktop/dev/quiver/node_modules node_modules && ln -s /Users/stevenchandler/Desktop/dev/quiver/.env.local .env.local` — created worktree-local ignored symlinks for validation without changing the primary checkout.
+- FAIL (expected test-first red) — `DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS="--require dotenv/config" yarn test:unit --runInBand __tests__/components/map/conditions-callout.test.ts` — 1 suite failed; 2 geometry tests failed and 12 tests passed. The old badge bottoms were `328px` vs a `214px` name top at scale 1 and `192.1px` vs `117.7px` at scale 0.55.
+- PASS (green) — `DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS="--require dotenv/config" yarn test:unit --runInBand __tests__/components/map/conditions-callout.test.ts` — 1 suite, 14 tests.
+- PASS — `./node_modules/.bin/eslint --max-warnings=0 components/map/conditions-callout.ts __tests__/components/map/conditions-callout.test.ts` — zero warnings/errors.
+- PASS — `DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS="--require dotenv/config" yarn test:unit --runInBand __tests__/components/map/conditions-callout-polarity.test.ts __tests__/components/map/interactive-map.test.tsx` — 2 suites, 55 tests.
+- PASS — `yarn typecheck` — TypeScript completed with no errors.
+- PASS — `yarn lint` — ESLint completed with zero warnings/errors.
+- PASS — `DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS="--require dotenv/config" yarn test:unit --runInBand __tests__/components/map/conditions-callout.test.ts __tests__/components/map/conditions-callout-polarity.test.ts __tests__/components/map/conditions-callout-data.test.ts __tests__/components/map/interactive-map.test.tsx` — 4 suites, 85 tests.
+- PASS — `git diff --check` — no whitespace errors.
+
+The unit runs retained the existing unset `NEXT_PUBLIC_SITE_URL` environment
+warning. The interactive-map failure-path test emitted its expected mocked bulk
+forecast 500 warning. The relevant callout E2E coverage in
+`e2e/map-swell-field.spec.ts`, `e2e/guest-major-event-recommendation-hold.spec.ts`,
+and `e2e/map.spec.ts` was reviewed; none asserts water-quality badge geometry,
+so no E2E test was changed or run. No build, deployment, promotion, or PR action
+was performed.

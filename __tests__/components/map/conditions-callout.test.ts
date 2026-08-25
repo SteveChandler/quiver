@@ -67,6 +67,7 @@ describe("createConditionsCalloutElement", () => {
     const link = withHref.element.querySelector("[data-callout-link]");
     expect(link?.getAttribute("href")).toBe("/ca/san-diego/del-mar");
     expect(link?.textContent).toBe("Full forecast →");
+    expect(link).toHaveStyle({ top: "362px" });
 
     const noHref = createConditionsCalloutElement({ beachName: "Del Mar", tempLabel: "68°", components: [S1] });
     expect(noHref.element.querySelector("[data-callout-link]")).toBeNull();
@@ -114,6 +115,45 @@ describe("createConditionsCalloutElement", () => {
 
       expect(badge).toHaveTextContent(expectedCopy);
       expect(badge).toHaveAttribute("aria-label", expectedCopy);
+    },
+  );
+
+  it.each([1, 0.55])(
+    "keeps the water-quality badge above the center label at scale %s",
+    (scale) => {
+      const { element } = createConditionsCalloutElement({
+        beachName: "Del Mar",
+        tempLabel: "68°",
+        components: [S1],
+        waterQualityHold: "advisory",
+        scale,
+      });
+      const badge = element.querySelector<HTMLElement>(
+        "[data-callout-water-quality]",
+      );
+      const name = element.querySelector<SVGTextElement>("[data-callout-name]");
+      const ring = element.querySelector<SVGCircleElement>('circle[fill="none"]');
+
+      if (!badge || !name || !ring) {
+        throw new Error("Expected water-quality badge, center label, and ring");
+      }
+
+      const badgeTop = Number.parseFloat(badge.style.top);
+      const badgeHeight = Number.parseFloat(badge.style.minHeight);
+      const badgeBottom = badgeTop + badgeHeight;
+      const renderedHeight = Number.parseFloat(element.style.height);
+      const nameTop =
+        (Number(name.getAttribute("y")) -
+          Number(name.getAttribute("font-size"))) *
+        scale;
+      const ringRadius = Number(ring.getAttribute("r")) * scale;
+      const expectedBadgeTop =
+        renderedHeight / 2 - ringRadius / 2 - badgeHeight / 2;
+
+      expect(badgeTop).toBeGreaterThanOrEqual(0);
+      expect(badgeBottom).toBeLessThanOrEqual(renderedHeight);
+      expect(badgeBottom).toBeLessThan(nameTop);
+      expect(badgeTop).toBeCloseTo(expectedBadgeTop);
     },
   );
 });
