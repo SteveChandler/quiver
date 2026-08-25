@@ -4,12 +4,14 @@ import type { SwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { getConditionMarkerCall } from "@/components/map/map-marker-builder";
 import { degreesToCompass } from "@/components/map/swell-map-theme";
+import type { WaterQualityHoldKind } from "@/lib/services/nearby-beach-service";
 
 interface BeachPreviewPopupContentOptions {
   location: Beach;
   waveLabel?: string | null;
   conditionSummary?: ConditionSummary;
   conditionScore?: number;
+  waterQualityHold?: WaterQualityHoldKind | null;
   partition?: SwellPartition;
 }
 
@@ -72,6 +74,7 @@ export function createBeachPreviewPopupContent({
   waveLabel,
   conditionSummary,
   conditionScore,
+  waterQualityHold,
   partition,
 }: BeachPreviewPopupContentOptions): HTMLElement {
   const root = document.createElement("div");
@@ -101,6 +104,7 @@ export function createBeachPreviewPopupContent({
   const call = getConditionMarkerCall({
     conditionSummary,
     conditionScore,
+    waterQualityHold,
   });
   // No quality read -> hide the verdict entirely. Showing "No read" next to real
   // swell/wind reads as broken; absence is cleaner than a negative badge.

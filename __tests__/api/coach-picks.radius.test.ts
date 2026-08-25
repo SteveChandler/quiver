@@ -37,6 +37,7 @@ jest.mock("@/lib/recommendations/major-event-hold/water-quality", () => ({
   resolveWaterQualityHolds: jest.fn(async () => ({
     state: "resolved",
     heldBeachIds: [],
+    waterQualityStatusByBeachId: {},
     epoch: "test-water-quality",
   })),
 }));

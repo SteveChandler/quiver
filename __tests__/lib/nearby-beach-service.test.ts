@@ -21,12 +21,34 @@ const mockSupabase = {
   rpc: jest.fn(),
   from: jest.fn(() => mockQuery),
 };
-const mockRankBeaches = jest.fn(async (beaches: Array<{ id: string }>) =>
-  beaches.filter((beach) => beach.id !== "held-beach"),
+const mockRankBeaches = jest.fn(
+  async (
+    beaches: Array<{ id: string }>,
+    options?: {
+      onWaterQualityResolution?: (resolution: {
+        waterQualityStatusByBeachId: Record<string, "advisory" | "closure">;
+      }) => void;
+    },
+  ) => {
+    options?.onWaterQualityResolution?.({
+      waterQualityStatusByBeachId: { "held-beach": "closure" },
+    });
+    return beaches.filter(
+      (beach) =>
+        beach.id !== "held-beach" && beach.id !== "owner-held-beach",
+    );
+  },
 );
 
 jest.mock("@/lib/recommendations/selection", () => ({
-  rankBeaches: (beaches: Array<{ id: string }>) => mockRankBeaches(beaches),
+  rankBeaches: (
+    beaches: Array<{ id: string }>,
+    options?: {
+      onWaterQualityResolution?: (resolution: {
+        waterQualityStatusByBeachId: Record<string, "advisory" | "closure">;
+      }) => void;
+    },
+  ) => mockRankBeaches(beaches, options),
 }));
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -141,7 +163,7 @@ describe("nearby beach service", () => {
     ]);
   });
 
-  it("does not return a held beach from nearby recommendations", async () => {
+  it("returns held beaches for map visibility with their hold kind", async () => {
     mockSupabase.rpc.mockResolvedValue({
       data: [
         {
@@ -160,6 +182,14 @@ describe("nearby beach service", () => {
           is_private: false,
           country: "USA",
         },
+        {
+          id: "owner-held-beach",
+          name: "Owner Held Beach",
+          lat: 32.705,
+          lon: -117.205,
+          is_private: false,
+          country: "USA",
+        },
       ],
       error: null,
     });
@@ -167,6 +197,7 @@ describe("nearby beach service", () => {
       data: [
         { id: "held-beach", country: "USA" },
         { id: "safe-beach", country: "USA" },
+        { id: "owner-held-beach", country: "USA" },
       ],
       error: null,
     });
@@ -175,7 +206,20 @@ describe("nearby beach service", () => {
       getNearbyBeachesFromDb(32.7, -117.2, 30, 20),
     ).resolves.toMatchObject({
       success: true,
-      data: [{ id: "safe-beach" }],
+      data: [
+        {
+          id: "held-beach",
+          waterQualityHold: "closure",
+        },
+        {
+          id: "owner-held-beach",
+          waterQualityHold: "held",
+        },
+        {
+          id: "safe-beach",
+          waterQualityHold: null,
+        },
+      ],
     });
   });
 

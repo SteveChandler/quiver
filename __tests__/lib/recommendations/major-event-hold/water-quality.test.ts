@@ -287,6 +287,36 @@ describe("water-quality recommendation holds", () => {
     });
   });
 
+  it("returns closure when sampled and County hold sources disagree", async () => {
+    const resolution = await resolveWaterQualityHolds([candidate(BEACH_A)], {
+      client: clientFor({
+        qualityRows: [
+          {
+            beach_id: BEACH_A,
+            status: "advisory",
+            total_samples_30d: 2,
+          },
+        ],
+        liveRows: [
+          {
+            beach_id: BEACH_A,
+            advisory_type: "closure",
+            source_site_identifier: "32.700000,-117.200000",
+          },
+        ],
+      }),
+      now: new Date(),
+    });
+
+    expect(resolution).toMatchObject({
+      state: "resolved",
+      heldBeachIds: [BEACH_A],
+      waterQualityStatusByBeachId: {
+        [BEACH_A]: "closure",
+      },
+    });
+  });
+
   it("treats a County snapshot older than two hours as unavailable", async () => {
     const now = new Date("2026-08-14T01:30:00.000Z");
     const resolution = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_B)], {

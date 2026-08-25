@@ -1,4 +1,5 @@
 import type { CalloutComponent } from "@/components/map/conditions-callout-data";
+import type { WaterQualityHoldKind } from "@/lib/services/nearby-beach-service";
 
 export interface ConditionsCalloutOptions {
   beachName: string;
@@ -6,6 +7,7 @@ export interface ConditionsCalloutOptions {
   components: CalloutComponent[];
   /** When set, renders a tappable "Full forecast →" link to the beach page. */
   beachHref?: string;
+  waterQualityHold?: WaterQualityHoldKind | null;
   /**
    * Uniform render scale (default 1). Below 1 shrinks the whole callout — ring,
    * scrim, arrows, and labels together — so it fits narrow mobile viewports where
@@ -26,6 +28,27 @@ const MIN_ARROW_SEP_DEG = 36; // fan clustered same-bearing arrows apart so they
 
 /** Full callout width in viewBox px (arrow span) — used to scale it to the viewport. */
 export const CALLOUT_FULL_WIDTH = 2 * (BANNER_LEN + GAP);
+
+function pillCssText(top: number, interactive = false): string {
+  return [
+    "position:absolute",
+    `top:${top}px`,
+    "left:50%",
+    `z-index:${interactive ? 2 : 1}`,
+    "transform:translateX(-50%)",
+    "white-space:nowrap",
+    "display:inline-flex",
+    "align-items:center",
+    `min-height:${interactive ? 36 : 26}px`,
+    `padding:${interactive ? "6px 14px" : "4px 10px"}`,
+    "border-radius:9999px",
+    "background:#2E2A26",
+    "font-family:system-ui, sans-serif",
+    "font-weight:800",
+    "box-shadow:0 2px 6px rgba(0,0,0,0.35)",
+    `pointer-events:${interactive ? "auto" : "none"}`,
+  ].join(";");
+}
 
 /**
  * Screen angles for each banner, fanned apart so swells sharing a bearing don't
@@ -200,6 +223,31 @@ export function createConditionsCalloutElement(
   }
   wrapper.appendChild(pulse);
 
+  if (opts.waterQualityHold) {
+    const statusCopy =
+      opts.waterQualityHold === "closure"
+        ? "Closed — county water-quality data"
+        : opts.waterQualityHold === "advisory"
+          ? "Advisory — county water-quality data"
+          : "Water quality hold";
+    const statusBadge = document.createElement("div");
+    statusBadge.setAttribute("data-callout-water-quality", opts.waterQualityHold);
+    statusBadge.setAttribute("role", "status");
+    statusBadge.setAttribute("aria-label", statusCopy);
+    statusBadge.textContent = statusCopy;
+    statusBadge.style.cssText = [
+      // The map's 0.55 scale floor leaves a 7px gap above the forecast link;
+      // the opaque badge also keeps any radial arrow beneath it from crossing the copy.
+      pillCssText((CY + 62) * scale),
+      "box-sizing:border-box",
+      "border:1px solid #F2A24C",
+      "color:#FFF7E8",
+      "font-size:12px",
+      "line-height:1.2",
+    ].join(";");
+    wrapper.appendChild(statusBadge);
+  }
+
   if (opts.beachHref) {
     // The arrows already carry name/temp/swell/wind; the only thing the old info
     // card added is the path to the full forecast. Render it as a tappable pill
@@ -210,26 +258,11 @@ export function createConditionsCalloutElement(
     link.href = opts.beachHref;
     link.textContent = "Full forecast →";
     link.style.cssText = [
-      "position:absolute",
       // Position scales with the callout; the pill's own size stays for tappability.
-      `top:${(CY + 122) * scale}px`,
-      "left:50%",
-      "transform:translateX(-50%)",
-      "white-space:nowrap",
-      // Comfortable tap target on touch (min-height) without looking chunky.
-      "display:inline-flex",
-      "align-items:center",
-      "min-height:36px",
-      "padding:6px 14px",
-      "border-radius:9999px",
-      "background:#2E2A26",
+      pillCssText((CY + 122) * scale, true),
       "color:#fff",
-      "font-family:system-ui, sans-serif",
       "font-size:13px",
-      "font-weight:800",
       "text-decoration:none",
-      "box-shadow:0 2px 6px rgba(0,0,0,0.35)",
-      "pointer-events:auto",
     ].join(";");
     link.addEventListener("click", (event) => event.stopPropagation());
     wrapper.appendChild(link);

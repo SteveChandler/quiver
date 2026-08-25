@@ -4,6 +4,7 @@ import {
   textNeedsFlip,
 } from "@/components/map/conditions-callout";
 import type { CalloutComponent } from "@/components/map/conditions-callout-data";
+import { getConditionMarkerCall } from "@/components/map/map-marker-builder";
 
 const S1: CalloutComponent = { kind: "s1", name: "SWELL", bearingDeg: 290, label: "2.6ft, 8s", color: "#F2A24C" };
 const S2: CalloutComponent = { kind: "s2", name: "S2", bearingDeg: 200, label: "1.6ft, 13s", color: "#7AC74F" };
@@ -75,4 +76,44 @@ describe("createConditionsCalloutElement", () => {
     const { element } = createConditionsCalloutElement({ beachName: "Del Mar", tempLabel: "68°", components: [] });
     expect(element.querySelector("[data-callout-pulse]")).not.toBeNull();
   });
+
+  it("labels a closure consistently in the marker call and conditions callout", () => {
+    const markerCall = getConditionMarkerCall({
+      conditionSummary: "EPIC",
+      waterQualityHold: "closure",
+    });
+    const { element } = createConditionsCalloutElement({
+      beachName: "Del Mar",
+      tempLabel: "68°",
+      components: [S1],
+      waterQualityHold: "closure",
+    });
+    const badge = element.querySelector("[data-callout-water-quality]");
+
+    expect(markerCall.label).toBe("Water quality closure");
+    expect(badge).toHaveTextContent("Closed — county water-quality data");
+    expect(badge).toHaveAttribute(
+      "aria-label",
+      "Closed — county water-quality data",
+    );
+  });
+
+  it.each([
+    ["advisory", "Advisory — county water-quality data"],
+    ["held", "Water quality hold"],
+  ] as const)(
+    "renders unmistakable wording for a %s",
+    (waterQualityHold, expectedCopy) => {
+      const { element } = createConditionsCalloutElement({
+        beachName: "Del Mar",
+        tempLabel: "68°",
+        components: [S1],
+        waterQualityHold,
+      });
+      const badge = element.querySelector("[data-callout-water-quality]");
+
+      expect(badge).toHaveTextContent(expectedCopy);
+      expect(badge).toHaveAttribute("aria-label", expectedCopy);
+    },
+  );
 });
