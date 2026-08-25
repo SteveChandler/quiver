@@ -1327,6 +1327,196 @@ describe('POST /api/events', () => {
       }));
     });
 
+    it('rejects email-like and token-like values in every BFR string slot', async () => {
+      const mockInsert = jest.fn().mockResolvedValue({ error: null });
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === 'profiles') {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                single: jest.fn().mockResolvedValue({
+                  data: { allow_implicit_tracking: true },
+                  error: null,
+                }),
+              })),
+            })),
+            insert: jest.fn(() => ({ error: null })),
+          };
+        }
+        return { insert: mockInsert, select: jest.fn() };
+      });
+
+      const webBase = {
+        audience_class: 'general_utility',
+        page_type: 'beach_detail',
+        experiment_key: 'bfr-follow-holdout-v1',
+        experiment_arm: 'treatment',
+      };
+      const nativeChannel = {
+        source: 'exact_call',
+        _platform: 'native-ios',
+        app_version: '1.2.3+45',
+        expo_update_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+        expo_channel: 'production',
+        expo_runtime_version: '1.2.3',
+        expo_is_embedded_launch: true,
+        expo_is_emergency_launch: false,
+        is_emulator: false,
+        launch_primer_session_id: '62345678-1234-4234-8234-123456789012',
+      };
+      const fixtures: Array<{
+        eventType: string;
+        metadata: Record<string, unknown>;
+      }> = [
+        {
+          eventType: 'beach_follow_started',
+          metadata: { ...webBase, topic: 'surf' },
+        },
+        {
+          eventType: 'beach_follow_saved_local',
+          metadata: { ...webBase, topic: 'surf' },
+        },
+        {
+          eventType: 'beach_follow_sync_started',
+          metadata: { ...webBase, audience_class: 'existing_web_user' },
+        },
+        {
+          eventType: 'beach_follow_sync_completed',
+          metadata: { ...webBase, audience_class: 'existing_web_user' },
+        },
+        {
+          eventType: 'follow_topic_changed',
+          metadata: { ...webBase, topic: 'surf' },
+        },
+        {
+          eventType: 'visitor_intent_selected',
+          metadata: {
+            ...webBase,
+            intent_state: 'explicit',
+            intent_reason: 'explicit_surfing',
+          },
+        },
+        {
+          eventType: 'surf_intent_qualified',
+          metadata: {
+            ...webBase,
+            audience_class: 'surf_qualified',
+            intent_state: 'inferred',
+            intent_reason: 'high_intent_action',
+          },
+        },
+        {
+          eventType: 'my_coast_viewed',
+          metadata: {
+            ...webBase,
+            page_type: 'my_coast',
+            intent_state: 'unknown',
+            intent_reason: 'no_evidence',
+          },
+        },
+        {
+          eventType: 'my_coast_beach_opened',
+          metadata: {
+            ...webBase,
+            page_type: 'my_coast',
+            intent_state: 'unknown',
+            intent_reason: 'no_evidence',
+            topic: 'surf',
+          },
+        },
+        {
+          eventType: 'app_handoff_link_opened',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            source: 'exact_call',
+            surface: 'beach_detail',
+            placement: 'exact_call',
+            platform: 'ios',
+            handoff_context: 'exact_call',
+            fallback_classification: 'invalid',
+            reason: 'malformed',
+            cta_family: 'app_handoff',
+            page_type: 'other',
+            query_intent: 'other',
+          },
+        },
+        {
+          eventType: 'app_handoff_native_open',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            ...nativeChannel,
+            surface: 'beach_detail',
+            placement: 'exact_call',
+            handoff_context: 'exact_call',
+          },
+        },
+        {
+          eventType: 'watched_call_context_resolved',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            fallback_classification: 'invalid',
+            reason: 'malformed',
+            ...nativeChannel,
+            source: 'launch-primer',
+          },
+        },
+      ];
+      const forbiddenValues = ['surfer@example.com', 'Bearer secret-token'];
+      const failures: string[] = [];
+      let caseIndex = 0;
+
+      for (const fixture of fixtures) {
+        caseIndex += 1;
+        mockSupabase.auth.getUser.mockResolvedValue({
+          data: { user: { id: `bfr-string-slot-${caseIndex}` } },
+          error: null,
+        });
+        const baselineResponse = await POST(new Request(
+          'http://localhost/api/events',
+          {
+            method: 'POST',
+            headers: BROWSER_HEADERS,
+            body: JSON.stringify(fixture),
+          }
+        ));
+        if (baselineResponse.status !== 200) {
+          failures.push(
+            `${fixture.eventType} baseline returned ${baselineResponse.status}`
+          );
+        }
+
+        const stringKeys = Object.entries(fixture.metadata)
+          .filter(([, value]) => typeof value === 'string')
+          .map(([key]) => key);
+        for (const key of stringKeys) {
+          for (const forbiddenValue of forbiddenValues) {
+            caseIndex += 1;
+            mockSupabase.auth.getUser.mockResolvedValue({
+              data: { user: { id: `bfr-string-slot-${caseIndex}` } },
+              error: null,
+            });
+            const request = new Request('http://localhost/api/events', {
+              method: 'POST',
+              headers: BROWSER_HEADERS,
+              body: JSON.stringify({
+                eventType: fixture.eventType,
+                metadata: { ...fixture.metadata, [key]: forbiddenValue },
+              }),
+            });
+
+            const response = await POST(request);
+            if (response.status !== 400) {
+              failures.push(
+                `${fixture.eventType}.${key} accepted ${JSON.stringify(forbiddenValue)} with ${response.status}`
+              );
+            }
+          }
+        }
+      }
+
+      expect(failures).toEqual([]);
+    });
+
     it('rejects unreviewed exact-call receipt metadata', async () => {
       mockSupabase.auth.getUser.mockResolvedValue({
         data: { user: null },

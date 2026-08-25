@@ -223,8 +223,7 @@ export function normalizeLocalFollowState(
       (left, right) =>
         Date.parse(left.updatedAt) - Date.parse(right.updatedAt) ||
         left.beachId.localeCompare(right.beachId)
-    )
-    .slice(-MAX_FOLLOWED_BEACHES);
+    );
 
   const state: LocalFollowState = {
     version: LOCAL_FOLLOW_STATE_VERSION,
@@ -235,7 +234,10 @@ export function normalizeLocalFollowState(
     ),
   };
 
-  if (pendingOperationCount(state) > MAX_PENDING_FOLLOW_OPERATIONS) {
+  if (
+    state.follows.length > MAX_FOLLOWED_BEACHES
+    || pendingOperationCount(state) > MAX_PENDING_FOLLOW_OPERATIONS
+  ) {
     return syncRequired(state);
   }
   return applied(state);

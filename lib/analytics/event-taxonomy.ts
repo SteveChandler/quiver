@@ -280,7 +280,10 @@ const BFR_EXACT_CALL_RECEIPT_EVENT_TYPES = new Set<string>([
   BFR_EXACT_CALL_HANDOFF_EVENTS.nativeOpened,
 ]);
 const BFR_HANDOFF_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const BFR_APP_VERSION_PATTERN =
+  /^[0-9]+\.[0-9]+\.[0-9]+(?:\+[0-9]+)?$/;
+const BFR_IDENTIFIER_PATTERN = /^[A-Za-z0-9._-]+$/;
 const BFR_EXACT_CALL_PLACEMENT_VALUES = new Set<string>(['exact_call']);
 const BFR_EXACT_CALL_PLATFORM_VALUES = new Set<string>([
   'ios',
@@ -374,19 +377,39 @@ function hasValidResolutionPair(metadata: Record<string, unknown>): boolean {
   return false;
 }
 
-function isOptionalBoundedString(
+function isOptionalAppVersion(
   value: unknown,
-  maxLength: number,
 ): boolean {
   return value === undefined
     || value === null
-    || (typeof value === 'string' && value.length > 0 && value.length <= maxLength);
+    || (
+      typeof value === 'string'
+      && value.length <= 32
+      && BFR_APP_VERSION_PATTERN.test(value)
+    );
+}
+
+function isOptionalCanonicalUuid(value: unknown): boolean {
+  return value === undefined
+    || value === null
+    || (typeof value === 'string' && BFR_HANDOFF_ID_PATTERN.test(value));
+}
+
+function isOptionalIdentifier(value: unknown, maxLength: number): boolean {
+  return value === undefined
+    || value === null
+    || (
+      typeof value === 'string'
+      && value.length <= maxLength
+      && BFR_IDENTIFIER_PATTERN.test(value)
+    );
 }
 
 function hasValidNativeChannelMetadata(
   metadata: Record<string, unknown>,
   expectedSource?: string,
 ): boolean {
+  if (!isOptionalIdentifier(metadata.source, 32)) return false;
   if (
     expectedSource !== undefined
     && metadata.source !== undefined
@@ -403,10 +426,10 @@ function hasValidNativeChannelMetadata(
   ) {
     return false;
   }
-  if (!isOptionalBoundedString(metadata.app_version, 32)) return false;
-  if (!isOptionalBoundedString(metadata.expo_update_id, 64)) return false;
-  if (!isOptionalBoundedString(metadata.expo_channel, 64)) return false;
-  if (!isOptionalBoundedString(metadata.expo_runtime_version, 64)) return false;
+  if (!isOptionalAppVersion(metadata.app_version)) return false;
+  if (!isOptionalCanonicalUuid(metadata.expo_update_id)) return false;
+  if (!isOptionalIdentifier(metadata.expo_channel, 32)) return false;
+  if (!isOptionalIdentifier(metadata.expo_runtime_version, 32)) return false;
   if (
     metadata.expo_is_embedded_launch !== undefined
     && metadata.expo_is_embedded_launch !== null
@@ -557,7 +580,7 @@ export function isBfrApiEventMetadata(
   if (eventType === BFR_EXACT_CALL_HANDOFF_EVENTS.resolved) return true;
   return BFR_EXACT_CALL_RECEIPT_EVENT_TYPES.has(eventType)
     && isRecord(metadata)
-    && metadata.handoff_context === 'exact_call';
+    && metadata.handoff_context !== undefined;
 }
 
 export function buildBfrApiEventMetadata(

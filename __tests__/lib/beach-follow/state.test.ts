@@ -176,23 +176,40 @@ describe("local beach-follow state", () => {
     );
   });
 
-  it("enforces the followed-beach bound deterministically", () => {
-    const oversized = {
-      version: 1,
-      follows: Array.from({ length: MAX_FOLLOWED_BEACHES + 5 }, (_, index) => ({
+  it("quarantines an oversized valid follow envelope without truncation", () => {
+    const validFollows = Array.from(
+      { length: MAX_FOLLOWED_BEACHES + 5 },
+      (_, index) => ({
         beachId: beachIdFor(index),
         topics: [FollowTopic.General],
         createdAt: new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString(),
         updatedAt: new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString(),
-      })),
+      })
+    );
+    const oversized = {
+      version: 1,
+      follows: [
+        ...validFollows,
+        { beachId: "garbage", topics: ["garbage"] },
+      ],
       tombstones: [],
     };
 
-    const normalized = appliedState(normalizeLocalFollowState(oversized));
+    const normalized = normalizeLocalFollowState(JSON.stringify(oversized));
+    const expected = {
+      status: "sync_required",
+      state: {
+        version: 1,
+        follows: validFollows,
+        tombstones: [],
+        bfrHoldoutAssignment: null,
+      },
+    } as const;
 
-    expect(normalized.follows).toHaveLength(MAX_FOLLOWED_BEACHES);
-    expect(normalized.follows[0].beachId).toBe(beachIdFor(5));
-    expect(normalized.follows.at(-1)?.beachId).toBe(beachIdFor(54));
+    expect(normalized).toEqual(expected);
+    expect(normalizeLocalFollowState(JSON.stringify(normalized.state))).toEqual(
+      expected
+    );
   });
 
   it("retains 51 unacknowledged removals and returns sync_required before overflow", () => {

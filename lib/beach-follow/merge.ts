@@ -4,6 +4,8 @@ import {
   type MergeResult,
 } from "@/types/beach-follow";
 import {
+  MAX_FOLLOWED_BEACHES,
+  MAX_PENDING_FOLLOW_OPERATIONS,
   dedupeFollowedBeaches,
   normalizeFollowTopics,
   normalizeLocalFollowState,
@@ -36,7 +38,15 @@ function unionRows(server: FollowedBeach, anon: FollowedBeach): FollowedBeach {
 export function mergeBeachFollows(input: MergeInput): MergeResult {
   const normalization = normalizeLocalFollowState(input.anonState);
   const serverRows = dedupeFollowedBeaches(input.serverRows);
-  if (normalization.status === "sync_required") {
+  const normalizedPendingCount =
+    normalization.state.follows.length + normalization.state.tombstones.length;
+  const isPlannableFollowOverflow =
+    normalization.state.follows.length > MAX_FOLLOWED_BEACHES
+    && normalizedPendingCount <= MAX_PENDING_FOLLOW_OPERATIONS;
+  if (
+    normalization.status === "sync_required"
+    && !isPlannableFollowOverflow
+  ) {
     return {
       status: "sync_required",
       rowsToInsert: [],
@@ -87,21 +97,25 @@ export function mergeBeachFollows(input: MergeInput): MergeResult {
   );
 
   return {
-    status: "applied",
+    status: isPlannableFollowOverflow ? "sync_required" : "applied",
     rowsToInsert,
     rowsToDelete,
     accountState: {
       scope: "account",
       follows: mergedFollows,
     },
-    residualLocalState: {
-      version: 1,
-      follows: [],
-      tombstones: [],
-      bfrHoldoutAssignment: anonState.bfrHoldoutAssignment,
-    },
-    clearedTombstones: anonState.tombstones
-      .map((tombstone) => tombstone.beachId)
-      .sort(),
+    residualLocalState: isPlannableFollowOverflow
+      ? anonState
+      : {
+          version: 1,
+          follows: [],
+          tombstones: [],
+          bfrHoldoutAssignment: anonState.bfrHoldoutAssignment,
+        },
+    clearedTombstones: isPlannableFollowOverflow
+      ? []
+      : anonState.tombstones
+          .map((tombstone) => tombstone.beachId)
+          .sort(),
   };
 }

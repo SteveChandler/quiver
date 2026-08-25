@@ -57,7 +57,7 @@ export interface MergeInput {
 }
 
 export interface MergeResult {
-  /** sync_required means no local rows or tombstones were applied or cleared. */
+  /** sync_required preserves local state; follow-overflow plans may still emit upserts. */
   status: "applied" | "sync_required";
   /** Rows that callers should upsert; existing rows may carry newly unioned topics. */
   rowsToInsert: FollowedBeach[];
