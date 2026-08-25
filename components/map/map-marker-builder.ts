@@ -4,6 +4,10 @@ import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import type { ConditionSummary } from "@/components/map/map-beach-loader";
+import type {
+  MapBeach,
+  WaterQualityHoldKind,
+} from "@/lib/services/nearby-beach-service";
 
 /** Controls what data the map markers display */
 export type MapDisplayMode = "wave-height" | "water-temp";
@@ -18,6 +22,8 @@ export interface ConditionMarkerCall {
     | "Slim pickings"
     | "Skip it"
     | "Water quality advisory"
+    | "Water quality closure"
+    | "Water quality hold"
     | "No read";
   gradient: string;
 }
@@ -26,7 +32,7 @@ export interface MarkerPreviewData {
   waveLabel?: string | null;
   conditionSummary?: ConditionSummary;
   conditionScore?: number;
-  waterQualityHold?: boolean;
+  waterQualityHold?: WaterQualityHoldKind | null;
 }
 
 export const CONDITION_MARKER_CALLS: ReadonlyArray<{
@@ -40,6 +46,25 @@ export const CONDITION_MARKER_CALLS: ReadonlyArray<{
   { summary: "MEH", label: "Skip it" },
   { summary: "UNKNOWN", label: "No read" },
 ];
+
+const WATER_QUALITY_HOLD_LABELS: Record<
+  WaterQualityHoldKind,
+  ConditionMarkerCall["label"]
+> = {
+  advisory: "Water quality advisory",
+  closure: "Water quality closure",
+  held: "Water quality hold",
+};
+
+export function getWaterQualityHold(
+  beach: Beach | undefined,
+): WaterQualityHoldKind | null {
+  if (beach === undefined) return null;
+  const hold = (beach as Partial<MapBeach>).waterQualityHold;
+  return hold === "advisory" || hold === "closure" || hold === "held"
+    ? hold
+    : null;
+}
 
 /**
  * Get badge background color for water temperature display.
@@ -56,14 +81,14 @@ export function getWaterTempBadgeColor(temp?: string | null): string {
 }
 
 export function getConditionMarkerGradient(
-  summary: ConditionSummary = "UNKNOWN",
-  waterQualityHold = false,
+  condition: ConditionSummary | WaterQualityHoldKind = "UNKNOWN",
 ): string {
   // Derived from Quiver brand/score colors but darkened for white marker text
   // on light map tiles; raw native teal (#00D4AA) is too low-contrast here.
-  if (waterQualityHold) {
+  if (condition in WATER_QUALITY_HOLD_LABELS) {
     return "linear-gradient(to right, #991B1B, #B91C1C)";
   }
+  const summary = condition as ConditionSummary;
   if (summary === "EPIC") {
     return "linear-gradient(to right, #8A5A00, #B87900)";
   }
@@ -82,24 +107,18 @@ export function getConditionMarkerCall({
 }: {
   conditionSummary?: ConditionSummary;
   conditionScore?: number;
-  waterQualityHold?: boolean;
+  waterQualityHold?: WaterQualityHoldKind | null;
 }): ConditionMarkerCall {
   const summary = conditionSummary ?? "UNKNOWN";
-  if (waterQualityHold) {
-    return {
-      summary,
-      label: "Water quality advisory",
-      gradient: getConditionMarkerGradient(summary, true),
-    };
-  }
-  const label =
-    CONDITION_MARKER_CALLS.find((item) => item.summary === summary)?.label ??
-    "No read";
+  const label = waterQualityHold
+    ? WATER_QUALITY_HOLD_LABELS[waterQualityHold]
+    : CONDITION_MARKER_CALLS.find((item) => item.summary === summary)?.label ??
+      "No read";
 
   return {
     summary,
     label,
-    gradient: getConditionMarkerGradient(summary),
+    gradient: getConditionMarkerGradient(waterQualityHold ?? summary),
   };
 }
 
@@ -147,7 +166,7 @@ export interface MarkerBuilderDeps {
   /** 0-100 condition score, reserved for tooltips/analytics */
   conditionScore?: number;
   /** Map visibility warning; does not make the beach recommendation-eligible. */
-  waterQualityHold?: boolean;
+  waterQualityHold?: WaterQualityHoldKind | null;
   /** Marker shape mode: forecast keeps the default map; points keeps embed markers compact. */
   markerDisplay?: MapMarkerDisplay;
   /** Marker coordinate used to anchor the preview popup */
@@ -202,6 +221,11 @@ export function createWaveHeightBadge(
     const reducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const conditionMarkerCall = getConditionMarkerCall({
+      conditionSummary,
+      conditionScore: deps.conditionScore,
+      waterQualityHold: deps.waterQualityHold,
+    });
 
     // Create wrapper element that Mapbox will position
     const wrapper = document.createElement("div");
@@ -210,7 +234,7 @@ export function createWaveHeightBadge(
     wrapper.setAttribute("data-condition-summary", conditionSummary);
     wrapper.setAttribute(
       "data-water-quality-hold",
-      String(deps.waterQualityHold === true),
+      deps.waterQualityHold ?? "none",
     );
     if (typeof deps.conditionScore === "number") {
       wrapper.setAttribute("data-condition-score", String(deps.conditionScore));
@@ -246,12 +270,12 @@ export function createWaveHeightBadge(
     badge.setAttribute(
       "aria-label",
       deps.waterQualityHold
-        ? `${location.name} water quality advisory`
+        ? `${location.name} ${conditionMarkerCall.label.toLowerCase()}`
         : `View ${location.name} conditions`,
     );
     const markerGradient =
       deps.waterQualityHold
-        ? getConditionMarkerGradient(conditionSummary, true)
+        ? getConditionMarkerGradient(deps.waterQualityHold)
         : displayMode === "water-temp"
         ? getWaterTempBadgeColor(deps.waterTemp)
         : getWaveHeightBadgeColor(conditionSummary);

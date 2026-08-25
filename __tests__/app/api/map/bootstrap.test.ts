@@ -31,7 +31,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
 import { GET } from "@/app/api/map/bootstrap/route";
 
 describe("GET /api/map/bootstrap", () => {
-  it("preserves the additive water-quality hold field on nearby beaches", async () => {
+  it("preserves the water-quality hold kind on nearby beaches", async () => {
     mockGetCachedNearbyBeachesFromDb.mockResolvedValue({
       success: true,
       data: [
@@ -40,8 +40,7 @@ describe("GET /api/map/bootstrap", () => {
           name: "La Jolla Shores",
           lat: 32.857,
           lon: -117.257,
-          waterQualityHold: true,
-          waterQualityStatus: "closure",
+          waterQualityHold: "closure",
         },
       ],
     });
@@ -59,8 +58,7 @@ describe("GET /api/map/bootstrap", () => {
     expect(body.data.beaches).toEqual([
       expect.objectContaining({
         id: "la-jolla-shores",
-        waterQualityHold: true,
-        waterQualityStatus: "closure",
+        waterQualityHold: "closure",
       }),
     ]);
   });

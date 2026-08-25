@@ -5,7 +5,12 @@ import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import { rankBeaches } from "@/lib/recommendations/selection";
 import type { WaterQualityHoldStatus } from "@/lib/recommendations/major-event-hold/water-quality";
 import type { Beach } from "@/types/database";
-import type { MapBeach } from "@/types/api/map";
+
+export type WaterQualityHoldKind = WaterQualityHoldStatus | "held";
+
+export type MapBeach = Beach & {
+  waterQualityHold: WaterQualityHoldKind | null;
+};
 
 export const MAX_NEARBY_RADIUS_MILES = 50;
 export const MAX_NEARBY_LIMIT = 50;
@@ -128,12 +133,13 @@ async function rankNearbyBeachesForMap<T extends Beach>(
   );
 
   return nearbyRows
-    .map((beach) => ({
-      ...beach,
-      waterQualityHold: !safeBeachIds.has(beach.id.toLowerCase()),
-      waterQualityStatus:
-        waterQualityStatusByBeachId[beach.id.toLowerCase()] ?? null,
-    }))
+    .map((beach) => {
+      const beachId = beach.id.toLowerCase();
+      const waterQualityHold = safeBeachIds.has(beachId)
+        ? null
+        : waterQualityStatusByBeachId[beachId] ?? "held";
+      return { ...beach, waterQualityHold };
+    })
     .sort(compare)
     .slice(0, limit);
 }

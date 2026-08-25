@@ -33,7 +33,10 @@ const mockRankBeaches = jest.fn(
     options?.onWaterQualityResolution?.({
       waterQualityStatusByBeachId: { "held-beach": "closure" },
     });
-    return beaches.filter((beach) => beach.id !== "held-beach");
+    return beaches.filter(
+      (beach) =>
+        beach.id !== "held-beach" && beach.id !== "owner-held-beach",
+    );
   },
 );
 
@@ -160,7 +163,7 @@ describe("nearby beach service", () => {
     ]);
   });
 
-  it("returns held beaches for map visibility with an additive warning flag", async () => {
+  it("returns held beaches for map visibility with their hold kind", async () => {
     mockSupabase.rpc.mockResolvedValue({
       data: [
         {
@@ -179,6 +182,14 @@ describe("nearby beach service", () => {
           is_private: false,
           country: "USA",
         },
+        {
+          id: "owner-held-beach",
+          name: "Owner Held Beach",
+          lat: 32.705,
+          lon: -117.205,
+          is_private: false,
+          country: "USA",
+        },
       ],
       error: null,
     });
@@ -186,6 +197,7 @@ describe("nearby beach service", () => {
       data: [
         { id: "held-beach", country: "USA" },
         { id: "safe-beach", country: "USA" },
+        { id: "owner-held-beach", country: "USA" },
       ],
       error: null,
     });
@@ -197,13 +209,15 @@ describe("nearby beach service", () => {
       data: [
         {
           id: "held-beach",
-          waterQualityHold: true,
-          waterQualityStatus: "closure",
+          waterQualityHold: "closure",
+        },
+        {
+          id: "owner-held-beach",
+          waterQualityHold: "held",
         },
         {
           id: "safe-beach",
-          waterQualityHold: false,
-          waterQualityStatus: null,
+          waterQualityHold: null,
         },
       ],
     });

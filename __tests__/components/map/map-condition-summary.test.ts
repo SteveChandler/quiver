@@ -73,10 +73,10 @@ describe("map condition summaries", () => {
     expect(result.conditionSummaryMap.get("beach-unknown")).toBe("UNKNOWN");
   });
 
-  it("retains the nearby water-quality hold flag for marker construction", async () => {
+  it("retains the nearby water-quality hold kind for marker construction", async () => {
     const heldBeach = {
       ...beach("held-beach"),
-      waterQualityHold: true,
+      waterQualityHold: "closure",
     };
     const result = await loadBeachesAndWaveHeights(
       32.75,
@@ -153,7 +153,7 @@ describe("map condition summaries", () => {
     });
   });
 
-  it("renders held beaches red with a non-positive accessible advisory label", () => {
+  it("renders closed beaches red with a closure label", () => {
     const marker = createWaveHeightBadge(beach("held-beach"), 4.0, {
       favoriteBeachIds: new Set(),
       selectedBeachId: null,
@@ -163,13 +163,13 @@ describe("map condition summaries", () => {
       router: { push: jest.fn() },
       autoNavigate: false,
       conditionSummary: "EPIC",
-      waterQualityHold: true,
+      waterQualityHold: "closure",
     });
     const badge = getBadge(marker);
-    const markerGradient = getConditionMarkerGradient("EPIC", true);
+    const markerGradient = getConditionMarkerGradient("closure");
     const call = getConditionMarkerCall({
       conditionSummary: "EPIC",
-      waterQualityHold: true,
+      waterQualityHold: "closure",
     });
 
     expect(markerGradient).toBe(
@@ -178,11 +178,19 @@ describe("map condition summaries", () => {
     expect(badge).toHaveAttribute("data-marker-gradient", markerGradient);
     expect(badge).toHaveAttribute(
       "aria-label",
-      "Beach held-beach water quality advisory",
+      "Beach held-beach water quality closure",
     );
     expect(call).toMatchObject({
-      label: "Water quality advisory",
+      label: "Water quality closure",
       gradient: markerGradient,
     });
+  });
+
+  it.each([
+    ["advisory", "Water quality advisory"],
+    ["closure", "Water quality closure"],
+    ["held", "Water quality hold"],
+  ] as const)("names a %s marker call precisely", (waterQualityHold, label) => {
+    expect(getConditionMarkerCall({ waterQualityHold }).label).toBe(label);
   });
 });
