@@ -361,6 +361,16 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: "/water-temp",
+        destination: "/beaches/usa",
+        permanent: true,
+      },
+      {
+        source: "/surf-cams",
+        destination: "/cams",
+        permanent: true,
+      },
+      {
         // Consolidated 2026-08-19: near-duplicate of /learn/best-time-of-day-to-surf
         // (same thermal-wind topic, same section structure). The surviving page was
         // the indexed one; this page's unique material was merged into it.

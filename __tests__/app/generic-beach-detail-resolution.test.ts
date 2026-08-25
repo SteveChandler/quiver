@@ -133,6 +133,15 @@ jest.mock("@/components/beach-detail/related-guides-section", () => ({
   RelatedGuidesSection: () => null,
 }));
 
+jest.mock("@/lib/seo/forecast-indexability", () => ({
+  getForecastIndexabilityForBeaches: jest.fn().mockResolvedValue(new Map()),
+  isBeachSubPageIndexable: jest.fn().mockReturnValue(false),
+}));
+
+jest.mock("@/lib/seo/water-temp-meta-data", () => ({
+  getWaterTempMetaData: jest.fn().mockResolvedValue({ tempF: 65, wetsuitRec: "3/2mm fullsuit" }),
+}));
+
 jest.mock("@/components/ui/sticky-signup-bar", () => ({
   StickySignupBar: () => null,
 }));
@@ -348,7 +357,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(getNearbyBeaches).not.toHaveBeenCalled();
   });
 
-  it("omits the removed conditions summary and guide links from beach pages", async () => {
+  it("omits the removed conditions summary from beach pages", async () => {
     (getBeachesBySlug as jest.Mock).mockResolvedValue({
       success: true,
       data: [
@@ -360,7 +369,6 @@ describe("GenericBeachDetailPage slug resolution", () => {
         }),
       ],
     });
-
     const page = await GenericBeachDetailPage({
       params: Promise.resolve({
         intent: "ca",
@@ -373,8 +381,6 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(html).not.toContain("Surf report snapshot");
     expect(html).not.toContain("current conditions and local guidance");
     expect(html).not.toContain("Lower Trestles tide chart");
-    expect(html).not.toContain("Lower Trestles water temperature");
-    expect(html).not.toContain('aria-label="Lower Trestles related surf guides"');
   });
 
   it("renders a held beach page with its forecast intact", async () => {

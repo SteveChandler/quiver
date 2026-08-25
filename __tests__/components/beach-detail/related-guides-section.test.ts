@@ -48,6 +48,7 @@ describe("buildRelatedGuideLinks", () => {
         country: "USA",
       }),
       hasLeastCrowded: false,
+      hasWaterTemp: true,
       bestTimeToSurfUrl: "/best-time-to-surf/belmar",
     });
 
@@ -56,9 +57,41 @@ describe("buildRelatedGuideLinks", () => {
     expect(links.primaryLink.href).toBe("/nj/belmar");
     expect(links.guides.map((guide) => guide.href)).toEqual(expect.arrayContaining([
       "/tide/belmar",
-      "/water-temp/belmar",
+      "/nj/belmar/3rd-avenue-jetty-belmar-nj/water-temp",
       "/best-time-to-surf/belmar",
     ]));
     expect(links.guides.map((guide) => guide.href)).not.toContain("/least-crowded/belmar");
+  });
+
+  it("omits the beach water-temperature link when the sub-page is not indexable", () => {
+    const links = buildRelatedGuideLinks({
+      beach: makeBeach({
+        slug: "3rd-avenue-jetty-belmar-nj",
+        city: "Belmar",
+        state: "NJ",
+        country: "USA",
+      }),
+      hasLeastCrowded: false,
+      hasWaterTemp: false,
+    });
+
+    expect(links?.guides.map((guide) => guide.href)).not.toContain(
+      "/nj/belmar/3rd-avenue-jetty-belmar-nj/water-temp",
+    );
+  });
+
+  it("keeps the city water-temperature link when eligibility is not supplied", () => {
+    const links = buildRelatedGuideLinks({
+      beach: makeBeach({
+        city: "Belmar",
+        state: "NJ",
+        country: "USA",
+      }),
+      hasLeastCrowded: false,
+    });
+
+    expect(links?.guides.map((guide) => guide.href)).toContain(
+      "/water-temp/belmar",
+    );
   });
 });
