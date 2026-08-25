@@ -40,7 +40,14 @@ function serverConfirmsFollow(
   server: FollowedBeach,
   local: FollowedBeach
 ): boolean {
-  return rowsMatch(server, unionRows(server, local));
+  if (server.beachId !== local.beachId) return false;
+
+  const persistedTopics = new Set(server.topics);
+  const expectedTopics = new Set([...server.topics, ...local.topics]);
+  return (
+    persistedTopics.size === expectedTopics.size
+    && [...expectedTopics].every((topic) => persistedTopics.has(topic))
+  );
 }
 
 export interface AcknowledgeBeachFollowMergeInput {

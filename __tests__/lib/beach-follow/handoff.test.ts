@@ -44,6 +44,22 @@ const CROSS_BEACH_PRIOR_RECOMMENDATION_CONTEXT = JSON.stringify({
     verdict: "go",
   },
 });
+const IMPOSSIBLE_DATE_CONTEXT = JSON.stringify({
+  v: 1,
+  beachId: BEACH_ID,
+  slug: "pleasure-point",
+  windowId:
+    "11111111-1111-4111-8111-111111111111-2026-02-30T00-00-00-000Z",
+  sourceSurface: "surf_comparison",
+  generatedAt: "2026-08-24T12:00:00.000Z",
+  expiresAt: "2026-08-24T12:30:00.000Z",
+  priorRecommendation: {
+    recommendationId:
+      "beach:11111111-1111-4111-8111-111111111111:2026-02-30T00:00:00Z",
+    mode: "my-spots",
+    verdict: "go",
+  },
+});
 
 const INVALID_ID_CONTEXTS = [
   { field: "email-like beachId", value: { beachId: "surfer@example.com" } },
@@ -142,6 +158,37 @@ describe("exact handoff context", () => {
       now: NOW,
       beachExists: true,
       exactWindowExists: true,
+    })).toEqual({ classification: "invalid", reason: "malformed" });
+  });
+
+  it("rejects the identical impossible-date fixture as malformed", () => {
+    const impossibleContext = JSON.parse(IMPOSSIBLE_DATE_CONTEXT) as Record<
+      string,
+      unknown
+    >;
+
+    expect(parseHandoffContext({
+      ...impossibleContext,
+      windowId: WINDOW_ID,
+    })).toEqual({
+      ok: false,
+      reason: "malformed",
+    });
+    expect(parseHandoffContext({
+      ...impossibleContext,
+      priorRecommendation: {
+        recommendationId: RECOMMENDATION_ID,
+        mode: "my-spots",
+        verdict: "go",
+      },
+    })).toEqual({
+      ok: false,
+      reason: "malformed",
+    });
+    expect(classifyHandoffResolution(IMPOSSIBLE_DATE_CONTEXT, {
+      now: NOW,
+      beachExists: true,
+      exactWindowExists: false,
     })).toEqual({ classification: "invalid", reason: "malformed" });
   });
 

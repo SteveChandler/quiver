@@ -17,12 +17,10 @@ const MAX_SERIALIZED_LENGTH = 4_096;
 const MAX_RECOMMENDATION_ID_LENGTH = 128;
 const CANONICAL_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const ISO_INSTANT_PATTERN =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 const CANONICAL_WINDOW_INSTANT_PATTERN =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const SLUGGED_WINDOW_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/;
 const HASHED_WINDOW_ID_PATTERN = /^[0-9a-f]{24}$/;
 const STRUCTURED_RECOMMENDATION_PATTERN =
   /^(beach|custom|beach-detail):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):(.+)$/;
@@ -84,18 +82,14 @@ function isBeachId(value: unknown): value is string {
   return typeof value === "string" && CANONICAL_UUID_PATTERN.test(value);
 }
 
-function isoInstantMillis(value: unknown): number | null {
-  if (typeof value !== "string" || !ISO_INSTANT_PATTERN.test(value)) {
-    return null;
-  }
-  const millis = Date.parse(value);
-  return Number.isFinite(millis) ? millis : null;
-}
-
 function isWindowId(value: unknown): value is string {
   if (typeof value !== "string") return false;
   if (HASHED_WINDOW_ID_PATTERN.test(value)) return true;
-  if (SLUGGED_WINDOW_ID_PATTERN.test(value)) return true;
+  const sluggedWindow = value.match(SLUGGED_WINDOW_ID_PATTERN);
+  if (sluggedWindow) {
+    const instant = `${sluggedWindow[1]}:${sluggedWindow[2]}:${sluggedWindow[3]}.${sluggedWindow[4]}Z`;
+    return instantMillis(instant) !== null;
+  }
   if (!CANONICAL_WINDOW_INSTANT_PATTERN.test(value)) return false;
   const millis = Date.parse(value);
   return Number.isFinite(millis) && new Date(millis).toISOString() === value;
@@ -111,7 +105,7 @@ function isRecommendationId(value: unknown): value is string {
   }
   if (HASHED_WINDOW_ID_PATTERN.test(value)) return true;
   const match = value.match(STRUCTURED_RECOMMENDATION_PATTERN);
-  return Boolean(match && isoInstantMillis(match[3]) !== null);
+  return Boolean(match && instantMillis(match[3]) !== null);
 }
 
 function isSlug(value: unknown): value is string {

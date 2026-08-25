@@ -286,14 +286,16 @@ describe("anonymous beach-follow merge", () => {
     });
   });
 
-  it("acknowledges all 55 persisted follows and resumes local mutations", () => {
+  it("acknowledges all 55 semantically persisted follows after the server trigger rewrites time", () => {
+    const clientTime = "2099-08-24T13:00:00.000Z";
+    const postTriggerTime = "2026-08-24T13:00:00.000Z";
     const follows = Array.from(
       { length: MAX_FOLLOWED_BEACHES + 5 },
       (_, index) => ({
         beachId: beachIdFor("anon", index),
         topics: [FollowTopic.General],
         createdAt: FIRST_TIME,
-        updatedAt: SECOND_TIME,
+        updatedAt: clientTime,
       })
     );
     const assignment = bfrHoldoutAssignment("anon-visitor-123", FIRST_TIME);
@@ -315,7 +317,10 @@ describe("anonymous beach-follow merge", () => {
 
     const acknowledged = acknowledgeBeachFollowMerge({
       residualLocalState: result.residualLocalState,
-      postWriteServerRows: result.accountState.follows,
+      postWriteServerRows: result.accountState.follows.map((follow) => ({
+        ...follow,
+        updatedAt: postTriggerTime,
+      })),
     });
 
     expect(acknowledged).toEqual({
@@ -374,6 +379,43 @@ describe("anonymous beach-follow merge", () => {
       state: {
         version: 1,
         follows: [follows[follows.length - 1]],
+        tombstones: [],
+        bfrHoldoutAssignment: null,
+      },
+    });
+  });
+
+  it("keeps an oversized follow locked when the server is missing a requested topic", () => {
+    const follows = Array.from(
+      { length: MAX_FOLLOWED_BEACHES + 5 },
+      (_, index) => ({
+        beachId: beachIdFor("anon", index),
+        topics: [FollowTopic.General, FollowTopic.Surf],
+        createdAt: FIRST_TIME,
+        updatedAt: SECOND_TIME,
+      })
+    );
+    const anonState: LocalFollowState = {
+      version: 1,
+      follows,
+      tombstones: [],
+      bfrHoldoutAssignment: null,
+    };
+    const result = mergeBeachFollows({ anonState, serverRows: [] });
+    const incompleteServerRows = result.accountState.follows.map(
+      (follow, index) => index === 0
+        ? { ...follow, topics: [FollowTopic.General] }
+        : follow
+    );
+
+    expect(acknowledgeBeachFollowMerge({
+      residualLocalState: result.residualLocalState,
+      postWriteServerRows: incompleteServerRows,
+    })).toEqual({
+      status: "sync_required",
+      state: {
+        version: 1,
+        follows: [residualState(result).follows[0]],
         tombstones: [],
         bfrHoldoutAssignment: null,
       },
