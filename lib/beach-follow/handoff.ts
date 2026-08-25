@@ -17,6 +17,8 @@ const MAX_SERIALIZED_LENGTH = 4_096;
 const MAX_RECOMMENDATION_ID_LENGTH = 128;
 const CANONICAL_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const CANONICAL_HANDOFF_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CANONICAL_WINDOW_INSTANT_PATTERN =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const RECOMMENDATION_INSTANT_PATTERN =
@@ -67,6 +69,10 @@ export interface HandoffResolutionAvailability {
   readonly beachExists: boolean;
   readonly exactWindowExists: boolean;
   readonly replacement?: HandoffReplacementIdentity | null;
+}
+
+export function isCanonicalHandoffId(value: unknown): value is string {
+  return typeof value === "string" && CANONICAL_HANDOFF_ID_PATTERN.test(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

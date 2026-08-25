@@ -10,16 +10,60 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useTrackEvent } from "@/hooks/use-track-event";
+import { buildHandoffContext } from "@/lib/beach-follow/handoff";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { cn } from "@/lib/utils";
 import type { QuiverStickerKey } from "@/lib/ui/quiver-sticker-assets";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
+import {
+  HandoffRecommendationMode,
+  HandoffRecommendationVerdict,
+  HandoffSourceSurface,
+  type HandoffContext,
+} from "@/types/exact-handoff";
 import { AppDeepLinkCTA } from "./app-deep-link-cta";
 import { WhyThisCall } from "./why-this-call";
 import {
   buildSurfWindowTrackingContext,
   buildSurfWindowTrackingMetadata,
 } from "./tracking";
+
+const SURF_COMPARISON_INTENT = {
+  explicitChoice: null,
+  signals: {
+    utilityPageViewCount: 0,
+    surfSpecificSignalCount: 0,
+    spotComparison: true,
+  },
+} as const;
+
+function exactHandoffContext(
+  recommendation: SurfWindowRecommendation,
+): HandoffContext | null {
+  if (!recommendation.beach.slug || !recommendation.recommendationId) return null;
+  const start = new Date(recommendation.startIso);
+  if (Number.isNaN(start.getTime())) return null;
+  const verdict = recommendation.verdict === "Worth it"
+    ? HandoffRecommendationVerdict.Go
+    : recommendation.verdict === "Maybe"
+      ? HandoffRecommendationVerdict.Maybe
+      : HandoffRecommendationVerdict.No;
+  try {
+    return buildHandoffContext({
+      beachId: recommendation.beach.id,
+      slug: recommendation.beach.slug,
+      windowId: start.toISOString(),
+      sourceSurface: HandoffSourceSurface.SurfComparison,
+      priorRecommendation: {
+        recommendationId: recommendation.recommendationId,
+        mode: HandoffRecommendationMode.Best,
+        verdict,
+      },
+    });
+  } catch {
+    return null;
+  }
+}
 
 export interface BestSurfWindowsProps {
   recommendations: SurfWindowRecommendation[];
@@ -337,6 +381,14 @@ function FeatureWindowPanel({
             label={ctaLabel}
             variant="ghost"
             tracking={tracking}
+            handoff={exactHandoffContext(recommendation)}
+            handoffSurface="beach_detail"
+            intentEvidence={SURF_COMPARISON_INTENT}
+            generalFollow={{
+              beachId: recommendation.beach.id,
+              beachName: recommendation.beach.name,
+              pageType: "beach_detail",
+            }}
           />
           <WhyThisCall recommendation={recommendation} surface={surface} />
         </div>
@@ -547,6 +599,14 @@ function WindowCard({
           label={ctaLabel}
           variant="ghost"
           tracking={tracking}
+          handoff={exactHandoffContext(recommendation)}
+          handoffSurface="beach_detail"
+          intentEvidence={SURF_COMPARISON_INTENT}
+          generalFollow={{
+            beachId: recommendation.beach.id,
+            beachName: recommendation.beach.name,
+            pageType: "beach_detail",
+          }}
         />
         <WhyThisCall recommendation={recommendation} surface={surface} />
       </div>
@@ -801,7 +861,7 @@ function ZineWindowEntry({
             </div>
           </div>
 
-          <p className="border-l-4 border-[#F78E42] pl-3 font-[var(--font-handwritten)] text-xl font-bold leading-snug text-[#11100D]/85">
+          <p className="font-[var(--font-handwritten)] text-xl font-bold leading-snug text-[#11100D]/85">
             {recommendation.headline}
           </p>
 
@@ -868,6 +928,14 @@ function ZineWindowEntry({
               label={ctaLabel}
               variant="ghost"
               tracking={tracking}
+              handoff={exactHandoffContext(recommendation)}
+              handoffSurface="beach_detail"
+              intentEvidence={SURF_COMPARISON_INTENT}
+              generalFollow={{
+                beachId: recommendation.beach.id,
+                beachName: recommendation.beach.name,
+                pageType: "beach_detail",
+              }}
               className="w-full border-[#11100D]/45 bg-transparent text-[#11100D] hover:bg-[#F0E5CC] hover:text-[#11100D]"
             />
           </div>

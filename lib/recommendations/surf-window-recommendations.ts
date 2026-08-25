@@ -350,6 +350,7 @@ function buildRecommendation(
   const links = buildSurfWindowLinks({
     beach: group.beach,
     windowId,
+    forecastAt: startIso,
     baseUrl,
   });
   const tide = tideTrend(row);
@@ -362,6 +363,7 @@ function buildRecommendation(
     : [];
 
   return {
+    recommendationId: `beach:${group.beach.id}:${startIso}`,
     windowId,
     rank: 0,
     beach: {

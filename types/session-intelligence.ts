@@ -150,6 +150,7 @@ export interface SurfWindowLinks {
 }
 
 export interface SurfWindowRecommendation extends SurfWindowLinks {
+  recommendationId?: string;
   windowId: string;
   rank: number;
   beach: SurfWindowBeachIdentity;

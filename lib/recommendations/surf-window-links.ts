@@ -5,6 +5,7 @@ import type { SurfWindowLinks } from "@/types/session-intelligence";
 export interface BuildSurfWindowLinksInput {
   beach: Beach;
   windowId: string;
+  forecastAt?: string;
   baseUrl?: string;
 }
 
@@ -38,6 +39,7 @@ function buildAppSpotPath(slug: string | null | undefined): string | null {
 export function buildSurfWindowLinks({
   beach,
   windowId,
+  forecastAt,
   baseUrl,
 }: BuildSurfWindowLinksInput): SurfWindowLinks {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
@@ -50,7 +52,7 @@ export function buildSurfWindowLinks({
       state: beach.state,
       country: beach.country,
     });
-  const appDeepLink = windowPath(appPath, windowId);
+  const appDeepLink = windowPath(appPath, forecastAt ?? windowId);
 
   const canonicalPath =
     getBeachHrefSafe({
