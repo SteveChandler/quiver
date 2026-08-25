@@ -536,6 +536,104 @@ describe("exact handoff context", () => {
     });
   });
 
+  it.each([
+    ["exact", { beachExists: true, exactWindowExists: true }],
+    [
+      "replaced",
+      {
+        beachExists: true,
+        exactWindowExists: false,
+        replacement: {
+          beachId: BEACH_ID,
+          slug: "pleasure-point",
+          windowId: "2026-08-25T16:00:00.000Z",
+          recommendationId: `beach:${BEACH_ID}:2026-08-25T16:00:00.000Z`,
+        },
+      },
+    ],
+    ["beach_only", { beachExists: true, exactWindowExists: false }],
+  ] as const)(
+    "snapshots and deeply freezes %s resolution context before classification",
+    (classification, availability) => {
+      const input = JSON.parse(SERIALIZED_V1_CONTEXT) as {
+        priorRecommendation: { recommendationId: string };
+      };
+      const result = classifyHandoffResolution(input, {
+        now: NOW,
+        ...availability,
+      });
+
+      expect(result.classification).toBe(classification);
+      if (result.classification === "invalid") {
+        throw new Error("Expected a valid resolution");
+      }
+      const recommendationId = result.context.priorRecommendation.recommendationId;
+
+      input.priorRecommendation.recommendationId = "surfer@example.com";
+
+      expect(result.context.priorRecommendation.recommendationId).toBe(
+        recommendationId,
+      );
+      expect(result.context).not.toBe(input);
+      expect(Object.isFrozen(result)).toBe(true);
+      expect(Object.isFrozen(result.context)).toBe(true);
+      expect(Object.isFrozen(result.context.priorRecommendation)).toBe(true);
+      expect(Reflect.set(
+        result.context.priorRecommendation,
+        "recommendationId",
+        "surfer@example.com",
+      )).toBe(false);
+      expect(result.context.priorRecommendation.recommendationId).toBe(
+        recommendationId,
+      );
+      expect(result.classification).toBe(classification);
+      if (result.classification === "replaced") {
+        expect(Object.isFrozen(result.replacement)).toBe(true);
+        expect(Reflect.set(
+          result.replacement,
+          "recommendationId",
+          "other",
+        )).toBe(false);
+      }
+
+      if (false) {
+        // @ts-expect-error nested context fields are readonly
+        result.context.priorRecommendation.recommendationId = "other";
+        if (result.classification === "replaced") {
+          // @ts-expect-error nested replacement fields are readonly
+          result.replacement.recommendationId = "other";
+        }
+        // @ts-expect-error resolution fields are readonly
+        result.classification = "invalid";
+      }
+    },
+  );
+
+  it("snapshots and deeply freezes builder input", () => {
+    const priorRecommendation = {
+      recommendationId: RECOMMENDATION_ID,
+      mode: HandoffRecommendationMode.Best,
+      verdict: HandoffRecommendationVerdict.Go,
+    };
+    const context = buildHandoffContext(
+      {
+        beachId: BEACH_ID,
+        slug: "pleasure-point",
+        windowId: WINDOW_ID,
+        sourceSurface: HandoffSourceSurface.SurfComparison,
+        priorRecommendation,
+      },
+      { now: NOW },
+    );
+
+    priorRecommendation.recommendationId = "surfer@example.com";
+
+    expect(context.priorRecommendation.recommendationId).toBe(RECOMMENDATION_ID);
+    expect(context.priorRecommendation).not.toBe(priorRecommendation);
+    expect(Object.isFrozen(context)).toBe(true);
+    expect(Object.isFrozen(context.priorRecommendation)).toBe(true);
+  });
+
   it("classifies the identical missing-beach fixture as invalid", () => {
     expect(
       classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {

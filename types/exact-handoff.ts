@@ -20,20 +20,20 @@ export enum HandoffRecommendationVerdict {
 }
 
 export interface PriorRecommendationSummary {
-  recommendationId: string;
-  mode: HandoffRecommendationMode;
-  verdict: HandoffRecommendationVerdict;
+  readonly recommendationId: string;
+  readonly mode: HandoffRecommendationMode;
+  readonly verdict: HandoffRecommendationVerdict;
 }
 
 export interface HandoffContext {
-  v: typeof HANDOFF_CONTEXT_VERSION;
-  beachId: string;
-  slug: string;
-  windowId: string;
-  sourceSurface: HandoffSourceSurface;
-  generatedAt: string;
-  expiresAt: string;
-  priorRecommendation: PriorRecommendationSummary;
+  readonly v: typeof HANDOFF_CONTEXT_VERSION;
+  readonly beachId: string;
+  readonly slug: string;
+  readonly windowId: string;
+  readonly sourceSurface: HandoffSourceSurface;
+  readonly generatedAt: string;
+  readonly expiresAt: string;
+  readonly priorRecommendation: PriorRecommendationSummary;
 }
 
 export type HandoffParseFailureReason =
@@ -41,30 +41,30 @@ export type HandoffParseFailureReason =
   | "unsupported_version";
 
 export type HandoffParseResult =
-  | { ok: true; context: HandoffContext }
-  | { ok: false; reason: HandoffParseFailureReason };
+  | { readonly ok: true; readonly context: HandoffContext }
+  | { readonly ok: false; readonly reason: HandoffParseFailureReason };
 
 export interface HandoffReplacementIdentity {
-  beachId: string;
-  slug: string;
-  windowId: string;
-  recommendationId: string;
+  readonly beachId: string;
+  readonly slug: string;
+  readonly windowId: string;
+  readonly recommendationId: string;
 }
 
 export type HandoffResolutionResult =
-  | { classification: "exact"; context: HandoffContext }
+  | { readonly classification: "exact"; readonly context: HandoffContext }
   | {
-      classification: "replaced";
-      context: HandoffContext;
-      replacement: HandoffReplacementIdentity;
-      reason: "window_replaced";
+      readonly classification: "replaced";
+      readonly context: HandoffContext;
+      readonly replacement: HandoffReplacementIdentity;
+      readonly reason: "window_replaced";
     }
   | {
-      classification: "beach_only";
-      context: HandoffContext;
-      reason: "expired" | "window_removed";
+      readonly classification: "beach_only";
+      readonly context: HandoffContext;
+      readonly reason: "expired" | "window_removed";
     }
   | {
-      classification: "invalid";
-      reason: HandoffParseFailureReason | "beach_removed";
+      readonly classification: "invalid";
+      readonly reason: HandoffParseFailureReason | "beach_removed";
     };

@@ -50,23 +50,23 @@ const RECOMMENDATION_VERDICTS = new Set<string>(
 );
 
 export interface BuildHandoffContextInput {
-  beachId: string;
-  slug: string;
-  windowId: string;
-  sourceSurface: HandoffSourceSurface;
-  priorRecommendation: PriorRecommendationSummary;
+  readonly beachId: string;
+  readonly slug: string;
+  readonly windowId: string;
+  readonly sourceSurface: HandoffSourceSurface;
+  readonly priorRecommendation: PriorRecommendationSummary;
 }
 
 export interface BuildHandoffContextOptions {
-  now?: Date;
-  ttlMs?: number;
+  readonly now?: Date;
+  readonly ttlMs?: number;
 }
 
 export interface HandoffResolutionAvailability {
-  now?: Date;
-  beachExists: boolean;
-  exactWindowExists: boolean;
-  replacement?: HandoffReplacementIdentity | null;
+  readonly now?: Date;
+  readonly beachExists: boolean;
+  readonly exactWindowExists: boolean;
+  readonly replacement?: HandoffReplacementIdentity | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -244,6 +244,13 @@ function isReplacementIdentity(
   return isRecommendationOwnedByBeach(value.recommendationId, value.beachId);
 }
 
+function snapshotHandoffContext(context: HandoffContext): HandoffContext {
+  return Object.freeze({
+    ...context,
+    priorRecommendation: Object.freeze({ ...context.priorRecommendation }),
+  });
+}
+
 export function buildHandoffContext(
   input: BuildHandoffContextInput,
   options: BuildHandoffContextOptions = {},
@@ -257,7 +264,7 @@ export function buildHandoffContext(
     throw new Error("Invalid handoff TTL");
   }
 
-  const context: HandoffContext = {
+  const context = snapshotHandoffContext({
     v: HANDOFF_CONTEXT_VERSION,
     beachId: input.beachId,
     slug: input.slug,
@@ -266,7 +273,7 @@ export function buildHandoffContext(
     generatedAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + ttlMs).toISOString(),
     priorRecommendation: input.priorRecommendation,
-  };
+  });
 
   if (!isHandoffContext(context)) throw new Error("Invalid handoff context");
   return context;
@@ -281,12 +288,12 @@ export function parseHandoffContext(value: unknown): HandoffParseResult {
   let parsed: unknown = value;
   if (typeof value === "string") {
     if (value.length === 0 || value.length > MAX_SERIALIZED_LENGTH) {
-      return { ok: false, reason: "malformed" };
+      return Object.freeze({ ok: false, reason: "malformed" });
     }
     try {
       parsed = JSON.parse(value);
     } catch {
-      return { ok: false, reason: "malformed" };
+      return Object.freeze({ ok: false, reason: "malformed" });
     }
   }
 
@@ -295,11 +302,13 @@ export function parseHandoffContext(value: unknown): HandoffParseResult {
     "v" in parsed &&
     parsed.v !== HANDOFF_CONTEXT_VERSION
   ) {
-    return { ok: false, reason: "unsupported_version" };
+    return Object.freeze({ ok: false, reason: "unsupported_version" });
   }
-  if (!isHandoffContext(parsed)) return { ok: false, reason: "malformed" };
+  if (!isHandoffContext(parsed)) {
+    return Object.freeze({ ok: false, reason: "malformed" });
+  }
 
-  return { ok: true, context: parsed };
+  return Object.freeze({ ok: true, context: snapshotHandoffContext(parsed) });
 }
 
 export function classifyHandoffResolution(
@@ -307,41 +316,54 @@ export function classifyHandoffResolution(
   availability: HandoffResolutionAvailability,
 ): HandoffResolutionResult {
   const parsed = parseHandoffContext(value);
-  if (!parsed.ok) return { classification: "invalid", reason: parsed.reason };
+  if (!parsed.ok) {
+    return Object.freeze({ classification: "invalid", reason: parsed.reason });
+  }
 
   const { context } = parsed;
   const now = availability.now ?? new Date();
   if (!Number.isFinite(now.getTime())) {
-    return { classification: "invalid", reason: "malformed" };
+    return Object.freeze({ classification: "invalid", reason: "malformed" });
   }
   if (
     Date.parse(context.generatedAt) >
     now.getTime() + HANDOFF_FUTURE_SKEW_MS
   ) {
-    return { classification: "invalid", reason: "malformed" };
+    return Object.freeze({ classification: "invalid", reason: "malformed" });
   }
   if (!availability.beachExists) {
-    return { classification: "invalid", reason: "beach_removed" };
+    return Object.freeze({
+      classification: "invalid",
+      reason: "beach_removed",
+    });
   }
   if (now.getTime() >= Date.parse(context.expiresAt)) {
-    return { classification: "beach_only", context, reason: "expired" };
+    return Object.freeze({
+      classification: "beach_only",
+      context,
+      reason: "expired",
+    });
   }
   if (availability.exactWindowExists) {
-    return { classification: "exact", context };
+    return Object.freeze({ classification: "exact", context });
   }
   if (isReplacementIdentity(availability.replacement, context.beachId)) {
-    return {
+    return Object.freeze({
       classification: "replaced",
       context,
-      replacement: {
+      replacement: Object.freeze({
         beachId: availability.replacement.beachId,
         slug: availability.replacement.slug,
         windowId: availability.replacement.windowId,
         recommendationId: availability.replacement.recommendationId,
-      },
+      }),
       reason: "window_replaced",
-    };
+    });
   }
 
-  return { classification: "beach_only", context, reason: "window_removed" };
+  return Object.freeze({
+    classification: "beach_only",
+    context,
+    reason: "window_removed",
+  });
 }
