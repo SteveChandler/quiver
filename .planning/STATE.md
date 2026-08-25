@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-24"
+last_updated: "2026-08-25"
 progress:
   total_phases: 9
   completed_phases: 7
@@ -23,35 +23,50 @@ The native retention hypothesis is explicit: Quiver earns a return by rememberin
 ## Current Status
 
 Phase: 20.1  
-Plan: 20.1-01  
-Status: Planned — inflight/release audit, local tech-debt branch reconciliation, cleanup dispositions, and mock review required before implementation
+Plan: 20.1-06  
+Status: Executing — six of seven lanes merged to `main` in both repositories. Nothing is released:
+web `main` has not been promoted to `prod`, no native build/OTA is published, and three migrations
+remain unapplied. Plan 20.1-06 Tasks 1 and 2 are complete; Tasks 3 and 4 are blocked on a signed
+device and mature cohorts, both of which are Steven's gates. See
+`quiver/docs/release/phase-20-1-retention-loop-evidence.md`.
 
-Progress: 20 of 22 roadmap phases complete. Phase 20.1 has **0 of 7** planned execution lanes complete:
+**BFR-03, BFR-04, and BFR-05 are withdrawn.** The web follow / My Coast surface was removed on
+2026-08-25 before it ever reached a user, on Steven's call. The requirement disposition and the
+traffic evidence behind it are in the evidence document above.
+
+Progress: 20 of 22 roadmap phases complete. Phase 20.1 has **6 of 7** execution lanes merged
+(none released), with the seventh partially complete:
 
 ```text
-20.1-01 audit/reuse/ownership
-20.1-TD native cleanup train
-20.1-02 shared contracts
-20.1-03 web follow/My Coast
-20.1-04 exact handoff
-20.1-05 native continuity/watch/return
-20.1-06 evidence/rollout decision
+20.1-01 audit/reuse/ownership          merged
+20.1-TD native cleanup train           merged
+20.1-02 shared contracts               merged
+20.1-03 web follow/My Coast            merged, then WITHDRAWN and removed 2026-08-25
+20.1-04 exact handoff                  merged
+20.1-05 native continuity/watch/return merged (BFR-08 not met — stability flag unset)
+20.1-06 evidence/rollout decision      Tasks 1-2 complete; Tasks 3-4 blocked
 ```
+
+Merged is not released. Every lane above sits behind the promotion, migration, flag, and build
+gates listed in the evidence document.
 
 Phase 21 remains sequenced after Phase 20.1, but it is not a clean untouched future phase: its summaries describe uncommitted implementation in worktrees for 21-03/21-04 and completed read-only verification in 21-05 with rollout blocked. Preserve and reconcile those worktrees before adjacent edits.
 
 ## Active Requirements
 
-- Execute BFR-01 through BFR-12 from `.planning/REQUIREMENTS.md`.
+- Execute BFR-01, BFR-02, and BFR-06 through BFR-12 from `.planning/REQUIREMENTS.md`.
+  **BFR-03, BFR-04, and BFR-05 are WITHDRAWN** — the web follow / My Coast surface was removed on
+  2026-08-25 before release. Do not rebuild it. See
+  `quiver/docs/release/phase-20-1-retention-loop-evidence.md` § "BFR-05 disposition".
 - Treat the complete Phase 20.1 folder as mandatory input, especially:
   - `20.1-INFLIGHT-AUDIT.md`;
   - `20.1-TECH-DEBT-BRANCH.md`;
   - `20.1-TECH-DEBT-CLEANUP-SLICES.md`;
   - `20.1-TD-PLAN.md`;
   - `20.1-MOCKS.md`.
-- Locate and freeze `claude/tech-debt-audit-codex-973g1t` before finalizing native ownership, deep-link, analytics, Home, Week Scout, favorites, refresh, or watched-call contracts.
-- Verify TD-01 through TD-05 against current `quiver-native/main`; every slice must be `land`, `superseded/no-op`, or `blocked` before overlapping implementation.
-- Execute landed cleanup slices as isolated commits/PRs with reference scans, focused tests, typecheck, and `git revert` rollback.
+- ~~Locate and freeze `claude/tech-debt-audit-codex-973g1t` before finalizing native ownership, deep-link, analytics, Home, Week Scout, favorites, refresh, or watched-call contracts.~~ **DONE in 20.1-01** — see `20.1-01-SUMMARY.md`.
+- ~~Verify TD-01 through TD-05 against current `quiver-native/main`; every slice must be `land`, `superseded/no-op`, or `blocked` before overlapping implementation.~~ **DONE** — dispositions recorded in `20.1-REUSE-AUDIT.md`.
+- ~~Execute landed cleanup slices as isolated commits/PRs with reference scans, focused tests, typecheck, and `git revert` rollback.~~ **DONE** — the cleanup train is merged to `quiver-native/main`; see `docs/tech-debt/phase-20-1-cleanup-summary.md`. TD-03 remains deferred (no reserved simulator lane).
 - Treat Home quick log, one-tap rating, session prefill, reminders, and full SessionForm as baseline/non-regression behavior, not a Phase 20.1 product surface or primary metric.
 - Preserve Phase 20 exact app-link, attribution, baseline, and QA foundations.
 - Preserve or explicitly retire unique branch/worktree work before touching overlapping files; merge state is not release truth.
@@ -95,7 +110,9 @@ The connected GitHub view did not expose these exact candidates on pushed `main`
 
 - Web is broad coastal utility/audience qualification; native remains surf-specific.
 - The durable object is a beach; a surf recommendation/window is temporary context.
-- Web action: `Follow this beach`.
+- ~~Web action: `Follow this beach`.~~ **SUPERSEDED 2026-08-25** — the Follow control and My Coast
+  were removed. Unqualified web visitors now get no app CTA at all, which is the pre-pilot
+  behavior. The surviving web action is the qualified handoff below.
 - Qualified handoff: `Open this exact call in Quiver`.
 - Native action: `Watch this call`.
 - A single utility page view never qualifies surfing.
@@ -113,25 +130,25 @@ The connected GitHub view did not expose these exact candidates on pushed `main`
 
 ## Next Actions
 
-1. Merge or close `quiver#605`, then refresh web `main...prod`.
-2. Execute 20.1-01:
-   - locate/freeze `claude/tech-debt-audit-codex-973g1t`;
-   - refresh all PR/branch/worktree/release/migration/OTA truth;
-   - fill W/N/X gates, including X-04 cleanup disposition;
-   - verify exact TD-01..TD-05 paths, references, live replacements, tests, and file ownership;
-   - publish `20.1-REUSE-AUDIT.md`, `20.1-PATTERNS.md`, and `20.1-01-SUMMARY.md`.
-3. Execute `20.1-TD` from clean current-main branches:
-   - TD-01 nearest-beach;
-   - TD-02 startup prefetch;
-   - TD-03 payoff card when safe boat E2E is available or formally deferred;
-   - TD-04 forecast prototype;
-   - TD-05 dormant PMNS policy stack;
-   - combined verification and cleanup summary.
-4. Rebase Phase 20.1 implementation branches on the post-cleanup native base.
-5. Review mocks against post-cleanup native and current web surfaces.
-6. Execute 20.1-02 contracts, then parallel 20.1-03/04/05 only with disjoint ownership.
-7. Complete 20.1-06 as watched-return/notification-quality evidence, keeping session and cleanup metrics secondary/separate.
-8. Resume Phase 21 only after its worktrees are reconciled and Phase 20.1 has an evidence-backed disposition.
+Lanes 20.1-01, 20.1-TD, 20.1-02, 20.1-03, 20.1-04, and 20.1-05 are all merged; 20.1-03 was then
+withdrawn and removed. Do not re-execute any of them. The remaining work is release and evidence:
+
+1. Land `chore/cut-my-coast-beach-follow` (removes the follow/My Coast surface, records the BFR-05
+   disposition).
+2. **Steven's gates, in this order:** promote web `main` → `prod`; apply the three remaining
+   unapplied migrations (`add_bfr_analytics_events`, `add_exact_handoff_install_attribution`,
+   `add_active_watched_call_identity`); set
+   `EXPO_PUBLIC_WEEK_SCOUT_STABILITY_ENABLED=true` in both `eas.json` profiles and
+   `.env.production`; publish an approved native build/OTA.
+3. Complete 20.1-06 Task 3 (signed physical-device validation) once a device is available.
+4. Complete 20.1-06 Task 4 (requirement disposition + rollout decision) once cohorts mature —
+   D1 needs ≥ 2 days, D7 needs ≥ 8 days after release.
+5. Resume Phase 21 only after its worktrees are reconciled and Phase 20.1 has an evidence-backed
+   disposition.
+
+Known dispositions that no later data can change: **BFR-03/04/05 withdrawn** (surface removed);
+**BFR-08 not met** (the stability flag is unset in every configuration source, so Week Scout
+stability is off in every shipped binary and OTA).
 
 ## Accumulated Context
 

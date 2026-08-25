@@ -1,6 +1,6 @@
 # Phase 20.1 — Retention Loop Evidence
 
-**Opened:** 2026-08-25 · **Status:** scaffold — Tasks 1 and 2 complete, Tasks 3 and 4 blocked
+**Opened:** 2026-08-25 · **Status:** Tasks 1 and 2 complete; Tasks 3 and 4 blocked; BFR-03/04/05 withdrawn
 **Implementation:** merged (quiver `a84c7119a`, quiver-native `944afed7`)
 **Released:** **no** — see "Why no results appear here yet"
 
@@ -16,9 +16,9 @@ Phase 20.1's code is merged to `main` in both repositories. It is **not released
 
 | Gate | State | Consequence for measurement |
 |---|---|---|
-| Web `main` → `prod` | not promoted | No visitor can reach Follow / My Coast / exact-call CTA |
+| Web `main` → `prod` | not promoted | No visitor can reach the exact-call CTA |
 | Native build/OTA | not published | No user has Home continuity, one-tap Watch, or exact resolution |
-| `beach_follows` migration | **unapplied** | Follow sync cannot persist; account-side denominator is structurally zero |
+| `beach_follows` migration | **removed, never applied** | Follow / My Coast surface was cut before release — see "BFR-05 disposition" |
 | `user_events` CHECK migration | **unapplied** | BFR events are rejected at insert; the funnel cannot record |
 | `alert_rules` preset CHECK migration | **unapplied** | `watched_call` rules cannot be created |
 | `EXPO_PUBLIC_WEEK_SCOUT_STABILITY_ENABLED` | **unset in every config source** | BFR-08 stability is off for all users (see `20.1-05-STABILITY-FLAG-EVIDENCE.md`) |
@@ -94,8 +94,10 @@ ambiguously later.
   bot traffic. Bot exclusion is mandatory — see the workspace note on excluding bots from
   engagement metrics.
 - **Cohort assignment:** `bfr-follow-holdout-v1` via `bfrHoldoutAssignment` — a deterministic hash
-  persisted with the follow envelope and carried through anonymous→account merge. It is **never**
-  recomputed from the account id, so an arm cannot flip at sign-in.
+  that is **never** recomputed from the account id, so an arm cannot flip at sign-in. **Note
+  (2026-08-25):** this was persisted with the follow envelope, which no longer exists. The
+  assignment function survives and is still correct, but nothing currently persists an arm. Any
+  query that splits by holdout needs a new carrier before it can be run.
 - **Maturity:** D1 needs ≥ 2 days elapsed; D7 needs ≥ 8 days. Cohorts below those thresholds are
   reported as "immature" and excluded from the decision, not shown as low.
 - **Sample-size floor:** any figure with n < 30 is annotated inline with its n. No proportion is
@@ -105,14 +107,16 @@ ambiguously later.
 - **Language:** no causal phrasing unless the holdout or a defensible staggered rollout supports
   it. "Associated with" otherwise.
 
-### The eleven definitions
+### The eleven definitions (two withdrawn 2026-08-25; nine active)
 
-1. **Web follow funnel by page type and audience.** Denominator: viewers of a pilot page
+1. ~~**Web follow funnel by page type and audience.**~~ **WITHDRAWN 2026-08-25** — the follow
+   surface was removed; this query has no denominator. Definition retained for the record.
+   Original: Denominator: viewers of a pilot page
    (`beach_water_temp`, `city_water_temp`) who saw the control (`beach_follow_started` exposure).
    Steps → `beach_follow_saved_local` → `follow_topic_changed` → `beach_follow_sync_started` →
    `beach_follow_sync_completed`. Split by `page_type` and by intent state. **Never merged with
    surf-qualified conversion** (BFR-01: broad utility and surf intent have separate denominators).
-2. **My Coast returns.** `my_coast_viewed` and `my_coast_beach_opened` per follower, by days since
+2. ~~**My Coast returns.**~~ **WITHDRAWN 2026-08-25** — see above. Original: `my_coast_viewed` and `my_coast_beach_opened` per follower, by days since
    first follow, split anonymous vs signed-in. Denominator: visitors with ≥ 1 saved follow.
 3. **Surf-qualified exact handoff.** `exact_call_handoff_started` → `app_handoff_native_open` →
    `watched_call_context_resolved`, joined on the canonical lowercase-UUID `handoff_id`.
@@ -166,8 +170,106 @@ would mean inventing the evidence the plan exists to demand. `20.1-VERIFICATION.
 created when there is something truthful to put in it.
 
 **Known dispositions already forced, regardless of later data:**
+- **BFR-03, BFR-04, BFR-05 (follow, sync, My Coast): withdrawn.** The surface was removed before
+  release — see "BFR-05 disposition" below. Not a measurement.
 - **BFR-08 (all-user Week Scout stability): not met.** The flag is unset in every configuration
   source, so stability is off in the shipped binary and every OTA. This is a configuration fact,
   not a measurement.
 - **Exact-link signed-device proof: not captured.** Deferred with N-01B.
 - **TD-03 boat E2E gate: deferred**, no reserved simulator lane.
+
+---
+
+## BFR-05 disposition — **withdrawn** (surface removed 2026-08-25)
+
+> **BFR-05:** My Coast gives followed-beach visitors a bounded, failure-tolerant view of relevant
+> current values and defensible changes since prior visits; surf calls/rankings appear only for
+> explicit or defensibly inferred surf intent.
+
+**Disposition: withdrawn from Phase 20.1, not failed.** BFR-05 was never measured and cannot now
+be. The requirement is closed by removal of the surface, not by evidence that it underperformed.
+
+### What was removed and what survives
+
+Commit `c66058c7a` (`chore(follow): remove My Coast and the beach-follow surface`) deletes the
+`/my-coast` page and API route, the Follow control and its water-temperature and beach sub-page
+placements, local follow state, the anonymous-to-account sync boundary, and the **unapplied**
+`beach_follows` migration — 33 files, 6,102 deletions against 72 insertions. Two follow-up commits
+(`40b41cced`, `ab68be94c`) drop the component props and type declarations that the removal
+orphaned. Nothing linked to `/my-coast`
+from site navigation and web `main` was never promoted, so **no user ever saw this surface**;
+there is no rollback to plan and no production state to reconcile.
+
+BFR-03 and BFR-04 fall with it: local follow state and account sync existed only to feed My Coast.
+
+Surviving, because the exact web-to-native handoff still needs them: `lib/beach-follow/handoff.ts`
+and `lib/beach-follow/intent.ts`. **BFR-06, BFR-09, and BFR-10 are unaffected** and remain open
+against the release gates in the table above.
+
+One behaviour change reaches a surviving surface. `AppDeepLinkCTA` previously fell back to the
+Follow control for unknown or explicit non-surf intent; it now renders nothing. The BFR-01 rule it
+enforces is unchanged — a water-temperature or tide view still never qualifies surfing — but the
+consequence for an unqualified visitor is now "no app CTA" rather than "a general follow action".
+That restores the pre-pilot behaviour of those templates (`3e86edfb5` added the placements).
+
+### Traffic evidence that informed the decision
+
+Google Search Console, property `https://www.quiversurf.app/`, **2026-07-26 → 2026-08-22**
+(28 days, GSC's 3-day lag respected). Reproduced with `scripts/gsc-stats.py` credentials.
+
+Site totals: **821 pages, 153,097 impressions, 1,078 clicks, 0.70% CTR.**
+
+| Page type | Pages | Impressions | Clicks | CTR | Share of site clicks |
+|---|---:|---:|---:|---:|---:|
+| `/water-temperature*` (**the pilot host**) | 218 | 70,158 | **707** | 1.01% | 65.6% |
+| `/best-time-to-surf/*` | 84 | 47,961 | 93 | 0.19% | 8.6% |
+| other | 305 | 24,086 | 230 | 0.95% | 21.3% |
+| `/tide*` | 194 | 9,393 | 35 | 0.37% | 3.2% |
+| `/beaches/*` | 16 | 1,360 | 10 | 0.74% | 0.9% |
+| `/surf-report/*` | 4 | 139 | 3 | 2.16% | 0.3% |
+
+**The number that matters for BFR-05:** the Follow control was placed on water-temperature
+templates, which receive **707 organic clicks per 28 days — about 25 visitors a day across 218
+pages.** That is the entire population the follow loop could ever have recruited from. At a
+generous 10% follow rate it yields roughly 2–3 follows per day, and My Coast only becomes useful
+after a visitor has followed a beach *and* returned later to see what changed.
+
+Two supporting observations from the same pull:
+
+- **Intent on `/best-time-to-surf/*` is misaligned, measurably.** Of the query-level rows,
+  **85% of impressions are report/now intent** (7,641 impressions, 6 clicks, 0.08% CTR) and only
+  **1% are seasonal** (81 impressions) — the pages' actual subject. Caveat: query rows cover
+  9,007 of the 47,961 page-level impressions, because GSC anonymizes rare queries, so this mix
+  describes the visible ~19%.
+- **Where Quiver ranks, the templates convert normally.** Water-temperature CTR tracks position
+  closely — 2.22% at positions 4.5–6, 0.79% at 6–8, 0.44% at 8+ — and the same template returns
+  **12.79% at position 3.8** for `kill devil hills water temp`. The weak site-wide CTR is a
+  ranking and intent-targeting problem, not a template problem.
+
+### What this evidence does and does not establish
+
+**Does:** the pilot surface sat on a page family with a small absolute click population, and the
+retention loop BFR-05 describes needed volume it did not have. Growth attention is better spent on
+ranking and intent alignment for pages that already carry the impressions.
+
+**Does not:** this is not evidence that My Coast would have failed, that visitors do not want a
+followed-beach view, or that the implementation was defective. No follow was ever offered to a
+real visitor, so no conversion, retention, or usability claim — positive or negative — is
+supportable. BFR-05 is recorded as **withdrawn**, and any future version of this idea starts from
+a fresh hypothesis rather than inheriting a verdict this phase did not earn.
+
+### Residue left deliberately
+
+The `beach_follow_*`, `follow_topic_changed`, `visitor_intent_selected`, and `my_coast_*` names
+remain in four places: `lib/analytics/event-taxonomy.ts`, the `/api/events` validator, the
+`IMPLICIT_EVENT_WEIGHTS` map in `types/implicit-preferences.ts` (all added by `7330962b5`, all at
+**weight 0**, so they cannot influence implicit-preference scoring), and the **unapplied**
+`20260824150000_add_bfr_analytics_events.sql` migration. Nothing emits them, so they are inert.
+`types/exact-handoff.ts` also keeps a `MyCoast = "my_coast"` member in its surface allowlist. Web
+declares it as a TypeScript `enum` and `quiver-native` as a string union plus a validation `Set`
+(`src/lib/watched-call/handoff-context.ts`), so the two are **semantically** mirrored, not
+literally identical source. Removing a member is therefore still a two-repo grammar change.
+They were left because removing enum members from a validated wire grammar — one whose
+watched-call half is still in scope and mirrored in `quiver-native` — is a separate change from
+removing the surface, with its own regression surface and no user-visible benefit. Track it as
+tech debt, not as part of this cut.

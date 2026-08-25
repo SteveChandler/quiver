@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { ExternalLink, Smartphone } from "lucide-react";
 
-import { BeachFollowPilot } from "@/components/beach-follow";
 import { Button } from "@/components/ui/button";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import {
@@ -15,14 +14,15 @@ import {
   parseHandoffContext,
   serializeHandoffContext,
 } from "@/lib/beach-follow/handoff";
-import type { LocalBeachIntentEvidence } from "@/lib/beach-follow/local-storage";
-import { qualifyBeachIntent } from "@/lib/beach-follow/intent";
+import {
+  qualifyBeachIntent,
+  type LocalBeachIntentEvidence,
+} from "@/lib/beach-follow/intent";
 import {
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_WEB_REDIRECT_PATH,
 } from "@/lib/constants/app-store";
 import { cn } from "@/lib/utils";
-import { FollowTopic } from "@/types/beach-follow";
 import type { HandoffContext } from "@/types/exact-handoff";
 import type { SurfWindowLinks } from "@/types/session-intelligence";
 import {
@@ -41,11 +41,6 @@ export interface AppDeepLinkCTAProps {
   handoffId?: string;
   handoffSurface?: BfrPageType;
   intentEvidence?: LocalBeachIntentEvidence;
-  generalFollow?: {
-    beachId: string;
-    beachName: string;
-    pageType: BfrPageType;
-  };
   now?: Date;
 }
 
@@ -100,7 +95,6 @@ export function AppDeepLinkCTA({
   handoffId,
   handoffSurface = "other",
   intentEvidence,
-  generalFollow,
   now = new Date(),
 }: AppDeepLinkCTAProps) {
   const { track } = useTrackEvent();
@@ -118,16 +112,9 @@ export function AppDeepLinkCTA({
     qualification?.intent === "surfing" && qualification.state !== "unknown"
   );
 
-  if (usesExactContract && !isSurfQualified) {
-    return generalFollow ? (
-      <BeachFollowPilot
-        beachId={generalFollow.beachId}
-        beachName={generalFollow.beachName}
-        defaultTopic={FollowTopic.General}
-        pageType={generalFollow.pageType}
-      />
-    ) : null;
-  }
+  // Unknown or non-surf intent renders nothing: a water-temperature or tide
+  // view must never be treated as surf qualification (BFR-01).
+  if (usesExactContract && !isSurfQualified) return null;
 
   const baseHref = resolveHref(links);
   const parsedHandoff = handoff ? parseHandoffContext(handoff) : null;

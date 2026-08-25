@@ -17,13 +17,9 @@ import {
   formatWaterTemp,
 } from "@/lib/utils/wetsuit-utils";
 import type { CityWaterTempData } from "@/actions/forecast/intent-forecast-actions";
-import { BeachFollowPilot } from "@/components/beach-follow";
-import { FollowTopic } from "@/types/beach-follow";
 
 interface WaterTempOverviewSectionProps {
   data: CityWaterTempData | null;
-  beachId?: string;
-  beachName?: string;
 }
 
 /**
@@ -45,8 +41,6 @@ function formatDayLabel(dateStr: string): string {
  */
 export function WaterTempOverviewSection({
   data,
-  beachId,
-  beachName: followBeachName,
 }: WaterTempOverviewSectionProps) {
   // Don't render if no data available
   if (!data) return null;
@@ -185,12 +179,6 @@ export function WaterTempOverviewSection({
           <p className="text-xs text-gray-500">Data from {beachName}</p>
         </CardContent>
       </Card>
-      <BeachFollowPilot
-        beachId={beachId}
-        beachName={followBeachName}
-        defaultTopic={FollowTopic.WaterTemp}
-        pageType="city_water_temp"
-      />
     </section>
   );
 }
