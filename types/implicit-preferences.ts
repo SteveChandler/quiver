@@ -6,7 +6,10 @@
  *
  */
 
-import type { EventType } from '@/lib/analytics/event-taxonomy';
+import type {
+  BfrWebEventMetadataMap,
+  EventType,
+} from '@/lib/analytics/event-taxonomy';
 
 // =============================================================================
 // Event Types
@@ -1019,7 +1022,8 @@ export type EventMetadata =
   | ScrollDepthMetadata
   | TimeOnPageMetadata
   | FirstBeachViewPostSignupMetadata
-  | AppleBetaPromptMetadata;
+  | AppleBetaPromptMetadata
+  | BfrWebEventMetadataMap[keyof BfrWebEventMetadataMap];
 
 /**
  * Full user event record as stored in the database
