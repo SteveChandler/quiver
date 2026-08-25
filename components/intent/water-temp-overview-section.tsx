@@ -20,8 +20,6 @@ import type { CityWaterTempData } from "@/actions/forecast/intent-forecast-actio
 
 interface WaterTempOverviewSectionProps {
   data: CityWaterTempData | null;
-  beachId?: string;
-  beachName?: string;
 }
 
 /**
@@ -43,8 +41,6 @@ function formatDayLabel(dateStr: string): string {
  */
 export function WaterTempOverviewSection({
   data,
-  beachId,
-  beachName: followBeachName,
 }: WaterTempOverviewSectionProps) {
   // Don't render if no data available
   if (!data) return null;
