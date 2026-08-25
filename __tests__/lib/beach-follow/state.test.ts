@@ -223,6 +223,29 @@ describe("local beach-follow state", () => {
     });
   });
 
+  it.each([
+    ["keeps a newer follow", SECOND_TIME, FIRST_TIME, true],
+    ["keeps a newer tombstone", FIRST_TIME, SECOND_TIME, false],
+    ["lets a tombstone win a timestamp tie", SECOND_TIME, SECOND_TIME, false],
+  ] as const)("%s for the same local beach", (_, updatedAt, removedAt, followWins) => {
+    const follow = {
+      beachId: BEACH_A,
+      topics: [FollowTopic.Tide],
+      createdAt: FIRST_TIME,
+      updatedAt,
+    };
+    const tombstone = { beachId: BEACH_A, removedAt };
+    const normalized = appliedState(normalizeLocalFollowState({
+      version: 1,
+      follows: [follow],
+      tombstones: [tombstone],
+      bfrHoldoutAssignment: null,
+    }));
+
+    expect(normalized.follows).toEqual(followWins ? [follow] : []);
+    expect(normalized.tombstones).toEqual(followWins ? [] : [tombstone]);
+  });
+
   it("quarantines an oversized valid follow envelope without truncation", () => {
     const validFollows = Array.from(
       { length: MAX_FOLLOWED_BEACHES + 5 },

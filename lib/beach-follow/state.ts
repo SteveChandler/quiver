@@ -234,19 +234,31 @@ export function normalizeLocalFollowState(
       return applied(createLocalFollowState());
   }
 
-  const tombstones = Array.isArray(source.tombstones)
+  const dedupedTombstones = Array.isArray(source.tombstones)
     ? dedupeTombstones(source.tombstones)
     : [];
-  const removedBeachIds = new Set(tombstones.map((item) => item.beachId));
+  const tombstoneByBeachId = new Map(
+    dedupedTombstones.map((tombstone) => [tombstone.beachId, tombstone])
+  );
   const follows = dedupeFollowedBeaches(
     Array.isArray(source.follows) ? source.follows : []
   )
-    .filter((follow) => !removedBeachIds.has(follow.beachId))
+    .filter((follow) => {
+      const tombstone = tombstoneByBeachId.get(follow.beachId);
+      return !tombstone
+        || Date.parse(follow.updatedAt) > Date.parse(tombstone.removedAt);
+    })
     .sort(
       (left, right) =>
         Date.parse(left.updatedAt) - Date.parse(right.updatedAt) ||
         left.beachId.localeCompare(right.beachId)
     );
+  const retainedFollowBeachIds = new Set(
+    follows.map((follow) => follow.beachId)
+  );
+  const tombstones = dedupedTombstones.filter(
+    (tombstone) => !retainedFollowBeachIds.has(tombstone.beachId)
+  );
 
   const state: LocalFollowState = {
     version: LOCAL_FOLLOW_STATE_VERSION,

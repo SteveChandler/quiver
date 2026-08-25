@@ -21,6 +21,7 @@ import {
 
 const FIRST_TIME = "2026-08-24T12:00:00.000Z";
 const SECOND_TIME = "2026-08-24T13:00:00.000Z";
+const EARLIER_TIME = "2026-08-24T11:00:00.000Z";
 const BEACH_A = "11111111-1111-4111-8111-111111111111";
 const BEACH_B = "22222222-2222-4222-8222-222222222222";
 const BEACH_C = "33333333-3333-4333-8333-333333333333";
@@ -179,6 +180,39 @@ describe("anonymous beach-follow merge", () => {
     expect(result.rowsToDelete).toEqual([BEACH_A]);
     expect(result.accountState.follows).toEqual([]);
   });
+
+  it.each([
+    ["newer follow survives", SECOND_TIME, FIRST_TIME, false],
+    ["newer tombstone applies", FIRST_TIME, SECOND_TIME, true],
+    ["tied tombstone applies", SECOND_TIME, SECOND_TIME, true],
+  ] as const)(
+    "resolves a local same-beach conflict before merge: %s",
+    (_, updatedAt, removedAt, shouldDelete) => {
+      const result = mergeBeachFollows({
+        anonState: {
+          version: 1,
+          follows: [{
+            beachId: BEACH_A,
+            topics: [FollowTopic.Tide],
+            createdAt: FIRST_TIME,
+            updatedAt,
+          }],
+          tombstones: [{ beachId: BEACH_A, removedAt }],
+          bfrHoldoutAssignment: null,
+        },
+        serverRows: [serverFollow(BEACH_A, [FollowTopic.Surf], EARLIER_TIME)],
+      });
+
+      expect(result.rowsToDelete).toEqual(shouldDelete ? [BEACH_A] : []);
+      expect(result.rowsToInsert).toEqual(shouldDelete ? [] : [{
+        beachId: BEACH_A,
+        topics: [FollowTopic.Surf, FollowTopic.Tide],
+        createdAt: FIRST_TIME,
+        updatedAt: SECOND_TIME,
+      }]);
+      expect(result.accountState.follows).toHaveLength(shouldDelete ? 0 : 1);
+    }
+  );
 
   it("preserves an explicit removal when the v1 follows array is corrupt", () => {
     const result = mergeBeachFollows({
