@@ -261,8 +261,12 @@ a fresh hypothesis rather than inheriting a verdict this phase did not earn.
 ### Residue left deliberately
 
 The `beach_follow_*`, `follow_topic_changed`, `visitor_intent_selected`, and `my_coast_*` names
-remain in `lib/analytics/event-taxonomy.ts`, the `/api/events` validator, and the **unapplied**
+remain in four places: `lib/analytics/event-taxonomy.ts`, the `/api/events` validator, the
+`IMPLICIT_EVENT_WEIGHTS` map in `types/implicit-preferences.ts` (all added by `7330962b5`, all at
+**weight 0**, so they cannot influence implicit-preference scoring), and the **unapplied**
 `20260824150000_add_bfr_analytics_events.sql` migration. Nothing emits them, so they are inert.
+`types/exact-handoff.ts` also keeps a `MyCoast = "my_coast"` member in its surface enum; that enum
+is mirrored byte-for-byte in `quiver-native`, so removing a member is a two-repo grammar change.
 They were left because removing enum members from a validated wire grammar — one whose
 watched-call half is still in scope and mirrored in `quiver-native` — is a separate change from
 removing the surface, with its own regression surface and no user-visible benefit. Track it as
