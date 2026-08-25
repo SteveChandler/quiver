@@ -106,6 +106,16 @@ wrap it in a `google.com/url` redirect before the recipient sees the live widget
 
 ---
 
+### MagicSeaweed replacement drafts — 2026-08-25
+
+| Target | Contact | Status | Replacement offered | Notes |
+|--------|---------|--------|---------------------|-------|
+| Odyssey Surf School | info@odysseysurfschool.com | drafted | `/learn/how-to-read-surf-conditions` | Address and source page re-verified live. |
+| UMass Lowell Outdoor Adventure | OutdoorAdventure@uml.edu | drafted | Hampton Beach and Narragansett Town Beach | Rye is not covered; the draft explicitly excludes it. |
+| Whatever Sportfishing | freddy@foxwatersports.com | drafted | Cape Hatteras Lighthouse forecast | Whatever's own page publishes the cross-domain address. |
+
+---
+
 ## Surf Bloggers & Micro-Influencers
 
 | Target | Website/Channel | Nearest Beach | Status | Date | Notes |

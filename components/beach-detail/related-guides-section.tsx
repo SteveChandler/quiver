@@ -12,6 +12,8 @@ interface RelatedGuidesSectionProps {
   beach: Beach;
   className?: string;
   bestTimeToSurfUrl?: string;
+  hasLeastCrowded?: boolean;
+  hasWaterTemp?: boolean;
 }
 
 /**
@@ -23,6 +25,8 @@ export async function RelatedGuidesSection({
   beach,
   className = "",
   bestTimeToSurfUrl,
+  hasLeastCrowded: knownHasLeastCrowded,
+  hasWaterTemp,
 }: RelatedGuidesSectionProps) {
   // Only show if we have city data
   if (!beach.city) {
@@ -39,8 +43,8 @@ export async function RelatedGuidesSection({
   // decide whether to include the least-crowded intent link. Without this
   // guard the /least-crowded/{city} page returns 404 for cities that have no
   // qualifying beaches.
-  let hasLeastCrowded = false;
-  if (isUsBeach) {
+  let hasLeastCrowded = knownHasLeastCrowded ?? false;
+  if (isUsBeach && knownHasLeastCrowded === undefined) {
     const supabase = createPublicReadClient();
     const { data: crowdData, error: crowdError } = await supabase
       .from("beaches")
@@ -58,6 +62,7 @@ export async function RelatedGuidesSection({
   const linkSet = buildRelatedGuideLinks({
     beach,
     hasLeastCrowded,
+    hasWaterTemp,
     bestTimeToSurfUrl,
   });
   if (!linkSet) return null;
