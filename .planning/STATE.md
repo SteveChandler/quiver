@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-24"
+last_updated: "2026-08-25"
 progress:
   total_phases: 9
   completed_phases: 7
@@ -23,20 +23,32 @@ The native retention hypothesis is explicit: Quiver earns a return by rememberin
 ## Current Status
 
 Phase: 20.1  
-Plan: 20.1-01  
-Status: Planned — inflight/release audit, local tech-debt branch reconciliation, cleanup dispositions, and mock review required before implementation
+Plan: 20.1-06  
+Status: Executing — six of seven lanes merged to `main` in both repositories. Nothing is released:
+web `main` has not been promoted to `prod`, no native build/OTA is published, and three migrations
+remain unapplied. Plan 20.1-06 Tasks 1 and 2 are complete; Tasks 3 and 4 are blocked on a signed
+device and mature cohorts, both of which are Steven's gates. See
+`quiver/docs/release/phase-20-1-retention-loop-evidence.md`.
 
-Progress: 20 of 22 roadmap phases complete. Phase 20.1 has **0 of 7** planned execution lanes complete:
+**BFR-03, BFR-04, and BFR-05 are withdrawn.** The web follow / My Coast surface was removed on
+2026-08-25 before it ever reached a user, on Steven's call. The requirement disposition and the
+traffic evidence behind it are in the evidence document above.
+
+Progress: 20 of 22 roadmap phases complete. Phase 20.1 has **6 of 7** execution lanes merged
+(none released), with the seventh partially complete:
 
 ```text
-20.1-01 audit/reuse/ownership
-20.1-TD native cleanup train
-20.1-02 shared contracts
-20.1-03 web follow/My Coast
-20.1-04 exact handoff
-20.1-05 native continuity/watch/return
-20.1-06 evidence/rollout decision
+20.1-01 audit/reuse/ownership          merged
+20.1-TD native cleanup train           merged
+20.1-02 shared contracts               merged
+20.1-03 web follow/My Coast            merged, then WITHDRAWN and removed 2026-08-25
+20.1-04 exact handoff                  merged
+20.1-05 native continuity/watch/return merged (BFR-08 not met — stability flag unset)
+20.1-06 evidence/rollout decision      Tasks 1-2 complete; Tasks 3-4 blocked
 ```
+
+Merged is not released. Every lane above sits behind the promotion, migration, flag, and build
+gates listed in the evidence document.
 
 Phase 21 remains sequenced after Phase 20.1, but it is not a clean untouched future phase: its summaries describe uncommitted implementation in worktrees for 21-03/21-04 and completed read-only verification in 21-05 with rollout blocked. Preserve and reconcile those worktrees before adjacent edits.
 
