@@ -15,6 +15,7 @@ const NOW = new Date("2026-08-24T12:00:00.000Z");
 const BEACH_ID = "11111111-1111-4111-8111-111111111111";
 const WINDOW_ID = "2026-08-25T14:00:00.000Z";
 const RECOMMENDATION_ID = `beach:${BEACH_ID}:${WINDOW_ID}`;
+const OTHER_BEACH_ID = "22222222-2222-4222-8222-222222222222";
 const SERIALIZED_V1_CONTEXT = JSON.stringify({
   v: 1,
   beachId: BEACH_ID,
@@ -171,6 +172,56 @@ describe("exact handoff context", () => {
       context,
       replacement,
       reason: "window_replaced",
+    });
+  });
+
+  it("classifies the identical cross-beach replacement fixture as beach-only", () => {
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+    if (!parsed.ok) throw new Error("Expected valid fixture");
+    const { context } = parsed;
+
+    expect(
+      classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
+        now: NOW,
+        beachExists: true,
+        exactWindowExists: false,
+        replacement: {
+          beachId: OTHER_BEACH_ID,
+          slug: "steamer-lane",
+          windowId: "2026-08-25T16:00:00.000Z",
+          recommendationId:
+            `beach:${OTHER_BEACH_ID}:2026-08-25T16:00:00.000Z`,
+        },
+      }),
+    ).toEqual({
+      classification: "beach_only",
+      context,
+      reason: "window_removed",
+    });
+  });
+
+  it("rejects a structured replacement recommendation owned by another beach", () => {
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+    if (!parsed.ok) throw new Error("Expected valid fixture");
+    const { context } = parsed;
+
+    expect(
+      classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
+        now: NOW,
+        beachExists: true,
+        exactWindowExists: false,
+        replacement: {
+          beachId: BEACH_ID,
+          slug: "pleasure-point",
+          windowId: "2026-08-25T16:00:00.000Z",
+          recommendationId:
+            `beach:${OTHER_BEACH_ID}:2026-08-25T16:00:00.000Z`,
+        },
+      }),
+    ).toEqual({
+      classification: "beach_only",
+      context,
+      reason: "window_removed",
     });
   });
 

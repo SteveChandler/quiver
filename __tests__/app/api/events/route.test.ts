@@ -1582,6 +1582,93 @@ describe('POST /api/events', () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
+    it('preserves the real legacy native first-open payload with launch-primer enrichment', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+      const sessionId = '92345678-1234-4234-8234-123456789012';
+      const metadata = {
+        source: 'native_app',
+        native_install_id: sessionId,
+        build: '42',
+        platform: 'ios',
+        os_version: '18.3',
+        device_model_class: 'iPhone',
+        device_type: '1',
+        device_year_class: 2024,
+        install_attribution_outcome: 'unavailable',
+        _platform: 'native-ios',
+        app_version: '1.0.2',
+        expo_update_id: null,
+        expo_channel: 'production',
+        expo_runtime_version:
+          '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+        expo_is_embedded_launch: true,
+        expo_is_emergency_launch: false,
+        is_emulator: false,
+        launch_primer_session_id: sessionId,
+      };
+
+      const response = await POST(new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'native_app_first_open',
+          sessionId,
+          metadata,
+        }),
+      }));
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'native_app_first_open',
+        metadata: expect.objectContaining(metadata),
+      }));
+    });
+
+    it('preserves the real legacy app-handoff view payload with a plain handoff ID', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+      const metadata = {
+        cta_family: 'app_handoff',
+        page_type: 'other',
+        query_intent: 'other',
+        seo_landing_page: false,
+        source: 'landing_hero',
+        surface: 'landing-page',
+        placement: 'hero_primary',
+        handoff_id: '33333333-3333-4333-8333-333333333333',
+        platform: 'desktop',
+      };
+
+      const response = await POST(new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'app_handoff_view',
+          sessionId: 'a2345678-1234-4234-8234-123456789012',
+          metadata,
+        }),
+      }));
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'app_handoff_view',
+        metadata: expect.objectContaining(metadata),
+      }));
+    });
+
     it('rejects the exact F27 bypass payload before the legacy path', async () => {
       mockSupabase.auth.getUser.mockResolvedValue({
         data: { user: null },

@@ -382,20 +382,9 @@ const BFR_HANDOFF_RESOLUTION_KEYS = new Set<string>([
   'reason',
   ...BFR_NATIVE_CHANNEL_KEYS,
 ]);
-const BFR_EVENT_SET = new Set<string>([
+const BFR_ONLY_EVENT_SET = new Set<string>([
   ...BFR_WEB_EVENT_TYPES,
-  ...Object.values(BFR_EXACT_CALL_HANDOFF_EVENTS),
-]);
-const BFR_EXACT_CALL_UNIQUE_METADATA_KEYS = new Set<string>([
-  '_platform',
-  'app_version',
-  'expo_update_id',
-  'expo_channel',
-  'expo_runtime_version',
-  'expo_is_embedded_launch',
-  'expo_is_emergency_launch',
-  'is_emulator',
-  'launch_primer_session_id',
+  BFR_EXACT_CALL_HANDOFF_EVENTS.resolved,
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -631,13 +620,15 @@ export function isBfrApiEventMetadata(
   eventType: unknown,
   metadata: unknown,
 ): boolean {
-  if (typeof eventType === 'string' && BFR_EVENT_SET.has(eventType)) return true;
-  if (!isRecord(metadata)) return false;
-  if (metadata.source === 'exact_call') return true;
-  if ('handoff_context' in metadata) return true;
-  if ('handoff_id' in metadata) return true;
-  if ('fallback_classification' in metadata) return true;
-  return [...BFR_EXACT_CALL_UNIQUE_METADATA_KEYS].some((key) => key in metadata);
+  if (typeof eventType !== 'string') return false;
+  if (BFR_ONLY_EVENT_SET.has(eventType)) return true;
+  if (!eventType.startsWith('app_handoff_') || !isRecord(metadata)) {
+    return false;
+  }
+
+  return metadata.source === 'exact_call'
+    || 'handoff_context' in metadata
+    || 'fallback_classification' in metadata;
 }
 
 export function buildBfrApiEventMetadata(

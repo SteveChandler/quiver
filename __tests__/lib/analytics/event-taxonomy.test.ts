@@ -14,7 +14,9 @@ import {
   EXTERNAL_ANALYTICS_ONLY_EVENTS,
   PRE_AUTH_ONLY_EVENTS,
   VALID_EVENTS,
+  buildBfrApiEventMetadata,
   buildBfrWebEventMetadata,
+  isBfrApiEventMetadata,
   type BfrWebEventMetadataMap,
   type EventType,
 } from "@/lib/analytics/event-taxonomy";
@@ -132,6 +134,41 @@ describe("event taxonomy", () => {
       intent_state: "inferred",
     };
     expect(impossibleType.intent_state).toBe("inferred");
+  });
+
+  it("strictly validates BFR-only events without diverting legacy metadata", () => {
+    for (const eventType of [
+      "beach_follow_started",
+      "beach_follow_saved_local",
+      "beach_follow_sync_started",
+      "beach_follow_sync_completed",
+      "follow_topic_changed",
+      "visitor_intent_selected",
+      "surf_intent_qualified",
+      "my_coast_viewed",
+      "my_coast_beach_opened",
+      "watched_call_context_resolved",
+    ]) {
+      expect(isBfrApiEventMetadata(eventType, {})).toBe(true);
+    }
+
+    expect(isBfrApiEventMetadata("native_app_first_open", {
+      _platform: "native-ios",
+      app_version: "1.0.2",
+      launch_primer_session_id: "62345678-1234-4234-8234-123456789012",
+    })).toBe(false);
+    expect(isBfrApiEventMetadata("app_handoff_view", {
+      handoff_id: "33333333-3333-4333-8333-333333333333",
+    })).toBe(false);
+  });
+
+  it.each([
+    { source: "exact_call" },
+    { handoff_context: "exact_call" },
+    { fallback_classification: "exact" },
+  ])("strictly validates reused handoff events with $metadata", (metadata) => {
+    expect(isBfrApiEventMetadata("app_handoff_view", metadata)).toBe(true);
+    expect(buildBfrApiEventMetadata("app_handoff_view", metadata)).toBeNull();
   });
 
   it("allows app handoff funnel events for anonymous and signed-in users", () => {

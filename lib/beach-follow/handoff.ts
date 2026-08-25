@@ -175,14 +175,24 @@ function isHandoffContext(value: unknown): value is HandoffContext {
 
 function isReplacementIdentity(
   value: HandoffReplacementIdentity | null | undefined,
+  contextBeachId: string,
 ): value is HandoffReplacementIdentity {
-  return Boolean(
-    value &&
-      isBeachId(value.beachId) &&
-      isSlug(value.slug) &&
-      isWindowId(value.windowId) &&
-      isRecommendationId(value.recommendationId),
+  if (
+    !value
+    || !isBeachId(value.beachId)
+    || value.beachId !== contextBeachId
+    || !isSlug(value.slug)
+    || !isWindowId(value.windowId)
+    || !isRecommendationId(value.recommendationId)
+  ) {
+    return false;
+  }
+
+  const structuredRecommendation = value.recommendationId.match(
+    STRUCTURED_RECOMMENDATION_PATTERN,
   );
+  return !structuredRecommendation
+    || structuredRecommendation[2] === value.beachId;
 }
 
 export function buildHandoffContext(
@@ -270,7 +280,7 @@ export function classifyHandoffResolution(
   if (availability.exactWindowExists) {
     return { classification: "exact", context };
   }
-  if (isReplacementIdentity(availability.replacement)) {
+  if (isReplacementIdentity(availability.replacement, context.beachId)) {
     return {
       classification: "replaced",
       context,
