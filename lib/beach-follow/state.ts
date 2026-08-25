@@ -2,6 +2,7 @@ import {
   type BfrHoldoutAssignmentRecord,
   FollowTopic,
   type FollowedBeach,
+  type FollowTopicAddedAt,
   type FollowTopicTombstone,
   type FollowTombstone,
   type LocalFollowMutationResult,
@@ -9,7 +10,7 @@ import {
   type LocalFollowState,
 } from "@/types/beach-follow";
 
-export const LOCAL_FOLLOW_STATE_VERSION = 2 as const;
+export const LOCAL_FOLLOW_STATE_VERSION = 3 as const;
 export const MAX_FOLLOWED_BEACHES = 50;
 export const MAX_PENDING_FOLLOW_OPERATIONS = 100;
 export const MAX_BEACH_ID_LENGTH = 36;
@@ -149,12 +150,34 @@ function normalizeFollow(value: unknown): FollowedBeach | null {
   if (!beachId || topics.length === 0) return null;
   if (!createdAt || !updatedAt) return null;
 
+  const topicAddedAt = normalizeTopicAddedAt(
+    value.topicAddedAt,
+    topics,
+    updatedAt
+  );
+
   return {
     beachId,
     topics,
+    topicAddedAt,
     createdAt,
     updatedAt,
   };
+}
+
+function normalizeTopicAddedAt(
+  value: unknown,
+  topics: readonly FollowTopic[],
+  fallback: string
+): FollowTopicAddedAt {
+  const source = isRecord(value) ? value : {};
+  const topicAddedAt: FollowTopicAddedAt = {};
+
+  for (const topic of topics) {
+    topicAddedAt[topic] = normalizeBoundedIsoInstant(source[topic]) ?? fallback;
+  }
+
+  return topicAddedAt;
 }
 
 function normalizeTombstone(value: unknown): FollowTombstone | null {
@@ -199,6 +222,19 @@ export function dedupeFollowedBeaches(values: readonly unknown[]): FollowedBeach
     byBeachId.set(follow.beachId, {
       beachId: follow.beachId,
       topics: normalizeFollowTopics([...existing.topics, ...follow.topics]),
+      topicAddedAt: normalizeFollowTopics([
+        ...existing.topics,
+        ...follow.topics,
+      ]).reduce<FollowTopicAddedAt>((timestamps, topic) => {
+        const existingAddedAt = existing.topicAddedAt[topic];
+        const followAddedAt = follow.topicAddedAt[topic];
+        if (existingAddedAt && followAddedAt) {
+          timestamps[topic] = laterDate(existingAddedAt, followAddedAt);
+        } else {
+          timestamps[topic] = existingAddedAt ?? followAddedAt;
+        }
+        return timestamps;
+      }, {}),
       createdAt: earlierDate(existing.createdAt, follow.createdAt),
       updatedAt: laterDate(existing.updatedAt, follow.updatedAt),
     });
@@ -279,6 +315,9 @@ export function normalizeLocalFollowState(
     case 1:
       source = { ...parsed, topicTombstones: [] };
       break;
+    case 2:
+      source = parsed;
+      break;
     case LOCAL_FOLLOW_STATE_VERSION:
       source = parsed;
       break;
@@ -318,8 +357,17 @@ export function normalizeLocalFollowState(
           `${follow.beachId}:${topic}`
         );
         return !tombstone
-          || Date.parse(follow.updatedAt) > Date.parse(tombstone.removedAt);
+          || Date.parse(follow.topicAddedAt[topic] ?? follow.updatedAt)
+            > Date.parse(tombstone.removedAt);
       }),
+    }))
+    .map((follow) => ({
+      ...follow,
+      topicAddedAt: normalizeTopicAddedAt(
+        follow.topicAddedAt,
+        follow.topics,
+        follow.updatedAt
+      ),
     }))
     .filter((follow) => follow.topics.length > 0)
     .filter((follow) => {
@@ -349,7 +397,9 @@ export function normalizeLocalFollowState(
     const follow = followByBeachId.get(tombstone.beachId);
     return !follow
       || !follow.topics.includes(tombstone.topic)
-      || Date.parse(tombstone.removedAt) >= Date.parse(follow.updatedAt);
+      || Date.parse(tombstone.removedAt) >= Date.parse(
+        follow.topicAddedAt[tombstone.topic] ?? follow.updatedAt
+      );
   });
 
   const state: LocalFollowState = {
@@ -403,9 +453,21 @@ export function addFollow(
   }
 
   const existing = normalized.follows.find((follow) => follow.beachId === beachId);
-  const existingTombstone = normalized.tombstones.some(
+  if (
+    existing
+    && Date.parse(normalizedNow) < Date.parse(existing.updatedAt)
+  ) {
+    return applied(normalized);
+  }
+  const existingTombstone = normalized.tombstones.find(
     (item) => item.beachId === beachId
   );
+  if (
+    existingTombstone
+    && Date.parse(normalizedNow) <= Date.parse(existingTombstone.removedAt)
+  ) {
+    return applied(normalized);
+  }
   if (!existing && normalized.follows.length >= MAX_FOLLOWED_BEACHES) {
     return syncRequired(normalized);
   }
@@ -420,11 +482,25 @@ export function addFollow(
     ? {
         ...existing,
         topics: normalizeFollowTopics([...existing.topics, ...topics]),
+        topicAddedAt: normalizeFollowTopics([
+          ...existing.topics,
+          ...topics,
+        ]).reduce<FollowTopicAddedAt>((timestamps, topic) => {
+          timestamps[topic] = existing.topicAddedAt[topic] ?? normalizedNow;
+          return timestamps;
+        }, {}),
         updatedAt: normalizedNow,
       }
     : {
         beachId,
         topics,
+        topicAddedAt: topics.reduce<FollowTopicAddedAt>(
+          (timestamps, topic) => {
+            timestamps[topic] = normalizedNow;
+            return timestamps;
+          },
+          {}
+        ),
         createdAt: normalizedNow,
         updatedAt: normalizedNow,
       };
@@ -467,6 +543,9 @@ export function updateFollowTopics(
   if (!existing) {
     return applied(normalized);
   }
+  if (Date.parse(normalizedNow) < Date.parse(existing.updatedAt)) {
+    return applied(normalized);
+  }
 
   const removedTopics = existing.topics.filter(
     (topic) => !topics.includes(topic)
@@ -498,7 +577,18 @@ export function updateFollowTopics(
     ...normalized,
     follows: normalized.follows.map((follow) =>
       follow.beachId === beachId
-        ? { ...follow, topics, updatedAt: normalizedNow }
+        ? {
+            ...follow,
+            topics,
+            topicAddedAt: topics.reduce<FollowTopicAddedAt>(
+              (timestamps, topic) => {
+                timestamps[topic] = follow.topicAddedAt[topic] ?? normalizedNow;
+                return timestamps;
+              },
+              {}
+            ),
+            updatedAt: normalizedNow,
+          }
         : follow
     ),
     topicTombstones: nextTopicTombstones,
@@ -520,6 +610,15 @@ export function removeFollow(
   const existingTombstone = normalized.tombstones.find(
     (item) => item.beachId === beachId
   );
+  const existingFollow = normalized.follows.find(
+    (follow) => follow.beachId === beachId
+  );
+  if (
+    existingFollow
+    && Date.parse(normalizedNow) < Date.parse(existingFollow.updatedAt)
+  ) {
+    return applied(normalized);
+  }
   const removedAt = existingTombstone
     ? laterDate(existingTombstone.removedAt, normalizedNow)
     : normalizedNow;

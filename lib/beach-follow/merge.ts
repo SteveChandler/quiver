@@ -1,5 +1,6 @@
 import {
   type FollowedBeach,
+  type FollowTopicAddedAt,
   type FollowTopicTombstone,
   type LocalFollowMutationResult,
   type MergeInput,
@@ -18,7 +19,10 @@ function rowsMatch(left: FollowedBeach, right: FollowedBeach): boolean {
     left.createdAt === right.createdAt &&
     left.updatedAt === right.updatedAt &&
     left.topics.length === right.topics.length &&
-    left.topics.every((topic, index) => topic === right.topics[index])
+    left.topics.every((topic, index) => (
+      topic === right.topics[index]
+      && left.topicAddedAt[topic] === right.topicAddedAt[topic]
+    ))
   );
 }
 
@@ -36,16 +40,24 @@ function unionRows(
     ...server.topics,
     ...(anon?.topics ?? []),
   ]);
+  const topicAddedAt = candidateTopics.reduce<FollowTopicAddedAt>(
+    (timestamps, topic) => {
+      const additions = [
+        server.topics.includes(topic) ? server.topicAddedAt[topic] : undefined,
+        anon?.topics.includes(topic) ? anon.topicAddedAt[topic] : undefined,
+      ].filter((value): value is string => value !== undefined);
+      timestamps[topic] = additions.sort(
+        (left, right) => Date.parse(right) - Date.parse(left)
+      )[0];
+      return timestamps;
+    },
+    {}
+  );
   const topics = candidateTopics
     .filter((topic) => {
       const removedAt = latestRemovalByTopic.get(topic);
       if (!removedAt) return true;
-      const latestAddition = [
-        server.topics.includes(topic) ? server.updatedAt : null,
-        anon?.topics.includes(topic) ? anon.updatedAt : null,
-      ]
-        .filter((value): value is string => value !== null)
-        .sort((left, right) => Date.parse(right) - Date.parse(left))[0];
+      const latestAddition = topicAddedAt[topic];
       return latestAddition !== undefined
         && Date.parse(latestAddition) > Date.parse(removedAt);
     });
@@ -61,6 +73,10 @@ function unionRows(
   return {
     beachId: server.beachId,
     topics,
+    topicAddedAt: topics.reduce<FollowTopicAddedAt>((timestamps, topic) => {
+      timestamps[topic] = topicAddedAt[topic];
+      return timestamps;
+    }, {}),
     createdAt:
       !anon || Date.parse(server.createdAt) <= Date.parse(anon.createdAt)
         ? server.createdAt
@@ -233,7 +249,7 @@ export function mergeBeachFollows(input: MergeInput): MergeResult {
     residualLocalState: isPlannableFollowOverflow
       ? anonState
       : {
-          version: 2,
+          version: 3,
           follows: [],
           tombstones: [],
           topicTombstones: [],

@@ -9,6 +9,9 @@ CREATE TABLE public.beach_follows (
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   beach_id uuid NOT NULL REFERENCES public.beaches(id) ON DELETE CASCADE,
   topics text[] NOT NULL,
+  -- JSONB keeps the single-row account contract while preserving causal time
+  -- independently for every topic key (for example, {"surf": "...Z"}).
+  topic_added_at jsonb NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT beach_follows_user_beach_unique UNIQUE (user_id, beach_id),
@@ -28,6 +31,15 @@ CREATE TABLE public.beach_follows (
     AND cardinality(array_positions(topics, 'water_quality')) <= 1
     AND cardinality(array_positions(topics, 'wind')) <= 1
     AND cardinality(array_positions(topics, 'general')) <= 1
+  ),
+  CONSTRAINT beach_follows_topic_added_at_matches_topics CHECK (
+    jsonb_typeof(topic_added_at) = 'object'
+    AND jsonb_object_length(topic_added_at) = cardinality(topics)
+    AND topic_added_at ?& topics
+    AND NOT jsonb_path_exists(
+      topic_added_at,
+      '$.* ? (@.type() != "string")'
+    )
   )
 );
 

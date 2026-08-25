@@ -7,9 +7,12 @@ export enum FollowTopic {
   General = "general",
 }
 
+export type FollowTopicAddedAt = Partial<Record<FollowTopic, string>>;
+
 export interface FollowedBeach {
   beachId: string;
   topics: FollowTopic[];
+  topicAddedAt: FollowTopicAddedAt;
   createdAt: string;
   updatedAt: string;
 }
@@ -42,13 +45,21 @@ export interface LocalFollowStateV1 {
 
 export interface LocalFollowStateV2 {
   version: 2;
+  follows: Array<Omit<FollowedBeach, "topicAddedAt">>;
+  tombstones: FollowTombstone[];
+  topicTombstones: FollowTopicTombstone[];
+  bfrHoldoutAssignment: BfrHoldoutAssignmentRecord | null;
+}
+
+export interface LocalFollowStateV3 {
+  version: 3;
   follows: FollowedBeach[];
   tombstones: FollowTombstone[];
   topicTombstones: FollowTopicTombstone[];
   bfrHoldoutAssignment: BfrHoldoutAssignmentRecord | null;
 }
 
-export type LocalFollowState = LocalFollowStateV2;
+export type LocalFollowState = LocalFollowStateV3;
 
 export interface AccountFollowState {
   scope: "account";

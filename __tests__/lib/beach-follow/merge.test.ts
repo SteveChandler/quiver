@@ -15,6 +15,7 @@ import {
 import {
   FollowTopic,
   type FollowedBeach,
+  type FollowTopicAddedAt,
   type LocalFollowMutationResult,
   type LocalFollowState,
   type MergeResult,
@@ -35,9 +36,22 @@ function beachIdFor(prefix: "anon" | "server", index: number): string {
 function serverFollow(
   beachId: string,
   topics: FollowTopic[],
-  updatedAt = FIRST_TIME
+  updatedAt = FIRST_TIME,
+  topicAddedAt?: FollowTopicAddedAt
 ): FollowedBeach {
-  return { beachId, topics, createdAt: FIRST_TIME, updatedAt };
+  return {
+    beachId,
+    topics,
+    topicAddedAt: topicAddedAt ?? topics.reduce<FollowTopicAddedAt>(
+      (timestamps, topic) => {
+        timestamps[topic] = updatedAt;
+        return timestamps;
+      },
+      {}
+    ),
+    createdAt: FIRST_TIME,
+    updatedAt,
+  };
 }
 
 function appliedState(result: LocalFollowMutationResult): LocalFollowState {
@@ -56,6 +70,41 @@ function residualState(result: MergeResult): LocalFollowState {
 }
 
 describe("anonymous beach-follow merge", () => {
+  it("does not revive a removed topic after an unrelated server topic changes", () => {
+    const followed = appliedState(addFollow(
+      createLocalFollowState(),
+      { beachId: BEACH_A, topics: [FollowTopic.Surf, FollowTopic.Tide] },
+      "2026-08-24T10:00:00.000Z"
+    ));
+    const anonState = appliedState(updateFollowTopics(
+      followed,
+      BEACH_A,
+      [FollowTopic.Tide],
+      "2026-08-24T14:00:00.000Z"
+    ));
+    const serverRow = {
+      ...serverFollow(
+        BEACH_A,
+        [FollowTopic.Surf, FollowTopic.Tide],
+        "2026-08-24T15:00:00.000Z"
+      ),
+      topicAddedAt: {
+        [FollowTopic.Surf]: "2026-08-24T10:00:00.000Z",
+        [FollowTopic.Tide]: "2026-08-24T15:00:00.000Z",
+      },
+    };
+
+    const result = mergeBeachFollows({ anonState, serverRows: [serverRow] });
+
+    expect(result.accountState.follows[0]).toMatchObject({
+      topics: [FollowTopic.Tide],
+      topicAddedAt: {
+        [FollowTopic.Tide]: "2026-08-24T15:00:00.000Z",
+      },
+      updatedAt: "2026-08-24T15:00:00.000Z",
+    });
+  });
+
   it("applies a newer anonymous topic removal without resurrecting the server topic", () => {
     const followed = appliedState(addFollow(
       createLocalFollowState(),
@@ -77,10 +126,20 @@ describe("anonymous beach-follow merge", () => {
     });
 
     expect(result.rowsToInsert).toEqual([
-      serverFollow(BEACH_A, [FollowTopic.Tide], SECOND_TIME),
+      serverFollow(
+        BEACH_A,
+        [FollowTopic.Tide],
+        SECOND_TIME,
+        { [FollowTopic.Tide]: FIRST_TIME }
+      ),
     ]);
     expect(result.accountState.follows).toEqual([
-      serverFollow(BEACH_A, [FollowTopic.Tide], SECOND_TIME),
+      serverFollow(
+        BEACH_A,
+        [FollowTopic.Tide],
+        SECOND_TIME,
+        { [FollowTopic.Tide]: FIRST_TIME }
+      ),
     ]);
   });
 
@@ -103,10 +162,20 @@ describe("anonymous beach-follow merge", () => {
     });
 
     expect(result.rowsToInsert).toEqual([
-      serverFollow(BEACH_A, [FollowTopic.Tide], SECOND_TIME),
+      serverFollow(
+        BEACH_A,
+        [FollowTopic.Tide],
+        SECOND_TIME,
+        { [FollowTopic.Tide]: FIRST_TIME }
+      ),
     ]);
     expect(result.accountState.follows).toEqual([
-      serverFollow(BEACH_A, [FollowTopic.Tide], SECOND_TIME),
+      serverFollow(
+        BEACH_A,
+        [FollowTopic.Tide],
+        SECOND_TIME,
+        { [FollowTopic.Tide]: FIRST_TIME }
+      ),
     ]);
   });
 
@@ -253,11 +322,17 @@ describe("anonymous beach-follow merge", () => {
       serverFollow(
         BEACH_A,
         [FollowTopic.Surf, FollowTopic.Tide, FollowTopic.Wind],
-        SECOND_TIME
+        SECOND_TIME,
+        {
+          [FollowTopic.Surf]: SECOND_TIME,
+          [FollowTopic.Tide]: SECOND_TIME,
+          [FollowTopic.Wind]: FIRST_TIME,
+        }
       ),
       {
         beachId: BEACH_B,
         topics: [FollowTopic.WaterTemp],
+        topicAddedAt: { [FollowTopic.WaterTemp]: SECOND_TIME },
         createdAt: SECOND_TIME,
         updatedAt: SECOND_TIME,
       },
@@ -381,6 +456,10 @@ describe("anonymous beach-follow merge", () => {
       expect(result.rowsToInsert).toEqual(shouldDelete ? [] : [{
         beachId: BEACH_A,
         topics: [FollowTopic.Surf, FollowTopic.Tide],
+        topicAddedAt: {
+          [FollowTopic.Surf]: EARLIER_TIME,
+          [FollowTopic.Tide]: SECOND_TIME,
+        },
         createdAt: FIRST_TIME,
         updatedAt: SECOND_TIME,
       }]);
@@ -543,7 +622,7 @@ describe("anonymous beach-follow merge", () => {
 
   it("quarantines an unsupported envelope without merging or overwriting it", () => {
     const futureEnvelope = JSON.stringify({
-      version: 3,
+      version: 4,
       follows: [serverFollow(beachIdFor("anon", 1), [FollowTopic.Surf])],
       tombstones: [],
       futureField: { retained: true },
@@ -570,16 +649,15 @@ describe("anonymous beach-follow merge", () => {
     const postTriggerTime = "2026-08-24T13:00:00.000Z";
     const follows = Array.from(
       { length: MAX_FOLLOWED_BEACHES + 5 },
-      (_, index) => ({
-        beachId: beachIdFor("anon", index),
-        topics: [FollowTopic.General],
-        createdAt: FIRST_TIME,
-        updatedAt: clientTime,
-      })
+      (_, index) => serverFollow(
+        beachIdFor("anon", index),
+        [FollowTopic.General],
+        clientTime
+      )
     );
     const assignment = bfrHoldoutAssignment("anon-visitor-123", FIRST_TIME);
     const anonState: LocalFollowState = {
-      version: 2,
+      version: 3,
       follows,
       tombstones: [],
       topicTombstones: [],
@@ -606,7 +684,7 @@ describe("anonymous beach-follow merge", () => {
     expect(acknowledged).toEqual({
       status: "applied",
       state: {
-        version: 2,
+        version: 3,
         follows: [],
         tombstones: [],
         topicTombstones: [],
@@ -635,15 +713,14 @@ describe("anonymous beach-follow merge", () => {
   it("keeps only unconfirmed oversized follows locked", () => {
     const follows = Array.from(
       { length: MAX_FOLLOWED_BEACHES + 5 },
-      (_, index) => ({
-        beachId: beachIdFor("anon", index),
-        topics: [FollowTopic.General],
-        createdAt: FIRST_TIME,
-        updatedAt: SECOND_TIME,
-      })
+      (_, index) => serverFollow(
+        beachIdFor("anon", index),
+        [FollowTopic.General],
+        SECOND_TIME
+      )
     );
     const anonState: LocalFollowState = {
-      version: 2,
+      version: 3,
       follows,
       tombstones: [],
       topicTombstones: [],
@@ -659,7 +736,7 @@ describe("anonymous beach-follow merge", () => {
     expect(partial).toEqual({
       status: "sync_required",
       state: {
-        version: 2,
+        version: 3,
         follows: [follows[follows.length - 1]],
         tombstones: [],
         topicTombstones: [],
@@ -671,15 +748,14 @@ describe("anonymous beach-follow merge", () => {
   it("keeps an oversized follow locked when the server is missing a requested topic", () => {
     const follows = Array.from(
       { length: MAX_FOLLOWED_BEACHES + 5 },
-      (_, index) => ({
-        beachId: beachIdFor("anon", index),
-        topics: [FollowTopic.General, FollowTopic.Surf],
-        createdAt: FIRST_TIME,
-        updatedAt: SECOND_TIME,
-      })
+      (_, index) => serverFollow(
+        beachIdFor("anon", index),
+        [FollowTopic.General, FollowTopic.Surf],
+        SECOND_TIME
+      )
     );
     const anonState: LocalFollowState = {
-      version: 2,
+      version: 3,
       follows,
       tombstones: [],
       topicTombstones: [],
@@ -698,7 +774,7 @@ describe("anonymous beach-follow merge", () => {
     })).toEqual({
       status: "sync_required",
       state: {
-        version: 2,
+        version: 3,
         follows: [residualState(result).follows[0]],
         tombstones: [],
         topicTombstones: [],
@@ -710,15 +786,14 @@ describe("anonymous beach-follow merge", () => {
   it("does not clear oversized follows without server confirmation", () => {
     const follows = Array.from(
       { length: MAX_FOLLOWED_BEACHES + 5 },
-      (_, index) => ({
-        beachId: beachIdFor("anon", index),
-        topics: [FollowTopic.General],
-        createdAt: FIRST_TIME,
-        updatedAt: SECOND_TIME,
-      })
+      (_, index) => serverFollow(
+        beachIdFor("anon", index),
+        [FollowTopic.General],
+        SECOND_TIME
+      )
     );
     const anonState: LocalFollowState = {
-      version: 2,
+      version: 3,
       follows,
       tombstones: [],
       topicTombstones: [],
@@ -735,7 +810,7 @@ describe("anonymous beach-follow merge", () => {
   it("acknowledges only tombstones absent from the post-write snapshot", () => {
     const retainedServerRow = serverFollow(BEACH_A, [FollowTopic.Surf]);
     const anonState: LocalFollowState = {
-      version: 2,
+      version: 3,
       follows: [],
       tombstones: [
         { beachId: BEACH_A, removedAt: SECOND_TIME },
@@ -759,7 +834,7 @@ describe("anonymous beach-follow merge", () => {
 
   it("keeps a topic removal pending until the post-write snapshot shows it absent", () => {
     const anonState: LocalFollowState = {
-      version: 2,
+      version: 3,
       follows: [],
       tombstones: [],
       topicTombstones: [{
@@ -784,7 +859,7 @@ describe("anonymous beach-follow merge", () => {
 
   it("retries an unacknowledged topic removal after its follow was confirmed", () => {
     const residualLocalState: LocalFollowState = {
-      version: 2,
+      version: 3,
       follows: [serverFollow(BEACH_A, [FollowTopic.Tide], SECOND_TIME)],
       tombstones: [],
       topicTombstones: [{
@@ -819,7 +894,12 @@ describe("anonymous beach-follow merge", () => {
       serverRows: incompleteServerRows,
     });
     expect(retry.rowsToInsert).toEqual([
-      serverFollow(BEACH_A, [FollowTopic.Tide], SECOND_TIME),
+      serverFollow(
+        BEACH_A,
+        [FollowTopic.Tide],
+        SECOND_TIME,
+        { [FollowTopic.Tide]: FIRST_TIME }
+      ),
     ]);
   });
 });

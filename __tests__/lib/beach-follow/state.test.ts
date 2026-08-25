@@ -11,6 +11,8 @@ import {
 import { bfrHoldoutAssignment } from "@/lib/experiments/bfr-holdout";
 import {
   FollowTopic,
+  type FollowedBeach,
+  type FollowTopicAddedAt,
   type LocalFollowMutationResult,
   type LocalFollowState,
 } from "@/types/beach-follow";
@@ -23,6 +25,24 @@ const BEACH_C = "33333333-3333-4333-8333-333333333333";
 
 function beachIdFor(index: number): string {
   return `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+}
+
+function followedBeach(
+  beachId: string,
+  topics: FollowTopic[],
+  createdAt: string,
+  updatedAt = createdAt
+): FollowedBeach {
+  return {
+    beachId,
+    topics,
+    topicAddedAt: topics.reduce<FollowTopicAddedAt>((timestamps, topic) => {
+      timestamps[topic] = updatedAt;
+      return timestamps;
+    }, {}),
+    createdAt,
+    updatedAt,
+  };
 }
 
 function resultState(result: LocalFollowMutationResult): LocalFollowState {
@@ -40,7 +60,7 @@ function appliedState(result: LocalFollowMutationResult): LocalFollowState {
 describe("local beach-follow state", () => {
   it("creates an empty versioned envelope", () => {
     expect(createLocalFollowState()).toEqual({
-      version: 2,
+      version: 3,
       follows: [],
       tombstones: [],
       topicTombstones: [],
@@ -67,6 +87,11 @@ describe("local beach-follow state", () => {
       {
         beachId: BEACH_A,
         topics: [FollowTopic.Surf, FollowTopic.Tide, FollowTopic.Wind],
+        topicAddedAt: {
+          [FollowTopic.Surf]: FIRST_TIME,
+          [FollowTopic.Tide]: FIRST_TIME,
+          [FollowTopic.Wind]: SECOND_TIME,
+        },
         createdAt: FIRST_TIME,
         updatedAt: SECOND_TIME,
       },
@@ -114,7 +139,7 @@ describe("local beach-follow state", () => {
     const removed = appliedState(removeFollow(state, BEACH_A, SECOND_TIME));
 
     expect(removed).toEqual({
-      version: 2,
+      version: 3,
       follows: [],
       tombstones: [{ beachId: BEACH_A, removedAt: SECOND_TIME }],
       topicTombstones: [],
@@ -166,6 +191,63 @@ describe("local beach-follow state", () => {
     }]);
   });
 
+  it("tracks each topic's own addition time across unrelated topic changes", () => {
+    const followed = appliedState(addFollow(
+      createLocalFollowState(),
+      { beachId: BEACH_A, topics: [FollowTopic.Surf] },
+      "2026-08-24T10:00:00.000Z"
+    ));
+
+    const updated = appliedState(updateFollowTopics(
+      followed,
+      BEACH_A,
+      [FollowTopic.Surf, FollowTopic.Tide],
+      "2026-08-24T15:00:00.000Z"
+    ));
+
+    expect(updated.follows[0]).toMatchObject({
+      topicAddedAt: {
+        [FollowTopic.Surf]: "2026-08-24T10:00:00.000Z",
+        [FollowTopic.Tide]: "2026-08-24T15:00:00.000Z",
+      },
+      updatedAt: "2026-08-24T15:00:00.000Z",
+    });
+  });
+
+  it("ignores a delayed remove after a newer follow", () => {
+    const followed = appliedState(addFollow(
+      createLocalFollowState(),
+      { beachId: BEACH_A, topics: [FollowTopic.Surf] },
+      "2026-08-24T14:00:00.000Z"
+    ));
+
+    expect(appliedState(removeFollow(
+      followed,
+      BEACH_A,
+      "2026-08-24T13:00:00.000Z"
+    ))).toEqual(followed);
+  });
+
+  it("ignores stale topic updates and add-follow overwrites", () => {
+    const followed = appliedState(addFollow(
+      createLocalFollowState(),
+      { beachId: BEACH_A, topics: [FollowTopic.Surf] },
+      "2026-08-24T14:00:00.000Z"
+    ));
+
+    expect(appliedState(updateFollowTopics(
+      followed,
+      BEACH_A,
+      [FollowTopic.Tide],
+      "2026-08-24T13:00:00.000Z"
+    ))).toEqual(followed);
+    expect(appliedState(addFollow(
+      followed,
+      { beachId: BEACH_A, topics: [FollowTopic.Wind] },
+      "2026-08-24T13:00:00.000Z"
+    ))).toEqual(followed);
+  });
+
   it("migrates known versions and preserves future envelopes for quarantine", () => {
     const legacyFollow = {
       beachId: BEACH_A,
@@ -175,8 +257,12 @@ describe("local beach-follow state", () => {
     };
 
     const migratedState = {
-      version: 2,
-      follows: [{ ...legacyFollow, topics: [FollowTopic.Tide] }],
+      version: 3,
+      follows: [{
+        ...legacyFollow,
+        topics: [FollowTopic.Tide],
+        topicAddedAt: { [FollowTopic.Tide]: FIRST_TIME },
+      }],
       tombstones: [],
       topicTombstones: [],
       bfrHoldoutAssignment: null,
@@ -190,8 +276,15 @@ describe("local beach-follow state", () => {
       tombstones: [],
       bfrHoldoutAssignment: null,
     }))).toEqual(migratedState);
+    expect(appliedState(normalizeLocalFollowState({
+      version: 2,
+      follows: [legacyFollow],
+      tombstones: [],
+      topicTombstones: [],
+      bfrHoldoutAssignment: null,
+    }))).toEqual(migratedState);
     const futureEnvelope = {
-      version: 3,
+      version: 4,
       follows: [legacyFollow],
       tombstones: [],
       futureField: { retained: true },
@@ -228,7 +321,10 @@ describe("local beach-follow state", () => {
       })
     );
 
-    expect(normalized.follows).toEqual([validFollow]);
+    expect(normalized.follows).toEqual([{
+      ...validFollow,
+      topicAddedAt: { [FollowTopic.Surf]: FIRST_TIME },
+    }]);
   });
 
   it("recovers from corrupt JSON and invalid shapes without throwing", () => {
@@ -250,7 +346,7 @@ describe("local beach-follow state", () => {
       tombstones: [{ beachId: BEACH_A, removedAt: SECOND_TIME }],
       bfrHoldoutAssignment: null,
     }))).toEqual({
-      version: 2,
+      version: 3,
       follows: [],
       tombstones: [{ beachId: BEACH_A, removedAt: SECOND_TIME }],
       topicTombstones: [],
@@ -268,10 +364,11 @@ describe("local beach-follow state", () => {
       tombstones: null,
       bfrHoldoutAssignment: null,
     }))).toEqual({
-      version: 2,
+      version: 3,
       follows: [{
         beachId: BEACH_B,
         topics: [FollowTopic.Surf],
+        topicAddedAt: { [FollowTopic.Surf]: SECOND_TIME },
         createdAt: FIRST_TIME,
         updatedAt: SECOND_TIME,
       }],
@@ -300,19 +397,26 @@ describe("local beach-follow state", () => {
       bfrHoldoutAssignment: null,
     }));
 
-    expect(normalized.follows).toEqual(followWins ? [follow] : []);
+    expect(normalized.follows).toEqual(followWins ? [{
+      ...follow,
+      topicAddedAt: { [FollowTopic.Tide]: updatedAt },
+    }] : []);
     expect(normalized.tombstones).toEqual(followWins ? [] : [tombstone]);
   });
 
   it("quarantines an oversized valid follow envelope without truncation", () => {
     const validFollows = Array.from(
       { length: MAX_FOLLOWED_BEACHES + 5 },
-      (_, index) => ({
-        beachId: beachIdFor(index),
-        topics: [FollowTopic.General],
-        createdAt: new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString(),
-        updatedAt: new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString(),
-      })
+      (_, index) => {
+        const timestamp = new Date(
+          Date.UTC(2026, 7, 24, 0, index)
+        ).toISOString();
+        return followedBeach(
+          beachIdFor(index),
+          [FollowTopic.General],
+          timestamp
+        );
+      }
     );
     const oversized = {
       version: 1,
@@ -327,7 +431,7 @@ describe("local beach-follow state", () => {
     const expected = {
       status: "sync_required",
       state: {
-        version: 2,
+        version: 3,
         follows: validFollows,
         tombstones: [],
         topicTombstones: [],
@@ -382,10 +486,11 @@ describe("local beach-follow state", () => {
     const state: LocalFollowState = {
       ...createLocalFollowState(),
       follows: Array.from({ length: MAX_FOLLOWED_BEACHES }, (_, index) => ({
-        beachId: beachIdFor(index),
-        topics: [FollowTopic.General],
-        createdAt: new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString(),
-        updatedAt: new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString(),
+        ...followedBeach(
+          beachIdFor(index),
+          [FollowTopic.General],
+          new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString()
+        ),
       })),
     };
 
@@ -434,7 +539,7 @@ describe("local beach-follow state", () => {
     })).toEqual({
       status: "sync_required",
       state: {
-        version: 2,
+        version: 3,
         follows: [],
         tombstones,
         topicTombstones: [],

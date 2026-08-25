@@ -8,6 +8,13 @@ const migrationSql = readFileSync(
   ),
   "utf8"
 );
+const beachFollowsMigrationSql = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260824120000_create_beach_follows.sql"
+  ),
+  "utf8"
+);
 
 const BFR_DB_EVENTS = [
   "beach_follow_started",
@@ -33,7 +40,23 @@ const BFR_DB_EVENTS = [
   "home_recommendation_changed",
 ] as const;
 
-describe("BFR analytics migration", () => {
+describe("BFR migrations", () => {
+  it("persists an exact per-topic addition-time map on beach follows", () => {
+    expect(beachFollowsMigrationSql).toContain(
+      "topic_added_at jsonb NOT NULL"
+    );
+    expect(beachFollowsMigrationSql).toContain(
+      "CONSTRAINT beach_follows_topic_added_at_matches_topics CHECK"
+    );
+    expect(beachFollowsMigrationSql).toContain(
+      "jsonb_object_length(topic_added_at) = cardinality(topics)"
+    );
+    expect(beachFollowsMigrationSql).toContain("topic_added_at ?& topics");
+    expect(beachFollowsMigrationSql).toContain(
+      "@.type() != \"string\""
+    );
+  });
+
   it("additively extends the existing check without applying destructive data changes", () => {
     expect(migrationSql).toMatch(/^BEGIN;/m);
     expect(migrationSql).toMatch(/^COMMIT;/m);
