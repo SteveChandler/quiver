@@ -20,7 +20,7 @@ const CANONICAL_UUID_PATTERN =
 const CANONICAL_WINDOW_INSTANT_PATTERN =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const RECOMMENDATION_INSTANT_PATTERN =
-  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/;
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|([+-])(\d{2}):(\d{2}))$/;
 const SLUGGED_WINDOW_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/;
 const HASHED_WINDOW_ID_PATTERN = /^[0-9a-f]{24}$/;
@@ -143,7 +143,7 @@ function recommendationInstantMillis(value: unknown): number | null {
   const hour = Number(match[4]);
   const minute = Number(match[5]);
   const second = Number(match[6]);
-  const millisecond = Number((match[7] ?? "").padEnd(3, "0"));
+  const millisecond = Number((match[7] ?? "").slice(0, 3).padEnd(3, "0"));
   const offsetHours = match[8] === "Z" ? 0 : Number(match[10]);
   const offsetMinutes = match[8] === "Z" ? 0 : Number(match[11]);
   if (

@@ -162,6 +162,7 @@ describe("exact handoff context", () => {
   it.each([
     `beach:${BEACH_ID}:2026-08-18T00:00:00Z`,
     `beach:${BEACH_ID}:2026-08-18T00:00:00.123+00:00`,
+    `beach:${BEACH_ID}:2026-08-18T00:00:00.123456+00:00`,
   ])("accepts the bounded recommendation timestamp form %s", (recommendationId) => {
     const context = JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>;
 
@@ -176,6 +177,20 @@ describe("exact handoff context", () => {
       ok: true,
       context: { priorRecommendation: { recommendationId } },
     });
+  });
+
+  it("rejects recommendation timestamps beyond microsecond precision", () => {
+    const context = JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>;
+
+    expect(parseHandoffContext({
+      ...context,
+      priorRecommendation: {
+        recommendationId:
+          `beach:${BEACH_ID}:2026-08-18T00:00:00.1234567+00:00`,
+        mode: "my-spots",
+        verdict: "go",
+      },
+    })).toEqual({ ok: false, reason: "malformed" });
   });
 
   it("keeps local envelope timestamps restricted to canonical .sssZ", () => {
