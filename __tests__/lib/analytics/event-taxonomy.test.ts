@@ -119,6 +119,15 @@ describe("event taxonomy", () => {
     }
   });
 
+  it("allows the bounded watched-call resolution event for anonymous and signed-in users", () => {
+    const event = BFR_EXACT_CALL_HANDOFF_EVENTS.resolved;
+
+    expect(VALID_EVENTS).toContain(event);
+    expect(ANONYMOUS_ALLOWED_EVENTS).toContain(event);
+    expect(PRE_AUTH_ONLY_EVENTS).not.toContain(event);
+    expect(EVENT_WEIGHTS[event]).toBe(0);
+  });
+
   it("keeps acquisition self-report authenticated-only and zero-weight", () => {
     expect(VALID_EVENTS).toContain(acquisitionSourceSelfReportedEvent);
     expect(ANONYMOUS_ALLOWED_EVENTS).not.toContain(

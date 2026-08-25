@@ -23,7 +23,7 @@ import {
 } from "@/lib/analytics/event-taxonomy";
 import { EVENT_WEIGHTS } from "@/types/implicit-preferences";
 
-const CURRENT_EVENT_SET_HASHES = {
+const PRE_F28_EVENT_SET_HASHES = {
   valid: "8467b024faec9153133f45a4ef731dd1eed06e4e3d69f9e8e448787e06e4fac0",
   anonymousAllowed:
     "557074b0e225c9c9d73bd1b356f5ef830b0c85d8a5bd8f994b451773bf36421a",
@@ -74,6 +74,7 @@ const BFR_NATIVE_EVENTS = [
   "home_mode_expired",
   "home_recommendation_changed",
 ] as const;
+const BFR_ANONYMOUS_RESOLUTION_EVENT = "watched_call_context_resolved";
 
 function sortedEventSetHash(eventTypes: readonly string[]): string {
   return createHash("sha256")
@@ -99,12 +100,18 @@ function duplicateEventTypes(eventTypes: readonly string[]): string[] {
 
 describe("events taxonomy characterization", () => {
   it("pins the current event registry sets", () => {
-    expect(sortedEventSetHash(VALID_EVENTS)).toBe(CURRENT_EVENT_SET_HASHES.valid);
-    expect(sortedEventSetHash(ANONYMOUS_ALLOWED_EVENTS)).toBe(
-      CURRENT_EVENT_SET_HASHES.anonymousAllowed
+    expect(sortedEventSetHash(
+      VALID_EVENTS.filter(eventType => eventType !== BFR_ANONYMOUS_RESOLUTION_EVENT)
+    )).toBe(PRE_F28_EVENT_SET_HASHES.valid);
+    expect(sortedEventSetHash(
+      ANONYMOUS_ALLOWED_EVENTS.filter(
+        eventType => eventType !== BFR_ANONYMOUS_RESOLUTION_EVENT
+      )
+    )).toBe(
+      PRE_F28_EVENT_SET_HASHES.anonymousAllowed
     );
     expect(sortedEventSetHash(PRE_AUTH_ONLY_EVENTS)).toBe(
-      CURRENT_EVENT_SET_HASHES.preAuthOnly
+      PRE_F28_EVENT_SET_HASHES.preAuthOnly
     );
   });
 
@@ -195,11 +202,22 @@ describe("events taxonomy characterization", () => {
     );
   });
 
-  it("keeps native BFR events direct-insert-only", () => {
-    expect(NATIVE_DIRECT_INSERT_EVENTS).toEqual(
-      expect.arrayContaining([...BFR_NATIVE_EVENTS])
+  it("keeps native BFR events direct-insert-only except anonymous resolution", () => {
+    const directOnlyEvents = BFR_NATIVE_EVENTS.filter(
+      (eventType) => eventType !== BFR_ANONYMOUS_RESOLUTION_EVENT
     );
-    expect(VALID_EVENTS).toEqual(expect.not.arrayContaining([...BFR_NATIVE_EVENTS]));
+
+    expect(NATIVE_DIRECT_INSERT_EVENTS).toEqual(
+      expect.arrayContaining(directOnlyEvents)
+    );
+    expect(NATIVE_DIRECT_INSERT_EVENTS).not.toContain(
+      BFR_ANONYMOUS_RESOLUTION_EVENT
+    );
+    expect(VALID_EVENTS).toContain(BFR_ANONYMOUS_RESOLUTION_EVENT);
+    expect(ANONYMOUS_ALLOWED_EVENTS).toContain(
+      BFR_ANONYMOUS_RESOLUTION_EVENT
+    );
+    expect(VALID_EVENTS).toEqual(expect.not.arrayContaining(directOnlyEvents));
   });
 
   it("keeps historical session events registered under their existing names", () => {

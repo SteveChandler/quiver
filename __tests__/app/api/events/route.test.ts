@@ -1256,6 +1256,279 @@ describe('POST /api/events', () => {
       );
     });
 
+    it('rejects unsafe metadata for an anonymous BFR event', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'beach_follow_saved_local',
+          sessionId: '22345678-1234-4234-8234-123456789012',
+          metadata: {
+            email: 'surfer@example.com',
+            lat: 32.1,
+            handoff_token: 'secret',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(400);
+      expect(mockServiceInsert).not.toHaveBeenCalled();
+    });
+
+    it('accepts and stores a valid event-specific BFR enum payload', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'beach_follow_saved_local',
+          sessionId: '32345678-1234-4234-8234-123456789012',
+          metadata: {
+            audience_class: 'general_utility',
+            page_type: 'beach_detail',
+            experiment_key: 'bfr-follow-holdout-v1',
+            experiment_arm: 'treatment',
+            topic: 'surf',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'beach_follow_saved_local',
+        metadata: expect.objectContaining({
+          audience_class: 'general_utility',
+          page_type: 'beach_detail',
+          experiment_key: 'bfr-follow-holdout-v1',
+          experiment_arm: 'treatment',
+          topic: 'surf',
+        }),
+      }));
+    });
+
+    it('rejects unreviewed exact-call receipt metadata', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'app_handoff_native_open',
+          sessionId: '42345678-1234-4234-8234-123456789012',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            source: 'exact_call',
+            surface: 'beach_detail',
+            placement: 'exact_call',
+            handoff_context: 'exact_call',
+            email: 'surfer@example.com',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(400);
+      expect(mockServiceInsert).not.toHaveBeenCalled();
+    });
+
+    it('accepts the bounded native exact-call receipt shape', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'app_handoff_native_open',
+          sessionId: '62345678-1234-4234-8234-123456789012',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            source: 'exact_call',
+            surface: 'beach_detail',
+            placement: 'exact_call',
+            handoff_context: 'exact_call',
+            _platform: 'native-ios',
+            app_version: '1.0.2',
+            expo_update_id: null,
+            expo_channel: 'production',
+            expo_runtime_version: '1.0.2',
+            expo_is_embedded_launch: true,
+            expo_is_emergency_launch: false,
+            is_emulator: false,
+            launch_primer_session_id:
+              '62345678-1234-4234-8234-123456789012',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'app_handoff_native_open',
+        metadata: expect.objectContaining({
+          handoff_id: '33333333-3333-4333-8333-333333333333',
+          handoff_context: 'exact_call',
+        }),
+      }));
+    });
+
+    it('accepts the bounded web exact-call start shape', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'app_handoff_link_opened',
+          sessionId: '82345678-1234-4234-8234-123456789012',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            source: 'exact_call',
+            surface: 'beach_detail',
+            handoff_context: 'exact_call',
+            fallback_classification: 'exact',
+            cta_family: 'app_handoff',
+            page_type: 'other',
+            query_intent: 'other',
+            seo_landing_page: false,
+            viewport_width: 390,
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'app_handoff_link_opened',
+        metadata: expect.objectContaining({
+          handoff_id: '33333333-3333-4333-8333-333333333333',
+          fallback_classification: 'exact',
+        }),
+      }));
+    });
+
+    it('accepts a valid anonymous watched-call resolution payload', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'watched_call_context_resolved',
+          sessionId: '52345678-1234-4234-8234-123456789012',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            fallback_classification: 'beach_only',
+            reason: 'expired',
+            source: 'launch-primer',
+            _platform: 'native-ios',
+            app_version: '1.0.2',
+            expo_update_id: null,
+            expo_channel: 'production',
+            expo_runtime_version: '1.0.2',
+            expo_is_embedded_launch: true,
+            expo_is_emergency_launch: false,
+            is_emulator: false,
+            launch_primer_session_id:
+              '52345678-1234-4234-8234-123456789012',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'watched_call_context_resolved',
+        metadata: expect.objectContaining({
+          handoff_id: '33333333-3333-4333-8333-333333333333',
+          fallback_classification: 'beach_only',
+          reason: 'expired',
+        }),
+      }));
+    });
+
+    it('rejects an impossible watched-call classification and reason pair', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'watched_call_context_resolved',
+          sessionId: '72345678-1234-4234-8234-123456789012',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            fallback_classification: 'exact',
+            reason: 'expired',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(400);
+      expect(mockServiceInsert).not.toHaveBeenCalled();
+    });
+
     it('accepts anonymous cam share events with visitor context', async () => {
       mockSupabase.auth.getUser.mockResolvedValue({
         data: { user: null },

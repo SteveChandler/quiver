@@ -19,6 +19,8 @@ import {
 } from '@/lib/middleware/api-wrappers';
 import {
   ANONYMOUS_ALLOWED_EVENTS,
+  buildBfrApiEventMetadata,
+  isBfrApiEventMetadata,
   PRE_AUTH_ONLY_EVENTS,
   VALID_EVENTS,
 } from '@/lib/analytics/event-taxonomy';
@@ -195,14 +197,25 @@ export const POST = withAuth(
     return createSuccessResponse({ ok: true, status: 'bot_filtered' });
   }
 
+  const { eventType, beachId } = body;
+  let eventMetadata = body.metadata;
+  if (isBfrApiEventMetadata(eventType, eventMetadata)) {
+    const validatedMetadata = buildBfrApiEventMetadata(
+      eventType,
+      eventMetadata,
+    );
+    if (!validatedMetadata) {
+      return createErrorResponse('Invalid BFR event metadata', undefined, 400);
+    }
+    eventMetadata = validatedMetadata as TrackEventRequest['metadata'];
+  }
+
   // 3. Device enrichment
   const enrichedMetadata = {
-    ...(body.metadata || {}),
+    ...(eventMetadata || {}),
     _device: parseUserAgent(ua),
     ...(body.viewportWidth ? { _viewport_width: body.viewportWidth } : {}),
   };
-
-  const { eventType, beachId } = body;
 
   // 4. Authenticated flow (user resolved by withAuth from cookie OR Bearer)
   if (user) {

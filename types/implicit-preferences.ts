@@ -285,6 +285,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   app_handoff_email_failed: 0,
   app_handoff_link_opened: 0,
   app_handoff_native_open: 0,
+  watched_call_context_resolved: 0,
   android_lead_captured: 0,
   beach_follow_started: 0,
   beach_follow_saved_local: 0,
