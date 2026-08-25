@@ -64,9 +64,9 @@ Phase 21 remains sequenced after Phase 20.1, but it is not a clean untouched fut
   - `20.1-TECH-DEBT-CLEANUP-SLICES.md`;
   - `20.1-TD-PLAN.md`;
   - `20.1-MOCKS.md`.
-- Locate and freeze `claude/tech-debt-audit-codex-973g1t` before finalizing native ownership, deep-link, analytics, Home, Week Scout, favorites, refresh, or watched-call contracts.
-- Verify TD-01 through TD-05 against current `quiver-native/main`; every slice must be `land`, `superseded/no-op`, or `blocked` before overlapping implementation.
-- Execute landed cleanup slices as isolated commits/PRs with reference scans, focused tests, typecheck, and `git revert` rollback.
+- ~~Locate and freeze `claude/tech-debt-audit-codex-973g1t` before finalizing native ownership, deep-link, analytics, Home, Week Scout, favorites, refresh, or watched-call contracts.~~ **DONE in 20.1-01** — see `20.1-01-SUMMARY.md`.
+- ~~Verify TD-01 through TD-05 against current `quiver-native/main`; every slice must be `land`, `superseded/no-op`, or `blocked` before overlapping implementation.~~ **DONE** — dispositions recorded in `20.1-REUSE-AUDIT.md`.
+- ~~Execute landed cleanup slices as isolated commits/PRs with reference scans, focused tests, typecheck, and `git revert` rollback.~~ **DONE** — the cleanup train is merged to `quiver-native/main`; see `docs/tech-debt/phase-20-1-cleanup-summary.md`. TD-03 remains deferred (no reserved simulator lane).
 - Treat Home quick log, one-tap rating, session prefill, reminders, and full SessionForm as baseline/non-regression behavior, not a Phase 20.1 product surface or primary metric.
 - Preserve Phase 20 exact app-link, attribution, baseline, and QA foundations.
 - Preserve or explicitly retire unique branch/worktree work before touching overlapping files; merge state is not release truth.
