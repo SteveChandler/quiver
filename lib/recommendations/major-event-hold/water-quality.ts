@@ -175,6 +175,18 @@ interface CountyLiveHoldResolution {
   snapshot: string[];
 }
 
+function emptyCountyResolution(
+  state: CountyLiveHoldResolution["state"],
+  snapshot: string,
+): CountyLiveHoldResolution {
+  return {
+    state,
+    heldBeachIds: [],
+    waterQualityStatusByBeachId: {},
+    snapshot: [snapshot],
+  };
+}
+
 function moreSevereWaterQualityStatus(
   left: WaterQualityHoldStatus | undefined,
   right: WaterQualityHoldStatus,
@@ -183,12 +195,6 @@ function moreSevereWaterQualityStatus(
   // County closure can never be softened to an advisory by another source.
   if (left === "closure" || right === "closure") return "closure";
   return "advisory";
-}
-
-function countyAdvisoryToHoldStatus(
-  advisoryType: string,
-): WaterQualityHoldStatus {
-  return advisoryType === "closure" ? "closure" : "advisory";
 }
 
 async function resolveCountyLiveHolds(
@@ -200,12 +206,7 @@ async function resolveCountyLiveHolds(
     .from("county_beach_advisory_runs")
     .select("id, fetched_at, status, source_identifier");
   if (!supportsCountyRunQuery(runQuery)) {
-    return {
-      state: "resolved",
-      heldBeachIds: [],
-      waterQualityStatusByBeachId: {},
-      snapshot: ["county-live:client-unavailable"],
-    };
+    return emptyCountyResolution("resolved", "county-live:client-unavailable");
   }
   const { data: runData, error: runError } = await runQuery
     .eq("source_identifier", COUNTY_FEED_SOURCE_IDENTIFIER)
@@ -213,20 +214,10 @@ async function resolveCountyLiveHolds(
     .order("fetched_at", { ascending: false })
     .limit(1);
   if (runError !== null && runError !== undefined) {
-    return {
-      state: "unresolved",
-      heldBeachIds: [],
-      waterQualityStatusByBeachId: {},
-      snapshot: ["county-live:run-query-error"],
-    };
+    return emptyCountyResolution("unresolved", "county-live:run-query-error");
   }
   if (!Array.isArray(runData) || runData.length !== 1) {
-    return {
-      state: "unresolved",
-      heldBeachIds: [],
-      waterQualityStatusByBeachId: {},
-      snapshot: ["county-live:no-completed-run"],
-    };
+    return emptyCountyResolution("unresolved", "county-live:no-completed-run");
   }
 
   const run = runData[0];
@@ -236,12 +227,7 @@ async function resolveCountyLiveHolds(
     typeof (run as { id?: unknown }).id !== "string" ||
     typeof (run as { fetched_at?: unknown }).fetched_at !== "string"
   ) {
-    return {
-      state: "unresolved",
-      heldBeachIds: [],
-      waterQualityStatusByBeachId: {},
-      snapshot: ["county-live:invalid-run"],
-    };
+    return emptyCountyResolution("unresolved", "county-live:invalid-run");
   }
   const fetchedAtMs = Date.parse((run as { fetched_at: string }).fetched_at);
   if (
@@ -249,44 +235,30 @@ async function resolveCountyLiveHolds(
     fetchedAtMs > now.getTime() + COUNTY_MAX_FUTURE_SKEW_MS ||
     now.getTime() - fetchedAtMs >= COUNTY_MAX_STALENESS_MS
   ) {
-    return {
-      state: "unresolved",
-      heldBeachIds: [],
-      waterQualityStatusByBeachId: {},
-      snapshot: ["county-live:stale"],
-    };
+    return emptyCountyResolution("unresolved", "county-live:stale");
   }
 
   const advisoryQuery = client
     .from("county_beach_advisories")
     .select("beach_id, advisory_type, source_site_identifier") as WaterQualityQuery;
   if (!supportsCountyAdvisoryQuery(advisoryQuery)) {
-    return {
-      state: "resolved",
-      heldBeachIds: [],
-      waterQualityStatusByBeachId: {},
-      snapshot: ["county-live:client-unavailable"],
-    };
+    return emptyCountyResolution("resolved", "county-live:client-unavailable");
   }
   const { data: advisoryData, error: advisoryError } = await advisoryQuery.eq(
     "run_id",
     (run as { id: string }).id,
   );
   if (advisoryError !== null && advisoryError !== undefined) {
-    return {
-      state: "unresolved",
-      heldBeachIds: [],
-      waterQualityStatusByBeachId: {},
-      snapshot: ["county-live:advisory-query-error"],
-    };
+    return emptyCountyResolution(
+      "unresolved",
+      "county-live:advisory-query-error",
+    );
   }
   if (!Array.isArray(advisoryData)) {
-    return {
-      state: "unresolved",
-      heldBeachIds: [],
-      waterQualityStatusByBeachId: {},
-      snapshot: ["county-live:invalid-advisory-list"],
-    };
+    return emptyCountyResolution(
+      "unresolved",
+      "county-live:invalid-advisory-list",
+    );
   }
 
   const requested = new Set(requestedBeachIds);
@@ -297,12 +269,10 @@ async function resolveCountyLiveHolds(
   > = {};
   for (const row of advisoryData) {
     if (typeof row !== "object" || row === null) {
-      return {
-        state: "unresolved",
-        heldBeachIds: [],
-        waterQualityStatusByBeachId: {},
-        snapshot: ["county-live:invalid-advisory-row"],
-      };
+      return emptyCountyResolution(
+        "unresolved",
+        "county-live:invalid-advisory-row",
+      );
     }
     const value = row as {
       beach_id?: unknown;
@@ -315,12 +285,10 @@ async function resolveCountyLiveHolds(
       !(COUNTY_ADVISORY_TYPES as readonly string[]).includes(value.advisory_type) ||
       typeof value.source_site_identifier !== "string"
     ) {
-      return {
-        state: "unresolved",
-        heldBeachIds: [],
-        waterQualityStatusByBeachId: {},
-        snapshot: ["county-live:invalid-advisory-row"],
-      };
+      return emptyCountyResolution(
+        "unresolved",
+        "county-live:invalid-advisory-row",
+      );
     }
     if (typeof value.beach_id === "string") {
       const normalizedBeachId = value.beach_id.toLowerCase();
@@ -329,7 +297,7 @@ async function resolveCountyLiveHolds(
         waterQualityStatusByBeachId[normalizedBeachId] =
           moreSevereWaterQualityStatus(
             waterQualityStatusByBeachId[normalizedBeachId],
-            countyAdvisoryToHoldStatus(value.advisory_type),
+            value.advisory_type === "closure" ? "closure" : "advisory",
           );
       }
     }

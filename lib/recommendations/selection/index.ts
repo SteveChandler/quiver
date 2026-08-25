@@ -142,15 +142,7 @@ async function resolveSafeBeachIds<T extends { id: string }>(
       });
       return new Set();
     }
-    // Observing the resolution must never affect which beaches are ranked.
-    try {
-      options?.onWaterQualityResolution?.(resolution);
-    } catch (error) {
-      log.warn("Water-quality resolution observer failed; ranking unchanged", {
-        candidateCount: candidates.length,
-        error: describeError(error),
-      });
-    }
+    options?.onWaterQualityResolution?.(resolution);
     return heldBeachIds;
   } catch (error) {
     warnProbeFailed("resolver_threw", {

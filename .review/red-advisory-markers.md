@@ -140,3 +140,85 @@ environment warning.
 No E2E test was added or changed: the behavior is isolated resolver/API/DOM
 logic covered by unit tests. No production deployment, migration, promotion, or
 PR action was performed.
+
+## Closure label fix and single-field pass
+
+### Bug and fix
+
+`getConditionMarkerCall()` received only a boolean hold flag, so every held
+marker and preview call was labelled `Water quality advisory`, even when the
+resolver knew the beach was closed. The map path now preserves the hold kind
+through the bootstrap payload, preload marker, interactive marker, preview,
+conditions callout, and accessible names.
+
+The pinned labels are:
+
+- `closure` -> `Water quality closure`
+- `advisory` -> `Water quality advisory`
+- `held` -> `Water quality hold`
+
+The new closure regression was run before the implementation and failed with
+expected `Water quality closure`, received `Water quality advisory`. It passes
+after the fix and also pins the closure callout copy.
+
+### Final field shape and copy
+
+`MapBeach` is now exported by `lib/services/nearby-beach-service.ts` and has one
+nullable field:
+
+```ts
+waterQualityHold: "advisory" | "closure" | "held" | null
+```
+
+`null` means not held. `advisory` and `closure` retain the known county/sample
+kind. `held` means an owner-directed hold with no known sampled/county kind.
+There is no compatibility field or second status field.
+
+The unknown-kind callout copy is **`Water quality hold`**. It states the hold
+plainly and contains no county attribution. Its visible text and accessible name
+match. Closure and advisory retain their county copy. The existing badge colours,
+border, and text remain `#2E2A26`, `#F2A24C`, and `#FFF7E8`, preserving the
+previously verified 6.81:1 border and 13.37:1 text contrast.
+
+### Complexity cuts
+
+Line savings are source LOC against `991ce8966` before this pass:
+
+- Single map field plus `MapBeach` relocation: **1 line saved** at the
+  producer/type boundary (2 saved by deleting/relocating the type, 1 added by
+  the explicit `held` fallback); the serialized response loses one property per
+  beach.
+- Direct `onWaterQualityResolution` observer call: **8 lines saved**.
+- Inlined `countyAdvisoryToHoldStatus`: **6 lines saved**.
+- Shared `(state, snapshot)` empty county-resolution helper across 10 returns:
+  **26 lines saved**.
+- Shared marker return after computing the label: **6 lines saved**.
+- Hold gradient calls no longer pass an ignored summary: **1 line saved**.
+- Shared conditions-callout pill base styling: **11 lines saved** while retaining
+  each pill's size, interaction, colour, border, text, and top offset.
+
+Across all production files in this pass, the requested cuts and single-field
+threading are net **37 lines removed**. Updated and new regression coverage adds
+42 test lines net.
+
+### Commands and results for this pass
+
+- PASS — baseline `git diff --shortstat origin/main...HEAD`: 638 insertions, 30
+  deletions, net **+608** lines.
+- FAIL (expected red) — `DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS="--require dotenv/config" yarn test:unit --runInBand __tests__/components/map/conditions-callout.test.ts` — 1 suite failed; 1 test failed, 11 passed. The closure marker call returned advisory.
+- PASS (green) — `DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS="--require dotenv/config" yarn test:unit --runInBand __tests__/components/map/conditions-callout.test.ts` — 1 suite, 12 tests.
+- PASS — `DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS="--require dotenv/config" yarn test:unit --runInBand __tests__/app/api/map/bootstrap.test.ts __tests__/lib/nearby-beach-service.test.ts __tests__/components/map/map-condition-summary.test.ts __tests__/components/map/map-marker-preview-popup.test.ts` — 4 suites, 24 tests.
+- PASS — final `DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS="--require dotenv/config" yarn test:unit --runInBand __tests__/lib/recommendations/major-event-hold/water-quality.test.ts __tests__/lib/recommendations/major-event-hold/service.test.ts __tests__/lib/recommendations/selection.test.ts __tests__/lib/nearby-beach-service.test.ts __tests__/app/api/map/bootstrap.test.ts __tests__/components/map/conditions-callout.test.ts __tests__/components/map/map-condition-summary.test.ts __tests__/components/map/map-marker-preview-popup.test.ts __tests__/components/map/interactive-map.test.tsx __tests__/lib/utils/forecast-hub-utils.test.ts __tests__/api/coach-picks.radius.test.ts` — 11 suites, 136 tests.
+- PASS — final `yarn typecheck` — TypeScript completed with no errors.
+- PASS — final `yarn lint` — ESLint completed with zero warnings/errors.
+- PASS — `git diff --check` — no whitespace errors.
+- PASS — final `git diff --shortstat origin/main...HEAD`: 796 insertions, 101
+  deletions, net **+695** lines.
+
+Expected failure-path logging remained in the focused suites: the mocked bulk
+forecast 500, forecast-hub fetch errors, missing-table/query-error water-quality
+logs, bounded-fallback warning, and unset `NEXT_PUBLIC_SITE_URL` warning.
+
+No E2E test was added, changed, or run. No production build was run because the
+requested validation was typecheck, lint, and focused unit coverage. No deploy,
+promotion, migration, or PR action was performed.
