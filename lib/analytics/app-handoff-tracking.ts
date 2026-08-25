@@ -45,6 +45,9 @@ export interface AppHandoffMetadata {
   [key: string]: unknown;
 }
 
+type LegacyAppHandoffMetadata<Metadata extends AppHandoffMetadata> =
+  Metadata & { source: Exclude<Metadata["source"], "exact_call"> };
+
 type ExactCallHandoffBaseMetadata = {
   handoff_id: string;
   source: "exact_call";
@@ -175,6 +178,8 @@ function emitExactCall(metadata: ExactCallHandoffMetadata): void {
 }
 
 function emit(eventType: AppHandoffEvent, metadata: AppHandoffMetadata): void {
+  if (metadata.source === "exact_call") return;
+
   let enriched: AppHandoffMetadata;
   try {
     enriched = enrich({
@@ -193,39 +198,40 @@ function emit(eventType: AppHandoffEvent, metadata: AppHandoffMetadata): void {
   fireToUserEvents(eventType, enriched);
 }
 
-export const trackAppHandoffView = (metadata: AppHandoffMetadata): void =>
-  emit(APP_HANDOFF_VIEW_EVENT, metadata);
+export const trackAppHandoffView = <const Metadata extends AppHandoffMetadata>(
+  metadata: LegacyAppHandoffMetadata<Metadata>,
+): void => emit(APP_HANDOFF_VIEW_EVENT, metadata);
 
-export const trackAppHandoffQrRendered = (
-  metadata: AppHandoffMetadata,
+export const trackAppHandoffQrRendered = <const Metadata extends AppHandoffMetadata>(
+  metadata: LegacyAppHandoffMetadata<Metadata>,
 ): void => emit(APP_HANDOFF_QR_RENDERED_EVENT, { handoff_channel: "qr", ...metadata });
 
-export const trackAppHandoffEmailSubmit = (
-  metadata: AppHandoffMetadata,
+export const trackAppHandoffEmailSubmit = <const Metadata extends AppHandoffMetadata>(
+  metadata: LegacyAppHandoffMetadata<Metadata>,
 ): void =>
   emit(APP_HANDOFF_EMAIL_SUBMIT_EVENT, {
     handoff_channel: "email",
     ...metadata,
   });
 
-export const trackAppHandoffEmailSent = (
-  metadata: AppHandoffMetadata,
+export const trackAppHandoffEmailSent = <const Metadata extends AppHandoffMetadata>(
+  metadata: LegacyAppHandoffMetadata<Metadata>,
 ): void =>
   emit(APP_HANDOFF_EMAIL_SENT_EVENT, {
     handoff_channel: "email",
     ...metadata,
   });
 
-export const trackAppHandoffEmailFailed = (
-  metadata: AppHandoffMetadata,
+export const trackAppHandoffEmailFailed = <const Metadata extends AppHandoffMetadata>(
+  metadata: LegacyAppHandoffMetadata<Metadata>,
 ): void =>
   emit(APP_HANDOFF_EMAIL_FAILED_EVENT, {
     handoff_channel: "email",
     ...metadata,
   });
 
-export const trackAppHandoffLinkOpened = (
-  metadata: AppHandoffMetadata,
+export const trackAppHandoffLinkOpened = <const Metadata extends AppHandoffMetadata>(
+  metadata: LegacyAppHandoffMetadata<Metadata>,
 ): void => emit(APP_HANDOFF_LINK_OPENED_EVENT, metadata);
 
 export const trackExactCallHandoffLinkOpened = (

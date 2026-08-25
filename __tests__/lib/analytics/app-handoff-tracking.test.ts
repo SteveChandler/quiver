@@ -1,8 +1,10 @@
 import {
   APP_HANDOFF_LINK_OPENED_EVENT,
   APP_HANDOFF_VIEW_EVENT,
+  type AppHandoffMetadata,
   type ExactCallHandoffMetadata,
   trackAppHandoffEmailSubmit,
+  trackAppHandoffLinkOpened,
   trackAppHandoffView,
   trackExactCallHandoffLinkOpened,
 } from "@/lib/analytics/app-handoff-tracking";
@@ -63,6 +65,35 @@ describe("app-handoff-tracking", () => {
     );
     expect(JSON.stringify(body)).not.toContain("@");
     expect(body.metadata.email_domain).toBe("gmail.com");
+  });
+
+  it("rejects source-only exact-call metadata before either legacy sink", () => {
+    trackAppHandoffLinkOpened({
+      source: "exact_call",
+      email: "surfer@example.com",
+      lat: 32.1,
+      handoff_token: "secret",
+    } as unknown as AppHandoffMetadata);
+
+    expect(track).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps legitimate legacy link-open sources unchanged", () => {
+    trackAppHandoffLinkOpened({
+      source: "landing_hero",
+      surface: "landing-page",
+      placement: "hero_primary",
+    });
+
+    expect(track).toHaveBeenCalledWith(
+      APP_HANDOFF_LINK_OPENED_EVENT,
+      expect.objectContaining({ source: "landing_hero" }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/events",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 
   it("cannot throw into exact-link actions when either analytics sink fails", () => {
@@ -202,6 +233,9 @@ describe("app-handoff-tracking", () => {
     expect(impossiblePair.fallback_classification).toBe("exact");
 
     if (false) {
+      // @ts-expect-error exact-call sources must use the dedicated emitter
+      trackAppHandoffLinkOpened({ source: "exact_call" });
+
       trackAppHandoffView({
         source: "exact_call",
         // @ts-expect-error exact-call fields cannot use the open legacy emitter

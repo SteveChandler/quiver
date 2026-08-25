@@ -1,5 +1,6 @@
 import {
   type FollowedBeach,
+  type LocalFollowMutationResult,
   type MergeInput,
   type MergeResult,
 } from "@/types/beach-follow";
@@ -33,6 +34,44 @@ function unionRows(server: FollowedBeach, anon: FollowedBeach): FollowedBeach {
         ? server.updatedAt
         : anon.updatedAt,
   };
+}
+
+function serverConfirmsFollow(
+  server: FollowedBeach,
+  local: FollowedBeach
+): boolean {
+  return rowsMatch(server, unionRows(server, local));
+}
+
+export interface AcknowledgeBeachFollowMergeInput {
+  residualLocalState: unknown;
+  postWriteServerRows: readonly FollowedBeach[];
+}
+
+export function acknowledgeBeachFollowMerge(
+  input: AcknowledgeBeachFollowMergeInput
+): LocalFollowMutationResult {
+  const normalization = normalizeLocalFollowState(input.residualLocalState);
+  if (normalization.status === "unsupported_version") return normalization;
+
+  const serverRows = dedupeFollowedBeaches(input.postWriteServerRows);
+  const serverByBeachId = new Map(serverRows.map((row) => [row.beachId, row]));
+  const follows = normalization.state.follows.filter((localRow) => {
+    const serverRow = serverByBeachId.get(localRow.beachId);
+    return !serverRow || !serverConfirmsFollow(serverRow, localRow);
+  });
+  const tombstones = normalization.state.tombstones.filter((tombstone) =>
+    serverByBeachId.has(tombstone.beachId)
+  );
+  const state = {
+    ...normalization.state,
+    follows,
+    tombstones,
+  };
+
+  return follows.length === 0 && tombstones.length === 0
+    ? { status: "applied", state }
+    : { status: "sync_required", state };
 }
 
 export function mergeBeachFollows(input: MergeInput): MergeResult {

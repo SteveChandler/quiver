@@ -1,4 +1,7 @@
-import { mergeBeachFollows } from "@/lib/beach-follow/merge";
+import {
+  acknowledgeBeachFollowMerge,
+  mergeBeachFollows,
+} from "@/lib/beach-follow/merge";
 import { bfrHoldoutAssignment } from "@/lib/experiments/bfr-holdout";
 import {
   MAX_FOLLOWED_BEACHES,
@@ -283,7 +286,67 @@ describe("anonymous beach-follow merge", () => {
     });
   });
 
-  it("plans all 55 oversized follows without clearing them before acknowledgement", () => {
+  it("acknowledges all 55 persisted follows and resumes local mutations", () => {
+    const follows = Array.from(
+      { length: MAX_FOLLOWED_BEACHES + 5 },
+      (_, index) => ({
+        beachId: beachIdFor("anon", index),
+        topics: [FollowTopic.General],
+        createdAt: FIRST_TIME,
+        updatedAt: SECOND_TIME,
+      })
+    );
+    const assignment = bfrHoldoutAssignment("anon-visitor-123", FIRST_TIME);
+    const anonState: LocalFollowState = {
+      version: 1,
+      follows,
+      tombstones: [],
+      bfrHoldoutAssignment: assignment,
+    };
+
+    const result = mergeBeachFollows({ anonState, serverRows: [] });
+
+    expect(result.status).toBe("sync_required");
+    expect(result.rowsToInsert).toEqual(follows);
+    expect(result.rowsToDelete).toEqual([]);
+    expect(result.accountState.follows).toEqual(follows);
+    expect(result.residualLocalState).toEqual(anonState);
+    expect(result.clearedTombstones).toEqual([]);
+
+    const acknowledged = acknowledgeBeachFollowMerge({
+      residualLocalState: result.residualLocalState,
+      postWriteServerRows: result.accountState.follows,
+    });
+
+    expect(acknowledged).toEqual({
+      status: "applied",
+      state: {
+        version: 1,
+        follows: [],
+        tombstones: [],
+        bfrHoldoutAssignment: assignment,
+      },
+    });
+    if (acknowledged.status !== "applied") {
+      throw new Error("Expected the acknowledged state to converge");
+    }
+
+    const resumed = addFollow(
+      acknowledged.state,
+      {
+        beachId: beachIdFor("anon", MAX_FOLLOWED_BEACHES + 5),
+        topics: [FollowTopic.Surf],
+      },
+      SECOND_TIME
+    );
+    expect(resumed.status).toBe("applied");
+    if (!("state" in resumed)) {
+      throw new Error("Expected a supported local follow state");
+    }
+    expect(resumed.state.follows).toHaveLength(1);
+  });
+
+  it("keeps only unconfirmed oversized follows locked", () => {
     const follows = Array.from(
       { length: MAX_FOLLOWED_BEACHES + 5 },
       (_, index) => ({
@@ -299,21 +362,69 @@ describe("anonymous beach-follow merge", () => {
       tombstones: [],
       bfrHoldoutAssignment: null,
     };
-
     const result = mergeBeachFollows({ anonState, serverRows: [] });
 
-    expect(result.status).toBe("sync_required");
-    expect(result.rowsToInsert).toEqual(follows);
-    expect(result.rowsToDelete).toEqual([]);
-    expect(result.accountState.follows).toEqual(follows);
-    expect(result.residualLocalState).toEqual(anonState);
-    expect(result.clearedTombstones).toEqual([]);
-
-    const retry = mergeBeachFollows({
-      anonState: result.residualLocalState,
-      serverRows: [],
+    const partial = acknowledgeBeachFollowMerge({
+      residualLocalState: result.residualLocalState,
+      postWriteServerRows: result.accountState.follows.slice(0, -1),
     });
-    expect(retry.rowsToInsert).toEqual(follows);
-    expect(retry.residualLocalState).toEqual(anonState);
+
+    expect(partial).toEqual({
+      status: "sync_required",
+      state: {
+        version: 1,
+        follows: [follows[follows.length - 1]],
+        tombstones: [],
+        bfrHoldoutAssignment: null,
+      },
+    });
+  });
+
+  it("does not clear oversized follows without server confirmation", () => {
+    const follows = Array.from(
+      { length: MAX_FOLLOWED_BEACHES + 5 },
+      (_, index) => ({
+        beachId: beachIdFor("anon", index),
+        topics: [FollowTopic.General],
+        createdAt: FIRST_TIME,
+        updatedAt: SECOND_TIME,
+      })
+    );
+    const anonState: LocalFollowState = {
+      version: 1,
+      follows,
+      tombstones: [],
+      bfrHoldoutAssignment: null,
+    };
+    const result = mergeBeachFollows({ anonState, serverRows: [] });
+
+    expect(acknowledgeBeachFollowMerge({
+      residualLocalState: result.residualLocalState,
+      postWriteServerRows: [],
+    })).toEqual({ status: "sync_required", state: anonState });
+  });
+
+  it("acknowledges only tombstones absent from the post-write snapshot", () => {
+    const retainedServerRow = serverFollow(BEACH_A, [FollowTopic.Surf]);
+    const anonState: LocalFollowState = {
+      version: 1,
+      follows: [],
+      tombstones: [
+        { beachId: BEACH_A, removedAt: SECOND_TIME },
+        { beachId: BEACH_B, removedAt: SECOND_TIME },
+      ],
+      bfrHoldoutAssignment: null,
+    };
+
+    expect(acknowledgeBeachFollowMerge({
+      residualLocalState: anonState,
+      postWriteServerRows: [retainedServerRow],
+    })).toEqual({
+      status: "sync_required",
+      state: {
+        ...anonState,
+        tombstones: [{ beachId: BEACH_A, removedAt: SECOND_TIME }],
+      },
+    });
   });
 });
