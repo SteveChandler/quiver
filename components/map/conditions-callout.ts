@@ -25,6 +25,9 @@ const BANNER_LEN = 190; // local x of the arrowhead tip
 const BODY_END = 165; // local x where the taper begins
 const GAP = 42; // px the arrowhead sits out from the beach center (breathing room around the label)
 const MIN_ARROW_SEP_DEG = 36; // fan clustered same-bearing arrows apart so they don't stack
+const CENTER_NAME_BASELINE_Y = CY - 6;
+const CENTER_NAME_FONT_SIZE = 20;
+const WATER_QUALITY_BADGE_HEIGHT = 26;
 
 /** Full callout width in viewBox px (arrow span) — used to scale it to the viewport. */
 export const CALLOUT_FULL_WIDTH = 2 * (BANNER_LEN + GAP);
@@ -39,7 +42,7 @@ function pillCssText(top: number, interactive = false): string {
     "white-space:nowrap",
     "display:inline-flex",
     "align-items:center",
-    `min-height:${interactive ? 36 : 26}px`,
+    `min-height:${interactive ? 36 : WATER_QUALITY_BADGE_HEIGHT}px`,
     `padding:${interactive ? "6px 14px" : "4px 10px"}`,
     "border-radius:9999px",
     "background:#2E2A26",
@@ -179,7 +182,7 @@ export function createConditionsCalloutElement(
     "paint-order": "stroke",
     "stroke-linejoin": "round",
   } as const;
-  const name = svgEl("text", { ...haloText, x: String(CX), y: String(CY - 6), "font-size": "20", "font-weight": "800", "stroke-width": "3.5" });
+  const name = svgEl("text", { ...haloText, x: String(CX), y: String(CENTER_NAME_BASELINE_Y), "font-size": String(CENTER_NAME_FONT_SIZE), "font-weight": "800", "stroke-width": "3.5" });
   name.setAttribute("data-callout-name", "true");
   name.textContent = opts.beachName;
   svg.appendChild(name);
@@ -235,10 +238,14 @@ export function createConditionsCalloutElement(
     statusBadge.setAttribute("role", "status");
     statusBadge.setAttribute("aria-label", statusCopy);
     statusBadge.textContent = statusCopy;
+    // Center the fixed-height badge halfway from CY to the ring's top
+    // (CY - RING_R / 2), then subtract its unscaled half-height. This is 152px
+    // at scale 1; at the 0.55 floor its 103.75px bottom clears the name's
+    // 117.7px top, while its 77.75px top remains inside the 264px render.
+    const statusBadgeTop =
+      (CY - RING_R / 2) * scale - WATER_QUALITY_BADGE_HEIGHT / 2;
     statusBadge.style.cssText = [
-      // The map's 0.55 scale floor leaves a 7px gap above the forecast link;
-      // the opaque badge also keeps any radial arrow beneath it from crossing the copy.
-      pillCssText((CY + 62) * scale),
+      pillCssText(statusBadgeTop),
       "box-sizing:border-box",
       "border:1px solid #F2A24C",
       "color:#FFF7E8",
