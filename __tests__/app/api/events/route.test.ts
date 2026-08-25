@@ -1358,7 +1358,7 @@ describe('POST /api/events', () => {
         app_version: '1.2.3+45',
         expo_update_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
         expo_channel: 'production',
-        expo_runtime_version: '1.2.3',
+        expo_runtime_version: '0123456789abcdef0123456789abcdef01234567',
         expo_is_embedded_launch: true,
         expo_is_emergency_launch: false,
         is_emulator: false,
@@ -1517,6 +1517,100 @@ describe('POST /api/events', () => {
       expect(failures).toEqual([]);
     });
 
+    it('rejects secret-token in every exact-call channel and runtime slot', async () => {
+      const mockInsert = jest.fn().mockResolvedValue({ error: null });
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === 'profiles') {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                single: jest.fn().mockResolvedValue({
+                  data: { allow_implicit_tracking: true },
+                  error: null,
+                }),
+              })),
+            })),
+            insert: jest.fn(() => ({ error: null })),
+          };
+        }
+        return { insert: mockInsert, select: jest.fn() };
+      });
+      const nativeOpen = {
+        handoff_id: '33333333-3333-4333-8333-333333333333',
+        source: 'exact_call',
+        surface: 'beach_detail',
+        placement: 'exact_call',
+        handoff_context: 'exact_call',
+        expo_channel: 'production',
+        expo_runtime_version: '0123456789abcdef0123456789abcdef01234567',
+      };
+      const resolution = {
+        handoff_id: '33333333-3333-4333-8333-333333333333',
+        fallback_classification: 'exact',
+        source: 'launch-primer',
+        expo_channel: 'production',
+        expo_runtime_version: '0123456789abcdef0123456789abcdef01234567',
+      };
+      const failures: string[] = [];
+      let caseIndex = 0;
+
+      for (const fixture of [
+        { eventType: 'app_handoff_native_open', metadata: nativeOpen },
+        { eventType: 'watched_call_context_resolved', metadata: resolution },
+      ]) {
+        for (const key of ['source', 'expo_channel', 'expo_runtime_version']) {
+          caseIndex += 1;
+          mockSupabase.auth.getUser.mockResolvedValue({
+            data: { user: { id: `closed-channel-${caseIndex}` } },
+            error: null,
+          });
+          const response = await POST(new Request('http://localhost/api/events', {
+            method: 'POST',
+            headers: BROWSER_HEADERS,
+            body: JSON.stringify({
+              eventType: fixture.eventType,
+              metadata: { ...fixture.metadata, [key]: 'secret-token' },
+            }),
+          }));
+          if (response.status !== 400) {
+            failures.push(`${fixture.eventType}.${key} returned ${response.status}`);
+          }
+        }
+      }
+
+      expect(failures).toEqual([]);
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it('rejects the exact F27 bypass payload before the legacy path', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const response = await POST(new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'app_handoff_native_open',
+          sessionId: '42345678-1234-4234-8234-123456789012',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            source: 'exact_call',
+            expo_channel: 'secret-token',
+            email: 'surfer@example.com',
+          },
+        }),
+      }));
+
+      expect(response.status).toBe(400);
+      expect(mockServiceInsert).not.toHaveBeenCalled();
+    });
+
     it('rejects unreviewed exact-call receipt metadata', async () => {
       mockSupabase.auth.getUser.mockResolvedValue({
         data: { user: null },
@@ -1576,7 +1670,7 @@ describe('POST /api/events', () => {
             app_version: '1.0.2',
             expo_update_id: null,
             expo_channel: 'production',
-            expo_runtime_version: '1.0.2',
+            expo_runtime_version: '0123456789abcdef0123456789abcdef01234567',
             expo_is_embedded_launch: true,
             expo_is_emergency_launch: false,
             is_emulator: false,
@@ -1666,7 +1760,8 @@ describe('POST /api/events', () => {
             app_version: '1.0.2',
             expo_update_id: null,
             expo_channel: 'production',
-            expo_runtime_version: '1.0.2',
+            expo_runtime_version:
+              '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
             expo_is_embedded_launch: true,
             expo_is_emergency_launch: false,
             is_emulator: false,

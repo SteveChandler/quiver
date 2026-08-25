@@ -14,6 +14,8 @@ import {
   EXTERNAL_ANALYTICS_ONLY_EVENTS,
   PRE_AUTH_ONLY_EVENTS,
   VALID_EVENTS,
+  buildBfrWebEventMetadata,
+  type BfrWebEventMetadataMap,
   type EventType,
 } from "@/lib/analytics/event-taxonomy";
 import { FollowTopic } from "@/types/beach-follow";
@@ -107,6 +109,29 @@ describe("event taxonomy", () => {
       BFR_HANDOFF_CONTEXTS,
       BFR_EXACT_CALL_HANDOFF_EVENTS,
     })).not.toMatch(/email|search|query|lat|lon|coordinate|notes|token/i);
+  });
+
+  it("limits visitor_intent_selected to explicit user choices", () => {
+    const invalidMetadata = {
+      audience_class: "surf_qualified",
+      page_type: "beach_detail",
+      experiment_key: "bfr-follow-holdout-v1",
+      experiment_arm: "treatment",
+      intent_state: "inferred",
+      intent_reason: "high_intent_action",
+    } as const;
+
+    expect(buildBfrWebEventMetadata(
+      invalidMetadata as never,
+      "visitor_intent_selected",
+    )).toBeNull();
+
+    const impossibleType: BfrWebEventMetadataMap["visitor_intent_selected"] = {
+      ...invalidMetadata,
+      // @ts-expect-error selection events require explicit intent state
+      intent_state: "inferred",
+    };
+    expect(impossibleType.intent_state).toBe("inferred");
   });
 
   it("allows app handoff funnel events for anonymous and signed-in users", () => {

@@ -43,11 +43,12 @@ export interface AccountFollowState {
 
 export type LocalFollowMutationResult =
   | { status: "applied"; state: LocalFollowState }
-  | { status: "sync_required"; state: LocalFollowState };
+  | { status: "sync_required"; state: LocalFollowState }
+  | { status: "unsupported_version"; opaqueEnvelope: unknown };
 
 /**
- * Normalization quarantines an over-limit persisted envelope as sync_required.
- * The returned state stays lossless so callers can sync or recover it safely.
+ * Normalization preserves over-limit v1 state for sync and future envelopes
+ * opaquely until a compatible migrator is available.
  */
 export type LocalFollowNormalizationResult = LocalFollowMutationResult;
 
@@ -56,7 +57,7 @@ export interface MergeInput {
   serverRows: readonly FollowedBeach[];
 }
 
-export interface MergeResult {
+interface SupportedMergeResult {
   /** sync_required preserves local state; follow-overflow plans may still emit upserts. */
   status: "applied" | "sync_required";
   /** Rows that callers should upsert; existing rows may carry newly unioned topics. */
@@ -66,3 +67,14 @@ export interface MergeResult {
   residualLocalState: LocalFollowState;
   clearedTombstones: string[];
 }
+
+interface UnsupportedVersionMergeResult {
+  status: "unsupported_version";
+  rowsToInsert: [];
+  rowsToDelete: [];
+  accountState: AccountFollowState;
+  residualLocalState: unknown;
+  clearedTombstones: [];
+}
+
+export type MergeResult = SupportedMergeResult | UnsupportedVersionMergeResult;

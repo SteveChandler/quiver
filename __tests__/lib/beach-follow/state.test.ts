@@ -9,7 +9,11 @@ import {
   updateFollowTopics,
 } from "@/lib/beach-follow/state";
 import { bfrHoldoutAssignment } from "@/lib/experiments/bfr-holdout";
-import { FollowTopic, type LocalFollowState } from "@/types/beach-follow";
+import {
+  FollowTopic,
+  type LocalFollowMutationResult,
+  type LocalFollowState,
+} from "@/types/beach-follow";
 
 const FIRST_TIME = "2026-08-24T12:00:00.000Z";
 const SECOND_TIME = "2026-08-24T13:00:00.000Z";
@@ -21,12 +25,16 @@ function beachIdFor(index: number): string {
   return `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
 }
 
-function appliedState(result: {
-  status: string;
-  state: LocalFollowState;
-}): LocalFollowState {
-  expect(result.status).toBe("applied");
+function resultState(result: LocalFollowMutationResult): LocalFollowState {
+  if (!("state" in result)) {
+    throw new Error("Expected a supported local follow state");
+  }
   return result.state;
+}
+
+function appliedState(result: LocalFollowMutationResult): LocalFollowState {
+  expect(result.status).toBe("applied");
+  return resultState(result);
 }
 
 describe("local beach-follow state", () => {
@@ -108,7 +116,7 @@ describe("local beach-follow state", () => {
     );
   });
 
-  it("migrates only known versions and recovers future versions to empty", () => {
+  it("migrates known versions and preserves future envelopes for quarantine", () => {
     const legacyFollow = {
       beachId: BEACH_A,
       topics: ["tide", "invalid", "tide"],
@@ -126,15 +134,18 @@ describe("local beach-follow state", () => {
       tombstones: [],
       bfrHoldoutAssignment: null,
     });
-    expect(
-      appliedState(
-        normalizeLocalFollowState({
-          version: 99,
-          follows: [legacyFollow],
-          tombstones: [],
-        })
-      )
-    ).toEqual(createLocalFollowState());
+    const futureEnvelope = {
+      version: 2,
+      follows: [legacyFollow],
+      tombstones: [],
+      futureField: { retained: true },
+    };
+    const serialized = JSON.stringify(futureEnvelope);
+
+    expect(normalizeLocalFollowState(serialized)).toEqual({
+      status: "unsupported_version",
+      opaqueEnvelope: serialized,
+    });
   });
 
   it("drops corrupt beach IDs while retaining canonical UUID rows", () => {
@@ -207,7 +218,7 @@ describe("local beach-follow state", () => {
     } as const;
 
     expect(normalized).toEqual(expected);
-    expect(normalizeLocalFollowState(JSON.stringify(normalized.state))).toEqual(
+    expect(normalizeLocalFollowState(JSON.stringify(resultState(normalized)))).toEqual(
       expected
     );
   });
@@ -270,8 +281,8 @@ describe("local beach-follow state", () => {
     );
 
     expect(result).toEqual({ status: "sync_required", state });
-    expect(result.state.follows).toHaveLength(MAX_FOLLOWED_BEACHES);
-    expect(result.state.follows.map((follow) => follow.beachId)).toEqual(
+    expect(resultState(result).follows).toHaveLength(MAX_FOLLOWED_BEACHES);
+    expect(resultState(result).follows.map((follow) => follow.beachId)).toEqual(
       state.follows.map((follow) => follow.beachId)
     );
 
@@ -282,8 +293,8 @@ describe("local beach-follow state", () => {
       SECOND_TIME
     );
     expect(updated.status).toBe("applied");
-    expect(updated.state.follows).toHaveLength(MAX_FOLLOWED_BEACHES);
-    expect(updated.state.follows.find(
+    expect(resultState(updated).follows).toHaveLength(MAX_FOLLOWED_BEACHES);
+    expect(resultState(updated).follows.find(
       (follow) => follow.beachId === beachIdFor(0)
     )?.topics).toEqual([FollowTopic.Surf, FollowTopic.Tide]);
   });
@@ -363,6 +374,36 @@ describe("local beach-follow state", () => {
     });
     expect(normalized.tombstones[0].removedAt).toBe(SECOND_TIME);
     expect(normalized.bfrHoldoutAssignment?.assignedAt).toBe(FIRST_TIME);
+  });
+
+  it("drops follows and tombstones with impossible calendar dates", () => {
+    const normalized = appliedState(normalizeLocalFollowState({
+      version: 1,
+      follows: [
+        {
+          beachId: BEACH_A,
+          topics: [FollowTopic.Surf],
+          createdAt: "2026-02-30T00:00:00Z",
+          updatedAt: FIRST_TIME,
+        },
+        {
+          beachId: BEACH_B,
+          topics: [FollowTopic.Tide],
+          createdAt: FIRST_TIME,
+          updatedAt: "2026-04-31T00:00:00-07:00",
+        },
+      ],
+      tombstones: [
+        {
+          beachId: BEACH_C,
+          removedAt: "2026-02-30T00:00:00Z",
+        },
+      ],
+      bfrHoldoutAssignment: null,
+    }));
+
+    expect(normalized.follows).toEqual([]);
+    expect(normalized.tombstones).toEqual([]);
   });
 
   it("round-trips a constructed BFR holdout assignment through local state", () => {

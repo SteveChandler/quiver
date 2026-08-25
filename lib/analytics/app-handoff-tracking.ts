@@ -2,16 +2,14 @@ import { track } from "@/lib/analytics";
 import { deriveSeoPageContextFromPath } from "@/lib/analytics/web-context";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 import type {
-  BfrFallbackClassification,
   BfrHandoffContext,
-  BfrHandoffResolutionReason,
+  BfrHandoffResolutionMetadata,
   BfrPageType,
 } from "@/lib/analytics/event-taxonomy";
 import {
-  BFR_FALLBACK_CLASSIFICATIONS,
   BFR_HANDOFF_CONTEXTS,
-  BFR_HANDOFF_RESOLUTION_REASONS,
   BFR_PAGE_TYPES,
+  hasValidBfrHandoffResolutionPair,
 } from "@/lib/analytics/event-taxonomy";
 
 export const APP_HANDOFF_VIEW_EVENT = "app_handoff_view";
@@ -47,15 +45,16 @@ export interface AppHandoffMetadata {
   [key: string]: unknown;
 }
 
-export interface ExactCallHandoffMetadata {
+type ExactCallHandoffBaseMetadata = {
   handoff_id: string;
   source: "exact_call";
   handoff_context: BfrHandoffContext;
-  fallback_classification: BfrFallbackClassification;
-  reason?: BfrHandoffResolutionReason;
   surface?: BfrPageType;
   platform?: "ios" | "android" | "desktop";
-}
+};
+
+export type ExactCallHandoffMetadata = ExactCallHandoffBaseMetadata
+  & BfrHandoffResolutionMetadata;
 
 const EXACT_CALL_ALLOWED_KEYS = new Set<keyof ExactCallHandoffMetadata>([
   "handoff_id",
@@ -67,10 +66,8 @@ const EXACT_CALL_ALLOWED_KEYS = new Set<keyof ExactCallHandoffMetadata>([
   "platform",
 ]);
 const EXACT_CALL_HANDOFF_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const EXACT_CALL_FALLBACKS = new Set<string>(BFR_FALLBACK_CLASSIFICATIONS);
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const EXACT_CALL_CONTEXTS = new Set<string>(BFR_HANDOFF_CONTEXTS);
-const EXACT_CALL_REASONS = new Set<string>(BFR_HANDOFF_RESOLUTION_REASONS);
 const EXACT_CALL_SURFACES = new Set<string>(BFR_PAGE_TYPES);
 const EXACT_CALL_PLATFORMS = new Set<string>([
   "ios",
@@ -117,7 +114,7 @@ function sanitizeExactCallMetadata(
     Object.entries(input).filter(([key]) =>
       EXACT_CALL_ALLOWED_KEYS.has(key as keyof ExactCallHandoffMetadata)
     )
-  ) as Partial<ExactCallHandoffMetadata>;
+  ) as Record<string, unknown>;
 
   if (
     typeof sanitized.handoff_id !== "string" ||
@@ -126,19 +123,27 @@ function sanitizeExactCallMetadata(
     return null;
   }
   if (sanitized.source !== "exact_call") return null;
-  if (!EXACT_CALL_CONTEXTS.has(sanitized.handoff_context ?? "")) return null;
   if (
-    !EXACT_CALL_FALLBACKS.has(sanitized.fallback_classification ?? "")
+    typeof sanitized.handoff_context !== "string"
+    || !EXACT_CALL_CONTEXTS.has(sanitized.handoff_context)
+  ) return null;
+  if (!hasValidBfrHandoffResolutionPair(sanitized)) return null;
+  if (
+    sanitized.surface !== undefined
+    && (
+      typeof sanitized.surface !== "string"
+      || !EXACT_CALL_SURFACES.has(sanitized.surface)
+    )
   ) {
     return null;
   }
-  if (sanitized.reason && !EXACT_CALL_REASONS.has(sanitized.reason)) {
-    return null;
-  }
-  if (sanitized.surface && !EXACT_CALL_SURFACES.has(sanitized.surface)) {
-    return null;
-  }
-  if (sanitized.platform && !EXACT_CALL_PLATFORMS.has(sanitized.platform)) {
+  if (
+    sanitized.platform !== undefined
+    && (
+      typeof sanitized.platform !== "string"
+      || !EXACT_CALL_PLATFORMS.has(sanitized.platform)
+    )
+  ) {
     return null;
   }
 

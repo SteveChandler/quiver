@@ -11,7 +11,9 @@ import {
 import {
   FollowTopic,
   type FollowedBeach,
+  type LocalFollowMutationResult,
   type LocalFollowState,
+  type MergeResult,
 } from "@/types/beach-follow";
 
 const FIRST_TIME = "2026-08-24T12:00:00.000Z";
@@ -33,12 +35,19 @@ function serverFollow(
   return { beachId, topics, createdAt: FIRST_TIME, updatedAt };
 }
 
-function appliedState(result: {
-  status: string;
-  state: LocalFollowState;
-}): LocalFollowState {
+function appliedState(result: LocalFollowMutationResult): LocalFollowState {
   expect(result.status).toBe("applied");
+  if (!("state" in result)) {
+    throw new Error("Expected a supported local follow state");
+  }
   return result.state;
+}
+
+function residualState(result: MergeResult): LocalFollowState {
+  if (result.status === "unsupported_version") {
+    throw new Error("Expected a supported merge result");
+  }
+  return result.residualLocalState;
 }
 
 describe("anonymous beach-follow merge", () => {
@@ -175,8 +184,8 @@ describe("anonymous beach-follow merge", () => {
 
     const result = mergeBeachFollows({ anonState, serverRows: [] });
 
-    expect(result.residualLocalState.bfrHoldoutAssignment).toEqual(assignment);
-    expect(result.residualLocalState.bfrHoldoutAssignment?.subjectId).toBe(
+    expect(residualState(result).bfrHoldoutAssignment).toEqual(assignment);
+    expect(residualState(result).bfrHoldoutAssignment?.subjectId).toBe(
       "anon-visitor-123"
     );
   });
@@ -226,7 +235,52 @@ describe("anonymous beach-follow merge", () => {
     expect(result.status).toBe("sync_required");
     expect(result.rowsToDelete).toEqual([]);
     expect(result.clearedTombstones).toEqual([]);
-    expect(result.residualLocalState.tombstones).toEqual(tombstones);
+    expect(residualState(result).tombstones).toEqual(tombstones);
+  });
+
+  it("does not rewrite an impossible tombstone date into an account delete", () => {
+    const serverRow = serverFollow(beachIdFor("server", 1), [FollowTopic.Surf]);
+
+    const result = mergeBeachFollows({
+      anonState: {
+        version: 1,
+        follows: [],
+        tombstones: [{
+          beachId: serverRow.beachId,
+          removedAt: "2026-02-30T00:00:00Z",
+        }],
+        bfrHoldoutAssignment: null,
+      },
+      serverRows: [serverRow],
+    });
+
+    expect(result.status).toBe("applied");
+    expect(result.rowsToDelete).toEqual([]);
+    expect(result.accountState.follows).toEqual([serverRow]);
+  });
+
+  it("quarantines an unsupported envelope without merging or overwriting it", () => {
+    const futureEnvelope = JSON.stringify({
+      version: 2,
+      follows: [serverFollow(beachIdFor("anon", 1), [FollowTopic.Surf])],
+      tombstones: [],
+      futureField: { retained: true },
+    });
+    const serverRow = serverFollow(beachIdFor("server", 1), [FollowTopic.Tide]);
+
+    const result = mergeBeachFollows({
+      anonState: futureEnvelope,
+      serverRows: [serverRow],
+    });
+
+    expect(result).toEqual({
+      status: "unsupported_version",
+      rowsToInsert: [],
+      rowsToDelete: [],
+      accountState: { scope: "account", follows: [serverRow] },
+      residualLocalState: futureEnvelope,
+      clearedTombstones: [],
+    });
   });
 
   it("plans all 55 oversized follows without clearing them before acknowledgement", () => {

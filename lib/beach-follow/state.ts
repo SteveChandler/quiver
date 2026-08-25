@@ -17,7 +17,7 @@ const MAX_ISO_INSTANT_LENGTH = 35;
 const CANONICAL_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const ISO_INSTANT_PATTERN =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 const TOPIC_ORDER: readonly FollowTopic[] = [
   FollowTopic.Surf,
   FollowTopic.WaterTemp,
@@ -51,6 +51,24 @@ export function normalizeBoundedIsoInstant(value: unknown): string | null {
     typeof value !== "string" ||
     value.length > MAX_ISO_INSTANT_LENGTH ||
     !ISO_INSTANT_PATTERN.test(value)
+  ) {
+    return null;
+  }
+
+  const match = ISO_INSTANT_PATTERN.exec(value);
+  if (!match) return null;
+  const [, year, month, day, hour, minute, second] = match.map(Number);
+  const calendar = new Date(0);
+  calendar.setUTCHours(0, 0, 0, 0);
+  calendar.setUTCFullYear(year, month - 1, day);
+  calendar.setUTCHours(hour, minute, second, 0);
+  if (
+    calendar.getUTCFullYear() !== year
+    || calendar.getUTCMonth() !== month - 1
+    || calendar.getUTCDate() !== day
+    || calendar.getUTCHours() !== hour
+    || calendar.getUTCMinutes() !== minute
+    || calendar.getUTCSeconds() !== second
   ) {
     return null;
   }
@@ -206,6 +224,13 @@ export function normalizeLocalFollowState(
       source = parsed;
       break;
     default:
+      if (
+        typeof parsed.version === "number"
+        && Number.isInteger(parsed.version)
+        && parsed.version > LOCAL_FOLLOW_STATE_VERSION
+      ) {
+        return { status: "unsupported_version", opaqueEnvelope: value };
+      }
       return applied(createLocalFollowState());
   }
 
@@ -261,7 +286,7 @@ export function addFollow(
   now: string
 ): LocalFollowMutationResult {
   const normalization = normalizeLocalFollowState(state);
-  if (normalization.status === "sync_required") return normalization;
+  if (normalization.status !== "applied") return normalization;
   const normalized = normalization.state;
   const beachId = normalizeBeachId(input.beachId);
   const topics = normalizeFollowTopics(input.topics);
@@ -316,7 +341,7 @@ export function updateFollowTopics(
   now: string
 ): LocalFollowMutationResult {
   const normalization = normalizeLocalFollowState(state);
-  if (normalization.status === "sync_required") return normalization;
+  if (normalization.status !== "applied") return normalization;
   const normalized = normalization.state;
   const beachId = normalizeBeachId(beachIdInput);
   const topics = normalizeFollowTopics(topicsInput);
@@ -344,7 +369,7 @@ export function removeFollow(
   now: string
 ): LocalFollowMutationResult {
   const normalization = normalizeLocalFollowState(state);
-  if (normalization.status === "sync_required") return normalization;
+  if (normalization.status !== "applied") return normalization;
   const normalized = normalization.state;
   const beachId = normalizeBeachId(beachIdInput);
   const normalizedNow = normalizeBoundedIsoInstant(now);

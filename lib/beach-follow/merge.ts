@@ -38,6 +38,21 @@ function unionRows(server: FollowedBeach, anon: FollowedBeach): FollowedBeach {
 export function mergeBeachFollows(input: MergeInput): MergeResult {
   const normalization = normalizeLocalFollowState(input.anonState);
   const serverRows = dedupeFollowedBeaches(input.serverRows);
+  if (normalization.status === "unsupported_version") {
+    return {
+      status: "unsupported_version",
+      rowsToInsert: [],
+      rowsToDelete: [],
+      accountState: {
+        scope: "account",
+        follows: serverRows.sort((left, right) =>
+          left.beachId.localeCompare(right.beachId)
+        ),
+      },
+      residualLocalState: normalization.opaqueEnvelope,
+      clearedTombstones: [],
+    };
+  }
   const normalizedPendingCount =
     normalization.state.follows.length + normalization.state.tombstones.length;
   const isPlannableFollowOverflow =

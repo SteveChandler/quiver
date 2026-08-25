@@ -86,6 +86,17 @@ export type BfrFallbackClassification =
 export type BfrHandoffResolutionReason =
   (typeof BFR_HANDOFF_RESOLUTION_REASONS)[number];
 export type BfrHandoffContext = (typeof BFR_HANDOFF_CONTEXTS)[number];
+export type BfrHandoffResolutionMetadata =
+  | { fallback_classification: 'exact'; reason?: never }
+  | { fallback_classification: 'replaced'; reason: 'window_replaced' }
+  | {
+      fallback_classification: 'beach_only';
+      reason: 'expired' | 'window_removed';
+    }
+  | {
+      fallback_classification: 'invalid';
+      reason: 'malformed' | 'unsupported_version' | 'beach_removed';
+    };
 
 type BfrWebExperimentMetadata = {
   experiment_key: typeof BFR_WEB_EXPERIMENT_KEY;
@@ -124,6 +135,11 @@ type BfrQualifiedIntentMetadata =
       intent_reason: 'high_intent_action' | 'multiple_surf_signals';
     };
 
+type BfrExplicitIntentMetadata = {
+  intent_state: 'explicit';
+  intent_reason: 'explicit_surfing' | 'explicit_non_surf';
+};
+
 type BfrWebTopicMetadata = BfrWebBaseMetadata & { topic: BfrTopic };
 type BfrWebSyncMetadata = BfrWebBaseMetadata & {
   audience_class: 'existing_web_user';
@@ -137,7 +153,7 @@ export type BfrWebEventMetadataMap = {
   beach_follow_sync_started: BfrWebSyncMetadata;
   beach_follow_sync_completed: BfrWebSyncMetadata;
   follow_topic_changed: BfrWebTopicMetadata;
-  visitor_intent_selected: BfrWebBaseMetadata & BfrIntentMetadata;
+  visitor_intent_selected: BfrWebBaseMetadata & BfrExplicitIntentMetadata;
   surf_intent_qualified: BfrWebBaseMetadata &
     BfrQualifiedIntentMetadata & { audience_class: 'surf_qualified' };
   my_coast_viewed: BfrWebMyCoastMetadata;
@@ -202,7 +218,6 @@ function hasValidBfrWebIntentPair(
   ) {
     return false;
   }
-
   return Boolean(
     BFR_WEB_INTENT_REASONS_BY_STATE[
       metadata.intent_state as BfrIntentState
@@ -225,6 +240,18 @@ function hasValidBfrWebEventSemantics(
     (eventType === 'my_coast_viewed'
       || eventType === 'my_coast_beach_opened')
     && metadata.page_type !== 'my_coast'
+  ) {
+    return false;
+  }
+  if (
+    eventType === 'visitor_intent_selected'
+    && (
+      metadata.intent_state !== 'explicit'
+      || (
+        metadata.intent_reason !== 'explicit_surfing'
+        && metadata.intent_reason !== 'explicit_non_surf'
+      )
+    )
   ) {
     return false;
   }
@@ -283,7 +310,13 @@ const BFR_HANDOFF_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const BFR_APP_VERSION_PATTERN =
   /^[0-9]+\.[0-9]+\.[0-9]+(?:\+[0-9]+)?$/;
-const BFR_IDENTIFIER_PATTERN = /^[A-Za-z0-9._-]+$/;
+const BFR_EXPO_RUNTIME_VERSION_PATTERN =
+  /^(?:[0-9a-f]{40}|[0-9a-f]{64}|\d+\.\d+\.\d+)$/;
+const BFR_EXPO_CHANNEL_VALUES = new Set<string>([
+  'production',
+  'preview',
+  'development',
+]);
 const BFR_EXACT_CALL_PLACEMENT_VALUES = new Set<string>(['exact_call']);
 const BFR_EXACT_CALL_PLATFORM_VALUES = new Set<string>([
   'ios',
@@ -349,6 +382,21 @@ const BFR_HANDOFF_RESOLUTION_KEYS = new Set<string>([
   'reason',
   ...BFR_NATIVE_CHANNEL_KEYS,
 ]);
+const BFR_EVENT_SET = new Set<string>([
+  ...BFR_WEB_EVENT_TYPES,
+  ...Object.values(BFR_EXACT_CALL_HANDOFF_EVENTS),
+]);
+const BFR_EXACT_CALL_UNIQUE_METADATA_KEYS = new Set<string>([
+  '_platform',
+  'app_version',
+  'expo_update_id',
+  'expo_channel',
+  'expo_runtime_version',
+  'expo_is_embedded_launch',
+  'expo_is_emergency_launch',
+  'is_emulator',
+  'launch_primer_session_id',
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -361,7 +409,9 @@ function hasOnlyKeys(
   return Object.keys(value).every((key) => allowedKeys.has(key));
 }
 
-function hasValidResolutionPair(metadata: Record<string, unknown>): boolean {
+export function hasValidBfrHandoffResolutionPair(
+  metadata: Record<string, unknown>,
+): metadata is Record<string, unknown> & BfrHandoffResolutionMetadata {
   const classification = metadata.fallback_classification;
   const reason = metadata.reason;
   if (classification === 'exact') return reason === undefined;
@@ -384,7 +434,6 @@ function isOptionalAppVersion(
     || value === null
     || (
       typeof value === 'string'
-      && value.length <= 32
       && BFR_APP_VERSION_PATTERN.test(value)
     );
 }
@@ -395,24 +444,13 @@ function isOptionalCanonicalUuid(value: unknown): boolean {
     || (typeof value === 'string' && BFR_HANDOFF_ID_PATTERN.test(value));
 }
 
-function isOptionalIdentifier(value: unknown, maxLength: number): boolean {
-  return value === undefined
-    || value === null
-    || (
-      typeof value === 'string'
-      && value.length <= maxLength
-      && BFR_IDENTIFIER_PATTERN.test(value)
-    );
-}
-
 function hasValidNativeChannelMetadata(
   metadata: Record<string, unknown>,
   expectedSource?: string,
 ): boolean {
-  if (!isOptionalIdentifier(metadata.source, 32)) return false;
   if (
-    expectedSource !== undefined
-    && metadata.source !== undefined
+    metadata.source !== undefined
+    && metadata.source !== null
     && metadata.source !== expectedSource
   ) {
     return false;
@@ -428,8 +466,26 @@ function hasValidNativeChannelMetadata(
   }
   if (!isOptionalAppVersion(metadata.app_version)) return false;
   if (!isOptionalCanonicalUuid(metadata.expo_update_id)) return false;
-  if (!isOptionalIdentifier(metadata.expo_channel, 32)) return false;
-  if (!isOptionalIdentifier(metadata.expo_runtime_version, 32)) return false;
+  if (
+    metadata.expo_channel !== undefined
+    && metadata.expo_channel !== null
+    && (
+      typeof metadata.expo_channel !== 'string'
+      || !BFR_EXPO_CHANNEL_VALUES.has(metadata.expo_channel)
+    )
+  ) {
+    return false;
+  }
+  if (
+    metadata.expo_runtime_version !== undefined
+    && metadata.expo_runtime_version !== null
+    && (
+      typeof metadata.expo_runtime_version !== 'string'
+      || !BFR_EXPO_RUNTIME_VERSION_PATTERN.test(metadata.expo_runtime_version)
+    )
+  ) {
+    return false;
+  }
   if (
     metadata.expo_is_embedded_launch !== undefined
     && metadata.expo_is_embedded_launch !== null
@@ -503,7 +559,7 @@ function buildBfrExactCallReceiptMetadata(
       ? metadata
       : null;
   }
-  if (!hasValidResolutionPair(metadata)) return null;
+  if (!hasValidBfrHandoffResolutionPair(metadata)) return null;
   if (
     metadata.platform !== undefined
     && (
@@ -563,7 +619,7 @@ function buildBfrHandoffResolutionMetadata(
   if (
     typeof metadata.handoff_id !== 'string'
     || !BFR_HANDOFF_ID_PATTERN.test(metadata.handoff_id)
-    || !hasValidResolutionPair(metadata)
+    || !hasValidBfrHandoffResolutionPair(metadata)
     || !hasValidNativeChannelMetadata(metadata, 'launch-primer')
   ) {
     return null;
@@ -575,12 +631,13 @@ export function isBfrApiEventMetadata(
   eventType: unknown,
   metadata: unknown,
 ): boolean {
-  if (typeof eventType !== 'string') return false;
-  if (BFR_WEB_EVENT_TYPE_SET.has(eventType)) return true;
-  if (eventType === BFR_EXACT_CALL_HANDOFF_EVENTS.resolved) return true;
-  return BFR_EXACT_CALL_RECEIPT_EVENT_TYPES.has(eventType)
-    && isRecord(metadata)
-    && metadata.handoff_context !== undefined;
+  if (typeof eventType === 'string' && BFR_EVENT_SET.has(eventType)) return true;
+  if (!isRecord(metadata)) return false;
+  if (metadata.source === 'exact_call') return true;
+  if ('handoff_context' in metadata) return true;
+  if ('handoff_id' in metadata) return true;
+  if ('fallback_classification' in metadata) return true;
+  return [...BFR_EXACT_CALL_UNIQUE_METADATA_KEYS].some((key) => key in metadata);
 }
 
 export function buildBfrApiEventMetadata(

@@ -153,6 +153,31 @@ describe("app-handoff-tracking", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("rejects an impossible classification and reason pair before both sinks", () => {
+    trackExactCallHandoffLinkOpened({
+      handoff_id: HANDOFF_ID,
+      source: "exact_call",
+      handoff_context: "exact_call",
+      fallback_classification: "exact",
+      reason: "expired",
+    } as unknown as ExactCallHandoffMetadata);
+
+    expect(track).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects the shared mixed-case handoff fixture before both sinks", () => {
+    trackExactCallHandoffLinkOpened({
+      handoff_id: "AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE",
+      source: "exact_call",
+      handoff_context: "exact_call",
+      fallback_classification: "exact",
+    });
+
+    expect(track).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("keeps the exact-call input type closed", () => {
     const metadata: ExactCallHandoffMetadata = {
       handoff_id: HANDOFF_ID,
@@ -164,6 +189,17 @@ describe("app-handoff-tracking", () => {
     };
 
     expect(metadata.source).toBe("exact_call");
+
+    const impossiblePair: ExactCallHandoffMetadata = {
+      handoff_id: HANDOFF_ID,
+      source: "exact_call",
+      handoff_context: "exact_call",
+      fallback_classification: "exact",
+      // @ts-expect-error exact classifications never carry a reason
+      reason: "expired",
+    };
+
+    expect(impossiblePair.fallback_classification).toBe("exact");
 
     if (false) {
       trackAppHandoffView({
