@@ -125,7 +125,13 @@ export function mergeBeachFollows(input: MergeInput): MergeResult {
   const anonState = normalization.state;
   const serverByBeachId = new Map(serverRows.map((row) => [row.beachId, row]));
   const deletedBeachIds = new Set(
-    anonState.tombstones.map((tombstone) => tombstone.beachId)
+    anonState.tombstones
+      .filter((tombstone) => {
+        const serverRow = serverByBeachId.get(tombstone.beachId);
+        return !serverRow
+          || Date.parse(tombstone.removedAt) >= Date.parse(serverRow.updatedAt);
+      })
+      .map((tombstone) => tombstone.beachId)
   );
   const rowsToDelete = serverRows
     .filter((row) => deletedBeachIds.has(row.beachId))

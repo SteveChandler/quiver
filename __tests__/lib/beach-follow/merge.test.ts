@@ -125,6 +125,61 @@ describe("anonymous beach-follow merge", () => {
     expect(retry.clearedTombstones).toEqual([]);
   });
 
+  it("retains a newer server follow and consumes the stale tombstone", () => {
+    const anonState = appliedState(removeFollow(
+      createLocalFollowState(),
+      BEACH_A,
+      FIRST_TIME
+    ));
+    const serverRow = serverFollow(
+      BEACH_A,
+      [FollowTopic.Surf],
+      SECOND_TIME
+    );
+
+    const result = mergeBeachFollows({
+      anonState,
+      serverRows: [serverRow],
+    });
+
+    expect(result.rowsToDelete).toEqual([]);
+    expect(result.accountState.follows).toEqual([serverRow]);
+    expect(result.clearedTombstones).toEqual([BEACH_A]);
+  });
+
+  it("applies a newer tombstone against an older server follow", () => {
+    const anonState = appliedState(removeFollow(
+      createLocalFollowState(),
+      BEACH_A,
+      SECOND_TIME
+    ));
+
+    const result = mergeBeachFollows({
+      anonState,
+      serverRows: [serverFollow(BEACH_A, [FollowTopic.Surf], FIRST_TIME)],
+    });
+
+    expect(result.rowsToDelete).toEqual([BEACH_A]);
+    expect(result.accountState.follows).toEqual([]);
+    expect(result.clearedTombstones).toEqual([BEACH_A]);
+  });
+
+  it("lets a tombstone win a timestamp tie deterministically", () => {
+    const anonState = appliedState(removeFollow(
+      createLocalFollowState(),
+      BEACH_A,
+      SECOND_TIME
+    ));
+
+    const result = mergeBeachFollows({
+      anonState,
+      serverRows: [serverFollow(BEACH_A, [FollowTopic.Surf], SECOND_TIME)],
+    });
+
+    expect(result.rowsToDelete).toEqual([BEACH_A]);
+    expect(result.accountState.follows).toEqual([]);
+  });
+
   it("preserves an explicit removal when the v1 follows array is corrupt", () => {
     const result = mergeBeachFollows({
       anonState: {

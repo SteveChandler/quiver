@@ -16,6 +16,10 @@ const BEACH_ID = "11111111-1111-4111-8111-111111111111";
 const WINDOW_ID = "2026-08-25T14:00:00.000Z";
 const RECOMMENDATION_ID = `beach:${BEACH_ID}:${WINDOW_ID}`;
 const OTHER_BEACH_ID = "22222222-2222-4222-8222-222222222222";
+const SLUGGED_WINDOW_ID =
+  `${BEACH_ID}-2026-08-25T14-00-00-000Z`;
+const CROSS_BEACH_SLUGGED_WINDOW_ID =
+  `${OTHER_BEACH_ID}-2026-08-25T14-00-00-000Z`;
 const SURF_DISCOVER_BEACH_ID = "a3e9d10c-92e9-4302-b808-a3de0c2eca22";
 const SURF_DISCOVER_RECOMMENDATION_ID =
   "beach:a3e9d10c-92e9-4302-b808-a3de0c2eca22:2026-08-18T00:00:00+00:00";
@@ -290,6 +294,35 @@ describe("exact handoff context", () => {
     })).toEqual({ classification: "invalid", reason: "malformed" });
   });
 
+  it("rejects a slugged context window owned by another beach", () => {
+    const context = {
+      ...(JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>),
+      windowId: CROSS_BEACH_SLUGGED_WINDOW_ID,
+    };
+
+    expect(parseHandoffContext(context)).toEqual({
+      ok: false,
+      reason: "malformed",
+    });
+    expect(classifyHandoffResolution(context, {
+      now: NOW,
+      beachExists: true,
+      exactWindowExists: true,
+    })).toEqual({ classification: "invalid", reason: "malformed" });
+  });
+
+  it("accepts a slugged context window owned by its enclosing beach", () => {
+    const context = {
+      ...(JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>),
+      windowId: SLUGGED_WINDOW_ID,
+    };
+
+    expect(parseHandoffContext(context)).toMatchObject({
+      ok: true,
+      context: { windowId: SLUGGED_WINDOW_ID },
+    });
+  });
+
   it("MUST-REJECT the identical impossible-date fixture as malformed", () => {
     const impossibleContext = JSON.parse(IMPOSSIBLE_DATE_CONTEXT) as Record<
       string,
@@ -457,6 +490,28 @@ describe("exact handoff context", () => {
         },
       }),
     ).toEqual({
+      classification: "beach_only",
+      context,
+      reason: "window_removed",
+    });
+  });
+
+  it("rejects a replacement with a slugged window owned by another beach", () => {
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+    if (!parsed.ok) throw new Error("Expected valid fixture");
+    const { context } = parsed;
+
+    expect(classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
+      now: NOW,
+      beachExists: true,
+      exactWindowExists: false,
+      replacement: {
+        beachId: BEACH_ID,
+        slug: "pleasure-point",
+        windowId: CROSS_BEACH_SLUGGED_WINDOW_ID,
+        recommendationId: `beach:${BEACH_ID}:2026-08-25T16:00:00.000Z`,
+      },
+    })).toEqual({
       classification: "beach_only",
       context,
       reason: "window_removed",

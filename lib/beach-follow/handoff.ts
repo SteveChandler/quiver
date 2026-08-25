@@ -22,7 +22,7 @@ const CANONICAL_WINDOW_INSTANT_PATTERN =
 const RECOMMENDATION_INSTANT_PATTERN =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|([+-])(\d{2}):(\d{2}))$/;
 const SLUGGED_WINDOW_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/;
+  /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/;
 const HASHED_WINDOW_ID_PATTERN = /^[0-9a-f]{24}$/;
 const STRUCTURED_RECOMMENDATION_PATTERN =
   /^(beach|custom|beach-detail):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):(.+)$/;
@@ -84,13 +84,13 @@ function isBeachId(value: unknown): value is string {
   return typeof value === "string" && CANONICAL_UUID_PATTERN.test(value);
 }
 
-function isWindowId(value: unknown): value is string {
+function isWindowId(value: unknown, beachId: string): value is string {
   if (typeof value !== "string") return false;
   if (HASHED_WINDOW_ID_PATTERN.test(value)) return true;
   const sluggedWindow = value.match(SLUGGED_WINDOW_ID_PATTERN);
   if (sluggedWindow) {
-    const instant = `${sluggedWindow[1]}:${sluggedWindow[2]}:${sluggedWindow[3]}.${sluggedWindow[4]}Z`;
-    return instantMillis(instant) !== null;
+    const instant = `${sluggedWindow[2]}:${sluggedWindow[3]}:${sluggedWindow[4]}.${sluggedWindow[5]}Z`;
+    return sluggedWindow[1] === beachId && instantMillis(instant) !== null;
   }
   if (!CANONICAL_WINDOW_INSTANT_PATTERN.test(value)) return false;
   const millis = Date.parse(value);
@@ -219,7 +219,7 @@ function isHandoffContext(value: unknown): value is HandoffContext {
   return (
     isBeachId(value.beachId) &&
     isSlug(value.slug) &&
-    isWindowId(value.windowId) &&
+    isWindowId(value.windowId, value.beachId) &&
     typeof value.sourceSurface === "string" &&
     SOURCE_SURFACES.has(value.sourceSurface) &&
     isPriorRecommendationSummary(value.priorRecommendation, value.beachId)
@@ -235,7 +235,7 @@ function isReplacementIdentity(
     || !isBeachId(value.beachId)
     || value.beachId !== contextBeachId
     || !isSlug(value.slug)
-    || !isWindowId(value.windowId)
+    || !isWindowId(value.windowId, value.beachId)
     || !isRecommendationId(value.recommendationId)
   ) {
     return false;
