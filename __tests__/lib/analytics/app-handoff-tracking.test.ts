@@ -139,7 +139,8 @@ describe("app-handoff-tracking", () => {
         handoff_id: HANDOFF_ID,
         source: "exact_call",
         handoff_context: "exact_call",
-        fallback_classification: "exact",
+        surface: "beach_detail",
+        placement: "exact_call",
       })
     ).not.toThrow();
   });
@@ -152,6 +153,7 @@ describe("app-handoff-tracking", () => {
       fallback_classification: "replaced",
       reason: "window_replaced",
       surface: "beach_detail",
+      placement: "exact_call",
       email: "surfer@example.com",
       lat: 32.1,
       handoff_token: "secret",
@@ -165,9 +167,8 @@ describe("app-handoff-tracking", () => {
         handoff_id: HANDOFF_ID,
         source: "exact_call",
         handoff_context: "exact_call",
-        fallback_classification: "replaced",
-        reason: "window_replaced",
         surface: "beach_detail",
+        placement: "exact_call",
       })
     );
     const postHogMetadata = (track as jest.Mock).mock.calls[0][1];
@@ -178,15 +179,18 @@ describe("app-handoff-tracking", () => {
       expect(metadata).not.toHaveProperty("email");
       expect(metadata).not.toHaveProperty("lat");
       expect(metadata).not.toHaveProperty("handoff_token");
+      expect(metadata).not.toHaveProperty("fallback_classification");
+      expect(metadata).not.toHaveProperty("reason");
     }
   });
 
-  it("emits the exact-call start with its canonical handoff ID", () => {
+  it("emits only the bounded exact-call start metadata", () => {
     trackExactCallHandoffLinkOpened({
       handoff_id: HANDOFF_ID,
       source: "exact_call",
       handoff_context: "exact_call",
-      fallback_classification: "exact",
+      surface: "beach_detail",
+      placement: "exact_call",
     });
 
     expect(track).toHaveBeenCalledWith(
@@ -200,6 +204,15 @@ describe("app-handoff-tracking", () => {
       eventType: APP_HANDOFF_LINK_OPENED_EVENT,
       metadata: { handoff_id: HANDOFF_ID },
     });
+    const expectedMetadata = {
+      handoff_id: HANDOFF_ID,
+      source: "exact_call",
+      surface: "beach_detail",
+      placement: "exact_call",
+      handoff_context: "exact_call",
+    };
+    expect((track as jest.Mock).mock.calls[0][1]).toEqual(expectedMetadata);
+    expect(body.metadata).toEqual(expectedMetadata);
   });
 
   it("rejects token-like exact-call handoff IDs before either sink", () => {
@@ -207,21 +220,9 @@ describe("app-handoff-tracking", () => {
       handoff_id: "shared-campaign-token",
       source: "exact_call",
       handoff_context: "exact_call",
-      fallback_classification: "exact",
+      surface: "beach_detail",
+      placement: "exact_call",
     });
-
-    expect(track).not.toHaveBeenCalled();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects an impossible classification and reason pair before both sinks", () => {
-    trackExactCallHandoffLinkOpened({
-      handoff_id: HANDOFF_ID,
-      source: "exact_call",
-      handoff_context: "exact_call",
-      fallback_classification: "exact",
-      reason: "expired",
-    } as unknown as ExactCallHandoffMetadata);
 
     expect(track).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -232,7 +233,8 @@ describe("app-handoff-tracking", () => {
       handoff_id: "AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE",
       source: "exact_call",
       handoff_context: "exact_call",
-      fallback_classification: "exact",
+      surface: "beach_detail",
+      placement: "exact_call",
     });
 
     expect(track).not.toHaveBeenCalled();
@@ -244,23 +246,25 @@ describe("app-handoff-tracking", () => {
       handoff_id: HANDOFF_ID,
       source: "exact_call",
       handoff_context: "exact_call",
-      fallback_classification: "exact",
+      surface: "beach_detail",
+      placement: "exact_call",
       // @ts-expect-error exact-call metadata does not accept arbitrary keys
       email: "surfer@example.com",
     };
 
     expect(metadata.source).toBe("exact_call");
 
-    const impossiblePair: ExactCallHandoffMetadata = {
+    const resolutionMetadata: ExactCallHandoffMetadata = {
       handoff_id: HANDOFF_ID,
       source: "exact_call",
       handoff_context: "exact_call",
+      surface: "beach_detail",
+      placement: "exact_call",
+      // @ts-expect-error resolution classification is not start metadata
       fallback_classification: "exact",
-      // @ts-expect-error exact classifications never carry a reason
-      reason: "expired",
     };
 
-    expect(impossiblePair.fallback_classification).toBe("exact");
+    expect(resolutionMetadata.source).toBe("exact_call");
 
     if (false) {
       // @ts-expect-error exact-call sources must use the dedicated emitter

@@ -24,21 +24,25 @@ function rowsMatch(left: FollowedBeach, right: FollowedBeach): boolean {
 
 function unionRows(
   server: FollowedBeach,
-  anon: FollowedBeach,
+  anon: FollowedBeach | undefined,
   topicTombstones: readonly FollowTopicTombstone[]
 ): FollowedBeach {
   const latestRemovalByTopic = new Map(
     topicTombstones
-      .filter((tombstone) => tombstone.beachId === anon.beachId)
+      .filter((tombstone) => tombstone.beachId === server.beachId)
       .map((tombstone) => [tombstone.topic, tombstone.removedAt])
   );
-  const topics = normalizeFollowTopics([...server.topics, ...anon.topics])
+  const candidateTopics = normalizeFollowTopics([
+    ...server.topics,
+    ...(anon?.topics ?? []),
+  ]);
+  const topics = candidateTopics
     .filter((topic) => {
       const removedAt = latestRemovalByTopic.get(topic);
       if (!removedAt) return true;
       const latestAddition = [
         server.topics.includes(topic) ? server.updatedAt : null,
-        anon.topics.includes(topic) ? anon.updatedAt : null,
+        anon?.topics.includes(topic) ? anon.updatedAt : null,
       ]
         .filter((value): value is string => value !== null)
         .sort((left, right) => Date.parse(right) - Date.parse(left))[0];
@@ -47,7 +51,8 @@ function unionRows(
     });
   const latestAppliedRemoval = topicTombstones
     .filter((tombstone) => (
-      tombstone.beachId === anon.beachId
+      tombstone.beachId === server.beachId
+      && candidateTopics.includes(tombstone.topic)
       && !topics.includes(tombstone.topic)
     ))
     .map((tombstone) => tombstone.removedAt)
@@ -57,10 +62,10 @@ function unionRows(
     beachId: server.beachId,
     topics,
     createdAt:
-      Date.parse(server.createdAt) <= Date.parse(anon.createdAt)
+      !anon || Date.parse(server.createdAt) <= Date.parse(anon.createdAt)
         ? server.createdAt
         : anon.createdAt,
-    updatedAt: [server.updatedAt, anon.updatedAt, latestAppliedRemoval]
+    updatedAt: [server.updatedAt, anon?.updatedAt, latestAppliedRemoval]
       .filter((value): value is string => value !== undefined)
       .sort((left, right) => Date.parse(right) - Date.parse(left))[0],
   };
@@ -103,9 +108,7 @@ export function acknowledgeBeachFollowMerge(
   const topicTombstones = normalization.state.topicTombstones.filter(
     (tombstone) => {
       const serverRow = serverByBeachId.get(tombstone.beachId);
-      return serverRow !== undefined
-        && serverRow.topics.includes(tombstone.topic)
-        && Date.parse(serverRow.updatedAt) <= Date.parse(tombstone.removedAt);
+      return serverRow?.topics.includes(tombstone.topic) === true;
     }
   );
   const state = {
@@ -185,24 +188,31 @@ export function mergeBeachFollows(input: MergeInput): MergeResult {
   const retainedServerRows = serverRows.filter(
     (row) => !deletedBeachIds.has(row.beachId)
   );
-  const retainedByBeachId = new Map(
-    retainedServerRows.map((row) => [row.beachId, row])
-  );
+  const retainedByBeachId = new Map<string, FollowedBeach>();
   const rowsToInsert: FollowedBeach[] = [];
+  const rowsToDeleteSet = new Set(rowsToDelete);
+  const anonByBeachId = new Map(
+    anonState.follows.map((row) => [row.beachId, row])
+  );
+
+  for (const serverRow of retainedServerRows) {
+    const unioned = unionRows(
+      serverRow,
+      anonByBeachId.get(serverRow.beachId),
+      anonState.topicTombstones
+    );
+    if (unioned.topics.length === 0) {
+      rowsToDeleteSet.add(serverRow.beachId);
+      continue;
+    }
+    retainedByBeachId.set(serverRow.beachId, unioned);
+    if (!rowsMatch(serverRow, unioned)) rowsToInsert.push(unioned);
+  }
 
   for (const anonRow of anonState.follows) {
     if (deletedBeachIds.has(anonRow.beachId)) continue;
     const serverRow = serverByBeachId.get(anonRow.beachId);
-    if (serverRow) {
-      const unioned = unionRows(
-        serverRow,
-        anonRow,
-        anonState.topicTombstones
-      );
-      retainedByBeachId.set(anonRow.beachId, unioned);
-      if (!rowsMatch(serverRow, unioned)) rowsToInsert.push(unioned);
-      continue;
-    }
+    if (serverRow) continue;
 
     retainedByBeachId.set(anonRow.beachId, anonRow);
     rowsToInsert.push(anonRow);
@@ -215,7 +225,7 @@ export function mergeBeachFollows(input: MergeInput): MergeResult {
   return {
     status: isPlannableFollowOverflow ? "sync_required" : "applied",
     rowsToInsert,
-    rowsToDelete,
+    rowsToDelete: [...rowsToDeleteSet].sort(),
     accountState: {
       scope: "account",
       follows: mergedFollows,

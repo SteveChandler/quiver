@@ -3,13 +3,11 @@ import { deriveSeoPageContextFromPath } from "@/lib/analytics/web-context";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 import type {
   BfrHandoffContext,
-  BfrHandoffResolutionMetadata,
   BfrPageType,
 } from "@/lib/analytics/event-taxonomy";
 import {
   BFR_HANDOFF_CONTEXTS,
   BFR_PAGE_TYPES,
-  hasValidBfrHandoffResolutionPair,
 } from "@/lib/analytics/event-taxonomy";
 
 export const APP_HANDOFF_VIEW_EVENT = "app_handoff_view";
@@ -53,30 +51,22 @@ type ExactCallHandoffBaseMetadata = {
   source: "exact_call";
   handoff_context: BfrHandoffContext;
   surface?: BfrPageType;
-  platform?: "ios" | "android" | "desktop";
+  placement?: "exact_call";
 };
 
-export type ExactCallHandoffMetadata = ExactCallHandoffBaseMetadata
-  & BfrHandoffResolutionMetadata;
+export type ExactCallHandoffMetadata = ExactCallHandoffBaseMetadata;
 
 const EXACT_CALL_ALLOWED_KEYS = new Set<keyof ExactCallHandoffMetadata>([
   "handoff_id",
   "source",
   "handoff_context",
-  "fallback_classification",
-  "reason",
   "surface",
-  "platform",
+  "placement",
 ]);
 const EXACT_CALL_HANDOFF_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const EXACT_CALL_CONTEXTS = new Set<string>(BFR_HANDOFF_CONTEXTS);
 const EXACT_CALL_SURFACES = new Set<string>(BFR_PAGE_TYPES);
-const EXACT_CALL_PLATFORMS = new Set<string>([
-  "ios",
-  "android",
-  "desktop",
-]);
 
 function enrich(metadata: AppHandoffMetadata): AppHandoffMetadata {
   return {
@@ -130,7 +120,6 @@ function sanitizeExactCallMetadata(
     typeof sanitized.handoff_context !== "string"
     || !EXACT_CALL_CONTEXTS.has(sanitized.handoff_context)
   ) return null;
-  if (!hasValidBfrHandoffResolutionPair(sanitized)) return null;
   if (
     sanitized.surface !== undefined
     && (
@@ -141,10 +130,10 @@ function sanitizeExactCallMetadata(
     return null;
   }
   if (
-    sanitized.platform !== undefined
+    sanitized.placement !== undefined
     && (
-      typeof sanitized.platform !== "string"
-      || !EXACT_CALL_PLATFORMS.has(sanitized.platform)
+      typeof sanitized.placement !== "string"
+      || sanitized.placement !== "exact_call"
     )
   ) {
     return null;
@@ -157,24 +146,12 @@ function emitExactCall(metadata: ExactCallHandoffMetadata): void {
   const sanitized = sanitizeExactCallMetadata(metadata);
   if (!sanitized) return;
 
-  let enriched: Record<string, unknown>;
   try {
-    enriched = {
-      cta_family: "app_handoff",
-      ...deriveSeoPageContextFromPath(),
-      viewport_width:
-        typeof window !== "undefined" ? window.innerWidth : undefined,
-      ...sanitized,
-    };
-  } catch {
-    return;
-  }
-  try {
-    track(APP_HANDOFF_LINK_OPENED_EVENT, enriched);
+    track(APP_HANDOFF_LINK_OPENED_EVENT, sanitized);
   } catch {
     // Product analytics is best effort and must not block the handoff.
   }
-  fireToUserEvents(APP_HANDOFF_LINK_OPENED_EVENT, enriched);
+  fireToUserEvents(APP_HANDOFF_LINK_OPENED_EVENT, sanitized);
 }
 
 function emit(eventType: AppHandoffEvent, metadata: AppHandoffMetadata): void {

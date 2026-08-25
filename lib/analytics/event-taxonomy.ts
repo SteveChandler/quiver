@@ -318,28 +318,9 @@ const BFR_EXPO_CHANNEL_VALUES = new Set<string>([
   'development',
 ]);
 const BFR_EXACT_CALL_PLACEMENT_VALUES = new Set<string>(['exact_call']);
-const BFR_EXACT_CALL_PLATFORM_VALUES = new Set<string>([
-  'ios',
-  'android',
-  'desktop',
-]);
 const BFR_NATIVE_PLATFORM_VALUES = new Set<string>([
   'native-ios',
   'native-android',
-]);
-const BFR_SEO_PAGE_TYPE_VALUES = new Set<string>([
-  'city_water_temp',
-  'beach_water_temp',
-  'best_time',
-  'surf_report',
-  'other',
-]);
-const BFR_SEO_QUERY_INTENT_VALUES = new Set<string>([
-  'water_temp',
-  'best_time',
-  'surf_report',
-  'app_store',
-  'other',
 ]);
 const BFR_NATIVE_CHANNEL_KEYS = new Set<string>([
   'source',
@@ -366,15 +347,7 @@ const BFR_EXACT_CALL_LINK_OPENED_KEYS = new Set<string>([
   'source',
   'surface',
   'placement',
-  'platform',
   'handoff_context',
-  'fallback_classification',
-  'reason',
-  'cta_family',
-  'page_type',
-  'query_intent',
-  'seo_landing_page',
-  'viewport_width',
 ]);
 const BFR_HANDOFF_RESOLUTION_KEYS = new Set<string>([
   'handoff_id',
@@ -547,54 +520,6 @@ function buildBfrExactCallReceiptMetadata(
     return hasValidNativeChannelMetadata(metadata, 'exact_call')
       ? metadata
       : null;
-  }
-  if (!hasValidBfrHandoffResolutionPair(metadata)) return null;
-  if (
-    metadata.platform !== undefined
-    && (
-      typeof metadata.platform !== 'string'
-      || !BFR_EXACT_CALL_PLATFORM_VALUES.has(metadata.platform)
-    )
-  ) {
-    return null;
-  }
-  if (metadata.cta_family !== undefined && metadata.cta_family !== 'app_handoff') {
-    return null;
-  }
-  if (
-    metadata.page_type !== undefined
-    && (
-      typeof metadata.page_type !== 'string'
-      || !BFR_SEO_PAGE_TYPE_VALUES.has(metadata.page_type)
-    )
-  ) {
-    return null;
-  }
-  if (
-    metadata.query_intent !== undefined
-    && (
-      typeof metadata.query_intent !== 'string'
-      || !BFR_SEO_QUERY_INTENT_VALUES.has(metadata.query_intent)
-    )
-  ) {
-    return null;
-  }
-  if (
-    metadata.seo_landing_page !== undefined
-    && typeof metadata.seo_landing_page !== 'boolean'
-  ) {
-    return null;
-  }
-  if (
-    metadata.viewport_width !== undefined
-    && (
-      typeof metadata.viewport_width !== 'number'
-      || !Number.isFinite(metadata.viewport_width)
-      || metadata.viewport_width <= 0
-      || metadata.viewport_width > 10_000
-    )
-  ) {
-    return null;
   }
   return metadata;
 }

@@ -171,6 +171,37 @@ describe("event taxonomy", () => {
     expect(buildBfrApiEventMetadata("app_handoff_view", metadata)).toBeNull();
   });
 
+  it("keeps start metadata separate from native resolution truth", () => {
+    const startMetadata = {
+      handoff_id: "33333333-3333-4333-8333-333333333333",
+      source: "exact_call",
+      surface: "beach_detail",
+      placement: "exact_call",
+      handoff_context: "exact_call",
+    };
+
+    expect(buildBfrApiEventMetadata(
+      BFR_EXACT_CALL_HANDOFF_EVENTS.started,
+      startMetadata
+    )).toEqual(startMetadata);
+    expect(buildBfrApiEventMetadata(
+      BFR_EXACT_CALL_HANDOFF_EVENTS.started,
+      { ...startMetadata, fallback_classification: "exact" }
+    )).toBeNull();
+    expect(buildBfrApiEventMetadata(
+      BFR_EXACT_CALL_HANDOFF_EVENTS.resolved,
+      {
+        handoff_id: startMetadata.handoff_id,
+        fallback_classification: "exact",
+        source: "launch-primer",
+      }
+    )).toEqual({
+      handoff_id: startMetadata.handoff_id,
+      fallback_classification: "exact",
+      source: "launch-primer",
+    });
+  });
+
   it("allows app handoff funnel events for anonymous and signed-in users", () => {
     for (const event of appHandoffEvents) {
       expect(VALID_EVENTS).toContain(event);

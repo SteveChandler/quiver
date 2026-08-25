@@ -1469,13 +1469,7 @@ describe('POST /api/events', () => {
             source: 'exact_call',
             surface: 'beach_detail',
             placement: 'exact_call',
-            platform: 'ios',
             handoff_context: 'exact_call',
-            fallback_classification: 'invalid',
-            reason: 'malformed',
-            cta_family: 'app_handoff',
-            page_type: 'other',
-            query_intent: 'other',
           },
         },
         {
@@ -1837,13 +1831,8 @@ describe('POST /api/events', () => {
             handoff_id: '33333333-3333-4333-8333-333333333333',
             source: 'exact_call',
             surface: 'beach_detail',
+            placement: 'exact_call',
             handoff_context: 'exact_call',
-            fallback_classification: 'exact',
-            cta_family: 'app_handoff',
-            page_type: 'other',
-            query_intent: 'other',
-            seo_landing_page: false,
-            viewport_width: 390,
           },
         }),
       });
@@ -1855,9 +1844,41 @@ describe('POST /api/events', () => {
         event_type: 'app_handoff_link_opened',
         metadata: expect.objectContaining({
           handoff_id: '33333333-3333-4333-8333-333333333333',
-          fallback_classification: 'exact',
+          source: 'exact_call',
+          placement: 'exact_call',
         }),
       }));
+    });
+
+    it('rejects resolution classification fields on a web exact-call start', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const response = await POST(new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'app_handoff_link_opened',
+          sessionId: '82345678-1234-4234-8234-123456789012',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            source: 'exact_call',
+            surface: 'beach_detail',
+            placement: 'exact_call',
+            handoff_context: 'exact_call',
+            fallback_classification: 'exact',
+          },
+        }),
+      }));
+
+      expect(response.status).toBe(400);
+      expect(mockServiceInsert).not.toHaveBeenCalled();
     });
 
     it('accepts a valid anonymous watched-call resolution payload', async () => {

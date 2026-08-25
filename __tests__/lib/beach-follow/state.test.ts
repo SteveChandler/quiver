@@ -125,6 +125,47 @@ describe("local beach-follow state", () => {
     );
   });
 
+  it("keeps the newest follow removal timestamp during an out-of-order retry", () => {
+    const newestTime = "2026-08-24T14:00:00.000Z";
+    const removed = appliedState(removeFollow(
+      createLocalFollowState(),
+      BEACH_A,
+      newestTime
+    ));
+
+    expect(appliedState(removeFollow(removed, BEACH_A, SECOND_TIME))).toEqual(
+      removed
+    );
+  });
+
+  it("keeps the newest topic removal timestamp during an out-of-order retry", () => {
+    const newestTime = "2026-08-24T14:00:00.000Z";
+    const followed = appliedState(addFollow(
+      createLocalFollowState(),
+      { beachId: BEACH_A, topics: [FollowTopic.Surf, FollowTopic.Tide] },
+      FIRST_TIME
+    ));
+    const removed = appliedState(updateFollowTopics(
+      followed,
+      BEACH_A,
+      [FollowTopic.Tide],
+      newestTime
+    ));
+
+    const retried = appliedState(updateFollowTopics(
+      removed,
+      BEACH_A,
+      [FollowTopic.Tide],
+      SECOND_TIME
+    ));
+
+    expect(retried.topicTombstones).toEqual([{
+      beachId: BEACH_A,
+      topic: FollowTopic.Surf,
+      removedAt: newestTime,
+    }]);
+  });
+
   it("migrates known versions and preserves future envelopes for quarantine", () => {
     const legacyFollow = {
       beachId: BEACH_A,
