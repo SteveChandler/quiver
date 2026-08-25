@@ -16,6 +16,9 @@ const BEACH_ID = "11111111-1111-4111-8111-111111111111";
 const WINDOW_ID = "2026-08-25T14:00:00.000Z";
 const RECOMMENDATION_ID = `beach:${BEACH_ID}:${WINDOW_ID}`;
 const OTHER_BEACH_ID = "22222222-2222-4222-8222-222222222222";
+const SURF_DISCOVER_BEACH_ID = "a3e9d10c-92e9-4302-b808-a3de0c2eca22";
+const SURF_DISCOVER_RECOMMENDATION_ID =
+  "beach:a3e9d10c-92e9-4302-b808-a3de0c2eca22:2026-08-18T00:00:00+00:00";
 const SERIALIZED_V1_CONTEXT = JSON.stringify({
   v: 1,
   beachId: BEACH_ID,
@@ -40,6 +43,20 @@ const CROSS_BEACH_PRIOR_RECOMMENDATION_CONTEXT = JSON.stringify({
   expiresAt: "2026-08-24T12:30:00.000Z",
   priorRecommendation: {
     recommendationId: `beach:${OTHER_BEACH_ID}:${WINDOW_ID}`,
+    mode: "my-spots",
+    verdict: "go",
+  },
+});
+const SURF_DISCOVER_CONTEXT = JSON.stringify({
+  v: 1,
+  beachId: SURF_DISCOVER_BEACH_ID,
+  slug: "torrance-beach-rat-beach",
+  windowId: "2026-08-18T00:00:00.000Z",
+  sourceSurface: "surf_comparison",
+  generatedAt: "2026-08-24T12:00:00.000Z",
+  expiresAt: "2026-08-24T12:30:00.000Z",
+  priorRecommendation: {
+    recommendationId: SURF_DISCOVER_RECOMMENDATION_ID,
     mode: "my-spots",
     verdict: "go",
   },
@@ -117,6 +134,59 @@ describe("exact handoff context", () => {
     });
   });
 
+  it("MUST-ACCEPT the checked-in surf-discover recommendation ID unchanged", () => {
+    const parsed = parseHandoffContext(SURF_DISCOVER_CONTEXT);
+
+    expect(parsed).toMatchObject({
+      ok: true,
+      context: {
+        priorRecommendation: {
+          recommendationId: SURF_DISCOVER_RECOMMENDATION_ID,
+        },
+      },
+    });
+    expect(classifyHandoffResolution(SURF_DISCOVER_CONTEXT, {
+      now: NOW,
+      beachExists: true,
+      exactWindowExists: true,
+    })).toMatchObject({
+      classification: "exact",
+      context: {
+        priorRecommendation: {
+          recommendationId: SURF_DISCOVER_RECOMMENDATION_ID,
+        },
+      },
+    });
+  });
+
+  it.each([
+    `beach:${BEACH_ID}:2026-08-18T00:00:00Z`,
+    `beach:${BEACH_ID}:2026-08-18T00:00:00.123+00:00`,
+  ])("accepts the bounded recommendation timestamp form %s", (recommendationId) => {
+    const context = JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>;
+
+    expect(parseHandoffContext({
+      ...context,
+      priorRecommendation: {
+        recommendationId,
+        mode: "my-spots",
+        verdict: "go",
+      },
+    })).toMatchObject({
+      ok: true,
+      context: { priorRecommendation: { recommendationId } },
+    });
+  });
+
+  it("keeps local envelope timestamps restricted to canonical .sssZ", () => {
+    const context = JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>;
+
+    expect(parseHandoffContext({
+      ...context,
+      generatedAt: "2026-08-24T12:00:00+00:00",
+    })).toEqual({ ok: false, reason: "malformed" });
+  });
+
   it("expires to a truthful beach-only fallback", () => {
     const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
     if (!parsed.ok) throw new Error("Expected valid fixture");
@@ -161,7 +231,7 @@ describe("exact handoff context", () => {
     })).toEqual({ classification: "invalid", reason: "malformed" });
   });
 
-  it("rejects the identical impossible-date fixture as malformed", () => {
+  it("MUST-REJECT the identical impossible-date fixture as malformed", () => {
     const impossibleContext = JSON.parse(IMPOSSIBLE_DATE_CONTEXT) as Record<
       string,
       unknown

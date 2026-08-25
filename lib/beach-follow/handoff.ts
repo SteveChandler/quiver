@@ -19,6 +19,8 @@ const CANONICAL_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const CANONICAL_WINDOW_INSTANT_PATTERN =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const RECOMMENDATION_INSTANT_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/;
 const SLUGGED_WINDOW_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/;
 const HASHED_WINDOW_ID_PATTERN = /^[0-9a-f]{24}$/;
@@ -105,7 +107,7 @@ function isRecommendationId(value: unknown): value is string {
   }
   if (HASHED_WINDOW_ID_PATTERN.test(value)) return true;
   const match = value.match(STRUCTURED_RECOMMENDATION_PATTERN);
-  return Boolean(match && instantMillis(match[3]) !== null);
+  return Boolean(match && recommendationInstantMillis(match[3]) !== null);
 }
 
 function isSlug(value: unknown): value is string {
@@ -126,6 +128,49 @@ function instantMillis(value: unknown): number | null {
   }
   const millis = Date.parse(value);
   return Number.isFinite(millis) && new Date(millis).toISOString() === value
+    ? millis
+    : null;
+}
+
+function recommendationInstantMillis(value: unknown): number | null {
+  if (typeof value !== "string") return null;
+  const match = value.match(RECOMMENDATION_INSTANT_PATTERN);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const millisecond = Number((match[7] ?? "").padEnd(3, "0"));
+  const offsetHours = match[8] === "Z" ? 0 : Number(match[10]);
+  const offsetMinutes = match[8] === "Z" ? 0 : Number(match[11]);
+  if (
+    offsetHours > 14 ||
+    offsetMinutes > 59 ||
+    (offsetHours === 14 && offsetMinutes !== 0)
+  ) {
+    return null;
+  }
+
+  const offsetDirection = match[9] === "-" ? -1 : 1;
+  const offsetMillis =
+    offsetDirection * (offsetHours * 60 + offsetMinutes) * 60_000;
+  const wallClock = new Date(0);
+  wallClock.setUTCFullYear(year, month - 1, day);
+  wallClock.setUTCHours(hour, minute, second, millisecond);
+  const millis = wallClock.getTime() - offsetMillis;
+  if (!Number.isFinite(millis)) return null;
+
+  const roundTrip = new Date(millis + offsetMillis);
+  return roundTrip.getUTCFullYear() === year &&
+    roundTrip.getUTCMonth() === month - 1 &&
+    roundTrip.getUTCDate() === day &&
+    roundTrip.getUTCHours() === hour &&
+    roundTrip.getUTCMinutes() === minute &&
+    roundTrip.getUTCSeconds() === second &&
+    roundTrip.getUTCMilliseconds() === millisecond
     ? millis
     : null;
 }
