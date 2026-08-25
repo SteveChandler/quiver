@@ -27,6 +27,13 @@ export const BFR_ANONYMOUS_EVENT_TYPES = [
 ] as const;
 
 export const BFR_INTENT_STATES = ['explicit', 'inferred', 'unknown'] as const;
+export const BFR_WEB_AUDIENCE_CLASSES = [
+  'general_utility',
+  'surf_qualified',
+  'existing_web_user',
+] as const;
+export const BFR_WEB_EXPERIMENT_KEY = 'bfr-follow-holdout-v1' as const;
+export const BFR_WEB_EXPERIMENT_ARMS = ['holdout', 'treatment'] as const;
 export const BFR_INTENT_REASONS = [
   'explicit_surfing',
   'explicit_non_surf',
@@ -66,6 +73,11 @@ export const BFR_EXACT_CALL_HANDOFF_EVENTS = {
 
 export type BfrIntentState = (typeof BFR_INTENT_STATES)[number];
 export type BfrIntentReason = (typeof BFR_INTENT_REASONS)[number];
+export type BfrWebAudienceClass =
+  (typeof BFR_WEB_AUDIENCE_CLASSES)[number];
+export type BfrWebExperimentArm =
+  (typeof BFR_WEB_EXPERIMENT_ARMS)[number];
+export type BfrWebEventType = (typeof BFR_WEB_EVENT_TYPES)[number];
 export type BfrTopic = (typeof BFR_TOPICS)[number];
 export type BfrPageType = (typeof BFR_PAGE_TYPES)[number];
 export type BfrFallbackClassification =
@@ -73,6 +85,193 @@ export type BfrFallbackClassification =
 export type BfrHandoffResolutionReason =
   (typeof BFR_HANDOFF_RESOLUTION_REASONS)[number];
 export type BfrHandoffContext = (typeof BFR_HANDOFF_CONTEXTS)[number];
+
+type BfrWebExperimentMetadata = {
+  experiment_key: typeof BFR_WEB_EXPERIMENT_KEY;
+  experiment_arm: BfrWebExperimentArm;
+};
+
+type BfrWebBaseMetadata = BfrWebExperimentMetadata & {
+  audience_class: BfrWebAudienceClass;
+  page_type: BfrPageType;
+};
+
+type BfrIntentMetadata =
+  | {
+      intent_state: 'explicit';
+      intent_reason: 'explicit_surfing' | 'explicit_non_surf';
+    }
+  | {
+      intent_state: 'inferred';
+      intent_reason: 'high_intent_action' | 'multiple_surf_signals';
+    }
+  | {
+      intent_state: 'unknown';
+      intent_reason:
+        | 'insufficient_surf_signals'
+        | 'utility_only'
+        | 'no_evidence';
+    };
+
+type BfrQualifiedIntentMetadata =
+  | {
+      intent_state: 'explicit';
+      intent_reason: 'explicit_surfing';
+    }
+  | {
+      intent_state: 'inferred';
+      intent_reason: 'high_intent_action' | 'multiple_surf_signals';
+    };
+
+type BfrWebTopicMetadata = BfrWebBaseMetadata & { topic: BfrTopic };
+type BfrWebSyncMetadata = BfrWebBaseMetadata & {
+  audience_class: 'existing_web_user';
+};
+type BfrWebMyCoastMetadata = BfrWebBaseMetadata &
+  BfrIntentMetadata & { page_type: 'my_coast' };
+
+export type BfrWebEventMetadataMap = {
+  beach_follow_started: BfrWebTopicMetadata;
+  beach_follow_saved_local: BfrWebTopicMetadata;
+  beach_follow_sync_started: BfrWebSyncMetadata;
+  beach_follow_sync_completed: BfrWebSyncMetadata;
+  follow_topic_changed: BfrWebTopicMetadata;
+  visitor_intent_selected: BfrWebBaseMetadata & BfrIntentMetadata;
+  surf_intent_qualified: BfrWebBaseMetadata &
+    BfrQualifiedIntentMetadata & { audience_class: 'surf_qualified' };
+  my_coast_viewed: BfrWebMyCoastMetadata;
+  my_coast_beach_opened: BfrWebMyCoastMetadata & { topic: BfrTopic };
+};
+
+const BFR_WEB_BASE_KEYS = [
+  'audience_class',
+  'page_type',
+  'experiment_key',
+  'experiment_arm',
+] as const;
+const BFR_WEB_TOPIC_KEYS = [...BFR_WEB_BASE_KEYS, 'topic'] as const;
+const BFR_WEB_INTENT_KEYS = [
+  ...BFR_WEB_BASE_KEYS,
+  'intent_state',
+  'intent_reason',
+] as const;
+const BFR_WEB_EVENT_METADATA_KEYS: Readonly<
+  Record<BfrWebEventType, readonly string[]>
+> = {
+  beach_follow_started: BFR_WEB_TOPIC_KEYS,
+  beach_follow_saved_local: BFR_WEB_TOPIC_KEYS,
+  beach_follow_sync_started: BFR_WEB_BASE_KEYS,
+  beach_follow_sync_completed: BFR_WEB_BASE_KEYS,
+  follow_topic_changed: BFR_WEB_TOPIC_KEYS,
+  visitor_intent_selected: BFR_WEB_INTENT_KEYS,
+  surf_intent_qualified: BFR_WEB_INTENT_KEYS,
+  my_coast_viewed: BFR_WEB_INTENT_KEYS,
+  my_coast_beach_opened: [...BFR_WEB_INTENT_KEYS, 'topic'],
+};
+const BFR_WEB_ALLOWED_VALUES: Readonly<Record<string, ReadonlySet<string>>> = {
+  audience_class: new Set(BFR_WEB_AUDIENCE_CLASSES),
+  page_type: new Set(BFR_PAGE_TYPES),
+  experiment_key: new Set([BFR_WEB_EXPERIMENT_KEY]),
+  experiment_arm: new Set(BFR_WEB_EXPERIMENT_ARMS),
+  topic: new Set(BFR_TOPICS),
+  intent_state: new Set(BFR_INTENT_STATES),
+  intent_reason: new Set(BFR_INTENT_REASONS),
+};
+const BFR_WEB_INTENT_REASONS_BY_STATE: Readonly<
+  Record<BfrIntentState, ReadonlySet<BfrIntentReason>>
+> = {
+  explicit: new Set(['explicit_surfing', 'explicit_non_surf']),
+  inferred: new Set(['high_intent_action', 'multiple_surf_signals']),
+  unknown: new Set([
+    'insufficient_surf_signals',
+    'utility_only',
+    'no_evidence',
+  ]),
+};
+
+function hasValidBfrWebIntentPair(
+  metadata: Record<string, unknown>,
+): boolean {
+  if (metadata.intent_state === undefined && metadata.intent_reason === undefined) {
+    return true;
+  }
+  if (
+    typeof metadata.intent_state !== 'string'
+    || typeof metadata.intent_reason !== 'string'
+  ) {
+    return false;
+  }
+
+  return Boolean(
+    BFR_WEB_INTENT_REASONS_BY_STATE[
+      metadata.intent_state as BfrIntentState
+    ]?.has(metadata.intent_reason as BfrIntentReason),
+  );
+}
+
+function hasValidBfrWebEventSemantics(
+  eventType: BfrWebEventType,
+  metadata: Record<string, unknown>,
+): boolean {
+  if (
+    (eventType === 'beach_follow_sync_started'
+      || eventType === 'beach_follow_sync_completed')
+    && metadata.audience_class !== 'existing_web_user'
+  ) {
+    return false;
+  }
+  if (
+    (eventType === 'my_coast_viewed'
+      || eventType === 'my_coast_beach_opened')
+    && metadata.page_type !== 'my_coast'
+  ) {
+    return false;
+  }
+  if (eventType === 'surf_intent_qualified') {
+    const isQualified = metadata.audience_class === 'surf_qualified'
+      && (
+        (metadata.intent_state === 'explicit'
+          && metadata.intent_reason === 'explicit_surfing')
+        || (
+          metadata.intent_state === 'inferred'
+          && (
+            metadata.intent_reason === 'high_intent_action'
+            || metadata.intent_reason === 'multiple_surf_signals'
+          )
+        )
+      );
+    if (!isQualified) return false;
+  }
+
+  return hasValidBfrWebIntentPair(metadata);
+}
+
+export function buildBfrWebEventMetadata<EventType extends BfrWebEventType>(
+  metadata: BfrWebEventMetadataMap[EventType],
+  eventType: EventType,
+): BfrWebEventMetadataMap[EventType] | null {
+  if (typeof metadata !== 'object' || metadata === null || Array.isArray(metadata)) {
+    return null;
+  }
+  const metadataRecord = metadata as Record<string, unknown>;
+  const allowedKeys = BFR_WEB_EVENT_METADATA_KEYS[eventType];
+  if (Object.keys(metadataRecord).some((key) => !allowedKeys.includes(key))) {
+    return null;
+  }
+  if (allowedKeys.some((key) => typeof metadataRecord[key] !== 'string')) {
+    return null;
+  }
+  if (allowedKeys.some((key) => (
+    !BFR_WEB_ALLOWED_VALUES[key]?.has(metadataRecord[key] as string)
+  ))) {
+    return null;
+  }
+  if (!hasValidBfrWebEventSemantics(eventType, metadataRecord)) return null;
+
+  return Object.fromEntries(
+    allowedKeys.map((key) => [key, metadataRecord[key]]),
+  ) as BfrWebEventMetadataMap[EventType];
+}
 
 export const VALID_EVENTS = [
   // Implicit preference learning events

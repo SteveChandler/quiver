@@ -53,6 +53,18 @@ describe("experimentArm", () => {
     }
   );
 
+  it("canonicalizes a bounded ISO assignment instant", () => {
+    expect(
+      bfrHoldoutAssignment("anon-1", "2026-08-24T05:00:00-07:00").assignedAt
+    ).toBe(ASSIGNED_AT);
+  });
+
+  it("rejects a non-ISO assignment time accepted by Date.parse", () => {
+    expect(() => bfrHoldoutAssignment("anon-1", "August 24, 2026")).toThrow(
+      "Invalid BFR holdout assignment time"
+    );
+  });
+
   it("keeps the BFR assignment module browser-safe", () => {
     const source = readFileSync(
       join(process.cwd(), "lib/experiments/bfr-holdout.ts"),

@@ -6,6 +6,9 @@ import {
   BFR_HANDOFF_RESOLUTION_REASONS,
   BFR_INTENT_REASONS,
   BFR_INTENT_STATES,
+  BFR_WEB_AUDIENCE_CLASSES,
+  BFR_WEB_EXPERIMENT_ARMS,
+  BFR_WEB_EXPERIMENT_KEY,
   BFR_PAGE_TYPES,
   BFR_TOPICS,
   EXTERNAL_ANALYTICS_ONLY_EVENTS,
@@ -38,6 +41,13 @@ const appleOrphanRecoveryFlaggedEvent =
 describe("event taxonomy", () => {
   it("exposes only bounded BFR property vocabularies", () => {
     expect(BFR_INTENT_STATES).toEqual(["explicit", "inferred", "unknown"]);
+    expect(BFR_WEB_AUDIENCE_CLASSES).toEqual([
+      "general_utility",
+      "surf_qualified",
+      "existing_web_user",
+    ]);
+    expect(BFR_WEB_EXPERIMENT_KEY).toBe("bfr-follow-holdout-v1");
+    expect(BFR_WEB_EXPERIMENT_ARMS).toEqual(["holdout", "treatment"]);
     expect(BFR_INTENT_REASONS).toEqual([
       "explicit_surfing",
       "explicit_non_surf",
@@ -85,6 +95,9 @@ describe("event taxonomy", () => {
     expect(JSON.stringify({
       BFR_INTENT_STATES,
       BFR_INTENT_REASONS,
+      BFR_WEB_AUDIENCE_CLASSES,
+      BFR_WEB_EXPERIMENT_KEY,
+      BFR_WEB_EXPERIMENT_ARMS,
       BFR_TOPICS,
       BFR_PAGE_TYPES,
       BFR_FALLBACK_CLASSIFICATIONS,

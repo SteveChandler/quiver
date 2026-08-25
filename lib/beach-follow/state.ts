@@ -46,7 +46,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function normalizeInstant(value: unknown): string | null {
+export function normalizeBoundedIsoInstant(value: unknown): string | null {
   if (
     typeof value !== "string" ||
     value.length > MAX_ISO_INSTANT_LENGTH ||
@@ -69,7 +69,7 @@ function normalizeBfrHoldoutAssignment(
   value: unknown
 ): BfrHoldoutAssignmentRecord | null {
   if (!isRecord(value)) return null;
-  const assignedAt = normalizeInstant(value.assignedAt);
+  const assignedAt = normalizeBoundedIsoInstant(value.assignedAt);
   if (
     value.version !== 1 ||
     value.experimentKey !== "bfr-follow-holdout-v1" ||
@@ -109,8 +109,8 @@ function normalizeFollow(value: unknown): FollowedBeach | null {
   if (!isRecord(value)) return null;
   const beachId = normalizeBeachId(value.beachId);
   const topics = normalizeFollowTopics(value.topics);
-  const createdAt = normalizeInstant(value.createdAt);
-  const updatedAt = normalizeInstant(value.updatedAt);
+  const createdAt = normalizeBoundedIsoInstant(value.createdAt);
+  const updatedAt = normalizeBoundedIsoInstant(value.updatedAt);
   if (!beachId || topics.length === 0) return null;
   if (!createdAt || !updatedAt) return null;
 
@@ -125,7 +125,7 @@ function normalizeFollow(value: unknown): FollowedBeach | null {
 function normalizeTombstone(value: unknown): FollowTombstone | null {
   if (!isRecord(value)) return null;
   const beachId = normalizeBeachId(value.beachId);
-  const removedAt = normalizeInstant(value.removedAt);
+  const removedAt = normalizeBoundedIsoInstant(value.removedAt);
   if (!beachId || !removedAt) return null;
   return { beachId, removedAt };
 }
@@ -263,7 +263,7 @@ export function addFollow(
   const normalized = normalization.state;
   const beachId = normalizeBeachId(input.beachId);
   const topics = normalizeFollowTopics(input.topics);
-  const normalizedNow = normalizeInstant(now);
+  const normalizedNow = normalizeBoundedIsoInstant(now);
   if (!beachId || topics.length === 0 || !normalizedNow) {
     return applied(normalized);
   }
@@ -318,7 +318,7 @@ export function updateFollowTopics(
   const normalized = normalization.state;
   const beachId = normalizeBeachId(beachIdInput);
   const topics = normalizeFollowTopics(topicsInput);
-  const normalizedNow = normalizeInstant(now);
+  const normalizedNow = normalizeBoundedIsoInstant(now);
   if (!beachId || topics.length === 0 || !normalizedNow) {
     return applied(normalized);
   }
@@ -345,7 +345,7 @@ export function removeFollow(
   if (normalization.status === "sync_required") return normalization;
   const normalized = normalization.state;
   const beachId = normalizeBeachId(beachIdInput);
-  const normalizedNow = normalizeInstant(now);
+  const normalizedNow = normalizeBoundedIsoInstant(now);
   if (!beachId || !normalizedNow) return applied(normalized);
 
   const existingTombstone = normalized.tombstones.find(

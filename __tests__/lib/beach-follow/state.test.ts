@@ -8,6 +8,7 @@ import {
   removeFollow,
   updateFollowTopics,
 } from "@/lib/beach-follow/state";
+import { bfrHoldoutAssignment } from "@/lib/experiments/bfr-holdout";
 import { FollowTopic, type LocalFollowState } from "@/types/beach-follow";
 
 const FIRST_TIME = "2026-08-24T12:00:00.000Z";
@@ -344,6 +345,20 @@ describe("local beach-follow state", () => {
       updatedAt: "2026-08-24T12:00:01.000Z",
     });
     expect(normalized.tombstones[0].removedAt).toBe(SECOND_TIME);
+    expect(normalized.bfrHoldoutAssignment?.assignedAt).toBe(FIRST_TIME);
+  });
+
+  it("round-trips a constructed BFR holdout assignment through local state", () => {
+    const assignment = bfrHoldoutAssignment(
+      "anon-1",
+      "2026-08-24T05:00:00-07:00"
+    );
+    const normalized = appliedState(normalizeLocalFollowState({
+      ...createLocalFollowState(),
+      bfrHoldoutAssignment: assignment,
+    }));
+
+    expect(normalized.bfrHoldoutAssignment).toEqual(assignment);
     expect(normalized.bfrHoldoutAssignment?.assignedAt).toBe(FIRST_TIME);
   });
 });

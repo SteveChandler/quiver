@@ -1,3 +1,4 @@
+import { normalizeBoundedIsoInstant } from "@/lib/beach-follow/state";
 import type { BfrHoldoutAssignmentRecord } from "@/types/beach-follow";
 
 export const BFR_HOLDOUT_EXPERIMENT_KEY = "bfr-follow-holdout-v1" as const;
@@ -25,7 +26,8 @@ export function bfrHoldoutAssignment(
   ) {
     throw new Error("Invalid BFR holdout subject");
   }
-  if (!Number.isFinite(Date.parse(assignedAt))) {
+  const normalizedAssignedAt = normalizeBoundedIsoInstant(assignedAt);
+  if (!normalizedAssignedAt) {
     throw new Error("Invalid BFR holdout assignment time");
   }
 
@@ -34,7 +36,7 @@ export function bfrHoldoutAssignment(
     subjectId,
     experimentKey: BFR_HOLDOUT_EXPERIMENT_KEY,
     arm: (hash & 1) === 0 ? "holdout" : "treatment",
-    assignedAt,
+    assignedAt: normalizedAssignedAt,
     version: BFR_HOLDOUT_ASSIGNMENT_VERSION,
   };
 }
