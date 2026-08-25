@@ -194,7 +194,7 @@ be. The requirement is closed by removal of the surface, not by evidence that it
 Commit `c66058c7a` (`chore(follow): remove My Coast and the beach-follow surface`) deletes the
 `/my-coast` page and API route, the Follow control and its water-temperature and beach sub-page
 placements, local follow state, the anonymous-to-account sync boundary, and the **unapplied**
-`beach_follows` migration — 6,106 deletions against 83 insertions. Two follow-up commits
+`beach_follows` migration — 33 files, 6,102 deletions against 72 insertions. Two follow-up commits
 (`40b41cced`, `ab68be94c`) drop the component props and type declarations that the removal
 orphaned. Nothing linked to `/my-coast`
 from site navigation and web `main` was never promoted, so **no user ever saw this surface**;
@@ -265,8 +265,10 @@ remain in four places: `lib/analytics/event-taxonomy.ts`, the `/api/events` vali
 `IMPLICIT_EVENT_WEIGHTS` map in `types/implicit-preferences.ts` (all added by `7330962b5`, all at
 **weight 0**, so they cannot influence implicit-preference scoring), and the **unapplied**
 `20260824150000_add_bfr_analytics_events.sql` migration. Nothing emits them, so they are inert.
-`types/exact-handoff.ts` also keeps a `MyCoast = "my_coast"` member in its surface enum; that enum
-is mirrored byte-for-byte in `quiver-native`, so removing a member is a two-repo grammar change.
+`types/exact-handoff.ts` also keeps a `MyCoast = "my_coast"` member in its surface allowlist. Web
+declares it as a TypeScript `enum` and `quiver-native` as a string union plus a validation `Set`
+(`src/lib/watched-call/handoff-context.ts`), so the two are **semantically** mirrored, not
+literally identical source. Removing a member is therefore still a two-repo grammar change.
 They were left because removing enum members from a validated wire grammar — one whose
 watched-call half is still in scope and mirrored in `quiver-native` — is a separate change from
 removing the surface, with its own regression surface and no user-visible benefit. Track it as
