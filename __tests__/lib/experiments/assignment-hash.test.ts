@@ -1,4 +1,15 @@
-import { experimentArm } from "@/lib/experiments/assignment-hash";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import {
+  experimentArm,
+} from "@/lib/experiments/assignment-hash";
+import {
+  BFR_HOLDOUT_EXPERIMENT_KEY,
+  bfrHoldoutAssignment,
+} from "@/lib/experiments/bfr-holdout";
+
+const ASSIGNED_AT = "2026-08-24T12:00:00.000Z";
 
 describe("experimentArm", () => {
   it.each([
@@ -23,5 +34,55 @@ describe("experimentArm", () => {
       experimentArm("11111111-2222-3333-4444-555555555555", "t3-quicklog-v1")
     );
     expect(new Set(values)).toEqual(new Set([1]));
+  });
+
+  it.each(["user-123", "anon-visitor-456"])(
+    "assigns a stable BFR holdout arm for %s",
+    (subjectId) => {
+      const assignments = Array.from({ length: 10 }, () =>
+        bfrHoldoutAssignment(subjectId, ASSIGNED_AT)
+      );
+      expect(new Set(assignments.map((assignment) => assignment.arm)).size).toBe(1);
+      expect(assignments[0]).toEqual({
+        subjectId,
+        experimentKey: BFR_HOLDOUT_EXPERIMENT_KEY,
+        arm: expect.stringMatching(/^(holdout|treatment)$/),
+        assignedAt: ASSIGNED_AT,
+        version: 1,
+      });
+    }
+  );
+
+  it("canonicalizes a bounded ISO assignment instant", () => {
+    expect(
+      bfrHoldoutAssignment("anon-1", "2026-08-24T05:00:00-07:00").assignedAt
+    ).toBe(ASSIGNED_AT);
+  });
+
+  it("rejects a non-ISO assignment time accepted by Date.parse", () => {
+    expect(() => bfrHoldoutAssignment("anon-1", "August 24, 2026")).toThrow(
+      "Invalid BFR holdout assignment time"
+    );
+  });
+
+  it("keeps the BFR assignment module browser-safe", () => {
+    const source = readFileSync(
+      join(process.cwd(), "lib/experiments/bfr-holdout.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/(?:node:)?crypto|createHash|Buffer/);
+  });
+
+  it("produces a rough 50/50 split over deterministic identifiers", () => {
+    const assignments = Array.from({ length: 400 }, (_, index) =>
+      bfrHoldoutAssignment(`anon-${index}`, ASSIGNED_AT)
+    );
+    const treatmentCount = assignments.filter(
+      (assignment) => assignment.arm === "treatment"
+    ).length;
+
+    expect(treatmentCount).toBeGreaterThanOrEqual(160);
+    expect(treatmentCount).toBeLessThanOrEqual(240);
   });
 });

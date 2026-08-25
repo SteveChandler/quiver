@@ -1,10 +1,26 @@
 import {
   ANONYMOUS_ALLOWED_EVENTS,
+  BFR_FALLBACK_CLASSIFICATIONS,
+  BFR_EXACT_CALL_HANDOFF_EVENTS,
+  BFR_HANDOFF_CONTEXTS,
+  BFR_HANDOFF_RESOLUTION_REASONS,
+  BFR_INTENT_REASONS,
+  BFR_INTENT_STATES,
+  BFR_WEB_AUDIENCE_CLASSES,
+  BFR_WEB_EXPERIMENT_ARMS,
+  BFR_WEB_EXPERIMENT_KEY,
+  BFR_PAGE_TYPES,
+  BFR_TOPICS,
   EXTERNAL_ANALYTICS_ONLY_EVENTS,
   PRE_AUTH_ONLY_EVENTS,
   VALID_EVENTS,
+  buildBfrApiEventMetadata,
+  buildBfrWebEventMetadata,
+  isBfrApiEventMetadata,
+  type BfrWebEventMetadataMap,
   type EventType,
 } from "@/lib/analytics/event-taxonomy";
+import { FollowTopic } from "@/types/beach-follow";
 import { EVENT_WEIGHTS } from "@/types/implicit-preferences";
 
 const appHandoffEvents = [
@@ -27,6 +43,165 @@ const appleOrphanRecoveryFlaggedEvent =
   "apple_orphan_recovery_flagged" as const satisfies EventType;
 
 describe("event taxonomy", () => {
+  it("exposes only bounded BFR property vocabularies", () => {
+    expect(BFR_INTENT_STATES).toEqual(["explicit", "inferred", "unknown"]);
+    expect(BFR_WEB_AUDIENCE_CLASSES).toEqual([
+      "general_utility",
+      "surf_qualified",
+      "existing_web_user",
+    ]);
+    expect(BFR_WEB_EXPERIMENT_KEY).toBe("bfr-follow-holdout-v1");
+    expect(BFR_WEB_EXPERIMENT_ARMS).toEqual(["holdout", "treatment"]);
+    expect(BFR_INTENT_REASONS).toEqual([
+      "explicit_surfing",
+      "explicit_non_surf",
+      "high_intent_action",
+      "multiple_surf_signals",
+      "insufficient_surf_signals",
+      "utility_only",
+      "no_evidence",
+    ]);
+    expect(BFR_TOPICS).toEqual(Object.values(FollowTopic));
+    expect(BFR_TOPICS).toEqual([
+      "surf",
+      "water_temp",
+      "tide",
+      "water_quality",
+      "wind",
+      "general",
+    ]);
+    expect(BFR_PAGE_TYPES).toEqual([
+      "beach_detail",
+      "beach_water_temp",
+      "city_water_temp",
+      "my_coast",
+      "other",
+    ]);
+    expect(BFR_FALLBACK_CLASSIFICATIONS).toEqual([
+      "exact",
+      "replaced",
+      "beach_only",
+      "invalid",
+    ]);
+    expect(BFR_HANDOFF_RESOLUTION_REASONS).toEqual([
+      "window_replaced",
+      "expired",
+      "window_removed",
+      "malformed",
+      "unsupported_version",
+      "beach_removed",
+    ]);
+    expect(BFR_HANDOFF_CONTEXTS).toEqual(["exact_call"]);
+    expect(BFR_EXACT_CALL_HANDOFF_EVENTS).toEqual({
+      started: "app_handoff_link_opened",
+      nativeOpened: "app_handoff_native_open",
+      resolved: "watched_call_context_resolved",
+    });
+    expect(new Set(Object.values(BFR_EXACT_CALL_HANDOFF_EVENTS)).size).toBe(3);
+    expect(JSON.stringify({
+      BFR_INTENT_STATES,
+      BFR_INTENT_REASONS,
+      BFR_WEB_AUDIENCE_CLASSES,
+      BFR_WEB_EXPERIMENT_KEY,
+      BFR_WEB_EXPERIMENT_ARMS,
+      BFR_TOPICS,
+      BFR_PAGE_TYPES,
+      BFR_FALLBACK_CLASSIFICATIONS,
+      BFR_HANDOFF_RESOLUTION_REASONS,
+      BFR_HANDOFF_CONTEXTS,
+      BFR_EXACT_CALL_HANDOFF_EVENTS,
+    })).not.toMatch(/email|search|query|lat|lon|coordinate|notes|token/i);
+  });
+
+  it("limits visitor_intent_selected to explicit user choices", () => {
+    const invalidMetadata = {
+      audience_class: "surf_qualified",
+      page_type: "beach_detail",
+      experiment_key: "bfr-follow-holdout-v1",
+      experiment_arm: "treatment",
+      intent_state: "inferred",
+      intent_reason: "high_intent_action",
+    } as const;
+
+    expect(buildBfrWebEventMetadata(
+      invalidMetadata as never,
+      "visitor_intent_selected",
+    )).toBeNull();
+
+    const impossibleType: BfrWebEventMetadataMap["visitor_intent_selected"] = {
+      ...invalidMetadata,
+      // @ts-expect-error selection events require explicit intent state
+      intent_state: "inferred",
+    };
+    expect(impossibleType.intent_state).toBe("inferred");
+  });
+
+  it("strictly validates BFR-only events without diverting legacy metadata", () => {
+    for (const eventType of [
+      "beach_follow_started",
+      "beach_follow_saved_local",
+      "beach_follow_sync_started",
+      "beach_follow_sync_completed",
+      "follow_topic_changed",
+      "visitor_intent_selected",
+      "surf_intent_qualified",
+      "my_coast_viewed",
+      "my_coast_beach_opened",
+      "watched_call_context_resolved",
+    ]) {
+      expect(isBfrApiEventMetadata(eventType, {})).toBe(true);
+    }
+
+    expect(isBfrApiEventMetadata("native_app_first_open", {
+      _platform: "native-ios",
+      app_version: "1.0.2",
+      launch_primer_session_id: "62345678-1234-4234-8234-123456789012",
+    })).toBe(false);
+    expect(isBfrApiEventMetadata("app_handoff_view", {
+      handoff_id: "33333333-3333-4333-8333-333333333333",
+    })).toBe(false);
+  });
+
+  it.each([
+    { source: "exact_call" },
+    { handoff_context: "exact_call" },
+    { fallback_classification: "exact" },
+  ])("strictly validates reused handoff events with $metadata", (metadata) => {
+    expect(isBfrApiEventMetadata("app_handoff_view", metadata)).toBe(true);
+    expect(buildBfrApiEventMetadata("app_handoff_view", metadata)).toBeNull();
+  });
+
+  it("keeps start metadata separate from native resolution truth", () => {
+    const startMetadata = {
+      handoff_id: "33333333-3333-4333-8333-333333333333",
+      source: "exact_call",
+      surface: "beach_detail",
+      placement: "exact_call",
+      handoff_context: "exact_call",
+    };
+
+    expect(buildBfrApiEventMetadata(
+      BFR_EXACT_CALL_HANDOFF_EVENTS.started,
+      startMetadata
+    )).toEqual(startMetadata);
+    expect(buildBfrApiEventMetadata(
+      BFR_EXACT_CALL_HANDOFF_EVENTS.started,
+      { ...startMetadata, fallback_classification: "exact" }
+    )).toBeNull();
+    expect(buildBfrApiEventMetadata(
+      BFR_EXACT_CALL_HANDOFF_EVENTS.resolved,
+      {
+        handoff_id: startMetadata.handoff_id,
+        fallback_classification: "exact",
+        source: "launch-primer",
+      }
+    )).toEqual({
+      handoff_id: startMetadata.handoff_id,
+      fallback_classification: "exact",
+      source: "launch-primer",
+    });
+  });
+
   it("allows app handoff funnel events for anonymous and signed-in users", () => {
     for (const event of appHandoffEvents) {
       expect(VALID_EVENTS).toContain(event);
@@ -35,6 +210,15 @@ describe("event taxonomy", () => {
       expect(EXTERNAL_ANALYTICS_ONLY_EVENTS).not.toContain(event);
       expect(EVENT_WEIGHTS[event]).toBe(0);
     }
+  });
+
+  it("allows the bounded watched-call resolution event for anonymous and signed-in users", () => {
+    const event = BFR_EXACT_CALL_HANDOFF_EVENTS.resolved;
+
+    expect(VALID_EVENTS).toContain(event);
+    expect(ANONYMOUS_ALLOWED_EVENTS).toContain(event);
+    expect(PRE_AUTH_ONLY_EVENTS).not.toContain(event);
+    expect(EVENT_WEIGHTS[event]).toBe(0);
   });
 
   it("keeps acquisition self-report authenticated-only and zero-weight", () => {
