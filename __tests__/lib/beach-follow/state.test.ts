@@ -1,21 +1,31 @@
 import {
   MAX_BEACH_ID_LENGTH,
   MAX_FOLLOWED_BEACHES,
+  MAX_PENDING_FOLLOW_OPERATIONS,
   addFollow,
   createLocalFollowState,
   normalizeLocalFollowState,
   removeFollow,
   updateFollowTopics,
 } from "@/lib/beach-follow/state";
-import { FollowTopic } from "@/types/beach-follow";
+import { FollowTopic, type LocalFollowState } from "@/types/beach-follow";
 
 const FIRST_TIME = "2026-08-24T12:00:00.000Z";
 const SECOND_TIME = "2026-08-24T13:00:00.000Z";
 const BEACH_A = "11111111-1111-4111-8111-111111111111";
 const BEACH_B = "22222222-2222-4222-8222-222222222222";
+const BEACH_C = "33333333-3333-4333-8333-333333333333";
 
 function beachIdFor(index: number): string {
   return `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+}
+
+function appliedState(result: {
+  status: string;
+  state: LocalFollowState;
+}): LocalFollowState {
+  expect(result.status).toBe("applied");
+  return result.state;
 }
 
 describe("local beach-follow state", () => {
@@ -29,19 +39,19 @@ describe("local beach-follow state", () => {
   });
 
   it("adds a follow, dedupes topics and duplicate beach input", () => {
-    const added = addFollow(
+    const added = appliedState(addFollow(
       createLocalFollowState(),
       {
         beachId: BEACH_A,
         topics: [FollowTopic.Tide, FollowTopic.Surf, FollowTopic.Tide],
       },
       FIRST_TIME
-    );
-    const duplicate = addFollow(
+    ));
+    const duplicate = appliedState(addFollow(
       added,
       { beachId: BEACH_A, topics: [FollowTopic.Wind] },
       SECOND_TIME
-    );
+    ));
 
     expect(duplicate.follows).toEqual([
       {
@@ -54,35 +64,37 @@ describe("local beach-follow state", () => {
   });
 
   it("updates topics without creating an absent follow", () => {
-    const state = addFollow(
+    const state = appliedState(addFollow(
       createLocalFollowState(),
       { beachId: BEACH_A, topics: [FollowTopic.General] },
       FIRST_TIME
-    );
+    ));
 
     expect(
-      updateFollowTopics(
+      appliedState(updateFollowTopics(
         state,
         BEACH_A,
         [FollowTopic.WaterTemp, FollowTopic.Tide],
         SECOND_TIME
-      ).follows[0]
+      )).follows[0]
     ).toMatchObject({
       topics: [FollowTopic.WaterTemp, FollowTopic.Tide],
       updatedAt: SECOND_TIME,
     });
     expect(
-      updateFollowTopics(state, BEACH_B, [FollowTopic.Surf], SECOND_TIME)
+      appliedState(
+        updateFollowTopics(state, BEACH_B, [FollowTopic.Surf], SECOND_TIME)
+      )
     ).toEqual(state);
   });
 
   it("removes a follow and writes one deterministic tombstone", () => {
-    const state = addFollow(
+    const state = appliedState(addFollow(
       createLocalFollowState(),
       { beachId: BEACH_A, topics: [FollowTopic.WaterQuality] },
       FIRST_TIME
-    );
-    const removed = removeFollow(state, BEACH_A, SECOND_TIME);
+    ));
+    const removed = appliedState(removeFollow(state, BEACH_A, SECOND_TIME));
 
     expect(removed).toEqual({
       version: 1,
@@ -90,7 +102,9 @@ describe("local beach-follow state", () => {
       tombstones: [{ beachId: BEACH_A, removedAt: SECOND_TIME }],
       bfrHoldoutAssignment: null,
     });
-    expect(removeFollow(removed, BEACH_A, SECOND_TIME)).toEqual(removed);
+    expect(appliedState(removeFollow(removed, BEACH_A, SECOND_TIME))).toEqual(
+      removed
+    );
   });
 
   it("migrates only known versions and recovers future versions to empty", () => {
@@ -170,5 +184,92 @@ describe("local beach-follow state", () => {
     expect(normalized.follows).toHaveLength(MAX_FOLLOWED_BEACHES);
     expect(normalized.follows[0].beachId).toBe(beachIdFor(5));
     expect(normalized.follows.at(-1)?.beachId).toBe(beachIdFor(54));
+  });
+
+  it("retains 51 unacknowledged removals and returns sync_required before overflow", () => {
+    let state = createLocalFollowState();
+
+    for (let index = 0; index < 51; index += 1) {
+      state = appliedState(
+        removeFollow(
+          state,
+          beachIdFor(index),
+          new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString()
+        )
+      );
+    }
+
+    expect(state.tombstones).toHaveLength(51);
+    expect(state.tombstones.map((item) => item.beachId)).toEqual(
+      Array.from({ length: 51 }, (_, index) => beachIdFor(index))
+    );
+
+    for (let index = 51; index < MAX_PENDING_FOLLOW_OPERATIONS; index += 1) {
+      state = appliedState(
+        removeFollow(
+          state,
+          beachIdFor(index),
+          new Date(Date.UTC(2026, 7, 24, 1, index)).toISOString()
+        )
+      );
+    }
+
+    expect(
+      removeFollow(
+        state,
+        beachIdFor(MAX_PENDING_FOLLOW_OPERATIONS),
+        "2026-08-24T03:00:00.000Z"
+      )
+    ).toEqual({ status: "sync_required", state });
+  });
+
+  it("normalizes strict ISO instants and orders retention by epoch milliseconds", () => {
+    const normalized = normalizeLocalFollowState({
+      version: 1,
+      follows: [
+        {
+          beachId: BEACH_A,
+          topics: [FollowTopic.Surf],
+          createdAt: "2026-08-24T05:00:00-07:00",
+          updatedAt: "2026-08-24T12:00:01Z",
+        },
+        {
+          beachId: BEACH_B,
+          topics: [FollowTopic.Tide],
+          createdAt: FIRST_TIME,
+          updatedAt: "2026-08-24T11:59:59.500Z",
+        },
+        {
+          beachId: BEACH_C,
+          topics: [FollowTopic.General],
+          createdAt: FIRST_TIME,
+          updatedAt: `August 24, 2026 ${" ".repeat(1_000)}`,
+        },
+      ],
+      tombstones: [
+        {
+          beachId: beachIdFor(90),
+          removedAt: "2026-08-24T06:00:00-07:00",
+        },
+      ],
+      bfrHoldoutAssignment: {
+        subjectId: "anon-1",
+        experimentKey: "bfr-follow-holdout-v1",
+        arm: "treatment",
+        assignedAt: "2026-08-24T05:00:00-07:00",
+        version: 1,
+      },
+    });
+
+    expect(normalized.follows.map((follow) => follow.beachId)).toEqual([
+      BEACH_B,
+      BEACH_A,
+    ]);
+    expect(normalized.follows[1]).toMatchObject({
+      createdAt: FIRST_TIME,
+      updatedAt: "2026-08-24T12:00:01.000Z",
+    });
+    expect(normalized.tombstones[0].removedAt).toBe(SECOND_TIME);
+    expect(normalized.bfrHoldoutAssignment?.assignedAt).toBe(FIRST_TIME);
   });
 });

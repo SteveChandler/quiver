@@ -12,8 +12,20 @@ import {
 
 const DEFAULT_TTL_MS = 30 * 60 * 1000;
 const MAX_TTL_MS = 24 * 60 * 60 * 1000;
+export const HANDOFF_FUTURE_SKEW_MS = 5 * 60 * 1000;
 const MAX_SERIALIZED_LENGTH = 4_096;
-const MAX_IDENTIFIER_LENGTH = 200;
+const MAX_RECOMMENDATION_ID_LENGTH = 128;
+const CANONICAL_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const ISO_INSTANT_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
+const CANONICAL_WINDOW_INSTANT_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const SLUGGED_WINDOW_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/;
+const HASHED_WINDOW_ID_PATTERN = /^[0-9a-f]{24}$/;
+const STRUCTURED_RECOMMENDATION_PATTERN =
+  /^(beach|custom|beach-detail):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):(.+)$/;
 const TOP_LEVEL_KEYS = new Set([
   "v",
   "beachId",
@@ -68,13 +80,38 @@ function hasOnlyKeys(
   return Object.keys(value).every((key) => allowedKeys.has(key));
 }
 
-function isBoundedIdentifier(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= MAX_IDENTIFIER_LENGTH &&
-    !/[\u0000-\u001F\u007F]/.test(value)
-  );
+function isBeachId(value: unknown): value is string {
+  return typeof value === "string" && CANONICAL_UUID_PATTERN.test(value);
+}
+
+function isoInstantMillis(value: unknown): number | null {
+  if (typeof value !== "string" || !ISO_INSTANT_PATTERN.test(value)) {
+    return null;
+  }
+  const millis = Date.parse(value);
+  return Number.isFinite(millis) ? millis : null;
+}
+
+function isWindowId(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  if (HASHED_WINDOW_ID_PATTERN.test(value)) return true;
+  if (SLUGGED_WINDOW_ID_PATTERN.test(value)) return true;
+  if (!CANONICAL_WINDOW_INSTANT_PATTERN.test(value)) return false;
+  const millis = Date.parse(value);
+  return Number.isFinite(millis) && new Date(millis).toISOString() === value;
+}
+
+function isRecommendationId(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.length > MAX_RECOMMENDATION_ID_LENGTH
+  ) {
+    return false;
+  }
+  if (HASHED_WINDOW_ID_PATTERN.test(value)) return true;
+  const match = value.match(STRUCTURED_RECOMMENDATION_PATTERN);
+  return Boolean(match && isoInstantMillis(match[3]) !== null);
 }
 
 function isSlug(value: unknown): value is string {
@@ -87,9 +124,16 @@ function isSlug(value: unknown): value is string {
 }
 
 function instantMillis(value: unknown): number | null {
-  if (typeof value !== "string" || value.length > 40) return null;
+  if (
+    typeof value !== "string" ||
+    !CANONICAL_WINDOW_INSTANT_PATTERN.test(value)
+  ) {
+    return null;
+  }
   const millis = Date.parse(value);
-  return Number.isFinite(millis) ? millis : null;
+  return Number.isFinite(millis) && new Date(millis).toISOString() === value
+    ? millis
+    : null;
 }
 
 function isPriorRecommendationSummary(
@@ -100,7 +144,7 @@ function isPriorRecommendationSummary(
   }
 
   return (
-    isBoundedIdentifier(value.recommendationId) &&
+    isRecommendationId(value.recommendationId) &&
     typeof value.mode === "string" &&
     RECOMMENDATION_MODES.has(value.mode) &&
     typeof value.verdict === "string" &&
@@ -120,9 +164,9 @@ function isHandoffContext(value: unknown): value is HandoffContext {
   }
 
   return (
-    isBoundedIdentifier(value.beachId) &&
+    isBeachId(value.beachId) &&
     isSlug(value.slug) &&
-    isBoundedIdentifier(value.windowId) &&
+    isWindowId(value.windowId) &&
     typeof value.sourceSurface === "string" &&
     SOURCE_SURFACES.has(value.sourceSurface) &&
     isPriorRecommendationSummary(value.priorRecommendation)
@@ -134,10 +178,10 @@ function isReplacementIdentity(
 ): value is HandoffReplacementIdentity {
   return Boolean(
     value &&
-      isBoundedIdentifier(value.beachId) &&
+      isBeachId(value.beachId) &&
       isSlug(value.slug) &&
-      isBoundedIdentifier(value.windowId) &&
-      isBoundedIdentifier(value.recommendationId),
+      isWindowId(value.windowId) &&
+      isRecommendationId(value.recommendationId),
   );
 }
 
@@ -207,13 +251,18 @@ export function classifyHandoffResolution(
   if (!parsed.ok) return { classification: "invalid", reason: parsed.reason };
 
   const { context } = parsed;
-  if (!availability.beachExists) {
-    return { classification: "invalid", reason: "beach_removed" };
-  }
-
   const now = availability.now ?? new Date();
   if (!Number.isFinite(now.getTime())) {
     return { classification: "invalid", reason: "malformed" };
+  }
+  if (
+    Date.parse(context.generatedAt) >
+    now.getTime() + HANDOFF_FUTURE_SKEW_MS
+  ) {
+    return { classification: "invalid", reason: "malformed" };
+  }
+  if (!availability.beachExists) {
+    return { classification: "invalid", reason: "beach_removed" };
   }
   if (now.getTime() >= Date.parse(context.expiresAt)) {
     return { classification: "beach_only", context, reason: "expired" };

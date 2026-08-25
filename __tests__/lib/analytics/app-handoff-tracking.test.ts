@@ -1,7 +1,10 @@
 import {
+  APP_HANDOFF_LINK_OPENED_EVENT,
   APP_HANDOFF_VIEW_EVENT,
+  type ExactCallHandoffMetadata,
   trackAppHandoffEmailSubmit,
   trackAppHandoffView,
+  trackExactCallHandoffLinkOpened,
 } from "@/lib/analytics/app-handoff-tracking";
 
 jest.mock("@/lib/analytics", () => ({ track: jest.fn() }));
@@ -70,11 +73,66 @@ describe("app-handoff-tracking", () => {
     });
 
     expect(() =>
-      trackAppHandoffView({
+      trackExactCallHandoffLinkOpened({
         source: "exact_call",
         handoff_context: "exact_call",
         fallback_classification: "exact",
       })
     ).not.toThrow();
+  });
+
+  it("sanitizes dedicated exact-call metadata before both sinks", () => {
+    const unsafeMetadata = {
+      source: "exact_call",
+      handoff_context: "exact_call",
+      fallback_classification: "replaced",
+      reason: "window_replaced",
+      surface: "beach_detail",
+      email: "surfer@example.com",
+      lat: 32.1,
+      handoff_token: "secret",
+    } as unknown as ExactCallHandoffMetadata;
+
+    trackExactCallHandoffLinkOpened(unsafeMetadata);
+
+    expect(track).toHaveBeenCalledWith(
+      APP_HANDOFF_LINK_OPENED_EVENT,
+      expect.objectContaining({
+        source: "exact_call",
+        handoff_context: "exact_call",
+        fallback_classification: "replaced",
+        reason: "window_replaced",
+        surface: "beach_detail",
+      })
+    );
+    const postHogMetadata = (track as jest.Mock).mock.calls[0][1];
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0][1] as RequestInit).body as string
+    );
+    for (const metadata of [postHogMetadata, body.metadata]) {
+      expect(metadata).not.toHaveProperty("email");
+      expect(metadata).not.toHaveProperty("lat");
+      expect(metadata).not.toHaveProperty("handoff_token");
+    }
+  });
+
+  it("keeps the exact-call input type closed", () => {
+    const metadata: ExactCallHandoffMetadata = {
+      source: "exact_call",
+      handoff_context: "exact_call",
+      fallback_classification: "exact",
+      // @ts-expect-error exact-call metadata does not accept arbitrary keys
+      email: "surfer@example.com",
+    };
+
+    expect(metadata.source).toBe("exact_call");
+
+    if (false) {
+      trackAppHandoffView({
+        source: "exact_call",
+        // @ts-expect-error exact-call fields cannot use the open legacy emitter
+        handoff_context: "exact_call",
+      });
+    }
   });
 });

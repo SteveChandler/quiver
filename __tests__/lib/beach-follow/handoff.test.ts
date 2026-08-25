@@ -1,4 +1,5 @@
 import {
+  HANDOFF_FUTURE_SKEW_MS,
   buildHandoffContext,
   classifyHandoffResolution,
   parseHandoffContext,
@@ -11,30 +12,48 @@ import {
 } from "@/types/exact-handoff";
 
 const NOW = new Date("2026-08-24T12:00:00.000Z");
+const BEACH_ID = "11111111-1111-4111-8111-111111111111";
+const WINDOW_ID = "2026-08-25T14:00:00.000Z";
+const RECOMMENDATION_ID = `beach:${BEACH_ID}:${WINDOW_ID}`;
 const SERIALIZED_V1_CONTEXT = JSON.stringify({
   v: 1,
-  beachId: "11111111-1111-4111-8111-111111111111",
+  beachId: BEACH_ID,
   slug: "pleasure-point",
-  windowId: "2026-08-25T14:00:00.000Z",
+  windowId: WINDOW_ID,
   sourceSurface: "surf_comparison",
   generatedAt: "2026-08-24T12:00:00.000Z",
   expiresAt: "2026-08-24T12:30:00.000Z",
   priorRecommendation: {
-    recommendationId: "recommendation-456",
+    recommendationId: RECOMMENDATION_ID,
     mode: "my-spots",
     verdict: "go",
   },
 });
 
+const INVALID_ID_CONTEXTS = [
+  { field: "email-like beachId", value: { beachId: "surfer@example.com" } },
+  { field: "token-like windowId", value: { windowId: "Bearer secret-token" } },
+  {
+    field: "over-length recommendationId",
+    value: {
+      priorRecommendation: {
+        recommendationId: "a".repeat(201),
+        mode: "my-spots",
+        verdict: "go",
+      },
+    },
+  },
+] as const;
+
 function validContext() {
   return buildHandoffContext(
     {
-      beachId: "11111111-1111-4111-8111-111111111111",
+      beachId: BEACH_ID,
       slug: "pleasure-point",
-      windowId: "2026-08-25T14:00:00.000Z",
+      windowId: WINDOW_ID,
       sourceSurface: HandoffSourceSurface.SurfComparison,
       priorRecommendation: {
-        recommendationId: "recommendation-456",
+        recommendationId: RECOMMENDATION_ID,
         mode: HandoffRecommendationMode.Best,
         verdict: HandoffRecommendationVerdict.Go,
       },
@@ -99,6 +118,36 @@ describe("exact handoff context", () => {
     ).toEqual({ classification: "invalid", reason: "malformed" });
   });
 
+  it.each(INVALID_ID_CONTEXTS)("rejects $field", ({ value }) => {
+    const context = JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>;
+    const malformed = {
+      ...context,
+      ...value,
+    };
+
+    expect(parseHandoffContext(malformed)).toEqual({
+      ok: false,
+      reason: "malformed",
+    });
+  });
+
+  it("rejects a context generated beyond the named clock-skew allowance", () => {
+    expect(HANDOFF_FUTURE_SKEW_MS).toBe(5 * 60 * 1000);
+    const futureContext = {
+      ...(JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>),
+      generatedAt: "2026-08-24T12:05:00.001Z",
+      expiresAt: "2026-08-24T12:35:00.001Z",
+    };
+
+    expect(
+      classifyHandoffResolution(futureContext, {
+        now: NOW,
+        beachExists: true,
+        exactWindowExists: true,
+      })
+    ).toEqual({ classification: "invalid", reason: "malformed" });
+  });
+
   it("classifies a removed window as replaced when current truth has a replacement", () => {
     const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
     if (!parsed.ok) throw new Error("Expected valid fixture");
@@ -107,7 +156,7 @@ describe("exact handoff context", () => {
       beachId: context.beachId,
       slug: context.slug,
       windowId: "2026-08-25T16:00:00.000Z",
-      recommendationId: "recommendation-789",
+      recommendationId: `beach:${BEACH_ID}:2026-08-25T16:00:00.000Z`,
     };
 
     expect(

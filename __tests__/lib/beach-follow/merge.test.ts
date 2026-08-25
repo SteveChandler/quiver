@@ -3,9 +3,14 @@ import { bfrHoldoutAssignment } from "@/lib/experiments/bfr-holdout";
 import {
   addFollow,
   createLocalFollowState,
+  normalizeLocalFollowState,
   removeFollow,
 } from "@/lib/beach-follow/state";
-import { FollowTopic, type FollowedBeach } from "@/types/beach-follow";
+import {
+  FollowTopic,
+  type FollowedBeach,
+  type LocalFollowState,
+} from "@/types/beach-follow";
 
 const FIRST_TIME = "2026-08-24T12:00:00.000Z";
 const SECOND_TIME = "2026-08-24T13:00:00.000Z";
@@ -26,18 +31,26 @@ function serverFollow(
   return { beachId, topics, createdAt: FIRST_TIME, updatedAt };
 }
 
+function appliedState(result: {
+  status: string;
+  state: LocalFollowState;
+}): LocalFollowState {
+  expect(result.status).toBe("applied");
+  return result.state;
+}
+
 describe("anonymous beach-follow merge", () => {
   it("unions signed-in rows, beaches and topics without duplicates", () => {
-    let anonState = addFollow(
+    let anonState = appliedState(addFollow(
       createLocalFollowState(),
       { beachId: BEACH_A, topics: [FollowTopic.Surf, FollowTopic.Tide] },
       SECOND_TIME
-    );
-    anonState = addFollow(
+    ));
+    anonState = appliedState(addFollow(
       anonState,
       { beachId: BEACH_B, topics: [FollowTopic.WaterTemp] },
       SECOND_TIME
-    );
+    ));
 
     const result = mergeBeachFollows({
       anonState,
@@ -61,7 +74,7 @@ describe("anonymous beach-follow merge", () => {
       },
     ]);
     expect(result.rowsToDelete).toEqual([]);
-    expect(result.mergedState.follows.map((follow) => follow.beachId)).toEqual([
+    expect(result.accountState.follows.map((follow) => follow.beachId)).toEqual([
       BEACH_A,
       BEACH_B,
       BEACH_C,
@@ -69,15 +82,15 @@ describe("anonymous beach-follow merge", () => {
   });
 
   it("applies explicit-removal tombstones exactly once and clears them", () => {
-    const anonState = removeFollow(
-      addFollow(
+    const anonState = appliedState(removeFollow(
+      appliedState(addFollow(
         createLocalFollowState(),
         { beachId: BEACH_A, topics: [FollowTopic.Tide] },
         FIRST_TIME
-      ),
+      )),
       BEACH_A,
       SECOND_TIME
-    );
+    ));
 
     const result = mergeBeachFollows({
       anonState,
@@ -86,10 +99,11 @@ describe("anonymous beach-follow merge", () => {
 
     expect(result.rowsToDelete).toEqual([BEACH_A]);
     expect(result.clearedTombstones).toEqual([BEACH_A]);
-    expect(result.mergedState).toEqual(createLocalFollowState());
+    expect(result.accountState).toEqual({ scope: "account", follows: [] });
+    expect(result.residualLocalState).toEqual(createLocalFollowState());
 
     const retry = mergeBeachFollows({
-      anonState: result.mergedState,
+      anonState: result.residualLocalState,
       serverRows: [],
     });
     expect(retry.rowsToInsert).toEqual([]);
@@ -98,15 +112,15 @@ describe("anonymous beach-follow merge", () => {
   });
 
   it("is a no-op after the first merge result is persisted", () => {
-    const anonState = addFollow(
+    const anonState = appliedState(addFollow(
       createLocalFollowState(),
       { beachId: BEACH_A, topics: [FollowTopic.Surf] },
       SECOND_TIME
-    );
+    ));
     const first = mergeBeachFollows({ anonState, serverRows: [] });
     const retry = mergeBeachFollows({
-      anonState: first.mergedState,
-      serverRows: first.mergedState.follows,
+      anonState: first.residualLocalState,
+      serverRows: first.accountState.follows,
     });
 
     expect(retry.rowsToInsert).toEqual([]);
@@ -117,11 +131,11 @@ describe("anonymous beach-follow merge", () => {
   it("losslessly merges every anonymous follow even when the account exceeds the device bound", () => {
     let anonState = createLocalFollowState();
     for (let index = 0; index < 3; index += 1) {
-      anonState = addFollow(
+      anonState = appliedState(addFollow(
         anonState,
         { beachId: beachIdFor("anon", index), topics: [FollowTopic.General] },
         SECOND_TIME
-      );
+      ));
     }
     const serverRows = Array.from(
       { length: 49 },
@@ -131,7 +145,14 @@ describe("anonymous beach-follow merge", () => {
 
     const result = mergeBeachFollows({ anonState, serverRows });
 
-    expect(result.mergedState.follows).toHaveLength(52);
+    expect(result.accountState).toMatchObject({
+      scope: "account",
+      follows: expect.any(Array),
+    });
+    expect(result.accountState.follows).toHaveLength(52);
+    expect(normalizeLocalFollowState(result.residualLocalState)).toEqual(
+      result.residualLocalState
+    );
     expect(result.rowsToInsert.map((row) => row.beachId)).toEqual([
       beachIdFor("anon", 0),
       beachIdFor("anon", 1),
@@ -142,19 +163,39 @@ describe("anonymous beach-follow merge", () => {
   it("preserves the anonymous holdout assignment across account merge", () => {
     const assignment = bfrHoldoutAssignment("anon-visitor-123", FIRST_TIME);
     const anonState = {
-      ...addFollow(
+      ...appliedState(addFollow(
         createLocalFollowState(),
         { beachId: BEACH_A, topics: [FollowTopic.Surf] },
         SECOND_TIME
-      ),
+      )),
       bfrHoldoutAssignment: assignment,
     };
 
     const result = mergeBeachFollows({ anonState, serverRows: [] });
 
-    expect(result.mergedState.bfrHoldoutAssignment).toEqual(assignment);
-    expect(result.mergedState.bfrHoldoutAssignment?.subjectId).toBe(
+    expect(result.residualLocalState.bfrHoldoutAssignment).toEqual(assignment);
+    expect(result.residualLocalState.bfrHoldoutAssignment?.subjectId).toBe(
       "anon-visitor-123"
+    );
+  });
+
+  it("emits deletes for all 51 retained tombstones", () => {
+    let anonState = createLocalFollowState();
+    const serverRows = Array.from({ length: 51 }, (_, index) =>
+      serverFollow(beachIdFor("server", index), [FollowTopic.General])
+    );
+
+    for (let index = 0; index < serverRows.length; index += 1) {
+      anonState = appliedState(
+        removeFollow(anonState, serverRows[index].beachId, SECOND_TIME)
+      );
+    }
+
+    const result = mergeBeachFollows({ anonState, serverRows });
+
+    expect(anonState.tombstones).toHaveLength(51);
+    expect(result.rowsToDelete).toEqual(
+      serverRows.map((row) => row.beachId).sort()
     );
   });
 });

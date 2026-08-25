@@ -36,6 +36,15 @@ export interface LocalFollowStateV1 {
 
 export type LocalFollowState = LocalFollowStateV1;
 
+export interface AccountFollowState {
+  scope: "account";
+  follows: FollowedBeach[];
+}
+
+export type LocalFollowMutationResult =
+  | { status: "applied"; state: LocalFollowState }
+  | { status: "sync_required"; state: LocalFollowState };
+
 export interface MergeInput {
   anonState: unknown;
   serverRows: readonly FollowedBeach[];
@@ -45,6 +54,7 @@ export interface MergeResult {
   /** Rows that callers should upsert; existing rows may carry newly unioned topics. */
   rowsToInsert: FollowedBeach[];
   rowsToDelete: string[];
-  mergedState: LocalFollowState;
+  accountState: AccountFollowState;
+  residualLocalState: LocalFollowState;
   clearedTombstones: string[];
 }

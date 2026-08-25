@@ -73,9 +73,13 @@ export function mergeBeachFollows(input: MergeInput): MergeResult {
   return {
     rowsToInsert,
     rowsToDelete,
-    mergedState: {
-      version: 1,
+    accountState: {
+      scope: "account",
       follows: mergedFollows,
+    },
+    residualLocalState: {
+      version: 1,
+      follows: [],
       tombstones: [],
       bfrHoldoutAssignment: anonState.bfrHoldoutAssignment,
     },

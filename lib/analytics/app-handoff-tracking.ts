@@ -5,6 +5,13 @@ import type {
   BfrFallbackClassification,
   BfrHandoffContext,
   BfrHandoffResolutionReason,
+  BfrPageType,
+} from "@/lib/analytics/event-taxonomy";
+import {
+  BFR_FALLBACK_CLASSIFICATIONS,
+  BFR_HANDOFF_CONTEXTS,
+  BFR_HANDOFF_RESOLUTION_REASONS,
+  BFR_PAGE_TYPES,
 } from "@/lib/analytics/event-taxonomy";
 
 export const APP_HANDOFF_VIEW_EVENT = "app_handoff_view";
@@ -34,21 +41,38 @@ export interface AppHandoffMetadata {
   /** Domain only - NEVER the full email address. */
   email_domain?: string;
   viewport_width?: number;
-  handoff_context?: BfrHandoffContext;
-  fallback_classification?: BfrFallbackClassification;
-  reason?: BfrHandoffResolutionReason;
+  handoff_context?: never;
+  fallback_classification?: never;
+  reason?: never;
   [key: string]: unknown;
 }
 
 export interface ExactCallHandoffMetadata {
-  source: string;
+  source: "exact_call";
   handoff_context: BfrHandoffContext;
   fallback_classification: BfrFallbackClassification;
   reason?: BfrHandoffResolutionReason;
-  surface?: string;
-  placement?: string;
+  surface?: BfrPageType;
   platform?: "ios" | "android" | "desktop";
 }
+
+const EXACT_CALL_ALLOWED_KEYS = new Set<keyof ExactCallHandoffMetadata>([
+  "source",
+  "handoff_context",
+  "fallback_classification",
+  "reason",
+  "surface",
+  "platform",
+]);
+const EXACT_CALL_FALLBACKS = new Set<string>(BFR_FALLBACK_CLASSIFICATIONS);
+const EXACT_CALL_CONTEXTS = new Set<string>(BFR_HANDOFF_CONTEXTS);
+const EXACT_CALL_REASONS = new Set<string>(BFR_HANDOFF_RESOLUTION_REASONS);
+const EXACT_CALL_SURFACES = new Set<string>(BFR_PAGE_TYPES);
+const EXACT_CALL_PLATFORMS = new Set<string>([
+  "ios",
+  "android",
+  "desktop",
+]);
 
 function enrich(metadata: AppHandoffMetadata): AppHandoffMetadata {
   return {
@@ -60,7 +84,7 @@ function enrich(metadata: AppHandoffMetadata): AppHandoffMetadata {
 
 function fireToUserEvents(
   eventType: AppHandoffEvent,
-  metadata: AppHandoffMetadata,
+  metadata: Record<string, unknown>,
 ): void {
   if (typeof window === "undefined") return;
 
@@ -79,6 +103,60 @@ function fireToUserEvents(
   } catch {
     // Tracking must never block the funnel.
   }
+}
+
+function sanitizeExactCallMetadata(
+  metadata: ExactCallHandoffMetadata
+): ExactCallHandoffMetadata | null {
+  const input = metadata as unknown as Record<string, unknown>;
+  const sanitized = Object.fromEntries(
+    Object.entries(input).filter(([key]) =>
+      EXACT_CALL_ALLOWED_KEYS.has(key as keyof ExactCallHandoffMetadata)
+    )
+  ) as Partial<ExactCallHandoffMetadata>;
+
+  if (sanitized.source !== "exact_call") return null;
+  if (!EXACT_CALL_CONTEXTS.has(sanitized.handoff_context ?? "")) return null;
+  if (
+    !EXACT_CALL_FALLBACKS.has(sanitized.fallback_classification ?? "")
+  ) {
+    return null;
+  }
+  if (sanitized.reason && !EXACT_CALL_REASONS.has(sanitized.reason)) {
+    return null;
+  }
+  if (sanitized.surface && !EXACT_CALL_SURFACES.has(sanitized.surface)) {
+    return null;
+  }
+  if (sanitized.platform && !EXACT_CALL_PLATFORMS.has(sanitized.platform)) {
+    return null;
+  }
+
+  return sanitized as ExactCallHandoffMetadata;
+}
+
+function emitExactCall(metadata: ExactCallHandoffMetadata): void {
+  const sanitized = sanitizeExactCallMetadata(metadata);
+  if (!sanitized) return;
+
+  let enriched: Record<string, unknown>;
+  try {
+    enriched = {
+      cta_family: "app_handoff",
+      ...deriveSeoPageContextFromPath(),
+      viewport_width:
+        typeof window !== "undefined" ? window.innerWidth : undefined,
+      ...sanitized,
+    };
+  } catch {
+    return;
+  }
+  try {
+    track(APP_HANDOFF_LINK_OPENED_EVENT, enriched);
+  } catch {
+    // Product analytics is best effort and must not block the handoff.
+  }
+  fireToUserEvents(APP_HANDOFF_LINK_OPENED_EVENT, enriched);
 }
 
 function emit(eventType: AppHandoffEvent, metadata: AppHandoffMetadata): void {
@@ -134,3 +212,7 @@ export const trackAppHandoffEmailFailed = (
 export const trackAppHandoffLinkOpened = (
   metadata: AppHandoffMetadata,
 ): void => emit(APP_HANDOFF_LINK_OPENED_EVENT, metadata);
+
+export const trackExactCallHandoffLinkOpened = (
+  metadata: ExactCallHandoffMetadata
+): void => emitExactCall(metadata);
