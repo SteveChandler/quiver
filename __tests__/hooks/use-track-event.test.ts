@@ -1,6 +1,8 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { useTrackEvent } from "@/hooks/use-track-event";
+import { buildBfrWebEventMetadata } from "@/lib/analytics/event-taxonomy";
+import { FollowTopic } from "@/types/beach-follow";
 
 // Mock auth context
 jest.mock("@/context/auth-context", () => ({
@@ -36,6 +38,42 @@ describe("useTrackEvent", () => {
   });
 
   describe("basic tracking", () => {
+    it("accepts builder-validated BFR metadata through the shared transport", async () => {
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: null });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+      const metadata = buildBfrWebEventMetadata(
+        {
+          audience_class: "general_utility",
+          page_type: "beach_water_temp",
+          experiment_key: "bfr-follow-holdout-v1",
+          experiment_arm: "treatment",
+          topic: FollowTopic.WaterTemp,
+        },
+        "beach_follow_started",
+      );
+      expect(metadata).not.toBeNull();
+      if (!metadata) return;
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      await act(async () => {
+        await result.current.track("beach_follow_started", {
+          beachId: "beach-456",
+          metadata,
+          debounceMs: 0,
+        });
+      });
+
+      expect(JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body)).toMatchObject({
+        eventType: "beach_follow_started",
+        beachId: "beach-456",
+        metadata,
+      });
+    });
+
     it("calls /api/events with correct payload for authenticated user", async () => {
       (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       (global.fetch as jest.Mock).mockResolvedValueOnce({

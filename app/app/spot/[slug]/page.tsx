@@ -3,6 +3,11 @@ import type { ReactElement } from "react";
 import { ExternalLink, Smartphone, Waves } from "lucide-react";
 
 import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
+import {
+  isCanonicalHandoffId,
+  parseHandoffContext,
+} from "@/lib/beach-follow/handoff";
+import { BFR_PAGE_TYPES } from "@/lib/analytics/event-taxonomy";
 import { loadForecastWindowShareMetadata } from "@/lib/share/forecast-window-share";
 import { ShareLinkOpenTracker } from "./share-link-open-tracker";
 
@@ -96,6 +101,44 @@ function buildBeachFallbackPath(slug: string): string {
   return `/beach/${encodeURIComponent(safeDecodeSlug(slug))}`;
 }
 
+function buildExactRetryPath(
+  slug: string,
+  searchParams: Record<string, string | string[] | undefined>,
+): string | null {
+  const handoffId = firstSearchValue(searchParams.handoff_id)?.toLowerCase();
+  const serializedContext = firstSearchValue(searchParams.context);
+  const surface = firstSearchValue(searchParams.surface);
+  if (
+    !isCanonicalHandoffId(handoffId) ||
+    firstSearchValue(searchParams.source) !== "exact_call" ||
+    firstSearchValue(searchParams.placement) !== "exact_call" ||
+    firstSearchValue(searchParams.handoff_context) !== "exact_call" ||
+    !serializedContext ||
+    !surface || !BFR_PAGE_TYPES.includes(surface as (typeof BFR_PAGE_TYPES)[number])
+  ) {
+    return null;
+  }
+  const parsed = parseHandoffContext(serializedContext);
+  if (
+    !parsed.ok ||
+    parsed.context.slug !== safeDecodeSlug(slug) ||
+    parsed.context.windowId !== firstSearchValue(searchParams.window)
+  ) {
+    return null;
+  }
+
+  const query = new URLSearchParams({
+    window: parsed.context.windowId,
+    handoff_id: handoffId,
+    source: "exact_call",
+    surface,
+    placement: "exact_call",
+    handoff_context: "exact_call",
+    context: serializedContext,
+  });
+  return `/app/spot/${encodeURIComponent(safeDecodeSlug(slug))}?${query.toString()}`;
+}
+
 export default async function AppSpotHandoffPage({
   params,
   searchParams,
@@ -108,6 +151,7 @@ export default async function AppSpotHandoffPage({
     window: windowId,
   });
   const webFallbackHref = buildBeachFallbackPath(slug);
+  const exactRetryHref = buildExactRetryPath(slug, resolvedSearchParams);
   const hasPositiveWindow = !shareMetadata.isFallback;
   const displayWindowLabel = hasPositiveWindow
     ? shareMetadata.windowLabel
@@ -139,9 +183,18 @@ export default async function AppSpotHandoffPage({
         ) : null}
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          {exactRetryHref ? (
+            <a
+              href={exactRetryHref}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
+            >
+              <Smartphone className="h-5 w-5" aria-hidden="true" />
+              Open this exact call in Quiver
+            </a>
+          ) : null}
           <a
             href={IOS_APP_STORE_WEB_REDIRECT_PATH}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-white/20 bg-white/10 px-5 py-3 text-base font-black text-white transition hover:border-[#7BDCB5]/60 hover:bg-[#7BDCB5]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7BDCB5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
           >
             <Smartphone className="h-5 w-5" aria-hidden="true" />
             Open in the App Store

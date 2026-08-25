@@ -1223,7 +1223,11 @@ export default async function IntentPage(props: IntentPageParams) {
         {/* Intent-specific live data sections */}
         {params.intent === "tide" && <TideOverviewSection data={tideData} />}
         {params.intent === "water-temp" && (
-          <WaterTempOverviewSection data={waterTempData} />
+          <WaterTempOverviewSection
+            data={waterTempData}
+            beachId={spots[0]?.id}
+            beachName={spots[0]?.name}
+          />
         )}
 
         <div className="space-y-12">

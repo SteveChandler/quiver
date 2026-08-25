@@ -1,7 +1,28 @@
 import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
+
+import {
+  isCanonicalHandoffId,
+  parseHandoffContext,
+} from "@/lib/beach-follow/handoff";
 import { ANDROID_PLAY_STORE_LISTING_URL } from "@/lib/constants/app-store";
+import type { HandoffContext } from "@/types/exact-handoff";
+
+export interface InstallHandoffAttribution {
+  handoffId: string;
+  handoffContext: HandoffContext;
+}
+
+export function parseInstallHandoffAttribution(
+  handoffId: unknown,
+  handoffContext: unknown,
+): InstallHandoffAttribution | null {
+  const parsed = parseHandoffContext(handoffContext);
+  return isCanonicalHandoffId(handoffId) && parsed.ok
+    ? { handoffId, handoffContext: parsed.context }
+    : null;
+}
 
 const OPAQUE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 

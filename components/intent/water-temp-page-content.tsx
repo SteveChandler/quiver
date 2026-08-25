@@ -21,6 +21,8 @@ import { BeachTempComparison } from "./beach-temp-comparison";
 import { BeachEditorialSection } from "./beach-editorial-section";
 import { UtilitySessionHandoff } from "./utility-session-handoff";
 import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
+import { BeachFollowPilot } from "@/components/beach-follow";
+import { FollowTopic } from "@/types/beach-follow";
 
 interface WaterTempPageContentProps {
   cityName: string;
@@ -115,6 +117,13 @@ export function WaterTempPageContent({
         <div className="space-y-12">
           {/* Module 1: Water Temp Hero */}
           <WaterTempHeroSection data={waterTempData} />
+
+          <BeachFollowPilot
+            beachId={spots[0]?.id}
+            beachName={spots[0]?.name}
+            defaultTopic={FollowTopic.WaterTemp}
+            pageType="city_water_temp"
+          />
 
           <ContentPageAppHandoffCta
             source={`content-water-temp-${citySlug}`}

@@ -123,7 +123,9 @@ describe("BestSurfWindows", () => {
     expect(card.querySelector('[data-zine-sticker="spot-swell-match"]')).toBeInTheDocument();
     expect(card.querySelector('[data-zine-sticker="spot-wind-read"]')).toBeInTheDocument();
     expect(card.querySelector('[data-zine-sticker="spot-tide-window"]')).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Take it with you" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open this beach in Quiver" })
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /why this call/i })).toBeInTheDocument();
   });
 
@@ -253,13 +255,62 @@ describe("BestSurfWindows", () => {
     }
   });
 
-  it("keeps the app deep link as a ghost secondary CTA", () => {
-    render(<BestSurfWindows recommendations={[makeRecommendation(1)]} />);
+  it("degrades to a beach-only handoff when exact identity is unavailable", () => {
+    render(
+      <BestSurfWindows
+        recommendations={[
+          makeRecommendation(1, { recommendationId: undefined }),
+        ]}
+      />
+    );
 
     const appCta = screen.getByTestId("app-deep-link-cta");
     expect(appCta).toBeInTheDocument();
-    expect(appCta).toHaveTextContent("Take it with you");
-    expect(appCta).toHaveAttribute("href", expect.stringMatching(/window=/));
+    expect(appCta).toHaveTextContent("Open this beach in Quiver");
+    expect(appCta).toHaveAttribute(
+      "href",
+      "https://www.quiversurf.app/app/spot/ocean-beach"
+    );
+    expect(
+      new URL(appCta.getAttribute("href")!).searchParams.has("window")
+    ).toBe(false);
+  });
+
+  it("carries exact handoff context for a production-shaped recommendation", () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    const startIso = "2026-06-03T14:00:00.000Z";
+    const recommendationId = `beach:${beachId}:${startIso}`;
+
+    render(
+      <BestSurfWindows
+        recommendations={[
+          makeRecommendation(1, {
+            recommendationId,
+            beach: {
+              ...makeRecommendation(1).beach,
+              id: beachId,
+              slug: "ocean-beach",
+            },
+          }),
+        ]}
+      />
+    );
+
+    const appCta = screen.getByRole("link", {
+      name: "Open this exact call in Quiver",
+    });
+    const href = new URL(appCta.getAttribute("href")!);
+    expect(href.searchParams.get("window")).toBe(startIso);
+    expect(href.searchParams.get("source")).toBe("exact_call");
+    expect(href.searchParams.get("handoff_context")).toBe("exact_call");
+    expect(JSON.parse(href.searchParams.get("context")!)).toEqual(
+      expect.objectContaining({
+        beachId,
+        slug: "ocean-beach",
+        windowId: startIso,
+        priorRecommendation: expect.objectContaining({ recommendationId }),
+      })
+    );
   });
 
   it("gives only the rank-1 card the featured treatment", () => {

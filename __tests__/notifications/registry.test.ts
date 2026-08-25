@@ -8,6 +8,46 @@
 import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
 
 describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () => {
+  it("keeps watched-call payloads bounded and category-specific", () => {
+    const def = NOTIFICATION_REGISTRY.watched_call_update;
+    const payload = def.validatePayload!({
+      category: "call_changed",
+      cause: "forecast_materially_changed",
+      alert_rule_id: "rule-1",
+      beach_id: "beach-1",
+      beach_name: "Swamis",
+      recommendation_id: "recommendation-2",
+      prior_recommendation_id: "recommendation-1",
+      window_start: "2026-08-25T17:00:00.000Z",
+      window_end: "2026-08-25T19:00:00.000Z",
+      forecast_at: "2026-08-25T18:00:00.000Z",
+      title: "Call changed at Swamis",
+      body: "The stronger window is now 10 AM–noon.",
+    });
+
+    expect(def.buildPushPayload!(payload).data).toEqual(expect.objectContaining({
+      type: "watched_call_update",
+      category: "call_changed",
+      alert_rule_id: "rule-1",
+      recommendation_id: "recommendation-2",
+      prior_recommendation_id: "recommendation-1",
+      beach_id: "beach-1",
+      forecast_at: "2026-08-25T18:00:00.000Z",
+    }));
+    expect(JSON.stringify(payload)).not.toMatch(/latitude|longitude|evidence|notes|token/i);
+    expect(def.channels).toEqual(["push", "in_app"]);
+    expect(def.prefs.perType.push).toBe("notif_forecast_alerts");
+  });
+
+  it.each([
+    ["still_on", 24],
+    ["call_changed", 6],
+    ["better_nearby", 12],
+    ["post_window", 168],
+  ] as const)("uses a %sh cooldown for %s updates", (category, hours) => {
+    const def = NOTIFICATION_REGISTRY.watched_call_update;
+    expect(def.cooldownMs!({ category } as never)).toBe(hours * 60 * 60 * 1000);
+  });
   it("assigns the native surf-alert sound only to the approved alert payloads", () => {
     const alertPushes = [
       NOTIFICATION_REGISTRY.forecast_alert.buildPushPayload!({

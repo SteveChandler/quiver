@@ -3437,6 +3437,70 @@ describe("processPendingEvents — Phase 5g per-type cooldown", () => {
     expect(newEvent.status).toBe("processed");
   });
 
+  it("scopes watched-call cooldowns by update category", async () => {
+    const state = emptyState();
+    const priorCreated = new Date("2026-04-29T17:00:00Z").toISOString();
+    const watchedPayload = {
+      cause: "forecast_refreshed",
+      alert_rule_id: "rule-1",
+      beach_id: "beach-1",
+      beach_name: "Swamis",
+      recommendation_id: "recommendation-1",
+      prior_recommendation_id: "recommendation-1",
+      window_start: "2026-04-29T20:00:00.000Z",
+      window_end: "2026-04-29T22:00:00.000Z",
+      forecast_at: "2026-04-29T19:00:00.000Z",
+      title: "Still on at Swamis",
+      body: "Your watched window is still on.",
+    };
+    state.events.push(buildEvent({
+      id: "evt-watched-prior",
+      type: "watched_call_update",
+      status: "processed",
+      created_at: priorCreated,
+      payload: { ...watchedPayload, category: "still_on" },
+    }));
+    state.attempts.push({
+      id: "att-watched-prior",
+      notification_event_id: "evt-watched-prior",
+      channel: "push",
+      status: "sent",
+      provider_response: null,
+      error_message: null,
+      created_at: priorCreated,
+    });
+    state.events.push(buildEvent({
+      id: "evt-watched-change",
+      type: "watched_call_update",
+      created_at: new Date("2026-04-29T19:00:00Z").toISOString(),
+      payload: {
+        ...watchedPayload,
+        category: "call_changed",
+        cause: "forecast_materially_changed",
+        recommendation_id: "recommendation-2",
+        title: "Call changed at Swamis",
+      },
+    }));
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-token-A"]);
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: fakeFcm as never },
+    );
+
+    expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(summary.by_status.skipped_cooldown).toBeUndefined();
+  });
+
   it("does NOT skip when the prior `sent` push is older than the window", async () => {
     withCooldown(5 * 60 * 1000); // 5min
 

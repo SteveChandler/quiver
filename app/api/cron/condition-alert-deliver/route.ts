@@ -873,10 +873,16 @@ export async function GET(request: Request): Promise<NextResponse> {
             (i.conditions_snapshot as Record<string, unknown>)?.alert_type ===
             "similarity_match",
         );
+        const watchedItems = allItems.filter(
+          (i) =>
+            (i.conditions_snapshot as Record<string, unknown>)?.alert_type ===
+            "watched_call_update",
+        );
         const forecastItems = allItems.filter(
           (i) =>
-            (i.conditions_snapshot as Record<string, unknown>)?.alert_type !==
-            "similarity_match",
+            !["similarity_match", "watched_call_update"].includes(String(
+              (i.conditions_snapshot as Record<string, unknown>)?.alert_type,
+            )),
         );
 
         const items: QueueItemWithMeta[] = [];
@@ -962,16 +968,17 @@ export async function GET(request: Request): Promise<NextResponse> {
         ).toISOString();
         const { data: recentSentRaw, error: recentSentError } = await supabase
           .from("alert_delivery_attempts")
-          .select("rule_id, user_id, attempted_at")
+          .select("rule_id, user_id, attempted_at, skip_reason")
           .eq("status", "sent")
           .gte("attempted_at", sinceWeek);
         if (recentSentError) throw recentSentError;
 
         const recentSent = (recentSentRaw ?? []).map(
-          (r: { rule_id: string; user_id: string; attempted_at: string }) => ({
+          (r: { rule_id: string; user_id: string; attempted_at: string; skip_reason?: string | null }) => ({
             rule_id: r.rule_id,
             user_id: r.user_id,
             attempted_at: new Date(r.attempted_at),
+            skip_reason: r.skip_reason ?? null,
           }),
         );
 
@@ -1781,6 +1788,123 @@ export async function GET(request: Request): Promise<NextResponse> {
         // is intentionally skipped — similarity is a once-per-day pick with
         // its own dedup story; piling it under the same per-user weekly cap
         // would silently suppress matches in active weeks.
+        for (const item of watchedItems) {
+          result.processed++;
+          const profile = profilesByUser.get(item.user_id);
+          const snapshot = item.conditions_snapshot as Record<string, unknown>;
+          const rawPayload = snapshot.payload;
+          const payload = rawPayload && typeof rawPayload === "object" && !Array.isArray(rawPayload)
+            ? rawPayload as Record<string, unknown>
+            : null;
+          const category = String(payload?.category ?? "");
+          const cooldownHours = ({ still_on: 24, call_changed: 6,
+            better_nearby: 12, post_window: 168 } as Record<string, number>)[category] ?? 24;
+
+          if (!profile) {
+            await recordAttempt({ queueId: item.id, ruleId: item.rule_id,
+              userId: item.user_id, channel: "push", status: "failed_internal",
+              skipReason: "profile missing for queued watched call" });
+            result.errors++;
+            continue;
+          }
+          if (!forecastDeliveryEnabled) {
+            await recordAttempt({ queueId: item.id, ruleId: item.rule_id,
+              userId: item.user_id, channel: "push", status: "shadow_withheld",
+              skipReason: "FORECAST_ALERT_DELIVERY_ENABLED=false" });
+            await markQueueItemsConsumed([item], "shadow_withheld");
+            continue;
+          }
+          if (allowlist.size > 0 && !allowlist.has(item.user_id)) {
+            await recordAttempt({ queueId: item.id, ruleId: item.rule_id,
+              userId: item.user_id, channel: "push", status: "skipped_allowlist",
+              skipReason: "user not in ALERTS_DELIVERY_USER_ALLOWLIST" });
+            await markQueueItemsConsumed([item], "allowlist_excluded");
+            continue;
+          }
+          const cooldown = cooldownDecision({
+            ruleId: item.rule_id,
+            now: new Date(),
+            recentSentAttempts: recentSent
+              .filter((attempt) => attempt.skip_reason?.startsWith(`watched_call:${category}:`))
+              .map((attempt) => ({
+              rule_id: attempt.rule_id,
+              attempted_at: attempt.attempted_at,
+              })),
+            windowHours: cooldownHours,
+          });
+          if (!cooldown.ok) {
+            await recordAttempt({ queueId: item.id, ruleId: item.rule_id,
+              userId: item.user_id, channel: "push", status: cooldown.status,
+              skipReason: cooldown.reason });
+            await markQueueItemsConsumed([item], "cooldown");
+            continue;
+          }
+          const ruleCap = resolveRuleWeeklyCap(item.conditions);
+          const ruleCount = recentSent.filter((attempt) => attempt.rule_id === item.rule_id).length;
+          const userCap = weeklyCapDecision({
+            userId: item.user_id,
+            now: new Date(),
+            recentSentAttempts: recentSent.map((attempt) => ({
+              user_id: attempt.user_id,
+              attempted_at: attempt.attempted_at,
+            })),
+            cap: 10,
+          });
+          const capReason = ruleCap !== null && ruleCount >= ruleCap
+            ? `rule ${item.rule_id} reached weekly cap ${ruleCap}`
+            : !userCap.ok
+              ? userCap.reason
+              : null;
+          if (capReason) {
+            await recordAttempt({ queueId: item.id, ruleId: item.rule_id,
+              userId: item.user_id, channel: "push", status: "skipped_user_cap",
+              skipReason: capReason });
+            await markQueueItemsConsumed([item], "user_cap");
+            continue;
+          }
+          if (!profile.notif_push_enabled) {
+            await recordAttempt({ queueId: item.id, ruleId: item.rule_id,
+              userId: item.user_id, channel: "push", status: "skipped_channel_disabled",
+              skipReason: "profile.notif_push_enabled=false" });
+            await markQueueItemsConsumed([item], "channel_disabled");
+            continue;
+          }
+
+          const enqueueResult = await enqueueNotification({
+            type: "watched_call_update",
+            recipientUserId: item.user_id,
+            entityType: "beach",
+            entityId: item.beach_id,
+            payload: payload ? {
+              ...payload,
+              queue_items: [{ queue_id: item.id, rule_id: item.rule_id }],
+            } : undefined,
+            dedupeKey: typeof snapshot.dedupe_key === "string" ? snapshot.dedupe_key : null,
+          }).catch(() => ({ enqueued: false as const, reason: "internal_error" as const }));
+
+          if (enqueueResult.enqueued) {
+            deliveryAcceptedQueueIds.add(item.id);
+            await markQueueItemsConsumed([item], "delivered");
+            result.pushSent++;
+          } else if (enqueueResult.reason === "duplicate") {
+            await recordAttempt({ queueId: item.id, ruleId: item.rule_id,
+              userId: item.user_id, channel: "push", status: "skipped_dedup_collision",
+              skipReason: "notification_events dedupe_key collision" });
+            await markQueueItemsConsumed([item], "deduplicated");
+          } else if (enqueueResult.reason === "invalid_payload") {
+            await recordAttempt({ queueId: item.id, ruleId: item.rule_id,
+              userId: item.user_id, channel: "push", status: "failed_internal",
+              skipReason: "enqueue: invalid_payload" });
+            await markQueueItemsConsumed([item], "invalid_payload");
+            result.errors++;
+          } else {
+            await recordAttempt({ queueId: item.id, ruleId: item.rule_id,
+              userId: item.user_id, channel: "push", status: "failed_internal",
+              skipReason: `enqueue: ${enqueueResult.reason}` });
+            result.errors++;
+          }
+        }
+
         for (const item of similarityItems) {
           result.processed++;
           const profile = profilesByUser.get(item.user_id);

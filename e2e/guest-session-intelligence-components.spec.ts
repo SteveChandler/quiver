@@ -96,7 +96,7 @@ test.describe("Guest Session Intelligence component preview", () => {
       ).toBeVisible();
 
       await expect(
-        page.getByRole("link", { name: "Take it with you" }).first()
+        page.getByRole("link", { name: "Open this beach in Quiver" }).first()
       ).toBeVisible();
       await expect(page.getByRole("button", { name: /why this call/i })).toHaveCount(1);
 

@@ -1,4 +1,5 @@
 export interface AlertConditions {
+  watched_call?: WatchedCallCondition;
   swell_height_min?: number;
   swell_height_max?: number;
   swell_direction_min_deg?: number;
@@ -22,6 +23,28 @@ export interface AlertConditions {
   beginner_window_confirmed?: boolean;
 }
 
+export interface WatchedCallCondition {
+  version: 1;
+  recommendationId: string;
+  sourceSurface:
+    | "home_hero"
+    | "home_also_worth_it"
+    | "explore_for_you"
+    | "beach_detail"
+    | "surf_window_adjacent";
+  mode: "now" | "best" | "my-spots" | "beach-detail";
+  beachId: string;
+  windowStart: string;
+  windowEnd: string;
+  forecastAt: string | null;
+  recommendationState: string;
+  conditionScore: number;
+  personalMatchScore: number;
+  overallScore: number;
+  reasonType: string;
+  dedupeKey: string;
+}
+
 export type PresetType =
   | "glass_off"
   | "big_day"
@@ -32,7 +55,8 @@ export type PresetType =
   | "epic_conditions"
   | "daily_check_in"
   | "weekend_warrior"
-  | "after_work";
+  | "after_work"
+  | "watched_call";
 
 export interface PresetDefinition {
   type: PresetType;

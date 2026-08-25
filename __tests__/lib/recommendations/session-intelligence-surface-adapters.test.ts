@@ -361,6 +361,24 @@ describe("session intelligence surface adapters", () => {
     expect(recommendation.beach.photoUrl).toBe("https://example.com/blacks.jpg");
   });
 
+  it("preserves custom recommendation ownership for exact handoff context", () => {
+    const baseRecommendation = makeDiscoveryRecommendation(1);
+    const recommendationId =
+      "custom:22222222-2222-4222-8222-222222222222:2026-02-11T16:00:00.000Z";
+
+    const [recommendation] = buildHomepageSurfWindowRecommendations({
+      recommendations: [{
+        ...baseRecommendation,
+        recommendationId,
+        kind: "custom_spot",
+        customSpotId: "22222222-2222-4222-8222-222222222222",
+      }],
+      now: NOW,
+    });
+
+    expect(recommendation.recommendationId).toBe(recommendationId);
+  });
+
   describe("verdict/score consistency", () => {
     it("overrides a gate-capped label with the score-band verdict and surfaces a character watchout first", () => {
       const recommendation = makeDiscoveryRecommendation(1, {

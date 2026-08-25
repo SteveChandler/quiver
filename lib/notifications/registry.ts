@@ -96,6 +96,28 @@ const forecastAlertSchema = z.object({
     .optional(),
 });
 
+const watchedCallUpdateSchema = z
+  .object({
+    category: z.enum(["still_on", "call_changed", "better_nearby", "post_window"]),
+    cause: z.string().min(1),
+    alert_rule_id: z.string().min(1),
+    beach_id: z.string().min(1),
+    beach_name: z.string().min(1),
+    recommendation_id: z.string().min(1),
+    prior_recommendation_id: z.string().min(1),
+    window_start: z.string().datetime({ offset: true }),
+    window_end: z.string().datetime({ offset: true }),
+    forecast_at: z.string().datetime({ offset: true }).nullable(),
+    title: z.string().min(1),
+    body: z.string().min(1),
+    queue_items: z
+      .array(z.object({ queue_id: z.string().min(1), rule_id: z.string().min(1) }))
+      .optional(),
+  })
+  .strict();
+
+type WatchedCallUpdatePayload = z.infer<typeof watchedCallUpdateSchema>;
+
 const trialEndingSchema = z.object({
   title: z.string().min(1),
   body: z.string().min(1),
@@ -542,6 +564,77 @@ export const NOTIFICATION_REGISTRY = {
       data: { follower_id: ctx.actorUserId },
     }),
   } satisfies NotificationTypeDef<FollowPayload>,
+
+  watched_call_update: {
+    type: "watched_call_update",
+    channels: ["push", "in_app"],
+    prefs: {
+      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
+      perType: { push: "notif_forecast_alerts", in_app: "notif_forecast_alerts" },
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => watchedCallUpdateSchema.parse(input),
+    cooldownMs: (payload) => ({
+      still_on: 24,
+      call_changed: 6,
+      better_nearby: 12,
+      post_window: 168,
+    })[payload.category] * 60 * 60 * 1000,
+    cooldownKey: (payload) => payload.category,
+    buildPushPayload: (payload) => ({
+      ...SURF_ALERT_PUSH_PRESENTATION,
+      title: payload.title,
+      body: payload.body,
+      data: {
+        type: "watched_call_update",
+        category: payload.category,
+        cause: payload.cause,
+        alert_rule_id: payload.alert_rule_id,
+        beach_id: payload.beach_id,
+        recommendation_id: payload.recommendation_id,
+        prior_recommendation_id: payload.prior_recommendation_id,
+        window_start: payload.window_start,
+        window_end: payload.window_end,
+        forecast_at: payload.forecast_at,
+      },
+    }),
+    buildInAppPayload: (payload) => ({
+      type: "watched_call_update",
+      data: {
+        category: payload.category,
+        cause: payload.cause,
+        alert_rule_id: payload.alert_rule_id,
+        beach_id: payload.beach_id,
+        beach_name: payload.beach_name,
+        recommendation_id: payload.recommendation_id,
+        prior_recommendation_id: payload.prior_recommendation_id,
+        window_start: payload.window_start,
+        window_end: payload.window_end,
+        forecast_at: payload.forecast_at,
+        title: payload.title,
+        body: payload.body,
+      },
+    }),
+    onChannelOutcome: async ({ supabase, event, channel, status }) => {
+      if (channel !== "push") return;
+      const mapped = mapWorkerStatusToAlertAttempt(status);
+      if (!mapped) return;
+      const rows = (event.payload.queue_items ?? []).map((item) => ({
+        queue_id: item.queue_id,
+        rule_id: item.rule_id,
+        user_id: event.recipient_user_id,
+        channel: "push" as const,
+        status: mapped,
+        skip_reason: `watched_call:${event.payload.category}:${status}`,
+      }));
+      if (rows.length === 0) return;
+      const { error } = await supabase.from("alert_delivery_attempts").insert(rows);
+      if (error) {
+        console.error("[notifications/watched_call_update] attempt reconciliation failed", error);
+      }
+    },
+  } satisfies NotificationTypeDef<WatchedCallUpdatePayload>,
 
   forecast_alert: {
     type: "forecast_alert",

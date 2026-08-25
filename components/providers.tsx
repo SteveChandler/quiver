@@ -11,6 +11,7 @@ import { AnalyticsLoader } from "@/components/analytics/analytics-loader";
 import { PostHogProvider } from "@/components/analytics/posthog-provider";
 import dynamic from "next/dynamic";
 import { ChunkErrorHandler } from "@/components/chunk-error-handler";
+import { BeachFollowSyncBoundary } from "@/components/beach-follow";
 
 // Google One Tap — dynamically imported, SSR disabled (requires browser APIs)
 const GoogleOneTap = dynamic(
@@ -169,6 +170,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
       <LocationProvider>
         <AuthProvider>
+          <BeachFollowSyncBoundary />
           {/* Global body class manager for authenticated state */}
           <AuthBodyClassManager />
           {/* PostHog primary analytics + authenticated identity bridge */}
