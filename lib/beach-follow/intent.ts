@@ -1,13 +1,18 @@
 export const SURF_SPECIFIC_SIGNAL_THRESHOLD = 2;
 export const HIGH_INTENT_ACTION_THRESHOLD = 1;
 
-export type ExplicitBeachIntent =
-  | "surfing"
-  | "swimming"
-  | "beach_days"
-  | "fishing"
-  | "diving_paddling"
-  | "other";
+export const EXPLICIT_BEACH_INTENTS = [
+  "surfing",
+  "swimming",
+  "beach_days",
+  "fishing",
+  "diving_paddling",
+  "other",
+] as const;
+
+export type ExplicitBeachIntent = (typeof EXPLICIT_BEACH_INTENTS)[number];
+
+const EXPLICIT_BEACH_INTENT_SET = new Set<string>(EXPLICIT_BEACH_INTENTS);
 
 export interface IntentSignals {
   utilityPageViewCount: number;
@@ -56,11 +61,17 @@ function safeCount(value: number): number {
   return Math.floor(value);
 }
 
+function isExplicitBeachIntent(value: unknown): value is ExplicitBeachIntent {
+  return (
+    typeof value === "string" && EXPLICIT_BEACH_INTENT_SET.has(value)
+  );
+}
+
 export function qualifyBeachIntent(
-  explicitChoice: ExplicitBeachIntent | null,
+  explicitChoice: unknown,
   signals: IntentSignals
 ): IntentQualification {
-  if (explicitChoice) {
+  if (isExplicitBeachIntent(explicitChoice)) {
     return {
       state: "explicit",
       intent: explicitChoice,

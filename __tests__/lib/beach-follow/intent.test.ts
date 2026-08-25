@@ -110,6 +110,25 @@ describe("beach-follow intent qualification", () => {
     });
   });
 
+  it.each([
+    "not-a-beach-intent",
+    "surfer@example.com",
+    "Bearer secret-token",
+  ])("ignores invalid explicit choice %s and continues inference", (choice) => {
+    const result = qualifyBeachIntent(choice, {
+      utilityPageViewCount: 0,
+      surfSpecificSignalCount: SURF_SPECIFIC_SIGNAL_THRESHOLD,
+    });
+
+    expect(result).toEqual({
+      state: "inferred",
+      intent: "surfing",
+      evidenceSource: "surf_specific_signals",
+      reason: "multiple_surf_signals",
+    });
+    expect(JSON.stringify(result)).not.toContain(choice);
+  });
+
   it("returns unknown when there is no evidence", () => {
     expect(
       qualifyBeachIntent(null, {
