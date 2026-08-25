@@ -1327,6 +1327,44 @@ describe('POST /api/events', () => {
       }));
     });
 
+    it.each([
+      ['email-like string', 'surfer@example.com'],
+      ['token-like string', 'Bearer secret-token'],
+      ['zero', 0],
+      ['width above the upper bound', 10_001],
+    ])('rejects a BFR event with %s as viewportWidth', async (_label, viewportWidth) => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'beach_follow_saved_local',
+          sessionId: '42345678-1234-4234-8234-123456789012',
+          viewportWidth,
+          metadata: {
+            audience_class: 'general_utility',
+            page_type: 'beach_detail',
+            experiment_key: 'bfr-follow-holdout-v1',
+            experiment_arm: 'treatment',
+            topic: 'surf',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(400);
+      expect(mockServiceInsert).not.toHaveBeenCalled();
+    });
+
     it('rejects email-like and token-like values in every BFR string slot', async () => {
       const mockInsert = jest.fn().mockResolvedValue({ error: null });
       mockSupabase.from.mockImplementation((table: string) => {

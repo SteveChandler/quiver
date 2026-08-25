@@ -30,6 +30,20 @@ const SERIALIZED_V1_CONTEXT = JSON.stringify({
     verdict: "go",
   },
 });
+const CROSS_BEACH_PRIOR_RECOMMENDATION_CONTEXT = JSON.stringify({
+  v: 1,
+  beachId: BEACH_ID,
+  slug: "pleasure-point",
+  windowId: WINDOW_ID,
+  sourceSurface: "surf_comparison",
+  generatedAt: "2026-08-24T12:00:00.000Z",
+  expiresAt: "2026-08-24T12:30:00.000Z",
+  priorRecommendation: {
+    recommendationId: `beach:${OTHER_BEACH_ID}:${WINDOW_ID}`,
+    mode: "my-spots",
+    verdict: "go",
+  },
+});
 
 const INVALID_ID_CONTEXTS = [
   { field: "email-like beachId", value: { beachId: "surfer@example.com" } },
@@ -117,6 +131,18 @@ describe("exact handoff context", () => {
         exactWindowExists: true,
       }),
     ).toEqual({ classification: "invalid", reason: "malformed" });
+  });
+
+  it("rejects the identical cross-beach prior recommendation fixture", () => {
+    expect(parseHandoffContext(CROSS_BEACH_PRIOR_RECOMMENDATION_CONTEXT)).toEqual({
+      ok: false,
+      reason: "malformed",
+    });
+    expect(classifyHandoffResolution(CROSS_BEACH_PRIOR_RECOMMENDATION_CONTEXT, {
+      now: NOW,
+      beachExists: true,
+      exactWindowExists: true,
+    })).toEqual({ classification: "invalid", reason: "malformed" });
   });
 
   it.each(INVALID_ID_CONTEXTS)("rejects $field", ({ value }) => {

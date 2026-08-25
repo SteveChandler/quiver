@@ -138,13 +138,19 @@ function instantMillis(value: unknown): number | null {
 
 function isPriorRecommendationSummary(
   value: unknown,
+  contextBeachId: string,
 ): value is PriorRecommendationSummary {
   if (!isRecord(value) || !hasOnlyKeys(value, PRIOR_RECOMMENDATION_KEYS)) {
     return false;
   }
 
+  const structuredRecommendation = typeof value.recommendationId === "string"
+    ? value.recommendationId.match(STRUCTURED_RECOMMENDATION_PATTERN)
+    : null;
+
   return (
     isRecommendationId(value.recommendationId) &&
+    (!structuredRecommendation || structuredRecommendation[2] === contextBeachId) &&
     typeof value.mode === "string" &&
     RECOMMENDATION_MODES.has(value.mode) &&
     typeof value.verdict === "string" &&
@@ -169,7 +175,7 @@ function isHandoffContext(value: unknown): value is HandoffContext {
     isWindowId(value.windowId) &&
     typeof value.sourceSurface === "string" &&
     SOURCE_SURFACES.has(value.sourceSurface) &&
-    isPriorRecommendationSummary(value.priorRecommendation)
+    isPriorRecommendationSummary(value.priorRecommendation, value.beachId)
   );
 }
 

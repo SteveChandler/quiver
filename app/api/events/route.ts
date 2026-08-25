@@ -63,6 +63,8 @@ export {
 const RATE_LIMIT = 60; // Max events per window
 const RATE_WINDOW_MS = 60_000; // 1 minute window
 const MAX_RATE_LIMIT_ENTRIES = 10000; // LRU eviction threshold
+const MIN_BFR_VIEWPORT_WIDTH = 1;
+const MAX_BFR_VIEWPORT_WIDTH = 10_000;
 
 // Per-user rate limit tracking with LRU eviction (ephemeral in serverless)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -111,6 +113,13 @@ function checkRateLimit(userId: string, limit: number = RATE_LIMIT): { allowed: 
 }
 
 const ANON_RATE_LIMIT = 30; // Lower rate limit for anonymous users
+
+function isValidBfrViewportWidth(value: unknown): value is number {
+  return typeof value === 'number'
+    && Number.isFinite(value)
+    && value >= MIN_BFR_VIEWPORT_WIDTH
+    && value <= MAX_BFR_VIEWPORT_WIDTH;
+}
 
 import { isValidUUID } from '@/lib/utils/validation';
 
@@ -189,6 +198,16 @@ export const POST = withAuth(
     return createErrorResponse('Invalid JSON body', undefined, 400);
   }
 
+  const hasBfrMetadata = isBfrApiEventMetadata(body.eventType, body.metadata);
+  // The strict BFR boundary rejects invalid widths; legacy event handling stays unchanged.
+  if (
+    hasBfrMetadata
+    && body.viewportWidth !== undefined
+    && !isValidBfrViewportWidth(body.viewportWidth)
+  ) {
+    return createErrorResponse('Invalid BFR viewportWidth', undefined, 400);
+  }
+
   // 2a. Fingerprint-based bot filtering (requires body for viewportWidth).
   // Founder account is exempt — keeps Steven's testing visible (he uses Chrome
   // DevTools mobile-emulation, which can collide with Pattern B's 614px width).
@@ -199,7 +218,7 @@ export const POST = withAuth(
 
   const { eventType, beachId } = body;
   let eventMetadata = body.metadata;
-  if (isBfrApiEventMetadata(eventType, eventMetadata)) {
+  if (hasBfrMetadata) {
     const validatedMetadata = buildBfrApiEventMetadata(
       eventType,
       eventMetadata,
