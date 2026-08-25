@@ -4,6 +4,7 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { PublicForecastAnswer } from "@/components/beach-detail/public-forecast-answer";
 import { PublicForecastHourly } from "@/components/beach-detail/public-forecast-hourly";
+import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
 import { AuthenticatedForecastDecisionProvider } from "@/components/beach-detail/authenticated-forecast-decision";
 import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spots";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
@@ -53,6 +54,11 @@ import {
   selectPublicForecastContextFacts,
   selectPublicForecastReportFacts,
 } from "@/lib/utils/public-forecast-facts";
+import {
+  getForecastIndexabilityForBeaches,
+  isBeachSubPageIndexable,
+} from "@/lib/seo/forecast-indexability";
+import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 
 // Public beach data is cookie-free. Major-event hold transitions explicitly
 // revalidate affected paths, so hourly ISR remains safe between transitions.
@@ -365,6 +371,9 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                 <Suspense fallback={null}>
                   <DeferredZineNearbySpots beach={beach} />
                 </Suspense>
+                <Suspense fallback={null}>
+                  <DeferredRelatedGuidesSection beach={publicBeach} />
+                </Suspense>
               </div>
             }
           />
@@ -394,6 +403,30 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     });
     notFound();
   }
+}
+
+async function DeferredRelatedGuidesSection({ beach }: { beach: Beach }) {
+  const beachPath = buildBeachUrl(beach);
+  const [forecastSnapshots, waterTempData] = await Promise.all([
+    getForecastIndexabilityForBeaches([
+      { id: beach.id, timezone: beach.timezone ?? null },
+    ]),
+    getWaterTempMetaData(beach.id),
+  ]);
+  const hasWaterTemp = isBeachSubPageIndexable(
+    forecastSnapshots.get(beach.id),
+    `${beachPath}/water-temp`,
+    { hasSubPageData: waterTempData.tempF != null },
+  );
+
+  return (
+    <RelatedGuidesSection
+      beach={beach}
+      className="mt-10"
+      hasLeastCrowded={false}
+      hasWaterTemp={hasWaterTemp}
+    />
+  );
 }
 
 async function DeferredZineNearbySpots({ beach }: { beach: Beach }) {

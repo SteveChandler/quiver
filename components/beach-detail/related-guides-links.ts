@@ -115,12 +115,14 @@ export type RelatedGuideLinks = {
 type BuildRelatedGuideLinksInput = {
   beach: Beach;
   hasLeastCrowded: boolean;
+  hasWaterTemp?: boolean;
   bestTimeToSurfUrl?: string;
 };
 
 export function buildRelatedGuideLinks({
   beach,
   hasLeastCrowded,
+  hasWaterTemp,
   bestTimeToSurfUrl,
 }: BuildRelatedGuideLinksInput): RelatedGuideLinks | null {
   if (!beach.city) return null;
@@ -133,13 +135,18 @@ export function buildRelatedGuideLinks({
   const intentSlug = buildCitySlug(beach.city, stateSlug || beach.state || "", COLLISION_CITY_MAP);
   if (!intentSlug) return null;
 
-  const visibleGuides = hasLeastCrowded
-    ? INTENT_GUIDES
-    : INTENT_GUIDES.filter((guide) => guide.key !== "least-crowded");
+  const visibleGuides = INTENT_GUIDES.filter((guide) => {
+    if (guide.key === "least-crowded") return hasLeastCrowded;
+    if (guide.key === "water-temp") return hasWaterTemp !== false;
+    return true;
+  });
 
   const guides: RelatedGuideLink[] = visibleGuides.map((guide) => ({
     ...guide,
-    href: `/${guide.key}/${intentSlug}`,
+    href:
+      guide.key === "water-temp" && hasWaterTemp === true
+        ? `${buildBeachUrl(beach)}/water-temp`
+        : `/${guide.key}/${intentSlug}`,
   }));
 
   if (bestTimeToSurfUrl) {

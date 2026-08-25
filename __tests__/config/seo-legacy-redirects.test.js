@@ -57,6 +57,13 @@ describe("SEO legacy redirects", () => {
     );
   });
 
+  it("permanently redirects legacy SEO parent routes to live hubs", () => {
+    const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
+
+    expectPermanentRedirect(configSource, "/water-temp", "/beaches/usa");
+    expectPermanentRedirect(configSource, "/surf-cams", "/cams");
+  });
+
   it("permanently redirects the retired Cocoa Beach Pier URL family", () => {
     const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
 
