@@ -275,6 +275,7 @@ export async function evaluateMajorEventHoldCandidates(
   let waterQualityResolution: WaterQualityHoldResolution = {
     state: "resolved",
     heldBeachIds: [],
+    waterQualityStatusByBeachId: {},
     epoch: waterQualityHoldId("empty"),
   };
   if (applyWaterQualityHolds) {
@@ -282,6 +283,7 @@ export async function evaluateMajorEventHoldCandidates(
       waterQualityResolution = {
         state: "unresolved",
         heldBeachIds: [],
+        waterQualityStatusByBeachId: {},
         epoch: waterQualityHoldId("unresolved"),
       };
     } else {
@@ -297,6 +299,7 @@ export async function evaluateMajorEventHoldCandidates(
         waterQualityResolution = {
           state: "unresolved",
           heldBeachIds: [],
+          waterQualityStatusByBeachId: {},
           epoch: waterQualityHoldId("unresolved"),
         };
       }

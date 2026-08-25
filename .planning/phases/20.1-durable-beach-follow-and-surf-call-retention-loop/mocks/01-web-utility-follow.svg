@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Low-fidelity mock of a Quiver water temperature page with Follow this beach</title>
+  <desc id="desc">The public water temperature answer appears first. A secondary panel lets the visitor follow the beach and choose topics without an account.</desc>
+  <rect width="1440" height="900" fill="#F6EFE3"/>
+  <rect x="0" y="0" width="1440" height="72" fill="#0B1830"/>
+  <text x="56" y="45" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="28" font-weight="700">QUIVER</text>
+  <text x="1320" y="42" fill="#B8C4D6" font-family="Arial, sans-serif" font-size="16" text-anchor="end">Search beaches</text>
+
+  <rect x="48" y="96" width="1344" height="42" rx="8" fill="#E9DDCB"/>
+  <text x="68" y="123" fill="#6A5D50" font-family="Arial, sans-serif" font-size="15">LOW-FIDELITY MOCK · ORIGINAL UTILITY ANSWER STAYS PRIMARY</text>
+
+  <text x="64" y="196" fill="#0B1830" font-family="Arial, sans-serif" font-size="18">California  /  San Diego  /  Scripps</text>
+  <text x="64" y="248" fill="#0B1830" font-family="Arial, sans-serif" font-size="46" font-weight="700">Scripps water temperature</text>
+  <text x="64" y="282" fill="#52647B" font-family="Arial, sans-serif" font-size="17">Updated 18 minutes ago · NOAA station 9410230</text>
+
+  <rect x="64" y="322" width="820" height="420" rx="24" fill="#FFFDF8" stroke="#D7C8B4" stroke-width="2"/>
+  <text x="98" y="376" fill="#52647B" font-family="Arial, sans-serif" font-size="16" font-weight="700">CURRENT WATER</text>
+  <text x="98" y="470" fill="#0B1830" font-family="Arial, sans-serif" font-size="92" font-weight="700">69°F</text>
+  <rect x="98" y="500" width="250" height="38" rx="19" fill="#DDEFEA"/>
+  <text x="223" y="525" fill="#176C62" font-family="Arial, sans-serif" font-size="17" font-weight="700" text-anchor="middle">1.4° warmer than last week</text>
+  <text x="98" y="584" fill="#0B1830" font-family="Arial, sans-serif" font-size="23" font-weight="700">Comfortable in a 3/2 wetsuit</text>
+  <text x="98" y="620" fill="#52647B" font-family="Arial, sans-serif" font-size="18">The water is near its seasonal average. Morning wind is lighter.</text>
+  <line x1="98" y1="660" x2="844" y2="660" stroke="#E3D7C6" stroke-width="2"/>
+  <text x="98" y="704" fill="#52647B" font-family="Arial, sans-serif" font-size="16">7-day trend</text>
+  <polyline points="230,706 310,688 390,698 470,670 550,676 630,646 710,652 790,625" fill="none" stroke="#2A9D8F" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="920" y="322" width="472" height="420" rx="24" fill="#172A49"/>
+  <text x="956" y="376" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="26" font-weight="700">Follow Scripps</text>
+  <text x="956" y="410" fill="#BBC7D8" font-family="Arial, sans-serif" font-size="17">Save the beach on this device. No account required.</text>
+
+  <text x="956" y="466" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="15" font-weight="700">WHAT DO YOU CARE ABOUT?</text>
+  <rect x="956" y="490" width="202" height="48" rx="12" fill="#F28C45"/>
+  <text x="1057" y="520" fill="#0B1830" font-family="Arial, sans-serif" font-size="16" font-weight="700" text-anchor="middle">✓ Water temperature</text>
+  <rect x="1172" y="490" width="170" height="48" rx="12" fill="#223B60" stroke="#68809F"/>
+  <text x="1257" y="520" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="16" text-anchor="middle">Tides</text>
+  <rect x="956" y="552" width="202" height="48" rx="12" fill="#223B60" stroke="#68809F"/>
+  <text x="1057" y="582" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="16" text-anchor="middle">Water quality</text>
+  <rect x="1172" y="552" width="170" height="48" rx="12" fill="#223B60" stroke="#68809F"/>
+  <text x="1257" y="582" fill="#F6EFE3" font-family="Arial, sans-serif" font-size="16" text-anchor="middle">Surf</text>
+
+  <rect x="956" y="628" width="386" height="56" rx="14" fill="#F6EFE3"/>
+  <text x="1149" y="663" fill="#0B1830" font-family="Arial, sans-serif" font-size="18" font-weight="700" text-anchor="middle">Follow this beach</text>
+  <text x="1149" y="718" fill="#91A5BF" font-family="Arial, sans-serif" font-size="14" text-anchor="middle">After save: “Saved on this device” · “Sync across devices”</text>
+
+  <rect x="64" y="782" width="1328" height="74" rx="16" fill="#E9DDCB"/>
+  <text x="92" y="814" fill="#0B1830" font-family="Arial, sans-serif" font-size="17" font-weight="700">Behavior contract</text>
+  <text x="92" y="840" fill="#52647B" font-family="Arial, sans-serif" font-size="16">Answer first · Surf not preselected · Follow works locally · Account request comes only after value is saved</text>
+</svg>

@@ -77,6 +77,7 @@ describe("major-event hold service", () => {
     const waterQualityResolution: WaterQualityHoldResolution = {
       state: "resolved",
       heldBeachIds: [BEACH_A],
+      waterQualityStatusByBeachId: { [BEACH_A]: "closure" },
       epoch: "water-quality-epoch",
     };
     const resolveWaterQualityHolds = jest
@@ -117,6 +118,7 @@ describe("major-event hold service", () => {
     const resolveWaterQualityHolds = jest.fn().mockResolvedValue({
       state: "unresolved",
       heldBeachIds: [BEACH_A],
+      waterQualityStatusByBeachId: { [BEACH_A]: "closure" },
       epoch: "water-quality-unresolved-with-owner-hold",
     } satisfies WaterQualityHoldResolution);
 

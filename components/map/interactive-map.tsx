@@ -25,7 +25,9 @@ import { loadFavoriteBeaches } from "@/components/map/map-favorites-loader";
 import { createCustomSpotMarkerElement } from "@/components/map/custom-spot-marker-builder";
 import {
   createWaveHeightBadge,
+  getConditionMarkerCall,
   getConditionMarkerGradient,
+  getWaterQualityHold,
   getWaterTempBadgeColor,
   type MarkerPreviewData,
   type MarkerBuilderDeps,
@@ -290,6 +292,7 @@ export interface MapSpotConditions {
 }
 
 interface MapSpotConditionsContext {
+  beaches: Beach[];
   partitionsMap: Map<string, SwellPartition>;
   partitionsTimelineMap: Map<string, SwellPartition[]>;
   timelineIndex: number;
@@ -316,9 +319,14 @@ function mapSpotConditions(
   const waveLabel = context.displayForecastMap.get(beachId)?.label?.trim();
   const rawWaveHeight = context.waveHeightMap.get(beachId);
   const swellDirection = partition?.s1Dir ?? partition?.swellDirOm;
+  const waterQualityHold = getWaterQualityHold(
+    context.beaches.find((beach) => beach.id === beachId),
+  );
 
   return {
-    conditionSummary: context.conditionSummaryMap.get(beachId) ?? null,
+    conditionSummary: waterQualityHold
+      ? getConditionMarkerCall({ waterQualityHold }).label.toUpperCase()
+      : context.conditionSummaryMap.get(beachId) ?? null,
     waveHeight: waveLabel || (isFiniteNumber(rawWaveHeight)
       ? formatWaveHeightRange(rawWaveHeight)
       : null),
@@ -1090,6 +1098,7 @@ export function InteractiveMap({
     const components = partition ? resolveCalloutComponents(partition) : [];
     const tempLabel = formatTempLabel(ctx.waterTempMap.get(beach.id));
     const beachHref = getBeachHrefSafe(beach) ?? undefined;
+    const waterQualityHold = getWaterQualityHold(beach);
     // Shrink the callout to fit narrow viewports: at full size the arrows run off a
     // phone screen and the ring looks oversized. Sized so the arrow span stays within
     // ~78% of the viewport, capped at 1 for desktop.
@@ -1104,6 +1113,7 @@ export function InteractiveMap({
       tempLabel,
       components,
       beachHref,
+      waterQualityHold,
       scale: calloutScale,
     });
     // An active callout is the immediate interaction target. Keep it above the
@@ -1123,7 +1133,15 @@ export function InteractiveMap({
       components.map((c) => `${c.name} ${c.label}`).join("; ") || "no current reading";
     element.setAttribute(
       "aria-label",
-      `${beach.name}${tempLabel ? `, ${tempLabel}` : ""} surf conditions: ${conditionsRead}`
+      `${beach.name}${tempLabel ? `, ${tempLabel}` : ""}${
+        waterQualityHold
+          ? waterQualityHold === "held"
+            ? ", water quality hold"
+            : `, ${
+                waterQualityHold === "closure" ? "closed" : "under advisory"
+              } according to county water-quality data`
+          : ""
+      } surf conditions: ${conditionsRead}`
     );
     activeCalloutRef.current = { marker, beachId: beach.id };
     // Record what this build rendered so playback ticks that land on the same
@@ -1173,6 +1191,7 @@ export function InteractiveMap({
         waveLabel: preview.waveLabel,
         conditionSummary: preview.conditionSummary,
         conditionScore: preview.conditionScore,
+        waterQualityHold: preview.waterQualityHold,
         partition: partitionsMapRef.current.get(location.id),
       });
       content.addEventListener("mouseenter", clearBeachPreviewCloseTimer);
@@ -1420,6 +1439,7 @@ export function InteractiveMap({
         waveHeightLabel: displayForecastMap.get(location.id)?.label ?? null,
         conditionScore: conditionScoreMap.get(location.id),
         conditionSummary: conditionSummaryMap.get(location.id),
+        waterQualityHold: getWaterQualityHold(location),
         previewLngLat,
         // In the embed, tapping a pin opens the conditions callout (arrows + name +
         // temp + Full forecast). The marker preview popup would show the SAME numbers
@@ -2779,8 +2799,13 @@ export function InteractiveMap({
 
         // Update badge scale and background
         if (badge) {
+          const waterQualityHold = getWaterQualityHold(
+            beachesRef.current?.find((beach) => beach.id === beachId),
+          );
           const gradient =
-            displayMode === "water-temp"
+            waterQualityHold
+              ? getConditionMarkerGradient(waterQualityHold)
+              : displayMode === "water-temp"
               ? getWaterTempBadgeColor(waterTempMap.get(beachId))
               : getConditionMarkerGradient(
                   conditionSummaryMap.get(beachId) ?? "UNKNOWN"
@@ -2802,8 +2827,13 @@ export function InteractiveMap({
             ? "scale(1.2)"
             : "scale(1)";
 
+          const waterQualityHold = getWaterQualityHold(
+            beachesRef.current?.find((beach) => beach.id === beachId),
+          );
           const gradient =
-            displayMode === "water-temp"
+            waterQualityHold
+              ? getConditionMarkerGradient(waterQualityHold)
+              : displayMode === "water-temp"
               ? getWaterTempBadgeColor(waterTempMap.get(beachId))
               : getConditionMarkerGradient(
                   conditionSummaryMap.get(beachId) ?? "UNKNOWN"
@@ -3007,6 +3037,7 @@ export function InteractiveMap({
             waveLabel: displayForecastMap.get(location.id)?.label ?? null,
             conditionScore: conditionScoreMap.get(location.id),
             conditionSummary: conditionSummaryMap.get(location.id),
+            waterQualityHold: getWaterQualityHold(location),
             waterTemp: waterTempMap.get(location.id),
             lngLat,
             displayMode,

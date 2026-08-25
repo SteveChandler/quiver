@@ -3,7 +3,14 @@ import { createPublicReadClient } from "@/lib/supabase/server";
 import { normalizeBeachCountry } from "@/lib/utils/beach-url-utils";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import { rankBeaches } from "@/lib/recommendations/selection";
+import type { WaterQualityHoldStatus } from "@/lib/recommendations/major-event-hold/water-quality";
 import type { Beach } from "@/types/database";
+
+export type WaterQualityHoldKind = WaterQualityHoldStatus | "held";
+
+export type MapBeach = Beach & {
+  waterQualityHold: WaterQualityHoldKind | null;
+};
 
 export const MAX_NEARBY_RADIUS_MILES = 50;
 export const MAX_NEARBY_LIMIT = 50;
@@ -26,7 +33,7 @@ export interface NearbyBeachQuery {
 
 export interface NearbyBeachResult {
   success: boolean;
-  data?: Beach[];
+  data?: MapBeach[];
   error?: string;
   fallbackUsed?: boolean;
 }
@@ -67,7 +74,7 @@ async function boundedFallback(
   longitude: number,
   radiusMiles: number,
   limit: number,
-): Promise<Beach[]> {
+): Promise<MapBeach[]> {
   const supabase = createPublicReadClient();
   const latDelta = radiusMiles / 69;
   const longitudeScale = Math.max(
@@ -99,11 +106,42 @@ async function boundedFallback(
       ),
     }))
     .filter((beach) => beach.distance <= radiusMiles)
-  const rankedBeaches = await rankBeaches(boundedBeaches, {
-    compare: (left, right) => left.distance - right.distance,
-  });
+  return rankNearbyBeachesForMap(
+    boundedBeaches,
+    (left, right) => left.distance - right.distance,
+    limit,
+  );
+}
 
-  return rankedBeaches.slice(0, limit);
+async function rankNearbyBeachesForMap<T extends Beach>(
+  nearbyRows: readonly T[],
+  compare: (left: T, right: T) => number,
+  limit: number,
+): Promise<MapBeach[]> {
+  let waterQualityStatusByBeachId: Record<
+    string,
+    WaterQualityHoldStatus
+  > = {};
+  const rankedNearbyRows = await rankBeaches(nearbyRows, {
+    compare,
+    onWaterQualityResolution: (resolution) => {
+      waterQualityStatusByBeachId = resolution.waterQualityStatusByBeachId;
+    },
+  });
+  const safeBeachIds = new Set(
+    rankedNearbyRows.map((beach) => beach.id.toLowerCase()),
+  );
+
+  return nearbyRows
+    .map((beach) => {
+      const beachId = beach.id.toLowerCase();
+      const waterQualityHold = safeBeachIds.has(beachId)
+        ? null
+        : waterQualityStatusByBeachId[beachId] ?? "held";
+      return { ...beach, waterQualityHold };
+    })
+    .sort(compare)
+    .slice(0, limit);
 }
 
 export async function getNearbyBeachesFromDb(
@@ -189,8 +227,9 @@ export async function getNearbyBeachesFromDb(
       }
     }
 
-    const rankedNearbyRows = await rankBeaches(nearbyRows, {
-      compare: (left, right) => {
+    const visibleNearbyRows = await rankNearbyBeachesForMap(
+      nearbyRows,
+      (left, right) => {
         if (left.lat === null || left.lon === null) return 1;
         if (right.lat === null || right.lon === null) return -1;
         return calculateDistanceInMiles(
@@ -201,8 +240,8 @@ export async function getNearbyBeachesFromDb(
           { lat: right.lat, lon: right.lon },
         );
       },
-    });
-    const visibleNearbyRows = rankedNearbyRows.slice(0, normalized.limit);
+      normalized.limit,
+    );
 
     return {
       success: true,

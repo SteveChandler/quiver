@@ -98,7 +98,12 @@ function warnProbeFailed(
  */
 async function resolveSafeBeachIds<T extends { id: string }>(
   candidates: readonly T[],
-  options?: { asOf?: Date },
+  options?: {
+    asOf?: Date;
+    onWaterQualityResolution?: (
+      resolution: WaterQualityHoldResolution,
+    ) => void;
+  },
 ): Promise<Set<string>> {
   if (candidates.length === 0) return new Set();
 
@@ -137,6 +142,7 @@ async function resolveSafeBeachIds<T extends { id: string }>(
       });
       return new Set();
     }
+    options?.onWaterQualityResolution?.(resolution);
     return heldBeachIds;
   } catch (error) {
     warnProbeFailed("resolver_threw", {
@@ -156,6 +162,9 @@ export async function rankBeaches<T extends { id: string }>(
   opts: {
     compare: (a: T, b: T) => number;
     asOf?: Date;
+    onWaterQualityResolution?: (
+      resolution: WaterQualityHoldResolution,
+    ) => void;
   },
 ): Promise<RankedBeach<T>[]> {
   const heldBeachIds = await resolveSafeBeachIds(candidates, opts);

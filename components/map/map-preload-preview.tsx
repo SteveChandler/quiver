@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Beach } from "@/types/database";
 import type { ConditionSummary } from "@/components/map/map-beach-loader";
-import { getConditionMarkerGradient } from "@/components/map/map-marker-builder";
+import {
+  getConditionMarkerGradient,
+  getWaterQualityHold,
+} from "@/components/map/map-marker-builder";
 import { getStaticMapViewportImageUrl } from "@/lib/map-utils";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 
@@ -164,6 +167,7 @@ export function MapPreloadPreview({
       {markers.map(({ beach, offset }) => {
         const summary = conditionSummaryMap.get(beach.id) ?? "UNKNOWN";
         const waveLabel = displayForecastMap.get(beach.id)?.label?.trim();
+        const waterQualityHold = getWaterQualityHold(beach);
         return (
           <div
             key={beach.id}
@@ -171,7 +175,9 @@ export function MapPreloadPreview({
             style={{
               left: `calc(50% + ${offset.x}px)`,
               top: `calc(50% + ${offset.y}px)`,
-              background: getConditionMarkerGradient(summary),
+              background: getConditionMarkerGradient(
+                waterQualityHold ?? summary,
+              ),
             }}
             data-testid="map-preload-marker"
             data-condition-summary={summary}
