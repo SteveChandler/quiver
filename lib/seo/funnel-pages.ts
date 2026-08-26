@@ -2229,7 +2229,7 @@ const TODAY_PAGES = [
     locationName: "La Jolla",
     title: "La Jolla Surf Report Today: Waves, Tide & Wind",
     metaDescription:
-      "La Jolla surf report today with live wave height, tide, wind, and board call for La Jolla Shores, Windansea, and Scripps, plus nearby backups.",
+      "La Jolla surf report today: live wave height, tide, wind, and board call for La Jolla Shores, with Windansea and Scripps as backups.",
     h1: "La Jolla Surf Report Today",
     intro:
       "La Jolla is several distinct breaks, so the right call depends on where you paddle out: Shores is the mellow beachbreak, Windansea is a heavier reef, and Scripps is a shifting beachbreak near the pier.",
@@ -2237,7 +2237,7 @@ const TODAY_PAGES = [
     fallbackSpotName: "La Jolla Shores",
     nearbySpotSlugs: ["windansea", "scripps", "birdrock"],
     boardCall:
-      "Match the board to the break: plan for the mellow beachbreak at Shores, the heavier reef at Windansea, or the shifting beachbreak near Scripps Pier.",
+      "Bring a fish or shortboard when Shores has clean push, and a log when it is small and soft. Windansea's reef rewards a board you can turn hard; Scripps shifts, so favour paddle speed.",
     wetsuitCall:
       "Check Quiver's current water-temperature guidance for La Jolla before you leave.",
     tideRisk:
@@ -2287,25 +2287,25 @@ const TODAY_PAGES = [
     images: [],
     existingImages: [
       makeExistingPhotoImage(
+        "la-jolla-report-scripps-lineup-photo",
+        "/images/seo-dioramas/surf-report/la-jolla-today/la-jolla-scripps-lineup.webp",
+        "Scripps Pier with breaking surf for the La Jolla report hero",
+        "Breaking surf running under Scripps Pier at sunset in La Jolla",
+        "Scripps Pier surf",
+      ),
+      makeExistingPhotoImage(
         "la-jolla-report-shores-photo",
         "/images/seo-dioramas/spot-backgrounds/la-jolla-shores-photo.webp",
-        "La Jolla Shores photo for city surf report planning",
-        "La Jolla Shores shoreline and surf context for today's La Jolla report",
-        "La Jolla Shores photo",
+        "La Jolla Shores beach photo for the mellow beachbreak option",
+        "La Jolla Shores shoreline looking north toward the cliffs",
+        "La Jolla Shores",
       ),
       makeExistingPhotoImage(
-        "la-jolla-report-shores-context-photo",
-        "/images/seo-dioramas/surf-cams/san-diego/san-diego-la-jolla-shores-photo.webp",
-        "La Jolla Shores photo for comparing today's La Jolla breaks",
-        "La Jolla Shores surf context used to compare La Jolla's breaks",
-        "La Jolla Shores context",
-      ),
-      makeExistingPhotoImage(
-        "la-jolla-report-scripps-photo",
+        "la-jolla-report-scripps-pier-photo",
         "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
-        "Scripps clean surf image for La Jolla break comparison",
-        "Scripps surf context for comparing today's La Jolla breaks",
-        "Scripps surf",
+        "Scripps Pier lineup photo for La Jolla break comparison",
+        "Scripps Pier lineup used to compare La Jolla's breaks",
+        "Scripps lineup",
       ),
     ],
   }),

@@ -650,12 +650,12 @@ describe("SEO funnel pages", () => {
       path: "/surf-report/la-jolla-today",
       title: "La Jolla Surf Report Today: Waves, Tide & Wind",
       metaDescription:
-        "La Jolla surf report today with live wave height, tide, wind, and board call for La Jolla Shores, Windansea, and Scripps, plus nearby backups.",
+        "La Jolla surf report today: live wave height, tide, wind, and board call for La Jolla Shores, with Windansea and Scripps as backups.",
       h1: "La Jolla Surf Report Today",
       indexable: true,
     });
     expect(`${page!.title} | Quiver`).toHaveLength(55);
-    expect(page!.metaDescription).toHaveLength(142);
+    expect(page!.metaDescription.length).toBeLessThanOrEqual(160);
   });
 
   it("keeps every La Jolla today route, beach slug, and image on a verified owner", () => {
@@ -682,8 +682,8 @@ describe("SEO funnel pages", () => {
       "/ca/la-jolla/scripps",
     ];
     const expectedImages = [
+      "/images/seo-dioramas/surf-report/la-jolla-today/la-jolla-scripps-lineup.webp",
       "/images/seo-dioramas/spot-backgrounds/la-jolla-shores-photo.webp",
-      "/images/seo-dioramas/surf-cams/san-diego/san-diego-la-jolla-shores-photo.webp",
       "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
     ];
 
@@ -718,16 +718,12 @@ describe("SEO funnel pages", () => {
       ).toBe(true);
     }
 
-    for (const link of page!.internalLinks) {
-      if (link.href === "/best-time-to-surf/la-jolla") {
-        expect(
-          existsSync(
-            join(process.cwd(), "app/best-time-to-surf/[city]/page.tsx"),
-          ),
-        ).toBe(true);
-        continue;
-      }
+    const guideHref = "/best-time-to-surf/la-jolla";
+    expect(
+      existsSync(join(process.cwd(), "app/best-time-to-surf/[city]/page.tsx")),
+    ).toBe(true);
 
+    for (const link of page!.internalLinks.filter((l) => l.href !== guideHref)) {
       expect(SEO_FUNNEL_PAGES.some((candidate) => candidate.path === link.href)).toBe(
         true,
       );
