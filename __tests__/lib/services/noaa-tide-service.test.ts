@@ -184,6 +184,47 @@ describe("noaa-tide-service", () => {
     });
   });
 
+  it("uses a deterministic tie-break when cached rows otherwise tie", async () => {
+    const rows = [
+      {
+        ts: "2026-06-30T16:00:00.000Z",
+        tide_height_m: 1,
+        tide_phase: "L",
+        created_at: "2026-06-30T02:00:00.000Z",
+        source: "noaa",
+      },
+      {
+        ts: "2026-06-30T16:00:00.000Z",
+        tide_height_m: 1.2,
+        tide_phase: "H",
+        created_at: "2026-06-30T02:00:00.000Z",
+        source: "noaa",
+      },
+    ];
+
+    const first = await fetchCachedHourlyTidePredictions(
+      createTideForecastClient(rows),
+      "beach-1",
+      "2026-06-30T15:30:00.000Z",
+      "2026-06-30T19:00:00.000Z"
+    );
+    const reversed = await fetchCachedHourlyTidePredictions(
+      createTideForecastClient([...rows].reverse()),
+      "beach-1",
+      "2026-06-30T15:30:00.000Z",
+      "2026-06-30T19:00:00.000Z"
+    );
+
+    expect(first).toEqual(reversed);
+    expect(first.predictions).toEqual([
+      {
+        ts: "2026-06-30T16:00:00.000Z",
+        tide_height_m: 1.2,
+        tide_phase: "H",
+      },
+    ]);
+  });
+
   it("detects sufficient hourly cache coverage for a requested window", () => {
     const startIso = "2026-06-30T10:30:00.000Z";
     const endIso = "2026-07-01T11:30:00.000Z";

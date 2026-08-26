@@ -1,6 +1,10 @@
 import { fetchWithTimeout } from "@/lib/utils/fetch-utils";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { parseCOOPSTimestampToUnixSecondsUTC } from "@/lib/services/noaa-coops/tide-analysis";
+import {
+  isPreferredTideForecastRow,
+  type TideForecastSelectionRow,
+} from "@/lib/services/tide-forecast-selection";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.generated";
 
@@ -23,13 +27,7 @@ export type CachedTidePredictionsResult = {
 
 type StationMeta = { id: string; name: string; lat: number; lon: number };
 type TideForecastClient = Pick<SupabaseClient<Database>, "from">;
-type TideForecastRow = {
-  ts: string;
-  tide_height_m: number | null;
-  tide_phase: string | null;
-  created_at: string | null;
-  source?: string | null;
-};
+type TideForecastRow = TideForecastSelectionRow & { created_at: string | null };
 
 const tideStationsCache: { at: number; stations: StationMeta[] } = {
   at: 0,
@@ -261,25 +259,6 @@ export async function fetchHighLowTidePredictions(
   return filterPredictionsToWindow(predictions, startIso, endIso);
 }
 
-function sourceRank(row: TideForecastRow): number {
-  if (row.source === "noaa") return 2;
-  if (row.source === "noaa_hilo_interpolated") return 1;
-  return 0;
-}
-
-function createdAtRank(row: TideForecastRow): number {
-  if (!row.created_at) return Number.NEGATIVE_INFINITY;
-  const timestamp = Date.parse(row.created_at);
-  return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
-}
-
-function isPreferredCachedRow(candidate: TideForecastRow, incumbent: TideForecastRow): boolean {
-  const sourceDelta = sourceRank(candidate) - sourceRank(incumbent);
-  if (sourceDelta !== 0) return sourceDelta > 0;
-
-  return createdAtRank(candidate) > createdAtRank(incumbent);
-}
-
 function dedupeCachedRows(rows: TideForecastRow[]): TideForecastRow[] {
   const byTimestamp = new Map<string, TideForecastRow>();
   for (const row of rows) {
@@ -288,7 +267,7 @@ function dedupeCachedRows(rows: TideForecastRow[]): TideForecastRow[] {
     }
 
     const existing = byTimestamp.get(row.ts);
-    if (!existing || isPreferredCachedRow(row, existing)) {
+    if (!existing || isPreferredTideForecastRow(row, existing)) {
       byTimestamp.set(row.ts, row);
     }
   }
