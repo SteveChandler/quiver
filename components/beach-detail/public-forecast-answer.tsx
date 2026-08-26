@@ -106,12 +106,14 @@ export function PublicForecastAnswer({
     "UTC";
   const forecastDate = formatForecastDate(context?.localDate, timezone);
   const waveHeight = context?.waveHeightRangeLabel ?? context?.waveHeight ?? report?.waveHeight;
-  const windowStart = publicDecisionWindow
-    ? publicDecisionWindow.start
-    : decisionContext?.displayWindowStart ?? decisionReport?.bestWindowStart ?? null;
-  const windowEnd = publicDecisionWindow
-    ? publicDecisionWindow.end
-    : decisionContext?.displayWindowEnd ?? decisionReport?.bestWindowEnd ?? null;
+  // A supplied publicDecisionWindow wins even when its values are null, so an
+  // anonymous view never falls back to a personalized window.
+  const [windowStart, windowEnd] = publicDecisionWindow
+    ? [publicDecisionWindow.start, publicDecisionWindow.end]
+    : [
+        decisionContext?.displayWindowStart ?? decisionReport?.bestWindowStart ?? null,
+        decisionContext?.displayWindowEnd ?? decisionReport?.bestWindowEnd ?? null,
+      ];
   const bestWindow = formatTimeRangeInTimezone(
     windowStart,
     windowEnd,
