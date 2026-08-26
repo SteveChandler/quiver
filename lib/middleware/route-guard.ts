@@ -22,6 +22,8 @@ export interface RouteClassification {
 
 export class RouteGuard {
   private static readonly STATIC_ASSET_PATH_PATTERN = /\.[^/]+$/;
+  private static readonly PUBLIC_PROFILE_PATH_PATTERN =
+    /^\/profile\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/?$/i;
 
   // Define paths that require authentication
   // Note: /forecast, /beach, /map are now public for SEO and user acquisition
@@ -77,6 +79,14 @@ export class RouteGuard {
         type: "admin",
         requiresAuth: true,
         requiresAdmin: true,
+      };
+    }
+
+    if (this.PUBLIC_PROFILE_PATH_PATTERN.test(pathname)) {
+      return {
+        type: "public",
+        requiresAuth: false,
+        requiresAdmin: false,
       };
     }
 
