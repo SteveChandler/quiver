@@ -1,4 +1,5 @@
 export type EmbedMapSwellLayerId = "combined" | "s1" | "s2" | "wind";
+export type EmbedMapWaterQualityHold = "advisory" | "closure" | "held";
 export const EMBED_MAP_MAX_FORECAST_TIME_INDEX = 7;
 
 export interface EmbedMapCoordinate {
@@ -47,6 +48,7 @@ export type EmbedMapEvent =
         lon: number;
         slug?: string | null;
         conditionSummary?: string | null;
+        waterQualityHold?: EmbedMapWaterQualityHold | null;
         waveHeight?: string | null;
         swellPeriod?: string | null;
         swellDirection?: string | null;

@@ -1424,6 +1424,10 @@ describe("InteractiveMap", () => {
       );
       const onLocationClick = jest.fn();
       const onDisplayForecastsChange = jest.fn();
+      const heldBeach = {
+        ...beach,
+        waterQualityHold: "advisory",
+      } as typeof beach & { waterQualityHold: "advisory" };
       const partition = {
         s1Dir: 280,
         swellDirOm: 292.5,
@@ -1459,7 +1463,7 @@ describe("InteractiveMap", () => {
 
       render(
         <InteractiveMap
-          beaches={[beach]}
+          beaches={[heldBeach]}
           autoNavigateOnMarkerClick={false}
           disableBeachClustering
           markerDisplay="points"
@@ -1486,7 +1490,8 @@ describe("InteractiveMap", () => {
       expect(onLocationClick).toHaveBeenCalledWith(
         expect.objectContaining({ id: beach.id }),
         {
-          conditionSummary: "GOOD",
+          conditionSummary: "WATER QUALITY ADVISORY",
+          waterQualityHold: "advisory",
           waveHeight: "2-3ft",
           swellPeriod: "14s",
           swellDirection: "W",
