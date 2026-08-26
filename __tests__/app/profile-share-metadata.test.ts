@@ -6,20 +6,19 @@ describe("profile share metadata", () => {
       "bcacdc51-b01b-4702-ac0b-fb492c0a926a",
       {
         full_name: "Shapan Dashore",
-        session_count: 12,
       },
     );
 
     expect(metadata.title).toEqual({ absolute: "Shapan Dashore on Quiver" });
     expect(metadata.description).toBe(
-      "See Shapan Dashore's 12 surf sessions on Quiver.",
+      "See Shapan Dashore's surf profile on Quiver.",
     );
     expect(metadata.alternates?.canonical).toContain(
       "/profile/bcacdc51-b01b-4702-ac0b-fb492c0a926a",
     );
     expect(metadata.openGraph).toMatchObject({
       title: "Shapan Dashore on Quiver",
-      description: "See Shapan Dashore's 12 surf sessions on Quiver.",
+      description: "See Shapan Dashore's surf profile on Quiver.",
       images: [
         expect.objectContaining({
           url: expect.stringContaining("/quiver-app-icon.png"),
