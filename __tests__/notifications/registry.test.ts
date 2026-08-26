@@ -85,9 +85,17 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
         weekend_start: "2026-07-25",
         weekend_end: "2026-07-26",
         qualifying_count: 3,
+        beach_id: "22222222-2222-4222-8222-222222222222",
         lead_beach_id: "22222222-2222-4222-8222-222222222222",
         lead_beach_name: "Black's",
         lead_window_local: "Saturday morning",
+        forecast_at: "2026-07-25T16:00:00.000Z",
+        policy_context: {
+          kind: "positive_session_recommendation",
+          beach_id: "22222222-2222-4222-8222-222222222222",
+          starts_at: "2026-07-25T16:00:00.000Z",
+          ends_at: "2026-07-25T18:00:00.000Z",
+        },
       }),
     ];
 
@@ -127,9 +135,17 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
       weekend_start: "2026-07-25",
       weekend_end: "2026-07-26",
       qualifying_count: 3,
+      beach_id: "22222222-2222-4222-8222-222222222222",
       lead_beach_id: "22222222-2222-4222-8222-222222222222",
       lead_beach_name: "Black's",
       lead_window_local: "Saturday morning",
+      forecast_at: "2026-07-25T16:00:00.000Z",
+      policy_context: {
+        kind: "positive_session_recommendation",
+        beach_id: "22222222-2222-4222-8222-222222222222",
+        starts_at: "2026-07-25T16:00:00.000Z",
+        ends_at: "2026-07-25T18:00:00.000Z",
+      },
       lat: 32.81,
       results: [],
     })).toThrow();
@@ -142,20 +158,67 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
       weekend_start: "2026-07-25",
       weekend_end: "2026-07-26",
       qualifying_count: 3,
+      beach_id: "22222222-2222-4222-8222-222222222222",
       lead_beach_id: "22222222-2222-4222-8222-222222222222",
       lead_beach_name: "Black's",
       lead_window_local: "Saturday morning",
+      forecast_at: "2026-07-25T16:00:00.000Z",
+      policy_context: {
+        kind: "positive_session_recommendation",
+        beach_id: "22222222-2222-4222-8222-222222222222",
+        starts_at: "2026-07-25T16:00:00.000Z",
+        ends_at: "2026-07-25T18:00:00.000Z",
+      },
     };
     expect(def.buildPushPayload(def.validatePayload(payload))).toEqual({
       iosSound: "quiver-alert.wav",
       androidChannelId: "quiver-alerts-v1",
       title: "3 spots look promising this weekend",
       body: "Black's leads Saturday morning. See your top picks and why.",
-      data: { type: "weekend_window", ...payload },
+      data: {
+        type: "weekend_window",
+        snapshot_id: payload.snapshot_id,
+        weekend_start: payload.weekend_start,
+        weekend_end: payload.weekend_end,
+        qualifying_count: payload.qualifying_count,
+        lead_beach_id: payload.lead_beach_id,
+        lead_beach_name: payload.lead_beach_name,
+        lead_window_local: payload.lead_window_local,
+      },
     });
     expect(def.buildPushPayload({ ...payload, qualifying_count: 1 }).title).toBe(
       "1 spot looks promising this weekend"
     );
+  });
+
+  it("weekend_window rejects safety context that disagrees with the lead result", () => {
+    const def = NOTIFICATION_REGISTRY.weekend_window;
+    const payload = {
+      snapshot_id: "11111111-1111-4111-8111-111111111111",
+      weekend_start: "2026-07-25",
+      weekend_end: "2026-07-26",
+      qualifying_count: 3,
+      beach_id: "22222222-2222-4222-8222-222222222222",
+      lead_beach_id: "22222222-2222-4222-8222-222222222222",
+      lead_beach_name: "Black's",
+      lead_window_local: "Saturday morning",
+      forecast_at: "2026-07-25T16:00:00.000Z",
+      policy_context: {
+        kind: "positive_session_recommendation" as const,
+        beach_id: "33333333-3333-4333-8333-333333333333",
+        starts_at: "2026-07-25T17:00:00.000Z",
+        ends_at: "2026-07-25T19:00:00.000Z",
+      },
+    };
+
+    expect(() => def.validatePayload!(payload)).toThrow(/beach IDs/);
+    expect(() => def.validatePayload!({
+      ...payload,
+      policy_context: {
+        ...payload.policy_context,
+        beach_id: payload.beach_id,
+      },
+    })).toThrow(/forecast_at/);
   });
 
   it("forecast_alert restores push alongside in_app", () => {
