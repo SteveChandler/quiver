@@ -1,6 +1,10 @@
 import { fetchWithTimeout } from "@/lib/utils/fetch-utils";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { parseCOOPSTimestampToUnixSecondsUTC } from "@/lib/services/noaa-coops/tide-analysis";
+import {
+  isPreferredTideForecastRow,
+  type TideForecastSelectionRow,
+} from "@/lib/services/tide-forecast-selection";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.generated";
 
@@ -23,13 +27,7 @@ export type CachedTidePredictionsResult = {
 
 type StationMeta = { id: string; name: string; lat: number; lon: number };
 type TideForecastClient = Pick<SupabaseClient<Database>, "from">;
-type TideForecastRow = {
-  ts: string;
-  tide_height_m: number | null;
-  tide_phase: string | null;
-  created_at: string | null;
-  source?: string | null;
-};
+type TideForecastRow = TideForecastSelectionRow & { created_at: string | null };
 
 const tideStationsCache: { at: number; stations: StationMeta[] } = {
   at: 0,
@@ -261,12 +259,6 @@ export async function fetchHighLowTidePredictions(
   return filterPredictionsToWindow(predictions, startIso, endIso);
 }
 
-function rowRank(row: TideForecastRow): number {
-  const createdAtMs = row.created_at ? Date.parse(row.created_at) : 0;
-  const sourceRank = row.source === "noaa" ? 2 : row.source === "noaa_hilo_interpolated" ? 1 : 0;
-  return createdAtMs * 10 + sourceRank;
-}
-
 function dedupeCachedRows(rows: TideForecastRow[]): TideForecastRow[] {
   const byTimestamp = new Map<string, TideForecastRow>();
   for (const row of rows) {
@@ -275,7 +267,7 @@ function dedupeCachedRows(rows: TideForecastRow[]): TideForecastRow[] {
     }
 
     const existing = byTimestamp.get(row.ts);
-    if (!existing || rowRank(row) > rowRank(existing)) {
+    if (!existing || isPreferredTideForecastRow(row, existing)) {
       byTimestamp.set(row.ts, row);
     }
   }
