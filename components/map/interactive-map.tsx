@@ -20,6 +20,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createCachedMapFetch } from "@/lib/utils/request-cache";
 import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
 import { CACHE_TTL } from "@/lib/constants/ui";
+import type { WaterQualityHoldKind } from "@/lib/services/nearby-beach-service";
 import { useBeachClustering, type ClusterPoint } from "@/hooks/use-beach-clustering";
 import { loadFavoriteBeaches } from "@/components/map/map-favorites-loader";
 import { createCustomSpotMarkerElement } from "@/components/map/custom-spot-marker-builder";
@@ -281,6 +282,7 @@ interface CapturedZoomLimits {
 
 export interface MapSpotConditions {
   conditionSummary: string | null;
+  waterQualityHold: WaterQualityHoldKind | null;
   waveHeight: string | null;
   swellPeriod: string | null;
   swellDirection: string | null;
@@ -327,6 +329,7 @@ function mapSpotConditions(
     conditionSummary: waterQualityHold
       ? getConditionMarkerCall({ waterQualityHold }).label.toUpperCase()
       : context.conditionSummaryMap.get(beachId) ?? null,
+    waterQualityHold,
     waveHeight: waveLabel || (isFiniteNumber(rawWaveHeight)
       ? formatWaveHeightRange(rawWaveHeight)
       : null),

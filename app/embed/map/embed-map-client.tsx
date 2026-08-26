@@ -471,6 +471,7 @@ export function EmbedMapClient() {
           lon: beach.lon ?? initialCenter.lon,
           slug: beach.slug,
           conditionSummary: conditions?.conditionSummary ?? null,
+          waterQualityHold: conditions?.waterQualityHold ?? null,
           waveHeight: conditions?.waveHeight ?? null,
           swellPeriod: conditions?.swellPeriod ?? null,
           swellDirection: conditions?.swellDirection ?? null,

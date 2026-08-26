@@ -209,7 +209,8 @@ describe("embed map bridge", () => {
       slug: "blacks-beach",
     } as Beach;
     const conditions: MapSpotConditions = {
-      conditionSummary: "GOOD",
+      conditionSummary: "WATER QUALITY ADVISORY",
+      waterQualityHold: "advisory",
       waveHeight: "2-3ft",
       swellPeriod: "14s",
       swellDirection: "WNW",
@@ -239,7 +240,8 @@ describe("embed map bridge", () => {
         lat: 32.88,
         lon: -117.25,
         slug: "blacks-beach",
-        conditionSummary: "GOOD",
+        conditionSummary: "WATER QUALITY ADVISORY",
+        waterQualityHold: "advisory",
         waveHeight: "2-3ft",
         swellPeriod: "14s",
         swellDirection: "WNW",
