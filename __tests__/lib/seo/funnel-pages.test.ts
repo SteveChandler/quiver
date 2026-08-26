@@ -32,6 +32,7 @@ const REQUIRED_ROUTES = [
   "/beginner/long-island",
   "/beginner/san-onofre",
   "/surf-report/scripps-pier-today",
+  "/surf-report/la-jolla-today",
   "/surf-report/belmar-today",
   "/surf-report/tourmaline-today",
   "/surf-report/newport-beach-today",
@@ -57,7 +58,7 @@ describe("SEO funnel pages", () => {
   it("defines the requested indexable routes and excludes Santa Cruz cams", () => {
     const routes = getIndexableSeoFunnelRoutes();
 
-    expect(routes).toHaveLength(27);
+    expect(routes).toHaveLength(28);
     expect(routes).toEqual(expect.arrayContaining(REQUIRED_ROUTES));
     expect(routes).not.toContain("/surf-cams/santa-cruz");
   });
@@ -184,7 +185,7 @@ describe("SEO funnel pages", () => {
   it("resolves every configured SEO image file", () => {
     const prompts = getSeoFunnelImagePrompts();
 
-    expect(prompts).toHaveLength(81);
+    expect(prompts).toHaveLength(84);
     for (const { image } of prompts) {
       expect(
         existsSync(join(process.cwd(), "public", image.src.slice(1))),
@@ -340,7 +341,7 @@ describe("SEO funnel pages", () => {
       ({ image }) => image.assetType === "diorama",
     );
 
-    expect(prompts).toHaveLength(81);
+    expect(prompts).toHaveLength(84);
     for (const { image } of prompts) {
       expect(image.prompt).toContain("Use case: ads-marketing");
       expect(image.prompt).toContain("no text");
@@ -564,6 +565,10 @@ describe("SEO funnel pages", () => {
         "scripps-pier-today",
         "Scripps Pier Surf Report Today: Waves, Tide & Wind",
       ],
+      [
+        "la-jolla-today",
+        "La Jolla Surf Report Today: Waves, Tide & Wind",
+      ],
       ["belmar-today", "Belmar NJ Surf Report Today: Waves, Wind & Tide"],
       [
         "tourmaline-today",
@@ -632,6 +637,104 @@ describe("SEO funnel pages", () => {
     expect(malibu?.metaDescription).toBe(
       "Malibu surf report today with live wave height, tide, wind, best window, board call, crowd notes, and First Point backups before you drive.",
     );
+  });
+
+  it("defines the indexable La Jolla today owner with protected metadata limits", () => {
+    const page = getSeoFunnelPageByTypeAndSlug(
+      "surf-report-today",
+      "la-jolla-today",
+    );
+
+    expect(page).not.toBeNull();
+    expect(page).toMatchObject({
+      path: "/surf-report/la-jolla-today",
+      title: "La Jolla Surf Report Today: Waves, Tide & Wind",
+      metaDescription:
+        "La Jolla surf report today: live wave height, tide, wind, and board call for La Jolla Shores, with Windansea and Scripps as backups.",
+      h1: "La Jolla Surf Report Today",
+      indexable: true,
+    });
+    expect(`${page!.title} | Quiver`).toHaveLength(55);
+    expect(page!.metaDescription.length).toBeLessThanOrEqual(160);
+  });
+
+  it("keeps every La Jolla today route, beach slug, and image on a verified owner", () => {
+    const page = getSeoFunnelPageByTypeAndSlug(
+      "surf-report-today",
+      "la-jolla-today",
+    );
+    const validLaJollaSlugs = new Set([
+      "la-jolla-shores",
+      "windansea",
+      "scripps",
+      "birdrock",
+      "horseshoe",
+      "big-rock-la-jolla-ca",
+    ]);
+    const expectedHrefs = [
+      "/best-time-to-surf/la-jolla",
+      "/surf-report/scripps-pier-today",
+      "/surf-report/tourmaline-today",
+      "/surf-cams/san-diego",
+      "/beginner/san-diego",
+      "/ca/la-jolla/la-jolla-shores",
+      "/ca/la-jolla/windansea",
+      "/ca/la-jolla/scripps",
+    ];
+    const expectedImages = [
+      "/images/seo-dioramas/surf-report/la-jolla-today/la-jolla-scripps-lineup.webp",
+      "/images/seo-dioramas/spot-backgrounds/la-jolla-shores-photo.webp",
+      "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
+    ];
+
+    expect(page).not.toBeNull();
+    expect([
+      ...page!.internalLinks.map((link) => link.href),
+      ...page!.nearbySpots.map((spot) => spot.href),
+    ]).toEqual(expectedHrefs);
+    expect(page!.nearbySpots.map((spot) => spot.beachSlug)).toEqual([
+      "la-jolla-shores",
+      "windansea",
+      "scripps",
+    ]);
+    expect(page!.relatedSpotIds).toEqual([
+      "la-jolla-shores",
+      "windansea",
+      "scripps",
+      "birdrock",
+    ]);
+
+    for (const spot of page!.nearbySpots) {
+      expect(validLaJollaSlugs.has(spot.beachSlug!)).toBe(true);
+      expect(
+        existsSync(
+          join(
+            process.cwd(),
+            spot.href.startsWith("/surf-report/")
+              ? "app/surf-report/[slug]/page.tsx"
+              : "app/[intent]/[city]/[beachSlug]/page.tsx",
+          ),
+        ),
+      ).toBe(true);
+    }
+
+    const guideHref = "/best-time-to-surf/la-jolla";
+    expect(
+      existsSync(join(process.cwd(), "app/best-time-to-surf/[city]/page.tsx")),
+    ).toBe(true);
+
+    for (const link of page!.internalLinks.filter((l) => l.href !== guideHref)) {
+      expect(SEO_FUNNEL_PAGES.some((candidate) => candidate.path === link.href)).toBe(
+        true,
+      );
+    }
+
+    expect(page!.images.map((image) => image.src)).toEqual(expectedImages);
+    for (const src of expectedImages) {
+      expect(existsSync(join(process.cwd(), "public", src.slice(1)))).toBe(
+        true,
+      );
+    }
   });
 
   it("resolves surf report and cam configs by type and slug", () => {
