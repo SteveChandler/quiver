@@ -137,10 +137,40 @@ export default async function GenericBeachDetailPage(props: PageProps) {
 
     if (!beach) notFound();
 
+    // Validate the canonical location before starting beach-specific data work.
+    const expectedStateSlug = stateToSlug(beach.state);
+    if (stateParam.toLowerCase() !== expectedStateSlug) {
+      console.warn("[GenericBeachDetailPage] State slug mismatch:", {
+        beachSlug,
+        expectedState: expectedStateSlug,
+        providedState: stateParam,
+      });
+      notFound();
+    }
+
+    if (!beach.city) {
+      console.warn("[GenericBeachDetailPage] Beach has no city data:", {
+        beachSlug,
+        beachName: beach.name,
+      });
+      notFound();
+    }
+
+    const expectedCitySlug = cityToSlug(beach.city);
+    if (city !== expectedCitySlug) {
+      console.warn("[GenericBeachDetailPage] City slug mismatch:", {
+        beachSlug,
+        expectedCity: expectedCitySlug,
+        providedCity: city,
+      });
+      redirect(buildBeachUrl(beach));
+    }
+
     const beachTimezone =
-      beach.lat != null && beach.lon != null
+      beach.timezone ??
+      (beach.lat != null && beach.lon != null
         ? getTimezoneFromCoords(beach.lat, beach.lon)
-        : null;
+        : null);
 
     // Fetch above-fold and structured-data essentials in parallel. Nearby spot
     // enrichment streams below the tabs so it does not block the page shell.
@@ -150,6 +180,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       waterQualityResult,
       cameraUrl,
       beachPhoto,
+      nearbyResult,
     ] = await Promise.all([
       getSpotSurfReportPublic(beach),
       (async () => {
@@ -194,6 +225,9 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             }
           : null,
       ),
+      beach.lat != null && beach.lon != null
+        ? getNearbyBeaches(beach.lat, beach.lon, 25)
+        : Promise.resolve({ success: true as const, data: [] as Beach[] }),
     ]);
 
     const surfCallReport = surfReportResult?.report || null;
@@ -208,36 +242,13 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       selectPublicForecastContextFacts(forecastContext);
     const returnTo = buildBeachUrl(publicBeach);
 
-    // Validate that the beach's state matches the URL state parameter
-    const expectedStateSlug = stateToSlug(beach.state);
-    if (stateParam.toLowerCase() !== expectedStateSlug) {
-      console.warn("[GenericBeachDetailPage] State slug mismatch:", {
-        beachSlug,
-        expectedState: expectedStateSlug,
-        providedState: stateParam,
-      });
-      notFound();
-    }
-
-    // Check city match if beach has city data
-    if (beach.city) {
-      const expectedCitySlug = cityToSlug(beach.city);
-      if (city !== expectedCitySlug) {
-        console.warn("[GenericBeachDetailPage] City slug mismatch:", {
-          beachSlug,
-          expectedCity: expectedCitySlug,
-          providedCity: city,
-        });
-        redirect(buildBeachUrl(beach));
-      }
-    } else {
-      // Beach has no city data - this is an incomplete record
-      console.warn("[GenericBeachDetailPage] Beach has no city data:", {
-        beachSlug,
-        beachName: beach.name,
-      });
-      notFound();
-    }
+    const nearbyBeachesRaw = nearbyResult.success && nearbyResult.data
+      ? nearbyResult.data
+          .filter((nearbyBeach) =>
+            nearbyBeach.id !== beach.id && nearbyBeach.slug !== beach.slug,
+          )
+          .slice(0, 4)
+      : [];
 
     return (
       <div className="min-h-screen">
@@ -315,6 +326,18 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                 report={publicForecastReport}
                 context={publicForecastContext}
                 isTomorrow={surfCallIsTomorrow}
+                publicDecisionWindow={{
+                  start: surfCallReport?.bestWindowStart ?? null,
+                  end: surfCallReport?.bestWindowEnd ?? null,
+                }}
+                nearbyBeaches={nearbyBeachesRaw.slice(0, 3).map((nearbyBeach) => ({
+                  id: nearbyBeach.id,
+                  name: nearbyBeach.name,
+                  slug: nearbyBeach.slug,
+                  city: nearbyBeach.city,
+                  state: nearbyBeach.state,
+                  country: nearbyBeach.country,
+                }))}
                 headingLevel="h1"
                 returnTo={returnTo}
               />
@@ -369,7 +392,10 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                   </div>
                 )}
                 <Suspense fallback={null}>
-                  <DeferredZineNearbySpots beach={beach} />
+                  <DeferredZineNearbySpots
+                    beach={beach}
+                    nearbyBeachesRaw={nearbyBeachesRaw}
+                  />
                 </Suspense>
                 <Suspense fallback={null}>
                   <DeferredRelatedGuidesSection beach={publicBeach} />
@@ -429,17 +455,13 @@ async function DeferredRelatedGuidesSection({ beach }: { beach: Beach }) {
   );
 }
 
-async function DeferredZineNearbySpots({ beach }: { beach: Beach }) {
-  let nearbyBeachesRaw: Beach[] = [];
-  if (beach.lat && beach.lon) {
-    const nearbyResult = await getNearbyBeaches(beach.lat, beach.lon, 25);
-    if (nearbyResult.success && nearbyResult.data) {
-      nearbyBeachesRaw = nearbyResult.data
-        .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
-        .slice(0, 4);
-    }
-  }
-
+async function DeferredZineNearbySpots({
+  beach,
+  nearbyBeachesRaw,
+}: {
+  beach: Beach;
+  nearbyBeachesRaw: Beach[];
+}) {
   const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
 
   return (

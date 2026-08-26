@@ -620,6 +620,17 @@ export function formatTimeInTimezone(
   }
 }
 
+export function formatTimeRangeInTimezone(
+  start: Date | string | null,
+  end: Date | string | null,
+  timezone?: string | null,
+  separator = "–",
+): string | null {
+  const startLabel = formatTimeInTimezone(start, timezone);
+  const endLabel = formatTimeInTimezone(end, timezone);
+  return startLabel && endLabel ? `${startLabel}${separator}${endLabel}` : null;
+}
+
 /**
  * Format time in casual style: "10am", "2:30pm"
  * Omits minutes if on the hour, uses lowercase am/pm for brevity.

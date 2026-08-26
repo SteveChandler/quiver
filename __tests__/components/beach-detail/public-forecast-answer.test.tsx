@@ -29,6 +29,33 @@ const beach = {
   timezone: "America/Los_Angeles",
 } as Beach;
 
+const nearbyBeaches = [
+  {
+    id: "backup-1",
+    name: "Swami's",
+    slug: "swamis",
+    city: "Encinitas",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    id: "backup-2",
+    name: "Ocean Beach",
+    slug: "ocean-beach",
+    city: "San Diego",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    id: "backup-3",
+    name: "Pipeline",
+    slug: "pipeline",
+    city: "Haleiwa",
+    state: "HI",
+    country: "USA",
+  },
+] as Beach[];
+
 const context: ForecastRecommendationContext = {
   beachId: "beach-1",
   localDate: "2026-08-09",
@@ -81,14 +108,31 @@ const report = {
   updatedAt: "2026-08-09T17:05:00.000Z",
 } as SurfCallResult;
 
-function renderAnswer() {
+function renderAnswer({
+  answerBeach = beach,
+  answerReport = report,
+  answerContext = context,
+  tomorrow = true,
+  backups = nearbyBeaches,
+}: {
+  answerBeach?: Beach;
+  answerReport?: SurfCallResult | null;
+  answerContext?: ForecastRecommendationContext | null;
+  tomorrow?: boolean;
+  backups?: Beach[];
+} = {}) {
   return render(
     <AuthenticatedForecastDecisionProvider beachId={beach.id}>
       <PublicForecastAnswer
-        beach={beach}
-        report={report}
-        context={context}
-        isTomorrow
+        beach={answerBeach}
+        report={answerReport}
+        context={answerContext}
+        isTomorrow={tomorrow}
+        publicDecisionWindow={{
+          start: answerReport?.bestWindowStart ?? null,
+          end: answerReport?.bestWindowEnd ?? null,
+        }}
+        nearbyBeaches={backups}
         headingLevel="h1"
         returnTo="/ca/san-diego/ocean-beach"
       />
@@ -106,26 +150,96 @@ describe("PublicForecastAnswer", () => {
     global.fetch = jest.fn();
   });
 
-  it("keeps public facts in guest HTML while replacing the verdict and window with login", () => {
+  it("renders every live decision field and three buildBeachUrl backup links for guests", () => {
     renderAnswer();
 
     expect(screen.getByTestId("public-forecast-answer")).toBeInTheDocument();
     expect(screen.getByText("Tomorrow")).toBeInTheDocument();
     expect(screen.getByText(/Oceanside Harbor Surf Forecast for/)).toBeInTheDocument();
     expect(screen.getByText("2-3 ft")).toBeInTheDocument();
+    expect(screen.getByText("11:00 AM–1:00 PM")).toBeInTheDocument();
+    expect(screen.getByText("5 mph E offshore")).toBeInTheDocument();
+    expect(screen.getByText("3.2 ft rising next high")).toBeInTheDocument();
     expect(screen.getByText(/NOAA NWS, NOAA CO-OPS/)).toBeInTheDocument();
     expect(screen.queryByText("YES")).not.toBeInTheDocument();
-    expect(screen.queryByText("11:00 AM–1:00 PM")).not.toBeInTheDocument();
-
-    const login = screen.getByRole("link", { name: /sign in to reveal/i });
-    expect(login).toHaveAttribute(
+    expect(screen.queryByRole("link", { name: /sign in to reveal/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Swami's" })).toHaveAttribute(
       "href",
-      "/auth/sign-in?redirectTo=%2Fca%2Fsan-diego%2Focean-beach",
+      "/ca/encinitas/swamis",
+    );
+    expect(screen.getByRole("link", { name: "Ocean Beach" })).toHaveAttribute(
+      "href",
+      "/ca/san-diego/ocean-beach",
+    );
+    expect(screen.getByRole("link", { name: "Pipeline" })).toHaveAttribute(
+      "href",
+      "/hi/haleiwa/pipeline",
     );
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it("projects decision values out of props sent through the static route", () => {
+  it.each([
+    ["Best window", { ...report, bestWindowStart: null, bestWindowEnd: null }],
+    ["Wind", { ...report, windSpeed: null, windCompass: null, windType: null }],
+    [
+      "Tide",
+      { ...report, tideHeight: null, tidePhase: null, nextTideType: null },
+    ],
+    ["Surf", { ...report, waveHeight: null }],
+  ])("omits %s without rendering a substitute", (label, answerReport) => {
+    const answerContext = {
+      ...context,
+      ...(label === "Best window"
+        ? { displayWindowStart: null, displayWindowEnd: null }
+        : {}),
+      ...(label === "Wind" ? { windSpeed: null, windDirection: null } : {}),
+      ...(label === "Surf" ? { waveHeight: null, waveHeightRangeLabel: null } : {}),
+    };
+
+    renderAnswer({ answerReport, answerContext, backups: [] });
+
+    expect(screen.queryByText(label)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no clean window|check current|refresh|check the app/i)).not.toBeInTheDocument();
+  });
+
+  it("uses the stored beach timezone and distinguishes today from tomorrow", () => {
+    renderAnswer({
+      answerBeach: { ...beach, timezone: "Pacific/Honolulu" },
+      answerContext: { ...context, timezone: "America/New_York" },
+      tomorrow: false,
+      backups: [],
+    });
+
+    expect(screen.getByText("8:00 AM–10:00 AM")).toBeInTheDocument();
+    expect(screen.queryByText("Tomorrow")).not.toBeInTheDocument();
+  });
+
+  it("renders fewer than three backups and omits the section when none exist", () => {
+    const { rerender } = renderAnswer({ backups: nearbyBeaches.slice(0, 2) });
+
+    expect(screen.getByText("Nearby backups")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Swami's|Ocean Beach/ })).toHaveLength(2);
+    expect(screen.queryByRole("link", { name: "Pipeline" })).not.toBeInTheDocument();
+
+    rerender(
+      <PublicForecastAnswer
+        beach={beach}
+        report={report}
+        context={context}
+        isTomorrow={false}
+        publicDecisionWindow={{
+          start: report.bestWindowStart,
+          end: report.bestWindowEnd,
+        }}
+        nearbyBeaches={[]}
+        headingLevel="h1"
+        returnTo="/ca/san-diego/ocean-beach"
+      />,
+    );
+    expect(screen.queryByText("Nearby backups")).not.toBeInTheDocument();
+  });
+
+  it("keeps personalized decisions out of the projected public report", () => {
     const publicReport = selectPublicForecastReportFacts(report);
     const publicContext = selectPublicForecastContextFacts(context);
 
@@ -170,6 +284,8 @@ describe("PublicForecastAnswer", () => {
         report={null}
         context={null}
         isTomorrow={false}
+        publicDecisionWindow={{ start: null, end: null }}
+        nearbyBeaches={nearbyBeaches.slice(0, 2)}
         headingLevel="h1"
         returnTo="/ca/oceanside/oceanside-harbor"
       />,
@@ -179,7 +295,14 @@ describe("PublicForecastAnswer", () => {
       level: 1,
       name: "Oceanside Harbor Surf Forecast",
     })).toBeInTheDocument();
-    expect(screen.getByText(/temporarily unavailable/)).toBeInTheDocument();
+    // The route supplies publicDecisionWindow as an object literal on every beach
+    // page, so this empty case is reachable on all 346 of them. It must explain
+    // itself rather than render nothing.
+    expect(
+      screen.getByText(/Current forecast details are temporarily unavailable/i),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/Forecast valid at/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Best window")).not.toBeInTheDocument();
+    expect(screen.getByText("Nearby backups")).toBeInTheDocument();
   });
 });

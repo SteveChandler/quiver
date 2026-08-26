@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import type { Beach } from "@/types/database";
-import { formatBeachDateTime, formatTimeInTimezone } from "@/lib/utils/date-time";
+import { formatBeachDateTime, formatTimeRangeInTimezone } from "@/lib/utils/date-time";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { useAuthenticatedForecastDecision } from "@/components/beach-detail/authenticated-forecast-decision";
 import { ForecastDecisionLoginLink } from "@/components/beach-detail/forecast-decision-login-link";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import type {
   PublicForecastContextFacts,
   PublicForecastReportFacts,
@@ -29,6 +31,13 @@ interface PublicForecastAnswerProps {
   report: PublicForecastReportFacts | null;
   context: PublicForecastContextFacts | null;
   isTomorrow: boolean;
+  publicDecisionWindow?: {
+    start: string | null;
+    end: string | null;
+  };
+  nearbyBeaches?: Array<
+    Pick<Beach, "id" | "name" | "slug" | "city" | "state" | "country">
+  >;
   headingLevel: "h1" | "h2";
   returnTo: string;
 }
@@ -47,18 +56,6 @@ function formatForecastDate(
     year: "numeric",
     timeZone: timezone,
   }).format(date);
-}
-
-function formatRange(
-  start: string | null | undefined,
-  end: string | null | undefined,
-  timezone: string,
-): string | null {
-  if (!start || !end) return null;
-  const startLabel = formatTimeInTimezone(start, timezone);
-  const endLabel = formatTimeInTimezone(end, timezone);
-  if (!startLabel || !endLabel) return null;
-  return `${startLabel}–${endLabel}`;
 }
 
 function joinParts(parts: Array<string | null | undefined>): string | null {
@@ -95,6 +92,8 @@ export function PublicForecastAnswer({
   report,
   context,
   isTomorrow,
+  publicDecisionWindow,
+  nearbyBeaches = [],
   headingLevel,
   returnTo,
 }: PublicForecastAnswerProps) {
@@ -102,14 +101,20 @@ export function PublicForecastAnswer({
   const decisionReport = authenticatedDecision.report;
   const decisionContext = authenticatedDecision.context;
   const timezone =
+    beach.timezone ??
     context?.timezone ??
-    (beach as { timezone?: string | null }).timezone ??
     "UTC";
   const forecastDate = formatForecastDate(context?.localDate, timezone);
   const waveHeight = context?.waveHeightRangeLabel ?? context?.waveHeight ?? report?.waveHeight;
-  const bestWindow = formatRange(
-    decisionContext?.displayWindowStart ?? decisionReport?.bestWindowStart,
-    decisionContext?.displayWindowEnd ?? decisionReport?.bestWindowEnd,
+  const windowStart = publicDecisionWindow
+    ? publicDecisionWindow.start
+    : decisionContext?.displayWindowStart ?? decisionReport?.bestWindowStart ?? null;
+  const windowEnd = publicDecisionWindow
+    ? publicDecisionWindow.end
+    : decisionContext?.displayWindowEnd ?? decisionReport?.bestWindowEnd ?? null;
+  const bestWindow = formatTimeRangeInTimezone(
+    windowStart,
+    windowEnd,
     timezone,
   );
   const primarySwell = buildSwell(
@@ -148,7 +153,10 @@ export function PublicForecastAnswer({
     ? formatBeachDateTime(report.updatedAt, timezone, "EEE h:mm a")
     : null;
   const HeadingTag = headingLevel;
-  const hasForecastDetails = Boolean(context?.selectedRowTime && waveHeight);
+  const hasForecastDetails = Boolean(
+    (context?.selectedRowTime && waveHeight) ||
+      (publicDecisionWindow && (waveHeight || bestWindow || wind || tide)),
+  );
   const provenance = [
     validAt ? `Valid ${validAt} ${timezone}` : null,
     sourceUpdatedAt ? `Source updated ${sourceUpdatedAt}` : null,
@@ -208,7 +216,7 @@ export function PublicForecastAnswer({
                 </dd>
               </div>
             )}
-            {!decisionReport?.verdict && !bestWindow && (
+            {!decisionReport?.verdict && !bestWindow && !publicDecisionWindow && (
               <div>
                 <dt className={DECK_LABEL}>Verdict &amp; best window</dt>
                 <dd className="mt-1.5">
@@ -272,6 +280,9 @@ export function PublicForecastAnswer({
           )}
         </dl>
       ) : (
+        // Always explain an empty forecast. The route passes publicDecisionWindow
+        // as an object literal on every beach page, so gating this on its
+        // presence silently rendered nothing at all when no data was available.
         <p className="mt-4 font-mono text-sm leading-6 text-[#11100D]/75">
           Current forecast details are temporarily unavailable. Check back for the next Quiver surf call and hourly conditions.
         </p>
@@ -290,6 +301,23 @@ export function PublicForecastAnswer({
           {provenance.join(" · ")}
           {isStale ? " · Source data is stale; conditions may have changed." : ""}
         </p>
+      )}
+
+      {nearbyBeaches.length > 0 && (
+        <nav aria-label="Nearby backups" className="mt-5">
+          <p className={DECK_LABEL}>Nearby backups</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {nearbyBeaches.slice(0, 3).map((backup) => (
+              <Link
+                key={backup.id}
+                href={buildBeachUrl(backup)}
+                className="border-2 border-[#11100D] bg-[#EFE5CF] px-2.5 py-1 font-mono text-xs font-bold uppercase tracking-[0.08em] text-[#11100D] shadow-[2px_2px_0_#11100D] hover:bg-[#F7E7BE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EFE5CF]"
+              >
+                {backup.name}
+              </Link>
+            ))}
+          </div>
+        </nav>
       )}
     </section>
   );
