@@ -43,6 +43,7 @@ function decodeHtmlEntities(value: string): string {
     .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>');
 }
@@ -135,6 +136,27 @@ function expectBeachMetaDescription(
 }
 
 test.describe('Route HTML Contracts', () => {
+  test('/profile/[id] exposes concise current-brand social metadata to guests', async ({
+    request,
+  }) => {
+    const html = await getHtml(
+      request,
+      '/profile/00000000-0000-4000-8000-000000000000',
+    );
+
+    expect(getMetaContent(html, { property: 'og:title' })).toBe(
+      'Surfer profile on Quiver',
+    );
+    expect(getMetaContent(html, { property: 'og:description' })).toBe(
+      "See this surfer's sessions and profile on Quiver.",
+    );
+    expect(getMetaContent(html, { property: 'og:image' })).toContain(
+      '/quiver-app-icon.png',
+    );
+    expect(getMetaContent(html, { property: 'og:image:width' })).toBe('1024');
+    expect(getMetaContent(html, { property: 'og:image:height' })).toBe('1024');
+  });
+
   test.describe('Beach SEO metadata', () => {
     test('/app/spot ignores query-only forecast copy in social metadata', async ({
       request,

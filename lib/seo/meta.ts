@@ -20,12 +20,16 @@ export function buildPageMetadata({
   description,
   path,
   image,
+  imageHeight,
+  imageWidth,
   keywords,
 }: {
   title: string;
   description: string;
   path: string;
   image?: string;
+  imageHeight?: number;
+  imageWidth?: number;
   keywords?: string[];
 }): Metadata {
   const metadataTitle = titleContainsQuiver(title) ? { absolute: title } : title;
@@ -49,8 +53,8 @@ export function buildPageMetadata({
       images: [
         {
           url: ogImage,
-          width: 1200,
-          height: 630,
+          width: imageWidth ?? 1200,
+          height: imageHeight ?? 630,
           alt: title,
         },
       ],

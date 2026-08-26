@@ -138,6 +138,18 @@ describe("Middleware Integration Tests", () => {
       }
     });
 
+    it("allows an unauthenticated UUID profile share without redirecting to sign-in", async () => {
+      const request = createMockRequest(
+        "/profile/bcacdc51-b01b-4702-ac0b-fb492c0a926a",
+      );
+
+      const response = await middleware(request);
+
+      expect(response.status).not.toBe(307);
+      expect(response.headers.get("location")).toBeNull();
+      expect(mockAuthValidator.validateAuth).not.toHaveBeenCalled();
+    });
+
     it("should add security headers to public routes", async () => {
       const request: any = {
         nextUrl: {
