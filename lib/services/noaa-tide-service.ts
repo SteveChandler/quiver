@@ -261,10 +261,23 @@ export async function fetchHighLowTidePredictions(
   return filterPredictionsToWindow(predictions, startIso, endIso);
 }
 
-function rowRank(row: TideForecastRow): number {
-  const createdAtMs = row.created_at ? Date.parse(row.created_at) : 0;
-  const sourceRank = row.source === "noaa" ? 2 : row.source === "noaa_hilo_interpolated" ? 1 : 0;
-  return createdAtMs * 10 + sourceRank;
+function sourceRank(row: TideForecastRow): number {
+  if (row.source === "noaa") return 2;
+  if (row.source === "noaa_hilo_interpolated") return 1;
+  return 0;
+}
+
+function createdAtRank(row: TideForecastRow): number {
+  if (!row.created_at) return Number.NEGATIVE_INFINITY;
+  const timestamp = Date.parse(row.created_at);
+  return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
+}
+
+function isPreferredCachedRow(candidate: TideForecastRow, incumbent: TideForecastRow): boolean {
+  const sourceDelta = sourceRank(candidate) - sourceRank(incumbent);
+  if (sourceDelta !== 0) return sourceDelta > 0;
+
+  return createdAtRank(candidate) > createdAtRank(incumbent);
 }
 
 function dedupeCachedRows(rows: TideForecastRow[]): TideForecastRow[] {
@@ -275,7 +288,7 @@ function dedupeCachedRows(rows: TideForecastRow[]): TideForecastRow[] {
     }
 
     const existing = byTimestamp.get(row.ts);
-    if (!existing || rowRank(row) > rowRank(existing)) {
+    if (!existing || isPreferredCachedRow(row, existing)) {
       byTimestamp.set(row.ts, row);
     }
   }

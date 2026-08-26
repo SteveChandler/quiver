@@ -119,7 +119,7 @@ describe("noaa-tide-service", () => {
     ]);
   });
 
-  it("reads cached hourly predictions with newest-row dedupe and freshness metadata", async () => {
+  it("prefers direct NOAA rows before same-source freshness", async () => {
     const client = createTideForecastClient([
       {
         ts: "2026-06-30T16:00:00.000Z",
@@ -144,6 +144,13 @@ describe("noaa-tide-service", () => {
       },
       {
         ts: "2026-06-30T18:00:00.000Z",
+        tide_height_m: 0.8,
+        tide_phase: null,
+        created_at: "2026-06-30T02:00:00.000Z",
+        source: "noaa",
+      },
+      {
+        ts: "2026-06-30T18:00:00.000Z",
         tide_height_m: 0.9,
         tide_phase: null,
         created_at: "2026-06-30T02:30:00.000Z",
@@ -164,8 +171,8 @@ describe("noaa-tide-service", () => {
       predictions: [
         {
           ts: "2026-06-30T16:00:00.000Z",
-          tide_height_m: 1.2,
-          tide_phase: "H",
+          tide_height_m: 1,
+          tide_phase: null,
         },
         {
           ts: "2026-06-30T18:00:00.000Z",
