@@ -229,9 +229,12 @@ const weekendWindowSchema = z
     weekend_start: weekendLocalDateSchema,
     weekend_end: weekendLocalDateSchema,
     qualifying_count: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    beach_id: z.string().uuid(),
     lead_beach_id: z.string().uuid(),
     lead_beach_name: z.string().min(1),
     lead_window_local: z.string().min(1),
+    forecast_at: z.string().datetime({ offset: true }),
+    policy_context: positiveRecommendationPolicyContextSchema,
   })
   .strict()
   .superRefine((payload, context) => {
@@ -242,6 +245,23 @@ const weekendWindowSchema = z
         code: z.ZodIssueCode.custom,
         path: ["weekend_end"],
         message: "weekend_end must follow weekend_start",
+      });
+    }
+    if (
+      payload.beach_id !== payload.lead_beach_id ||
+      payload.policy_context.beach_id !== payload.lead_beach_id
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["beach_id"],
+        message: "beach IDs must agree with the lead result",
+      });
+    }
+    if (payload.forecast_at !== payload.policy_context.starts_at) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["forecast_at"],
+        message: "forecast_at must agree with policy_context.starts_at",
       });
     }
   });
@@ -444,9 +464,12 @@ interface WeekendWindowPayload {
   weekend_start: string;
   weekend_end: string;
   qualifying_count: 1 | 2 | 3;
+  beach_id: string;
   lead_beach_id: string;
   lead_beach_name: string;
   lead_window_local: string;
+  forecast_at: string;
+  policy_context: PositiveRecommendationPolicyContextPayload;
 }
 
 type NotificationSimilarityMatchPayload = SimilarityMatchPayload & {
