@@ -227,7 +227,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       ),
       beach.lat != null && beach.lon != null
         ? getNearbyBeaches(beach.lat, beach.lon, 25)
-        : Promise.resolve({ success: true as const, data: [] as Beach[] }),
+        : null,
     ]);
 
     const surfCallReport = surfReportResult?.report || null;
@@ -242,7 +242,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       selectPublicForecastContextFacts(forecastContext);
     const returnTo = buildBeachUrl(publicBeach);
 
-    const nearbyBeachesRaw = nearbyResult.success && nearbyResult.data
+    const nearbyBeachesRaw = nearbyResult?.success && nearbyResult.data
       ? nearbyResult.data
           .filter((nearbyBeach) =>
             nearbyBeach.id !== beach.id && nearbyBeach.slug !== beach.slug,
@@ -330,14 +330,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                   start: surfCallReport?.bestWindowStart ?? null,
                   end: surfCallReport?.bestWindowEnd ?? null,
                 }}
-                nearbyBeaches={nearbyBeachesRaw.slice(0, 3).map((nearbyBeach) => ({
-                  id: nearbyBeach.id,
-                  name: nearbyBeach.name,
-                  slug: nearbyBeach.slug,
-                  city: nearbyBeach.city,
-                  state: nearbyBeach.state,
-                  country: nearbyBeach.country,
-                }))}
+                nearbyBeaches={nearbyBeachesRaw}
                 headingLevel="h1"
                 returnTo={returnTo}
               />
