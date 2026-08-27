@@ -24,6 +24,7 @@ import {
 } from "@/lib/utils/coast-pulse-formatter";
 import { computeSummary, CoastPulseSummaryItem } from "@/lib/utils/coast-pulse-summary";
 import { rankBeaches } from "@/lib/recommendations/selection";
+import { fetchCurrentBeachWind } from "@/lib/services/current-beach-wind";
 import { haversineDistance, degreesToCardinal } from "@/lib/utils/geo-utils";
 import {
   DISTANCE,
@@ -97,22 +98,63 @@ async function summaryHandler(request: NextRequest) {
       (async () => {
         if (!closestBeach || minDist > DISTANCE.FORECAST_MAX_KM) return null;
         const now = new Date();
-        const { data: forecast } = await supabase
-          .from("enhanced_forecasts")
-          .select(
-            "wave_height, wave_period, wave_direction, swell_1_direction, wind_speed, wind_direction, tide_status, updated_at"
-          )
-          .eq("beach_id", closestBeach.id)
-          .gte("forecast_at", `${now.toISOString().split("T")[0]}T00:00:00Z`)
-          .order("forecast_at", { ascending: true })
-          .limit(1)
-          .maybeSingle();
+        const [forecastResult, currentWind] = await Promise.all([
+          supabase
+            .from("enhanced_forecasts")
+            .select(
+              "wave_height, wave_period, wave_direction, swell_1_direction, wind_speed, wind_direction, wind_source, tide_status, updated_at"
+            )
+            .eq("beach_id", closestBeach.id)
+            .gte("forecast_at", `${now.toISOString().split("T")[0]}T00:00:00Z`)
+            .lte("forecast_at", now.toISOString())
+            .order("forecast_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          fetchCurrentBeachWind(supabase, closestBeach.id),
+        ]);
+        const forecast = forecastResult.data;
+        if (!forecast && !currentWind) return null;
+        if (!forecast && currentWind) {
+          return {
+            source: { type: "wind" as const, credibility: CREDIBILITY.RTMA },
+            message: `${Math.round(currentWind.windSpeedMph)} mph${
+              currentWind.windDirection ? ` ${currentWind.windDirection}` : ""
+            }`,
+            timestamp: new Date(currentWind.observedAt),
+            trend: "stable" as const,
+            windSpeedMph: currentWind.windSpeedMph,
+            windDirection: currentWind.windDirection,
+            windObservedAt: currentWind.observedAt,
+            windSource: currentWind.source,
+          };
+        }
         if (!forecast) return null;
+        const forecastWithCurrentWind = currentWind
+          ? {
+              ...forecast,
+              wind_speed: `${currentWind.windSpeedMph} mph`,
+              wind_direction: currentWind.windDirection,
+              wind_source: currentWind.source,
+            }
+          : forecast;
         return {
           source: { type: "forecast" as const, credibility: CREDIBILITY.FORECAST },
-          message: formatForecastConditions(forecast, closestBeach.windOffshoreDeg),
+          message: formatForecastConditions(
+            forecastWithCurrentWind,
+            closestBeach.windOffshoreDeg
+          ),
           timestamp: new Date(forecast.updated_at || now),
           trend: "stable" as const,
+          windSpeedMph:
+            currentWind?.windSpeedMph ??
+            (forecast.wind_speed == null
+              ? null
+              : Number.parseFloat(String(forecast.wind_speed))),
+          windDirection: currentWind
+            ? currentWind.windDirection
+            : forecast.wind_direction,
+          windObservedAt: currentWind?.observedAt ?? null,
+          windSource: currentWind?.source ?? forecast.wind_source,
         };
       })(),
       // NDBC
@@ -134,6 +176,14 @@ async function summaryHandler(request: NextRequest) {
           message,
           timestamp: new Date(observation.ts),
           trend: "stable" as const,
+          windSpeedMph:
+            observation.wind_speed_ms == null
+              ? null
+              : observation.wind_speed_ms * 2.236936,
+          windDirection:
+            observation.wind_direction_deg == null
+              ? null
+              : degreesToCardinal(observation.wind_direction_deg),
         };
       })(),
       // CDIP

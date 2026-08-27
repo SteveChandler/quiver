@@ -175,6 +175,14 @@ jest.mock("@/lib/services/intel/wave-height-labels", () => ({
     mockWaveLabelMocks.getDailyIntelWaveHeightLabels(...args),
 }));
 
+const mockCurrentWind = {
+  fetchCurrentBeachWind: jest.fn(),
+};
+jest.mock("@/lib/services/current-beach-wind", () => ({
+  fetchCurrentBeachWind: (...args: unknown[]) =>
+    mockCurrentWind.fetchCurrentBeachWind(...args),
+}));
+
 // Import after mocks
 import { generateCoastPulse } from "@/lib/services/coast-pulse/coast-pulse-service";
 import { haversineDistance } from "@/lib/utils/geo-utils";
@@ -200,6 +208,7 @@ function setupDefaultMocks() {
     current_wave_height_label: null,
     best_window_wave_height_label: null,
   });
+  mockCurrentWind.fetchCurrentBeachWind.mockResolvedValue(null);
 
   // Beaches query (from("beaches"))
   // The mock chain returns itself, so we need to handle the thenable
@@ -335,6 +344,52 @@ describe("Coast Pulse Service", () => {
       expect(
         result.items.find((item) => item.id === "daily-intel-beach-1")?.message
       ).not.toContain("1-5ft");
+    });
+
+    test("attaches current RTMA wind to the forecast item", async () => {
+      mockCurrentWind.fetchCurrentBeachWind.mockResolvedValue({
+        observedAt: ONE_HOUR_AGO.toISOString(),
+        windSpeedMph: 7.4,
+        windDirection: null,
+        windDirectionDeg: null,
+        windGustMph: 12.1,
+        source: "RTMA",
+      });
+      mockSupabaseChain.single = jest.fn().mockImplementation(() => ({
+        then: (resolve: any) =>
+          resolve({
+            data: {
+              beach_id: "beach-1",
+              forecast_at: ONE_HOUR_AGO.toISOString(),
+              wave_height: "3 ft",
+              wave_period: "12s",
+              wind_speed: "4 mph",
+              wind_direction: "W",
+              wind_source: "NWS",
+              created_at: ONE_HOUR_AGO.toISOString(),
+              updated_at: ONE_HOUR_AGO.toISOString(),
+            },
+            error: null,
+          }),
+      }));
+
+      const result = await generateCoastPulse({
+        lat: 32.72,
+        lon: -117.16,
+        limit: 8,
+      });
+
+      expect(result.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "forecast-beach-1",
+            message: expect.not.stringContaining("calm"),
+            windSpeedMph: 7.4,
+            windDirection: null,
+            windSource: "RTMA",
+          }),
+        ])
+      );
     });
 
     test("limits returned items to limit parameter", async () => {
