@@ -479,7 +479,6 @@ External source mappings per beach.
 | Column | Type | Description |
 |--------|------|-------------|
 | `beach_id` | UUID | PK, FK to beaches |
-| `ndbc_buoy_ids` | TEXT[] | NDBC buoy station IDs |
 | `forecast_source_id` | TEXT | Primary forecast source |
 | `camera_url` | TEXT | Surf cam URL |
 | `created_at` | TIMESTAMPTZ | Record creation |
