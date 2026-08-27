@@ -23,6 +23,8 @@ const QuerySchema = z.object({
 });
 
 type CurrentForecastRow = EnhancedForecastEntity & {
+  source_fetched_at: string | null;
+  station_id: string | null;
   updated_at?: string | null;
   tide_height?: string | null;
   tide_status?: string | null;
@@ -113,9 +115,22 @@ async function readCurrentRow(
     data as unknown as EnhancedForecastEntity,
   ]);
   const syncedTideHeight = await readLatestHourlyTide(supabase, beachId, now);
+  const sourceFetchedAt =
+    displayRow.data_source === "CDIP"
+      ? displayRow.raw_forecast?.fetch_timestamps?.cdip
+      : displayRow.data_source === "NOAA_NWS"
+        ? displayRow.raw_forecast?.fetch_timestamps?.noaa
+        : null;
+  const currentRow: CurrentForecastRow = {
+    ...displayRow,
+    source_fetched_at:
+      sourceFetchedAt ?? displayRow.om_fetched_at ?? displayRow.updated_at ?? null,
+    station_id:
+      displayRow.raw_forecast?.wave_height_provenance?.station_id ?? null,
+  };
   return syncedTideHeight
-    ? ({ ...displayRow, tide_height: syncedTideHeight } as CurrentForecastRow)
-    : (displayRow as CurrentForecastRow);
+    ? { ...currentRow, tide_height: syncedTideHeight }
+    : currentRow;
 }
 
 function buildMetadata(args: {

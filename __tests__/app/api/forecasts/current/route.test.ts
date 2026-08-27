@@ -3,6 +3,7 @@
  */
 
 import { NextRequest } from "next/server";
+import currentForecastContract from "@/__tests__/fixtures/current-forecast-contract-v1.json";
 
 const mockSupabase = {
   from: jest.fn(),
@@ -50,6 +51,17 @@ type ForecastRow = {
   tide_height: string | null;
   confidence_score: number | null;
   data_source: string | null;
+  om_fetched_at?: string | null;
+  updated_at?: string | null;
+  raw_forecast?: {
+    fetch_timestamps?: {
+      cdip?: string;
+      noaa?: string;
+    };
+    wave_height_provenance?: {
+      station_id: string | null;
+    };
+  } | null;
 };
 
 const BEACH_ID = "11111111-1111-4111-8111-111111111111";
@@ -181,6 +193,105 @@ describe("GET /api/forecasts/current", () => {
       }),
     );
     expect(mockUpdateBeachForecast).not.toHaveBeenCalled();
+  });
+
+  it("returns the canonical current forecast provenance contract", async () => {
+    const {
+      source_fetched_at: _sourceFetchedAt,
+      station_id: _stationId,
+      ...storedRow
+    } = currentForecastContract;
+    setupQueries({
+      current: [{ data: storedRow, error: null }],
+      latest: [
+        {
+          data: {
+            updated_at: "2026-05-21T17:45:00.000Z",
+            data_source: "CDIP",
+          },
+          error: null,
+        },
+      ],
+    });
+
+    const response = await callRoute(
+      `http://localhost:3000/api/forecasts/current?beachId=${BEACH_ID}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.current).toEqual(currentForecastContract);
+  });
+
+  it("returns nullable provenance fields when the row has no fetch time or station", async () => {
+    setupQueries({
+      current: [
+        {
+          data: currentRow({
+            data_source: "CDIP",
+            om_fetched_at: null,
+            updated_at: null,
+            raw_forecast: {
+              fetch_timestamps: {},
+              wave_height_provenance: { station_id: null },
+            },
+          }),
+          error: null,
+        },
+      ],
+      latest: [
+        {
+          data: {
+            updated_at: "2026-05-21T18:00:00.000Z",
+            data_source: "CDIP",
+          },
+          error: null,
+        },
+      ],
+    });
+
+    const response = await callRoute(
+      `http://localhost:3000/api/forecasts/current?beachId=${BEACH_ID}`,
+    );
+    const body = await response.json();
+
+    expect(body.data.current).toHaveProperty("source_fetched_at", null);
+    expect(body.data.current).toHaveProperty("station_id", null);
+  });
+
+  it.each([
+    ["Open-Meteo fetch", "2026-05-21T17:30:00.000Z", "2026-05-21T17:30:00.000Z"],
+    ["row update", null, "2026-05-21T17:45:00.000Z"],
+  ])("falls back to the %s timestamp", async (_label, omFetchedAt, expected) => {
+    setupQueries({
+      current: [
+        {
+          data: currentRow({
+            data_source: "NOAA_NWS",
+            om_fetched_at: omFetchedAt,
+            updated_at: "2026-05-21T17:45:00.000Z",
+            raw_forecast: { fetch_timestamps: {} },
+          }),
+          error: null,
+        },
+      ],
+      latest: [
+        {
+          data: {
+            updated_at: "2026-05-21T18:00:00.000Z",
+            data_source: "NOAA_NWS",
+          },
+          error: null,
+        },
+      ],
+    });
+
+    const response = await callRoute(
+      `http://localhost:3000/api/forecasts/current?beachId=${BEACH_ID}`,
+    );
+    const body = await response.json();
+
+    expect(body.data.current.source_fetched_at).toBe(expected);
   });
 
   it("refreshes a missing current row and returns the reread source-backed row", async () => {
