@@ -116,27 +116,32 @@ describe("GET /api/coast-pulse/summary", () => {
   });
 
   it("selects only forecast fields used by summary formatting", async () => {
+    const forecastOrder = jest.fn().mockReturnValue({
+      limit: jest.fn().mockReturnValue({
+        maybeSingle: jest.fn().mockResolvedValue({
+          data: {
+            wave_height: "3 ft",
+            wave_period: "12s",
+            wave_direction: "SW",
+            swell_1_direction: null,
+            wind_speed: "4 mph",
+            wind_direction: "E",
+            tide_status: "rising",
+            updated_at: "2026-01-01T00:00:00Z",
+          },
+          error: null,
+        }),
+      }),
+    });
+    const forecastLte = jest.fn().mockReturnValue({
+      order: forecastOrder,
+    });
+    const forecastGte = jest.fn().mockReturnValue({
+      lte: forecastLte,
+    });
     const forecastSelect = jest.fn().mockReturnValue({
       eq: jest.fn().mockReturnValue({
-        gte: jest.fn().mockReturnValue({
-          order: jest.fn().mockReturnValue({
-            limit: jest.fn().mockReturnValue({
-              maybeSingle: jest.fn().mockResolvedValue({
-                data: {
-                  wave_height: "3 ft",
-                  wave_period: "12s",
-                  wave_direction: "SW",
-                  swell_1_direction: null,
-                  wind_speed: "4 mph",
-                  wind_direction: "E",
-                  tide_status: "rising",
-                  updated_at: "2026-01-01T00:00:00Z",
-                },
-                error: null,
-              }),
-            }),
-          }),
-        }),
+        gte: forecastGte,
       }),
     });
     const beachesSelect = jest.fn().mockReturnValue({
@@ -158,12 +163,26 @@ describe("GET /api/coast-pulse/summary", () => {
       }),
     });
 
+    const currentWindRpc = jest.fn().mockResolvedValue({
+      data: [
+        {
+          observed_at: "2026-08-26T19:00:00Z",
+          wind_speed_mph: 7.4,
+          wind_direction: null,
+          wind_direction_deg: null,
+          wind_gust_mph: 12.1,
+          source: "RTMA",
+        },
+      ],
+      error: null,
+    });
     mockCreateSupabaseServerClient.mockResolvedValue({
       from: jest.fn((table: string) => {
         if (table === "beaches") return { select: beachesSelect };
         if (table === "enhanced_forecasts") return { select: forecastSelect };
         throw new Error(`Unexpected table ${table}`);
       }),
+      rpc: currentWindRpc,
     });
 
     const response = await GET(
@@ -175,7 +194,21 @@ describe("GET /api/coast-pulse/summary", () => {
     expect(response.status).toBe(200);
     expect(mockRankBeaches).toHaveBeenCalled();
     expect(forecastSelect).toHaveBeenCalledWith(
-      "wave_height, wave_period, wave_direction, swell_1_direction, wind_speed, wind_direction, tide_status, updated_at"
+      "wave_height, wave_period, wave_direction, swell_1_direction, wind_speed, wind_direction, wind_source, tide_status, updated_at"
     );
+    expect(forecastGte).toHaveBeenCalledWith(
+      "forecast_at",
+      expect.stringMatching(/T00:00:00Z$/)
+    );
+    expect(forecastLte).toHaveBeenCalledWith("forecast_at", expect.any(String));
+    expect(forecastOrder).toHaveBeenCalledWith("forecast_at", {
+      ascending: false,
+    });
+    expect(currentWindRpc).toHaveBeenCalledWith("get_current_beach_wind", {
+      p_beach_id: "beach-1",
+    });
+    await expect(response.json()).resolves.toMatchObject({
+      summary: { windSpeed: "7 mph" },
+    });
   });
 });

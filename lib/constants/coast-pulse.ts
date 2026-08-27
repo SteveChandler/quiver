@@ -64,6 +64,7 @@ export const PAGINATION = {
 export const CREDIBILITY = {
   CDIP: 95,
   TIDE: 95,
+  RTMA: 92,
   NDBC: 90,
   LOCAL_BUOY: 85,
   DAILY_INTEL: 75,
