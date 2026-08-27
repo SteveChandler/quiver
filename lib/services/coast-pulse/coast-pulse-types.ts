@@ -25,6 +25,10 @@ export interface CoastPulseItem {
     distanceKm: number;
   };
   trend?: "up" | "down" | "stable";
+  windSpeedMph?: number | null;
+  windDirection?: string | null;
+  windObservedAt?: string | null;
+  windSource?: string | null;
   photoUrl?: string;
   emoji_rating?: "fire" | "shaka" | "meh" | "thumbsdown";
 }

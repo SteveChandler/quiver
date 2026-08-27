@@ -40,6 +40,7 @@ import { getDisplayName } from "@/lib/utils/display-name-utils";
 import { computeSummary } from "@/lib/utils/coast-pulse-summary";
 import { haversineDistance, degreesToCardinal } from "@/lib/utils/geo-utils";
 import { getDailyIntelWaveHeightLabels } from "@/lib/services/intel/wave-height-labels";
+import { fetchCurrentBeachWind } from "@/lib/services/current-beach-wind";
 import {
   rankBeaches,
   selectBeach,
@@ -433,6 +434,12 @@ async function fetchLocalBuoys(
               })
             : formatBuoyConditions(buoy),
         timestamp: new Date(buoy.updated_at),
+        windSpeedMph:
+          buoy.wind_speed == null ? null : Number(buoy.wind_speed) * 1.15078,
+        windDirection:
+          buoy.wind_direction == null
+            ? null
+            : degreesToCardinal(Number(buoy.wind_direction)),
         trend: "stable" as const,
       }));
     }
@@ -461,6 +468,12 @@ async function fetchLocalBuoys(
             })
           : formatBuoyConditions(buoy),
       timestamp: new Date(buoy.updated_at),
+      windSpeedMph:
+        buoy.wind_speed == null ? null : Number(buoy.wind_speed) * 1.15078,
+      windDirection:
+        buoy.wind_direction == null
+          ? null
+          : degreesToCardinal(Number(buoy.wind_direction)),
       location: {
         lat: lat,
         lon: lon,
@@ -501,16 +514,47 @@ async function fetchEnhancedForecast(
 
     // Get current forecast for this beach
     const now = new Date();
-    const { data: forecast } = await supabase
-      .from("enhanced_forecasts")
-      .select("*")
-      .eq("beach_id", closestBeach.id)
-      .gte("forecast_at", `${now.toISOString().split("T")[0]}T00:00:00Z`)
-      .order("forecast_at", { ascending: true })
-      .limit(1)
-      .single();
+    const [forecastResult, currentWind] = await Promise.all([
+      supabase
+        .from("enhanced_forecasts")
+        .select("*")
+        .eq("beach_id", closestBeach.id)
+        .gte("forecast_at", `${now.toISOString().split("T")[0]}T00:00:00Z`)
+        .lte("forecast_at", now.toISOString())
+        .order("forecast_at", { ascending: false })
+        .limit(1)
+        .single(),
+      fetchCurrentBeachWind(supabase, closestBeach.id),
+    ]);
+    const forecast = forecastResult.data;
 
     if (!forecast) {
+      if (currentWind) {
+        return [
+          {
+            id: `wind-${closestBeach.id}-${currentWind.observedAt}`,
+            source: {
+              name: `${closestBeach.name} wind`,
+              type: "wind" as const,
+              credibility: CREDIBILITY.RTMA,
+            },
+            message: `${Math.round(currentWind.windSpeedMph)} mph${
+              currentWind.windDirection ? ` ${currentWind.windDirection}` : ""
+            }`,
+            timestamp: new Date(currentWind.observedAt),
+            windSpeedMph: currentWind.windSpeedMph,
+            windDirection: currentWind.windDirection,
+            windObservedAt: currentWind.observedAt,
+            windSource: currentWind.source,
+            location: {
+              lat: closestBeach.lat,
+              lon: closestBeach.lon,
+              distanceKm: minDist,
+            },
+            trend: "stable" as const,
+          },
+        ];
+      }
       // Development fallback: return mock forecast when database is empty
       if (process.env.NODE_ENV === "development") {
         return [
@@ -535,6 +579,15 @@ async function fetchEnhancedForecast(
       return [];
     }
 
+    const forecastWithCurrentWind = currentWind
+      ? {
+          ...forecast,
+          wind_speed: `${currentWind.windSpeedMph} mph`,
+          wind_direction: currentWind.windDirection,
+          wind_source: currentWind.source,
+        }
+      : forecast;
+
     return [
       {
         id: `forecast-${closestBeach.id}`,
@@ -544,10 +597,20 @@ async function fetchEnhancedForecast(
           credibility: CREDIBILITY.FORECAST,
         },
         message: formatForecastConditions(
-          forecast,
+          forecastWithCurrentWind,
           (closestBeach as any).windOffshoreDeg
         ),
         timestamp: new Date(forecast.updated_at || now),
+        windSpeedMph:
+          currentWind?.windSpeedMph ??
+          (forecast.wind_speed == null
+            ? null
+            : Number.parseFloat(String(forecast.wind_speed))),
+        windDirection: currentWind
+          ? currentWind.windDirection
+          : forecast.wind_direction,
+        windObservedAt: currentWind?.observedAt ?? null,
+        windSource: currentWind?.source ?? forecast.wind_source,
         location: {
           lat: closestBeach.lat,
           lon: closestBeach.lon,
@@ -858,6 +921,14 @@ async function fetchLiveNDBCData(
       },
       message,
       timestamp: new Date(observation.ts),
+      windSpeedMph:
+        observation.wind_speed_ms == null
+          ? null
+          : observation.wind_speed_ms * 2.236936,
+      windDirection:
+        observation.wind_direction_deg == null
+          ? null
+          : degreesToCardinal(observation.wind_direction_deg),
       location: {
         lat: station.lat,
         lon: station.lon,
