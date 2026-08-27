@@ -13,6 +13,10 @@ export interface CoastPulseSummaryItem {
   message: string;
   timestamp: Date | string;
   trend?: "up" | "down" | "stable";
+  windSpeedMph?: number | null;
+  windDirection?: string | null;
+  windObservedAt?: string | null;
+  windSource?: string | null;
 }
 
 export interface CoastPulseSummary {
@@ -104,14 +108,41 @@ export function computeSummary(items: CoastPulseSummaryItem[]): CoastPulseSummar
     }
   }
 
-  // Extract wind from any available source (buoy preferred for accuracy)
-  const windSource =
-    items.find((i) => i.source.type === "cdip" || i.source.type === "ndbc") ||
-    items.find((i) => i.source.type === "forecast");
-  const windMatch = windSource?.message.match(/(\d+)kt\s*(\w+)?/);
-  const windSpeed = windMatch
-    ? `${windMatch[1]} kt${windMatch[2] ? ` ${windMatch[2]}` : ""}`
-    : null;
+  // The forecast item carries the latest beach-grid analysis (RTMA when
+  // available). Offshore buoy wind remains a fallback only.
+  const beachWind = items.find(
+    (item) =>
+      ["forecast", "wind"].includes(item.source.type) &&
+      item.windSpeedMph != null &&
+      Number.isFinite(item.windSpeedMph)
+  );
+  const structuredBuoyWind = items.find(
+    (item) =>
+      ["local", "cdip", "ndbc"].includes(item.source.type) &&
+      item.windSpeedMph != null &&
+      Number.isFinite(item.windSpeedMph)
+  );
+  const legacyBuoyWind = items.find(
+    (item) => ["local", "cdip", "ndbc"].includes(item.source.type)
+  );
+  const legacyBuoyWindMatch = legacyBuoyWind?.message.match(/(\d+)kt\s*(\w+)?/);
+  const beachWindSpeedMph = beachWind?.windSpeedMph;
+  const beachWindDirection = beachWind?.windDirection;
+  const buoyWindSpeedMph = structuredBuoyWind?.windSpeedMph;
+  const buoyWindDirection = structuredBuoyWind?.windDirection;
+  const windSpeed = beachWindSpeedMph != null
+    ? `${Math.round(beachWindSpeedMph)} mph${
+        beachWindDirection ? ` ${beachWindDirection}` : ""
+      }`
+    : buoyWindSpeedMph != null
+      ? `${Math.round(buoyWindSpeedMph)} mph${
+          buoyWindDirection ? ` ${buoyWindDirection}` : ""
+        }`
+      : legacyBuoyWindMatch
+        ? `${legacyBuoyWindMatch[1]} kt${
+            legacyBuoyWindMatch[2] ? ` ${legacyBuoyWindMatch[2]}` : ""
+          }`
+        : null;
 
   // Determine overall trend
   const trends = items.map((i) => i.trend).filter(Boolean);
