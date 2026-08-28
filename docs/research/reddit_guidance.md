@@ -111,6 +111,19 @@ This guide provides step-by-step instructions for implementing Reddit user-infor
 - **2.5 Community Notes & Heuristics** - 🔶 Intel posts system exists, but not formal heuristics
 - **2.6 Regional Fairness Adjustments** - ❌ Not implemented
 
+#### Beginner practice-day heuristic
+
+Reddit feedback suggests beginners should not wait for perfect surf or use a rigid
+wave-height cutoff. Recommend a session when waves are small, soft, and catchable,
+with manageable local hazards at a familiar or sheltered break. Small waves with
+short period or onshore wind can still be useful practice, but strong chop, current,
+poor visibility, or an uncertain exit should move the recommendation to wait, find a
+cleaner window, or go with someone more experienced.
+
+Product guidance: describe these as **good for practice**, not automatically “good
+surf.” Wave height is contextual; wave shape, period, wind, break exposure, and
+local safety conditions determine whether a beginner should go.
+
 **Phase 3 - Full Release:**
 
 - All features pending (advanced guides, anomaly analysis, performance optimization)

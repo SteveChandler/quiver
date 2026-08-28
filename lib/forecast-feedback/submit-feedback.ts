@@ -5,14 +5,7 @@ import {
 } from "@/lib/services/forecast/forecast-feedback";
 import { createServiceRoleClient } from "@/lib/supabase";
 import type { SupabaseServerClient } from "@/types/supabase";
-import type { Json } from "@/types/database.generated";
-
-type SeasideFeedbackResponse = {
-  ok?: boolean;
-  id?: string | null;
-  contract_version?: string;
-  correlation_id?: string | null;
-};
+import type { Database, Json } from "@/types/database.generated";
 
 type ExistingFeedbackContext = {
   id: string;
@@ -43,14 +36,11 @@ export type SubmitForecastFeedbackResult =
   | {
       success: false;
       reason:
-        | "not_configured"
         | "forecast_lookup_failed"
         | "forecast_not_found"
         | "vote_storage_failed"
-        | "network_error"
-        | "seaside_error";
+        | "storage_failed";
       correlationId: string;
-      status?: number;
     };
 
 const FORECAST_ACCURACY_VOTE_VALUES: Record<string, boolean> = {
@@ -66,34 +56,10 @@ function normalizedEnv(name: string): string | null {
   return normalized ? normalized : null;
 }
 
-function readMlServiceUrl(): string {
-  return (normalizedEnv("ML_SERVICE_URL") ?? "https://quiver-ml.fly.dev").replace(
-    /\/+$/,
-    "",
-  );
-}
-
-function readMlInternalSecret(): string | null {
-  return normalizedEnv("ML_INTERNAL_SECRET") ?? normalizedEnv("INTERNAL_SECRET");
-}
-
-export function isForecastFeedbackServiceConfigured(): boolean {
-  return readMlInternalSecret() !== null;
-}
-
-async function parseJsonResponse(
-  response: Response,
-): Promise<SeasideFeedbackResponse | null> {
-  try {
-    return (await response.json()) as SeasideFeedbackResponse;
-  } catch {
-    return null;
-  }
-}
-
 async function findExistingFeedbackContext(
   userId: string,
   requestId: string,
+  ingestPath: string,
 ): Promise<ExistingFeedbackContext | null> {
   try {
     const serviceClient = createServiceRoleClient();
@@ -102,6 +68,7 @@ async function findExistingFeedbackContext(
       .select("id,contract_version,correlation_id")
       .eq("user_id", userId)
       .eq("request_id", requestId)
+      .eq("ingest_path", ingestPath)
       .maybeSingle();
     if (error) return null;
     return (data as ExistingFeedbackContext | null) ?? null;
@@ -173,13 +140,9 @@ export async function submitForecastFeedback(
   input: ForecastFeedbackClientPayload,
   options: SubmitForecastFeedbackOptions = {},
 ): Promise<SubmitForecastFeedbackResult> {
-  const secret = readMlInternalSecret();
   const correlationId = input.correlationId ?? randomUUID();
   const requestId = input.requestId ?? randomUUID();
-
-  if (!secret) {
-    return { success: false, reason: "not_configured", correlationId };
-  }
+  const ingestPath = options.ingestPath ?? "quiver-api/forecast-feedback";
 
   if (options.requireForecast) {
     const forecast = await resolveForecastId(context.supabase, input);
@@ -191,7 +154,11 @@ export async function submitForecastFeedback(
     }
   }
 
-  const existing = await findExistingFeedbackContext(context.user.id, requestId);
+  const existing = await findExistingFeedbackContext(
+    context.user.id,
+    requestId,
+    ingestPath,
+  );
   if (existing) {
     return {
       success: true,
@@ -211,7 +178,7 @@ export async function submitForecastFeedback(
 
   const payload = buildSeasideForecastFeedbackPayload(input, {
     userId: context.user.id,
-    ingestPath: options.ingestPath ?? "quiver-api/forecast-feedback",
+    ingestPath,
     requestId,
     correlationId,
     clientSource: options.clientSource ?? "quiver-web",
@@ -220,35 +187,30 @@ export async function submitForecastFeedback(
       normalizedEnv("NEXT_PUBLIC_VERCEL_ENV"),
   });
 
-  let response: Response;
+  const serviceClient = createServiceRoleClient();
   try {
-    response = await fetch(`${readMlServiceUrl()}/internal/forecast-feedback`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Internal-Secret": secret,
+    const { data, error } = await serviceClient
+      .from("forecast_feedback_contexts")
+      .insert(
+        payload as Database["public"]["Tables"]["forecast_feedback_contexts"]["Insert"],
+      )
+      .select("id,contract_version,correlation_id")
+      .single();
+    if (error || !data) throw new Error("Forecast feedback storage failed");
+    return {
+      success: true,
+      data: {
+        id: data.id,
+        contractVersion: data.contract_version,
+        correlationId: data.correlation_id ?? correlationId,
       },
-      body: JSON.stringify(payload),
-      cache: "no-store",
-    });
+    };
   } catch {
-    const recovered = await findExistingFeedbackContext(context.user.id, requestId);
-    if (recovered) {
-      return {
-        success: true,
-        data: {
-          id: recovered.id,
-          contractVersion: recovered.contract_version,
-          correlationId: recovered.correlation_id ?? correlationId,
-        },
-      };
-    }
-    return { success: false, reason: "network_error", correlationId };
-  }
-
-  const responseBody = await parseJsonResponse(response);
-  if (!response.ok || responseBody?.ok !== true) {
-    const recovered = await findExistingFeedbackContext(context.user.id, requestId);
+    const recovered = await findExistingFeedbackContext(
+      context.user.id,
+      requestId,
+      ingestPath,
+    );
     if (recovered) {
       return {
         success: true,
@@ -261,18 +223,8 @@ export async function submitForecastFeedback(
     }
     return {
       success: false,
-      reason: "seaside_error",
+      reason: "storage_failed",
       correlationId,
-      status: response.status,
     };
   }
-
-  return {
-    success: true,
-    data: {
-      id: responseBody.id ?? null,
-      contractVersion: responseBody.contract_version ?? payload.contract_version,
-      correlationId: responseBody.correlation_id ?? correlationId,
-    },
-  };
 }

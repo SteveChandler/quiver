@@ -1,6 +1,6 @@
 # SEO Outreach Tracker
 
-Last updated: 2026-08-17
+Last updated: 2026-08-25
 
 ## How This File Works
 
@@ -12,18 +12,81 @@ This tracker is read and updated by the weekly "SEO Outreach Drafter" scheduled 
 
 Steven reviews Gmail drafts and sends. Status updates happen here.
 
-**No-email guard (2026-08-10):** `buildOutreachDigest` (`lib/seo/agent-workflow/outreach-digest.ts`)
-only drafts a row whose `Contact`/`Notes` field contains an `@` address (`hasDirectEmail()`). A row
-with a phone number, "contact form only", or a blank contact is skipped and logged in the digest's
-`missing[]` instead of silently producing a phone number in an email draft. This currently drops:
+**No-email guard (2026-08-24):** `buildOutreachDigest` (`lib/seo/agent-workflow/outreach-digest.ts`)
+emits every queued row in the current rotation, marking rows without an `@` address in `Contact` as
+requiring contact research. The live drafter must find and verify a direct email before creating a
+Gmail draft; it must never draft to a phone number, contact form, or blank address. This currently includes:
 North Shore Surf Girls, Hawaiian Surfing Adventures, and Island Water Sports (phone/form only),
 Cocoa Beach Surf School (no email on its HTTP-only site), and the Santa Cruz "needs manual check" row.
-Those rows stay `queued` — they need a manually-found email address (or a different outreach channel,
-e.g. a DM) before they can surface as a draft candidate.
+Those rows stay `queued` until a Gmail draft exists; a verified email from research (or a different
+outreach channel, e.g. a DM) is required before drafting.
 
-**Email copy (2026-08-10):** the surf-schools template no longer references an iframe embed. It links
-to `https://www.quiversurf.app/for-surf-schools` as a plain, unlinked URL in the body so Gmail doesn't
-wrap it in a `google.com/url` redirect before the recipient sees the live widget.
+**Gmail-vs-tracker reconciliation (2026-08-24):** the tracker had drifted badly. Gmail is the
+surviving record and was trusted over this file wherever they disagreed. Corrections applied this run:
+
+- The five "drafted 2026-08-17" coastal-business rows were **sent on 2026-08-18**, including the
+  Cleanline **Short Sands** draft the previous note said to delete. Deleting it is no longer possible.
+- The surf-school follow-ups were **sent on 2026-08-18**, not left as duplicate drafts.
+- A batch of outreach on **2026-08-20** (HSS Surf sent; Whalebone, Skudin, Cape Hatteras, Padre Island,
+  Safari Town, Cannon Beach Surf Lessons, Cleanline, Kale Brock, Barefoot Surf drafted) had **no rows
+  at all** here. They are recorded below.
+- Three targets that had already replied — Stab Magazine, Surf Simply, Hawaii Public Radio — were
+  recorded as `queued`/`drafted`/absent. See **Warm leads** below; two of them went unanswered for
+  weeks.
+
+**Email copy (2026-08-10, corrected 2026-08-24):** the surf-schools template no longer references an
+iframe embed. It links to `https://www.quiversurf.app/for-surf-schools` in the body.
+
+**The "plain unlinked URL avoids the redirect" claim was wrong.** That was the stated reason for the
+2026-08-10 change and it does not hold. Gmail autolinks bare URLs at compose time and rewrites them to
+`https://www.google.com/url?q=...&source=gmail&ust=...&sa=E` regardless of whether the draft body
+contains an `<a>` tag. Verified 2026-08-24 by reading the stored bodies of drafts created through the
+Gmail API with plain-text URLs — every one came back wrapped. The same wrapping is visible in the
+sent June, July, and August messages.
+
+What this actually costs:
+
+- The recipient sees a `google.com/url?q=...` hover target instead of `quiversurf.app`. Mildly worse
+  for trust, and it looks like tracking.
+- The click still lands on the right page, so **no link is broken** and no draft needs rewriting.
+- For SEO it is irrelevant either way: these are email clicks, not crawlable links. A backlink only
+  exists once the target puts the URL on their own site.
+
+**Nine URL forms were tested on 2026-08-24** — two throwaway drafts, read back from the API. All nine
+were rewritten. There is no form that survives:
+
+| Form written | What Gmail stored |
+|---|---|
+| `https://www.quiversurf.app/x` (plain text) | wrapped, scheme preserved (`q=https://`) |
+| `www.quiversurf.app/x` | wrapped **and downgraded** to `q=http://` |
+| `quiversurf.app/x` | wrapped **and downgraded** to `q=http://` |
+| scheme and path split by a space | host wrapped, **path orphaned** — link broken |
+| `<a href="https://...">https://...</a>` | **href rewritten**, visible text left clean |
+| `<a href="https://...">custom text</a>` | **href rewritten** |
+| bare URL inside `htmlBody`, no anchor | Gmail *added* an anchor, href rewritten |
+| URL in `&lt;angle brackets&gt;` | anchor added, href rewritten |
+| URL inside `<code>` | anchor added, href rewritten |
+
+Two conclusions that matter:
+
+1. **Dropping the scheme is worse, not better** — it hands the recipient an `http://` destination.
+   Always write the full `https://` form.
+2. **The visible text is preserved.** Only the `href` is wrapped. A recipient reading the email sees
+   `https://www.quiversurf.app/...`; the redirect appears on hover and on click. So write the clean
+   URL as the visible text rather than hiding it behind link text like "click here".
+
+**This is Gmail's own link wrapper, not Quiver tracking.** `source=gmail&ust=<timestamp>&sa=E` is
+applied to outbound links for every Gmail user. It persists into sent mail — visible in the June, July
+and August sends already in this account. It cannot be suppressed through the API.
+
+What *is* under our control is the URL itself: **never append `utm_*`, `?ref=`, or any campaign
+parameter to an outreach URL.** A bare path is what should be pasted, so that if a target ever copies
+it onto their own site the backlink is clean. Every URL in the 2026-08-24 drafts is bare.
+
+**Do not re-litigate this per-run.** Nine forms have been tested and none works. Every click still
+lands correctly, and there is no SEO effect — a backlink only exists once a target publishes the URL
+on their own site, at which point the wrapper is out of the picture entirely. This is written down so
+the next run does not spend itself "fixing" it again.
 
 ---
 
@@ -38,6 +101,7 @@ wrap it in a `google.com/url` redirect before the recipient sees the live widget
 | `responded` | Target responded |
 | `embed-live` | Widget embed confirmed live |
 | `declined` | Target declined or no response after follow-up |
+| `rejected` | Investigated and ruled out for cause (dead domain, no email, unverifiable). Never offered as a candidate. Rows in any "Rejected" table are treated as `rejected` automatically. |
 | `backlink-confirmed` | Referring domain confirmed in Ahrefs |
 
 ---
@@ -65,9 +129,9 @@ wrap it in a `google.com/url` redirect before the recipient sees the live widget
 ### California
 | Target | Website | Beach slug (verified 200) | Contact channel (verified) | Status | Date | Notes |
 |--------|---------|---------------------------|----------------------------|--------|------|-------|
-| Surf Diva | surfdiva.com | `la-jolla-shores` | askadiva@surfdiva.com | sent | 2026-08-03 | Follow-up drafted twice (08-10, 08-17) and neither sent. Delete one. |
-| Pacific Surf School | pacificsurfschool.com | `pacific-beach` | pacificsurf@pacificsurf.org | sent | 2026-08-03 | Follow-up drafted twice (08-10, 08-17) and neither sent. Delete one. |
-| Corky Carroll's Surf School | corkysurfschool.com | `huntington-beach-pier` | info@surfschool.net | sent | 2026-08-03 | Follow-up drafted twice (08-10, 08-17) and neither sent. Delete one. |
+| Surf Diva | surfdiva.com | `la-jolla-shores` | askadiva@surfdiva.com | follow-up | 2026-08-18 | Initial 2026-08-03. **Follow-up sent 2026-08-18.** **A second follow-up was sent 2026-08-25** — Steven sent it rather than deleting it, so this target has now had three emails. That is one more than the routine allows; do not contact again. Set to `declined` if silent by 2026-09-08. |
+| Pacific Surf School | pacificsurfschool.com | `pacific-beach` | pacificsurf@pacificsurf.org | follow-up | 2026-08-18 | Initial 2026-08-03. **Follow-up sent 2026-08-18.** **A second follow-up was sent 2026-08-25** — Steven sent it rather than deleting it, so this target has now had three emails. That is one more than the routine allows; do not contact again. Set to `declined` if silent by 2026-09-08. |
+| Corky Carroll's Surf School | corkysurfschool.com | `huntington-beach-pier` | info@surfschool.net | follow-up | 2026-08-18 | Initial 2026-08-03. **Follow-up sent 2026-08-18.** **A second follow-up was sent 2026-08-25** — Steven sent it rather than deleting it, so this target has now had three emails. That is one more than the routine allows; do not contact again. Set to `declined` if silent by 2026-09-08. |
 | Santa Cruz Surf School | santacruzsurfschool.com | `steamer-lane-santa-cruz-ca` | **needs manual check** — site 200, no email/phone in raw HTML (JS-rendered) | queued | | |
 | Nor Cal Surf Shop | norcalsurfshop.com | `linda-mar-pacifica-ca` | mia@norcalsurfshop.com | queued | | Contact form also present |
 
@@ -106,24 +170,14 @@ wrap it in a `google.com/url` redirect before the recipient sees the live widget
 
 ---
 
-### MagicSeaweed replacement drafts — 2026-08-25
-
-| Target | Contact | Status | Replacement offered | Notes |
-|--------|---------|--------|---------------------|-------|
-| Odyssey Surf School | info@odysseysurfschool.com | drafted | `/learn/how-to-read-surf-conditions` | Address and source page re-verified live. |
-| UMass Lowell Outdoor Adventure | OutdoorAdventure@uml.edu | drafted | Hampton Beach and Narragansett Town Beach | Rye is not covered; the draft explicitly excludes it. |
-| Whatever Sportfishing | freddy@foxwatersports.com | drafted | Cape Hatteras Lighthouse forecast | Whatever's own page publishes the cross-domain address. |
-
----
-
 ## Surf Bloggers & Micro-Influencers
 
-| Target | Website/Channel | Nearest Beach | Status | Date | Notes |
-|--------|----------------|---------------|--------|------|-------|
-| Ben Gravy | YouTube 520K | East Coast | queued | | Great for EC coverage angle |
-| Kale Brock | YouTube 157K | lifestyle | drafted | 2026-07-14 | Widget for his site |
-| Surf Simply | surfsimply.com | education | drafted | 2026-07-14 | Align with /learn content |
-| Barefoot Surf | YouTube | education | queued | | Beginner intent alignment |
+| Target | Website/Channel | Contact | Status | Date | Notes |
+|--------|----------------|---------|--------|------|-------|
+| Ben Gravy | YouTube 520K | **no email found** | queued | | East Coast angle. No published address — needs a DM or manual contact research before it can be drafted. |
+| Kale Brock | kalebrock.com.au | gee@kalebrock.com.au | sent | 2026-07-08 | **Sent, not drafted** — tracker previously said "drafted 2026-07-14". No response. An unsent 2026-08-20 draft targets a *second* address (`hello@kalebrock.com.au`); treat it as the one permitted follow-up, or delete it. Do not send both. |
+| Surf Simply | surfsimply.com | info@surfsimply.com | responded | 2026-07-11 | **They replied** on 07-11: forwarding internally, team would reach out. Nobody did, and Quiver never followed up. See Warm leads. |
+| Barefoot Surf | barefootsurftutorials.com | support@barefootsurftutorials.com | drafted | 2026-08-20 | Unsent draft in Gmail |
 
 ---
 
@@ -136,24 +190,136 @@ wrap it in a `google.com/url` redirect before the recipient sees the live widget
 
 | Target | Website | Nearest Beach (verified 200) | Contact | Status | Date | Notes |
 |--------|---------|------------------------------|---------|--------|------|-------|
-| Surf N' Wear Beach House | surfnwear.com | `leadbetter-santa-barbara-ca` | online@surfnwear.com | drafted | 2026-08-17 | |
-| Glide Surf Co | glidesurfco.com | `asbury-park-asbury-park-nj` | info@glidesurfco.com | drafted | 2026-08-17 | |
-| Corolla Surf Shop | corollasurfshop.com | `corolla-corolla-nc` | info@corollasurfshop.com | drafted | 2026-08-17 | |
-| The Inn at Cocoa Beach | theinnatcocoabeach.com | `cocoa-beach-pier-cocoa-beach-fl` | reservations@theinnatcocoabeach.com | drafted | 2026-08-17 | |
-| Cleanline Surf | cleanlinesurf.com | `cannon-beach-ecolaindian` | support@cleanlinesurf.com | drafted | 2026-08-05 | **DUPLICATE — see below.** |
+| Surf N' Wear Beach House | surfnwear.com | `leadbetter-santa-barbara-ca` | online@surfnwear.com | sent | 2026-08-18 | Verified sent in Gmail; no response as of 2026-08-24. Follow-up eligible 2026-09-01. |
+| Glide Surf Co | glidesurfco.com | `asbury-park-asbury-park-nj` | info@glidesurfco.com | sent | 2026-08-18 | Verified sent in Gmail; no response as of 2026-08-24. Follow-up eligible 2026-09-01. |
+| Corolla Surf Shop | corollasurfshop.com | `corolla-corolla-nc` | info@corollasurfshop.com | sent | 2026-08-18 | Verified sent in Gmail; no response as of 2026-08-24. Follow-up eligible 2026-09-01. |
+| The Inn at Cocoa Beach | theinnatcocoabeach.com | `cocoa-beach-pier-cocoa-beach-fl` | reservations@theinnatcocoabeach.com | sent | 2026-08-18 | Verified sent in Gmail; no response as of 2026-08-24. Follow-up eligible 2026-09-01. |
+| Cleanline Surf | cleanlinesurf.com | `seaside-cove-oregon-seaside-or`, `short-sands-manzanita-or`, `cannon-beach-ecolaindian` | support@cleanlinesurf.com | sent | 2026-08-25 | **Contacted three times. See below — stop.** |
 
-### Cleanline Surf duplicate (open, needs Steven)
+### Cleanline Surf — contacted three times (open, needs Steven)
 
-Cleanline was drafted twice to the same address:
+Gmail record, verified 2026-08-24:
 
-- 2026-08-05, using `cannon-beach-ecolaindian` (Cannon Beach, their actual town).
-- 2026-08-17, using `short-sands-manzanita-or` (15 miles south), because the
-  cloud run had no tracker row for the first draft and believed Quiver had no
-  Cannon Beach slug. It does. Both slugs return 200 and render conditions;
-  verified 2026-08-17.
+| When | Beach used | Outcome |
+|------|-----------|---------|
+| 2026-08-10 | `seaside-cove-oregon-seaside-or` | **sent** |
+| 2026-08-18 | `short-sands-manzanita-or` (Manzanita, ~15 mi from their town) | **sent** |
+| 2026-08-25 | `cannon-beach-ecolaindian` (their actual town) | **sent** |
 
-**Delete the 2026-08-17 Short Sands draft and keep the Cannon Beach one.** Then
-set this row to `sent` with the date it actually goes out.
+The 2026-08-17 note in this file said to delete the Short Sands draft and keep the Cannon
+Beach one. That is now impossible — Short Sands went out on 2026-08-18, naming a beach in a
+different town, as the third distinct beach pitched to the same address in ten days.
+
+**The Cannon Beach draft was sent on 2026-08-25 rather than deleted.** Cleanline has now had three
+emails naming three different beaches in fifteen days. **Do not contact Cleanline again under any
+rotation.** Set this row to `declined` if nothing comes back by 2026-09-08.
+
+---
+
+## Coastal Businesses & Surf Shops — 2026-08-20 batch (was missing from this file)
+
+> Recorded 2026-08-24 from Gmail. None of these had a tracker row. All beach pages returned
+> 200 and rendered conditions when re-verified 2026-08-24.
+
+| Target | Contact | Beach page used | Status | Date | Notes |
+|--------|---------|-----------------|--------|------|-------|
+| Huntington Surf & Sport | info@hsssurf.com | `huntington-beach-pier` | sent | 2026-08-20 | An earlier 2026-06-15 attempt **bounced** — `hello@quiversurf.app` send-as alias was misconfigured. First real delivery is 08-20. |
+| Whalebone Surf Shop | info@whalebonesurfshop.com | `nags-head-nags-head-nc` | sent | 2026-08-25 | Follow-up eligible 2026-09-08 |
+| Skudin Surf | info@skudinsurf.com | `long-beach-long-beach-ny` | sent | 2026-08-25 | Follow-up eligible 2026-09-08 |
+| Cape Hatteras Surf School | capehatterassurfschool@gmail.com | `cape-hatteras-lighthouse-buxton-nc` | sent | 2026-08-25 | Follow-up eligible 2026-09-08 |
+| Padre Island Surf Camp | info@padreislandsurfcamp.com | `port-aransas-horace-caldwell-pier-port-aransas-tx` | sent | 2026-08-25 | Follow-up eligible 2026-09-08 |
+| Safari Town Surf Shop | safaritown@gmail.com | `nelscott-reef-lincoln-city-or` | sent | 2026-08-25 | Follow-up eligible 2026-09-08 |
+| Cannon Beach Surf Lessons & Rentals | julie@cannonbeachsurflessonsandrentals.com | `cannon-beach-ecolaindian` | sent | 2026-08-25 | Follow-up eligible 2026-09-08 |
+| Shoreline OBX | info@shorelineobx.com | `nags-head-nags-head-nc` | sent | 2026-08-10 | No response. Follow-up was already eligible on 08-24 but **was not drafted this run** — this is a coastal-business row and week 4 is publications. Draft it in week 3 of September. |
+| Ho Stevie! | help@hostevie.com | `ocean-beach` | sent | 2026-08-10 | Same as above — follow-up eligible, deferred to the coastal-business rotation. |
+
+---
+
+## Run log — 2026-08-25 (validation re-run, 0 drafts)
+
+The routine was re-run the same day to test the rewritten process. **It created zero drafts, which
+is the correct outcome**, and Step 0 caught real drift: between the two runs Steven sent 20 messages,
+including 12 outreach emails.
+
+Newly sent 2026-08-25 and reconciled above: Eos; The Inertia and Outside Online follow-ups; the six
+2026-08-20 shop/school drafts; Cleanline's third email; and second follow-ups to Surf Diva, Pacific
+Surf School and Corky Carroll's.
+
+**Two rows are now past the routine's contact ceiling.** The three CA schools have had three emails
+each, and Cleanline three in fifteen days. Those were flagged for deletion on 08-24 and sent instead.
+Not a process failure — Steven's call — but the rows are marked so no future run adds a fourth.
+
+Still unsent and waiting: the Stab and Hawaii Public Radio warm replies, the Coastal Review follow-up,
+Ken Merrill's link handoff, and all six new-source drafts.
+
+### Gap this re-run exposed
+
+`buildOutreachDigest` re-offers rows that have already been investigated and rejected. On 2026-08-25
+it surfaced Adventure Journal, Weatherwise and REI Co-op Journal as this week's only publication
+candidates — all three were researched and rejected on 08-24 with reasons recorded below. The digest
+reads `status`, and "rejected for cause" is not a status, so they will resurface every week 4 forever.
+
+**Fix:** add a `rejected` status to the legend and to `buildOutreachDigest`'s filter, and move those
+three rows to it. Until that lands, a run must check the rejection tables before researching a
+candidate. Logged as a follow-up, not fixed here — this run was a process test, not a code change.
+
+---
+
+## New Sources — researched and verified 2026-08-24
+
+> Every row below was verified this run: DNS resolves, homepage 200, a **real email confirmed on the
+> target's own site** (Cloudflare `data-cfemail` and HTML-entity `mailto:` decoded), and where a beach
+> is named, `embed/conditions/<slug>` returned 200 **and** the body did not contain
+> "No conditions available". Slugs were taken from the live sitemap (338 beach pages), not from memory.
+
+### Drafted 2026-08-24
+
+| Target | Type | Contact (verified, role confirmed) | Beach slug (200 + renders) | Status | Why this one |
+|--------|------|-----------------------------------|---------------------------|--------|--------------|
+| Island Free Press | Local news, Hatteras & Ocracoke NC | donna@islandfreepress.org, cc joy@islandfreepress.org | `cape-hatteras-lighthouse-buxton-nc`, `s-turns-rodanthe-nc` | drafted | Their entire coverage area is Hatteras Island, where Quiver has Buxton, Rodanthe, Nags Head, Kill Devil Hills, Corolla. Closest geographic fit in the file. |
+| Oregon Coast Today | Local news, Central OR coast | gammerman@oregoncoasttoday.com — **Gretchen Ammerman, editor** (confirmed on their About page) | `nelscott-reef-lincoln-city-or` | drafted | Based in Lincoln City; Quiver has Nelscott Reef there plus 15 other OR towns. Publisher Patrick Alexander is at palexander@oregoncoasttoday.com if the editor doesn't bite. |
+| Surfrider Foundation (national) | NGO / media | media@surfrider.org | n/a | drafted | High-authority `.org`. See the Cape Cod chapter row below — chapter-level is where the links actually live. |
+| Puerto Rico Sea Grant (UPRM) | `.edu` research/extension | seagrant@uprm.edu | `tres-palmas` (Rincón) | drafted | Quiver has 19 PR beaches across 8 towns. Tres Palmas is a designated marine reserve — squarely Sea Grant's subject matter, not a commercial pitch. |
+| NJ Sea Grant Consortium | `.org` research/extension | skreisler@njseagrant.org — **Samantha Kreisler, Director of Communications** (confirmed on their staff page) | `asbury-park-asbury-park-nj` | drafted | 26 NJ beaches across 13 towns. They publish rip-current and coastal-safety material. |
+| Washington Sea Grant (UW) | `.edu` research/extension | seagrant@uw.edu | `westport-beach` | drafted | 13 WA beaches. Westport is the state's main surf town. |
+
+`.edu` and `.org` links from Sea Grant and Surfrider are worth materially more than a surf-shop
+footer link, and these organisations publish "coastal resources" pages that already link out to
+third-party tools. The pitch is a safety/conditions resource, not a product.
+
+### Re-engage — someone already said yes and it was never collected
+
+| Target | Contact | What happened |
+|--------|---------|---------------|
+| Ken Merrill — Cape Cod Surfrider | ken.merrillcc@gmail.com | **Drafted 2026-08-24** into the original thread, with Coast Guard Beach (Eastham) and Nauset Beach (Orleans) links — both verified 200 and rendering. On **2026-05-13** Ken replied *"I'll reset with your new links. Sounds great."* — agreeing to swap Magicseaweed/Surfline links for Quiver on the chapter's surf report page. **Verified 2026-08-24: it never happened.** capecodsurfrider.org still links Surfline, and the site contains zero Quiver references (the one "quiver" hit is a surfer describing his board quiver). An agreed-to `.org` backlink has been sitting uncollected for 3½ months. Cheapest win in this entire file. |
+
+### MagicSeaweed replacement drafts — 2026-08-25
+
+| Target | Contact | Status | Replacement offered | Notes |
+|--------|---------|--------|---------------------|-------|
+| Odyssey Surf School | info@odysseysurfschool.com | drafted | `/learn/how-to-read-surf-conditions` | Address and source page re-verified live. |
+| UMass Lowell Outdoor Adventure | OutdoorAdventure@uml.edu | drafted | Hampton Beach and Narragansett Town Beach | Rye is not covered; the draft explicitly excludes it. |
+| Whatever Sportfishing | freddy@foxwatersports.com | drafted | Cape Hatteras Lighthouse forecast | Whatever's own page publishes the cross-domain address. |
+
+### Rejected this run — with the specific reason
+
+| Target | Reason |
+|--------|--------|
+| Honolulu Civil Beat | **Already pitched twice** — 2026-04-29 and 2026-06-23, both to news@civilbeat.org, both linking `/forecast-accuracy`. Zero response to either. That is the initial plus its one permitted follow-up. Marked `declined`; do not contact again. |
+| The SandPaper (Long Beach Island, NJ) | **Quiver has no LBI coverage.** No Ship Bottom, Beach Haven, Harvey Cedars, or Barnegat Light slug exists. The nearest NJ beach is Seaside Park, on a different barrier island across Barnegat Inlet. This is the Cleanline mistake waiting to happen — it is a **coverage gap to fix**, not a target to email. |
+| NC Sea Grant, Oregon Sea Grant, Hawaii Sea Grant | Contact pages render but publish no email address. No-email guard. |
+| Hakai Magazine, Yale Climate Connections, Adventure Journal | Contact form only |
+| The Surfer's Journal | Subscriptions address only, no editorial |
+| BeachGrit, Surfer.com, Weatherwise/tandfonline | 403 to all automated requests; contact unverifiable |
+
+### Coverage gaps surfaced by this research
+
+Worth a product ticket, not an email:
+
+- **Long Beach Island, NJ** — zero coverage. LBI is one of the most-surfed stretches in NJ and has its
+  own newspaper. Adding it unlocks The SandPaper as a target.
+- Beware `surf-city`: the existing slug `surf-city-surf-city-nc` is **Surf City, North Carolina**.
+  Surf City, NJ (on LBI) does not exist in the sitemap. Easy to confuse when picking a slug.
 
 ---
 
@@ -181,13 +347,47 @@ set this row to `sent` with the date it actually goes out.
 
 ## Publication Pitches (Playbook Sections 2.1-2.2)
 
-| Publication | DA | Contact | Angle | Status | Date |
-|-------------|----|---------|---------| --------|------|
-| The Inertia | 65 | editorial form | Transparency + ML angle | drafted | 2026-07-27 |
-| Adventure Journal | 45 | editor about page | Surf data story | queued | |
-| Outside Online | 90 | contributor portal | Outdoor sports + data | drafted | 2026-07-27 |
-| Weatherwise | 50 | editor contact | Wave forecast methodology | queued | |
-| REI Co-op Journal | 80 | content editor | Water sports safety | queued | |
+> **Contacts verified 2026-08-24.** Every address below was confirmed on the publication's own
+> site (Cloudflare-obfuscated addresses decoded from `data-cfemail` / HTML-entity `mailto:`),
+> except where the row says otherwise.
+
+| Publication | DA | Contact (verified) | Angle | Status | Date |
+|-------------|----|--------------------|-------|--------|------|
+| The Inertia | 65 | contribute@theinertia.com | Transparency + ML angle | follow-up | 2026-08-25 |
+| Outside Online | 90 | adventure@outsideinc.com | Outdoor sports + data | follow-up | 2026-08-25 |
+| Eos (AGU) | 88 | eos@agu.org | Surfer-logged sessions as nearshore ground truth | sent | 2026-08-25 |
+| Coastal Review | 55 | markh@coastalreview.org | NC coast: buoy distance vs. what surfers report | follow-up | 2026-08-24 |
+| Stab Magazine | 70 | michael@stabmag.com (editorial), buck@stabmag.com | AI / user-generated surf forecasting | responded | 2026-07-29 |
+| Hawaii Public Radio | 72 | ccruz@hawaiipublicradio.org | HI wave models vs. observed conditions | responded | 2026-06-23 |
+| Honolulu Civil Beat | 76 | news@civilbeat.org | HI forecast accuracy by break | declined | 2026-06-23 |
+| Adventure Journal | 45 | **contact form only** — no email published on adventure-journal.com | Surf data story | rejected | |
+| Weatherwise | 50 | **unverified** — `margaret.benner@taylorandfrancis.com` per a third-party writer's-market listing; weatherwise.org redirects to tandfonline.com, which returns 403 to automated requests, so this could not be confirmed on the publication's own site | Wave forecast methodology | rejected | |
+| REI Co-op Journal | 80 | **unreachable** — rei.com/blog returns no response to automated requests; no editorial address found | Water sports safety | rejected | |
+
+### Publications rejected this run (2026-08-24)
+
+| Target | Reason |
+|--------|--------|
+| Hakai Magazine | Contact form only; no email, no submission address on hakaimagazine.com |
+| The Surfer's Journal | Only `membership@surfersjournal.com` (subscriptions). No editorial address published |
+| BeachGrit | beachgrit.com returns 403 to every automated request; could not verify |
+| Surfer.com | surfer.com returns 403; could not verify |
+| Yale Climate Connections | Contact form only; no email on the contact page |
+| SurferToday | No email on `/contact`; already listed under Directory Submissions |
+
+### Warm leads that went cold (needs Steven)
+
+Three publication-lane targets replied and were never answered. These are worth more than any
+cold pitch in this file:
+
+| Target | Replied | Silent for | What they said |
+|--------|---------|-----------|----------------|
+| Stab Magazine | 2026-07-29 | 26 days | Michael: *"We're actually working on a piece about the user-generated, AI-based surf forecasting sites popping"* — and cc'd Buck to ask questions. Nobody replied. |
+| Hawaii Public Radio | 2026-06-23 | 62 days | Catherine Cruz: *"Love to work something up!"* plus a cell number. Nobody replied. |
+| Surf Simply | 2026-07-11 | 44 days | Said they'd forward internally and have the team reach out. No follow-up from either side. |
+
+Reply drafts for Stab and Hawaii Public Radio were created 2026-08-24. Surf Simply sits in the
+bloggers rotation (week 2), not this one.
 
 ---
 
@@ -220,8 +420,22 @@ The SEO Outreach Drafter agent follows this rotation:
 |-------|--------------|-----------|-------------|----------------------|
 | April 2026 | | | | |
 | May 2026 | | | | |
-| June 2026 | | | | |
-| August 2026 | 3 (+ 4 drafted, awaiting send) | 0 | 0 | 0 |
+| June 2026 | 3 (Coastal Review, Hawaii Public Radio, HSS — HSS bounced) | 1 (Hawaii Public Radio) | 0 | 0 |
+| July 2026 | 4 (The Inertia, Outside Online, Stab, Surf Simply, Kale Brock) | 2 (Stab, Surf Simply) | 0 | 0 |
+| August 2026 | 15 sent · 9 unsent drafts carried | 0 | 0 | 0 |
+
+**Recounted 2026-08-24 from Gmail**, not from this file. The previous "3 (+ 4 drafted)" figure for
+August was wrong in both directions: it missed the 08-18 batch and the entire 08-20 batch.
+
+August sends (15): Cleanline (08-10), Shoreline OBX (08-10), Ho Stevie! (08-10), Surf Diva f/u
+(08-18), Pacific Surf School f/u (08-18), Corky Carroll's f/u (08-18), Cleanline again (08-18),
+Inn at Cocoa Beach (08-18), Corolla Surf Shop (08-18), Surf N' Wear (08-18), Glide Surf Co
+(08-18), HSS Surf (08-20), plus the three 08-18 school follow-ups already counted.
+
+**Response rate is 0 for every cold email sent in August.** The only three replies Quiver has ever
+had from outreach — Stab, Surf Simply, Hawaii Public Radio — all came from *publication* pitches
+sent in June and July, and all three were then left unanswered. Before adding volume to the cold
+surf-school and shop lanes, the cheaper move is answering the people who already said yes.
 
 **On the 0% reply rate (2026-08-10):** cold email to surf schools is notoriously low-response, so this
 alone isn't a signal to change tactics. Two things worth fixing before the next batch goes out:
