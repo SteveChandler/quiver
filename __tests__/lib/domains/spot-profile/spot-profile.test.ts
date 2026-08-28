@@ -68,11 +68,34 @@ function createMockBeach(overrides: MockBeachOverrides = {}): Beach {
     review_count: null,
     owner_id: null,
     geog: null,
+    timezone: '',
     ...overrides,
   } as Beach;
 }
 
 describe('Spot Profile Domain', () => {
+  describe('createSpotProfile timezone', () => {
+    it('uses the stored timezone before coordinate inference', () => {
+      const profile = createSpotProfile(
+        createMockBeach({
+          lat: 23.3,
+          lon: -110.2,
+          timezone: 'America/Mazatlan',
+        })
+      );
+
+      expect(profile.timezone).toBe('America/Mazatlan');
+    });
+
+    it('retains coordinate inference for legacy rows without a timezone', () => {
+      const profile = createSpotProfile(
+        createMockBeach({ timezone: '', lon: -110.2 })
+      );
+
+      expect(profile.timezone).toBe('America/Denver');
+    });
+  });
+
   describe('angleDifference', () => {
     it('should return 0 for identical angles', () => {
       expect(angleDifference(90, 90)).toBe(0);

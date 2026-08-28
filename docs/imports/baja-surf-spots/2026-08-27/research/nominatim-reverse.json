@@ -1,0 +1,2491 @@
+{
+  "generated_on": "2026-08-27T15:27:01.662Z",
+  "provider": "OpenStreetMap Nominatim",
+  "policy_url": "https://operations.osmfoundation.org/policies/nominatim/",
+  "results": {
+    "bcn-san-antonio-del-mar-tijuana": {
+      "checked_on": "2026-08-27T15:17:39.421Z",
+      "query_coordinate": {
+        "latitude": 32.46,
+        "longitude": -117.12
+      },
+      "display_name": "Rosarito, Municipio de Playas de Rosarito, Baja California, 22703, México",
+      "osm_type": "node",
+      "osm_id": 3602376339,
+      "address": {
+        "city": "Rosarito",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22703",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Rosarito",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-baja-malibu": {
+      "checked_on": "2026-08-27T15:17:40.738Z",
+      "query_coordinate": {
+        "latitude": 32.45,
+        "longitude": -117.11
+      },
+      "display_name": "Real del Mar, km 21, Tijuana, Municipio de Tijuana, Baja California, 22565, México",
+      "osm_type": "node",
+      "osm_id": 570525289,
+      "address": {
+        "quarter": "Real del Mar",
+        "house_number": "km 21",
+        "city": "Tijuana",
+        "county": "Municipio de Tijuana",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22565",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Tijuana",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-marisol": {
+      "checked_on": "2026-08-27T15:17:42.032Z",
+      "query_coordinate": {
+        "latitude": 32.39,
+        "longitude": -117.09
+      },
+      "display_name": "Rancho del Mar, Rosarito, Municipio de Playas de Rosarito, Baja California, 22704, México",
+      "osm_type": "node",
+      "osm_id": 572663247,
+      "address": {
+        "hamlet": "Rancho del Mar",
+        "city": "Rosarito",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22704",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Rosarito",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-marisol-north-point": {
+      "checked_on": "2026-08-27T15:17:43.164Z",
+      "query_coordinate": {
+        "latitude": 32.39,
+        "longitude": -117.09
+      },
+      "display_name": "Rancho del Mar, Rosarito, Municipio de Playas de Rosarito, Baja California, 22704, México",
+      "osm_type": "node",
+      "osm_id": 572663247,
+      "address": {
+        "hamlet": "Rancho del Mar",
+        "city": "Rosarito",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22704",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Rosarito",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-rosarito": {
+      "checked_on": "2026-08-27T15:17:44.400Z",
+      "query_coordinate": {
+        "latitude": 32.348943,
+        "longitude": -117.066804
+      },
+      "display_name": "Ciudad Morelos, Municipio de Playas de Rosarito, Baja California, 22710, México",
+      "osm_type": "node",
+      "osm_id": 5258322387,
+      "address": {
+        "town": "Ciudad Morelos",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22710",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Ciudad Morelos",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-renes": {
+      "checked_on": "2026-08-27T15:17:45.594Z",
+      "query_coordinate": {
+        "latitude": 32.32,
+        "longitude": -117.05
+      },
+      "display_name": "Popotla, Municipio de Playas de Rosarito, Baja California, 22716, México",
+      "osm_type": "node",
+      "osm_id": 3179335468,
+      "address": {
+        "town": "Popotla",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22716",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Popotla",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-alfonsos": {
+      "checked_on": "2026-08-27T15:17:46.808Z",
+      "query_coordinate": {
+        "latitude": 32.29,
+        "longitude": -117.04
+      },
+      "display_name": "Misión del Mar, Popotla, Municipio de Playas de Rosarito, Baja California, 22710, México",
+      "osm_type": "node",
+      "osm_id": 5258321858,
+      "address": {
+        "hamlet": "Misión del Mar",
+        "town": "Popotla",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22710",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Popotla",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-popotla": {
+      "checked_on": "2026-08-27T15:17:48.401Z",
+      "query_coordinate": {
+        "latitude": 32.279672,
+        "longitude": -117.022506
+      },
+      "display_name": "Terrazas del Pacífico, Popotla, Municipio de Playas de Rosarito, Baja California, 22716, México",
+      "osm_type": "node",
+      "osm_id": 5260895552,
+      "address": {
+        "quarter": "Terrazas del Pacífico",
+        "town": "Popotla",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22716",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Popotla",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-calafia": {
+      "checked_on": "2026-08-27T15:17:50.028Z",
+      "query_coordinate": {
+        "latitude": 32.267231,
+        "longitude": -117.019281
+      },
+      "display_name": "Terrazas del Mar, Popotla, Municipio de Playas de Rosarito, Baja California, 22716, México",
+      "osm_type": "node",
+      "osm_id": 5260895551,
+      "address": {
+        "quarter": "Terrazas del Mar",
+        "town": "Popotla",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22716",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Popotla",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-el-morro-point-k37-5": {
+      "checked_on": "2026-08-27T15:17:51.636Z",
+      "query_coordinate": {
+        "latitude": 32.26815,
+        "longitude": -117.00897
+      },
+      "display_name": "Terrazas del Mar, Popotla, Municipio de Playas de Rosarito, Baja California, 22716, México",
+      "osm_type": "node",
+      "osm_id": 5260895551,
+      "address": {
+        "quarter": "Terrazas del Mar",
+        "town": "Popotla",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22716",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Popotla",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-k-38": {
+      "checked_on": "2026-08-27T15:17:52.955Z",
+      "query_coordinate": {
+        "latitude": 32.258697,
+        "longitude": -116.986017
+      },
+      "display_name": "Popotla, Municipio de Playas de Rosarito, Baja California, 22716, México",
+      "osm_type": "node",
+      "osm_id": 3179335468,
+      "address": {
+        "town": "Popotla",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22716",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Popotla",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-k-40": {
+      "checked_on": "2026-08-27T15:17:54.582Z",
+      "query_coordinate": {
+        "latitude": 32.24,
+        "longitude": -116.94
+      },
+      "display_name": "Puerto Nuevo, Municipio de Playas de Rosarito, Baja California, 22740, México",
+      "osm_type": "node",
+      "osm_id": 590658532,
+      "address": {
+        "village": "Puerto Nuevo",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22740",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Puerto Nuevo",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-rancho-santini": {
+      "checked_on": "2026-08-27T15:17:56.196Z",
+      "query_coordinate": {
+        "latitude": 32.23,
+        "longitude": -116.92
+      },
+      "display_name": "Puerto Nuevo, Municipio de Playas de Rosarito, Baja California, 22740, México",
+      "osm_type": "node",
+      "osm_id": 590658532,
+      "address": {
+        "village": "Puerto Nuevo",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22740",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Puerto Nuevo",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-las-gaviotas": {
+      "checked_on": "2026-08-27T15:17:57.451Z",
+      "query_coordinate": {
+        "latitude": 32.252144,
+        "longitude": -116.961697
+      },
+      "display_name": "Las Gaviotas, Rosarito, Municipio de Playas de Rosarito, Baja California, 22716, México",
+      "osm_type": "node",
+      "osm_id": 634791506,
+      "address": {
+        "hamlet": "Las Gaviotas",
+        "city": "Rosarito",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22716",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Rosarito",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-primo-tapia": {
+      "checked_on": "2026-08-27T15:17:58.642Z",
+      "query_coordinate": {
+        "latitude": 32.19,
+        "longitude": -116.92
+      },
+      "display_name": "Primo Tapia, Municipio de Playas de Rosarito, Baja California, 22740, México",
+      "osm_type": "node",
+      "osm_id": 5253580946,
+      "address": {
+        "town": "Primo Tapia",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22740",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Primo Tapia",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-rauls": {
+      "checked_on": "2026-08-27T15:18:00.260Z",
+      "query_coordinate": {
+        "latitude": 32.249939,
+        "longitude": -116.948142
+      },
+      "display_name": "Las Gaviotas, Rosarito, Municipio de Playas de Rosarito, Baja California, 22716, México",
+      "osm_type": "node",
+      "osm_id": 634791506,
+      "address": {
+        "hamlet": "Las Gaviotas",
+        "city": "Rosarito",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22716",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Rosarito",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-cantamar-settlement": {
+      "checked_on": "2026-08-27T15:18:01.868Z",
+      "query_coordinate": {
+        "latitude": 32.223122,
+        "longitude": -116.921331
+      },
+      "display_name": "Puerto Nuevo, Municipio de Playas de Rosarito, Baja California, 22740, México",
+      "osm_type": "node",
+      "osm_id": 590658532,
+      "address": {
+        "village": "Puerto Nuevo",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22740",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Puerto Nuevo",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-dunes": {
+      "checked_on": "2026-08-27T15:18:03.458Z",
+      "query_coordinate": {
+        "latitude": 32.12,
+        "longitude": -116.89
+      },
+      "display_name": "Santa Anita, Municipio de Playas de Rosarito, Baja California, 22765, México",
+      "osm_type": "node",
+      "osm_id": 7042642230,
+      "address": {
+        "village": "Santa Anita",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22765",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Santa Anita",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-la-fonda": {
+      "checked_on": "2026-08-27T15:18:05.066Z",
+      "query_coordinate": {
+        "latitude": 32.119478,
+        "longitude": -116.884867
+      },
+      "display_name": "Santa Anita, Municipio de Playas de Rosarito, Baja California, 22765, México",
+      "osm_type": "node",
+      "osm_id": 7042642230,
+      "address": {
+        "village": "Santa Anita",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22765",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Santa Anita",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-halfway-house": {
+      "checked_on": "2026-08-27T15:18:06.299Z",
+      "query_coordinate": {
+        "latitude": 32.11,
+        "longitude": -116.89
+      },
+      "display_name": "Santa Anita, Municipio de Playas de Rosarito, Baja California, 22765, México",
+      "osm_type": "node",
+      "osm_id": 7042642230,
+      "address": {
+        "village": "Santa Anita",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22765",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Santa Anita",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-campo-lopez-k-55": {
+      "checked_on": "2026-08-27T15:18:07.611Z",
+      "query_coordinate": {
+        "latitude": 32.154758,
+        "longitude": -116.897425
+      },
+      "display_name": "Primo Tapia, Municipio de Playas de Rosarito, Baja California, 22740, México",
+      "osm_type": "node",
+      "osm_id": 5253580946,
+      "address": {
+        "town": "Primo Tapia",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22740",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Primo Tapia",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-punta-piedra-rocky-point": {
+      "checked_on": "2026-08-27T15:18:08.869Z",
+      "query_coordinate": {
+        "latitude": 32.09,
+        "longitude": -116.89
+      },
+      "display_name": "Santa Anita, Municipio de Playas de Rosarito, Baja California, 22765, México",
+      "osm_type": "node",
+      "osm_id": 7042642230,
+      "address": {
+        "village": "Santa Anita",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22765",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Santa Anita",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-k-55-1-2": {
+      "checked_on": "2026-08-27T15:18:10.063Z",
+      "query_coordinate": {
+        "latitude": 32.08,
+        "longitude": -116.89
+      },
+      "display_name": "La Salina, Municipio de Ensenada, Baja California, 22765, México",
+      "osm_type": "node",
+      "osm_id": 13608501996,
+      "address": {
+        "village": "La Salina",
+        "county": "Municipio de Ensenada",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22765",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "La Salina",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-alisitos": {
+      "checked_on": "2026-08-27T15:18:11.397Z",
+      "query_coordinate": {
+        "latitude": 32.07,
+        "longitude": -116.89
+      },
+      "display_name": "La Salina, Municipio de Ensenada, Baja California, 22765, México",
+      "osm_type": "node",
+      "osm_id": 13608501996,
+      "address": {
+        "village": "La Salina",
+        "county": "Municipio de Ensenada",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22765",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "La Salina",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-la-mision": {
+      "checked_on": "2026-08-27T15:18:12.981Z",
+      "query_coordinate": {
+        "latitude": 32.100922,
+        "longitude": -116.883309
+      },
+      "display_name": "Santa Anita, Municipio de Playas de Rosarito, Baja California, 22765, México",
+      "osm_type": "node",
+      "osm_id": 7042642230,
+      "address": {
+        "village": "Santa Anita",
+        "county": "Municipio de Playas de Rosarito",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22765",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Santa Anita",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-la-salina": {
+      "checked_on": "2026-08-27T15:18:14.170Z",
+      "query_coordinate": {
+        "latitude": 32.055903,
+        "longitude": -116.882592
+      },
+      "display_name": "La Salina, Municipio de Ensenada, Baja California, 22765, México",
+      "osm_type": "node",
+      "osm_id": 13608501996,
+      "address": {
+        "village": "La Salina",
+        "county": "Municipio de Ensenada",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22765",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "La Salina",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-el-paso": {
+      "checked_on": "2026-08-27T15:18:15.778Z",
+      "query_coordinate": {
+        "latitude": 32.02,
+        "longitude": -116.89
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Loreto",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:26:13.114Z",
+        "query": "El Paso, Baja California, Mexico",
+        "display_name": "El Segundo Paso, Municipio de Loreto, Baja California Sur, México",
+        "osm_type": "node",
+        "osm_id": 5312843588,
+        "address": {
+          "hamlet": "El Segundo Paso",
+          "county": "Municipio de Loreto",
+          "state": "Baja California Sur",
+          "ISO3166-2-lvl4": "MX-BCS",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcn-mirador-viewpoint": {
+      "checked_on": "2026-08-27T15:18:17.108Z",
+      "query_coordinate": {
+        "latitude": 31.98,
+        "longitude": -116.85
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Tecate",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:26:15.880Z",
+        "query": "Mirador Viewpoint, Baja California, Mexico",
+        "display_name": "Mirador, Carretera El Centinela - La Rumorosa (Cuota), Municipio de Tecate, Baja California, México",
+        "osm_type": "node",
+        "osm_id": 6069238937,
+        "address": {
+          "tourism": "Mirador",
+          "road": "Carretera El Centinela - La Rumorosa (Cuota)",
+          "county": "Municipio de Tecate",
+          "state": "Baja California",
+          "ISO3166-2-lvl4": "MX-BCN",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcn-salsipuedes": {
+      "checked_on": "2026-08-27T15:18:18.332Z",
+      "query_coordinate": {
+        "latitude": 31.98,
+        "longitude": -116.83
+      },
+      "display_name": "Municipio de Ensenada, Baja California, México",
+      "osm_type": "relation",
+      "osm_id": 5605781,
+      "address": {
+        "county": "Municipio de Ensenada",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Ensenada",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-islas-de-todos-santos": {
+      "checked_on": "2026-08-27T15:18:19.940Z",
+      "query_coordinate": {
+        "latitude": 31.91,
+        "longitude": -116.76
+      },
+      "display_name": "San Miguel (Cíbolas de Mar), Ensenada, Municipio de Ensenada, Baja California, 22760, México",
+      "osm_type": "node",
+      "osm_id": 5256789669,
+      "address": {
+        "village": "San Miguel (Cíbolas de Mar)",
+        "city": "Ensenada",
+        "county": "Municipio de Ensenada",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22760",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Ensenada",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-san-miguel": {
+      "checked_on": "2026-08-27T15:18:21.260Z",
+      "query_coordinate": {
+        "latitude": 31.9,
+        "longitude": -116.75
+      },
+      "display_name": "San Miguel (Cíbolas de Mar), Ensenada, Municipio de Ensenada, Baja California, 22760, México",
+      "osm_type": "node",
+      "osm_id": 5256789669,
+      "address": {
+        "village": "San Miguel (Cíbolas de Mar)",
+        "city": "Ensenada",
+        "county": "Municipio de Ensenada",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22760",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Ensenada",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-3ms": {
+      "checked_on": "2026-08-27T15:18:22.912Z",
+      "query_coordinate": {
+        "latitude": 31.88,
+        "longitude": -116.69
+      },
+      "display_name": "El Sauzal, Ensenada, Municipio de Ensenada, Baja California, 22760, México",
+      "osm_type": "node",
+      "osm_id": 5256789670,
+      "address": {
+        "town": "El Sauzal",
+        "city": "Ensenada",
+        "county": "Municipio de Ensenada",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22760",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Ensenada",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-cannery-stacks": {
+      "checked_on": "2026-08-27T15:18:24.189Z",
+      "query_coordinate": {
+        "latitude": 31.87,
+        "longitude": -116.68
+      },
+      "display_name": "El Sauzal, Ensenada, Municipio de Ensenada, Baja California, 22760, México",
+      "osm_type": "node",
+      "osm_id": 5256789670,
+      "address": {
+        "town": "El Sauzal",
+        "city": "Ensenada",
+        "county": "Municipio de Ensenada",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22760",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Ensenada",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-california-trailer-park": {
+      "checked_on": "2026-08-27T15:18:25.438Z",
+      "query_coordinate": {
+        "latitude": 31.86,
+        "longitude": -116.67
+      },
+      "display_name": "El Sauzal, Ensenada, Municipio de Ensenada, Baja California, 22760, México",
+      "osm_type": "node",
+      "osm_id": 5256789670,
+      "address": {
+        "town": "El Sauzal",
+        "city": "Ensenada",
+        "county": "Municipio de Ensenada",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22760",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Ensenada",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-ensenada-beaches": {
+      "checked_on": "2026-08-27T15:18:27.048Z",
+      "query_coordinate": {
+        "latitude": 31.79,
+        "longitude": -116.62
+      },
+      "display_name": "Chapultepec, Ensenada, Municipio de Ensenada, Baja California, 22785, México",
+      "osm_type": "node",
+      "osm_id": 13991746613,
+      "address": {
+        "town": "Chapultepec",
+        "city": "Ensenada",
+        "county": "Municipio de Ensenada",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22785",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Ensenada",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-boca-de-santo-tomas": {
+      "checked_on": "2026-08-27T15:18:28.676Z",
+      "query_coordinate": {
+        "latitude": 31.56,
+        "longitude": -116.69
+      },
+      "display_name": "La Bocana, Municipio de Ensenada, Baja California, 22795, México",
+      "osm_type": "node",
+      "osm_id": 2660505464,
+      "address": {
+        "village": "La Bocana",
+        "county": "Municipio de Ensenada",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22795",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "La Bocana",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-lighthouse-punta-san-jose": {
+      "checked_on": "2026-08-27T15:18:30.286Z",
+      "query_coordinate": {
+        "latitude": 31.47,
+        "longitude": -116.61
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": null,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-punta-cabras": {
+      "checked_on": "2026-08-27T15:18:31.916Z",
+      "query_coordinate": {
+        "latitude": 31.36,
+        "longitude": -116.48
+      },
+      "display_name": "Tampico, Municipio de Ensenada, Baja California, México",
+      "osm_type": "node",
+      "osm_id": 11150962409,
+      "address": {
+        "isolated_dwelling": "Tampico",
+        "county": "Municipio de Ensenada",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Ensenada",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-k-181": {
+      "checked_on": "2026-08-27T15:18:33.186Z",
+      "query_coordinate": {
+        "latitude": 31.33,
+        "longitude": -116.45
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Tijuana",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:26:20.817Z",
+        "query": "K-181, Baja California, Mexico",
+        "display_name": "Empleado Postal, Baja California, Delegación Mesa de Otay, Municipio de Tijuana, Baja California, 22416, México",
+        "osm_type": "way",
+        "osm_id": 616831468,
+        "address": {
+          "quarter": "Empleado Postal",
+          "house_number": "Baja California",
+          "city_district": "Delegación Mesa de Otay",
+          "county": "Municipio de Tijuana",
+          "state": "Baja California",
+          "ISO3166-2-lvl4": "MX-BCN",
+          "postcode": "22416",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcn-san-antonio-del-mar-colonet-area": {
+      "checked_on": "2026-08-27T15:18:34.501Z",
+      "query_coordinate": {
+        "latitude": 31.09,
+        "longitude": -116.32
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": null,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-cabo-colonet": {
+      "checked_on": "2026-08-27T15:18:36.135Z",
+      "query_coordinate": {
+        "latitude": 30.95,
+        "longitude": -116.26
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Ensenada",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:26:23.736Z",
+        "query": "Cabo Colonet, Baja California, Mexico",
+        "display_name": "Cabo Colonet, Municipio de Ensenada, Baja California, México",
+        "osm_type": "node",
+        "osm_id": 11151077831,
+        "address": {
+          "cape": "Cabo Colonet",
+          "county": "Municipio de Ensenada",
+          "state": "Baja California",
+          "ISO3166-2-lvl4": "MX-BCN",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcn-quatro-casas": {
+      "checked_on": "2026-08-27T15:18:37.473Z",
+      "query_coordinate": {
+        "latitude": 30.86,
+        "longitude": -116.17
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": null,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-roberts-left": {
+      "checked_on": "2026-08-27T15:18:38.703Z",
+      "query_coordinate": {
+        "latitude": 30.86,
+        "longitude": -116.14
+      },
+      "display_name": "Camalú, Municipio de San Quintín, Baja California, 22920, México",
+      "osm_type": "node",
+      "osm_id": 3413283289,
+      "address": {
+        "town": "Camalú",
+        "county": "Municipio de San Quintín",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22920",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Camalú",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-punta-san-jacinto-shipwrecks": {
+      "checked_on": "2026-08-27T15:18:39.919Z",
+      "query_coordinate": {
+        "latitude": 30.84,
+        "longitude": -116.13
+      },
+      "display_name": "Camalú, Municipio de San Quintín, Baja California, 22920, México",
+      "osm_type": "node",
+      "osm_id": 3413283289,
+      "address": {
+        "town": "Camalú",
+        "county": "Municipio de San Quintín",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22920",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Camalú",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-rincon-de-baja": {
+      "checked_on": "2026-08-27T15:18:41.530Z",
+      "query_coordinate": {
+        "latitude": 30.83,
+        "longitude": -116.12
+      },
+      "display_name": "Camalú, Municipio de San Quintín, Baja California, 22920, México",
+      "osm_type": "node",
+      "osm_id": 3413283289,
+      "address": {
+        "town": "Camalú",
+        "county": "Municipio de San Quintín",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22920",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Camalú",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-camalu": {
+      "checked_on": "2026-08-27T15:18:42.781Z",
+      "query_coordinate": {
+        "latitude": 30.82,
+        "longitude": -116.1
+      },
+      "display_name": "Santa Candelaria, Municipio de San Quintín, Baja California, 22920, México",
+      "osm_type": "node",
+      "osm_id": 7216814041,
+      "address": {
+        "village": "Santa Candelaria",
+        "county": "Municipio de San Quintín",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22920",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Santa Candelaria",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-playa-san-ramon": {
+      "checked_on": "2026-08-27T15:18:44.382Z",
+      "query_coordinate": {
+        "latitude": 30.74,
+        "longitude": -116.05
+      },
+      "display_name": "Emiliano Zapata, Municipio de San Quintín, Baja California, México",
+      "osm_type": "node",
+      "osm_id": 6279854533,
+      "address": {
+        "town": "Emiliano Zapata",
+        "county": "Municipio de San Quintín",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Emiliano Zapata",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-cabo-san-quintin": {
+      "checked_on": "2026-08-27T15:18:45.982Z",
+      "query_coordinate": {
+        "latitude": 30.39,
+        "longitude": -115.9
+      },
+      "display_name": "Venustiano Carranza (Santa María), Municipio de San Quintín, Baja California, 22950, México",
+      "osm_type": "node",
+      "osm_id": 3587321062,
+      "address": {
+        "village": "Venustiano Carranza (Santa María)",
+        "county": "Municipio de San Quintín",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22950",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Venustiano Carranza (Santa María)",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-playa-santa-maria": {
+      "checked_on": "2026-08-27T15:18:47.590Z",
+      "query_coordinate": {
+        "latitude": 30.38,
+        "longitude": -115.89
+      },
+      "display_name": "Venustiano Carranza (Santa María), Municipio de San Quintín, Baja California, 22950, México",
+      "osm_type": "node",
+      "osm_id": 3587321062,
+      "address": {
+        "village": "Venustiano Carranza (Santa María)",
+        "county": "Municipio de San Quintín",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22950",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Venustiano Carranza (Santa María)",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-cielito-lindo": {
+      "checked_on": "2026-08-27T15:18:48.848Z",
+      "query_coordinate": {
+        "latitude": 30.37,
+        "longitude": -115.87
+      },
+      "display_name": "Ejido Nueva Odisea (El Pabellón), Municipio de San Quintín, Baja California, 22950, México",
+      "osm_type": "node",
+      "osm_id": 7027623129,
+      "address": {
+        "village": "Ejido Nueva Odisea (El Pabellón)",
+        "county": "Municipio de San Quintín",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "postcode": "22950",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Ejido Nueva Odisea (El Pabellón)",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-el-socorro": {
+      "checked_on": "2026-08-27T15:18:50.459Z",
+      "query_coordinate": {
+        "latitude": 30.27,
+        "longitude": -115.8
+      },
+      "display_name": "Ejido Valle Tranquilo, Municipio de San Quintín, Baja California, México",
+      "osm_type": "node",
+      "osm_id": 7027634444,
+      "address": {
+        "hamlet": "Ejido Valle Tranquilo",
+        "county": "Municipio de San Quintín",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de San Quintín",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-casas": {
+      "checked_on": "2026-08-27T15:18:52.065Z",
+      "query_coordinate": {
+        "latitude": 30.23,
+        "longitude": -115.8
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Lomas Virreyes",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:26:27.316Z",
+        "query": "Casas, Baja California, Mexico",
+        "display_name": "Calle Fray Bartolomé De Las Casas, Paseos del Florido California, Lomas Virreyes, Municipio de Tijuana, Baja California, 22684, México",
+        "osm_type": "way",
+        "osm_id": 39973512,
+        "address": {
+          "road": "Calle Fray Bartolomé De Las Casas",
+          "hamlet": "Paseos del Florido California",
+          "village": "Lomas Virreyes",
+          "county": "Municipio de Tijuana",
+          "state": "Baja California",
+          "ISO3166-2-lvl4": "MX-BCN",
+          "postcode": "22684",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcn-punta-baja": {
+      "checked_on": "2026-08-27T15:18:53.680Z",
+      "query_coordinate": {
+        "latitude": 29.95,
+        "longitude": -115.81
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de San Quintín",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:26:29.173Z",
+        "query": "Punta Baja, Baja California, Mexico",
+        "display_name": "Punta Baja, Municipio de San Quintín, Baja California, México",
+        "osm_type": "node",
+        "osm_id": 11154381867,
+        "address": {
+          "cape": "Punta Baja",
+          "county": "Municipio de San Quintín",
+          "state": "Baja California",
+          "ISO3166-2-lvl4": "MX-BCN",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcn-punta-san-antonio": {
+      "checked_on": "2026-08-27T15:18:55.019Z",
+      "query_coordinate": {
+        "latitude": 29.76,
+        "longitude": -115.7
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de San Quintín",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:26:30.923Z",
+        "query": "Punta San Antonio, Baja California, Mexico",
+        "display_name": "Punta San Antonio, Municipio de San Quintín, Baja California, México",
+        "osm_type": "node",
+        "osm_id": 11154393007,
+        "address": {
+          "cape": "Punta San Antonio",
+          "county": "Municipio de San Quintín",
+          "state": "Baja California",
+          "ISO3166-2-lvl4": "MX-BCN",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcn-punta-san-carlos": {
+      "checked_on": "2026-08-27T15:18:56.624Z",
+      "query_coordinate": {
+        "latitude": 29.63,
+        "longitude": -115.51
+      },
+      "display_name": "Municipio de San Quintín, Baja California, México",
+      "osm_type": "relation",
+      "osm_id": 13932295,
+      "address": {
+        "county": "Municipio de San Quintín",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de San Quintín",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-punta-canoas": {
+      "checked_on": "2026-08-27T15:18:57.858Z",
+      "query_coordinate": {
+        "latitude": 29.43,
+        "longitude": -115.19
+      },
+      "display_name": "Municipio de San Quintín, Baja California, México",
+      "osm_type": "relation",
+      "osm_id": 13932295,
+      "address": {
+        "county": "Municipio de San Quintín",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de San Quintín",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-punta-blanca-seven-sisters": {
+      "checked_on": "2026-08-27T15:18:59.114Z",
+      "query_coordinate": {
+        "latitude": 29.1,
+        "longitude": -114.7
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": null,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-punta-cono": {
+      "checked_on": "2026-08-27T15:19:00.762Z",
+      "query_coordinate": {
+        "latitude": 28.97,
+        "longitude": -114.58
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": null,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-punta-maria": {
+      "checked_on": "2026-08-27T15:19:02.374Z",
+      "query_coordinate": {
+        "latitude": 28.92,
+        "longitude": -114.53
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de San Quintín",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:26:35.330Z",
+        "query": "Punta Maria, Baja California, Mexico",
+        "display_name": "Punta Maria, Municipio de San Quintín, Baja California, México",
+        "osm_type": "node",
+        "osm_id": 9402643064,
+        "address": {
+          "locality": "Punta Maria",
+          "county": "Municipio de San Quintín",
+          "state": "Baja California",
+          "ISO3166-2-lvl4": "MX-BCN",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcn-el-cardon": {
+      "checked_on": "2026-08-27T15:19:03.964Z",
+      "query_coordinate": {
+        "latitude": 28.91,
+        "longitude": -114.46
+      },
+      "display_name": "Municipio de San Quintín, Baja California, México",
+      "osm_type": "relation",
+      "osm_id": 13932295,
+      "address": {
+        "county": "Municipio de San Quintín",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de San Quintín",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-punta-ositos": {
+      "checked_on": "2026-08-27T15:19:05.612Z",
+      "query_coordinate": {
+        "latitude": 28.88,
+        "longitude": -114.44
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": null,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-punta-negra": {
+      "checked_on": "2026-08-27T15:19:07.202Z",
+      "query_coordinate": {
+        "latitude": 28.81,
+        "longitude": -114.39
+      },
+      "display_name": "Municipio de San Quintín, Baja California, México",
+      "osm_type": "relation",
+      "osm_id": 13932295,
+      "address": {
+        "county": "Municipio de San Quintín",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de San Quintín",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-puerto-san-andres": {
+      "checked_on": "2026-08-27T15:19:08.535Z",
+      "query_coordinate": {
+        "latitude": 28.7,
+        "longitude": -114.3
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": null,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-punta-santa-rosalillita-the-wall": {
+      "checked_on": "2026-08-27T15:19:09.721Z",
+      "query_coordinate": {
+        "latitude": 28.6539,
+        "longitude": -114.245
+      },
+      "display_name": "Santa Rosaliíta, Municipio de San Quintín, Baja California, México",
+      "osm_type": "node",
+      "osm_id": 6744442785,
+      "address": {
+        "village": "Santa Rosaliíta",
+        "county": "Municipio de San Quintín",
+        "state": "Baja California",
+        "ISO3166-2-lvl4": "MX-BCN",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Santa Rosaliíta",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-punta-rosarito": {
+      "checked_on": "2026-08-27T15:19:10.932Z",
+      "query_coordinate": {
+        "latitude": 28.551,
+        "longitude": -114.15
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": null,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-millers-landing": {
+      "checked_on": "2026-08-27T15:19:12.576Z",
+      "query_coordinate": {
+        "latitude": 28.49,
+        "longitude": -114.07
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": null,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcn-playa-elefante-isla-cedros": {
+      "checked_on": "2026-08-27T15:19:14.189Z",
+      "query_coordinate": {
+        "latitude": 28.16,
+        "longitude": -115.3
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": null,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-open-doors-isla-natividad": {
+      "checked_on": "2026-08-27T15:19:15.443Z",
+      "query_coordinate": {
+        "latitude": 27.86,
+        "longitude": -115.17
+      },
+      "display_name": "Isla Natividad, Municipio de Mulegé, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 3245069952,
+      "address": {
+        "village": "Isla Natividad",
+        "county": "Municipio de Mulegé",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Isla Natividad",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-bahia-tortugas-turtle-bay": {
+      "checked_on": "2026-08-27T15:19:16.681Z",
+      "query_coordinate": {
+        "latitude": 27.67,
+        "longitude": -114.9
+      },
+      "display_name": "Bahía Tortugas, Municipio de Mulegé, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 3411360263,
+      "address": {
+        "town": "Bahía Tortugas",
+        "county": "Municipio de Mulegé",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Bahía Tortugas",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-asuncion-bay": {
+      "checked_on": "2026-08-27T15:19:18.279Z",
+      "query_coordinate": {
+        "latitude": 27.15,
+        "longitude": -114.27
+      },
+      "display_name": "Bahía Asunción, Municipio de Mulegé, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 3411750570,
+      "address": {
+        "town": "Bahía Asunción",
+        "county": "Municipio de Mulegé",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Bahía Asunción",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-san-hipolito": {
+      "checked_on": "2026-08-27T15:19:19.884Z",
+      "query_coordinate": {
+        "latitude": 26.98,
+        "longitude": -114.01
+      },
+      "display_name": "Municipio de Mulegé, Baja California Sur, México",
+      "osm_type": "relation",
+      "osm_id": 5606070,
+      "address": {
+        "county": "Municipio de Mulegé",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Mulegé",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-la-bocana-mulege-municipality": {
+      "checked_on": "2026-08-27T15:19:21.516Z",
+      "query_coordinate": {
+        "latitude": 26.8,
+        "longitude": -113.74
+      },
+      "display_name": "Estero de la Bocana, Municipio de Mulegé, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 7030393032,
+      "address": {
+        "village": "Estero de la Bocana",
+        "county": "Municipio de Mulegé",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Estero de la Bocana",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-campo-renes": {
+      "checked_on": "2026-08-27T15:19:22.831Z",
+      "query_coordinate": {
+        "latitude": 26.8,
+        "longitude": -113.49
+      },
+      "display_name": "Municipio de Mulegé, Baja California Sur, México",
+      "osm_type": "relation",
+      "osm_id": 5606070,
+      "address": {
+        "county": "Municipio de Mulegé",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Mulegé",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-punta-abreojos": {
+      "checked_on": "2026-08-27T15:19:24.166Z",
+      "query_coordinate": {
+        "latitude": 26.72,
+        "longitude": -113.55
+      },
+      "display_name": "Punta Abreojos, Municipio de Mulegé, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 3411776391,
+      "address": {
+        "village": "Punta Abreojos",
+        "county": "Municipio de Mulegé",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Punta Abreojos",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-punta-santo-domingo": {
+      "checked_on": "2026-08-27T15:19:25.784Z",
+      "query_coordinate": {
+        "latitude": 26.31,
+        "longitude": -112.69
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Mulegé",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:26:45.583Z",
+        "query": "Punta Santo Domingo, Baja California Sur, Mexico",
+        "display_name": "Punta Santo Domingo, Municipio de Mulegé, Baja California Sur, México",
+        "osm_type": "node",
+        "osm_id": 10606750011,
+        "address": {
+          "cape": "Punta Santo Domingo",
+          "county": "Municipio de Mulegé",
+          "state": "Baja California Sur",
+          "ISO3166-2-lvl4": "MX-BCS",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcs-la-laguna": {
+      "checked_on": "2026-08-27T15:19:26.995Z",
+      "query_coordinate": {
+        "latitude": 26.28,
+        "longitude": -112.58
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "La Laguna",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:26:47.539Z",
+        "query": "La Laguna, Baja California Sur, Mexico",
+        "display_name": "La Laguna, Municipio de Mulegé, Baja California Sur, México",
+        "osm_type": "way",
+        "osm_id": 988124805,
+        "address": {
+          "village": "La Laguna",
+          "county": "Municipio de Mulegé",
+          "state": "Baja California Sur",
+          "ISO3166-2-lvl4": "MX-BCS",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcs-scorpion-bay-san-juanico": {
+      "checked_on": "2026-08-27T15:19:28.259Z",
+      "query_coordinate": {
+        "latitude": 26.23,
+        "longitude": -112.5
+      },
+      "display_name": "San Juanico, Municipio de Comondú, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 974333622,
+      "address": {
+        "town": "San Juanico",
+        "county": "Municipio de Comondú",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "San Juanico",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-punta-san-gregorio": {
+      "checked_on": "2026-08-27T15:19:29.882Z",
+      "query_coordinate": {
+        "latitude": 26.08,
+        "longitude": -112.31
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Comondú",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:26:49.491Z",
+        "query": "Punta San Gregorio, Baja California Sur, Mexico",
+        "display_name": "Punta San Gregorio, Municipio de Comondú, Baja California Sur, México",
+        "osm_type": "node",
+        "osm_id": 5314269419,
+        "address": {
+          "locality": "Punta San Gregorio",
+          "county": "Municipio de Comondú",
+          "state": "Baja California Sur",
+          "ISO3166-2-lvl4": "MX-BCS",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcs-las-barrancas": {
+      "checked_on": "2026-08-27T15:19:31.201Z",
+      "query_coordinate": {
+        "latitude": 25.98,
+        "longitude": -112.19
+      },
+      "display_name": "Las Barrancas, Municipio de Comondú, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 3070808278,
+      "address": {
+        "village": "Las Barrancas",
+        "county": "Municipio de Comondú",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Las Barrancas",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-san-jorge": {
+      "checked_on": "2026-08-27T15:19:32.806Z",
+      "query_coordinate": {
+        "latitude": 25.63,
+        "longitude": -112.1
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Los Cabos",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:26:50.863Z",
+        "query": "San Jorge, Baja California Sur, Mexico",
+        "display_name": "San Jorge, Municipio de Los Cabos, Baja California Sur, México",
+        "osm_type": "node",
+        "osm_id": 1473517824,
+        "address": {
+          "hamlet": "San Jorge",
+          "county": "Municipio de Los Cabos",
+          "state": "Baja California Sur",
+          "ISO3166-2-lvl4": "MX-BCS",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcs-punta-hughes": {
+      "checked_on": "2026-08-27T15:19:34.040Z",
+      "query_coordinate": {
+        "latitude": 24.76,
+        "longitude": -112.27
+      },
+      "display_name": "Municipio de Comondú, Baja California Sur, México",
+      "osm_type": "relation",
+      "osm_id": 5605686,
+      "address": {
+        "county": "Municipio de Comondú",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Comondú",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-punta-conejo": {
+      "checked_on": "2026-08-27T15:19:35.376Z",
+      "query_coordinate": {
+        "latitude": 24.07,
+        "longitude": -111.01
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": null,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-punta-marquez": {
+      "checked_on": "2026-08-27T15:19:36.714Z",
+      "query_coordinate": {
+        "latitude": 23.97,
+        "longitude": -110.89
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": null,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-beachbreak": {
+      "checked_on": "2026-08-27T15:19:38.345Z",
+      "query_coordinate": {
+        "latitude": 23.84,
+        "longitude": -110.76
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": null,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-punta-colorado": {
+      "checked_on": "2026-08-27T15:19:39.952Z",
+      "query_coordinate": {
+        "latitude": 23.59,
+        "longitude": -109.53
+      },
+      "display_name": "La Ribera, Municipio de Los Cabos, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 677186124,
+      "address": {
+        "town": "La Ribera",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "La Ribera",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-la-bocana-todos-santos-area": {
+      "checked_on": "2026-08-27T15:19:41.659Z",
+      "query_coordinate": {
+        "latitude": 23.57,
+        "longitude": -110.34
+      },
+      "display_name": "Agua Blanca, Municipio de La Paz, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 11162427616,
+      "address": {
+        "isolated_dwelling": "Agua Blanca",
+        "county": "Municipio de La Paz",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de La Paz",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-punta-arenas": {
+      "checked_on": "2026-08-27T15:19:43.161Z",
+      "query_coordinate": {
+        "latitude": 23.56,
+        "longitude": -109.47
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Comondú",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:26:56.992Z",
+        "query": "Punta Arenas, Baja California Sur, Mexico",
+        "display_name": "Punta Arenas, Municipio de Comondú, Baja California Sur, México",
+        "osm_type": "node",
+        "osm_id": 5197416212,
+        "address": {
+          "locality": "Punta Arenas",
+          "county": "Municipio de Comondú",
+          "state": "Baja California Sur",
+          "ISO3166-2-lvl4": "MX-BCS",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcs-la-pastora": {
+      "checked_on": "2026-08-27T15:19:44.814Z",
+      "query_coordinate": {
+        "latitude": 23.53,
+        "longitude": -110.31
+      },
+      "display_name": "San Felipe de las Playitas, Municipio de La Paz, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 11162427615,
+      "address": {
+        "isolated_dwelling": "San Felipe de las Playitas",
+        "county": "Municipio de La Paz",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de La Paz",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-playa-san-pedro": {
+      "checked_on": "2026-08-27T15:19:46.434Z",
+      "query_coordinate": {
+        "latitude": 23.48,
+        "longitude": -110.28
+      },
+      "display_name": "Santa Cruz, El Datilito, Municipio de La Paz, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 11162427620,
+      "address": {
+        "isolated_dwelling": "Santa Cruz",
+        "hamlet": "El Datilito",
+        "county": "Municipio de La Paz",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de La Paz",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-el-rincon": {
+      "checked_on": "2026-08-27T15:19:48.045Z",
+      "query_coordinate": {
+        "latitude": 23.48,
+        "longitude": -109.45
+      },
+      "display_name": "Municipio de Los Cabos, Baja California Sur, México",
+      "osm_type": "relation",
+      "osm_id": 5605984,
+      "address": {
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Los Cabos",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-san-pedrito-todos-santos": {
+      "checked_on": "2026-08-27T15:19:49.703Z",
+      "query_coordinate": {
+        "latitude": 23.367,
+        "longitude": -110.203
+      },
+      "display_name": "El Pescadero, Municipio de La Paz, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 676897618,
+      "address": {
+        "town": "El Pescadero",
+        "county": "Municipio de La Paz",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "El Pescadero",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-cabo-pulmo": {
+      "checked_on": "2026-08-27T15:19:51.039Z",
+      "query_coordinate": {
+        "latitude": 23.45,
+        "longitude": -109.42
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Los Cabos",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:26:58.293Z",
+        "query": "Cabo Pulmo, Baja California Sur, Mexico",
+        "display_name": "Cabo Pulmo, Municipio de Los Cabos, Baja California Sur, México",
+        "osm_type": "node",
+        "osm_id": 10703200737,
+        "address": {
+          "cape": "Cabo Pulmo",
+          "county": "Municipio de Los Cabos",
+          "state": "Baja California Sur",
+          "ISO3166-2-lvl4": "MX-BCS",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcs-palm-beach-todos-santos": {
+      "checked_on": "2026-08-27T15:19:52.280Z",
+      "query_coordinate": {
+        "latitude": 23.38987,
+        "longitude": -110.21273
+      },
+      "display_name": "El Pescadero, Municipio de La Paz, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 676897618,
+      "address": {
+        "town": "El Pescadero",
+        "county": "Municipio de La Paz",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "El Pescadero",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-los-frailes": {
+      "checked_on": "2026-08-27T15:19:53.535Z",
+      "query_coordinate": {
+        "latitude": 23.38,
+        "longitude": -109.43
+      },
+      "display_name": "Cabo Frailes, Municipio de Los Cabos, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 676912570,
+      "address": {
+        "village": "Cabo Frailes",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Cabo Frailes",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-frailes-south": {
+      "checked_on": "2026-08-27T15:19:55.122Z",
+      "query_coordinate": {
+        "latitude": 23.35,
+        "longitude": -109.43
+      },
+      "display_name": "Cabo Frailes, Municipio de Los Cabos, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 676912570,
+      "address": {
+        "village": "Cabo Frailes",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Cabo Frailes",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-el-pescadero": {
+      "checked_on": "2026-08-27T15:19:56.371Z",
+      "query_coordinate": {
+        "latitude": 23.31,
+        "longitude": -110.17
+      },
+      "display_name": "Tortuga del Sol, Municipio de La Paz, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 9530618629,
+      "address": {
+        "isolated_dwelling": "Tortuga del Sol",
+        "county": "Municipio de La Paz",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de La Paz",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-boca-del-salado": {
+      "checked_on": "2026-08-27T15:19:57.748Z",
+      "query_coordinate": {
+        "latitude": 23.29,
+        "longitude": -109.43
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Las Veredas",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:27:00.056Z",
+        "query": "Boca Del Salado, Baja California Sur, Mexico",
+        "display_name": "Calle Boca del Salado, Las Veredas, Municipio de Los Cabos, Baja California Sur, 23429, México",
+        "osm_type": "way",
+        "osm_id": 74096156,
+        "address": {
+          "road": "Calle Boca del Salado",
+          "town": "Las Veredas",
+          "county": "Municipio de Los Cabos",
+          "state": "Baja California Sur",
+          "ISO3166-2-lvl4": "MX-BCS",
+          "postcode": "23429",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcs-cerritos": {
+      "checked_on": "2026-08-27T15:19:59.367Z",
+      "query_coordinate": {
+        "latitude": 23.26,
+        "longitude": -110.16
+      },
+      "display_name": "Rancho Nuevo, Municipio de La Paz, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 9530618630,
+      "address": {
+        "hamlet": "Rancho Nuevo",
+        "county": "Municipio de La Paz",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de La Paz",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-playa-los-cerritos": {
+      "checked_on": "2026-08-27T15:20:00.492Z",
+      "query_coordinate": {
+        "latitude": 23.26,
+        "longitude": -110.16
+      },
+      "display_name": "Rancho Nuevo, Municipio de La Paz, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 9530618630,
+      "address": {
+        "hamlet": "Rancho Nuevo",
+        "county": "Municipio de La Paz",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de La Paz",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-punta-gasparino": {
+      "checked_on": "2026-08-27T15:20:02.146Z",
+      "query_coordinate": {
+        "latitude": 23.24,
+        "longitude": -110.16
+      },
+      "display_name": "México",
+      "osm_type": "relation",
+      "osm_id": 114686,
+      "address": {
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de La Paz",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "search_fallback": {
+        "checked_on": "2026-08-27T15:27:01.662Z",
+        "query": "Punta Gasparino, Baja California Sur, Mexico",
+        "display_name": "Punta Gasparino, Municipio de La Paz, Baja California Sur, México",
+        "osm_type": "node",
+        "osm_id": 10703269279,
+        "address": {
+          "cape": "Punta Gasparino",
+          "county": "Municipio de La Paz",
+          "state": "Baja California Sur",
+          "ISO3166-2-lvl4": "MX-BCS",
+          "country": "México",
+          "country_code": "mx"
+        }
+      }
+    },
+    "bcs-nine-palms": {
+      "checked_on": "2026-08-27T15:20:03.358Z",
+      "query_coordinate": {
+        "latitude": 23.12,
+        "longitude": -109.53
+      },
+      "display_name": "El Cardón, Municipio de Los Cabos, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 9476255982,
+      "address": {
+        "village": "El Cardón",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "El Cardón",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-migrino": {
+      "checked_on": "2026-08-27T15:20:04.598Z",
+      "query_coordinate": {
+        "latitude": 23.05,
+        "longitude": -110.11
+      },
+      "display_name": "Migriño, Municipio de Los Cabos, Baja California Sur, México",
+      "osm_type": "node",
+      "osm_id": 9530577168,
+      "address": {
+        "hamlet": "Migriño",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Municipio de Los Cabos",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-shipwrecks": {
+      "checked_on": "2026-08-27T15:20:05.832Z",
+      "query_coordinate": {
+        "latitude": 23.01,
+        "longitude": -109.72
+      },
+      "display_name": "Palmilla, San José del Cabo, Municipio de Los Cabos, Baja California Sur, 23406, México",
+      "osm_type": "node",
+      "osm_id": 9483004371,
+      "address": {
+        "suburb": "Palmilla",
+        "city": "San José del Cabo",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "postcode": "23406",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "San José del Cabo",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-san-jose-rivermouth": {
+      "checked_on": "2026-08-27T15:20:07.470Z",
+      "query_coordinate": {
+        "latitude": 22.97,
+        "longitude": -109.79
+      },
+      "display_name": "Lomas del Tule, San José del Cabo, Municipio de Los Cabos, Baja California Sur, 23585, México",
+      "osm_type": "node",
+      "osm_id": 5542358332,
+      "address": {
+        "suburb": "Lomas del Tule",
+        "city": "San José del Cabo",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "postcode": "23585",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "San José del Cabo",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-acapulquito-costa-azul": {
+      "checked_on": "2026-08-27T15:20:09.082Z",
+      "query_coordinate": {
+        "latitude": 23.0225,
+        "longitude": -109.717
+      },
+      "display_name": "La Querencia, San José del Cabo, Municipio de Los Cabos, Baja California Sur, 23406, México",
+      "osm_type": "node",
+      "osm_id": 9483004372,
+      "address": {
+        "suburb": "La Querencia",
+        "city": "San José del Cabo",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "postcode": "23406",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "San José del Cabo",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-the-rock-costa-azul": {
+      "checked_on": "2026-08-27T15:20:10.321Z",
+      "query_coordinate": {
+        "latitude": 23.0255,
+        "longitude": -109.7145
+      },
+      "display_name": "La Querencia, San José del Cabo, Municipio de Los Cabos, Baja California Sur, 23406, México",
+      "osm_type": "node",
+      "osm_id": 9483004372,
+      "address": {
+        "suburb": "La Querencia",
+        "city": "San José del Cabo",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "postcode": "23406",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "San José del Cabo",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-zippers-costa-azul": {
+      "checked_on": "2026-08-27T15:20:11.572Z",
+      "query_coordinate": {
+        "latitude": 23.028,
+        "longitude": -109.7136
+      },
+      "display_name": "La Querencia, San José del Cabo, Municipio de Los Cabos, Baja California Sur, 23406, México",
+      "osm_type": "node",
+      "osm_id": 9483004372,
+      "address": {
+        "suburb": "La Querencia",
+        "city": "San José del Cabo",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "postcode": "23406",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "San José del Cabo",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-costa-azul": {
+      "checked_on": "2026-08-27T15:20:13.216Z",
+      "query_coordinate": {
+        "latitude": 23.02823,
+        "longitude": -109.71653
+      },
+      "display_name": "La Querencia, San José del Cabo, Municipio de Los Cabos, Baja California Sur, 23406, México",
+      "osm_type": "node",
+      "osm_id": 9483004372,
+      "address": {
+        "suburb": "La Querencia",
+        "city": "San José del Cabo",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "postcode": "23406",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "San José del Cabo",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-la-punta": {
+      "checked_on": "2026-08-27T15:20:14.532Z",
+      "query_coordinate": {
+        "latitude": 22.94,
+        "longitude": -109.81
+      },
+      "display_name": "Chileno Bay, Cabo San Lucas, Municipio de Los Cabos, Baja California Sur, 23585, México",
+      "osm_type": "node",
+      "osm_id": 5542358333,
+      "address": {
+        "suburb": "Chileno Bay",
+        "city": "Cabo San Lucas",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "postcode": "23585",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Cabo San Lucas",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-rancho-san-carlos": {
+      "checked_on": "2026-08-27T15:20:15.724Z",
+      "query_coordinate": {
+        "latitude": 22.93,
+        "longitude": -109.82
+      },
+      "display_name": "Maravilla, Cabo San Lucas, Municipio de Los Cabos, Baja California Sur, 23585, México",
+      "osm_type": "node",
+      "osm_id": 5542956666,
+      "address": {
+        "suburb": "Maravilla",
+        "city": "Cabo San Lucas",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "postcode": "23585",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Cabo San Lucas",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-punta-palmilla": {
+      "checked_on": "2026-08-27T15:20:17.405Z",
+      "query_coordinate": {
+        "latitude": 22.93,
+        "longitude": -109.81
+      },
+      "display_name": "Maravilla, Cabo San Lucas, Municipio de Los Cabos, Baja California Sur, 23585, México",
+      "osm_type": "node",
+      "osm_id": 5542956666,
+      "address": {
+        "suburb": "Maravilla",
+        "city": "Cabo San Lucas",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "postcode": "23585",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Cabo San Lucas",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-monuments": {
+      "checked_on": "2026-08-27T15:20:19.151Z",
+      "query_coordinate": {
+        "latitude": 22.9,
+        "longitude": -109.88
+      },
+      "display_name": "El Tezal, Municipio de Los Cabos, Baja California Sur, 23454, México",
+      "osm_type": "node",
+      "osm_id": 6272194974,
+      "address": {
+        "village": "El Tezal",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "postcode": "23454",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "El Tezal",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-bahia-chileno": {
+      "checked_on": "2026-08-27T15:20:20.763Z",
+      "query_coordinate": {
+        "latitude": 22.9,
+        "longitude": -109.85
+      },
+      "display_name": "Cabo Bello, Cabo San Lucas, Municipio de Los Cabos, Baja California Sur, 23410, México",
+      "osm_type": "node",
+      "osm_id": 8998161359,
+      "address": {
+        "suburb": "Cabo Bello",
+        "city": "Cabo San Lucas",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "postcode": "23410",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Cabo San Lucas",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    },
+    "bcs-backwash": {
+      "checked_on": "2026-08-27T15:20:21.973Z",
+      "query_coordinate": {
+        "latitude": 22.89,
+        "longitude": -109.91
+      },
+      "display_name": "Juárez, Cabo San Lucas, Municipio de Los Cabos, Baja California Sur, 23469, México",
+      "osm_type": "relation",
+      "osm_id": 13838742,
+      "address": {
+        "suburb": "Juárez",
+        "city": "Cabo San Lucas",
+        "county": "Municipio de Los Cabos",
+        "state": "Baja California Sur",
+        "ISO3166-2-lvl4": "MX-BCS",
+        "postcode": "23469",
+        "country": "México",
+        "country_code": "mx"
+      },
+      "locality_candidate": "Cabo San Lucas",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright"
+    }
+  }
+}
