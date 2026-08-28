@@ -67,7 +67,6 @@ describe("GET /api/beaches/[id]/sources", () => {
     const sourceChain = makeChain({
       data: {
         beach_id: VALID_BEACH_UUID,
-        ndbc_buoy_ids: ["46225"],
         forecast_source_id: "forecast-1",
         camera_url: "https://cams.example/blacks",
         thumbnail_url: "https://cams.example/blacks.jpg",
@@ -96,7 +95,6 @@ describe("GET /api/beaches/[id]/sources", () => {
 
     expect(body.data.sources).toMatchObject({
       beach_id: VALID_BEACH_UUID,
-      ndbc_buoy_ids: ["46225"],
       forecast_source_id: "forecast-1",
       camera_url: "https://cams.example/blacks",
       cam_open_url: "https://cams.example/blacks",
@@ -109,7 +107,6 @@ describe("GET /api/beaches/[id]/sources", () => {
     const sourceChain = makeChain({
       data: {
         beach_id: VALID_BEACH_UUID,
-        ndbc_buoy_ids: null,
         forecast_source_id: null,
         camera_url:
           "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
@@ -155,7 +152,6 @@ describe("GET /api/beaches/[id]/sources", () => {
     const sourceChain = makeChain({
       data: {
         beach_id: VALID_BEACH_UUID,
-        ndbc_buoy_ids: null,
         forecast_source_id: null,
         camera_url: "https://hls.cdn-surfline.com/ohio/pr-inches/playlist.m3u8",
         thumbnail_url:
@@ -201,7 +197,6 @@ describe("GET /api/beaches/[id]/sources", () => {
     const sourceChain = makeChain({
       data: {
         beach_id: VALID_BEACH_UUID,
-        ndbc_buoy_ids: null,
         forecast_source_id: null,
         camera_url: "https://hls.cdn-surfline.com/ohio/pr-inches/playlist.m3u8",
         thumbnail_url:
@@ -259,7 +254,6 @@ describe("GET /api/beaches/[id]/sources", () => {
     const sourceChain = makeChain({
       data: {
         beach_id: VALID_BEACH_UUID,
-        ndbc_buoy_ids: ["46254"],
         forecast_source_id: "forecast-birdrock",
         camera_url: "https://cams.example/birdrock",
         thumbnail_url: null,
@@ -293,7 +287,6 @@ describe("GET /api/beaches/[id]/sources", () => {
     expect(dioramaChain.eq).toHaveBeenCalledWith("beach_id", VALID_BEACH_UUID);
     expect(body.data.sources).toMatchObject({
       beach_id: VALID_BEACH_UUID,
-      ndbc_buoy_ids: ["46254"],
       forecast_source_id: "forecast-birdrock",
       camera_url: "https://cams.example/birdrock",
     });
