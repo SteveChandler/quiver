@@ -6,6 +6,7 @@
  */
 
 import {
+  getCachedRegionalForecastPageData,
   getRegionalSummaries,
   getRegionalSummary,
   getBestRegionToday,
@@ -20,6 +21,9 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 // Mock dependencies
+jest.mock("next/cache", () => ({
+  unstable_cache: jest.fn((loader: unknown) => loader),
+}));
 jest.mock("@/lib/services/beach-query-service");
 jest.mock("@/lib/utils/forecast-service-utils");
 jest.mock("@/lib/utils/beach-url-utils");
@@ -296,6 +300,32 @@ describe("forecast-hub-utils", () => {
     });
     FORECAST_REGIONS["test-region-1"] = mockRegion1;
     FORECAST_REGIONS["test-region-2"] = mockRegion2;
+  });
+
+  describe("getCachedRegionalForecastPageData", () => {
+    it("revives cached summary dates without viewer-specific state", async () => {
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
+        success: true,
+        data: mockBeaches,
+      });
+      (getBeachesForRegion as jest.Mock).mockReturnValue([mockBeaches[0]]);
+      (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+        new Map(),
+      );
+      const summary = createMockRegionalSummary(mockRegion1, 75);
+      summary.sourceDataUpdatedAt = "2026-08-27T21:00:00.000Z";
+      (aggregateRegionalForecast as jest.Mock).mockReturnValue(summary);
+
+      const result = await getCachedRegionalForecastPageData(mockRegion1);
+
+      expect(result.beaches).toEqual([mockBeaches[0]]);
+      expect(result.summary.generatedAt).toBeInstanceOf(Date);
+      expect(result.summary.days[0]?.date).toBeInstanceOf(Date);
+      expect(result.summary.bestDay.date).toBeInstanceOf(Date);
+      expect(result.summary.sourceDataUpdatedAt).toBe(
+        "2026-08-27T21:00:00.000Z",
+      );
+    });
   });
 
   describe("getRegionalSummaries", () => {

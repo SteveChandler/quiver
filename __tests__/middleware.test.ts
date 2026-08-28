@@ -2,7 +2,11 @@
  * @jest-environment node
  */
 
-import { config, proxy as middleware } from "@/proxy";
+import {
+  config,
+  proxy as middleware,
+  shouldSetIpLocationCookie,
+} from "@/proxy";
 
 // Setup mock variables at the module level
 let mockNext: any;
@@ -43,6 +47,11 @@ jest.mock("@supabase/ssr", () => ({
   }),
 }));
 
+jest.mock("@/lib/data/forecast-regions", () => ({
+  getForecastRegion: (slug: string) =>
+    slug === "san-diego" ? { slug: "san-diego" } : undefined,
+}));
+
 jest.mock("next/server", () => ({
   NextRequest: jest.fn(),
   NextResponse: {
@@ -76,6 +85,14 @@ describe("Middleware", () => {
     mockBeachRowsBySlug = {};
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+  });
+
+  test("keeps regional forecast responses free of the IP location cookie", () => {
+    expect(shouldSetIpLocationCookie("/forecast/san-diego")).toBe(false);
+    expect(shouldSetIpLocationCookie("/forecast/san-diego/")).toBe(false);
+    expect(shouldSetIpLocationCookie("/forecast")).toBe(true);
+    expect(shouldSetIpLocationCookie("/forecast/123")).toBe(true);
+    expect(shouldSetIpLocationCookie("/ca/san-diego/ocean-beach")).toBe(true);
   });
 
   test("passes through for API routes", async () => {
@@ -233,11 +250,12 @@ describe("Middleware", () => {
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
-  test("allows unauthenticated access to forecast page (public for SEO)", async () => {
-    const request: any = { nextUrl: { pathname: "/forecast/123" }, url: "http://localhost/forecast/123", method: "GET", headers: new Headers(), cookies: { get: () => undefined, getAll: () => [] } };
-    await middleware(request);
+  test("allows unauthenticated regional forecasts without setting response cookies", async () => {
+    const request: any = { nextUrl: { pathname: "/forecast/san-diego" }, url: "http://localhost/forecast/san-diego", method: "GET", headers: new Headers(), cookies: { get: () => undefined, getAll: () => [] } };
+    const response = await middleware(request);
     expect(mockNext).toHaveBeenCalled();
     expect(mockRedirect).not.toHaveBeenCalled();
+    expect(response.cookies.set).not.toHaveBeenCalled();
   });
 
   test("does not rewrite app spot handoff routes as international city pages", async () => {

@@ -54,6 +54,16 @@ const BEACH_WITH_FRESH_FORECAST = {
   created_at: "2026-01-01T00:00:00.000Z",
 };
 
+const HAWAII_BEACH_WITH_FRESHER_FORECAST = {
+  id: "waikiki",
+  slug: "waikiki",
+  name: "Waikiki",
+  city: "Honolulu",
+  state: "HI",
+  country: "USA",
+  created_at: "2026-01-01T00:00:00.000Z",
+};
+
 const FRESH_SNAPSHOT: ForecastIndexabilitySnapshot = {
   forecastAvailable: true,
   selectedStateComplete: true,
@@ -394,6 +404,44 @@ describe("Sitemap Generation", () => {
       const homeRoute = result.find((r) => r.url === `${baseUrl}/`);
 
       expect(homeRoute?.lastModified).toBe("2026-02-10");
+    });
+
+    it("uses represented forecast writes for forecast freshness", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          BEACH_WITH_FRESH_FORECAST,
+          HAWAII_BEACH_WITH_FRESHER_FORECAST,
+        ],
+      });
+      (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(
+        new Map([
+          [BEACH_WITH_FRESH_FORECAST.id, FRESH_SNAPSHOT],
+          [
+            HAWAII_BEACH_WITH_FRESHER_FORECAST.id,
+            {
+              ...FRESH_SNAPSHOT,
+              sourceDataUpdatedAt: "2026-08-09T17:00:00.000Z",
+            },
+          ],
+        ]),
+      );
+
+      const result = await sitemap();
+
+      expect(
+        result.find((route) => route.url === `${baseUrl}/forecast`)
+          ?.lastModified,
+      ).toBe("2026-08-09T17:00:00.000Z");
+      expect(
+        result.find(
+          (route) => route.url === `${baseUrl}/forecast/san-diego`,
+        )?.lastModified,
+      ).toBe("2026-08-09T16:00:00.000Z");
+      expect(
+        result.find((route) => route.url === `${baseUrl}/forecast/hawaii`)
+          ?.lastModified,
+      ).toBe("2026-08-09T17:00:00.000Z");
     });
 
     it("should include curated SEO funnel routes and skip Santa Cruz cams", async () => {

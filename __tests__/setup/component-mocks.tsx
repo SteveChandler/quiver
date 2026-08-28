@@ -102,6 +102,7 @@ export const mockCommonHooks = () => {
   // Mock useAuth hook
   jest.mock("@/context/auth-context", () => ({
     useAuth: jest.fn(),
+    useOptionalAuth: jest.fn(),
   }));
 
   // Mock useCommentCount hook

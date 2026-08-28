@@ -198,6 +198,8 @@ export interface RegionalForecastSummary {
   region: ForecastRegion;
   /** Timestamp when summary was generated */
   generatedAt: Date;
+  /** Newest source-row write represented in this summary. */
+  sourceDataUpdatedAt?: string | null;
   /** 7 days of forecast summaries */
   days: DaySummary[];
   /** The best day overall for the region */
@@ -514,6 +516,19 @@ export function aggregateRegionalForecast(
     .filter((date) => date >= today)
     .sort()
     .slice(0, 7);
+  const sourceDataUpdatedAt = sortedDates
+    .flatMap((date) =>
+      Array.from(dateMap.get(date)?.values() ?? []).flat(),
+    )
+    .map((forecast) => forecast.updated_at)
+    .filter((value): value is string => {
+      if (!value) return false;
+      return Number.isFinite(Date.parse(value));
+    })
+    .reduce<string | null>((latest, candidate) => {
+      if (!latest) return candidate;
+      return Date.parse(candidate) > Date.parse(latest) ? candidate : latest;
+    }, null);
 
   // Build day summaries
   for (const dateString of sortedDates) {
@@ -746,6 +761,7 @@ export function aggregateRegionalForecast(
   return {
     region,
     generatedAt,
+    sourceDataUpdatedAt,
     days,
     bestDay,
     upcomingSwells,

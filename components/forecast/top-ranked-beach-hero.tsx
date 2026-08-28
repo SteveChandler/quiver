@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Clock3, MapPin, Waves } from "lucide-react";
@@ -8,6 +10,7 @@ import { formatWaveHeightDecimal } from "@/lib/utils/wave-formatters";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
 import { getScoreCall } from "./score-band-call";
 import { ScoreLoginLink } from "./score-login-link";
+import { useOptionalAuth } from "@/context/auth-context";
 
 type HeroSurfWindow = Pick<
   SurfWindowRecommendation,
@@ -38,6 +41,7 @@ interface TopRankedBeachHeroProps {
   bestSurfWindow?: HeroSurfWindow | null;
   regionSlug?: string;
   showScores?: boolean;
+  authAwareScores?: boolean;
 }
 
 function formatPeakTime(peakIso: string, timezone: string): string {
@@ -93,7 +97,12 @@ export function TopRankedBeachHero({
   bestSurfWindow,
   regionSlug,
   showScores = true,
+  authAwareScores = false,
 }: TopRankedBeachHeroProps) {
+  const auth = useOptionalAuth();
+  const resolvedShowScores = authAwareScores
+    ? Boolean(auth?.user && !auth.isLoading)
+    : showScores;
   const selectedScore = bestSurfWindow?.score ?? beach.currentScore;
   const scoreCall = getScoreCall(selectedScore);
   const isLive = bestSurfWindow ? includesInstant(bestSurfWindow, now) : false;
@@ -159,7 +168,7 @@ export function TopRankedBeachHero({
           </h2>
         </div>
 
-        {showScores ? (
+        {resolvedShowScores ? (
           <div className="flex items-end gap-3 border-2 border-[#11100D] bg-[#11100D] px-4 py-3 text-[#F4EBD8]">
             <span className="text-4xl font-black tabular-nums leading-none">
               {selectedScore}
