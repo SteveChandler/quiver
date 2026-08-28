@@ -14,6 +14,7 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { BestDaysSection } from "@/components/forecast/best-days-section";
+import { useOptionalAuth } from "@/context/auth-context";
 import type { DaySummary } from "@/lib/utils/regional-forecast-utils";
 
 // ---------------------------------------------------------------------------
@@ -544,6 +545,37 @@ describe("BestDaysSection — analytics wiring", () => {
 });
 
 describe("BestDaysSection — paper score treatment", () => {
+  beforeEach(() => {
+    (useOptionalAuth as jest.Mock).mockReturnValue({
+      user: null,
+      isLoading: false,
+    });
+  });
+
+  it("resolves score visibility from client auth on cacheable pages", () => {
+    (useOptionalAuth as jest.Mock).mockReturnValue({
+      user: { id: "user-1" },
+      isLoading: false,
+    });
+
+    render(
+      <BestDaysSection
+        days={ALL_DAYS}
+        bestDay={BEST_DAY}
+        regionName={REGION_NAME}
+        regionSlug="san-diego"
+        authAwareScores
+        variant="zine"
+      />
+    );
+
+    expect(screen.getByTestId("animated-score-gauge")).toHaveTextContent("85");
+    expect(screen.getAllByTestId("score-badge")).toHaveLength(3);
+    expect(
+      screen.queryByRole("link", { name: "Log in to see scores" })
+    ).not.toBeInTheDocument();
+  });
+
   it("shows authenticated users numeric gauges and score badges", () => {
     render(
       <BestDaysSection

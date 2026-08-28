@@ -12,11 +12,8 @@ import {
   hasHubGuide,
 } from "@/lib/data/forecast-regions";
 import { formatFullDateWithYear } from "@/lib/utils/date-time";
-import { getRegionalSummary } from "@/lib/utils/forecast-hub-utils";
-import { getBeachesForRegion } from "@/lib/utils/regional-forecast-utils";
+import { getCachedRegionalForecastPageData } from "@/lib/utils/forecast-hub-utils";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
-import { getCurrentUser } from "@/lib/auth/admin";
-import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import {
@@ -31,11 +28,15 @@ import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
 
-// Force dynamic rendering — this page fetches live forecast data via service-role
-// client (no-store), which is incompatible with static/ISR rendering in Next.js 16.
-export const dynamic = "force-dynamic";
+export const revalidate = 900;
 // Allow dynamic params for beach UUIDs (not pre-rendered)
 export const dynamicParams = true;
+
+const REGIONAL_FORECAST_DATE_PUBLISHED = "2026-02-10";
+
+export function generateStaticParams(): Array<{ beachId: string }> {
+  return Object.keys(FORECAST_REGIONS).map((beachId) => ({ beachId }));
+}
 
 /**
  * Generate metadata for both regional forecasts and beach redirects
@@ -109,41 +110,8 @@ export default async function ForecastPage(props: {
  * Enhanced with ocean background, animated gauges, and scroll reveals.
  */
 async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
-  const user = await getCurrentUser();
-  // Fetch all beaches once
-  const beachesResult = await getBeaches();
-  if (!beachesResult.success || !beachesResult.data) {
-    console.error("Failed to fetch beaches for regional forecast");
-    return (
-      <div className="container mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">
-          Unable to Load Forecast
-        </h1>
-        <p className="text-gray-600">
-          We&apos;re experiencing issues loading forecast data. Please try again
-          later.
-        </p>
-        <Link
-          href="/forecast"
-          className="text-blue-600 hover:underline mt-4 inline-block"
-        >
-          &larr; Back to Forecast Hub
-        </Link>
-      </div>
-    );
-  }
-
-  const beaches = getBeachesForRegion(region, beachesResult.data);
-  if (beaches.length === 0) {
-    console.error(`No beaches found for region: ${region.slug}`);
-    return notFound();
-  }
-
-  // Reuse the summary pipeline so the top-ranked beach and its approved photo
-  // are selected from the same live ranking used by the forecast hub.
-  const summary = await getRegionalSummary(region, beaches, {
-    includeBestSurfWindows: true,
-  });
+  const pageData = await getCachedRegionalForecastPageData(region);
+  const { beaches, summary } = pageData;
   // The hero answers "where do I surf now", which is a question about a
   // surfable SESSION, not an instantaneous score. Lead with the region's best
   // window so its beach, score, and window all come from one selection; a
@@ -213,6 +181,7 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
         name={region.title}
         url={`${baseUrl}/forecast/${region.slug}`}
         description={region.metaDescription}
+        dateModified={summary.sourceDataUpdatedAt ?? undefined}
         additionalData={{
           breadcrumb: {
             "@type": "BreadcrumbList",
@@ -242,7 +211,7 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
             name: "Quiver Surf",
             url: baseUrl,
           },
-          datePublished: today.toISOString(),
+          datePublished: REGIONAL_FORECAST_DATE_PUBLISHED,
         }}
       />
 
@@ -319,7 +288,6 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
               beach={topBeach}
               regionName={region.name}
               regionSlug={region.slug}
-              showScores={user !== null}
               now={summary.generatedAt}
               imageUrl={approvedTopBeachImage}
               mapImageUrl={satelliteFallbackUrl}
@@ -330,6 +298,7 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
                     ) ?? null
                   : null
               }
+              authAwareScores
             />
           )}
 
@@ -338,7 +307,7 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
             bestDay={summary.bestDay}
             regionName={region.name}
             regionSlug={region.slug}
-            showScores={user !== null}
+            authAwareScores
             className="mb-16"
             variant="zine"
           />
@@ -371,7 +340,7 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
             showViewAll={true}
             className="mb-16"
             variant="zine"
-            showScores={user !== null}
+            authAwareScores
           />
 
           <ScrollReveal variant="fadeUp" delay={200}>

@@ -2,7 +2,10 @@ import type { MetadataRoute } from "next";
 import { createHash } from "node:crypto";
 
 import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
-import { getAllForecastRegionSlugs } from "@/lib/data/forecast-regions";
+import {
+  FORECAST_REGIONS,
+  getAllForecastRegionSlugs,
+} from "@/lib/data/forecast-regions";
 import { getAllCamRegionSlugs } from "@/lib/data/cam-regions";
 import { getCitiesWithBestMonthsData } from "@/actions/city/best-time-actions";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
@@ -30,6 +33,7 @@ import { getReviewedCityEditorialContent } from "@/actions/city/city-editorial-a
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { unstable_cache } from "next/cache";
 import { parseWaterTempF } from "@/lib/utils/wetsuit-utils";
+import type { Beach } from "@/types/database";
 import {
   findNextTideExtremes,
   type TideHeightRow,
@@ -51,6 +55,7 @@ import {
   isBeachSubPageIndexable,
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
+import { getBeachesForRegion } from "@/lib/utils/regional-forecast-utils";
 
 const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -463,7 +468,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getLocationRoutes(validCitySlugs, cityEditorialRoutes),
     buildIntentRoutes(cityEditorialRoutes),
     Promise.resolve(getGuideRoutes()),
-    Promise.resolve(getForecastRoutes()),
+    Promise.resolve(
+      getForecastRoutes(allBeaches, forecastIndexabilityByBeachId),
+    ),
     Promise.resolve(getCamRoutes()),
     Promise.resolve(getSeoFunnelRoutes()),
     getBestTimeToSurfRoutes(cityEditorialRoutes),
@@ -968,21 +975,53 @@ function getGuideRoutes(): MetadataRoute.Sitemap {
 /**
  * Forecast pages - hub landing page and regional forecast pages.
  */
-function getForecastRoutes(): MetadataRoute.Sitemap {
+function latestForecastModifiedForBeaches(
+  beaches: Array<{ id: string }>,
+  forecastIndexabilityByBeachId: ReadonlyMap<
+    string,
+    ForecastIndexabilitySnapshot
+  >,
+): string {
+  return latestSitemapDate(
+    SITEMAP_CONTENT_VERSIONS.forecastTemplate,
+    ...beaches.map(
+      (beach) =>
+        forecastIndexabilityByBeachId.get(beach.id)?.sourceDataUpdatedAt,
+    ),
+  );
+}
+
+function getForecastRoutes(
+  allBeaches: Beach[],
+  forecastIndexabilityByBeachId: ReadonlyMap<
+    string,
+    ForecastIndexabilitySnapshot
+  >,
+): MetadataRoute.Sitemap {
   const routes: MetadataRoute.Sitemap = [];
 
   // Forecast hub landing page
   routes.push({
     url: `${baseUrl}/forecast`,
-    lastModified: SITEMAP_CONTENT_VERSIONS.forecastTemplate,
+    lastModified: latestForecastModifiedForBeaches(
+      allBeaches,
+      forecastIndexabilityByBeachId,
+    ),
   });
 
   // Regional forecast pages (e.g., /forecast/southern-california)
   const regionSlugs = getAllForecastRegionSlugs();
   for (const slug of regionSlugs) {
+    const region = FORECAST_REGIONS[slug];
+    const regionBeaches = region
+      ? getBeachesForRegion(region, allBeaches)
+      : [];
     routes.push({
       url: `${baseUrl}/forecast/${slug}`,
-      lastModified: SITEMAP_CONTENT_VERSIONS.forecastTemplate,
+      lastModified: latestForecastModifiedForBeaches(
+        regionBeaches,
+        forecastIndexabilityByBeachId,
+      ),
     });
   }
 

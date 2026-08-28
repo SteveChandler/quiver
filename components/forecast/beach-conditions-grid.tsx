@@ -20,6 +20,7 @@ import { ScoreLoginLink } from "./score-login-link";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { QuiverSticker } from "@/components/zine";
+import { useOptionalAuth } from "@/context/auth-context";
 import {
   Table,
   TableBody,
@@ -49,6 +50,8 @@ export interface BeachConditionsGridProps {
   variant?: "default" | "zine";
   /** Whether score values are available to this viewer */
   showScores?: boolean;
+  /** Resolve score visibility from the client auth context. */
+  authAwareScores?: boolean;
 }
 
 /**
@@ -336,7 +339,12 @@ export function BeachConditionsGrid({
   className,
   variant = "default",
   showScores = true,
+  authAwareScores = false,
 }: BeachConditionsGridProps) {
+  const auth = useOptionalAuth();
+  const resolvedShowScores = authAwareScores
+    ? Boolean(auth?.user && !auth.isLoading)
+    : showScores;
   // Sort beaches by current score (highest first) and limit display
   const displayBeaches = beaches
     .slice()
@@ -430,7 +438,7 @@ export function BeachConditionsGrid({
                   beach={beach}
                   index={index}
                   regionSlug={regionSlug}
-                  showScores={showScores}
+                  showScores={resolvedShowScores}
                   variant={variant}
                 />
               ))}
@@ -447,7 +455,7 @@ export function BeachConditionsGrid({
             beach={beach}
             index={index}
             regionSlug={regionSlug}
-            showScores={showScores}
+            showScores={resolvedShowScores}
             variant={variant}
           />
         ))}

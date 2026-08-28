@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 
 import { BeachConditionsGrid } from "@/components/forecast/beach-conditions-grid";
+import { useOptionalAuth } from "@/context/auth-context";
 import type { BeachConditionSummary } from "@/lib/utils/regional-forecast-utils";
 
 jest.mock("@/components/ui/scroll-reveal", () => ({
@@ -96,6 +97,34 @@ describe("BeachConditionsGrid view-all link", () => {
 });
 
 describe("BeachConditionsGrid", () => {
+  beforeEach(() => {
+    (useOptionalAuth as jest.Mock).mockReturnValue({
+      user: null,
+      isLoading: false,
+    });
+  });
+
+  it("resolves score visibility from client auth on cacheable pages", () => {
+    (useOptionalAuth as jest.Mock).mockReturnValue({
+      user: { id: "user-1" },
+      isLoading: false,
+    });
+
+    render(
+      <BeachConditionsGrid
+        beaches={[beach]}
+        regionSlug="san-diego"
+        authAwareScores
+        variant="zine"
+      />
+    );
+
+    expect(screen.getAllByText("83")).toHaveLength(2);
+    expect(
+      screen.queryByRole("link", { name: "Log in to see scores" })
+    ).not.toBeInTheDocument();
+  });
+
   it("shows guests a login CTA without score numbers or rating labels", () => {
     render(
       <BeachConditionsGrid
