@@ -1,0 +1,1104 @@
+{
+  "provider": "WaveWise",
+  "sitemap_url": "https://wavewise.io/sitemap.xml",
+  "robots_policy_checked_on": "2026-08-27",
+  "generated_on": "2026-08-27T17:35:16.823Z",
+  "results": {
+    "https://wavewise.io/surf-spots/3ms-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/3ms-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:16.846Z",
+      "name": "3Ms",
+      "skill_level": "intermediate - advanced",
+      "description": "3Ms is Ensenada's signature rocky reef break in El Sauzal, a short-paddle wave with lefts and rights, parking-front access, and real surf history. Get the latest surfing conditions, forecast, and tide details for 3Ms in Baja Norte .",
+      "lineup_guidance": "NE wind and SW swell are the clean lane. The reef is usable from low through high tide, but the rocks, sharks, pollution, and access pressure around the bluff matter more than the tide.",
+      "tide_guidance": {
+        "preferred_stage": "high",
+        "preferred_direction": "either",
+        "source_text": "The reef is usable from low through high tide, but the rocks, sharks, pollution, and access pressure around the bluff matter more than the tide."
+      },
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/acapulquito-costa-azul-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/acapulquito-costa-azul-mx-baja-sur",
+      "checked_on": "2026-08-27T17:33:17.887Z",
+      "name": "Acapulquito-Costa Azul",
+      "skill_level": "beginner - intermediate",
+      "description": "Acapulquito-Costa Azul is the longboard-friendly right reef at the center of San Jose del Cabo surf culture, tucked between Palmilla and Costa Azul with easy highway access and real competition history. Get the latest surfing conditions, forecast, and tide details for Acapulquito-Costa Azul in Baja Sur .",
+      "lineup_guidance": "Northwest wind is the clean lane, south to southwest swell is the working window, and the reef can be surfed from low through high tide. Access is off the highway by stairs, parking sits near the road, and the main cautions are rocks, strong current, and crowding when it is on.",
+      "tide_guidance": {
+        "preferred_stage": "high",
+        "preferred_direction": "either",
+        "source_text": "Northwest wind is the clean lane, south to southwest swell is the working window, and the reef can be surfed from low through high tide."
+      },
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/alfonsos-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/alfonsos-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:19.104Z",
+      "name": "Alfonsos",
+      "skill_level": "intermediate",
+      "description": "Alfonsos is a hard-earned Baja Norte reef break with lefts and rights, dependable surf when it wakes up, and a no-nonsense lineup near the Rosarito corridor. Get the latest surfing conditions, forecast, and tide details for Alfonsos in Baja Norte .",
+      "lineup_guidance": "East offshore wind is the clean lane and southwest swell is the fit. Access may mean a long walk or even a boat, and the rocks in the lineup matter more than exact tide timing.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/alisitos-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/alisitos-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:20.141Z",
+      "name": "Alisitos",
+      "skill_level": "intermediate - advanced",
+      "description": "Alisitos is a Baja Norte beach break with consistent surf, lefts and rights, and a rocky bottom that rewards the clean NE-wind / SW-swell window. Get the latest surfing conditions, forecast, and tide details for Alisitos in Baja Norte .",
+      "lineup_guidance": "NE wind and SW swell are the clean lane. The bottom is rocky, so keep entry, exit, and tide checks careful.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/asuncion-bay-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/asuncion-bay-mx-baja-sur",
+      "checked_on": "2026-08-27T17:33:21.120Z",
+      "name": "Asuncion Bay",
+      "skill_level": "intermediate - advanced",
+      "description": "Asuncion Bay is a Baja Sur beach-and-reef mix with enough consistency to stay on the map, but rips, sharks, and rocks keep the tone cautious. Get the latest surfing conditions, forecast, and tide details for Asuncion Bay in Baja Sur .",
+      "lineup_guidance": "SW swell and NNE wind are the clean lane. The spot is fairly consistent, but rips, sharks, and rocks are real, so use tide as a secondary check after the lineup and hazard read.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/backwash-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/backwash-mx-baja-sur",
+      "checked_on": "2026-08-27T17:33:22.120Z",
+      "name": "Backwash",
+      "skill_level": "intermediate - advanced",
+      "description": "Backwash is a Baja Sur beach break that only wakes up on the right SSE-swell / NW-wind combo, so it rewards patience more than optimism. Get the latest surfing conditions, forecast, and tide details for Backwash in Baja Sur .",
+      "lineup_guidance": "SSE swell and NW wind are the sweet spot. Check whether the beach has enough push to stand up on the day, and skip it if the line stays soft or blocked.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/bahia-chileno-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/bahia-chileno-mx-baja-sur",
+      "checked_on": "2026-08-27T17:33:23.297Z",
+      "name": "Bahia Chileno",
+      "skill_level": "intermediate",
+      "description": "Bahia Chileno is a Los Cabos reef break wrapped around Playa El Chileno, a public Blue Flag beach on the Tourist Corridor, where easy access, left/right reef shape, and a classic Cabo beach setting make it one of the region's most recognizable surf stops. Get the latest surfing conditions, forecast, and tide details for Bahia Chileno in Baja Sur .",
+      "lineup_guidance": "Northwest wind cleans it up and south-southeast swell is the best fit. Use the marked Tourist Corridor access; parking is close and the beach is a short walk away. The reef can crowd, and rips plus rocks are the main cautions.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/bahia-tortugas-turtle-bay-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/bahia-tortugas-turtle-bay-mx-baja-sur",
+      "checked_on": "2026-08-27T17:33:24.306Z",
+      "name": "Bahia Tortugas (Turtle Bay)",
+      "skill_level": "intermediate",
+      "description": "Bahia Tortugas is a remote Turtle Bay surf stop in western Baja Sur, where a long access road meets a bay-based beach break and the coastline is remembered as much for its harbor and fishing-town identity as for the waves. Get the latest surfing conditions, forecast, and tide details for Bahia Tortugas (Turtle Bay) in Baja Sur .",
+      "lineup_guidance": "North wind is the clean lane, south swell is the main fit, and the current forecast reads like a small-wave beach break rather than a reef mission. Mid tide is the broadest read, and the long road in keeps access logistics front and center in this remote-town check.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/baja-malibu-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/baja-malibu-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:27.422Z",
+      "name": "Baja Malibu",
+      "skill_level": "intermediate",
+      "description": "Baja Malibu is a classic north-Baja beach break in the Rosarito/Tijuana corridor, with a very consistent left-right setup and a straightforward border-town surf identity. Get the latest surfing conditions, forecast, and tide details for Baja Malibu in Baja Norte .",
+      "lineup_guidance": "Mid tide is the broadest read, rips and pollution are the main cautions, and crowds are often manageable. East wind is the clean lane, southwest swell is the fit, and the beach is usually a standard beach-break check rather than a reef mission.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/beachbreak-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/beachbreak-mx-baja-sur",
+      "checked_on": "2026-08-27T17:33:28.524Z",
+      "name": "Beachbreak",
+      "skill_level": "intermediate",
+      "description": "Beachbreak is a long sandy Baja Sur surf zone west of Meliton Albanez Dominguez, where a generic name hides a real camp-anywhere coastline rather than a single named reef. Get the latest surfing conditions, forecast, and tide details for Beachbreak in Baja Sur .",
+      "lineup_guidance": "Northeast wind is the clean lane, southwest swell is the fit, and the break works at all tides. The coastline is remote enough that you can camp along the shore, but loose sand and strong winds make getting stuck part of the routine.",
+      "tide_guidance": {
+        "preferred_stage": "all",
+        "preferred_direction": "either",
+        "source_text": "Northeast wind is the clean lane, southwest swell is the fit, and the break works at all tides."
+      },
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/boca-de-santo-tomas-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/boca-de-santo-tomas-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:29.554Z",
+      "name": "Boca De Santo Tomas",
+      "skill_level": "intermediate",
+      "description": "Boca De Santo Tomas is a consistent northern Baja beach, reef, and rivermouth break near Ensenada, with the clearest sessions showing up in autumn and winter when west swell meets east-northeast offshore flow. Get the latest surfing conditions, forecast, and tide details for Boca De Santo Tomas in Baja Norte .",
+      "lineup_guidance": "Watch the rocks and sharks, and expect west-northwest onshore bump to degrade the line when the wind turns. The cleaner sessions are autumn and winter west-swell days with east-northeast offshore and enough water to keep the reef from showing too much.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/boca-del-salado-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/boca-del-salado-mx-baja-sur",
+      "checked_on": "2026-08-27T17:33:30.710Z",
+      "name": "Boca Del Salado",
+      "skill_level": "intermediate - advanced",
+      "description": "A tiny Los Cabos locality with a reliable beach and reef mix, where the surf matters as much as the handful of homes and the nearby El Castillo de Arena / Villa las Dunas area. Get the latest surfing conditions, forecast, and tide details for Boca Del Salado in Baja Sur .",
+      "lineup_guidance": "The main hazards are urchins, rips, rocks, locals, and pollution. The cleanest sessions line up with northwest offshore wind and a solid south swell, while the beach-and-reef mix needs a visual check before committing.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/cabo-colonet-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/cabo-colonet-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:31.861Z",
+      "name": "Cabo Colonet",
+      "skill_level": "intermediate",
+      "description": "Cabo Colonet is a remote northern Baja cape point with long right-hand wrap around the cliffs, a surf object shaped as much by exposed geography and future shipping-hub pressure as by the wave itself. Get the latest surfing conditions, forecast, and tide details for Cabo Colonet in Baja Norte .",
+      "lineup_guidance": "Expect a remote cape setup rather than an easy town beach, with the best line coming from a west swell and east-northeast offshore wind. Tide is not tightly constrained, so cliff wrap and point geometry are the key things to read before committing.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/cabo-pulmo-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/cabo-pulmo-mx-baja-sur",
+      "checked_on": "2026-08-27T17:33:33.036Z",
+      "name": "Cabo Pulmo",
+      "skill_level": "intermediate - advanced",
+      "description": "A shallow East Cape bay with reef fingers spreading out from the sandy beach, set inside the Cabo Pulmo marine park where the surf object matters as much as the reef conservation story. Get the latest surfing conditions, forecast, and tide details for Cabo Pulmo in Baja Sur .",
+      "lineup_guidance": "Read the bay as a shallow reef system first: water level, reef exposure, and the entry line matter more than raw size. The clean window is south swell with west-northwest offshore wind, and the tide has to be managed carefully because the reef shows quickly when the bay gets too thin.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/cabo-san-quintin-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/cabo-san-quintin-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:34.229Z",
+      "name": "Cabo San Quintin",
+      "skill_level": "intermediate",
+      "description": "A classic northern Baja cape right that can barrel when the west swell lines up, with the surf object sitting on a remote coastline rather than in a town-facing beach zone. Get the latest surfing conditions, forecast, and tide details for Cabo San Quintin in Baja Norte .",
+      "lineup_guidance": "West swell with northeast offshore wind and enough water over the right-hand line are the useful checks. Watch for rocks and sharks, and think about the cape geometry rather than just the swell height.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/calafia-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/calafia-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:35.358Z",
+      "name": "Calafia",
+      "skill_level": "beginner - intermediate",
+      "description": "Calafia is a border-break mainstay in Rosarito with a user-friendly right point and uneven reef shape that makes it one of the first waves many visitors surf. Get the latest surfing conditions, forecast, and tide details for Calafia in Baja Norte .",
+      "lineup_guidance": "Mid to high tide is the best window, with north wind keeping it clean and summer crowding being the main downside.",
+      "tide_guidance": {
+        "preferred_stage": "mid_to_high",
+        "preferred_direction": "either",
+        "source_text": "Mid to high tide is the best window, with north wind keeping it clean and summer crowding being the main downside."
+      },
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/california-trailer-park-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/california-trailer-park-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:36.632Z",
+      "name": "California Trailer Park",
+      "skill_level": "intermediate",
+      "description": "A classic north-Ensenada reef in front of the California Trailer Park motel, where a short fast left and a longer peeling right make it a dependable stop on the coast north of the city. Get the latest surfing conditions, forecast, and tide details for California Trailer Park in Baja Norte .",
+      "lineup_guidance": "Use medium to high tide because the rocks are a real factor here. East-northeast offshore and west-northwest swell are the clean window, and booties help when the reef is showing.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/camalu-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/camalu-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:37.624Z",
+      "name": "Camalu",
+      "skill_level": "intermediate",
+      "description": "Cantamar Settlement is a north-Baja beach break south of K-55 with quick lines when the swell fills in. Get the latest surfing conditions, forecast, and tide details for Camalu in Baja Norte .",
+      "lineup_guidance": "NE offshore and SW swell are the clean window. The middle of the tide cycle tends to read a little cleaner than the extremes, so use the beach face and current to pick the better bank.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/campo-lopez-k-55-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/campo-lopez-k-55-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:38.812Z",
+      "name": "Campo Lopez (K-55)",
+      "skill_level": "intermediate",
+      "description": "Campo Lopez (K-55) is a north-Baja reef break near the highway marker, with a short clean window when the swell and wind line up. Get the latest surfing conditions, forecast, and tide details for Campo Lopez (K-55) in Baja Norte .",
+      "lineup_guidance": "West-northwest swell and east-northeast offshore are the clean lane. The reef is a little cleaner through the middle of the cycle, so check water over the rock line before committing.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/campo-renes-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/campo-renes-mx-baja-sur",
+      "checked_on": "2026-08-27T17:33:39.961Z",
+      "name": "Campo Renes",
+      "skill_level": "intermediate",
+      "description": "Campo Renes is a remote Mulege-area Baja Sur break where the beach-and-reef mix stays quiet enough to feel like a local check rather than a road-trip stop. Get the latest surfing conditions, forecast, and tide details for Campo Renes in Baja Sur .",
+      "lineup_guidance": "ENE offshore and SW swell are the clean lane. The middle of the cycle is a better starting point than the edges, but the beach-and-reef shape still needs a look from shore.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/cannery-stacks-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/cannery-stacks-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:41.000Z",
+      "name": "Cannery (Stacks)",
+      "skill_level": "intermediate - advanced",
+      "description": "Cannery (Stacks) is the Ensenada reef at the old cannery stacks, a rocky setup with lefts and rights and the same north-coast lineup as 3Ms and California Trailer Park. Get the latest surfing conditions, forecast, and tide details for Cannery (Stacks) in Baja Norte .",
+      "lineup_guidance": "WNW swell and ENE offshore are the clean lane. Mid to high tide is cleaner over the rocks, and the reef feels sharper when it is very low.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/cantamar-settlement-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/cantamar-settlement-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:42.013Z",
+      "name": "Cantamar Settlement",
+      "skill_level": "intermediate - advanced",
+      "description": "Cantamar Settlement is a north-Baja beach break south of K-55, a fickle but real surf stop tied to the settlement rather than a generic coastline label. Get the latest surfing conditions, forecast, and tide details for Cantamar Settlement in Baja Norte .",
+      "lineup_guidance": "NE offshore and SW swell are the clean window. Mid tide is a touch cleaner than the edges, and the beach can go hollow and fast when it lines up.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/casas-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/casas-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:43.125Z",
+      "name": "Casas",
+      "skill_level": "intermediate - advanced",
+      "description": "Casas is the Baja Norte reef break in the Ensenada cluster, a consistent rocky setup with lefts and rights near El Socorro and Quatro Casas. Get the latest surfing conditions, forecast, and tide details for Casas in Baja Norte .",
+      "lineup_guidance": "ENE offshore and SW swell are the clean lane. Mid tide is a little cleaner over the reef, while the low stages are more forgiving only once the tide comes back in.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/cerritos-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/cerritos-mx-baja-sur",
+      "checked_on": "2026-08-27T17:33:44.323Z",
+      "name": "Cerritos",
+      "skill_level": "intermediate",
+      "description": "Cerritos is the classic Los Cerritos beach-point surf check in Baja Sur, with a north-end headland right, inside sandbar peaks, and enough variety to spread the crowd. Get the latest surfing conditions, forecast, and tide details for Cerritos in Baja Sur .",
+      "lineup_guidance": "East or east-northeast offshore keeps it clean. West-southwest is the stable swell window, and mid tide is the better shape check. Holidays can get busy.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/cielito-lindo-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/cielito-lindo-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:45.337Z",
+      "name": "Cielito Lindo",
+      "skill_level": "intermediate",
+      "description": "Cielito Lindo is a classic lower-Baja beach break between Playa Santa Maria and El Socorro, with year-round fun and a lonely, rip-prone feel. Get the latest surfing conditions, forecast, and tide details for Cielito Lindo in Baja Norte .",
+      "lineup_guidance": "NE or E offshore is clean. It needs a strong south swell to really get going. Mid tide tends to balance shape and ease, and rips are a factor, so read the beach before paddling.",
+      "tide_guidance": {
+        "preferred_stage": "mid",
+        "preferred_direction": "either",
+        "source_text": "Mid tide tends to balance shape and ease, and rips are a factor, so read the beach before paddling."
+      },
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/costa-azul-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/costa-azul-mx-baja-sur",
+      "checked_on": "2026-08-27T17:33:46.322Z",
+      "name": "Costa Azul",
+      "skill_level": "intermediate",
+      "description": "Costa Azul is one of the classic Cabo beach surfs, with a headland right, inside A-frames, and a beach that can spread the crowd when multiple swell angles line up. Get the latest surfing conditions, forecast, and tide details for Costa Azul in Baja Sur .",
+      "lineup_guidance": "NW offshore is the clean call, though east wind can still work on the headland setup. South-southeast swell is the baseline, winter west and northwest pulses can also light the headland section, and mid tide is the best shape check.",
+      "tide_guidance": {
+        "preferred_stage": "mid",
+        "preferred_direction": "either",
+        "source_text": "South-southeast swell is the baseline, winter west and northwest pulses can also light the headland section, and mid tide is the best shape check."
+      },
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/dunes-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/dunes-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:47.519Z",
+      "name": "Dunes",
+      "skill_level": "intermediate",
+      "description": "Baja Norte beach break set against the dunes, with an open, relaxed feel. Get the latest surfing conditions, forecast, and tide details for Dunes in Baja Norte .",
+      "lineup_guidance": "SW swell and northeast wind keep the face cleaner. The open sand setup helps keep the mood relaxed, but bank shape and current still decide where to sit.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/el-cardon-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/el-cardon-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:48.650Z",
+      "name": "El Cardon",
+      "skill_level": "intermediate",
+      "description": "Baja Norte point break with a bigger-wave reputation and a more exposed feel than the nearby beach breaks. Get the latest surfing conditions, forecast, and tide details for El Cardon in Baja Norte .",
+      "lineup_guidance": "West to northwest swell and northeast wind are the cleaner setup. Mid tide is the safer slot, and watch for rips and sharks.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/el-morro-point-k371-2-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/el-morro-point-k371-2-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:49.676Z",
+      "name": "El Morro Point (K371/2)",
+      "skill_level": "advanced",
+      "description": "El Morro Point is the K38-area point break that surfers in northern Baja know for its fast, hollow right-hand wave. The spot sits in the Rosarito coast corridor, where a rocky point and easy road access make it a familiar, crowded pull when the south swell is on. Get the latest surfing conditions, forecast, and tide details for El Morro Point (K371/2) in Baja Norte .",
+      "lineup_guidance": "Best on south to southwest swell with north to northeast offshore wind. The point is rocky and wants medium to high tide; low water exposes more of the rocks and makes the wave less forgiving. Access is road-side off the K38 corridor, so crowds build quickly when the spot is working.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/el-paso-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/el-paso-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:50.861Z",
+      "name": "El Paso",
+      "skill_level": "intermediate - advanced",
+      "description": "El Paso is a submerged reef between Rosarito and Ensenada that behaves like a point break without a point. The spot is rocky, exposed, and best thought of as a no-nonsense northern Baja reef with a clean east-wind window and southwest swell. Get the latest surfing conditions, forecast, and tide details for El Paso in Baja Norte .",
+      "lineup_guidance": "Treat this as a medium-tide reef more than a soft beachbreak. Booties are a good call, the rocks are part of the lineup, east wind is the clean window, and southwest swell is the fit to watch.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/el-pescadero-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/el-pescadero-mx-baja-sur",
+      "checked_on": "2026-08-27T17:33:51.915Z",
+      "name": "El Pescadero",
+      "skill_level": "beginner - intermediate",
+      "description": "El Pescadero is the coastal village zone between Los Cerritos and San Pedrito, where a beach-and-reef surf setup keeps the lineups active. It is a strong Baja Sur surf base with black-sand beaches, reef options, and enough consistency to be useful for a wide range of surfers. Get the latest surfing conditions, forecast, and tide details for El Pescadero in Baja Sur .",
+      "lineup_guidance": "The safest read is west-southwest swell, northeast/offshore wind, and all-tides usability, with rocks, rips, and crowds when the surf is on. Expect a broad beach/reef mix with the right reef acting as the most popular setup, but also plenty of simpler options nearby.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/el-rincon-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/el-rincon-mx-baja-sur",
+      "checked_on": "2026-08-27T17:33:53.305Z",
+      "name": "El Rincon",
+      "skill_level": "intermediate - advanced",
+      "description": "El Rincon is the East Cape of Baja Sur version of Rincon, a long right-hand point near Cabo Pulmo that turns on with west to southwest swell. Get the latest surfing conditions, forecast, and tide details for El Rincon in Baja Sur .",
+      "lineup_guidance": "Best with west-southwest wind and west to southwest swell; it is a rocky shoreline point near Cabo Pulmo, works best for experienced surfers, and wants a high-tide window.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/el-socorro-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/el-socorro-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:54.417Z",
+      "name": "El Socorro",
+      "skill_level": "intermediate - advanced",
+      "description": "El Socorro is a rocky Baja Norte reef-and-point in the south-of-Ensenada corridor, a quiet local break that likes east-northeast wind and southwest swell. Get the latest surfing conditions, forecast, and tide details for El Socorro in Baja Norte .",
+      "lineup_guidance": "Best with east-northeast offshore wind and southwest swell; rocks are part of the lineup, crowds stay rare, and the cleanest read is to treat it as a reef/point with a broad mid-to-high tide preference.",
+      "tide_guidance": {
+        "preferred_stage": "mid_to_high",
+        "preferred_direction": "either",
+        "source_text": "Best with east-northeast offshore wind and southwest swell; rocks are part of the lineup, crowds stay rare, and the cleanest read is to treat it as a reef/point with a broad mid-to-high tide preference."
+      },
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/ensenada-beaches-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/ensenada-beaches-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:55.451Z",
+      "name": "Ensenada Beaches",
+      "skill_level": "intermediate",
+      "description": "Ensenada Beaches is the urban Ensenada shoreline surf zone, a broad beachbreak that serves as a road-trip hub for the north Baja coast. Get the latest surfing conditions, forecast, and tide details for Ensenada Beaches in Baja Norte .",
+      "lineup_guidance": "Best in autumn and winter with east-northeast offshore wind and west-northwest swell. The area can get crowded, and pollution, sharks, and a mid-tide check all belong in the session call.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/frailes-south-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/frailes-south-mx-baja-sur",
+      "checked_on": "2026-08-27T17:33:56.569Z",
+      "name": "Frailes South",
+      "skill_level": "intermediate",
+      "description": "Frailes South is a Baja Sur beach-and-reef break with steady surf, best on southeast swell and west-northwest offshore wind. Get the latest surfing conditions, forecast, and tide details for Frailes South in Baja Sur .",
+      "lineup_guidance": "Look for southeast swell and west-northwest offshore wind. Watch the reef edge and the swell line; the broader beach-and-reef setup matters more than the tide.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/halfway-house-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/halfway-house-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:57.666Z",
+      "name": "Halfway House",
+      "skill_level": "intermediate",
+      "description": "Halfway House is a Baja Norte beach break with dependable surf, best on southwest swell and northeast offshore wind. Get the latest surfing conditions, forecast, and tide details for Halfway House in Baja Norte .",
+      "lineup_guidance": "Southwest swell and northeast offshore wind are the clean combo. The main read is whether the line is standing up cleanly and the rocks are clear enough to give the takeoff margin.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/islas-de-todos-santos-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/islas-de-todos-santos-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:58.818Z",
+      "name": "Islas de Todos Santos",
+      "skill_level": "advanced - expert",
+      "description": "Islas de Todos Santos is the offshore Baja island zone that includes Killers, Northern Baja’s notorious big-wave reef and a World Surfing Reserve centerpiece off Ensenada. Get the latest surfing conditions, forecast, and tide details for Islas de Todos Santos in Baja Norte .",
+      "lineup_guidance": "Northwest swell and northeast offshore wind are the classic setup, low tide is the sharper window, and rocks, deepwater canyon power, and rescue logistics matter before anyone paddles out. This is boat-access big-wave reef territory, not a casual Baja check.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/k-38-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/k-38-mx-baja-norte",
+      "checked_on": "2026-08-27T17:33:59.991Z",
+      "name": "K-38",
+      "skill_level": "intermediate",
+      "description": "K-38 is a Baja Norte reef break with both directions and a busy lineup, the sort of spot where the reef and the crowd matter as much as the swell. Get the latest surfing conditions, forecast, and tide details for K-38 in Baja Norte .",
+      "lineup_guidance": "East wind and west swell are the clean setup. The crowd and rocks are the main checks, so choose the takeoff by space and reef cover.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/la-mision-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/la-mision-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:01.046Z",
+      "name": "La Mision",
+      "skill_level": "intermediate",
+      "description": "La Mision is the roadside Baja Norte beach-and-reef break near K-44, a reliable winter check that stays on the road-trip shortlist. Get the latest surfing conditions, forecast, and tide details for La Mision in Baja Norte .",
+      "lineup_guidance": "Treat the beach as a quick north-Baja pull-off: northeast wind cleans it up, northwest swell is the main trigger, and the rocks and current deserve as much attention as the wave. Tide is secondary here; focus on the line the beach and reef are drawing before you paddle out. It is usually quiet, but entry and exit still need a careful read.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/la-pastora-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/la-pastora-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:02.313Z",
+      "name": "La Pastora",
+      "skill_level": "intermediate",
+      "description": "La Pastora is the north-of-Todos-Santos rock-point surf break, a bigger winter wave that can still serve up rights and lefts while staying one of the area's signature checks. Get the latest surfing conditions, forecast, and tide details for La Pastora in Baja Sur .",
+      "lineup_guidance": "Mid to low tide before the morning wind is the safest bet, northeast or east winds are cleaner, and the spot can take both winter northwest swell and a summer south pulse. Expect a dirt-road approach, sand parking, and a 4WD-read on the way in and out. The rocks are part of the takeoff and the exit, so the session is as much about the approach as the wave.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/la-punta-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/la-punta-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:03.471Z",
+      "name": "La Punta",
+      "skill_level": "intermediate",
+      "description": "La Punta is the Cabo San Lucas south-side beach-and-reef check, the consistent forecast point 12 km from town and a recognizable Cabo surf stop when summer south swell is running. Get the latest surfing conditions, forecast, and tide details for La Punta in Baja Sur .",
+      "lineup_guidance": "North-northwest wind is the clean lane, south swell is the main trigger, and the spot can get crowded when it is on. Watch for sharks and use the forecast as a cue for whether the line is actually standing up, not as a reason to wait on a narrow tide window.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/la-salina-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/la-salina-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:04.528Z",
+      "name": "La Salina",
+      "skill_level": "intermediate",
+      "description": "La Salina is a dependable Baja Norte beach break near La Salina del Mar and Puerto Salina, a road-stop wave with both lefts and rights that can come alive when summer surf lines up. Get the latest surfing conditions, forecast, and tide details for La Salina in Baja Norte .",
+      "lineup_guidance": "East wind is the clean lane, southwest swell is the main trigger, and the spot stays usable across the tide cycle. Expect rips and crowding when it is on, so the best sessions are the ones that keep the lineup organized.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/las-barrancas-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/las-barrancas-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:05.660Z",
+      "name": "Las Barrancas",
+      "skill_level": "intermediate",
+      "description": "Las Barrancas is a remote Baja Sur reef break in the Comondú corridor south of Scorpion Bay, a sheltered check that can work when neighboring spots are shut down but still asks for patience. Get the latest surfing conditions, forecast, and tide details for Las Barrancas in Baja Sur .",
+      "lineup_guidance": "Northeast wind is the clean lane, southwest swell is the main trigger, and the reef stays broadly usable across the tide cycle. Keep an eye on the urchins and rocks on entry and exit, because the approach is part of the session here.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/las-gaviotas-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/las-gaviotas-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:06.727Z",
+      "name": "Las Gaviotas",
+      "skill_level": "intermediate",
+      "description": "Las Gaviotas is the gated Rosarito reef break south of K-38, a right-hand wave with private access that keeps it a little off the main Baja road-trip radar. Get the latest surfing conditions, forecast, and tide details for Las Gaviotas in Baja Norte .",
+      "lineup_guidance": "Northeast through southeast wind can clean it up, western swell energy is the main trigger, and the reef works through the tide cycle. Private access matters here, and the bottom rewards a careful read on entry and exit.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/lighthouse-punta-san-jose-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/lighthouse-punta-san-jose-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:07.827Z",
+      "name": "Lighthouse (Punta San Jose)",
+      "skill_level": "intermediate",
+      "description": "Lighthouse (Punta San Jose) is the Punta San Jose cape break in Baja Norte, a dependable beach-and-reef setup that cleans up best in autumn and winter. Get the latest surfing conditions, forecast, and tide details for Lighthouse (Punta San Jose) in Baja Norte .",
+      "lineup_guidance": "East-northeast wind is the clean lane, west swell is the main trigger, and rocks and sharks are part of the setup. The spot is best treated as a cape-side check where the season and wind matter more than a narrow tide slot.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/los-frailes-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/los-frailes-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:08.959Z",
+      "name": "Los Frailes",
+      "skill_level": "intermediate",
+      "description": "Los Frailes is the Los Cabos reef break at the Frailes headland, a Baja Sur check that comes alive in autumn and winter when west swell meets east-northeast wind. Get the latest surfing conditions, forecast, and tide details for Los Frailes in Baja Sur .",
+      "lineup_guidance": "West swell and east-northeast wind are the cleaner lane, with no strong single-tide signal. Rocks and sharks are part of the read here, and the spot is best treated as a seasonal reef check rather than a casual beach stop.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/marisol-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/marisol-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:10.367Z",
+      "name": "Marisol",
+      "skill_level": "intermediate",
+      "description": "Marisol is a Rosarito beachbreak in Baja Norte, a wide-open shoreline check that cleans up best when the swell organizes and the neighboring points and reefs start to frame the better waves. Get the latest surfing conditions, forecast, and tide details for Marisol in Baja Norte .",
+      "lineup_guidance": "NE to E offshore flow is the clean lane before the afternoon WNW bump. SSW to SW swell is the main trigger, and the beachbreak mostly walls unless the surrounding points and reefs help organize the line. A medium tide is the safer call, with the early to mid-morning fall looking best in the live commentary.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/marisol-north-point-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/marisol-north-point-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:11.897Z",
+      "name": "Marisol North Point",
+      "skill_level": "intermediate - advanced",
+      "description": "Marisol North Point is the point break side of the Rosarito corridor, a cleaner and less crowded check than the neighboring beach sections when the line is working. Get the latest surfing conditions, forecast, and tide details for Marisol North Point in Baja Norte .",
+      "lineup_guidance": "East to northeast wind is the clean lane. West-northwest swell is the main trigger, the medium tide window is the safer read, and the rocks make entry and the takeoff line worth checking carefully.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/migrino-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/migrino-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:13.088Z",
+      "name": "Migrino",
+      "skill_level": "intermediate",
+      "description": "Migrino is a consistent Cabo point break in Baja Sur, an exposed point that can work year-round and gets cleaner when the east-northeast wind lines up. Get the latest surfing conditions, forecast, and tide details for Migrino in Baja Sur .",
+      "lineup_guidance": "East-northeast wind is the clean lane. West-southwest swell is the guide trigger, tide is secondary here, and the better call is whether the point is actually standing up; nearby NW wind shelter in the Cerritos zone can make a fun corner when the swell is bigger.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/millers-landing-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/millers-landing-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:14.105Z",
+      "name": "Millers Landing",
+      "skill_level": "intermediate - advanced",
+      "description": "Millers Landing is a northern Baja beach and point break in the San Luis and Punta Rosarito corridor, a steady check that can still feel busy when the sand and point line up. Get the latest surfing conditions, forecast, and tide details for Millers Landing in Baja Norte .",
+      "lineup_guidance": "East-northeast wind is the clean lane and west swell is the main trigger. Rips, sharks, and rocks are part of the read when the spot is on, so inspect the lineup before committing.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/mirador-viewpoint-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/mirador-viewpoint-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:15.275Z",
+      "name": "Mirador Viewpoint",
+      "skill_level": "intermediate - advanced",
+      "description": "Mirador Viewpoint is a Rosarito reef break near Santa Anita, a reliable east-wind check with enough rock underfoot to keep it honest. Get the latest surfing conditions, forecast, and tide details for Mirador Viewpoint in Baja Norte .",
+      "lineup_guidance": "East wind is the clean lane, southwest swell is the main trigger, and rocks are the main hazard. A dropping tide can help, but the safer call is to check how the reef is standing up on the day.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/monuments-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/monuments-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:16.239Z",
+      "name": "Monuments",
+      "skill_level": "intermediate - advanced",
+      "description": "Monuments is a must-do Cabo left pointbreak in Baja Sur, a rocky headland wave that can jump in size fast when the deepwater canyon and long-interval swell line up. Get the latest surfing conditions, forecast, and tide details for Monuments in Baja Sur .",
+      "lineup_guidance": "North or northeast wind is the clean lane. West and southwest swell are the main triggers, the takeoff zone is tight, and afternoon west wind often blows it out. High tide is the cleanest window, and crowd pressure plus rocks and urchins are part of the read.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/nine-palms-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/nine-palms-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:17.442Z",
+      "name": "Nine Palms",
+      "skill_level": "intermediate - advanced",
+      "description": "Nine Palms is a high-ranking East Cape point and reef break in Baja Sur, a popular Cabo itinerary wave that wakes up on summer south swell and a clean northwest wind. Get the latest surfing conditions, forecast, and tide details for Nine Palms in Baja Sur .",
+      "lineup_guidance": "Northwest wind is the clean lane, and the inside section stays pretty glassy. South to southeast swell is the guide trigger, mid incoming tide is the best call, and the spot can get slightly vibey while still remaining a straightforward park-above-the-break check.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/open-doors-isla-natividad-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/open-doors-isla-natividad-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:18.511Z",
+      "name": "Open Doors (Isla Natividad)",
+      "skill_level": "intermediate",
+      "description": "Open Doors (Isla Natividad) is a remote Baja Sur beachbreak on Isla Natividad, a low-crowd island wave that stays honest with rips, sharks, and rocks in the mix. Get the latest surfing conditions, forecast, and tide details for Open Doors (Isla Natividad) in Baja Sur .",
+      "lineup_guidance": "NW wind is the clean lane and SW swell is the trigger. The island setting means you should treat entry, exit, and rips as part of the session plan.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/palm-beach-todos-santos-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/palm-beach-todos-santos-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:19.541Z",
+      "name": "Palm Beach (Todos Santos)",
+      "skill_level": "intermediate - advanced",
+      "description": "Palm Beach (Todos Santos) is a Baja Sur beachbreak on the Todos Santos side of the coast, a year-round shoreline wave with easy access and familiar beachbreak hazards. Get the latest surfing conditions, forecast, and tide details for Palm Beach (Todos Santos) in Baja Sur .",
+      "lineup_guidance": "NE wind is the clean lane and WSW swell is the useful lane. Urchins, rips, and rocks are part of the read, so inspect the entry and inside before paddling out.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/playa-elefante-isla-cedros-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/playa-elefante-isla-cedros-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:20.645Z",
+      "name": "Playa Elefante (Isla Cedros)",
+      "skill_level": "intermediate",
+      "description": "Playa Elefante is a Baja California beach break on Isla Cedros with some unruly rippable peaks, enough room to spread out, and a direct west swell window when it lines up. Get the latest surfing conditions, forecast, and tide details for Playa Elefante (Isla Cedros) in Baja Norte .",
+      "lineup_guidance": "Southeast winds are the clean lane. West and northwest swell are the fit, and the beach works across all tides with rocks and sand bottom both in play.",
+      "tide_guidance": {
+        "preferred_stage": "all",
+        "preferred_direction": "either",
+        "source_text": "West and northwest swell are the fit, and the beach works across all tides with rocks and sand bottom both in play."
+      },
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/playa-los-cerritos-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/playa-los-cerritos-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:21.819Z",
+      "name": "Playa Los Cerritos",
+      "skill_level": "beginner - intermediate",
+      "description": "Playa Los Cerritos in Baja Sur is a dependable surf check on the Cerritos Beach stretch near El Pescadero, with the best size coming from west to northwest swell. Get the latest surfing conditions, forecast, and tide details for Playa Los Cerritos in Baja Sur .",
+      "lineup_guidance": "Best on north-sector offshore winds with west to northwest swell. Mid to high tide keeps the shoulders softer and the lineup friendlier; low water gets rippier and exposes the sandbars.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/playa-san-pedro-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/playa-san-pedro-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:22.986Z",
+      "name": "Playa San Pedro",
+      "skill_level": "intermediate",
+      "description": "Playa San Pedro in Baja Sur is a long open beachbreak on the Las Palmas shoreline south of the Pescadero area, best treated as a winter check when northeast wind cleans up northwest swell. Get the latest surfing conditions, forecast, and tide details for Playa San Pedro in Baja Sur .",
+      "lineup_guidance": "Northwest swell and NE offshore are the clean window. Mid tide usually keeps the bars lined up; low water can get a little steeper and high water softens the shoulder.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/playa-san-ramon-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/playa-san-ramon-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:24.033Z",
+      "name": "Playa San Ramon",
+      "skill_level": "intermediate",
+      "description": "Playa San Ramon in Baja Norte is a long open beachbreak in the San Quintin corridor. West swell and northeast wind are the reliable ingredients, while the tide mostly changes how clean the bars look. Get the latest surfing conditions, forecast, and tide details for Playa San Ramon in Baja Norte .",
+      "lineup_guidance": "West swell with NE offshore is the clean window. Mid tide keeps the sandbars lined up; low water can get a little chunky and high water softens the face.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/playa-santa-maria-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/playa-santa-maria-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:25.043Z",
+      "name": "Playa Santa Maria",
+      "skill_level": "intermediate",
+      "description": "Playa Santa Maria in Baja Norte is a reasonably consistent exposed beachbreak in the south Baja Norte / San Quintin corridor, with best sessions on south swell and northeast offshore wind. Get the latest surfing conditions, forecast, and tide details for Playa Santa Maria in Baja Norte .",
+      "lineup_guidance": "South swell and NE offshore are the clean window. Mid tide usually leaves the face a bit more orderly, while the ends of the tide cycle tend to soften the break.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/popotla-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/popotla-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:26.232Z",
+      "name": "Popotla",
+      "skill_level": "intermediate",
+      "description": "Popotla in Baja Norte is a reef break on the Rosarito shoreline. Winter is the cleanest season, especially when west swell meets southeast offshore wind. Get the latest surfing conditions, forecast, and tide details for Popotla in Baja Norte .",
+      "lineup_guidance": "West swell and SE offshore are the clean window. Mid to high tide keeps the reefs less exposed; low water can get chunkier and the submerged rocks become a bigger factor.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/primo-tapia-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/primo-tapia-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:27.449Z",
+      "name": "Primo Tapia",
+      "skill_level": "intermediate",
+      "description": "Primo Tapia is a north Baja coastal surf stop south of Rosarito with a reef-led wave zone and a working local surf identity. Get the latest surfing conditions, forecast, and tide details for Primo Tapia in Baja Norte .",
+      "lineup_guidance": "West swell is the cleaner setup, northeast wind is the offshore window, and the flexible all-tide window keeps it workable. Expect urchins and private access pressure, so check the shoreline carefully before you paddle out.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/puerto-san-andres-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/puerto-san-andres-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:28.514Z",
+      "name": "Puerto San Andres",
+      "skill_level": "intermediate",
+      "description": "Puerto San Andres is a remote Northern Baja reef-and-point surf stop in the Punta Rosarito zone with consistent surf and a classic exposed-cape feel. Get the latest surfing conditions, forecast, and tide details for Puerto San Andres in Baja Norte .",
+      "lineup_guidance": "West and northwest swell are the stable call, and shark caution still matters in the raw north Baja zone. Tide is secondary to the exposed reef face and the NNW wind, so watch the point more than the clock.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-abreojos-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/punta-abreojos-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:29.674Z",
+      "name": "Punta Abreojos",
+      "skill_level": "intermediate",
+      "description": "Punta Abreojos is a Baja Sur fishing-town cape with a long Pacific point-break identity and a real road-trip surf reputation. Get the latest surfing conditions, forecast, and tide details for Punta Abreojos in Baja Sur .",
+      "lineup_guidance": "South-southwest swell is the stable call and north-northwest winds are the clean window. Expect a remote fishing-town lineup with rocks, rips, and shark caution; the nearby Bahia de Ballenas tide port is only a reference, not a guarantee.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-arenas-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/punta-arenas-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:30.823Z",
+      "name": "Punta Arenas",
+      "skill_level": "intermediate",
+      "description": "Punta Arenas is a Baja Sur outer-coast surf stop in Los Cabos Municipality with a reliable south-swell window and a hard-edged exposed feel. Get the latest surfing conditions, forecast, and tide details for Punta Arenas in Baja Sur .",
+      "lineup_guidance": "The wave is exposed and often small, so it is best left to experienced surfers comfortable in an open Pacific setup. Tide is secondary to south swell size and the NNW offshore window, so watch whether the outer Pacific side has enough energy to stand up.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-baja-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/punta-baja-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:32.038Z",
+      "name": "Punta Baja",
+      "skill_level": "intermediate",
+      "description": "Punta Baja is a raw Northern Baja point-and-reef surf stop in Ensenada Municipality with an exposed-coast feel and plenty of rocks in the mix. Get the latest surfing conditions, forecast, and tide details for Punta Baja in Baja Norte .",
+      "lineup_guidance": "Tide is secondary to reef cover and the east offshore window, so watch the exposed reef and clean west energy more than the clock. Submerged rocks are the main thing to plan around when the spot wakes up.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-blanca-seven-sisters-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/punta-blanca-seven-sisters-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:33.117Z",
+      "name": "Punta Blanca (Seven Sisters)",
+      "skill_level": "intermediate",
+      "description": "The first of the Seven Sisters, Punta Blanca is a remote Baja Norte reef and point break that can hold reliable west swell and rewards the long, rough approach with proper point-style surf. Get the latest surfing conditions, forecast, and tide details for Punta Blanca (Seven Sisters) in Baja Norte .",
+      "lineup_guidance": "North-northeast offshore is the clean side and west swell is the main trigger. Mid tide is the easier read on the reef/point line, and the long rough access means you should treat fuel, spares, and turnaround time as part of the session.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-cabras-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/punta-cabras-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:34.297Z",
+      "name": "Punta Cabras",
+      "skill_level": "intermediate",
+      "description": "Punta Cabras is a quiet Ensenada cape surf zone where the breaks spread around Half Moon Bay and the surrounding headlands, making it one of the better-kept secrets in Baja Norte when the northwest or south swell wakes the coast. Get the latest surfing conditions, forecast, and tide details for Punta Cabras in Baja Norte .",
+      "lineup_guidance": "Expect a spread of breaks rather than one textbook peak. Northwesterly and southern swell both matter across the zone, and the better banks or reef lines usually show more clearly on a cleaner tide before the wind roughens the face.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-canoas-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/punta-canoas-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:35.533Z",
+      "name": "Punta Canoas",
+      "skill_level": "intermediate",
+      "description": "Punta Canoas is the first of the Seven Sisters and a remote Baja Norte reef-and-point break that rewards the long access with a proper central-Baja point session when the right swell wraps in. Get the latest surfing conditions, forecast, and tide details for Punta Canoas in Baja Norte .",
+      "lineup_guidance": "North-northeast offshore is the clean side and southwest-to-west swell is the main trigger. Low to mid tide gives the better shape on the Seven Sisters line, and the 4WD access means fuel, water, and spare tires matter before you leave the highway.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-colorado-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/punta-colorado-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:36.528Z",
+      "name": "Punta Colorado",
+      "skill_level": "intermediate",
+      "description": "Punta Colorado is a reasonably exposed Baja Sur reef break that does not work very often, so it stays more of a selective check than a daily surf stop. Get the latest surfing conditions, forecast, and tide details for Punta Colorado in Baja Sur .",
+      "lineup_guidance": "South-southeast swell and southwest offshore wind are the clean setup. The reef needs enough water to shape the face, but the guide support stays broad rather than locked to one exact tide stage.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-conejo-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/punta-conejo-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:37.572Z",
+      "name": "Punta Conejo",
+      "skill_level": "intermediate",
+      "description": "Punta Conejo is a La Paz-area Baja Sur point that works as a clean right when south-southwest swell wraps in and the north-northeast wind stays offshore. Get the latest surfing conditions, forecast, and tide details for Punta Conejo in Baja Sur .",
+      "lineup_guidance": "South-southwest swell and north-northeast offshore wind are the clean combo. The La Paz area point is broad enough that the main decision is which section of the point is showing and how the tide is shaping the line.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-cono-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/punta-cono-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:38.621Z",
+      "name": "Punta Cono",
+      "skill_level": "intermediate",
+      "description": "Punta Cono is a winter-leaning Baja Norte reef-and-point break that comes alive on northwest swell and rewards the right pulse with a clean point face. Get the latest surfing conditions, forecast, and tide details for Punta Cono in Baja Norte .",
+      "lineup_guidance": "North-northeast offshore is the clean side and northwest swell is the main trigger. Mid to fuller tide keeps the reef cleaner than the very bottom, and it can get crowded fast when the point switches on.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-gasparino-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/punta-gasparino-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:39.766Z",
+      "name": "Punta Gasparino",
+      "skill_level": "beginner",
+      "description": "Punta Gasparino is a fickle southern Baja point-and-beach break south of Todos Santos, the kind of road-accessible bluff that only wakes a few times a year. Get the latest surfing conditions, forecast, and tide details for Punta Gasparino in Baja Sur .",
+      "lineup_guidance": "East wind is the clean lane, northwest swell is the useful angle, and the wave can run at all tides when it appears. Access is easy by Baja standards, but the spot is still a low-frequency check, so you only go when the pulse is worth the drive.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-hughes-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/punta-hughes-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:40.927Z",
+      "name": "Punta Hughes",
+      "skill_level": "intermediate - advanced",
+      "description": "Punta Hughes, or Hughes Point, is a remote central-Baja point break south of Cabo San Lazaro where southwest swell and northeast offshore wind line up over a rocky point. Get the latest surfing conditions, forecast, and tide details for Punta Hughes in Baja Sur .",
+      "lineup_guidance": "Northeast offshore is the clean lane, southwest swell is the trigger, and the spot can be surfable through the tide. The lineup sits on rocks in a remote stretch of Baja, so rare crowds do not make the takeoff any less serious.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-maria-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/punta-maria-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:42.160Z",
+      "name": "Punta Maria",
+      "skill_level": "intermediate",
+      "description": "Punta Maria is one of the Seven Sisters, a classic Baja point break that comes alive on winter west swells and northeast offshore wind. Get the latest surfing conditions, forecast, and tide details for Punta Maria in Baja Norte .",
+      "lineup_guidance": "Northeast offshore is the clean lane, west swell is the trigger, and the point stays broadly usable through the tide. Expect some crowd pressure when it is on, and keep an eye on the rips, sharks, and rocks on the point.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-marquez-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/punta-marquez-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:43.215Z",
+      "name": "Punta Marquez",
+      "skill_level": "intermediate",
+      "description": "Punta Marquez is a Baja Sur reef point with lefts and rights, a consistent winter swell check that sits on the mapped cape near La Paz Municipality. Get the latest surfing conditions, forecast, and tide details for Punta Marquez in Baja Sur .",
+      "lineup_guidance": "Northeast offshore is the clean lane, southwest swell is the trigger, and the point stays broadly usable through the tide. Rare crowds are part of the appeal, but the reef still needs respect on the line and during approach.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-negra-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/punta-negra-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:44.228Z",
+      "name": "Punta Negra",
+      "skill_level": "intermediate",
+      "description": "Punta Negra is a Baja Norte reef-and-point cape on the Pacific side, exposed to the west-northwest pulse and known as a consistent winter check. Get the latest surfing conditions, forecast, and tide details for Punta Negra in Baja Norte .",
+      "lineup_guidance": "North-northeast offshore is the clean lane, and west-northwest swell is the main trigger. Until a tighter tide rule is clear, inspect the reef face, rock exposure, and current before committing.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-ositos-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/punta-ositos-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:45.258Z",
+      "name": "Punta Ositos",
+      "skill_level": "intermediate",
+      "description": "Punta Ositos is a Baja Norte reef-and-point break that stays consistent enough to matter when the winter swell is organized. Get the latest surfing conditions, forecast, and tide details for Punta Ositos in Baja Norte .",
+      "lineup_guidance": "Offshore or cross-shore wind is the clean lane, and west-northwest to west swell is the main trigger. Until a tighter tide rule is clear, inspect the reef face and entry before committing.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-palmilla-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/punta-palmilla-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:46.331Z",
+      "name": "Punta Palmilla",
+      "skill_level": "intermediate",
+      "description": "Punta Palmilla is the Palmilla Cape at the Los Cabos corridor, a reef-and-point check on the cape near Palmilla Cove. Get the latest surfing conditions, forecast, and tide details for Punta Palmilla in Baja Sur .",
+      "lineup_guidance": "Northwest offshore is the clean lane, south swell is the main trigger, and the right-hand reef shape is the core read. Check the reef cover and how the shoulder stands up; the tide only tweaks the takeoff. The cape itself is the shoreline object, with Palmilla Cove and Villas Montana nearby.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-piedra-rocky-point-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/punta-piedra-rocky-point-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:47.332Z",
+      "name": "Punta Piedra (Rocky Point)",
+      "skill_level": "intermediate - advanced",
+      "description": "Punta Piedra (Rocky Point) is a northern Baja reef break that is more about the exposed winter pulse than regular everyday surf. Get the latest surfing conditions, forecast, and tide details for Punta Piedra (Rocky Point) in Baja Norte .",
+      "lineup_guidance": "East wind is the clean lane, northwest swell is the trigger, and check the reef cover and whether the line is standing up before you trust the tide. The spot is forecast as nearshore open water, so read the actual line-up rather than the broad table.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-rosarito-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/punta-rosarito-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:48.349Z",
+      "name": "Punta Rosarito",
+      "skill_level": "intermediate",
+      "description": "Punta Rosarito is the Ensenada Municipality cape on the northern Baja coast, a consistent reef break that can deliver lefts and rights when winter swell lines up. Get the latest surfing conditions, forecast, and tide details for Punta Rosarito in Baja Norte .",
+      "lineup_guidance": "Northeast offshore and northwest swell are the clean window. Check the reef face and whether the inside section is standing up; the tide only adjusts the margin, and the reef can get crowded with rips, sharks, and rocks in the lineup, so the approach deserves a careful read.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-san-antonio-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/punta-san-antonio-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:49.408Z",
+      "name": "Punta San Antonio",
+      "skill_level": "intermediate",
+      "description": "Punta San Antonio is an Ensenada cape reef-and-point break that is reliable enough to matter but still feels remote and rarely crowded. Get the latest surfing conditions, forecast, and tide details for Punta San Antonio in Baja Norte .",
+      "lineup_guidance": "East offshore and southwest swell are the working window. Check the reef face and whether the inside section is standing up; the tide only adjusts the margin, and the spot is a summer play that stays very rarely crowded while the reef still deserves respect on the rocks.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-san-carlos-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/punta-san-carlos-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:50.443Z",
+      "name": "Punta San Carlos",
+      "skill_level": "intermediate",
+      "description": "Punta San Carlos is the fishing-camp cape south of El Rosario, a classic Baja reef-and-point break that still feels remote despite its reputation. Get the latest surfing conditions, forecast, and tide details for Punta San Carlos in Baja Norte .",
+      "lineup_guidance": "Northeast offshore and southwest swell are the clean window. Check the right-hand reef face and whether the inside section is standing up; the tide only adjusts the margin, and urchins plus rocks make the camp access worth respecting.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-san-gregorio-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/punta-san-gregorio-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:51.541Z",
+      "name": "Punta San Gregorio",
+      "skill_level": "intermediate",
+      "description": "Punta San Gregorio is a Baja Sur beach-break zone south of Scorpion Bay, fickle but useful when the west-southwest pulse and northeast offshore line up. Get the latest surfing conditions, forecast, and tide details for Punta San Gregorio in Baja Sur .",
+      "lineup_guidance": "West-southwest swell and northeast offshore wind are the clean lane. Check the sandbar shape and whether the line is standing up; the tide only trims the window, the beach break has lefts and rights, and the morning check matters because the bars shift.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-san-jacinto-shipwrecks-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/punta-san-jacinto-shipwrecks-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:52.526Z",
+      "name": "Punta San Jacinto (Shipwrecks)",
+      "skill_level": "intermediate - advanced",
+      "description": "Punta San Jacinto (Shipwrecks) is the Camalu shipwreck point break, a dependable Baja Norte right with a wreck hazard and a high-tide bias. Get the latest surfing conditions, forecast, and tide details for Punta San Jacinto (Shipwrecks) in Baja Norte .",
+      "lineup_guidance": "Northeast offshore and west swell are the clean window. Check whether the wreck line is clear and the inside shoulder is standing up; the high-tide bias just gives the point more water over the hazard, and the spot is very rarely crowded.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-santa-rosalillita-the-wall-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/punta-santa-rosalillita-the-wall-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:53.550Z",
+      "name": "Punta Santa Rosalillita (The Wall)",
+      "skill_level": "intermediate - advanced",
+      "description": "Punta Santa Rosalillita (The Wall) is the southernmost Seven Sisters point on the Baja Pacific coast, a reliable reef-and-point wave with a real crowd and hazard profile. Get the latest surfing conditions, forecast, and tide details for Punta Santa Rosalillita (The Wall) in Baja Norte .",
+      "lineup_guidance": "North-northeast offshore and west swell are the clean window. Check the reef cover, rips, and whether the section stands up; the tide only changes how much margin you get, and The Wall can get crowded, especially in winter.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/punta-santo-domingo-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/punta-santo-domingo-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:54.744Z",
+      "name": "Punta Santo Domingo",
+      "skill_level": "intermediate - advanced",
+      "description": "Punta Santo Domingo is a remote Baja Sur cape near San Juanico, with exposed beach-and-reef energy that wakes up on south swell and clean northwest wind. Get the latest surfing conditions, forecast, and tide details for Punta Santo Domingo in Baja Sur .",
+      "lineup_guidance": "Best when south-southeast swell meets northwest offshore flow. Tide matters less than the wind and reef face here, and the spot is remote and rocky, so the read is about whether the line is actually standing up.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/quatro-casas-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/quatro-casas-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:55.825Z",
+      "name": "Quatro Casas",
+      "skill_level": "intermediate",
+      "description": "A bluff-sheltered Northern Baja right-hander that mixes reef and point shape, with the best walls arriving on southwest swell. Get the latest surfing conditions, forecast, and tide details for Quatro Casas in Baja Norte .",
+      "lineup_guidance": "Look for west-southwest to southwest swell and northeast offshore wind. The reef line is the real tide check, so focus on whether the wall is holding shape and leaving enough room for the right-hand walls.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/rancho-san-carlos-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/rancho-san-carlos-mx-baja-sur",
+      "checked_on": "2026-08-27T17:34:56.925Z",
+      "name": "Rancho San Carlos",
+      "skill_level": "intermediate",
+      "description": "A Cabo San Lucas-area reef break on the Rancho San Carlos shoreline, with a south-southeast swell trigger and a clean northwest offshore window. Get the latest surfing conditions, forecast, and tide details for Rancho San Carlos in Baja Sur .",
+      "lineup_guidance": "Look for the south-southeast swell line and northwest offshore wind. The tide matters less than the reef cover and the broader Cabo reef zone, so read the line before you trust the section.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/rancho-santini-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/rancho-santini-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:58.029Z",
+      "name": "Rancho Santini",
+      "skill_level": "intermediate - advanced",
+      "description": "A south-of-Rosarito beach break in the Km 40 Rancho Santini access zone, with consistent west-swell energy and a rocky shoreline. Get the latest surfing conditions, forecast, and tide details for Rancho Santini in Baja Norte .",
+      "lineup_guidance": "Best on west swell and east offshore wind. Tide matters less than the wind and rocky shore, so focus on whether the beach face is clean enough to paddle out.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/rauls-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/rauls-mx-baja-norte",
+      "checked_on": "2026-08-27T17:34:59.215Z",
+      "name": "Rauls",
+      "skill_level": "intermediate",
+      "description": "A hidden Rosarito reef south of the border corridor, named for the turnoff restaurant and favored when the nearby beachbreaks are blown out. Get the latest surfing conditions, forecast, and tide details for Rauls in Baja Norte .",
+      "lineup_guidance": "West swell, northeast offshore wind, and mid to high tide are the clean combo, and the spot stays much less crowded than the more visible Baja breaks. Park on the bluff, walk down the dirt path, and expect a reef-aware session with urchins and rocks.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/renes-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/renes-mx-baja-norte",
+      "checked_on": "2026-08-27T17:35:00.325Z",
+      "name": "Renes",
+      "skill_level": "intermediate - advanced",
+      "description": "A Rosarito beach break in the Renes colony area, with reliable west-swell energy, east offshore wind, and a rocky shore. Get the latest surfing conditions, forecast, and tide details for Renes in Baja Norte .",
+      "lineup_guidance": "Check it when the west-swell line is in and the east wind is clean. The tide matters less than the rocks and local conditions, so read the access zone carefully before you commit.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/rincon-de-baja-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/rincon-de-baja-mx-baja-norte",
+      "checked_on": "2026-08-27T17:35:01.560Z",
+      "name": "Rincon De Baja",
+      "skill_level": "intermediate",
+      "description": "Rincon De Baja is the Shipwrecks stretch north of Camalu, known for the freighter wreck and a long right that wakes up on larger west and southwest swell. Get the latest surfing conditions, forecast, and tide details for Rincon De Baja in Baja Norte .",
+      "lineup_guidance": "Look for the cleanest surf when a west southwest swell lines up with offshore northeast wind. High tide is the cleanest window, and the sheltered point shape keeps it more usable when the wind builds.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/roberts-left-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/roberts-left-mx-baja-norte",
+      "checked_on": "2026-08-27T17:35:02.692Z",
+      "name": "Roberts Left",
+      "skill_level": "advanced",
+      "description": "Roberts Left is the Camalu-area reef break that surfers talk about for winter pulses, rocky takeoff zones, and the chance to score it with very few people around. Get the latest surfing conditions, forecast, and tide details for Roberts Left in Baja Norte .",
+      "lineup_guidance": "Winter is the best season, with west swell and northeast wind giving the cleanest shape. Keep clear of the rocks on the takeoff and exit, and use tide as a secondary check after the reef face is standing up.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/rosarito-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/rosarito-mx-baja-norte",
+      "checked_on": "2026-08-27T17:35:04.018Z",
+      "name": "Rosarito",
+      "skill_level": "intermediate",
+      "description": "Rosarito is the classic Baja Norte beach zone with pier sandbars, reef flavor farther south, and an easy access identity that keeps it in the quick-session conversation. Get the latest surfing conditions, forecast, and tide details for Rosarito in Baja Norte .",
+      "lineup_guidance": "East wind is the cleaner setup and southwest swell is the main pulse. The beach works through rising and falling tide, and the quickest read is usually the pier sandbar plus whatever crowd is already in the water.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/salsipuedes-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/salsipuedes-mx-baja-norte",
+      "checked_on": "2026-08-27T17:35:05.254Z",
+      "name": "Salsipuedes",
+      "skill_level": "advanced - expert",
+      "description": "Salsipuedes is Northern Baja’s legendary right point-and-reef cove, a long winter line whose difficult access and closed-access history are part of the spot’s identity. Get the latest surfing conditions, forecast, and tide details for Salsipuedes in Baja Norte .",
+      "lineup_guidance": "Wait for a serious WNW winter groundswell and north-to-northeast offshore wind, then check the very low-tide window before committing. The point has steep access, rocks on the takeoff and inside, and enough power that logistics and exit planning matter as much as the forecast.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/san-antonio-del-mar-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/san-antonio-del-mar-mx-baja-norte",
+      "checked_on": "2026-08-27T17:35:06.392Z",
+      "name": "San Antonio Del Mar",
+      "skill_level": "intermediate",
+      "description": "A low-key Baja Norte beachbreak with easy camping access, uncrowded sandbars, and a dependable west-northwest window when the border coast wakes up. Get the latest surfing conditions, forecast, and tide details for San Antonio Del Mar in Baja Norte .",
+      "lineup_guidance": "East to east-northeast wind keeps the beach cleaner, and the spot is broad enough to handle low, mid, or high tide. Northwest swell can still work, but the better sessions usually come when the beach has shape and the line stays organized enough to avoid the more ordinary sandbar washout.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/san-hipolito-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/san-hipolito-mx-baja-sur",
+      "checked_on": "2026-08-27T17:35:07.590Z",
+      "name": "San Hipolito",
+      "skill_level": "intermediate - advanced",
+      "description": "A remote Baja Sur beach-and-reef line that rewards the summer south pulse and feels more like an expedition than a roadside stop. Get the latest surfing conditions, forecast, and tide details for San Hipolito in Baja Sur .",
+      "lineup_guidance": "Tide is secondary here; north-northeast wind and south-southwest swell are the clean setup, but the bay's reef sections and sharp rock exposure make low water less forgiving.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/san-jorge-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/san-jorge-mx-baja-sur",
+      "checked_on": "2026-08-27T17:35:08.692Z",
+      "name": "San Jorge",
+      "skill_level": "intermediate",
+      "description": "A quiet Baja Sur beachbreak that stays on the map when southwest swell lines up and the wind behaves. Get the latest surfing conditions, forecast, and tide details for San Jorge in Baja Sur .",
+      "lineup_guidance": "Tide is secondary here; east-northeast wind and southwest swell are the clean setup, and the beach only comes alive when the banks are organized and the exposed shoreline is not too unruly.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/san-jose-rivermouth-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/san-jose-rivermouth-mx-baja-sur",
+      "checked_on": "2026-08-27T17:35:09.795Z",
+      "name": "San Jose Rivermouth",
+      "skill_level": "intermediate",
+      "description": "The San José del Cabo estuary break, where the river mouth turns the city beachfront into a rights-only surf check when the south pulse and northwest wind line up. Get the latest surfing conditions, forecast, and tide details for San Jose Rivermouth in Baja Sur .",
+      "lineup_guidance": "Tide is secondary here; northwest wind and south swell are the clean setup, but water quality, crowding, and the exact estuary line still decide whether it is worth paddling out.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/san-miguel-mx-baja-norte": {
+      "url": "https://wavewise.io/surf-spots/san-miguel-mx-baja-norte",
+      "checked_on": "2026-08-27T17:35:11.057Z",
+      "name": "San Miguel",
+      "skill_level": "intermediate - advanced",
+      "description": "Baja California's classic right-hand point, a steep cobblestone-and-reef cove that helped put the Ensenada coast on the surf map. Get the latest surfing conditions, forecast, and tide details for San Miguel in Baja Norte .",
+      "lineup_guidance": "Medium to high tide is the safer window, since lower water exposes more rock. Northwest swell is the money window and east to northeast wind keeps the point cleaner, while the steep takeoff and inside rock still make the outing feel like a committed surf check rather than a casual beach stop.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/san-pedrito-todos-santos-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/san-pedrito-todos-santos-mx-baja-sur",
+      "checked_on": "2026-08-27T17:35:12.290Z",
+      "name": "San Pedrito (Todos Santos)",
+      "skill_level": "intermediate",
+      "description": "A clean San Pedrito beach break with a useful all-year window, lefts and rights over sand, and enough shore energy to keep it honest. Get the latest surfing conditions, forecast, and tide details for San Pedrito (Todos Santos) in Baja Sur .",
+      "lineup_guidance": "Northeast offshore and west-southwest swell are the clean setup. The beach break gives lefts and rights, works across the tide cycle, and the read is mostly about crowding, urchins, rips, and rocks rather than a single fixed tide stage.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/scorpion-bay-san-juanico-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/scorpion-bay-san-juanico-mx-baja-sur",
+      "checked_on": "2026-08-27T17:35:13.377Z",
+      "name": "Scorpion Bay (San Juanico)",
+      "skill_level": "intermediate",
+      "description": "Baja Sur's classic long-point surf camp, where the right sections can run forever once the south-southwest pulse lights up the point. Get the latest surfing conditions, forecast, and tide details for Scorpion Bay (San Juanico) in Baja Sur .",
+      "lineup_guidance": "West-northwest wind is the clean setup and south-southwest swell is the main trigger. Tide is secondary to swell size and period, and the long point sections reward patience, camping logistics, and the rough-road approach into San Juanico.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/shipwrecks-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/shipwrecks-mx-baja-sur",
+      "checked_on": "2026-08-27T17:35:14.572Z",
+      "name": "Shipwrecks",
+      "skill_level": "intermediate",
+      "description": "A quiet East Cape reef-and-point check with a solid south-swell window and enough road and reef character to feel remote. Get the latest surfing conditions, forecast, and tide details for Shipwrecks in Baja Sur .",
+      "lineup_guidance": "Northwest wind is the clean setup and south swell is the main trigger. Tide is secondary, but the reef and point sections still ask for respect, and the East Cape road, sparse access, and local pollution notes are part of the real read.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/the-rock-costa-azul-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/the-rock-costa-azul-mx-baja-sur",
+      "checked_on": "2026-08-27T17:35:15.722Z",
+      "name": "The Rock-Costa Azul",
+      "skill_level": "intermediate - advanced",
+      "description": "Costa Azul reef break with a sharper takeoff and a more committed feel than the open beaches. When it is on, it is a focused reef session rather than a casual check. Get the latest surfing conditions, forecast, and tide details for The Rock-Costa Azul in Baja Sur .",
+      "lineup_guidance": "South wind and SE to S swell keep it lined up; mid to high tide is the safer window. The reef is sharp, so pick the takeoff carefully.",
+      "tide_guidance": null,
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    },
+    "https://wavewise.io/surf-spots/zippers-costa-azul-mx-baja-sur": {
+      "url": "https://wavewise.io/surf-spots/zippers-costa-azul-mx-baja-sur",
+      "checked_on": "2026-08-27T17:35:16.823Z",
+      "name": "Zippers-Costa Azul",
+      "skill_level": "advanced",
+      "description": "Costa Azul's signature right, Zippers is the classic Los Cabos wave: a fast point and reef setup at the west end of the bay that can run through to the beach when the swell and crowd line up. Get the latest surfing conditions, forecast, and tide details for Zippers-Costa Azul in Baja Sur .",
+      "lineup_guidance": "Northwest wind and south swell are the clean window, and low, mid, and high tide all stay workable across a broad range rather than one narrow slot. Park at Costa Azul and expect a busy takeoff with rocks and sharp sections in the mix.",
+      "tide_guidance": {
+        "preferred_stage": "high",
+        "preferred_direction": "either",
+        "source_text": "Northwest wind and south swell are the clean window, and low, mid, and high tide all stay workable across a broad range rather than one narrow slot."
+      },
+      "provenance_note": "WaveWise states that some spot data is imported from meta-surf-forecast under the MIT License; treat it as published spot-specific editorial evidence, not an independent field observation."
+    }
+  }
+}

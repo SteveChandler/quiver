@@ -40,13 +40,11 @@ export function createSpotProfile(beach: Beach): SpotProfile {
   };
 }
 
-/**
- * Gets timezone from beach or estimates from coordinates.
- */
+/** Gets the stored beach timezone, with coordinate inference for legacy rows. */
 function getTimezone(beach: Beach): string {
-  // Beach may have timezone column (added in recent migration)
-  // For now, use Pacific Time as default for US beaches
-  // TODO: Use actual timezone column when available in types
+  const storedTimezone = beach.timezone?.trim();
+  if (storedTimezone) return storedTimezone;
+
   const lat = beach.lat ?? 0;
   const lon = beach.lon ?? 0;
 
