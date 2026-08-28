@@ -1,0 +1,3238 @@
+{
+  "provider": "Surfline",
+  "generated_on": "2026-08-27T18:23:18.683Z",
+  "sitemap_url": "https://www.surfline.com/sitemaps/spots.xml",
+  "robots_policy_checked_on": "2026-08-27",
+  "access_notes": {
+    "sitemap": "Public sitemap fetched successfully.",
+    "spot_pages": "Direct automated page requests returned a Cloudflare challenge, so page scraping was not attempted.",
+    "api": "Not accessed because Surfline robots.txt disallows /api for the general user agent.",
+    "indexed_guides": "Only guide fields visible in public search-indexed Surfline results were transcribed and paraphrased.",
+    "browser_observed": "Surfline's own search and rendered spot-guide pages resolved two sitemap aliases and exposed their displayed names, breadcrumb localities, and map coordinates."
+  },
+  "summary": {
+    "source_records": 114,
+    "matched_records": 103,
+    "exact_spot_reference_records": 102,
+    "guide_only_records": 1,
+    "guide_records": 21,
+    "browser_observed_records": 2,
+    "unmatched_records": 11
+  },
+  "unmatched_source_spot_ids": [
+    "bcn-dunes",
+    "bcn-punta-piedra-rocky-point",
+    "bcn-el-paso",
+    "bcn-cabo-san-quintin",
+    "bcs-punta-hughes",
+    "bcs-playa-san-pedro",
+    "bcs-palm-beach-todos-santos",
+    "bcs-san-jose-rivermouth",
+    "bcs-costa-azul",
+    "bcs-la-punta",
+    "bcs-rancho-san-carlos"
+  ],
+  "results": {
+    "bcn-san-antonio-del-mar-tijuana": {
+      "surf_report_url": "https://www.surfline.com/surf-report/san-antonio-del-mar--norte/584204204e65fad6a77091ae",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/san-antonio-del-mar--norte/584204204e65fad6a77091ae",
+      "surfline_spot_id": "584204204e65fad6a77091ae",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-san-antonio-del-mar-tijuana",
+        "source_name": "San Antonio Del Mar North (Tijuana)",
+        "page_url": "https://www.surfline.com/surf-report/san-antonio-del-mar--norte/584204204e65fad6a77091ae/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.46,
+          "longitude": -117.12
+        },
+        "surfline_coordinate": {
+          "latitude": 32.427,
+          "longitude": -117.099
+        },
+        "distance_km": 4.17,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-baja-malibu": {
+      "surf_report_url": "https://www.surfline.com/surf-report/baja-malibu/5842041f4e65fad6a7708e1b",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/baja-malibu/5842041f4e65fad6a7708e1b",
+      "surfline_spot_id": "5842041f4e65fad6a7708e1b",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-baja-malibu",
+        "source_name": "Baja Malibu",
+        "page_url": "https://www.surfline.com/surf-report/baja-malibu/5842041f4e65fad6a7708e1b/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.417,
+          "longitude": -117.096
+        },
+        "surfline_coordinate": {
+          "latitude": 32.417,
+          "longitude": -117.096
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/travel/zones/baja/surf-guide/baja-malibu/5842041f4e65fad6a7708e1b",
+        "minimum_skill": "intermediate",
+        "preferred_stage": "mid",
+        "swell_directions": [
+          "NW",
+          "WNW",
+          "SW",
+          "SSW"
+        ],
+        "offshore_winds": [
+          "ESE",
+          "E",
+          "ENE",
+          "NE"
+        ],
+        "hazards": [
+          "heavy impact zone on larger days",
+          "post-rain water quality"
+        ],
+        "evidence_method": "public_search_indexed_surfline_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-marisol": {
+      "surf_report_url": "https://www.surfline.com/surf-report/marisol/584204204e65fad6a77091c1",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/marisol/584204204e65fad6a77091c1",
+      "surfline_spot_id": "584204204e65fad6a77091c1",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-marisol",
+        "source_name": "Marisol",
+        "page_url": "https://www.surfline.com/surf-report/marisol/584204204e65fad6a77091c1/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.39,
+          "longitude": -117.09
+        },
+        "surfline_coordinate": {
+          "latitude": 32.388,
+          "longitude": -117.092
+        },
+        "distance_km": 0.29,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-marisol-north-point": {
+      "surf_report_url": "https://www.surfline.com/surf-report/marisol-north-point/584204204e65fad6a77091af",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/marisol-north-point/584204204e65fad6a77091af",
+      "surfline_spot_id": "584204204e65fad6a77091af",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-marisol-north-point",
+        "source_name": "Marisol North Point",
+        "page_url": "https://www.surfline.com/surf-report/marisol-north-point/584204204e65fad6a77091af/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.398,
+          "longitude": -117.092
+        },
+        "surfline_coordinate": {
+          "latitude": 32.398,
+          "longitude": -117.092
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-rosarito": {
+      "surf_report_url": "https://www.surfline.com/surf-report/rosarito-beach/5842041f4e65fad6a7708bd0",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/rosarito-beach/5842041f4e65fad6a7708bd0",
+      "surfline_spot_id": "5842041f4e65fad6a7708bd0",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-rosarito",
+        "source_name": "Rosarito",
+        "page_url": "https://www.surfline.com/surf-report/rosarito-beach/5842041f4e65fad6a7708bd0/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.3489432986615,
+          "longitude": -117.066804348278
+        },
+        "surfline_coordinate": {
+          "latitude": 32.3489432986615,
+          "longitude": -117.0668043482785
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/surf-report/rosarito-beach/5842041f4e65fad6a7708bd0/spot-guide",
+        "minimum_skill": "beginner",
+        "preferred_stage": "mid",
+        "swell_directions": [
+          "NW",
+          "SW"
+        ],
+        "offshore_winds": [
+          "E"
+        ],
+        "hazards": [
+          "petty theft",
+          "pollution near river outlets"
+        ],
+        "evidence_method": "public_in_app_browser_rendered_spot_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-renes": {
+      "surf_report_url": "https://www.surfline.com/surf-report/renes/584204204e65fad6a77091bf",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/renes/584204204e65fad6a77091bf",
+      "surfline_spot_id": "584204204e65fad6a77091bf",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-renes",
+        "source_name": "Renes",
+        "page_url": "https://www.surfline.com/surf-report/renes/584204204e65fad6a77091bf/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.32,
+          "longitude": -117.05
+        },
+        "surfline_coordinate": {
+          "latitude": 32.312,
+          "longitude": -117.049
+        },
+        "distance_km": 0.89,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-alfonsos": {
+      "surf_report_url": "https://www.surfline.com/surf-report/alfonsos/584204204e65fad6a77091b5",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/alfonsos/584204204e65fad6a77091b5",
+      "surfline_spot_id": "584204204e65fad6a77091b5",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-alfonsos",
+        "source_name": "Alfonsos",
+        "page_url": "https://www.surfline.com/surf-report/alfonsos/584204204e65fad6a77091b5/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.274,
+          "longitude": -117.038
+        },
+        "surfline_coordinate": {
+          "latitude": 32.274,
+          "longitude": -117.038
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-popotla": {
+      "surf_report_url": "https://www.surfline.com/surf-report/popotla/584204204e65fad6a77091b2",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/popotla/584204204e65fad6a77091b2",
+      "surfline_spot_id": "584204204e65fad6a77091b2",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-popotla",
+        "source_name": "Popotla",
+        "page_url": "https://www.surfline.com/surf-report/popotla/584204204e65fad6a77091b2/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.279672,
+          "longitude": -117.022506
+        },
+        "surfline_coordinate": {
+          "latitude": 32.268,
+          "longitude": -117.026
+        },
+        "distance_km": 1.34,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-calafia": {
+      "surf_report_url": "https://www.surfline.com/surf-report/calafia/584204204e65fad6a77091b7",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/calafia/584204204e65fad6a77091b7",
+      "surfline_spot_id": "584204204e65fad6a77091b7",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-calafia",
+        "source_name": "Calafia",
+        "page_url": "https://www.surfline.com/surf-report/calafia/584204204e65fad6a77091b7/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.2668,
+          "longitude": -117.018
+        },
+        "surfline_coordinate": {
+          "latitude": 32.2668,
+          "longitude": -117.018
+        },
+        "distance_km": 5.2,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-el-morro-point-k37-5": {
+      "surf_report_url": "https://www.surfline.com/surf-report/el-morro-point-k37-5-/584204204e65fad6a77091bb",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/el-morro-point-k37-5-/584204204e65fad6a77091bb",
+      "surfline_spot_id": "584204204e65fad6a77091bb",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-el-morro-point-k37-5",
+        "source_name": "El Morro Point (K37.5)",
+        "page_url": "https://www.surfline.com/surf-report/el-morro-point-k37-5-/584204204e65fad6a77091bb/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.26815,
+          "longitude": -117.00897
+        },
+        "surfline_coordinate": {
+          "latitude": 32.264,
+          "longitude": -117.008
+        },
+        "distance_km": 0.47,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-k-38": {
+      "surf_report_url": "https://www.surfline.com/surf-report/k-38/584204204e65fad6a77091ba",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/k-38/584204204e65fad6a77091ba",
+      "surfline_spot_id": "584204204e65fad6a77091ba",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-k-38",
+        "source_name": "K-38",
+        "page_url": "https://www.surfline.com/surf-report/k-38/584204204e65fad6a77091ba/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.264,
+          "longitude": -117.006
+        },
+        "surfline_coordinate": {
+          "latitude": 32.264,
+          "longitude": -117.006
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/travel/zones/baja/surf-guide/k-38/584204204e65fad6a77091ba",
+        "minimum_skill": "intermediate",
+        "preferred_stage": "low_to_mid",
+        "swell_directions": [
+          "S",
+          "SW",
+          "W",
+          "WNW"
+        ],
+        "offshore_winds": [
+          "NE",
+          "E"
+        ],
+        "hazards": [
+          "rocky reef",
+          "crowds"
+        ],
+        "evidence_method": "public_search_indexed_surfline_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-k-40": {
+      "surf_report_url": "https://www.surfline.com/surf-report/k-40-puerto-nuevo-/584204204e65fad6a77091bc",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/k-40-puerto-nuevo-/584204204e65fad6a77091bc",
+      "surfline_spot_id": "584204204e65fad6a77091bc",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-k-40",
+        "source_name": "K-40",
+        "page_url": "https://www.surfline.com/surf-report/k-40-puerto-nuevo-/584204204e65fad6a77091bc/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.24,
+          "longitude": -116.94
+        },
+        "surfline_coordinate": {
+          "latitude": 32.241,
+          "longitude": -116.939
+        },
+        "distance_km": 5.59,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-rancho-santini": {
+      "surf_report_url": "https://www.surfline.com/surf-report/rancho-santini/584204204e65fad6a77091b8",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/rancho-santini/584204204e65fad6a77091b8",
+      "surfline_spot_id": "584204204e65fad6a77091b8",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-rancho-santini",
+        "source_name": "Rancho Santini",
+        "page_url": "https://www.surfline.com/surf-report/rancho-santini/584204204e65fad6a77091b8/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.23,
+          "longitude": -116.92
+        },
+        "surfline_coordinate": {
+          "latitude": 32.21868,
+          "longitude": -116.91963
+        },
+        "distance_km": 1.26,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-las-gaviotas": {
+      "surf_report_url": null,
+      "tide_chart_url": null,
+      "surfline_spot_id": null,
+      "match_method": "indexed_guide_only_coordinate_mismatch_excluded",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-las-gaviotas",
+        "source_name": "Las Gaviotas",
+        "page_url": "https://www.surfline.com/surf-report/las-gaviotas/584204204e65fad6a7709a4d/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.2520292816467,
+          "longitude": -116.963040483561
+        },
+        "surfline_coordinate": {
+          "latitude": 11.2605,
+          "longitude": -73.567
+        },
+        "distance_km": 5005.76,
+        "status": "rejected_coordinate_mismatch",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/travel/zones/baja/surf-guide/las-gaviotas/584204204e65fad6a77091b9",
+        "minimum_skill": "beginner",
+        "preferred_stage": "all",
+        "swell_directions": [
+          "S",
+          "SW",
+          "W",
+          "WNW"
+        ],
+        "offshore_winds": [
+          "NE",
+          "ENE",
+          "E",
+          "ESE",
+          "SE"
+        ],
+        "hazards": [
+          "current",
+          "possible sewage spills"
+        ],
+        "evidence_method": "public_search_indexed_surfline_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-primo-tapia": {
+      "surf_report_url": "https://www.surfline.com/surf-report/primo-tapia/584204204e65fad6a77091bd",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/primo-tapia/584204204e65fad6a77091bd",
+      "surfline_spot_id": "584204204e65fad6a77091bd",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-primo-tapia",
+        "source_name": "Primo Tapia",
+        "page_url": "https://www.surfline.com/surf-report/primo-tapia/584204204e65fad6a77091bd/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.19,
+          "longitude": -116.92
+        },
+        "surfline_coordinate": {
+          "latitude": 32.22162,
+          "longitude": -116.92079
+        },
+        "distance_km": 3.52,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-rauls": {
+      "surf_report_url": "https://www.surfline.com/surf-report/rauls/584204204e65fad6a77091be",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/rauls/584204204e65fad6a77091be",
+      "surfline_spot_id": "584204204e65fad6a77091be",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-rauls",
+        "source_name": "Rauls",
+        "page_url": "https://www.surfline.com/surf-report/rauls/584204204e65fad6a77091be/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.249939,
+          "longitude": -116.948142
+        },
+        "surfline_coordinate": {
+          "latitude": 32.24587,
+          "longitude": -116.943
+        },
+        "distance_km": 0.66,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-cantamar-settlement": {
+      "surf_report_url": "https://www.surfline.com/surf-report/cantamar-settlement/584204204e65fad6a77091c0",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/cantamar-settlement/584204204e65fad6a77091c0",
+      "surfline_spot_id": "584204204e65fad6a77091c0",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-cantamar-settlement",
+        "source_name": "Cantamar Settlement",
+        "page_url": "https://www.surfline.com/surf-report/cantamar-settlement/584204204e65fad6a77091c0/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.223122,
+          "longitude": -116.921331
+        },
+        "surfline_coordinate": {
+          "latitude": 32.22679,
+          "longitude": -116.92318
+        },
+        "distance_km": 0.44,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-la-fonda": {
+      "surf_report_url": "https://www.surfline.com/surf-report/la-fonda/584204204e65fad6a77091c7",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/la-fonda/584204204e65fad6a77091c7",
+      "surfline_spot_id": "584204204e65fad6a77091c7",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-la-fonda",
+        "source_name": "La Fonda",
+        "page_url": "https://www.surfline.com/surf-report/la-fonda/584204204e65fad6a77091c7/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.118,
+          "longitude": -116.888
+        },
+        "surfline_coordinate": {
+          "latitude": 32.118,
+          "longitude": -116.888
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/travel/zones/baja/surf-guide/la-fonda/584204204e65fad6a77091c7",
+        "minimum_skill": "intermediate",
+        "preferred_stage": "low_to_mid",
+        "swell_directions": [
+          "SW",
+          "W"
+        ],
+        "offshore_winds": [
+          "E"
+        ],
+        "hazards": [
+          "demanding paddle on larger swells",
+          "crowds"
+        ],
+        "evidence_method": "public_search_indexed_surfline_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-halfway-house": {
+      "surf_report_url": "https://www.surfline.com/surf-report/halfway-house/584204204e65fad6a77091cb",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/halfway-house/584204204e65fad6a77091cb",
+      "surfline_spot_id": "584204204e65fad6a77091cb",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-halfway-house",
+        "source_name": "Halfway House",
+        "page_url": "https://www.surfline.com/surf-report/halfway-house/584204204e65fad6a77091cb/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.131,
+          "longitude": -116.896
+        },
+        "surfline_coordinate": {
+          "latitude": 32.17528,
+          "longitude": -116.90718
+        },
+        "distance_km": 5.03,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-campo-lopez-k-55": {
+      "surf_report_url": "https://www.surfline.com/surf-report/campo-lopez-k-55-/584204204e65fad6a77091c2",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/campo-lopez-k-55-/584204204e65fad6a77091c2",
+      "surfline_spot_id": "584204204e65fad6a77091c2",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-campo-lopez-k-55",
+        "source_name": "Campo Lopez (K-55)",
+        "page_url": "https://www.surfline.com/surf-report/campo-lopez-k-55-/584204204e65fad6a77091c2/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.154758,
+          "longitude": -116.897425
+        },
+        "surfline_coordinate": {
+          "latitude": 32.1568671586803,
+          "longitude": -116.89901053905487
+        },
+        "distance_km": 0.28,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-k-55-1-2": {
+      "surf_report_url": "https://www.surfline.com/surf-report/k-55-1-2/584204204e65fad6a77091c4",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/k-55-1-2/584204204e65fad6a77091c4",
+      "surfline_spot_id": "584204204e65fad6a77091c4",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-k-55-1-2",
+        "source_name": "K-55 1/2",
+        "page_url": "https://www.surfline.com/surf-report/k-55-1-2/584204204e65fad6a77091c4/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.08,
+          "longitude": -116.89
+        },
+        "surfline_coordinate": {
+          "latitude": 32.153,
+          "longitude": -116.898
+        },
+        "distance_km": 8.15,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-alisitos": {
+      "surf_report_url": "https://www.surfline.com/surf-report/alisitos/584204204e65fad6a77091c6",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/alisitos/584204204e65fad6a77091c6",
+      "surfline_spot_id": "584204204e65fad6a77091c6",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-alisitos",
+        "source_name": "Alisitos",
+        "page_url": "https://www.surfline.com/surf-report/alisitos/584204204e65fad6a77091c6/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.07,
+          "longitude": -116.89
+        },
+        "surfline_coordinate": {
+          "latitude": 32.13267,
+          "longitude": -116.8886
+        },
+        "distance_km": 6.97,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-la-mision": {
+      "surf_report_url": "https://www.surfline.com/surf-report/la-mision/584204204e65fad6a77091c5",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/la-mision/584204204e65fad6a77091c5",
+      "surfline_spot_id": "584204204e65fad6a77091c5",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-la-mision",
+        "source_name": "La Mision",
+        "page_url": "https://www.surfline.com/surf-report/la-mision/584204204e65fad6a77091c5/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.100922,
+          "longitude": -116.883309
+        },
+        "surfline_coordinate": {
+          "latitude": 32.105,
+          "longitude": -116.89
+        },
+        "distance_km": 0.78,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-la-salina": {
+      "surf_report_url": "https://www.surfline.com/surf-report/la-salina/584204204e65fad6a77091ca",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/la-salina/584204204e65fad6a77091ca",
+      "surfline_spot_id": "584204204e65fad6a77091ca",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-la-salina",
+        "source_name": "La Salina",
+        "page_url": "https://www.surfline.com/surf-report/la-salina/584204204e65fad6a77091ca/spot-guide",
+        "source_coordinate": {
+          "latitude": 32.055903,
+          "longitude": -116.882592
+        },
+        "surfline_coordinate": {
+          "latitude": 32.058,
+          "longitude": -116.887
+        },
+        "distance_km": 0.48,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-mirador-viewpoint": {
+      "surf_report_url": "https://www.surfline.com/surf-report/mirador-viewpoint/584204204e65fad6a77091c8",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/mirador-viewpoint/584204204e65fad6a77091c8",
+      "surfline_spot_id": "584204204e65fad6a77091c8",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-mirador-viewpoint",
+        "source_name": "Mirador Viewpoint",
+        "page_url": "https://www.surfline.com/surf-report/mirador-viewpoint/584204204e65fad6a77091c8/spot-guide",
+        "source_coordinate": {
+          "latitude": 31.986,
+          "longitude": -116.854
+        },
+        "surfline_coordinate": {
+          "latitude": 31.986,
+          "longitude": -116.854
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-salsipuedes": {
+      "surf_report_url": "https://www.surfline.com/surf-report/salsipuedes/5842041f4e65fad6a7708bd2",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/salsipuedes/5842041f4e65fad6a7708bd2",
+      "surfline_spot_id": "5842041f4e65fad6a7708bd2",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-salsipuedes",
+        "source_name": "Salsipuedes",
+        "page_url": "https://www.surfline.com/surf-report/salsipuedes/5842041f4e65fad6a7708bd2/spot-guide",
+        "source_coordinate": {
+          "latitude": 31.9763652271726,
+          "longitude": -116.791388895755
+        },
+        "surfline_coordinate": {
+          "latitude": 31.97636522717259,
+          "longitude": -116.7913888957552
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/surf-report/salsipuedes/5842041f4e65fad6a7708bd2/spot-guide",
+        "minimum_skill": "intermediate",
+        "preferred_stage": "low",
+        "swell_directions": [
+          "W",
+          "NW"
+        ],
+        "offshore_winds": [
+          "N"
+        ],
+        "hazards": [
+          "shallow rocks",
+          "difficult boat access"
+        ],
+        "evidence_method": "public_in_app_browser_rendered_spot_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-islas-de-todos-santos": {
+      "surf_report_url": "https://www.surfline.com/surf-report/todos-santos--killers/5842041f4e65fad6a7708bc7",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/todos-santos--killers/5842041f4e65fad6a7708bc7",
+      "surfline_spot_id": "5842041f4e65fad6a7708bc7",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-islas-de-todos-santos",
+        "source_name": "Islas de Todos Santos",
+        "page_url": "https://www.surfline.com/surf-report/todos-santos--killers/5842041f4e65fad6a7708bc7/spot-guide",
+        "source_coordinate": {
+          "latitude": 31.809029279377,
+          "longitude": -116.808197970004
+        },
+        "surfline_coordinate": {
+          "latitude": 31.80902927937703,
+          "longitude": -116.8081979700041
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/surf-report/todos-santos--killers/5842041f4e65fad6a7708bc7/spot-guide",
+        "minimum_skill": "advanced",
+        "preferred_stage": "low",
+        "swell_directions": [
+          "NW",
+          "W"
+        ],
+        "offshore_winds": [
+          "E"
+        ],
+        "hazards": [
+          "exposed rocks",
+          "currents",
+          "extremely powerful surf",
+          "boat-only access"
+        ],
+        "evidence_method": "public_in_app_browser_rendered_spot_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-san-miguel": {
+      "surf_report_url": "https://www.surfline.com/surf-report/san-miguel/5842041f4e65fad6a7708bc9",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/san-miguel/5842041f4e65fad6a7708bc9",
+      "surfline_spot_id": "5842041f4e65fad6a7708bc9",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-san-miguel",
+        "source_name": "San Miguel",
+        "page_url": "https://www.surfline.com/surf-report/san-miguel/5842041f4e65fad6a7708bc9/spot-guide",
+        "source_coordinate": {
+          "latitude": 31.9001651947431,
+          "longitude": -116.731165956641
+        },
+        "surfline_coordinate": {
+          "latitude": 31.90016519474307,
+          "longitude": -116.73117
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/surf-report/san-miguel/5842041f4e65fad6a7708bc9/spot-guide",
+        "minimum_skill": "intermediate",
+        "preferred_stage": "mid_to_high",
+        "swell_directions": [
+          "W",
+          "NW"
+        ],
+        "offshore_winds": [
+          "NE"
+        ],
+        "hazards": [
+          "rocks",
+          "urchins"
+        ],
+        "evidence_method": "public_in_app_browser_rendered_spot_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-3ms": {
+      "surf_report_url": "https://www.surfline.com/surf-report/3ms/584204204e65fad6a77091cd",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/3ms/584204204e65fad6a77091cd",
+      "surfline_spot_id": "584204204e65fad6a77091cd",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-3ms",
+        "source_name": "3Ms",
+        "page_url": "https://www.surfline.com/surf-report/3ms/584204204e65fad6a77091cd/spot-guide",
+        "source_coordinate": {
+          "latitude": 31.878,
+          "longitude": -116.69
+        },
+        "surfline_coordinate": {
+          "latitude": 31.878,
+          "longitude": -116.69
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/surf-report/3ms/584204204e65fad6a77091cd/spot-guide",
+        "minimum_skill": "intermediate",
+        "preferred_stage": "all",
+        "swell_directions": [
+          "SW",
+          "W",
+          "WNW"
+        ],
+        "offshore_winds": [
+          "NE",
+          "ENE",
+          "E"
+        ],
+        "hazards": [
+          "sharks",
+          "rocks",
+          "rips",
+          "pollution"
+        ],
+        "evidence_method": "public_in_app_browser_rendered_spot_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-cannery-stacks": {
+      "surf_report_url": "https://www.surfline.com/surf-report/cannery-stacks/584204204e65fad6a77091ce",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/cannery-stacks/584204204e65fad6a77091ce",
+      "surfline_spot_id": "584204204e65fad6a77091ce",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-cannery-stacks",
+        "source_name": "Cannery (Stacks)",
+        "page_url": "https://www.surfline.com/surf-report/cannery-stacks/584204204e65fad6a77091ce/spot-guide",
+        "source_coordinate": {
+          "latitude": 31.87,
+          "longitude": -116.68
+        },
+        "surfline_coordinate": {
+          "latitude": 31.869,
+          "longitude": -116.682
+        },
+        "distance_km": 0.22,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-california-trailer-park": {
+      "surf_report_url": "https://www.surfline.com/surf-report/california-trailer-park/584204204e65fad6a77091cf",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/california-trailer-park/584204204e65fad6a77091cf",
+      "surfline_spot_id": "584204204e65fad6a77091cf",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-california-trailer-park",
+        "source_name": "California Trailer Park",
+        "page_url": "https://www.surfline.com/surf-report/california-trailer-park/584204204e65fad6a77091cf/spot-guide",
+        "source_coordinate": {
+          "latitude": 31.86,
+          "longitude": -116.67
+        },
+        "surfline_coordinate": {
+          "latitude": 31.859,
+          "longitude": -116.669
+        },
+        "distance_km": 0.15,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-ensenada-beaches": {
+      "surf_report_url": "https://www.surfline.com/surf-report/ensenada-beaches/584204204e65fad6a77091d0",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/ensenada-beaches/584204204e65fad6a77091d0",
+      "surfline_spot_id": "584204204e65fad6a77091d0",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-ensenada-beaches",
+        "source_name": "Ensenada Beaches",
+        "page_url": "https://www.surfline.com/surf-report/ensenada-beaches/584204204e65fad6a77091d0/spot-guide",
+        "source_coordinate": {
+          "latitude": 31.778,
+          "longitude": -116.632
+        },
+        "surfline_coordinate": {
+          "latitude": 31.778,
+          "longitude": -116.632
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-boca-de-santo-tomas": {
+      "surf_report_url": "https://www.surfline.com/surf-report/boca-de-santo-tomas/584204204e65fad6a77091d1",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/boca-de-santo-tomas/584204204e65fad6a77091d1",
+      "surfline_spot_id": "584204204e65fad6a77091d1",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-boca-de-santo-tomas",
+        "source_name": "Boca De Santo Tomas",
+        "page_url": "https://www.surfline.com/surf-report/boca-de-santo-tomas/584204204e65fad6a77091d1/spot-guide",
+        "source_coordinate": {
+          "latitude": 31.561,
+          "longitude": -116.693
+        },
+        "surfline_coordinate": {
+          "latitude": 31.561,
+          "longitude": -116.693
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-lighthouse-punta-san-jose": {
+      "surf_report_url": "https://www.surfline.com/surf-report/lighthouse-punta-san-jose-/584204204e65fad6a77091d3",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/lighthouse-punta-san-jose-/584204204e65fad6a77091d3",
+      "surfline_spot_id": "584204204e65fad6a77091d3",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-lighthouse-punta-san-jose",
+        "source_name": "Lighthouse (Punta San Jose)",
+        "page_url": "https://www.surfline.com/surf-report/lighthouse-punta-san-jose-/584204204e65fad6a77091d3/spot-guide",
+        "source_coordinate": {
+          "latitude": 31.462,
+          "longitude": -116.589
+        },
+        "surfline_coordinate": {
+          "latitude": 31.462,
+          "longitude": -116.589
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-punta-cabras": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-cabras/584204204e65fad6a77091d5",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-cabras/584204204e65fad6a77091d5",
+      "surfline_spot_id": "584204204e65fad6a77091d5",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-punta-cabras",
+        "source_name": "Punta Cabras",
+        "page_url": "https://www.surfline.com/surf-report/punta-cabras/584204204e65fad6a77091d5/spot-guide",
+        "source_coordinate": {
+          "latitude": 31.329,
+          "longitude": -116.457
+        },
+        "surfline_coordinate": {
+          "latitude": 31.329,
+          "longitude": -116.457
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-k-181": {
+      "surf_report_url": "https://www.surfline.com/surf-report/k-181/584204204e65fad6a77091d6",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/k-181/584204204e65fad6a77091d6",
+      "surfline_spot_id": "584204204e65fad6a77091d6",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-k-181",
+        "source_name": "K-181",
+        "page_url": "https://www.surfline.com/surf-report/k-181/584204204e65fad6a77091d6/spot-guide",
+        "source_coordinate": {
+          "latitude": 31.297,
+          "longitude": -116.418
+        },
+        "surfline_coordinate": {
+          "latitude": 31.297,
+          "longitude": -116.418
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-san-antonio-del-mar-colonet-area": {
+      "surf_report_url": "https://www.surfline.com/surf-report/san-antonio-del-mar--sur/584204204e65fad6a77091da",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/san-antonio-del-mar--sur/584204204e65fad6a77091da",
+      "surfline_spot_id": "584204204e65fad6a77091da",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-san-antonio-del-mar-colonet-area",
+        "source_name": "San Antonio Del Mar (Colonet Area)",
+        "page_url": "https://www.surfline.com/surf-report/san-antonio-del-mar--sur/584204204e65fad6a77091da/spot-guide",
+        "source_coordinate": {
+          "latitude": 31.037,
+          "longitude": -116.345
+        },
+        "surfline_coordinate": {
+          "latitude": 31.037,
+          "longitude": -116.345
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-cabo-colonet": {
+      "surf_report_url": "https://www.surfline.com/surf-report/cabo-colonet/584204204e65fad6a77091db",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/cabo-colonet/584204204e65fad6a77091db",
+      "surfline_spot_id": "584204204e65fad6a77091db",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-cabo-colonet",
+        "source_name": "Cabo Colonet",
+        "page_url": "https://www.surfline.com/surf-report/cabo-colonet/584204204e65fad6a77091db/spot-guide",
+        "source_coordinate": {
+          "latitude": 30.953,
+          "longitude": -116.268
+        },
+        "surfline_coordinate": {
+          "latitude": 30.953,
+          "longitude": -116.268
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-quatro-casas": {
+      "surf_report_url": "https://www.surfline.com/surf-report/quatro-casas/584204204e65fad6a77091d9",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/quatro-casas/584204204e65fad6a77091d9",
+      "surfline_spot_id": "584204204e65fad6a77091d9",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-quatro-casas",
+        "source_name": "Quatro Casas",
+        "page_url": "https://www.surfline.com/surf-report/quatro-casas/584204204e65fad6a77091d9/spot-guide",
+        "source_coordinate": {
+          "latitude": 30.857,
+          "longitude": -116.177
+        },
+        "surfline_coordinate": {
+          "latitude": 30.857,
+          "longitude": -116.177
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/surf-report/quatro-casas/584204204e65fad6a77091d9/spot-guide",
+        "minimum_skill": "beginner",
+        "preferred_stage": "all",
+        "swell_directions": [
+          "S",
+          "SW",
+          "W",
+          "NW"
+        ],
+        "offshore_winds": [
+          "NE"
+        ],
+        "hazards": [
+          "rocks",
+          "crowds"
+        ],
+        "evidence_method": "public_in_app_browser_rendered_spot_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-roberts-left": {
+      "surf_report_url": "https://www.surfline.com/surf-report/roberts-left/584204204e65fad6a77091dc",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/roberts-left/584204204e65fad6a77091dc",
+      "surfline_spot_id": "584204204e65fad6a77091dc",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-roberts-left",
+        "source_name": "Roberts Left",
+        "page_url": "https://www.surfline.com/surf-report/roberts-left/584204204e65fad6a77091dc/spot-guide",
+        "source_coordinate": {
+          "latitude": 30.86,
+          "longitude": -116.14
+        },
+        "surfline_coordinate": {
+          "latitude": 30.855,
+          "longitude": -116.15
+        },
+        "distance_km": 1.1,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-punta-san-jacinto-shipwrecks": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-san-jacinto-shipwrecks-/584204204e65fad6a77091de",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-san-jacinto-shipwrecks-/584204204e65fad6a77091de",
+      "surfline_spot_id": "584204204e65fad6a77091de",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-punta-san-jacinto-shipwrecks",
+        "source_name": "Punta San Jacinto (Shipwrecks — Baja Norte)",
+        "page_url": "https://www.surfline.com/surf-report/punta-san-jacinto-shipwrecks-/584204204e65fad6a77091de/spot-guide",
+        "source_coordinate": {
+          "latitude": 30.84,
+          "longitude": -116.13
+        },
+        "surfline_coordinate": {
+          "latitude": 30.843,
+          "longitude": -116.136
+        },
+        "distance_km": 0.66,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-rincon-de-baja": {
+      "surf_report_url": "https://www.surfline.com/surf-report/rincon-de-baja/584204204e65fad6a77091dd",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/rincon-de-baja/584204204e65fad6a77091dd",
+      "surfline_spot_id": "584204204e65fad6a77091dd",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-rincon-de-baja",
+        "source_name": "Rincon De Baja",
+        "page_url": "https://www.surfline.com/surf-report/rincon-de-baja/584204204e65fad6a77091dd/spot-guide",
+        "source_coordinate": {
+          "latitude": 30.83,
+          "longitude": -116.12
+        },
+        "surfline_coordinate": {
+          "latitude": 30.827,
+          "longitude": -116.116
+        },
+        "distance_km": 0.51,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-camalu": {
+      "surf_report_url": "https://www.surfline.com/surf-report/camalu/584204204e65fad6a77091e0",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/camalu/584204204e65fad6a77091e0",
+      "surfline_spot_id": "584204204e65fad6a77091e0",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-camalu",
+        "source_name": "Camalu",
+        "page_url": "https://www.surfline.com/surf-report/camalu/584204204e65fad6a77091e0/spot-guide",
+        "source_coordinate": {
+          "latitude": 30.82,
+          "longitude": -116.1
+        },
+        "surfline_coordinate": {
+          "latitude": 30.813,
+          "longitude": -116.087
+        },
+        "distance_km": 1.47,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-playa-san-ramon": {
+      "surf_report_url": "https://www.surfline.com/surf-report/playa-san-ramon/584204204e65fad6a77091df",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/playa-san-ramon/584204204e65fad6a77091df",
+      "surfline_spot_id": "584204204e65fad6a77091df",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-playa-san-ramon",
+        "source_name": "Playa San Ramon",
+        "page_url": "https://www.surfline.com/surf-report/playa-san-ramon/584204204e65fad6a77091df/spot-guide",
+        "source_coordinate": {
+          "latitude": 30.74,
+          "longitude": -116.05
+        },
+        "surfline_coordinate": {
+          "latitude": 30.734,
+          "longitude": -116.053
+        },
+        "distance_km": 0.73,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-playa-santa-maria": {
+      "surf_report_url": "https://www.surfline.com/surf-report/playa-santa-maria/584204204e65fad6a77091e1",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/playa-santa-maria/584204204e65fad6a77091e1",
+      "surfline_spot_id": "584204204e65fad6a77091e1",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-playa-santa-maria",
+        "source_name": "Playa Santa Maria",
+        "page_url": "https://www.surfline.com/surf-report/playa-santa-maria/584204204e65fad6a77091e1/spot-guide",
+        "source_coordinate": {
+          "latitude": 30.38,
+          "longitude": -115.89
+        },
+        "surfline_coordinate": {
+          "latitude": 30.326,
+          "longitude": -115.854
+        },
+        "distance_km": 6.93,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-cielito-lindo": {
+      "surf_report_url": "https://www.surfline.com/surf-report/cielito-lindo/584204204e65fad6a77091e2",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/cielito-lindo/584204204e65fad6a77091e2",
+      "surfline_spot_id": "584204204e65fad6a77091e2",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-cielito-lindo",
+        "source_name": "Cielito Lindo",
+        "page_url": "https://www.surfline.com/surf-report/cielito-lindo/584204204e65fad6a77091e2/spot-guide",
+        "source_coordinate": {
+          "latitude": 30.293,
+          "longitude": -115.833
+        },
+        "surfline_coordinate": {
+          "latitude": 30.293,
+          "longitude": -115.833
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-el-socorro": {
+      "surf_report_url": "https://www.surfline.com/surf-report/el-socorro/584204204e65fad6a77091e3",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/el-socorro/584204204e65fad6a77091e3",
+      "surfline_spot_id": "584204204e65fad6a77091e3",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-el-socorro",
+        "source_name": "El Socorro",
+        "page_url": "https://www.surfline.com/surf-report/el-socorro/584204204e65fad6a77091e3/spot-guide",
+        "source_coordinate": {
+          "latitude": 30.27,
+          "longitude": -115.8
+        },
+        "surfline_coordinate": {
+          "latitude": 30.2,
+          "longitude": -115.812
+        },
+        "distance_km": 7.87,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-casas": {
+      "surf_report_url": "https://www.surfline.com/surf-report/casas/584204204e65fad6a77091e5",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/casas/584204204e65fad6a77091e5",
+      "surfline_spot_id": "584204204e65fad6a77091e5",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-casas",
+        "source_name": "Casas",
+        "page_url": "https://www.surfline.com/surf-report/casas/584204204e65fad6a77091e5/spot-guide",
+        "source_coordinate": {
+          "latitude": 30.143,
+          "longitude": -115.818
+        },
+        "surfline_coordinate": {
+          "latitude": 30.143,
+          "longitude": -115.818
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-punta-baja": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-baja/584204204e65fad6a77091f7",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-baja/584204204e65fad6a77091f7",
+      "surfline_spot_id": "584204204e65fad6a77091f7",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-punta-baja",
+        "source_name": "Punta Baja",
+        "page_url": "https://www.surfline.com/surf-report/punta-baja/584204204e65fad6a77091f7/spot-guide",
+        "source_coordinate": {
+          "latitude": 29.941,
+          "longitude": -115.817
+        },
+        "surfline_coordinate": {
+          "latitude": 29.941,
+          "longitude": -115.817
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-punta-san-antonio": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-san-antonio/584204204e65fad6a77091f9",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-san-antonio/584204204e65fad6a77091f9",
+      "surfline_spot_id": "584204204e65fad6a77091f9",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-punta-san-antonio",
+        "source_name": "Punta San Antonio",
+        "page_url": "https://www.surfline.com/surf-report/punta-san-antonio/584204204e65fad6a77091f9/spot-guide",
+        "source_coordinate": {
+          "latitude": 29.76,
+          "longitude": -115.7
+        },
+        "surfline_coordinate": {
+          "latitude": 29.744,
+          "longitude": -115.706
+        },
+        "distance_km": 1.87,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-punta-san-carlos": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-san-carlos/584204204e65fad6a77091fb",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-san-carlos/584204204e65fad6a77091fb",
+      "surfline_spot_id": "584204204e65fad6a77091fb",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-punta-san-carlos",
+        "source_name": "Punta San Carlos",
+        "page_url": "https://www.surfline.com/surf-report/punta-san-carlos/584204204e65fad6a77091fb/spot-guide",
+        "source_coordinate": {
+          "latitude": 29.602,
+          "longitude": -115.5
+        },
+        "surfline_coordinate": {
+          "latitude": 29.602,
+          "longitude": -115.5
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/surf-report/punta-san-carlos/584204204e65fad6a77091fb/spot-guide",
+        "minimum_skill": "beginner",
+        "preferred_stage": "low_to_mid",
+        "swell_directions": [
+          "SW",
+          "SSW",
+          "S",
+          "W",
+          "WNW"
+        ],
+        "offshore_winds": [
+          "N",
+          "NE"
+        ],
+        "hazards": [
+          "urchins",
+          "rocks",
+          "rips",
+          "remote access"
+        ],
+        "evidence_method": "public_in_app_browser_rendered_spot_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-punta-canoas": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-canoas/584204204e65fad6a77091fc",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-canoas/584204204e65fad6a77091fc",
+      "surfline_spot_id": "584204204e65fad6a77091fc",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-punta-canoas",
+        "source_name": "Punta Canoas",
+        "page_url": "https://www.surfline.com/surf-report/punta-canoas/584204204e65fad6a77091fc/spot-guide",
+        "source_coordinate": {
+          "latitude": 29.42,
+          "longitude": -115.178
+        },
+        "surfline_coordinate": {
+          "latitude": 29.42,
+          "longitude": -115.178
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-punta-blanca-seven-sisters": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-blanca/584204204e65fad6a77091fd",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-blanca/584204204e65fad6a77091fd",
+      "surfline_spot_id": "584204204e65fad6a77091fd",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-punta-blanca-seven-sisters",
+        "source_name": "Punta Blanca (Seven Sisters)",
+        "page_url": "https://www.surfline.com/surf-report/punta-blanca/584204204e65fad6a77091fd/spot-guide",
+        "source_coordinate": {
+          "latitude": 29.089,
+          "longitude": -114.703
+        },
+        "surfline_coordinate": {
+          "latitude": 29.089,
+          "longitude": -114.703
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-punta-cono": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-cono/584204204e65fad6a7709202",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-cono/584204204e65fad6a7709202",
+      "surfline_spot_id": "584204204e65fad6a7709202",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-punta-cono",
+        "source_name": "Punta Cono",
+        "page_url": "https://www.surfline.com/surf-report/punta-cono/584204204e65fad6a7709202/spot-guide",
+        "source_coordinate": {
+          "latitude": 28.97,
+          "longitude": -114.58
+        },
+        "surfline_coordinate": {
+          "latitude": 28.957,
+          "longitude": -114.585
+        },
+        "distance_km": 1.53,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-punta-maria": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-maria/584204204e65fad6a7709215",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-maria/584204204e65fad6a7709215",
+      "surfline_spot_id": "584204204e65fad6a7709215",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-punta-maria",
+        "source_name": "Punta Maria",
+        "page_url": "https://www.surfline.com/surf-report/punta-maria/584204204e65fad6a7709215/spot-guide",
+        "source_coordinate": {
+          "latitude": 28.912,
+          "longitude": -114.529
+        },
+        "surfline_coordinate": {
+          "latitude": 28.912,
+          "longitude": -114.529
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-el-cardon": {
+      "surf_report_url": "https://www.surfline.com/surf-report/el-cardon/584204204e65fad6a7709201",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/el-cardon/584204204e65fad6a7709201",
+      "surfline_spot_id": "584204204e65fad6a7709201",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-el-cardon",
+        "source_name": "El Cardon",
+        "page_url": "https://www.surfline.com/surf-report/el-cardon/584204204e65fad6a7709201/spot-guide",
+        "source_coordinate": {
+          "latitude": 28.9,
+          "longitude": -114.464
+        },
+        "surfline_coordinate": {
+          "latitude": 28.9,
+          "longitude": -114.464
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-punta-ositos": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-ositos/584204204e65fad6a7709214",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-ositos/584204204e65fad6a7709214",
+      "surfline_spot_id": "584204204e65fad6a7709214",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-punta-ositos",
+        "source_name": "Punta Ositos",
+        "page_url": "https://www.surfline.com/surf-report/punta-ositos/584204204e65fad6a7709214/spot-guide",
+        "source_coordinate": {
+          "latitude": 28.872,
+          "longitude": -114.44
+        },
+        "surfline_coordinate": {
+          "latitude": 28.872,
+          "longitude": -114.44
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-punta-negra": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-negra/584204204e65fad6a7709213",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-negra/584204204e65fad6a7709213",
+      "surfline_spot_id": "584204204e65fad6a7709213",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-punta-negra",
+        "source_name": "Punta Negra",
+        "page_url": "https://www.surfline.com/surf-report/punta-negra/584204204e65fad6a7709213/spot-guide",
+        "source_coordinate": {
+          "latitude": 28.801,
+          "longitude": -114.391
+        },
+        "surfline_coordinate": {
+          "latitude": 28.801,
+          "longitude": -114.391
+        },
+        "distance_km": 4.17,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-puerto-san-andres": {
+      "surf_report_url": "https://www.surfline.com/surf-report/puerto-san-andres/584204204e65fad6a7709200",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/puerto-san-andres/584204204e65fad6a7709200",
+      "surfline_spot_id": "584204204e65fad6a7709200",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-puerto-san-andres",
+        "source_name": "Puerto San Andres",
+        "page_url": "https://www.surfline.com/surf-report/puerto-san-andres/584204204e65fad6a7709200/spot-guide",
+        "source_coordinate": {
+          "latitude": 28.691,
+          "longitude": -114.299
+        },
+        "surfline_coordinate": {
+          "latitude": 28.691,
+          "longitude": -114.299
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-punta-santa-rosalillita-the-wall": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-sta-rosalillita/640a43dfb6d769dfda5246ca",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-sta-rosalillita/640a43dfb6d769dfda5246ca",
+      "surfline_spot_id": "640a43dfb6d769dfda5246ca",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-punta-santa-rosalillita-the-wall",
+        "source_name": "Punta Santa Rosalillita",
+        "page_url": "https://www.surfline.com/surf-report/punta-sta-rosalillita/640a43dfb6d769dfda5246ca/spot-guide",
+        "source_coordinate": {
+          "latitude": 28.6539,
+          "longitude": -114.245
+        },
+        "surfline_coordinate": {
+          "latitude": 28.6539,
+          "longitude": -114.245
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-punta-rosarito": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-rosarito/584204204e65fad6a77091fe",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-rosarito/584204204e65fad6a77091fe",
+      "surfline_spot_id": "584204204e65fad6a77091fe",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-punta-rosarito",
+        "source_name": "Punta Rosarito",
+        "page_url": "https://www.surfline.com/surf-report/punta-rosarito/584204204e65fad6a77091fe/spot-guide",
+        "source_coordinate": {
+          "latitude": 28.551,
+          "longitude": -114.15
+        },
+        "surfline_coordinate": {
+          "latitude": 28.572,
+          "longitude": -114.171
+        },
+        "distance_km": 10.89,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-millers-landing": {
+      "surf_report_url": "https://www.surfline.com/surf-report/millers-landing/584204204e65fad6a7709206",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/millers-landing/584204204e65fad6a7709206",
+      "surfline_spot_id": "584204204e65fad6a7709206",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-millers-landing",
+        "source_name": "Millers Landing",
+        "page_url": "https://www.surfline.com/surf-report/millers-landing/584204204e65fad6a7709206/spot-guide",
+        "source_coordinate": {
+          "latitude": 28.484,
+          "longitude": -114.078
+        },
+        "surfline_coordinate": {
+          "latitude": 28.484,
+          "longitude": -114.078
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcn-playa-elefante-isla-cedros": {
+      "surf_report_url": "https://www.surfline.com/surf-report/playa-elefante-isla-cedros-/584204204e65fad6a7709207",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/playa-elefante-isla-cedros-/584204204e65fad6a7709207",
+      "surfline_spot_id": "584204204e65fad6a7709207",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcn-playa-elefante-isla-cedros",
+        "source_name": "Playa Elefante (Isla Cedros)",
+        "page_url": "https://www.surfline.com/surf-report/playa-elefante-isla-cedros-/584204204e65fad6a7709207/spot-guide",
+        "source_coordinate": {
+          "latitude": 28.16,
+          "longitude": -115.3
+        },
+        "surfline_coordinate": {
+          "latitude": 28.165,
+          "longitude": -115.327
+        },
+        "distance_km": 2.7,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-open-doors-isla-natividad": {
+      "surf_report_url": "https://www.surfline.com/surf-report/open-doors/640a43e1e9203087f19eec32",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/open-doors/640a43e1e9203087f19eec32",
+      "surfline_spot_id": "640a43e1e9203087f19eec32",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-open-doors-isla-natividad",
+        "source_name": "Open Doors (Isla Natividad)",
+        "page_url": "https://www.surfline.com/surf-report/open-doors/640a43e1e9203087f19eec32/spot-guide",
+        "source_coordinate": {
+          "latitude": 27.86,
+          "longitude": -115.17
+        },
+        "surfline_coordinate": {
+          "latitude": 27.8629,
+          "longitude": -115.159
+        },
+        "distance_km": 1.13,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-bahia-tortugas-turtle-bay": {
+      "surf_report_url": "https://www.surfline.com/surf-report/bahia-tortugas-turtle-bay-/584204204e65fad6a770920b",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/bahia-tortugas-turtle-bay-/584204204e65fad6a770920b",
+      "surfline_spot_id": "584204204e65fad6a770920b",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-bahia-tortugas-turtle-bay",
+        "source_name": "Bahia Tortugas",
+        "page_url": "https://www.surfline.com/surf-report/bahia-tortugas-turtle-bay-/584204204e65fad6a770920b/spot-guide",
+        "source_coordinate": {
+          "latitude": 27.67,
+          "longitude": -114.9
+        },
+        "surfline_coordinate": {
+          "latitude": 27.658,
+          "longitude": -114.899
+        },
+        "distance_km": 3.47,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-asuncion-bay": {
+      "surf_report_url": "https://www.surfline.com/surf-report/asuncion-bay/584204204e65fad6a770920c",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/asuncion-bay/584204204e65fad6a770920c",
+      "surfline_spot_id": "584204204e65fad6a770920c",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-asuncion-bay",
+        "source_name": "Asuncion Bay",
+        "page_url": "https://www.surfline.com/surf-report/asuncion-bay/584204204e65fad6a770920c/spot-guide",
+        "source_coordinate": {
+          "latitude": 27.15,
+          "longitude": -114.27
+        },
+        "surfline_coordinate": {
+          "latitude": 27.146,
+          "longitude": -114.268
+        },
+        "distance_km": 0.49,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-san-hipolito": {
+      "surf_report_url": "https://www.surfline.com/surf-report/san-hipolito/584204204e65fad6a770920e",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/san-hipolito/584204204e65fad6a770920e",
+      "surfline_spot_id": "584204204e65fad6a770920e",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-san-hipolito",
+        "source_name": "San Hipolito",
+        "page_url": "https://www.surfline.com/surf-report/san-hipolito/584204204e65fad6a770920e/spot-guide",
+        "source_coordinate": {
+          "latitude": 26.98,
+          "longitude": -114.01
+        },
+        "surfline_coordinate": {
+          "latitude": 26.967,
+          "longitude": -114.009
+        },
+        "distance_km": 1.45,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-la-bocana-mulege-municipality": {
+      "surf_report_url": "https://www.surfline.com/surf-report/la-bocana/584204204e65fad6a770920f",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/la-bocana/584204204e65fad6a770920f",
+      "surfline_spot_id": "584204204e65fad6a770920f",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-la-bocana-mulege-municipality",
+        "source_name": "La Bocana (Abreojos / Mulegé Municipality)",
+        "page_url": "https://www.surfline.com/surf-report/la-bocana/584204204e65fad6a770920f/spot-guide",
+        "source_coordinate": {
+          "latitude": 26.8,
+          "longitude": -113.74
+        },
+        "surfline_coordinate": {
+          "latitude": 26.8,
+          "longitude": -113.74
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-campo-renes": {
+      "surf_report_url": "https://www.surfline.com/surf-report/campo-renes/584204204e65fad6a7709211",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/campo-renes/584204204e65fad6a7709211",
+      "surfline_spot_id": "584204204e65fad6a7709211",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-campo-renes",
+        "source_name": "Campo Renes",
+        "page_url": "https://www.surfline.com/surf-report/campo-renes/584204204e65fad6a7709211/spot-guide",
+        "source_coordinate": {
+          "latitude": 26.793,
+          "longitude": -113.484
+        },
+        "surfline_coordinate": {
+          "latitude": 26.793,
+          "longitude": -113.484
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/surf-report/campo-renes/584204204e65fad6a7709211/spot-guide",
+        "minimum_skill": "intermediate",
+        "preferred_stage": "all",
+        "swell_directions": [
+          "S",
+          "SE",
+          "SW",
+          "SSW"
+        ],
+        "offshore_winds": [
+          "NW",
+          "N",
+          "NE"
+        ],
+        "hazards": [
+          "rips",
+          "rocks",
+          "sharks"
+        ],
+        "evidence_method": "public_in_app_browser_rendered_spot_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-punta-abreojos": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-abreojos/640a43e4606c45246bb1b27a",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-abreojos/640a43e4606c45246bb1b27a",
+      "surfline_spot_id": "640a43e4606c45246bb1b27a",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-punta-abreojos",
+        "source_name": "Punta Abreojos",
+        "page_url": "https://www.surfline.com/surf-report/punta-abreojos/640a43e4606c45246bb1b27a/spot-guide",
+        "source_coordinate": {
+          "latitude": 26.7489,
+          "longitude": -113.527
+        },
+        "surfline_coordinate": {
+          "latitude": 26.7489,
+          "longitude": -113.527
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-punta-santo-domingo": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-santo-domingo/584204204e65fad6a7709212",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-santo-domingo/584204204e65fad6a7709212",
+      "surfline_spot_id": "584204204e65fad6a7709212",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-punta-santo-domingo",
+        "source_name": "Punta Santo Domingo",
+        "page_url": "https://www.surfline.com/surf-report/punta-santo-domingo/584204204e65fad6a7709212/spot-guide",
+        "source_coordinate": {
+          "latitude": 26.324,
+          "longitude": -112.69
+        },
+        "surfline_coordinate": {
+          "latitude": 26.324,
+          "longitude": -112.69
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-la-laguna": {
+      "surf_report_url": "https://www.surfline.com/surf-report/la-laguna/584204204e65fad6a7709216",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/la-laguna/584204204e65fad6a7709216",
+      "surfline_spot_id": "584204204e65fad6a7709216",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-la-laguna",
+        "source_name": "La Laguna",
+        "page_url": "https://www.surfline.com/surf-report/la-laguna/584204204e65fad6a7709216/spot-guide",
+        "source_coordinate": {
+          "latitude": 26.28,
+          "longitude": -112.58
+        },
+        "surfline_coordinate": {
+          "latitude": 26.278,
+          "longitude": -112.592
+        },
+        "distance_km": 1.22,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-scorpion-bay-san-juanico": {
+      "surf_report_url": "https://www.surfline.com/surf-report/scorpion-bay/640a43e6e920303e539eed3b",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/scorpion-bay/640a43e6e920303e539eed3b",
+      "surfline_spot_id": "640a43e6e920303e539eed3b",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-scorpion-bay-san-juanico",
+        "source_name": "Scorpion Bay (San Juanico)",
+        "page_url": "https://www.surfline.com/surf-report/scorpion-bay/640a43e6e920303e539eed3b/spot-guide",
+        "source_coordinate": {
+          "latitude": 26.2424,
+          "longitude": -112.475
+        },
+        "surfline_coordinate": {
+          "latitude": 26.2424,
+          "longitude": -112.475
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-punta-san-gregorio": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-san-gregorio/584204204e65fad6a7709220",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-san-gregorio/584204204e65fad6a7709220",
+      "surfline_spot_id": "584204204e65fad6a7709220",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-punta-san-gregorio",
+        "source_name": "Punta San Gregorio",
+        "page_url": "https://www.surfline.com/surf-report/punta-san-gregorio/584204204e65fad6a7709220/spot-guide",
+        "source_coordinate": {
+          "latitude": 26.08,
+          "longitude": -112.31
+        },
+        "surfline_coordinate": {
+          "latitude": 26.072,
+          "longitude": -112.314
+        },
+        "distance_km": 0.98,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-las-barrancas": {
+      "surf_report_url": "https://www.surfline.com/surf-report/las-barrancas/584204204e65fad6a7709222",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/las-barrancas/584204204e65fad6a7709222",
+      "surfline_spot_id": "584204204e65fad6a7709222",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-las-barrancas",
+        "source_name": "Las Barrancas",
+        "page_url": "https://www.surfline.com/surf-report/las-barrancas/584204204e65fad6a7709222/spot-guide",
+        "source_coordinate": {
+          "latitude": 25.98,
+          "longitude": -112.19
+        },
+        "surfline_coordinate": {
+          "latitude": 26.014,
+          "longitude": -112.23
+        },
+        "distance_km": 5.5,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-san-jorge": {
+      "surf_report_url": "https://www.surfline.com/surf-report/san-jorge/584204204e65fad6a7709223",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/san-jorge/584204204e65fad6a7709223",
+      "surfline_spot_id": "584204204e65fad6a7709223",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-san-jorge",
+        "source_name": "San Jorge",
+        "page_url": "https://www.surfline.com/surf-report/san-jorge/584204204e65fad6a7709223/spot-guide",
+        "source_coordinate": {
+          "latitude": 25.63,
+          "longitude": -112.1
+        },
+        "surfline_coordinate": {
+          "latitude": 25.683,
+          "longitude": -112.105
+        },
+        "distance_km": 5.91,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-punta-conejo": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-conejo/640a43e8e92030007f9eedd4",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-conejo/640a43e8e92030007f9eedd4",
+      "surfline_spot_id": "640a43e8e92030007f9eedd4",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-punta-conejo",
+        "source_name": "Punta Conejo",
+        "page_url": "https://www.surfline.com/surf-report/punta-conejo/640a43e8e92030007f9eedd4/spot-guide",
+        "source_coordinate": {
+          "latitude": 24.0718,
+          "longitude": -111.0069
+        },
+        "surfline_coordinate": {
+          "latitude": 24.0718,
+          "longitude": -111.0069
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-punta-marquez": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-marquez/584204204e65fad6a770922c",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-marquez/584204204e65fad6a770922c",
+      "surfline_spot_id": "584204204e65fad6a770922c",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-punta-marquez",
+        "source_name": "Punta Marquez",
+        "page_url": "https://www.surfline.com/surf-report/punta-marquez/584204204e65fad6a770922c/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.97,
+          "longitude": -110.89
+        },
+        "surfline_coordinate": {
+          "latitude": 23.956,
+          "longitude": -110.883
+        },
+        "distance_km": 1.71,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-beachbreak": {
+      "surf_report_url": "https://www.surfline.com/surf-report/beachbreak/584204204e65fad6a770922d",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/beachbreak/584204204e65fad6a770922d",
+      "surfline_spot_id": "584204204e65fad6a770922d",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-beachbreak",
+        "source_name": "Beachbreak",
+        "page_url": "https://www.surfline.com/surf-report/beachbreak/584204204e65fad6a770922d/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.82,
+          "longitude": -110.739
+        },
+        "surfline_coordinate": {
+          "latitude": 23.82,
+          "longitude": -110.739
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/surf-report/beachbreak/584204204e65fad6a770922d/spot-guide",
+        "minimum_skill": "beginner",
+        "preferred_stage": "all",
+        "swell_directions": [
+          "SW",
+          "SSW",
+          "S",
+          "SE",
+          "W",
+          "WNW"
+        ],
+        "offshore_winds": [
+          "NE",
+          "E"
+        ],
+        "hazards": [
+          "rips",
+          "isolation",
+          "vehicles can become stuck on the beach"
+        ],
+        "evidence_method": "public_search_indexed_surfline_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-punta-colorado": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-colorados/584204204e65fad6a7709255",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-colorados/584204204e65fad6a7709255",
+      "surfline_spot_id": "584204204e65fad6a7709255",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-punta-colorado",
+        "source_name": "Punta Colorado",
+        "page_url": "https://www.surfline.com/surf-report/punta-colorados/584204204e65fad6a7709255/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.59,
+          "longitude": -109.53
+        },
+        "surfline_coordinate": {
+          "latitude": 23.579,
+          "longitude": -109.513
+        },
+        "distance_km": 2.12,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-la-bocana-todos-santos-area": {
+      "surf_report_url": "https://www.surfline.com/surf-report/la-bocana/584204204e65fad6a770922e",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/la-bocana/584204204e65fad6a770922e",
+      "surfline_spot_id": "584204204e65fad6a770922e",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-la-bocana-todos-santos-area",
+        "source_name": "La Bocana (Todos Santos Area)",
+        "page_url": "https://www.surfline.com/surf-report/la-bocana/584204204e65fad6a770922e/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.57,
+          "longitude": -110.34
+        },
+        "surfline_coordinate": {
+          "latitude": 23.568,
+          "longitude": -110.35
+        },
+        "distance_km": 1.04,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-punta-arenas": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-arenas/584204204e65fad6a7709253",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-arenas/584204204e65fad6a7709253",
+      "surfline_spot_id": "584204204e65fad6a7709253",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-punta-arenas",
+        "source_name": "Punta Arenas",
+        "page_url": "https://www.surfline.com/surf-report/punta-arenas/584204204e65fad6a7709253/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.546,
+          "longitude": -109.469
+        },
+        "surfline_coordinate": {
+          "latitude": 23.546,
+          "longitude": -109.469
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-la-pastora": {
+      "surf_report_url": "https://www.surfline.com/surf-report/la-pastora/584204204e65fad6a770922f",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/la-pastora/584204204e65fad6a770922f",
+      "surfline_spot_id": "584204204e65fad6a770922f",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-la-pastora",
+        "source_name": "La Pastora",
+        "page_url": "https://www.surfline.com/surf-report/la-pastora/584204204e65fad6a770922f/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.53,
+          "longitude": -110.31
+        },
+        "surfline_coordinate": {
+          "latitude": 23.486545,
+          "longitude": -110.27395
+        },
+        "distance_km": 6.07,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-el-rincon": {
+      "surf_report_url": "https://www.surfline.com/surf-report/el-rincon/584204204e65fad6a7709254",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/el-rincon/584204204e65fad6a7709254",
+      "surfline_spot_id": "584204204e65fad6a7709254",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-el-rincon",
+        "source_name": "El Rincon",
+        "page_url": "https://www.surfline.com/surf-report/el-rincon/584204204e65fad6a7709254/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.48,
+          "longitude": -109.45
+        },
+        "surfline_coordinate": {
+          "latitude": 23.484,
+          "longitude": -109.452
+        },
+        "distance_km": 0.49,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-san-pedrito-todos-santos": {
+      "surf_report_url": "https://www.surfline.com/surf-report/san-pedrito/5842041f4e65fad6a7708bd6",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/san-pedrito/5842041f4e65fad6a7708bd6",
+      "surfline_spot_id": "5842041f4e65fad6a7708bd6",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-san-pedrito-todos-santos",
+        "source_name": "San Pedrito (El Pescadero)",
+        "page_url": "https://www.surfline.com/surf-report/san-pedrito/5842041f4e65fad6a7708bd6/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.367293038162,
+          "longitude": -110.20268
+        },
+        "surfline_coordinate": {
+          "latitude": 23.36729303816202,
+          "longitude": -110.20268
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/travel/zones/cabo/surf-guide/san-pedrito/5842041f4e65fad6a7708bd6",
+        "minimum_skill": "intermediate",
+        "preferred_stage": "mid",
+        "swell_directions": [
+          "NW",
+          "S"
+        ],
+        "offshore_winds": [
+          "E"
+        ],
+        "hazards": [
+          "competitive crowd when conditions are good"
+        ],
+        "evidence_method": "public_search_indexed_surfline_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-cabo-pulmo": {
+      "surf_report_url": "https://www.surfline.com/surf-report/cabo-pulmo/584204204e65fad6a7709251",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/cabo-pulmo/584204204e65fad6a7709251",
+      "surfline_spot_id": "584204204e65fad6a7709251",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-cabo-pulmo",
+        "source_name": "Cabo Pulmo",
+        "page_url": "https://www.surfline.com/surf-report/cabo-pulmo/584204204e65fad6a7709251/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.45,
+          "longitude": -109.42
+        },
+        "surfline_coordinate": {
+          "latitude": 23.417,
+          "longitude": -109.422
+        },
+        "distance_km": 0.8,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-los-frailes": {
+      "surf_report_url": "https://www.surfline.com/surf-report/los-frailes/584204204e65fad6a7709250",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/los-frailes/584204204e65fad6a7709250",
+      "surfline_spot_id": "584204204e65fad6a7709250",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-los-frailes",
+        "source_name": "Los Frailes",
+        "page_url": "https://www.surfline.com/surf-report/los-frailes/584204204e65fad6a7709250/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.38,
+          "longitude": -109.43
+        },
+        "surfline_coordinate": {
+          "latitude": 23.379,
+          "longitude": -109.42
+        },
+        "distance_km": 1.03,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-frailes-south": {
+      "surf_report_url": "https://www.surfline.com/surf-report/frailes-south/584204204e65fad6a770924e",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/frailes-south/584204204e65fad6a770924e",
+      "surfline_spot_id": "584204204e65fad6a770924e",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-frailes-south",
+        "source_name": "Frailes South",
+        "page_url": "https://www.surfline.com/surf-report/frailes-south/584204204e65fad6a770924e/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.35,
+          "longitude": -109.43
+        },
+        "surfline_coordinate": {
+          "latitude": 23.342,
+          "longitude": -109.423
+        },
+        "distance_km": 1.14,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-el-pescadero": {
+      "surf_report_url": "https://www.surfline.com/surf-report/pescadero/640a43e3b6d7691fdc5247be",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/pescadero/640a43e3b6d7691fdc5247be",
+      "surfline_spot_id": "640a43e3b6d7691fdc5247be",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-el-pescadero",
+        "source_name": "El Pescadero",
+        "page_url": "https://www.surfline.com/surf-report/pescadero/640a43e3b6d7691fdc5247be/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.347,
+          "longitude": -110.19
+        },
+        "surfline_coordinate": {
+          "latitude": 23.347,
+          "longitude": -110.19
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-boca-del-salado": {
+      "surf_report_url": "https://www.surfline.com/surf-report/boca-del-solado/584204204e65fad6a770924f",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/boca-del-solado/584204204e65fad6a770924f",
+      "surfline_spot_id": "584204204e65fad6a770924f",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-boca-del-salado",
+        "source_name": "Boca Del Salado",
+        "page_url": "https://www.surfline.com/surf-report/boca-del-solado/584204204e65fad6a770924f/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.254,
+          "longitude": -109.436
+        },
+        "surfline_coordinate": {
+          "latitude": 23.254,
+          "longitude": -109.436
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": {
+        "displayed_name": "Boca Del Solado",
+        "coordinate": {
+          "latitude": 23.254,
+          "longitude": -109.436
+        },
+        "breadcrumb_locality": "Las Veredas",
+        "evidence_method": "public_in_app_browser_rendered_spot_guide",
+        "checked_on": "2026-08-27"
+      },
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-cerritos": {
+      "surf_report_url": "https://www.surfline.com/surf-report/cerritos/5842041f4e65fad6a7708bd5",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/cerritos/5842041f4e65fad6a7708bd5",
+      "surfline_spot_id": "5842041f4e65fad6a7708bd5",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-cerritos",
+        "source_name": "Cerritos Point",
+        "page_url": "https://www.surfline.com/surf-report/cerritos/5842041f4e65fad6a7708bd5/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.3287786985746,
+          "longitude": -110.17715
+        },
+        "surfline_coordinate": {
+          "latitude": 23.32877869857464,
+          "longitude": -110.17715
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/surf-report/cerritos/5842041f4e65fad6a7708bd5/spot-guide",
+        "minimum_skill": "beginner",
+        "preferred_stage": "mid",
+        "swell_directions": [
+          "NW",
+          "WNW",
+          "SW",
+          "SSW"
+        ],
+        "offshore_winds": [
+          "E"
+        ],
+        "hazards": [
+          "crowded beginner lineup"
+        ],
+        "evidence_method": "public_in_app_browser_rendered_spot_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-playa-los-cerritos": {
+      "surf_report_url": "https://www.surfline.com/surf-report/cerritos/5842041f4e65fad6a7708bd5",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/cerritos/5842041f4e65fad6a7708bd5",
+      "surfline_spot_id": "5842041f4e65fad6a7708bd5",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-playa-los-cerritos",
+        "source_name": "Playa Los Cerritos Surf Area",
+        "page_url": "https://www.surfline.com/surf-report/cerritos/5842041f4e65fad6a7708bd5/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.26,
+          "longitude": -110.16
+        },
+        "surfline_coordinate": {
+          "latitude": 23.32877869857464,
+          "longitude": -110.17715
+        },
+        "distance_km": 7.85,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-punta-gasparino": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-gasparino/584204204e65fad6a7709248",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-gasparino/584204204e65fad6a7709248",
+      "surfline_spot_id": "584204204e65fad6a7709248",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-punta-gasparino",
+        "source_name": "Punta Gasparino",
+        "page_url": "https://www.surfline.com/surf-report/punta-gasparino/584204204e65fad6a7709248/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.24,
+          "longitude": -110.16
+        },
+        "surfline_coordinate": {
+          "latitude": 23.179,
+          "longitude": -110.145
+        },
+        "distance_km": 6.95,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-nine-palms": {
+      "surf_report_url": "https://www.surfline.com/surf-report/nine-palms/5842041f4e65fad6a7708bdc",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/nine-palms/5842041f4e65fad6a7708bdc",
+      "surfline_spot_id": "5842041f4e65fad6a7708bdc",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-nine-palms",
+        "source_name": "Nine Palms",
+        "page_url": "https://www.surfline.com/surf-report/nine-palms/5842041f4e65fad6a7708bdc/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.174,
+          "longitude": -109.476
+        },
+        "surfline_coordinate": {
+          "latitude": 23.174,
+          "longitude": -109.476
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/surf-report/nine-palms/5842041f4e65fad6a7708bdc/spot-guide",
+        "minimum_skill": "beginner",
+        "preferred_stage": "mid",
+        "preferred_direction": "rising",
+        "swell_directions": [
+          "S",
+          "SE"
+        ],
+        "offshore_winds": [
+          "NW"
+        ],
+        "hazards": [
+          "rocks"
+        ],
+        "evidence_method": "public_in_app_browser_rendered_spot_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-migrino": {
+      "surf_report_url": "https://www.surfline.com/surf-report/migrino/584204204e65fad6a7709249",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/migrino/584204204e65fad6a7709249",
+      "surfline_spot_id": "584204204e65fad6a7709249",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-migrino",
+        "source_name": "Migrino",
+        "page_url": "https://www.surfline.com/surf-report/migrino/584204204e65fad6a7709249/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.05,
+          "longitude": -110.11
+        },
+        "surfline_coordinate": {
+          "latitude": 23.099,
+          "longitude": -110.117
+        },
+        "distance_km": 5.5,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-shipwrecks": {
+      "surf_report_url": "https://www.surfline.com/surf-report/shipwreck/5842041f4e65fad6a7708bdb",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/shipwreck/5842041f4e65fad6a7708bdb",
+      "surfline_spot_id": "5842041f4e65fad6a7708bdb",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-shipwrecks",
+        "source_name": "Shipwrecks (East Cape)",
+        "page_url": "https://www.surfline.com/surf-report/shipwreck/5842041f4e65fad6a7708bdb/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.11945,
+          "longitude": -109.528067
+        },
+        "surfline_coordinate": {
+          "latitude": 23.12,
+          "longitude": -109.527
+        },
+        "distance_km": 0.13,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/surf-report/shipwreck/5842041f4e65fad6a7708bdb/spot-guide",
+        "minimum_skill": "intermediate",
+        "preferred_stage": "mid",
+        "swell_directions": [
+          "S"
+        ],
+        "offshore_winds": [
+          "N"
+        ],
+        "hazards": [
+          "rocks",
+          "reef",
+          "cliff access"
+        ],
+        "evidence_method": "public_in_app_browser_rendered_spot_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-acapulquito-costa-azul": {
+      "surf_report_url": "https://www.surfline.com/surf-report/old-man-s/5842041f4e65fad6a7708bd4",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/old-man-s/5842041f4e65fad6a7708bd4",
+      "surfline_spot_id": "5842041f4e65fad6a7708bd4",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-acapulquito-costa-azul",
+        "source_name": "Acapulquito (Costa Azul)",
+        "page_url": "https://www.surfline.com/surf-report/old-man-s/5842041f4e65fad6a7708bd4/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.0235819268498,
+          "longitude": -109.7147
+        },
+        "surfline_coordinate": {
+          "latitude": 23.02358192684975,
+          "longitude": -109.7147
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/travel/zones/cabo/surf-guide/old-mans/5842041f4e65fad6a7708bd4",
+        "minimum_skill": "beginner",
+        "preferred_stage": "mid",
+        "swell_directions": [
+          "SSE",
+          "S",
+          "SSW"
+        ],
+        "offshore_winds": [
+          "N",
+          "NW"
+        ],
+        "hazards": [
+          "crowds",
+          "shallow reef section"
+        ],
+        "evidence_method": "public_search_indexed_surfline_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-the-rock-costa-azul": {
+      "surf_report_url": "https://www.surfline.com/surf-report/the-rock/5842041f4e65fad6a7708bd7",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/the-rock/5842041f4e65fad6a7708bd7",
+      "surfline_spot_id": "5842041f4e65fad6a7708bd7",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-the-rock-costa-azul",
+        "source_name": "The Rock (La Roca, Costa Azul)",
+        "page_url": "https://www.surfline.com/surf-report/the-rock/5842041f4e65fad6a7708bd7/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.0250632465934,
+          "longitude": -109.71456
+        },
+        "surfline_coordinate": {
+          "latitude": 23.02506324659338,
+          "longitude": -109.71456
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/travel/zones/cabo/surf-guide/the-rock/5842041f4e65fad6a7708bd7",
+        "minimum_skill": "intermediate",
+        "preferred_stage": "mid_to_high",
+        "swell_directions": [
+          "S",
+          "SW"
+        ],
+        "offshore_winds": [
+          "W",
+          "NW"
+        ],
+        "hazards": [
+          "shallow rocks",
+          "crowds"
+        ],
+        "evidence_method": "public_search_indexed_surfline_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-zippers-costa-azul": {
+      "surf_report_url": "https://www.surfline.com/surf-report/zippers/5842041f4e65fad6a7708bda",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/zippers/5842041f4e65fad6a7708bda",
+      "surfline_spot_id": "5842041f4e65fad6a7708bda",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-zippers-costa-azul",
+        "source_name": "Zippers (Costa Azul)",
+        "page_url": "https://www.surfline.com/surf-report/zippers/5842041f4e65fad6a7708bda/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.029,
+          "longitude": -109.714
+        },
+        "surfline_coordinate": {
+          "latitude": 23.029,
+          "longitude": -109.714
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/travel/zones/cabo/surf-guide/zippers/5842041f4e65fad6a7708bda",
+        "minimum_skill": "advanced",
+        "preferred_stage": "low_to_mid",
+        "swell_directions": [
+          "S"
+        ],
+        "offshore_winds": [
+          "N"
+        ],
+        "hazards": [
+          "heavy competitive crowd",
+          "exposed rocks"
+        ],
+        "evidence_method": "public_search_indexed_surfline_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-punta-palmilla": {
+      "surf_report_url": "https://www.surfline.com/surf-report/punta-pamilla/584204204e65fad6a770924c",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/punta-pamilla/584204204e65fad6a770924c",
+      "surfline_spot_id": "584204204e65fad6a770924c",
+      "match_method": "curated_identity_alias",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-punta-palmilla",
+        "source_name": "Punta Palmilla",
+        "page_url": "https://www.surfline.com/surf-report/punta-pamilla/584204204e65fad6a770924c/spot-guide",
+        "source_coordinate": {
+          "latitude": 23.008,
+          "longitude": -109.712
+        },
+        "surfline_coordinate": {
+          "latitude": 23.008,
+          "longitude": -109.712
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": {
+        "displayed_name": "Punta Pamilla",
+        "coordinate": {
+          "latitude": 23.008,
+          "longitude": -109.712
+        },
+        "breadcrumb_locality": "San José del Cabo",
+        "evidence_method": "public_in_app_browser_rendered_spot_guide",
+        "checked_on": "2026-08-27"
+      },
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-monuments": {
+      "surf_report_url": "https://www.surfline.com/surf-report/monuments/5842041f4e65fad6a7708bd8",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/monuments/5842041f4e65fad6a7708bd8",
+      "surfline_spot_id": "5842041f4e65fad6a7708bd8",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-monuments",
+        "source_name": "Monuments",
+        "page_url": "https://www.surfline.com/surf-report/monuments/5842041f4e65fad6a7708bd8/spot-guide",
+        "source_coordinate": {
+          "latitude": 22.896,
+          "longitude": -109.869
+        },
+        "surfline_coordinate": {
+          "latitude": 22.896,
+          "longitude": -109.869
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": {
+        "guide_url": "https://www.surfline.com/travel/zones/cabo/surf-guide/monuments/5842041f4e65fad6a7708bd8",
+        "minimum_skill": "intermediate",
+        "preferred_stage": "high",
+        "swell_directions": [
+          "SSW",
+          "SW",
+          "W"
+        ],
+        "offshore_winds": [
+          "NE"
+        ],
+        "hazards": [
+          "tight takeoff",
+          "urchins",
+          "shallow inside rocks",
+          "crowds"
+        ],
+        "evidence_method": "public_search_indexed_surfline_guide",
+        "checked_on": "2026-08-27"
+      },
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-bahia-chileno": {
+      "surf_report_url": "https://www.surfline.com/surf-report/bahia-chileno/584204204e65fad6a770924a",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/bahia-chileno/584204204e65fad6a770924a",
+      "surfline_spot_id": "584204204e65fad6a770924a",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-bahia-chileno",
+        "source_name": "Bahia Chileno",
+        "page_url": "https://www.surfline.com/surf-report/bahia-chileno/584204204e65fad6a770924a/spot-guide",
+        "source_coordinate": {
+          "latitude": 22.9,
+          "longitude": -109.85
+        },
+        "surfline_coordinate": {
+          "latitude": 22.945,
+          "longitude": -109.804
+        },
+        "distance_km": 6.87,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    },
+    "bcs-backwash": {
+      "surf_report_url": "https://www.surfline.com/surf-report/backwash/584204204e65fad6a770924b",
+      "tide_chart_url": "https://www.surfline.com/tide-charts/backwash/584204204e65fad6a770924b",
+      "surfline_spot_id": "584204204e65fad6a770924b",
+      "match_method": "exact_canonical_slug",
+      "browser_coordinate_validation": {
+        "source_spot_id": "bcs-backwash",
+        "source_name": "Backwash",
+        "page_url": "https://www.surfline.com/surf-report/backwash/584204204e65fad6a770924b/spot-guide",
+        "source_coordinate": {
+          "latitude": 22.892,
+          "longitude": -109.895
+        },
+        "surfline_coordinate": {
+          "latitude": 22.892,
+          "longitude": -109.895
+        },
+        "distance_km": 0,
+        "status": "browser_coordinate_validated",
+        "error": null,
+        "checked_on": "2026-08-27"
+      },
+      "guide": null,
+      "browser_observed": null,
+      "permitted_use": "Canonical spot identity and tide-page reference; guide fields only when indexed evidence is attached.",
+      "excluded_use": "No live forecast snapshot, numeric tide height calibration, or unobserved guide field is imported."
+    }
+  }
+}

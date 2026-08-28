@@ -91,6 +91,16 @@ jest.mock("@/context/auth-context", () => ({
     signOut: jest.fn(),
     refreshSession: jest.fn(),
   })),
+  useOptionalAuth: jest.fn(() => ({
+    user: null,
+    session: null,
+    isLoading: false,
+    isAuthenticated: false,
+    signUp: jest.fn(),
+    signIn: jest.fn(),
+    signOut: jest.fn(),
+    refreshSession: jest.fn(),
+  })),
 }));
 
 // Mock RealtimeClient globally to prevent initialization errors

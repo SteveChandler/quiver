@@ -32,6 +32,36 @@ import { rankBeaches } from "@/lib/recommendations/selection";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
+import { unstable_cache } from "next/cache";
+
+export const REGIONAL_FORECAST_REVALIDATE_SECONDS = 900;
+
+export interface RegionalForecastPageData {
+  beaches: Beach[];
+  summary: RegionalForecastSummary;
+}
+
+interface SerializedRegionalForecastPageData {
+  beaches: Beach[];
+  summary: Omit<
+    RegionalForecastSummary,
+    "generatedAt" | "days" | "bestDay" | "upcomingSwells"
+  > & {
+    generatedAt: string;
+    days: Array<Omit<RegionalForecastSummary["days"][number], "date"> & { date: string }>;
+    bestDay: Omit<RegionalForecastSummary["bestDay"], "date"> & { date: string };
+    upcomingSwells: Array<
+      Omit<
+        RegionalForecastSummary["upcomingSwells"][number],
+        "startDate" | "peakDate" | "endDate"
+      > & {
+        startDate: string;
+        peakDate: string;
+        endDate: string;
+      }
+    >;
+  };
+}
 
 /**
  * Get regional forecast summaries for all regions.
@@ -210,6 +240,7 @@ export function createEmptyRegionalSummary(
   return {
     region,
     generatedAt,
+    sourceDataUpdatedAt: null,
     days: [],
     bestDay,
     upcomingSwells: [],
@@ -295,6 +326,70 @@ export async function getRegionalSummary(
   }
 
   return policyFilteredSummary;
+}
+
+const loadRegionalForecastPageData = unstable_cache(
+  async (regionSlug: string): Promise<string> => {
+    const region = FORECAST_REGIONS[regionSlug];
+    if (!region) {
+      throw new Error(`Unknown forecast region: ${regionSlug}`);
+    }
+
+    const beachesResult = await getBeachesFromDb();
+    if (!beachesResult.success || !beachesResult.data) {
+      throw new Error(`Unable to load beaches for forecast region: ${regionSlug}`);
+    }
+
+    const beaches = getBeachesForRegion(region, beachesResult.data);
+    if (beaches.length === 0) {
+      throw new Error(`No beaches found for forecast region: ${regionSlug}`);
+    }
+
+    const summary = await getRegionalSummary(region, beaches, {
+      includeBestSurfWindows: true,
+    });
+
+    return JSON.stringify({ beaches, summary });
+  },
+  ["regional-forecast-page-data"],
+  {
+    revalidate: REGIONAL_FORECAST_REVALIDATE_SECONDS,
+    tags: ["regional-forecast-pages"],
+  },
+);
+
+/**
+ * Cache the shared regional payload without caching viewer-specific auth state.
+ * Dates are revived explicitly because the data cache persists JSON.
+ */
+export async function getCachedRegionalForecastPageData(
+  region: ForecastRegion,
+): Promise<RegionalForecastPageData> {
+  const payload = await loadRegionalForecastPageData(region.slug);
+  const parsed = JSON.parse(payload) as SerializedRegionalForecastPageData;
+
+  return {
+    beaches: parsed.beaches,
+    summary: {
+      ...parsed.summary,
+      region,
+      generatedAt: new Date(parsed.summary.generatedAt),
+      days: parsed.summary.days.map((day) => ({
+        ...day,
+        date: new Date(day.date),
+      })),
+      bestDay: {
+        ...parsed.summary.bestDay,
+        date: new Date(parsed.summary.bestDay.date),
+      },
+      upcomingSwells: parsed.summary.upcomingSwells.map((event) => ({
+        ...event,
+        startDate: new Date(event.startDate),
+        peakDate: new Date(event.peakDate),
+        endDate: new Date(event.endDate),
+      })),
+    },
+  };
 }
 
 /**

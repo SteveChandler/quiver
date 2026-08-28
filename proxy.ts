@@ -24,6 +24,7 @@ import {
   serializeIPLocation,
   getIPLocationCookieName,
 } from "@/lib/location/ip-location";
+import { getForecastRegion } from "@/lib/data/forecast-regions";
 
 // Only enable verbose logging in development
 const isDev = process.env.NODE_ENV === "development";
@@ -31,6 +32,12 @@ const isVerbose = process.env.MIDDLEWARE_VERBOSE === "true";
 
 // Known beach sub-pages with dedicated routes (e.g., /ca/city/beach/tides)
 const BEACH_SUBPATHS = new Set(["tides", "water-temp"]);
+
+export function shouldSetIpLocationCookie(pathname: string): boolean {
+  const match = pathname.match(/^\/forecast\/([^/]+)\/?$/);
+  if (!match) return true;
+  return getForecastRegion(match[1]) === undefined;
+}
 
 // Reserved first-path segments that should NOT be treated as international country slugs
 const INTERNATIONAL_RESERVED_SEGMENTS = new Set([
@@ -703,6 +710,8 @@ function captureIPLocation(
   response: NextResponse
 ): void {
   try {
+    if (!shouldSetIpLocationCookie(request.nextUrl.pathname)) return;
+
     const cookieName = getIPLocationCookieName();
 
     // Skip if cookie already exists (don't overwrite on every request)

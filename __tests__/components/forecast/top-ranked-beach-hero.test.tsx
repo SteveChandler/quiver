@@ -16,6 +16,7 @@ jest.mock("next/image", () => ({
 }));
 
 import { TopRankedBeachHero } from "@/components/forecast/top-ranked-beach-hero";
+import { useOptionalAuth } from "@/context/auth-context";
 import type { BeachConditionSummary } from "@/lib/utils/regional-forecast-utils";
 import { MAX_WINDOW_HOURS } from "@/lib/services/discovery/window-selector";
 
@@ -36,6 +37,53 @@ const beach: BeachConditionSummary = {
 };
 
 describe("TopRankedBeachHero", () => {
+  beforeEach(() => {
+    (useOptionalAuth as jest.Mock).mockReturnValue({
+      user: null,
+      isLoading: false,
+    });
+  });
+
+  it("reveals scores from client auth on a cacheable regional page", () => {
+    (useOptionalAuth as jest.Mock).mockReturnValue({
+      user: { id: "user-1" },
+      isLoading: false,
+    });
+
+    render(
+      <TopRankedBeachHero
+        beach={beach}
+        regionName="San Diego"
+        regionSlug="san-diego"
+        authAwareScores
+      />,
+    );
+
+    expect(screen.getByText("83")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Log in to see scores" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps scores hidden for a guest on a cacheable regional page", () => {
+    render(
+      <TopRankedBeachHero
+        beach={beach}
+        regionName="San Diego"
+        regionSlug="san-diego"
+        authAwareScores
+      />,
+    );
+
+    expect(screen.queryByText("83")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Log in to see scores" }),
+    ).toHaveAttribute(
+      "href",
+      "/auth/sign-in?redirectTo=/forecast/san-diego",
+    );
+  });
+
   it("uses one current qualifying window for the score call and window display", () => {
     const selectorWindow = {
       startIso: "2026-08-12T07:00:00Z",

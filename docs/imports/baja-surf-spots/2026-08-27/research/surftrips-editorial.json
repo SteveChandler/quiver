@@ -1,0 +1,1356 @@
+{
+  "provider": "SurfTrips.co",
+  "sitemap_url": "https://surftrips.co/sitemap-spots.xml",
+  "robots_policy_checked_on": "2026-08-27",
+  "generated_on": "2026-08-27T17:31:20.354Z",
+  "results": {
+    "https://surftrips.co/mexico/baja-california/punta-san-carlos": {
+      "url": "https://surftrips.co/mexico/baja-california/punta-san-carlos",
+      "title": "Punta San Carlos",
+      "checked_on": "2026-08-27T17:30:04.275Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 29.602,
+        "longitude": -115.5,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 180,
+        "max_deg": 292,
+        "source_text": "Punta San Carlos switches on with swells out of the S to WNW (180 to 292 degrees)."
+      },
+      "access_and_facilities": "Reach the area via Mexico 1, turning off past El Rosario toward Punta Baja and continuing roughly 22km to the unmarked dirt track. Expect two hours of rough road, a 4WD is strongly recommended in the rainy season as routes change after rain. There are no facilities whatsoever: camping only. The small fishing village at the base of the point has no supplies. Carry all water, fuel, and food. Hazards include urchins, exposed reef and rock, and rip currents.",
+      "hazard_summary": "Urchins, reef/rock, rips..",
+      "editorial_summary": "A long right-hand point in remote Baja California, Punta San Carlos rewards the effort of a two-hour dirt road drive with uncrowded waves stretching 150 to 500m on a good day. SW, SSW, S, W, and WNW swells all find this stretch of coast, working chest-high to double overhead at mid to low tide. The prevailing NW winds are the same ones that have turned the area into a kite and windsurf destination, so clean surf sessions can be scarce. NE and N winds are your friends here. Intermediate and advanced surfers will get the most from it, though the wave is forgiving enough for strong beginners on the right day. Bottom: reef and rock. Season: year-round, best in winter swell season. Consistency: moderate, limited by onshore NW winds. Bring a 4WD, carry all your water, gas, and food in, and check the swell forecast before committing to the drive.",
+      "skill_suitability": "Punta San Carlos is a point bottom, long walling right-hand point, fun walls, occasional juice at size, break suited for beginner through advanced surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": {
+        "preferred_stage": "low_to_mid",
+        "preferred_direction": "either",
+        "source_text": "SW, SSW, S, W, and WNW swells all find this stretch of coast, working chest-high to double overhead at mid to low tide."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/cielito-lindo": {
+      "url": "https://surftrips.co/mexico/baja-california/cielito-lindo",
+      "title": "Cielito Lindo",
+      "checked_on": "2026-08-27T17:31:03.963Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 30.293,
+        "longitude": -115.833,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Remote stretch of Baja coast. Self-sufficiency matters here: bring water, food, and sun protection. No confirmed facilities or rentals at the break itself. The rip currents are the primary hazard and should be respected by all skill levels.",
+      "hazard_summary": "rip currents, dangerous.",
+      "editorial_summary": "An exposed beach break on Baja Norte's Pacific coast, Cielito Lindo picks up south groundswells reliably and throws up both lefts and rights across a sandy bottom. Best conditions arrive in summer, particularly July, when S to SSW swells push in and NE offshores groom the faces into clean, workable peaks in the 3-6ft range. Rip currents run strong here and should be treated as a genuine hazard, not background noise. The lineup sits firmly in intermediate territory: forgiving enough for surfers who are past the whitewash phase, technical enough that the rips demand real water awareness. Bottom: sand. Season: June through August. Consistency: moderate, swell-dependent. Read the beach before paddling out, identify the rips early, and use them as channels rather than fighting across the break. The reward is a rarely crowded peak all to yourself on a working swell day.",
+      "skill_suitability": "Cielito Lindo is a beach bottom, punchy beach break peaks, lefts and rights, break suited for intermediate surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california/ensenada-beaches": {
+      "url": "https://surftrips.co/mexico/baja-california/ensenada-beaches",
+      "title": "Ensenada Beaches",
+      "checked_on": "2026-08-27T17:31:04.466Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 31.778,
+        "longitude": -116.632,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Ensenada is a proper town with full services: food, lodging, surf shops, and board rentals within easy reach. Parking is accessible. Check water quality reports before each session given documented pollution concerns in the area.",
+      "hazard_summary": "pollution, sharks.",
+      "editorial_summary": "Ensenada's beach break delivers consistent lefts and rights along the Baja Norte coastline, making it one of the more reliable entry points for beginner surfers in the region. It picks up W-NW groundswell best, with E-NE winds going offshore and cleaning up the faces. Optimal size runs 2-5ft, and the sand bottom keeps things forgiving underfoot. Crowds are manageable most sessions but can build on weekends, particularly during autumn and winter when the swell window is most active. Bottom: sand. Season: Oct-Feb, peaking in January. Consistency: moderate to high in peak season. Water quality is a real concern here, so check local pollution reports before paddling out, and be aware that sharks are an occasional presence in Baja waters. Average beach break quality, but Ensenada works well as a base for exploring nearby heavy-hitters like San Miguel and Killers when conditions align.",
+      "skill_suitability": "Ensenada Beaches is a beach bottom, consistent beach peaks, lefts and rights, break suited for beginner through intermediate surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california-sur/punta-santo-domingo": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/punta-santo-domingo",
+      "title": "Punta Santo Domingo",
+      "checked_on": "2026-08-27T17:31:04.984Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 26.324,
+        "longitude": -112.69,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 225,
+        "max_deg": 315,
+        "source_text": "Punta Santo Domingo switches on with swells out of the SW to NW (225 to 315 degrees)."
+      },
+      "access_and_facilities": "The beach is easy to reach from the town of San Antonio. No significant facilities on site, so bring water, food, and sun protection. Strong rip currents are the primary hazard alongside exposed reef at lower tides.",
+      "hazard_summary": null,
+      "editorial_summary": "A fickle, wind-battered stretch of reef and beach on Baja's exposed Pacific coast near San Antonio, Punta Santo Domingo earns its local nickname of the worst surf beach in the area most days of the year. Strong onshore winds and persistent currents dominate the lineup, producing closeout sets that shut down any real ride the majority of sessions. SW to NW swell is needed, ideally 4-8ft with high tide, and the rare convergence of clean conditions in late fall can produce longer walls pushing 150-300m. Intermediate to advanced surfers only, given the exposed reef, rip currents, and heavy paddle-out. Bottom: mixed reef and beach. Season: September to November. Consistency: low. Go in with no expectations, and you might be pleasantly surprised on one of its rare good days.",
+      "skill_suitability": "Punta Santo Domingo is a mixed bottom, fickle exposed reef and beach point, wind-affected closeouts, rare long walls, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "high",
+        "preferred_direction": "either",
+        "source_text": "SW to NW swell is needed, ideally 4-8ft with high tide, and the rare convergence of clean conditions in late fall can produce longer walls pushing 150-300m."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/nine-palms": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/nine-palms",
+      "title": "Nine Palms",
+      "checked_on": "2026-08-27T17:30:06.352Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 23.174,
+        "longitude": -109.476,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Park directly above the break off the East Cape road. Free parking and basic camping nearby make this a solid overnight destination. No formal facilities, so bring water and food. Watch for exposed rocks on the inside when the tide drops. Water quality is generally clean with minor residential influence.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "A reeling right-hand point on Baja Sur's East Cape, Nine Palms has earned a loyal following on the Cabo circuit for good reason. It needs S or SE swell to fire, ideally head-high to double overhead, with a NW wind keeping the inside section glassy even when conditions elsewhere are blown out. Mid to incoming tide pulls the best shape from the wall, though forecast services notes it works across all tides. Below head-high the wave goes mushy and slow, so patience pays here. Crowds are moderate for a remote point, and the vibe is generally welcoming, though it can get slightly edgy on the better days. Bottom: sand over rock. Season: March through October on summer S swell. Consistency: medium. Pack reef booties for the shallower inside sections and time your session for early morning before any afternoon chop builds.",
+      "skill_suitability": "Nine Palms is a mixed bottom, long walling right-hand point with crackable sections, break suited for beginner through advanced surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": {
+        "preferred_stage": "all",
+        "preferred_direction": "rising",
+        "source_text": "Mid to incoming tide pulls the best shape from the wall, though forecast services notes it works across all tides."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/the-estuary": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/the-estuary",
+      "title": "The Estuary",
+      "checked_on": "2026-08-27T17:30:06.793Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 23.0487126156485,
+        "longitude": -109.680008232091,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 157,
+        "max_deg": 202,
+        "source_text": "The Estuary switches on with swells out of the SSE to SSW (157 to 202 degrees)."
+      },
+      "access_and_facilities": "Park at La Playita or along the street near the old El Presidente hotel on the east end of San Jose del Cabo's beach strip. Short walk east toward the estuary signage to reach the break. Estero San Jose is technically a protected wildlife sanctuary. No formal surf facilities. Bring your own water and a plan to rinse off post-surf given water quality concerns.",
+      "hazard_summary": "Bacterial infections..",
+      "editorial_summary": "San Jose del Cabo's city break fires as a perfect A-frame only once every few years, when storm surge cuts through the coastal berm and both lefts and rights tube hard across the sand. South swell from 3-8ft is the window, with a N wind holding faces clean and mid tide giving the best shape. The fickle nature is the first filter, the water quality is the second. forecast services calls it \"polluted\" outright, and heavy rains push raw sewage, debris, and animal carcasses directly into the lineup. That's not hyperbole. Bacterial infection is a real risk every session, and a genuine hazard after any significant rainfall. When it's just average surf, scattered peaks run with almost nobody out, and the pollution load is comparatively lower. Bottom: sand. Season: July to October (hurricane south swell). Consistency: rare to occasionally excellent. Skip it post-rain, show up on a mid-size south swell with clean skies and you might score empty A-frames with a handful of other surfers.",
+      "skill_suitability": "The Estuary is a beach bottom, fickle hollow a-frame beach break, tubes both directions on south swell, break suited for beginner through advanced surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": {
+        "preferred_stage": "mid",
+        "preferred_direction": "either",
+        "source_text": "South swell from 3-8ft is the window, with a N wind holding faces clean and mid tide giving the best shape."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/halfway-house": {
+      "url": "https://surftrips.co/mexico/baja-california/halfway-house",
+      "title": "Halfway House",
+      "checked_on": "2026-08-27T17:30:07.366Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 32.131,
+        "longitude": -116.896,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Located along the toll road corridor between Tijuana and Ensenada. Facilities are minimal, so carry water and fuel before heading out. Rocky entry points mean footwear matters. Check conditions before committing to a session.",
+      "hazard_summary": "rocks.",
+      "editorial_summary": "A mixed reef-and-beach setup between Tijuana and Ensenada, Halfway House delivers both lefts and rights across a cluster of rocky peaks in Northern Baja. SW swell is the engine here, ideally in the 3-6ft range, with NE offshores cleaning things up and working across all tide stages. The wave is honest intermediate territory: nothing too demanding, but the rock-studded bottom keeps beginners away and rewards surfers who can read a shifting lineup. Crowds are rarely an issue even on solid days, which is the quiet appeal of this stretch. Bottom: mixed reef and beach. Season: summer peak. Consistency: fickle, worth checking on any SW swell push. Boots are worth throwing in the bag given the rocky entry and exit, and scope the channel before paddling out blind.",
+      "skill_suitability": "Halfway House is a mixed bottom, mixed reef-and-beach peaks, lefts and rights, break suited for intermediate surfers.",
+      "tide_guidance": {
+        "preferred_stage": "all",
+        "preferred_direction": "either",
+        "source_text": "SW swell is the engine here, ideally in the 3-6ft range, with NE offshores cleaning things up and working across all tide stages."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/la-fonda": {
+      "url": "https://surftrips.co/mexico/baja-california/la-fonda",
+      "title": "La Fonda",
+      "checked_on": "2026-08-27T17:30:07.899Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 32.118,
+        "longitude": -116.888,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 180,
+        "max_deg": 285,
+        "source_text": "La Fonda switches on with swells out of the S to WNW (180 to 285 degrees)."
+      },
+      "access_and_facilities": "Pull off Mex 1 at K-58 near Los Alisitos Hotel, pay the day-use fee at the campsite, and take the cliff path down to the beach. Cold outdoor showers are available at the campground. Fish tacos and cold drinks are close by. Water quality runs fair year-round but dips after rain or a nearby sewage event.",
+      "hazard_summary": "Rocks, rips, petty theft..",
+      "editorial_summary": "A beach break with a left-point component, La Fonda sits at K-58 on Mex 1 in Baja Norte and draws a steady stream of San Diego day-trippers and Baja expats year-round. It takes swell from S through WNW, with SW and W swells delivering the most consistent shape, and easterly offshores clean it up best. Low to mid tide is the sweet spot, and the wave starts showing at under 1ft but needs chest-high to around double-overhead to really get going. The left point and adjacent beach break peaks can handle intermediate surfers reasonably well, but Forecasts flag it as one of the more demanding waves in the area, so beginners should look elsewhere. Bottom: rivermouth sand and rock. Season: summer through autumn for south swells, winter for NW energy. Consistency: reliable and surfable most of the year. Petty theft from vehicles has been reported at the campsite parking area, so travel light and lock everything.",
+      "skill_suitability": "La Fonda is a mixed bottom, hollow rippable left point with beach break peaks, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "low_to_mid",
+        "preferred_direction": "either",
+        "source_text": "Low to mid tide is the sweet spot, and the wave starts showing at under 1ft but needs chest-high to around double-overhead to really get going."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/punta-rosarito": {
+      "url": "https://surftrips.co/mexico/baja-california/punta-rosarito",
+      "title": "Punta Rosarito",
+      "checked_on": "2026-08-27T17:31:05.489Z",
+      "editorial_status": "editor_verified",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 28.572,
+        "longitude": -114.171,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 270,
+        "max_deg": 315,
+        "source_text": "Punta Rosarito switches on with swells out of the W to NW (270 to 315 degrees)."
+      },
+      "access_and_facilities": "Access is described as tricky and experience helps, so a capable vehicle matters. The highway proximity is a double edge: easier to reach than most Baja points, but that cuts both ways on busy weekends. Water quality is fair with occasional muck. The primary hazard here is a classic: never turn your back on the ocean. Sneaker sets along this exposed coast are a genuine risk.",
+      "hazard_summary": "Turning your back to the ocean..",
+      "editorial_summary": "A string of exposed points along the Baja Pacific coast, Punta Rosarito marks the southern anchor of the Seven Sisters stretch and delivers right-hand point waves when a solid NW or W swell pushes through. NW groundswell in the 4-8ft range is the sweet spot, with NW wind going offshore at most points along this section. Low tide tends to clean things up. South swells are completely blocked by Cedros Island offshore, so forget any late-spring south windows. The highway runs close to the coast here, meaning long weekends and holidays bring noticeably more company than you'd expect for such a remote-feeling stretch. Bottom: Rock with reef and sand sections. Season: September-February. Consistency: Moderate, swell-dependent. Bring a longer board option as backup because some points along this zone need real size to break at all.",
+      "skill_suitability": "Punta Rosarito is a mixed bottom, right-hand point over rock and reef, break suited for beginner through advanced surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": {
+        "preferred_stage": "low",
+        "preferred_direction": "either",
+        "source_text": "Low tide tends to clean things up."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/punta-conejo": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/punta-conejo",
+      "title": "Punta Conejo",
+      "checked_on": "2026-08-27T17:30:08.950Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 24.0718,
+        "longitude": -111.0069,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "The turnoff is signed from the highway. Expect roughly an hour on a rough dirt road. Park on the bluff. No shops, no water, no facilities beyond what you bring. Haul in enough water, food, and fuel for at least two to three days. Block ice lasts longer than cubed. Local fishermen near the lighthouse sometimes sell fresh catch directly. Strong afternoon winds make secure tarp setup essential.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "A long left-hand pointbreak on the Baja California Sur coast, Punta Conejo delivers rides of 150-500m on a strong S or SW swell, making it one of the region's most coveted setups when it fires. Optimal conditions require SW-W winds or dead calm, as the prevailing N-NE tradewinds blow sideshore and quickly kill the wave. Low to mid tide is the sweet spot, with the wave working from around 3ft and holding well past 8ft on bigger swells. Intermediate surfers will manage comfortably, but the long wall rewards those who can generate speed and link sections. The drive in is roughly an hour on dirt road. Bottom: rock and sand. Season: summer S swell window, June through October. Consistency: medium to low, genuinely fickle. Camp on the bluff above the sand wash, not on the flat below: flash floods off the mountains have washed vehicles into the sea.",
+      "skill_suitability": "Punta Conejo is a point bottom, long walling left point, 150-500m rides on s-sw swell, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "low_to_mid",
+        "preferred_direction": "either",
+        "source_text": "Low to mid tide is the sweet spot, with the wave working from around 3ft and holding well past 8ft on bigger swells."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/todos-santos-killers": {
+      "url": "https://surftrips.co/mexico/baja-california/todos-santos-killers",
+      "title": "Todos Santos / Killers",
+      "checked_on": "2026-08-27T17:30:09.477Z",
+      "editorial_status": "editor_verified",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 31.809029279377,
+        "longitude": -116.808197970004,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 270,
+        "max_deg": 315,
+        "source_text": "Todos Santos / Killers switches on with swells out of the W to NW (270 to 315 degrees)."
+      },
+      "access_and_facilities": "Boat access only. Coordinate at the harbor in Ensenada. There are no facilities on the island. Bring everything: water, food, safety gear, and a plan for hold-downs. Hazards include exposed rocks on the inside, strong currents, and the sheer power of the wave itself. Water quality is clean.",
+      "hazard_summary": "Exposed rocks, currents, extremely powerful waves..",
+      "editorial_summary": "Killers earns its name without exaggeration: a deepwater big-wave right off the northwest corner of Todos Santos Island in Baja California, Mexico, that focuses NW and W swell through an underwater canyon and routinely doubles the size of whatever energy is running. Optimal conditions are glassy light E winds, low tide, and surf running 3-4x overhead minimum, with real action beginning in the 15-20ft face range and scaling well beyond. This is an advanced-only wave with no beginner exceptions, when it fires, a hardcore crew arrives and seniority in the lineup is real, though mutual respect keeps things functional at consequence-level surf. Bottom: rock and sand. Season: November through March. Consistency: swell-dependent, fires on significant NW groundswell. Access is boat-only from Ensenada harbor, so plan your logistics early and know that Killers blows out as easterly winds give way to afternoon onshore flow most days, making a predawn departure from the mainland non-negotiable if you're driving from SoCal.",
+      "skill_suitability": "Todos Santos / Killers is a mixed bottom, powerful shifty big-wave right-hand reef and point, break suited for advanced surfers. This is not a beginner break. Build up at softer waves first.",
+      "tide_guidance": {
+        "preferred_stage": "low",
+        "preferred_direction": "either",
+        "source_text": "Optimal conditions are glassy light E winds, low tide, and surf running 3-4x overhead minimum, with real action beginning in the 15-20ft face range and scaling well beyond."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/campo-renes": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/campo-renes",
+      "title": "Campo Renes",
+      "checked_on": "2026-08-27T17:30:10.031Z",
+      "editorial_status": "editor_verified",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 26.793,
+        "longitude": -113.484,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 135,
+        "max_deg": 225,
+        "source_text": "Campo Renes switches on with swells out of the SE to SW (135 to 225 degrees)."
+      },
+      "access_and_facilities": "Access is straightforward from the beach out front. Rips form along the sand and rocks, so identify a safe channel before paddling. Rocks are present at the reef sections and urchins are possible, so reef booties are worth considering. Water quality has been reported as variable, so check conditions before sessions after heavy rain. Sharks have been noted as a hazard in the region, stay aware at dawn and dusk.",
+      "hazard_summary": "Rips, rocks and sharks.",
+      "editorial_summary": "A reliable mix of beach and reef peaks tucked along the Baja California Sur coastline, Campo Renes delivers rights and lefts that shift character depending on sand movement and swell angle. S, SE, SW, and SSW swells in the chest-high to well-overhead range are the sweet spot, with NW through NE winds keeping faces clean. All tides work, though mid-tide tends to organize the reef sections best. Intermediate surfers will find plenty of room to develop, and more advanced riders can hunt the punchier reef peaks when swell fills in. The crowd is light and the local vibe welcoming, making it one of the more relaxed lineups along this stretch. Bottom: mixed sand and reef. Season: summer. Consistency: moderate, swell-dependent. Go early in the morning before onshore winds pick up and keep an eye on rips moving along the sand bottom, particularly after large sets.",
+      "skill_suitability": "Campo Renes is a mixed bottom, punchy mixed sand-reef rights and lefts, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "all",
+        "preferred_direction": "either",
+        "source_text": "All tides work, though mid-tide tends to organize the reef sections best."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/alfonsos": {
+      "url": "https://surftrips.co/mexico/baja-california/alfonsos",
+      "title": "Alfonsos",
+      "checked_on": "2026-08-27T17:31:06.058Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 32.274,
+        "longitude": -117.038,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Rosarito is the closest base, around 5 km away, with food, accommodation, and basic supplies. The drive down Baja is straightforward. Rock hazards in the lineup are the primary concern: identify the channel before paddling out and stay aware of where you are relative to the reef on your inside.",
+      "hazard_summary": "rocks in the line up. Reef booties are common kit.",
+      "editorial_summary": "Alfonsos delivers reliable reef surf off Baja Norte, sitting about 5 km from Rosarito on Mexico's northwest coast. The break works on SW groundswell or windswell, with east winds going offshore and cleaning up the faces. Size window sits comfortably in the 3-8ft range, with summer months peaking around July when SW energy is most consistent. Both a left and a right reef fire here depending on swell angle, giving intermediates two options in the same session. The lineup is rock-studded, so anyone paddling out needs to read the channel carefully and watch their positioning between sets. Bottom: reef. Season: summer peak, June through August. Consistency: moderate, swell-dependent. Booties are worth considering even in warm water given the shallow reef sections at lower tides.",
+      "skill_suitability": "Alfonsos is a reef bottom, reef peaks, left and right, rocky lineup, break suited for intermediate surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california/casas": {
+      "url": "https://surftrips.co/mexico/baja-california/casas",
+      "title": "Casas",
+      "checked_on": "2026-08-27T17:31:06.620Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 30.143,
+        "longitude": -115.818,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Casas is a remote stretch of Baja reef with limited infrastructure nearby. Bring your own water and supplies. The reef hazard is the primary concern: sharp rock on a wipeout can cause injury, so booties are worth considering. Baja roads to outlying spots can be rough, so a high-clearance vehicle is practical.",
+      "hazard_summary": "rocks. Reef booties are common kit.",
+      "editorial_summary": "An exposed reef break on the Pacific coast of Baja California Norte, Casas delivers both left and right peaks when a solid SW groundswell lines up with ENE offshore winds. Optimal size sits in the 3-6ft range, with summer the standout season and July the peak month, though onshore conditions dominate most days, so timing matters. The reef bottom demands some experience reading rock-studded lineups and committing to takeoffs without hesitation. Crowds are rarely an issue out here, which is the tradeoff for the commitment involved in scoring clean days. Bottom: reef. Season: June through September. Consistency: moderate, with quality windows narrow due to frequent onshore winds. Bring a helmet or at least reef booties if the swell has any push to it, and check the forecast carefully since blown-out days outnumber clean ones by a wide margin.",
+      "skill_suitability": "Casas is a reef bottom, punchy a-frame reef peaks, lefts and rights, break suited for intermediate through advanced surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california/san-miguel": {
+      "url": "https://surftrips.co/mexico/baja-california/san-miguel",
+      "title": "San Miguel",
+      "checked_on": "2026-08-27T17:31:07.183Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 31.9001651947431,
+        "longitude": -116.731165956641,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Park in the dirt lot at the point. Camping is available on-site for a fee. Ensenada is the nearest town with full services, food, water, and accommodation. The river mouth at the takeoff zone carries runoff that makes water quality suspect, especially after rain. Rocks and occasional urchins are the primary physical hazards.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "San Miguel is the most consistent right-hand point in Northern Baja, a cobblestone rivermouth that NW swells thread through underwater canyons to produce long, tapered walls comparable to Rincon or Trestles. W to NW swell is the money window. S swells are blocked by Punta Banda and Todos Santos Island. Offshore NE winds are critical, but they clock around reliably by 11am almost every day, so dawn patrol is not a suggestion here, it is mandatory. Mid to high tide smooths out the sections that go hollow and sectiony at low. Head-high to double-overhead is the sweet spot, but the wave does not close out as it gets bigger. Bottom is cobblestone with some urchins. Season runs November through March. Consistency is medium to high for Northern Baja standards. The takeoff is steep and fast, the wall stretches and grows down the line, and the crowd is heavy and territorial. Get there early, read the lineup before paddling out, and know that a river of questionable health empties right into the takeoff zone.",
+      "skill_suitability": "San Miguel is a point bottom, long cobblestone right-hand point, fast hollow walls, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "mid_to_high",
+        "preferred_direction": "either",
+        "source_text": "Mid to high tide smooths out the sections that go hollow and sectiony at low."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/punta-arenas": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/punta-arenas",
+      "title": "Punta Arenas",
+      "checked_on": "2026-08-27T17:30:11.949Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 23.546,
+        "longitude": -109.469,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Free roadside parking and basic camping are the facilities on offer. Desert rules apply: bring your own water, food, and fuel. No surf rentals or shops nearby. The East Cape road puts you within reach of several other points and reefs, making this logical as a stop on a longer Baja run.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "A low-consistency sand point on the East Cape of Baja California Sur, Punta Arenas needs either a massive S swell or a local N storm swell to produce rideable waves. Without that push, expect flat water. When it does come alive, the point delivers short right-handers across sand, best in the 2-5ft range before the surface gets messy. NW offshore winds clean things up, and the break tolerates all tides. Beginners will find the forgiving sandy bottom welcoming, and the lineup is rarely crowded given the inconsistency. Bottom: sand point. Season: occasional winter N swells, rare summer S pulse. Consistency: low. Pack patience alongside your boards, this is a destination for the road-trip surfer willing to trade predictability for solitude and desert scenery.",
+      "skill_suitability": "Punta Arenas is a point bottom, short inconsistent sand point right, break suited for beginner through intermediate surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": {
+        "preferred_stage": "all",
+        "preferred_direction": "either",
+        "source_text": "NW offshore winds clean things up, and the break tolerates all tides."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/pescadero": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/pescadero",
+      "title": "Pescadero",
+      "checked_on": "2026-08-27T17:31:07.629Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 23.347,
+        "longitude": -110.19,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "No formal parking area. Camping is available nearby, which makes a dawn session practical if you're sleeping on-site. The Todos Santos to Cabo San Lucas highway runs close, so the beach is roadside-accessible. No food or rental infrastructure on the beach itself. Urchins are dense across the reef sections, so reef boots are strongly recommended.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "A-frame beach peaks break over sand and shallow reef along this broad stretch of Baja Sur coastline, sitting roughly midway between Todos Santos and Cabo San Lucas. The swell window runs from S through NW, meaning it picks up both summer south swells and winter northwest groundswells with solid consistency. NE offshores groom the peaks in the morning before onshores kick in around midday, so dawn sessions matter here. The wave suits intermediates and above: punchy A-frames can jack quickly over the sandy reefs close to shore, and sea urchins carpet the bottom throughout the lineup. Size range runs from 2ft beachbreak fun up to a heavy 15ft when a real NW shows. The standout section at the north end, San Pedrito, is a rippable right reef that handles serious NW size but is not a beginner wave. Bottom: mixed sand and reef. Season: year-round with peak NW season Oct-Mar. Consistency: high. Get in early before midday wind ruins the surface and watch every step on the reef at low tide.",
+      "skill_suitability": "Pescadero is a mixed bottom, punchy a-frame beach peaks with rippable right reef section, break suited for intermediate through advanced surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california-sur/costa-azul": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/costa-azul",
+      "title": "Costa Azul",
+      "checked_on": "2026-08-27T17:31:08.140Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 23.015,
+        "longitude": -109.717,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 180,
+        "max_deg": 225,
+        "source_text": "Costa Azul switches on with swells out of the S to SW (180 to 225 degrees)."
+      },
+      "access_and_facilities": "The break sits on the coastal highway between Cabo San Lucas and San José del Cabo Airport. Access to the beach requires passing through hotel or private property adjacent to the cliff line, though this has historically been tolerated. Costa Azul Surf Shop on the landside of the road offers rentals and local knowledge. No elaborate gear needed: boardies and reef booties for protection at low tide.",
+      "hazard_summary": null,
+      "editorial_summary": "A powerful point-break wedged between Cabo San Lucas and San José del Cabo, Costa Azul is the most accessible surf on the Los Cabos corridor and one of the few quality waves in the region that holds size. South and SW swells wrap around the point and deliver long, walling rides that can run all the way to shore, with late-session sets pushing 6-8ft and arriving in tight groups that make the paddle-out a genuine workout. The bottom is rocky reef, which gets shallow and consequential at low tide, so surf it mid to high. Water temps run warm year-round, bathwater in summer, making it an easy entry logistically. Bottom: reef. Season: summer south swells, May through October. Consistency: moderate to high when swell is running. Arrive early before the afternoon bump in swell size and wind chop makes the lineup more committing than the crowd-to-wave ratio is worth.",
+      "skill_suitability": "Costa Azul is a point bottom, long walling right-hand point, powerful with reef bottom, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "mid_to_high",
+        "preferred_direction": "either",
+        "source_text": "The bottom is rocky reef, which gets shallow and consequential at low tide, so surf it mid to high."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/punta-cabras": {
+      "url": "https://surftrips.co/mexico/baja-california/punta-cabras",
+      "title": "Punta Cabras",
+      "checked_on": "2026-08-27T17:30:13.533Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 31.329,
+        "longitude": -116.457,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 225,
+        "max_deg": 315,
+        "source_text": "Punta Cabras switches on with swells out of the SW to NW (225 to 315 degrees)."
+      },
+      "access_and_facilities": "Head south from Ensenada, exit toward Ejido Erendira from Highway 1, then work north along the coast. The road becomes a dirt track and demands a spare tire at minimum, 4x4 after rain. No formal facilities: bring everything you need including water, food, and firewood. The coastline has rocky sections with mussels at the water's edge, so watch your footing.",
+      "hazard_summary": null,
+      "editorial_summary": "A low-key sandbar break south of Ensenada delivers punchy beach peaks in a setting that still feels like old Baja, even if the crowds have caught up in recent years. It picks up SW and NW swells cleanly, works best at 3-6ft, and rewards mid-tide sessions when the bars are organizing. Offshore winds from the east clean up the faces nicely. Most surfers from intermediate upward will find something here, though beginners can paddle out on smaller days when the beach is forgiving. Bottom: sand. Season: fall through spring for the most consistent swell windows. Consistency: moderate. Bring extra water and food for the drive, keep your kit locked up, and do not skip the spare tire as the dirt road in gets rough and turns genuinely treacherous in wet weather. A 4x4 is the call after rain.",
+      "skill_suitability": "Punta Cabras is a beach bottom, punchy sandbar beach peaks, break suited for beginner through intermediate surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": {
+        "preferred_stage": "mid",
+        "preferred_direction": "either",
+        "source_text": "It picks up SW and NW swells cleanly, works best at 3-6ft, and rewards mid-tide sessions when the bars are organizing."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/salsipuedes": {
+      "url": "https://surftrips.co/mexico/baja-california/salsipuedes",
+      "title": "Salsipuedes",
+      "checked_on": "2026-08-27T17:31:08.615Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 31.9763652271726,
+        "longitude": -116.791388895755,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "No land access since 2007. A boat is the only way in. There are no facilities on site. Launch from Ensenada and plan accordingly with food, water, and fuel. Shallow rock sections demand attention on the inside, and the primary hazard is a long boat ride for skunked conditions on an inconsistent break. Check forecasts obsessively before committing.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "Northern Baja's most celebrated pointbreak delivers rare, transcendental right-handers that have earned a reputation as the thickest, most hollow point on the North American West Coast. Located north of Ensenada, Salsipuedes rewards patience: swell must wrap nearly 90 degrees into the bay and travel three miles of inside bayshore before reaching the point. The main right fires exclusively on large W to NW winter groundswells, 6-12ft, at extremely low tide, while a separate A-frame reef near the top of the point offers bowly lefts and sectiony rights on more modest overhead surf. The point suits intermediate to advanced surfers, the reef is accessible to a wider range, but SoCal crews flood both when it's on. Bottom: rock and sand. Season: November to March. Consistency: medium, it can be fickle. Road access has been blocked since 2007 when a condo development gated the property, so arrive by boat or get turned around at the gate.",
+      "skill_suitability": "Salsipuedes is a mixed bottom, rare hollow right-hand point, swell-dependent with a-frame reef section, break suited for intermediate through advanced surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california/el-cardon": {
+      "url": "https://surftrips.co/mexico/baja-california/el-cardon",
+      "title": "El Cardon",
+      "checked_on": "2026-08-27T17:30:14.629Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 28.9,
+        "longitude": -114.464,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "There is no formal parking. Access is via rough dirt road typical of mid-Baja, so a high-clearance vehicle is not optional. Camping is the only facility on site. Bring your own water, food, and fuel. The nearest services will be a significant drive, so over-prepare on supplies.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "El Cardon punches above its weight for a smaller headland on Baja's mid-peninsula coast, consistently producing longer rides than neighboring Punta Maria or Lobos despite its compact size. W to NW winter swells are the engine here, with NE offshores grooming the face cleanly. The break works across all tides and handles a solid 2-8ft range, making it more accessible than many of the exposed outer points nearby. Intermediates will find enough wall to work on their rail game without getting overwhelmed, and crowds are only occasional given the remote access. Bottom: mixed rock at the tip, sand at the tail. Season: fall through winter. Consistency: high. No parking infrastructure exists, so plan to camp on site and bring everything you need, water included.",
+      "skill_suitability": "El Cardon is a mixed bottom, long walling right-hand point, rocky tip to sandy tail, break suited for intermediate surfers.",
+      "tide_guidance": {
+        "preferred_stage": "all",
+        "preferred_direction": "either",
+        "source_text": "The break works across all tides and handles a solid 2-8ft range, making it more accessible than many of the exposed outer points nearby."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/boca-del-solado": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/boca-del-solado",
+      "title": "Boca Del Solado",
+      "checked_on": "2026-08-27T17:31:09.444Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 23.254,
+        "longitude": -109.436,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "About 33 km from Los Cabos International Airport, reachable by rental car or taxi. Bring your own water, wax, and sun protection. Urchins and exposed rocks on the reef sections make booties worth considering at low tide. Check the rip channels before committing to a paddle-out line.",
+      "hazard_summary": "urchins, rips, rocks, locals, pollution.",
+      "editorial_summary": "A reliable mix of beach peaks and reef breaks sits 33 km from Los Cabos International Airport along the Baja California Sur coastline, making Boca Del Solado one of the more accessible options for traveling surfers based out of Cabo. South swells are the engine here, arriving cleanly through summer and peaking in September, with NW winds going offshore to groom both the beach break peaks and the reef sections running left and right. The wave range is wide enough to suit intermediates looking to log time in the water, but the reef holds sharper faces when the swell climbs, and the hazards demand respect. Bottom: mixed reef and beach. Season: June through October, peak September. Consistency: moderate to good in summer groundswell season. Check rips before paddling out, as the mix of sand and reef creates unpredictable current pockets that shift with tide.",
+      "skill_suitability": "Boca Del Solado is a mixed bottom, mixed beach and reef peaks, lefts and rights, break suited for intermediate through advanced surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california-sur/scorpion-bay": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/scorpion-bay",
+      "title": "Scorpion Bay",
+      "checked_on": "2026-08-27T17:30:15.983Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 26.2424,
+        "longitude": -112.475,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "The drive from Tijuana runs 800-plus miles, roughly 14 hours on paved road, followed by 100-300 miles of rugged off-road desert track depending on which route you take. No accommodations exist. Camping is on a lava bluff with cold showers, rationed water, and a fee that has climbed over the years. Bring all food, fuel, and first aid. Urchins on the reef are the main in-water hazard.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "One of the longest right-hand point breaks on the planet, Scorpion Bay (San Juanico) lines up across up to seven numbered points inside a deep bay on Baja California Sur's Pacific coast, producing rides that can link to 2km on a big enough S swell. Optimal conditions call for S to SW swell at 3-10ft, low to mid tide, and a NW offshore wind that provides increasing protection at Points 1-3 deeper inside the bay. Intermediate surfers can handle the mellower inside sections, advanced surfers chase the exposed outer points near Punta Pequeña where size stacks up. Bottom: cobblestone and reef. Season: May through October for S swell, though consistency is genuinely low with long flat spells the norm. Bring a high-clearance 4WD, rations, and patience because the 800-plus-mile drive from the US border takes 14 hours minimum, services are zero on arrival, and the camping is on lava rock with rationed water.",
+      "skill_suitability": "Scorpion Bay is a mixed bottom, long walling right-hand point, linkable multi-section, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "low_to_mid",
+        "preferred_direction": "either",
+        "source_text": "Optimal conditions call for S to SW swell at 3-10ft, low to mid tide, and a NW offshore wind that provides increasing protection at Points 1-3 deeper inside the bay."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/backwash": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/backwash",
+      "title": "Backwash",
+      "checked_on": "2026-08-27T17:30:16.689Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 22.892,
+        "longitude": -109.895,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Access is via Backwash Bay near Matapalo. Free parking is available, and restrooms are on site. No water quality concerns reported. The bay setup provides some natural orientation for reading the break on arrival.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "A powerful right-hand point in Backwash Bay near Matapalo, Baja California Sur, this wave earns its crowd on the right day. SW to N swells in the 2-8ft range light it up best, with a mid-to-low tide window that sharpens the shape considerably. Offshore SE winds are essential for keeping it clean, and when those align with a solid groundswell the ride stretches out to 150-300m of walling, workable face. Intermediates are the core audience here, though stronger surfers will find enough power to push their surfing. The weekend lineup gets crowded, so an early paddle-out on weekdays is the smarter play. Bottom: point. Season: consistent year-round with peaks tied to SW and NW groundswells. Consistency: high. Bring a board that can handle a bit of punch and hold a rail through the longer walls.",
+      "skill_suitability": "Backwash is a point bottom, powerful long-walled right-hand point, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "low_to_mid",
+        "preferred_direction": "either",
+        "source_text": "SW to N swells in the 2-8ft range light it up best, with a mid-to-low tide window that sharpens the shape considerably."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/calafia": {
+      "url": "https://surftrips.co/mexico/baja-california/calafia",
+      "title": "Calafia",
+      "checked_on": "2026-08-27T17:30:17.236Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 32.2668,
+        "longitude": -117.018,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Drive south on Highway 1 libre toward Ensenada, roughly 30 minutes from the border past Mushrooms. There is a paid car park. A well-worn footpath descends the cliff. Time your paddle-out carefully, as rocks and shore break demand attention. No surf facilities on site, but hotels, restaurants, and clubs line the cliff. Water quality is fair at best.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "A right-hand point south of Rosarito that many visiting surfers hit first on the run down Baja 1, Calafia is accessible, honest, and fun when a solid S to SW swell fills in. Offshore in the daily NW wind, it works best mid to high tide on 3-8ft south energy, with SW also producing rideable walls. Bigger NW wraps can fire the nearby reefs, so there is almost always something in the area. Beginner-to-intermediate surfers will find it approachable, though the lineup draws expats and weekend crossers, keeping crowds moderate. Bottom: rock-reef point. Season: June through September. Consistency: medium. Water quality runs urban given the proximity to Rosarito and Tijuana, so check conditions after rain. Current runs hard on solid south swells, so pace your paddling and pick your moment on the shoulder.",
+      "skill_suitability": "Calafia is a point bottom, fast right-hand rock-reef point, mushy without strong s swell, break suited for beginner through intermediate surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": {
+        "preferred_stage": "mid_to_high",
+        "preferred_direction": "either",
+        "source_text": "Offshore in the daily NW wind, it works best mid to high tide on 3-8ft south energy, with SW also producing rideable walls."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/k-38": {
+      "url": "https://surftrips.co/mexico/baja-california/k-38",
+      "title": "K-38",
+      "checked_on": "2026-08-27T17:30:17.629Z",
+      "editorial_status": "editor_verified",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 32.264,
+        "longitude": -117.006,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 180,
+        "max_deg": 315,
+        "source_text": "K-38 switches on with swells out of the S to NW (180 to 315 degrees)."
+      },
+      "access_and_facilities": "Park at the hotel adjacent to the break or pay a security guard to watch your vehicle. Petty theft has been reported so don't leave valuables in the car. Watch for exposed rocks and urchins on the paddle-out and during the exit, especially at lower tides. Water quality is generally fair but can dip after heavy rain or sewage events.",
+      "hazard_summary": "Rocks, urchins, petty theft.. Reef booties are common kit.",
+      "editorial_summary": "A bowly right-hand point over rocky reef just south of Rosarito, K-38 punches above its milepost number as one of Baja Norte's most consistent and accessible waves. It catches S, SW, W, and WNW swells year-round, with summer through winter delivering the most reliable windows. Offshore winds from the NE and E clean up the face nicely. Best from mid to low tide at head-high to double overhead, where the bowl section links into a moderately long wall. Proficient surfers will get the most from it, though it's forgiving enough that improving intermediates can handle the reef. Crowds are moderate and reflect its staple status on the Baja Norte circuit. Bottom: rocky reef. Season: summer, autumn, winter. Consistency: reliable. Watch for urchins on the reef and keep an eye on your car at the parking area near the hotel.",
+      "skill_suitability": "K-38 is a reef bottom, bowly right-hand reef point, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "low_to_mid",
+        "preferred_direction": "either",
+        "source_text": "Best from mid to low tide at head-high to double overhead, where the bowl section links into a moderately long wall."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/shipwreck": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/shipwreck",
+      "title": "Shipwreck",
+      "checked_on": "2026-08-27T17:30:18.223Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 23.12,
+        "longitude": -109.527,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 157,
+        "max_deg": 225,
+        "source_text": "Shipwreck switches on with swells out of the SSE to SW (157 to 225 degrees)."
+      },
+      "access_and_facilities": "Park at the top of the cliff and pick your way down. It is a long paddle back to the channel after a good ride, so pace yourself. Watch the horizon: the hazard listed is turning your back to the ocean, and cleanup sets on this reef are not forgiving. Water quality is clean.",
+      "hazard_summary": "Turning your back to the ocean..",
+      "editorial_summary": "A zippy right-hand point-reef on the east cape of Baja California Sur, Shipwreck delivers some of the most consistent surf between San Jose del Cabo and the East Cape corridor. S swell is the engine here, making April through October the prime window, and the wave picks up energy on par with Costa Azul nearby. The star attraction is a fast right that breaks at the west end of the bay, threading through distinct sections before connecting down to the beach on a good day. A secondary reef mid-bay throws up short lefts when conditions align. Intermediate to advanced surfers will get the most out of it. Crowds are moderate and can stack up on weekends, but multiple takeoff zones spread the pack. Bottom: sand, rock, reef. Season: April to October. Consistency: reliable summer performer. Mid tide is the sweet spot, dropping too low exposes rock sections and raises the hazard level significantly.",
+      "skill_suitability": "Shipwreck is a mixed bottom, fast sectiony right-hand point-reef, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "mid",
+        "preferred_direction": "either",
+        "source_text": "Mid tide is the sweet spot, dropping too low exposes rock sections and raises the hazard level significantly."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/zippers": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/zippers",
+      "title": "Zippers",
+      "checked_on": "2026-08-27T17:30:18.777Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 23.029,
+        "longitude": -109.714,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 180,
+        "max_deg": 225,
+        "source_text": "Zippers switches on with swells out of the S to SW (180 to 225 degrees)."
+      },
+      "access_and_facilities": "Coast Azul has a large paved parking lot directly at the break. No long walk required. Food and amenities are close by in San José del Cabo. The water quality is generally clean. Primary hazards are the cobblestone reef on shallow sections and collisions with other surfers, both of which become more likely as the crowd builds.",
+      "hazard_summary": "Rocks, other surfers..",
+      "editorial_summary": "A cobblestone reef right off Costa Azul, just west of San José del Cabo, Zippers delivers one of the better waves in the Los Cabos area when a solid S or SW swell fills in. Best from head-high to double-overhead on a low-to-mid tide, it needs a clean S swell and N wind to show its full potential. The takeoff is forgiving outside the exposed rocks, but the wave quickly accelerates along the cobblestone reef, offering wall after wall for progressive turns and occasional air sections on the inside. Advanced surfers will get the most out of it, but the real filter here is the crowd, not the wave. Bottom: cobblestone reef and sand. Season: April through October. Consistency: reliable when S swell is running. The localism at Zippers is genuine and documented, with a known local crew that enforces priority aggressively. Drop-ins happen constantly in both directions. Bring patience, surf conservatively, and take your waves from the shoulder until you read the lineup.",
+      "skill_suitability": "Zippers is a mixed bottom, fast cobblestone reef right with progressive walls and air sections, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "low_to_mid",
+        "preferred_direction": "either",
+        "source_text": "Best from head-high to double-overhead on a low-to-mid tide, it needs a clean S swell and N wind to show its full potential."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/san-antonio-del-mar-sur": {
+      "url": "https://surftrips.co/mexico/baja-california/san-antonio-del-mar-sur",
+      "title": "San Antonio Del Mar - Sur",
+      "checked_on": "2026-08-27T17:31:10.449Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 31.037,
+        "longitude": -116.345,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Free camping on-site is the main draw. No formal facilities beyond what you bring. A vehicle with good clearance helps on the approach roads. Water quality can dip after rain due to estuary and river runoff nearby, so check conditions before paddling out.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "Consistent beachbreak peaks face directly into NW swell along a rarely crowded stretch of Baja California coast, roughly between Ensenada and the Cabo Colonet cliffs to the south. The swell window runs S through NW, meaning almost any groundswell finds the banks, and shifting sandbars keep the setup honest across all tides. Easterly winds blow offshore here, and the size range of 2-8ft suits intermediates looking for space without fighting for waves. Crowds are rare, the camping is free, and the consistency is genuinely high year-round. River and estuary outflow is present nearby, so be aware of water quality especially after rain. The best move is to score it during a clean NW groundswell with light easterlies, arriving early before onshore sea-breezes build through the afternoon. Bottom: sand. Season: year-round. Consistency: high. Pack a variety of boards since the shifting banks can produce hollow punchy sections one day and softer walling peaks the next.",
+      "skill_suitability": "San Antonio Del Mar - Sur is a beach bottom, shifting beachbreak peaks, punchy and consistent, break suited for intermediate surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california/punta-negra": {
+      "url": "https://surftrips.co/mexico/baja-california/punta-negra",
+      "title": "Punta Negra",
+      "checked_on": "2026-08-27T17:31:11.024Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 28.801,
+        "longitude": -114.391,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "The road to Punta Negra is rough, so a high-clearance vehicle is the minimum. There is no parking infrastructure, no facilities, and no water or food nearby. Pack everything: water, food, a full tank of fuel, and any surf supplies you need. Bring enough for the day and then some.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "A reliable right pointbreak on Baja's central Pacific coast, Punta Negra delivers clean walls on W to NW winter swells in the 2-8ft range. Offshore northerly winds clean things up best at dawn and dusk during winter months, so timing your sessions around those windows pays dividends. The wave wraps around the point across a medium-consistency lineup that suits intermediate surfers ready to work a longer face. Expect 200-500m rides when conditions align, though the spot won't fire every swell. Bottom: point. Season: winter, Oct-Mar. Consistency: medium. Road access is rough, facilities are zero, and you're bringing everything you need with you.",
+      "skill_suitability": "Punta Negra is a point bottom, long walling right-hand point, offshore on northerly winds, break suited for intermediate through advanced surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california/punta-maria": {
+      "url": "https://surftrips.co/mexico/baja-california/punta-maria",
+      "title": "Punta Maria",
+      "checked_on": "2026-08-27T17:31:11.476Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 28.912,
+        "longitude": -114.529,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "There is no parking infrastructure and no facilities at this point. Access requires a capable vehicle and self-catering supplies. Carry extra water, fuel, and food. The broader Baja coastline in this zone is remote, so mechanical problems or injuries are serious matters far from quick assistance.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "A long wrapping right-hand point, Punta Maria delivers one of Baja's more satisfying rides when major W swells push through this stretch of the Pacific coast. It needs genuine power to wrap around the point, meaning it stays dormant through small or inconsistent periods but comes alive in winter when NW groundswells arrive alongside the offshore NE winds. Rides can stretch across a significant section of coastline, rewarding surfers who can read the point and stay on their feet through multiple turns. This is intermediate-to-advanced territory: the wave demands commitment and a read on the swell direction, not just paddling ability. Bottom: point. Season: winter, Nov through Mar. Consistency: medium. Come prepared for self-sufficiency because there are no facilities and no formal parking, so a 4WD or high-clearance vehicle and packed supplies are essential before you leave the highway.",
+      "skill_suitability": "Punta Maria is a point bottom, long wrapping right-hand point, powerful w swell dependent, break suited for intermediate through advanced surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california/dunes": {
+      "url": "https://surftrips.co/mexico/baja-california/dunes",
+      "title": "Dunes",
+      "checked_on": "2026-08-27T17:30:20.888Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 32.1375365510086,
+        "longitude": -116.89159154892,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 225,
+        "max_deg": 270,
+        "source_text": "Dunes switches on with swells out of the SW to W (225 to 270 degrees)."
+      },
+      "access_and_facilities": "Drive to Noordhoek Beach car park and walk 25-30 minutes south along the beach. No facilities on site, so carry water and food. Rips are the main hazard, especially when the swell is pumping. Scan the beach before paddling out and use the channel if one is running. Water is clean.",
+      "hazard_summary": "Rips..",
+      "editorial_summary": "A remote beach break on Baja California's Pacific coast, Dunes delivers hollow, powerful peaks over shifting sandbars that favor rights when the banks align. SW and W swells are the engine here, best from waist-high up to a solid 1-2ft overhead, with the wave coming alive on mid to high tide. NE through SE winds keep faces clean. The 25-30 minute walk from Noordhoek Beach car park filters out most casual surfers, keeping the lineup genuinely uncrowded even on weekends. Bottom: sand over reef. Season: year-round, peaking September through November. Consistency: reliable when SW or W groundswell is running. Bring a step-up if the banks are stacking because sets can get surprisingly heavy and hollow, comparable in punch to a quality European beachie on a good day.",
+      "skill_suitability": "Dunes is a beach bottom, hollow powerful beach peaks, right-favoring sandbars, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "mid_to_high",
+        "preferred_direction": "either",
+        "source_text": "SW and W swells are the engine here, best from waist-high up to a solid 1-2ft overhead, with the wave coming alive on mid to high tide."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/baja-malibu": {
+      "url": "https://surftrips.co/mexico/baja-california/baja-malibu",
+      "title": "Baja Malibu",
+      "checked_on": "2026-08-27T17:30:21.382Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 32.417,
+        "longitude": -117.096,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 270,
+        "max_deg": 360,
+        "source_text": "Baja Malibu switches on with swells out of the W to N (270 to 360 degrees)."
+      },
+      "access_and_facilities": "The spot sits off the toll road just after the San Antonio exit, north of Cantamar. Parking is near the bar at the exit, the cobblestone road to the beach is private and gated. There is a KOA campground at the San Antonio exit with hot showers and electricity for overnight trips. Avoid surfing here for several days after significant rainfall due to raw sewage contamination.",
+      "hazard_summary": "Thick lips = broken boards. Petty theft. .",
+      "editorial_summary": "A beach break north of Rosarito that punches well above its pay grade when a long-period NW swell or NW-plus-SSW combo rolls in, bending around the offshore bathymetry into hollow, powerful peaks. Offshore winds from the E, ESE, or NE are the trigger that turn this stretch into spitting barrels at head-high to double-overhead. Mid tide is the sweet spot. Intermediate to advanced surfers are the right call here: the thick lips snap boards and the impact zone is punishing on bigger days. It runs moderate crowds most of the time, but the local vibe can get intense when the surf fires. Bottom: sand. Season: October through January is peak, though it can be fun year-round. Consistency: moderate. Water quality is genuinely poor, often murky and brown, especially after rain due to raw sewage inputs from nearby sources, so weigh your exposure on heavy rain weeks carefully before paddling out.",
+      "skill_suitability": "Baja Malibu is a beach bottom, hollow punchy beach peaks, fast barrels on nw combo swell, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "mid",
+        "preferred_direction": "either",
+        "source_text": "Mid tide is the sweet spot."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/punta-baja": {
+      "url": "https://surftrips.co/mexico/baja-california/punta-baja",
+      "title": "Punta Baja",
+      "checked_on": "2026-08-27T17:31:12.090Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 29.941,
+        "longitude": -115.817,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 270,
+        "max_deg": 315,
+        "source_text": "Punta Baja switches on with swells out of the W to NW (270 to 315 degrees)."
+      },
+      "access_and_facilities": "From El Rosario, turn right at the first mercado and take the first dirt road heading west. There is a makeshift bridge over a stream en route. Follow west past the village toward the radar tower on the hill, a sign marks the turn. Keep right to avoid ending up at Punta Carlos. There are no facilities. Cliffs above the beach offer a camp setup with a stairway down. Bring all supplies including water, fuel, and food from El Rosario.",
+      "hazard_summary": null,
+      "editorial_summary": "A remote point break on the northern Baja coast, Punta Baja delivers long, rolling left-handers when the swell cooperates, sitting well off the highway south of El Rosario. NW and SW swells are the ticket, both funneling into the point and producing rides that stretch well beyond 150m on good days. Offshore winds typically kick in during the afternoon, cleaning up the face and making late sessions the call. The water runs cold year-round, kelp becomes a factor at low tide, and the wave shuts down without enough swell, making this a genuine hit-or-miss destination. Mid to high tide is the move. Bottom: point over mixed reef and kelp. Season: fall through spring for consistent NW groundswell. Consistency: fickle. Pack a longboard, bring layers for cold nights, and lower your expectations for any single session since walking away skunked is a real possibility at this fickle stretch of coast.",
+      "skill_suitability": "Punta Baja is a point bottom, long walling left point, fickle, kelp-lined, break suited for beginner through intermediate surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": {
+        "preferred_stage": "mid_to_high",
+        "preferred_direction": "either",
+        "source_text": "Mid to high tide is the move."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/the-wall": {
+      "url": "https://surftrips.co/mexico/baja-california/the-wall",
+      "title": "The Wall",
+      "checked_on": "2026-08-27T17:30:22.360Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 28.551,
+        "longitude": -114.15,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Dirt road access through the Baja interior requires a capable vehicle, especially after rain. Free camping is available beside the rock wall windbreaks. No formal facilities, so pack water, fuel, and food for multiple days. The nearest supply point is a significant drive, so come prepared. Urchins on the reef are a hazard worth reef booties.",
+      "hazard_summary": "no concerns. Reef booties are common kit.",
+      "editorial_summary": "Punta Rosarito's west-facing reefs are so relentlessly consistent that locals simply call the stretch The Wall, sitting on the remote middle Baja coast of Mexico. Optimal conditions need W to NW swell in the 2-8ft range, NE offshore winds, and the break functions across all tides without major change. Intermediate surfers will find plenty to work with, though the camp vibe is relaxed and the lineup rarely carries serious localism pressure. Bottom: submerged reef over cobble. Season: Oct-Mar for best swell frequency. Consistency: high, even by Baja standards. When the NE offshore cranks too hard, even a clean swell can get chopped beyond fun, so timing your sessions to morning glass is worth the early alarm.",
+      "skill_suitability": "The Wall is a reef bottom, fast punchy right-hand reef walls, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "all",
+        "preferred_direction": "either",
+        "source_text": "Optimal conditions need W to NW swell in the 2-8ft range, NE offshore winds, and the break functions across all tides without major change."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/millers-landing": {
+      "url": "https://surftrips.co/mexico/baja-california/millers-landing",
+      "title": "Millers Landing",
+      "checked_on": "2026-08-27T17:30:22.933Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 28.484,
+        "longitude": -114.078,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Access requires a rough dirt road through or near El Tomatal fish camp. High-clearance 4WD is strongly recommended. No formal parking infrastructure exists, so pull off sensibly and secure your vehicle. Camping is available on-site, making multi-day sessions viable. Bring all your own water, food, and fuel, services are not nearby.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "A cobblestone right-hand point tucked inside El Tomatal fish camp, Millers Landing delivers long, wrappable walls when W to NW swell fills in along this remote stretch of Baja's mid-peninsula coast. It works best on solid W groundswell from 2 to 8ft, with easterly offshores grooming the face cleanly across all tide stages. A neighbouring left/right reef adds variety when the point is maxing out or the angle is off. Intermediate surfers will feel at home here, and crowds are light enough that respectful visitors can find space in the lineup without drama. Bottom: cobblestone point with adjacent reef. Season: winter, Oct through Mar. Consistency: high. Camp on-site and surf at dawn before the wind cycles, there is no formal parking lot, so patience and a high-clearance vehicle are your practical essentials.",
+      "skill_suitability": "Millers Landing is a point bottom, long cobblestone right-hand point with adjacent reef, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "all",
+        "preferred_direction": "either",
+        "source_text": "It works best on solid W groundswell from 2 to 8ft, with easterly offshores grooming the face cleanly across all tide stages."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/beachbreak": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/beachbreak",
+      "title": "Beachbreak",
+      "checked_on": "2026-08-27T17:31:12.611Z",
+      "editorial_status": "editor_verified",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 23.82,
+        "longitude": -110.739,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 157,
+        "max_deg": 292,
+        "source_text": "Beachbreak switches on with swells out of the SSE to WNW (157 to 292 degrees)."
+      },
+      "access_and_facilities": "Reach this via 4WD on rough Baja dirt roads. No facilities, no water, no food, no rentals. Camp self-contained and bring everything you need. Driving on the beach looks tempting but has claimed plenty of vehicles. Rips and isolation are the primary hazards. Water quality is fair with occasional muck.",
+      "hazard_summary": "Rips, isolation..",
+      "editorial_summary": "A remote stretch of sand on Baja California Sur's Pacific coast, Beachbreak delivers punchy beach peaks that can fire on smaller days, particularly when multiple swells stack up simultaneously. SW, SSW, S, SE, W, and WNW swells all feed this stretch, with NE or E winds keeping faces clean. It handles chest-high to overhead surf well but closes out hard above double overhead, so timing matters. The lineup suits everyone from beginners to advanced surfers willing to read shifting peaks, and crowds are essentially nonexistent out here. Bottom: sand. Season: June through November. Consistency: moderate, swell-dependent. Four-wheel drive and camping gear are non-negotiable for access, and driving on the sand is a common mistake that gets people badly stuck. Rips run through the break and isolation is real, so come self-sufficient with water, food, and a solid tow strap.",
+      "skill_suitability": "Beachbreak is a beach bottom, shifting beach peaks, lefts and rights, break suited for beginner through advanced surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california-sur/todos-santos": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/todos-santos",
+      "title": "Todos Santos",
+      "checked_on": "2026-08-27T17:30:23.951Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 23.4447357302605,
+        "longitude": -110.245246633819,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 270,
+        "max_deg": 315,
+        "source_text": "Todos Santos switches on with swells out of the W to NW (270 to 315 degrees)."
+      },
+      "access_and_facilities": "Todos Santos town sits roughly 45 minutes north of Cabo San Lucas. Multiple breaks are reachable by road, with parking available near the beach. The town itself has restaurants, accommodation, and basic supplies. Water quality is generally good but check after heavy rain. Hazards include urchins on the reef sections and strong rip currents when swell is up.",
+      "hazard_summary": null,
+      "editorial_summary": "A cluster of beach, reef, and point breaks spread across the Pacific coast of Baja California Sur, Todos Santos delivers serious Pacific swell on a canvas that ranges from playful beach peaks to heavy, consequence-filled reef sections. The spot responds best to W to NW groundswell in the 5-16ft range, with offshore winds from the E to SE and low to mid tide producing the cleanest conditions. Weekdays you may find a quiet lineup, weekends draw crowds that can make positioning competitive. Bottom: mixed reef and beach. Season: October through April. Consistency: solid winter swell season with occasional large pulses that clear out all but the experienced. If the surf jumps above head-high quickly, note where the channel is before you paddle out, because getting caught inside on a big set here is not a situation you want to improvise your way out of.",
+      "skill_suitability": "Todos Santos is a mixed bottom, mixed beach, reef and point breaks, powerful pacific groundswell, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "low_to_mid",
+        "preferred_direction": "either",
+        "source_text": "The spot responds best to W to NW groundswell in the 5-16ft range, with offshore winds from the E to SE and low to mid tide producing the cleanest conditions."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/cerritos": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/cerritos",
+      "title": "Cerritos",
+      "checked_on": "2026-08-27T17:31:13.112Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 23.3287786985746,
+        "longitude": -110.17715,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Park directly at the beach, free. Cerritos Beach Club on site provides board rentals, lessons, and food, making this a practical base. Camping available nearby. Ongoing coastal development with condos and hotels is changing the area, though the surf access remains straightforward.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "A reliable, crowd-friendly beach break on the Pacific side of Baja California Sur, Cerritos delivers something different depending on which swell is running. NW and WNW swells wrap a fun right off the headland at the north end, connecting with the inside sandbar for rippable walls. SW and SSW swells light up the middle of the beach with quality A-frames, with the lefts dumping into the channel often edging ahead on form. Combo swells spread peaks across the whole beach, thinning the crowd naturally. The headland provides reliable wind shelter from afternoon NW onshores, keeping conditions cleaner later in the day than most exposed beaches in the region. This suits beginners and intermediates especially well, though it can get busy on weekends and holidays. Bottom: sand. Season: year-round, with Nov through Apr typically most consistent. Consistency: high. Arrive early during peak season and holiday periods when the car park fills fast.",
+      "skill_suitability": "Cerritos is a beach bottom, mellow to punchy beach break a-frames with headland right on nw swell, break suited for beginner through intermediate surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california-sur/supertubes-a886b7": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/supertubes-a886b7",
+      "title": "Supertubes",
+      "checked_on": "2026-08-27T17:31:13.582Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 39.3416796842426,
+        "longitude": -9.36330561197265,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 225,
+        "max_deg": 315,
+        "source_text": "Supertubes switches on with swells out of the SW to NW (225 to 315 degrees)."
+      },
+      "access_and_facilities": "Access is straightforward from the main coastal road. Facilities are minimal in the immediate area, so bring water and wax. The rocky bottom visible at low tide is the primary hazard, wipeouts are real consequences here. Check conditions before paddling out.",
+      "hazard_summary": null,
+      "editorial_summary": "Heavy, thick-lipped barrels detonate over a beach break on the Pacific coast of Baja California Sur, making Supertubes one of the more serious beach break setups in the region. It needs SW to NW swell from 6-8ft before it starts showing its teeth, and holds up past 12ft on the right push. Offshore winds out of the E to SE are ideal. Low tide is the only real option here, the wave becomes a ledging slab that throws hard, demanding a fast bottom turn to link the first tube section into the next one before the end section closes out. This is an advanced wave. The lineup stays relatively uncrowded through the week and even weekends see few surfers, partly because the entry bar is high and the wave punishes hesitation. Bottom: beach over rocky substrate. Season: September through April. Consistency: moderate, swell-dependent. Pick your peaks with patience, the wrong one closes out fast and the inside is unforgiving.",
+      "skill_suitability": "Supertubes is a beach bottom, heavy thick-lipped beach break barrels, break suited for advanced surfers. This is not a beginner break. Build up at softer waves first.",
+      "tide_guidance": {
+        "preferred_stage": "low",
+        "preferred_direction": "either",
+        "source_text": "Low tide is the only real option here, the wave becomes a ledging slab that throws hard, demanding a fast bottom turn to link the first tube section into the next one before the end section closes out."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/lighthouse-punta-san-jose": {
+      "url": "https://surftrips.co/mexico/baja-california/lighthouse-punta-san-jose",
+      "title": "Lighthouse (Punta San Jose)",
+      "checked_on": "2026-08-27T17:30:25.501Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 31.462,
+        "longitude": -116.589,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 225,
+        "max_deg": 315,
+        "source_text": "Lighthouse (Punta San Jose) switches on with swells out of the SW to NW (225 to 315 degrees)."
+      },
+      "access_and_facilities": "Park at one of the restaurants near the point. Water and basic food available there. No surf rentals expected at this level of remoteness. The current is the primary hazard: scout the rip from the beach before paddling out and have an exit plan for bigger swells.",
+      "hazard_summary": null,
+      "editorial_summary": "A punchy, hollow beach break at the tip of Punta San Jose, Baja California, where a strong current and exposed swell window keep the crowd thin. SW to NW swells in the 3-12ft range hit the sandbars and produce fast, powerful peaks with legitimate tube sections at size. Offshore winds from the E or NE clean things up, and the wave works across all tides though locals report high tide as the more consistent call for quality tubes. Experienced surfers only: the current runs hard, paddle-outs demand reading the rip, and bigger sets punish positioning errors. Bottom: sand. Season: fall through winter for the best swell window. Consistency: moderate to good when groundswell is running. Bring a step-up for anything overhead-plus, and be ready to walk back up the beach after a long drift on bigger days.",
+      "skill_suitability": "Lighthouse (Punta San Jose) is a beach bottom, fast hollow beach peaks with tube sections, break suited for advanced surfers. This is not a beginner break. Build up at softer waves first.",
+      "tide_guidance": {
+        "preferred_stage": "all",
+        "preferred_direction": "either",
+        "source_text": "Offshore winds from the E or NE clean things up, and the wave works across all tides though locals report high tide as the more consistent call for quality tubes."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/punta-abreojos": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/punta-abreojos",
+      "title": "Punta Abreojos",
+      "checked_on": "2026-08-27T17:31:14.111Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 26.7489,
+        "longitude": -113.527,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "The road from the Baja 1 turnoff involves stretches of washboard dirt regardless of paving progress. Paid camping is available directly in front of the breaks. No formal surf shops, so arrive self-sufficient: extra water, sunscreen, ding repair, and fuel. Fresh fish is available from the co-op. Sharks are a real and documented presence, locals and visiting divers have confirmed large hammerheads working the area, especially near gill nets.",
+      "hazard_summary": "no concerns. Reef booties are common kit.",
+      "editorial_summary": "A long right-hand point with multiple distinct sections, Punta Abreojos sits on a remote stretch of Baja California Sur coast roughly 100 km south of Guerrero Negro. S to W swells wrap into the bay and unload across three named setups: the main Point handles the most size and stays approachable, Three Poles offers a middle ground, and Razors is a fast, shallow, hollow right over unforgiving volcanic reef that only reveals itself on solid swell. Ideal conditions call for S to W groundswell, NW to N offshores, and the wind typically turns favorable in the afternoon. Most intermediate and above surfers will find something to ride, though Razors demands respect and experience. Bottom: reef. Season: S-hemisphere groundswell windows, late spring through fall. Consistency: medium. Bring a step-up for size days and be sharply aware of circling sharks, particularly when gill nets are deployed just outside the lineup.",
+      "skill_suitability": "Punta Abreojos is a reef bottom, long hollow right-hand point with fast shallow sections, break suited for intermediate through advanced surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california/cabo-colonet": {
+      "url": "https://surftrips.co/mexico/baja-california/cabo-colonet",
+      "title": "Cabo Colonet",
+      "checked_on": "2026-08-27T17:31:14.552Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 30.953,
+        "longitude": -116.268,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Free camping on-site is the main facility, making this a self-supported trip. Bring all food, water, and fuel from Ensenada before heading south. The highway runs inland from this stretch of coast, so dirt road access applies. No formal rentals or lifeguards. No significant pollution or hazard concerns flagged, though reef awareness and open-ocean swell management are standard.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "A long right pointbreak wrapping along the cliffs of Baja California's mid-peninsula coast, Cabo Colonet delivers rides stretching 200-500m when a solid S to W swell lines up. It needs genuine size to wake up, working best at 6-12ft, and the swell window is narrow enough to keep consistency low. Offshore northerly winds clean up the face, and the wave runs at all tides, though you'll want to check the swell period carefully before committing to the drive. This is an intermediate-to-advanced spot suited to surfers comfortable on open-face walls at real size. The lineup sees occasional crowds when conditions align. Bottom: point over reef. Season: late summer through autumn for S swell, winter for W. Consistency: low. The area's remoteness rewards patience and self-sufficiency, so load the vehicle with food, water, and spare fuel before leaving the highway. Free camping is available on-site, making multi-day waits for swell a realistic strategy.",
+      "skill_suitability": "Cabo Colonet is a point bottom, long inconsistent right point along cliff, break suited for intermediate through advanced surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california/3ms": {
+      "url": "https://surftrips.co/mexico/baja-california/3ms",
+      "title": "3Ms",
+      "checked_on": "2026-08-27T17:31:14.997Z",
+      "editorial_status": "editor_verified",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 31.878,
+        "longitude": -116.69,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 225,
+        "max_deg": 315,
+        "source_text": "3Ms switches on with swells out of the SW to NW (225 to 315 degrees)."
+      },
+      "access_and_facilities": "Park directly in front of the break and paddle straight out. Entry and exit involve rocks, so reef booties are smart insurance. The nearby cannery means water quality is only fair. Pollution, rips, submerged rocks, and sharks are all genuine hazards here. Bring your own water and don't surf open wounds in this lineup.",
+      "hazard_summary": "Sharks, rocks, rips, pollution.. Reef booties are common kit.",
+      "editorial_summary": "Rippable reef lefts and rights define 3Ms, Ensenada's most consistent surf zone and arguably the best-known break in the city after San Miguel, sitting on Baja Norte's coastline within a designated World Surfing Reserve. W and WNW swells are the engine here, with autumn and winter delivering the most reliable juice. Offshore winds from the NE, ENE, and E clean things up. The wave breaks chest-high to overhead and suits most levels, though the rocky reef is enough to keep true beginners out of the lineup. Paddle-out is short from the parking area directly in front. Bottom: rocky reef. Season: autumn and winter. Consistency: reliable when swell is running. The cannery and fish-processing plant next door keep water quality mediocre and put real sharks in the picture, so surf with eyes open and don't linger at dusk.",
+      "skill_suitability": "3Ms is a reef bottom, rippable reef lefts and rights, soft faces, break suited for intermediate through advanced surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california/k-181": {
+      "url": "https://surftrips.co/mexico/baja-california/k-181",
+      "title": "K-181",
+      "checked_on": "2026-08-27T17:31:15.516Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 31.297,
+        "longitude": -116.418,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 270,
+        "max_deg": 330,
+        "source_text": "K-181 switches on with swells out of the W to NNW (270 to 330 degrees)."
+      },
+      "access_and_facilities": "The drive involves unpaved road, a riverbed crossing, and rough terrain. A 4WD or high-clearance vehicle is strongly recommended. There are no facilities, no water, and no services nearby. Bring everything you need including food, water, and a first-aid kit. Cell service is unreliable in this stretch of Baja.",
+      "hazard_summary": null,
+      "editorial_summary": "A remote point break tucked along the Baja coast south of Ensenada, K-181 trades wave quality for near-guaranteed solitude on a stretch of coastline that sees almost no surf traffic. It needs a solid 3-5ft of swell to wake up, and the submerged reef produces boils across the lineup that keep it honest. Mid-to-high tide smooths things out and unlocks the most rideable sections, with reports of both lefts and rights appearing at high water. The wave is mellow and walls up over a reasonable distance, making it a better fit for longboards than high-performance shortboards. Bottom: reef and rock. Season: swells arrive year-round but fall and winter NW groundswell produces the most consistent push. Consistency: low to moderate. Boils are everywhere, so pick your entry carefully and stay aware of surge on the rocks during the paddle-out.",
+      "skill_suitability": "K-181 is a reef bottom, mellow rocky point, a-frame at high tide, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "mid_to_high",
+        "preferred_direction": "either",
+        "source_text": "Mid-to-high tide smooths things out and unlocks the most rideable sections, with reports of both lefts and rights appearing at high water."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/san-pedrito": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/san-pedrito",
+      "title": "San Pedrito",
+      "checked_on": "2026-08-27T17:30:28.160Z",
+      "editorial_status": "editor_verified",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 23.367293038162,
+        "longitude": -110.20268,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 270,
+        "max_deg": 315,
+        "source_text": "San Pedrito switches on with swells out of the W to NW (270 to 315 degrees)."
+      },
+      "access_and_facilities": "Follow signs off Mex 1 through Todos Santos. Parking sits right on the beach, no long walk required. Booties are worth throwing in the bag given the sharp reef. Todos Santos town is close for food, water, and supplies.",
+      "hazard_summary": "Sharp rocks. Some surfers opt to wear booties.. Reef booties are common kit.",
+      "editorial_summary": "San Pedrito delivers a powerful, rippable righthander off a rocky reef just north of Todos Santos on Baja's Pacific coast, about 45 minutes from Cabo San Lucas. NW swells from October through March push the wave into long, point-like walls that reward committed rail surfing at head-high to double-overhead. E winds groom the face. Mid tide is the sweet spot. Summer months shift things peakier and more forgiving, stretching the lineup out and breathing room into the session. Water sits warm enough for boardshorts most of the year, though upwelling from January through June can drop temps noticeably, so pack a light spring suit as backup. Bottom: rocky reef. Season: October to March for size and shape. Consistency: moderate to high in swell season. When it's on, every local and expat within range shows up, so visitors should read the room, surf respectfully, and consider scoring it on smaller mid-week days to avoid the sharpest end of the pecking order.",
+      "skill_suitability": "San Pedrito is a reef bottom, powerful rippable right-hand rocky reef, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "mid",
+        "preferred_direction": "either",
+        "source_text": "Mid tide is the sweet spot."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/la-bocana-cc727a": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/la-bocana-cc727a",
+      "title": "La Bocana",
+      "checked_on": "2026-08-27T17:31:16.004Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 26.8,
+        "longitude": -113.74,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "A rough dirt road off the main Baja highway is the only way in. Four-wheel drive or high clearance is strongly recommended, especially after rain. No formal facilities at the break. Bring all your own water, food, and fuel. Punta Abreojos, about 11 miles southeast, has basics. Camp responsibly.",
+      "hazard_summary": "rips, sharks.",
+      "editorial_summary": "A shifty sandbar and point break at the mouth of Laguna la Bocana, roughly 11 miles northwest of Punta Abreojos on Baja Sur's remote Pacific coast, this spot rewards intermediates willing to make the drive. Rights peel off the shifting sandbars with a left-hand point option thrown in, so the session depends on which bar is stacking sand that week. SSW swell is the engine here, with NE offshores grooming the faces cleanly. Works best in summer through autumn, peaking around August when Southern Hemisphere swells push up the coast. Crowds are rarely an issue this far from the gringo trail. Bottom: sand. Season: June to October. Consistency: moderate, swell-dependent. Sandbars shift constantly, so scout from the beach before paddling out and watch for strong rip currents running through the lagoon mouth, the same geography that shapes the waves also funnels water out hard. Sharks are present in these waters year-round.",
+      "skill_suitability": "La Bocana is a mixed bottom, shifty sandbar and point break, rights with left option, break suited for intermediate surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california/punta-canoas": {
+      "url": "https://surftrips.co/mexico/baja-california/punta-canoas",
+      "title": "Punta Canoas",
+      "checked_on": "2026-08-27T17:31:16.598Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 29.42,
+        "longitude": -115.178,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Access is via a bad dirt road typical of the Baja exterior coast. No parking infrastructure, no shops, no rentals. Camping only. Bring all food, water, fuel, and repair gear. The remoteness means you're self-sufficient from the moment you leave the highway.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "Punta Canoas catches SW swells that most of Northern Baja never sees, sitting at the southern edge of the zone where direct southerly energy can still wrap onto a series of points before Punta Eugenia and Cedros Island cut it off. The main Point, the adjacent Puerto Canoas setup, and Alan's Right just to the east all respond to the SW-to-N swell window, with high cliffs providing solid wind protection that keeps conditions cleaner than you'd expect this far down the peninsula. Offshore winds blow from the NE. Waves get fast and hollow when size builds, rewarding surfers who can handle quick sections and the occasional punchy barrel. Bottom is point and reef. Season runs autumn through spring on NW swell, with SW windows opening up in summer. Consistency is medium. Camping is the only facility on site, so pack water, food, and spares before you head in.",
+      "skill_suitability": "Punta Canoas is a point bottom, fast hollow right-hand point with reef sections, break suited for intermediate through advanced surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california/punta-blanca": {
+      "url": "https://surftrips.co/mexico/baja-california/punta-blanca",
+      "title": "Punta Blanca",
+      "checked_on": "2026-08-27T17:31:17.283Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 29.089,
+        "longitude": -114.703,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Head north from El Cotillo on dirt road. After roughly 10 minutes you will pass campers near a small laguna. The reef is on the laguna's north side. No formal parking or services. Camping is the practical option. Pack water, fuel, and all supplies before leaving pavement.",
+      "hazard_summary": "no concerns. Reef booties are common kit.",
+      "editorial_summary": "One of Baja's 'Seven Sisters' points, Punta Blanca is a right-hand reef pointbreak that rewards experienced surfers willing to earn it via rough 4WD access north of El Cotillo. It fires on SW to W swell with NW offshores cleaning up the face, and holds from around 5-6ft up to double-overhead-plus before closing out. A rip current running left of the peak gives you a fast paddle channel to the lineup, but that same rip can run hard enough to sweep unprepared surfers wide. Bottom: reef. Season: fall through winter, when W and NW groundswells stack up. Consistency: medium. Bring a step-up and a leash you trust on bigger days, and camp nearby if you want first light sessions before any other vehicles make it out on the dirt road.",
+      "skill_suitability": "Punta Blanca is a reef bottom, punchy right-hand reef point with strong rip channel, break suited for intermediate through advanced surfers.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california-sur/supertubes-a85e32": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/supertubes-a85e32",
+      "title": "Supertubes",
+      "checked_on": "2026-08-27T17:31:17.931Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": -32.079028,
+        "longitude": 132.978133,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Parking is available near the break. There are no facilities at the break itself, so bring water and sun protection. The reef is knee-deep on good days, so falls have consequences. Flat slate underfoot means less sharp than coral but still unforgiving at speed.",
+      "hazard_summary": "no concerns. Reef booties are common kit.",
+      "editorial_summary": "One of the most celebrated right-hand point breaks on the planet, Supertubes sits on a flat slate reef at Jeffreys Bay on South Africa's Eastern Cape, not Baja California Sur. SW to NW swells, ideally 4-8ft, firing down a sand-over-slate point for 400m or more on a solid day, with E winds going offshore and keeping faces clean. It suits expert surfers almost exclusively: the wall accelerates faster than expected, tubes need to be ridden high in the pocket, and even a modest 6ft swell draws a competitive, experienced crowd. On bigger days, sets break wide and the wave can link through multiple sections toward the town beach. Bottom: submerged reef over slate. Season: June to August. Consistency: high year-round, peaking in austral winter. Bring a board you can generate speed on, because this wave will outrun you if you hesitate.",
+      "skill_suitability": "Supertubes is a reef bottom, long-walled fast hollow right-hand point reef, break suited for advanced surfers. This is not a beginner break. Build up at softer waves first.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california-sur/the-rock": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/the-rock",
+      "title": "The Rock",
+      "checked_on": "2026-08-27T17:30:30.722Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 23.0250632465934,
+        "longitude": -109.71456,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 157,
+        "max_deg": 225,
+        "source_text": "The Rock switches on with swells out of the SSE to SW (157 to 225 degrees)."
+      },
+      "access_and_facilities": "Park at Zippers or near the Cabo Surf Hotel and walk the beach. The cliff above the break makes it easy to scout conditions before paddling out. Hazards are the main story here: shallow, sharp reef at every stage of the tide, with exposed rocks that have drawn blood from distracted surfers. Booties are worth considering. Water quality is clean.",
+      "hazard_summary": "Shallow and exposed sharp rocks.. Reef booties are common kit.",
+      "editorial_summary": "A punchy right-hand reef break sitting half a mile down the beach from the more famous Zippers, The Rock earns its name from the boulder-strewn lineup that makes every session a dodging exercise. S and SW swells in the 4-8ft range are the sweet spot, paired with W-NW winds and a mid-to-high tide to cover the shallower sections. The takeoff zone is compact, sitting right next to the namesake rock, so the peak fills fast and patience runs thin. Bottom: rock and reef. Season: April through October. Consistency: moderate, best on strong S swells. At low tide, boils and exposed sections will test your board-reading ability and your quiver, so time your sessions carefully and bring a board you don't mind dinging. Intermediate to advanced surfers only. The shallow, sharp reef is unforgiving, and this is not a break to learn on.",
+      "skill_suitability": "The Rock is a reef bottom, short punchy right-hand reef break, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "mid_to_high",
+        "preferred_direction": "either",
+        "source_text": "S and SW swells in the 4-8ft range are the sweet spot, paired with W-NW winds and a mid-to-high tide to cover the shallower sections."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/rosarito-beach": {
+      "url": "https://surftrips.co/mexico/baja-california/rosarito-beach",
+      "title": "Rosarito Beach",
+      "checked_on": "2026-08-27T17:31:18.369Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 32.3489432986615,
+        "longitude": -117.066804348278,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Multiple sand parking areas line the beach. Lock your car and hide everything, petty theft is common and corrupt police have been reported in the area. Camping is available nearby. Water quality is a genuine hazard: significant raw sewage input from multiple sources makes post-rain sessions a bad idea.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "Rosarito's beachbreak delivers year-round surf for a wide range of skills, sitting about 30km south of Tijuana on Baja California's north coast. Short-period NW windswells and combo SW-plus-NW setups are the sweet spot, ideally with an E wind holding up the faces. The beach faces directly west, which means anything overhead-plus on a pure swell tends to close out fast, but mid-size days from chest-high to a couple feet overhead keep things fun. Beginners can find mellow reform sections while intermediates work the pier-influenced sandbars. Bottom: sand. Season: year-round. Consistency: high. Avoid surfing here within 72 hours of heavy rain, raw sewage levels spike sharply across multiple drainage points.",
+      "skill_suitability": "Rosarito Beach is a beach bottom, west-facing beach peaks, pier-influenced sandbars, combo-swell dependent, break suited for beginner through advanced surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california-sur/monuments": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/monuments",
+      "title": "Monuments",
+      "checked_on": "2026-08-27T17:31:18.802Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 22.896,
+        "longitude": -109.869,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 180,
+        "max_deg": 270,
+        "source_text": "Monuments switches on with swells out of the S to W (180 to 270 degrees)."
+      },
+      "access_and_facilities": "Drive east from Cabo San Lucas toward San Jose del Cabo. Access runs through a guarded hotel gate, security typically allows surfers through. Park above the break and take the dirt trail down. After a session, the hotel above the break serves cold beers with a direct view of the arch. Water quality is clean.",
+      "hazard_summary": "There's a big rock right in the path of the wave -- beware.. Reef booties are common kit.",
+      "editorial_summary": "A deepwater canyon just offshore funnels long-interval W and SW swells into steep, spinning lefts that reel along the headland into a small rocky bay at the southern tip of Baja. SSW, SW, and W swells are the bread and butter, with that submarine canyon amplifying long-period energy so Monuments can be double-overhead while nearby Costa Azul sits barely head-high on the same swell. NE wind is ideal, afternoon W winds regularly blow it out, so dawn patrol pays. Mid to high tide keeps the shallow rock-and-urchin bottom honest. Best from April through October. Consistent enough for intermediate surfers but the tight takeoff, powerful sets, and hazardous inside section demand focus. Crowds are moderate given proximity to Cabo San Lucas, but weekdays you may have it nearly to yourself. Bottom: shallow rocks and urchins. Season: April-October. Consistency: regional classic. Bring a step-up if the swell is running solid double-overhead, and under no circumstances put your feet down on the inside.",
+      "skill_suitability": "Monuments is a reef bottom, powerful spinning left-hand reef point, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "mid_to_high",
+        "preferred_direction": "either",
+        "source_text": "Mid to high tide keeps the shallow rock-and-urchin bottom honest."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/las-gaviotas": {
+      "url": "https://surftrips.co/mexico/baja-california/las-gaviotas",
+      "title": "Las Gaviotas",
+      "checked_on": "2026-08-27T17:30:32.297Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 32.2520292816467,
+        "longitude": -116.963040483561,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 180,
+        "max_deg": 292,
+        "source_text": "Las Gaviotas switches on with swells out of the S to WNW (180 to 292 degrees)."
+      },
+      "access_and_facilities": "The break sits inside a gated condo development near K-38, closer to K-41 and K-51. Access by car is possible but requires either renting or owning a unit in the complex, or arriving with someone who does. Water quality is fair with occasional sewage spill risk, so check conditions after heavy rains. No public restrooms or rental shops on-site. Pack water, wax, and anything else you need before the gate.",
+      "hazard_summary": "Rocks, urchins, rip currents for beginners.. Reef booties are common kit.",
+      "editorial_summary": "A soft righthand reef break south of K-38 on Baja's northern coast, Las Gaviotas trades performance for accessibility, making it one of the more forgiving reef setups in the region. S and SW swells are the engine here, with W and WNW filling in when summer and autumn groundswells push up the coast. Offshore winds run NE through SE, and the wave works on all tides, which keeps sessions flexible. The reef is flat and rocky, producing mellow, rolling rights that longboarders and beginners can work without committing to a heavy paddle-out. Waist-high to overhead is the sweet spot. Crowds sit at a moderate level on weekends but thin out midweek, and the local vibe is genuinely welcoming rather than territorial. Bottom: flat rocky reef. Season: summer and autumn south swells. Consistency: moderate. Access runs through a gated condo community, so sorting that out before you arrive saves a wasted drive.",
+      "skill_suitability": "Las Gaviotas is a reef bottom, soft righthand reef break, mellow rolling walls, break suited for beginner through intermediate surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": {
+        "preferred_stage": "all",
+        "preferred_direction": "either",
+        "source_text": "Offshore winds run NE through SE, and the wave works on all tides, which keeps sessions flexible."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/quatro-casas": {
+      "url": "https://surftrips.co/mexico/baja-california/quatro-casas",
+      "title": "Quatro Casas",
+      "checked_on": "2026-08-27T17:31:19.418Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 30.857,
+        "longitude": -116.177,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 135,
+        "max_deg": 315,
+        "source_text": "Quatro Casas switches on with swells out of the SE to NW (135 to 315 degrees)."
+      },
+      "access_and_facilities": "Off Baja 1, roughly between Colonet and Camalu. Dirt roads lead to the bluffs above the break. A 4WD is not required in dry conditions. Camping on the bluffs is popular and a small fee applies. Theft has been reported at isolated camp spots, so camp near others. Pack all trash out. Water quality is clean.",
+      "hazard_summary": "Turning your back to the ocean..",
+      "editorial_summary": "A sheltered right-hand reef and semi-point tucked along the Baja 1 corridor, Quatro Casas is a SoCal favorite that punches well above its modest reputation. It catches south swell reliably in summer and lights up on clean NW pulses through winter, with the bluffs and kelp bed killing most wind chop. NE offshores are ideal. Best from head-high to double overhead, though a veteran local notes it starts closing out past 11-12ft. The wave is organized and forgiving enough for beginners but has enough shape to keep shortboarders interested. Weekdays are quiet, weekends bring moderate crowds drawn by easy Baja access. Bottom: Rock reef/point. Season: March-October best, rideable year-round. Consistency: High for the region. Bring a variety of boards and arrive early on weekends, the lineup fills quickly and the fun-wave format means everyone wants in.",
+      "skill_suitability": "Quatro Casas is a point bottom, fun walling right-hand reef/point, organized and wind-sheltered, break suited for beginner through advanced surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": null
+    },
+    "https://surftrips.co/mexico/baja-california/puerto-san-andres": {
+      "url": "https://surftrips.co/mexico/baja-california/puerto-san-andres",
+      "title": "Puerto San Andres",
+      "checked_on": "2026-08-27T17:30:33.294Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 28.691,
+        "longitude": -114.299,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "The road in is rough and requires a capable vehicle. No formal parking area exists, so high-clearance four-wheel drive is the practical choice. Camping is available on-site. Bring all supplies: water, food, fuel, and spares. No shops or medical facilities are nearby.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "A hollow right-hand point north of Punta Rosalillita, Puerto San Andres punches above its size when strong W swell lines up with the powerful NE offshores that define this stretch of Baja's mid-peninsula coast. Optimal conditions call for a solid W to NW swell in the 2-8ft range, light NE winds, and the point works across all tides, giving it a longer usable window than many neighboring breaks. Consistency is medium, so timing matters: the spot fires most reliably during the winter NW swell season when groundswells push down the Pacific coast. Intermediate surfers will find the most reward here, and crowds are only occasional given the rough road access. Bottom: point. Season: Oct-Mar. Consistency: medium. Pack food, water, and camping gear as facilities are limited to a basic campsite and the nearest services are a rough drive away.",
+      "skill_suitability": "Puerto San Andres is a point bottom, fast hollow right-hand point, break suited for intermediate through advanced surfers.",
+      "tide_guidance": {
+        "preferred_stage": "all",
+        "preferred_direction": "either",
+        "source_text": "Optimal conditions call for a solid W to NW swell in the 2-8ft range, light NE winds, and the point works across all tides, giving it a longer usable window than many neighboring breaks."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/mag-bay": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/mag-bay",
+      "title": "Mag Bay",
+      "checked_on": "2026-08-27T17:30:33.799Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 24.756,
+        "longitude": -112.237,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "No road access. Boat charter from Puerto San Carlos is the only way in. Bring all food, water, sunscreen, and spare leashes. Water temp runs warm enough for boardies or a light 1mm through summer, spring and fall mornings may call for a 2mm top. Watch for rocks near Cuevas at lower tides.",
+      "hazard_summary": null,
+      "editorial_summary": "Two right-hand points and a right reef called Cuevas sit inside Magdalena Bay on Baja Sur's Pacific coast, reachable only by boat out of Puerto San Carlos. The setup fires on S to SW swells from spring through fall, with offshore winds keeping faces clean across a size range of roughly 3 to 8ft. Mid-tide tends to be the sweet spot on the points, while Cuevas can handle a bit more water. Intermediate surfers will find plenty to work with, and the boat-only access filters the crowd down to almost no one on most days. Bottom: mixed reef and point. Season: April through October. Consistency: moderate, swell-dependent. Pack everything you need before leaving San Carlos, because there are no facilities once you're out on the water.",
+      "skill_suitability": "Mag Bay is a mixed bottom, right-hand point with reef section, break suited for intermediate surfers.",
+      "tide_guidance": {
+        "preferred_stage": "mid",
+        "preferred_direction": "either",
+        "source_text": "Mid-tide tends to be the sweet spot on the points, while Cuevas can handle a bit more water."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/boca-de-santo-tomas": {
+      "url": "https://surftrips.co/mexico/baja-california/boca-de-santo-tomas",
+      "title": "Boca De Santo Tomas",
+      "checked_on": "2026-08-27T17:31:20.354Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 31.561,
+        "longitude": -116.693,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": null,
+      "access_and_facilities": "Follow La Bocana / Punta China signs south of Ensenada. A 4WD or high-clearance vehicle is strongly recommended. Free camping is available on-site with basic facilities. Bring all food and water from Ensenada before heading down the dirt access road.",
+      "hazard_summary": "no concerns.",
+      "editorial_summary": "A south-facing point on the Baja coast below Ensenada, Boca De Santo Tomas combines a right-hand pointbreak with rocky beachbreak and a rivermouth, all tucked behind enough headland to stay glassy when northerly winds are howling. It works best on S to NW swell in the 3-10ft range, with the kelp helping to hold the surface smooth and the south-facing orientation providing solid wind protection most days. Optimum tide is all tides, though the point's longer walls favor mid-incoming when push starts organizing the sets. Intermediate surfers get the most out of the varied setups here, and crowds are manageable outside of busy holiday weekends when Ensenada day-trippers make the drive. Bottom: point and rocky beach. Season: late summer through early winter for combined S and NW groundswells. Consistency: medium. Follow signs for La Bocana and bring a 4WD or high-clearance vehicle because the dirt access trail can get rough after rain.",
+      "skill_suitability": "Boca De Santo Tomas is a mixed bottom, wind-protected right-hand point with rocky beach and rivermouth sections, break suited for intermediate surfers.",
+      "tide_guidance": {
+        "preferred_stage": "all",
+        "preferred_direction": "rising",
+        "source_text": "Optimum tide is all tides, though the point's longer walls favor mid-incoming when push starts organizing the sets."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california-sur/old-man-s": {
+      "url": "https://surftrips.co/mexico/baja-california-sur/old-man-s",
+      "title": "Old Man's",
+      "checked_on": "2026-08-27T17:30:34.766Z",
+      "editorial_status": "editor_verified",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 23.0235819268498,
+        "longitude": -109.7147,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 157,
+        "max_deg": 225,
+        "source_text": "Old Man's switches on with swells out of the SSE to SW (157 to 225 degrees)."
+      },
+      "access_and_facilities": "Drive-up access with parking directly at the break. No significant hike required. The area has food and water options nearby. Water quality is clean. Sand and rock bottom means the risk of a hard wipeout is present, so booties are worth considering if you are surfing the shallower inside section.",
+      "hazard_summary": "Beginning surfers..",
+      "editorial_summary": "A mellow right-hander on the Pacific coast of Baja California Sur, Old Man's rolls through like a small reef pass, offering forgiving walls that suit a wide range of ability levels. It works best on SSE to SSW swell, mid tide, with N or NW winds pushing offshore to clean up the face. Size sweet spot is knee-high to overhead. The crowd is consistently heavy year-round, but the vibe stays welcoming since the lineup skews toward beginners and longboarders rather than territorial locals. Bottom: sand and rock. Season: April to October. Consistency: reliable through the warmer months. The main hazard is other surfers, not the ocean itself, so stay aware of who is paddling around you, especially on bigger sets when less experienced riders lose control of their boards.",
+      "skill_suitability": "Old Man's is a mixed bottom, mellow rolling right-hand reef pass, break suited for beginner through advanced surfers. Beginners can give it a go on the smaller end of the size range.",
+      "tide_guidance": {
+        "preferred_stage": "mid",
+        "preferred_direction": "either",
+        "source_text": "It works best on SSE to SSW swell, mid tide, with N or NW winds pushing offshore to clean up the face."
+      }
+    },
+    "https://surftrips.co/mexico/baja-california/marisol-north-point": {
+      "url": "https://surftrips.co/mexico/baja-california/marisol-north-point",
+      "title": "Marisol North Point",
+      "checked_on": "2026-08-27T17:30:35.232Z",
+      "editorial_status": "published_guide",
+      "verified_label": "May 2026",
+      "coordinate": {
+        "latitude": 32.398,
+        "longitude": -117.092,
+        "map_source": "Mapbox satellite hero on SurfTrips editorial page"
+      },
+      "swell_window": {
+        "min_deg": 0,
+        "max_deg": 90,
+        "source_text": "Marisol North Point switches on with swells out of the N to E (0 to 90 degrees)."
+      },
+      "access_and_facilities": "A parking lot faces the break directly, street parking is available when the lot fills. Being near the main public beach means basic amenities are close, but this is Lake Michigan in winter: pack warm layers, hot drinks, and dry bags. The current risk on south-wind days is serious, if swept around the point, ride the current shoreward, exit the water, and re-paddle from further down the beach.",
+      "hazard_summary": null,
+      "editorial_summary": "A ledgey left-hand barrel peeling over shallow rock on the northern shore of Lake Michigan, Marisol North Point is one of the only spots on the Great Lakes capable of breaking boards on a solid day. NW to NE fetch drives the best swells, and the wave works across all tides, though a strong south wind triggers a nasty rip that drags surfers around the point fast. Suited to experienced surfers only: drops are late, fast, and close to vertical over a rock ledge sitting roughly three feet deep. Crowds are essentially non-existent on weekdays and weekends alike, but good days are rare. Bottom: rocky reef. Season: late fall through winter, when Great Lakes fetch peaks. Consistency: low to moderate, working days measured in weeks per year, not months. Bring a helmet and booties, the ledge is unforgiving and the water is cold year-round.",
+      "skill_suitability": "Marisol North Point is a reef bottom, short hollow ledging left-hand barrel, break suited for advanced surfers. This is not a beginner break. Build up at softer waves first.",
+      "tide_guidance": {
+        "preferred_stage": "all",
+        "preferred_direction": "either",
+        "source_text": "NW to NE fetch drives the best swells, and the wave works across all tides, though a strong south wind triggers a nasty rip that drags surfers around the point fast."
+      }
+    }
+  }
+}

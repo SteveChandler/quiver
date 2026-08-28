@@ -404,6 +404,35 @@ function futureDateString(offsetDays: number): string {
 }
 
 describe("aggregateRegionalForecast", () => {
+  it("reports the newest source write represented by the summary", () => {
+    const today = futureDateString(0);
+    const yesterday = futureDateString(-1);
+    const forecastMap = new Map<string, EnhancedForecastEntity[]>([
+      [
+        "beach-1",
+        [
+          createMockForecast("beach-1", yesterday, "09:00", {
+            updated_at: "2026-08-27T22:00:00.000Z",
+          }),
+          createMockForecast("beach-1", today, "06:00", {
+            updated_at: "2026-08-27T18:00:00.000Z",
+          }),
+          createMockForecast("beach-1", today, "09:00", {
+            updated_at: "2026-08-27T21:00:00.000Z",
+          }),
+        ],
+      ],
+    ]);
+
+    const summary = aggregateRegionalForecast(
+      mockRegion,
+      [mockBeaches[0]],
+      forecastMap,
+    );
+
+    expect(summary.sourceDataUpdatedAt).toBe("2026-08-27T21:00:00.000Z");
+  });
+
   it("should create 7-day forecast summary", () => {
     const forecastMap = new Map<string, EnhancedForecastEntity[]>();
 

@@ -112,7 +112,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
 
     const { data, error } = await supabase
       .from("beach_sources")
-      .select("beach_id, ndbc_buoy_ids, forecast_source_id, camera_url, thumbnail_url")
+      .select("beach_id, forecast_source_id, camera_url, thumbnail_url")
       .eq("beach_id", beachId)
       .maybeSingle();
 
@@ -209,7 +209,6 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
 
     const merged = {
       beach_id: beachId,
-      ndbc_buoy_ids: (data as any)?.ndbc_buoy_ids || null,
       forecast_source_id: (data as any)?.forecast_source_id || null,
       camera_url: cameraUrl,
       embed_allowed: embedAllowed,
@@ -220,7 +219,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     };
 
     // PERFORMANCE OPTIMIZATION: Cache sources for 30 minutes (1800s)
-    // Camera URLs and buoy IDs don't change frequently
+    // Camera URLs and forecast source ids don't change frequently
     const response = createSuccessResponse({ sources: merged });
     response.headers.set(
       "Cache-Control",

@@ -19,6 +19,7 @@ import { WaveBackground } from "@/components/ui/ocean-background";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { QuiverSticker } from "@/components/zine";
+import { useOptionalAuth } from "@/context/auth-context";
 import {
   Sun,
   Wind,
@@ -57,6 +58,8 @@ export interface BestDaysSectionProps {
   regionSlug?: string;
   /** Whether score values are available to this viewer */
   showScores?: boolean;
+  /** Resolve score visibility from the client auth context. */
+  authAwareScores?: boolean;
 }
 
 /**
@@ -499,7 +502,12 @@ export function BestDaysSection({
   variant = "default",
   regionSlug,
   showScores = true,
+  authAwareScores = false,
 }: BestDaysSectionProps) {
+  const auth = useOptionalAuth();
+  const resolvedShowScores = authAwareScores
+    ? Boolean(auth?.user && !auth.isLoading)
+    : showScores;
   const sectionRef = useRef<HTMLElement>(null);
   const hasTrackedView = useRef(false);
 
@@ -548,7 +556,7 @@ export function BestDaysSection({
           <p className={cn(isZine ? "text-[#11100D]/66" : "text-muted-foreground")}>
             Based on wave height, wind conditions, and swell quality
           </p>
-          {!showScores && regionSlug && (
+          {!resolvedShowScores && regionSlug && (
             <ScoreLoginLink regionSlug={regionSlug} />
           )}
         </div>
@@ -560,7 +568,7 @@ export function BestDaysSection({
           day={bestDay}
           isHero
           variant={variant}
-          showScores={showScores}
+          showScores={resolvedShowScores}
           // regionName passed as beachName - these are region-level day cards, not beach-specific
           onClick={() => trackBestConditionsClick(regionName, 1, bestDay.score)}
         />
@@ -587,7 +595,7 @@ export function BestDaysSection({
                 day={day}
                 index={index}
                 variant={variant}
-                showScores={showScores}
+                showScores={resolvedShowScores}
                 // regionName passed as beachName - these are region-level day cards, not beach-specific
                 onClick={() => trackBestConditionsClick(regionName, index + 2, day.score)}
               />

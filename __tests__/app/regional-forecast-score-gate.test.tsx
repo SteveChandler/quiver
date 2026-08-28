@@ -1,23 +1,26 @@
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 
-import ForecastPage from "@/app/forecast/[beachId]/page";
-import { getBeaches } from "@/actions/beach/beach-query-actions";
-import { getCurrentUser } from "@/lib/auth/admin";
-import { getRegionalSummary } from "@/lib/utils/forecast-hub-utils";
-import { getBeachesForRegion } from "@/lib/utils/regional-forecast-utils";
+import ForecastPage, {
+  generateStaticParams,
+  revalidate,
+} from "@/app/forecast/[beachId]/page";
+import { getCachedRegionalForecastPageData } from "@/lib/utils/forecast-hub-utils";
+import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 jest.mock("@/actions/beach/beach-query-actions", () => ({
   getBeachById: jest.fn(),
-  getBeaches: jest.fn(),
-}));
-
-jest.mock("@/lib/auth/admin", () => ({
-  getCurrentUser: jest.fn(),
 }));
 
 jest.mock("@/lib/data/forecast-regions", () => ({
-  FORECAST_REGIONS: {},
+  FORECAST_REGIONS: {
+    "san-diego": {
+      slug: "san-diego",
+      name: "San Diego",
+      title: "San Diego Surf Forecast",
+      metaDescription: "San Diego regional forecast",
+    },
+  },
   getForecastRegion: () => ({
     slug: "san-diego",
     name: "San Diego",
@@ -29,11 +32,7 @@ jest.mock("@/lib/data/forecast-regions", () => ({
 }));
 
 jest.mock("@/lib/utils/forecast-hub-utils", () => ({
-  getRegionalSummary: jest.fn(),
-}));
-
-jest.mock("@/lib/utils/regional-forecast-utils", () => ({
-  getBeachesForRegion: jest.fn(),
+  getCachedRegionalForecastPageData: jest.fn(),
 }));
 
 jest.mock("@/lib/map-utils", () => ({
@@ -51,34 +50,38 @@ jest.mock("@/lib/seo/meta", () => ({
 jest.mock("@/components/forecast", () => ({
   TopRankedBeachHero: ({
     regionSlug,
-    showScores,
+    authAwareScores,
   }: {
     regionSlug: string;
-    showScores: boolean;
+    authAwareScores: boolean;
   }) => (
     <div
       data-testid="top-ranked-beach-hero"
       data-region-slug={regionSlug}
-      data-show-scores={String(showScores)}
+      data-auth-aware-scores={String(authAwareScores)}
     />
   ),
   BestDaysSection: ({
     regionSlug,
-    showScores,
+    authAwareScores,
   }: {
     regionSlug: string;
-    showScores: boolean;
+    authAwareScores: boolean;
   }) => (
     <div
       data-testid="best-days-section"
       data-region-slug={regionSlug}
-      data-show-scores={String(showScores)}
+      data-auth-aware-scores={String(authAwareScores)}
     />
   ),
-  BeachConditionsGrid: ({ showScores }: { showScores: boolean }) => (
+  BeachConditionsGrid: ({
+    authAwareScores,
+  }: {
+    authAwareScores: boolean;
+  }) => (
     <div
       data-testid="beach-conditions-grid"
-      data-show-scores={String(showScores)}
+      data-auth-aware-scores={String(authAwareScores)}
     />
   ),
   SwellEventList: () => null,
@@ -101,7 +104,7 @@ jest.mock("@/components/seo/breadcrumb-schema", () => ({
 }));
 
 jest.mock("@/components/seo/web-page-schema", () => ({
-  WebPageSchema: () => null,
+  WebPageSchema: jest.fn(() => null),
 }));
 
 jest.mock("@/components/zine", () => ({
@@ -144,44 +147,47 @@ const bestDay = {
 };
 
 describe("regional forecast score gate", () => {
-  const mockGetCurrentUser = getCurrentUser as jest.MockedFunction<
-    typeof getCurrentUser
-  >;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    (getBeaches as jest.Mock).mockResolvedValue({
-      success: true,
-      data: [beach],
-    });
-    (getBeachesForRegion as jest.Mock).mockReturnValue([beach]);
-    (getRegionalSummary as jest.Mock).mockResolvedValue({
-      generatedAt: new Date("2026-08-19T12:00:00Z"),
-      recommendationAvailability: { state: "unavailable" },
-      bestSurfWindows: [],
-      beachConditions: [beachCondition],
-      days: [bestDay],
-      bestDay,
-      upcomingSwells: [],
-      photoBeachName: null,
-      photoUrl: null,
-      stats: {
-        beachesWithData: 1,
-        totalBeaches: 1,
+    (getCachedRegionalForecastPageData as jest.Mock).mockResolvedValue({
+      beaches: [beach],
+      summary: {
+        generatedAt: new Date("2026-08-19T12:00:00Z"),
+        sourceDataUpdatedAt: "2026-08-19T11:30:00Z",
+        recommendationAvailability: { state: "unavailable" },
+        bestSurfWindows: [],
+        beachConditions: [beachCondition],
+        days: [bestDay],
+        bestDay,
+        upcomingSwells: [],
+        photoBeachName: null,
+        photoUrl: null,
+        stats: {
+          beachesWithData: 1,
+          totalBeaches: 1,
+        },
       },
     });
   });
 
-  it.each([
-    { viewer: "guest", user: null, expected: "false" },
-    { viewer: "authenticated", user: { id: "user-1" }, expected: "true" },
-  ])(
-    "threads the $viewer score gate to every regional score surface",
-    async ({ user, expected }) => {
-      mockGetCurrentUser.mockResolvedValue(
-        user as Awaited<ReturnType<typeof getCurrentUser>>,
-      );
+  it("prebuilds every configured regional path with a 15-minute refresh", () => {
+    expect(generateStaticParams()).toEqual([{ beachId: "san-diego" }]);
+    expect(revalidate).toBe(900);
+  });
 
+  it("propagates data failures instead of caching a successful soft-error page", async () => {
+    (getCachedRegionalForecastPageData as jest.Mock).mockRejectedValueOnce(
+      new Error("forecast data unavailable"),
+    );
+
+    await expect(
+      ForecastPage({
+        params: Promise.resolve({ beachId: "san-diego" }),
+      }),
+    ).rejects.toThrow("forecast data unavailable");
+  });
+
+  it("defers score visibility to client auth on every regional score surface", async () => {
       render(
         await ForecastPage({
           params: Promise.resolve({ beachId: "san-diego" }),
@@ -189,16 +195,16 @@ describe("regional forecast score gate", () => {
       );
 
       expect(screen.getByTestId("top-ranked-beach-hero")).toHaveAttribute(
-        "data-show-scores",
-        expected,
+        "data-auth-aware-scores",
+        "true",
       );
       expect(screen.getByTestId("best-days-section")).toHaveAttribute(
-        "data-show-scores",
-        expected,
+        "data-auth-aware-scores",
+        "true",
       );
       expect(screen.getByTestId("beach-conditions-grid")).toHaveAttribute(
-        "data-show-scores",
-        expected,
+        "data-auth-aware-scores",
+        "true",
       );
       expect(screen.getByTestId("top-ranked-beach-hero")).toHaveAttribute(
         "data-region-slug",
@@ -208,6 +214,14 @@ describe("regional forecast score gate", () => {
         "data-region-slug",
         "san-diego",
       );
-    },
-  );
+      expect(WebPageSchema).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dateModified: "2026-08-19T11:30:00Z",
+          additionalData: expect.objectContaining({
+            datePublished: "2026-02-10",
+          }),
+        }),
+        undefined,
+      );
+  });
 });
