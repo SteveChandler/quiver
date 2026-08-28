@@ -532,23 +532,20 @@ function renderOutreach(outreach?: OutreachDigestInput): string {
   ];
 
   if (outreach.candidates.length === 0) {
-    const skippedForEmail = (outreach.missing ?? []).filter((entry) =>
-      entry.startsWith("No direct email for outreach target"),
-    );
-    if (skippedForEmail.length > 0) {
-      rows.push(
-        `- ${skippedForEmail.length} queued target${skippedForEmail.length === 1 ? "" : "s"} in this week's rotation lack a direct email and were skipped; see missing data below.`,
-      );
-    } else {
-      rows.push("- No queued targets in this week's rotation category; nothing to draft.");
-    }
+    rows.push("- No queued targets in this week's rotation category; nothing to draft.");
   } else {
     rows.push(`- Draft candidates ready for review (${outreach.candidates.length}):`);
     for (const candidate of outreach.candidates) {
-      const contact = candidate.website ?? candidate.contact ?? "contact via web search";
+      const contact = candidate.requiresContactResearch
+        ? "contact research required"
+        : candidate.contact ?? candidate.website ?? "contact unavailable";
       rows.push(`  - ${candidate.target} (${contact}) - subject: "${candidate.subject}"`);
     }
-    rows.push("- Live action: create these as Gmail drafts and set the matching tracker rows to `drafted` (live runs only; never sent).");
+    const researchCount = outreach.candidates.filter((candidate) => candidate.requiresContactResearch).length;
+    if (researchCount > 0) {
+      rows.push(`- ${researchCount} candidate${researchCount === 1 ? "" : "s"} ${researchCount === 1 ? "requires" : "require"} contact research before Gmail drafting.`);
+    }
+    rows.push("- Live action: research missing contacts, create Gmail drafts only after verifying a direct email, and then set matching tracker rows to `drafted` (live runs only; never sent).");
   }
 
   return rows.join("\n");
