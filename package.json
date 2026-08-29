@@ -146,6 +146,7 @@
     "seed:beaches": "node scripts/seed_beaches_from_csv.mjs --file ./docs/quiver_owner_cams_seed_CA_HI_WA_OR.csv",
     "terrain:analyze": "tsx scripts/terrain-analysis.ts",
     "terrain:validate": "tsx scripts/terrain/validate-golden-beaches.ts",
+    "custom-spots:backfill-fingerprints": "tsx scripts/backfill-custom-spot-fingerprints.ts",
     "regression:shoaling": "tsx scripts/shoaling-regression.ts",
     "dev-note": "node scripts/dev-note.mjs",
     "db:local": "node scripts/db-local-from-snapshot.mjs",

@@ -158,6 +158,20 @@ describe('Wind Quality Scorer', () => {
     });
   });
 
+  it('uses local terrain exposure to reduce effective wind speed', () => {
+    const exposure = Array(72).fill(1);
+    exposure[54] = 0.2;
+    const sheltered = windQualityScorer.score(createInput(
+      { wind: { speedMph: 20, directionDeg: 270 } },
+      { windExposureFactors: exposure }
+    ));
+    const exposed = windQualityScorer.score(createInput(
+      { wind: { speedMph: 20, directionDeg: 270 } }
+    ));
+
+    expect(sheltered.score).toBeGreaterThan(exposed.score);
+  });
+
   describe('edge cases', () => {
     it('should handle null breakType gracefully', () => {
       const input = createInput(

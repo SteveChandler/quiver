@@ -86,4 +86,21 @@ describe('Swell Alignment Scorer', () => {
       expect(result.score).toBeGreaterThan(80);
     });
   });
+
+  it('attenuates an aligned swell when local terrain blocks that direction', () => {
+    const access = Array(72).fill(1);
+    access[54] = 0.25;
+    const input = createInput(
+      { waveDirection: 270, primarySwell: createSwellComponent(4, 14, 270) },
+      {
+        swellWindow: { minDeg: 240, maxDeg: 300, centerDeg: 270, halfWidthDeg: 30 },
+        swellAccessFactors: access,
+      }
+    );
+
+    const result = swellAlignmentScorer.score(input);
+
+    expect(result.score).toBe(25);
+    expect(result.warnings).toContain('Ideal swell direction (W) but local terrain limits swell access');
+  });
 });

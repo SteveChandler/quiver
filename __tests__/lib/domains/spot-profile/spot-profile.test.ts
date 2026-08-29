@@ -235,6 +235,27 @@ describe('Spot Profile Domain', () => {
       expect(profile.skillLevel).toBe('intermediate');
     });
 
+    it('only exposes terrain factors when both rollout gates allow them', () => {
+      const directionalFactors = Array(72).fill(0.5);
+      const beach = createMockBeach({
+        terrain_enabled: true,
+        swell_access_factors: directionalFactors,
+        wind_exposure_factors: directionalFactors,
+      });
+
+      expect(createSpotProfile(beach).swellAccessFactors).toEqual(directionalFactors);
+      expect(createSpotProfile({ ...beach, terrain_enabled: false }).swellAccessFactors).toBeNull();
+
+      const previous = process.env.TERRAIN_SCORING_ENABLED;
+      try {
+        process.env.TERRAIN_SCORING_ENABLED = 'false';
+        expect(createSpotProfile(beach).swellAccessFactors).toBeNull();
+      } finally {
+        if (previous === undefined) delete process.env.TERRAIN_SCORING_ENABLED;
+        else process.env.TERRAIN_SCORING_ENABLED = previous;
+      }
+    });
+
     it('should map swell window correctly', () => {
       const beach = createMockBeach({
         swell_window_min_deg: 250,

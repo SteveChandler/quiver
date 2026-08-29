@@ -34,6 +34,7 @@
 import type { ScorerPlugin, ScorerInput, ScorerResult } from '../types';
 import { SCORER_WEIGHTS, createSkipResult } from '../types';
 import { angleDifference } from '../../shared';
+import { toBin5 } from '@/types/terrain';
 
 // ============================================================================
 // Constants
@@ -240,8 +241,12 @@ export const windQualityScorer: ScorerPlugin = {
 
   score(input: ScorerInput): ScorerResult {
     const { snapshot, profile } = input;
-    const windSpeed = snapshot.wind.speedMph;
     const windDirection = snapshot.wind.directionDeg;
+    const exposureFactors = profile.windExposureFactors;
+    const exposure = windDirection !== null && exposureFactors?.length === 72
+      ? Math.max(0, Math.min(1, exposureFactors[toBin5(windDirection)] ?? 1))
+      : 1;
+    const windSpeed = snapshot.wind.speedMph * exposure;
     const waveHeight = snapshot.waveHeight;
     const wavePeriod = snapshot.wavePeriod;
     const { windThresholds } = profile;

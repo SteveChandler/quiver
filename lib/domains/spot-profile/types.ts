@@ -82,6 +82,10 @@ export interface SpotProfile {
   readonly skillLevel: SkillLevel | null;
   /** Break type (beach, point, reef, etc.) */
   readonly breakType: string | null;
+  /** Optional five-degree directional access factors (0 = blocked, 1 = open). */
+  readonly swellAccessFactors?: readonly number[] | null;
+  /** Optional five-degree directional wind exposure factors. */
+  readonly windExposureFactors?: readonly number[] | null;
 }
 
 /**

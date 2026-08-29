@@ -18,12 +18,18 @@ import {
   angleDifference as sharedAngleDifference,
 } from '../shared';
 import { parseSkillLevel } from '../user-preferences/skill-level';
+import { useTerrainFactors as shouldUseTerrainFactors } from '@/types/terrain';
 
 /**
  * Creates a SpotProfile from a Beach database row.
  * Handles null values with sensible defaults.
  */
 export function createSpotProfile(beach: Beach): SpotProfile {
+  const terrainEnabled = shouldUseTerrainFactors({
+    terrain_enabled: beach.terrain_enabled,
+    swell_access_factors: beach.swell_access_factors,
+    wind_exposure_factors: beach.wind_exposure_factors,
+  });
   return {
     id: beach.id,
     name: beach.name,
@@ -37,6 +43,8 @@ export function createSpotProfile(beach: Beach): SpotProfile {
     tidePreferences: createTidePreferences(beach),
     skillLevel: parseSkillLevel(beach.skill_level),
     breakType: beach.break_type ?? null,
+    swellAccessFactors: terrainEnabled ? beach.swell_access_factors : null,
+    windExposureFactors: terrainEnabled ? beach.wind_exposure_factors : null,
   };
 }
 

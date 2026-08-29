@@ -17,6 +17,7 @@ import type { ScorerPlugin, ScorerInput, ScorerResult } from '../types';
 import { SCORER_WEIGHTS, createNeutralResult } from '../types';
 import { angleDifference, directionName } from '../../shared';
 import { getDirectionalRelevance } from './directional-relevance';
+import { toBin5 } from '@/types/terrain';
 
 /**
  * Geometric scores at or above this threshold are framed as positive
@@ -86,13 +87,19 @@ export const swellAlignmentScorer: ScorerPlugin = {
     // it from being unrideable, so don't let it lift the composite score.
     const periodS = snapshot.primarySwell?.periodS ?? null;
     const relevance = getDirectionalRelevance(periodS);
-    const score = Math.round(geometricScore * relevance);
+    const accessFactors = profile.swellAccessFactors;
+    const access = accessFactors?.length === 72
+      ? Math.max(0, Math.min(1, accessFactors[toBin5(swellDirection)] ?? 1))
+      : 1;
+    const score = Math.round(geometricScore * relevance * access);
 
     const reasons: string[] = [];
     const warnings: string[] = [];
 
     if (score >= RELEVANCE_REASON_THRESHOLD) {
       reasons.push(description);
+    } else if (access < 0.7 && geometricScore >= RELEVANCE_REASON_THRESHOLD) {
+      warnings.push(`${description} but local terrain limits swell access`);
     } else if (relevance < 1 && geometricScore >= RELEVANCE_REASON_THRESHOLD) {
       // Geometry was good but period dragged it below threshold — surface
       // the period as the reason rather than reporting "ideal direction"

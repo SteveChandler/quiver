@@ -19,6 +19,11 @@ import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
 import { buildBeachUrlWithTab } from "@/lib/utils/beach-url-utils";
 import type { Beach, Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import {
+  CUSTOM_SPOT_ANALYSIS_LABELS,
+  getCustomSpotAnalysisState,
+} from "@/lib/custom-spots/analysis-state";
+import { applyCustomSpotForecastGeometry } from "@/lib/services/custom-spot-analysis/forecast-overlay";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +31,13 @@ interface CustomSpotPageProps {
   params: Promise<{ id: string }>;
 }
 
-type CustomSpotRow = Database["public"]["Tables"]["custom_spots"]["Row"];
+type CustomSpotRow = Database["public"]["Tables"]["custom_spots"]["Row"] & {
+  swell_access_factors?: number[] | null;
+  wind_exposure_factors?: number[] | null;
+  terrain_status?: string | null;
+  fingerprint_model_version?: string | null;
+  fingerprint_provenance_state?: string | null;
+};
 type BeachPhotoPreview = Pick<
   Database["public"]["Tables"]["beach_photos"]["Row"],
   "image_url" | "thumb_url"
@@ -210,7 +221,38 @@ export default async function CustomSpotDetailPage(
     featuredSpotPhoto?.thumbUrl ??
     featuredSpotPhoto?.imageUrl ??
     borrowedPhotoUrl;
-  const currentForecast = getCurrentForecast(forecasts);
+  const customTerrainUsable =
+    spot.terrain_status === "ok"
+    && spot.fingerprint_model_version === "custom_spot_terrain_v1"
+    && spot.swell_access_factors?.length === 72
+    && spot.wind_exposure_factors?.length === 72;
+  const localForecasts = nearestBeach
+    ? forecasts.map((forecast) => applyCustomSpotForecastGeometry(
+        forecast,
+        {
+          ...nearestBeach,
+          terrain_enabled: customTerrainUsable,
+          terrain_status: spot.terrain_status ?? nearestBeach.terrain_status,
+          swell_access_factors: customTerrainUsable ? spot.swell_access_factors : null,
+          wind_exposure_factors: customTerrainUsable ? spot.wind_exposure_factors : null,
+          swell_window_center_deg:
+            spot.swell_window_min_deg != null && spot.swell_window_max_deg != null
+              ? (spot.swell_window_min_deg
+                + ((spot.swell_window_max_deg - spot.swell_window_min_deg + 360) % 360) / 2) % 360
+              : nearestBeach.swell_window_center_deg,
+          swell_window_halfwidth_deg:
+            spot.swell_window_min_deg != null && spot.swell_window_max_deg != null
+              ? ((spot.swell_window_max_deg - spot.swell_window_min_deg + 360) % 360) / 2
+              : nearestBeach.swell_window_halfwidth_deg,
+        } as Beach
+      ))
+    : forecasts;
+  const currentForecast = getCurrentForecast(localForecasts);
+  const analysisState = getCustomSpotAnalysisState({
+    terrainStatus: spot.terrain_status,
+    provenanceState: spot.fingerprint_provenance_state,
+    isOwner: viewerId === spot.user_id,
+  });
   const beachTimezone = nearestBeach?.timezone ?? null;
   const fullForecastHref = nearestBeach
     ? buildBeachUrlWithTab(nearestBeach, "forecast")
@@ -243,6 +285,9 @@ export default async function CustomSpotDetailPage(
               <span className="label-black">Custom spot</span>
               <span className="border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.24)]">
                 {spot.visibility}
+              </span>
+              <span className="border-2 border-[#11100D] bg-[#FBF6E8] px-3 py-1 font-mono text-[11px] font-black uppercase tracking-[0.1em] text-[#11100D]">
+                {CUSTOM_SPOT_ANALYSIS_LABELS[analysisState]}
               </span>
             </div>
             <h1 className="zine-h1 font-heading font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
@@ -444,7 +489,7 @@ export default async function CustomSpotDetailPage(
               data-testid="custom-spot-forecast-table"
             >
               <MultiDayForecastTable
-                forecasts={forecasts}
+                forecasts={localForecasts}
                 beachTimezone={beachTimezone}
               />
             </div>

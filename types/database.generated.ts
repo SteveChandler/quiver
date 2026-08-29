@@ -4982,14 +4982,66 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_spot_analysis_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          custom_spot_id: string
+          id: number
+          last_error_code: string | null
+          locked_at: string | null
+          next_attempt_at: string
+          requested_model_version: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          custom_spot_id: string
+          id?: number
+          last_error_code?: string | null
+          locked_at?: string | null
+          next_attempt_at?: string
+          requested_model_version: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          custom_spot_id?: string
+          id?: number
+          last_error_code?: string | null
+          locked_at?: string | null
+          next_attempt_at?: string
+          requested_model_version?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_spot_analysis_jobs_custom_spot_id_fkey"
+            columns: ["custom_spot_id"]
+            isOneToOne: true
+            referencedRelation: "custom_spots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_spots: {
         Row: {
+          analysis_requested_at: string | null
           break_type: string | null
           created_at: string
           deleted_at: string | null
           exposure_level: string | null
           facing_direction_deg: number | null
           fingerprint_confidence: string | null
+          fingerprint_coordinate_hash: string | null
+          fingerprint_model_version: string | null
+          fingerprint_provenance: Json
+          fingerprint_provenance_state: string
           fingerprint_updated_at: string | null
           id: string
           lat: number
@@ -4998,19 +5050,37 @@ export type Database = {
           nearest_beach_distance_mi: number | null
           nearest_beach_id: string | null
           offshore_direction_deg: number | null
+          preferred_tide_direction: string | null
+          preferred_tide_ft_max: number | null
+          preferred_tide_ft_min: number | null
+          skill_level: string | null
+          swell_access_factors: number[] | null
           swell_window_max_deg: number | null
           swell_window_min_deg: number | null
+          terrain_analysis_debug: Json | null
+          terrain_analyzed_at: string | null
+          terrain_method: string | null
+          terrain_params: Json | null
+          terrain_params_hash: string | null
+          terrain_status: string | null
+          tide_direction_sensitivity: string | null
           updated_at: string
           user_id: string
           visibility: string
+          wind_exposure_factors: number[] | null
         }
         Insert: {
+          analysis_requested_at?: string | null
           break_type?: string | null
           created_at?: string
           deleted_at?: string | null
           exposure_level?: string | null
           facing_direction_deg?: number | null
           fingerprint_confidence?: string | null
+          fingerprint_coordinate_hash?: string | null
+          fingerprint_model_version?: string | null
+          fingerprint_provenance?: Json
+          fingerprint_provenance_state?: string
           fingerprint_updated_at?: string | null
           id?: string
           lat: number
@@ -5019,19 +5089,37 @@ export type Database = {
           nearest_beach_distance_mi?: number | null
           nearest_beach_id?: string | null
           offshore_direction_deg?: number | null
+          preferred_tide_direction?: string | null
+          preferred_tide_ft_max?: number | null
+          preferred_tide_ft_min?: number | null
+          skill_level?: string | null
+          swell_access_factors?: number[] | null
           swell_window_max_deg?: number | null
           swell_window_min_deg?: number | null
+          terrain_analysis_debug?: Json | null
+          terrain_analyzed_at?: string | null
+          terrain_method?: string | null
+          terrain_params?: Json | null
+          terrain_params_hash?: string | null
+          terrain_status?: string | null
+          tide_direction_sensitivity?: string | null
           updated_at?: string
           user_id: string
           visibility?: string
+          wind_exposure_factors?: number[] | null
         }
         Update: {
+          analysis_requested_at?: string | null
           break_type?: string | null
           created_at?: string
           deleted_at?: string | null
           exposure_level?: string | null
           facing_direction_deg?: number | null
           fingerprint_confidence?: string | null
+          fingerprint_coordinate_hash?: string | null
+          fingerprint_model_version?: string | null
+          fingerprint_provenance?: Json
+          fingerprint_provenance_state?: string
           fingerprint_updated_at?: string | null
           id?: string
           lat?: number
@@ -5040,11 +5128,24 @@ export type Database = {
           nearest_beach_distance_mi?: number | null
           nearest_beach_id?: string | null
           offshore_direction_deg?: number | null
+          preferred_tide_direction?: string | null
+          preferred_tide_ft_max?: number | null
+          preferred_tide_ft_min?: number | null
+          skill_level?: string | null
+          swell_access_factors?: number[] | null
           swell_window_max_deg?: number | null
           swell_window_min_deg?: number | null
+          terrain_analysis_debug?: Json | null
+          terrain_analyzed_at?: string | null
+          terrain_method?: string | null
+          terrain_params?: Json | null
+          terrain_params_hash?: string | null
+          terrain_status?: string | null
+          tide_direction_sensitivity?: string | null
           updated_at?: string
           user_id?: string
           visibility?: string
+          wind_exposure_factors?: number[] | null
         }
         Relationships: [
           {
@@ -14831,6 +14932,35 @@ export type Database = {
           processed: number
         }[]
       }
+      claim_custom_spot_analysis_jobs: {
+        Args: { p_batch_size?: number }
+        Returns: {
+          attempts: number
+          claimed_at: string
+          custom_spot_id: string
+          job_id: number
+          requested_model_version: string
+        }[]
+      }
+      complete_custom_spot_analysis_job: {
+        Args: {
+          p_claimed_at: string
+          p_job_id: number
+          p_spot_updated_at: string
+          p_update: Json
+        }
+        Returns: boolean
+      }
+      fail_custom_spot_analysis_job: {
+        Args: {
+          p_claimed_at: string
+          p_error_code: string
+          p_job_id: number
+          p_provenance_state: string
+          p_spot_updated_at: string
+        }
+        Returns: boolean
+      }
       backfill_ml_observations_batch: {
         Args: { batch_size?: number }
         Returns: {
@@ -16084,6 +16214,10 @@ export type Database = {
         }[]
       }
       is_admin_user: { Args: never; Returns: boolean }
+      is_valid_directional_factor_array: {
+        Args: { p_values: number[] }
+        Returns: boolean
+      }
       is_mutual_follow: { Args: { a: string; b: string }; Returns: boolean }
       like_session_with_notification: {
         Args: { p_actor_id: string; p_dedupe_key: string; p_session_id: string }

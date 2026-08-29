@@ -6,6 +6,7 @@ import CustomSpotDetailPage, {
 } from "@/app/custom-spots/[id]/page";
 import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { applyCustomSpotForecastGeometry } from "@/lib/services/custom-spot-analysis/forecast-overlay";
 
 const getResolvedSpotPhotos = jest.fn();
 
@@ -15,6 +16,10 @@ jest.mock("@/lib/community-photos", () => ({
 
 jest.mock("@/actions/forecast-actions", () => ({
   getEnhancedBeachForecasts: jest.fn(),
+}));
+
+jest.mock("@/lib/services/custom-spot-analysis/forecast-overlay", () => ({
+  applyCustomSpotForecastGeometry: jest.fn((row: unknown) => row),
 }));
 
 jest.mock("next/image", () => ({
@@ -198,6 +203,36 @@ describe("/custom-spots/[id] page", () => {
       "1 forecasts",
     );
     expect(getEnhancedBeachForecasts).toHaveBeenCalledWith("beach-1", 10);
+  });
+
+  it("does not substitute nearest-beach terrain for incomplete custom output", async () => {
+    mockTableSingle("custom_spots", {
+      ...publicSpot,
+      terrain_status: "ok",
+      fingerprint_model_version: "custom_spot_terrain_v1",
+      swell_access_factors: Array(72).fill(1),
+      wind_exposure_factors: null,
+    });
+    mockTableSingle("beaches", {
+      ...nearestBeach,
+      terrain_enabled: true,
+      swell_access_factors: Array(72).fill(1),
+      wind_exposure_factors: Array(72).fill(1),
+    });
+    mockTableSingle("beach_photos", beachPhoto);
+
+    await CustomSpotDetailPage({
+      params: Promise.resolve({ id: "spot-public" }),
+    });
+
+    expect(applyCustomSpotForecastGeometry).toHaveBeenCalledWith(
+      forecast,
+      expect.objectContaining({
+        terrain_enabled: false,
+        swell_access_factors: null,
+        wind_exposure_factors: null,
+      }),
+    );
   });
 
   it("prefers an eligible custom-spot community photo with safe attribution", async () => {

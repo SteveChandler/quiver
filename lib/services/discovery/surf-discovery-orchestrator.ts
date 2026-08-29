@@ -20,7 +20,8 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { createContextLogger } from '@/lib/logger';
 import { getFavoriteBeachesFromDb } from '@/lib/services/beach-query-service';
-import type { Beach } from '@/types/database';
+import { applyCustomSpotForecastGeometry } from '@/lib/services/custom-spot-analysis/forecast-overlay';
+import type { Beach, Json } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type {
   SurfDiscoveryRecommendation,
@@ -177,7 +178,7 @@ export class SurfDiscoveryOperationalError extends Error {
   }
 }
 
-interface CustomSpotDiscoveryRow {
+export interface CustomSpotDiscoveryRow {
   id: string;
   user_id: string;
   name: string;
@@ -192,6 +193,23 @@ interface CustomSpotDiscoveryRow {
   swell_window_max_deg: number | null;
   offshore_direction_deg: number | null;
   exposure_level: string | null;
+  swell_access_factors: number[] | null;
+  wind_exposure_factors: number[] | null;
+  terrain_method: string | null;
+  terrain_params: Json | null;
+  terrain_params_hash: string | null;
+  terrain_analyzed_at: string | null;
+  terrain_status: string | null;
+  terrain_analysis_debug: Json | null;
+  preferred_tide_ft_min: number | null;
+  preferred_tide_ft_max: number | null;
+  preferred_tide_direction: string | null;
+  tide_direction_sensitivity: string | null;
+  skill_level: string | null;
+  fingerprint_confidence: string | null;
+  fingerprint_provenance_state: string | null;
+  fingerprint_model_version: string | null;
+  fingerprint_provenance: { fields?: Record<string, string> } | null;
   deleted_at: string | null;
 }
 
@@ -741,6 +759,23 @@ async function fetchCustomSpotRows(
       'swell_window_max_deg',
       'offshore_direction_deg',
       'exposure_level',
+      'swell_access_factors',
+      'wind_exposure_factors',
+      'terrain_method',
+      'terrain_params',
+      'terrain_params_hash',
+      'terrain_analyzed_at',
+      'terrain_status',
+      'terrain_analysis_debug',
+      'preferred_tide_ft_min',
+      'preferred_tide_ft_max',
+      'preferred_tide_direction',
+      'tide_direction_sensitivity',
+      'skill_level',
+      'fingerprint_confidence',
+      'fingerprint_provenance_state',
+      'fingerprint_model_version',
+      'fingerprint_provenance',
       'deleted_at',
     ].join(', ');
     const bounds = boundingBoxForRadius(userLocation, radiusMiles);
@@ -833,13 +868,63 @@ async function buildCustomSpotCandidates(
     .filter((candidate): candidate is CustomSpotDiscoveryCandidate => candidate !== null);
 }
 
-function buildCustomSpotBeach(
+const PROTECTED_FINGERPRINT_STATES = new Set(['user_corrected', 'independently_reviewed']);
+
+function canUseCustomSpotField(spot: CustomSpotDiscoveryRow, field: string): boolean {
+  const fieldState = spot.fingerprint_provenance?.fields?.[field];
+  if (fieldState && PROTECTED_FINGERPRINT_STATES.has(fieldState)) return true;
+  if (spot.fingerprint_confidence === 'user_set') return true;
+  if (fieldState === 'modeled') {
+    return spot.terrain_status === 'ok'
+      && spot.fingerprint_model_version === 'custom_spot_terrain_v1';
+  }
+  if (
+    spot.fingerprint_confidence === 'modeled'
+    && !spot.fingerprint_model_version
+    && Object.keys(spot.fingerprint_provenance?.fields ?? {}).length === 0
+  ) {
+    return true;
+  }
+  if (!spot.fingerprint_provenance && spot.fingerprint_confidence !== 'unset') return true;
+  return spot.terrain_status === 'ok'
+    && spot.fingerprint_model_version === 'custom_spot_terrain_v1';
+}
+
+function customValue<T>(
+  spot: CustomSpotDiscoveryRow,
+  field: string,
+  value: T | null,
+  fallback: T | null
+): T | null {
+  return value != null && canUseCustomSpotField(spot, field) ? value : fallback;
+}
+
+export function buildCustomSpotBeach(
   spot: CustomSpotDiscoveryRow,
   nearestBeach: Beach,
 ): Beach {
-  const minDeg = spot.swell_window_min_deg ?? nearestBeach.swell_window_min_deg;
-  const maxDeg = spot.swell_window_max_deg ?? nearestBeach.swell_window_max_deg;
+  const minDeg = customValue(
+    spot, 'swell_window_min_deg', spot.swell_window_min_deg, nearestBeach.swell_window_min_deg
+  );
+  const maxDeg = customValue(
+    spot, 'swell_window_max_deg', spot.swell_window_max_deg, nearestBeach.swell_window_max_deg
+  );
   const computedSwellWindow = swellCenterAndHalfwidth(minDeg, maxDeg);
+  const modeledTerrainUsable = spot.terrain_status === 'ok'
+    && spot.fingerprint_model_version === 'custom_spot_terrain_v1';
+  const swellAccessFactors = modeledTerrainUsable
+    && Array.isArray(spot.swell_access_factors)
+    && spot.swell_access_factors.length === 72
+    ? spot.swell_access_factors
+    : nearestBeach.swell_access_factors;
+  const windExposureFactors = modeledTerrainUsable
+    && Array.isArray(spot.wind_exposure_factors)
+    && spot.wind_exposure_factors.length === 72
+    ? spot.wind_exposure_factors
+    : nearestBeach.wind_exposure_factors;
+  const customTerrainUsable = modeledTerrainUsable
+    && swellAccessFactors === spot.swell_access_factors
+    && windExposureFactors === spot.wind_exposure_factors;
 
   return {
     ...nearestBeach,
@@ -847,14 +932,40 @@ function buildCustomSpotBeach(
     lat: spot.lat,
     lon: spot.lon,
     break_type: spot.break_type ?? nearestBeach.break_type,
-    aspect_deg: spot.facing_direction_deg ?? nearestBeach.aspect_deg,
-    wind_offshore_deg: spot.offshore_direction_deg ?? nearestBeach.wind_offshore_deg,
+    aspect_deg: customValue(
+      spot, 'facing_direction_deg', spot.facing_direction_deg, nearestBeach.aspect_deg
+    ),
+    wind_offshore_deg: customValue(
+      spot, 'offshore_direction_deg', spot.offshore_direction_deg, nearestBeach.wind_offshore_deg
+    ),
     swell_window_min_deg: minDeg,
     swell_window_max_deg: maxDeg,
     swell_window_center_deg:
       computedSwellWindow.centerDeg ?? nearestBeach.swell_window_center_deg,
     swell_window_halfwidth_deg:
       computedSwellWindow.halfwidthDeg ?? nearestBeach.swell_window_halfwidth_deg,
+    swell_access_factors: swellAccessFactors,
+    wind_exposure_factors: windExposureFactors,
+    terrain_enabled: customTerrainUsable,
+    terrain_method: customTerrainUsable ? spot.terrain_method : nearestBeach.terrain_method,
+    terrain_params: customTerrainUsable ? spot.terrain_params : nearestBeach.terrain_params,
+    terrain_params_hash: customTerrainUsable
+      ? spot.terrain_params_hash
+      : nearestBeach.terrain_params_hash,
+    terrain_analyzed_at: customTerrainUsable
+      ? spot.terrain_analyzed_at
+      : nearestBeach.terrain_analyzed_at,
+    terrain_status: customTerrainUsable ? 'ok' : nearestBeach.terrain_status,
+    terrain_analysis_debug: customTerrainUsable
+      ? spot.terrain_analysis_debug
+      : nearestBeach.terrain_analysis_debug,
+    preferred_tide_ft_min: spot.preferred_tide_ft_min ?? nearestBeach.preferred_tide_ft_min,
+    preferred_tide_ft_max: spot.preferred_tide_ft_max ?? nearestBeach.preferred_tide_ft_max,
+    preferred_tide_direction:
+      spot.preferred_tide_direction ?? nearestBeach.preferred_tide_direction,
+    tide_direction_sensitivity:
+      spot.tide_direction_sensitivity ?? nearestBeach.tide_direction_sensitivity,
+    skill_level: spot.skill_level ?? nearestBeach.skill_level,
   };
 }
 
@@ -2021,17 +2132,107 @@ async function discoverSurfSpotsInner(
       scored.push(baseRecommendation);
     }
 
-    const customCandidates = customSpotCandidatesByNearestBeachId.get(beach.id) ?? [];
+    // Select custom-spot windows from the locally transformed series once per
+    // anchor beach, instead of inheriting each nearest-beach window.
+    const customCandidates = bestWindow === selectedWindows[0]
+      ? customSpotCandidatesByNearestBeachId.get(beach.id) ?? []
+      : [];
     for (const customCandidate of customCandidates) {
       const customBeach = buildCustomSpotBeach(customCandidate.spot, beach);
+      const customForecasts = forecasts.map((forecast) =>
+        applyCustomSpotForecastGeometry(forecast, customBeach)
+      );
+      const customScopedForecasts = forecastAt
+        ? (() => {
+            const alignment = resolveForecastAlignment(customForecasts, forecastAt);
+            return alignment?.forecast ? [alignment.forecast] : [];
+          })()
+        : [];
+      const customTodayForecasts = customForecasts.filter((forecast) =>
+        getLocalDateStr(new Date(forecast.forecast_at), beachTz) === todayStr
+      );
+      let customSelectedWindows = forecastAt
+        ? customScopedForecasts.length > 0
+          ? selectBestWindows({
+              forecasts: customScopedForecasts,
+              beach: customBeach,
+              userPrefs,
+              horizonHours,
+              sunTimesCache,
+              timeSlot,
+              now: selectionNow,
+              maxWindows: 1,
+              userSkillLevel,
+              boardClasses,
+            })
+          : []
+        : discoveryMode === 'now'
+          ? [selectImmediateWindow(
+              customForecasts,
+              customBeach,
+              sunTimesCache,
+              nowForFallback,
+              userSkillLevel,
+              boardClasses,
+            )].filter(
+              (window): window is PersonalizedForecastWindow => window !== null
+            )
+          : customTodayForecasts.length > 0
+            ? selectBestWindows({
+                forecasts: customTodayForecasts,
+                beach: customBeach,
+                userPrefs,
+                horizonHours,
+                sunTimesCache,
+                timeSlot,
+                now: nowForFallback,
+                maxWindows: 3,
+                userSkillLevel,
+                boardClasses,
+              })
+            : [];
+
+      if (
+        discoveryMode !== 'now' &&
+        !forecastAt &&
+        customSelectedWindows.length === 0 &&
+        (customTodayForecasts.length === 0 || todayIsEffectivelyOver)
+      ) {
+        customSelectedWindows = selectBestWindows({
+          forecasts: customForecasts,
+          beach: customBeach,
+          userPrefs,
+          horizonHours,
+          sunTimesCache,
+          timeSlot,
+          now: nowForFallback,
+          maxWindows: 3,
+          userSkillLevel,
+          boardClasses,
+        });
+      }
+
+      for (const customBestWindow of customSelectedWindows) {
+      const customSelectionForecasts = forecastAt ? customScopedForecasts : customForecasts;
+      const customForecast = customBestWindow.sourceForecast
+        ?? customSelectionForecasts.reduce((closest, forecast) => {
+          const forecastTime = new Date(forecast.forecast_at).getTime();
+          const closestTime = new Date(closest.forecast_at).getTime();
+          const target = customBestWindow.start.getTime();
+          return Math.abs(forecastTime - target) < Math.abs(closestTime - target)
+            ? forecast
+            : closest;
+        }, customSelectionForecasts[0]);
+      const customResponseWindow: PersonalizedForecastWindow = { ...customBestWindow };
+      delete customResponseWindow.sourceForecast;
       const customPersResult = calculatePersonalizationBonus(
         customBeach,
-        bestWindowForecast,
+        customForecast,
         personalizationCtx,
       );
       const customDetailedScore = await scoreBeachForDiscovery({
         beach: customBeach,
-        forecast: bestWindowForecast,
+        forecast: customForecast,
         userPrefs,
         userSkillLevel,
         distanceMiles: customCandidate.distanceMiles,
@@ -2052,8 +2253,8 @@ async function discoverSurfSpotsInner(
       }
 
       const customDistinction = computeWindowDistinctionReason(
-        bestWindowForecast,
-        forecasts,
+        customForecast,
+        customForecasts,
         customBeach,
         beachTz,
         userSkillLevel,
@@ -2074,7 +2275,7 @@ async function discoverSurfSpotsInner(
       let customConditionCharacter: SurfDiscoveryRecommendation['character'] | undefined;
       try {
         const profile = beachToSpotProfile(customBeach);
-        const snapshot = forecastToSnapshot(bestWindowForecast);
+        const snapshot = forecastToSnapshot(customForecast);
         const composite = getDiscoveryScoringEngine().score({
           profile,
           snapshot,
@@ -2097,13 +2298,13 @@ async function discoverSurfSpotsInner(
       const customBoardPick =
         userBoardsForPicks.length > 0
           ? getConditionBoardPick(
-              toForecastForScoring(bestWindowForecast, beachTz),
+              toForecastForScoring(customForecast, beachTz),
               userBoardsForPicks,
               customBeach,
               {
                 kind: 'scored',
                 boardClass: scoreWindowConditionDetails(
-                  bestWindowForecast,
+                  customForecast,
                   customBeach,
                   userSkillLevel,
                   null,
@@ -2119,8 +2320,8 @@ async function discoverSurfSpotsInner(
         visibility: customCandidate.spot.visibility,
         isOwn: customCandidate.isOwn,
         beach: customBeach,
-        window: { ...responseWindow },
-        forecast: bestWindowForecast,
+        window: customResponseWindow,
+        forecast: customForecast,
         score: customDetailedScore.total,
         rankingScore: customDetailedScore.rankingTotal,
         matchQuality: customDetailedScore.matchQuality,
@@ -2128,7 +2329,7 @@ async function discoverSurfSpotsInner(
         spotProfile: beachToSpotProfile(customBeach),
         recommendationLabel: customRecommendationLabel,
         subscores: customDetailedScore.subscores,
-        summary: generateDiscoverySummary(customBeach, responseWindow, customDetailedScore),
+        summary: generateDiscoverySummary(customBeach, customResponseWindow, customDetailedScore),
         message: buildDiscoveryMessage(
           customDetailedScore.total,
           customDetailedScore.reasons,
@@ -2156,6 +2357,7 @@ async function discoverSurfSpotsInner(
       customRecommendation.recommendationId =
         recommendationIdFor(customRecommendation);
       scored.push(customRecommendation);
+      }
     }
 
       log.info(

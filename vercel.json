@@ -10,6 +10,10 @@
   },
   "crons": [
     {
+      "path": "/api/cron/custom-spot-analysis?batchSize=5",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/enhanced-forecast-sync-cdip",
       "schedule": "0 * * * *"
     },

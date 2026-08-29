@@ -428,6 +428,7 @@ describe("aggregateRegionalForecast", () => {
       mockRegion,
       [mockBeaches[0]],
       forecastMap,
+      { now: new Date(`${today}T12:00:00.000Z`) },
     );
 
     expect(summary.sourceDataUpdatedAt).toBe("2026-08-27T21:00:00.000Z");
