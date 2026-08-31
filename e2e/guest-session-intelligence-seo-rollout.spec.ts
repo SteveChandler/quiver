@@ -4,7 +4,6 @@ import {
   setupErrorDetection,
   type ErrorCapture,
 } from "./utils/error-detection";
-import { isVisibleSafe } from "./utils/strict-helpers";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 test.describe.configure({ mode: "serial" });
@@ -178,20 +177,8 @@ test.describe("Phase 18 guest SEO-safe Session Intelligence rollout", () => {
         })
       ).toBeVisible();
 
-      const pilot = page.getByTestId("session-intelligence-pilot");
-      const pilotVisible = await isVisibleSafe(pilot, { timeout: 15_000 });
-      // eslint-disable-next-line playwright/no-conditional-in-test -- Malibu forecast availability can differ by local fixture freshness; when the allowlisted pilot renders, validate its CTA contract.
-      if (pilotVisible) {
-        await expect(
-          pilot.getByRole("heading", {
-            name: /best surf windows at malibu surfrider.*first point/i,
-          })
-        ).toBeVisible();
-        await expect(pilot.getByTestId("app-deep-link-cta").first()).toHaveAttribute(
-          "href",
-          /\/app\/spot\/malibu-surfrider-first-point-malibu-ca\?window=/
-        );
-      }
+      await expect(page.getByTestId("session-intelligence-pilot")).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: /best surf windows at/i })).toHaveCount(0);
       await expect(page.locator('a[href="/surf-report/malibu-today"]')).toHaveCount(0);
     });
   }

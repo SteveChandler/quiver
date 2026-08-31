@@ -296,27 +296,12 @@ test.describe('Spot Surf Report', () => {
     await expect(reviewsPanel).toBeVisible();
   });
 
-  test('session intelligence pilot is additive to spot tabs when windows render', async ({ page }) => {
+  test('legacy best surf windows block is removed from spot pages', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
     await page.waitForLoadState('load');
 
-    const pilot = page.getByTestId('session-intelligence-pilot');
-    const pilotVisible = await isVisibleSafe(pilot, { timeout: 10000 });
-
-    // eslint-disable-next-line playwright/no-conditional-in-test -- pilot visibility depends on local forecast fixture availability.
-    if (pilotVisible) {
-      await expect(
-        page.getByRole('heading', { name: /best surf windows at/i })
-      ).toBeVisible();
-      await expect(page.getByRole('button', { name: /why this call/i }).first()).toBeVisible();
-
-      const cards = page.getByTestId('surf-window-card');
-      await expect(cards.first()).toBeVisible();
-      expect(await cards.count()).toBeLessThanOrEqual(3);
-
-      const cta = page.getByTestId('app-deep-link-cta').first();
-      await expect(cta).toHaveAttribute('href', /\/app\/spot\/.+\?window=/);
-    }
+    await expect(page.getByTestId('session-intelligence-pilot')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /best surf windows at/i })).toHaveCount(0);
 
     await expect(page.getByRole('tab', { name: /^forecast$/i })).toBeVisible();
     await expect(page.getByRole('tab', { name: /reviews/i })).toBeVisible();
