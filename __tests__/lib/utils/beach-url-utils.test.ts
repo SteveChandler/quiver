@@ -475,6 +475,7 @@ describe("Beach URL Utils", () => {
       expect(slugs).toContain("wa");
       expect(slugs).toContain("hi");
       expect(slugs).toContain("fl");
+      expect(slugs).toContain("va");
     });
 
     // International slugs are NOT considered "state slugs" for route disambiguation.
@@ -492,12 +493,14 @@ describe("Beach URL Utils", () => {
       expect(isValidStateSlug("or")).toBe(true);
       expect(isValidStateSlug("wa")).toBe(true);
       expect(isValidStateSlug("hi")).toBe(true);
+      expect(isValidStateSlug("va")).toBe(true);
     });
 
     it("should return true regardless of case", () => {
       expect(isValidStateSlug("CA")).toBe(true);
       expect(isValidStateSlug("Or")).toBe(true);
       expect(isValidStateSlug("WA")).toBe(true);
+      expect(isValidStateSlug("Va")).toBe(true);
     });
 
     it("should return false for intent slugs", () => {

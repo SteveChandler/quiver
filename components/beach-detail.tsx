@@ -38,12 +38,10 @@ import { track } from "@/lib/analytics";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import { useCtaImpression } from "@/hooks/use-cta-impression";
 import { slugify } from "@/lib/utils/text-utils";
-import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { FullPageLoader } from "@/components/ui/loading-states";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
-import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import type { ZineBeachPhoto } from "@/components/beach-detail/zine/types";
 import type { BeachAmenities } from "@/types/amenities";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
@@ -72,7 +70,6 @@ import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skelet
 import { MatchScoreTeaser } from "@/components/recommendations";
 import { TrustStrip } from "@/components/beach-detail/trust-strip";
 import { ForecastConfidenceBadge } from "@/components/beach-detail/forecast-confidence-badge";
-import { SessionIntelligencePilot } from "@/components/beach-detail/session-intelligence-pilot";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { AlertCreationPopover } from "@/components/alerts/alert-creation-popover";
@@ -204,10 +201,6 @@ const SessionsTab = lazy(() =>
 // Constants to prevent unnecessary re-renders
 const EMPTY_FORECASTS: EnhancedForecastEntity[] = [];
 
-type SurfCallReportWithAvailability = SurfCallResult & {
-  recommendationAvailability?: RecommendationAvailability;
-};
-
 function getClosestForecastToNow(
   forecasts: EnhancedForecastEntity[],
 ): EnhancedForecastEntity | null {
@@ -235,7 +228,7 @@ interface BeachDetailProps {
   publicMode?: boolean;
   initialBeach?: Beach;
   beachTimezone?: string | null;
-  surfCallReport?: SurfCallReportWithAvailability | null;
+  surfCallReport?: SurfCallResult | null;
   surfCallIsTomorrow?: boolean;
   defaultTab?: "overview" | "forecast" | "reviews" | "intel" | "sessions";
   defaultSubTab?: "today" | "tides" | "conditions";
@@ -964,8 +957,6 @@ function BeachDetailContent({
       </Button>
     </>
   );
-  const beachCanonicalPath = buildBeachUrl(beach);
-
   return (
     <div className="min-h-screen" style={{ background: "#0D1020" }}>
       {/* Forecast Error Warning Banner */}
@@ -1006,15 +997,6 @@ function BeachDetailContent({
             onSetupAlerts={handleOpenAlerts}
           />
         ) : null}
-        <SessionIntelligencePilot
-          beach={beach}
-          canonicalPath={beachCanonicalPath}
-          forecasts={forecasts || []}
-          beachTimezone={beachTimezone}
-          recommendationAvailability={
-            surfCallReport?.recommendationAvailability
-          }
-        />
         <BeachTabs
           activeTab={activeTab}
           onTabChange={setActiveTab}

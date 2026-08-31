@@ -120,6 +120,7 @@ export const US_STATE_SLUG_MAP: Record<string, string> = {
   RI: "ri",
   SC: "sc",
   TX: "tx",
+  VA: "va",
   WA: "wa",
 
   // US States (full names) - common surf states
@@ -138,6 +139,7 @@ export const US_STATE_SLUG_MAP: Record<string, string> = {
   "Rhode Island": "ri",
   "South Carolina": "sc",
   Texas: "tx",
+  Virginia: "va",
   Washington: "wa",
 };
 

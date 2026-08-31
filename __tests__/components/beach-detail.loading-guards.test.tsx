@@ -40,11 +40,6 @@ jest.mock("@/components/beach-detail/beach-alert-cta", () => ({
     </button>
   ),
 }));
-const mockSessionIntelligencePilot = jest.fn((_props: unknown) => null);
-jest.mock("@/components/beach-detail/session-intelligence-pilot", () => ({
-  SessionIntelligencePilot: (props: unknown) =>
-    mockSessionIntelligencePilot(props),
-}));
 jest.mock("@/components/beach-detail/tabs/forecast-tab", () => {
   const React = require("react");
 
@@ -328,39 +323,5 @@ describe("BeachDetail loading and error guards", () => {
     await screen.findByTestId("forecast-tab");
 
     expect(screen.getAllByText("Alerts for Test Beach").length).toBeGreaterThan(0);
-  });
-
-  it("passes authoritative surf-call availability to session intelligence", async () => {
-    const beach = {
-      id: "beach-1",
-      name: "Test Beach",
-      slug: "test-beach",
-      lat: 0,
-      lon: 0,
-      city: "Test City",
-      state: "CA",
-      country: "USA",
-      break_type: "Beach Break",
-      created_at: "2024-01-01",
-      updated_at: "2024-01-01",
-    };
-    mockBeachDetailData(beach, false, null);
-    const recommendationAvailability = {
-      state: "none",
-      reasonCode: "major_event_hold",
-      holdEpoch: "hold-epoch",
-    } as const;
-
-    render(
-      <BeachDetail
-        id="beach-1"
-        surfCallReport={{ recommendationAvailability } as any}
-      />,
-    );
-    await screen.findByTestId("forecast-tab");
-
-    expect(mockSessionIntelligencePilot).toHaveBeenCalledWith(
-      expect.objectContaining({ recommendationAvailability }),
-    );
   });
 });
