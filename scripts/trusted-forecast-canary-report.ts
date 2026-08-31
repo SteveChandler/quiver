@@ -2,12 +2,12 @@
 
 import { config } from "dotenv";
 
-import { parseDisplayHeightFt } from "../lib/services/forecast/apply-beach-height-offset";
 import { TRUSTED_FORECAST_POLICY_VERSION } from "../lib/services/forecast/trusted-forecast-policy";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ALLOWED_DELTAS = new Set([-0.5, -0.25, 0.25, 0.5]);
+const MAX_PROJECTION_WRITE_SKEW_MS = 15 * 60 * 1000;
 
 export interface CanaryApplicationRow {
   readonly beachId: string;
@@ -23,6 +23,15 @@ export interface CanaryBaselineRow {
   readonly beachId: string;
   readonly forecastAt: string;
   readonly waveHeight: string | null;
+  readonly updatedAt: string;
+}
+
+export interface CanaryProjectionRow {
+  readonly beachId: string;
+  readonly forecastAt: string;
+  readonly displayWaveHeight: string;
+  readonly baselineMaxFaceFt: number;
+  readonly refreshedAt: string;
 }
 
 export interface CanaryReportReader {
@@ -31,6 +40,10 @@ export interface CanaryReportReader {
     readonly beachIds: readonly string[];
     readonly forecastAts: readonly string[];
   }): Promise<readonly CanaryBaselineRow[]>;
+  selectProjections(args: {
+    readonly beachIds: readonly string[];
+    readonly forecastAts: readonly string[];
+  }): Promise<readonly CanaryProjectionRow[]>;
 }
 
 interface RunCanaryReportOptions {
@@ -49,26 +62,6 @@ function parseExactlyTwoIds(value: string | undefined): readonly string[] | null
 
 function key(beachId: string, forecastAt: string): string {
   return `${beachId}:${new Date(forecastAt).toISOString()}`;
-}
-
-function storedBaselineStatus(
-  waveHeight: string | null | undefined,
-  baselineFt: number,
-): "match" | "deviation" | "unverifiable" {
-  const parsed = parseDisplayHeightFt(waveHeight);
-  if (parsed.numericFt === null) return "unverifiable";
-  if (parsed.rangeSpread === null) {
-    return Math.abs(parsed.numericFt - baselineFt) <= 0.001
-      ? "match"
-      : "deviation";
-  }
-  const halfSpread = parsed.rangeSpread / 2;
-  return (
-    baselineFt >= parsed.numericFt - halfSpread &&
-    baselineFt <= parsed.numericFt + halfSpread
-  )
-    ? "match"
-    : "deviation";
 }
 
 export function loadIntegrityReportEnv(
@@ -93,10 +86,14 @@ export async function runCanaryReport({
   try {
     const applications = await reader.selectApplications(now.toISOString());
     const beachIds = [...new Set(applications.map((row) => row.beachId))];
-    const baselines = await reader.selectBaselines({
+    const lookup = {
       beachIds,
       forecastAts: applications.map((row) => row.forecastAt),
-    });
+    };
+    const [baselines, projections] = await Promise.all([
+      reader.selectBaselines(lookup),
+      reader.selectProjections(lookup),
+    ]);
     const baselineBySlot = new Map<string, CanaryBaselineRow>();
     let duplicateBaselineCount = 0;
     for (const baseline of baselines) {
@@ -104,8 +101,15 @@ export async function runCanaryReport({
       if (baselineBySlot.has(slotKey)) duplicateBaselineCount += 1;
       baselineBySlot.set(slotKey, baseline);
     }
+    const projectionBySlot = new Map<string, CanaryProjectionRow>();
+    let duplicateProjectionCount = 0;
+    for (const projection of projections) {
+      const slotKey = key(projection.beachId, projection.forecastAt);
+      if (projectionBySlot.has(slotKey)) duplicateProjectionCount += 1;
+      projectionBySlot.set(slotKey, projection);
+    }
 
-    let integrityMismatchCount = duplicateBaselineCount;
+    let integrityMismatchCount = duplicateBaselineCount + duplicateProjectionCount;
     let storedBaselineDeviationCount = 0;
     let unverifiableStoredBaselineCount = 0;
     const applicationSlots = new Set<string>();
@@ -114,14 +118,24 @@ export async function runCanaryReport({
       if (applicationSlots.has(applicationKey)) integrityMismatchCount += 1;
       applicationSlots.add(applicationKey);
       const baseline = baselineBySlot.get(applicationKey);
-      const baselineStatus = storedBaselineStatus(
-        baseline?.waveHeight,
-        application.baselineMaxFaceFt,
-      );
+      const projection = projectionBySlot.get(applicationKey);
+      const baselineStatus =
+        baseline === undefined || projection === undefined
+          ? "unverifiable"
+          : baseline.waveHeight === projection.displayWaveHeight &&
+              Math.abs(
+                new Date(baseline.updatedAt).getTime() -
+                  new Date(projection.refreshedAt).getTime(),
+              ) <= MAX_PROJECTION_WRITE_SKEW_MS
+            ? "match"
+            : "deviation";
       if (baselineStatus === "deviation") storedBaselineDeviationCount += 1;
       if (baselineStatus === "unverifiable") unverifiableStoredBaselineCount += 1;
       const integrityMatches =
         baselineStatus === "match" &&
+        projection !== undefined &&
+        Number.isFinite(projection.baselineMaxFaceFt) &&
+        projection.baselineMaxFaceFt >= 0 &&
         ALLOWED_DELTAS.has(application.deltaFt) &&
         Math.abs(
           application.baselineMaxFaceFt + application.deltaFt -
@@ -143,6 +157,7 @@ export async function runCanaryReport({
         canaryAccountCount: canaryIds.length,
         adjustedSlotCount: applications.length,
         baselineSlotCount: baselines.length,
+        projectionSlotCount: projections.length,
         storedBaselineDeviationCount,
         unverifiableStoredBaselineCount,
         integrityMismatchCount,
@@ -210,7 +225,7 @@ export function createProductionReader(): CanaryReportReader {
       const { createServiceRoleClient } = await import("../lib/supabase");
       const { data, error } = await createServiceRoleClient()
         .from("enhanced_forecasts")
-        .select("beach_id, forecast_at, wave_height")
+        .select("beach_id, forecast_at, wave_height, updated_at")
         .in("beach_id", [...beachIds])
         .in("forecast_at", [...new Set(forecastAts)])
         .order("forecast_at", { ascending: true });
@@ -219,6 +234,25 @@ export function createProductionReader(): CanaryReportReader {
         beachId: row.beach_id,
         forecastAt: row.forecast_at,
         waveHeight: row.wave_height,
+        updatedAt: row.updated_at,
+      }));
+    },
+    async selectProjections({ beachIds, forecastAts }) {
+      if (beachIds.length === 0 || forecastAts.length === 0) return [];
+      const { createServiceRoleClient } = await import("../lib/supabase");
+      const { data, error } = await createServiceRoleClient()
+        .from("trusted_forecast_serving_projections" as never)
+        .select("beach_id, forecast_at, display_wave_height, baseline_max_face_ft, refreshed_at")
+        .in("beach_id", [...beachIds])
+        .in("forecast_at", [...new Set(forecastAts)])
+        .order("forecast_at", { ascending: true });
+      if (error) throw new Error(error.code ?? "projection_read_failed");
+      return ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => ({
+        beachId: String(row.beach_id),
+        forecastAt: String(row.forecast_at),
+        displayWaveHeight: String(row.display_wave_height),
+        baselineMaxFaceFt: Number(row.baseline_max_face_ft),
+        refreshedAt: String(row.refreshed_at),
       }));
     },
   };

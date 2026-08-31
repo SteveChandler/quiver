@@ -86,6 +86,7 @@ jest.mock("@/lib/utils/wave-formatters", () => {
 // pull the rows out of the fire-and-forget dispatch so tests can assert on
 // what was queued.
 let capturedSnapshotRows: any[] = [];
+let capturedProjectionRows: unknown[] = [];
 jest.mock("../log-display-prediction", () => ({
   logDisplayPredictions: jest.fn(async (rows: any[]) => {
     capturedSnapshotRows = capturedSnapshotRows.concat(rows ?? []);
@@ -163,6 +164,12 @@ const buildInputs = (overrides: Partial<ForecastInputs> = {}): ForecastInputs =>
     cdipData: null,
     ioosWaterTempC: null,
     coopsWaterTempC: null,
+    trustedForecastProjectionStore: {
+      upsertRows: async (rows) => {
+        capturedProjectionRows.push(...rows);
+        return { error: null };
+      },
+    },
     ...overrides,
   }) as ForecastInputs;
 
@@ -185,6 +192,7 @@ describe("ForecastBuilder per-beach height-offset hook", () => {
     delete process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED;
     mockWaveHeightValue = "3 ft";
     capturedSnapshotRows = [];
+    capturedProjectionRows = [];
     insertMock.mockClear();
     fromMock.mockClear();
   });
@@ -678,6 +686,7 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     delete process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
     mockWaveHeightValue = "5 ft";
     capturedSnapshotRows = [];
+    capturedProjectionRows = [];
     jest.useFakeTimers({ doNotFake: ["queueMicrotask"] });
     jest.setSystemTime(TRUSTED_NOW);
   });
@@ -941,6 +950,14 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
         new Date(forecast.forecast_at as string).toISOString() === claimedAt,
     );
     expect(reused?.wave_height).toBe("5 ft");
+    expect(capturedProjectionRows).toContainEqual(
+      expect.objectContaining({
+        beach_id: TRESTLES_BEACH_ID,
+        forecast_at: claimedAt,
+        display_wave_height: "5 ft",
+        baseline_max_face_ft: 5,
+      }),
+    );
   });
 
   it("D-17: private decisions compare against the pre-feedback baseline", async () => {

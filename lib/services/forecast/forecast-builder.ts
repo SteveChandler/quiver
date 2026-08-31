@@ -55,6 +55,7 @@ import {
   TrustedForecastRepositoryError,
   loadBeachIdsBySlug,
   loadEligibleTrustedForecastIssues,
+  loadTrustedForecastApplications,
   loadTrustedForecastDecisions,
   type TrustedForecastReadStore,
 } from "./trusted-forecast-repository";
@@ -65,6 +66,7 @@ import {
   trustedForecastBuildKey,
   type TrustedForecastPersistenceStore,
 } from "./trusted-forecast-persistence";
+import type { TrustedForecastServingProjectionStore } from "./trusted-forecast-current-projection";
 import {
   buildGfsWaveShadowRows,
   logGfsWaveShadowRows,
@@ -283,6 +285,7 @@ export interface ForecastInputs {
    */
   trustedForecastReadStore?: TrustedForecastReadStore;
   trustedForecastPersistenceStore?: TrustedForecastPersistenceStore;
+  trustedForecastProjectionStore?: TrustedForecastServingProjectionStore;
 }
 
 /**
@@ -296,6 +299,8 @@ interface TrustedSlotRecord {
   readonly forecastHorizonHours: number;
   /** Display height after base transform, handoff blend and beach offset. */
   readonly postOffsetFt: number | null;
+  /** Exact ordinary display persisted to enhanced_forecasts for this build. */
+  readonly displayWaveHeight: string | null;
   readonly rangeSpread: number | null;
   /** Index into the snapshot buffer, so an application can carry its snapshot. */
   readonly snapshotIndex: number | null;
@@ -338,6 +343,21 @@ async function createDefaultTrustedForecastPersistenceStore(): Promise<TrustedFo
       "./trusted-forecast-persistence-node"
     );
     return createSupabaseTrustedForecastPersistenceStore();
+  }
+}
+
+async function createDefaultTrustedForecastProjectionStore(): Promise<TrustedForecastServingProjectionStore> {
+  try {
+    const { createSupabaseTrustedForecastServingProjectionStore } = await import(
+      "./trusted-forecast-current-projection-server"
+    );
+    return createSupabaseTrustedForecastServingProjectionStore();
+  } catch (error) {
+    if (!isMissingServerOnlyModule(error)) throw error;
+    const { createSupabaseTrustedForecastServingProjectionStore } = await import(
+      "./trusted-forecast-current-projection-node"
+    );
+    return createSupabaseTrustedForecastServingProjectionStore();
   }
 }
 
@@ -625,6 +645,7 @@ export class ForecastBuilder {
         snapshotBuffer,
         readStore: inputs.trustedForecastReadStore,
         persistenceStore: inputs.trustedForecastPersistenceStore,
+        projectionStore: inputs.trustedForecastProjectionStore,
       });
     } catch (error) {
       throw new TrustedForecastLayerError(error);
@@ -683,6 +704,7 @@ export class ForecastBuilder {
     snapshotBuffer: DisplayPredictionRow[];
     readStore?: TrustedForecastReadStore;
     persistenceStore?: TrustedForecastPersistenceStore;
+    projectionStore?: TrustedForecastServingProjectionStore;
   }): Promise<void> {
     // This legacy flag controls private decision generation, not canary serving.
     if (!isTrustedForecastAdjustmentEnabled()) return;
@@ -803,11 +825,17 @@ export class ForecastBuilder {
       existingDecisions,
     });
 
+    const durableApplications = await loadTrustedForecastApplications(readStore, {
+      beachId: entry.beachId,
+      forecastAts: eligibleSlots.map((slot) => slot.forecastAt.toISOString()),
+    });
+
     const slotByInstant = new Map<string, TrustedSlotRecord>();
     for (const slot of eligibleSlots) {
       slotByInstant.set(slot.forecastAt.toISOString(), slot);
     }
 
+    let newApplicationsPersisted = result.decisions.length === 0;
     if (result.decisions.length > 0) {
       const snapshots = result.applications.flatMap((application) => {
         const slot = slotByInstant.get(application.forecastAt);
@@ -856,7 +884,50 @@ export class ForecastBuilder {
           applicationCount: payload.expectedApplicationCount,
           alertCount: payload.expectedAlertCount,
         });
-        return;
+      } else {
+        newApplicationsPersisted = true;
+      }
+    }
+
+    const deltaByInstant = new Map(durableApplications);
+    if (newApplicationsPersisted) {
+      for (const application of result.applications) {
+        deltaByInstant.set(application.forecastAt, application.appliedDeltaFt);
+      }
+    }
+    const refreshedAt = args.buildAnchorAt.toISOString();
+    const projections = eligibleSlots.flatMap((slot) => {
+      const forecastAt = slot.forecastAt.toISOString();
+      const delta = deltaByInstant.get(forecastAt);
+      if (
+        delta === undefined ||
+        slot.postOffsetFt === null ||
+        slot.displayWaveHeight === null
+      ) return [];
+      return [{
+        beach_id: entry.beachId,
+        forecast_at: forecastAt,
+        display_wave_height: slot.displayWaveHeight,
+        baseline_max_face_ft: slot.postOffsetFt,
+        refreshed_at: refreshedAt,
+      }];
+    });
+    if (projections.length > 0) {
+      try {
+        const projectionStore =
+          args.projectionStore ??
+          (await createDefaultTrustedForecastProjectionStore());
+        const { error } = await projectionStore.upsertRows(projections);
+        if (!error) return;
+        log.warn("trusted_forecast_projection_refresh_failed", {
+          beachId: entry.beachId,
+          code: error.code ?? "unknown",
+        });
+      } catch {
+        log.warn("trusted_forecast_projection_refresh_failed", {
+          beachId: entry.beachId,
+          code: "transport",
+        });
       }
     }
   }
@@ -1262,6 +1333,7 @@ export class ForecastBuilder {
       forecastAt: new Date(forecastAt),
       forecastHorizonHours,
       postOffsetFt: correctedFt,
+      displayWaveHeight: finalWaveHeightString,
       rangeSpread: parsedDisplay.rangeSpread,
       snapshotIndex,
     });
