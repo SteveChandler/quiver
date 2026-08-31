@@ -243,6 +243,55 @@ describe('NOAACOOPSService', () => {
     });
 
     describe('Duplicate row deduplication', () => {
+      it('prefers a direct NOAA row over a newer fallback in the same UTC hour', async () => {
+        const hourStart = new Date();
+        hourStart.setMinutes(0, 0, 0);
+        const rows = [
+          {
+            ts: new Date(hourStart.getTime() + 30 * 60 * 1000).toISOString(),
+            tide_height_m: 2.0,
+            tide_phase: 'high',
+            source: 'noaa_hilo_interpolated',
+            created_at: new Date(hourStart.getTime() + 2 * 60 * 60 * 1000).toISOString(),
+          },
+          {
+            ts: hourStart.toISOString(),
+            tide_height_m: 0.5,
+            tide_phase: 'rising',
+            source: 'noaa',
+            created_at: new Date(hourStart.getTime() + 1 * 60 * 60 * 1000).toISOString(),
+          },
+          {
+            ts: new Date(hourStart.getTime() + 60 * 60 * 1000).toISOString(),
+            tide_height_m: 1.5,
+            tide_phase: 'high',
+            source: 'noaa',
+            created_at: hourStart.toISOString(),
+          },
+          {
+            ts: new Date(hourStart.getTime() + 2 * 60 * 60 * 1000).toISOString(),
+            tide_height_m: 0.2,
+            tide_phase: 'low',
+            source: 'noaa',
+            created_at: hourStart.toISOString(),
+          },
+        ];
+
+        const mockBuilder = createMockQueryBuilder(rows);
+        mockSupabase.mockResolvedValue({
+          from: jest.fn().mockReturnValue(mockBuilder),
+        });
+
+        const result = await service.fetchCachedTides(beachId);
+
+        expect(result).not.toBeNull();
+        expect(result?.tides).toEqual(expect.arrayContaining([
+          { time: expect.any(Number), height: expect.closeTo(4.9, 0.2), type: 'high', name: 'High' },
+          { time: expect.any(Number), height: expect.closeTo(0.7, 0.2), type: 'low', name: 'Low' },
+        ]));
+        expect(result?.tides.some((tide) => tide.height > 6)).toBe(false);
+      });
+
       it('should detect extrema correctly when rows are duplicated 3x per hour', async () => {
         const now = new Date();
         // Simulate 3 cron-run duplicates per hour (at :17, :22, :50 seconds)

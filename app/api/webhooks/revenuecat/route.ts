@@ -29,6 +29,7 @@ import * as Sentry from "@sentry/nextjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { ensureSimilarityRuleForUser } from "@/lib/alerts/auto-enable-similarity";
 import {
+  buildRevenueCatProviderEventInsert,
   buildEntitlementUpdate,
   mergeEntitlementUpdate,
   type ExistingEntitlementRow,
@@ -45,6 +46,12 @@ const CONTEXT_TAG = "[rc-webhook]";
 interface RCPayload {
   event: RCEvent;
   api_version?: string;
+}
+
+interface ProviderEventState {
+  providerEventId: string | null;
+  processedDuplicate: boolean;
+  retryRequired: boolean;
 }
 
 function verifyAuth(req: Request): boolean {
@@ -99,30 +106,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, echo: "test" });
   }
 
+  const supabase = await createSupabaseServiceRoleClient();
+  const providerEvent = await persistProviderEvent(supabase, event);
+  if (providerEvent.processedDuplicate) {
+    return NextResponse.json({ ok: true, event_type: event.type, duplicate: true });
+  }
+
   const userId = event.app_user_id ?? event.original_app_user_id;
   if (!userId) {
-    return recordFailure(event, "Missing app_user_id");
+    const response = await recordFailure(event, "Missing app_user_id");
+    return providerEvent.retryRequired ? ledgerRetryResponse() : response;
   }
 
   // TRANSFER requires admin re-identification of app_user_id (a user
   // switching devices/accounts). We can't mirror it automatically — route
   // it to the DLQ for manual reconciliation rather than silently dropping.
   if (event.type === "TRANSFER") {
-    return recordFailure(
+    const response = await recordFailure(
       event,
       "TRANSFER event requires manual app_user_id reassignment",
       userId,
     );
+    return providerEvent.retryRequired ? ledgerRetryResponse() : response;
   }
-
-  const supabase = await createSupabaseServiceRoleClient();
 
   try {
     const update = buildEntitlementUpdate(event);
     if (!update) {
       // Unhandled event type — not an error; log and return 200.
       console.log(`${CONTEXT_TAG} Skipping unhandled event type: ${event.type}`);
-      return NextResponse.json({ ok: true, skipped: event.type });
+      return finishProviderEvent(
+        supabase,
+        providerEvent,
+        event,
+        NextResponse.json({ ok: true, skipped: event.type }),
+      );
     }
 
     const { data: currentRow, error: readError } = await (supabase as any)
@@ -133,7 +151,8 @@ export async function POST(request: Request) {
 
     if (readError) {
       console.error(`${CONTEXT_TAG} Read failed for user ${userId}:`, readError);
-      return recordFailure(event, readError.message, userId);
+      const response = await recordFailure(event, readError.message, userId);
+      return providerEvent.retryRequired ? ledgerRetryResponse() : response;
     }
 
     const mergedUpdate = mergeEntitlementUpdate({
@@ -145,11 +164,16 @@ export async function POST(request: Request) {
       console.log(
         `${CONTEXT_TAG} Preserved lifetime promotional Pro for user ${userId}; ignored ${event.type}`,
       );
-      return NextResponse.json({
-        ok: true,
-        event_type: event.type,
-        preserved: "lifetime_promotional_pro",
-      });
+      return finishProviderEvent(
+        supabase,
+        providerEvent,
+        event,
+        NextResponse.json({
+          ok: true,
+          event_type: event.type,
+          preserved: "lifetime_promotional_pro",
+        }),
+      );
     }
 
     const { error } = await (supabase as any)
@@ -166,7 +190,8 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error(`${CONTEXT_TAG} Upsert failed for user ${userId}:`, error);
-      return recordFailure(event, error.message, userId);
+      const response = await recordFailure(event, error.message, userId);
+      return providerEvent.retryRequired ? ledgerRetryResponse() : response;
     }
 
     console.log(
@@ -208,14 +233,154 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ ok: true, event_type: event.type });
+    return finishProviderEvent(
+      supabase,
+      providerEvent,
+      event,
+      NextResponse.json({ ok: true, event_type: event.type }),
+    );
   } catch (err) {
     console.error(`${CONTEXT_TAG} Unexpected error:`, err);
-    return recordFailure(
+    const response = await recordFailure(
       event,
       err instanceof Error ? err.message : "Unknown error",
       userId,
     );
+    return providerEvent.retryRequired ? ledgerRetryResponse() : response;
+  }
+}
+
+async function persistProviderEvent(
+  supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>,
+  event: RCEvent,
+): Promise<ProviderEventState> {
+  const ledgerRow = buildRevenueCatProviderEventInsert(event);
+  if (!ledgerRow) {
+    console.error(`${CONTEXT_TAG} Provider event missing immutable id: ${event.type}`);
+    const recorded = await recordLedgerFailure(
+      supabase,
+      event,
+      "missing immutable provider event id",
+    );
+    return { providerEventId: null, processedDuplicate: false, retryRequired: !recorded };
+  }
+
+  try {
+    const { error } = await (supabase as any)
+      .from("revenuecat_provider_events")
+      .insert(ledgerRow);
+    if (error?.code === "23505") {
+      const { data: existing, error: readError } = await (supabase as any)
+        .from("revenuecat_provider_events")
+        .select("processed_at")
+        .eq("provider_event_id", ledgerRow.provider_event_id)
+        .maybeSingle();
+      if (readError) {
+        console.error(`${CONTEXT_TAG} Provider event duplicate read failed:`, readError);
+        Sentry.captureException(readError, {
+          tags: { feature: "rc-webhook", step: "provider-event-duplicate-read" },
+          extra: { provider_event_id: event.id, event_type: event.type },
+        });
+        return { providerEventId: null, processedDuplicate: false, retryRequired: true };
+      }
+      return {
+        providerEventId: ledgerRow.provider_event_id,
+        processedDuplicate: Boolean(existing?.processed_at),
+        retryRequired: false,
+      };
+    }
+    if (!error) {
+      return {
+        providerEventId: ledgerRow.provider_event_id,
+        processedDuplicate: false,
+        retryRequired: false,
+      };
+    }
+    console.error(`${CONTEXT_TAG} Provider event ledger insert failed:`, error);
+    Sentry.captureException(error, {
+      tags: { feature: "rc-webhook", step: "provider-event-ledger" },
+      extra: { provider_event_id: event.id, event_type: event.type },
+    });
+    const recorded = await recordLedgerFailure(
+      supabase,
+      event,
+      error.message ?? "ledger insert failed",
+    );
+    return { providerEventId: null, processedDuplicate: false, retryRequired: !recorded };
+  } catch (error) {
+    console.error(`${CONTEXT_TAG} Provider event ledger insert threw:`, error);
+    Sentry.captureException(error, {
+      tags: { feature: "rc-webhook", step: "provider-event-ledger" },
+      extra: { provider_event_id: event.id, event_type: event.type },
+    });
+    const recorded = await recordLedgerFailure(
+      supabase,
+      event,
+      error instanceof Error ? error.message : "ledger insert threw",
+    );
+    return { providerEventId: null, processedDuplicate: false, retryRequired: !recorded };
+  }
+}
+
+async function finishProviderEvent(
+  supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>,
+  providerEvent: ProviderEventState,
+  event: RCEvent,
+  response: NextResponse,
+): Promise<NextResponse> {
+  if (providerEvent.providerEventId) {
+    try {
+      const { error } = await (supabase as any)
+        .from("revenuecat_provider_events")
+        .update({ processed_at: new Date().toISOString() })
+        .eq("provider_event_id", providerEvent.providerEventId);
+      if (error) throw error;
+    } catch (error) {
+      console.error(`${CONTEXT_TAG} Provider event completion write failed:`, error);
+      Sentry.captureException(error, {
+        tags: { feature: "rc-webhook", step: "provider-event-completion" },
+        extra: { provider_event_id: event.id, event_type: event.type },
+      });
+      return NextResponse.json(
+        { error: "Provider event completion write failed" },
+        { status: 500 },
+      );
+    }
+  }
+  return providerEvent.retryRequired ? ledgerRetryResponse() : response;
+}
+
+function ledgerRetryResponse(): NextResponse {
+  return NextResponse.json(
+    { error: "Provider event ledger and DLQ writes failed" },
+    { status: 500 },
+  );
+}
+
+async function recordLedgerFailure(
+  supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>,
+  event: RCEvent,
+  errorMessage: string,
+): Promise<boolean> {
+  const userId = event.app_user_id ?? event.original_app_user_id ?? null;
+  try {
+    const { error } = await (supabase as any)
+      .from("user_entitlements_failed_webhooks")
+      .insert({
+        user_id: userId,
+        event_type: event.type ?? null,
+        payload: event,
+        error_message: `provider_event_ledger: ${errorMessage}`,
+      });
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error(`${CONTEXT_TAG} Provider event ledger DLQ write failed:`, error);
+    Sentry.captureException(error, {
+      tags: { feature: "rc-webhook", step: "provider-event-ledger-dlq" },
+      extra: { provider_event_id: event.id, event_type: event.type, user_id: userId },
+    });
+    return false;
   }
 }
 

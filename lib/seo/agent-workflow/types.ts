@@ -533,6 +533,7 @@ export interface OutreachDraftCandidate {
   category: OutreachRotationCategory;
   website?: string;
   contact?: string;
+  requiresContactResearch: boolean;
   nearestBeach?: string;
   angle?: string;
   notes?: string;

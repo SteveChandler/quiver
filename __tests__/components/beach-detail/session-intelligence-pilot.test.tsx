@@ -13,10 +13,11 @@ jest.mock("@/lib/utils/timezone-utils.server", () => ({
 }));
 
 const NOW = new Date("2026-02-10T15:00:00Z");
+const BEACH_ID = "11111111-1111-4111-8111-111111111111";
 
 function makeBeach(overrides: Partial<Beach> = {}): Beach {
   return {
-    id: "beach-1",
+    id: BEACH_ID,
     name: "Blacks",
     slug: "blacks",
     city: "San Diego",
@@ -45,7 +46,7 @@ function makeForecast(
 ): EnhancedForecastEntity {
   return {
     id,
-    beach_id: "beach-1",
+    beach_id: BEACH_ID,
     forecast_at: forecastAt,
     forecast_date: forecastAt.slice(0, 10),
     forecast_time: "09:00",

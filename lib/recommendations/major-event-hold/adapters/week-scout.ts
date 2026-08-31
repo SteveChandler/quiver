@@ -81,20 +81,25 @@ export function sanitizeWeekScoutForMajorEventHold(
     decisions,
   );
   const days = response.days.map((day): MajorEventHoldWeekScoutDay => {
-    const bestAllowedWindow = day.windows
-      .filter((window) =>
-        boundary.allowedCandidateIds.has(window.id) &&
-        window.safe &&
-        window.rideable &&
-        window.verdict !== "skip",
-      )
-      .reduce<WeekScoutWindowResponse | null>(
-        (current, candidate) =>
-          !current || candidate.rankingScore > current.rankingScore
-            ? candidate
-            : current,
-        null,
-      );
+    const isEligible = (window: WeekScoutWindowResponse): boolean =>
+      boundary.allowedCandidateIds.has(window.id) &&
+      window.safe &&
+      window.rideable &&
+      window.verdict !== "skip";
+    const originalBestWindow = day.windows.find(
+      (window) => window.id === day.bestWindowId,
+    );
+    const bestAllowedWindow = originalBestWindow && isEligible(originalBestWindow)
+      ? originalBestWindow
+      : day.windows
+        .filter(isEligible)
+        .reduce<WeekScoutWindowResponse | null>(
+          (current, candidate) =>
+            !current || candidate.rankingScore > current.rankingScore
+              ? candidate
+              : current,
+          null,
+        );
     const idByBucketAndBeach = new Map(
       day.windows.map((window) => [
         `${window.bucket}:${window.beachId}`,

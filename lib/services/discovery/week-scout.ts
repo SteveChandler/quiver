@@ -49,6 +49,14 @@ import { evaluateMajorEventHoldCandidates } from '@/lib/recommendations/major-ev
 import { rankBeaches } from '@/lib/recommendations/selection';
 import type { MajorEventHoldCandidate } from '@/lib/recommendations/major-event-hold/types';
 import {
+  calculateDistancePenalty,
+  compareDiscoveryRecommendations,
+  WORTH_THE_DRIVE_DISTANCE_MILES,
+  WORTH_THE_DRIVE_REASON,
+} from '@/lib/services/discovery/distance-friction';
+import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
+import type { Coordinates } from '@/lib/types/coordinates';
+import {
   buildCanonicalSessionDecision,
   type CanonicalDecisionCandidate,
   type CanonicalSessionDecision,
@@ -71,6 +79,7 @@ export interface WeekScoutRequest {
   localTimezone: string;
   startLocalDate: string;
   dayCount: 7;
+  userLocation?: Coordinates;
 }
 
 export interface WeekScoutDaysRequest extends Omit<WeekScoutRequest, 'dayCount'> {
@@ -83,6 +92,7 @@ export interface WeekScoutRankedSpotResponse {
   conditionScore: number;
   rankingScore: number;
   verdict: WeekScoutVerdict;
+  reason?: string;
   /**
    * This spot's own conditions at the window.
    *
@@ -437,6 +447,7 @@ function buildDraftWindow(args: {
   sunTimes: Map<string, { sunrises: Date[]; sunsets: Date[] }>;
   personalizationContext: PersonalizationContext | null;
   generatedAt: string;
+  distanceMiles?: number;
   deps: WeekScoutServiceDependencies;
 }): DraftWindow | null {
   const window = args.deps.selectBestWindow({
@@ -536,6 +547,7 @@ function buildDraftWindow(args: {
       spotProfile: args.deps.beachToSpotProfile(args.beach),
       windowSlotScores: slotScores,
       similarity: null,
+      distanceMiles: args.distanceMiles,
       generated_at: args.generatedAt,
     },
   };
@@ -552,18 +564,29 @@ function rankDrafts(
     recommendation.recommendationId,
     ranked.diagnostics[index]?.heroWindowScore ?? recommendation.score,
   ]));
+  const draftById = new Map(drafts.map((draft) => [draft.response.id, draft]));
+  const distanceOf = (windowId: string): number | undefined =>
+    draftById.get(windowId)?.recommendation.distanceMiles;
   const responses = drafts
     .map((draft) => ({
       ...draft.response,
-      rankingScore: scoreById.get(draft.response.id) ?? draft.recommendation.score,
+      rankingScore: (
+        scoreById.get(draft.response.id) ?? draft.recommendation.score
+      ) + calculateDistancePenalty(draft.recommendation.distanceMiles),
     }))
-    .sort((left, right) => right.rankingScore - left.rankingScore);
-  const rankedSpots = responses.map((window): WeekScoutRankedSpotResponse => ({
+    .sort((left, right) =>
+      compareWeekScoutWindows(left, right, distanceOf(left.id), distanceOf(right.id)));
+  const rankedSpots = responses.map((window, index): WeekScoutRankedSpotResponse => ({
     beachId: window.beachId,
-    beachName: drafts.find((draft) => draft.response.id === window.id)?.recommendation.beach.name ?? '',
+    beachName: draftById.get(window.id)?.recommendation.beach.name ?? '',
     conditionScore: window.conditionScore,
     rankingScore: window.rankingScore,
     verdict: window.verdict,
+    ...(index <= 1
+      && (draftById.get(window.id)?.recommendation.distanceMiles ?? 0)
+        > WORTH_THE_DRIVE_DISTANCE_MILES
+      ? { reason: WORTH_THE_DRIVE_REASON }
+      : {}),
     // Carry each spot's own conditions through instead of dropping them.
     forecast: {
       waveHeight: window.forecast.waveHeight,
@@ -575,6 +598,30 @@ function rankDrafts(
   }));
 
   return responses.map((window) => ({ ...window, rankedSpots }));
+}
+
+function compareWeekScoutWindows(
+  left: Pick<WeekScoutWindowResponse, 'conditionScore' | 'rankingScore'>,
+  right: Pick<WeekScoutWindowResponse, 'conditionScore' | 'rankingScore'>,
+  leftDistance: number | undefined,
+  rightDistance: number | undefined,
+): number {
+  if (leftDistance === undefined || rightDistance === undefined) {
+    return right.rankingScore - left.rankingScore;
+  }
+
+  return compareDiscoveryRecommendations(
+    {
+      score: left.conditionScore,
+      rankingScore: left.rankingScore,
+      distanceMiles: leftDistance,
+    },
+    {
+      score: right.conditionScore,
+      rankingScore: right.rankingScore,
+      distanceMiles: rightDistance,
+    },
+  );
 }
 
 function nearestForecastForWindow(
@@ -737,6 +784,17 @@ async function generateWeekScoutForecastInternal(
       request.localTimezone,
     ),
   ]));
+  const distanceByBeachId = new Map(beaches.map((candidate) => {
+    if (!request.userLocation) return [candidate.id, undefined] as const;
+    const distanceMiles = calculateDistanceInMiles(request.userLocation, {
+      lat: candidate.lat,
+      lon: candidate.lon,
+    });
+    return [
+      candidate.id,
+      Number.isFinite(distanceMiles) ? distanceMiles : undefined,
+    ] as const;
+  }));
 
   const days = localDates.map((localDate): WeekScoutDayResponse => {
     const windows = BUCKETS.flatMap(({ bucket, endHour }) => {
@@ -757,6 +815,7 @@ async function generateWeekScoutForecastInternal(
           sunTimes,
           personalizationContext,
           generatedAt,
+          distanceMiles: distanceByBeachId.get(candidate.id),
           deps,
         });
         return draft ? [draft] : [];
@@ -769,7 +828,12 @@ async function generateWeekScoutForecastInternal(
         candidate.safe && candidate.rideable && candidate.verdict !== 'skip'
       ))
       .reduce<WeekScoutWindowResponse | null>((current, candidate) => (
-        !current || candidate.rankingScore > current.rankingScore ? candidate : current
+        !current || compareWeekScoutWindows(
+          candidate,
+          current,
+          distanceByBeachId.get(candidate.beachId),
+          distanceByBeachId.get(current.beachId),
+        ) < 0 ? candidate : current
       ), null);
 
     return {

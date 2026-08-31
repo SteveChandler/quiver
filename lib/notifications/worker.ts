@@ -908,9 +908,12 @@ async function processChannel(
   // last-line "we already sent one of these recently" guard. Distinct from
   // producer dedupe_key (which prevents duplicate ACTIVE events) and from
   // the active-event partial unique index (which only sees pending/processing).
-  if (channel === "push" && def.cooldownMs && def.cooldownMs > 0) {
+  const cooldownMs = typeof def.cooldownMs === "function"
+    ? def.cooldownMs(event.payload as Record<string, unknown>)
+    : def.cooldownMs;
+  if (channel === "push" && cooldownMs && cooldownMs > 0) {
     const cooldownStartIso = new Date(
-      now.getTime() - def.cooldownMs,
+      now.getTime() - cooldownMs,
     ).toISOString();
     const cooldownClient = supabase as unknown as {
       from(t: "notification_delivery_attempts"): {
@@ -955,7 +958,7 @@ async function processChannel(
                 c: "created_at",
                 v: string,
               ): Promise<{
-                data: Array<{ id: string }> | null;
+                data: Array<{ id: string; payload?: Record<string, unknown> }> | null;
                 error: { message: string; code?: string } | null;
               }>;
             };
@@ -965,7 +968,7 @@ async function processChannel(
     };
     const { data: recentEvents, error: eventsErr } = await cooldownClient
       .from("notification_events")
-      .select("id")
+      .select("id, payload")
       .eq("recipient_user_id", event.recipient_user_id)
       .eq("type", event.type)
       .gte("created_at", cooldownStartIso);
@@ -977,22 +980,32 @@ async function processChannel(
       // Fall through — we'd rather risk a within-cooldown send than lose the
       // notification on a transient query error.
     } else if (recentEvents && recentEvents.length > 0) {
-      const recentEventIds = recentEvents.map((r) => r.id);
-      const { data: sentAttempts, error: attemptsErr } = await cooldownClient
-        .from("notification_delivery_attempts")
-        .select("id")
-        .eq("channel", "push")
-        .eq("status", "sent")
-        .gte("created_at", cooldownStartIso)
-        .in("notification_event_id", recentEventIds)
-        .limit(1);
-      if (attemptsErr) {
-        console.error(
-          `[notifications/worker] cooldown lookup (attempts) failed for event ${event.id}:`,
-          attemptsErr,
-        );
-      } else if (sentAttempts && sentAttempts.length > 0) {
-        return channelDecision("skipped_cooldown");
+      const cooldownKey = def.cooldownKey?.(
+        event.payload as Record<string, unknown>,
+      ) ?? null;
+      const recentEventIds = recentEvents
+        .filter((recentEvent) =>
+          cooldownKey === null
+          || def.cooldownKey?.((recentEvent.payload ?? {}) as Record<string, unknown>) === cooldownKey,
+        )
+        .map((r) => r.id);
+      if (recentEventIds.length > 0) {
+        const { data: sentAttempts, error: attemptsErr } = await cooldownClient
+          .from("notification_delivery_attempts")
+          .select("id")
+          .eq("channel", "push")
+          .eq("status", "sent")
+          .gte("created_at", cooldownStartIso)
+          .in("notification_event_id", recentEventIds)
+          .limit(1);
+        if (attemptsErr) {
+          console.error(
+            `[notifications/worker] cooldown lookup (attempts) failed for event ${event.id}:`,
+            attemptsErr,
+          );
+        } else if (sentAttempts && sentAttempts.length > 0) {
+          return channelDecision("skipped_cooldown");
+        }
       }
     }
   }

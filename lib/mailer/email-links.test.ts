@@ -49,6 +49,22 @@ describe("buildBeachEmailLink", () => {
 
     expect(url.searchParams.get("utm_medium")).toBe("email");
   });
+
+  it("supports an exact forecast window and campaign source", () => {
+    const url = new URL(
+      buildBeachEmailLink({
+        ...baseParams,
+        utmSource: "quiver",
+        utmMedium: "email",
+        source: undefined,
+        params: { window: "2026-08-28T14:00:00.000Z" },
+      }),
+    );
+
+    expect(url.searchParams.get("window")).toBe("2026-08-28T14:00:00.000Z");
+    expect(url.searchParams.get("utm_source")).toBe("quiver");
+    expect(url.searchParams.get("source")).toBeNull();
+  });
 });
 
 describe("buildAppEmailLink", () => {
@@ -73,6 +89,19 @@ describe("buildAppEmailLink", () => {
     expect(url.searchParams.get("utm_medium")).toBe("email");
     expect(url.searchParams.get("email_type")).toBe("welcome");
     expect(url.searchParams.get("message_instance_id")).toBe("msg-456");
+  });
+
+  it("keeps an existing web destination while adding attribution", () => {
+    const url = new URL(buildAppEmailLink({
+      origin: "https://quiversurf.app",
+      path: "/profile/analytics",
+      emailType: "weekly_recap",
+      messageInstanceId: "msg-weekly",
+      utmCampaign: "weekly_recap",
+    }));
+
+    expect(url.pathname).toBe("/profile/analytics");
+    expect(url.searchParams.get("message_instance_id")).toBe("msg-weekly");
   });
 });
 

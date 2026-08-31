@@ -3,6 +3,12 @@ import userEvent from "@testing-library/user-event";
 
 import { AppDeepLinkCTA } from "@/components/session-intelligence";
 import { IOS_APP_STORE_WEB_REDIRECT_PATH } from "@/lib/constants/app-store";
+import {
+  HandoffRecommendationMode,
+  HandoffRecommendationVerdict,
+  HandoffSourceSurface,
+  type HandoffContext,
+} from "@/types/exact-handoff";
 import type { SurfWindowLinks } from "@/types/session-intelligence";
 
 const mockTrack = jest.fn();
@@ -10,6 +16,28 @@ const mockTrack = jest.fn();
 jest.mock("@/hooks/use-track-event", () => ({
   useTrackEvent: () => ({ track: mockTrack }),
 }));
+
+const BEACH_ID = "11111111-1111-4111-8111-111111111111";
+const HANDOFF_ID = "33333333-3333-4333-8333-333333333333";
+const EXACT_CONTEXT: HandoffContext = {
+  v: 1,
+  beachId: BEACH_ID,
+  slug: "ocean-beach",
+  windowId: "2026-08-25T14:00:00.000Z",
+  sourceSurface: HandoffSourceSurface.SurfComparison,
+  generatedAt: "2026-08-25T12:00:00.000Z",
+  expiresAt: "2026-08-25T12:30:00.000Z",
+  priorRecommendation: {
+    recommendationId: `beach:${BEACH_ID}:2026-08-25T14:00:00.000Z`,
+    mode: HandoffRecommendationMode.Best,
+    verdict: HandoffRecommendationVerdict.Go,
+  },
+};
+
+const EXPLICIT_SURF = {
+  explicitChoice: "surfing" as const,
+  signals: { utilityPageViewCount: 1, surfSpecificSignalCount: 0 },
+};
 
 function preventAnchorNavigation(): () => void {
   const handler = (event: MouseEvent): void => {
@@ -152,5 +180,109 @@ describe("AppDeepLinkCTA", () => {
       }),
       debounceMs: 0,
     });
+  });
+
+  it.each([
+    ["explicit", EXPLICIT_SURF],
+    ["inferred", {
+      explicitChoice: null,
+      signals: {
+        utilityPageViewCount: 0,
+        surfSpecificSignalCount: 0,
+        spotComparison: true,
+      },
+    }],
+  ])("renders an exact handoff for %s surf intent", (_label, intentEvidence) => {
+    render(
+      <AppDeepLinkCTA
+        links={makeLinks()}
+        handoff={EXACT_CONTEXT}
+        handoffId={HANDOFF_ID}
+        handoffSurface="beach_detail"
+        intentEvidence={intentEvidence}
+        now={new Date("2026-08-25T12:15:00.000Z")}
+      />,
+    );
+
+    const link = screen.getByRole("link", {
+      name: "Open this exact call in Quiver",
+    });
+    const url = new URL(link.getAttribute("href")!);
+    expect(url.pathname).toBe("/app/spot/ocean-beach");
+    expect(url.searchParams.get("window")).toBe(EXACT_CONTEXT.windowId);
+    expect(url.searchParams.get("handoff_id")).toBe(HANDOFF_ID);
+    expect(url.searchParams.get("source")).toBe("exact_call");
+    expect(url.searchParams.get("handoff_context")).toBe("exact_call");
+    expect(JSON.parse(url.searchParams.get("context")!)).toEqual(EXACT_CONTEXT);
+  });
+
+  it.each([
+    ["unknown", {
+      explicitChoice: null,
+      signals: { utilityPageViewCount: 1, surfSpecificSignalCount: 0 },
+    }],
+    ["explicit non-surf", {
+      explicitChoice: "swimming" as const,
+      signals: { utilityPageViewCount: 1, surfSpecificSignalCount: 3 },
+    }],
+  ])("renders no app handoff for %s intent", (_label, intentEvidence) => {
+    render(
+      <AppDeepLinkCTA
+        links={makeLinks()}
+        handoff={EXACT_CONTEXT}
+        handoffId={HANDOFF_ID}
+        handoffSurface="beach_detail"
+        intentEvidence={intentEvidence}
+      />,
+    );
+
+    // A water-temperature or tide reader is never surf-qualified, so the
+    // handoff CTA must not render at all (BFR-01).
+    expect(screen.queryByTestId("app-deep-link-cta")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["beach-only", null],
+    ["expired", { ...EXACT_CONTEXT, expiresAt: "2026-08-25T12:30:00.000Z" }],
+  ])("uses an honest beach-level handoff for %s context", (_label, handoff) => {
+    render(
+      <AppDeepLinkCTA
+        links={makeLinks()}
+        handoff={handoff}
+        handoffId={HANDOFF_ID}
+        handoffSurface="beach_detail"
+        intentEvidence={EXPLICIT_SURF}
+        now={new Date("2026-08-25T13:00:00.000Z")}
+      />,
+    );
+
+    const link = screen.getByRole("link", { name: "Open this beach in Quiver" });
+    const url = new URL(link.getAttribute("href")!);
+    expect(url.pathname).toBe("/app/spot/ocean-beach");
+    expect(url.searchParams.has("window")).toBe(false);
+    expect(url.searchParams.has("context")).toBe(false);
+    expect(url.searchParams.has("handoff_id")).toBe(false);
+  });
+
+  it("emits bounded exact-call start metadata without serialized context", async () => {
+    const user = userEvent.setup();
+    render(
+      <AppDeepLinkCTA
+        links={makeLinks()}
+        handoff={EXACT_CONTEXT}
+        handoffId={HANDOFF_ID}
+        handoffSurface="beach_detail"
+        intentEvidence={EXPLICIT_SURF}
+        now={new Date("2026-08-25T12:15:00.000Z")}
+      />,
+    );
+
+    await user.click(screen.getByRole("link", { name: /exact call/i }));
+
+    expect(mockTrack).not.toHaveBeenCalledWith(
+      "app_deeplink_clicked",
+      expect.anything(),
+    );
   });
 });

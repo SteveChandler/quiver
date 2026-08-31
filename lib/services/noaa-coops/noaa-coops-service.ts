@@ -37,6 +37,11 @@ import {
 } from "./tide-analysis";
 import { TideExtremaDetector, TideSample } from "./tide-extrema-detector";
 import { TideCacheMonitor } from "./tide-cache-monitor";
+import {
+  getUtcHourKey,
+  isPreferredTideForecastRow,
+  type TideForecastSelectionRow,
+} from "../tide-forecast-selection";
 
 const log = createContextLogger("NOAACOOPS");
 
@@ -207,7 +212,7 @@ export class NOAACOOPSService {
       // Query tide_forecasts table for this beach
       const { data: rows, error } = await supabase
         .from("tide_forecasts")
-        .select("ts, tide_height_m, tide_phase, source")
+        .select("ts, tide_height_m, tide_phase, source, created_at")
         .eq("beach_id", beachId)
         .gte("ts", startTime.toISOString())
         .lte("ts", endTime.toISOString())
@@ -442,15 +447,15 @@ export class NOAACOOPSService {
    * plateaus that confuse the TideExtremaDetector.
    */
   private deduplicateByHour(
-    rows: { ts: string; tide_height_m: number | null; tide_phase: string | null; source: string | null }[]
+    rows: TideForecastSelectionRow[]
   ): typeof rows {
     const seen = new Map<string, (typeof rows)[number]>();
     for (const row of rows) {
-      // "2026-02-23T00" — truncate to hour
-      const hourKey = row.ts.substring(0, 13);
-      if (!seen.has(hourKey)) {
-        seen.set(hourKey, row);
-      }
+      if (typeof row.tide_height_m !== "number" || !Number.isFinite(row.tide_height_m)) continue;
+      const hourKey = getUtcHourKey(row.ts);
+      if (!hourKey) continue;
+      const existing = seen.get(hourKey);
+      if (!existing || isPreferredTideForecastRow(row, existing)) seen.set(hourKey, row);
     }
     return Array.from(seen.values());
   }

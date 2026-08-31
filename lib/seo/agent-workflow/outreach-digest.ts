@@ -12,8 +12,14 @@ const OUTREACH_STATUS_VALUES = new Set([
   "responded",
   "embed-live",
   "declined",
+  "rejected",
   "backlink-confirmed",
 ]);
+
+// Rejection tables list Target/Website/Reason and carry no Status column, so rows under
+// them would otherwise default to "queued" and be offered as candidates. Two NXDOMAIN
+// surf schools rejected on 2026-08-04 were still surfacing as week-1 targets.
+const REJECTED_HEADING = /reject|do not draft|out of scope/i;
 
 const ROTATION_BY_WEEK: OutreachRotationCategory[] = [
   "surf-schools",
@@ -58,13 +64,16 @@ export function parseOutreachTracker(markdown: string): OutreachTrackerParse {
   const lines = markdown.split(/\r?\n/);
   let category: OutreachRotationCategory | "other" | "skip" = "other";
   let header: string[] | null = null;
+  let rejectedSection = false;
 
   for (const line of lines) {
     const heading = line.match(/^(#{2,3})\s+(.*)$/);
     if (heading) {
       const level = (heading[1] ?? "").length;
-      const matched = categoryFromHeading(heading[2] ?? "");
+      const text = heading[2] ?? "";
+      const matched = categoryFromHeading(text);
       if (level === 2 || matched !== "other") category = matched;
+      rejectedSection = REJECTED_HEADING.test(text);
       header = null;
       continue;
     }
@@ -83,7 +92,13 @@ export function parseOutreachTracker(markdown: string): OutreachTrackerParse {
       continue;
     }
 
-    const row = buildRow(category, header, cells);
+    // A target table always declares a status. Tables without one are narrative context
+    // (warm-lead summaries, contact histories, run logs) and must not become candidates —
+    // they would otherwise default to "queued" and re-pitch people who already replied.
+    // Rejection tables are the one exception: no status column, but they must still parse.
+    if (!rejectedSection && !hasStatusColumn(header)) continue;
+
+    const row = buildRow(category, header, cells, rejectedSection);
     if (row) rows.push(row);
   }
 
@@ -115,18 +130,11 @@ export function buildOutreachDigest(
     (row) => row.category === category && row.status === "queued",
   );
 
-  const emailable = queued.filter(hasDirectEmail);
-  for (const row of queued) {
-    if (!hasDirectEmail(row)) {
-      missing.push(`No direct email for outreach target "${row.target}" — contact: ${row.contact ?? "none"}`);
-    }
-  }
-
   if (markdown.trim() && queued.length === 0) {
     missing.push(`No queued outreach targets for rotation category "${category}"`);
   }
 
-  const candidates = emailable
+  const candidates = queued
     .slice(0, maxCandidates)
     .map((row) => buildDraftCandidate(row, category));
 
@@ -152,6 +160,7 @@ export function buildDraftCandidate(
     category,
     website: row.website,
     contact: row.contact,
+    requiresContactResearch: !hasDirectEmail(row),
     nearestBeach: row.nearestBeach,
     angle: row.angle,
     notes: row.notes,
@@ -242,6 +251,7 @@ function buildRow(
   category: OutreachRotationCategory | "other",
   header: string[],
   cells: string[],
+  rejectedSection: boolean,
 ): OutreachTrackerRow | null {
   const target = stripCode(cells[0] ?? "");
   if (!target) return null;
@@ -259,9 +269,11 @@ function buildRow(
   };
 
   const statusRaw = get(["status", "accountstatus"]);
-  const status = statusRaw && OUTREACH_STATUS_VALUES.has(statusRaw.toLowerCase())
-    ? statusRaw.toLowerCase()
-    : "queued";
+  const status = rejectedSection
+    ? "rejected"
+    : statusRaw && OUTREACH_STATUS_VALUES.has(statusRaw.toLowerCase())
+      ? statusRaw.toLowerCase()
+      : "queued";
 
   return {
     category,
@@ -282,6 +294,10 @@ function splitRow(line: string): string[] {
     .replace(/\|$/, "")
     .split("|")
     .map((cell) => cell.trim());
+}
+
+function hasStatusColumn(header: string[]): boolean {
+  return header.includes("status") || header.includes("accountstatus");
 }
 
 function isSeparatorRow(cells: string[]): boolean {

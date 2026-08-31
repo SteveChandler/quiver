@@ -75,6 +75,100 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
     await expect(resultPromise).resolves.toMatchObject({
       locations: [resolvedBeach],
     });
+    expect((global.fetch as jest.Mock).mock.calls).toMatchInlineSnapshot(`
+      [
+        [
+          "/api/forecasts/bulk?beachIds=nearby",
+          {
+            "signal": undefined,
+          },
+        ],
+      ]
+    `);
+  });
+
+  it("authenticates the initial bulk request when a token is available", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { forecasts: {} } }),
+    }) as unknown as typeof fetch;
+
+    await loadBeachesAndWaveHeights(
+      32.7,
+      -117.2,
+      [beach("a", 32.71, -117.21)],
+      { fetchNearbyBeaches: async () => ({ data: [] }) },
+      { getAccessToken: () => "signed-user-token", skillLevel: "advanced" },
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/forecasts/bulk?beachIds=a&skillLevel=advanced",
+      {
+        signal: undefined,
+        headers: { Authorization: "Bearer signed-user-token" },
+      },
+    );
+  });
+
+  it.each([401, 403, 500])(
+    "retries authenticated status %i once without auth and reports expiry",
+    async (status) => {
+      const onAuthTokenExpired = jest.fn();
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce({ ok: false, status })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ data: { forecasts: {} } }),
+        }) as unknown as typeof fetch;
+
+      await loadBeachesAndWaveHeights(
+        32.7,
+        -117.2,
+        [beach("a", 32.71, -117.21)],
+        { fetchNearbyBeaches: async () => ({ data: [] }) },
+        {
+          getAccessToken: () => "expired-token",
+          onAuthTokenExpired,
+          skillLevel: "advanced",
+        },
+      );
+
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        1,
+        "/api/forecasts/bulk?beachIds=a&skillLevel=advanced",
+        { signal: undefined, headers: { Authorization: "Bearer expired-token" } },
+      );
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        2,
+        "/api/forecasts/bulk?beachIds=a&skillLevel=advanced",
+        { signal: undefined },
+      );
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(onAuthTokenExpired).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("surfaces a failed bare retry without retrying again", async () => {
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const onAuthTokenExpired = jest.fn();
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({ ok: false, status: 500 }) as unknown as typeof fetch;
+
+    const result = await loadBeachesAndWaveHeights(
+      32.7,
+      -117.2,
+      [beach("a", 32.71, -117.21)],
+      { fetchNearbyBeaches: async () => ({ data: [] }) },
+      { getAccessToken: () => "expired-token", onAuthTokenExpired },
+    );
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(onAuthTokenExpired).toHaveBeenCalledTimes(1);
+    expect(result.forecastStatus).toBe("unavailable");
+    consoleWarn.mockRestore();
   });
 
   it("parses swellPartitions from the bulk response into partitionsMap", async () => {
@@ -202,12 +296,16 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
         timelineStart: "2026-07-10T20:00:00.000Z",
         timelineHours: 48,
         timelineOnly: true,
+        getAccessToken: () => "signed-user-token",
       },
     );
 
     expect(global.fetch).toHaveBeenCalledWith(
       "/api/forecasts/bulk?beachIds=a&timeline=hourly&timelineOnly=true&timelineBeachIds=a&timelineStart=2026-07-10T20%3A00%3A00.000Z&timelineHours=48",
-      { signal: undefined },
+      {
+        signal: undefined,
+        headers: { Authorization: "Bearer signed-user-token" },
+      },
     );
   });
 

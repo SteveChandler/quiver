@@ -227,7 +227,7 @@ CREATE INDEX idx_beaches_slug_trgm ON public.beaches USING GIN (lower(slug) gin_
 CREATE INDEX idx_beaches_alt_names_trgm ON public.beaches USING GIN ((array_to_string(alt_names, ' ')) gin_trgm_ops);
 
 -- Mapping tables
-beach_sources(beach_id UUID PK/FK, ndbc_buoy_ids TEXT[], forecast_source_id TEXT, camera_url TEXT);
+beach_sources(beach_id UUID PK/FK, forecast_source_id TEXT, camera_url TEXT);
 beach_calibration(beach_id UUID PK/FK, tide_pref JSONB, swell_pref JSONB, created_at, updated_at);
 ```
 

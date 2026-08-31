@@ -178,6 +178,18 @@ describe("buildSurfWindowLinks", () => {
     expect(links.canonicalWebUrl).not.toContain("window=");
   });
 
+  it("uses the canonical forecast instant native can resolve when supplied", () => {
+    const links = buildSurfWindowLinks({
+      beach: makeBeach(),
+      windowId: "beach-1-2026-08-25T14-00-00-000Z",
+      forecastAt: "2026-08-25T14:00:00.000Z",
+    });
+
+    expect(links.appDeepLink).toBe(
+      "/app/spot/ocean-beach?window=2026-08-25T14%3A00%3A00.000Z",
+    );
+  });
+
   it("falls back to a safe beach href when slug is missing", () => {
     const links = buildSurfWindowLinks({
       beach: makeBeach({

@@ -731,7 +731,7 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     expect(laterDay?.baselineMaxFaceFt).toBeGreaterThan(3.9);
   });
 
-  it("serves the trusted delta only on a matching receipt, from real chart ranges", async () => {
+  it("persists private decisions while returning baseline forecast rows", async () => {
     const persistence = persistenceStore();
 
     const forecasts = await newBuilder().buildForecasts(
@@ -770,24 +770,7 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     );
     expect(claimed.size).toBeGreaterThan(0);
 
-    const rendered = forecasts.map((forecast) => {
-      const delta = claimed.get(
-        new Date(forecast.forecast_at as string).toISOString(),
-      );
-      return [forecast.wave_height, delta] as const;
-    });
-    const expected = rendered.map(([, delta]) =>
-      delta === undefined
-        ? "5 ft"
-        : formatDisplayHeightFt({ numericFt: 5 + delta, rangeSpread: null }),
-    );
-    expect(rendered.map(([height]) => height)).toEqual(expected);
-    expect(rendered.filter(([, delta]) => delta !== undefined)).toHaveLength(
-      claimed.size,
-    );
-    expect(expected.filter((height) => height !== "5 ft")).toHaveLength(
-      claimed.size,
-    );
+    expect(forecasts.every((forecast) => forecast.wave_height === "5 ft")).toBe(true);
   });
 
   it("D-16: incomplete edge days are not newly claimed", async () => {
@@ -858,7 +841,7 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     ).rejects.toMatchObject({ retriable: true });
   });
 
-  it("a uniqueness race reconciles to attributed output, never to baseline", async () => {
+  it("a uniqueness race reconciles private provenance while rows stay baseline", async () => {
     let call = 0;
     const persistence = persistenceStore(
       (payload) => {
@@ -884,15 +867,7 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
       }),
     );
 
-    const claimed = new Set(
-      persistence.payloads[0].applications.map((a) => a.forecastAt),
-    );
-    const adjusted = forecasts.filter(
-      (forecast) =>
-        claimed.has(new Date(forecast.forecast_at as string).toISOString()) &&
-        forecast.wave_height !== "5 ft",
-    );
-    expect(adjusted.length).toBe(claimed.size);
+    expect(forecasts.every((forecast) => forecast.wave_height === "5 ft")).toBe(true);
   });
 
   it("a uniqueness race that cannot be reconciled throws rather than serving baseline", async () => {
@@ -960,14 +935,12 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
       ),
     ).toBe(false);
 
-    // The ORIGINAL +0.25 is what is served, not the -0.5 today's chart implies.
+    // Durable private provenance never mutates the shared forecast row.
     const reused = forecasts.find(
       (forecast) =>
         new Date(forecast.forecast_at as string).toISOString() === claimedAt,
     );
-    expect(reused?.wave_height).toBe(
-      formatDisplayHeightFt({ numericFt: 5.25, rangeSpread: null }),
-    );
+    expect(reused?.wave_height).toBe("5 ft");
   });
 
   it("D-17: a claimed slot drops session feedback; an unclaimed slot keeps it", async () => {
@@ -1017,21 +990,15 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
       );
       return [forecast.wave_height, delta] as const;
     });
-    // A claimed slot is rebuilt from the post-offset baseline, so the feedback
-    // layer is gone rather than stacked on top of the trusted delta; an
-    // unclaimed slot still carries it.
-    const expected = rendered.map(([, delta]) =>
-      delta === undefined
-        ? withFeedback
-        : formatDisplayHeightFt({ numericFt: 5 + delta, rangeSpread: null }),
-    );
+    // Private decisions do not alter shared forecast rows or their baseline layers.
+    const expected = rendered.map(() => withFeedback);
     expect(rendered.map(([height]) => height)).toEqual(expected);
     expect(rendered.filter(([, delta]) => delta !== undefined).length).toBeGreaterThan(0);
     expect(rendered.filter(([, delta]) => delta === undefined).length).toBeGreaterThan(0);
     expect(expected.filter((height) => height === withFeedback).length).toBeGreaterThan(0);
   });
 
-  it("D-18: the first-write snapshot records the trusted served value", async () => {
+  it("D-18: the private first-write snapshot records the adjusted comparison value", async () => {
     process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED = "true";
     const candidate: FeedbackHeightCalibrationCandidate = {
       id: "candidate-1",
@@ -1247,7 +1214,7 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     expect(rows.map((row) => row.issue_id)).toContain(primaryIssueId);
     expect(privatePayload).toContain(primaryIssueId as string);
 
-    // The only thing that crossed the boundary is the height itself.
+    // No private adjustment crosses the builder boundary.
     const claimed = new Set(
       payload.applications.map((application) => application.forecastAt),
     );
@@ -1256,5 +1223,6 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
         claimed.has(new Date(forecast.forecast_at as string).toISOString()),
       ).length,
     ).toBe(claimed.size);
+    expect(forecasts.every((forecast) => forecast.wave_height === "5 ft")).toBe(true);
   });
 });

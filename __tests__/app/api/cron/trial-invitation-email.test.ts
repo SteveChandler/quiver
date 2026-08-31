@@ -231,8 +231,11 @@ it("filters out users younger than three days", async () => {
       (filter) => filter.op === "lte" && filter.column === "created_at"
     );
   const cutoff = new Date(ageFilter!.value as string).getTime();
+  // Upper bound uses a post-run clock reading: the route calls Date.now()
+  // after `now` is captured, so a ms tick between them must not fail the test.
+  const afterRun = Date.now();
   expect(cutoff).toBeGreaterThan(now - 3 * DAY_MS - 2_000);
-  expect(cutoff).toBeLessThanOrEqual(now - 3 * DAY_MS);
+  expect(cutoff).toBeLessThanOrEqual(afterRun - 3 * DAY_MS);
   expect(mockSendEmail).not.toHaveBeenCalled();
 });
 

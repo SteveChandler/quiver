@@ -29,6 +29,7 @@ const UPDATED_LEARN_SLUGS = [
 
 const UPDATED_SURF_REPORT_SLUGS = [
   "scripps-pier-today",
+  "la-jolla-today",
   "belmar-today",
   "tourmaline-today",
   "newport-beach-today",
@@ -40,8 +41,8 @@ const UPDATED_BEST_TIME_PAGES = [
     path: "/best-time-to-surf/la-jolla",
     title: "La Jolla Surf Report Today: Tide, Wind & Swell",
     h1: "Best La Jolla surf window today: tide and conditions",
-    surfReportLabel: "Open today's Scripps Pier surf report",
-    surfReportHref: "/surf-report/scripps-pier-today",
+    surfReportLabel: "Open today's La Jolla surf report",
+    surfReportHref: "/surf-report/la-jolla-today",
   },
   {
     path: "/best-time-to-surf/newport-beach",

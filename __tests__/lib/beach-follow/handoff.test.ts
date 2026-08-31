@@ -1,0 +1,665 @@
+import {
+  HANDOFF_FUTURE_SKEW_MS,
+  buildHandoffContext,
+  classifyHandoffResolution,
+  parseHandoffContext,
+  serializeHandoffContext,
+} from "@/lib/beach-follow/handoff";
+import {
+  HandoffRecommendationMode,
+  HandoffRecommendationVerdict,
+  HandoffSourceSurface,
+} from "@/types/exact-handoff";
+
+const NOW = new Date("2026-08-24T12:00:00.000Z");
+const BEACH_ID = "11111111-1111-4111-8111-111111111111";
+const WINDOW_ID = "2026-08-25T14:00:00.000Z";
+const RECOMMENDATION_ID = `beach:${BEACH_ID}:${WINDOW_ID}`;
+const OTHER_BEACH_ID = "22222222-2222-4222-8222-222222222222";
+const SLUGGED_WINDOW_ID =
+  `${BEACH_ID}-2026-08-25T14-00-00-000Z`;
+const CROSS_BEACH_SLUGGED_WINDOW_ID =
+  `${OTHER_BEACH_ID}-2026-08-25T14-00-00-000Z`;
+const SURF_DISCOVER_BEACH_ID = "a3e9d10c-92e9-4302-b808-a3de0c2eca22";
+const SURF_DISCOVER_RECOMMENDATION_ID =
+  "beach:a3e9d10c-92e9-4302-b808-a3de0c2eca22:2026-08-18T00:00:00+00:00";
+const CUSTOM_SURF_DISCOVER_BEACH_ID = "02dfc45e-f7f8-4fdc-8008-6ce14e2839f5";
+const CUSTOM_SURF_DISCOVER_RECOMMENDATION_ID =
+  "custom:c2041cb9-5682-4a4d-ab03-edb7c10dfeb5:2026-08-18T00:00:00+00:00";
+const SERIALIZED_V1_CONTEXT = JSON.stringify({
+  v: 1,
+  beachId: BEACH_ID,
+  slug: "pleasure-point",
+  windowId: WINDOW_ID,
+  sourceSurface: "surf_comparison",
+  generatedAt: "2026-08-24T12:00:00.000Z",
+  expiresAt: "2026-08-24T12:30:00.000Z",
+  priorRecommendation: {
+    recommendationId: RECOMMENDATION_ID,
+    mode: "my-spots",
+    verdict: "go",
+  },
+});
+const CROSS_BEACH_PRIOR_RECOMMENDATION_CONTEXT = JSON.stringify({
+  v: 1,
+  beachId: BEACH_ID,
+  slug: "pleasure-point",
+  windowId: WINDOW_ID,
+  sourceSurface: "surf_comparison",
+  generatedAt: "2026-08-24T12:00:00.000Z",
+  expiresAt: "2026-08-24T12:30:00.000Z",
+  priorRecommendation: {
+    recommendationId: `beach:${OTHER_BEACH_ID}:${WINDOW_ID}`,
+    mode: "my-spots",
+    verdict: "go",
+  },
+});
+const SURF_DISCOVER_CONTEXT = JSON.stringify({
+  v: 1,
+  beachId: SURF_DISCOVER_BEACH_ID,
+  slug: "torrance-beach-rat-beach",
+  windowId: "2026-08-18T00:00:00.000Z",
+  sourceSurface: "surf_comparison",
+  generatedAt: "2026-08-24T12:00:00.000Z",
+  expiresAt: "2026-08-24T12:30:00.000Z",
+  priorRecommendation: {
+    recommendationId: SURF_DISCOVER_RECOMMENDATION_ID,
+    mode: "my-spots",
+    verdict: "go",
+  },
+});
+const CUSTOM_SURF_DISCOVER_CONTEXT = JSON.stringify({
+  v: 1,
+  beachId: CUSTOM_SURF_DISCOVER_BEACH_ID,
+  slug: "torrance-beach-rat-beach",
+  windowId: "2026-08-18T00:00:00.000Z",
+  sourceSurface: "surf_comparison",
+  generatedAt: "2026-08-24T12:00:00.000Z",
+  expiresAt: "2026-08-24T12:30:00.000Z",
+  priorRecommendation: {
+    recommendationId: CUSTOM_SURF_DISCOVER_RECOMMENDATION_ID,
+    mode: "my-spots",
+    verdict: "go",
+  },
+});
+const IMPOSSIBLE_DATE_CONTEXT = JSON.stringify({
+  v: 1,
+  beachId: BEACH_ID,
+  slug: "pleasure-point",
+  windowId:
+    "11111111-1111-4111-8111-111111111111-2026-02-30T00-00-00-000Z",
+  sourceSurface: "surf_comparison",
+  generatedAt: "2026-08-24T12:00:00.000Z",
+  expiresAt: "2026-08-24T12:30:00.000Z",
+  priorRecommendation: {
+    recommendationId:
+      "beach:11111111-1111-4111-8111-111111111111:2026-02-30T00:00:00Z",
+    mode: "my-spots",
+    verdict: "go",
+  },
+});
+
+const INVALID_ID_CONTEXTS = [
+  { field: "email-like beachId", value: { beachId: "surfer@example.com" } },
+  { field: "token-like windowId", value: { windowId: "Bearer secret-token" } },
+  {
+    field: "over-length recommendationId",
+    value: {
+      priorRecommendation: {
+        recommendationId: "a".repeat(201),
+        mode: "my-spots",
+        verdict: "go",
+      },
+    },
+  },
+] as const;
+
+function validContext() {
+  return buildHandoffContext(
+    {
+      beachId: BEACH_ID,
+      slug: "pleasure-point",
+      windowId: WINDOW_ID,
+      sourceSurface: HandoffSourceSurface.SurfComparison,
+      priorRecommendation: {
+        recommendationId: RECOMMENDATION_ID,
+        mode: HandoffRecommendationMode.Best,
+        verdict: HandoffRecommendationVerdict.Go,
+      },
+    },
+    { now: NOW, ttlMs: 30 * 60 * 1000 },
+  );
+}
+
+describe("exact handoff context", () => {
+  it("builds, serializes, parses, and resolves a valid exact context", () => {
+    const context = validContext();
+    const parsed = parseHandoffContext(serializeHandoffContext(context));
+
+    expect(parsed).toEqual({ ok: true, context });
+    expect(
+      classifyHandoffResolution(context, {
+        now: NOW,
+        beachExists: true,
+        exactWindowExists: true,
+      }),
+    ).toEqual({ classification: "exact", context });
+  });
+
+  it("accepts the canonical serialized v1 fixture with my-spots mode", () => {
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+
+    expect(parsed).toMatchObject({
+      ok: true,
+      context: { priorRecommendation: { mode: "my-spots" } },
+    });
+  });
+
+  it("MUST-ACCEPT the checked-in surf-discover recommendation ID unchanged", () => {
+    const parsed = parseHandoffContext(SURF_DISCOVER_CONTEXT);
+
+    expect(parsed).toMatchObject({
+      ok: true,
+      context: {
+        priorRecommendation: {
+          recommendationId: SURF_DISCOVER_RECOMMENDATION_ID,
+        },
+      },
+    });
+    expect(classifyHandoffResolution(SURF_DISCOVER_CONTEXT, {
+      now: NOW,
+      beachExists: true,
+      exactWindowExists: true,
+    })).toMatchObject({
+      classification: "exact",
+      context: {
+        priorRecommendation: {
+          recommendationId: SURF_DISCOVER_RECOMMENDATION_ID,
+        },
+      },
+    });
+  });
+
+  it("MUST-ACCEPT the checked-in custom surf-discover recommendation ID unchanged", () => {
+    const parsed = parseHandoffContext(CUSTOM_SURF_DISCOVER_CONTEXT);
+
+    expect(parsed).toMatchObject({
+      ok: true,
+      context: {
+        beachId: CUSTOM_SURF_DISCOVER_BEACH_ID,
+        priorRecommendation: {
+          recommendationId: CUSTOM_SURF_DISCOVER_RECOMMENDATION_ID,
+        },
+      },
+    });
+    expect(classifyHandoffResolution(CUSTOM_SURF_DISCOVER_CONTEXT, {
+      now: NOW,
+      beachExists: true,
+      exactWindowExists: true,
+    })).toMatchObject({
+      classification: "exact",
+      context: {
+        beachId: CUSTOM_SURF_DISCOVER_BEACH_ID,
+        priorRecommendation: {
+          recommendationId: CUSTOM_SURF_DISCOVER_RECOMMENDATION_ID,
+        },
+      },
+    });
+  });
+
+  it.each([
+    `beach:${BEACH_ID}:2026-08-18T00:00:00Z`,
+    `beach:${BEACH_ID}:2026-08-18T00:00:00.123+00:00`,
+    `beach:${BEACH_ID}:2026-08-18T00:00:00.123456+00:00`,
+  ])("accepts the bounded recommendation timestamp form %s", (recommendationId) => {
+    const context = JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>;
+
+    expect(parseHandoffContext({
+      ...context,
+      priorRecommendation: {
+        recommendationId,
+        mode: "my-spots",
+        verdict: "go",
+      },
+    })).toMatchObject({
+      ok: true,
+      context: { priorRecommendation: { recommendationId } },
+    });
+  });
+
+  it("rejects recommendation timestamps beyond microsecond precision", () => {
+    const context = JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>;
+
+    expect(parseHandoffContext({
+      ...context,
+      priorRecommendation: {
+        recommendationId:
+          `beach:${BEACH_ID}:2026-08-18T00:00:00.1234567+00:00`,
+        mode: "my-spots",
+        verdict: "go",
+      },
+    })).toEqual({ ok: false, reason: "malformed" });
+  });
+
+  it("keeps local envelope timestamps restricted to canonical .sssZ", () => {
+    const context = JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>;
+
+    expect(parseHandoffContext({
+      ...context,
+      generatedAt: "2026-08-24T12:00:00+00:00",
+    })).toEqual({ ok: false, reason: "malformed" });
+  });
+
+  it("expires to a truthful beach-only fallback", () => {
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+    if (!parsed.ok) throw new Error("Expected valid fixture");
+    const { context } = parsed;
+
+    expect(
+      classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
+        now: new Date("2026-08-24T12:31:00.000Z"),
+        beachExists: true,
+        exactWindowExists: true,
+      }),
+    ).toEqual({
+      classification: "beach_only",
+      context,
+      reason: "expired",
+    });
+  });
+
+  it("rejects malformed contexts without throwing", () => {
+    expect(parseHandoffContext("{not-json")).toEqual({
+      ok: false,
+      reason: "malformed",
+    });
+    expect(
+      classifyHandoffResolution("{not-json", {
+        now: NOW,
+        beachExists: true,
+        exactWindowExists: true,
+      }),
+    ).toEqual({ classification: "invalid", reason: "malformed" });
+  });
+
+  it("rejects the identical cross-beach prior recommendation fixture", () => {
+    expect(parseHandoffContext(CROSS_BEACH_PRIOR_RECOMMENDATION_CONTEXT)).toEqual({
+      ok: false,
+      reason: "malformed",
+    });
+    expect(classifyHandoffResolution(CROSS_BEACH_PRIOR_RECOMMENDATION_CONTEXT, {
+      now: NOW,
+      beachExists: true,
+      exactWindowExists: true,
+    })).toEqual({ classification: "invalid", reason: "malformed" });
+  });
+
+  it("rejects a slugged context window owned by another beach", () => {
+    const context = {
+      ...(JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>),
+      windowId: CROSS_BEACH_SLUGGED_WINDOW_ID,
+    };
+
+    expect(parseHandoffContext(context)).toEqual({
+      ok: false,
+      reason: "malformed",
+    });
+    expect(classifyHandoffResolution(context, {
+      now: NOW,
+      beachExists: true,
+      exactWindowExists: true,
+    })).toEqual({ classification: "invalid", reason: "malformed" });
+  });
+
+  it("accepts a slugged context window owned by its enclosing beach", () => {
+    const context = {
+      ...(JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>),
+      windowId: SLUGGED_WINDOW_ID,
+    };
+
+    expect(parseHandoffContext(context)).toMatchObject({
+      ok: true,
+      context: { windowId: SLUGGED_WINDOW_ID },
+    });
+  });
+
+  it("MUST-REJECT the identical impossible-date fixture as malformed", () => {
+    const impossibleContext = JSON.parse(IMPOSSIBLE_DATE_CONTEXT) as Record<
+      string,
+      unknown
+    >;
+
+    expect(parseHandoffContext({
+      ...impossibleContext,
+      windowId: WINDOW_ID,
+    })).toEqual({
+      ok: false,
+      reason: "malformed",
+    });
+    expect(parseHandoffContext({
+      ...impossibleContext,
+      priorRecommendation: {
+        recommendationId: RECOMMENDATION_ID,
+        mode: "my-spots",
+        verdict: "go",
+      },
+    })).toEqual({
+      ok: false,
+      reason: "malformed",
+    });
+    expect(classifyHandoffResolution(IMPOSSIBLE_DATE_CONTEXT, {
+      now: NOW,
+      beachExists: true,
+      exactWindowExists: false,
+    })).toEqual({ classification: "invalid", reason: "malformed" });
+  });
+
+  it.each(INVALID_ID_CONTEXTS)("rejects $field", ({ value }) => {
+    const context = JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>;
+    const malformed = {
+      ...context,
+      ...value,
+    };
+
+    expect(parseHandoffContext(malformed)).toEqual({
+      ok: false,
+      reason: "malformed",
+    });
+  });
+
+  it("rejects a context generated beyond the named clock-skew allowance", () => {
+    expect(HANDOFF_FUTURE_SKEW_MS).toBe(5 * 60 * 1000);
+    const futureContext = {
+      ...(JSON.parse(SERIALIZED_V1_CONTEXT) as Record<string, unknown>),
+      generatedAt: "2026-08-24T12:05:00.001Z",
+      expiresAt: "2026-08-24T12:35:00.001Z",
+    };
+
+    expect(
+      classifyHandoffResolution(futureContext, {
+        now: NOW,
+        beachExists: true,
+        exactWindowExists: true,
+      })
+    ).toEqual({ classification: "invalid", reason: "malformed" });
+  });
+
+  it("classifies a removed window as replaced when current truth has a replacement", () => {
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+    if (!parsed.ok) throw new Error("Expected valid fixture");
+    const { context } = parsed;
+    const replacement = {
+      beachId: context.beachId,
+      slug: context.slug,
+      windowId: "2026-08-25T16:00:00.000Z",
+      recommendationId: `beach:${BEACH_ID}:2026-08-25T16:00:00.000Z`,
+    };
+
+    expect(
+      classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
+        now: NOW,
+        beachExists: true,
+        exactWindowExists: false,
+        replacement,
+      }),
+    ).toEqual({
+      classification: "replaced",
+      context,
+      replacement,
+      reason: "window_replaced",
+    });
+  });
+
+  it("normalizes the identical replacement fixture to IDs-only output", () => {
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+    if (!parsed.ok) throw new Error("Expected valid fixture");
+    const { context } = parsed;
+    const replacementWithExtras = {
+      beachId: BEACH_ID,
+      slug: "ocean-beach",
+      windowId: "2026-08-25T16:00:00.000Z",
+      recommendationId: `beach:${BEACH_ID}:2026-08-25T16:00:00.000Z`,
+      email: "surfer@example.com",
+      handoff_token: "secret",
+    };
+    const result = classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
+      now: NOW,
+      beachExists: true,
+      exactWindowExists: false,
+      replacement: replacementWithExtras,
+    });
+
+    expect(result).toEqual({
+      classification: "replaced",
+      context,
+      replacement: {
+        beachId: BEACH_ID,
+        slug: "ocean-beach",
+        windowId: "2026-08-25T16:00:00.000Z",
+        recommendationId: `beach:${BEACH_ID}:2026-08-25T16:00:00.000Z`,
+      },
+      reason: "window_replaced",
+    });
+    if (result.classification !== "replaced") {
+      throw new Error("Expected replaced result");
+    }
+    expect(result.replacement).not.toBe(replacementWithExtras);
+  });
+
+  it("classifies the identical cross-beach replacement fixture as beach-only", () => {
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+    if (!parsed.ok) throw new Error("Expected valid fixture");
+    const { context } = parsed;
+
+    expect(
+      classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
+        now: NOW,
+        beachExists: true,
+        exactWindowExists: false,
+        replacement: {
+          beachId: OTHER_BEACH_ID,
+          slug: "steamer-lane",
+          windowId: "2026-08-25T16:00:00.000Z",
+          recommendationId:
+            `beach:${OTHER_BEACH_ID}:2026-08-25T16:00:00.000Z`,
+        },
+      }),
+    ).toEqual({
+      classification: "beach_only",
+      context,
+      reason: "window_removed",
+    });
+  });
+
+  it("rejects a structured replacement recommendation owned by another beach", () => {
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+    if (!parsed.ok) throw new Error("Expected valid fixture");
+    const { context } = parsed;
+
+    expect(
+      classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
+        now: NOW,
+        beachExists: true,
+        exactWindowExists: false,
+        replacement: {
+          beachId: BEACH_ID,
+          slug: "pleasure-point",
+          windowId: "2026-08-25T16:00:00.000Z",
+          recommendationId:
+            `beach:${OTHER_BEACH_ID}:2026-08-25T16:00:00.000Z`,
+        },
+      }),
+    ).toEqual({
+      classification: "beach_only",
+      context,
+      reason: "window_removed",
+    });
+  });
+
+  it("rejects a replacement with a slugged window owned by another beach", () => {
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+    if (!parsed.ok) throw new Error("Expected valid fixture");
+    const { context } = parsed;
+
+    expect(classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
+      now: NOW,
+      beachExists: true,
+      exactWindowExists: false,
+      replacement: {
+        beachId: BEACH_ID,
+        slug: "pleasure-point",
+        windowId: CROSS_BEACH_SLUGGED_WINDOW_ID,
+        recommendationId: `beach:${BEACH_ID}:2026-08-25T16:00:00.000Z`,
+      },
+    })).toEqual({
+      classification: "beach_only",
+      context,
+      reason: "window_removed",
+    });
+  });
+
+  it("falls back to the beach when a removed window has no replacement", () => {
+    const parsed = parseHandoffContext(SERIALIZED_V1_CONTEXT);
+    if (!parsed.ok) throw new Error("Expected valid fixture");
+    const { context } = parsed;
+
+    expect(
+      classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
+        now: NOW,
+        beachExists: true,
+        exactWindowExists: false,
+      }),
+    ).toEqual({
+      classification: "beach_only",
+      context,
+      reason: "window_removed",
+    });
+  });
+
+  it.each([
+    ["exact", { beachExists: true, exactWindowExists: true }],
+    [
+      "replaced",
+      {
+        beachExists: true,
+        exactWindowExists: false,
+        replacement: {
+          beachId: BEACH_ID,
+          slug: "pleasure-point",
+          windowId: "2026-08-25T16:00:00.000Z",
+          recommendationId: `beach:${BEACH_ID}:2026-08-25T16:00:00.000Z`,
+        },
+      },
+    ],
+    ["beach_only", { beachExists: true, exactWindowExists: false }],
+  ] as const)(
+    "snapshots and deeply freezes %s resolution context before classification",
+    (classification, availability) => {
+      const input = JSON.parse(SERIALIZED_V1_CONTEXT) as {
+        priorRecommendation: { recommendationId: string };
+      };
+      const result = classifyHandoffResolution(input, {
+        now: NOW,
+        ...availability,
+      });
+
+      expect(result.classification).toBe(classification);
+      if (result.classification === "invalid") {
+        throw new Error("Expected a valid resolution");
+      }
+      const recommendationId = result.context.priorRecommendation.recommendationId;
+
+      input.priorRecommendation.recommendationId = "surfer@example.com";
+
+      expect(result.context.priorRecommendation.recommendationId).toBe(
+        recommendationId,
+      );
+      expect(result.context).not.toBe(input);
+      expect(Object.isFrozen(result)).toBe(true);
+      expect(Object.isFrozen(result.context)).toBe(true);
+      expect(Object.isFrozen(result.context.priorRecommendation)).toBe(true);
+      expect(Reflect.set(
+        result.context.priorRecommendation,
+        "recommendationId",
+        "surfer@example.com",
+      )).toBe(false);
+      expect(result.context.priorRecommendation.recommendationId).toBe(
+        recommendationId,
+      );
+      expect(result.classification).toBe(classification);
+      if (result.classification === "replaced") {
+        expect(Object.isFrozen(result.replacement)).toBe(true);
+        expect(Reflect.set(
+          result.replacement,
+          "recommendationId",
+          "other",
+        )).toBe(false);
+      }
+
+      if (false) {
+        // @ts-expect-error nested context fields are readonly
+        result.context.priorRecommendation.recommendationId = "other";
+        if (result.classification === "replaced") {
+          // @ts-expect-error nested replacement fields are readonly
+          result.replacement.recommendationId = "other";
+        }
+        // @ts-expect-error resolution fields are readonly
+        result.classification = "invalid";
+      }
+    },
+  );
+
+  it("snapshots and deeply freezes builder input", () => {
+    const priorRecommendation = {
+      recommendationId: RECOMMENDATION_ID,
+      mode: HandoffRecommendationMode.Best,
+      verdict: HandoffRecommendationVerdict.Go,
+    };
+    const context = buildHandoffContext(
+      {
+        beachId: BEACH_ID,
+        slug: "pleasure-point",
+        windowId: WINDOW_ID,
+        sourceSurface: HandoffSourceSurface.SurfComparison,
+        priorRecommendation,
+      },
+      { now: NOW },
+    );
+
+    priorRecommendation.recommendationId = "surfer@example.com";
+
+    expect(context.priorRecommendation.recommendationId).toBe(RECOMMENDATION_ID);
+    expect(context.priorRecommendation).not.toBe(priorRecommendation);
+    expect(Object.isFrozen(context)).toBe(true);
+    expect(Object.isFrozen(context.priorRecommendation)).toBe(true);
+  });
+
+  it("classifies the identical missing-beach fixture as invalid", () => {
+    expect(
+      classifyHandoffResolution(SERIALIZED_V1_CONTEXT, {
+        now: NOW,
+        beachExists: false,
+        exactWindowExists: false,
+      }),
+    ).toEqual({ classification: "invalid", reason: "beach_removed" });
+  });
+
+  it("tolerates unsupported versions by classifying them as invalid", () => {
+    const futureContext = { ...validContext(), v: 2 };
+
+    expect(parseHandoffContext(futureContext)).toEqual({
+      ok: false,
+      reason: "unsupported_version",
+    });
+    expect(
+      classifyHandoffResolution(futureContext, {
+        now: NOW,
+        beachExists: true,
+        exactWindowExists: true,
+      }),
+    ).toEqual({
+      classification: "invalid",
+      reason: "unsupported_version",
+    });
+  });
+});

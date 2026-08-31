@@ -37,6 +37,19 @@ function hourlyTimeline(): HourlySwellTimeline {
 }
 
 describe("embed map bridge", () => {
+  it.each([
+    ["skill=advanced", "advanced"],
+    ["", undefined],
+  ])("passes the embed skill hint to the map for %s", async (query, expected) => {
+    mockSearchParams = new URLSearchParams(query);
+    delete window.ReactNativeWebView;
+    const { EmbedMapClient } = await import("@/app/embed/map/embed-map-client");
+    const view = render(React.createElement(EmbedMapClient));
+
+    expect(mockInteractiveMapProps.skillLevel).toBe(expected);
+    view.unmount();
+  });
+
   it("parses viewport commands from JSON", () => {
     expect(
       parseEmbedMapCommand(
@@ -131,6 +144,139 @@ describe("embed map bridge", () => {
     ).toBeNull();
   });
 
+  it("strictly validates auth token commands", () => {
+    expect(
+      parseEmbedMapCommand({
+        type: "auth_token",
+        payload: { accessToken: "header.payload.signature" },
+      }),
+    ).toEqual({
+      type: "auth_token",
+      payload: { accessToken: "header.payload.signature" },
+    });
+    expect(
+      parseEmbedMapCommand({ type: "auth_token", payload: { accessToken: null } }),
+    ).toEqual({ type: "auth_token", payload: { accessToken: null } });
+    const maxLengthToken = `${"a".repeat(4092)}.b.c`;
+    expect(parseEmbedMapCommand({
+      type: "auth_token",
+      payload: { accessToken: maxLengthToken },
+    })).toEqual({ type: "auth_token", payload: { accessToken: maxLengthToken } });
+    for (const payload of [
+      { accessToken: 123 },
+      {},
+      { accessToken: "header.payload" },
+      { accessToken: "header.pay+load.signature" },
+      { accessToken: `${"a".repeat(4093)}.b.c` },
+      { accessToken: "header.payload.signature", extra: true },
+    ]) {
+      expect(parseEmbedMapCommand({ type: "auth_token", payload })).toBeNull();
+    }
+  });
+
+  it("ignores auth tokens in a plain browser document", async () => {
+    delete window.ReactNativeWebView;
+    const { EmbedMapClient } = await import("@/app/embed/map/embed-map-client");
+    const view = render(React.createElement(EmbedMapClient));
+    const getAccessToken = mockInteractiveMapProps.getAccessToken as () => string | null;
+
+    act(() => {
+      document.dispatchEvent(new MessageEvent("message", {
+        data: JSON.stringify({
+          type: "auth_token",
+          payload: { accessToken: "header.payload.signature" },
+        }),
+      }));
+    });
+
+    expect(getAccessToken()).toBeNull();
+    expect(mockInteractiveMapProps.authGeneration).toBe(0);
+    view.unmount();
+  });
+
+  it("accepts auth tokens only from the native document channel", async () => {
+    const postMessage = jest.fn();
+    Object.defineProperty(window, "ReactNativeWebView", {
+      configurable: true,
+      value: { postMessage },
+    });
+    const { EmbedMapClient } = await import("@/app/embed/map/embed-map-client");
+    const view = render(React.createElement(EmbedMapClient));
+    const getAccessToken = mockInteractiveMapProps.getAccessToken as () => string | null;
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        data: JSON.stringify({
+          type: "auth_token",
+          payload: { accessToken: "window.payload.token" },
+        }),
+        source: window,
+      }));
+    });
+    expect(getAccessToken()).toBeNull();
+
+    act(() => {
+      document.dispatchEvent(new MessageEvent("message", {
+        data: JSON.stringify({
+          type: "auth_token",
+          payload: { accessToken: "native.payload.token" },
+        }),
+      }));
+    });
+    expect(getAccessToken()).toBe("native.payload.token");
+    expect(mockInteractiveMapProps.authGeneration).toBe(1);
+
+    act(() => {
+      for (const payload of [
+        { accessToken: "invalid" },
+        { accessToken: `${"a".repeat(4093)}.b.c` },
+        { accessToken: "other.payload.token", extra: true },
+      ]) {
+        document.dispatchEvent(new MessageEvent("message", {
+          data: JSON.stringify({ type: "auth_token", payload }),
+        }));
+      }
+      window.dispatchEvent(new MessageEvent("message", {
+        data: JSON.stringify({ type: "auth_token", payload: { accessToken: null } }),
+        source: window,
+      }));
+      window.dispatchEvent(new MessageEvent("message", {
+        data: JSON.stringify({
+          type: "auth_token",
+          payload: { accessToken: "replacement.payload.token" },
+        }),
+        source: window,
+      }));
+    });
+    expect(getAccessToken()).toBe("native.payload.token");
+    expect(mockInteractiveMapProps.authGeneration).toBe(1);
+
+    act(() => {
+      document.dispatchEvent(new MessageEvent("message", {
+        data: JSON.stringify({ type: "auth_token", payload: { accessToken: null } }),
+      }));
+    });
+    expect(getAccessToken()).toBeNull();
+    expect(mockInteractiveMapProps.authGeneration).toBe(2);
+
+    view.unmount();
+  });
+
+  it("emits auth token expiry through the native bridge", async () => {
+    const postMessage = jest.fn();
+    Object.defineProperty(window, "ReactNativeWebView", {
+      configurable: true,
+      value: { postMessage },
+    });
+    const { EmbedMapClient } = await import("@/app/embed/map/embed-map-client");
+    render(React.createElement(EmbedMapClient));
+    const onAuthTokenExpired = mockInteractiveMapProps.onAuthTokenExpired as () => void;
+
+    act(() => onAuthTokenExpired());
+
+    expect(postMessage).toHaveBeenCalledWith('{"type":"auth_token_expired"}');
+  });
+
   it("parses a bounded marker-focus command", () => {
     expect(
       parseEmbedMapCommand({
@@ -165,6 +311,7 @@ describe("embed map bridge", () => {
           type: "focusSelectedSpot",
           payload: { beachId: "beach-1" },
         }),
+        source: window,
       }));
     });
 
@@ -209,7 +356,8 @@ describe("embed map bridge", () => {
       slug: "blacks-beach",
     } as Beach;
     const conditions: MapSpotConditions = {
-      conditionSummary: "GOOD",
+      conditionSummary: "WATER QUALITY ADVISORY",
+      waterQualityHold: "advisory",
       waveHeight: "2-3ft",
       swellPeriod: "14s",
       swellDirection: "WNW",
@@ -239,7 +387,8 @@ describe("embed map bridge", () => {
         lat: 32.88,
         lon: -117.25,
         slug: "blacks-beach",
-        conditionSummary: "GOOD",
+        conditionSummary: "WATER QUALITY ADVISORY",
+        waterQualityHold: "advisory",
         waveHeight: "2-3ft",
         swellPeriod: "14s",
         swellDirection: "WNW",

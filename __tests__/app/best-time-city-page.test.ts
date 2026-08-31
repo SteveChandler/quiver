@@ -194,8 +194,9 @@ describe("best-time city SEO page", () => {
     expect(copy.title).toBe(
       "La Jolla Surf Report Today: Tide, Wind & Swell",
     );
-    expect(copy.description).toContain("La Jolla surf report today");
-    expect(copy.description).toContain("Shores, Scripps, and Tourmaline");
+    expect(copy.description).toBe(
+      "La Jolla surf report today: see the best tide and wind window, live wave height and swell, plus current conditions at Shores, Scripps, and Tourmaline.",
+    );
     expect(copy.h1).toBe(
       "Best La Jolla surf window today: tide and conditions",
     );
@@ -246,7 +247,7 @@ describe("best-time city SEO page", () => {
     ]);
   });
 
-  it("prefixes the La Jolla Phase 18 handoff with the Scripps surf-report owner", () => {
+  it("prefixes the La Jolla Phase 18 handoff with the city surf-report owner", () => {
     const steps = buildBestTimeLiveHandoffSteps({
       cityName: "La Jolla",
       citySlug: "la-jolla",
@@ -264,10 +265,10 @@ describe("best-time city SEO page", () => {
     });
 
     expect(steps[0]).toEqual({
-      label: "Open today's Scripps Pier surf report",
-      href: "/surf-report/scripps-pier-today",
+      label: "Open today's La Jolla surf report",
+      href: "/surf-report/la-jolla-today",
       description:
-        "Use the spot-specific wave height, wind, tide, and backup notes before applying the La Jolla season guide.",
+        "Use the city-level La Jolla report to compare Shores, Windansea, and Scripps wave height, wind, tide, and backup notes.",
     });
     expect(steps[1]).toEqual({
       label: "Open live La Jolla Shores conditions",

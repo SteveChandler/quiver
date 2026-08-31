@@ -210,6 +210,42 @@ describe("enqueueNotification", () => {
     );
   });
 
+  it("accepts the Weekend Scout cron payload with bounded hold context", async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: { id: "evt-weekend" },
+      error: null,
+    });
+    const payload = {
+      snapshot_id: "11111111-1111-4111-8111-111111111111",
+      weekend_start: "2026-07-25",
+      weekend_end: "2026-07-26",
+      qualifying_count: 3,
+      beach_id: "22222222-2222-4222-8222-222222222222",
+      lead_beach_id: "22222222-2222-4222-8222-222222222222",
+      lead_beach_name: "Black's",
+      lead_window_local: "Saturday morning",
+      forecast_at: "2026-07-25T16:00:00.000Z",
+      policy_context: {
+        kind: "positive_session_recommendation",
+        beach_id: "22222222-2222-4222-8222-222222222222",
+        starts_at: "2026-07-25T16:00:00.000Z",
+        ends_at: "2026-07-25T18:00:00.000Z",
+      },
+    };
+
+    const result = await enqueueNotification({
+      type: "weekend_window",
+      recipientUserId: "user-A",
+      payload,
+    });
+
+    expect(result).toEqual({ enqueued: true, eventId: "evt-weekend" });
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+      type: "weekend_window",
+      payload,
+    }));
+  });
+
   it("defaults nullable fields when not provided", async () => {
     mockSingle.mockResolvedValueOnce({
       data: { id: "evt-456" },

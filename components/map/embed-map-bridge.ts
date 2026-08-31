@@ -1,4 +1,5 @@
 export type EmbedMapSwellLayerId = "combined" | "s1" | "s2" | "wind";
+export type EmbedMapWaterQualityHold = "advisory" | "closure" | "held";
 export const EMBED_MAP_MAX_FORECAST_TIME_INDEX = 7;
 
 export interface EmbedMapCoordinate {
@@ -31,7 +32,8 @@ export type EmbedMapCommand =
   | { type: "setTheme"; payload: { mode: "explore" | "hero" } }
   | { type: "setReducedMotion"; payload: { enabled: boolean } }
   | { type: "setFieldVisible"; payload: { visible: boolean } }
-  | { type: "setForecastPlaying"; payload: { playing: boolean } };
+  | { type: "setForecastPlaying"; payload: { playing: boolean } }
+  | { type: "auth_token"; payload: { accessToken: string | null } };
 
 export type EmbedMapEvent =
   | { type: "ready"; payload: { viewport: EmbedMapViewport } }
@@ -47,6 +49,7 @@ export type EmbedMapEvent =
         lon: number;
         slug?: string | null;
         conditionSummary?: string | null;
+        waterQualityHold?: EmbedMapWaterQualityHold | null;
         waveHeight?: string | null;
         swellPeriod?: string | null;
         swellDirection?: string | null;
@@ -64,7 +67,8 @@ export type EmbedMapEvent =
   | { type: "placementConfirmed"; payload: EmbedMapCoordinate }
   | { type: "placementCancelled"; payload: Record<string, never> }
   | { type: "forecastTimeChanged"; payload: { index: number; forecastAt?: string } }
-  | { type: "renderHealth"; payload: { fps?: number; status: "ok" | "degraded" } };
+  | { type: "renderHealth"; payload: { fps?: number; status: "ok" | "degraded" } }
+  | { type: "auth_token_expired" };
 
 const SWELL_LAYER_IDS = new Set<EmbedMapSwellLayerId>([
   "combined",
@@ -72,6 +76,8 @@ const SWELL_LAYER_IDS = new Set<EmbedMapSwellLayerId>([
   "s2",
   "wind",
 ]);
+const JWT_PATTERN = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+const MAX_ACCESS_TOKEN_LENGTH = 4096;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -208,6 +214,21 @@ export function parseEmbedMapCommand(
     case "setForecastPlaying": {
       if (!isRecord(payload) || typeof payload.playing !== "boolean") return null;
       return { type: "setForecastPlaying", payload: { playing: payload.playing } };
+    }
+    case "auth_token": {
+      const payloadKeys = isRecord(payload) ? Reflect.ownKeys(payload) : [];
+      if (
+        !isRecord(payload) ||
+        payloadKeys.length !== 1 ||
+        payloadKeys[0] !== "accessToken" ||
+        (payload.accessToken !== null &&
+          (typeof payload.accessToken !== "string" ||
+            payload.accessToken.length > MAX_ACCESS_TOKEN_LENGTH ||
+            !JWT_PATTERN.test(payload.accessToken)))
+      ) {
+        return null;
+      }
+      return { type: "auth_token", payload: { accessToken: payload.accessToken } };
     }
     default:
       return null;

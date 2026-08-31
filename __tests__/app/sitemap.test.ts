@@ -448,6 +448,7 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       expect(result.find((r) => r.url === `${baseUrl}/surf-report/scripps-pier-today`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/surf-report/la-jolla-today`)).not.toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/surf-cams/san-diego`)).not.toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/beginner/santa-cruz`)).not.toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/surf-cams/santa-cruz`)).toBeUndefined();

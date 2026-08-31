@@ -8,6 +8,7 @@ import {
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
 import { generateWeekScoutForecast } from '@/lib/services/discovery/week-scout';
+import { LOCATION_MAX_AGE_MS } from '@/lib/services/discovery/weekend-scout';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,7 +81,7 @@ const WeekScoutRequestSchema = z.object({
 
 async function weekScoutHandler(
   request: NextRequest,
-  { user }: AuthenticatedContext,
+  { user, supabase }: AuthenticatedContext,
 ): Promise<NextResponse> {
   // Installed native clients need a stable canonical contract. Keep the flag
   // as an emergency kill switch, but default the endpoint on so an omitted
@@ -104,9 +105,36 @@ async function weekScoutHandler(
     return createValidationError('Invalid Week Scout request', parsed.error.flatten());
   }
 
+  let userLocation: { lat: number; lon: number } | undefined;
+  try {
+    const { data } = await supabase
+      .from('user_location_snapshots')
+      .select('lat, lon, captured_at')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const lat = data?.lat;
+    const lon = data?.lon;
+    const capturedAt = typeof data?.captured_at === 'string'
+      ? Date.parse(data.captured_at)
+      : Number.NaN;
+    if (
+      typeof lat === 'number'
+      && Number.isFinite(lat)
+      && typeof lon === 'number'
+      && Number.isFinite(lon)
+      && Number.isFinite(capturedAt)
+      && Date.now() - capturedAt <= LOCATION_MAX_AGE_MS
+    ) {
+      userLocation = { lat, lon };
+    }
+  } catch {
+    // Location is optional; preserve the legacy conditions-only ranking.
+  }
+
   const forecast = await generateWeekScoutForecast(user.id, {
     ...parsed.data,
     candidateBeachIds: parsed.data.candidateBeachIds.slice(0, MAX_SCORED_BEACHES),
+    ...(userLocation ? { userLocation } : {}),
   });
   return createSuccessResponse(forecast);
 }

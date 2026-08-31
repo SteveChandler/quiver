@@ -293,8 +293,6 @@ export interface ForecastInputs {
  * formatting context to re-render the public string without re-deriving it.
  */
 interface TrustedSlotRecord {
-  /** Index into the forecasts array this slot produced. */
-  readonly forecastIndex: number;
   readonly forecastAt: Date;
   /** Raw, unrounded hours from the build anchor. Never pre-rounded (D-16). */
   readonly forecastHorizonHours: number;
@@ -599,7 +597,6 @@ export class ForecastBuilder {
         feedbackCalibrationCandidate: resolvedFeedbackCalibration ?? null,
         snapshotBuffer,
         trustedSlotBuffer,
-        forecastIndex: i,
         calibrationCoverage,
         handoffBlendState,
         handoffBlendEnabled,
@@ -620,13 +617,12 @@ export class ForecastBuilder {
       });
     }
 
-    // The trusted layer needs to put its final served value into a first-write
-    // snapshot, so it runs before the ordinary snapshot dispatch.
+    // Private trusted decisions and comparison snapshots are persisted here;
+    // the returned forecast rows remain baseline-only for shared storage.
     try {
       await this.applyTrustedForecastAdjustments({
         beach,
         buildAnchorAt: now,
-        forecasts,
         trustedSlots: trustedSlotBuffer,
         snapshotBuffer,
         readStore: inputs.trustedForecastReadStore,
@@ -670,12 +666,12 @@ export class ForecastBuilder {
   }
 
   /**
-   * Apply trusted external-forecaster adjustments to an already-built set of
-   * forecast rows (MFA-05, MFA-06, D-14 through D-24).
+   * Persist trusted external-forecaster decisions and private comparison
+   * snapshots without changing the already-built baseline forecast rows.
    *
    * Fail behaviour, in order of how it is decided:
-   *  - serving disabled by explicit `false`, no coverage for this beach, or no
-   *    eligible slots -> baseline, byte-identical;
+   *  - private adjustment generation disabled by explicit `false`, no coverage
+   *    for this beach, or no eligible slots -> baseline, byte-identical;
    *  - coverage that cannot be resolved -> named error log, baseline;
    *  - a definite structured rejection from the RPC -> counted warn, baseline;
    *  - anything else (transport ambiguity, uniqueness collision that cannot be
@@ -685,14 +681,12 @@ export class ForecastBuilder {
   private async applyTrustedForecastAdjustments(args: {
     beach: Beach;
     buildAnchorAt: Date;
-    forecasts: EnhancedForecastWithRawData[];
     trustedSlots: TrustedSlotRecord[];
     snapshotBuffer: DisplayPredictionRow[];
     readStore?: TrustedForecastReadStore;
     persistenceStore?: TrustedForecastPersistenceStore;
   }): Promise<void> {
-    // D-24: serving defaults on when unset; strict false-like or malformed
-    // values disable the layer before any private read.
+    // This legacy flag controls private decision generation, not canary serving.
     if (!isTrustedForecastAdjustmentEnabled()) return;
 
     const eligibleSlots = args.trustedSlots.filter((slot) =>
@@ -702,7 +696,7 @@ export class ForecastBuilder {
 
     // Mirrors logDisplayPredictions' env gate. `createServiceRoleClient()`
     // throws outright when the service-role config is absent, and an
-    // unconfigured environment is "trusted serving is not set up here", not
+    // unconfigured environment is "trusted generation is not set up here", not
     // "private rows are unreadable" — the second is retriable, the first would
     // only take forecast generation down with it.
     if (args.readStore === undefined && !hasServiceRoleConfig()) {
@@ -843,9 +837,9 @@ export class ForecastBuilder {
         return [
           toTrustedForecastSnapshotPayload({
             ...row,
-            // The snapshot is the value users were served, while raw and
-            // legacy offset fields remain the pre-trusted telemetry inputs.
-            offset_corrected_display_height_m: this.trustedServedHeightM(
+            // This private comparison snapshot retains the adjusted value while
+            // shared forecast rows remain baseline-only.
+            offset_corrected_display_height_m: this.trustedAdjustedHeightM(
               slot,
               application.appliedDeltaFt,
             ),
@@ -896,11 +890,6 @@ export class ForecastBuilder {
 
       for (const application of result.applications) {
         const slot = slotByInstant.get(application.forecastAt);
-        this.applyTrustedSlotDelta(
-          args.forecasts,
-          slot,
-          application.appliedDeltaFt,
-        );
         this.applyTrustedSnapshotDelta(
           args.snapshotBuffer,
           slot,
@@ -912,35 +901,8 @@ export class ForecastBuilder {
     for (const [forecastAt, appliedDeltaFt] of durableApplications) {
       if (appliedDeltaFt === 0) continue;
       const slot = slotByInstant.get(forecastAt);
-      this.applyTrustedSlotDelta(
-        args.forecasts,
-        slot,
-        appliedDeltaFt,
-      );
       this.applyTrustedSnapshotDelta(args.snapshotBuffer, slot, appliedDeltaFt);
     }
-  }
-
-  /**
-   * Re-render one claimed slot from its post-offset baseline plus the approved
-   * delta.
-   *
-   * D-17: rebuilding from the post-offset value is what suppresses the session
-   * feedback layer on a claimed slot. Unclaimed slots are never touched, so
-   * their existing feedback behaviour is preserved exactly.
-   */
-  private applyTrustedSlotDelta(
-    forecasts: EnhancedForecastWithRawData[],
-    slot: TrustedSlotRecord | undefined,
-    appliedDeltaFt: number,
-  ): void {
-    if (slot === undefined || slot.postOffsetFt == null) return;
-    const forecast = forecasts[slot.forecastIndex];
-    if (forecast === undefined) return;
-    forecast.wave_height = formatDisplayHeightFt({
-      numericFt: Math.max(0, slot.postOffsetFt + appliedDeltaFt),
-      rangeSpread: slot.rangeSpread,
-    });
   }
 
   private applyTrustedSnapshotDelta(
@@ -951,14 +913,14 @@ export class ForecastBuilder {
     if (slot?.snapshotIndex == null) return;
     const row = snapshotBuffer[slot.snapshotIndex];
     if (row === undefined) return;
-    row.offset_corrected_display_height_m = this.trustedServedHeightM(
+    row.offset_corrected_display_height_m = this.trustedAdjustedHeightM(
       slot,
       appliedDeltaFt,
     );
     row.display_source = TRUSTED_FORECAST_ADJUSTED_DISPLAY_SOURCE;
   }
 
-  private trustedServedHeightM(
+  private trustedAdjustedHeightM(
     slot: TrustedSlotRecord | undefined,
     appliedDeltaFt: number,
   ): number {
@@ -1025,7 +987,6 @@ export class ForecastBuilder {
     feedbackCalibrationCandidate: FeedbackHeightCalibrationCandidate | null;
     snapshotBuffer: DisplayPredictionRow[];
     trustedSlotBuffer: TrustedSlotRecord[];
-    forecastIndex: number;
     calibrationCoverage: CalibrationCoverage;
     handoffBlendState: ForecastHandoffBlendState;
     handoffBlendEnabled: boolean;
@@ -1056,7 +1017,6 @@ export class ForecastBuilder {
       feedbackCalibrationCandidate,
       snapshotBuffer,
       trustedSlotBuffer,
-      forecastIndex,
       calibrationCoverage,
       handoffBlendState,
       handoffBlendEnabled,
@@ -1360,11 +1320,9 @@ export class ForecastBuilder {
     }
 
     // D-14: the trusted layer compares against the post-offset display height,
-    // captured here BEFORE the session-feedback layer so a claimed slot can be
-    // re-rendered from the approved baseline rather than from a feedback-shifted
-    // number (D-17).
+    // captured here before the session-feedback layer for private comparison;
+    // the public row keeps every ordinary baseline layer unchanged.
     trustedSlotBuffer.push({
-      forecastIndex,
       // The SERVED instant, not the raw loop time: a slot's durable identity
       // has to be the same `forecast_at` that reaches `enhanced_forecasts` and
       // `ml_predictions_log.predicted_at`, or the RPC cannot link the

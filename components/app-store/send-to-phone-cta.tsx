@@ -253,6 +253,10 @@ export function SendToPhoneCta({
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="you@email.com"
+                  // Body carries .theme-retro-dark, whose `input` rule is
+                  // !important. This attribute is the repo's opt-out for inputs
+                  // rendered on zine cream paper (app/styles/zine.css).
+                  data-zine-input="true"
                   className="min-h-11 flex-1 rounded-md border border-[#11100D] bg-[#F4EBD8] px-3 font-sans text-base text-[#11100D] placeholder:text-[#11100D]/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EFE5CF]"
                 />
                 <button

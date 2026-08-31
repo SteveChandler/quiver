@@ -144,9 +144,9 @@ describe("SessionIntelligenceModule", () => {
       "href",
       "/forecast"
     );
-    expect(screen.getByRole("link", { name: "Take it with you" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open this beach in Quiver" })).toHaveAttribute(
       "href",
-      expect.stringMatching(/^https:\/\/example.com\/app\/spot\/blacks\?window=/)
+      "https://example.com/app/spot/blacks"
     );
     expect(screen.getByRole("link", { name: "View Beach 2 forecast" })).toBeVisible();
   });

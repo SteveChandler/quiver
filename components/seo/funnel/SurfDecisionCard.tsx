@@ -13,7 +13,7 @@ import {
 import { getBeachesBySlug } from "@/actions/beach/beach-query-actions";
 import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
 import type { SeoDecisionConfig } from "@/lib/seo/funnel-pages";
-import { formatTimeInTimezone } from "@/lib/utils/date-time";
+import { formatTimeRangeInTimezone } from "@/lib/utils/date-time";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import type { Beach } from "@/types/database";
@@ -28,15 +28,6 @@ const FALLBACK_MESSAGE =
 function pickBeachBySlug(beaches: Beach[] | null | undefined, slug: string): Beach | null {
   if (!beaches || beaches.length === 0) return null;
   return beaches.find((beach) => beach.slug === slug) ?? beaches[0] ?? null;
-}
-
-function formatWindow(
-  start: string | null,
-  end: string | null,
-  timezone?: string
-): string {
-  if (!start || !end) return "No clean window yet";
-  return `${formatTimeInTimezone(start, timezone)}-${formatTimeInTimezone(end, timezone)}`;
 }
 
 function verdictLabel(verdict: string | null | undefined): string {
@@ -80,7 +71,12 @@ export async function SurfDecisionCard({ decision }: SurfDecisionCardProps) {
   );
   const liveVerdict = hasLiveData ? verdictLabel(report?.verdict) : "Check app";
   const bestWindow = hasLiveData
-    ? formatWindow(report?.bestWindowStart ?? null, report?.bestWindowEnd ?? null, timezone)
+    ? formatTimeRangeInTimezone(
+        report?.bestWindowStart ?? null,
+        report?.bestWindowEnd ?? null,
+        timezone,
+        "-",
+      ) ?? "No clean window yet"
     : "Refresh in Quiver";
   const windRisk = hasLiveData
     ? riskLabel(report?.windDescription, decision.windRisk)

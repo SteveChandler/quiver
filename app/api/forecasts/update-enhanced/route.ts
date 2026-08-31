@@ -2,7 +2,9 @@ import { NextRequest } from "next/server";
 import {
   createErrorResponse,
   createSuccessResponse,
+  withAuth,
   withAdminAuth,
+  type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
 import {
   updateBeachForecast,
@@ -11,6 +13,14 @@ import {
 } from "@/lib/utils/forecast-server-utils";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
+import { applyTrustedForecastServing } from "@/lib/services/forecast/trusted-forecast-serving";
+
+const PRIVATE_NO_STORE = "private, no-store, no-cache, must-revalidate";
+
+function privateNoStore<T extends Response>(response: T): T {
+  response.headers.set("Cache-Control", PRIVATE_NO_STORE);
+  return response;
+}
 
 /**
  * Enhanced Forecast Update API Endpoint
@@ -20,8 +30,8 @@ import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-d
  */
 
 // API endpoint to update enhanced forecasts for all beaches (admin only)
-export const POST = withAdminAuth(async (request: NextRequest, { user }) => {
-  console.log(`🔐 Enhanced forecast update initiated by admin: ${user.email}`);
+export const POST = withAdminAuth(async (request: NextRequest) => {
+  console.log("🔐 Enhanced forecast update initiated by admin");
   console.log("Starting enhanced forecast update process");
 
   // Check if we should update a specific beach or all beaches
@@ -62,7 +72,10 @@ export const POST = withAdminAuth(async (request: NextRequest, { user }) => {
  * freshness. Strict callers receive empty forecasts when cache is stale/missing.
  * Beach detail can opt into display-only stale rows with `allowStale=display`.
  */
-export async function GET(request: NextRequest) {
+async function getEnhancedForecasts(
+  request: NextRequest,
+  { user }: OptionalAuthContext,
+) {
   try {
     const { searchParams } = new URL(request.url);
     const beachId = searchParams.get("beachId");
@@ -77,7 +90,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!beachId) {
-      return createErrorResponse("Beach ID is required", null, 400);
+      return privateNoStore(createErrorResponse("Beach ID is required", null, 400));
     }
 
     // Use getFreshForecastFromCache as single source of truth for staleness gating.
@@ -128,12 +141,17 @@ export async function GET(request: NextRequest) {
       } catch (err) {
         console.warn(
           `⚠️ Error fetching calibration status for beach ${beachId}:`,
-          err
+          err instanceof Error ? err.message : String(err),
         );
       }
     }
     const stampedForecasts = result.forecasts.map((f) => ({ ...f, isCalibrated }));
-    const forecasts = await applyV51DisplayOverrideToForecasts(stampedForecasts);
+    const displayForecasts = await applyV51DisplayOverrideToForecasts(stampedForecasts);
+    const forecasts = await applyTrustedForecastServing({
+      userId: user?.id ?? null,
+      beachId,
+      forecasts: displayForecasts,
+    });
     const hasData = forecasts.length > 0;
 
     // Build response with consistent shape
@@ -165,16 +183,7 @@ export async function GET(request: NextRequest) {
 
     const response = createSuccessResponse(responseData);
 
-    // Cache headers: only cache if we have fresh data
-    if (hasData && !metadata.stale) {
-      response.headers.set(
-        "Cache-Control",
-        "public, s-maxage=600, stale-while-revalidate=3600"
-      );
-    } else {
-      // Don't cache stale/missing responses
-      response.headers.set("Cache-Control", "no-store");
-    }
+    privateNoStore(response);
 
     // Instrumentation headers for forecast_ready event metadata.
     // Source resolves to one of: 'enhanced' | 'fallback' | 'stale' | 'missing'
@@ -198,16 +207,18 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("❌ Error fetching enhanced forecasts:", error);
-    console.error("❌ Error stack:", error instanceof Error ? error.stack : "No stack trace");
-    console.error("❌ Error details:", {
-      message: error instanceof Error ? error.message : "Unknown error",
-      name: error instanceof Error ? error.name : "Unknown",
-      cause: error instanceof Error ? error.cause : undefined,
-    });
-    return createErrorResponse(
-      "Failed to fetch enhanced forecasts",
-      error instanceof Error ? error.message : "Unknown error"
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("❌ Error fetching enhanced forecasts:", errorMessage);
+    if (error instanceof Error && error.stack) {
+      console.error("❌ Error stack:", error.stack);
+    }
+    return privateNoStore(
+      createErrorResponse(
+        "Failed to fetch enhanced forecasts",
+        errorMessage,
+      ),
     );
   }
 }
+
+export const GET = withAuth(getEnhancedForecasts, { optional: true });

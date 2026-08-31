@@ -200,8 +200,6 @@ async function conditionsPhase(a: { client: Client; user: User }, service: Clien
   if (forecast.error) throw forecast.error;
   if (!forecast.data) {
     skip(phase, "forecast feedback context", `no enhanced_forecasts row at ${forecastAt.toISOString()}`);
-  } else if (!process.env.ML_INTERNAL_SECRET && !process.env.INTERNAL_SECRET) {
-    fail(phase, "forecast feedback context", "current-hour forecast exists, but ML_INTERNAL_SECRET/INTERNAL_SECRET is not configured for the real forwarding path");
   } else {
     const feedback = await waitFor(async () => (await service.from("forecast_feedback_contexts").select("id,feedback_kind,ingest_path").eq("user_id", a.user.id).eq("beach_id", beach.id).eq("feedback_kind", "condition_report").order("created_at", { ascending: false }).limit(1).maybeSingle()).data, 10_000);
     assert(feedback, "current-hour forecast existed but no condition_report feedback context was written");

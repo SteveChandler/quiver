@@ -198,7 +198,9 @@ jest.mock("@/lib/utils/nearby-beach-enrichment", () => ({
   enrichBeachesWithConditions: jest.fn().mockResolvedValue([]),
 }));
 
-type BeachTestOverrides = Partial<Beach> & {
+type BeachTestOverrides = Omit<Partial<Beach>, "lat" | "lon"> & {
+  lat?: number | null;
+  lon?: number | null;
   seo_indexable?: boolean;
   editorial_reviewed_at?: string;
   editorial_sources?: Array<{ url: string; publisher: string; retrievedAt: string }>;
@@ -213,8 +215,9 @@ function makeBeach(overrides: BeachTestOverrides) {
     city: overrides.city ?? "Dana Point",
     state: overrides.state ?? "CA",
     country: overrides.country ?? "USA",
-    lat: overrides.lat ?? 33.3827,
-    lon: overrides.lon ?? -117.5922,
+    timezone: overrides.timezone ?? "America/Los_Angeles",
+    lat: overrides.lat === undefined ? 33.3827 : overrides.lat,
+    lon: overrides.lon === undefined ? -117.5922 : overrides.lon,
     created_at: overrides.created_at ?? "2026-01-01T00:00:00Z",
     review_count: overrides.review_count ?? 0,
     center_lat: overrides.lat ?? 33.3827,
@@ -354,7 +357,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     ).resolves.toBeTruthy();
 
     expect(notFound).not.toHaveBeenCalled();
-    expect(getNearbyBeaches).not.toHaveBeenCalled();
+    expect(getNearbyBeaches).toHaveBeenCalledWith(33.3827, -117.5922, 25);
   });
 
   it("omits the removed conditions summary from beach pages", async () => {
@@ -426,6 +429,15 @@ describe("GenericBeachDetailPage slug resolution", () => {
     });
     const forecastResult = freshForecastResult();
     (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(forecastResult);
+    (getNearbyBeaches as jest.Mock).mockResolvedValueOnce({
+      success: true,
+      data: [
+        makeBeach({ id: "backup-1", name: "Swami's", slug: "swamis", city: "Encinitas" }),
+        makeBeach({ id: "backup-2", name: "Ocean Beach", slug: "ocean-beach", city: "San Diego" }),
+        makeBeach({ id: "backup-3", name: "Pipeline", slug: "pipeline", city: "Haleiwa", state: "HI" }),
+        makeBeach({ id: "backup-4", name: "Malibu", slug: "malibu", city: "Malibu" }),
+      ],
+    });
 
     const page = await GenericBeachDetailPage({
       params: Promise.resolve({
@@ -445,8 +457,16 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(html).not.toMatch(/>\s*(?:YES|MAYBE|NO)\s*</);
     expect(html).not.toContain(forecastResult.report.bestWindowStart);
     expect(html).not.toContain(forecastResult.report.bestWindowEnd);
-    expect(html).toContain("Sign in to reveal");
-    expect(html).not.toContain(">Best window</span>");
+    expect(html).not.toContain("Sign in to reveal");
+    expect(html).toContain("Best window");
+    expect(html).toContain("Nearby backups");
+    expect(html).toContain('href="/ca/encinitas/swamis"');
+    expect(html).toContain('href="/ca/san-diego/ocean-beach"');
+    expect(html).toContain('href="/hi/haleiwa/pipeline"');
+    expect(html).not.toContain('href="/ca/malibu/malibu"');
+    expect(html.indexOf('data-testid="public-forecast-answer"')).toBeLessThan(
+      html.indexOf("Nearby backups"),
+    );
     expect(html).toContain("17s SW");
     expect(html).toContain("3.2 ft · Rising");
     expect(html).toContain("92%");
@@ -469,7 +489,91 @@ describe("GenericBeachDetailPage slug resolution", () => {
 
     expect(getHeadingTexts(html, 1)).toEqual(["Del Mar Surf Forecast"]);
     expect(getHeadingTexts(html, 2)).toContain("Del Mar");
+    // origin/main asserted this positively; a beach with no forecast must still
+    // explain itself rather than render an empty section.
     expect(html).toContain("Current forecast details are temporarily unavailable");
+    expect(html).not.toContain("Best window");
+    expect(html).not.toContain("Nearby backups");
+  });
+
+  it("omits nearby backups without coordinates and skips the nearby lookup", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({ lat: null, lon: null })],
+    });
+
+    const page = await GenericBeachDetailPage({
+      params: Promise.resolve({
+        intent: "ca",
+        city: "dana-point",
+        beachSlug: "lower-trestles",
+      }),
+    });
+
+    expect(getNearbyBeaches).not.toHaveBeenCalled();
+    expect(renderToStaticMarkup(page)).not.toContain("Nearby backups");
+  });
+
+  it.each([
+    [
+      false,
+      "Test Beach: 2-3 ft Surf Report & Forecast | CA",
+      "Current 2-3 ft wave height at Test Beach. See the today surf report & forecast, wind, tide, crowd intel, and 7-day forecast.",
+    ],
+    [
+      true,
+      "Test Beach: 2-3 ft Surf Report & Forecast | CA",
+      "Tomorrow's 2-3 ft wave height at Test Beach. See the tomorrow surf report & forecast, wind, tide, crowd intel, and 7-day forecast.",
+    ],
+  ])("preserves exact metadata and robots when isTomorrow=%s", async (isTomorrow, title, description) => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({ name: "Test Beach" })],
+    });
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce({
+      ...freshForecastResult(),
+      isTomorrow,
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    });
+
+    expect(metadata.title).toBe(title);
+    expect(metadata.description).toBe(description);
+    expect(metadata.alternates?.canonical).toBe("http://localhost:3000/ca/dana-point/lower-trestles");
+    expect(metadata.robots).toEqual({
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true },
+    });
+  });
+
+  it("preserves exact no-forecast metadata and noindex robots", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({ name: "Test Beach" })],
+    });
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce({
+      report: null,
+      isTomorrow: false,
+      forecastContext: null,
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    });
+
+    expect(metadata.title).toBe("Test Beach Surf Report & Forecast | Dana Point");
+    expect(metadata.description).toBe(
+      "Today's surf report & forecast for Test Beach in Dana Point, CA: wave height, wind, tide, crowd intel, and 7-day forecast.",
+    );
+    expect(metadata.alternates?.canonical).toBe("http://localhost:3000/ca/dana-point/lower-trestles");
+    expect(metadata.robots).toEqual({
+      index: false,
+      follow: true,
+      googleBot: { index: false, follow: true },
+    });
   });
 
   it("redirects stale city slugs to the canonical beach URL", async () => {

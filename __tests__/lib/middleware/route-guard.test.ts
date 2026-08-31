@@ -132,6 +132,14 @@ describe("RouteGuard", () => {
         expect(result.type).toBe("protected");
         expect(result.requiresAuth).toBe(true);
       });
+
+      it("keeps non-profile-id account paths protected", () => {
+        for (const path of ["/profile/edit", "/profile/analytics", "/profile/not-a-user-id"]) {
+          const result = RouteGuard.classifyRoute(path, "GET");
+          expect(result.type).toBe("protected");
+          expect(result.requiresAuth).toBe(true);
+        }
+      });
     });
 
     describe("Public Routes", () => {
@@ -161,6 +169,20 @@ describe("RouteGuard", () => {
 
         const viewSession = RouteGuard.classifyRoute("/sessions/abc-123", "GET");
         expect(viewSession.type).toBe("public");
+      });
+
+      it("allows only UUID profile aliases to render public share metadata", () => {
+        const profile = RouteGuard.classifyRoute(
+          "/profile/bcacdc51-b01b-4702-ac0b-fb492c0a926a",
+          "GET",
+        );
+        const profileWithSlash = RouteGuard.classifyRoute(
+          "/profile/bcacdc51-b01b-4702-ac0b-fb492c0a926a/",
+          "HEAD",
+        );
+
+        expect(profile).toMatchObject({ type: "public", requiresAuth: false });
+        expect(profileWithSlash).toMatchObject({ type: "public", requiresAuth: false });
       });
     });
   });

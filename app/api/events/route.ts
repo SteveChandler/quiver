@@ -19,6 +19,8 @@ import {
 } from '@/lib/middleware/api-wrappers';
 import {
   ANONYMOUS_ALLOWED_EVENTS,
+  buildBfrApiEventMetadata,
+  isBfrApiEventMetadata,
   PRE_AUTH_ONLY_EVENTS,
   VALID_EVENTS,
 } from '@/lib/analytics/event-taxonomy';
@@ -61,6 +63,8 @@ export {
 const RATE_LIMIT = 60; // Max events per window
 const RATE_WINDOW_MS = 60_000; // 1 minute window
 const MAX_RATE_LIMIT_ENTRIES = 10000; // LRU eviction threshold
+const MIN_BFR_VIEWPORT_WIDTH = 1;
+const MAX_BFR_VIEWPORT_WIDTH = 10_000;
 
 // Per-user rate limit tracking with LRU eviction (ephemeral in serverless)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -109,6 +113,13 @@ function checkRateLimit(userId: string, limit: number = RATE_LIMIT): { allowed: 
 }
 
 const ANON_RATE_LIMIT = 30; // Lower rate limit for anonymous users
+
+function isValidBfrViewportWidth(value: unknown): value is number {
+  return typeof value === 'number'
+    && Number.isFinite(value)
+    && value >= MIN_BFR_VIEWPORT_WIDTH
+    && value <= MAX_BFR_VIEWPORT_WIDTH;
+}
 
 import { isValidUUID } from '@/lib/utils/validation';
 
@@ -187,6 +198,16 @@ export const POST = withAuth(
     return createErrorResponse('Invalid JSON body', undefined, 400);
   }
 
+  const hasBfrMetadata = isBfrApiEventMetadata(body.eventType, body.metadata);
+  // The strict BFR boundary rejects invalid widths; legacy event handling stays unchanged.
+  if (
+    hasBfrMetadata
+    && body.viewportWidth !== undefined
+    && !isValidBfrViewportWidth(body.viewportWidth)
+  ) {
+    return createErrorResponse('Invalid BFR viewportWidth', undefined, 400);
+  }
+
   // 2a. Fingerprint-based bot filtering (requires body for viewportWidth).
   // Founder account is exempt — keeps Steven's testing visible (he uses Chrome
   // DevTools mobile-emulation, which can collide with Pattern B's 614px width).
@@ -195,14 +216,25 @@ export const POST = withAuth(
     return createSuccessResponse({ ok: true, status: 'bot_filtered' });
   }
 
+  const { eventType, beachId } = body;
+  let eventMetadata = body.metadata;
+  if (hasBfrMetadata) {
+    const validatedMetadata = buildBfrApiEventMetadata(
+      eventType,
+      eventMetadata,
+    );
+    if (!validatedMetadata) {
+      return createErrorResponse('Invalid BFR event metadata', undefined, 400);
+    }
+    eventMetadata = validatedMetadata as TrackEventRequest['metadata'];
+  }
+
   // 3. Device enrichment
   const enrichedMetadata = {
-    ...(body.metadata || {}),
+    ...(eventMetadata || {}),
     _device: parseUserAgent(ua),
     ...(body.viewportWidth ? { _viewport_width: body.viewportWidth } : {}),
   };
-
-  const { eventType, beachId } = body;
 
   // 4. Authenticated flow (user resolved by withAuth from cookie OR Bearer)
   if (user) {

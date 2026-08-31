@@ -8,6 +8,7 @@ import {
 import {
   hashOpaqueInstallToken,
   isInstallAttributionRedemptionEnabled,
+  parseInstallHandoffAttribution,
   parseOpaqueInstallToken,
 } from "@/lib/install-attribution-server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -33,6 +34,8 @@ interface RedeemedAttributionRow {
   campaign: string;
   created_at: string;
   expires_at: string;
+  handoff_id?: string | null;
+  handoff_context?: unknown;
 }
 
 function noStoreJson(body: unknown): NextResponse {
@@ -84,6 +87,10 @@ const handler = async (request: NextRequest): Promise<NextResponse> => {
       placement: row.placement,
       campaign: row.campaign,
     });
+    const handoff = parseInstallHandoffAttribution(
+      row.handoff_id,
+      row.handoff_context,
+    );
     return noStoreJson({
       outcome: "attributed",
       retryable: false,
@@ -91,6 +98,7 @@ const handler = async (request: NextRequest): Promise<NextResponse> => {
         ...attribution,
         createdOn: toCoarseDate(row.created_at),
         expiresOn: toCoarseDate(row.expires_at),
+        ...(handoff ?? {}),
       },
     });
   } catch {

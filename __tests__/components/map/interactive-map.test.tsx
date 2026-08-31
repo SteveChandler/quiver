@@ -1424,6 +1424,10 @@ describe("InteractiveMap", () => {
       );
       const onLocationClick = jest.fn();
       const onDisplayForecastsChange = jest.fn();
+      const heldBeach = {
+        ...beach,
+        waterQualityHold: "advisory",
+      } as typeof beach & { waterQualityHold: "advisory" };
       const partition = {
         s1Dir: 280,
         swellDirOm: 292.5,
@@ -1459,7 +1463,7 @@ describe("InteractiveMap", () => {
 
       render(
         <InteractiveMap
-          beaches={[beach]}
+          beaches={[heldBeach]}
           autoNavigateOnMarkerClick={false}
           disableBeachClustering
           markerDisplay="points"
@@ -1486,7 +1490,8 @@ describe("InteractiveMap", () => {
       expect(onLocationClick).toHaveBeenCalledWith(
         expect.objectContaining({ id: beach.id }),
         {
-          conditionSummary: "GOOD",
+          conditionSummary: "WATER QUALITY ADVISORY",
+          waterQualityHold: "advisory",
           waveHeight: "2-3ft",
           swellPeriod: "14s",
           swellDirection: "W",
@@ -1525,6 +1530,37 @@ describe("InteractiveMap", () => {
       },
     };
   }
+
+  it.each([
+    ["advanced", "advanced"],
+    [undefined, null],
+  ] as const)("forwards skill %s on the initial bulk request", async (skillLevel, expected) => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { forecasts: {} } }),
+    });
+
+    render(
+      <InteractiveMap
+        beaches={[{
+          id: "beach-1",
+          name: "Mission Beach",
+          lat: 32.77,
+          lon: -117.25,
+        } as import("@/types/database").Beach]}
+        skillLevel={skillLevel}
+      />,
+    );
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    const requestUrl = new URL(
+      String((global.fetch as jest.Mock).mock.calls[0][0]),
+      "https://example.test",
+    );
+    expect(requestUrl.searchParams.get("skillLevel")).toBe(expected);
+  });
 
   it("keeps the swell field in a truthful loading state until the initial forecast resolves", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
@@ -1736,6 +1772,82 @@ describe("InteractiveMap", () => {
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
     expect(signals[0].aborted).toBe(true);
     expect(signals[1].aborted).toBe(false);
+  });
+
+  it("repopulates on auth generation changes and discards the stale account response", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const signals: AbortSignal[] = [];
+    let accessToken = "account-a-token";
+    let authGeneration = 0;
+    let resolveFirst!: (response: Response) => void;
+    const firstResponse = new Promise<Response>((resolve) => {
+      resolveFirst = resolve;
+    });
+    global.fetch = jest.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.signal) signals.push(init.signal);
+      if (signals.length === 1) return firstResponse;
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: { forecasts: { a: 7 } } }),
+      } as Response);
+    }) as unknown as typeof fetch;
+    const getAccessToken = (): string => accessToken;
+    const getAuthGeneration = (): number => authGeneration;
+    const onWaveHeightsChange = jest.fn();
+    const beaches = [{
+      id: "a",
+      name: "A",
+      lat: 32.75,
+      lon: -117.25,
+    } as import("@/types/database").Beach];
+    const { rerender } = render(
+      <InteractiveMap
+        authGeneration={0}
+        beaches={beaches}
+        getAccessToken={getAccessToken}
+        getAuthGeneration={getAuthGeneration}
+        onWaveHeightsChange={onWaveHeightsChange}
+      />,
+    );
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+
+    accessToken = "account-b-token";
+    authGeneration = 1;
+    rerender(
+      <InteractiveMap
+        authGeneration={1}
+        beaches={beaches}
+        getAccessToken={getAccessToken}
+        getAuthGeneration={getAuthGeneration}
+        onWaveHeightsChange={onWaveHeightsChange}
+      />,
+    );
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      resolveFirst({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: { forecasts: { a: 3 } } }),
+      } as Response);
+      await firstResponse;
+    });
+    await waitFor(() => {
+      expect(
+        onWaveHeightsChange.mock.calls.some(([waveHeights]) => waveHeights.get("a") === 7),
+      ).toBe(true);
+    });
+    expect(signals[0].aborted).toBe(true);
+    expect((global.fetch as jest.Mock).mock.calls[0][1].headers).toEqual({
+      Authorization: "Bearer account-a-token",
+    });
+    expect((global.fetch as jest.Mock).mock.calls[1][1].headers).toEqual({
+      Authorization: "Bearer account-b-token",
+    });
+    expect(
+      onWaveHeightsChange.mock.calls.some(([waveHeights]) => waveHeights.get("a") === 3),
+    ).toBe(false);
   });
 
   it("aborts and invalidates a stale forecast request when the region viewport changes", async () => {
@@ -2081,7 +2193,9 @@ describe("InteractiveMap", () => {
     render(
       <InteractiveMap
         beaches={[{ id: "a", name: "A", lat: 21.28, lon: -157.85 } as import("@/types/database").Beach]}
+        getAccessToken={() => "signed-user-token"}
         showSwellField
+        skillLevel="advanced"
         swellTimelineMode="expandable-hourly"
         viewTimezone="Pacific/Honolulu"
       />,
@@ -2094,5 +2208,12 @@ describe("InteractiveMap", () => {
         .map(([, options]) => options.metadata.extension_result);
       expect(extensionResults).toEqual(["requested", result]);
     });
+    for (const [requestUrl, requestInit] of (global.fetch as jest.Mock).mock.calls) {
+      expect(new URL(String(requestUrl), "https://example.test").searchParams.get("skillLevel"))
+        .toBe("advanced");
+      expect(requestInit).toEqual(expect.objectContaining({
+        headers: { Authorization: "Bearer signed-user-token" },
+      }));
+    }
   });
 });
