@@ -379,7 +379,21 @@ describe("session acquisition funnel report", () => {
         const trace: QueryTrace = { table, calls: [] };
         traces.push(trace);
 
-        const builder = {
+        type FakeQueryBuilder = {
+          select(): FakeQueryBuilder;
+          gte(column: string): FakeQueryBuilder;
+          lt(column: string): FakeQueryBuilder;
+          in(column: string): FakeQueryBuilder;
+          order(
+            column: string,
+            options: { ascending: boolean },
+          ): FakeQueryBuilder;
+          range(from: number, to: number): FakeQueryBuilder;
+          then(
+            resolve: (result: { data: unknown[]; error: null }) => unknown,
+          ): unknown;
+        };
+        const builder: FakeQueryBuilder = {
           select(): typeof builder {
             return builder;
           },
@@ -2098,7 +2112,9 @@ describe("session acquisition funnel report", () => {
       start: START,
       end: END,
       profiles: [
-        ...["user-1", "user-2", "user-3", "user-4", "user-5"].map(profileRow),
+        ...["user-1", "user-2", "user-3", "user-4", "user-5"].map((id) =>
+          profileRow(id),
+        ),
         profileRow("other-user"),
       ],
       events: flowEvents,
@@ -3699,7 +3715,7 @@ describe("session acquisition funnel report", () => {
         writeSessionAcquisitionReportJson(outputPath, {
           ...report,
           reportSchemaVersion: 2,
-        } as typeof report),
+        } as unknown as typeof report),
       ).toThrow(
         "Refusing to write invalid session acquisition report: report_schema_version_invalid",
       );

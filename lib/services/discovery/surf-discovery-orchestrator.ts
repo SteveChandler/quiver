@@ -874,6 +874,39 @@ function mergeCandidatePools(...pools: Beach[][]): Beach[] {
   return Array.from(byId.values());
 }
 
+export function hasUsableTodayForecastForFallback(args: {
+  forecasts: EnhancedForecastEntity[];
+  beachTz: string;
+  sunset: Date | null;
+  now: Date;
+}): boolean {
+  const pastToleranceMs =
+    (FORECAST_WINDOW_DURATION_MINUTES + PAST_WINDOW_TOLERANCE_MINUTES) * 60 * 1000;
+  const usableCutoffMs = args.now.getTime() - pastToleranceMs;
+
+  return args.forecasts.some((forecast) => {
+    const forecastTime = new Date(forecast.forecast_at).getTime();
+    if (!Number.isFinite(forecastTime) || forecastTime < usableCutoffMs) {
+      return false;
+    }
+    const localHour = getLocalHour(new Date(forecastTime), args.beachTz);
+    if (localHour === null || localHour < 6) return false;
+
+    if (args.sunset) {
+      return (
+        forecastTime <=
+        args.sunset.getTime() - MIN_SESSION_HOURS * 60 * 60 * 1000
+      );
+    }
+
+    // When sun-times data is unavailable, use the selector's own defensive
+    // daylight bounds. This lets an evening request move to tomorrow while
+    // retaining today's pre-dawn/daytime rows as an intentional no-fallback
+    // answer when they are still eligible for selection.
+    return localHour < 18;
+  });
+}
+
 function recommendationKey(rec: Pick<SurfDiscoveryRecommendation, 'kind' | 'customSpotId' | 'beach'>): string {
   return rec.kind === 'custom_spot'
     ? `custom:${rec.customSpotId ?? rec.beach.id}`
@@ -1725,15 +1758,12 @@ async function discoverSurfSpotsInner(
     // not yet stale per the window selector's own past-tolerance filter
     // (window-selector-core.ts:103-110). Mirroring that filter keeps this
     // gate aligned with what selectBestWindow actually accepts.
-    const pastToleranceMs =
-      (FORECAST_WINDOW_DURATION_MINUTES + PAST_WINDOW_TOLERANCE_MINUTES) * 60 * 1000;
-    const usableCutoffMs = nowForFallback.getTime() - pastToleranceMs;
-    const hasUsableTodayForecast = beachSameDaySunset
-      ? todayForecasts.some(f => {
-          const t = new Date(f.forecast_at).getTime();
-          return t <= beachSameDaySunset.getTime() && t >= usableCutoffMs;
-        })
-      : todayForecasts.length > 0;
+    const hasUsableTodayForecast = hasUsableTodayForecastForFallback({
+      forecasts: todayForecasts,
+      beachTz,
+      sunset: beachSameDaySunset ?? null,
+      now: nowForFallback,
+    });
     const todayIsEffectivelyOver =
       (hoursUntilSunset !== null && hoursUntilSunset < MIN_SESSION_HOURS) ||
       (todayForecasts.length > 0 && !hasUsableTodayForecast);

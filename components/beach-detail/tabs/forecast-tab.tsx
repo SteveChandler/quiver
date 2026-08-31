@@ -548,7 +548,7 @@ export function ForecastTab({
           )}
 
           {/* Best Surf Window — authenticated users only. */}
-          {user && (
+          {user && surfCall?.verdict !== "NO" && (
           <BestSurfWindow
             beachId={beach.id}
             beachName={beach.name}

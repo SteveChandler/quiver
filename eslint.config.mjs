@@ -27,7 +27,6 @@ export default tseslint.config(
       "node_modules/**",
       "playwright-report/**",
       "public/**",
-      "scripts/**",
       "supabase/**",
       "test-results/**",
       "tools/**",
@@ -61,7 +60,7 @@ export default tseslint.config(
       // as allowed to avoid turning logs into CI failures.
       "no-console": [
         "warn",
-        { allow: ["debug", "info", "log", "warn", "error"] },
+        { allow: ["debug", "group", "groupEnd", "info", "log", "table", "warn", "error"] },
       ],
       "react-hooks/error-boundaries": "off",
       "react-hooks/incompatible-library": "off",
@@ -163,6 +162,12 @@ export default tseslint.config(
       }],
       "jest/valid-expect": "error",
       "jest/no-identical-title": "error",
+    },
+  },
+  {
+    files: ["scripts/**/__tests__/**/*.{ts,tsx}"],
+    rules: {
+      "jest/no-standalone-expect": "off",
     },
   },
   // Playwright-specific rules for E2E tests

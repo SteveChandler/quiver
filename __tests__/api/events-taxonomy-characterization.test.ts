@@ -7,6 +7,8 @@
  */
 
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   ANONYMOUS_ALLOWED_EVENTS,
@@ -75,6 +77,7 @@ const BFR_NATIVE_EVENTS = [
   "home_recommendation_changed",
 ] as const;
 const BFR_ANONYMOUS_RESOLUTION_EVENT = "watched_call_context_resolved";
+const WEEK_SCOUT_STABILITY_EVENT = "week_scout_stability";
 
 function sortedEventSetHash(eventTypes: readonly string[]): string {
   return createHash("sha256")
@@ -218,6 +221,25 @@ describe("events taxonomy characterization", () => {
       BFR_ANONYMOUS_RESOLUTION_EVENT
     );
     expect(VALID_EVENTS).toEqual(expect.not.arrayContaining(directOnlyEvents));
+  });
+
+  it("keeps week scout stability native-only and accepted by the database", () => {
+    const migrationSql = readFileSync(
+      join(
+        process.cwd(),
+        "supabase/migrations/20260831131500_add_week_scout_stability_event.sql"
+      ),
+      "utf8"
+    );
+
+    expect(NATIVE_DIRECT_INSERT_EVENTS).toContain(WEEK_SCOUT_STABILITY_EVENT);
+    expect(VALID_EVENTS).not.toContain(WEEK_SCOUT_STABILITY_EVENT);
+    expect(migrationSql).toMatch(/^BEGIN;/m);
+    expect(migrationSql).toMatch(/^COMMIT;/m);
+    expect(migrationSql).toContain("pg_get_constraintdef");
+    expect(migrationSql).toContain("ADD CONSTRAINT user_events_event_type_check");
+    expect(migrationSql).toContain(`'${WEEK_SCOUT_STABILITY_EVENT}'`);
+    expect(migrationSql).not.toMatch(/\bDELETE\b|\bTRUNCATE\b|\bDROP TABLE\b/i);
   });
 
   it("keeps historical session events registered under their existing names", () => {

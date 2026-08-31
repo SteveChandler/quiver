@@ -158,8 +158,9 @@ const EMPTY_RESULT: TrustedForecastEngineResult = Object.freeze({
 });
 
 /** D-24: an unset flag keeps the deliberately enabled serving default. */
-export function isTrustedForecastAdjustmentEnabled(): boolean {
-  const raw = process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
+export function isTrustedForecastAdjustmentEnabled(
+  raw = process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED,
+): boolean {
   if (raw === undefined) return true;
 
   const value = raw.trim().toLowerCase();
