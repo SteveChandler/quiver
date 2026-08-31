@@ -306,6 +306,7 @@ describe("NOTIFICATION_REGISTRY.similarity_match — onChannelOutcome", () => {
         channel: "push",
         status: "sent",
         skip_reason: "sent",
+        message_instance_id: "evt-1",
       },
     ]);
   });

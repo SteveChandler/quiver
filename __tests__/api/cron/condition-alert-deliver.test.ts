@@ -113,6 +113,7 @@ type AttemptRow = {
   channel: string;
   status: string;
   skip_reason: string | null;
+  message_instance_id?: string;
 };
 type SeededAttemptRow = {
   queue_id: string;
@@ -654,6 +655,9 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
         unsubscribeUrl:
           `https://quiversurf.app/api/alerts/unsubscribe-email?user_id=${USER_A}` +
           "&token=test-unsubscribe-token",
+        messageInstanceId: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+        ),
       }),
     );
     expect(mockSendPushNotifications).not.toHaveBeenCalled();
@@ -668,6 +672,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       expect.objectContaining({
         userId: USER_A,
         emailType: "conditions_alert",
+        messageInstanceId: expect.any(String),
         subject: expect.stringMatching(/^Test Beach: surf window /),
         meta: expect.objectContaining({
           match_count: expect.any(Number),
@@ -684,7 +689,14 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       rule_id: RULE_1,
       channel: "email",
       status: "sent",
+      message_instance_id: expect.any(String),
     });
+    const messageInstanceId = mockConsolidatedAlertEmail.mock.calls[0][0]
+      .messageInstanceId;
+    expect(mockLogDelivery.mock.calls[0][0].messageInstanceId).toBe(
+      messageInstanceId,
+    );
+    expect(store.attemptInserts[0].message_instance_id).toBe(messageInstanceId);
 
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
     expect(body.queue_marked_by_reason).toMatchObject({

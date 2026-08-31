@@ -650,6 +650,7 @@ export const NOTIFICATION_REGISTRY = {
         channel: "push" as const,
         status: mapped,
         skip_reason: `watched_call:${event.payload.category}:${status}`,
+        message_instance_id: event.id,
       }));
       if (rows.length === 0) return;
       const { error } = await supabase.from("alert_delivery_attempts").insert(rows);
@@ -736,6 +737,7 @@ export const NOTIFICATION_REGISTRY = {
         channel: "push" as const,
         status: mapped,
         skip_reason: status,
+        message_instance_id: event.id,
       }));
 
       const { error } = await supabase
@@ -859,6 +861,7 @@ export const NOTIFICATION_REGISTRY = {
         channel: "push" as const,
         status: mapped,
         skip_reason: status,
+        message_instance_id: event.id,
       }));
 
       const { error } = await supabase

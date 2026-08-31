@@ -137,6 +137,7 @@ interface MockState {
     channel: "push";
     status: string;
     skip_reason: string | null;
+    message_instance_id?: string;
   }>;
   eventUpdates: Array<{
     id: string;
@@ -300,6 +301,7 @@ function buildMockSupabase(state: MockState) {
           row: Partial<{
             status: string;
             skip_reason: string | null;
+            message_instance_id?: string;
             claimed_at: string | null;
             claim_token: string | null;
             processed_at: string | null;
@@ -1083,16 +1085,22 @@ describe("processPendingEvents — happy path", () => {
         channel: "push",
         status: "sent",
         skip_reason: "sent",
+        message_instance_id: "evt-forecast",
       },
     ]);
     const sentMessages = (
       fakeFcm.sendEach.mock.calls[0] as unknown[]
     )[0] as Array<{
+      data?: Record<string, string>;
       android?: { notification?: { channelId?: string } };
       apns?: { payload?: { aps?: { sound?: string } } };
     }>;
     expect(sentMessages[0]).toMatchObject({
       apns: { payload: { aps: { sound: "quiver-alert.wav" } } },
+    });
+    expect(sentMessages[0].data).toMatchObject({
+      notification_event_id: "evt-forecast",
+      message_instance_id: "evt-forecast",
     });
     expect(sentMessages[0]).not.toHaveProperty("android");
     expect(sentMessages[1]).toMatchObject({
@@ -1144,6 +1152,7 @@ describe("processPendingEvents — happy path", () => {
       channel: "push",
       status: "skipped_no_device",
       skip_reason: "skipped_no_device",
+      message_instance_id: "evt-forecast-no-device",
     });
   });
 
@@ -1207,6 +1216,7 @@ describe("processPendingEvents — happy path", () => {
         channel: "push",
         status: "sent",
         skip_reason: "sent",
+        message_instance_id: "evt-similarity",
       },
     ]);
   });
@@ -1725,6 +1735,7 @@ describe("processPendingEvents — terminal skips", () => {
         channel: "push",
         status: "skipped_disabled",
         skip_reason: "skipped_disabled",
+        message_instance_id: "evt-held-forecast",
       },
     ]);
   });
@@ -1952,6 +1963,7 @@ describe("processPendingEvents — terminal skips", () => {
       channel: "push",
       status: "skipped_disabled",
       skip_reason: "skipped_disabled",
+      message_instance_id: "evt-held-after-claim",
     });
 
     state.events.push(
