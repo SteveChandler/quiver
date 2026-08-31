@@ -57,8 +57,8 @@ function renderFallback(): ImageResponse {
   );
 }
 
-function formatScore(score: number): string {
-  if (!Number.isFinite(score) || score <= 0) return "";
+function formatScore(score: number | null): string {
+  if (score === null || !Number.isFinite(score) || score <= 0) return "";
   return `${(score / 10).toFixed(1)}/10`;
 }
 
@@ -68,7 +68,7 @@ function truncate(value: string, max: number): string {
 }
 
 function surfCallSubtitle(params: {
-  score: number;
+  score: number | null;
   windowTime: string;
   waveHeight: string;
   timeContext: string;
@@ -89,7 +89,7 @@ function surfCallSubtitle(params: {
 
 interface ResolvedSurfCallCard {
   beachName: string;
-  score: number;
+  score: number | null;
   waveHeight: string;
   timeContext: string;
   conditionLabel: string;

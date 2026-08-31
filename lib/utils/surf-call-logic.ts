@@ -54,7 +54,8 @@ export interface SurfCallResult {
   whySentence: string;
   forecastConfidence: number;
   lowForecastConfidence: boolean;
-  score: number;
+  /** Null when no selected window was scored; zero is a valid scored result. */
+  score: number | null;
   peakTime: string | null;
   trendTags: TrendTag[];
   updatedAt: string;
