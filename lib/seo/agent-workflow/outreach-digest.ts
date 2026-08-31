@@ -169,24 +169,39 @@ export function buildDraftCandidate(
   };
 }
 
+// Beach columns hold URL slugs (`linda-mar-pacifica-ca`), which read badly in a
+// sentence. Drop the trailing state code and title-case the rest.
+function humanizeBeach(slug: string | undefined): string | undefined {
+  if (!slug) return undefined;
+  const words = slug.split("-").filter(Boolean);
+  if (words.length > 1 && /^[a-z]{2}$/.test(words[words.length - 1] ?? "")) words.pop();
+  if (words.length === 0) return undefined;
+  return words
+    .map((word) => (/[A-Z]/.test(word) ? word : word.charAt(0).toUpperCase() + word.slice(1)))
+    .join(" ");
+}
+
+// Quiver ships no live ML forecast — ML corrections have been off since 2026-04-23
+// because raw Open-Meteo beat them by 35% MAE. No template may claim ML, AI, or a
+// spot count, and none may claim Quiver beats a named competitor.
 function draftCopy(
   row: OutreachTrackerRow,
   category: OutreachRotationCategory,
 ): { subject: string; body: string } {
-  const where = row.nearestBeach ? row.nearestBeach : "your local breaks";
+  const where = humanizeBeach(row.nearestBeach) ?? "your local breaks";
   const opener = row.target ? `Hi ${row.target} team,` : "Hi,";
   const signoff = "Cheers,\nSteven\nQuiver - free surf forecasts (quiversurf.app)";
 
   if (category === "surf-schools") {
     return {
-      subject: `Free ML surf forecasts for your ${where} crew`,
+      subject: `Free surf forecasts for ${where}`,
       body: [
         opener,
         "",
-        `I run Quiver, a free surf-forecast app with ML-tuned forecasts for ${where} and 5,000+ US spots. No paywall.`,
-        "Happy to set your school up with a free embeddable conditions widget for your site, or just be a resource your students can check before a session.",
+        `I run Quiver, a free surf-forecast site. We have a conditions page for ${where}, alongside beach pages across 16 states and Puerto Rico. No login, no paywall.`,
+        "Happy to set you up with a free embeddable conditions widget for your site, or just be a resource people can check before a session.",
         "You can see it live here: https://www.quiversurf.app/for-surf-schools",
-        "Would a quick look be useful?",
+        "Would a quick look be useful? A one-line no is completely fine.",
         "",
         signoff,
       ].join("\n"),
@@ -199,8 +214,9 @@ function draftCopy(
       body: [
         opener,
         "",
-        "Big fan of your surf content. I built Quiver: free, ML-powered surf forecasts across the US with session logging, no premium paywall.",
+        "Big fan of your surf content. I built Quiver: free surf forecasts across the US, with session logging and no premium paywall.",
         "If it is a fit, I would love to get it in front of your audience: an honest look, an embeddable conditions widget, or a walkthrough, whatever works for you.",
+        "A one-line no is completely fine.",
         "",
         signoff,
       ].join("\n"),
@@ -213,22 +229,25 @@ function draftCopy(
       body: [
         opener,
         "",
-        `Quiver is a free surf-forecast app with live ML conditions for ${where}. I can give you a free embeddable widget so your visitors can check the surf right on your site.`,
+        `Quiver is a free surf-forecast site with live conditions for ${where}. I can give you a free embeddable widget so your visitors can check the surf right on your site.`,
         "No cost, no catch: just a useful add for a coastal audience. Want me to send the embed?",
+        "A one-line no is completely fine.",
         "",
         signoff,
       ].join("\n"),
     };
   }
 
-  const angle = row.angle ? row.angle : "the ML behind free surf forecasts";
+  const angle = row.angle
+    ? row.angle
+    : "what surfer-logged sessions reveal about wave forecasts";
   return {
     subject: `Story idea: ${angle}`,
     body: [
       opener,
       "",
-      `I run Quiver, a free surf-forecast platform. Possible angle for you: ${angle}: how machine-learning forecasts, trained on local buoy and session data, stack up against paid services.`,
-      "Happy to share data, methodology, and honest accuracy numbers if it is interesting.",
+      `I run Quiver, a free surf-forecast site. Possible angle for you: ${angle}. Wave models are validated against offshore buoys, and buoys are sparse and sit a long way from the sand. We collect what surfers report at the beach, so we can show where the model and the beach disagree.`,
+      "Happy to hand over the raw data and the methodology, with no expectation of a link.",
       "",
       signoff,
     ].join("\n"),
@@ -268,6 +287,21 @@ function buildRow(
     return undefined;
   };
 
+  // Header cells in the live tracker are "Beach slug (verified 200)" and
+  // "Nearest Beach (verified 200)". Neither normalizes to "nearestbeach", so the
+  // exact-match lookup always returned undefined and every draft fell back to the
+  // "your local breaks" placeholder. Match on prefix instead.
+  const getPrefix = (prefixes: string[]): string | undefined => {
+    for (const prefix of prefixes) {
+      const index = header.findIndex((name) => name.startsWith(prefix));
+      if (index >= 0) {
+        const value = stripCode(cells[index] ?? "");
+        if (value) return value;
+      }
+    }
+    return undefined;
+  };
+
   const statusRaw = get(["status", "accountstatus"]);
   const status = rejectedSection
     ? "rejected"
@@ -280,7 +314,7 @@ function buildRow(
     target,
     website: get(["website", "websitechannel", "url", "directory"]),
     contact: get(["contact"]),
-    nearestBeach: get(["nearestbeach"]),
+    nearestBeach: getPrefix(["nearestbeach", "beachslug"]),
     angle: get(["angle"]),
     notes: get(["notes", "reason"]),
     status,
