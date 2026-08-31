@@ -1,5 +1,8 @@
 import {
+  NATIVE_SKILL_THRESHOLDS,
+  OUT_OF_BAND_SCORE_CEILING,
   pickBestNativeForecastSlot,
+  scoreNativeConditionInputs,
   scoreNativeForecastSlot,
 } from "@/lib/scoring/native-condition-score";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -27,22 +30,141 @@ function forecast(
 }
 
 describe("native-condition-score", () => {
-  it("returns 0 when wave is below skill min", () => {
+  const pristineInputs = {
+    windSpeedMph: 0,
+    periodSec: 13,
+    tideHeightFt: 3,
+    tideStatus: "Rising",
+  };
+
+  it("preserves current in-band scores", () => {
+    const cases = [
+      { waveHeightFt: 1, expected: 55 },
+      { waveHeightFt: 2, expected: 73 },
+      { waveHeightFt: 3.5, expected: 100 },
+      { waveHeightFt: 5, expected: 73 },
+      { waveHeightFt: 6, expected: 55 },
+    ];
+
+    for (const { waveHeightFt, expected } of cases) {
+      expect(
+        scoreNativeConditionInputs(
+          { waveHeightFt, ...pristineInputs },
+          "intermediate",
+        ),
+      ).toBe(expected);
+    }
+  });
+
+  it("keeps non-positive wave heights at 0", () => {
     expect(
-      scoreNativeForecastSlot(
-        forecast({ wave_height: "0.3 ft", wind_speed: "0 mph" }),
-        "intermediate"
-      )
+      scoreNativeConditionInputs(
+        { waveHeightFt: 0, ...pristineInputs },
+        "intermediate",
+      ),
     ).toBe(0);
   });
 
-  it("returns 0 when wave is above skill max", () => {
+  it("softens the K-40 skill cliff without changing the advanced score", () => {
+    const inputs = {
+      waveHeightFt: 7.1,
+      windSpeedMph: 10,
+      periodSec: 17,
+      tideHeightFt: 3,
+      tideStatus: "Rising",
+    };
+
+    expect(scoreNativeConditionInputs(inputs, "intermediate")).toBe(28);
+    expect(scoreNativeConditionInputs(inputs, "advanced")).toBe(73);
+  });
+
+  it("decreases with distance and poor wind above the band", () => {
+    const { waveMaxFt } = NATIVE_SKILL_THRESHOLDS.intermediate;
+    const slightOver = scoreNativeConditionInputs(
+      { waveHeightFt: waveMaxFt + 0.5, ...pristineInputs },
+      "intermediate",
+    );
+    const wayOver = scoreNativeConditionInputs(
+      { waveHeightFt: waveMaxFt * 1.5, ...pristineInputs },
+      "intermediate",
+    );
+    const wayOverWithJunkWind = scoreNativeConditionInputs(
+      {
+        waveHeightFt: waveMaxFt * 1.5,
+        ...pristineInputs,
+        windSpeedMph: 30,
+      },
+      "intermediate",
+    );
+
+    expect([slightOver, wayOver, wayOverWithJunkWind]).toEqual([39, 18, 10]);
+  });
+
+  it("mirrors attenuation below the band", () => {
+    const { waveMinFt } = NATIVE_SKILL_THRESHOLDS.intermediate;
+    const slightUnder = scoreNativeConditionInputs(
+      { waveHeightFt: waveMinFt - 0.25, ...pristineInputs },
+      "intermediate",
+    );
+    const farUnder = scoreNativeConditionInputs(
+      { waveHeightFt: waveMinFt - 0.5, ...pristineInputs },
+      "intermediate",
+    );
+    const verySmall = scoreNativeConditionInputs(
+      { waveHeightFt: 0.3, ...pristineInputs },
+      "intermediate",
+    );
+
+    expect([slightUnder, farUnder, verySmall]).toEqual([37, 18, 4]);
+  });
+
+  it("reaches 0 at and beyond 75% excess", () => {
+    const { waveMaxFt } = NATIVE_SKILL_THRESHOLDS.intermediate;
+
     expect(
-      scoreNativeForecastSlot(
-        forecast({ wave_height: "20 ft", wind_speed: "0 mph" }),
-        "intermediate"
-      )
+      scoreNativeConditionInputs(
+        { waveHeightFt: waveMaxFt * 1.75, ...pristineInputs },
+        "intermediate",
+      ),
     ).toBe(0);
+    expect(
+      scoreNativeConditionInputs(
+        { waveHeightFt: waveMaxFt * 2, ...pristineInputs },
+        "intermediate",
+      ),
+    ).toBe(0);
+  });
+
+  it("caps pristine conditions just outside the band below RIDEABLE", () => {
+    const { waveMaxFt } = NATIVE_SKILL_THRESHOLDS.intermediate;
+
+    expect(
+      scoreNativeConditionInputs(
+        { waveHeightFt: waveMaxFt + 0.01, ...pristineInputs },
+        "intermediate",
+      ),
+    ).toBe(OUT_OF_BAND_SCORE_CEILING);
+  });
+
+  it("is non-increasing as height moves farther outside either band edge", () => {
+    const { waveMinFt, waveMaxFt } = NATIVE_SKILL_THRESHOLDS.intermediate;
+    const heightSweeps = [
+      [waveMaxFt + 0.01, waveMaxFt + 0.5, waveMaxFt * 1.25, waveMaxFt * 1.75, waveMaxFt * 2],
+      [waveMinFt - 0.01, waveMinFt - 0.25, waveMinFt - 0.5, waveMinFt - 0.75, 0.01],
+    ];
+
+    for (const heights of heightSweeps) {
+      const scores = heights.map((waveHeightFt) =>
+        scoreNativeConditionInputs(
+          { waveHeightFt, ...pristineInputs },
+          "intermediate",
+        ),
+      );
+
+      for (let index = 1; index < scores.length; index += 1) {
+        expect(scores[index]).toBeLessThanOrEqual(scores[index - 1]);
+      }
+    }
   });
 
   it("peaks at 100 near the ideal midpoint with calm wind, long period, and good tide", () => {
@@ -74,12 +196,12 @@ describe("native-condition-score", () => {
     );
   });
 
-  it("keeps the no-board score unchanged while accepting a longboard-sized advanced wave", () => {
+  it("scores a longboard-sized advanced wave higher with the board band", () => {
     const row = forecast({ wave_height: "1.1 ft", wave_period: "13s" });
     const longboardBand = getRideabilityBand("advanced", "longboard");
 
-    expect(scoreNativeForecastSlot(row, "advanced")).toBe(0);
-    expect(scoreNativeForecastSlot(row, "advanced", longboardBand)).toBeGreaterThan(0);
+    expect(scoreNativeForecastSlot(row, "advanced")).toBe(22);
+    expect(scoreNativeForecastSlot(row, "advanced", longboardBand)).toBe(57);
   });
 
   it("drops sharply with high wind", () => {
@@ -111,7 +233,7 @@ describe("native-condition-score", () => {
     });
 
     expect(scoreNativeForecastSlot(row, "beginner")).toBe(80);
-    expect(scoreNativeForecastSlot(row, "advanced")).toBe(0);
+    expect(scoreNativeForecastSlot(row, "advanced")).toBe(36);
   });
 
   it("selects the highest-scored slot from a group", () => {
