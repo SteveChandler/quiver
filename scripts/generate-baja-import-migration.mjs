@@ -89,6 +89,14 @@ function assertDataset(dataset) {
     if (spot.swell_window_min_deg == null || spot.swell_window_max_deg == null) {
       throw new Error(`Missing swell window for ${spot.source_spot_id}`);
     }
+    if (
+      spot.swell_window_min_deg < 0 ||
+      spot.swell_window_min_deg >= 360 ||
+      spot.swell_window_max_deg < 0 ||
+      spot.swell_window_max_deg >= 360
+    ) {
+      throw new Error(`Swell window outside [0, 360) for ${spot.source_spot_id}`);
+    }
     if (!spot.media?.hero?.visual_reviewed) {
       throw new Error(`Hero image is not approved for ${spot.source_spot_id}`);
     }
