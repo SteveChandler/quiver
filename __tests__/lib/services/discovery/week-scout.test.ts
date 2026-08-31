@@ -25,9 +25,15 @@ import {
 } from '@/lib/services/discovery/week-scout';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import {
+  calculateDistancePenalty,
+  WORTH_THE_DRIVE_REASON,
+} from '@/lib/services/discovery/distance-friction';
+import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
 
 const BEACH_A = '11111111-1111-4111-8111-111111111111';
 const BEACH_B = '22222222-2222-4222-8222-222222222222';
+const K40_LOCATION = { lat: 32.2, lon: -116.91 };
 
 function beach(id: string, name: string): Beach {
   return {
@@ -139,6 +145,35 @@ function dependencies(): WeekScoutServiceDependencies {
       })),
     })),
   };
+}
+
+function k40Dependencies(rawScores: Record<string, number>): WeekScoutServiceDependencies {
+  const deps = dependencies();
+  const beaches = [
+    { ...beach(BEACH_A, 'K-40'), ...K40_LOCATION },
+    { ...beach(BEACH_B, 'Ocean Beach Pier'), lat: 32.749, lon: -117.252 },
+  ];
+  deps.fetchBeaches = jest.fn(async () => beaches);
+  deps.rankWindows = jest.fn((recommendations) => ({
+    reranked: recommendations,
+    diagnostics: recommendations.map((recommendation, index) => ({
+      beachSlug: recommendation.beach.id,
+      representativeSlotScore: recommendation.score,
+      setupSuitability: 80,
+      windAlignment: recommendation.subscores.windAlignment,
+      tideFit: recommendation.subscores.tideFit,
+      waveHeightFit: recommendation.subscores.waveHeightFit,
+      periodEnergyScore: recommendation.subscores.periodEnergyScore,
+      affinityBonus: recommendation.subscores.affinityBonus,
+      windowDurationHours: 2,
+      windowPersistence: 100,
+      heroWindowScore: rawScores[recommendation.beach.id],
+      finalRank: index,
+      isHero: index === 0,
+      sharedSetupSignal: { directionDeg: 315, periodS: 12, source: 'cluster-majority' },
+    })),
+  }));
+  return deps;
 }
 
 describe('generateWeekScoutForecast', () => {
@@ -675,5 +710,76 @@ describe('generateWeekScoutForecast', () => {
       reasonCode: 'hold_state_unavailable',
       selection: null,
     });
+  });
+
+  it('ranks the near K-40 candidate above a modestly stronger raw Ocean Beach score', async () => {
+    const rawScores = { [BEACH_A]: 82, [BEACH_B]: 89 };
+    const response = await generateWeekScoutForecastForDays(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 1,
+        userLocation: K40_LOCATION,
+      },
+      k40Dependencies(rawScores),
+    );
+    const morning = response.days[0].windows.filter(({ bucket }) => bucket === 'morning');
+    const winner = response.days[0].windows.find(
+      ({ id }) => id === response.days[0].bestWindowId,
+    );
+    const farDistance = calculateDistanceInMiles(K40_LOCATION, {
+      lat: 32.749,
+      lon: -117.252,
+    });
+
+    expect(morning[0].beachId).toBe(BEACH_A);
+    expect(winner?.beachId).toBe(BEACH_A);
+    expect(morning.find(({ beachId }) => beachId === BEACH_B)?.rankingScore).toBe(
+      rawScores[BEACH_B] + calculateDistancePenalty(farDistance),
+    );
+  });
+
+  it('keeps a much stronger distant winner and marks it worth the drive', async () => {
+    const response = await generateWeekScoutForecastForDays(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 1,
+        userLocation: K40_LOCATION,
+      },
+      k40Dependencies({ [BEACH_A]: 82, [BEACH_B]: 98 }),
+    );
+    const winner = response.days[0].windows.find(
+      ({ id }) => id === response.days[0].bestWindowId,
+    );
+
+    expect(winner?.beachId).toBe(BEACH_B);
+    expect(winner?.rankedSpots.find(({ beachId }) => beachId === BEACH_B)?.reason).toBe(
+      WORTH_THE_DRIVE_REASON,
+    );
+  });
+
+  it('preserves ranking scores exactly when request coordinates are unavailable', async () => {
+    const rawScores = { [BEACH_A]: 82, [BEACH_B]: 83 };
+    const response = await generateWeekScoutForecastForDays(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 1,
+      },
+      k40Dependencies(rawScores),
+    );
+    const morning = response.days[0].windows.filter(({ bucket }) => bucket === 'morning');
+
+    expect(morning.map(({ beachId, rankingScore }) => ({ beachId, rankingScore }))).toEqual([
+      { beachId: BEACH_B, rankingScore: rawScores[BEACH_B] },
+      { beachId: BEACH_A, rankingScore: rawScores[BEACH_A] },
+    ]);
   });
 });
