@@ -143,8 +143,18 @@ export const COOPS_STATIONS: Record<string, string> = {
   assateague: "8570283",
 
   // Virginia
-  "virginia-beach": "8638610", // Sewells Point station
-  sandbridge: "8638610",
+  "assateague-beach-(virginia)": "8630413",
+  "north-end": "8639208",
+  "virginia-beach": "8639208",
+  "virginia-beach-pier": "8639208",
+  "1st-street-jetty": "8639208",
+  "croatan-jetty": "8639208",
+  "croatan-beach": "8639208",
+  "camp-pendleton": "8639208",
+  sandbridge: "8639428",
+  "sandbridge-beach": "8639428",
+  "s-turn": "8639428",
+  "little-island-fishing-pier": "8639428",
 
   // North Carolina - Outer Banks
   "cape-hatteras": "8652587", // Oregon Inlet station
