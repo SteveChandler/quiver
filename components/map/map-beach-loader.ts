@@ -65,6 +65,9 @@ export interface BeachLoaderResult {
 }
 
 export interface BeachLoaderOptions {
+  skillLevel?: string;
+  getAccessToken?: () => string | null;
+  onAuthTokenExpired?: () => void;
   timeline?: "hourly";
   timelineStart?: string;
   timelineHours?: number;
@@ -74,6 +77,25 @@ export interface BeachLoaderOptions {
   initialForecastResponsePromise?: Promise<unknown> | null;
   /** Expose resolved beach geometry before forecast enrichment completes. */
   onLocationsResolved?: (locations: Beach[]) => void;
+}
+
+export async function fetchBulkForecast(
+  url: string,
+  signal: AbortSignal | undefined,
+  getAccessToken?: () => string | null,
+  onAuthTokenExpired?: () => void,
+): Promise<Response> {
+  const accessToken = getAccessToken?.();
+  if (!accessToken) return fetch(url, { signal });
+
+  const response = await fetch(url, {
+    signal,
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (![401, 403, 500].includes(response.status)) return response;
+
+  onAuthTokenExpired?.();
+  return fetch(url, { signal });
 }
 
 const REQUIRED_SWELL_PARTITION_KEYS = [
@@ -328,6 +350,9 @@ export async function loadBeachesAndWaveHeights(
             }
           }
           const searchParams = new URLSearchParams({ beachIds: batchIds.join(",") });
+          if (options.skillLevel !== undefined) {
+            searchParams.set("skillLevel", options.skillLevel);
+          }
           if (options.timeline === "hourly") {
             searchParams.set("timeline", "hourly");
             if (options.timelineOnly) searchParams.set("timelineOnly", "true");
@@ -337,9 +362,11 @@ export async function loadBeachesAndWaveHeights(
               searchParams.set("timelineHours", String(options.timelineHours));
             }
           }
-          const response = await fetch(
+          const response = await fetchBulkForecast(
             `/api/forecasts/bulk?${searchParams.toString()}`,
-            { signal: options.signal },
+            options.signal,
+            options.getAccessToken,
+            options.onAuthTokenExpired,
           );
           if (!response.ok) {
             if (response.status !== 400) {

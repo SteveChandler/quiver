@@ -37,6 +37,7 @@ import {
 } from "@/components/map/map-marker-builder";
 import {
   loadBeachesAndWaveHeights,
+  fetchBulkForecast,
   parseHourlySwellTimeline,
   type ConditionSummary,
   type BeachLoaderResult,
@@ -378,6 +379,11 @@ interface InteractiveMapProps {
   } | null;
   initialNearbyBeachesPromise?: Promise<unknown> | null;
   initialForecastResponsePromise?: Promise<unknown> | null;
+  authGeneration?: number;
+  skillLevel?: string;
+  getAccessToken?: () => string | null;
+  getAuthGeneration?: () => number;
+  onAuthTokenExpired?: () => void;
   beaches?: Beach[]; // Filtered beaches to display on map (if provided, skips API fetch)
   customSpots?: CustomSpot[];
   autoNavigateOnMarkerClick?: boolean; // Whether marker clicks auto-navigate to beach page (default: true)
@@ -539,6 +545,11 @@ export function InteractiveMap({
   regionViewport,
   initialNearbyBeachesPromise = null,
   initialForecastResponsePromise = null,
+  authGeneration = 0,
+  skillLevel,
+  getAccessToken,
+  getAuthGeneration,
+  onAuthTokenExpired,
   beaches,
   customSpots = EMPTY_CUSTOM_SPOTS,
   autoNavigateOnMarkerClick = true,
@@ -840,9 +851,10 @@ export function InteractiveMap({
   );
 
   const timelineTimezone = viewTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC";
-  const hourlyTimelineScopeKey = `${[...hourlyTimelineBeachIds].sort().join(",")}|${timelineTimezone}`;
+  const hourlyTimelineScopeKey = `${[...hourlyTimelineBeachIds].sort().join(",")}|${timelineTimezone}|${authGeneration}`;
   const loadHourlyChunk = useCallback(
     async (start: string, hours: number, signal: AbortSignal): Promise<HourlySwellTimeline> => {
+      const requestAuthGeneration = getAuthGeneration?.() ?? authGeneration;
       const beachIds = hourlyTimelineBeachIdsRef.current;
       if (beachIds.length === 0) throw new Error("No beaches are available for the forecast timeline");
 
@@ -852,15 +864,24 @@ export function InteractiveMap({
         timelineStart: start,
         timelineHours: String(hours),
       });
-      const response = await fetch(`/api/forecasts/bulk?${searchParams.toString()}`, { signal });
+      if (skillLevel !== undefined) searchParams.set("skillLevel", skillLevel);
+      const response = await fetchBulkForecast(
+        `/api/forecasts/bulk?${searchParams.toString()}`,
+        signal,
+        getAccessToken,
+        onAuthTokenExpired,
+      );
       if (!response.ok) throw new Error(`Bulk forecast API returned ${response.status}`);
 
       const body = await response.json();
+      if ((getAuthGeneration?.() ?? authGeneration) !== requestAuthGeneration) {
+        throw new DOMException("Aborted", "AbortError");
+      }
       const timeline = parseHourlySwellTimeline(body?.data?.hourlySwellTimeline, beachIds);
       if (!timeline) throw new Error("Bulk forecast API returned an invalid hourly timeline");
       return timeline;
     },
-    [],
+    [authGeneration, getAccessToken, getAuthGeneration, onAuthTokenExpired, skillLevel],
   );
   const isExpandableFramePlayable = useCallback(
     (timeline: HourlySwellTimeline, index: number): boolean => {
@@ -1556,7 +1577,7 @@ export function InteractiveMap({
         4
       )}-${zoom.toFixed(2)}-${beachesKey}-${swellTimelineMode ?? "legacy"}-${
         timelineFocusBeachId ?? "no-focus"
-      }`;
+      }-${skillLevel ?? "no-skill"}-${authGeneration}`;
 
       if (lastPopulateKeyRef.current === populateKey) {
         return;
@@ -1568,6 +1589,11 @@ export function InteractiveMap({
       populateAbortControllerRef.current = abortController;
       const requestId = populateRequestIdRef.current + 1;
       populateRequestIdRef.current = requestId;
+      const requestAuthGeneration = getAuthGeneration?.() ?? authGeneration;
+      const isCurrentRequest = (): boolean =>
+        requestId === populateRequestIdRef.current &&
+        !abortController.signal.aborted &&
+        (getAuthGeneration?.() ?? authGeneration) === requestAuthGeneration;
       forecastUnavailableRef.current = false;
       setSwellFieldLoadStatus("loading");
       if (swellTimelineMode === "hourly") {
@@ -1605,6 +1631,9 @@ export function InteractiveMap({
             { fetchNearbyBeaches: fetchNearbyBeachesWithPreload },
             {
               timeline: "hourly",
+              skillLevel,
+              getAccessToken,
+              onAuthTokenExpired,
               timelineHours: FULL_FORECAST_TIMELINE_HOURS,
               timelineFocusBeachId,
               timelineOnly: true,
@@ -1615,12 +1644,7 @@ export function InteractiveMap({
           timelinePromise = pendingTimeline;
         };
         const onLocationsResolved = (locations: Beach[]): void => {
-          if (
-            requestId !== populateRequestIdRef.current ||
-            abortController.signal.aborted
-          ) {
-            return;
-          }
+          if (!isCurrentRequest()) return;
           setSwellFieldBeaches(locations);
         };
         const mergeMapEntries = <T,>(
@@ -1720,18 +1744,24 @@ export function InteractiveMap({
           swellTimelineMode === "expandable-hourly"
             ? {
                 timeline: "hourly",
+                skillLevel,
+                getAccessToken,
+                onAuthTokenExpired,
                 timelineHours: INITIAL_EXPANDABLE_TIMELINE_HOURS,
                 timelineFocusBeachId,
                 signal: abortController.signal,
                 onLocationsResolved,
               }
             : {
+                skillLevel,
+                getAccessToken,
+                onAuthTokenExpired,
                 signal: abortController.signal,
                 initialForecastResponsePromise: preloadedForecast,
                 onLocationsResolved,
               },
         );
-        if (requestId !== populateRequestIdRef.current) return;
+        if (!isCurrentRequest()) return;
         commitResult(initialResult, false);
 
         if (swellTimelineMode === "hourly") {
@@ -1742,8 +1772,7 @@ export function InteractiveMap({
             startTimelineLoad(initialResult.locations);
             timelineResult = await timelinePromise!;
           } catch (error) {
-            if (requestId !== populateRequestIdRef.current) return;
-            if (abortController.signal.aborted) return;
+            if (!isCurrentRequest()) return;
             forecastUnavailableRef.current =
               initialResult.forecastStatus === "unavailable";
             setSwellFieldLoadStatus(initialResult.forecastStatus);
@@ -1752,7 +1781,7 @@ export function InteractiveMap({
             console.warn("Failed to load hourly forecast timeline", error);
             return;
           }
-          if (requestId !== populateRequestIdRef.current) return;
+          if (!isCurrentRequest()) return;
           const timelineStatus =
             timelineResult.forecastStatus === "ready"
               ? "ready"
@@ -1764,8 +1793,7 @@ export function InteractiveMap({
           applyTimelineResult(initialResult);
         }
       } catch (e) {
-        if (requestId !== populateRequestIdRef.current) return;
-        if (abortController.signal.aborted) return;
+        if (!isCurrentRequest()) return;
         lastPopulateKeyRef.current = null;
         forecastUnavailableRef.current = true;
         setSwellFieldLoadStatus("unavailable");
@@ -1778,9 +1806,14 @@ export function InteractiveMap({
     },
     [
       beaches,
+      authGeneration,
       cleanupMarkers,
       fetchNearbyBeachesWithPreload,
       initialZoom,
+      getAccessToken,
+      getAuthGeneration,
+      onAuthTokenExpired,
+      skillLevel,
       swellTimelineMode,
       timelineFocusBeachId,
     ]

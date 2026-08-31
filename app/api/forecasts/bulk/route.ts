@@ -19,6 +19,7 @@ import type { RecommendationAvailability } from "@/lib/recommendations/major-eve
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { normalizeBoardClass, type BoardClass } from "@/lib/domains/rideability";
 import {
   resolveSelectedHourDisplay,
@@ -849,7 +850,7 @@ export async function bulkForecastHandler(
       },
     );
 
-    const [userSkillLevel, boardClasses] = await Promise.all([
+    const [profileSkillLevel, boardClasses] = await Promise.all([
       getProfileExperienceLevel(supabase, user?.id),
       user?.id
         ? supabase
@@ -863,6 +864,10 @@ export async function bulkForecastHandler(
             )))
         : Promise.resolve<BoardClass[]>([]),
     ]);
+    // Authenticated profiles win; the validated hint covers native WebViews without cookies.
+    const userSkillLevel = profileSkillLevel ?? parseSkillLevel(
+      searchParams.get("skillLevel"),
+    );
     const hourlyTimelineSettledPromise = hourlyTimelinePromise.then(
       (value) => ({ status: "fulfilled" as const, value }),
       (reason: unknown) => ({ status: "rejected" as const, reason }),
