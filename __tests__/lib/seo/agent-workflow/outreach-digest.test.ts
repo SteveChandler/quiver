@@ -197,4 +197,58 @@ describe("SEO workflow outreach digest", () => {
       expect.stringContaining("coastal-businesses"),
     ]));
   });
+  // The fixture above uses a "Nearest Beach" header, which is not what the live
+  // tracker writes. Real tables are headed "Beach slug (verified 200)" and
+  // "Nearest Beach (verified 200)", so the old exact-match lookup returned
+  // undefined and every draft went out with the "your local breaks" placeholder —
+  // producing the subject "Free ML surf forecasts for your your local breaks crew"
+  // on the 2026-08-31 Hans Hedemann and Nor Cal drafts.
+  it("reads the beach column from the live tracker's real header names", () => {
+    const liveTracker = [
+      "## Surf School Targets",
+      "### Hawaii",
+      "| Target | Website | Beach slug (verified 200) | Contact channel (verified) | Status | Date | Notes |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| Hans Hedemann Surf School | hhsurf.com | `waikiki-beach` | info@hhsurf.com | queued | | |",
+      "",
+      "## Coastal Businesses (Hotels, Tourism, Shops)",
+      "| Target | Website | Nearest Beach (verified 200) | Contact | Status | Date | Notes |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| Glide Surf Co | glidesurfco.com | `asbury-park-asbury-park-nj` | info@glidesurfco.com | queued | | |",
+    ].join("\n");
+
+    const schools = buildOutreachDigest("2026-08-31T12:00:00Z", {
+      reportDate: "2026-08-31",
+      markdown: liveTracker,
+    });
+    expect(schools.candidates[0]?.nearestBeach).toBe("waikiki-beach");
+    expect(schools.candidates[0]?.subject).toBe("Free surf forecasts for Waikiki Beach");
+    expect(schools.candidates[0]?.subject).not.toMatch(/your your/);
+
+    const shops = buildOutreachDigest("2026-08-17T12:00:00Z", {
+      reportDate: "2026-08-17",
+      markdown: liveTracker,
+    });
+    expect(shops.rotationCategory).toBe("coastal-businesses");
+    // Trailing state code dropped so the slug reads as a place name.
+    expect(shops.candidates[0]?.subject).toBe(
+      "Free live surf conditions for Asbury Park Asbury Park visitors",
+    );
+  });
+
+  // Quiver ships no live ML forecast: ML corrections have been off since
+  // 2026-04-23. Outreach copy going out over Steven's name must never claim one.
+  it("never claims ML or AI forecasting in any rotation category's copy", () => {
+    for (const reportDate of ["2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24"]) {
+      const digest = buildOutreachDigest(`${reportDate}T12:00:00Z`, {
+        reportDate,
+        markdown: TRACKER,
+      });
+
+      for (const candidate of digest.candidates) {
+        const copy = `${candidate.subject} ${candidate.body}`;
+        expect(copy).not.toMatch(/\bML\b|machine.learning|\bAI\b|ML-powered|ML-tuned/i);
+      }
+    }
+  });
 });
