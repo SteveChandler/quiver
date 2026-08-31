@@ -264,7 +264,7 @@ function getNearbyCardPhotoUrl(beach: EnrichedNearbyBeach): string | null {
       : null;
   const fallbackPhoto =
     FALLBACK_IMAGE_BY_NAME[beach.name as keyof typeof FALLBACK_IMAGE_BY_NAME] ?? null;
-  const selected = approvedPhoto ?? fallbackPhoto;
+  const selected = fallbackPhoto ?? approvedPhoto;
 
   if (!selected) return null;
   return getProxiedImageUrl(selected) || null;
