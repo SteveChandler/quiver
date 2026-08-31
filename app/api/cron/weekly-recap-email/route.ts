@@ -15,6 +15,7 @@
  * - Authorization: Bearer <CRON_SECRET>
  */
 
+import { randomUUID } from "node:crypto";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -32,6 +33,7 @@ import { getDisplayCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
 import { generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
+import { buildAppEmailLink } from "@/lib/mailer/email-links";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -305,7 +307,15 @@ async function _GET(request: Request): Promise<Response> {
           topSpotBeachId
         );
 
-        const ctaUrl = `${baseUrl}/profile/analytics`;
+        const messageInstanceId = randomUUID();
+        const ctaUrl = buildAppEmailLink({
+          origin: baseUrl,
+          path: "/profile/analytics",
+          emailType: EMAIL_TYPE,
+          messageInstanceId,
+          source: "weekly_recap_email",
+          utmCampaign: EMAIL_TYPE,
+        });
         const settingsUrl = `${baseUrl}/settings`;
         const unsubscribeToken = generateEmailUnsubscribeToken(profile.id);
         const unsubscribeUrl =
@@ -348,6 +358,7 @@ async function _GET(request: Request): Promise<Response> {
           await emailLogger.logDelivery({
             userId: profile.id,
             emailType: EMAIL_TYPE,
+            messageInstanceId,
             subject: emailSubject,
             resendMessageId: sendData?.id,
             meta: { session_count: stats.totalSessions },

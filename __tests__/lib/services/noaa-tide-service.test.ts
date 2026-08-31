@@ -119,7 +119,7 @@ describe("noaa-tide-service", () => {
     ]);
   });
 
-  it("reads cached hourly predictions with newest-row dedupe and freshness metadata", async () => {
+  it("prefers direct NOAA rows before same-source freshness", async () => {
     const client = createTideForecastClient([
       {
         ts: "2026-06-30T16:00:00.000Z",
@@ -144,6 +144,13 @@ describe("noaa-tide-service", () => {
       },
       {
         ts: "2026-06-30T18:00:00.000Z",
+        tide_height_m: 0.8,
+        tide_phase: null,
+        created_at: "2026-06-30T02:00:00.000Z",
+        source: "noaa",
+      },
+      {
+        ts: "2026-06-30T18:00:00.000Z",
         tide_height_m: 0.9,
         tide_phase: null,
         created_at: "2026-06-30T02:30:00.000Z",
@@ -164,8 +171,8 @@ describe("noaa-tide-service", () => {
       predictions: [
         {
           ts: "2026-06-30T16:00:00.000Z",
-          tide_height_m: 1.2,
-          tide_phase: "H",
+          tide_height_m: 1,
+          tide_phase: null,
         },
         {
           ts: "2026-06-30T18:00:00.000Z",
@@ -175,6 +182,47 @@ describe("noaa-tide-service", () => {
       ],
       latestCreatedAt: "2026-06-30T02:30:00.000Z",
     });
+  });
+
+  it("uses a deterministic tie-break when cached rows otherwise tie", async () => {
+    const rows = [
+      {
+        ts: "2026-06-30T16:00:00.000Z",
+        tide_height_m: 1,
+        tide_phase: "L",
+        created_at: "2026-06-30T02:00:00.000Z",
+        source: "noaa",
+      },
+      {
+        ts: "2026-06-30T16:00:00.000Z",
+        tide_height_m: 1.2,
+        tide_phase: "H",
+        created_at: "2026-06-30T02:00:00.000Z",
+        source: "noaa",
+      },
+    ];
+
+    const first = await fetchCachedHourlyTidePredictions(
+      createTideForecastClient(rows),
+      "beach-1",
+      "2026-06-30T15:30:00.000Z",
+      "2026-06-30T19:00:00.000Z"
+    );
+    const reversed = await fetchCachedHourlyTidePredictions(
+      createTideForecastClient([...rows].reverse()),
+      "beach-1",
+      "2026-06-30T15:30:00.000Z",
+      "2026-06-30T19:00:00.000Z"
+    );
+
+    expect(first).toEqual(reversed);
+    expect(first.predictions).toEqual([
+      {
+        ts: "2026-06-30T16:00:00.000Z",
+        tide_height_m: 1.2,
+        tide_phase: "H",
+      },
+    ]);
   });
 
   it("detects sufficient hourly cache coverage for a requested window", () => {

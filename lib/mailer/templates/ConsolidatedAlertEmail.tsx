@@ -32,6 +32,7 @@ import {
   formatSwellPeriod,
 } from "@/lib/formatters/surf-data";
 import { degreesToCardinal } from "@/lib/utils/geo-utils";
+import { buildBeachEmailLink } from "@/lib/mailer/email-links";
 
 const KNOTS_TO_MPH = 1.15078;
 
@@ -42,6 +43,7 @@ export interface ConsolidatedAlertEmailProps {
   manageAlertsUrl: string;
   unsubscribeUrl: string;
   baseUrl: string;
+  messageInstanceId: string;
 }
 
 export function ConsolidatedAlertEmail({
@@ -51,6 +53,7 @@ export function ConsolidatedAlertEmail({
   manageAlertsUrl,
   unsubscribeUrl,
   baseUrl,
+  messageInstanceId,
 }: ConsolidatedAlertEmailProps) {
   const greeting = displayName ? `Hey ${displayName},` : "Hey,";
   const headingDate = formatEmailHeadingDate(alertDate);
@@ -94,7 +97,7 @@ export function ConsolidatedAlertEmail({
       {matches.map((match, i) => {
         const timeWindow = formatWindow(match);
         const conditionsLine = buildConditionsLine(match.conditions_snapshot);
-        const beachUrl = buildEmailBeachUrl(baseUrl, match);
+        const beachUrl = buildEmailBeachUrl(baseUrl, match, messageInstanceId);
         const ruleName = formatEmailRuleName(match.rule_name);
         const tokenParam = match.disable_token
           ? `?token=${match.disable_token}`
@@ -325,9 +328,19 @@ export function formatWindow(match: MatchingWindow): FormattedEmailWindow {
 export function buildEmailBeachUrl(
   baseUrl: string,
   match: MatchingWindow,
+  messageInstanceId: string,
 ): string {
   const beachIdentifier = match.beach_slug || match.beach_id;
-  return `${baseUrl}/beach/${encodeURIComponent(beachIdentifier)}`;
+  return buildBeachEmailLink({
+    origin: baseUrl,
+    beachSlug: beachIdentifier,
+    emailType: "conditions_alert",
+    utmSource: "quiver",
+    utmCampaign: "conditions_alert",
+    source: undefined,
+    messageInstanceId,
+    params: { window: match.best_hour },
+  });
 }
 
 export function formatEmailRuleName(ruleName: string): string {

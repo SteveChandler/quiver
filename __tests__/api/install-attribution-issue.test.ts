@@ -3,6 +3,22 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 const mockInsert = jest.fn();
 const mockAuditInsert = jest.fn();
+const HANDOFF_ID = "550e8400-e29b-41d4-a716-446655440000";
+const HANDOFF_CONTEXT = {
+  v: 1,
+  beachId: "123e4567-e89b-12d3-a456-426614174000",
+  slug: "ocean-beach",
+  windowId: "2026-07-25T13:00:00.000Z",
+  sourceSurface: "surf_comparison",
+  generatedAt: "2026-07-25T12:00:00.000Z",
+  expiresAt: "2026-07-25T12:30:00.000Z",
+  priorRecommendation: {
+    recommendationId:
+      "beach:123e4567-e89b-12d3-a456-426614174000:2026-07-25T13:00:00.000Z",
+    mode: "best",
+    verdict: "go",
+  },
+};
 
 jest.mock("next/server", () => ({
   NextResponse: {
@@ -119,6 +135,50 @@ describe("POST /api/install-attribution/issue", () => {
     expect(JSON.stringify(mockInsert.mock.calls)).not.toContain(referrer);
     expect(JSON.stringify(mockInsert.mock.calls)).not.toContain(
       "must-not-survive@example.com",
+    );
+  });
+
+  it("stores a validated exact handoff with the existing single-use token", async () => {
+    const { POST } = await import("@/app/api/install-attribution/issue/route");
+    const response = await POST({
+      json: async () => ({
+        source: "app_handoff_route",
+        surface: "app_handoff",
+        placement: "handoff_page",
+        campaign: "app_first_v1",
+        handoffId: HANDOFF_ID,
+        handoffContext: HANDOFF_CONTEXT,
+      }),
+    } as NextRequest);
+
+    expect(response.status).toBe(200);
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        handoff_id: HANDOFF_ID,
+        handoff_context: HANDOFF_CONTEXT,
+      }),
+    );
+  });
+
+  it("drops an incomplete exact handoff rather than persisting untrusted context", async () => {
+    const { POST } = await import("@/app/api/install-attribution/issue/route");
+    const response = await POST({
+      json: async () => ({
+        source: "app_handoff_route",
+        surface: "app_handoff",
+        placement: "handoff_page",
+        campaign: "app_first_v1",
+        handoffId: HANDOFF_ID,
+        handoffContext: { ...HANDOFF_CONTEXT, slug: "NOT SAFE" },
+      }),
+    } as NextRequest);
+
+    expect(response.status).toBe(200);
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.not.objectContaining({ handoff_id: expect.anything() }),
+    );
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.not.objectContaining({ handoff_context: expect.anything() }),
     );
   });
 

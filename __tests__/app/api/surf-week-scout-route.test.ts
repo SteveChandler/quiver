@@ -24,6 +24,7 @@ jest.mock(
 
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/surf/week-scout/route';
+import { LOCATION_MAX_AGE_MS } from '@/lib/services/discovery/weekend-scout';
 import {
   WEEK_SCOUT_CONTRACT_BEACH_ID,
   WEEK_SCOUT_CONTRACT_FIXTURE,
@@ -41,10 +42,10 @@ function request(body: unknown): NextRequest {
   });
 }
 
-async function callRoute(body: unknown) {
+async function callRoute(body: unknown, supabase: unknown = {}) {
   return POST(request(body), {
     user: { id: 'user-week-scout' },
-    supabase: {},
+    supabase,
     params: {},
   } as never);
 }
@@ -97,6 +98,60 @@ describe('POST /api/surf/week-scout', () => {
       expect.objectContaining({
         candidateBeachIds: candidateBeachIds.slice(0, 8),
       }),
+    );
+  });
+
+  it('applies distance friction from a fresh authenticated user location snapshot', async () => {
+    const maybeSingle = jest.fn(async () => ({
+      data: { lat: 32.2, lon: -116.91, captured_at: new Date().toISOString() },
+      error: null,
+    }));
+    const eq = jest.fn(() => ({ maybeSingle }));
+    const select = jest.fn(() => ({ eq }));
+    const from = jest.fn(() => ({ select }));
+
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'America/Tijuana',
+      startLocalDate: '2026-07-15',
+      dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(from).toHaveBeenCalledWith('user_location_snapshots');
+    expect(select).toHaveBeenCalledWith('lat, lon, captured_at');
+    expect(eq).toHaveBeenCalledWith('user_id', 'user-week-scout');
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith(
+      'user-week-scout',
+      expect.objectContaining({ userLocation: { lat: 32.2, lon: -116.91 } }),
+    );
+  });
+
+  it.each([
+    ['stale', new Date(Date.now() - LOCATION_MAX_AGE_MS - 1).toISOString()],
+    ['missing captured_at', undefined],
+  ])('does not apply distance friction from a %s location snapshot', async (_label, capturedAt) => {
+    const maybeSingle = jest.fn(async () => ({
+      data: { lat: 32.2, lon: -116.91, captured_at: capturedAt },
+      error: null,
+    }));
+    const from = jest.fn(() => ({
+      select: () => ({
+        eq: () => ({ maybeSingle }),
+      }),
+    }));
+
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'America/Tijuana',
+      startLocalDate: '2026-07-15',
+      dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith(
+      'user-week-scout',
+      expect.not.objectContaining({ userLocation: expect.anything() }),
     );
   });
 

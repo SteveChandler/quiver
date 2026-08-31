@@ -61,6 +61,7 @@ describe("EmailLoggingService", () => {
         sentAt: "2024-01-15T12:00:00.000Z",
         bestScore: 8.5,
         bestBeachId: "beach-456",
+        messageInstanceId: "9d1498df-a14f-429a-833d-818bc4864064",
         meta: { beach_name: "Test Beach" },
       });
 
@@ -73,6 +74,7 @@ describe("EmailLoggingService", () => {
         sent_at: "2024-01-15T12:00:00.000Z",
         best_score: 8.5,
         best_beach_id: "beach-456",
+        message_instance_id: "9d1498df-a14f-429a-833d-818bc4864064",
         meta: { beach_name: "Test Beach" },
         resend_message_id: null,
       });
@@ -125,6 +127,7 @@ describe("EmailLoggingService", () => {
       expect(insertCall.subject).toBeNull();
       expect(insertCall.best_score).toBeNull();
       expect(insertCall.best_beach_id).toBeNull();
+      expect(insertCall.message_instance_id).toBeNull();
       expect(insertCall.meta).toEqual({});
     });
 
@@ -160,6 +163,7 @@ describe("EmailLoggingService", () => {
         emailType: "welcome",
       });
 
+      expect(mockInsert).toHaveBeenCalled();
       expectConsoleErrors([/\[custom-context\]/]);
     });
   });
@@ -257,6 +261,7 @@ describe("EmailLoggingService", () => {
       const logger = createEmailLogger(mockSupabase as any, "[factory-tag]");
       await logger.logDelivery({ userId: "user-1", emailType: "welcome" });
 
+      expect(mockInsert).toHaveBeenCalled();
       expectConsoleErrors([/\[factory-tag\]/]);
     });
   });

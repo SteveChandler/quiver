@@ -3,6 +3,7 @@
  */
 
 import {
+  buildRevenueCatProviderEventInsert,
   buildEntitlementUpdate,
   mergeEntitlementUpdate,
   type EntitlementUpdate,
@@ -33,6 +34,57 @@ function updateFor(event: RCEvent): EntitlementUpdate {
 }
 
 describe("RevenueCat entitlement webhook updates", () => {
+  it("builds the same immutable ledger row for duplicate provider deliveries", () => {
+    const event: RCEvent = {
+      id: "event-duplicate",
+      type: "INITIAL_PURCHASE",
+      app_user_id: "20000000-0000-4000-8000-000000000001",
+      event_timestamp_ms: Date.parse("2026-08-28T00:00:00.000Z"),
+      product_id: "app.quiversurf.surf.pro.annual",
+      period_type: "TRIAL",
+      environment: "PRODUCTION",
+    };
+
+    expect(buildRevenueCatProviderEventInsert(event)).toEqual(
+      buildRevenueCatProviderEventInsert(event),
+    );
+    expect(buildRevenueCatProviderEventInsert(event)).toMatchObject({
+      provider_event_id: "event-duplicate",
+      app_user_id_status: "uuid",
+      period_type: "TRIAL",
+    });
+  });
+
+  it("allowlists malformed and anonymous app user ids without storing them", () => {
+    expect(buildRevenueCatProviderEventInsert({
+      id: "event-anonymous",
+      type: "INITIAL_PURCHASE",
+      app_user_id: "$RCAnonymousID:abc",
+    })).toMatchObject({ app_user_id: null, app_user_id_status: "anonymous" });
+    expect(buildRevenueCatProviderEventInsert({
+      id: "event-malformed",
+      type: "INITIAL_PURCHASE",
+      app_user_id: "not-a-uuid",
+    })).toMatchObject({ app_user_id: null, app_user_id_status: "invalid" });
+    expect(buildRevenueCatProviderEventInsert({
+      type: "INITIAL_PURCHASE",
+      app_user_id: "20000000-0000-4000-8000-000000000001",
+    })).toBeNull();
+  });
+
+  it("projects trial purchase then paid renewal", () => {
+    expect(updateFor({
+      type: "INITIAL_PURCHASE",
+      period_type: "TRIAL",
+      expiration_at_ms: Date.parse("2026-09-04T00:00:00.000Z"),
+    })).toMatchObject({ is_pro: true, is_trialing: true });
+    expect(updateFor({
+      type: "RENEWAL",
+      period_type: "NORMAL",
+      expiration_at_ms: Date.parse("2026-10-04T00:00:00.000Z"),
+    })).toMatchObject({ is_pro: true, is_trialing: false });
+  });
+
   it("sets Pro for a non-expiring promotional entitlement grant", () => {
     const update = updateFor({
       type: "NON_RENEWING_PURCHASE",

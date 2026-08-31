@@ -46,6 +46,7 @@ export interface EmailLogEntry {
   sentAt?: string; // ISO timestamp
   bestScore?: number;
   bestBeachId?: string;
+  messageInstanceId?: string;
   meta?: Record<string, unknown>;
   resendMessageId?: string;
 }
@@ -84,6 +85,7 @@ export class EmailLoggingService {
       sent_at: entry.sentAt ?? timestamp,
       best_score: entry.bestScore ?? null,
       best_beach_id: entry.bestBeachId ?? null,
+      message_instance_id: entry.messageInstanceId ?? null,
       meta: entry.meta ?? {},
       resend_message_id: entry.resendMessageId ?? null,
     });
@@ -222,6 +224,7 @@ export class EmailLoggingService {
       sent_at: entry.sentAt ?? timestamp,
       best_score: entry.bestScore ?? null,
       best_beach_id: entry.bestBeachId ?? null,
+      message_instance_id: entry.messageInstanceId ?? null,
       meta: entry.meta ?? {},
       resend_message_id: entry.resendMessageId ?? null,
     }));

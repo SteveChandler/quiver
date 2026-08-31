@@ -34,6 +34,22 @@ jest.mock("@/lib/supabase/server", () => ({
 
 const TOKEN = "A".repeat(43);
 const REDEMPTION_ID = "B".repeat(43);
+const HANDOFF_ID = "550e8400-e29b-41d4-a716-446655440000";
+const HANDOFF_CONTEXT = {
+  v: 1,
+  beachId: "123e4567-e89b-12d3-a456-426614174000",
+  slug: "ocean-beach",
+  windowId: "2026-07-25T13:00:00.000Z",
+  sourceSurface: "surf_comparison",
+  generatedAt: "2026-07-25T12:00:00.000Z",
+  expiresAt: "2026-07-25T12:30:00.000Z",
+  priorRecommendation: {
+    recommendationId:
+      "beach:123e4567-e89b-12d3-a456-426614174000:2026-07-25T13:00:00.000Z",
+    mode: "best",
+    verdict: "go",
+  },
+};
 
 function request(body: Record<string, unknown>): NextRequest {
   return {
@@ -83,6 +99,8 @@ describe("POST /api/install-attribution/redeem", () => {
           campaign: "app_first_v1",
           created_at: "2026-07-25T12:00:00.000Z",
           expires_at: "2026-08-24T12:00:00.000Z",
+          handoff_id: HANDOFF_ID,
+          handoff_context: HANDOFF_CONTEXT,
         },
       ],
       error: null,
@@ -104,6 +122,8 @@ describe("POST /api/install-attribution/redeem", () => {
         campaign: "app_first_v1",
         createdOn: "2026-07-25",
         expiresOn: "2026-08-24",
+        handoffId: HANDOFF_ID,
+        handoffContext: HANDOFF_CONTEXT,
       },
     });
     expect(mockRpc).toHaveBeenCalledWith("redeem_install_attribution_token", {

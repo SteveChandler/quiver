@@ -198,6 +198,53 @@ describe("/app/spot/[slug] handoff page", () => {
     expect(screen.queryByText(/window-1/i)).not.toBeInTheDocument();
   });
 
+  it("preserves exact context on the installed-app retry without changing the web fallback", async () => {
+    const context = JSON.stringify({
+      v: 1,
+      beachId: "11111111-1111-4111-8111-111111111111",
+      slug: "ocean-beach",
+      windowId: "2026-08-25T14:00:00.000Z",
+      sourceSurface: "surf_comparison",
+      generatedAt: "2026-08-25T12:00:00.000Z",
+      expiresAt: "2026-08-25T12:30:00.000Z",
+      priorRecommendation: {
+        recommendationId:
+          "beach:11111111-1111-4111-8111-111111111111:2026-08-25T14:00:00.000Z",
+        mode: "best",
+        verdict: "go",
+      },
+    });
+    const page = await AppSpotHandoffPage({
+      params: Promise.resolve({ slug: "ocean-beach" }),
+      searchParams: Promise.resolve({
+        window: "2026-08-25T14:00:00.000Z",
+        handoff_id: "33333333-3333-4333-8333-333333333333",
+        source: "exact_call",
+        surface: "beach_detail",
+        placement: "exact_call",
+        handoff_context: "exact_call",
+        context,
+      }),
+    });
+
+    render(page);
+
+    const retry = screen.getByRole("link", { name: /open this exact call/i });
+    const retryUrl = new URL(
+      retry.getAttribute("href")!,
+      "https://www.quiversurf.app",
+    );
+    expect(retryUrl.pathname).toBe("/app/spot/ocean-beach");
+    expect(retryUrl.searchParams.get("context")).toBe(context);
+    expect(retryUrl.searchParams.get("handoff_id")).toBe(
+      "33333333-3333-4333-8333-333333333333",
+    );
+    expect(screen.getByRole("link", { name: /continue on web/i })).toHaveAttribute(
+      "href",
+      "/beach/ocean-beach",
+    );
+  });
+
   it("retains compact share-open attribution without rendering raw window copy", async () => {
     const page = await AppSpotHandoffPage({
       params: Promise.resolve({ slug: "la-jolla-shores" }),

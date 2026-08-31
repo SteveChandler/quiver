@@ -244,6 +244,7 @@ function homepageRecommendation(
   const links = buildSurfWindowLinks({
     beach: recommendation.beach,
     windowId,
+    forecastAt: startIso,
     baseUrl,
   });
   const timeLabel = localTimeLabel(
@@ -253,6 +254,11 @@ function homepageRecommendation(
   );
 
   return {
+    recommendationId:
+      recommendation.recommendationId
+      ?? (recommendation.kind === "custom_spot" && recommendation.customSpotId
+        ? `custom:${recommendation.customSpotId}:${startIso}`
+        : `beach:${recommendation.beach.id}:${startIso}`),
     windowId,
     rank: index + 1,
     beach: {

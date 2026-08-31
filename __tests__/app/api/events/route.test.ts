@@ -1256,6 +1256,710 @@ describe('POST /api/events', () => {
       );
     });
 
+    it('rejects unsafe metadata for an anonymous BFR event', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'beach_follow_saved_local',
+          sessionId: '22345678-1234-4234-8234-123456789012',
+          metadata: {
+            email: 'surfer@example.com',
+            lat: 32.1,
+            handoff_token: 'secret',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(400);
+      expect(mockServiceInsert).not.toHaveBeenCalled();
+    });
+
+    it('accepts and stores a valid event-specific BFR enum payload', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'beach_follow_saved_local',
+          sessionId: '32345678-1234-4234-8234-123456789012',
+          metadata: {
+            audience_class: 'general_utility',
+            page_type: 'beach_detail',
+            experiment_key: 'bfr-follow-holdout-v1',
+            experiment_arm: 'treatment',
+            topic: 'surf',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'beach_follow_saved_local',
+        metadata: expect.objectContaining({
+          audience_class: 'general_utility',
+          page_type: 'beach_detail',
+          experiment_key: 'bfr-follow-holdout-v1',
+          experiment_arm: 'treatment',
+          topic: 'surf',
+        }),
+      }));
+    });
+
+    it.each([
+      ['email-like string', 'surfer@example.com'],
+      ['token-like string', 'Bearer secret-token'],
+      ['zero', 0],
+      ['width above the upper bound', 10_001],
+    ])('rejects a BFR event with %s as viewportWidth', async (_label, viewportWidth) => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'beach_follow_saved_local',
+          sessionId: '42345678-1234-4234-8234-123456789012',
+          viewportWidth,
+          metadata: {
+            audience_class: 'general_utility',
+            page_type: 'beach_detail',
+            experiment_key: 'bfr-follow-holdout-v1',
+            experiment_arm: 'treatment',
+            topic: 'surf',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(400);
+      expect(mockServiceInsert).not.toHaveBeenCalled();
+    });
+
+    it('rejects email-like and token-like values in every BFR string slot', async () => {
+      const mockInsert = jest.fn().mockResolvedValue({ error: null });
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === 'profiles') {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                single: jest.fn().mockResolvedValue({
+                  data: { allow_implicit_tracking: true },
+                  error: null,
+                }),
+              })),
+            })),
+            insert: jest.fn(() => ({ error: null })),
+          };
+        }
+        return { insert: mockInsert, select: jest.fn() };
+      });
+
+      const webBase = {
+        audience_class: 'general_utility',
+        page_type: 'beach_detail',
+        experiment_key: 'bfr-follow-holdout-v1',
+        experiment_arm: 'treatment',
+      };
+      const nativeChannel = {
+        source: 'exact_call',
+        _platform: 'native-ios',
+        app_version: '1.2.3+45',
+        expo_update_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+        expo_channel: 'production',
+        expo_runtime_version: '0123456789abcdef0123456789abcdef01234567',
+        expo_is_embedded_launch: true,
+        expo_is_emergency_launch: false,
+        is_emulator: false,
+        launch_primer_session_id: '62345678-1234-4234-8234-123456789012',
+      };
+      const fixtures: Array<{
+        eventType: string;
+        metadata: Record<string, unknown>;
+      }> = [
+        {
+          eventType: 'beach_follow_started',
+          metadata: { ...webBase, topic: 'surf' },
+        },
+        {
+          eventType: 'beach_follow_saved_local',
+          metadata: { ...webBase, topic: 'surf' },
+        },
+        {
+          eventType: 'beach_follow_sync_started',
+          metadata: { ...webBase, audience_class: 'existing_web_user' },
+        },
+        {
+          eventType: 'beach_follow_sync_completed',
+          metadata: { ...webBase, audience_class: 'existing_web_user' },
+        },
+        {
+          eventType: 'follow_topic_changed',
+          metadata: { ...webBase, topic: 'surf' },
+        },
+        {
+          eventType: 'visitor_intent_selected',
+          metadata: {
+            ...webBase,
+            intent_state: 'explicit',
+            intent_reason: 'explicit_surfing',
+          },
+        },
+        {
+          eventType: 'surf_intent_qualified',
+          metadata: {
+            ...webBase,
+            audience_class: 'surf_qualified',
+            intent_state: 'inferred',
+            intent_reason: 'high_intent_action',
+          },
+        },
+        {
+          eventType: 'my_coast_viewed',
+          metadata: {
+            ...webBase,
+            page_type: 'my_coast',
+            intent_state: 'unknown',
+            intent_reason: 'no_evidence',
+          },
+        },
+        {
+          eventType: 'my_coast_beach_opened',
+          metadata: {
+            ...webBase,
+            page_type: 'my_coast',
+            intent_state: 'unknown',
+            intent_reason: 'no_evidence',
+            topic: 'surf',
+          },
+        },
+        {
+          eventType: 'app_handoff_link_opened',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            source: 'exact_call',
+            surface: 'beach_detail',
+            placement: 'exact_call',
+            handoff_context: 'exact_call',
+          },
+        },
+        {
+          eventType: 'app_handoff_native_open',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            ...nativeChannel,
+            surface: 'beach_detail',
+            placement: 'exact_call',
+            handoff_context: 'exact_call',
+          },
+        },
+        {
+          eventType: 'watched_call_context_resolved',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            fallback_classification: 'invalid',
+            reason: 'malformed',
+            ...nativeChannel,
+            source: 'launch-primer',
+          },
+        },
+      ];
+      const forbiddenValues = ['surfer@example.com', 'Bearer secret-token'];
+      const failures: string[] = [];
+      let caseIndex = 0;
+
+      for (const fixture of fixtures) {
+        caseIndex += 1;
+        mockSupabase.auth.getUser.mockResolvedValue({
+          data: { user: { id: `bfr-string-slot-${caseIndex}` } },
+          error: null,
+        });
+        const baselineResponse = await POST(new Request(
+          'http://localhost/api/events',
+          {
+            method: 'POST',
+            headers: BROWSER_HEADERS,
+            body: JSON.stringify(fixture),
+          }
+        ));
+        if (baselineResponse.status !== 200) {
+          failures.push(
+            `${fixture.eventType} baseline returned ${baselineResponse.status}`
+          );
+        }
+
+        const stringKeys = Object.entries(fixture.metadata)
+          .filter(([, value]) => typeof value === 'string')
+          .map(([key]) => key);
+        for (const key of stringKeys) {
+          for (const forbiddenValue of forbiddenValues) {
+            caseIndex += 1;
+            mockSupabase.auth.getUser.mockResolvedValue({
+              data: { user: { id: `bfr-string-slot-${caseIndex}` } },
+              error: null,
+            });
+            const request = new Request('http://localhost/api/events', {
+              method: 'POST',
+              headers: BROWSER_HEADERS,
+              body: JSON.stringify({
+                eventType: fixture.eventType,
+                metadata: { ...fixture.metadata, [key]: forbiddenValue },
+              }),
+            });
+
+            const response = await POST(request);
+            if (response.status !== 400) {
+              failures.push(
+                `${fixture.eventType}.${key} accepted ${JSON.stringify(forbiddenValue)} with ${response.status}`
+              );
+            }
+          }
+        }
+      }
+
+      expect(failures).toEqual([]);
+    });
+
+    it('rejects secret-token in every exact-call channel and runtime slot', async () => {
+      const mockInsert = jest.fn().mockResolvedValue({ error: null });
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === 'profiles') {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                single: jest.fn().mockResolvedValue({
+                  data: { allow_implicit_tracking: true },
+                  error: null,
+                }),
+              })),
+            })),
+            insert: jest.fn(() => ({ error: null })),
+          };
+        }
+        return { insert: mockInsert, select: jest.fn() };
+      });
+      const nativeOpen = {
+        handoff_id: '33333333-3333-4333-8333-333333333333',
+        source: 'exact_call',
+        surface: 'beach_detail',
+        placement: 'exact_call',
+        handoff_context: 'exact_call',
+        expo_channel: 'production',
+        expo_runtime_version: '0123456789abcdef0123456789abcdef01234567',
+      };
+      const resolution = {
+        handoff_id: '33333333-3333-4333-8333-333333333333',
+        fallback_classification: 'exact',
+        source: 'launch-primer',
+        expo_channel: 'production',
+        expo_runtime_version: '0123456789abcdef0123456789abcdef01234567',
+      };
+      const failures: string[] = [];
+      let caseIndex = 0;
+
+      for (const fixture of [
+        { eventType: 'app_handoff_native_open', metadata: nativeOpen },
+        { eventType: 'watched_call_context_resolved', metadata: resolution },
+      ]) {
+        for (const key of ['source', 'expo_channel', 'expo_runtime_version']) {
+          caseIndex += 1;
+          mockSupabase.auth.getUser.mockResolvedValue({
+            data: { user: { id: `closed-channel-${caseIndex}` } },
+            error: null,
+          });
+          const response = await POST(new Request('http://localhost/api/events', {
+            method: 'POST',
+            headers: BROWSER_HEADERS,
+            body: JSON.stringify({
+              eventType: fixture.eventType,
+              metadata: { ...fixture.metadata, [key]: 'secret-token' },
+            }),
+          }));
+          if (response.status !== 400) {
+            failures.push(`${fixture.eventType}.${key} returned ${response.status}`);
+          }
+        }
+      }
+
+      expect(failures).toEqual([]);
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it('preserves the real legacy native first-open payload with launch-primer enrichment', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+      const sessionId = '92345678-1234-4234-8234-123456789012';
+      const metadata = {
+        source: 'native_app',
+        native_install_id: sessionId,
+        build: '42',
+        platform: 'ios',
+        os_version: '18.3',
+        device_model_class: 'iPhone',
+        device_type: '1',
+        device_year_class: 2024,
+        install_attribution_outcome: 'unavailable',
+        _platform: 'native-ios',
+        app_version: '1.0.2',
+        expo_update_id: null,
+        expo_channel: 'production',
+        expo_runtime_version:
+          '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+        expo_is_embedded_launch: true,
+        expo_is_emergency_launch: false,
+        is_emulator: false,
+        launch_primer_session_id: sessionId,
+      };
+
+      const response = await POST(new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'native_app_first_open',
+          sessionId,
+          metadata,
+        }),
+      }));
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'native_app_first_open',
+        metadata: expect.objectContaining(metadata),
+      }));
+    });
+
+    it('preserves the real legacy app-handoff view payload with a plain handoff ID', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+      const metadata = {
+        cta_family: 'app_handoff',
+        page_type: 'other',
+        query_intent: 'other',
+        seo_landing_page: false,
+        source: 'landing_hero',
+        surface: 'landing-page',
+        placement: 'hero_primary',
+        handoff_id: '33333333-3333-4333-8333-333333333333',
+        platform: 'desktop',
+      };
+
+      const response = await POST(new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'app_handoff_view',
+          sessionId: 'a2345678-1234-4234-8234-123456789012',
+          metadata,
+        }),
+      }));
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'app_handoff_view',
+        metadata: expect.objectContaining(metadata),
+      }));
+    });
+
+    it('rejects the exact F27 bypass payload before the legacy path', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const response = await POST(new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'app_handoff_native_open',
+          sessionId: '42345678-1234-4234-8234-123456789012',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            source: 'exact_call',
+            expo_channel: 'secret-token',
+            email: 'surfer@example.com',
+          },
+        }),
+      }));
+
+      expect(response.status).toBe(400);
+      expect(mockServiceInsert).not.toHaveBeenCalled();
+    });
+
+    it('rejects unreviewed exact-call receipt metadata', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'app_handoff_native_open',
+          sessionId: '42345678-1234-4234-8234-123456789012',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            source: 'exact_call',
+            surface: 'beach_detail',
+            placement: 'exact_call',
+            handoff_context: 'exact_call',
+            email: 'surfer@example.com',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(400);
+      expect(mockServiceInsert).not.toHaveBeenCalled();
+    });
+
+    it('accepts the bounded native exact-call receipt shape', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'app_handoff_native_open',
+          sessionId: '62345678-1234-4234-8234-123456789012',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            source: 'exact_call',
+            surface: 'beach_detail',
+            placement: 'exact_call',
+            handoff_context: 'exact_call',
+            _platform: 'native-ios',
+            app_version: '1.0.2',
+            expo_update_id: null,
+            expo_channel: 'production',
+            expo_runtime_version: '0123456789abcdef0123456789abcdef01234567',
+            expo_is_embedded_launch: true,
+            expo_is_emergency_launch: false,
+            is_emulator: false,
+            launch_primer_session_id:
+              '62345678-1234-4234-8234-123456789012',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'app_handoff_native_open',
+        metadata: expect.objectContaining({
+          handoff_id: '33333333-3333-4333-8333-333333333333',
+          handoff_context: 'exact_call',
+        }),
+      }));
+    });
+
+    it('accepts the bounded web exact-call start shape', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'app_handoff_link_opened',
+          sessionId: '82345678-1234-4234-8234-123456789012',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            source: 'exact_call',
+            surface: 'beach_detail',
+            placement: 'exact_call',
+            handoff_context: 'exact_call',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'app_handoff_link_opened',
+        metadata: expect.objectContaining({
+          handoff_id: '33333333-3333-4333-8333-333333333333',
+          source: 'exact_call',
+          placement: 'exact_call',
+        }),
+      }));
+    });
+
+    it('rejects resolution classification fields on a web exact-call start', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const response = await POST(new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'app_handoff_link_opened',
+          sessionId: '82345678-1234-4234-8234-123456789012',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            source: 'exact_call',
+            surface: 'beach_detail',
+            placement: 'exact_call',
+            handoff_context: 'exact_call',
+            fallback_classification: 'exact',
+          },
+        }),
+      }));
+
+      expect(response.status).toBe(400);
+      expect(mockServiceInsert).not.toHaveBeenCalled();
+    });
+
+    it('accepts a valid anonymous watched-call resolution payload', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'watched_call_context_resolved',
+          sessionId: '52345678-1234-4234-8234-123456789012',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            fallback_classification: 'beach_only',
+            reason: 'expired',
+            source: 'launch-primer',
+            _platform: 'native-ios',
+            app_version: '1.0.2',
+            expo_update_id: null,
+            expo_channel: 'production',
+            expo_runtime_version:
+              '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+            expo_is_embedded_launch: true,
+            expo_is_emergency_launch: false,
+            is_emulator: false,
+            launch_primer_session_id:
+              '52345678-1234-4234-8234-123456789012',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'watched_call_context_resolved',
+        metadata: expect.objectContaining({
+          handoff_id: '33333333-3333-4333-8333-333333333333',
+          fallback_classification: 'beach_only',
+          reason: 'expired',
+        }),
+      }));
+    });
+
+    it('rejects an impossible watched-call classification and reason pair', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'watched_call_context_resolved',
+          sessionId: '72345678-1234-4234-8234-123456789012',
+          metadata: {
+            handoff_id: '33333333-3333-4333-8333-333333333333',
+            fallback_classification: 'exact',
+            reason: 'expired',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(400);
+      expect(mockServiceInsert).not.toHaveBeenCalled();
+    });
+
     it('accepts anonymous cam share events with visitor context', async () => {
       mockSupabase.auth.getUser.mockResolvedValue({
         data: { user: null },

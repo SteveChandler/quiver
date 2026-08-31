@@ -26,6 +26,17 @@ const TRACKER = [
   "| --- | --- | --- | --- | --- | --- | --- |",
   "| Ben Gravy | YouTube 520K | ben@bengravy.com | East Coast | queued | | |",
   "",
+  "### Rejected — do not draft (verified dead 2026-08-04)",
+  "| Target | Website | Reason |",
+  "| --- | --- | --- |",
+  "| Zuma Jay Surfboards | zmjay.com | NXDOMAIN |",
+  "",
+  "## Publication Pitches",
+  "| Publication | Contact | Angle | Status | Date |",
+  "| --- | --- | --- | --- | --- |",
+  "| Eos | eos@agu.org | Nearshore ground truth | queued | |",
+  "| Adventure Journal | contact form only | Surf data story | rejected | |",
+  "",
   "## Monthly Metrics",
   "| Month | Outreach Sent |",
   "| --- | --- |",
@@ -59,8 +70,8 @@ describe("SEO workflow outreach digest", () => {
   it("parses target rows by section and ignores legend and metrics tables", () => {
     const parsed = parseOutreachTracker(TRACKER);
 
-    expect(parsed.totalRows).toBe(4);
-    expect(parsed.statusCounts).toEqual({ queued: 3, sent: 1 });
+    expect(parsed.totalRows).toBe(7);
+    expect(parsed.statusCounts).toEqual({ queued: 4, sent: 1, rejected: 2 });
     expect(parsed.rows).toEqual(expect.arrayContaining([
       expect.objectContaining({
         target: "Surf Diva",
@@ -78,7 +89,7 @@ describe("SEO workflow outreach digest", () => {
     expect(parsed.rows.some((row) => row.target === "queued")).toBe(false);
   });
 
-  it("builds queued draft candidates for the current rotation category, skipping rows without a direct email", () => {
+  it("builds queued candidates for the current rotation category and flags contact research", () => {
     const digest = buildOutreachDigest("2026-07-06T12:00:00Z", {
       reportDate: "2026-07-06",
       markdown: TRACKER,
@@ -86,7 +97,7 @@ describe("SEO workflow outreach digest", () => {
 
     expect(digest.rotationWeek).toBe(1);
     expect(digest.rotationCategory).toBe("surf-schools");
-    expect(digest.candidates).toHaveLength(1);
+    expect(digest.candidates).toHaveLength(2);
     expect(digest.candidates[0]?.target).toBe("Surf Diva");
     expect(digest.candidates[0]?.nearestBeach).toBe("La Jolla");
     expect(digest.candidates[0]?.subject).toContain("La Jolla");
@@ -94,10 +105,62 @@ describe("SEO workflow outreach digest", () => {
     expect(digest.candidates[0]?.body).toContain(
       "https://www.quiversurf.app/for-surf-schools",
     );
-    expect(digest.candidates.some((candidate) => candidate.target === "North Shore Surf Girls")).toBe(false);
-    expect(digest.missing).toEqual(expect.arrayContaining([
-      expect.stringContaining("North Shore Surf Girls"),
+    expect(digest.candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        target: "North Shore Surf Girls",
+        requiresContactResearch: true,
+      }),
+      expect.objectContaining({
+        target: "Surf Diva",
+        requiresContactResearch: false,
+      }),
     ]));
+  });
+
+  it("marks rows under a rejection heading as rejected even without a status column", () => {
+    const parsed = parseOutreachTracker(TRACKER);
+    const zuma = parsed.rows.find((row) => row.target === "Zuma Jay Surfboards");
+
+    expect(zuma?.status).toBe("rejected");
+    expect(parsed.statusCounts.rejected).toBe(2);
+  });
+
+  it("never offers rejected rows as draft candidates", () => {
+    const surfSchools = buildOutreachDigest("2026-08-31T00:00:00.000Z", {
+      reportDate: "2026-08-31",
+      markdown: TRACKER,
+    });
+    expect(surfSchools.rotationCategory).toBe("surf-schools");
+    expect(surfSchools.candidates.map((c) => c.target)).not.toContain(
+      "Zuma Jay Surfboards",
+    );
+
+    const publications = buildOutreachDigest("2026-08-24T00:00:00.000Z", {
+      reportDate: "2026-08-24",
+      markdown: TRACKER,
+    });
+    expect(publications.rotationCategory).toBe("publications");
+    expect(publications.candidates.map((c) => c.target)).toEqual(["Eos"]);
+  });
+
+  it("ignores narrative tables that declare no status column", () => {
+    const withNarrative = [
+      TRACKER,
+      "",
+      "### Warm leads that went cold",
+      "| Target | Replied | What they said |",
+      "| --- | --- | --- |",
+      "| Stab Magazine | 2026-07-29 | Working on a piece |",
+    ].join("\n");
+
+    const parsed = parseOutreachTracker(withNarrative);
+    expect(parsed.rows.map((row) => row.target)).not.toContain("Stab Magazine");
+
+    const digest = buildOutreachDigest("2026-08-24T00:00:00.000Z", {
+      reportDate: "2026-08-24",
+      markdown: withNarrative,
+    });
+    expect(digest.candidates.map((c) => c.target)).toEqual(["Eos"]);
   });
 
   it("hasDirectEmail requires an @ in the contact field", () => {

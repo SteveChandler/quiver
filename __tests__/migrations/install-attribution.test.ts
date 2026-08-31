@@ -42,3 +42,23 @@ describe("install attribution schema", () => {
     );
   });
 });
+
+describe("exact handoff install attribution schema", () => {
+  const exactSql = readFileSync(
+    join(
+      process.cwd(),
+      "supabase/migrations/20260825120000_add_exact_handoff_install_attribution.sql",
+    ),
+    "utf8",
+  ).toLowerCase();
+
+  it("adds paired bounded context to the audited token and redemption RPC", () => {
+    expect(exactSql).toContain("add column if not exists handoff_id uuid");
+    expect(exactSql).toContain("add column if not exists handoff_context jsonb");
+    expect(exactSql).toContain("install_attribution_tokens_handoff_pair_check");
+    expect(exactSql).toContain("pg_column_size(handoff_context) <= 4096");
+    expect(exactSql).toContain("redeem_install_attribution_token");
+    expect(exactSql).toContain("handoff_id uuid");
+    expect(exactSql).toContain("handoff_context jsonb");
+  });
+});

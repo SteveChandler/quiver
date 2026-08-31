@@ -139,4 +139,14 @@ describe("ios-app-cta-tracking", () => {
       }),
     );
   });
+
+  it("cannot throw into CTA actions when product analytics fails", () => {
+    mockTrack.mockImplementationOnce(() => {
+      throw new Error("analytics unavailable");
+    });
+
+    expect(() =>
+      trackIosAppCtaClick({ source: "exact-call", placement: "handoff" })
+    ).not.toThrow();
+  });
 });

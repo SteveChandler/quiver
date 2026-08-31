@@ -8,12 +8,16 @@ import { POST } from "@/app/api/forecast-feedback/route";
 const mockUser = { id: "user-1" };
 const mockSupabase = { from: jest.fn() };
 const mockFeedbackMaybeSingle = jest.fn();
+const mockFeedbackInsertSingle = jest.fn();
+const mockFeedbackInsert = jest.fn((_payload: Record<string, unknown>) => ({
+  select: jest.fn(() => ({ single: mockFeedbackInsertSingle })),
+}));
+const mockThirdEq = jest.fn(() => ({ maybeSingle: mockFeedbackMaybeSingle }));
+const mockSecondEq = jest.fn(() => ({ eq: mockThirdEq }));
+const mockFirstEq = jest.fn(() => ({ eq: mockSecondEq }));
 const mockServiceFrom = jest.fn(() => ({
-  select: jest.fn(() => ({
-    eq: jest.fn(() => ({
-      eq: jest.fn(() => ({ maybeSingle: mockFeedbackMaybeSingle })),
-    })),
-  })),
+  select: jest.fn(() => ({ eq: mockFirstEq })),
+  insert: mockFeedbackInsert,
 }));
 const MOCK_FORECAST_ID = "22222222-2222-4222-8222-222222222222";
 
@@ -119,30 +123,25 @@ describe("POST /api/forecast-feedback", () => {
     mockSupabase.from.mockReset();
     mockForecastAccuracyVotePersistence();
     mockFeedbackMaybeSingle.mockResolvedValue({ data: null, error: null });
+    mockFeedbackInsertSingle.mockResolvedValue({
+      data: {
+        id: "feedback-row-1",
+        contract_version: "forecast-feedback-context.v1",
+        correlation_id: "corr-client",
+      },
+      error: null,
+    });
     process.env = {
       ...originalEnv,
-      ML_INTERNAL_SECRET: "test-secret",
-      ML_SERVICE_URL: "https://ml.example.test/",
       VERCEL_GIT_COMMIT_SHA: "git-sha",
     };
-    global.fetch = jest.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          ok: true,
-          id: "feedback-row-1",
-          contract_version: "forecast-feedback-context.v1",
-          correlation_id: "corr-client",
-        }),
-        { status: 200 },
-      ),
-    );
   });
 
   afterAll(() => {
     process.env = originalEnv;
   });
 
-  it("forwards authenticated web/native feedback to Seaside with the internal secret", async () => {
+  it("stores authenticated web/native feedback directly in Supabase", async () => {
     const response = await POST(
       requestWithBody(basePayload({ observedFaceHeightFt: 6 })),
     );
@@ -155,22 +154,9 @@ describe("POST /api/forecast-feedback", () => {
       contractVersion: "forecast-feedback-context.v1",
       correlationId: "corr-client",
     });
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-
-    const [url, init] = (global.fetch as jest.Mock).mock.calls[0] as [
-      string,
-      RequestInit,
-    ];
-    expect(url).toBe(
-      "https://ml.example.test/internal/forecast-feedback",
-    );
-    expect(init.headers).toMatchObject({
-      "Content-Type": "application/json",
-      "X-Internal-Secret": "test-secret",
-    });
-
-    const forwarded = JSON.parse(String(init.body));
-    expect(forwarded).toMatchObject({
+    expect(mockFeedbackInsert).toHaveBeenCalledTimes(1);
+    const stored = mockFeedbackInsert.mock.calls[0][0];
+    expect(stored).toMatchObject({
       user_id: "user-1",
       beach_id: "11111111-1111-4111-8111-111111111111",
       forecast_at: "2026-05-24T14:00:00.000Z",
@@ -184,9 +170,11 @@ describe("POST /api/forecast-feedback", () => {
       schema_version: 1,
       contract_version: "forecast-feedback-context.v1",
     });
-    expect(forwarded.displayed_context.wave_height_ft).toBe("2-3 ft");
-    expect(forwarded.source_model_context.data_source).toBe("NOAA_NWS");
-    expect(forwarded.audit_metadata).toMatchObject({
+    const displayedContext = stored.displayed_context as Record<string, unknown>;
+    const sourceModelContext = stored.source_model_context as Record<string, unknown>;
+    expect(displayedContext.wave_height_ft).toBe("2-3 ft");
+    expect(sourceModelContext.data_source).toBe("NOAA_NWS");
+    expect(stored.audit_metadata).toMatchObject({
       surface: "forecast_tab",
       user_observation: { face_height_ft: 6 },
     });
@@ -206,7 +194,7 @@ describe("POST /api/forecast-feedback", () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe("Invalid feedback payload");
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(mockFeedbackInsert).not.toHaveBeenCalled();
     expect(mockSupabase.from).not.toHaveBeenCalled();
   });
 
@@ -234,7 +222,7 @@ describe("POST /api/forecast-feedback", () => {
     );
   });
 
-  it("acknowledges an already-stored stable request without calling Seaside", async () => {
+  it("acknowledges an already-stored stable request without another insert", async () => {
     mockFeedbackMaybeSingle.mockResolvedValueOnce({
       data: {
         id: "feedback-existing",
@@ -253,11 +241,15 @@ describe("POST /api/forecast-feedback", () => {
       contractVersion: "forecast-feedback-context.v1",
       correlationId: "corr-original",
     });
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(mockFeedbackInsert).not.toHaveBeenCalled();
     expect(mockSupabase.from).not.toHaveBeenCalledWith("forecast_accuracy_votes");
+    expect(mockThirdEq).toHaveBeenCalledWith(
+      "ingest_path",
+      "quiver-api/forecast-feedback",
+    );
   });
 
-  it("recovers a lost Seaside response when the stable request was stored", async () => {
+  it("recovers a concurrent duplicate insert using the stable request", async () => {
     mockFeedbackMaybeSingle
       .mockResolvedValueOnce({ data: null, error: null })
       .mockResolvedValueOnce({
@@ -268,20 +260,21 @@ describe("POST /api/forecast-feedback", () => {
         },
         error: null,
       });
-    (global.fetch as jest.Mock).mockRejectedValueOnce(
-      new Error("connection closed after write"),
-    );
+    mockFeedbackInsertSingle.mockResolvedValueOnce({
+      data: null,
+      error: { code: "23505", message: "duplicate key" },
+    });
 
     const response = await POST(requestWithBody(basePayload()));
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(body.data.id).toBe("feedback-stored-before-error");
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(mockFeedbackInsert).toHaveBeenCalledTimes(1);
     expect(mockFeedbackMaybeSingle).toHaveBeenCalledTimes(2);
   });
 
-  it("adds explicit missing flags for empty context groups before calling Seaside", async () => {
+  it("adds explicit missing flags for empty context groups before storage", async () => {
     await POST(
       requestWithBody(
         basePayload({
@@ -291,47 +284,24 @@ describe("POST /api/forecast-feedback", () => {
       ),
     );
 
-    const [, init] = (global.fetch as jest.Mock).mock.calls[0] as [
-      string,
-      RequestInit,
-    ];
-    const forwarded = JSON.parse(String(init.body));
-    expect(forwarded.surf_call_context).toEqual({});
-    expect(forwarded.missing_flags.surf_call_context).toBe(true);
+    const stored = mockFeedbackInsert.mock.calls[0][0];
+    expect(stored.surf_call_context).toEqual({});
+    const missingFlags = stored.missing_flags as Record<string, unknown>;
+    expect(missingFlags.surf_call_context).toBe(true);
   });
 
-  it("returns a configuration error without calling Seaside when the secret is missing", async () => {
-    delete process.env.ML_INTERNAL_SECRET;
-    delete process.env.INTERNAL_SECRET;
+  it("masks direct Supabase storage failures", async () => {
+    mockFeedbackInsertSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: "permission denied" },
+    });
 
     const response = await POST(requestWithBody(basePayload()));
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body.error).toBe("Feedback service not configured");
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  it("masks Seaside storage failures behind the bridge error contract", async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          detail: { message: "permission denied", correlation_id: "corr-client" },
-        }),
-        { status: 500 },
-      ),
-    );
-
-    const response = await POST(requestWithBody(basePayload()));
-    const body = await response.json();
-
-    expect(response.status).toBe(502);
     expect(body.error).toBe("Feedback storage failed");
     expect(JSON.stringify(body)).not.toContain("permission denied");
-    expect(body.details).toEqual({
-      correlationId: "corr-client",
-      service: "seaside",
-      status: 500,
-    });
+    expect(body.details).toEqual({ correlationId: "corr-client" });
   });
 });

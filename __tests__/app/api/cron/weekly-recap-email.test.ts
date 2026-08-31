@@ -468,7 +468,7 @@ describe("weekly recap email cron route", () => {
           totalHours: "1.5",
           topSpot: "Mission Beach",
         },
-        ctaUrl: "https://quiver.test/profile/analytics",
+        ctaUrl: expect.stringContaining("https://quiver.test/profile/analytics?"),
         unsubscribeUrl: "https://quiver.test/settings",
         bestDays: [],
         topSpotImageUrl: "https://img.youtube.com/vi/abc123/mqdefault.jpg",
@@ -491,10 +491,18 @@ describe("weekly recap email cron route", () => {
     expect(mockLogDelivery).toHaveBeenCalledWith({
       userId: "user-1",
       emailType: "weekly_recap",
+      messageInstanceId: expect.any(String),
       subject: "Your Week in the Water: 2 Sessions",
       resendMessageId: "message-1",
       meta: { session_count: 2 },
     });
+    const ctaUrl = new URL((WeeklyRecapEmail as jest.Mock).mock.calls[0][0].ctaUrl);
+    expect(ctaUrl.pathname).toBe("/profile/analytics");
+    expect(ctaUrl.searchParams.get("email_type")).toBe("weekly_recap");
+    expect(ctaUrl.searchParams.get("utm_campaign")).toBe("weekly_recap");
+    expect(ctaUrl.searchParams.get("message_instance_id")).toBe(
+      mockLogDelivery.mock.calls[0][0].messageInstanceId,
+    );
     expect(data.success).toBe(true);
     expect(data.data.summary).toMatchObject({
       activeUsers: 1,

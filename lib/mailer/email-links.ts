@@ -2,9 +2,11 @@ export interface BeachEmailLinkParams {
   origin: string;
   beachSlug: string;
   emailType: string;
+  params?: Record<string, string | undefined>;
+  utmSource?: string;
   utmMedium?: string;
   utmCampaign: string;
-  source: string;
+  source?: string;
   messageInstanceId: string;
 }
 
@@ -14,10 +16,12 @@ interface EmailAttributionParams {
   source?: string;
   utmCampaign: string;
   utmMedium?: string;
+  utmSource?: string;
 }
 
 export interface AppEmailLinkParams extends EmailAttributionParams {
   origin: string;
+  path?: `/${string}`;
   params?: Record<string, string | undefined>;
 }
 
@@ -41,7 +45,7 @@ function buildEmailAttributionSearchParams(
   params: EmailAttributionParams
 ): URLSearchParams {
   const search = new URLSearchParams({
-    utm_source: "email",
+    utm_source: params.utmSource ?? "email",
     utm_medium: params.utmMedium ?? "email",
     utm_campaign: params.utmCampaign,
     email_type: params.emailType,
@@ -72,13 +76,17 @@ function appendDefinedParams(
  */
 export function buildBeachEmailLink(params: BeachEmailLinkParams): string {
   const origin = normalizeOrigin(params.origin);
-  const search = buildEmailAttributionSearchParams({
+  const search = new URLSearchParams();
+  appendDefinedParams(search, params.params);
+  const attribution = buildEmailAttributionSearchParams({
     emailType: params.emailType,
     messageInstanceId: params.messageInstanceId,
     source: params.source,
     utmCampaign: params.utmCampaign,
     utmMedium: params.utmMedium,
+    utmSource: params.utmSource,
   });
+  attribution.forEach((value, key) => search.set(key, value));
 
   return `${origin}/app/spot/${encodeURIComponent(params.beachSlug)}?${search.toString()}`;
 }
@@ -88,7 +96,7 @@ export function buildAppEmailLink(params: AppEmailLinkParams): string {
   const search = buildEmailAttributionSearchParams(params);
   appendDefinedParams(search, params.params);
 
-  return `${origin}/app?${search.toString()}`;
+  return `${origin}${params.path ?? "/app"}?${search.toString()}`;
 }
 
 export function buildSessionEmailLink(params: SessionEmailLinkParams): string {

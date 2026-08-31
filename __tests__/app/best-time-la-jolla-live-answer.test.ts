@@ -27,7 +27,9 @@ describe("best-time La Jolla live answer copy", () => {
     );
     expect(copy.todayAnswer).toContain("Scripps Pier");
     expect(copy.todayAnswer).toContain("2-4 ft");
-    expect(copy.surfReportCue).toContain("Scripps Pier");
+    expect(copy.surfReportCue).toBe(
+      "Open the La Jolla surf report first for the city-level call, then compare Scripps Pier or Tourmaline as secondary spot reads before using this seasonal guide.",
+    );
   });
 
   it("uses forecast-summary data for today's direct answer when available", () => {
@@ -74,7 +76,8 @@ describe("best-time La Jolla live answer copy", () => {
     expect(copy.todayAnswer).toContain("incoming tide, light winds");
     expect(copy.todayAnswer).toContain("La Jolla Shores");
     expect(copy.todayAnswer).toContain("2-3 ft");
-    expect(copy.surfReportCue).toContain("Scripps Pier");
-    expect(copy.surfReportCue).toContain("Tourmaline");
+    expect(copy.surfReportCue).toBe(
+      "Open the La Jolla surf report first for the city-level call, then compare Scripps Pier or Tourmaline as secondary spot reads before using this seasonal guide.",
+    );
   });
 });

@@ -96,6 +96,28 @@ const forecastAlertSchema = z.object({
     .optional(),
 });
 
+const watchedCallUpdateSchema = z
+  .object({
+    category: z.enum(["still_on", "call_changed", "better_nearby", "post_window"]),
+    cause: z.string().min(1),
+    alert_rule_id: z.string().min(1),
+    beach_id: z.string().min(1),
+    beach_name: z.string().min(1),
+    recommendation_id: z.string().min(1),
+    prior_recommendation_id: z.string().min(1),
+    window_start: z.string().datetime({ offset: true }),
+    window_end: z.string().datetime({ offset: true }),
+    forecast_at: z.string().datetime({ offset: true }).nullable(),
+    title: z.string().min(1),
+    body: z.string().min(1),
+    queue_items: z
+      .array(z.object({ queue_id: z.string().min(1), rule_id: z.string().min(1) }))
+      .optional(),
+  })
+  .strict();
+
+type WatchedCallUpdatePayload = z.infer<typeof watchedCallUpdateSchema>;
+
 const trialEndingSchema = z.object({
   title: z.string().min(1),
   body: z.string().min(1),
@@ -207,9 +229,12 @@ const weekendWindowSchema = z
     weekend_start: weekendLocalDateSchema,
     weekend_end: weekendLocalDateSchema,
     qualifying_count: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    beach_id: z.string().uuid(),
     lead_beach_id: z.string().uuid(),
     lead_beach_name: z.string().min(1),
     lead_window_local: z.string().min(1),
+    forecast_at: z.string().datetime({ offset: true }),
+    policy_context: positiveRecommendationPolicyContextSchema,
   })
   .strict()
   .superRefine((payload, context) => {
@@ -220,6 +245,23 @@ const weekendWindowSchema = z
         code: z.ZodIssueCode.custom,
         path: ["weekend_end"],
         message: "weekend_end must follow weekend_start",
+      });
+    }
+    if (
+      payload.beach_id !== payload.lead_beach_id ||
+      payload.policy_context.beach_id !== payload.lead_beach_id
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["beach_id"],
+        message: "beach IDs must agree with the lead result",
+      });
+    }
+    if (payload.forecast_at !== payload.policy_context.starts_at) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["forecast_at"],
+        message: "forecast_at must agree with policy_context.starts_at",
       });
     }
   });
@@ -422,9 +464,12 @@ interface WeekendWindowPayload {
   weekend_start: string;
   weekend_end: string;
   qualifying_count: 1 | 2 | 3;
+  beach_id: string;
   lead_beach_id: string;
   lead_beach_name: string;
   lead_window_local: string;
+  forecast_at: string;
+  policy_context: PositiveRecommendationPolicyContextPayload;
 }
 
 type NotificationSimilarityMatchPayload = SimilarityMatchPayload & {
@@ -543,6 +588,78 @@ export const NOTIFICATION_REGISTRY = {
     }),
   } satisfies NotificationTypeDef<FollowPayload>,
 
+  watched_call_update: {
+    type: "watched_call_update",
+    channels: ["push", "in_app"],
+    prefs: {
+      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
+      perType: { push: "notif_forecast_alerts", in_app: "notif_forecast_alerts" },
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => watchedCallUpdateSchema.parse(input),
+    cooldownMs: (payload) => ({
+      still_on: 24,
+      call_changed: 6,
+      better_nearby: 12,
+      post_window: 168,
+    })[payload.category] * 60 * 60 * 1000,
+    cooldownKey: (payload) => payload.category,
+    buildPushPayload: (payload) => ({
+      ...SURF_ALERT_PUSH_PRESENTATION,
+      title: payload.title,
+      body: payload.body,
+      data: {
+        type: "watched_call_update",
+        category: payload.category,
+        cause: payload.cause,
+        alert_rule_id: payload.alert_rule_id,
+        beach_id: payload.beach_id,
+        recommendation_id: payload.recommendation_id,
+        prior_recommendation_id: payload.prior_recommendation_id,
+        window_start: payload.window_start,
+        window_end: payload.window_end,
+        forecast_at: payload.forecast_at,
+      },
+    }),
+    buildInAppPayload: (payload) => ({
+      type: "watched_call_update",
+      data: {
+        category: payload.category,
+        cause: payload.cause,
+        alert_rule_id: payload.alert_rule_id,
+        beach_id: payload.beach_id,
+        beach_name: payload.beach_name,
+        recommendation_id: payload.recommendation_id,
+        prior_recommendation_id: payload.prior_recommendation_id,
+        window_start: payload.window_start,
+        window_end: payload.window_end,
+        forecast_at: payload.forecast_at,
+        title: payload.title,
+        body: payload.body,
+      },
+    }),
+    onChannelOutcome: async ({ supabase, event, channel, status }) => {
+      if (channel !== "push") return;
+      const mapped = mapWorkerStatusToAlertAttempt(status);
+      if (!mapped) return;
+      const rows = (event.payload.queue_items ?? []).map((item) => ({
+        queue_id: item.queue_id,
+        rule_id: item.rule_id,
+        user_id: event.recipient_user_id,
+        channel: "push" as const,
+        status: mapped,
+        skip_reason: `watched_call:${event.payload.category}:${status}`,
+        message_instance_id: event.id,
+      }));
+      if (rows.length === 0) return;
+      const { error } = await supabase.from("alert_delivery_attempts").insert(rows);
+      if (error) {
+        console.error("[notifications/watched_call_update] attempt reconciliation failed", error);
+      }
+    },
+  } satisfies NotificationTypeDef<WatchedCallUpdatePayload>,
+
   forecast_alert: {
     type: "forecast_alert",
     // Restore push delivery for actionable surf windows. The same per-type
@@ -620,6 +737,7 @@ export const NOTIFICATION_REGISTRY = {
         channel: "push" as const,
         status: mapped,
         skip_reason: status,
+        message_instance_id: event.id,
       }));
 
       const { error } = await supabase
@@ -743,6 +861,7 @@ export const NOTIFICATION_REGISTRY = {
         channel: "push" as const,
         status: mapped,
         skip_reason: status,
+        message_instance_id: event.id,
       }));
 
       const { error } = await supabase

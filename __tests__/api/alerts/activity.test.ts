@@ -116,6 +116,7 @@ describe("GET /api/alerts/activity", () => {
       "forecast_alert",
       "similarity_match",
       "swell_watch",
+      "watched_call_update",
     ]);
     expect(mockGte).toHaveBeenCalledWith(
       "created_at",
@@ -150,6 +151,44 @@ describe("GET /api/alerts/activity", () => {
       ],
     });
     expect(body.data.activity[0]).not.toHaveProperty("data");
+  });
+
+  it("normalizes bounded watched-call history context", async () => {
+    notificationRows = [{
+      id: "notif-watched",
+      type: "watched_call_update",
+      created_at: "2026-08-25T12:00:00.000Z",
+      read_at: null,
+      data: {
+        category: "call_changed",
+        cause: "forecast_materially_changed",
+        alert_rule_id: "rule-1",
+        beach_id: "beach-1",
+        beach_name: "Swamis",
+        recommendation_id: "recommendation-2",
+        prior_recommendation_id: "recommendation-1",
+        window_start: "2026-08-25T17:00:00.000Z",
+        window_end: "2026-08-25T19:00:00.000Z",
+        forecast_at: "2026-08-25T18:00:00.000Z",
+        title: "Call changed at Swamis",
+        body: "The stronger window moved later.",
+      },
+    }];
+
+    const res = await GET(new NextRequest("http://localhost:3000/api/alerts/activity?days=7"));
+    const body = await res.json();
+    expect(body.data.activity[0]).toMatchObject({
+      type: "watched_call_update",
+      category: "call_changed",
+      cause: "forecast_materially_changed",
+      alert_rule_id: "rule-1",
+      recommendation_id: "recommendation-2",
+      prior_recommendation_id: "recommendation-1",
+      beach_id: "beach-1",
+      window_start: "2026-08-25T17:00:00.000Z",
+      window_end: "2026-08-25T19:00:00.000Z",
+    });
+    expect(JSON.stringify(body.data.activity[0])).not.toMatch(/evidence|latitude|longitude|notes/i);
   });
 
   it("normalizes forecast alert context from the in-app payload", async () => {

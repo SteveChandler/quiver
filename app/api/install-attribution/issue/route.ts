@@ -13,6 +13,7 @@ import {
   createOpaqueInstallToken,
   hashOpaqueInstallToken,
   isInstallAttributionIssuanceEnabled,
+  parseInstallHandoffAttribution,
 } from "@/lib/install-attribution-server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { ANDROID_PLAY_STORE_LISTING_URL } from "@/lib/constants/app-store";
@@ -39,6 +40,10 @@ const handler = async (request: NextRequest): Promise<NextResponse> => {
     unknown
   >;
   const attribution = normalizeInstallAttribution(input);
+  const handoff = parseInstallHandoffAttribution(
+    input.handoffId,
+    input.handoffContext,
+  );
   const token = createOpaqueInstallToken();
   const tokenHash = hashOpaqueInstallToken(token);
   const expiresAt = new Date(Date.now() + THIRTY_DAYS_MS).toISOString();
@@ -48,6 +53,12 @@ const handler = async (request: NextRequest): Promise<NextResponse> => {
     .insert({
       token_hash: tokenHash,
       ...attribution,
+      ...(handoff
+        ? {
+            handoff_id: handoff.handoffId,
+            handoff_context: handoff.handoffContext,
+          }
+        : {}),
       expires_at: expiresAt,
     });
 

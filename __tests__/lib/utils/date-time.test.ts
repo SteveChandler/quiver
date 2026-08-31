@@ -30,6 +30,7 @@ import {
   formatDateInTimezone,
   // time-formatting.ts
   formatTimeInTimezone,
+  formatTimeRangeInTimezone,
   formatTimeCasual,
   // time-formatters.ts
   formatTimeAgo,
@@ -39,6 +40,27 @@ import {
   formatShortDate,
   formatFullDateWithYear,
 } from "@/lib/utils/date-time";
+
+describe("formatTimeRangeInTimezone", () => {
+  it("formats both endpoints in the requested timezone and omits incomplete ranges", () => {
+    expect(
+      formatTimeRangeInTimezone(
+        "2026-08-09T18:00:00.000Z",
+        "2026-08-09T20:00:00.000Z",
+        "Pacific/Honolulu",
+      ),
+    ).toBe("8:00 AM–10:00 AM");
+    expect(
+      formatTimeRangeInTimezone(
+        "2026-08-09T18:00:00.000Z",
+        "2026-08-09T20:00:00.000Z",
+        "UTC",
+        "-",
+      ),
+    ).toBe("6:00 PM-8:00 PM");
+    expect(formatTimeRangeInTimezone(null, "2026-08-09T20:00:00.000Z", "UTC")).toBeNull();
+  });
+});
 
 // =============================================================================
 // dateUtils backward-compat object (delegates to named exports)

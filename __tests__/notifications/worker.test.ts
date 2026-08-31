@@ -137,6 +137,7 @@ interface MockState {
     channel: "push";
     status: string;
     skip_reason: string | null;
+    message_instance_id?: string;
   }>;
   eventUpdates: Array<{
     id: string;
@@ -300,6 +301,7 @@ function buildMockSupabase(state: MockState) {
           row: Partial<{
             status: string;
             skip_reason: string | null;
+            message_instance_id?: string;
             claimed_at: string | null;
             claim_token: string | null;
             processed_at: string | null;
@@ -1083,16 +1085,22 @@ describe("processPendingEvents — happy path", () => {
         channel: "push",
         status: "sent",
         skip_reason: "sent",
+        message_instance_id: "evt-forecast",
       },
     ]);
     const sentMessages = (
       fakeFcm.sendEach.mock.calls[0] as unknown[]
     )[0] as Array<{
+      data?: Record<string, string>;
       android?: { notification?: { channelId?: string } };
       apns?: { payload?: { aps?: { sound?: string } } };
     }>;
     expect(sentMessages[0]).toMatchObject({
       apns: { payload: { aps: { sound: "quiver-alert.wav" } } },
+    });
+    expect(sentMessages[0].data).toMatchObject({
+      notification_event_id: "evt-forecast",
+      message_instance_id: "evt-forecast",
     });
     expect(sentMessages[0]).not.toHaveProperty("android");
     expect(sentMessages[1]).toMatchObject({
@@ -1144,6 +1152,7 @@ describe("processPendingEvents — happy path", () => {
       channel: "push",
       status: "skipped_no_device",
       skip_reason: "skipped_no_device",
+      message_instance_id: "evt-forecast-no-device",
     });
   });
 
@@ -1207,6 +1216,7 @@ describe("processPendingEvents — happy path", () => {
         channel: "push",
         status: "sent",
         skip_reason: "sent",
+        message_instance_id: "evt-similarity",
       },
     ]);
   });
@@ -1725,6 +1735,7 @@ describe("processPendingEvents — terminal skips", () => {
         channel: "push",
         status: "skipped_disabled",
         skip_reason: "skipped_disabled",
+        message_instance_id: "evt-held-forecast",
       },
     ]);
   });
@@ -1952,6 +1963,7 @@ describe("processPendingEvents — terminal skips", () => {
       channel: "push",
       status: "skipped_disabled",
       skip_reason: "skipped_disabled",
+      message_instance_id: "evt-held-after-claim",
     });
 
     state.events.push(
@@ -3435,6 +3447,70 @@ describe("processPendingEvents — Phase 5g per-type cooldown", () => {
     expect(summary.by_status.sent).toBe(1);
     const newEvent = state.events.find((e) => e.id === "evt-new")!;
     expect(newEvent.status).toBe("processed");
+  });
+
+  it("scopes watched-call cooldowns by update category", async () => {
+    const state = emptyState();
+    const priorCreated = new Date("2026-04-29T17:00:00Z").toISOString();
+    const watchedPayload = {
+      cause: "forecast_refreshed",
+      alert_rule_id: "rule-1",
+      beach_id: "beach-1",
+      beach_name: "Swamis",
+      recommendation_id: "recommendation-1",
+      prior_recommendation_id: "recommendation-1",
+      window_start: "2026-04-29T20:00:00.000Z",
+      window_end: "2026-04-29T22:00:00.000Z",
+      forecast_at: "2026-04-29T19:00:00.000Z",
+      title: "Still on at Swamis",
+      body: "Your watched window is still on.",
+    };
+    state.events.push(buildEvent({
+      id: "evt-watched-prior",
+      type: "watched_call_update",
+      status: "processed",
+      created_at: priorCreated,
+      payload: { ...watchedPayload, category: "still_on" },
+    }));
+    state.attempts.push({
+      id: "att-watched-prior",
+      notification_event_id: "evt-watched-prior",
+      channel: "push",
+      status: "sent",
+      provider_response: null,
+      error_message: null,
+      created_at: priorCreated,
+    });
+    state.events.push(buildEvent({
+      id: "evt-watched-change",
+      type: "watched_call_update",
+      created_at: new Date("2026-04-29T19:00:00Z").toISOString(),
+      payload: {
+        ...watchedPayload,
+        category: "call_changed",
+        cause: "forecast_materially_changed",
+        recommendation_id: "recommendation-2",
+        title: "Call changed at Swamis",
+      },
+    }));
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set("user-actor", buildProfile({ id: "user-actor" }));
+    state.devices.set("user-recipient", ["device-token-A"]);
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: fakeFcm as never },
+    );
+
+    expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(summary.by_status.skipped_cooldown).toBeUndefined();
   });
 
   it("does NOT skip when the prior `sent` push is older than the window", async () => {

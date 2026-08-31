@@ -40,10 +40,17 @@ export function WaterTempSummaryHero({
       className="flex flex-col gap-4 border-y-2 border-[#11100D] py-4 sm:flex-row sm:items-center sm:gap-6"
       role="group"
     >
-      <div className="stamp-circle shrink-0" aria-hidden="true">
-        <span>Water</span>
-        <span className="lg">{tempF}°F</span>
-        <span>{tempC}°C</span>
+      {/* Self-contained stamp: the zine `.stamp-circle` class is namespaced under
+          `.zine-tab` and depends on the `#zine-rough-edge` SVG filter, neither of
+          which exists outside the zine stage — using it here rendered an
+          unstyled, invisible text run. */}
+      <div
+        aria-hidden="true"
+        className="flex size-[120px] shrink-0 -rotate-[8deg] flex-col items-center justify-center rounded-full border-4 border-[#0B3A75] bg-[#F4EBD8]/60 text-center font-heading font-black uppercase leading-[0.95] tracking-[0.06em] text-[#0B3A75]"
+      >
+        <span className="text-[15px]">Water</span>
+        <span className="mt-0.5 text-[28px] leading-none">{tempF}°F</span>
+        <span className="text-[15px]">{tempC}°C</span>
       </div>
 
       <div className="min-w-0 flex-1">
