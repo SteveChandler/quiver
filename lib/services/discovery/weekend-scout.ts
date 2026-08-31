@@ -23,7 +23,7 @@ import type {
   MajorEventHoldWeekScoutWindow,
 } from '@/lib/recommendations/major-event-hold/adapters/week-scout';
 
-const LOCATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const LOCATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const LOCATION_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
 const DEFAULT_MAX_DRIVE_MINUTES = 200;
 const MIN_CONFIGURED_DRIVE_MINUTES = 15;
