@@ -152,12 +152,15 @@ describe("enrichBeachesWithConditions", () => {
     it("returns null score when native condition score is 0", async () => {
       const beaches = [createMockBeach({ id: "beach-1" })];
 
+      // 0.2 ft used to hit the out-of-band hard zero; with continuous
+      // attenuation it now scores low-but-finite, so a genuinely flat
+      // reading is what maps to the null "no usable score" contract.
       const forecastMap = new Map([
         [
           "beach-1",
           {
             forecasts: [
-              createMockForecast("0.2 ft"),
+              createMockForecast("0 ft"),
             ],
           },
         ],

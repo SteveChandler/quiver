@@ -40,6 +40,9 @@ const NATIVE_MAX_WIND_MPH: Record<SkillLevel, number> = {
   expert: 18,
 };
 
+// The RIDEABLE verdict starts at 40, so out-of-band days must stay below it.
+export const OUT_OF_BAND_SCORE_CEILING = 39;
+
 export const NATIVE_SKILL_THRESHOLDS: Record<SkillLevel, NativeSkillThresholds> = {
   beginner: nativeThresholdsForSkill("beginner"),
   intermediate: nativeThresholdsForSkill("intermediate"),
@@ -122,20 +125,20 @@ export function scoreNativeConditionInputs(
     : nativeThresholds;
   const { waveHeightFt, windSpeedMph, periodSec, tideHeightFt } = inputs;
 
-  if (
-    waveHeightFt <= 0 ||
-    waveHeightFt < thresholds.waveMinFt ||
-    waveHeightFt > thresholds.waveMaxFt
-  ) {
-    return 0;
-  }
+  if (waveHeightFt <= 0) return 0;
+
+  const isBelowBand = waveHeightFt < thresholds.waveMinFt;
+  const isAboveBand = waveHeightFt > thresholds.waveMaxFt;
+  const isOutOfBand = isBelowBand || isAboveBand;
 
   const peak = (thresholds.idealMinFt + thresholds.idealMaxFt) / 2;
   const rawWaveScore =
     waveHeightFt <= peak
       ? 45 * ((waveHeightFt - thresholds.waveMinFt) / Math.max(peak - thresholds.waveMinFt, 0.01))
       : 45 * ((thresholds.waveMaxFt - waveHeightFt) / Math.max(thresholds.waveMaxFt - peak, 0.01));
-  const waveScore = Math.max(0, Math.min(45, rawWaveScore));
+  const waveScore = isOutOfBand
+    ? 0
+    : Math.max(0, Math.min(45, rawWaveScore));
 
   const energyScore =
     periodSec >= 13
@@ -157,7 +160,19 @@ export function scoreNativeConditionInputs(
   if (tideStatus.includes("high") || tideStatus.includes("low")) tideScore -= 1;
   tideScore = Math.max(0, Math.min(10, tideScore));
 
-  return Math.round(waveScore + energyScore + windScore + tideScore);
+  if (!isOutOfBand) {
+    return Math.round(waveScore + energyScore + windScore + tideScore);
+  }
+
+  const relativeDistance = isAboveBand
+    ? (waveHeightFt - thresholds.waveMaxFt) / thresholds.waveMaxFt
+    : (thresholds.waveMinFt - waveHeightFt) / Math.max(thresholds.waveMinFt, 0.5);
+  const attenuation = Math.max(0, 1 - relativeDistance / 0.75);
+  const nonWaveScore = energyScore + windScore + tideScore;
+
+  return Math.round(
+    Math.min(OUT_OF_BAND_SCORE_CEILING, nonWaveScore * attenuation),
+  );
 }
 
 export function scoreNativeForecastSlot(
