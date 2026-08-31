@@ -898,6 +898,17 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
 export const KNOWN_REJECTED_USER_EVENT_EMITTERS = [
 ] as const;
 
+export const ALERT_ATTRIBUTION_EVENT_TYPES = {
+  message_activated: "alert_message_activated",
+  app_returned: "alert_app_returned",
+  return_to_decision: "alert_return_to_decision",
+  decision_action: "alert_decision_action",
+} as const;
+
+export const OWNERSHIP_GATED_USER_EVENTS = Object.values(
+  ALERT_ATTRIBUTION_EVENT_TYPES,
+);
+
 /**
  * Event types present in the user_events CHECK constraint but deliberately
  * absent from VALID_EVENTS.

@@ -16,6 +16,7 @@
 // Forecast shadow mode runs hold, canonical, and channel checks, records the
 // outcome, and consumes queue rows without calling an outbound provider.
 
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -413,6 +414,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     channel: Channel;
     status: AttemptStatus;
     skipReason?: string;
+    messageInstanceId?: string;
   }): Promise<void> {
     const { error } = await supabase.from("alert_delivery_attempts").insert({
       queue_id: args.queueId,
@@ -421,6 +423,9 @@ export async function GET(request: Request): Promise<NextResponse> {
       channel: args.channel,
       status: args.status,
       skip_reason: args.skipReason ?? null,
+      ...(args.messageInstanceId
+        ? { message_instance_id: args.messageInstanceId }
+        : {}),
     });
     if (error) {
       console.error(
@@ -1333,6 +1338,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                       });
                     }
                   } else {
+                    const messageInstanceId = randomUUID();
                     const survivorRuleIds = new Set(
                       emailSurvivors.map((i) => i.rule_id),
                     );
@@ -1387,6 +1393,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                             manageAlertsUrl,
                             unsubscribeUrl,
                             baseUrl,
+                            messageInstanceId,
                           }),
                           unsubscribeUrl,
                         });
@@ -1411,6 +1418,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                           channel: "email",
                           status: "failed_provider",
                           skipReason: errorMessage,
+                          messageInstanceId,
                         });
                       }
                     } else {
@@ -1445,12 +1453,14 @@ export async function GET(request: Request): Promise<NextResponse> {
                             userId: payload.user_id,
                             channel: "email",
                             status: "sent",
+                            messageInstanceId,
                           });
                         }
                       } else {
                         await emailLogger.logDelivery({
                           userId: payload.user_id,
                           emailType: "conditions_alert",
+                          messageInstanceId,
                           subject: emailSubject,
                           meta: {
                             match_count: emailMatches.length,
@@ -1473,6 +1483,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                             userId: payload.user_id,
                             channel: "email",
                             status: "sent",
+                            messageInstanceId,
                           });
                         }
                       }

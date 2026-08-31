@@ -1,3 +1,5 @@
+/** @jest-environment node */
+
 /**
  * Unit tests for buildConditionsLine in the surf report email template.
  *
@@ -7,6 +9,7 @@
  */
 
 import {
+  ConsolidatedAlertEmail,
   buildEmailBeachUrl,
   buildConditionsLine,
   formatEmailHeadingDate,
@@ -14,6 +17,7 @@ import {
   formatWindow,
 } from "@/lib/mailer/templates/ConsolidatedAlertEmail";
 import type { MatchingWindow } from "@/lib/alerts/types";
+import { renderToStaticMarkup } from "react-dom/server";
 
 describe("buildConditionsLine", () => {
   it("matches the website's units for today's Mission Beach snapshot", () => {
@@ -156,18 +160,53 @@ function makeMatch(overrides: Partial<MatchingWindow> = {}): MatchingWindow {
 }
 
 describe("surf report email copy", () => {
+  it("uses one message UUID across every forecast CTA", () => {
+    const messageInstanceId = "9d1498df-a14f-429a-833d-818bc4864064";
+    const html = renderToStaticMarkup(ConsolidatedAlertEmail({
+      displayName: "Surfer",
+      alertDate: "Wednesday, May 6",
+      matches: [
+        makeMatch({ rule_id: "rule-1", beach_slug: "mission-beach" }),
+        makeMatch({ rule_id: "rule-2", beach_slug: "ocean-beach" }),
+      ],
+      manageAlertsUrl: "https://www.quiversurf.app/settings",
+      unsubscribeUrl: "https://www.quiversurf.app/unsubscribe",
+      baseUrl: "https://www.quiversurf.app",
+      messageInstanceId,
+    }) as any);
+    const ctaUrls = [...html.matchAll(/href="([^"]+\/app\/spot\/[^"]+)"/g)]
+      .map((match) => new URL(match[1].replaceAll("&amp;", "&")));
+
+    expect(ctaUrls).toHaveLength(2);
+    expect(ctaUrls.map((url) => url.searchParams.get("message_instance_id")))
+      .toEqual([messageInstanceId, messageInstanceId]);
+  });
+
   it("builds a native-handled beach URL from the public slug", () => {
-    expect(
-      buildEmailBeachUrl(
-        "https://www.quiversurf.app",
-        makeMatch({ beach_slug: "mission-beach" }),
-      ),
-    ).toBe("https://www.quiversurf.app/beach/mission-beach");
+    const url = new URL(buildEmailBeachUrl(
+      "https://www.quiversurf.app",
+      makeMatch({ beach_slug: "mission-beach" }),
+      "9d1498df-a14f-429a-833d-818bc4864064",
+    ));
+
+    expect(url.pathname).toBe("/app/spot/mission-beach");
+    expect(url.searchParams.get("window")).toBe("2026-05-06T15:00:00Z");
+    expect(url.searchParams.get("utm_source")).toBe("quiver");
+    expect(url.searchParams.get("utm_medium")).toBe("email");
+    expect(url.searchParams.get("utm_campaign")).toBe("conditions_alert");
+    expect(url.searchParams.get("email_type")).toBe("conditions_alert");
+    expect(url.searchParams.get("message_instance_id")).toBe(
+      "9d1498df-a14f-429a-833d-818bc4864064",
+    );
   });
 
   it("falls back to the beach id when a slug is unavailable", () => {
-    expect(buildEmailBeachUrl("https://www.quiversurf.app", makeMatch())).toBe(
-      "https://www.quiversurf.app/beach/beach-1",
+    expect(new URL(buildEmailBeachUrl(
+      "https://www.quiversurf.app",
+      makeMatch(),
+      "9d1498df-a14f-429a-833d-818bc4864064",
+    )).pathname).toBe(
+      "/app/spot/beach-1",
     );
   });
 
