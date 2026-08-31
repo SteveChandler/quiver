@@ -5,6 +5,7 @@ interface DataFetcherState<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
+  cacheKey?: string;
 }
 
 interface DataFetcherOptions<T = any> {
@@ -58,24 +59,26 @@ export function useDataFetcher<T>(
     if (cacheKey) {
       const cachedData = cache.get<T>(cacheKey);
       if (cachedData !== null) {
-        return { data: cachedData, loading: false, error: null };
+        return { data: cachedData, loading: false, error: null, cacheKey };
       }
     }
     return {
       data: (initialData as T | null) ?? null,
       loading: immediate && !skip,
       error: null,
+      cacheKey,
     };
   });
 
   const fetchData = useCallback(async (bypassCache = false) => {
     const requestSequence = ++requestSequenceRef.current;
+    const requestCacheKey = cacheKeyRef.current;
 
     // Return cached data immediately when available and not forcing a refresh
-    if (!bypassCache && cacheKeyRef.current) {
-      const cachedData = cacheRef.current.get<T>(cacheKeyRef.current);
+    if (!bypassCache && requestCacheKey) {
+      const cachedData = cacheRef.current.get<T>(requestCacheKey);
       if (cachedData !== null) {
-        setState({ data: cachedData, loading: false, error: null });
+        setState({ data: cachedData, loading: false, error: null, cacheKey: requestCacheKey });
         if (onSuccessRef.current) {
           onSuccessRef.current(cachedData);
         }
@@ -90,19 +93,23 @@ export function useDataFetcher<T>(
 
     try {
       const result = await fetchFnRef.current();
-      if (requestSequence !== requestSequenceRef.current) {
+      if (
+        requestSequence !== requestSequenceRef.current ||
+        requestCacheKey !== cacheKeyRef.current
+      ) {
         return result;
       }
 
       // Populate cache when a key is provided
-      if (cacheKeyRef.current) {
-        cacheRef.current.set(cacheKeyRef.current, result, cacheTTLRef.current);
+      if (requestCacheKey) {
+        cacheRef.current.set(requestCacheKey, result, cacheTTLRef.current);
       }
 
       setState({
         data: result,
         loading: false,
         error: null,
+        cacheKey: requestCacheKey,
       });
 
       if (onSuccessRef.current) {
@@ -111,7 +118,10 @@ export function useDataFetcher<T>(
 
       return result;
     } catch (error) {
-      if (requestSequence !== requestSequenceRef.current) {
+      if (
+        requestSequence !== requestSequenceRef.current ||
+        requestCacheKey !== cacheKeyRef.current
+      ) {
         return;
       }
       const errorMessage =
@@ -120,6 +130,7 @@ export function useDataFetcher<T>(
         data: null,
         loading: false,
         error: errorMessage,
+        cacheKey: requestCacheKey,
       });
 
       if (onErrorRef.current) {
@@ -131,11 +142,13 @@ export function useDataFetcher<T>(
   // Track previous skip and fetchFn to detect changes
   const prevSkipRef = useRef(skip);
   const prevFetchFnRef = useRef(fetchFn);
+  const prevCacheKeyRef = useRef(cacheKey);
   const hasRunInitialRef = useRef(false);
 
   useEffect(() => {
     const wasSkipped = prevSkipRef.current;
     const fetchFnChanged = prevFetchFnRef.current !== fetchFn;
+    const cacheKeyChanged = prevCacheKeyRef.current !== cacheKey;
 
     // Trigger fetch when:
     // 1. immediate is true, not skipped, and initial fetch hasn't run yet
@@ -145,7 +158,7 @@ export function useDataFetcher<T>(
     const shouldFetch =
       (!hasRunInitialRef.current && immediate && !skip) ||
       (wasSkipped && !skip) ||
-      (!skip && fetchFnChanged);
+      (!skip && (fetchFnChanged || cacheKeyChanged));
 
     if (shouldFetch) {
       fetchData();
@@ -156,7 +169,8 @@ export function useDataFetcher<T>(
     }
     prevSkipRef.current = skip;
     prevFetchFnRef.current = fetchFn;
-  }, [fetchData, immediate, skip, fetchFn]);
+    prevCacheKeyRef.current = cacheKey;
+  }, [cacheKey, fetchData, immediate, skip, fetchFn]);
 
   const retry = useCallback(() => {
     fetchData();
@@ -168,6 +182,7 @@ export function useDataFetcher<T>(
       data: null,
       loading: false,
       error: null,
+      cacheKey: cacheKeyRef.current,
     });
   }, []);
 
@@ -181,8 +196,12 @@ export function useDataFetcher<T>(
   // refetch bypasses the cache and forces a network request
   const refetch = useCallback(() => fetchData(true), [fetchData]);
 
+  const cacheKeyMatches = state.cacheKey === cacheKey;
+
   return {
-    ...state,
+    data: cacheKeyMatches ? state.data : null,
+    loading: cacheKeyMatches ? state.loading : immediate && !skip,
+    error: cacheKeyMatches ? state.error : null,
     refetch,
     retry,
     reset,

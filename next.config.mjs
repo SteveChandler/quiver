@@ -2,7 +2,10 @@ import { createRequire } from "node:module";
 import withPWA from "@ducanh2912/next-pwa";
 import { withSentryConfig } from "@sentry/nextjs";
 import { validateEnvironment } from "./config/environment-validation.mjs";
-import { isCacheableForecastApiPath } from "./config/forecast-api-cache-rules.mjs";
+import {
+  isCacheableForecastApiPath,
+  isCacheableRuntimeImage,
+} from "./config/forecast-api-cache-rules.mjs";
 import { apiCacheHeaderRules } from "./config/api-cache-header-rules.mjs";
 
 const require = createRequire(import.meta.url);
@@ -119,6 +122,15 @@ const nextConfig = {
       // user. The ordered rules put their no-store header after the blanket
       // API rule, matching Next's final-matching-header behavior.
       ...apiCacheHeaderRules,
+      {
+        source: "/api/forecasts/update-enhanced",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
       {
         source: "/api/install-attribution/:path*",
         headers: [
@@ -766,7 +778,8 @@ const pwaConfig = withPWA({
     },
     // Images - StaleWhileRevalidate (serve fast, update in background)
     {
-      urlPattern: ({ request }) => request.destination === "image",
+      urlPattern: ({ request, url }) =>
+        isCacheableRuntimeImage(url.pathname, request.destination),
       handler: "StaleWhileRevalidate",
       options: {
         cacheName: "images",

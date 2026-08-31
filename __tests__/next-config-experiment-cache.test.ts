@@ -50,7 +50,6 @@ async function loadConfiguredHeaders(): Promise<HeaderRule[]> {
 
 function resolvedCacheControl(path: string, rules: HeaderRule[]): string | undefined {
   // Uses Next's route matcher so this follows the emitted config's source syntax.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { getPathMatch } = require("next/dist/shared/lib/router/utils/path-match") as {
     getPathMatch: (source: string) => (pathname: string) => false | Record<string, string>;
   };
@@ -63,13 +62,15 @@ function resolvedCacheControl(path: string, rules: HeaderRule[]): string | undef
   return headers.get("Cache-Control") ?? undefined;
 }
 
-describe("next.config experiment endpoint cache policy", () => {
+describe("next.config private endpoint cache policy", () => {
   it("emits no-store for experiments while retaining the blanket policy for a control API path", async () => {
     const headers = await loadConfiguredHeaders();
 
     expect(resolvedCacheControl("/api/v1/experiments/assignment", headers))
       .toBe("private, no-store, no-cache, must-revalidate");
     expect(resolvedCacheControl("/api/v1/experiments/link", headers))
+      .toBe("private, no-store, no-cache, must-revalidate");
+    expect(resolvedCacheControl("/api/forecasts/update-enhanced", headers))
       .toBe("private, no-store, no-cache, must-revalidate");
     expect(resolvedCacheControl("/api/control-path", headers))
       .toBe("private, max-age=60, stale-while-revalidate=120");
