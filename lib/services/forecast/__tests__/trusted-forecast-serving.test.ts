@@ -17,6 +17,7 @@ import {
   type TrustedForecastServingStore,
 } from "../trusted-forecast-serving";
 import { TRUSTED_FORECAST_POLICY_VERSION } from "../trusted-forecast-policy";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 
 const CANARY_A = "11111111-1111-4111-8111-111111111111";
 const CANARY_B = "22222222-2222-4222-8222-222222222222";
@@ -24,13 +25,21 @@ const CONTROL = "33333333-3333-4333-8333-333333333333";
 const BEACH_ID = "44444444-4444-4444-8444-444444444444";
 const FORECAST_AT = "2026-08-30T12:00:00.000Z";
 
-const baseline = [
-  {
-    beach_id: BEACH_ID,
-    forecast_at: FORECAST_AT,
-    wave_height: "4 ft",
-  },
-];
+const baselineRow = {
+  id: "row-1",
+  beach_id: BEACH_ID,
+  forecast_at: FORECAST_AT,
+  forecast_date: "2026-08-30",
+  forecast_time: "17:00",
+  wave_height: "4 ft",
+  water_temp: null,
+  confidence_score: null,
+  data_source: "NOAA_NWS",
+  created_at: FORECAST_AT,
+  updated_at: FORECAST_AT,
+} satisfies EnhancedForecastEntity;
+
+const baseline = [baselineRow];
 
 function store(
   data: unknown[] | null = [

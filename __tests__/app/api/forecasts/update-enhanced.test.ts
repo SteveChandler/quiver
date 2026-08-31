@@ -24,7 +24,7 @@ const mockApplyV51DisplayOverrideToForecasts = jest.fn(
 const mockApplyTrustedForecastServing = jest.fn(
   async ({ forecasts }: { forecasts: any[] }) => forecasts,
 ) as jest.MockedFunction<(args: any) => Promise<any[]>>;
-const mockGetAuthUser = jest.fn(async () => ({
+const mockGetAuthUser = jest.fn(async (..._args: unknown[]) => ({
   data: { user: null },
   error: null,
 }));
