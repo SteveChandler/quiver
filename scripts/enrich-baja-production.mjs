@@ -1286,6 +1286,10 @@ function deriveSwellWindow(spot, surfTripsEvidence) {
   };
 }
 
+function normalizeBearing(degrees) {
+  return degrees == null ? null : degrees % 360;
+}
+
 const SKILL_RANK = {
   beginner: 0,
   intermediate: 1,
@@ -2196,8 +2200,8 @@ function buildProductionDataset(
       wind_onshore_bad_kt: null,
       max_wind_onshore_mph: null,
       max_wind_any_mph: null,
-      swell_window_min_deg: swellWindow?.min_deg ?? null,
-      swell_window_max_deg: swellWindow?.max_deg ?? null,
+      swell_window_min_deg: normalizeBearing(swellWindow?.min_deg),
+      swell_window_max_deg: normalizeBearing(swellWindow?.max_deg),
       swell_window_evidence: swellWindow,
       preferred_tide_ft_min: tideReview?.preferred_tide_ft_min ?? null,
       preferred_tide_ft_max: tideReview?.preferred_tide_ft_max ?? null,

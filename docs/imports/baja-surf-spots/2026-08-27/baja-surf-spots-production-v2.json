@@ -649,7 +649,7 @@
       "max_wind_onshore_mph": null,
       "max_wind_any_mph": null,
       "swell_window_min_deg": 270,
-      "swell_window_max_deg": 360,
+      "swell_window_max_deg": 0,
       "swell_window_evidence": {
         "min_deg": 270,
         "max_deg": 360,
