@@ -57,7 +57,34 @@ function store(
   error: { code?: string } | null = null,
 ): TrustedForecastServingStore {
   return {
-    selectApplications: jest.fn(async () => ({ data, error })),
+    selectProjections: jest.fn(async () => ({
+      data: data?.map((value) => {
+        if (
+          typeof value !== "object" ||
+          value === null ||
+          Array.isArray(value) ||
+          "trusted_forecast_applications" in value
+        ) {
+          return value;
+        }
+        const row = value as Record<string, unknown>;
+        return {
+          beach_id: row.beach_id,
+          forecast_at: row.forecast_at,
+          display_wave_height: row.display_wave_height ?? baselineRow.wave_height,
+          refreshed_at: row.refreshed_at ?? FORECAST_AT,
+          baseline_max_face_ft:
+            row.current_baseline_max_face_ft ?? row.baseline_max_face_ft,
+          trusted_forecast_applications: {
+            applied_delta_ft: row.applied_delta_ft,
+            baseline_max_face_ft: row.baseline_max_face_ft,
+            adjusted_max_face_ft: row.adjusted_max_face_ft,
+            trusted_forecast_decisions: row.trusted_forecast_decisions,
+          },
+        };
+      }) ?? null,
+      error,
+    })),
   };
 }
 
@@ -145,6 +172,56 @@ describe("trusted forecast response serving", () => {
     );
   });
 
+  it("applies the durable delta to a regenerated current baseline", async () => {
+    const regenerated = [{ ...baselineRow, wave_height: "6 ft" }];
+    const result = await applyTrustedForecastServing({
+      userId: CANARY_A,
+      beachId: BEACH_ID,
+      forecasts: regenerated,
+      store: store([
+        {
+          beach_id: BEACH_ID,
+          forecast_at: FORECAST_AT,
+          display_wave_height: "6 ft",
+          current_baseline_max_face_ft: 6,
+          applied_delta_ft: 0.5,
+          baseline_max_face_ft: 4,
+          adjusted_max_face_ft: 4.5,
+          trusted_forecast_decisions: {
+            policy_version: TRUSTED_FORECAST_POLICY_VERSION,
+          },
+        },
+      ]),
+      env: enabledEnv,
+    });
+
+    expect(result[0]?.wave_height).toBe("6-7ft");
+  });
+
+  it("fails closed when the projection and public row are from different writes", async () => {
+    const result = await applyTrustedForecastServing({
+      userId: CANARY_A,
+      beachId: BEACH_ID,
+      forecasts: baseline,
+      store: store([
+        {
+          beach_id: BEACH_ID,
+          forecast_at: FORECAST_AT,
+          refreshed_at: "2026-08-30T10:00:00.000Z",
+          applied_delta_ft: 0.5,
+          baseline_max_face_ft: 4,
+          adjusted_max_face_ft: 4.5,
+          trusted_forecast_decisions: {
+            policy_version: TRUSTED_FORECAST_POLICY_VERSION,
+          },
+        },
+      ]),
+      env: enabledEnv,
+    });
+
+    expect(result).toBe(baseline);
+  });
+
   it.each([CONTROL, null])("returns baseline without a private read for %p", async (userId) => {
     const readStore = store();
     const result = await applyTrustedForecastServing({
@@ -156,7 +233,7 @@ describe("trusted forecast response serving", () => {
     });
 
     expect(result).toBe(baseline);
-    expect(readStore.selectApplications).not.toHaveBeenCalled();
+    expect(readStore.selectProjections).not.toHaveBeenCalled();
   });
 
   it("does not read private applications when canary serving is off", async () => {
@@ -170,7 +247,7 @@ describe("trusted forecast response serving", () => {
     });
 
     expect(result).toBe(baseline);
-    expect(readStore.selectApplications).not.toHaveBeenCalled();
+    expect(readStore.selectProjections).not.toHaveBeenCalled();
   });
 
   it("does not read private applications when the master switch is off", async () => {
@@ -188,7 +265,7 @@ describe("trusted forecast response serving", () => {
     });
 
     expect(result).toBe(baseline);
-    expect(readStore.selectApplications).not.toHaveBeenCalled();
+    expect(readStore.selectProjections).not.toHaveBeenCalled();
   });
 
   it("suppresses feedback instead of stacking it on a trusted adjustment", async () => {
@@ -204,14 +281,10 @@ describe("trusted forecast response serving", () => {
           applied_delta_ft: -0.5,
           baseline_max_face_ft: 5,
           adjusted_max_face_ft: 4.5,
+          current_baseline_max_face_ft: 5,
+          display_wave_height: "5-6ft",
           trusted_forecast_decisions: {
             policy_version: TRUSTED_FORECAST_POLICY_VERSION,
-          },
-          ml_predictions_log: {
-            beach_id: BEACH_ID,
-            predicted_at: FORECAST_AT,
-            feedback_height_offset_ft: -0.5,
-            feedback_height_calibration_applied: true,
           },
         },
       ]),
@@ -221,7 +294,7 @@ describe("trusted forecast response serving", () => {
     expect(result[0]?.wave_height).toBe("4-5ft");
   });
 
-  it("fails closed when feedback metadata comes from a stale snapshot link", async () => {
+  it("fails closed when the regenerated public display differs from its projection", async () => {
     const withFeedback = [{ ...baselineRow, wave_height: "5-6ft" }];
     const result = await applyTrustedForecastServing({
       userId: CANARY_A,
@@ -234,14 +307,10 @@ describe("trusted forecast response serving", () => {
           applied_delta_ft: -0.5,
           baseline_max_face_ft: 5,
           adjusted_max_face_ft: 4.5,
+          current_baseline_max_face_ft: 5,
+          display_wave_height: "4-5ft",
           trusted_forecast_decisions: {
             policy_version: TRUSTED_FORECAST_POLICY_VERSION,
-          },
-          ml_predictions_log: {
-            beach_id: CONTROL,
-            predicted_at: FORECAST_AT,
-            feedback_height_offset_ft: -0.5,
-            feedback_height_calibration_applied: true,
           },
         },
       ]),
@@ -334,7 +403,7 @@ describe("trusted forecast response serving", () => {
       beachId: BEACH_ID,
       forecasts: baseline,
       store: {
-        selectApplications: jest.fn(async () => {
+        selectProjections: jest.fn(async () => {
           throw new Error("transport");
         }),
       },

@@ -14,6 +14,7 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ALLOWED_DELTAS = new Set([-0.5, -0.25, 0.25, 0.5]);
 const ROUTE_IDENTIFIER = "/api/forecasts/update-enhanced";
+const MAX_PROJECTION_WRITE_SKEW_MS = 15 * 60 * 1000;
 
 const log = createContextLogger("TrustedForecastServing");
 
@@ -21,16 +22,18 @@ interface ServingApplicationRow {
   readonly beach_id: string;
   readonly forecast_at: string;
   readonly applied_delta_ft: number;
-  readonly baseline_max_face_ft: number;
-  readonly adjusted_max_face_ft: number;
+  readonly original_baseline_max_face_ft: number;
+  readonly original_adjusted_max_face_ft: number;
+  readonly current_baseline_max_face_ft: number;
+  readonly display_wave_height: string;
+  readonly refreshed_at: string;
   readonly trusted_forecast_decisions: {
     readonly policy_version: string;
   };
-  readonly feedback_height_offset_ft: number | null;
 }
 
 export interface TrustedForecastServingStore {
-  selectApplications(args: {
+  selectProjections(args: {
     readonly beachId: string;
     readonly forecastAts: readonly string[];
   }): Promise<{
@@ -51,16 +54,6 @@ interface ApplyTrustedForecastServingArgs<T extends EnhancedForecastEntity> {
   readonly forecasts: readonly T[];
   readonly store?: TrustedForecastServingStore;
   readonly env?: ServingEnv;
-}
-
-function displayContainsBaseline(
-  numericFt: number,
-  rangeSpread: number | null,
-  baselineFt: number,
-): boolean {
-  if (rangeSpread === null) return Math.abs(numericFt - baselineFt) <= 0.001;
-  const halfSpread = rangeSpread / 2;
-  return baselineFt >= numericFt - halfSpread && baselineFt <= numericFt + halfSpread;
 }
 
 export function parseTrustedForecastCanaryUserIds(
@@ -92,11 +85,11 @@ export function isTrustedForecastCanaryEligible(
 
 function createServingStore(): TrustedForecastServingStore {
   return {
-    async selectApplications({ beachId, forecastAts }) {
+    async selectProjections({ beachId, forecastAts }) {
       const { data, error } = await createServiceRoleClient()
-        .from("trusted_forecast_applications")
+        .from("trusted_forecast_serving_projections" as never)
         .select(
-          "beach_id, forecast_at, applied_delta_ft, baseline_max_face_ft, adjusted_max_face_ft, trusted_forecast_decisions!trusted_forecast_applications_decision_id_fkey(policy_version), ml_predictions_log!trusted_forecast_applications_prediction_snapshot_id_fkey(beach_id, predicted_at, feedback_height_offset_ft, feedback_height_calibration_applied)",
+          "beach_id, forecast_at, display_wave_height, baseline_max_face_ft, refreshed_at, trusted_forecast_applications!trusted_forecast_serving_projections_application_fkey(applied_delta_ft, baseline_max_face_ft, adjusted_max_face_ft, trusted_forecast_decisions!trusted_forecast_applications_decision_id_fkey(policy_version))",
         )
         .eq("beach_id", beachId)
         .in("forecast_at", [...forecastAts]);
@@ -108,81 +101,67 @@ function createServingStore(): TrustedForecastServingStore {
 function parseApplication(value: unknown): ServingApplicationRow | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const row = value as Record<string, unknown>;
-  const decision = row.trusted_forecast_decisions;
+  const application = row.trusted_forecast_applications;
+  if (
+    typeof application !== "object" ||
+    application === null ||
+    Array.isArray(application)
+  ) {
+    return null;
+  }
+  const applicationRow = application as Record<string, unknown>;
+  const decision = applicationRow.trusted_forecast_decisions;
   if (typeof decision !== "object" || decision === null || Array.isArray(decision)) {
     return null;
   }
   const policyVersion = (decision as Record<string, unknown>).policy_version;
-  const snapshot = row.ml_predictions_log;
   if (
-    snapshot !== null &&
-    snapshot !== undefined &&
-    (typeof snapshot !== "object" || Array.isArray(snapshot))
-  ) {
-    return null;
-  }
-  const snapshotRow = (snapshot ?? {}) as Record<string, unknown>;
-  const feedbackApplied = snapshotRow.feedback_height_calibration_applied === true;
-  const rawFeedbackOffset = snapshotRow.feedback_height_offset_ft;
-  const feedbackOffset =
-    typeof rawFeedbackOffset === "number" || typeof rawFeedbackOffset === "string"
-      ? Number(rawFeedbackOffset)
-      : null;
-  if (
-    feedbackApplied &&
-    (feedbackOffset === null || !Number.isFinite(feedbackOffset))
-  ) {
-    return null;
-  }
-  if (
-    (typeof row.applied_delta_ft !== "number" &&
-      typeof row.applied_delta_ft !== "string") ||
+    (typeof applicationRow.applied_delta_ft !== "number" &&
+      typeof applicationRow.applied_delta_ft !== "string") ||
+    (typeof applicationRow.baseline_max_face_ft !== "number" &&
+      typeof applicationRow.baseline_max_face_ft !== "string") ||
+    (typeof applicationRow.adjusted_max_face_ft !== "number" &&
+      typeof applicationRow.adjusted_max_face_ft !== "string") ||
     (typeof row.baseline_max_face_ft !== "number" &&
       typeof row.baseline_max_face_ft !== "string") ||
-    (typeof row.adjusted_max_face_ft !== "number" &&
-      typeof row.adjusted_max_face_ft !== "string") ||
-    row.applied_delta_ft === "" ||
+    typeof row.display_wave_height !== "string" ||
+    typeof row.refreshed_at !== "string" ||
+    applicationRow.applied_delta_ft === "" ||
     row.baseline_max_face_ft === "" ||
-    row.adjusted_max_face_ft === ""
+    applicationRow.baseline_max_face_ft === "" ||
+    applicationRow.adjusted_max_face_ft === ""
   ) {
     return null;
   }
-  const delta: number = Number(row.applied_delta_ft);
-  const baseline: number = Number(row.baseline_max_face_ft);
-  const adjusted: number = Number(row.adjusted_max_face_ft);
+  const delta: number = Number(applicationRow.applied_delta_ft);
+  const originalBaseline: number = Number(applicationRow.baseline_max_face_ft);
+  const originalAdjusted: number = Number(applicationRow.adjusted_max_face_ft);
+  const currentBaseline: number = Number(row.baseline_max_face_ft);
   if (
     typeof row.beach_id !== "string" ||
     typeof row.forecast_at !== "string" ||
     typeof policyVersion !== "string" ||
     !ALLOWED_DELTAS.has(delta) ||
-    !Number.isFinite(baseline) ||
-    !Number.isFinite(adjusted) ||
-    baseline < 0 ||
-    adjusted < 0 ||
-    Math.abs(baseline + delta - adjusted) > 0.001
+    !Number.isFinite(originalBaseline) ||
+    !Number.isFinite(originalAdjusted) ||
+    !Number.isFinite(currentBaseline) ||
+    originalBaseline < 0 ||
+    originalAdjusted < 0 ||
+    currentBaseline < 0 ||
+    Math.abs(originalBaseline + delta - originalAdjusted) > 0.001
   ) {
     return null;
-  }
-  if (snapshot !== null && snapshot !== undefined) {
-    const snapshotAt = new Date(String(snapshotRow.predicted_at));
-    const applicationAt = new Date(row.forecast_at);
-    if (
-      snapshotRow.beach_id !== row.beach_id ||
-      Number.isNaN(snapshotAt.getTime()) ||
-      Number.isNaN(applicationAt.getTime()) ||
-      snapshotAt.getTime() !== applicationAt.getTime()
-    ) {
-      return null;
-    }
   }
   return {
     beach_id: row.beach_id,
     forecast_at: row.forecast_at,
     applied_delta_ft: delta,
-    baseline_max_face_ft: baseline,
-    adjusted_max_face_ft: adjusted,
+    original_baseline_max_face_ft: originalBaseline,
+    original_adjusted_max_face_ft: originalAdjusted,
+    current_baseline_max_face_ft: currentBaseline,
+    display_wave_height: row.display_wave_height,
+    refreshed_at: row.refreshed_at,
     trusted_forecast_decisions: { policy_version: policyVersion },
-    feedback_height_offset_ft: feedbackApplied ? feedbackOffset : null,
   };
 }
 
@@ -209,26 +188,31 @@ export async function applyTrustedForecastServing<
 
   const baselineByInstant = new Map<
     string,
-    { readonly index: number; readonly numericFt: number; readonly rangeSpread: number | null }
+    { readonly index: number; readonly rangeSpread: number | null; readonly updatedAtMs: number }
   >();
   for (const [index, forecast] of forecasts.entries()) {
     if (forecast.beach_id !== beachId || typeof forecast.forecast_at !== "string") {
       return forecasts;
     }
     const at = new Date(forecast.forecast_at);
+    const updatedAt = new Date(forecast.updated_at);
     const parsedHeight = parseDisplayHeightFt(forecast.wave_height);
-    if (Number.isNaN(at.getTime()) || parsedHeight.numericFt === null) return forecasts;
+    if (
+      Number.isNaN(at.getTime()) ||
+      Number.isNaN(updatedAt.getTime()) ||
+      parsedHeight.numericFt === null
+    ) return forecasts;
     const instant = at.toISOString();
     if (baselineByInstant.has(instant)) return forecasts;
     baselineByInstant.set(instant, {
       index,
-      numericFt: parsedHeight.numericFt,
       rangeSpread: parsedHeight.rangeSpread,
+      updatedAtMs: updatedAt.getTime(),
     });
   }
 
   try {
-    const result = await (store ?? createServingStore()).selectApplications({
+    const result = await (store ?? createServingStore()).selectProjections({
       beachId,
       forecastAts: [...baselineByInstant.keys()],
     });
@@ -242,19 +226,16 @@ export async function applyTrustedForecastServing<
       if (Number.isNaN(at.getTime())) return forecasts;
       const instant = at.toISOString();
       const baseline = baselineByInstant.get(instant);
-      const ordinaryDisplayFt =
-        application.baseline_max_face_ft -
-        (application.feedback_height_offset_ft ?? 0);
+      const refreshedAtMs = new Date(application.refreshed_at).getTime();
       if (
         baseline === undefined ||
+        Number.isNaN(refreshedAtMs) ||
+        Math.abs(baseline.updatedAtMs - refreshedAtMs) >
+          MAX_PROJECTION_WRITE_SKEW_MS ||
         applications.has(instant) ||
+        forecasts[baseline.index]?.wave_height !== application.display_wave_height ||
         application.trusted_forecast_decisions.policy_version !==
-          TRUSTED_FORECAST_POLICY_VERSION ||
-        !displayContainsBaseline(
-          baseline.numericFt,
-          baseline.rangeSpread,
-          ordinaryDisplayFt,
-        )
+          TRUSTED_FORECAST_POLICY_VERSION
       ) {
         return forecasts;
       }
@@ -267,7 +248,9 @@ export async function applyTrustedForecastServing<
       const baseline = baselineByInstant.get(instant);
       if (baseline === undefined) return forecasts;
       adjusted[baseline.index].wave_height = formatDisplayHeightFt({
-        numericFt: application.adjusted_max_face_ft,
+        numericFt:
+          application.current_baseline_max_face_ft +
+          application.applied_delta_ft,
         rangeSpread: baseline.rangeSpread,
       });
     }
