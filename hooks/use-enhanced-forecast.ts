@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useOptionalAuth } from "@/context/auth-context";
 import { forecastCache, RequestCache } from "@/lib/utils/request-cache";
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -47,10 +48,18 @@ export function useEnhancedForecast({
   autoGenerate = true,
   beachTimezone,
 }: UseEnhancedForecastOptions): UseEnhancedForecastReturn {
+  const identity = useOptionalAuth()?.user?.id ?? "anon";
+  const previousIdentityRef = useRef(identity);
   const [updating, setUpdating] = useState(false);
   const [autoGenerating, setAutoGenerating] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [hasTriedAutoGeneration, setHasTriedAutoGeneration] = useState(false);
+
+  useEffect(() => {
+    if (previousIdentityRef.current === identity) return;
+    forecastCache.clear();
+    previousIdentityRef.current = identity;
+  }, [identity]);
 
   // Memoized fetch function to prevent recreating on every render
   const fetchForecasts = useCallback(async (): Promise<ForecastData> => {
@@ -59,7 +68,8 @@ export function useEnhancedForecast({
     }
 
     const response = await fetch(
-      `/api/forecasts/update-enhanced?beachId=${beachId}&days=${defaultDays}`
+      `/api/forecasts/update-enhanced?beachId=${beachId}&days=${defaultDays}`,
+      { cache: "no-store" },
     );
 
     if (!response.ok) {
@@ -119,14 +129,13 @@ export function useEnhancedForecast({
     return await fetchForecasts();
   }, [beachId, fetchForecasts]);
 
-  // Create stable cache key
   const cacheKey = RequestCache.createKey(
     "enhanced-forecasts",
+    identity,
     beachId,
-    defaultDays
+    defaultDays,
   );
 
-  // Use data fetcher with built-in caching
   const {
     data: forecastData,
     loading,

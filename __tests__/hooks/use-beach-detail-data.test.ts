@@ -4,6 +4,13 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { createMockBeach } from "../setup/typed-mocks";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
+import { forecastCache } from "@/lib/utils/request-cache";
+
+let mockAuthUser: { id: string } | null = null;
+
+jest.mock("@/context/auth-context", () => ({
+  useOptionalAuth: () => ({ user: mockAuthUser }),
+}));
 
 jest.mock("@/hooks/use-data-fetcher", () => ({
   useDataFetcher: jest.fn(),
@@ -75,6 +82,8 @@ function makeSuccessMocks({
 describe("useBeachDetailData", () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    forecastCache.clear();
+    mockAuthUser = null;
   });
 
   it("returns beach data from API when no initialBeach", () => {
@@ -116,6 +125,50 @@ describe("useBeachDetailData", () => {
 
     expect(result.current.forecasts).toEqual(mockForecasts);
     expect(result.current.forecasts).toHaveLength(1);
+  });
+
+  it("fetches account-aware forecasts without browser caching", async () => {
+    makeSuccessMocks();
+    renderHook(() => useBeachDetailData({ beachId: "beach-1" }));
+    const fetchForecasts = mockUseDataFetcher.mock.calls[1][0];
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: { forecasts: [] } }),
+      headers: new Headers(),
+    } as Response);
+
+    await fetchForecasts();
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/api/forecasts/update-enhanced"),
+      { cache: "no-store" },
+    );
+    fetchSpy.mockRestore();
+  });
+
+  it("keys the forecast cache by auth identity and clears it on account switch", () => {
+    mockAuthUser = { id: "account-a" };
+    makeSuccessMocks();
+    const clearSpy = jest.spyOn(forecastCache, "clear");
+    const { rerender } = renderHook(() =>
+      useBeachDetailData({ beachId: "beach-1" }),
+    );
+
+    expect(mockUseDataFetcher.mock.calls[1][1]).toEqual(
+      expect.objectContaining({
+        cache: forecastCache,
+        cacheKey: "beach-detail-forecasts:account-a:beach-1:10",
+      }),
+    );
+
+    makeSuccessMocks();
+    mockAuthUser = { id: "account-b" };
+    rerender();
+
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    expect(mockUseDataFetcher.mock.calls[4][1].cacheKey).toBe(
+      "beach-detail-forecasts:account-b:beach-1:10",
+    );
   });
 
   it("fetches sources and returns BeachSources", () => {

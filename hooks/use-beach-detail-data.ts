@@ -1,5 +1,7 @@
-import { useEffect, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo, useRef } from "react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useOptionalAuth } from "@/context/auth-context";
+import { forecastCache, RequestCache } from "@/lib/utils/request-cache";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
@@ -32,13 +34,22 @@ interface UseBeachDetailDataOptions {
 /**
  * Custom hook for Beach Detail page that fetches all data in parallel using
  * useDataFetcher for consistency with the repo's data fetching pattern.
- * HTTP caching is preserved via fetch options (force-cache, revalidate: 600).
+ * Public beach metadata and identity-scoped forecasts use in-memory caches.
  */
 export function useBeachDetailData({
   beachId,
   initialBeach = null,
   forecastDays = 10,
 }: UseBeachDetailDataOptions) {
+  const identity = useOptionalAuth()?.user?.id ?? "anon";
+  const previousIdentityRef = useRef(identity);
+
+  useEffect(() => {
+    if (previousIdentityRef.current === identity) return;
+    forecastCache.clear();
+    previousIdentityRef.current = identity;
+  }, [identity]);
+
   // Fetch beach data — skip when initialBeach is already available
   const fetchBeach = useCallback(async () => {
     const res = await fetch(`/api/beaches/${beachId}`, {
@@ -63,8 +74,7 @@ export function useBeachDetailData({
     const res = await fetch(
       `/api/forecasts/update-enhanced?beachId=${beachId}&days=${forecastDays}&allowStale=display`,
       {
-        cache: "force-cache",
-        next: { revalidate: 600 },
+        cache: "no-store",
       }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -92,7 +102,15 @@ export function useBeachDetailData({
     loading: forecastLoading,
     error: forecastError,
     refetch: refetchForecast,
-  } = useDataFetcher(fetchForecasts);
+  } = useDataFetcher(fetchForecasts, {
+    cacheKey: RequestCache.createKey(
+      "beach-detail-forecasts",
+      identity,
+      beachId,
+      forecastDays,
+    ),
+    cache: forecastCache,
+  });
 
   // Fetch sources — don't retry on error (sources are non-critical)
   const fetchSources = useCallback(async () => {
