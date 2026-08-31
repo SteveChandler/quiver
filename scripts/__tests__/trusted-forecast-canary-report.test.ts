@@ -10,9 +10,22 @@ const CANARY_B = "22222222-2222-4222-8222-222222222222";
 const BEACH_ID = "33333333-3333-4333-8333-333333333333";
 const FORECAST_AT = "2026-08-30T12:00:00.000Z";
 
-function reader(): CanaryReportReader & Record<string, jest.Mock> {
+type MockCanaryReportReader = CanaryReportReader & {
+  selectApplications: jest.MockedFunction<CanaryReportReader["selectApplications"]>;
+  selectBaselines: jest.MockedFunction<CanaryReportReader["selectBaselines"]>;
+  insert: jest.Mock;
+  update: jest.Mock;
+  upsert: jest.Mock;
+  delete: jest.Mock;
+  rpc: jest.Mock;
+};
+
+function reader(): MockCanaryReportReader {
   return {
-    selectApplications: jest.fn(async () => [
+    selectApplications: jest.fn<
+      ReturnType<CanaryReportReader["selectApplications"]>,
+      Parameters<CanaryReportReader["selectApplications"]>
+    >(async (_from) => [
       {
         beachId: BEACH_ID,
         beach: "synthetic-beach",
@@ -23,7 +36,10 @@ function reader(): CanaryReportReader & Record<string, jest.Mock> {
         policyVersion: TRUSTED_FORECAST_POLICY_VERSION,
       },
     ]),
-    selectBaselines: jest.fn(async () => [
+    selectBaselines: jest.fn<
+      ReturnType<CanaryReportReader["selectBaselines"]>,
+      Parameters<CanaryReportReader["selectBaselines"]>
+    >(async (_args) => [
       {
         beachId: BEACH_ID,
         forecastAt: FORECAST_AT,
@@ -62,7 +78,7 @@ describe("trusted forecast canary report", () => {
     expect(code).toBe(0);
     expect(reportReader.selectApplications).toHaveBeenCalledTimes(1);
     expect(reportReader.selectBaselines).toHaveBeenCalledTimes(1);
-    for (const method of ["insert", "update", "upsert", "delete", "rpc"]) {
+    for (const method of ["insert", "update", "upsert", "delete", "rpc"] as const) {
       expect(reportReader[method]).not.toHaveBeenCalled();
     }
     const output = lines.join("\n");

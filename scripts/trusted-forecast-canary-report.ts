@@ -22,7 +22,7 @@ export interface CanaryApplicationRow {
 export interface CanaryBaselineRow {
   readonly beachId: string;
   readonly forecastAt: string;
-  readonly waveHeight: string;
+  readonly waveHeight: string | null;
 }
 
 export interface CanaryReportReader {
@@ -52,7 +52,7 @@ function key(beachId: string, forecastAt: string): string {
 }
 
 function storedBaselineStatus(
-  waveHeight: string | undefined,
+  waveHeight: string | null | undefined,
   baselineFt: number,
 ): "match" | "deviation" | "unverifiable" {
   const parsed = parseDisplayHeightFt(waveHeight);

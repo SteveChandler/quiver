@@ -998,7 +998,7 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     expect(expected.filter((height) => height === withFeedback).length).toBeGreaterThan(0);
   });
 
-  it("D-18: the private first-write snapshot records the adjusted comparison value", async () => {
+  it("D-18: the first-write snapshot remains the baseline comparison value", async () => {
     process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED = "true";
     const candidate: FeedbackHeightCalibrationCandidate = {
       id: "candidate-1",
@@ -1029,20 +1029,29 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
 
     expect(capturedSnapshotRows.length).toBeGreaterThan(0);
     for (const row of capturedSnapshotRows) {
-      // Pre-trusted telemetry, preserved exactly: the snapshot still records
-      // that the feedback layer applied, because it did — before the trusted
-      // layer replaced the served string.
+      // The feedback layer is part of the ordinary baseline pipeline, while
+      // trusted serving is applied later at the authenticated API boundary.
       expect(row.feedback_height_calibration_applied).toBe(true);
       expect(Object.keys(row).join(",")).not.toMatch(/trusted/);
+      expect(row.display_source).toBe("face-Hs-transformer-v1");
+      expect(row.offset_corrected_display_height_m).toBeCloseTo(
+        5.5 / METERS_TO_FEET,
+        3,
+      );
     }
     const persistedRows = persistence.payloads.flatMap((payload) => payload.snapshots);
     expect(persistedRows.length).toBeGreaterThan(0);
+    expect(
+      persistence.payloads[0]?.applications.some(
+        (application) => application.appliedDeltaFt === -0.5,
+      ),
+    ).toBe(true);
     for (const row of persistedRows) {
-      expect(row.display_source).toBe("trusted-forecast-adjusted-v1");
-      // The post-offset baseline is 5 ft. Feedback would make the ordinary
-      // snapshot 5.5 ft, but trusted serving suppresses it and applies -0.5 ft.
+      expect(row.display_source).toBe("face-Hs-transformer-v1");
+      // Trusted application provenance carries the adjustment separately; the
+      // durable snapshot remains the ordinary 5.5 ft baseline.
       expect(row.offset_corrected_display_height_m).toBeCloseTo(
-        4.5 / METERS_TO_FEET,
+        5.5 / METERS_TO_FEET,
         3,
       );
     }
