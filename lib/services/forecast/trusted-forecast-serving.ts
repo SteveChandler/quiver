@@ -7,6 +7,7 @@ import {
   formatDisplayHeightFt,
   parseDisplayHeightFt,
 } from "./apply-beach-height-offset";
+import { isTrustedForecastAdjustmentEnabled } from "./trusted-forecast-adjustment";
 import { TRUSTED_FORECAST_POLICY_VERSION } from "./trusted-forecast-policy";
 
 const UUID_RE =
@@ -25,6 +26,7 @@ interface ServingApplicationRow {
   readonly trusted_forecast_decisions: {
     readonly policy_version: string;
   };
+  readonly feedback_height_offset_ft: number | null;
 }
 
 export interface TrustedForecastServingStore {
@@ -38,6 +40,7 @@ export interface TrustedForecastServingStore {
 }
 
 interface ServingEnv {
+  readonly adjustmentsEnabled?: string;
   readonly servingEnabled?: string;
   readonly canaryUserIds?: string;
 }
@@ -73,8 +76,14 @@ export function isTrustedForecastCanaryEligible(
   userId: string | null,
   servingEnabled = process.env.TRUSTED_FORECAST_CANARY_SERVING_ENABLED,
   canaryUserIds = process.env.TRUSTED_FORECAST_CANARY_USER_IDS,
+  adjustmentsEnabled = process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED,
 ): boolean {
-  if (servingEnabled !== "true" || userId === null || !UUID_RE.test(userId)) {
+  if (
+    !isTrustedForecastAdjustmentEnabled(adjustmentsEnabled) ||
+    servingEnabled !== "true" ||
+    userId === null ||
+    !UUID_RE.test(userId)
+  ) {
     return false;
   }
   const allowlist = parseTrustedForecastCanaryUserIds(canaryUserIds);
@@ -87,7 +96,7 @@ function createServingStore(): TrustedForecastServingStore {
       const { data, error } = await createServiceRoleClient()
         .from("trusted_forecast_applications")
         .select(
-          "beach_id, forecast_at, applied_delta_ft, baseline_max_face_ft, adjusted_max_face_ft, trusted_forecast_decisions!trusted_forecast_applications_decision_id_fkey(policy_version)",
+          "beach_id, forecast_at, applied_delta_ft, baseline_max_face_ft, adjusted_max_face_ft, trusted_forecast_decisions!trusted_forecast_applications_decision_id_fkey(policy_version), ml_predictions_log!trusted_forecast_applications_prediction_snapshot_id_fkey(beach_id, predicted_at, feedback_height_offset_ft, feedback_height_calibration_applied)",
         )
         .eq("beach_id", beachId)
         .in("forecast_at", [...forecastAts]);
@@ -104,6 +113,27 @@ function parseApplication(value: unknown): ServingApplicationRow | null {
     return null;
   }
   const policyVersion = (decision as Record<string, unknown>).policy_version;
+  const snapshot = row.ml_predictions_log;
+  if (
+    snapshot !== null &&
+    snapshot !== undefined &&
+    (typeof snapshot !== "object" || Array.isArray(snapshot))
+  ) {
+    return null;
+  }
+  const snapshotRow = (snapshot ?? {}) as Record<string, unknown>;
+  const feedbackApplied = snapshotRow.feedback_height_calibration_applied === true;
+  const rawFeedbackOffset = snapshotRow.feedback_height_offset_ft;
+  const feedbackOffset =
+    typeof rawFeedbackOffset === "number" || typeof rawFeedbackOffset === "string"
+      ? Number(rawFeedbackOffset)
+      : null;
+  if (
+    feedbackApplied &&
+    (feedbackOffset === null || !Number.isFinite(feedbackOffset))
+  ) {
+    return null;
+  }
   if (
     (typeof row.applied_delta_ft !== "number" &&
       typeof row.applied_delta_ft !== "string") ||
@@ -117,9 +147,9 @@ function parseApplication(value: unknown): ServingApplicationRow | null {
   ) {
     return null;
   }
-  const delta = Number(row.applied_delta_ft);
-  const baseline = Number(row.baseline_max_face_ft);
-  const adjusted = Number(row.adjusted_max_face_ft);
+  const delta: number = Number(row.applied_delta_ft);
+  const baseline: number = Number(row.baseline_max_face_ft);
+  const adjusted: number = Number(row.adjusted_max_face_ft);
   if (
     typeof row.beach_id !== "string" ||
     typeof row.forecast_at !== "string" ||
@@ -133,6 +163,18 @@ function parseApplication(value: unknown): ServingApplicationRow | null {
   ) {
     return null;
   }
+  if (snapshot !== null && snapshot !== undefined) {
+    const snapshotAt = new Date(String(snapshotRow.predicted_at));
+    const applicationAt = new Date(row.forecast_at);
+    if (
+      snapshotRow.beach_id !== row.beach_id ||
+      Number.isNaN(snapshotAt.getTime()) ||
+      Number.isNaN(applicationAt.getTime()) ||
+      snapshotAt.getTime() !== applicationAt.getTime()
+    ) {
+      return null;
+    }
+  }
   return {
     beach_id: row.beach_id,
     forecast_at: row.forecast_at,
@@ -140,6 +182,7 @@ function parseApplication(value: unknown): ServingApplicationRow | null {
     baseline_max_face_ft: baseline,
     adjusted_max_face_ft: adjusted,
     trusted_forecast_decisions: { policy_version: policyVersion },
+    feedback_height_offset_ft: feedbackApplied ? feedbackOffset : null,
   };
 }
 
@@ -157,6 +200,7 @@ export async function applyTrustedForecastServing<
       userId,
       env?.servingEnabled,
       env?.canaryUserIds,
+      env?.adjustmentsEnabled,
     ) ||
     forecasts.length === 0
   ) {
@@ -198,6 +242,9 @@ export async function applyTrustedForecastServing<
       if (Number.isNaN(at.getTime())) return forecasts;
       const instant = at.toISOString();
       const baseline = baselineByInstant.get(instant);
+      const ordinaryDisplayFt =
+        application.baseline_max_face_ft -
+        (application.feedback_height_offset_ft ?? 0);
       if (
         baseline === undefined ||
         applications.has(instant) ||
@@ -206,7 +253,7 @@ export async function applyTrustedForecastServing<
         !displayContainsBaseline(
           baseline.numericFt,
           baseline.rangeSpread,
-          application.baseline_max_face_ft,
+          ordinaryDisplayFt,
         )
       ) {
         return forecasts;
@@ -220,7 +267,7 @@ export async function applyTrustedForecastServing<
       const baseline = baselineByInstant.get(instant);
       if (baseline === undefined) return forecasts;
       adjusted[baseline.index].wave_height = formatDisplayHeightFt({
-        numericFt: baseline.numericFt + application.applied_delta_ft,
+        numericFt: application.adjusted_max_face_ft,
         rangeSpread: baseline.rangeSpread,
       });
     }

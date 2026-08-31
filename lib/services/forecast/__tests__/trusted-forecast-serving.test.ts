@@ -97,6 +97,17 @@ describe("trusted forecast canary eligibility", () => {
     expect(isTrustedForecastCanaryEligible(CONTROL, "true", allowlist)).toBe(false);
     expect(isTrustedForecastCanaryEligible(null, "true", allowlist)).toBe(false);
   });
+
+  it("honors the master kill switch even when canary serving remains on", () => {
+    expect(
+      isTrustedForecastCanaryEligible(
+        CANARY_A,
+        "true",
+        `${CANARY_A},${CANARY_B}`,
+        "false",
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("trusted forecast response serving", () => {
@@ -148,7 +159,7 @@ describe("trusted forecast response serving", () => {
     expect(readStore.selectApplications).not.toHaveBeenCalled();
   });
 
-  it("does not read private applications when the kill switch is off", async () => {
+  it("does not read private applications when canary serving is off", async () => {
     const readStore = store();
     const result = await applyTrustedForecastServing({
       userId: CANARY_A,
@@ -160,6 +171,84 @@ describe("trusted forecast response serving", () => {
 
     expect(result).toBe(baseline);
     expect(readStore.selectApplications).not.toHaveBeenCalled();
+  });
+
+  it("does not read private applications when the master switch is off", async () => {
+    const readStore = store();
+    const result = await applyTrustedForecastServing({
+      userId: CANARY_A,
+      beachId: BEACH_ID,
+      forecasts: baseline,
+      store: readStore,
+      env: {
+        adjustmentsEnabled: "false",
+        servingEnabled: "true",
+        canaryUserIds: `${CANARY_A},${CANARY_B}`,
+      },
+    });
+
+    expect(result).toBe(baseline);
+    expect(readStore.selectApplications).not.toHaveBeenCalled();
+  });
+
+  it("suppresses feedback instead of stacking it on a trusted adjustment", async () => {
+    const withFeedback = [{ ...baselineRow, wave_height: "5-6ft" }];
+    const result = await applyTrustedForecastServing({
+      userId: CANARY_A,
+      beachId: BEACH_ID,
+      forecasts: withFeedback,
+      store: store([
+        {
+          beach_id: BEACH_ID,
+          forecast_at: FORECAST_AT,
+          applied_delta_ft: -0.5,
+          baseline_max_face_ft: 5,
+          adjusted_max_face_ft: 4.5,
+          trusted_forecast_decisions: {
+            policy_version: TRUSTED_FORECAST_POLICY_VERSION,
+          },
+          ml_predictions_log: {
+            beach_id: BEACH_ID,
+            predicted_at: FORECAST_AT,
+            feedback_height_offset_ft: -0.5,
+            feedback_height_calibration_applied: true,
+          },
+        },
+      ]),
+      env: enabledEnv,
+    });
+
+    expect(result[0]?.wave_height).toBe("4-5ft");
+  });
+
+  it("fails closed when feedback metadata comes from a stale snapshot link", async () => {
+    const withFeedback = [{ ...baselineRow, wave_height: "5-6ft" }];
+    const result = await applyTrustedForecastServing({
+      userId: CANARY_A,
+      beachId: BEACH_ID,
+      forecasts: withFeedback,
+      store: store([
+        {
+          beach_id: BEACH_ID,
+          forecast_at: FORECAST_AT,
+          applied_delta_ft: -0.5,
+          baseline_max_face_ft: 5,
+          adjusted_max_face_ft: 4.5,
+          trusted_forecast_decisions: {
+            policy_version: TRUSTED_FORECAST_POLICY_VERSION,
+          },
+          ml_predictions_log: {
+            beach_id: CONTROL,
+            predicted_at: FORECAST_AT,
+            feedback_height_offset_ft: -0.5,
+            feedback_height_calibration_applied: true,
+          },
+        },
+      ]),
+      env: enabledEnv,
+    });
+
+    expect(result).toBe(withFeedback);
   });
 
   it.each([

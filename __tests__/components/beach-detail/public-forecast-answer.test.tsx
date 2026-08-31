@@ -114,12 +114,14 @@ function renderAnswer({
   answerContext = context,
   tomorrow = true,
   backups = nearbyBeaches,
+  publicWindow,
 }: {
   answerBeach?: Beach;
   answerReport?: SurfCallResult | null;
   answerContext?: ForecastRecommendationContext | null;
   tomorrow?: boolean;
   backups?: Beach[];
+  publicWindow?: { start: string | null; end: string | null };
 } = {}) {
   return render(
     <AuthenticatedForecastDecisionProvider beachId={beach.id}>
@@ -128,7 +130,7 @@ function renderAnswer({
         report={answerReport}
         context={answerContext}
         isTomorrow={tomorrow}
-        publicDecisionWindow={{
+        publicDecisionWindow={publicWindow ?? {
           start: answerReport?.bestWindowStart ?? null,
           end: answerReport?.bestWindowEnd ?? null,
         }}
@@ -249,6 +251,46 @@ describe("PublicForecastAnswer", () => {
     expect(publicContext).not.toHaveProperty("displayWindowStart");
     expect(publicContext).not.toHaveProperty("displayWindowEnd");
     expect(publicContext).not.toHaveProperty("displayTimeLabel");
+  });
+
+  it("does not combine an authenticated no-candidate call with the public window", async () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: "user-1" },
+      isLoading: false,
+    } as ReturnType<typeof useAuth>);
+    (global.fetch as jest.Mock).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            report: {
+              ...report,
+              verdict: "NO",
+              bestWindowStart: null,
+              bestWindowEnd: null,
+              score: 0,
+              whySentence: "No personalized surf candidate was available for this call.",
+            },
+            forecastContext: null,
+            isTomorrow: false,
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    renderAnswer({
+      publicWindow: {
+        start: "2026-08-09T15:00:00.000Z",
+        end: "2026-08-09T15:30:00.000Z",
+      },
+    });
+
+    await waitFor(() => expect(screen.getByText("NO")).toBeInTheDocument());
+    expect(screen.getByText(/No personalized surf candidate was available/)).toBeInTheDocument();
+    expect(screen.queryByText("8:00 AM–8:30 AM")).not.toBeInTheDocument();
+    expect(screen.queryByText("Score")).not.toBeInTheDocument();
+    expect(screen.queryByText("0/100")).not.toBeInTheDocument();
   });
 
   it("fetches and renders the verdict and best window for an authenticated user", async () => {

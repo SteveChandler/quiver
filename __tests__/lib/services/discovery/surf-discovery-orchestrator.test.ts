@@ -447,6 +447,7 @@ jest.mock('@/lib/services/discovery/personalization-layer', () => ({
 
 // Import after mocks
 import { discoverSurfSpots } from '@/lib/services/discovery/surf-discovery-orchestrator';
+import { selectBestWindows } from '@/lib/services/discovery/window-selector';
 import { WORTH_THE_DRIVE_REASON } from '@/lib/services/discovery/distance-friction';
 import { expectConsoleErrors } from '@/__tests__/setup/test-utils';
 
@@ -2944,6 +2945,10 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     mockState.userPrefs = null;
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   test('logs warning (no today forecasts) and uses tomorrow-fallback only when today is empty', async () => {
     const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
     const { createContextLogger } = require('@/lib/logger');
@@ -3160,6 +3165,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     // Runtime "today" in the mocked getLocalDateStr is the UTC date of
     // new Date(). Build forecasts that land on today and tomorrow relative
     // to the test run so todayForecasts.length > 0.
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-31T13:00:00.000Z'));
     const now = new Date();
     const todayIso = now.toISOString();
     const tomorrowIso = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
@@ -3927,5 +3933,98 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+});
+
+describe('discoverSurfSpots - Evening included beach fallback', () => {
+  const userLocation = { lat: 32.7157, lon: -117.1611 };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    const { getTimezoneFromCoords } = require('@/lib/utils/timezone-utils.server');
+    jest.mocked(getTimezoneFromCoords).mockReturnValue('UTC');
+    jest.useFakeTimers().setSystemTime(new Date('2026-04-24T20:00:00.000Z'));
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.includedBeachRows = [mockBeach1];
+    mockState.forecastBatchResponse = {
+      successful: [{
+        beach: mockBeach1,
+        forecasts: [
+          {
+            ...mockForecast,
+            id: 'evening-row',
+            beach_id: 'beach-1',
+            forecast_at: '2026-04-24T20:00:00.000Z',
+            forecast_date: '2026-04-24',
+            forecast_time: '20:00:00',
+          },
+          {
+            ...mockForecast,
+            id: 'tomorrow-morning-row',
+            beach_id: 'beach-1',
+            forecast_at: '2026-04-25T14:00:00.000Z',
+            forecast_date: '2026-04-25',
+            forecast_time: '07:00:00',
+          },
+        ],
+      }],
+      failed: [],
+      staleCount: 0,
+    };
+  });
+
+  afterEach(() => {
+    const { getTimezoneFromCoords } = require('@/lib/utils/timezone-utils.server');
+    jest.mocked(getTimezoneFromCoords).mockReturnValue('America/Los_Angeles');
+    jest.useRealTimers();
+  });
+
+  test('keeps an included beach eligible when evening rows give way to tomorrow morning', async () => {
+    const windowSelector = selectBestWindows as jest.Mock;
+    const forecasts = mockState.forecastBatchResponse.successful[0].forecasts;
+    const tomorrowWindow = {
+      start: new Date('2026-04-25T14:00:00.000Z'),
+      end: new Date('2026-04-25T18:00:00.000Z'),
+      tide: 'Rising',
+      wind: '5 mph W',
+      waveHeight: '3-4 ft',
+      wavePeriod: '13s',
+      dataSource: 'CDIP',
+      confidence: 88,
+      timezone: 'America/Los_Angeles',
+      sourceForecast: forecasts[1],
+      score: 70,
+    };
+
+    windowSelector.mockImplementation(({ forecasts: selectedForecasts }: { forecasts: EnhancedForecastEntity[] }) => (
+      selectedForecasts.length === 1 ? [] : [tomorrowWindow]
+    ));
+
+    const result = await discoverSurfSpots('evening-fallback-user', {
+      userLocation,
+      candidatePoolLimit: 1,
+      includeBeachIds: ['beach-1'],
+    });
+
+    expect(windowSelector).toHaveBeenCalledTimes(2);
+    expect(windowSelector.mock.calls[0][0].forecasts).toHaveLength(1);
+    expect(windowSelector.mock.calls[1][0].forecasts).toEqual(forecasts);
+    expect([
+      ...result.recommendations,
+      ...(result.includedRecommendations ?? []),
+    ]).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        beach: expect.objectContaining({ id: 'beach-1' }),
+        window: expect.objectContaining({
+          start: tomorrowWindow.start,
+          end: tomorrowWindow.end,
+        }),
+      }),
+    ]));
   });
 });

@@ -106,14 +106,21 @@ export function PublicForecastAnswer({
     "UTC";
   const forecastDate = formatForecastDate(context?.localDate, timezone);
   const waveHeight = context?.waveHeightRangeLabel ?? context?.waveHeight ?? report?.waveHeight;
-  // A supplied publicDecisionWindow wins even when its values are null, so an
-  // anonymous view never falls back to a personalized window.
-  const [windowStart, windowEnd] = publicDecisionWindow
-    ? [publicDecisionWindow.start, publicDecisionWindow.end]
-    : [
-        decisionContext?.displayWindowStart ?? decisionReport?.bestWindowStart ?? null,
-        decisionContext?.displayWindowEnd ?? decisionReport?.bestWindowEnd ?? null,
-      ];
+  // Once the authenticated decision resolves, its selection owns the answer
+  // deck. Before then, keep the crawlable public window as context only.
+  const hasResolvedAuthenticatedDecision =
+    authenticatedDecision.isAuthenticated &&
+    !authenticatedDecision.isLoading &&
+    decisionReport !== null;
+  const [windowStart, windowEnd] = hasResolvedAuthenticatedDecision
+    ? [decisionReport.bestWindowStart, decisionReport.bestWindowEnd]
+    : publicDecisionWindow
+      ? [publicDecisionWindow.start, publicDecisionWindow.end]
+      : [
+          decisionContext?.displayWindowStart ?? decisionReport?.bestWindowStart ?? null,
+          decisionContext?.displayWindowEnd ?? decisionReport?.bestWindowEnd ?? null,
+        ];
+  const hasDisplayedWindow = Boolean(windowStart && windowEnd);
   const bestWindow = formatTimeRangeInTimezone(
     windowStart,
     windowEnd,
@@ -157,7 +164,7 @@ export function PublicForecastAnswer({
   const HeadingTag = headingLevel;
   const hasForecastDetails = Boolean(
     (context?.selectedRowTime && waveHeight) ||
-      (publicDecisionWindow && (waveHeight || bestWindow || wind || tide)),
+      (hasDisplayedWindow && (waveHeight || bestWindow || wind || tide)),
   );
   const provenance = [
     validAt ? `Valid ${validAt} ${timezone}` : null,
@@ -218,7 +225,7 @@ export function PublicForecastAnswer({
                 </dd>
               </div>
             )}
-            {!decisionReport?.verdict && !bestWindow && !publicDecisionWindow && (
+            {!decisionReport?.verdict && !bestWindow && !hasDisplayedWindow && (
               <div>
                 <dt className={DECK_LABEL}>Verdict &amp; best window</dt>
                 <dd className="mt-1.5">
@@ -272,7 +279,7 @@ export function PublicForecastAnswer({
                   <dd>{secondarySwell}</dd>
                 </div>
               )}
-              {decisionReport?.score != null && (
+              {decisionReport?.bestWindowStart && decisionReport.bestWindowEnd && decisionReport.score != null && (
                 <div className="flex gap-1.5">
                   <dt className="font-bold uppercase tracking-[0.14em]">Score</dt>
                   <dd>{decisionReport.score}/100</dd>

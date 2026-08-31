@@ -318,6 +318,22 @@ describe("ForecastTab", () => {
       expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
     });
 
+    it("omits the redundant no-window card for an authenticated NO call", () => {
+      mockUseAuth.mockReturnValue({ user: { id: "u1" } });
+      render(
+        <ForecastTab
+          {...defaultProps}
+          surfCall={{
+            verdict: "NO",
+            bestWindowStart: null,
+            bestWindowEnd: null,
+          } as SurfCallResult}
+        />,
+      );
+
+      expect(screen.queryByTestId("best-surf-window")).not.toBeInTheDocument();
+    });
+
     it("displays current tide information", () => {
       render(<ForecastTab {...defaultProps} />);
 

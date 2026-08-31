@@ -307,10 +307,11 @@ describe('computeSurfCall', () => {
       expect(result.verdict).toBe('YES');
     });
 
-    it('defaults undefined score to 0', () => {
+    it('preserves an undefined score as unavailable', () => {
       const window = makeWindow({ score: undefined });
       const result = computeSurfCall(window, forecasts, makeBeach());
-      expect(result.score).toBe(0);
+      expect(result.score).toBeNull();
+      expect(result.verdict).toBe('NO');
     });
   });
 

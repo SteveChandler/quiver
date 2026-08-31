@@ -107,7 +107,7 @@ function unavailableUnboundSurfCall(
     windowMinutes: null,
     shortWindow: false,
     whySentence: '',
-    score: 0,
+    score: null,
     peakTime: null,
     trendTags: [],
     character: null,
@@ -206,8 +206,8 @@ function buildReport(
   };
 }
 
-function clampScore(score: number): number {
-  return Math.max(0, Math.min(100, score));
+function clampScore(score: number | null): number | null {
+  return score == null ? null : Math.max(0, Math.min(100, score));
 }
 
 /**

@@ -2039,10 +2039,20 @@ function validateCanonicalFunnel(value: unknown, blockers: string[]): void {
     "canonical_join_coverage_keys_invalid",
     blockers
   );
-  const joinCountsValid = CANONICAL_JOIN_COVERAGE_KEYS.every((key) =>
-    isNonNegativeIntegerValue(joinCoverage[key])
-  );
-  if (!joinCountsValid) {
+  const submitFlowsWithoutWindowSession =
+    joinCoverage.submitFlowsWithoutWindowSession;
+  const submitFlowsWithSessionOwnerMismatch =
+    joinCoverage.submitFlowsWithSessionOwnerMismatch;
+  const submitFlowsWithIneligibleSession =
+    joinCoverage.submitFlowsWithIneligibleSession;
+  if (
+    !CANONICAL_JOIN_COVERAGE_KEYS.every((key) =>
+      isNonNegativeIntegerValue(joinCoverage[key])
+    ) ||
+    !isNonNegativeIntegerValue(submitFlowsWithoutWindowSession) ||
+    !isNonNegativeIntegerValue(submitFlowsWithSessionOwnerMismatch) ||
+    !isNonNegativeIntegerValue(submitFlowsWithIneligibleSession)
+  ) {
     blockers.push("canonical_join_coverage_counts_invalid");
     return;
   }
@@ -2062,9 +2072,9 @@ function validateCanonicalFunnel(value: unknown, blockers: string[]): void {
     return;
   }
   const rejectedFlows =
-    joinCoverage.submitFlowsWithoutWindowSession +
-    joinCoverage.submitFlowsWithSessionOwnerMismatch +
-    joinCoverage.submitFlowsWithIneligibleSession;
+    submitFlowsWithoutWindowSession +
+    submitFlowsWithSessionOwnerMismatch +
+    submitFlowsWithIneligibleSession;
   if (rejectedFlows !== submit.flows - persisted.flows) {
     blockers.push("canonical_persistence_rejection_partition_invalid");
   }
@@ -4959,6 +4969,7 @@ function computeCanonicalSessionAnalysis(input: {
     ) {
       continue;
     }
+    const startClientStageAtMs = start.clientStageAtMs;
     const startIndex = ordered.indexOf(start);
     const formView =
       ordered
@@ -4967,7 +4978,7 @@ function computeCanonicalSessionAnalysis(input: {
           (event) =>
             event.eventType === "session_log_form_view" &&
             event.clientStageAtMs !== null &&
-            event.clientStageAtMs >= start.clientStageAtMs,
+            event.clientStageAtMs >= startClientStageAtMs,
         ) ?? null;
     const submit = formView
       ? (ordered
@@ -5160,10 +5171,11 @@ function buildSessionValidationBranch(
   let recoveredFlows = 0;
 
   for (const attempt of attempts) {
-    if (!attempt.formView) continue;
+    const formView = attempt.formView;
+    if (!formView) continue;
     const firstSubmit = attempt.submit;
     const affected = attempt.validationFailures.some((event) => {
-      if (compareCanonicalEvents(event, attempt.formView) < 0) {
+      if (compareCanonicalEvents(event, formView) < 0) {
         return false;
       }
       return !firstSubmit || compareCanonicalEvents(event, firstSubmit) < 0;

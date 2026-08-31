@@ -376,6 +376,7 @@ describe("GET /api/surf/call", () => {
       decision: {
         ...canonicalContext.decision,
         verdict: "no",
+        decisionBasis: "safety_override",
         reasonCode: "no_candidates",
         selection: null,
       },
@@ -408,6 +409,10 @@ describe("GET /api/surf/call", () => {
     const body = await response.json();
 
     expect(body.data.report.verdict).toBe("NO");
+    expect(body.data.report.score).toBeNull();
+    expect(body.data.report.whySentence).toBe(
+      "No personalized surf candidate was available for this call.",
+    );
     expect(body.data.forecastAlignment).toEqual({
       requestedForecastAt: forecastAt,
       matchedForecastAt: forecastAt,

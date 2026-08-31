@@ -54,7 +54,8 @@ export interface SurfCallResult {
   whySentence: string;
   forecastConfidence: number;
   lowForecastConfidence: boolean;
-  score: number;
+  /** Null when no selected window was scored; zero is a valid scored result. */
+  score: number | null;
   peakTime: string | null;
   trendTags: TrendTag[];
   updatedAt: string;
@@ -712,7 +713,7 @@ export function computeSurfCall(
     whySentence: '',
     forecastConfidence: 0,
     lowForecastConfidence: false,
-    score: 0,
+    score: null,
     peakTime: null,
     trendTags: [],
     updatedAt,
@@ -769,7 +770,10 @@ export function computeSurfCall(
   const windowMs = new Date(window.end).getTime() - new Date(window.start).getTime();
   const windowMinutes = Math.round(windowMs / 60000);
   const shortWindow = windowMinutes < SHORT_WINDOW_THRESHOLD_MINUTES;
-  const score = Math.max(0, Math.min(100, window.score ?? 0));
+  const score = window.score == null
+    ? null
+    : Math.max(0, Math.min(100, window.score));
+  const verdictScore = score ?? 0;
   const forecastConfidence = window.confidence ?? 50;
   const lowForecastConfidence = forecastConfidence < LOW_CONFIDENCE_DISPLAY_THRESHOLD;
 
@@ -853,7 +857,7 @@ export function computeSurfCall(
   // Determine verdict based on score, window duration, confidence, and
   // character (PR 4 character-gate prevents high-score windy days from
   // promoting to YES).
-  let verdict = determineVerdict(score, windowMinutes, forecastConfidence, character);
+  let verdict = determineVerdict(verdictScore, windowMinutes, forecastConfidence, character);
 
   // Soft gate override: when waves are below the break's minimum but the score
   // (which includes user preference adjustments and swell quality boost) says
@@ -862,7 +866,7 @@ export function computeSurfCall(
   // Note: this intentionally overrides confidence-gate downgrades — when the
   // small-wave gate is the dominant signal, we trust the score threshold directly.
   if (wavesBelowMin || windowWavesBelowMin) {
-    if (score >= SCORE_MAYBE_THRESHOLD) {
+    if (verdictScore >= SCORE_MAYBE_THRESHOLD) {
       verdict = 'MAYBE';
     } else {
       verdict = 'NO';

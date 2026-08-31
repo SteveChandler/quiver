@@ -116,7 +116,7 @@ function safetyReason(decision: CanonicalSessionDecision): string {
     case 'hold_state_unavailable':
       return 'Safety information is incomplete, so Quiver is holding this call.';
     case 'no_candidates':
-      return 'No safe surf window is available.';
+      return 'No personalized surf candidate was available for this call.';
     default:
       return 'Quiver is holding this call for safety.';
   }
@@ -202,9 +202,7 @@ function buildCanonicalSurfCall(
     windowMinutes: exactSelection ? baseline.windowMinutes : null,
     shortWindow: exactSelection ? baseline.shortWindow : false,
     whySentence,
-    score: exactSelection
-      ? selection.evidence.conditionScore
-      : baseline.score,
+    score: exactSelection ? selection.evidence.conditionScore : null,
     peakTime: exactSelection ? baseline.peakTime : null,
     tiers:
       decision.decisionBasis === 'physical_fallback' && window

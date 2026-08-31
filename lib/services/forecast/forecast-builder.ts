@@ -38,7 +38,6 @@ import {
   isLocalDateFullyCoveredByBuildWindow,
   isTrustedForecastAdjustmentEnabled,
   localDateInTimeZone,
-  TRUSTED_FORECAST_ADJUSTED_DISPLAY_SOURCE,
   type TrustedForecastSlot,
 } from "./trusted-forecast-adjustment";
 import {
@@ -56,7 +55,6 @@ import {
   TrustedForecastRepositoryError,
   loadBeachIdsBySlug,
   loadEligibleTrustedForecastIssues,
-  loadTrustedForecastApplications,
   loadTrustedForecastDecisions,
   type TrustedForecastReadStore,
 } from "./trusted-forecast-repository";
@@ -810,42 +808,15 @@ export class ForecastBuilder {
       slotByInstant.set(slot.forecastAt.toISOString(), slot);
     }
 
-    // A durable decision is reused exactly: the slots it already claimed and
-    // the delta it already applied come from `trusted_forecast_applications`,
-    // never from a recomputation, and no second application row is emitted.
-    const existingAppliedDates = new Set(
-      existingDecisions
-        .filter((decision) => decision.status === "applied")
-        .map((decision) => decision.localDate),
-    );
-    const reusedForecastAts = eligibleSlots
-      .filter((slot) =>
-        existingAppliedDates.has(localDateInTimeZone(slot.forecastAt, timeZone)),
-      )
-      .map((slot) => slot.forecastAt.toISOString());
-    const durableApplications = await loadTrustedForecastApplications(
-      readStore,
-      { beachId: entry.beachId, forecastAts: reusedForecastAts },
-    );
-
     if (result.decisions.length > 0) {
       const snapshots = result.applications.flatMap((application) => {
         const slot = slotByInstant.get(application.forecastAt);
         if (slot?.snapshotIndex == null) return [];
         const row = args.snapshotBuffer[slot.snapshotIndex];
         if (row === undefined) return [];
-        return [
-          toTrustedForecastSnapshotPayload({
-            ...row,
-            // This private comparison snapshot retains the adjusted value while
-            // shared forecast rows remain baseline-only.
-            offset_corrected_display_height_m: this.trustedAdjustedHeightM(
-              slot,
-              application.appliedDeltaFt,
-            ),
-            display_source: TRUSTED_FORECAST_ADJUSTED_DISPLAY_SOURCE,
-          }),
-        ];
+        // Trusted applications carry the adjusted comparison and policy
+        // provenance. The durable display snapshot remains baseline-only.
+        return [toTrustedForecastSnapshotPayload(row)];
       });
 
       const payload = {
@@ -887,47 +858,7 @@ export class ForecastBuilder {
         });
         return;
       }
-
-      for (const application of result.applications) {
-        const slot = slotByInstant.get(application.forecastAt);
-        this.applyTrustedSnapshotDelta(
-          args.snapshotBuffer,
-          slot,
-          application.appliedDeltaFt,
-        );
-      }
     }
-
-    for (const [forecastAt, appliedDeltaFt] of durableApplications) {
-      if (appliedDeltaFt === 0) continue;
-      const slot = slotByInstant.get(forecastAt);
-      this.applyTrustedSnapshotDelta(args.snapshotBuffer, slot, appliedDeltaFt);
-    }
-  }
-
-  private applyTrustedSnapshotDelta(
-    snapshotBuffer: DisplayPredictionRow[],
-    slot: TrustedSlotRecord | undefined,
-    appliedDeltaFt: number,
-  ): void {
-    if (slot?.snapshotIndex == null) return;
-    const row = snapshotBuffer[slot.snapshotIndex];
-    if (row === undefined) return;
-    row.offset_corrected_display_height_m = this.trustedAdjustedHeightM(
-      slot,
-      appliedDeltaFt,
-    );
-    row.display_source = TRUSTED_FORECAST_ADJUSTED_DISPLAY_SOURCE;
-  }
-
-  private trustedAdjustedHeightM(
-    slot: TrustedSlotRecord | undefined,
-    appliedDeltaFt: number,
-  ): number {
-    if (slot?.postOffsetFt == null) return 0;
-    return Number(
-      ((slot.postOffsetFt + appliedDeltaFt) / METERS_TO_FEET).toFixed(3),
-    );
   }
 
   /**
