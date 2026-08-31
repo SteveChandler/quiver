@@ -405,19 +405,23 @@ function futureDateString(offsetDays: number): string {
 
 describe("aggregateRegionalForecast", () => {
   it("reports the newest source write represented by the summary", () => {
-    const today = futureDateString(0);
-    const yesterday = futureDateString(-1);
+    // Pinned instant: 2026-08-27 noon in the region's timezone (America/Los_
+    // Angeles for the mock beaches), so region-"today" is unambiguous and the
+    // fixture cannot drift with the wall clock or UTC rollover.
+    const now = new Date("2026-08-27T19:00:00.000Z");
+    const today = "2026-08-27";
+    const yesterday = "2026-08-26";
     const forecastMap = new Map<string, EnhancedForecastEntity[]>([
       [
         "beach-1",
         [
-          createMockForecast("beach-1", yesterday, "09:00", {
+          createMockForecast("beach-1", yesterday, "18:00", {
             updated_at: "2026-08-27T22:00:00.000Z",
           }),
-          createMockForecast("beach-1", today, "06:00", {
+          createMockForecast("beach-1", today, "18:00", {
             updated_at: "2026-08-27T18:00:00.000Z",
           }),
-          createMockForecast("beach-1", today, "09:00", {
+          createMockForecast("beach-1", today, "21:00", {
             updated_at: "2026-08-27T21:00:00.000Z",
           }),
         ],
@@ -428,7 +432,7 @@ describe("aggregateRegionalForecast", () => {
       mockRegion,
       [mockBeaches[0]],
       forecastMap,
-      { now: new Date(`${today}T12:00:00Z`) },
+      { now },
     );
 
     expect(summary.sourceDataUpdatedAt).toBe("2026-08-27T21:00:00.000Z");
