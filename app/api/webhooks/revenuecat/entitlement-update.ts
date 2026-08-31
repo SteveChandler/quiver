@@ -11,6 +11,7 @@ export {
 export const PRO_ENTITLEMENT_ID = "Quiver Pro";
 
 export interface RCEvent {
+  id?: string;
   type: string;
   app_user_id?: string;
   original_app_user_id?: string;
@@ -23,6 +24,75 @@ export interface RCEvent {
   store?: string;
   entitlement_ids?: string[];
   [k: string]: unknown;
+}
+
+export interface RevenueCatProviderEventInsert {
+  provider_event_id: string;
+  app_user_id: string | null;
+  app_user_id_status: "uuid" | "missing" | "anonymous" | "invalid";
+  original_app_user_id: string | null;
+  event_type: string;
+  event_timestamp: string;
+  purchased_at: string | null;
+  expiration_at: string | null;
+  product_id: string | null;
+  period_type: string | null;
+  environment: "PRODUCTION" | "SANDBOX";
+  store: string | null;
+  entitlement_ids: string[];
+}
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function appUserIdStatus(
+  value?: string,
+): RevenueCatProviderEventInsert["app_user_id_status"] {
+  if (!value) return "missing";
+  if (UUID_PATTERN.test(value)) return "uuid";
+  if (value.startsWith("$RCAnonymousID:")) return "anonymous";
+  return "invalid";
+}
+
+function timestampFromMs(value: number | undefined, fallback: Date): string {
+  return typeof value === "number" && Number.isFinite(value)
+    ? new Date(value).toISOString()
+    : fallback.toISOString();
+}
+
+export function buildRevenueCatProviderEventInsert(
+  event: RCEvent,
+  receivedAt: Date = new Date(),
+): RevenueCatProviderEventInsert | null {
+  if (!event.id || !event.type) return null;
+  const rawAppUserId = event.app_user_id ?? event.original_app_user_id;
+  const status = appUserIdStatus(rawAppUserId);
+  return {
+    provider_event_id: event.id,
+    app_user_id: status === "uuid" ? rawAppUserId ?? null : null,
+    app_user_id_status: status,
+    original_app_user_id: UUID_PATTERN.test(event.original_app_user_id ?? "")
+      ? event.original_app_user_id ?? null
+      : null,
+    event_type: event.type,
+    event_timestamp: timestampFromMs(
+      event.event_timestamp_ms ?? event.purchased_at_ms,
+      receivedAt,
+    ),
+    purchased_at: event.purchased_at_ms
+      ? timestampFromMs(event.purchased_at_ms, receivedAt)
+      : null,
+    expiration_at: event.expiration_at_ms
+      ? timestampFromMs(event.expiration_at_ms, receivedAt)
+      : null,
+    product_id: event.product_id ?? null,
+    period_type: event.period_type ?? null,
+    environment: event.environment ?? "PRODUCTION",
+    store: event.store ?? null,
+    entitlement_ids: Array.isArray(event.entitlement_ids)
+      ? event.entitlement_ids.filter((value): value is string => typeof value === "string")
+      : [],
+  };
 }
 
 export interface EntitlementUpdate {

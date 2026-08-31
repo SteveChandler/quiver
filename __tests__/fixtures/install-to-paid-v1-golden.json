@@ -1,0 +1,46 @@
+{
+  "unknown_join_rows": [
+    {
+      "native_install_id": "10000000-0000-4000-8000-000000000002",
+      "join_status": "unknown",
+      "unknown_join_reason": "first_open_never_linked"
+    },
+    {
+      "native_install_id": "10000000-0000-4000-8000-00000000000f",
+      "join_status": "unknown",
+      "unknown_join_reason": "missing_or_ineligible_profile"
+    },
+    {
+      "native_install_id": "10000000-0000-4000-8000-000000000010",
+      "join_status": "unknown",
+      "unknown_join_reason": "posthog_person_not_merged"
+    },
+    {
+      "native_install_id": "10000000-0000-4000-8000-000000000011",
+      "join_status": "unknown",
+      "unknown_join_reason": "webhook_dlq"
+    }
+  ],
+  "immature_rows": [
+    {
+      "native_install_id": "10000000-0000-4000-8000-00000000000b",
+      "d1_return": "immature",
+      "d7_return": "immature",
+      "d30_paid": "immature"
+    },
+    {
+      "native_install_id": "10000000-0000-4000-8000-000000000012",
+      "d1_return": "immature",
+      "d7_return": "immature",
+      "d30_paid": "immature"
+    }
+  ],
+  "excluded_immature_install_ids": [
+    "10000000-0000-4000-8000-000000000012"
+  ],
+  "denominators": {
+    "d1_return": 10,
+    "d7_return": 10,
+    "d30_paid": 5
+  }
+}
