@@ -13,6 +13,7 @@ interface SurfCallContractResponse {
       verdict: 'YES' | 'MAYBE' | 'NO';
       bestWindowStart: string | null;
       bestWindowEnd: string | null;
+      score: number | null;
     };
     sessionDecision: {
       verdict: 'go' | 'maybe' | 'no';
@@ -84,6 +85,7 @@ test.describe('Spot Surf Report (Authenticated)', () => {
     expect([null, ALA_MOANA_BOWLS_ID]).toContain(selection?.beachId ?? null);
     expect(report.bestWindowStart).toBe(selection?.windowStart ?? null);
     expect(report.bestWindowEnd).toBe(selection?.windowEnd ?? null);
+    expect(report.score).toEqual(selection === null ? null : expect.any(Number));
     expect(report.verdict).toBe(
       { go: 'YES', maybe: 'MAYBE', no: 'NO' }[sessionDecision.verdict],
     );

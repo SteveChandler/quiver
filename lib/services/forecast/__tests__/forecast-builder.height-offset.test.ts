@@ -943,7 +943,7 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
     expect(reused?.wave_height).toBe("5 ft");
   });
 
-  it("D-17: a claimed slot drops session feedback; an unclaimed slot keeps it", async () => {
+  it("D-17: private decisions compare against the pre-feedback baseline", async () => {
     process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED = "true";
     const candidate: FeedbackHeightCalibrationCandidate = {
       id: "candidate-1",
@@ -1046,6 +1046,9 @@ describe("ForecastBuilder trusted external-forecaster integration", () => {
         (application) => application.appliedDeltaFt === -0.5,
       ),
     ).toBe(true);
+    for (const application of persistence.payloads[0]?.applications ?? []) {
+      expect(application.baselineMaxFaceFt).toBe(5);
+    }
     for (const row of persistedRows) {
       expect(row.display_source).toBe("face-Hs-transformer-v1");
       // Trusted application provenance carries the adjustment separately; the

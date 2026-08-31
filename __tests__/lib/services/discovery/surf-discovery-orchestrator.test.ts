@@ -3941,6 +3941,8 @@ describe('discoverSurfSpots - Evening included beach fallback', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    const { getTimezoneFromCoords } = require('@/lib/utils/timezone-utils.server');
+    jest.mocked(getTimezoneFromCoords).mockReturnValue('UTC');
     jest.useFakeTimers().setSystemTime(new Date('2026-04-24T20:00:00.000Z'));
     mockState.candidatePoolResponse = {
       candidates: [mockBeach1] as Beach[],
@@ -3977,6 +3979,8 @@ describe('discoverSurfSpots - Evening included beach fallback', () => {
   });
 
   afterEach(() => {
+    const { getTimezoneFromCoords } = require('@/lib/utils/timezone-utils.server');
+    jest.mocked(getTimezoneFromCoords).mockReturnValue('America/Los_Angeles');
     jest.useRealTimers();
   });
 

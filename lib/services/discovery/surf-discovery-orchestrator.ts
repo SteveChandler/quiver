@@ -874,7 +874,7 @@ function mergeCandidatePools(...pools: Beach[][]): Beach[] {
   return Array.from(byId.values());
 }
 
-function hasUsableTodayForecastForFallback(args: {
+export function hasUsableTodayForecastForFallback(args: {
   forecasts: EnhancedForecastEntity[];
   beachTz: string;
   sunset: Date | null;
@@ -889,16 +889,21 @@ function hasUsableTodayForecastForFallback(args: {
     if (!Number.isFinite(forecastTime) || forecastTime < usableCutoffMs) {
       return false;
     }
+    const localHour = getLocalHour(new Date(forecastTime), args.beachTz);
+    if (localHour === null || localHour < 6) return false;
+
     if (args.sunset) {
-      return forecastTime <= args.sunset.getTime();
+      return (
+        forecastTime <=
+        args.sunset.getTime() - MIN_SESSION_HOURS * 60 * 60 * 1000
+      );
     }
 
     // When sun-times data is unavailable, use the selector's own defensive
     // daylight bounds. This lets an evening request move to tomorrow while
     // retaining today's pre-dawn/daytime rows as an intentional no-fallback
     // answer when they are still eligible for selection.
-    const localHour = getLocalHour(new Date(forecastTime), args.beachTz);
-    return localHour !== null && localHour >= 6 && localHour < 18;
+    return localHour < 18;
   });
 }
 
