@@ -13,6 +13,7 @@ const FORECAST_AT = "2026-08-30T12:00:00.000Z";
 type MockCanaryReportReader = CanaryReportReader & {
   selectApplications: jest.MockedFunction<CanaryReportReader["selectApplications"]>;
   selectBaselines: jest.MockedFunction<CanaryReportReader["selectBaselines"]>;
+  selectProjections: jest.MockedFunction<CanaryReportReader["selectProjections"]>;
   insert: jest.Mock;
   update: jest.Mock;
   upsert: jest.Mock;
@@ -44,6 +45,19 @@ function reader(): MockCanaryReportReader {
         beachId: BEACH_ID,
         forecastAt: FORECAST_AT,
         waveHeight: "4 ft",
+        updatedAt: FORECAST_AT,
+      },
+    ]),
+    selectProjections: jest.fn<
+      ReturnType<CanaryReportReader["selectProjections"]>,
+      Parameters<CanaryReportReader["selectProjections"]>
+    >(async (_args) => [
+      {
+        beachId: BEACH_ID,
+        forecastAt: FORECAST_AT,
+        displayWaveHeight: "4 ft",
+        baselineMaxFaceFt: 4,
+        refreshedAt: FORECAST_AT,
       },
     ]),
     insert: jest.fn(() => {
@@ -78,6 +92,7 @@ describe("trusted forecast canary report", () => {
     expect(code).toBe(0);
     expect(reportReader.selectApplications).toHaveBeenCalledTimes(1);
     expect(reportReader.selectBaselines).toHaveBeenCalledTimes(1);
+    expect(reportReader.selectProjections).toHaveBeenCalledTimes(1);
     for (const method of ["insert", "update", "upsert", "delete", "rpc"] as const) {
       expect(reportReader[method]).not.toHaveBeenCalled();
     }
@@ -124,7 +139,7 @@ describe("trusted forecast canary report", () => {
       },
     ]);
     reportReader.selectBaselines.mockResolvedValueOnce([
-      { beachId: BEACH_ID, forecastAt: FORECAST_AT, waveHeight: "3 ft" },
+      { beachId: BEACH_ID, forecastAt: FORECAST_AT, waveHeight: "3 ft", updatedAt: FORECAST_AT },
     ]);
 
     expect(
@@ -139,7 +154,7 @@ describe("trusted forecast canary report", () => {
   it("flags detectable stored rows that differ from the recomputed baseline", async () => {
     const reportReader = reader();
     reportReader.selectBaselines.mockResolvedValueOnce([
-      { beachId: BEACH_ID, forecastAt: FORECAST_AT, waveHeight: "8 ft" },
+      { beachId: BEACH_ID, forecastAt: FORECAST_AT, waveHeight: "8 ft", updatedAt: FORECAST_AT },
     ]);
     const lines: string[] = [];
 
