@@ -238,6 +238,9 @@ export function EmbedMapClient() {
     return () => window.clearInterval(id);
   }, [isPlaying, maxTimelineIndex, playbackIncrement]);
   const nativeCommandKeyRef = useRef(0);
+  const accessTokenRef = useRef<string | null>(null);
+  const authGenerationRef = useRef(0);
+  const [authGeneration, setAuthGeneration] = useState(0);
   const currentViewportRef = useRef<EmbedMapViewport>({
     center: initialCenter,
     zoom: initialZoom,
@@ -250,6 +253,11 @@ export function EmbedMapClient() {
     window.ReactNativeWebView.postMessage(serializeEmbedMapEvent(event));
     return true;
   }, []);
+  const getAccessToken = useCallback((): string | null => accessTokenRef.current, []);
+  const getAuthGeneration = useCallback((): number => authGenerationRef.current, []);
+  const handleAuthTokenExpired = useCallback((): void => {
+    postEvent({ type: "auth_token_expired" });
+  }, [postEvent]);
 
   // Keep the native chrome's time label in sync while the field plays/scrubs: emit
   // the rounded forecast step whenever it changes. The play loop advances a
@@ -397,6 +405,11 @@ export function EmbedMapClient() {
         case "setForecastPlaying":
           setIsPlaying(command.payload.playing);
           return;
+        case "auth_token":
+          accessTokenRef.current = command.payload.accessToken;
+          authGenerationRef.current += 1;
+          setAuthGeneration(authGenerationRef.current);
+          return;
         case "setTheme":
         case "setReducedMotion":
           return;
@@ -408,21 +421,28 @@ export function EmbedMapClient() {
   );
 
   useEffect(() => {
-    const receiveMessage = (event: Event): void => {
-      const command = parseEmbedMapCommand(
-        (event as MessageEvent).data,
-        maxTimelineIndex,
-      );
+    const parseMessage = (event: MessageEvent): EmbedMapCommand | null =>
+      parseEmbedMapCommand(event.data, maxTimelineIndex);
+    const receiveDocumentMessage = (event: MessageEvent): void => {
+      const command = parseMessage(event);
       if (!command) return;
+      if (command.type === "auth_token" && !window.ReactNativeWebView) return;
+      handleCommand(command);
+    };
+    const receiveWindowMessage = (event: MessageEvent): void => {
+      if (event.source !== window) return;
+      const command = parseMessage(event);
+      if (!command) return;
+      if (command.type === "auth_token") return;
       handleCommand(command);
     };
 
-    window.addEventListener("message", receiveMessage);
-    document.addEventListener("message", receiveMessage);
+    window.addEventListener("message", receiveWindowMessage);
+    document.addEventListener("message", receiveDocumentMessage as EventListener);
 
     return () => {
-      window.removeEventListener("message", receiveMessage);
-      document.removeEventListener("message", receiveMessage);
+      window.removeEventListener("message", receiveWindowMessage);
+      document.removeEventListener("message", receiveDocumentMessage as EventListener);
     };
   }, [handleCommand, maxTimelineIndex]);
 
@@ -528,6 +548,9 @@ export function EmbedMapClient() {
         initialZoom={initialZoom}
         initialNearbyBeachesPromise={initialNearbyBeachesPromise}
         initialForecastResponsePromise={initialForecastResponsePromise}
+        authGeneration={authGeneration}
+        getAccessToken={getAccessToken}
+        getAuthGeneration={getAuthGeneration}
         autoNavigateOnMarkerClick={false}
         className="absolute inset-0 h-full w-full"
         clusterClickBehavior="expand"
@@ -538,6 +561,7 @@ export function EmbedMapClient() {
         onMapLoadFailure={handleMapLoadFailure}
         onMapReady={handleMapReady}
         onMapPresentationReady={handleMapPresentationReady}
+        onAuthTokenExpired={handleAuthTokenExpired}
         onMapClick={handleMapClick}
         onHourlyTimelineLoaded={isHourlyTimeline ? handleHourlyTimelineLoaded : undefined}
         onPlacementPinChange={handlePlacementPinChange}
@@ -547,6 +571,7 @@ export function EmbedMapClient() {
         showConditionsOnTap={!isPlacementActive}
         showMapChrome={false}
         showSwellField={!fieldHidden}
+        skillLevel={searchParams.get("skill") ?? undefined}
         swellLayerId={layerId as SwellLayerId}
         swellTimelineIndex={timelineIndex}
         swellTimelineMode={isHourlyTimeline ? "hourly" : undefined}

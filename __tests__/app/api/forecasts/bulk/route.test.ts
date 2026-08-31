@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  bulkForecastHandler,
   fetchHourlySwellTimelineRows,
   GET,
 } from "@/app/api/forecasts/bulk/route";
@@ -426,6 +427,7 @@ function queryChain<T>(result: QueryResult<T>) {
   let includedForecastAts: Set<string> | null = null;
   const chain: any = {
     select: jest.fn(),
+    eq: jest.fn(),
     in: jest.fn((column: string, values: unknown[]) => {
       if (column === "forecast_at") {
         includedForecastAts = new Set(values.filter((value): value is string => typeof value === "string"));
@@ -457,6 +459,7 @@ function queryChain<T>(result: QueryResult<T>) {
   };
 
   chain.select.mockReturnValue(chain);
+  chain.eq.mockReturnValue(chain);
   chain.gte.mockReturnValue(chain);
   chain.lt.mockReturnValue(chain);
   chain.not.mockReturnValue(chain);
@@ -547,6 +550,11 @@ describe("/api/forecasts/bulk", () => {
     cleanup = testEnv.cleanup;
     jest.useFakeTimers({ now: STABLE_TEST_NOW });
     jest.clearAllMocks();
+    mockSupabaseClient.auth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: null,
+    });
+    (getProfileExperienceLevel as jest.Mock).mockResolvedValue(null);
     (scoreWindowConditionScore as jest.Mock).mockReturnValue(72);
     (resolveTodayHeadline as jest.Mock).mockClear();
     mockEvaluateMajorEventHoldCandidates.mockImplementation(
@@ -653,6 +661,84 @@ describe("/api/forecasts/bulk", () => {
     expect(data.data.conditionSummaries).toEqual({
       [BOUND_BEACH_ID]: "GOOD",
     });
+  });
+
+  it("prefers the authenticated profile skill over the explicit hint", async () => {
+    (getProfileExperienceLevel as jest.Mock).mockResolvedValue("advanced");
+    (scoreWindowConditionScore as jest.Mock).mockImplementation(
+      (_forecast, _beach, skillLevel) => skillLevel === "advanced" ? 73 : 0,
+    );
+    mockBulkQueries({
+      forecastRows: [forecastRow(BOUND_BEACH_ID, "7")],
+      beachRows: [beachRow(BOUND_BEACH_ID)],
+    });
+
+    const response = await bulkForecastHandler(
+      createMockRequest(
+        "GET",
+        `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}&skillLevel=beginner`,
+      ),
+      {
+        params: {},
+        user: { id: "user-1" } as never,
+        supabase: mockSupabaseClient as never,
+      },
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+    expect(getProfileExperienceLevel).toHaveBeenCalledWith(
+      mockSupabaseClient,
+      "user-1",
+    );
+    expect(scoreWindowConditionScore).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      "advanced",
+      null,
+      [],
+    );
+    expect(data.data.conditionScores[BOUND_BEACH_ID]).toBe(73);
+    expect(data.data.conditionSummaries[BOUND_BEACH_ID]).toBe("GOOD");
+  });
+
+  it.each([
+    ["valid anonymous hint", "&skillLevel=advanced", "advanced", 73, "GOOD"],
+    ["invalid anonymous hint", "&skillLevel=hacker", null, 0, "MEH"],
+    ["empty anonymous hint", "&skillLevel=", null, 0, "MEH"],
+    ["missing anonymous hint", "", null, 0, "MEH"],
+  ] as const)("resolves the %s", async (
+    _label,
+    query,
+    expectedSkill,
+    score,
+    summary,
+  ) => {
+    (scoreWindowConditionScore as jest.Mock).mockImplementation(
+      (_forecast, _beach, skillLevel) => skillLevel === "advanced" ? 73 : 0,
+    );
+    mockBulkQueries({
+      forecastRows: [forecastRow(BOUND_BEACH_ID, "7")],
+      beachRows: [beachRow(BOUND_BEACH_ID)],
+    });
+
+    const response = await bulkForecastHandler(
+      createMockRequest(
+        "GET",
+        `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}${query}`,
+      ),
+      { params: {}, user: null, supabase: mockSupabaseClient as never },
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+    expect(scoreWindowConditionScore).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      expectedSkill,
+      null,
+      [],
+    );
+    expect(data.data.conditionScores[BOUND_BEACH_ID]).toBe(score);
+    expect(data.data.conditionSummaries[BOUND_BEACH_ID]).toBe(summary);
   });
 
   it("fetches current forecasts from enhanced_forecasts for a single beach", async () => {
