@@ -98,7 +98,7 @@ INSERT INTO _virginia_beaches VALUES
     '[{"url":"https://www.surfline.com/surf-report/virginia-beach-pier/5842041f4e65fad6a7708a27","kind":"spot_identity_coordinate_and_guide"},{"url":"https://cvb.virginiabeach.gov/resort-management/beach-rules","kind":"official_access_and_rules"},{"url":"https://tidesandcurrents.noaa.gov/noaatidepredictions.html?id=8639208","kind":"official_tide_predictions"},{"url":"https://api.weather.gov/gridpoints/AKQ/103,54","kind":"official_forecast_grid"}]'::jsonb
   ),
   (
-    '5d9d578c-9f27-43eb-948a-ce23fa5e2aba', '1st Street Jetty',
+    '5d9d578c-9f27-43eb-948a-ce23fa5e2aba', '1st Street Jetty (Virginia Beach)',
     '1st-street-jetty-virginia-beach-va', 'Virginia Beach', 'Virginia Beach',
     36.83135, -75.9677, 'jetty', 'lower-intermediate',
     ARRAY['rock jetty','rip currents','dense crowds','loose boards','inlet current'],

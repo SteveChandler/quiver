@@ -64,6 +64,7 @@ describe("Virginia surf beach catalog", () => {
     expect(repairMigration).toContain(
       "The original 20260830120000 version is tracked on production without its data effects."
     );
+    expect(repairMigration).toContain("'1st Street Jetty (Virginia Beach)'");
     expect(assignments.match(/playlist\.m3u8/g)).toHaveLength(6);
     expect(assignments).toContain("ec-northendva/playlist.m3u8");
     expect(assignments).toContain("ec-15thstpiervb/playlist.m3u8");
