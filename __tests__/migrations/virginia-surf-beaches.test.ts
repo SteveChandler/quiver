@@ -7,6 +7,10 @@ const migration = readFileSync(
   join(process.cwd(), "supabase/migrations/20260830120000_add_virginia_surf_beaches.sql"),
   "utf8"
 );
+const repairMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260830192230_reapply_virginia_surf_beaches.sql"),
+  "utf8"
+);
 
 describe("Virginia surf beach catalog", () => {
   it("imports ten public spots with production eligibility and forecast data", () => {
@@ -49,6 +53,25 @@ describe("Virginia surf beach catalog", () => {
     expect(migration).toContain("terrain_enabled = true");
     expect(migration).not.toMatch(/(?:swell|wind)_window[^\n]*360/i);
     expect(migration).not.toMatch(/'very_high'|'high', \d/);
+  });
+
+  it("reapplies the catalog and attaches six spot-matched Surfline feeds", () => {
+    const assignments = repairMigration.slice(
+      repairMigration.indexOf("WITH camera_assignments"),
+      repairMigration.indexOf("DO $$")
+    );
+
+    expect(repairMigration).toContain(
+      "The original 20260830120000 version is tracked on production without its data effects."
+    );
+    expect(assignments.match(/playlist\.m3u8/g)).toHaveLength(6);
+    expect(assignments).toContain("ec-northendva/playlist.m3u8");
+    expect(assignments).toContain("ec-15thstpiervb/playlist.m3u8");
+    expect(assignments).toContain("ec-vbfirstfixed/playlist.m3u8");
+    expect(assignments).toContain("ec-croatanjetties/playlist.m3u8");
+    expect(assignments.match(/ec-croatanpendleton\/playlist\.m3u8/g)).toHaveLength(2);
+    expect(assignments).not.toContain("ec-sandbridge/playlist.m3u8");
+    expect(repairMigration).toContain("camera_count <> 6");
   });
 
   it.each([

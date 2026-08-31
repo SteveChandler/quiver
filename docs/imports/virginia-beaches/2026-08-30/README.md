@@ -15,6 +15,12 @@ Terrain represents coordinate-derived land exposure only. It does not infer tide
 
 The migration is idempotent and aborts unless all ten rows have timezone, SEO eligibility, terrain, forecast source, and approved hero media. Rollback is a targeted delete of the ten fixed UUIDs after backing up dependent rows.
 
+## Corrective migration and cameras
+
+Production tracks `20260830120000` without the Virginia rows, so `20260830192230_reapply_virginia_surf_beaches.sql` replays the idempotent import under a fresh version. It assigns exact Surfline HLS feeds and still thumbnails to North End, Virginia Beach Pier, 1st Street Jetty, Croatan Jetty, Croatan Beach, and Camp Pendleton. Camp Pendleton shares the camera explicitly titled “Croatan to Pendleton.” Assateague Beach, S-Turn, and Little Island Fishing Pier have no exact Surfline feed. Sandbridge is intentionally unassigned because Surfline's published `ec-sandbridge` playlist currently returns `404 NoSuchKey`; attach it only after the HLS endpoint passes the same live compatibility check as the other feeds.
+
+Surfline commercial embedding permission is not recorded in this repository. The direct HLS assignments match existing Quiver integrations but remain a production licensing risk until Surfline grants written authorization.
+
 ## Primary sources
 
 - Surfline public reports for each named spot
