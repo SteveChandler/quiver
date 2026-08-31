@@ -1,6 +1,6 @@
 # SEO Outreach Tracker
 
-Last updated: 2026-08-25
+Last updated: 2026-08-31
 
 ## How This File Works
 
@@ -33,6 +33,76 @@ surviving record and was trusted over this file wherever they disagreed. Correct
 - Three targets that had already replied — Stab Magazine, Surf Simply, Hawaii Public Radio — were
   recorded as `queued`/`drafted`/absent. See **Warm leads** below; two of them went unanswered for
   weeks.
+
+**Gmail-vs-tracker reconciliation (2026-08-31):** Gmail was diffed against this file again.
+Two findings, both of which stop this week's run:
+
+1. **The August sent count was stale again — 15 recorded, 34 actual.** Two separate omissions: the
+   whole 2026-08-25 batch (15 sends) post-dated the 08-24 recount, and an entire **2026-08-03 batch
+   of 7** had never been counted at all. Four of those seven targets have no row anywhere in this
+   file. Recounted from Gmail below.
+2. **An unsent-draft backlog of 15 outreach drafts.** Drafts from 08-20, 08-25 and 08-31 are all
+   still sitting unsent. Per the routine's Step 4 that is a hard stop: adding more is how a batch
+   goes out at once and lands as spam. **No new drafts were created this run.**
+
+**Two drafts created 2026-08-31 05:08 PT carry defective copy and must not be sent as written**
+(Hans Hedemann Surf School, Nor Cal Surf Shop). The fault is in the template, not the drafts:
+
+- **A false claim.** `lib/seo/agent-workflow/outreach-digest.ts:186` writes *"ML-tuned forecasts"*.
+  Quiver ships **no live ML forecast** — ML corrections have been off since 2026-04-23 because raw
+  Open-Meteo beat them by 35% MAE. This is the same class of unsupportable accuracy claim that got
+  `/forecast-accuracy` pulled from outreach. It must not go out over Steven's name.
+- **A placeholder leak, and the root cause is worse than the symptom.** The template falls back to
+  `"your local breaks"` when a row has no `nearestBeach`, then interpolates it as
+  `for your ${where} crew` — producing **"Free ML surf forecasts for your your local breaks crew"**.
+  But `nearestBeach` was *never* populated for any row: `buildRow` looked up the exact normalized
+  header `nearestbeach`, and no table in this file uses that. The real headers are
+  **"Beach slug (verified 200)"** (`beachslugverified200`) and **"Nearest Beach (verified 200)"**
+  (`nearestbeachverified200`). So every draft in every rotation category, going back to the
+  generator's introduction, shipped the placeholder — the beach was always right there in the row
+  and was never read.
+- **The unit test could not have caught it.** `outreach-digest.test.ts` builds its fixture with a
+  header literally named `Nearest Beach`, which normalizes cleanly and matches. The test asserted
+  the beach flowed into the subject and passed, while production silently produced the placeholder
+  for 100% of rows. The fixture, not the code, was doing the work.
+- **Wrong audience.** Both drafts say *"set your school up"* and *"your students"*. Nor Cal Surf Shop
+  is a shop, not a school. The Hans Hedemann row also carries a standing instruction to lead with the
+  cam partnership, which the template ignores.
+
+**The template was repaired in the working tree at 10:25 PT on 2026-08-31, after those two drafts were
+generated at 05:08.** `outreach-digest.ts` now adds a `humanizeBeach()` helper that turns the slug
+`steamer-lane-santa-cruz-ca` into "Steamer Lane Santa Cruz", drops the ML claims from both the
+surf-schools and surf-bloggers templates, drops the "5,000+ US spots" count, and adds an explicit
+"a one-line no is completely fine" out. A carried comment now records why no template may claim ML,
+AI, a spot count, or superiority over a named competitor.
+
+`buildRow` now resolves the beach column by header **prefix** (`nearestbeach`, `beachslug`) instead
+of exact match, so the live tracker's real headers are read.
+
+Two regression tests were added to `__tests__/lib/seo/agent-workflow/outreach-digest.test.ts`, both
+verified to **fail against the pre-fix code and pass after** — the fixture-shaped test did neither:
+
+1. A fixture using the live headers verbatim, asserting the beach is read and the subject is
+   `Free surf forecasts for Waikiki Beach` with no doubled `your`.
+2. A sweep over all four rotation categories asserting no subject or body matches
+   `/\bML\b|machine.learning|\bAI\b/`.
+
+`npx jest __tests__/lib/seo/agent-workflow/outreach-digest.test.ts` → 20 passed. `tsc --noEmit`
+reports nothing for this file. **The fix is uncommitted**; it sits in the working tree alongside
+this file. Note `yarn` refuses to run under the default Node 14 — prepend a v22 bin dir.
+
+**Both 08-31 drafts were rewritten in place at 10:2x PT**, rather than deleted or re-drafted
+alongside — stacking a second draft on an unsent one is exactly how Cleanline ended up with three
+emails naming three beaches in fifteen days. The rewrites drop every ML claim and the invented spot
+count, name a real verified beach page, and give an explicit one-line-no out:
+
+| Draft | New subject | Beach page (200 this run) |
+|---|---|---|
+| Hans Hedemann Surf School | Free Waikiki Beach conditions page, and a thought about your cam | `https://www.quiversurf.app/hi/honolulu/waikiki-beach` |
+| Nor Cal Surf Shop | Free Linda Mar conditions page, if it's useful to you | `https://www.quiversurf.app/ca/pacifica/linda-mar-pacifica-ca` |
+
+Hans Hedemann now leads with the cam partnership, per the standing note on that row. Nor Cal is
+addressed as a shop, not a school, and its draft no longer mentions students. Neither is sent.
 
 **Email copy (2026-08-10, corrected 2026-08-24):** the surf-schools template no longer references an
 iframe embed. It links to `https://www.quiversurf.app/for-surf-schools` in the body.
@@ -133,12 +203,12 @@ the next run does not spend itself "fixing" it again.
 | Pacific Surf School | pacificsurfschool.com | `pacific-beach` | pacificsurf@pacificsurf.org | follow-up | 2026-08-18 | Initial 2026-08-03. **Follow-up sent 2026-08-18.** **A second follow-up was sent 2026-08-25** — Steven sent it rather than deleting it, so this target has now had three emails. That is one more than the routine allows; do not contact again. Set to `declined` if silent by 2026-09-08. |
 | Corky Carroll's Surf School | corkysurfschool.com | `huntington-beach-pier` | info@surfschool.net | follow-up | 2026-08-18 | Initial 2026-08-03. **Follow-up sent 2026-08-18.** **A second follow-up was sent 2026-08-25** — Steven sent it rather than deleting it, so this target has now had three emails. That is one more than the routine allows; do not contact again. Set to `declined` if silent by 2026-09-08. |
 | Santa Cruz Surf School | santacruzsurfschool.com | `steamer-lane-santa-cruz-ca` | **needs manual check** — site 200, no email/phone in raw HTML (JS-rendered) | queued | | |
-| Nor Cal Surf Shop | norcalsurfshop.com | `linda-mar-pacifica-ca` | mia@norcalsurfshop.com | queued | | Contact form also present |
+| Nor Cal Surf Shop | norcalsurfshop.com | `linda-mar-pacifica-ca` | mia@norcalsurfshop.com | drafted | 2026-08-31 | Contact form also present. Draft **rewritten in place 2026-08-31 10:2x PT** — the original carried the false "ML-tuned forecasts" claim, the doubled-`your` subject, and school/student wording aimed at a shop. Now pitches the verified Linda Mar page as a shop, not a school. Awaiting Steven. |
 
 ### Hawaii
 | Target | Website | Beach slug (verified 200) | Contact channel (verified) | Status | Date | Notes |
 |--------|---------|---------------------------|----------------------------|--------|------|-------|
-| Hans Hedemann Surf School | hhsurf.com | `waikiki-beach` | info@hhsurf.com | queued | | **Runs own YouTube cam `c5vgnhcxgYU`** — lead with the cam partnership, not the widget |
+| Hans Hedemann Surf School | hhsurf.com | `waikiki-beach` | info@hhsurf.com | drafted | 2026-08-31 | **Runs own YouTube cam `c5vgnhcxgYU`** — lead with the cam partnership, not the widget. Draft **rewritten in place 2026-08-31 10:2x PT** — the original carried the false "ML-tuned forecasts" claim, the doubled-`your` subject, and ignored the cam angle. It now leads with the cam offer and links the verified Waikiki Beach page. Awaiting Steven. |
 | North Shore Surf Girls | northshoresurfgirls.com | `haleiwa` | 808-637-2977 (contact form; no email published) | queued | | |
 | Hawaiian Surfing Adventures | hawaiiansurfingadventures.com | `hanalei-bay-kauai` | 808-482-0749 (no email published) | queued | | |
 
@@ -235,6 +305,81 @@ rotation.** Set this row to `declined` if nothing comes back by 2026-09-08.
 
 ---
 
+## Untracked 2026-08-03 sends (recovered 2026-08-31)
+
+> Found by diffing `in:sent` against this file. Seven emails went out on 2026-08-03; only the three
+> California school initials were ever recorded. These four had **no row anywhere**, which means
+> every run since 08-03 could have re-pitched them. All four domains re-verified this run; embed
+> slugs returned 200 and rendered conditions.
+
+| Target | Contact | Location | Beach slug (200 + renders) | Status | Date | Notes |
+|--------|---------|----------|---------------------------|--------|------|-------|
+| OBX Surf School | info@obxsurfschool.com | Outer Banks, NC | `nags-head-nags-head-nc` | sent | 2026-08-03 | Site now returns **403 to automated requests** with a browser UA — treat as unverifiable for any future claim about their page. Follow-up eligible; deferred, see below. |
+| Moment Surf Co | info@momentsurfco.com | Pacific City, OR | `pacific-city-cape-kiwanda` | sent | 2026-08-03 | Shop, not a school. Cape Kiwanda is their own beach — no proximity substitution needed. Follow-up eligible; deferred. |
+| Oregon Surf Adventures | info@oregonsurfadventures.com | OR coast | `pacific-city-cape-kiwanda` | sent | 2026-08-03 | Confirm their actual town from their own site before drafting a follow-up; do not reuse this slug on assumption. Follow-up eligible; deferred. |
+| Rincon Surf School | info@rinconsurfschool.com | Rincón, Puerto Rico | `marias` | sent | 2026-08-03 | Quiver has 19 PR beaches; Marías and Tres Palmas are both in Rincón. Follow-up eligible; deferred. |
+
+**No reply from any of the four.** A Gmail search across all four domains returns nothing.
+
+**Follow-ups are eligible but were not drafted.** All four passed the 14-day mark weeks ago, and
+surf-schools *is* this week's rotation category — so the only thing holding them is the Step 4
+backlog stop. Draft them in the next run that starts with a clear Drafts folder, one follow-up each,
+and then set them to `declined` if silent.
+
+---
+
+## Run log — 2026-08-31 (0 drafts — backlog stop + category exhausted)
+
+Rotation: `buildOutreachDigest` reported **week 1 → surf-schools**. Digest written to
+`Brand-Vault/seo-audit/2026-08-31/OUTREACH-DIGEST.json`. 78 rows, 3 candidates.
+
+**No drafts were created.** Two independent reasons, either of which alone is disqualifying:
+
+1. **Backlog stop (Step 4).** 15 unsent outreach drafts are already in Drafts, from 08-20, 08-25 and
+   08-31. The routine treats a standing backlog as a stop signal for the whole run.
+2. **The category is exhausted.** All 3 surf-schools candidates the digest offered are flagged
+   `requiresContactResearch` and all 3 were already investigated and documented here as unusable:
+   Santa Cruz Surf School (JS-rendered site, no address in raw HTML), North Shore Surf Girls
+   (phone/contact form only), Hawaiian Surfing Adventures (phone only). Nothing about them has
+   changed, so no research time was spent re-deriving the same rejections. Per Step 3, five usable
+   rows is a trigger for research, not a quota for drafts — so this run drafted nothing rather than
+   manufacturing targets.
+
+**The digest re-offers rejected rows.** It selects on `status`, and these rows are `queued` because
+the no-email guard holds them there. That is working as designed, but it means the digest's candidate
+count overstates what is actually draftable — 3 candidates, 0 draftable. Worth teaching the digest to
+read the no-email guard so a future run isn't re-tempted.
+
+**Node trap hit again.** `yarn seo:outreach-digest` fails with
+`The engine "node" is incompatible ... Expected >=22.0.0 <23.0.0. Got 14.19.3` unless Node 22 is on
+`PATH` first. Prepend a v22 bin dir before running.
+
+**Digest re-run after the template fix**, with Node 22 on `PATH`. It now emits real beach names and
+no ML claim — end-to-end confirmation, not just a green unit test:
+
+| Row | Subject before (05:08) | Subject after |
+|---|---|---|
+| Santa Cruz Surf School | Free ML surf forecasts for your your local breaks crew | Free surf forecasts for Steamer Lane Santa Cruz |
+| North Shore Surf Girls | Free ML surf forecasts for your your local breaks crew | Free surf forecasts for Haleiwa |
+| Hawaiian Surfing Adventures | Free ML surf forecasts for your your local breaks crew | Free surf forecasts for Hanalei Bay Kauai |
+
+Row count moved 78 → 82 and `sent` 16 → 20 with the four recovered 08-03 rows.
+
+**Third finding, from the same Gmail diff: an entire 2026-08-03 batch of 7 sends was uncounted, and
+four of those targets had no row at all.** Recorded under "Untracked 08-03 sends". All four are
+past the 14-day follow-up mark and sit in this week's own rotation category, so the backlog stop is
+the only thing holding them — they are the first thing to draft once Drafts is clear.
+
+**No coverage gaps found this run.** Every beach named in a repaired draft or a recovered row
+resolved to a live slug in the sitemap and rendered conditions; no proximity substitution was
+needed. The Long Beach Island, NJ gap logged on 08-24 is still open and still unfixed.
+
+Also still sitting in Drafts: **two throwaway test drafts** from the 08-24 URL experiment
+(`[TEST - delete me]` and `[TEST 2 - delete me]`, both to stcha0004@gmail.com). The Gmail connector
+has no trash permission, so Steven has to delete them by hand.
+
+---
+
 ## Run log — 2026-08-25 (validation re-run, 0 drafts)
 
 The routine was re-run the same day to test the rewritten process. **It created zero drafts, which
@@ -291,7 +436,7 @@ third-party tools. The pitch is a safety/conditions resource, not a product.
 
 | Target | Contact | What happened |
 |--------|---------|---------------|
-| Ken Merrill — Cape Cod Surfrider | ken.merrillcc@gmail.com | **Drafted 2026-08-24** into the original thread, with Coast Guard Beach (Eastham) and Nauset Beach (Orleans) links — both verified 200 and rendering. On **2026-05-13** Ken replied *"I'll reset with your new links. Sounds great."* — agreeing to swap Magicseaweed/Surfline links for Quiver on the chapter's surf report page. **Verified 2026-08-24: it never happened.** capecodsurfrider.org still links Surfline, and the site contains zero Quiver references (the one "quiver" hit is a surfer describing his board quiver). An agreed-to `.org` backlink has been sitting uncollected for 3½ months. Cheapest win in this entire file. |
+| Ken Merrill — Cape Cod Surfrider | ken.merrillcc@gmail.com | **Drafted 2026-08-24** into the original thread, with Coast Guard Beach (Eastham) and Nauset Beach (Orleans) links — both verified 200 and rendering. On **2026-05-13** Ken replied *"I'll reset with your new links. Sounds great."* — agreeing to swap Magicseaweed/Surfline links for Quiver on the chapter's surf report page. **Verified 2026-08-24: it never happened.** capecodsurfrider.org still links Surfline, and the site contains zero Quiver references (the one "quiver" hit is a surfer describing his board quiver). An agreed-to `.org` backlink has been sitting uncollected for 3½ months. Cheapest win in this entire file. **Re-verified 2026-08-31: still uncollected.** capecodsurfrider.org returns 200, contains zero `quiversurf` references, and still links `surfline.com/surf-report/long-sands-beach` for the report/cam. The 08-24 reply draft is still sitting unsent in Drafts. |
 
 ### MagicSeaweed replacement drafts — 2026-08-25
 
@@ -382,12 +527,13 @@ cold pitch in this file:
 
 | Target | Replied | Silent for | What they said |
 |--------|---------|-----------|----------------|
-| Stab Magazine | 2026-07-29 | 26 days | Michael: *"We're actually working on a piece about the user-generated, AI-based surf forecasting sites popping"* — and cc'd Buck to ask questions. Nobody replied. |
-| Hawaii Public Radio | 2026-06-23 | 62 days | Catherine Cruz: *"Love to work something up!"* plus a cell number. Nobody replied. |
-| Surf Simply | 2026-07-11 | 44 days | Said they'd forward internally and have the team reach out. No follow-up from either side. |
+| Stab Magazine | 2026-07-29 | 33 days (as of 08-31) | Michael: *"We're actually working on a piece about the user-generated, AI-based surf forecasting sites popping"* — and cc'd Buck to ask questions. Nobody replied. |
+| Hawaii Public Radio | 2026-06-23 | 69 days (as of 08-31) | Catherine Cruz: *"Love to work something up!"* plus a cell number. Nobody replied. |
+| Surf Simply | 2026-07-11 | 51 days (as of 08-31) | Said they'd forward internally and have the team reach out. No follow-up from either side. |
 
-Reply drafts for Stab and Hawaii Public Radio were created 2026-08-24. Surf Simply sits in the
-bloggers rotation (week 2), not this one.
+Reply drafts for Stab and Hawaii Public Radio were created 2026-08-24. **Both are still unsent as of
+2026-08-31** — a week later, with the silence a week longer. Surf Simply sits in the bloggers
+rotation (week 2), not this one.
 
 ---
 
@@ -422,20 +568,42 @@ The SEO Outreach Drafter agent follows this rotation:
 | May 2026 | | | | |
 | June 2026 | 3 (Coastal Review, Hawaii Public Radio, HSS — HSS bounced) | 1 (Hawaii Public Radio) | 0 | 0 |
 | July 2026 | 4 (The Inertia, Outside Online, Stab, Surf Simply, Kale Brock) | 2 (Stab, Surf Simply) | 0 | 0 |
-| August 2026 | 15 sent · 9 unsent drafts carried | 0 | 0 | 0 |
+| August 2026 | 34 sent · 15 unsent drafts carried | 0 | 0 | 0 |
 
-**Recounted 2026-08-24 from Gmail**, not from this file. The previous "3 (+ 4 drafted)" figure for
-August was wrong in both directions: it missed the 08-18 batch and the entire 08-20 batch.
+**Recounted 2026-08-31 from Gmail**, not from this file. The 08-24 recount said 15; the real August
+figure is **34**. Two independent omissions, in opposite directions in time:
 
-August sends (15): Cleanline (08-10), Shoreline OBX (08-10), Ho Stevie! (08-10), Surf Diva f/u
-(08-18), Pacific Surf School f/u (08-18), Corky Carroll's f/u (08-18), Cleanline again (08-18),
-Inn at Cocoa Beach (08-18), Corolla Surf Shop (08-18), Surf N' Wear (08-18), Glide Surf Co
-(08-18), HSS Surf (08-20), plus the three 08-18 school follow-ups already counted.
+- The 08-24 count was taken *before* the 08-25 batch went out and was never revised, so all 15 of
+  those sends were missing.
+- **A 2026-08-03 batch of 7 had never been counted at any point.** This file records the 08-03
+  initials for the three California schools but has no row at all for the other four. They are
+  added under "Untracked 08-03 sends" below.
 
-**Response rate is 0 for every cold email sent in August.** The only three replies Quiver has ever
-had from outreach — Stab, Surf Simply, Hawaii Public Radio — all came from *publication* pitches
-sent in June and July, and all three were then left unanswered. Before adding volume to the cold
-surf-school and shop lanes, the cheaper move is answering the people who already said yes.
+Third consecutive recount that found drift. Recount from `in:sent`, never from the rows.
+
+August sends by date (34):
+- **08-03 (7):** Surf Diva, Pacific Surf School, Corky Carroll's (initials, already recorded);
+  **OBX Surf School, Moment Surf Co, Oregon Surf Adventures, Rincon Surf School (untracked)**
+- **08-10 (3):** Cleanline, Shoreline OBX, Ho Stevie!
+- **08-18 (8):** Cleanline (Short Sands), Inn at Cocoa Beach, Corolla Surf Shop, Surf N' Wear,
+  Glide Surf Co, plus first follow-ups to Pacific Surf School, Surf Diva, Corky Carroll's
+- **08-20 (1):** HSS Surf
+- **08-25 (15):** Cleanline, Cannon Beach Surf Lessons, Safari Town, Padre Island Surf Camp,
+  Cape Hatteras Surf School, Skudin, Whalebone; second follow-ups to Pacific Surf School, Surf Diva,
+  Corky Carroll's; follow-ups to The Inertia and Outside Online; and the org lane — UW Sea Grant,
+  Surfrider national, Eos/AGU
+
+**Still 0 responses to any August cold email**, now across 34 sends rather than 15. A Gmail search
+for inbound mail from all 14 cold shop/school domains contacted this month returns nothing at all. Checked Gmail
+inbound through 2026-08-31: no outreach target replied. The only inbound mail in the window is
+product-user feedback, which is a different lane. The three warm publication leads remain the only
+replies outreach has ever produced, and all three are still unanswered — the reply drafts written on
+08-24 have now sat unsent for a week.
+
+The signal is no longer ambiguous. 34 cold emails in one month produced zero replies, while every
+reply outreach has ever produced came from a publication pitch or a warm relationship — and all
+three of those are still sitting unanswered in Drafts. **Cold volume is not the constraint; sending
+the warm replies is.** 15 drafts are written and waiting.
 
 **On the 0% reply rate (2026-08-10):** cold email to surf schools is notoriously low-response, so this
 alone isn't a signal to change tactics. Two things worth fixing before the next batch goes out:
