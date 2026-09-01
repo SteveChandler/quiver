@@ -946,6 +946,7 @@ export const NATIVE_DIRECT_INSERT_EVENTS = [
   'home_mode_expired',
   'home_recommendation_changed',
   'week_scout_stability',
+  'decision_loop_completed',
 ] as const;
 
 export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
