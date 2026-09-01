@@ -23,8 +23,7 @@ export const INSTALL_TO_PAID_STAGES = [
   {
     key: "first_decision_loop",
     source: "posthog",
-    qualifies: [],
-    limitation: "No canonical completion event exists in v1 clients.",
+    qualifies: ["decision_loop_completed"],
   },
   { key: "d1_return", source: "posthog", qualifies: ["meaningful_activity"] },
   { key: "d7_return", source: "posthog", qualifies: ["meaningful_activity"] },
@@ -47,6 +46,7 @@ export const INSTALL_TO_PAID_STAGES = [
 
 export const MEANINGFUL_ACTIVITY_EVENTS = new Set<string>([
   "beach_view",
+  "decision_loop_completed",
   "forecast_check",
   "forecast_interaction",
   "home_hero_forecast_viewed",
@@ -375,6 +375,7 @@ export function buildInstallToPaidRows(input: InstallToPaidInput): InstallToPaid
       .sort()[0] ?? null;
     const paywallAt = firstAt(personEvents, new Set(["paywall_opened", "onboarding_paywall_viewed"]));
     const homeAt = firstAt(personEvents, new Set(["home_viewed", "home_hero_forecast_viewed"]));
+    const decisionLoopAt = firstAt(personEvents, new Set(["decision_loop_completed"]));
     const onboardingCompletedAt = profile?.onboardingCompletedAt
       && Date.parse(profile.onboardingCompletedAt) <= asOfMs
       ? profile.onboardingCompletedAt
@@ -405,7 +406,7 @@ export function buildInstallToPaidRows(input: InstallToPaidInput): InstallToPaid
         homeActivated: reliableJoin
           ? boolStatus(Boolean(onboardingCompletedAt || homeAt))
           : "unknown",
-        firstDecisionLoop: "unknown",
+        firstDecisionLoop: reliableJoin ? boolStatus(Boolean(decisionLoopAt)) : "unknown",
         d1Return: asOfMs < installedMs + 48 * HOUR_MS
           ? "immature"
           : reliableJoin ? boolStatus(Boolean(d1At)) : "unknown",
@@ -424,7 +425,7 @@ export function buildInstallToPaidRows(input: InstallToPaidInput): InstallToPaid
         native_install: install.timestamp,
         signup: profile && !reinstall ? profile.createdAt : null,
         home_activated: [onboardingCompletedAt, homeAt].filter(Boolean).sort()[0] ?? null,
-        first_decision_loop: null,
+        first_decision_loop: decisionLoopAt,
         d1_return: d1At,
         d7_return: d7At,
         paywall_viewed: paywallAt,
