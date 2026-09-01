@@ -28,17 +28,18 @@ describe("install-to-paid report", () => {
     ])).toThrow("--start must include UTC");
   });
 
-  it("pages HogQL with a stable event UUID order and bounds first opens to the cohort", async () => {
+  it("keyset-pages HogQL by timestamp and UUID and bounds first opens to the cohort", async () => {
     const page = Array.from({ length: 1000 }, (_, index) => [
       "home_viewed",
-      `2026-01-01T00:00:${String(index % 60).padStart(2, "0")}Z`,
+      "2026-01-01T00:00:00Z",
       `distinct-${index}`,
       `person-${index}`,
       null,
       {},
-      `event-${index}`,
+      `00000000-0000-7000-8000-${index.toString(16).padStart(12, "0")}`,
     ]);
     const fetchMock = jest.spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response("busy", { status: 503 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ results: page })))
       .mockResolvedValueOnce(new Response(JSON.stringify({ results: [] })));
     process.env.POSTHOG_PROJECT_ID = "project";
@@ -46,8 +47,8 @@ describe("install-to-paid report", () => {
 
     await expect(fetchPostHogEvents({
       start: "2026-01-01T00:00:00.000Z",
-      end: "2026-02-01T00:00:00.000Z",
-      asOf: "2026-03-01T00:00:00.000Z",
+      end: "2026-01-02T00:00:00.000Z",
+      asOf: "2026-01-02T00:00:00.000Z",
       outputJson: null,
       outputCsv: null,
       ascJson: null,
@@ -57,11 +58,16 @@ describe("install-to-paid report", () => {
       JSON.parse(String(init?.body)).query.query as string
     );
     expect(queries[0]).toContain("ORDER BY timestamp ASC, uuid ASC");
-    expect(queries[0]).toContain("LIMIT 1000 OFFSET 0");
-    expect(queries[1]).toContain("LIMIT 1000 OFFSET 1000");
+    expect(queries[0]).toContain("LIMIT 1000");
+    expect(queries[0]).not.toContain("OFFSET");
+    expect(queries[0]).toContain("timestamp >= toDateTime('2026-01-01T00:00:00.000Z')");
+    expect(queries[0]).toContain("timestamp < toDateTime('2026-01-02T00:00:00.000Z')");
+    expect(queries[1]).toBe(queries[0]);
+    expect(queries[2]).toContain("timestamp > '2026-01-01T00:00:00Z'");
+    expect(queries[2]).toContain("uuid > toUUID('00000000-0000-7000-8000-0000000003e7')");
+    expect(queries[2]).not.toContain("OFFSET");
     expect(queries[0]).toContain("event != 'native_app_first_open'");
-    expect(queries[0]).toContain("timestamp < toDateTime('2026-02-01T00:00:00.000Z')");
-    expect(queries[0]).toContain("timestamp < toDateTime('2026-03-01T00:00:00.000Z')");
+    expect(queries[0]).toContain("timestamp < toDateTime('2026-01-02T00:00:00.000Z')");
     fetchMock.mockRestore();
   });
 
