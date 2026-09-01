@@ -4,13 +4,10 @@ import { join } from "path";
 import { getStationForLocation } from "@/lib/services/noaa-coops/station-resolver";
 
 const migration = readFileSync(
-  join(process.cwd(), "supabase/migrations/20260830120000_add_virginia_surf_beaches.sql"),
-  "utf8"
-);
-const repairMigration = readFileSync(
   join(process.cwd(), "supabase/migrations/20260830192230_reapply_virginia_surf_beaches.sql"),
   "utf8"
 );
+const repairMigration = migration;
 
 describe("Virginia surf beach catalog", () => {
   it("imports ten public spots with production eligibility and forecast data", () => {

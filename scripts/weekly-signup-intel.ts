@@ -64,6 +64,11 @@ type FrictionGate = {
   excludeWhen?: { key: string; values: string[] };
   /** Metadata keys summarized so the report names the failing thing, not just the count. */
   reasonKeys?: string[];
+  /**
+   * Metadata keys identifying one client session, tried in order. Separates
+   * "the population cannot sign in" from "one person retrying". Defaults to `flow_id`.
+   */
+  flowKeys?: string[];
 };
 
 const FRICTION_GATES: FrictionGate[] = [
@@ -100,9 +105,10 @@ const FRICTION_GATES: FrictionGate[] = [
     threshold: 0.25,
     minCount: 3,
     owner: "auth callback + Supabase auth config",
-    fix: "Group the failures by `reason`. A single dominant reason is a bug, a spread is user error.",
+    fix: "Check the concentration line first: failures in one or two sessions are one person locked out, not an outage. Only a reason spread across many sessions is a bug.",
     excludeWhen: { key: "reason", values: ["cancelled", "canceled", "user_cancelled"] },
     reasonKeys: ["reason", "provider", "mode"],
+    flowKeys: ["launch_primer_session_id", "browser_session_id"],
   },
   {
     id: "push-permission",
@@ -258,11 +264,16 @@ function classify(events: EventRow[], completedSessions: number): Verdict {
   return meaningful.length >= 3 ? "explored" : "bounced";
 }
 
-/** Mirrors the outreach routine's signal order so the report and the drafts agree. */
+/**
+ * Mirrors the outreach routine's signal order so the report and the drafts agree.
+ * B names the beach, and native abandons carry no `beach_id` (the majority of
+ * rows), so B is undraftable there and only a nameable abandon earns it.
+ */
 function pickEmailVersion(events: EventRow[], hasBeachSignal: boolean, verdict: Verdict): "A" | "B" | "C" | "D" {
   const types = new Set(events.map((event) => event.event_type));
   if (types.has("session_spot_search_no_results")) return "A";
-  if (types.has("session_log_abandon")) return "B";
+  if (events.some((event) => event.event_type === "session_log_abandon" &&
+    (event.beach_id || typeof asRecord(event.metadata).beach_id === "string"))) return "B";
   if (hasBeachSignal && verdict !== "never-signed-in") return "C";
   return "D";
 }
@@ -392,7 +403,10 @@ async function main(): Promise<void> {
     const distinctUsers = new Set(failRows.map((event) => event.user_id).filter(Boolean)).size;
     const flows = new Map<string, number>();
     for (const event of failRows) {
-      const flowId = asRecord(event.metadata).flow_id;
+      const meta = asRecord(event.metadata);
+      const flowId = (gate.flowKeys ?? ["flow_id"])
+        .map((key) => meta[key])
+        .find((value) => typeof value === "string");
       if (typeof flowId === "string") flows.set(flowId, (flows.get(flowId) ?? 0) + 1);
     }
     const topFlow = [...flows].sort((a, b) => b[1] - a[1])[0] ?? null;
@@ -559,14 +573,18 @@ async function main(): Promise<void> {
   lines.push("");
 
   for (const row of firedGates.filter((r) => r.fails > 0 && r.topReasons.length > 0)) {
-    lines.push(
-      `**${row.gate.label}** — ${row.fails} failures across ${row.distinctUsers || "an unknown number of"} user(s)${row.distinctUsers ? "" : " (these events fire before the user is identified)"}.`
-    );
+    // Sessions stand in as the denominator when `user_id` is null.
+    const population = row.distinctUsers
+      ? `${row.distinctUsers} user(s)`
+      : row.distinctFlows
+        ? `${row.distinctFlows} client session(s) (these events fire before the user is identified)`
+        : "an unknown number of user(s) (these events fire before the user is identified)";
+    lines.push(`**${row.gate.label}** — ${row.fails} failures across ${population}.`);
     lines.push("");
     for (const [reason, count] of row.topReasons) lines.push(`- ${count} × \`${reason}\``);
-    if (row.topFlowShare >= 0.5 && row.distinctFlows > 0) {
+    if (row.distinctFlows > 0) {
       lines.push(
-        `- **Concentration: one flow accounts for ${(row.topFlowShare * 100).toFixed(0)}% of these failures across ${row.distinctFlows} distinct flow(s).** Treat this as one user stuck in a loop, not a population-wide failure.`
+        `- **Concentration: the busiest session accounts for ${(row.topFlowShare * 100).toFixed(0)}% of these failures across ${row.distinctFlows} distinct session(s).**${row.topFlowShare >= 0.5 ? " Treat this as one user stuck in a loop, not a population-wide failure." : ""}`
       );
     }
     lines.push("");

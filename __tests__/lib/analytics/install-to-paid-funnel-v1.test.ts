@@ -26,6 +26,28 @@ describe("install-to-paid v1 milestone contract", () => {
       .toBe("true");
   });
 
+  it("records the first canonical decision-loop completion", () => {
+    const input = {
+      ...INSTALL_TO_PAID_V1_FIXTURE,
+      behaviorEvents: [
+        ...INSTALL_TO_PAID_V1_FIXTURE.behaviorEvents,
+        {
+          event: "decision_loop_completed",
+          timestamp: "2026-01-01T04:00:00.000Z",
+          distinctId: "20000000-0000-4000-8000-000000000001",
+          personId: "person-happy",
+          nativeInstallId: "10000000-0000-4000-8000-000000000001",
+          properties: {},
+        },
+      ],
+    };
+
+    expect(buildInstallToPaidRows(input)[0]).toMatchObject({
+      milestones: { firstDecisionLoop: "true" },
+      firstQualifiedAt: { first_decision_loop: "2026-01-01T04:00:00.000Z" },
+    });
+  });
+
   it("chooses the earliest valid production first open before deduping and excludes test behavior", () => {
     const installId = "30000000-0000-4000-8000-000000000001";
     const userId = "40000000-0000-4000-8000-000000000001";
