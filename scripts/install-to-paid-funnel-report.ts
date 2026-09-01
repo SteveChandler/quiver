@@ -21,8 +21,11 @@ config({ path: ".env.local" });
 config();
 
 const PAGE_SIZE = 1000;
+const POSTHOG_MAX_ATTEMPTS = 5;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const POSTHOG_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 interface CliOptions {
   start: string;
@@ -35,6 +38,11 @@ interface CliOptions {
 
 interface PostHogPayload {
   results?: unknown[][];
+}
+
+interface PostHogCursor {
+  timestamp: string;
+  uuid: string;
 }
 
 interface AscAggregate {
@@ -146,6 +154,34 @@ export function parsePostHogRows(payload: PostHogPayload): InstallBehaviorEvent[
   });
 }
 
+function postHogCursor(row: unknown[] | undefined): PostHogCursor {
+  const timestamp = row?.[1];
+  const uuid = row?.[6];
+  if (typeof timestamp !== "string" || typeof uuid !== "string" || !POSTHOG_UUID_PATTERN.test(uuid)) {
+    throw new Error("PostHog page is missing a valid timestamp/UUID cursor");
+  }
+  const parsedTimestamp = new Date(timestamp);
+  if (Number.isNaN(parsedTimestamp.getTime())) {
+    throw new Error("PostHog page is missing a valid timestamp/UUID cursor");
+  }
+  return { timestamp, uuid };
+}
+
+async function queryPostHog(url: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; ; attempt += 1) {
+    const response = await fetch(url, init);
+    if (response.ok || ![429, 502, 503, 504].includes(response.status) || attempt + 1 >= POSTHOG_MAX_ATTEMPTS) {
+      return response;
+    }
+    const retryAfter = response.headers.get("retry-after");
+    const retryAfterSeconds = Number(retryAfter);
+    const delayMs = retryAfter !== null && Number.isFinite(retryAfterSeconds)
+      ? retryAfterSeconds * 1000
+      : 1000 * 2 ** attempt;
+    await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+  }
+}
+
 export async function fetchPostHogEvents(options: CliOptions): Promise<InstallBehaviorEvent[]> {
   const host = (process.env.POSTHOG_HOST ?? "https://us.posthog.com").replace(/\/$/, "");
   const projectId = requiredEnv("POSTHOG_PROJECT_ID");
@@ -153,29 +189,46 @@ export async function fetchPostHogEvents(options: CliOptions): Promise<InstallBe
   const eventList = postHogEvents().map((event) => `'${event}'`).join(", ");
   const behaviorEnd = new Date(Math.min(Date.parse(options.asOf), Date.parse(options.end) + 720 * 3_600_000)).toISOString();
   const events: InstallBehaviorEvent[] = [];
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    const query = `
-      SELECT event, timestamp, distinct_id, toString(person_id),
-        nullIf(properties.native_install_id, ''), properties, uuid
-      FROM events
-      WHERE timestamp >= toDateTime('${options.start}')
-        AND timestamp < toDateTime('${behaviorEnd}')
-        AND event IN (${eventList})
-        AND (event != 'native_app_first_open' OR timestamp < toDateTime('${options.end}'))
-      ORDER BY timestamp ASC, uuid ASC
-      LIMIT ${PAGE_SIZE} OFFSET ${offset}
-    `;
-    const response = await fetch(`${host}/api/projects/${projectId}/query/`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ query: { kind: "HogQLQuery", query } }),
-    });
-    if (!response.ok) throw new Error(`PostHog query failed: ${response.status} ${await response.text()}`);
-    const payload = await response.json() as PostHogPayload;
-    const page = parsePostHogRows(payload);
-    events.push(...page);
-    if ((payload.results?.length ?? 0) < PAGE_SIZE) return events;
+  const behaviorEndMs = Date.parse(behaviorEnd);
+  for (let windowStartMs = Date.parse(options.start); windowStartMs < behaviorEndMs; windowStartMs += 86_400_000) {
+    const windowStart = new Date(windowStartMs).toISOString();
+    const windowEnd = new Date(Math.min(windowStartMs + 86_400_000, behaviorEndMs)).toISOString();
+    let cursor: PostHogCursor | null = null;
+    for (;;) {
+      const cursorClause = cursor
+        ? `
+          AND (
+            timestamp > '${cursor.timestamp}'
+            OR (timestamp = '${cursor.timestamp}' AND uuid > toUUID('${cursor.uuid}'))
+          )`
+        : "";
+      const query = `
+        SELECT event, timestamp, distinct_id, toString(person_id),
+          nullIf(properties.native_install_id, ''), properties, uuid
+        FROM events
+        WHERE timestamp >= toDateTime('${windowStart}')
+          AND timestamp < toDateTime('${windowEnd}')
+          AND event IN (${eventList})
+          AND (event != 'native_app_first_open' OR timestamp < toDateTime('${options.end}'))
+          ${cursorClause}
+        ORDER BY timestamp ASC, uuid ASC
+        LIMIT ${PAGE_SIZE}
+      `;
+      const response = await queryPostHog(`${host}/api/projects/${projectId}/query/`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ query: { kind: "HogQLQuery", query } }),
+      });
+      if (!response.ok) throw new Error(`PostHog query failed: ${response.status} ${await response.text()}`);
+      const payload = await response.json() as PostHogPayload;
+      const page = parsePostHogRows(payload);
+      events.push(...page);
+      const resultCount = payload.results?.length ?? 0;
+      if (resultCount < PAGE_SIZE) break;
+      cursor = postHogCursor(payload.results?.at(-1));
+    }
   }
+  return events;
 }
 
 async function fetchSupabaseRows(
