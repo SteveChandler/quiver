@@ -12,7 +12,7 @@ Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/ROADMAP-full
 
 Phases 1 through 20 are complete. Phase 13 closed the controlled refactor checkpoint tracked in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md); Phase 14 closed the Session Intelligence guardrails and template inventory. Phases 15-17 delivered the shared recommendation primitive, reusable UI components, and the limited Session Intelligence pilot surfaces. Phase 18 completed the allowlisted SEO-safe intent rollout. Phase 19 completed the forecast-accuracy trust page. Phase 20 completed exact app-link, analytics, baseline, and public QA foundations.
 
-Phase 20.1 is an urgent cross-repository insertion that creates durable beach ownership on web and a trustworthy watched-call loop in native without assuming every web visitor is a surfer. Phase 21 remains planned and follows Phase 20.1.
+Phase 20.1 implementation and web release are complete; replacement native build 17 is valid in App Store Connect, while physical-device proof and mature retention evidence remain. Phase 21 implementation is integrated and serving only the exact Steven/Shapan allowlist. Its production integrity report is verified; production parity and outcome validation remain gated, and broad rollout stays dark.
 
 ## Active Requirements
 
@@ -29,7 +29,7 @@ Phase 20.1 is an urgent cross-repository insertion that creates durable beach ow
 - Native Home can change mode or recommendation without enough continuity, and the all-user Week Scout stability rollout remains a required production/device proof.
 - Watch/alert and session feedback adoption is too small to show that either currently drives return behavior.
 - Phase 20 production web verification passed after approved deploy. Native `/app/spot/:slug` routing is simulator-verified; signed HTTPS handoff and App Store first-open context recovery remain device validation lanes in Phase 20.1.
-- Phase 21 implementation and approval-gated production verification remain queued after Phase 20.1.
+- Phase 21 exactly-two-account allowlist, production integrity proof, and canary activation passed on 2026-09-01. Production parity, local-scraper retirement, and outcome validation remain gated under MFA-08; broad rollout stays dark.
 - Future refactor candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Public go-live deployment/alias promotion and any outbound launch actions remain approval-gated.
 
@@ -50,9 +50,9 @@ Phase 20.1 is an urgent cross-repository insertion that creates durable beach ow
 
 ## Next Actions
 
-- Execute Phase 20.1 Plan 20.1-01 first, then the contract foundation in 20.1-02, parallel web/handoff/native implementation in 20.1-03 through 20.1-05, and the outcome/evidence gate in 20.1-06.
-- Use the Phase 20.1 validation scorecard and holdouts to decide expansion, continued pilot, revision, or rollback. Do not claim retention lift from raw event counts.
-- Resume Phase 21 after Phase 20.1 has an evidence-backed rollout disposition.
+- Distribute the reviewed replacement native build, complete signed physical-device proof for #312/#313, and begin #309 cohort collection.
+- Use the Phase 20.1 validation scorecard and holdouts after D1/D7 maturity to decide expansion, continued pilot, revision, or rollback. Do not claim retention lift from raw event counts.
+- Keep Phase 21 limited to Steven/Shapan while production parity and outcome validation continue; broad rollout stays dark.
 - Keep deploy, production mutation, outbound send, payment, entitlement, production flag, and native publication actions approval-gated.
 
 ## Session Intelligence v1 Addendum
@@ -280,21 +280,21 @@ Plans:
 
 **Wave 1**
 
-- [ ] [20.1-01: Audit Existing Ownership, Intent, Handoff, Watch, And Feedback Primitives](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-01-PLAN.md)
+- [x] [20.1-01: Audit Existing Ownership, Intent, Handoff, Watch, And Feedback Primitives](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-01-PLAN.md)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] [20.1-02: Define Beach Follow, Intent, Handoff, Watch, Outcome, And Measurement Contracts](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-02-PLAN.md)
+- [x] [20.1-02: Define Beach Follow, Intent, Handoff, Watch, Outcome, And Measurement Contracts](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-02-PLAN.md)
 
 **Wave 3** *(blocked on Wave 2 completion; plans may execute in parallel)*
 
-- [ ] [20.1-03: Ship Follow This Beach And My Coast On Selected Web Utility Surfaces](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-03-PLAN.md)
-- [ ] [20.1-04: Preserve Exact Beach And Surf-Call Context Through Web-To-Native Handoff](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-04-PLAN.md)
-- [ ] [20.1-05: Ship Native Home Continuity, All-User Stability, And One-Tap Watch This Call](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-05-PLAN.md)
+- [x] [20.1-03: Ship Follow This Beach And My Coast On Selected Web Utility Surfaces](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-03-PLAN.md) (implemented, then withdrawn and removed before release)
+- [x] [20.1-04: Preserve Exact Beach And Surf-Call Context Through Web-To-Native Handoff](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-04-PLAN.md)
+- [x] [20.1-05: Ship Native Home Continuity, All-User Stability, And One-Tap Watch This Call](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-05-PLAN.md) (implemented; release/device evidence remains)
 
 **Wave 4** *(blocked on Waves 1-3 completion)*
 
-- [ ] [20.1-06: Add One-Tap Outcome Feedback, Learning Receipt, And Release Evidence](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-06-PLAN.md)
+- [ ] [20.1-06: Add One-Tap Outcome Feedback, Learning Receipt, And Release Evidence](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-06-PLAN.md) (Tasks 1-2 complete; release/device and cohort gates remain)
 
 ## Historical Notes
 
@@ -333,12 +333,12 @@ Completed phases are summarized here to keep this file small:
   7. Private forecaster ranges, narratives, URLs, attribution, evidence, and internal identifiers never appear in public APIs, UI payloads, or client analytics.
   8. Focused and full Seaside, Quiver, database, privacy, and live-ingestion verification passes before default-on serving, and the local launchd job is retired only after production parity is verified.
 
-**Plans:** 5 plans
+**Plans:** 4 implemented/integrated; 1 partial rollout plan
 
 Plans:
 
-- [ ] 21-01 — Production Multi-Source Ingestion
-- [ ] 21-02 — Immutable Trusted-Forecast Storage
-- [ ] 21-03 — Coverage-Aware Decision Engine
-- [ ] 21-04 — Forecast Builder Integration and Privacy
-- [ ] 21-05 — Verification and Default-On Rollout
+- [x] 21-01 — Production Multi-Source Ingestion
+- [x] 21-02 — Immutable Trusted-Forecast Storage
+- [x] 21-03 — Coverage-Aware Decision Engine
+- [x] 21-04 — Forecast Builder Integration and Privacy
+- [ ] 21-05 — Verification and Default-On Rollout (read-only verification complete; canary activation and outcome validation remain)
