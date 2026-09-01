@@ -64,6 +64,13 @@ describe("SEO legacy redirects", () => {
     expectPermanentRedirect(configSource, "/surf-cams", "/cams");
   });
 
+  it("permanently redirects duplicate cam region pages to their curated owners", () => {
+    const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
+
+    expectPermanentRedirect(configSource, "/cams/hawaii", "/surf-cams/hawaii");
+    expectPermanentRedirect(configSource, "/cams/florida", "/surf-cams/florida");
+  });
+
   it("permanently redirects the retired Cocoa Beach Pier URL family", () => {
     const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
 

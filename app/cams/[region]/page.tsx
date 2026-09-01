@@ -1,10 +1,14 @@
 import { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { Mail } from "lucide-react";
 
 import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
-import { CAM_REGIONS, getCamRegionBySlug } from "@/lib/data/cam-regions";
+import {
+  CAM_REGIONS,
+  getCamRegionBySlug,
+  getCamRegionPath,
+} from "@/lib/data/cam-regions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { CamGrid } from "@/components/cams/cam-grid";
@@ -35,7 +39,9 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { region: regionSlug } = await params;
   const region = getCamRegionBySlug(regionSlug);
-  if (!region) return {};
+  // A region owned by a curated /surf-cams page never renders here; the
+  // next.config redirect fires first and the page body redirects as backup.
+  if (!region || region.canonicalPath) return {};
 
   const beaches = await getBeachesWithCameras();
   const regionBeaches = beaches.filter((b) => b.regionSlug === regionSlug);
@@ -61,6 +67,7 @@ export default async function CamsRegionPage({ params }: PageProps) {
   const { region: regionSlug } = await params;
   const region = getCamRegionBySlug(regionSlug);
   if (!region) notFound();
+  if (region.canonicalPath) permanentRedirect(region.canonicalPath);
 
   const allBeaches = await getBeachesWithCameras();
   const regionBeaches = allBeaches.filter((b) => b.regionSlug === regionSlug);
@@ -186,7 +193,7 @@ export default async function CamsRegionPage({ params }: PageProps) {
                   return (
                     <Link
                       key={r.slug}
-                      href={`/cams/${r.slug}`}
+                      href={getCamRegionPath(r)}
                       className="torn torn-tb group block border-2 border-[#11100D] bg-[#F0E5CC] p-5 text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.18)] transition-transform hover:-translate-y-1"
                     >
                       <h3 className="mb-2 font-[var(--font-zine-display)] text-2xl uppercase leading-none tracking-normal text-[#11100D] transition-colors group-hover:text-[#0B3A75]">

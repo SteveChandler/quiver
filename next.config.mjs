@@ -382,6 +382,19 @@ const nextConfig = {
         destination: "/cams",
         permanent: true,
       },
+      // Consolidated 2026-09-01: /cams/hawaii and /cams/florida duplicated the
+      // curated /surf-cams pages that already own those regional cam queries.
+      // lib/data/cam-regions.ts marks the same regions with canonicalPath.
+      {
+        source: "/cams/hawaii",
+        destination: "/surf-cams/hawaii",
+        permanent: true,
+      },
+      {
+        source: "/cams/florida",
+        destination: "/surf-cams/florida",
+        permanent: true,
+      },
       {
         // Consolidated 2026-08-19: near-duplicate of /learn/best-time-of-day-to-surf
         // (same thermal-wind topic, same section structure). The surviving page was

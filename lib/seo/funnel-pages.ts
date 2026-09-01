@@ -3001,6 +3001,11 @@ export const SEO_FUNNEL_PAGES: SeoPageConfig[] = [
 export const INDEXABLE_SEO_FUNNEL_PAGES: SeoPageConfig[] =
   SEO_FUNNEL_PAGES.filter((page) => page.indexable);
 
+/** Indexable curated surf-cam pages, in declaration order, for hub linking. */
+export function getIndexableSurfCamPages(): SeoPageConfig[] {
+  return INDEXABLE_SEO_FUNNEL_PAGES.filter((page) => page.type === "surf-cams");
+}
+
 export function getSeoFunnelPageByPath(path: string): SeoPageConfig | null {
   const normalized = path.startsWith("/") ? path : `/${path}`;
   return SEO_FUNNEL_PAGES.find((page) => page.path === normalized) ?? null;

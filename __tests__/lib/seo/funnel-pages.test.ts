@@ -6,6 +6,7 @@ import {
   SEO_FUNNEL_PAGES,
   filterSeoCamBeaches,
   getIndexableSeoFunnelRoutes,
+  getIndexableSurfCamPages,
   getSeoFunnelInternalLinks,
   getSeoFunnelImagePrompts,
   getSeoFunnelPageByIntentRoute,
@@ -55,6 +56,18 @@ const REJECTED_SEO_IMAGE_SRCS = [
 ];
 
 describe("SEO funnel pages", () => {
+  it("exposes every indexable surf-cam page for cams hub linking", () => {
+    const paths = getIndexableSurfCamPages().map((page) => page.path);
+
+    expect(paths).toEqual([
+      "/surf-cams/san-diego",
+      "/surf-cams/orange-county",
+      "/surf-cams/hawaii",
+      "/surf-cams/florida",
+    ]);
+    expect(paths).not.toContain("/surf-cams/santa-cruz");
+  });
+
   it("defines the requested indexable routes and excludes Santa Cruz cams", () => {
     const routes = getIndexableSeoFunnelRoutes();
 

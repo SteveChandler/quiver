@@ -453,6 +453,19 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url === `${baseUrl}/beginner/santa-cruz`)).not.toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/surf-cams/santa-cruz`)).toBeUndefined();
     });
+
+    it("lists only canonical cam region pages and never a redirecting one", async () => {
+      const result = await sitemap();
+
+      expect(result.find((r) => r.url === `${baseUrl}/cams`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/cams/southern-california`)).not.toBeUndefined();
+      // Hawaii and Florida are owned by curated /surf-cams pages; the /cams
+      // URLs permanently redirect there and must stay out of the sitemap.
+      expect(result.find((r) => r.url === `${baseUrl}/cams/hawaii`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/cams/florida`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/surf-cams/hawaii`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/surf-cams/florida`)).not.toBeUndefined();
+    });
   });
 
   describe("Blog Routes", () => {

@@ -6,7 +6,7 @@ import {
   FORECAST_REGIONS,
   getAllForecastRegionSlugs,
 } from "@/lib/data/forecast-regions";
-import { getAllCamRegionSlugs } from "@/lib/data/cam-regions";
+import { getIndexableCamRegionSlugs } from "@/lib/data/cam-regions";
 import { getCitiesWithBestMonthsData } from "@/actions/city/best-time-actions";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
@@ -1040,8 +1040,9 @@ function getCamRoutes(): MetadataRoute.Sitemap {
     lastModified: SITEMAP_CONTENT_VERSIONS.camDirectory,
   });
 
-  // Regional cam pages (e.g., /cams/southern-california)
-  const camRegionSlugs = getAllCamRegionSlugs();
+  // Regional cam pages (e.g., /cams/southern-california). Regions owned by a
+  // curated /surf-cams page redirect and are listed via the funnel routes.
+  const camRegionSlugs = getIndexableCamRegionSlugs();
   for (const slug of camRegionSlugs) {
     routes.push({
       url: `${baseUrl}/cams/${slug}`,

@@ -4,6 +4,7 @@ import { Mail } from "lucide-react";
 
 import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
 import { CAM_REGIONS } from "@/lib/data/cam-regions";
+import { getIndexableSurfCamPages } from "@/lib/seo/funnel-pages";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
@@ -59,6 +60,9 @@ export default async function CamsHubPage() {
   const beaches = await getBeachesWithCameras();
   const camCount = beaches.length;
   const stateCount = new Set(beaches.map((b) => b.state)).size;
+  // Curated /surf-cams pages own the regional cam queries, so the hub must
+  // link every one of them or they are orphaned from the cams family.
+  const camGuidePages = getIndexableSurfCamPages();
 
   // Count cameras per region for the quick-nav
   const regionCounts = new Map<string, number>();
@@ -179,6 +183,34 @@ export default async function CamsHubPage() {
           <section className="pb-16">
             <CamGrid beaches={beaches} groupByRegion />
           </section>
+
+          {/* Curated cam guides by area */}
+          {camGuidePages.length > 0 ? (
+            <section className="pb-16" aria-labelledby="cam-guides-heading">
+              <h2 id="cam-guides-heading" className="label-black mb-5 w-fit">
+                Surf Cam Guides by Area
+              </h2>
+              <div
+                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+                data-testid="cam-guide-links"
+              >
+                {camGuidePages.map((page) => (
+                  <Link
+                    key={page.path}
+                    href={page.path}
+                    className="torn torn-tb group block min-h-40 border-2 border-[#11100D] bg-[#FBF6E8] p-5 text-[#11100D] transition-transform hover:-translate-y-1"
+                  >
+                    <h3 className="mb-2 font-[var(--font-zine-display)] text-2xl uppercase leading-none tracking-normal text-[#11100D] transition-colors group-hover:text-[#0B3A75]">
+                      {page.locationName} surf cams
+                    </h3>
+                    <p className="font-sans text-sm leading-6 text-[#11100D]/70">
+                      {page.metaDescription}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           {/* Inline Signup CTA */}
           <section className="mx-auto max-w-3xl pb-12">

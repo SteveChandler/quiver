@@ -1,5 +1,5 @@
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
-import { CAM_REGIONS } from "@/lib/data/cam-regions";
+import { CAM_REGIONS, getCamRegionPath } from "@/lib/data/cam-regions";
 import { CamCard } from "./cam-card";
 import Link from "next/link";
 
@@ -45,7 +45,7 @@ export function CamGrid({ beaches, groupByRegion = false }: CamGridProps) {
                 {region.name}
               </h2>
               <Link
-                href={`/cams/${region.slug}`}
+                href={getCamRegionPath(region)}
                 className="font-mono text-xs font-black uppercase tracking-[0.12em] text-[#0B3A75] underline decoration-[#F78E42] decoration-2 underline-offset-4 transition hover:text-[#11100D]"
               >
                 {/* One string expression: SWC eats the leading space of a
