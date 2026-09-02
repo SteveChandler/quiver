@@ -11,6 +11,12 @@ import {
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
 
+// The sub-page metadata reads the coverage snapshot through unstable_cache so it
+// shares the sitemap's clock; outside a Next request there is no cache to hit.
+jest.mock("next/cache", () => ({
+  unstable_cache: jest.fn((fn: unknown) => fn),
+}));
+
 jest.mock("@/lib/utils/beach-lookup-utils", () => ({
   getBeachBySlugOrId: jest.fn(),
 }));
