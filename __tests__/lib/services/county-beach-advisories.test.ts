@@ -214,4 +214,25 @@ describe("County advisory ingest safety controls", () => {
       expect.objectContaining({ beachId: null }),
     );
   });
+
+  it("deduplicates repeated sites within an advisory type before persistence", () => {
+    const duplicateSite = {
+      latitude: 32.805,
+      longitude: -117.2628,
+      sourceSiteIdentifier: "32.805000,-117.262800",
+    };
+    const advisory = response(1, "advisory", fixture("advisory"));
+    const closure = response(2, "closure", fixture("closure"));
+    advisory.sites = [duplicateSite, duplicateSite];
+    closure.sites = [duplicateSite];
+
+    const normalized = normalizeCountyNotifications(
+      [advisory, closure],
+      [],
+      NOW.toISOString(),
+    );
+
+    expect(normalized.records).toHaveLength(2);
+    expect(normalized.countsByType).toMatchObject({ advisory: 1, closure: 1 });
+  });
 });
