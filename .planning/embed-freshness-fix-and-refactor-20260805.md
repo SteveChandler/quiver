@@ -26,7 +26,7 @@ cannot meet it:
 | Input | Value | Source |
 |---|---|---|
 | Marine refresh cron | hourly, `maxBeaches=130` | `vercel.json` |
-| Beaches | 318 | `beaches-table-2026-06-19.json` |
+| Beaches | 318 | [dated beach-table snapshot](../../Brand-Vault/marketing/growth-ops/data/beaches-table-2026-06-19.json) |
 | → worst-case age of any beach | **~3 h** (`ceil(318/130)` × 1 h) | derived |
 | Embed freshness window | **2 h** | `app/embed/conditions/[slug]/page.tsx:29` |
 | `getFreshForecastFromCache` default | 48 h | `lib/utils/forecast-service-utils.ts:130` |
