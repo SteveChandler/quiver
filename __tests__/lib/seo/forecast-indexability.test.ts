@@ -1,5 +1,7 @@
 import {
   buildForecastIndexabilitySnapshot,
+  evaluateBeachPageIndexability,
+  isBeachPageIndexable,
   isBeachSubPageIndexable,
   type ForecastCoverageRow,
   type ForecastIndexabilitySnapshot,
@@ -209,5 +211,44 @@ describe("isBeachSubPageIndexable", () => {
         hasSubPageData: true,
       }),
     ).toBe(false);
+  });
+});
+
+describe("evaluateBeachPageIndexability", () => {
+  const fresh: ForecastIndexabilitySnapshot = {
+    forecastAvailable: true,
+    selectedStateComplete: true,
+    forecastFresh: true,
+    forecastValidAt: "2026-08-08T18:00:00.000Z",
+    sourceDataUpdatedAt: "2026-08-08T16:00:00.000Z",
+    primaryDataSource: "NOAA_NWS",
+    isStale: false,
+  };
+
+  it("indexes the beach page from a fresh snapshot on its canonical path", () => {
+    expect(evaluateBeachPageIndexability(fresh, { canonicalValid: true })).toEqual({
+      indexable: true,
+      reason: "forecast-approved",
+    });
+    expect(isBeachPageIndexable(fresh, { canonicalValid: true })).toBe(true);
+  });
+
+  it("reports forecast-missing when there is no snapshot", () => {
+    expect(evaluateBeachPageIndexability(undefined, { canonicalValid: true })).toEqual({
+      indexable: false,
+      reason: "forecast-missing",
+    });
+  });
+
+  it("withholds stale and incomplete snapshots and invalid canonicals", () => {
+    expect(
+      evaluateBeachPageIndexability({ ...fresh, forecastFresh: false, isStale: true }, { canonicalValid: true }).reason,
+    ).toBe("forecast-stale");
+    expect(
+      evaluateBeachPageIndexability({ ...fresh, selectedStateComplete: false }, { canonicalValid: true }).reason,
+    ).toBe("forecast-incomplete");
+    expect(
+      evaluateBeachPageIndexability(fresh, { canonicalValid: false }).reason,
+    ).toBe("invalid-canonical");
   });
 });

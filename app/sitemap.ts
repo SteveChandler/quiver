@@ -43,7 +43,6 @@ import {
   evaluateBeachIndexability,
   evaluateCityDataIntentIndexability,
   evaluateCityEditorialIndexability,
-  evaluateBeachForecastIndexability,
   isDataBackedCityIntent,
   toBeachEditorialInput,
   toCityEditorialInput,
@@ -51,10 +50,14 @@ import {
   type CityEditorialDatabaseRecord,
 } from "@/lib/seo/indexability";
 import {
-  getForecastIndexabilityForBeaches,
+  isBeachPageIndexable,
   isBeachSubPageIndexable,
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
+import {
+  FORECAST_INDEXABILITY_REVALIDATE_SECONDS,
+  getCachedForecastIndexabilitySnapshots,
+} from "@/lib/seo/forecast-indexability-cache";
 import { getBeachesForRegion } from "@/lib/utils/regional-forecast-utils";
 
 const baseUrl = (
@@ -199,7 +202,7 @@ function batchBeachIds(ids: readonly string[]): string[][] {
  * eliminate it, because the two caches do not turn over in phase. Closing the
  * window entirely would mean making the sub-pages dynamic.
  */
-const SUB_PAGE_REVALIDATE_SECONDS = 3600;
+const SUB_PAGE_REVALIDATE_SECONDS = FORECAST_INDEXABILITY_REVALIDATE_SECONDS;
 
 /** Stable collision-resistant cache key for a beach-id set. */
 function fingerprintBeachIds(beachIds: readonly string[]): string {
@@ -378,7 +381,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     beachesResponse.success && beachesResponse.data ? beachesResponse.data : [];
   const [forecastIndexabilityByBeachId, beachSubPageCoverage] =
     await Promise.all([
-      getForecastIndexabilityForBeaches(
+      getCachedForecastIndexabilitySnapshots(
         allBeaches.map((beach) => ({ id: beach.id, timezone: beach.timezone })),
       ),
       getBeachSubPageCoverage(allBeaches.map((beach) => beach.id)),
@@ -641,14 +644,9 @@ export function isBeachForecastIndexableForSitemap(
   snapshot: ForecastIndexabilitySnapshot | undefined,
   canonicalPath: string,
 ): boolean {
-  if (!snapshot) return false;
-
-  return evaluateBeachForecastIndexability({
+  return isBeachPageIndexable(snapshot, {
     canonicalValid: !canonicalPath.startsWith("/beach/"),
-    forecastAvailable: snapshot.forecastAvailable,
-    selectedStateComplete: snapshot.selectedStateComplete,
-    forecastFresh: snapshot.forecastFresh,
-  }).indexable;
+  });
 }
 
 /**

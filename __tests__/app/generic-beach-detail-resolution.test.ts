@@ -7,6 +7,10 @@ import GenericBeachDetailPage, {
 } from "@/app/[intent]/[city]/[beachSlug]/page";
 import { getBeachesBySlug } from "@/actions/beach/beach-query-actions";
 import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
+import {
+  getForecastIndexabilityForBeaches,
+  type ForecastIndexabilitySnapshot,
+} from "@/lib/seo/forecast-indexability";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
@@ -133,9 +137,17 @@ jest.mock("@/components/beach-detail/related-guides-section", () => ({
   RelatedGuidesSection: () => null,
 }));
 
+// Robots come from the cached coverage snapshot, not the live surf report.
+// The default (empty map) means "no coverage" so every test that expects an
+// indexable page opts in with freshSnapshotMap() explicitly.
 jest.mock("@/lib/seo/forecast-indexability", () => ({
+  ...jest.requireActual("@/lib/seo/forecast-indexability"),
   getForecastIndexabilityForBeaches: jest.fn().mockResolvedValue(new Map()),
   isBeachSubPageIndexable: jest.fn().mockReturnValue(false),
+}));
+
+jest.mock("next/cache", () => ({
+  unstable_cache: jest.fn((fn: unknown) => fn),
 }));
 
 jest.mock("@/lib/seo/water-temp-meta-data", () => ({
@@ -226,6 +238,27 @@ function makeBeach(overrides: BeachTestOverrides) {
   } as unknown as Beach;
 }
 
+function freshSnapshotMap(
+  overrides: Partial<ForecastIndexabilitySnapshot> = {},
+  beachId = "beach-1",
+): Map<string, ForecastIndexabilitySnapshot> {
+  return new Map([
+    [
+      beachId,
+      {
+        forecastAvailable: true,
+        selectedStateComplete: true,
+        forecastFresh: true,
+        forecastValidAt: new Date().toISOString(),
+        sourceDataUpdatedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+        primaryDataSource: "NOAA_NWS",
+        isStale: false,
+        ...overrides,
+      },
+    ],
+  ]);
+}
+
 function freshForecastResult() {
   const now = Date.now();
   const selectedRowTime = new Date(now).toISOString();
@@ -312,6 +345,7 @@ function getHeadingTexts(html: string, level: 1 | 2): string[] {
 describe("GenericBeachDetailPage slug resolution", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(new Map());
   });
 
   it("returns a true 404 (NEXT_NOT_FOUND) when no beaches match the slug", async () => {
@@ -534,6 +568,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
       ...freshForecastResult(),
       isTomorrow,
     });
+    (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(freshSnapshotMap());
 
     const metadata = await generateMetadata({
       params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
@@ -574,6 +609,43 @@ describe("GenericBeachDetailPage slug resolution", () => {
       follow: true,
       googleBot: { index: false, follow: true },
     });
+  });
+
+  it("derives robots from the cached coverage snapshot, not the live surf report", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({ name: "Test Beach" })],
+    });
+
+    // Live report is fresh but the shared snapshot says stale: the sitemap
+    // would not list this URL, so the page must not claim index either.
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(freshForecastResult());
+    (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValueOnce(
+      freshSnapshotMap({ forecastFresh: false, isStale: true }),
+    );
+    const staleSide = await generateMetadata({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    });
+    expect(staleSide.title).toBe("Test Beach: 2-3 ft Surf Report & Forecast | CA");
+    expect((staleSide.robots as { index?: boolean }).index).toBe(false);
+
+    // Live report is missing but the shared snapshot is fresh: the sitemap
+    // lists this URL, so the page answers index with the fallback title.
+    (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce({
+      report: null,
+      isTomorrow: false,
+      forecastContext: null,
+    });
+    (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValueOnce(freshSnapshotMap());
+    const freshSide = await generateMetadata({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    });
+    expect(freshSide.title).toBe("Test Beach Surf Report & Forecast | Dana Point");
+    expect((freshSide.robots as { index?: boolean }).index).toBe(true);
+
+    expect(getForecastIndexabilityForBeaches).toHaveBeenCalledWith([
+      { id: "beach-1", timezone: "America/Los_Angeles" },
+    ]);
   });
 
   it("redirects stale city slugs to the canonical beach URL", async () => {
@@ -641,6 +713,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
       })],
     });
     (getSpotSurfReportPublic as jest.Mock).mockResolvedValue(freshForecastResult());
+    (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(freshSnapshotMap());
 
     const metadata = await generateMetadata({
       params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
@@ -661,6 +734,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
       })],
     });
     (getSpotSurfReportPublic as jest.Mock).mockResolvedValue(freshForecastResult());
+    (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(freshSnapshotMap());
 
     const metadata = await generateMetadata({
       params: Promise.resolve({
@@ -691,6 +765,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
       })],
     });
     (getSpotSurfReportPublic as jest.Mock).mockResolvedValue(freshForecastResult());
+    (getForecastIndexabilityForBeaches as jest.Mock).mockResolvedValue(freshSnapshotMap());
 
     const metadata = await generateMetadata({
       params: Promise.resolve({

@@ -44,20 +44,17 @@ import {
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { LiveCamSchema } from "@/components/seo/live-cam-schema";
 import { getBeachCameraUrl } from "@/actions/beach/cam-actions";
-import {
-  applyIndexabilityToMetadata,
-  evaluateBeachForecastIndexability,
-} from "@/lib/seo/indexability";
-import { isDataStale } from "@/lib/utils/forecast-client-utils";
+import { applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import { sanitizeBeachEditorialContent } from "@/lib/seo/editorial-integrity";
 import {
   selectPublicForecastContextFacts,
   selectPublicForecastReportFacts,
 } from "@/lib/utils/public-forecast-facts";
 import {
-  getForecastIndexabilityForBeaches,
+  evaluateBeachPageIndexability,
   isBeachSubPageIndexable,
 } from "@/lib/seo/forecast-indexability";
+import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 
@@ -428,7 +425,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
 async function DeferredRelatedGuidesSection({ beach }: { beach: Beach }) {
   const beachPath = buildBeachUrl(beach);
   const [forecastSnapshots, waterTempData, tideData] = await Promise.all([
-    getForecastIndexabilityForBeaches([
+    getCachedForecastIndexabilitySnapshots([
       { id: beach.id, timezone: beach.timezone ?? null },
     ]),
     getWaterTempMetaData(beach.id),
@@ -521,8 +518,9 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       path = `/beach/${beachSlug}`;
     }
 
-    // Metadata and robots use the same selected state as the server-rendered
-    // answer layer, so a stale or incomplete forecast cannot earn indexability.
+    // The title and description use the live report for the wave-height hook.
+    // Robots do NOT: they come from the cached coverage snapshot below, the
+    // same one the sitemap reads, so both sides answer from one clock.
     const surfReportResult = await getSpotSurfReportPublic(beach);
     const forecastContext = surfReportResult?.forecastContext ?? null;
     const forecastData = forecastContext
@@ -575,23 +573,11 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       ].filter(Boolean),
     });
 
-    const decision = evaluateBeachForecastIndexability({
+    const snapshots = await getCachedForecastIndexabilitySnapshots([
+      { id: beach.id, timezone: beach.timezone ?? null },
+    ]);
+    const decision = evaluateBeachPageIndexability(snapshots.get(beach.id), {
       canonicalValid: path === buildBeachUrl(beach) && !path.startsWith("/beach/"),
-      forecastAvailable: Boolean(surfReportResult),
-      selectedStateComplete: Boolean(
-        forecastContext?.selectedRowTime &&
-          forecastContext.waveHeight &&
-          forecastContext.sourceDataUpdatedAt &&
-          forecastContext.primaryDataSource,
-      ),
-      forecastFresh: Boolean(
-        forecastContext?.sourceDataUpdatedAt &&
-          forecastContext.primaryDataSource &&
-          !isDataStale(
-            forecastContext.sourceDataUpdatedAt,
-            forecastContext.primaryDataSource,
-          ),
-      ),
     });
     return applyIndexabilityToMetadata(metadata, decision);
   } catch (error) {
