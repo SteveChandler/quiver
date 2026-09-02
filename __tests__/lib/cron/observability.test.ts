@@ -3,6 +3,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { withCronObservability, withObservedCron } from "@/lib/cron/observability";
 import { completeCronCheckIn, startCronCheckIn } from "@/lib/monitoring/sentry-cron";
+import * as Sentry from "@sentry/nextjs";
 
 type MockChain = ReturnType<typeof mockChain>;
 
@@ -61,6 +62,10 @@ jest.mock("@/lib/monitoring/sentry-cron", () => ({
   completeCronCheckIn: jest.fn(),
 }));
 
+jest.mock("@sentry/nextjs", () => ({
+  captureException: jest.fn(),
+}));
+
 describe("cron observability source guard", () => {
   it("uses the API wrapper barrel for cron request validation", () => {
     const source = readFileSync(
@@ -115,6 +120,12 @@ describe("withCronObservability", () => {
         status: "error",
         summary,
         error_message: "Matched alert windows but queued none",
+      }),
+    );
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Matched alert windows but queued none" }),
+      expect.objectContaining({
+        tags: expect.objectContaining({ cron_failure_source: "result" }),
       }),
     );
   });
@@ -259,6 +270,15 @@ describe("withObservedCron", () => {
       "error",
       expect.any(Number),
     );
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Quota exceeded: youtube quota 403" }),
+      expect.objectContaining({
+        tags: expect.objectContaining({
+          cron_route: "/api/cron/test",
+          cron_failure_source: "response",
+        }),
+      }),
+    );
   });
 
   it("records Sentry monitor error check-ins before rethrowing handler errors", async () => {
@@ -281,6 +301,12 @@ describe("withObservedCron", () => {
       "test-monitor",
       "error",
       expect.any(Number),
+    );
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "kaboom" }),
+      expect.objectContaining({
+        tags: expect.objectContaining({ cron_failure_source: "throw" }),
+      }),
     );
   });
 
