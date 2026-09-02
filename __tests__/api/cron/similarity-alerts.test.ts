@@ -88,6 +88,8 @@ interface Store {
   beachWaterQuality: any[];
   heldBeachIds: string[];
   forecasts: any[];
+  userBeachExclusions: any[];
+  locationSnapshots: any[];
   ruleUpdates: { id: string; last_matched_at: string }[];
 }
 
@@ -98,6 +100,8 @@ const store: Store = {
   beachWaterQuality: [],
   heldBeachIds: [],
   forecasts: [],
+  userBeachExclusions: [],
+  locationSnapshots: [],
   ruleUpdates: [],
 };
 
@@ -109,9 +113,9 @@ function chainOk(rows: any[]) {
   const passthrough = () => chain;
   chain.select = passthrough;
   chain.eq = passthrough;
-  chain.in = (_column: string, values: string[]) => {
-    if (rows.every((row) => row && typeof row === "object" && "beach_id" in row)) {
-      resultRows = rows.filter((row) => values.includes(row.beach_id));
+  chain.in = (column: string, values: string[]) => {
+    if (rows.every((row) => row && typeof row === "object" && column in row)) {
+      resultRows = rows.filter((row) => values.includes(row[column]));
     }
     return chain;
   };
@@ -161,6 +165,7 @@ function fromImpl(table: string) {
           home_beach_id: p.home_beach_id ?? null,
           timezone: p.timezone ?? null,
           experience_level: p.experience_level ?? null,
+          max_drive_minutes: p.max_drive_minutes ?? null,
         });
       }
       return chainOk(Array.from(profilesById.values()));
@@ -180,6 +185,9 @@ function fromImpl(table: string) {
         });
       }
       return chainOk(Array.from(entByUserId.values()));
+    }
+    case "user_location_snapshots": {
+      return chainOk(store.locationSnapshots);
     }
     case "favorite_beaches":
       return chainOk(store.favoriteBeaches);
@@ -214,8 +222,16 @@ function fromImpl(table: string) {
 
 function rpcImpl(name: string, _args: any) {
   // Tests override per-case via mockRpc.mockImplementationOnce when needed.
-  if (name === "get_nearby_beaches") {
-    return Promise.resolve({ data: [], error: null });
+  if (name === "get_weekend_scout_candidates") {
+    const excludedIds = new Set(
+      store.userBeachExclusions.map((row) => row.beach_id),
+    );
+    return Promise.resolve({
+      data: store.beaches
+        .filter((beach) => !excludedIds.has(beach.id))
+        .map((beach) => ({ id: beach.id })),
+      error: null,
+    });
   }
   if (name === "compute_user_match_score_batch") {
     return Promise.resolve({ data: [], error: null });
@@ -255,6 +271,13 @@ function seedActiveProUser(opts?: {
         expires_at: null,
       },
     },
+  });
+  store.locationSnapshots.push({
+    user_id: USER_PRO,
+    lat: 33.6,
+    lon: -118,
+    timezone: "America/Los_Angeles",
+    captured_at: new Date().toISOString(),
   });
   store.beaches.push({
     id: HOME_BEACH,
@@ -312,6 +335,8 @@ beforeEach(() => {
   store.beachWaterQuality = [];
   store.heldBeachIds = [];
   store.forecasts = [];
+  store.userBeachExclusions = [];
+  store.locationSnapshots = [];
   store.ruleUpdates = [];
 
   process.env.CRON_SECRET = "test-cron-secret";
@@ -459,6 +484,119 @@ describe("similarity-alerts cron — Plan V4", () => {
     });
   });
 
+  it("uses the latest device location and does not force a distant home beach into recommendations", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+    store.alertRules[0].profiles.max_drive_minutes = 20;
+    store.locationSnapshots[0] = {
+      ...store.locationSnapshots[0],
+      lat: 21.31,
+      lon: -157.86,
+      timezone: "Pacific/Honolulu",
+    };
+    mockRpc.mockImplementation((name: string, args: any) => {
+      if (name === "get_weekend_scout_candidates") {
+        return Promise.resolve({ data: [], error: null });
+      }
+      return rpcImpl(name, args);
+    });
+
+    const res = await GET(makeReq());
+
+    await expect(res.json()).resolves.toMatchObject({
+      evaluated: 1,
+      enqueued: 0,
+      noPickSkipped: 1,
+    });
+    expect(mockRpc).toHaveBeenCalledWith(
+      "get_weekend_scout_candidates",
+      expect.objectContaining({
+        input_lat: 21.31,
+        input_lon: -157.86,
+        max_distance_meters: 16093,
+      }),
+    );
+    expect(
+      mockRpc.mock.calls.some((call) => call[0] === "compute_user_match_score_batch"),
+    ).toBe(false);
+  });
+
+  it("skips users without a location snapshot", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+    store.locationSnapshots = [];
+
+    const res = await GET(makeReq());
+
+    await expect(res.json()).resolves.toMatchObject({
+      evaluated: 0,
+      enqueued: 0,
+    });
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["stale", -(24 * 60 * 60 * 1000 + 1)],
+    ["future-skewed", 6 * 60 * 1000],
+  ])("skips users with a %s location snapshot", async (_label, offsetMs) => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+    store.locationSnapshots[0].captured_at = new Date(
+      Date.now() + offsetMs,
+    ).toISOString();
+
+    const res = await GET(makeReq());
+
+    await expect(res.json()).resolves.toMatchObject({
+      evaluated: 0,
+      enqueued: 0,
+    });
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a 30-mile radius when no drive range is set", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+    store.alertRules[0].profiles.max_drive_minutes = null;
+
+    await GET(makeReq());
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      "get_weekend_scout_candidates",
+      expect.objectContaining({ max_distance_meters: 48280 }),
+    );
+  });
+
+  it.each([[300, 160934]])(
+    "caps the %p-minute drive range at 100 miles",
+    async (minutes, meters) => {
+      seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+      store.alertRules[0].profiles.max_drive_minutes = minutes;
+
+      await GET(makeReq());
+
+      expect(mockRpc).toHaveBeenCalledWith(
+        "get_weekend_scout_candidates",
+        expect.objectContaining({ max_distance_meters: meters }),
+      );
+    },
+  );
+
+  it("keeps hidden beaches out of similarity recommendations", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+    store.userBeachExclusions.push({
+      user_id: USER_PRO,
+      beach_id: HOME_BEACH,
+    });
+
+    const res = await GET(makeReq());
+
+    await expect(res.json()).resolves.toMatchObject({
+      evaluated: 1,
+      enqueued: 0,
+      noPickSkipped: 1,
+    });
+    expect(
+      mockRpc.mock.calls.some((call) => call[0] === "compute_user_match_score_batch"),
+    ).toBe(false);
+  });
+
   it("suppresses held or unresolved similarity picks before the queue RPC", async () => {
     seedActiveProUser({ forecastsForBeach: HOME_BEACH });
     mockRpc.mockImplementation((name: string, args: any) => {
@@ -572,14 +710,15 @@ describe("similarity-alerts cron — Plan V4", () => {
     const res = await GET(makeReq());
 
     expect(res.status).toBe(200);
-    expect(mockScoreWindowWithComposite).toHaveBeenCalledTimes(1);
+    const scoredBeachIds = mockRpc.mock.calls
+      .filter((call: any[]) => call[0] === "compute_user_match_score_batch")
+      .map((call: any[]) => call[1].p_beach_id);
+    expect(scoredBeachIds).toContain(CONFIGURED_BEACH);
+    expect(scoredBeachIds).not.toContain(heldAlternative);
     const insertCalls = mockRpc.mock.calls.filter(
       (call: any[]) => call[0] === "try_insert_similarity_alert",
     );
     expect(insertCalls).toHaveLength(1);
-    expect(insertCalls[0][1]).toMatchObject({
-      p_beach_id: CONFIGURED_BEACH,
-    });
   });
 
   it("suppresses a learned GOOD match when the beach exceeds the user's skill", async () => {
@@ -672,6 +811,13 @@ describe("similarity-alerts cron — Plan V4", () => {
       wind_direction_deg: 270,
       tide_height: "2.0",
     });
+    store.locationSnapshots.push({
+      user_id: USER_ANCHOR,
+      lat: 33.6,
+      lon: -118,
+      timezone: "America/Los_Angeles",
+      captured_at: new Date().toISOString(),
+    });
 
     mockRpc.mockImplementation((name: string, _args: any) => {
       if (name === "compute_user_match_score_batch") {
@@ -751,6 +897,13 @@ describe("similarity-alerts cron — Plan V4", () => {
       wind_speed: "5",
       wind_direction_deg: 270,
       tide_height: "2.0",
+    });
+    store.locationSnapshots.push({
+      user_id: USER_ANCHOR,
+      lat: 33.6,
+      lon: -118,
+      timezone: "America/Los_Angeles",
+      captured_at: new Date().toISOString(),
     });
 
     mockRpc.mockImplementation((name: string, _args: any) => {
@@ -1004,7 +1157,6 @@ describe("similarity-alerts cron — Plan V4", () => {
     const hydrateSelect = beachSelects.find((columns) =>
       columns.includes("break_type")
     );
-    expect(beachSelects).toEqual(expect.arrayContaining(["id, lat, lon"]));
     expect(hydrateSelect).toEqual(expect.stringContaining("lat"));
     expect(hydrateSelect).toEqual(expect.stringContaining("lon"));
     expect(hydrateSelect).toEqual(expect.stringContaining("wind_onshore_bad_kt"));
