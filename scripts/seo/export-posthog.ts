@@ -57,6 +57,9 @@ async function main(): Promise<void> {
       WHERE timestamp >= toDateTime('${from}')
         AND timestamp <= toDateTime('${to}')
         AND coalesce(properties._platform, properties.platform, '') IN ('native-ios', 'native-android')
+        AND (properties.$is_emulator IS NULL OR properties.$is_emulator = false)
+        AND properties.$app_namespace IS NOT NULL
+        AND coalesce(properties.environment, 'production') NOT IN ('test', 'local', 'development')
         AND event IN (
           'onboarding_video_started',
           'onboarding_step_viewed',
