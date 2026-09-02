@@ -1,10 +1,18 @@
 const rpc = jest.fn();
+const upload = jest.fn();
+const storageFrom = jest.fn(() => ({ upload }));
+const getCommunityPhotoById = jest.fn();
 
 jest.mock("@/lib/supabase", () => ({
   createServiceRoleClient: () => ({
     rpc,
-    storage: { from: jest.fn() },
+    storage: { from: storageFrom },
   }),
+}));
+
+jest.mock("@/lib/community-photos/resolver", () => ({
+  getCommunityPhotoById: (...args: unknown[]) =>
+    getCommunityPhotoById(...args),
 }));
 
 import {
@@ -92,6 +100,45 @@ describe("community photo mutation repository envelopes", () => {
     });
 
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("uploads fresh image bytes as a Blob for serverless fetch compatibility", async () => {
+    upload.mockResolvedValue({
+      data: { path: `${USER_ID}/${PHOTO_ID}.webp` },
+      error: null,
+    });
+    rpc.mockResolvedValue({ data: true, error: null });
+    getCommunityPhotoById.mockResolvedValue({ id: PHOTO_ID });
+
+    await completeCommunityPhotoUpload({
+      uploaderId: USER_ID,
+      reservation: {
+        photoId: PHOTO_ID,
+        storagePath: `${USER_ID}/${PHOTO_ID}.webp`,
+        replay: false,
+        processingStatus: "processing",
+      },
+      image: {
+        bytes: Buffer.from("webp"),
+        contentType: "image/webp",
+        width: 1600,
+        height: 900,
+      },
+    });
+
+    expect(storageFrom).toHaveBeenCalledWith("community-spot-photos");
+    expect(upload).toHaveBeenCalledWith(
+      `${USER_ID}/${PHOTO_ID}.webp`,
+      expect.any(Blob),
+      {
+        contentType: "image/webp",
+        cacheControl: "31536000",
+        upsert: false,
+      },
+    );
+    const body = upload.mock.calls[0]?.[1] as Blob;
+    expect(body.type).toBe("image/webp");
+    expect(body.size).toBe(Buffer.byteLength("webp"));
   });
 
   it("maps a durable failed-key reservation rejection to a terminal error", async () => {
