@@ -55,7 +55,28 @@ describe("ReviewedCityEditorialSection", () => {
       />,
     );
     expect(screen.getByRole("img", { name: "Trinidad State Beach" })).toBeInTheDocument();
-    expect(screen.getByText(/Photo · TrinidadMike · Public domain/)).toBeInTheDocument();
+    // Public domain carries no attribution terms, so only the creator shows.
+    expect(screen.getByText("Photo · TrinidadMike")).toBeInTheDocument();
+    expect(screen.queryByText(/public domain/i)).toBeNull();
+  });
+
+  it("keeps the licence in the credit only when the licence requires it", () => {
+    render(
+      <ReviewedCityEditorialSection
+        editorial={editorial}
+        photo={{
+          src: "https://upload.wikimedia.org/wikipedia/commons/3/37/cove.jpg",
+          beachId: "cove",
+          title: "College Cove",
+          creator: "Clyde Charles Brown",
+          creatorUrl: null,
+          licenseCode: "CC BY-SA 4.0",
+          licenseUrl: null,
+        }}
+        photoAlt="College Cove"
+      />,
+    );
+    expect(screen.getByText("Photo · Clyde Charles Brown · CC BY-SA 4.0")).toBeInTheDocument();
   });
 
   it("gives the actionable guidance the strongest emphasis", () => {

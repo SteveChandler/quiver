@@ -1,6 +1,8 @@
 import type { ReactElement } from "react";
 import Link from "next/link";
 
+import { stripPublicDomainNotice } from "@/lib/photos/license-notice";
+
 export interface StructuredPhotoAttribution {
   kind: "profile" | "community";
   displayName: string;
@@ -29,7 +31,7 @@ function legacyAttributionText(value: string | null | undefined): string {
     (entity) => HTML_ENTITIES[entity] ?? entity,
   );
 
-  return decoded.replace(/\s+/g, " ").trim();
+  return stripPublicDomainNotice(decoded.replace(/\s+/g, " ").trim());
 }
 
 export function PhotoAttribution({

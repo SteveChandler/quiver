@@ -2,6 +2,7 @@ import Image from "next/image";
 import { MapPin } from "lucide-react";
 
 import type { CityEditorialPhoto } from "@/lib/data/server/city-editorial-photo";
+import { requiresLicenseNotice } from "@/lib/photos/license-notice";
 import type { CityEditorialContent } from "@/types/editorial-content";
 
 /**
@@ -55,11 +56,11 @@ export function ReviewedCityEditorialSection({
                 className="object-cover"
               />
             </div>
-            {(photo.creator || photo.licenseCode) && (
+            {(photo.creator || requiresLicenseNotice(photo.licenseCode)) && (
               <figcaption className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#655C4C]">
                 Photo
                 {photo.creator ? ` · ${photo.creator}` : ""}
-                {photo.licenseCode ? ` · ${photo.licenseCode}` : ""}
+                {requiresLicenseNotice(photo.licenseCode) ? ` · ${photo.licenseCode}` : ""}
               </figcaption>
             )}
           </figure>
