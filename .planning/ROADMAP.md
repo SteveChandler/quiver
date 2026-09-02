@@ -12,7 +12,7 @@ Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/ROADMAP-full
 
 Phases 1 through 20 are complete. Phase 13 closed the controlled refactor checkpoint tracked in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md); Phase 14 closed the Session Intelligence guardrails and template inventory. Phases 15-17 delivered the shared recommendation primitive, reusable UI components, and the limited Session Intelligence pilot surfaces. Phase 18 completed the allowlisted SEO-safe intent rollout. Phase 19 completed the forecast-accuracy trust page. Phase 20 completed exact app-link, analytics, baseline, and public QA foundations.
 
-Phase 20.1 implementation and web release are complete; replacement native build 18 is valid in App Store Connect, while physical-device proof and mature retention evidence remain. Phase 21 implementation is integrated and serving only the exact Steven/Shapan allowlist. Its production integrity and ingestion-parity reports are verified; local-job retirement and outcome validation remain gated, and broad rollout stays dark.
+Phase 20.1 implementation and web release are complete. Native #312/#313, deterministic #309 assignment, and the Week Scout correction are released through the existing build-16 OTA; exact Android receipt and #312 physical completion are proven, while #313 delivery attribution and mature retention evidence remain. Phase 21 implementation is integrated and serving only the exact Steven/Shapan allowlist. Its production integrity and ingestion-parity reports are verified; local-job retirement and outcome validation remain gated, and broad rollout stays dark.
 
 ## Active Requirements
 
@@ -50,7 +50,7 @@ Phase 20.1 implementation and web release are complete; replacement native build
 
 ## Next Actions
 
-- Accept the internal TestFlight invitation, install valid build 18, complete signed physical-device proof for #312/#313, and begin #309 cohort collection.
+- Keep #312 closed with its exact Android physical receipt; collect a genuine #313 push-attribution receipt and mature #309 cohort evidence.
 - Use the Phase 20.1 validation scorecard and holdouts after D1/D7 maturity to decide expansion, continued pilot, revision, or rollback. Do not claim retention lift from raw event counts.
 - Keep Phase 21 limited to Steven/Shapan while local-job retirement and outcome validation continue; broad rollout stays dark.
 - Keep deploy, production mutation, outbound send, payment, entitlement, production flag, and native publication actions approval-gated.
@@ -290,11 +290,11 @@ Plans:
 
 - [x] [20.1-03: Ship Follow This Beach And My Coast On Selected Web Utility Surfaces](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-03-PLAN.md) (implemented, then withdrawn and removed before release)
 - [x] [20.1-04: Preserve Exact Beach And Surf-Call Context Through Web-To-Native Handoff](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-04-PLAN.md)
-- [x] [20.1-05: Ship Native Home Continuity, All-User Stability, And One-Tap Watch This Call](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-05-PLAN.md) (implemented; release/device evidence remains)
+- [x] [20.1-05: Ship Native Home Continuity, All-User Stability, And One-Tap Watch This Call](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-05-PLAN.md) (implemented; exact Android OTA and #312 physical completion verified)
 
 **Wave 4** *(blocked on Waves 1-3 completion)*
 
-- [ ] [20.1-06: Add One-Tap Outcome Feedback, Learning Receipt, And Release Evidence](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-06-PLAN.md) (Tasks 1-2 complete; release/device and cohort gates remain)
+- [ ] [20.1-06: Add One-Tap Outcome Feedback, Learning Receipt, And Release Evidence](phases/20.1-durable-beach-follow-and-surf-call-retention-loop/20.1-06-PLAN.md) (Tasks 1-2 complete; #313 delivery and mature #309/D1/D7 cohort gates remain)
 
 ## Historical Notes
 
