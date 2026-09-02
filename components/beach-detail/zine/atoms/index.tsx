@@ -345,18 +345,22 @@ export function MapDoodle({
       })
     : null;
   const hasRealMap = mapUrl != null && !mapUrl.startsWith("data:image");
+  const mapLabel = `Map showing ${beachName || locationName} at its actual location`;
 
   return (
     <div
       style={{ position: "relative", width: "100%", height, background: "#EBDFC2", overflow: "hidden" }}
-      role="img"
-      aria-label={`Map showing ${beachName || locationName} at its actual location`}
+      // The <img> carries the label when a real tile renders (crawlers and
+      // screen readers both read it there); the wrapper only stands in for the
+      // drawn fallback, which has no image element to label.
+      role={hasRealMap ? undefined : "img"}
+      aria-label={hasRealMap ? undefined : mapLabel}
     >
       {hasRealMap && (
         // eslint-disable-next-line @next/next/no-img-element -- static map providers are already optimized and can fall back independently
         <img
           src={mapUrl}
-          alt=""
+          alt={mapLabel}
           className="absolute inset-0 h-full w-full object-cover"
           style={{ filter: "sepia(0.16) saturate(0.72) contrast(1.08)", opacity: 0.88 }}
         />

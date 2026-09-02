@@ -85,10 +85,12 @@ describe("ZineHero heading level", () => {
     try {
       render(<ZineHero beach={beach} />);
 
-      const map = screen.getByRole("img", {
+      // The static tile itself carries the label (its alt), so the accessible
+      // image IS the <img>; a wrapper role only exists for the drawn fallback.
+      const mapImage = screen.getByRole("img", {
         name: "Map showing Tourmaline Beach at its actual location",
       });
-      const mapImage = map.querySelector("img");
+      expect(mapImage.tagName).toBe("IMG");
 
       expect(mapImage).toHaveAttribute(
         "src",
