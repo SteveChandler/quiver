@@ -59,6 +59,16 @@ const CASES = [
     description: "Open the spot forecast in the app.",
     ctaLabel: "Open Ocean Beach in the app",
   },
+  {
+    surface: "learn" as const,
+    placement: "mid_article",
+    source: "content-learn-is-it-safe-to-surf-after-rain",
+    target: "learn:is-it-safe-to-surf-after-rain",
+    eyebrow: "After the rain",
+    title: "See whether your break is worth it today.",
+    description: "Decide from the forecast rather than the drizzle.",
+    ctaLabel: "Check my beach in the app",
+  },
 ] as const;
 
 describe("ContentPageAppHandoffCta", () => {

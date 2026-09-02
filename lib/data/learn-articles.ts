@@ -1,6 +1,13 @@
 import type { FigureKey } from "@/components/learn/figures/figure-keys";
 
-interface LearnArticle {
+export interface LearnArticleAppHandoff {
+  eyebrow: string;
+  title: string;
+  description: string;
+  ctaLabel: string;
+}
+
+export interface LearnArticle {
   slug: string;
   title: string;
   description: string;
@@ -36,6 +43,8 @@ interface LearnArticle {
     href: string;
     description: string;
   }[];
+  /** Article-specific copy for the mid-article app handoff; falls back to a generic ask. */
+  appHandoff?: LearnArticleAppHandoff;
 }
 
 export const learnArticles: LearnArticle[] = [
@@ -710,6 +719,13 @@ export const learnArticles: LearnArticle[] = [
       { label: "How Surf Forecasts Work", href: "/learn/how-surf-forecasts-work", description: "Where the swell data comes from." },
       { label: "Quiver vs Surfline", href: "/vs/surfline", description: "Per-beach calls vs a regional star." },
     ],
+    appHandoff: {
+      eyebrow: "Read it live",
+      title: "See which swell is arriving at your beach.",
+      description:
+        "Quiver shows period and direction for each swell at your break, so you can spot groundswell before you drive.",
+      ctaLabel: "Check my beach in the app",
+    },
   },
 
   {
@@ -1111,6 +1127,13 @@ export const learnArticles: LearnArticle[] = [
           "See current significant wave height at 279+ beaches.",
       },
     ],
+    appHandoff: {
+      eyebrow: "Same number, your beach",
+      title: "See what 3 ft means at your break.",
+      description:
+        "Quiver shows forecast height and period for your beach, so you can read the number the way this guide explains it.",
+      ctaLabel: "Open my beach's forecast",
+    },
   },
 
   {
@@ -1468,6 +1491,13 @@ export const learnArticles: LearnArticle[] = [
           "See the 3-hour wind forecast for your break tonight.",
       },
     ],
+    appHandoff: {
+      eyebrow: "Today's window",
+      title: "Find this morning's window at your beach.",
+      description:
+        "Quiver scores every hour by wind, tide, and swell, so you can see when today's cleanest window actually falls.",
+      ctaLabel: "See today's windows",
+    },
   },
 
   {
@@ -1553,6 +1583,13 @@ export const learnArticles: LearnArticle[] = [
         description: "Earplugs and rash guards reduce post-rain risk.",
       },
     ],
+    appHandoff: {
+      eyebrow: "After the rain",
+      title: "See whether your break is worth it today.",
+      description:
+        "Open your beach in the Quiver app for today's swell, wind, and tide, and decide from the forecast rather than the drizzle.",
+      ctaLabel: "Check my beach in the app",
+    },
   },
 
   {
@@ -1851,6 +1888,13 @@ export const learnArticles: LearnArticle[] = [
         description: "The technique that shortens the learning curve most.",
       },
     ],
+    appHandoff: {
+      eyebrow: "Practice days",
+      title: "Find the small, clean days to learn on.",
+      description:
+        "Quiver's forecast shows wave size at your beach hour by hour, so you can pick the 1-3 ft sessions this timeline depends on.",
+      ctaLabel: "Check my beach in the app",
+    },
   },
 
   {
@@ -2396,6 +2440,13 @@ export const learnArticles: LearnArticle[] = [
         description: "How NOAA models predict wave formation globally.",
       },
     ],
+    appHandoff: {
+      eyebrow: "Storm to shore",
+      title: "See the swell that storm is sending you.",
+      description:
+        "Quiver shows the height, period, and direction of each swell arriving at your beach, so you can tell distant groundswell from local wind.",
+      ctaLabel: "Check my beach in the app",
+    },
   },
 
   {
@@ -2709,6 +2760,13 @@ export const learnArticles: LearnArticle[] = [
           "Master wave height, swell period, direction, wind, and tide readings.",
       },
     ],
+    appHandoff: {
+      eyebrow: "Cowell's, Capitola, Jack's",
+      title: "Check these spots before you go.",
+      description:
+        "Open Santa Cruz in the Quiver app for today's wave size, wind, and tide at each beginner break.",
+      ctaLabel: "Open Santa Cruz in the app",
+    },
   },
 
   {

@@ -8,6 +8,7 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { LearnFigure } from "@/components/learn/figures/learn-figure";
 import { EmbedFigureSnippet } from "@/components/learn/figures/embed-figure-snippet";
+import { ContentPageAppHandoffCta } from "@/components/app-store/content-page-app-handoff-cta";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
@@ -15,6 +16,8 @@ import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { SITE_URL } from "@/lib/constants/seo";
 import { learnArticles } from "@/lib/data/learn-articles";
+import { isLearnAppHandoffCtaEnabled } from "@/lib/flags/learn-app-handoff-cta";
+import { resolveLearnAppHandoff, resolveLearnNextPaddleLink } from "@/lib/learn/learn-cta";
 import { buildPageMetadata } from "@/lib/seo/meta";
 
 export const revalidate = 604800; // 1 week - learn articles are static content from a constant
@@ -95,6 +98,8 @@ export default async function LearnArticlePage({ params }: Props) {
   }));
 
   const keyTakeaways = article.sections.filter((section) => section.keyTakeaway);
+  const nextPaddle = resolveLearnNextPaddleLink(article);
+  const appHandoff = isLearnAppHandoffCtaEnabled() ? resolveLearnAppHandoff(article) : null;
 
   return (
     <>
@@ -270,7 +275,21 @@ export default async function LearnArticlePage({ params }: Props) {
                     </blockquote>
                   )}
 
-                  {index === 2 && (
+                  {index === 2 && appHandoff && (
+                    <ContentPageAppHandoffCta
+                      source={appHandoff.source}
+                      surface="learn"
+                      placement="mid_article"
+                      target={appHandoff.target}
+                      eyebrow={appHandoff.eyebrow}
+                      title={appHandoff.title}
+                      description={appHandoff.description}
+                      ctaLabel={appHandoff.ctaLabel}
+                      className="my-10"
+                    />
+                  )}
+
+                  {index === 2 && !appHandoff && (
                     <InlineSignupCta
                       title="Stop guessing. Start scoring."
                       description="Pick your home beach. We score every hour by tide, wind, and swell and tell you when to paddle out."
@@ -321,10 +340,10 @@ export default async function LearnArticlePage({ params }: Props) {
                     committing to the drive.
                   </p>
                   <Link
-                    href="/forecast/santa-cruz"
+                    href={nextPaddle.href}
                     className="mt-4 inline-flex font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#B56A2B] hover:text-[#11100D]"
                   >
-                    Santa Cruz forecast &rarr;
+                    {nextPaddle.label} →
                   </Link>
                 </div>
               </ScrollReveal>
