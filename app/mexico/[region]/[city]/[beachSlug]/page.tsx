@@ -13,7 +13,7 @@ import { notFound } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { getSpotSurfReportPublic } from "@/lib/services/spot-surf-report-service";
-import { regionToSlug, cityToSlug } from "@/lib/utils/beach-url-utils";
+import { buildBeachUrl, regionToSlug, cityToSlug } from "@/lib/utils/beach-url-utils";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import type { Beach } from "@/types/database";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
@@ -21,11 +21,11 @@ import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 import { BeachProseSummary } from "@/components/beach-detail/beach-prose-summary";
 import {
   applyIndexabilityToMetadata,
-  evaluateBeachIndexability,
   parseEditorialSources,
-  toBeachEditorialInput,
   type BeachEditorialDatabaseRecord,
 } from "@/lib/seo/indexability";
+import { evaluateBeachPageIndexability } from "@/lib/seo/forecast-indexability";
+import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -241,9 +241,12 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
 
     const canonicalPath =
       `/mexico/${params.region}/${params.city}/${params.beachSlug}`;
-    const decision = evaluateBeachIndexability(
-      toBeachEditorialInput(beach as BeachEditorialDatabaseRecord),
-      canonicalPath,
+    const snapshots = await getCachedForecastIndexabilitySnapshots([
+      { id: beach.id, timezone: beach.timezone ?? null },
+    ]);
+    const decision = evaluateBeachPageIndexability(
+      snapshots.get(beach.id),
+      canonicalPath === buildBeachUrl(beach) && !canonicalPath.startsWith("/beach/"),
     );
     return applyIndexabilityToMetadata(metadata, decision);
   }

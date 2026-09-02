@@ -64,11 +64,11 @@ const BAJA_CALIFORNIA_FEATURED_LINKS = [
     label: "Rosarito surf guide",
   },
   {
-    href: "/mexico/baja-california/rosarito/alfonsos",
+    href: "/mexico/baja-california/popotla/alfonsos",
     label: "Alfonsos surf report",
   },
   {
-    href: "/mexico/baja-california/rosarito/el-morro-point-k375",
+    href: "/mexico/baja-california/popotla/el-morro-point-k37-5",
     label: "El Morro Point surf report",
   },
 ] as const;
