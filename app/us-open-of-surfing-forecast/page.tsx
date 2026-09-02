@@ -35,6 +35,12 @@ export const metadata: Metadata = buildPageMetadata({
   ],
 });
 
+// Force static rendering. These routes read Supabase through the cookie-free
+// public client, whose fetch is cache: "no-store"; without force-static that
+// single uncached fetch opts the whole route into dynamic rendering, so Vercel
+// served it with private/no-store on every request (measured 2026-09-01:
+// x-vercel-cache MISS, TTFB 1.2-4.9s) instead of the hourly ISR page.
+export const dynamic = "force-static";
 export const revalidate = 1800;
 
 export default async function UsOpenOfSurfingForecastPage() {
