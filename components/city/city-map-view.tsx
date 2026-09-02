@@ -133,19 +133,20 @@ function BeachListItem({
   onHover: (spot: SurfSpot | null) => void;
   onSelect: (spot: SurfSpot) => void;
 }) {
+  // Ink-on-tint pairs that clear 4.5:1 on the paper page (the pastel-100 sets did not).
   const skillLevelStyles = {
-    "Beginner friendly": "bg-green-100 text-green-700",
-    Intermediate: "bg-amber-100 text-amber-700",
-    "Intermediate to expert": "bg-orange-100 text-orange-700",
-    Advanced: "bg-red-100 text-red-700",
-    "Longboard friendly": "bg-blue-100 text-blue-700",
+    "Beginner friendly": "bg-[#2F6B3A]/10 text-[#25562E]",
+    Intermediate: "bg-[#B65F1A]/12 text-[#8F4A13]",
+    "Intermediate to expert": "bg-[#8F4A13]/12 text-[#7A3D0F]",
+    Advanced: "bg-[#9B2C2C]/10 text-[#8A2626]",
+    "Longboard friendly": "bg-[#0B3A75]/10 text-[#0B3A75]",
   };
 
   return (
     <Link
       href={href}
       className={cn(
-        "block p-4 transition-colors duration-200",
+        "group block p-4 transition-colors duration-200",
         isSelected && "bg-sky-50 border-l-4 border-sky-500",
         isHovered && !isSelected && "bg-slate-50",
         !isSelected && "border-l-4 border-transparent"
@@ -166,7 +167,7 @@ function BeachListItem({
             {spot.skillLevel}
           </span>
         </div>
-        <ChevronRight className="h-5 w-5 text-slate-400 flex-shrink-0 mt-1" />
+        <ChevronRight className="h-5 w-5 text-slate-400 flex-shrink-0 mt-1 transition-transform duration-200 ease-out group-hover:translate-x-0.5 group-hover:text-slate-600 motion-reduce:transition-none" />
       </div>
       <p className="text-sm text-slate-600 mt-2 line-clamp-2">
         {spot.overview}

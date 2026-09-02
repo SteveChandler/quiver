@@ -454,7 +454,7 @@ describe("CityMapView Component", () => {
       );
 
       const beginnerBadges = screen.getAllByText("Beginner friendly");
-      expect(beginnerBadges[0].className).toContain("green");
+      expect(beginnerBadges[0].className).toContain("#25562E");
     });
 
     it("should apply red style for Advanced", () => {
@@ -467,7 +467,7 @@ describe("CityMapView Component", () => {
       );
 
       const advancedBadges = screen.getAllByText("Advanced");
-      expect(advancedBadges[0].className).toContain("red");
+      expect(advancedBadges[0].className).toContain("#8A2626");
     });
 
     it("should apply blue style for Longboard friendly", () => {
@@ -480,7 +480,7 @@ describe("CityMapView Component", () => {
       );
 
       const longboardBadges = screen.getAllByText("Longboard friendly");
-      expect(longboardBadges[0].className).toContain("blue");
+      expect(longboardBadges[0].className).toContain("#0B3A75");
     });
   });
 
