@@ -392,7 +392,7 @@ function renderGoogleIndexingHealth(gsc?: GscExportInput): string {
   ];
 
   if (blockers.length > 0) {
-    rows.push(`- ${blockers.length} confirmed crawl/index blocker${blockers.length === 1 ? "" : "s"}:`);
+    rows.push(`- ${blockers.length} URL${blockers.length === 1 ? " requires" : "s require"} indexing investigation; URL Inspection reports exclusion state, not root cause:`);
     rows.push(...blockers.map((item) => {
       const details = [
         item.label,
@@ -587,14 +587,18 @@ function renderStore(store?: StoreSnapshotInput, dataforseo?: DataForSeoExportIn
 function renderNativeFunnel(posthog?: PostHogExportInput): string {
   if (!posthog) return "- PostHog native export unavailable.";
   if (posthog.nativeFunnels.length === 0) return "- No native funnel rows in available PostHog export.";
-  return posthog.nativeFunnels.map((funnel) => {
+  const rows = posthog.nativeFunnels.map((funnel) => {
     const events = Object.entries(funnel.events)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8)
       .map(([event, count]) => `${event}=${count}`)
       .join(", ");
     return `- ${funnel.platform}: ${events || "no events"}`;
-  }).join("\n");
+  });
+  return [
+    "- Directional native event counts; these are not unique users or conversion rates.",
+    ...rows,
+  ].join("\n");
 }
 
 function renderCompetitorDeltas(

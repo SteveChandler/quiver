@@ -93,9 +93,9 @@ function buildSeoActionCandidate(
 
   const hasTechnical = recommendations.some((item) =>
     item.source === "vercel-analytics" ||
-    item.source === "technical-audit" ||
-    item.source === "gsc-indexing",
+    item.source === "technical-audit",
   );
+  const hasIndexingInvestigation = recommendations.some((item) => item.source === "gsc-indexing");
   const hasCtrSignal = recommendations.some((item) =>
     item.source === "gsc-decay" && /CTR candidate/i.test(item.summary),
   ) || recommendations.some((item) => item.source === "metadata-audit");
@@ -105,10 +105,12 @@ function buildSeoActionCandidate(
   const hasBehaviorSignal = recommendations.some((item) => item.source === "posthog-behavior");
   const isCommodityPage = isCommodityFactPage(canonicalPath);
 
-  if (isCommodityPage && !hasTechnical) return null;
+  if (isCommodityPage && !hasTechnical && !hasIndexingInvestigation) return null;
 
   const category = hasTechnical
     ? "technical-fix"
+    : hasIndexingInvestigation
+      ? "indexing-investigation"
     : hasCtrSignal && hasRefreshSignal
       ? "content-refresh"
       : hasCtrSignal
@@ -127,8 +129,8 @@ function buildSeoActionCandidate(
   const whyNow = seoActionWhyNow(category, recommendations);
   const confidence = evidence.length >= 2 ? "high" : "medium";
   const impressionScore = parseHighestImpressionCount(recommendations);
-  const indexingBlockerScore = recommendations.some((item) => item.source === "gsc-indexing")
-    ? 90
+  const indexingInvestigationScore = hasIndexingInvestigation
+    ? 30
     : 0;
 
   return {
@@ -141,7 +143,7 @@ function buildSeoActionCandidate(
     evidence,
     confidence,
     whyNow,
-    score: PRIORITY_SCORE[highestPriority] + Math.min(Math.floor(impressionScore / 100), 60) + (isProductLedPath(canonicalPath) ? 15 : 0) + indexingBlockerScore,
+    score: PRIORITY_SCORE[highestPriority] + Math.min(Math.floor(impressionScore / 100), 60) + (isProductLedPath(canonicalPath) ? 15 : 0) + indexingInvestigationScore,
   };
 }
 
@@ -355,6 +357,8 @@ function seoActionTitle(
   combinedIntent: boolean,
 ): string {
   switch (category) {
+    case "indexing-investigation":
+      return `Investigate Google indexing for \`${canonicalPath}\``;
     case "technical-fix":
       return `Fix technical SEO blockers on \`${canonicalPath}\``;
     case "ctr-improvement":
@@ -376,6 +380,8 @@ function seoActionNextStep(
   combinedIntent: boolean,
 ): string {
   switch (category) {
+    case "indexing-investigation":
+      return `Verify the live response, canonical, robots directives, sitemap membership, and internal links for ${canonicalPath}; request reindexing or ship a fix only if that investigation identifies a cause.`;
     case "technical-fix":
       return `Investigate the reported performance or crawl issue on ${canonicalPath} and ship the underlying template or rendering fix before further content work.`;
     case "ctr-improvement":
@@ -395,6 +401,7 @@ function seoActionWhyNow(
   category: WeeklyActionItem["category"],
   recommendations: SeoRecommendation[],
 ): string {
+  if (category === "indexing-investigation") return "URL Inspection confirms an exclusion state, but does not identify its root cause.";
   if (category === "technical-fix") return "Technical issues can suppress performance and rankings regardless of content quality.";
   if (recommendations.some((item) => /Refresh candidate/i.test(item.summary)) &&
     recommendations.some((item) => /CTR candidate/i.test(item.summary))) {

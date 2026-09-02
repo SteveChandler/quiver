@@ -273,3 +273,20 @@ They were left because removing enum members from a validated wire grammar — o
 watched-call half is still in scope and mirrored in `quiver-native` — is a separate change from
 removing the surface, with its own regression surface and no user-visible benefit. Track it as
 tech debt, not as part of this cut.
+
+## Addendum — verified release truth (2026-08-29, program coordinator)
+
+Live verification (EAS + cross-app audit at native `843a52fd` vs `origin/prod` `8b721ea4a`):
+
+- Native Phase 20.1 code is **released via production OTA** ("build 16 #15", 2026-08-28,
+  runtime `d7204dec…`); signed-device validation still pending.
+- Web Phase 20.1 code is **not on prod**; three migrations unapplied (`20260824150000`,
+  `20260825120000`, `20260825180000`); delivery/attribution flags default false.
+- Consequence verified live: **"Watch this call" returns HTTP 400 on prod** (visible save
+  error); exact handoff, watched delivery/history, and canonical BFR `user_events` analytics
+  are silently dormant (constraint rejections observed in dev logs).
+- The earlier statement in this document that the Week Scout stability flag is unset is
+  **stale**: current native preview/production profiles and the OTA release script set it true.
+- `bfr-follow-holdout-v1`'s persistence carrier was deleted with Follow/My Coast; the holdout
+  analysis is not runnable as specified and must be replaced or retired at release.
+- Operator release checklist, ordering, and rollback: GitHub issue #639.
