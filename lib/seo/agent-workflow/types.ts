@@ -599,6 +599,7 @@ export type WeeklyActionSource = "seo" | "aso" | "competitor" | "aeo";
 export type WeeklyActionCategory =
   | "content-refresh"
   | "ctr-improvement"
+  | "indexing-investigation"
   | "internal-linking"
   | "listing-copy"
   | "pricing-verification"

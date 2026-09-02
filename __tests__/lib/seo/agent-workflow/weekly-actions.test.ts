@@ -11,7 +11,7 @@ function makeInput(overrides: Partial<WeeklySeoReportInput> = {}): WeeklySeoRepo
 }
 
 describe("SEO workflow weekly action queue", () => {
-  it("keeps verified Google indexing blockers in the weekly action queue as technical fixes", () => {
+  it("keeps Google exclusions in the weekly queue as investigations, not asserted fixes", () => {
     const queue = synthesizeWeeklyActionQueue(makeInput({
       recommendations: [{
         id: "gsc-indexing-beaches-mexico",
@@ -19,7 +19,7 @@ describe("SEO workflow weekly action queue", () => {
         source: "gsc-indexing",
         priority: "high",
         canonicalPath: "/beaches/mexico",
-        summary: "Google indexing blocker: Discovered - currently not indexed.",
+        summary: "Google indexing investigation: Discovered - currently not indexed.",
         evidence: ["coverageState=Discovered - currently not indexed"],
         status: "open",
       }],
@@ -27,10 +27,31 @@ describe("SEO workflow weekly action queue", () => {
 
     expect(queue.actions).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        category: "technical-fix",
-        title: "Fix technical SEO blockers on `/beaches/mexico`",
+        category: "indexing-investigation",
+        title: "Investigate Google indexing for `/beaches/mexico`",
+        nextStep: expect.not.stringContaining("ship the underlying"),
       }),
     ]));
+  });
+
+  it("keeps indexing investigations for commodity fact pages", () => {
+    const queue = synthesizeWeeklyActionQueue(makeInput({
+      recommendations: [{
+        id: "gsc-indexing-ocean-beach-water-temp",
+        createdAt: "2026-06-20T12:00:00Z",
+        source: "gsc-indexing",
+        priority: "high",
+        canonicalPath: "/ca/san-diego/ocean-beach/water-temp",
+        summary: "Google indexing investigation: Crawled - currently not indexed.",
+        evidence: ["coverageState=Crawled - currently not indexed"],
+        status: "open",
+      }],
+    }));
+
+    expect(queue.actions[0]).toMatchObject({
+      category: "indexing-investigation",
+      ownerSurface: "/ca/san-diego/ocean-beach/water-temp",
+    });
   });
 
   it("returns a mixed-signal queue when SEO, ASO, and competitor items all pass the confidence gate", () => {

@@ -198,9 +198,30 @@ describe("SEO workflow weekly report", () => {
 
     const indexing = extractSection(report, "## Google Indexing Health");
     expect(indexing).toContain("Read-only URL Inspection checked 2 configured high-value URLs");
+    expect(indexing).toContain("2 URLs require indexing investigation");
+    expect(indexing).not.toContain("confirmed crawl/index blocker");
     expect(indexing).toContain("HIGH: `/beaches/mexico`");
     expect(indexing).toContain("Discovered - currently not indexed");
     expect(indexing).toContain("URL is unknown to Google");
+  });
+
+  it("labels native PostHog totals as directional event counts", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-07-14T12:00:00Z",
+      recommendations: [],
+      posthog: {
+        generatedAt: "2026-07-14T12:00:00Z",
+        dateRange: { from: "2026-07-07T00:00:00Z", to: "2026-07-14T00:00:00Z" },
+        pages: [],
+        nativeFunnels: [{ platform: "native-ios", events: { onboarding_completed: 2 } }],
+        missing: [],
+      },
+      missing: [],
+    });
+
+    const native = extractSection(report, "## Native Funnel");
+    expect(native).toContain("Directional native event counts");
+    expect(native).toContain("not unique users or conversion rates");
   });
 
   it("renders CTR cohorts as monitoring evidence instead of weekly actions", () => {
