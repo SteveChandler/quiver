@@ -12,7 +12,7 @@ Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/ROADMAP-full
 
 Phases 1 through 20 are complete. Phase 13 closed the controlled refactor checkpoint tracked in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md); Phase 14 closed the Session Intelligence guardrails and template inventory. Phases 15-17 delivered the shared recommendation primitive, reusable UI components, and the limited Session Intelligence pilot surfaces. Phase 18 completed the allowlisted SEO-safe intent rollout. Phase 19 completed the forecast-accuracy trust page. Phase 20 completed exact app-link, analytics, baseline, and public QA foundations.
 
-Phase 20.1 implementation and web release are complete; replacement native build 17 is valid in App Store Connect, while physical-device proof and mature retention evidence remain. Phase 21 implementation is integrated and serving only the exact Steven/Shapan allowlist. Its production integrity report is verified; production parity and outcome validation remain gated, and broad rollout stays dark.
+Phase 20.1 implementation and web release are complete; replacement native build 18 is valid in App Store Connect, while physical-device proof and mature retention evidence remain. Phase 21 implementation is integrated and serving only the exact Steven/Shapan allowlist. Its production integrity and ingestion-parity reports are verified; local-job retirement and outcome validation remain gated, and broad rollout stays dark.
 
 ## Active Requirements
 
@@ -29,7 +29,7 @@ Phase 20.1 implementation and web release are complete; replacement native build
 - Native Home can change mode or recommendation without enough continuity, and the all-user Week Scout stability rollout remains a required production/device proof.
 - Watch/alert and session feedback adoption is too small to show that either currently drives return behavior.
 - Phase 20 production web verification passed after approved deploy. Native `/app/spot/:slug` routing is simulator-verified; signed HTTPS handoff and App Store first-open context recovery remain device validation lanes in Phase 20.1.
-- Phase 21 exactly-two-account allowlist, production integrity proof, and canary activation passed on 2026-09-01. Production parity, local-scraper retirement, and outcome validation remain gated under MFA-08; broad rollout stays dark.
+- Phase 21 exactly-two-account allowlist, production integrity proof, canary activation, and production ingestion parity passed on 2026-09-01. Local-scraper retirement and outcome validation remain gated under MFA-08; broad rollout stays dark.
 - Future refactor candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Public go-live deployment/alias promotion and any outbound launch actions remain approval-gated.
 
@@ -50,9 +50,9 @@ Phase 20.1 implementation and web release are complete; replacement native build
 
 ## Next Actions
 
-- Distribute the reviewed replacement native build, complete signed physical-device proof for #312/#313, and begin #309 cohort collection.
+- Accept the internal TestFlight invitation, install valid build 18, complete signed physical-device proof for #312/#313, and begin #309 cohort collection.
 - Use the Phase 20.1 validation scorecard and holdouts after D1/D7 maturity to decide expansion, continued pilot, revision, or rollback. Do not claim retention lift from raw event counts.
-- Keep Phase 21 limited to Steven/Shapan while production parity and outcome validation continue; broad rollout stays dark.
+- Keep Phase 21 limited to Steven/Shapan while local-job retirement and outcome validation continue; broad rollout stays dark.
 - Keep deploy, production mutation, outbound send, payment, entitlement, production flag, and native publication actions approval-gated.
 
 ## Session Intelligence v1 Addendum

@@ -58,6 +58,7 @@ function forecast(beachId: string, forecastAt: string): EnhancedForecastEntity {
     wind_direction: 'E',
     tide_height: '1.4',
     tide_status: 'Rising',
+    water_temp: '78°F',
     confidence_score: 82,
     data_source: 'NOAA_NWS',
     created_at: '2026-07-31T12:00:00.000Z',
@@ -308,6 +309,7 @@ describe('generateWeekScoutForecast', () => {
       response.days.flatMap((day) => day.windows).every((window) => (
         window.forecast.waveHeight === '3.5'
         && window.forecast.period === '12s'
+        && window.forecast.waterTemp === '78°F'
         && window.forecast.tideHeightFt === 1.4
       )),
     ).toBe(true);
@@ -324,6 +326,7 @@ describe('generateWeekScoutForecast', () => {
       rideable: true,
       safe: true,
       forecast: {
+        waterTemp: '78°F',
         tideHeightFt: 1.4,
         tidePhase: 'Rising',
         freshnessAt: '2026-07-31T13:30:00.000Z',
