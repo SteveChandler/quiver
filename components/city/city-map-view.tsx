@@ -366,6 +366,7 @@ export function CityMapView({
                 initialCenter={mapCenter}
                 initialZoom={10}
                 beaches={beaches}
+                disableBeachClustering
                 onLocationClick={handleMapBeachClick}
                 className="h-full w-full"
                 displayMode={displayMode}

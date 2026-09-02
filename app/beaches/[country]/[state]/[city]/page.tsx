@@ -25,6 +25,7 @@ import {
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
 import { getTopCitiesInState } from "@/actions/beach/beach-location-actions";
 import { getCitySurfReport } from "@/actions/city/city-conditions-actions";
+import { getCityEditorialPhoto } from "@/lib/data/server/city-editorial-photo";
 import { buildLocationPlaceStructuredData } from "@/lib/seo/location-structured-data";
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import {
@@ -64,6 +65,7 @@ export default async function LocationPage(props: LocationPageProps) {
   }
 
   const { location, stats, beaches } = response.data;
+  const editorialPhoto = await getCityEditorialPhoto(beaches.map((beach) => beach.id));
 
   const displayCityName = resolveDisplayCityName(
     location.city,
@@ -99,6 +101,7 @@ export default async function LocationPage(props: LocationPageProps) {
   if (editorial) {
     return (
       <EditorialLayout
+        editorialPhoto={editorialPhoto}
         params={params}
         displayCityName={displayCityName}
         stats={stats}

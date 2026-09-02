@@ -1,182 +1,88 @@
 /**
- * Tests for PlanningChecklist Component
- *
- * Tests the planning checklist component that displays actionable checklist items.
- * Priority 3 test coverage for San Diego page redesign.
+ * PlanningChecklist — a pre-drive checklist that behaves like paper: ticks stay
+ * ticked and are remembered per city.
  */
 
-import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+
 import { PlanningChecklist } from "@/components/city/planning-checklist";
 
-describe("PlanningChecklist Component", () => {
-  const mockItems = [
-    "Check tide charts for optimal session windows",
-    "Review marine layer forecasts for morning conditions",
-    "Confirm parking availability at primary spots",
-    "Pack appropriate wetsuit thickness for current temps",
-  ];
+const items = [
+  "Check the Humboldt County and California State Parks access pages for current notices.",
+  "Use a cold-water wetsuit appropriate for Northern California.",
+  "Watch from shore for current channels and sneaker waves before paddling out.",
+];
 
-  describe("Rendering", () => {
-    it("should render section heading", () => {
-      render(<PlanningChecklist items={mockItems} />);
-
-      expect(screen.getByText("Planning Checklist")).toBeInTheDocument();
-    });
-
-    it("should render all checklist items", () => {
-      render(<PlanningChecklist items={mockItems} />);
-
-      expect(
-        screen.getByText("Check tide charts for optimal session windows")
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText("Review marine layer forecasts for morning conditions")
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText("Confirm parking availability at primary spots")
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(/Pack appropriate wetsuit thickness/)
-      ).toBeInTheDocument();
-    });
-
-    it("should render dash markers for each item", () => {
-      const { container } = render(<PlanningChecklist items={mockItems} />);
-
-      const dashes = container.querySelectorAll("span.text-sky-600");
-      expect(dashes.length).toBe(mockItems.length);
-      dashes.forEach((dash) => {
-        expect(dash.textContent).toBe("-");
-      });
-    });
-
-    it("should render items in a list", () => {
-      render(<PlanningChecklist items={mockItems} />);
-
-      const list = screen.getByRole("list");
-      expect(list).toBeInTheDocument();
-
-      const listItems = screen.getAllByRole("listitem");
-      expect(listItems.length).toBe(mockItems.length);
-    });
+describe("PlanningChecklist", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
   });
 
-  describe("Empty State", () => {
-    it("should return null when items array is empty", () => {
-      const { container } = render(<PlanningChecklist items={[]} />);
-
-      expect(container.firstChild).toBeNull();
-    });
-
-    it("should return null when items is undefined", () => {
-      // @ts-expect-error - Testing undefined case
-      const { container } = render(<PlanningChecklist items={undefined} />);
-
-      expect(container.firstChild).toBeNull();
-    });
+  it("returns nothing without items", () => {
+    expect(render(<PlanningChecklist items={[]} />).container.firstChild).toBeNull();
+    // @ts-expect-error - editorial rows can omit the list
+    expect(render(<PlanningChecklist items={undefined} />).container.firstChild).toBeNull();
   });
 
-  describe("Single Item", () => {
-    it("should render correctly with single item", () => {
-      render(<PlanningChecklist items={["Single checklist item"]} />);
-
-      expect(screen.getByText("Single checklist item")).toBeInTheDocument();
-
-      const listItems = screen.getAllByRole("listitem");
-      expect(listItems.length).toBe(1);
-    });
+  it("renders every item as a real checkbox under an h2, with no dash marker", () => {
+    render(<PlanningChecklist items={items} />);
+    expect(screen.getByRole("heading", { level: 2, name: /planning checklist/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("checkbox")).toHaveLength(items.length);
+    expect(screen.getAllByRole("listitem")).toHaveLength(items.length);
+    for (const item of items) expect(screen.getByLabelText(item)).not.toBeChecked();
+    expect(screen.queryByText("-")).toBeNull();
   });
 
-  describe("Many Items", () => {
-    it("should render correctly with many items", () => {
-      const manyItems = Array.from({ length: 10 }, (_, i) => `Item ${i + 1}`);
-      render(<PlanningChecklist items={manyItems} />);
-
-      manyItems.forEach((item) => {
-        expect(screen.getByText(item)).toBeInTheDocument();
-      });
-
-      const listItems = screen.getAllByRole("listitem");
-      expect(listItems.length).toBe(10);
-    });
+  it("ticks an item and counts it", () => {
+    render(<PlanningChecklist items={items} />);
+    expect(screen.getByText("0 of 3 checked")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(items[0]));
+    expect(screen.getByLabelText(items[0])).toBeChecked();
+    expect(screen.getByText("1 of 3 checked")).toBeInTheDocument();
   });
 
-  describe("Heading Level", () => {
-    it("should use h2 for section heading", () => {
-      render(<PlanningChecklist items={mockItems} />);
+  it("remembers ticks per city across a remount", () => {
+    const first = render(<PlanningChecklist items={items} storageKey="ca-trinidad" />);
+    fireEvent.click(screen.getByLabelText(items[1]));
+    expect(JSON.parse(window.localStorage.getItem("quiver_checklist_ca-trinidad") ?? "[]")).toEqual([
+      false,
+      true,
+      false,
+    ]);
+    first.unmount();
 
-      const heading = screen.getByRole("heading", { name: "Planning Checklist" });
-      expect(heading.tagName).toBe("H2");
-    });
+    render(<PlanningChecklist items={items} storageKey="ca-trinidad" />);
+    expect(screen.getByLabelText(items[1])).toBeChecked();
+    expect(screen.getByLabelText(items[0])).not.toBeChecked();
   });
 
-  describe("Styling", () => {
-    it("should render as aside element", () => {
-      const { container } = render(<PlanningChecklist items={mockItems} />);
-
-      const aside = container.querySelector("aside");
-      expect(aside).toBeInTheDocument();
-    });
-
-    it("should apply card styling", () => {
-      const { container } = render(<PlanningChecklist items={mockItems} />);
-
-      const aside = container.querySelector("aside");
-      expect(aside?.className).toContain("rounded-xl");
-      expect(aside?.className).toContain("border");
-      expect(aside?.className).toContain("bg-slate-50");
-      expect(aside?.className).toContain("p-6");
-    });
-
-    it("should apply sky color to dash markers", () => {
-      const { container } = render(<PlanningChecklist items={mockItems} />);
-
-      const dash = container.querySelector("span.text-sky-600");
-      expect(dash).toBeInTheDocument();
-    });
-
-    it("should apply spacing between items", () => {
-      const { container } = render(<PlanningChecklist items={mockItems} />);
-
-      const list = container.querySelector("ul");
-      expect(list?.className).toContain("space-y-2");
-    });
+  it("keeps cities separate and survives a corrupted store", () => {
+    window.localStorage.setItem("quiver_checklist_ca-trinidad", "not json");
+    window.localStorage.setItem("quiver_checklist_ca-pacifica", JSON.stringify([true, true, true]));
+    render(<PlanningChecklist items={items} storageKey="ca-trinidad" />);
+    expect(screen.getByText("0 of 3 checked")).toBeInTheDocument();
   });
 
-  describe("Item Layout", () => {
-    it("should display items with flex layout", () => {
-      const { container } = render(<PlanningChecklist items={mockItems} />);
-
-      const listItem = container.querySelector("li");
-      expect(listItem?.className).toContain("flex");
-      expect(listItem?.className).toContain("items-start");
-      expect(listItem?.className).toContain("gap-2");
-    });
+  it("does not touch storage when no key is given", () => {
+    render(<PlanningChecklist items={items} />);
+    fireEvent.click(screen.getByLabelText(items[0]));
+    expect(window.localStorage.length).toBe(0);
   });
 
-  describe("Long Item Text", () => {
-    it("should handle long item text without breaking", () => {
-      const longItem =
-        "This is a very long checklist item that contains a lot of text and should still render properly without any issues in the component layout";
-      render(<PlanningChecklist items={[longItem]} />);
+  it("signs off when everything is ticked and can start over", () => {
+    render(<PlanningChecklist items={items} storageKey="ca-trinidad" />);
+    expect(screen.queryByText(/from the sand/)).toBeNull();
+    for (const item of items) fireEvent.click(screen.getByLabelText(item));
 
-      expect(screen.getByText(longItem)).toBeInTheDocument();
-    });
-  });
+    expect(screen.getByText("All ticked. Now go look at it from the sand.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
 
-  describe("Special Characters", () => {
-    it("should handle items with special characters", () => {
-      const specialItems = [
-        "Check 5-day forecast & tide charts",
-        "Water temp: ~60°F (wear 4/3mm wetsuit)",
-        "Sunrise @ 6:30am - prime session window",
-      ];
-      render(<PlanningChecklist items={specialItems} />);
-
-      specialItems.forEach((item) => {
-        expect(screen.getByText(item)).toBeInTheDocument();
-      });
-    });
+    expect(screen.queryByText(/from the sand/)).toBeNull();
+    expect(screen.getByText("0 of 3 checked")).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem("quiver_checklist_ca-trinidad") ?? "[]")).toEqual([
+      false,
+      false,
+      false,
+    ]);
   });
 });

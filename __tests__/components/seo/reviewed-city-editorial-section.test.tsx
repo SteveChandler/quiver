@@ -38,6 +38,26 @@ describe("ReviewedCityEditorialSection", () => {
     expect(screen.queryByTestId("reviewed-city-editorial-photo")).toBeNull();
   });
 
+  it("shows the city photo with the beach name as alt text and the creator as credit", () => {
+    render(
+      <ReviewedCityEditorialSection
+        editorial={editorial}
+        photo={{
+          src: "https://upload.wikimedia.org/wikipedia/commons/2/25/Trinidad-ca-state-beach.jpg",
+          beachId: "tsb",
+          title: "Trinidad-ca-state-beach.jpg",
+          creator: "TrinidadMike",
+          creatorUrl: null,
+          licenseCode: "Public domain",
+          licenseUrl: null,
+        }}
+        photoAlt="Trinidad State Beach"
+      />,
+    );
+    expect(screen.getByRole("img", { name: "Trinidad State Beach" })).toBeInTheDocument();
+    expect(screen.getByText(/Photo · TrinidadMike · Public domain/)).toBeInTheDocument();
+  });
+
   it("gives the actionable guidance the strongest emphasis", () => {
     render(<ReviewedCityEditorialSection editorial={editorial} />);
     const guidance = screen.getByText(/Treat posted closures as authoritative/);

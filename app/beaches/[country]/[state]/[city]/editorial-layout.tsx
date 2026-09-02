@@ -31,6 +31,7 @@ import type { LocationPageParams } from "./city-page-utils";
 import { SITE_ORIGIN } from "./city-page-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ReviewedCityEditorialSection } from "@/components/seo/reviewed-city-editorial-section";
+import type { CityEditorialPhoto } from "@/lib/data/server/city-editorial-photo";
 
 interface EditorialLayoutProps {
   params: LocationPageParams;
@@ -43,6 +44,7 @@ interface EditorialLayoutProps {
   bestTimeToSurfUrl?: string;
   siblingCities?: TopCityInState[];
   surfReport?: CitySurfReportSummary | null;
+  editorialPhoto?: CityEditorialPhoto | null;
 }
 
 export function EditorialLayout({
@@ -56,6 +58,7 @@ export function EditorialLayout({
   bestTimeToSurfUrl,
   siblingCities,
   surfReport,
+  editorialPhoto,
 }: EditorialLayoutProps) {
   const surfSpots = transformBeachesToSurfSpots(beaches);
   const topSpot = beaches[0];
@@ -174,7 +177,15 @@ export function EditorialLayout({
           </div>
         </header>
 
-        <ReviewedCityEditorialSection editorial={editorial} />
+        <ReviewedCityEditorialSection
+          editorial={editorial}
+          photo={editorialPhoto}
+          photoAlt={
+            editorialPhoto
+              ? beaches.find((beach) => beach.id === editorialPhoto.beachId)?.name
+              : undefined
+          }
+        />
 
         {/* Surf Report Today — live conditions hero */}
         {surfReport && surfReport.beaches.length > 0 && (
@@ -257,7 +268,10 @@ export function EditorialLayout({
         )}
 
         {/* Planning Checklist */}
-        <PlanningChecklist items={editorial.planning_checklist} />
+        <PlanningChecklist
+          items={editorial.planning_checklist}
+          storageKey={`${params.state}-${params.city}`}
+        />
 
         {/* FAQ Section for SEO */}
         <FAQSection items={cityFaqs} locationName={displayCityName} />
