@@ -693,7 +693,10 @@ function getWavePunchiness(beach: Beach): number | null {
   });
 }
 
-async function fetchIncludedBeachCandidates(includeBeachIds: string[] | undefined): Promise<Beach[]> {
+async function fetchIncludedBeachCandidates(
+  includeBeachIds: string[] | undefined,
+  allowRecommendationIneligible: boolean,
+): Promise<Beach[]> {
   const uniqueIds = Array.from(new Set(includeBeachIds ?? [])).slice(0, MAX_INCLUDED_BEACH_IDS);
   if (uniqueIds.length === 0) return [];
 
@@ -709,8 +712,13 @@ async function fetchIncludedBeachCandidates(includeBeachIds: string[] | undefine
   }
 
   const byId = new Map(
-    ((data ?? []) as unknown as Beach[])
-      .filter((beach) => beach?.id && beach.is_private !== true)
+    ((data ?? []) as unknown as Array<Beach & { recommendation_eligible?: boolean }>)
+      .filter(
+        (beach) =>
+          beach?.id &&
+          beach.is_private !== true &&
+          (allowRecommendationIneligible || beach.recommendation_eligible !== false),
+      )
       .map((beach) => [beach.id, beach])
   );
 
@@ -816,7 +824,7 @@ async function buildCustomSpotCandidates(
   );
   if (nearestBeachIds.length === 0) return [];
 
-  const nearestBeaches = await fetchIncludedBeachCandidates(nearestBeachIds);
+  const nearestBeaches = await fetchIncludedBeachCandidates(nearestBeachIds, true);
   const beachesById = new Map(nearestBeaches.map((beach) => [beach.id, beach]));
 
   return spots
@@ -1491,6 +1499,7 @@ async function discoverSurfSpotsInner(
     discoveryMode = 'best-window',
     isPro = false,
     includeBeachIds,
+    allowRecommendationIneligibleIncludes = false,
   } = options;
   // `candidatePoolLimit` (how many beaches get forecasts fetched and scored) is
   // NOT `maxResults` (how many are shown). Shrinking the pool to the size of the
@@ -1516,7 +1525,10 @@ async function discoverSurfSpotsInner(
       userLocation,
       radiusMiles: requestedRadiusMiles,
     }),
-    fetchIncludedBeachCandidates(requestedIncludeBeachIds),
+    fetchIncludedBeachCandidates(
+      requestedIncludeBeachIds,
+      allowRecommendationIneligibleIncludes,
+    ),
     buildCustomSpotCandidates(userId, userLocation, radiusMiles),
   ]);
 

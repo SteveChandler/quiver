@@ -48,6 +48,7 @@ const RECOMMENDATION_BEACH_SELECT = `
   id,
   name,
   is_private,
+  recommendation_eligible,
   skill_level,
   preferred_tide_ft_min,
   preferred_tide_ft_max,
@@ -66,6 +67,7 @@ function hasDegradation(degradation: DegradationInfo): boolean {
 }
 
 type ApiSupabaseClient = Awaited<ReturnType<typeof createAPIServerClient>>;
+type RecommendationBeach = Beach & { recommendation_eligible?: boolean };
 
 
 function buildLegacyV1Candidates(
@@ -218,13 +220,13 @@ async function recommendationsHandler(
             RECOMMENDATION_CANDIDATE_LIMIT + WATER_QUALITY_HOLD_OVERFETCH,
           );
 
-        const beachRows = (beachResult.data || []) as Beach[];
+        const beachRows = (beachResult.data || []) as RecommendationBeach[];
         const beachById = new Map(beachRows.map((b) => [b.id, b]));
 
         beaches = orderedIds
           .map((id): BeachWithDistance | null => {
             const b = beachById.get(id);
-            if (!b) return null;
+            if (!b || b.recommendation_eligible === false) return null;
 
             const distance_meters = distanceById.get(id);
             const distance_km =
@@ -256,10 +258,12 @@ async function recommendationsHandler(
           RECOMMENDATION_CANDIDATE_LIMIT + WATER_QUALITY_HOLD_OVERFETCH,
         );
 
-      beaches = ((raw.data || []) as Beach[]).map((b) => ({
-        ...b,
-        distance_km: null,
-      }));
+      beaches = ((raw.data || []) as RecommendationBeach[])
+        .filter((b) => b.recommendation_eligible !== false)
+        .map((b) => ({
+          ...b,
+          distance_km: null,
+        }));
     }
 
     const postGisTime = Date.now() - postGisStart;

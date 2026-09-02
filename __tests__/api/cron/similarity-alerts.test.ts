@@ -672,6 +672,21 @@ describe("similarity-alerts cron — Plan V4", () => {
     )).toHaveLength(1);
   });
 
+  it("does not score a recommendation-ineligible configured beach", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+    store.beaches[0].recommendation_eligible = false;
+
+    const res = await GET(makeReq());
+
+    expect(res.status).toBe(200);
+    expect(mockScoreWindowWithComposite).not.toHaveBeenCalled();
+    expect(
+      mockRpc.mock.calls.filter(
+        (call: unknown[]) => call[0] === "try_insert_similarity_alert",
+      ),
+    ).toHaveLength(0);
+  });
+
   it("retains a held configured beach while excluding a held alternative", async () => {
     const heldAlternative = "550e8400-e29b-41d4-a716-446655440002";
     seedActiveProUser({ forecastsForBeach: HOME_BEACH });

@@ -137,6 +137,7 @@ interface BeachRow {
   id: string;
   name: string;
   slug: string | null;
+  recommendation_eligible?: boolean;
   lat: number | null;
   lon: number | null;
   timezone: string | null;
@@ -728,6 +729,7 @@ async function buildCandidateBeaches(
         "id",
         "name",
         "slug",
+        "recommendation_eligible",
         "lat",
         "lon",
         "timezone",
@@ -758,6 +760,7 @@ async function buildCandidateBeaches(
   // the worker self-reject the payload (which would burn a queue slot AND
   // log invalid_payload errors that look like data-shape regressions).
   const validBeaches = ((beaches ?? []) as BeachRow[]).filter((b) => {
+    if (b.recommendation_eligible === false) return false;
     const slug = b.slug;
     if (slug == null || slug === "") {
       console.warn(

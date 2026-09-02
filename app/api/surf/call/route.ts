@@ -45,6 +45,67 @@ type CanonicalSurfCallResponse = SpotSurfReportResult & {
   forecastAlignment?: SurfCallForecastAlignment;
 };
 
+type RecommendationGateBeach = Beach & {
+  recommendation_eligible?: boolean;
+  preference_model?: unknown;
+};
+
+function applyRecommendationEligibilityGate(
+  result: CanonicalSurfCallResponse,
+  beach: RecommendationGateBeach,
+): CanonicalSurfCallResponse {
+  if (beach.recommendation_eligible !== false) return result;
+
+  const preferenceModel =
+    beach.preference_model &&
+    typeof beach.preference_model === 'object' &&
+    !Array.isArray(beach.preference_model)
+      ? beach.preference_model as Record<string, unknown>
+      : null;
+  const reason =
+    typeof preferenceModel?.eligibility_reason === 'string'
+      ? preferenceModel.eligibility_reason
+      : 'This spot is available for forecast reference but is not eligible for a positive surf recommendation.';
+  const holdEpoch = `recommendation-ineligible:${beach.id}`;
+  const recommendationAvailability: RecommendationAvailability = {
+    state: 'available',
+    holdEpoch,
+  };
+
+  return {
+    ...result,
+    isTomorrow: false,
+    forecastContext: null,
+    report: {
+      ...result.report,
+      verdict: 'NO',
+      bestWindowStart: null,
+      bestWindowEnd: null,
+      windowMinutes: null,
+      shortWindow: false,
+      whySentence: reason,
+      score: null,
+      peakTime: null,
+      tiers: null,
+      recommendationAvailability,
+    },
+    sessionDecision: {
+      ...result.sessionDecision,
+      verdict: 'no',
+      decisionBasis: 'safety_override',
+      decisionBasisV2: 'safety_override',
+      reasonCode: 'invalid_candidate',
+      selection: null,
+      skillEligibility: {
+        ...result.sessionDecision.skillEligibility,
+        state: 'ineligible',
+        reasonCodes: ['invalid_candidate'],
+      },
+      holdEpoch,
+    },
+  };
+}
+
 function retryableDiscoveryResponse(error: unknown): NextResponse {
   const candidateCode =
     error && typeof error === 'object' && 'code' in error
@@ -259,6 +320,7 @@ async function surfCallHandler(
     .select(
       'id, name, slug, lat, lon, city, state, country, region, ' +
       'timezone, break_type, skill_level, cdip_station, cdip_eligible, ' +
+      'recommendation_eligible, ' +
       'wind_offshore_deg, wind_offshore_tol_deg, ' +
       'wind_cross_shore_ok_kt, wind_onshore_bad_kt, ' +
       'max_wind_onshore_mph, max_wind_any_mph, ' +
@@ -280,7 +342,7 @@ async function surfCallHandler(
       { status: 404 }
     );
   }
-  const typedBeach = beach as unknown as Beach;
+  const typedBeach = beach as unknown as RecommendationGateBeach;
 
   let profileExperience: SkillLevel | null = null;
   try {
@@ -336,6 +398,7 @@ async function surfCallHandler(
         candidatePoolLimit: 1,
         ...(forecastAt ? { forecastAt } : {}),
         includeBeachIds: [beachId],
+        allowRecommendationIneligibleIncludes: true,
         isPro,
         throwOnFailure: true,
       },
@@ -372,11 +435,12 @@ async function surfCallHandler(
         ),
       }
     : canonicalResult;
-  const result = applyForceVerdict(
+  const forcedResult = applyForceVerdict(
     scopedCanonicalResult,
     searchParams.get('_forceVerdict'),
     process.env.NODE_ENV !== 'production',
   ) as CanonicalSurfCallResponse;
+  const result = applyRecommendationEligibilityGate(forcedResult, typedBeach);
 
   return createSuccessResponse(result);
 }

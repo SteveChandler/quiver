@@ -204,7 +204,11 @@ async function fetchCandidatesForRadius(args: {
   }
 
   const byId = new Map<string, Beach>(
-    ((beachRows ?? []) as unknown as Beach[]).map((beach) => [beach.id, beach])
+    ((beachRows ?? []) as unknown as Array<
+      Beach & { recommendation_eligible?: boolean }
+    >)
+      .filter((beach) => beach.recommendation_eligible !== false)
+      .map((beach) => [beach.id, beach])
   );
 
   return publicRows

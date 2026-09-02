@@ -477,6 +477,8 @@ export interface SurfDiscoveryOptions {
    * includedRecommendations, but primary recommendations stay GPS-local.
    */
   includeBeachIds?: string[];
+  /** Allow a direct spot lookup to score a beach withheld from positive recommendation surfaces. */
+  allowRecommendationIneligibleIncludes?: boolean;
   /** Maximum concurrent forecast fetches (default: 5) */
   maxConcurrent?: number;
   /** Timeout per beach forecast in ms (default: 5000) */

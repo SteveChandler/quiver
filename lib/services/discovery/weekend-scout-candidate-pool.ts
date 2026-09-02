@@ -113,9 +113,16 @@ export async function buildWeekendScoutCandidatePool(
   }
 
   const beaches = await deps.fetchBeaches(rows.map((row) => row.id));
-  const safeBeaches = beaches.filter(
-    (candidate) => candidate.is_private !== true && candidate.deleted_at == null
-  );
+  const safeBeaches = beaches.filter((candidate) => {
+    const recommendationEligible = (
+      candidate as Beach & { recommendation_eligible?: boolean }
+    ).recommendation_eligible;
+    return (
+      candidate.is_private !== true &&
+      candidate.deleted_at == null &&
+      recommendationEligible !== false
+    );
+  });
   const beachesById = new Map(safeBeaches.map((candidate) => [candidate.id, candidate]));
   const candidates = rows.flatMap((row): WeekendScoutCandidate[] => {
     const candidate = beachesById.get(row.id);

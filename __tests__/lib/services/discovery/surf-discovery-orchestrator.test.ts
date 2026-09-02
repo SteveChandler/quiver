@@ -1498,6 +1498,41 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(result.includedRecommendations?.map((rec) => rec.beach.id)).toEqual(['beach-4']);
   });
 
+  test('excludes recommendation-ineligible includeBeachIds unless the request is a direct lookup', async () => {
+    const withheldBeach = { ...mockBeach4, recommendation_eligible: false };
+    mockState.candidatePoolResponse = {
+      candidates: [] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.includedBeachRows = [withheldBeach];
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: withheldBeach, forecasts: [{ ...mockForecast, beach_id: 'beach-4' }] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    const withheld = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      includeBeachIds: ['beach-4'],
+    });
+    const { batchFetchForecasts } = require('@/lib/services/discovery/forecast-batch-fetcher');
+    expect(withheld.includedRecommendations ?? []).toEqual([]);
+    expect(batchFetchForecasts).not.toHaveBeenCalled();
+
+    const direct = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      includeBeachIds: ['beach-4'],
+      allowRecommendationIneligibleIncludes: true,
+    });
+    expect(direct.includedRecommendations?.map((rec) => rec.beach.id)).toEqual([
+      'beach-4',
+    ]);
+  });
+
   test('keeps a high-scoring far includeBeachId out of primary recommendations', async () => {
     mockState.candidatePoolResponse = {
       candidates: [mockBeach1] as Beach[],
