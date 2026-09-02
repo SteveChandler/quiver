@@ -55,6 +55,7 @@ export function normalizeCountyNotifications(
   fetchedAt: string,
 ): CountyMatchSummary {
   const records: CountyAdvisoryRecord[] = [];
+  const seenRecordKeys = new Set<string>();
   const matchedSiteIdentifiers = new Set<string>();
   const allSiteIdentifiers = new Set<string>();
   const countsByType: Record<(typeof COUNTY_ADVISORY_TYPES)[number], number> = {
@@ -64,8 +65,11 @@ export function normalizeCountyNotifications(
   };
 
   for (const response of responses) {
-    countsByType[response.advisoryType] += response.sites.length;
     for (const site of response.sites) {
+      const recordKey = `${response.advisoryType}:${site.sourceSiteIdentifier}`;
+      if (seenRecordKeys.has(recordKey)) continue;
+      seenRecordKeys.add(recordKey);
+      countsByType[response.advisoryType] += 1;
       allSiteIdentifiers.add(site.sourceSiteIdentifier);
       const match = nearestBeach(site, beaches);
       if (match !== null) matchedSiteIdentifiers.add(site.sourceSiteIdentifier);
