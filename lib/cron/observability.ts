@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import {
   completeCronCheckIn,
@@ -52,6 +53,28 @@ function extractErrorMessage(summary: unknown, statusCode: number): string {
   if (top) return top;
   if (detail) return detail;
   return fallback;
+}
+
+function captureCronFailure(
+  route: string,
+  error: unknown,
+  context: { statusCode?: number; source: "response" | "throw" | "result" },
+): void {
+  try {
+    const captured = error instanceof Error ? error : new Error(String(error));
+    Sentry.captureException(captured, {
+      level: "error",
+      tags: {
+        cron_route: route,
+        cron_failure_source: context.source,
+      },
+      extra: {
+        status_code: context.statusCode ?? null,
+      },
+    });
+  } catch {
+    // Error capture is best effort and must never change cron behavior.
+  }
 }
 
 async function sweepStaleStartedRows(db: CronRunsTable): Promise<void> {
@@ -153,6 +176,24 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
     try {
       const response = await handler(request);
 
+      let summary: unknown = null;
+      if (authorized || runId) {
+        try {
+          const cloned = response.clone();
+          const text = await cloned.text();
+          if (text && text.length <= 8192) summary = JSON.parse(text);
+        } catch {
+          summary = null;
+        }
+      }
+      if (authorized && !response.ok) {
+        captureCronFailure(
+          route,
+          new Error(extractErrorMessage(summary, response.status)),
+          { source: "response", statusCode: response.status },
+        );
+      }
+
       if (checkInId && monitor) {
         await finishSentryCronCheckIn(
           checkInId,
@@ -163,16 +204,6 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
       }
 
       if (runId) {
-        let summary: unknown = null;
-        try {
-          const cloned = response.clone();
-          const text = await cloned.text();
-          if (text && text.length <= 8192) {
-            summary = JSON.parse(text);
-          }
-        } catch {
-          summary = null;
-        }
         try {
           const supabase = await createSupabaseServiceRoleClient();
           const db = supabase as unknown as CronRunsTable;
@@ -192,6 +223,7 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
       }
       return response;
     } catch (err) {
+      if (authorized) captureCronFailure(route, err, { source: "throw" });
       if (checkInId && monitor) {
         await finishSentryCronCheckIn(checkInId, monitor.slug, "error", Date.now() - start);
       }
@@ -247,8 +279,15 @@ export async function withCronObservability<T>(
 
   try {
     const result = await handler();
+    const status = options?.statusForResult(result) ?? "ok";
+    if (status === "error") {
+      captureCronFailure(
+        route,
+        options?.errorMessageForResult?.(result) ?? "Cron reported a degraded result",
+        { source: "result" },
+      );
+    }
     if (runId) {
-      const status = options?.statusForResult(result) ?? "ok";
       await db
         .from("cron_runs")
         .update({
@@ -265,6 +304,7 @@ export async function withCronObservability<T>(
     }
     return result;
   } catch (err) {
+    captureCronFailure(route, err, { source: "throw" });
     if (runId) {
       await db
         .from("cron_runs")

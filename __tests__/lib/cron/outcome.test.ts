@@ -11,6 +11,7 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 jest.mock("@sentry/nextjs", () => ({
+  captureException: jest.fn(),
   captureMessage: jest.fn(),
 }));
 
@@ -124,5 +125,11 @@ describe("withCronOutcome", () => {
         throw handlerError;
       }),
     ).rejects.toBe(handlerError);
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      handlerError,
+      expect.objectContaining({
+        tags: expect.objectContaining({ cron_outcome_status: "error" }),
+      }),
+    );
   });
 });
