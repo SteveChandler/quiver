@@ -1,11 +1,14 @@
 import {
+  detectAeoCitationRunAnomalies,
   discoverLatestAeoCitationReport,
   extractAhrefsAeoSummary,
   extractAiReferrers,
   inspectLlmsFiles,
   isVoidAeoCitationReport,
   parseAeoCitationReport,
+  validateAeoCitationReport,
 } from "@/lib/seo/agent-workflow/aeo-export";
+import type { AeoQuerySet } from "@/lib/seo/agent-workflow/aeo-export";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -91,6 +94,188 @@ describe("SEO workflow AEO export", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "aeo-citation-void-"));
     fs.writeFileSync(path.join(dir, "2026-08-17.md"), "# AEO Citation Tracking — 2026-08-17 (VOID)\n");
     expect(discoverLatestAeoCitationReport(dir)).toBeNull();
+  });
+
+
+  describe("report validation", () => {
+    const querySet: AeoQuerySet = {
+      brandDomains: ["quiversurf.app"],
+      segments: {
+        informational: ["best tide for surfing", "what is swell period"],
+        "product-brand": ["surfline alternative"],
+      },
+    };
+
+    function report(overrides: {
+      cited?: number;
+      surfaced?: string[];
+      notSurfaced?: string[];
+      omitSections?: string[];
+    } = {}): string {
+      const cited = overrides.cited ?? 1;
+      const surfaced = overrides.surfaced ?? ["surfline alternative"];
+      const notSurfaced = overrides.notSurfaced
+        ?? ["best tide for surfing", "what is swell period"];
+      const omit = overrides.omitSections ?? [];
+      const sections = [
+        "# AEO Citation Tracking — 2026-09-02",
+        "",
+        "| Segment | Cited | Total | Rate |",
+        "|---|---:|---:|---:|",
+        `| All queries | ${cited} | 3 | ${((cited / 3) * 100).toFixed(1)}% |`,
+        "",
+        omit.includes("Movement") ? "" : "## Movement\n\nPrevious run: all 0.0%. Method unchanged.\n",
+        omit.includes("surfaced")
+          ? ""
+          : `## Queries that surfaced\n\n${surfaced.map((query) => `- ${query}`).join("\n")}\n`,
+        omit.includes("notSurfaced") ? "" : `## Queries that did not surface\n\n${notSurfaced.join("; ")}\n`,
+        omit.includes("Action list") ? "" : "## Action list\n\n- [NO ACTION] Nothing to do.\n",
+      ];
+      return sections.filter((section) => section !== "").join("\n");
+    }
+
+    it("accepts a report whose counts match the queries it lists", () => {
+      expect(validateAeoCitationReport(report(), querySet)).toEqual({ ok: true, problems: [] });
+    });
+
+    it("rejects a rate that does not match the surfaced list", () => {
+      const result = validateAeoCitationReport(report({ cited: 3 }), querySet);
+      expect(result.ok).toBe(false);
+      expect(result.problems.join(" ")).toContain("claims 3 cited but the surfaced list names 1");
+    });
+
+    it("rejects a report that omits the query lists", () => {
+      const result = validateAeoCitationReport(
+        report({ omitSections: ["surfaced", "notSurfaced"] }),
+        querySet,
+      );
+      expect(result.ok).toBe(false);
+      expect(result.problems.join(" ")).toContain("Queries that surfaced");
+      expect(result.problems.join(" ")).toContain("appear in neither list");
+    });
+
+    it("requires a Capture points section when asked", () => {
+      expect(validateAeoCitationReport(report(), querySet, { requireCapturePoints: true }).problems)
+        .toEqual([expect.stringContaining("## Capture points")]);
+      expect(validateAeoCitationReport(report(), querySet).ok).toBe(true);
+    });
+
+    it("rejects a report missing the Movement or Action list sections", () => {
+      const result = validateAeoCitationReport(
+        report({ omitSections: ["Movement", "Action list"] }),
+        querySet,
+      );
+      expect(result.ok).toBe(false);
+      expect(result.problems).toEqual(expect.arrayContaining([
+        expect.stringContaining("## Movement"),
+        expect.stringContaining("## Action list"),
+      ]));
+    });
+
+    it("rejects a query listed as both surfaced and not surfaced", () => {
+      const result = validateAeoCitationReport(
+        report({ notSurfaced: ["best tide for surfing", "what is swell period", "surfline alternative"] }),
+        querySet,
+      );
+      expect(result.ok).toBe(false);
+      expect(result.problems.join(" ")).toContain("both surfaced and not surfaced");
+    });
+
+
+    it("matches a query split across a hard-wrapped line", () => {
+      const wrapped = report({
+        notSurfaced: ["best tide for surfing", "what is\nswell period"],
+      });
+      expect(validateAeoCitationReport(wrapped, querySet).ok).toBe(true);
+    });
+
+    it("does not match a short query inside a longer one", () => {
+      const overlapping: AeoQuerySet = {
+        brandDomains: ["quiversurf.app"],
+        segments: { "product-brand": ["surfline alternative", "free surfline alternative"] },
+      };
+      const markdown = [
+        "# AEO Citation Tracking — 2026-09-02",
+        "",
+        "| Segment | Cited | Total | Rate |",
+        "|---|---:|---:|---:|",
+        "| All queries | 1 | 2 | 50.0% |",
+        "",
+        "## Movement",
+        "",
+        "Method unchanged.",
+        "",
+        "## Queries that surfaced",
+        "",
+        "| Query | Segment |",
+        "| --- | --- |",
+        "| surfline alternative | product/brand |",
+        "",
+        "## Queries that did not surface",
+        "",
+        "free surfline alternative",
+        "",
+        "## Action list",
+        "",
+        "- [NO ACTION] Nothing to do.",
+      ].join("\n");
+
+      expect(validateAeoCitationReport(markdown, overlapping)).toEqual({ ok: true, problems: [] });
+    });
+
+    it("ignores prose in the surfaced section that names other queries", () => {
+      const withProse = report().replace(
+        "## Queries that surfaced\n",
+        "## Queries that surfaced\n\nUnlike last run, `best tide for surfing` did not appear.\n",
+      );
+      expect(validateAeoCitationReport(withProse, querySet).ok).toBe(true);
+    });
+
+    it("flags a run that surfaces nothing the previous valid run surfaced", () => {
+      const previous = report({ surfaced: ["best tide for surfing"], notSurfaced: ["what is swell period", "surfline alternative"] });
+      expect(detectAeoCitationRunAnomalies(report(), previous, querySet).join(" "))
+        .toContain("shares no query with the previous valid run");
+    });
+
+    it("does not flag a run that holds a query from the previous run", () => {
+      expect(detectAeoCitationRunAnomalies(report(), report(), querySet)).toEqual([]);
+    });
+
+    it("flags a swing over 20 points with no declared method change", () => {
+      const previous = report({ cited: 3, surfaced: ["surfline alternative", "best tide for surfing", "what is swell period"], notSurfaced: [] });
+      expect(detectAeoCitationRunAnomalies(report(), previous, querySet).join(" "))
+        .toContain("with no `## Method change` section");
+    });
+  });
+
+
+  it("holds every report written under the runbook to its format", () => {
+    const reportDir = path.join(process.cwd(), "docs/seo/reports/aeo-citation-tracking");
+    const querySet = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), "docs/seo/aeo-query-set.json"), "utf8"),
+    ) as AeoQuerySet;
+
+    // The runbook landed 2026-08-18. Reports before it predate the format.
+    const governed = fs.readdirSync(reportDir)
+      .filter((name) => /^\d{4}-\d{2}-\d{2}\.md$/.test(name))
+      .filter((name) => name >= "2026-08-18")
+      .sort();
+
+    expect(governed.length).toBeGreaterThan(0);
+
+    const failures: string[] = [];
+    for (const name of governed) {
+      const markdown = fs.readFileSync(path.join(reportDir, name), "utf8");
+      // A void run is retained as evidence of a bad method; it is not held to the format.
+      if (isVoidAeoCitationReport(markdown)) continue;
+      // Capture points became required 2026-09-02; earlier runs predate the rule.
+      const result = validateAeoCitationReport(markdown, querySet, {
+        requireCapturePoints: name >= "2026-09-02",
+      });
+      if (!result.ok) failures.push(`${name}: ${result.problems.join(" | ")}`);
+    }
+
+    expect(failures).toEqual([]);
   });
 
   it("parses the citation baseline table from an aeo-citation-tracking report", () => {

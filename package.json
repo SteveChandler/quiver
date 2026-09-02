@@ -133,6 +133,7 @@
     "seo:export:dataforseo": "node --import tsx scripts/seo/export-dataforseo.ts",
     "seo:export:competitors": "node --import tsx scripts/seo/export-competitors.ts",
     "seo:export:aeo": "node --import tsx scripts/seo/export-aeo.ts",
+    "seo:validate-aeo": "node --import tsx scripts/seo/validate-aeo-report.ts",
     "seo:store-snapshot": "node --import tsx scripts/seo/store-snapshot.ts",
     "seo:backlink-proxy": "node --import tsx scripts/seo/backlink-proxy.ts",
     "seo:outreach-digest": "node --import tsx scripts/seo/outreach-digest.ts",

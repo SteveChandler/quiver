@@ -170,6 +170,212 @@ export function parseAeoCitationReport(
   return { reportDate, reportPath, status, overall, segments };
 }
 
+export interface AeoQuerySet {
+  brandDomains: string[];
+  segments: Record<string, string[]>;
+}
+
+export interface AeoReportValidation {
+  ok: boolean;
+  problems: string[];
+}
+
+/**
+ * Queries from the canonical set that appear under a given `## heading`.
+ *
+ * Two things make naive substring matching wrong here. Reports hard-wrap, so a
+ * query is routinely split across a newline; and one canonical query is a
+ * substring of another (`surfline alternative` inside `free surfline
+ * alternative`), so a short query would match inside a longer one and land in
+ * both lists. Whitespace is normalized first, then matches are taken
+ * longest-first and consumed so a span can only be claimed once.
+ *
+ * `structuredOnly` restricts matching to table rows and list items. The
+ * surfaced list uses it: that section carries explanatory prose which may name
+ * other queries, and the surfaced list is precisely where an inflated run
+ * shows up, so it has to be a structured list rather than a paragraph.
+ */
+export function extractAeoSectionQueries(
+  markdown: string,
+  heading: string,
+  queries: string[],
+  options: { structuredOnly?: boolean } = {},
+): string[] {
+  const pattern = new RegExp(`^##\\s*${escapeRegExp(heading)}\\s*$`, "im");
+  const start = markdown.match(pattern);
+  if (start?.index === undefined) return [];
+
+  const body = markdown.slice(start.index + start[0].length);
+  const end = body.search(/^##\s/m);
+  const raw = end === -1 ? body : body.slice(0, end);
+
+  const lines = raw.split(/\r?\n/);
+  const source = options.structuredOnly
+    ? lines.filter((line) => /^\s*(\||[-*+]\s)/.test(line)).join("\n")
+    : raw;
+
+  let haystack = normalizeQueryText(source);
+  const found: string[] = [];
+
+  for (const query of [...queries].sort((a, b) => b.length - a.length)) {
+    const needle = normalizeQueryText(query);
+    if (!needle || !haystack.includes(needle)) continue;
+    found.push(query);
+    haystack = haystack.split(needle).join(" \u0000 ");
+  }
+
+  return queries.filter((query) => found.includes(query));
+}
+
+function normalizeQueryText(value: string): string {
+  return value.toLowerCase().replace(/[`*_]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Gate a run before it is published, not after it is reviewed.
+ *
+ * Three runs in seventeen days (2026-08-17, 2026-08-24, 2026-08-31) published a
+ * rate produced by enumerating pages that exist instead of results that
+ * appeared, and every one of them skipped the query lists that would have made
+ * the error visible. The decisive rule is the last one: the counts in the
+ * baseline table must equal the queries actually listed. A run that cannot name
+ * the queries it counted cannot report a rate.
+ */
+export function validateAeoCitationReport(
+  markdown: string,
+  querySet: AeoQuerySet,
+  options: { requireCapturePoints?: boolean } = {},
+): AeoReportValidation {
+  const problems: string[] = [];
+
+  if (!/^#\s*AEO Citation Tracking\s*[—-]\s*\d{4}-\d{2}-\d{2}/im.test(markdown)) {
+    problems.push("Missing or malformed H1 (expected `# AEO Citation Tracking — YYYY-MM-DD`).");
+  }
+
+  const required = ["Movement", "Queries that surfaced", "Queries that did not surface", "Action list"];
+  // Required from 2026-09-02. A run that only reports the rate concludes [NO ACTION] forever.
+  if (options.requireCapturePoints) required.push("Capture points");
+
+  for (const heading of required) {
+    if (!new RegExp(`^##\\s*${escapeRegExp(heading)}\\s*$`, "im").test(markdown)) {
+      problems.push(`Missing required section \`## ${heading}\`.`);
+    }
+  }
+
+  if (!/^##\s*Action list\s*$[\s\S]*?^-\s*\[(APPLY FIX|WRITE CONTENT|NO ACTION)\]/im.test(markdown)) {
+    problems.push("Action list has no `[APPLY FIX]`, `[WRITE CONTENT]`, or `[NO ACTION]` entry.");
+  }
+
+  const allQueries = Object.values(querySet.segments).flat();
+  const surfaced = extractAeoSectionQueries(markdown, "Queries that surfaced", allQueries, { structuredOnly: true });
+  const notSurfaced = extractAeoSectionQueries(markdown, "Queries that did not surface", allQueries);
+
+  const overlap = surfaced.filter((query) => notSurfaced.includes(query));
+  if (overlap.length > 0) {
+    problems.push(`Queries listed as both surfaced and not surfaced: ${overlap.join("; ")}.`);
+  }
+
+  const accounted = new Set([...surfaced, ...notSurfaced]);
+  const unaccounted = allQueries.filter((query) => !accounted.has(query));
+  if (unaccounted.length > 0) {
+    problems.push(
+      `${unaccounted.length} of ${allQueries.length} queries appear in neither list: ${unaccounted.join("; ")}.`,
+    );
+  }
+
+  const baseline = parseAeoCitationReport(markdown);
+  const rows = [
+    ...(baseline.overall ? [baseline.overall] : []),
+    ...baseline.segments,
+  ];
+  if (rows.length === 0) problems.push("Missing the citation baseline table.");
+
+  for (const row of rows) {
+    const segmentQueries = matchSegmentQueries(row.segment, querySet, allQueries);
+    if (!segmentQueries) continue;
+
+    if (row.total !== segmentQueries.length) {
+      problems.push(
+        `Baseline row "${row.segment}" reports a denominator of ${row.total}; the query set has ${segmentQueries.length}.`,
+      );
+    }
+
+    const counted = surfaced.filter((query) => segmentQueries.includes(query)).length;
+    if (row.cited !== counted) {
+      problems.push(
+        `Baseline row "${row.segment}" claims ${row.cited} cited but the surfaced list names ${counted}. `
+        + "The rate and the list must agree; a count with no queries behind it is not auditable.",
+      );
+    }
+  }
+
+  return { ok: problems.length === 0, problems };
+}
+
+/**
+ * Cheaper than the 20-point swing rule and fires where that rule does not.
+ *
+ * 2026-08-31 moved +16.6 points, stayed under the swing threshold, and was still
+ * unreproducible — its surfaced set shared nothing with the run before it. A run
+ * that surfaces none of the queries the previous valid run surfaced has almost
+ * certainly changed method rather than found a result.
+ */
+export function detectAeoCitationRunAnomalies(
+  markdown: string,
+  previousMarkdown: string | null,
+  querySet: AeoQuerySet,
+): string[] {
+  if (!previousMarkdown) return [];
+
+  const anomalies: string[] = [];
+  const allQueries = Object.values(querySet.segments).flat();
+  const surfaced = extractAeoSectionQueries(markdown, "Queries that surfaced", allQueries, { structuredOnly: true });
+  const previousSurfaced = extractAeoSectionQueries(previousMarkdown, "Queries that surfaced", allQueries, { structuredOnly: true });
+
+  if (surfaced.length > 0 && previousSurfaced.length > 0) {
+    const shared = surfaced.filter((query) => previousSurfaced.includes(query));
+    if (shared.length === 0) {
+      anomalies.push(
+        "Surfaced list shares no query with the previous valid run. Investigate the method "
+        + "before publishing: this is the signature of counting pages that exist rather than results that appeared.",
+      );
+    }
+  }
+
+  const current = parseAeoCitationReport(markdown).overall;
+  const previous = parseAeoCitationReport(previousMarkdown).overall;
+  const declaresMethodChange = /^##\s*Method change\s*$/im.test(markdown);
+
+  if (current && previous && !declaresMethodChange) {
+    const points = Math.abs(current.rate - previous.rate) * 100;
+    if (points > 20) {
+      anomalies.push(
+        `All-query rate moved ${points.toFixed(1)} points with no \`## Method change\` section. `
+        + "Per the runbook this is a defect in the run, not a finding.",
+      );
+    }
+  }
+
+  return anomalies;
+}
+
+function matchSegmentQueries(
+  segment: string,
+  querySet: AeoQuerySet,
+  allQueries: string[],
+): string[] | null {
+  if (/^all( queries)?$/i.test(segment)) return allQueries;
+  const normalized = segment.toLowerCase().replace(/\s*queries\s*$/, "").replace(/[^a-z]/g, "");
+  for (const [key, queries] of Object.entries(querySet.segments)) {
+    if (key.toLowerCase().replace(/[^a-z]/g, "") === normalized) return queries;
+  }
+  return null;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function discoverLatestAhrefsSnapshot(auditDir: string): string | null {
   const explicit = path.join(auditDir, "AHREFS-SCREENSHOT-INPUT.json");
   if (fs.existsSync(explicit)) return explicit;

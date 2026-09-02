@@ -100,19 +100,69 @@ Delta: +/- n points. [Method unchanged | Method change, see below]
 
 <limits, method qualifier, anything unusual>
 
+## Capture points
+
+<GSC-sourced, ranked by impressions; see "Capture points" below>
+
 ## Action list
 
 - [APPLY FIX] ...
 - [WRITE CONTENT] ...
 ```
 
-The H1, the three-row baseline table, the Movement section, and the Action list
-are required. Listing which queries surfaced is what makes a rate auditable; a
+The H1, the three-row baseline table, the Movement section, the Capture points
+section, and the Action list are required. Listing which queries surfaced is what makes a rate auditable; a
 bare percentage is not reviewable.
+
+## Capture points
+
+The 30 queries are a **tracking instrument**. They are pinned so the rate stays
+comparable, which also means the set can only ever tell you how the same 30
+queries did. It cannot find demand it does not ask about, and a run that reports
+only the rate will keep concluding `[NO ACTION]` forever while real opportunity
+sits outside the set.
+
+Every run must therefore also produce **capture points**: places where Quiver
+already has demand it is not converting. These come from Google Search Console,
+never from the query set, and they are reported in their own section so nobody
+attributes them to the citation proxy.
+
+### Method
+
+Read the newest `Brand-Vault/seo-audit/*/GSC-EXPORT.json` (28-day window). Rank
+candidates by impressions and classify each into exactly one of:
+
+| Kind | Test | Why it is a capture point |
+| --- | --- | --- |
+| **CTR gap** | position ≤ 10 and CTR < 1% | Already on page one. The ranking is won; the click is not. Cheapest possible fix. |
+| **Entity mismatch** | the page's title names a different entity than the query | A measurable sub-case of the CTR gap, and the one with a proven benchmark on this site. |
+| **Intent mismatch** | query intent and page type differ | The page ranks for a question it does not answer. |
+| **Page-two demand** | position > 20 with meaningful impressions | Real demand, no ranking. The only kind that may justify new work. |
+
+State impressions, clicks, CTR, and position for every capture point. A capture
+point without those four numbers is an opinion.
+
+### Rules
+
+- **Do not infer a ranking problem from the citation proxy.** The proxy shows
+  absence from a first page; it does not distinguish "ranks 11th" from "ranks
+  41st" from "ranks 8th and nobody clicks." Check position in GSC before
+  describing anything as a ranking problem. A page ranking 8th with 0% CTR is a
+  CTR problem and the opposite of unfixable.
+- **Separate the traffic prize from the audience value.** Water-temperature
+  queries are the largest impression pool on the site and the lowest-value
+  audience Quiver reaches (Plan 064: 0.14% signup rate). Report both numbers and
+  let Steven decide; never rank capture points by impressions alone.
+- **Prefer a benchmark already observed on this site** over a projection. Where
+  one exists, name it and the sample behind it.
 
 ## Action list rules
 
-Every run ends in an action list. Each line is one of:
+Every run ends in an action list. Each line must trace to a capture point or to
+a defect in the run itself. `[NO ACTION]` is for a segment that genuinely needs
+no response, not a resting state for the whole report: a run whose action list
+is entirely `[NO ACTION]` has almost certainly skipped the capture-points work
+above. Each line is one of:
 
 - `[APPLY FIX]` — a technical or on-page change, with the file or route named.
 - `[WRITE CONTENT]` — a page or section that does not exist yet, with the target
@@ -125,6 +175,21 @@ than two consecutive runs. One run of absence is noise.
 Product/brand queries where competitors dominate are generally not fixable by
 on-page work alone. Prefer `[NO ACTION]` with a note over inventing a content
 task for a query the site cannot realistically win.
+
+### Settled queries — do not emit an action, in any form
+
+Some queries have a standing decision behind them. They stay in the query set so
+the denominator holds at 30 and they still appear in the surfaced/not-surfaced
+lists, because that is measurement. They must **not** appear in the action list,
+including as `[NO ACTION]`, and the run must not restate the reasoning for them.
+A settled query is closed, not re-argued every week.
+
+| Query | Settled | Decision |
+| --- | --- | --- |
+| `how do machine learning surf forecasts work` | 2026-09-02, Steven | Closed. Do not raise, do not propose a page, do not re-explain why. |
+
+To reopen one, Steven says so. Nothing found in a run reopens it — not a rate
+move, not a competitor appearing, not a new article shipping.
 
 ## Boundaries
 
