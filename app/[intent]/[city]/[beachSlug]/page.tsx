@@ -58,6 +58,7 @@ import {
   getForecastIndexabilityForBeaches,
   isBeachSubPageIndexable,
 } from "@/lib/seo/forecast-indexability";
+import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 
 // Public beach data is cookie-free. Major-event hold transitions explicitly
@@ -426,17 +427,25 @@ export default async function GenericBeachDetailPage(props: PageProps) {
 
 async function DeferredRelatedGuidesSection({ beach }: { beach: Beach }) {
   const beachPath = buildBeachUrl(beach);
-  const [forecastSnapshots, waterTempData] = await Promise.all([
+  const [forecastSnapshots, waterTempData, tideData] = await Promise.all([
     getForecastIndexabilityForBeaches([
       { id: beach.id, timezone: beach.timezone ?? null },
     ]),
     getWaterTempMetaData(beach.id),
+    getTideMetaData(beach.id),
   ]);
+  const forecastSnapshot = forecastSnapshots.get(beach.id);
   const hasWaterTemp = isBeachSubPageIndexable(
-    forecastSnapshots.get(beach.id),
+    forecastSnapshot,
     `${beachPath}/water-temp`,
     { hasSubPageData: waterTempData.tempF != null },
   );
+  // Same availability test the tides sub-page applies in its own metadata
+  // (lib/utils/beach-sub-page-utils.tsx), so the link only appears when the
+  // target answers indexable.
+  const hasTides = isBeachSubPageIndexable(forecastSnapshot, `${beachPath}/tides`, {
+    hasSubPageData: Boolean(tideData.nextHighTime || tideData.nextLowTime),
+  });
 
   return (
     <RelatedGuidesSection
@@ -444,6 +453,7 @@ async function DeferredRelatedGuidesSection({ beach }: { beach: Beach }) {
       className="mt-10"
       hasLeastCrowded={false}
       hasWaterTemp={hasWaterTemp}
+      hasTides={hasTides}
     />
   );
 }

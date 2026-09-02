@@ -14,6 +14,7 @@ interface RelatedGuidesSectionProps {
   bestTimeToSurfUrl?: string;
   hasLeastCrowded?: boolean;
   hasWaterTemp?: boolean;
+  hasTides?: boolean;
 }
 
 /**
@@ -27,6 +28,7 @@ export async function RelatedGuidesSection({
   bestTimeToSurfUrl,
   hasLeastCrowded: knownHasLeastCrowded,
   hasWaterTemp,
+  hasTides,
 }: RelatedGuidesSectionProps) {
   // Only show if we have city data
   if (!beach.city) {
@@ -63,6 +65,7 @@ export async function RelatedGuidesSection({
     beach,
     hasLeastCrowded,
     hasWaterTemp,
+    hasTides,
     bestTimeToSurfUrl,
   });
   if (!linkSet) return null;
