@@ -140,3 +140,25 @@ describe("learn article SEO metadata", () => {
     )).toBe(true);
   });
 });
+
+describe("learn article imagery", () => {
+  it("gives every guide its own thumbnail so the hub does not repeat images", () => {
+    const seen = new Map<string, string>();
+    for (const article of learnArticles) {
+      const prior = seen.get(article.thumbnailImage);
+      expect(prior ? `${prior} and ${article.slug} share ${article.thumbnailImage}` : "").toBe("");
+      seen.set(article.thumbnailImage, article.slug);
+    }
+  });
+
+  it("points every hero and thumbnail at a file that exists in public/", () => {
+    // Static imports would be caught at build time; string paths are not.
+    const fs = jest.requireActual<typeof import("node:fs")>("node:fs");
+    const path = jest.requireActual<typeof import("node:path")>("node:path");
+    for (const article of learnArticles) {
+      for (const image of [article.heroImage, article.thumbnailImage]) {
+        expect(fs.existsSync(path.join(process.cwd(), "public", image))).toBe(true);
+      }
+    }
+  });
+});
