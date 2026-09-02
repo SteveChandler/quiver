@@ -89,7 +89,7 @@ describe("SEO workflow GSC refresh", () => {
     );
   });
 
-  it("promotes verified GSC URL Inspection indexing blockers to high-priority technical work", () => {
+  it("promotes GSC URL Inspection exclusions to high-priority indexing investigations", () => {
     const recommendations = analyzeGscRefresh(
       {
         prior7d: [],
@@ -124,11 +124,11 @@ describe("SEO workflow GSC refresh", () => {
         source: "gsc-indexing",
         priority: "high",
         canonicalPath: "/beaches/mexico",
-        summary: "Google indexing blocker: Discovered - currently not indexed.",
+        summary: "Google indexing investigation: Discovered - currently not indexed.",
       }),
       expect.objectContaining({
         id: "gsc-indexing-mexico-baja-california-rosarito-el-morro",
-        summary: "Google indexing blocker: URL is unknown to Google.",
+        summary: "Google indexing investigation: URL is unknown to Google.",
       }),
     ]));
   });

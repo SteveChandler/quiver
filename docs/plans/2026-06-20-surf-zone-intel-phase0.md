@@ -47,7 +47,7 @@
 | API route test pattern | `__tests__/api/cam-resolve.test.ts` (`@jest-environment node`, mock the api-wrapper to pass-through, build `NextRequest`) | |
 | E2E beach pattern | `e2e/beach-amenities.spec.ts` (`./fixtures/auth-fixture`, `navigateToBeach`, `setupErrorDetection`/`assertNoErrors`, `getByRole('tab',{name:/…/i})`) | |
 
-**Pilot beach UUIDs (resolved from `beaches-table-2026-06-19.json`, all San Diego, CA):**
+**Pilot beach UUIDs (resolved from the [dated beach-table snapshot](../../../Brand-Vault/marketing/growth-ops/data/beaches-table-2026-06-19.json), all San Diego, CA):**
 - `d291411d-d331-4bf1-ad1a-302da3c69de0` — La Jolla Shores
 - `4b0cf129-c706-4e24-8210-2219defc5ea7` — Scripps
 - `65809772-20bc-4009-b9b2-89c8ef3c4127` — Pacific Beach

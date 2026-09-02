@@ -164,7 +164,7 @@ function buildIndexingRecommendations(
       priority: "high" as const,
       canonicalPath,
       targetKeyword: status.label,
-      summary: `Google indexing blocker: ${coverageState}.`,
+      summary: `Google indexing investigation: ${coverageState}.`,
       evidence,
       status: "open" as const,
     }];
