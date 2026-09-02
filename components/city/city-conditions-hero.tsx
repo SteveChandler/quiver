@@ -216,7 +216,7 @@ export function CityConditionsHero({
             )}
             <Link
               href={beachUrl(best)}
-              className="inline-flex items-center text-sm font-medium text-[#F78E42] hover:underline"
+              className="inline-flex items-center text-sm font-medium text-[#8F4A13] underline-offset-2 hover:underline"
             >
               View Forecast →
             </Link>
