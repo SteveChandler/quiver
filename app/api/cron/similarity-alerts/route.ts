@@ -3,7 +3,8 @@
 // Plan V4 similarity-alerts cron — runs once daily at 13:00 UTC (~6am PT).
 //
 // Iterates DISTINCT eligible USERS (not rules). For each user:
-//  1. Builds a candidate beach pool: home_beach + favorites + nearby ≤ 30mi.
+//  1. Builds a candidate beach pool around the user's latest foreground
+//     location, bounded by their drive-range preference.
 //  2. Drops candidates whose `slug` is null/empty (defensive; payload schema
 //     requires non-empty beach_slug and a missing slug means the beach row
 //     was malformed at seed time — better to skip than to self-reject in
@@ -94,9 +95,13 @@ const SURFABILITY_FLOOR = 60;
  * genuinely different beach/window remains eligible inside this horizon.
  */
 const LOOKAHEAD_HOURS = 72;
+const MAX_NEARBY_RADIUS_MILES = 100;
 const NEARBY_RADIUS_MILES = 30;
 const NEARBY_LIMIT = 10;
 const FAVORITE_LIMIT = 5;
+const MILES_PER_DRIVE_MINUTE = 0.5;
+const MAX_LOCATION_AGE_MS = 24 * 60 * 60 * 1000;
+const MAX_LOCATION_FUTURE_SKEW_MS = 5 * 60 * 1000;
 const REJECT_START_HOUR_LOCAL = 22; // 10pm
 const REJECT_END_HOUR_LOCAL = 6; // 6am
 const DAYLIGHT_START_HOUR = 6;
@@ -115,8 +120,13 @@ interface EligibleUserRow {
   anchor_rule_id: string;
   home_beach_id: string;
   configured_beach_id: string;
-  timezone: string | null;
   experience_level: string | null;
+  max_drive_minutes: number | null;
+  location: {
+    lat: number;
+    lon: number;
+    timezone: string;
+  };
 }
 
 /**
@@ -494,14 +504,18 @@ async function loadEligibleUsers(
   const userIds = Array.from(new Set(ruleRows.map((r) => r.user_id)));
 
   // 2. Parallel flat lookups by user_id.
-  const [profilesRes, entitlementsRes] = await Promise.all([
+  const [profilesRes, entitlementsRes, locationsRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, home_beach_id, timezone, experience_level")
+      .select("id, home_beach_id, experience_level, max_drive_minutes")
       .in("id", userIds),
     supabase
       .from("user_entitlements")
       .select("user_id, is_pro, is_trialing, billing_issue, expires_at")
+      .in("user_id", userIds),
+    supabase
+      .from("user_location_snapshots")
+      .select("user_id, lat, lon, timezone, captured_at")
       .in("user_id", userIds),
   ]);
 
@@ -518,26 +532,30 @@ async function loadEligibleUsers(
     );
     throw entitlementsRes.error;
   }
+  if (locationsRes.error) {
+    console.error(`${CONTEXT_TAG} failed to load locations`, locationsRes.error);
+    throw locationsRes.error;
+  }
 
   // 3. Build lookup maps.
   const profileById = new Map<
     string,
     {
       home_beach_id: string | null;
-      timezone: string | null;
       experience_level: string | null;
+      max_drive_minutes: number | null;
     }
   >();
   for (const p of (profilesRes.data ?? []) as Array<{
     id: string;
     home_beach_id: string | null;
-    timezone: string | null;
     experience_level: string | null;
+    max_drive_minutes: number | null;
   }>) {
     profileById.set(p.id, {
       home_beach_id: p.home_beach_id,
-      timezone: p.timezone,
       experience_level: p.experience_level,
+      max_drive_minutes: p.max_drive_minutes,
     });
   }
 
@@ -562,6 +580,31 @@ async function loadEligibleUsers(
 
   // 4. JS-side join + entitlement filter + anchor selection.
   const now = Date.now();
+  const locationByUserId = new Map<
+    string,
+    { lat: number; lon: number; timezone: string }
+  >();
+  for (const location of (locationsRes.data ?? []) as Array<{
+    user_id: string;
+    lat: number;
+    lon: number;
+    timezone: string;
+    captured_at: string;
+  }>) {
+    const capturedAt = Date.parse(location.captured_at);
+    if (
+      !Number.isFinite(capturedAt) ||
+      capturedAt > now + MAX_LOCATION_FUTURE_SKEW_MS ||
+      now - capturedAt > MAX_LOCATION_AGE_MS
+    ) {
+      continue;
+    }
+    locationByUserId.set(location.user_id, {
+      lat: location.lat,
+      lon: location.lon,
+      timezone: location.timezone,
+    });
+  }
   const groups = new Map<
     string,
     Array<{
@@ -570,8 +613,9 @@ async function loadEligibleUsers(
       beach_id: string | null;
       auto_created_at: string | null;
       home_beach_id: string;
-      timezone: string | null;
       experience_level: string | null;
+      max_drive_minutes: number | null;
+      location: { lat: number; lon: number; timezone: string };
     }>
   >();
 
@@ -579,6 +623,8 @@ async function loadEligibleUsers(
     const profile = profileById.get(rule.user_id);
     if (!profile) continue;
     if (!profile.home_beach_id) continue;
+    const location = locationByUserId.get(rule.user_id);
+    if (!location) continue;
 
     const ent = entitlementByUserId.get(rule.user_id);
     if (!ent) continue;
@@ -598,8 +644,9 @@ async function loadEligibleUsers(
       beach_id: rule.beach_id,
       auto_created_at: rule.auto_created_at,
       home_beach_id: profile.home_beach_id,
-      timezone: profile.timezone,
       experience_level: profile.experience_level,
+      max_drive_minutes: profile.max_drive_minutes,
+      location,
     });
     groups.set(rule.user_id, list);
   }
@@ -620,8 +667,9 @@ async function loadEligibleUsers(
       anchor_rule_id: anchor.id,
       home_beach_id: anchor.home_beach_id,
       configured_beach_id: anchor.beach_id ?? anchor.home_beach_id,
-      timezone: anchor.timezone,
       experience_level: anchor.experience_level,
+      max_drive_minutes: anchor.max_drive_minutes,
+      location: anchor.location,
     });
   }
 
@@ -629,59 +677,49 @@ async function loadEligibleUsers(
 }
 
 /**
- * Builds candidate pool: home_beach (required) + favorites (≤5) + nearby (≤10).
- * Deduplicates by id. Returns hydrated beach rows.
+ * Builds the local recommendation pool from the latest foreground location.
+ * Hidden beaches and spots outside the configured drive range stay out.
  */
 async function buildCandidateBeaches(
   supabase: any,
   user: EligibleUserRow,
 ): Promise<BeachRow[]> {
-  const ids = new Set<string>([
-    user.home_beach_id,
-    user.configured_beach_id,
-  ]);
+  const radiusMiles = Math.min(
+    MAX_NEARBY_RADIUS_MILES,
+    user.max_drive_minutes == null
+      ? NEARBY_RADIUS_MILES
+      : Math.max(0, user.max_drive_minutes * MILES_PER_DRIVE_MINUTE),
+  );
+  if (radiusMiles === 0) return [];
 
-  const { data: favs } = await supabase
-    .from("favorite_beaches")
-    .select("beach_id")
-    .eq("user_id", user.user_id)
-    .order("rank", { ascending: true, nullsFirst: false });
+  const [favoritesRes, nearbyRes] = await Promise.all([
+    supabase
+      .from("favorite_beaches")
+      .select("beach_id")
+      .eq("user_id", user.user_id)
+      .order("rank", { ascending: true, nullsFirst: false }),
+    supabase.rpc("get_weekend_scout_candidates", {
+      input_user_id: user.user_id,
+      input_lat: user.location.lat,
+      input_lon: user.location.lon,
+      max_distance_meters: Math.round(radiusMiles * 1609.34),
+      limit_count: NEARBY_LIMIT + FAVORITE_LIMIT,
+    }),
+  ]);
+  if (nearbyRes.error) {
+    console.warn(`${CONTEXT_TAG} local candidate lookup failed`);
+    return [];
+  }
   const favoriteIds: string[] = [];
-  for (const r of (favs ?? []) as Array<{ beach_id: string }>) {
+  for (const r of (favoritesRes.data ?? []) as Array<{ beach_id: string }>) {
     if (!r.beach_id || favoriteIds.includes(r.beach_id)) continue;
     favoriteIds.push(r.beach_id);
-    ids.add(r.beach_id);
   }
-
-  // Nearby: need home beach coords first.
   const nearbyIds: string[] = [];
-  const { data: home } = await supabase
-    .from("beaches")
-    .select("id, lat, lon")
-    .eq("id", user.home_beach_id)
-    .maybeSingle();
-
-  const homeRow = home as
-    | { id: string; lat: number | null; lon: number | null }
-    | null;
-
-  if (homeRow?.lat != null && homeRow?.lon != null) {
-    const meters = Math.round(NEARBY_RADIUS_MILES * 1609.34);
-    const { data: nearby } = await supabase.rpc("get_nearby_beaches", {
-      input_lat: homeRow.lat,
-      input_lng: homeRow.lon,
-      max_distance_meters: meters,
-      limit_count: NEARBY_LIMIT + FAVORITE_LIMIT,
-    });
-    for (const r of (nearby ?? []) as Array<{ id: string; is_private?: boolean | null }>) {
-      if (r.id && !r.is_private) {
-        nearbyIds.push(r.id);
-        ids.add(r.id);
-      }
-    }
+  for (const r of (nearbyRes.data ?? []) as Array<{ id: string }>) {
+    if (r.id) nearbyIds.push(r.id);
   }
-
-  if (ids.size === 0) return [];
+  if (nearbyIds.length === 0) return [];
 
   const { data: beaches, error: beachErr } = await supabase
     .from("beaches")
@@ -707,7 +745,7 @@ async function buildCandidateBeaches(
         "tide_direction_sensitivity",
       ].join(", "),
     )
-    .in("id", Array.from(ids));
+    .in("id", nearbyIds);
 
   if (beachErr) {
     console.warn(`${CONTEXT_TAG} beach hydrate failed`, beachErr.message);
@@ -1000,7 +1038,9 @@ async function tryInsertAlert(
   user: EligibleUserRow,
   pick: RichScoredSlot,
 ): Promise<InsertOutcome> {
-  const userTz = resolveBeachTimezone(user.timezone || pick.beach_timezone);
+  const userTz = resolveBeachTimezone(
+    user.location.timezone || pick.beach_timezone,
+  );
   const alertDate = localDateInTz(pick.forecast_at, userTz);
   const now = Date.now();
   // Send the alert ~60 minutes before the matched window opens. If the
