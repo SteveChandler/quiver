@@ -107,12 +107,12 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
     name: "Northern California",
     title: "Northern California Surf Forecast — 7-Day Outlook",
     metaDescription:
-      "NorCal surf forecast with conditions from Santa Cruz to San Francisco. Plan your session with our 7-day outlook.",
+      "Northern California surf forecast from Santa Cruz through Humboldt County. Compare daily conditions and plan with Quiver's 7-day outlook.",
     states: ["ca"],
     latBounds: { min: NORCAL_SOCAL_LATITUDE_BOUNDARY },
-    centerLat: 37.5,
-    centerLon: -122.3,
-    zoom: 8,
+    centerLat: 38.7,
+    centerLon: -123.1,
+    zoom: 6,
   },
   "puerto-rico": {
     slug: "puerto-rico",

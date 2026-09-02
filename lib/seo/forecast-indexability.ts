@@ -35,6 +35,18 @@ export interface ForecastIndexabilityBeach {
 export interface SubPageDataAvailability {
   /** The sub-page's own dataset resolved to a real value this render. */
   hasSubPageData: boolean;
+  /** An explicit editorial rejection remains authoritative over live data. */
+  seoIndexable?: boolean | null;
+  editorialReviewedAt?: string | null;
+}
+
+export interface BeachSeoGate {
+  seoIndexable?: boolean | null;
+  editorialReviewedAt?: string | null;
+}
+
+export function isBeachExplicitlySeoRejected(gate?: BeachSeoGate): boolean {
+  return gate?.seoIndexable === false && Boolean(gate.editorialReviewedAt);
 }
 
 const FORECAST_COVERAGE_SELECT =
@@ -43,12 +55,17 @@ const BEACH_ID_BATCH_SIZE = 20;
 
 /**
  * One decision for the beach detail page, shared by the sitemap and the page's
- * generateMetadata so a submitted URL cannot answer with noindex.
+ * generateMetadata. Fresh forecast coverage may qualify a page, but an explicit
+ * editorial rejection remains authoritative.
  */
 export function evaluateBeachPageIndexability(
   snapshot: ForecastIndexabilitySnapshot | undefined,
   canonicalValid: boolean,
+  gate?: BeachSeoGate,
 ): IndexabilityDecision {
+  if (isBeachExplicitlySeoRejected(gate)) {
+    return { indexable: false, reason: "editorial-rejected" };
+  }
   if (!snapshot) return { indexable: false, reason: "forecast-missing" };
 
   return evaluateBeachForecastIndexability({
@@ -68,6 +85,7 @@ export function isBeachSubPageIndexable(
   canonicalPath: string,
   availability: SubPageDataAvailability,
 ): boolean {
+  if (isBeachExplicitlySeoRejected(availability)) return false;
   if (!snapshot) return false;
   if (!availability.hasSubPageData) return false;
 

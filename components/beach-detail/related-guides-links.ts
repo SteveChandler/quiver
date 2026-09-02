@@ -132,7 +132,7 @@ export function buildRelatedGuideLinks({
 
   const stateSlug = stateToSlug(beach.state);
   if (!isValidStateSlug(stateSlug)) {
-    return buildInternationalGuideLinks(beach);
+    return buildInternationalGuideLinks(beach, hasWaterTemp, hasTides);
   }
 
   const intentSlug = buildCitySlug(beach.city, stateSlug || beach.state || "", COLLISION_CITY_MAP);
@@ -188,7 +188,11 @@ export function buildRelatedGuideLinks({
   };
 }
 
-function buildInternationalGuideLinks(beach: Beach): RelatedGuideLinks | null {
+function buildInternationalGuideLinks(
+  beach: Beach,
+  hasWaterTemp?: boolean,
+  hasTides?: boolean,
+): RelatedGuideLinks | null {
   const countrySlug = countryToSlug(beach.country);
   const regionSlug = regionToSlug(beach.state);
   const beachPath = buildBeachUrl(beach);
@@ -205,7 +209,11 @@ function buildInternationalGuideLinks(beach: Beach): RelatedGuideLinks | null {
       description: "Regional surf spot guide",
       href: `/beaches/${countrySlug}/${regionSlug}`,
     },
-    guides: INTERNATIONAL_GUIDES.map((guide) => {
+    guides: INTERNATIONAL_GUIDES.filter((guide) => {
+      if (guide.key === "tides") return hasTides !== false;
+      if (guide.key === "water-temp") return hasWaterTemp !== false;
+      return true;
+    }).map((guide) => {
       if (guide.key === "tides") {
         return { ...guide, href: `${beachPath}/tides` };
       }

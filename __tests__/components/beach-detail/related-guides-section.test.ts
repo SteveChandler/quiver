@@ -38,6 +38,20 @@ describe("buildRelatedGuideLinks", () => {
     expect(links.guides.map((guide) => guide.href).join(" ")).not.toContain("/beginner/rosarito");
   });
 
+  it("omits withheld international beach subpages", () => {
+    const links = buildRelatedGuideLinks({
+      beach: makeBeach({}),
+      hasLeastCrowded: false,
+      hasTides: false,
+      hasWaterTemp: false,
+    });
+
+    expect(links?.guides.map((guide) => guide.href)).toEqual([
+      "/map",
+      "/beaches/mexico",
+    ]);
+  });
+
   it("keeps US intent guide links for valid US states", () => {
     const links = buildRelatedGuideLinks({
       beach: makeBeach({

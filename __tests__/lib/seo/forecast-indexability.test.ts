@@ -186,6 +186,16 @@ describe("isBeachSubPageIndexable", () => {
     ).toBe(false);
   });
 
+  it("does not index a sub-page when the beach is explicitly ineligible", () => {
+    expect(
+      isBeachSubPageIndexable(fresh, "/ca/trinidad/college-cove-ca/tides", {
+        hasSubPageData: true,
+        seoIndexable: false,
+        editorialReviewedAt: "2026-09-02T00:00:00.000Z",
+      }),
+    ).toBe(false);
+  });
+
   it("does not index when the forecast is stale", () => {
     expect(
       isBeachSubPageIndexable(
@@ -236,6 +246,23 @@ describe("evaluateBeachPageIndexability", () => {
       indexable: false,
       reason: "forecast-missing",
     });
+  });
+
+  it("keeps an explicit editorial rejection authoritative over a fresh forecast", () => {
+    expect(evaluateBeachPageIndexability(fresh, true, {
+      seoIndexable: false,
+      editorialReviewedAt: "2026-09-02T00:00:00.000Z",
+    })).toEqual({
+      indexable: false,
+      reason: "editorial-rejected",
+    });
+  });
+
+  it("does not treat the database default as an editorial rejection", () => {
+    expect(evaluateBeachPageIndexability(fresh, true, {
+      seoIndexable: false,
+      editorialReviewedAt: null,
+    }).indexable).toBe(true);
   });
 
   it("withholds stale and incomplete snapshots and invalid canonicals", () => {

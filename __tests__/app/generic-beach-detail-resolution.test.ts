@@ -752,7 +752,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     );
   });
 
-  it("does not let editorial rejection take a current forecast page down", async () => {
+  it("keeps an explicit editorial rejection noindex despite a current forecast", async () => {
     (getBeachesBySlug as jest.Mock).mockResolvedValue({
       success: true,
       data: [makeBeach({
@@ -775,6 +775,6 @@ describe("GenericBeachDetailPage slug resolution", () => {
       }),
     });
 
-    expect((metadata.robots as { index?: boolean } | undefined)?.index).not.toBe(false);
+    expect((metadata.robots as { index?: boolean } | undefined)?.index).toBe(false);
   });
 });

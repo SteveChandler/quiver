@@ -435,13 +435,19 @@ async function DeferredRelatedGuidesSection({ beach }: { beach: Beach }) {
   const hasWaterTemp = isBeachSubPageIndexable(
     forecastSnapshot,
     `${beachPath}/water-temp`,
-    { hasSubPageData: waterTempData.tempF != null },
+    {
+      hasSubPageData: waterTempData.tempF != null,
+      seoIndexable: beach.seo_indexable,
+      editorialReviewedAt: beach.editorial_reviewed_at,
+    },
   );
   // Same availability test the tides sub-page applies in its own metadata
   // (lib/utils/beach-sub-page-utils.tsx), so the link only appears when the
   // target answers indexable.
   const hasTides = isBeachSubPageIndexable(forecastSnapshot, `${beachPath}/tides`, {
     hasSubPageData: Boolean(tideData.nextHighTime || tideData.nextLowTime),
+    seoIndexable: beach.seo_indexable,
+    editorialReviewedAt: beach.editorial_reviewed_at,
   });
 
   return (
@@ -579,6 +585,10 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
     const decision = evaluateBeachPageIndexability(
       snapshots.get(beach.id),
       path === buildBeachUrl(beach) && !path.startsWith("/beach/"),
+      {
+        seoIndexable: beach.seo_indexable,
+        editorialReviewedAt: beach.editorial_reviewed_at,
+      },
     );
     return applyIndexabilityToMetadata(metadata, decision);
   } catch (error) {

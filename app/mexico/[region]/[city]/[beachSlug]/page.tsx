@@ -24,7 +24,10 @@ import {
   parseEditorialSources,
   type BeachEditorialDatabaseRecord,
 } from "@/lib/seo/indexability";
-import { evaluateBeachPageIndexability } from "@/lib/seo/forecast-indexability";
+import {
+  evaluateBeachPageIndexability,
+  isBeachExplicitlySeoRejected,
+} from "@/lib/seo/forecast-indexability";
 import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
 
 const baseUrl =
@@ -98,6 +101,10 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
       beach.lat != null && beach.lon != null
         ? getTimezoneFromCoords(beach.lat, beach.lon)
         : null;
+    const showBeachSeoSubPages = !isBeachExplicitlySeoRejected({
+      seoIndexable: beach.seo_indexable,
+      editorialReviewedAt: beach.editorial_reviewed_at,
+    });
 
     // Fetch surf report and nearby beaches in parallel
     const [surfReportResult, nearbyResult] = await Promise.all([
@@ -194,7 +201,11 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
               sourceBeachLat={beach.lat}
               sourceBeachLon={beach.lon}
             />
-          <RelatedGuidesSection beach={beach} />
+          <RelatedGuidesSection
+            beach={beach}
+            hasTides={showBeachSeoSubPages}
+            hasWaterTemp={showBeachSeoSubPages}
+          />
         </div>
       </>
     );
@@ -247,6 +258,10 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
     const decision = evaluateBeachPageIndexability(
       snapshots.get(beach.id),
       canonicalPath === buildBeachUrl(beach) && !canonicalPath.startsWith("/beach/"),
+      {
+        seoIndexable: beach.seo_indexable,
+        editorialReviewedAt: beach.editorial_reviewed_at,
+      },
     );
     return applyIndexabilityToMetadata(metadata, decision);
   }

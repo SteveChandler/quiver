@@ -1058,7 +1058,7 @@ describe("Sitemap Generation", () => {
       }
     });
 
-    it("uses forecast freshness for beach URLs instead of editorial approval", async () => {
+    it("omits beach and sub-page URLs after an explicit editorial rejection", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -1075,7 +1075,7 @@ describe("Sitemap Generation", () => {
       });
 
       const result = await sitemap();
-      expect(result.some((route) => route.url.endsWith("/ca/san-diego/forecast-authority"))).toBe(true);
+      expect(result.some((route) => route.url.includes("/ca/san-diego/forecast-authority"))).toBe(false);
     });
 
     it("omits a beach URL when its forecast coverage is stale", async () => {
@@ -1162,7 +1162,7 @@ describe("Sitemap Generation", () => {
       ).not.toBeUndefined();
     });
 
-    it("does not let editorial rejection veto a current forecast page", async () => {
+    it("omits a current forecast page after a reviewed editorial rejection", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [{
@@ -1180,7 +1180,7 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
-      expect(result.some((route) => route.url.includes("/swamis"))).toBe(true);
+      expect(result.some((route) => route.url.includes("/swamis"))).toBe(false);
     });
 
     it("should use hierarchical URL for beaches with complete location data", async () => {

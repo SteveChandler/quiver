@@ -594,6 +594,10 @@ export function buildBeachRoutes(
       const forecastIndexable = evaluateBeachPageIndexability(
         forecastSnapshot,
         !beachPath.startsWith("/beach/"),
+        {
+          seoIndexable: beach.seo_indexable,
+          editorialReviewedAt: beach.editorial_reviewed_at,
+        },
       ).indexable;
 
       const candidateRoutes = [
@@ -615,6 +619,8 @@ export function buildBeachRoutes(
                 : true;
               return isBeachSubPageIndexable(forecastSnapshot, subPagePath, {
                 hasSubPageData,
+                seoIndexable: beach.seo_indexable,
+                editorialReviewedAt: beach.editorial_reviewed_at,
               })
                 ? [
                     {

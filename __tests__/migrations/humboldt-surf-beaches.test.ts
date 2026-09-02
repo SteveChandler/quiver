@@ -2,11 +2,19 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 import { getStationForLocation } from "@/lib/services/noaa-coops/station-resolver";
+import { FORECAST_REGIONS } from "@/lib/data/forecast-regions";
 
 const migration = readFileSync(
   join(
     process.cwd(),
     "supabase/migrations/20260902093602_add_humboldt_surf_beaches.sql",
+  ),
+  "utf8",
+);
+const cityEditorialMigration = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260902195500_add_humboldt_city_editorial.sql",
   ),
   "utf8",
 );
@@ -91,6 +99,28 @@ describe("Humboldt surf beach catalog", () => {
       "Illustrative only; not the exact break or current conditions.",
     );
     expect(migration).toContain("photo_count <> 6");
+  });
+
+  it("adds reviewed, sourced city editorial without weakening beach-level holds", () => {
+    for (const city of ["trinidad", "samoa", "mckinleyville"]) {
+      expect(cityEditorialMigration).toContain(`'${city}'`);
+    }
+    expect(cityEditorialMigration).toContain("reviewed_count <> 3");
+    expect(cityEditorialMigration).toContain("Stay off the North Jetty");
+    expect(cityEditorialMigration).toContain(
+      "Clam Beach remains forecast-reference only",
+    );
+    expect(cityEditorialMigration).toContain(
+      "College Cove is not a current surf option",
+    );
+  });
+
+  it("frames the Northern California forecast through Humboldt County", () => {
+    const region = FORECAST_REGIONS["northern-california"];
+
+    expect(region.metaDescription).toContain("Humboldt County");
+    expect(region.centerLat).toBeGreaterThanOrEqual(38.5);
+    expect(region.zoom).toBeLessThanOrEqual(6);
   });
 
   it.each([

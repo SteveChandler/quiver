@@ -415,7 +415,11 @@ export async function generateBeachSubPageMetadata({
     const indexable = isBeachSubPageIndexable(
       snapshots.get(beach.id),
       subPagePath,
-      { hasSubPageData },
+      {
+        hasSubPageData,
+        seoIndexable: beach.seo_indexable,
+        editorialReviewedAt: beach.editorial_reviewed_at,
+      },
     );
     return applyIndexabilityToMetadata(metadata, {
       indexable,
