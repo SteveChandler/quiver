@@ -59,3 +59,39 @@ variants, so the generic `surf window` title did not match the visible demand.
 The next scoped test uses `La Jolla Surf Report Today: Tide, Wind & Swell` while
 preserving the seasonal H1 and content contract. Measure the first complete
 post-deployment 15-day window against this 0.0234% baseline before another edit.
+
+## 2026-09-02 `/learn` Batch
+
+Source: the 2026-09-02 AEO citation audit's capture points, reconciled live
+against GSC (page totals match `Brand-Vault/seo-audit/2026-08-31/GSC-EXPORT.json`
+exactly; the page×query view is much smaller because Google anonymizes long-tail
+queries, not because the totals are wrong). Baseline window: 2026-08-01 through
+2026-08-28. Daily series for the two high-volume pages is flat (~20 and ~11
+impressions/day across 45 days), so these are steady demand, not a spike.
+
+The 2026-05-31 click-oriented pass rewrote three of these pages and had a full
+three-month window; they stayed at 0–0.34% CTR. This batch is the second attempt
+on those, and it changes the approach: match the phrasing GSC actually shows
+rather than the phrasing we chose.
+
+| Page | 28d imp | 28d clicks | CTR | Pos | What changed | Why |
+| --- | ---: | ---: | ---: | ---: | --- | --- |
+| `/learn/is-it-safe-to-surf-after-rain` | 592 | 2 | 0.34% | 9.7 | Title now covers "in the rain" and "after it rains"; description ≤155; new `surfing-while-raining` section. | 16-month named queries: "in the rain" 114 imp vs "after rain" 49 imp. Page had no during-rain content, so the title could not honestly cover the larger phrasing without it. Google was already rewriting our title to "After It Rains". |
+| `/learn/how-are-waves-measured` | 311 | 0 | 0.00% | 7.5 | Title leads with "How Big Is 3 ft Surf?"; description cut from 306 to 150 chars. | Description was truncated mid-sentence in every SERP. Only 1.3% of impressions come from named queries; the named ones are all Hawaiian-scale-vs-face-height. |
+| `/learn/how-are-ocean-waves-formed` | 625 | 0 | 0.00% | 41.0 | Title leads with "What Causes Ocean Waves?"; description cut from 366 to 154 chars. | Named queries are "what causes/creates waves in the ocean" (~120 imp) over "how are waves formed" (~48). **Position 41 is a ranking problem; the title alone will not move it to page one.** Measure position, not CTR. |
+| `/learn/best-time-of-day-to-surf` | 97 | 0 | 0.00% | 10.0 | "Dawn Patrol vs Glass-Off" → "Why Morning Usually Wins". | Second attempt. Zero named queries; SERP winners answer in the title in plain language, ours used jargon. |
+| `/learn/groundswell-vs-wind-swell` | 30 | 0 | 0.00% | 9.4 | Query wording first ("Wind Swell vs Groundswell"), period hook. | Second attempt. Only named query is `wind swell vs ground swell` at 15.8. |
+| `/learn/beginner-breaks-santa-cruz` | 26 | 1 | 3.85% | 8.5 | Names the spots in the title; description cut from 303 to 151 chars. | Impressions jumped to 113 in the window ending 08-30. Named queries already matched the old title, so the change is the truncated description and the spot names. |
+| `/learn/how-long-to-learn-to-surf` | 16 | 0 | 0.00% | 9.8 | "By Milestone" hook; description cut from 283 to 148 chars. | Old description gave the entire timeline in the snippet — nothing left to click for. |
+
+Left alone, deliberately:
+
+- `/learn/how-does-water-temperature-affect-surfing` — 40 imp, 1 click, 6.8 (58/1 in the newer window). 1.7–2.5% is normal for that position; rewriting a working page with no evidence of a problem is how the La Jolla test lost 61.5%.
+- `/learn/how-quiver-calibrates-your-beach` — 6 impressions; nothing to measure. Its `machine learning surf forecast` keyword was removed because Quiver ships no live ML forecast.
+
+### Measurement
+
+- Measurable: `is-it-safe-to-surf-after-rain` (CTR), `how-are-waves-measured` (CTR), `how-are-ocean-waves-formed` (position). The other four are under 100 impressions/28d and cannot show a significant move; do not read a change on them as a result.
+- Hold: first complete 28-day GSC window after the deploy, evaluated against `dateRanges.last28d.end`. Watchlist entries set `monitorUntil` 2026-10-10; extend it if the deploy lands after 2026-09-08.
+- Compare against the 08-01→08-28 baselines above, not against the export current at the time of reading.
+- A CTR gain on `is-it-safe` with a position loss on the old "after rain" queries is a mixed result, not a win; check query ownership, not just the page total.
