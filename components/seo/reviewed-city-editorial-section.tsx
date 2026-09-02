@@ -50,6 +50,7 @@ export function ReviewedCityEditorialSection({
                 src={photo.src}
                 alt={photoAlt ?? photo.title ?? ""}
                 fill
+                priority
                 sizes="(min-width: 768px) 36vw, 100vw"
                 className="object-cover"
               />
