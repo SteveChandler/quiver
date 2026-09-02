@@ -41,40 +41,22 @@ const FORECAST_COVERAGE_SELECT =
   "beach_id, forecast_at, wave_height, updated_at, data_source";
 const BEACH_ID_BATCH_SIZE = 20;
 
-export interface BeachPageIndexabilityOptions {
-  /** The rendered path is the beach's canonical hierarchical URL. */
-  canonicalValid: boolean;
-}
-
 /**
- * One decision for the beach detail page itself, called by both the sitemap and
- * the page's generateMetadata.
- *
- * Until 2026-09-01 the page derived its robots tag from the live surf report
- * while the sitemap read this coverage snapshot. The two were evaluated on
- * different clocks and from different row selections, so a beach could be
- * listed in the sitemap while answering noindex, and flip back an hour later.
- * Ahrefs recorded exactly that on the 24 and 31 Aug crawls.
+ * One decision for the beach detail page, shared by the sitemap and the page's
+ * generateMetadata so a submitted URL cannot answer with noindex.
  */
 export function evaluateBeachPageIndexability(
   snapshot: ForecastIndexabilitySnapshot | undefined,
-  options: BeachPageIndexabilityOptions,
+  canonicalValid: boolean,
 ): IndexabilityDecision {
   if (!snapshot) return { indexable: false, reason: "forecast-missing" };
 
   return evaluateBeachForecastIndexability({
-    canonicalValid: options.canonicalValid,
+    canonicalValid,
     forecastAvailable: snapshot.forecastAvailable,
     selectedStateComplete: snapshot.selectedStateComplete,
     forecastFresh: snapshot.forecastFresh,
   });
-}
-
-export function isBeachPageIndexable(
-  snapshot: ForecastIndexabilitySnapshot | undefined,
-  options: BeachPageIndexabilityOptions,
-): boolean {
-  return evaluateBeachPageIndexability(snapshot, options).indexable;
 }
 
 /**

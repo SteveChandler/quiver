@@ -576,9 +576,10 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
     const snapshots = await getCachedForecastIndexabilitySnapshots([
       { id: beach.id, timezone: beach.timezone ?? null },
     ]);
-    const decision = evaluateBeachPageIndexability(snapshots.get(beach.id), {
-      canonicalValid: path === buildBeachUrl(beach) && !path.startsWith("/beach/"),
-    });
+    const decision = evaluateBeachPageIndexability(
+      snapshots.get(beach.id),
+      path === buildBeachUrl(beach) && !path.startsWith("/beach/"),
+    );
     return applyIndexabilityToMetadata(metadata, decision);
   } catch (error) {
     console.error("[GenericBeachDetailPage] Error generating metadata:", {

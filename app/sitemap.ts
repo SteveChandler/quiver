@@ -1,5 +1,4 @@
 import type { MetadataRoute } from "next";
-import { createHash } from "node:crypto";
 
 import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
 import {
@@ -50,12 +49,13 @@ import {
   type CityEditorialDatabaseRecord,
 } from "@/lib/seo/indexability";
 import {
-  isBeachPageIndexable,
+  evaluateBeachPageIndexability,
   isBeachSubPageIndexable,
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
 import {
   FORECAST_INDEXABILITY_REVALIDATE_SECONDS,
+  fingerprintBeachIds,
   getCachedForecastIndexabilitySnapshots,
 } from "@/lib/seo/forecast-indexability-cache";
 import { getBeachesForRegion } from "@/lib/utils/regional-forecast-utils";
@@ -202,15 +202,6 @@ function batchBeachIds(ids: readonly string[]): string[][] {
  * eliminate it, because the two caches do not turn over in phase. Closing the
  * window entirely would mean making the sub-pages dynamic.
  */
-const SUB_PAGE_REVALIDATE_SECONDS = FORECAST_INDEXABILITY_REVALIDATE_SECONDS;
-
-/** Stable collision-resistant cache key for a beach-id set. */
-function fingerprintBeachIds(beachIds: readonly string[]): string {
-  const digest = createHash("sha256")
-    .update([...beachIds].sort().join("\n"))
-    .digest("hex");
-  return `${beachIds.length}-${digest}`;
-}
 
 async function getBeachSubPageCoverage(
   beachIds: readonly string[],
@@ -226,7 +217,7 @@ async function getBeachSubPageCoverage(
       };
     },
     ["beach-sub-page-coverage", fingerprintBeachIds(beachIds)],
-    { revalidate: SUB_PAGE_REVALIDATE_SECONDS },
+    { revalidate: FORECAST_INDEXABILITY_REVALIDATE_SECONDS },
   );
 
   const { tideCoverage, waterTempCoverage } = await load();
@@ -600,10 +591,10 @@ export function buildBeachRoutes(
       const isUsa = isUsaCountry(beach.country) && isValidStateSlug(stateSlug);
       const hasDedicatedSubPages = isUsa || countrySlug === "mexico";
       const forecastSnapshot = forecastIndexabilityByBeachId.get(beach.id);
-      const forecastIndexable = isBeachForecastIndexableForSitemap(
+      const forecastIndexable = evaluateBeachPageIndexability(
         forecastSnapshot,
-        beachPath,
-      );
+        !beachPath.startsWith("/beach/"),
+      ).indexable;
 
       const candidateRoutes = [
         ...(forecastIndexable
@@ -638,15 +629,6 @@ export function buildBeachRoutes(
 
       return candidateRoutes;
     });
-}
-
-export function isBeachForecastIndexableForSitemap(
-  snapshot: ForecastIndexabilitySnapshot | undefined,
-  canonicalPath: string,
-): boolean {
-  return isBeachPageIndexable(snapshot, {
-    canonicalValid: !canonicalPath.startsWith("/beach/"),
-  });
 }
 
 /**

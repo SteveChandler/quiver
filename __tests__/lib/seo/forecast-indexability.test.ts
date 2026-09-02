@@ -1,7 +1,6 @@
 import {
   buildForecastIndexabilitySnapshot,
   evaluateBeachPageIndexability,
-  isBeachPageIndexable,
   isBeachSubPageIndexable,
   type ForecastCoverageRow,
   type ForecastIndexabilitySnapshot,
@@ -226,15 +225,14 @@ describe("evaluateBeachPageIndexability", () => {
   };
 
   it("indexes the beach page from a fresh snapshot on its canonical path", () => {
-    expect(evaluateBeachPageIndexability(fresh, { canonicalValid: true })).toEqual({
+    expect(evaluateBeachPageIndexability(fresh, true)).toEqual({
       indexable: true,
       reason: "forecast-approved",
     });
-    expect(isBeachPageIndexable(fresh, { canonicalValid: true })).toBe(true);
   });
 
   it("reports forecast-missing when there is no snapshot", () => {
-    expect(evaluateBeachPageIndexability(undefined, { canonicalValid: true })).toEqual({
+    expect(evaluateBeachPageIndexability(undefined, true)).toEqual({
       indexable: false,
       reason: "forecast-missing",
     });
@@ -242,13 +240,13 @@ describe("evaluateBeachPageIndexability", () => {
 
   it("withholds stale and incomplete snapshots and invalid canonicals", () => {
     expect(
-      evaluateBeachPageIndexability({ ...fresh, forecastFresh: false, isStale: true }, { canonicalValid: true }).reason,
+      evaluateBeachPageIndexability({ ...fresh, forecastFresh: false, isStale: true }, true).reason,
     ).toBe("forecast-stale");
     expect(
-      evaluateBeachPageIndexability({ ...fresh, selectedStateComplete: false }, { canonicalValid: true }).reason,
+      evaluateBeachPageIndexability({ ...fresh, selectedStateComplete: false }, true).reason,
     ).toBe("forecast-incomplete");
     expect(
-      evaluateBeachPageIndexability(fresh, { canonicalValid: false }).reason,
+      evaluateBeachPageIndexability(fresh, false).reason,
     ).toBe("invalid-canonical");
   });
 });

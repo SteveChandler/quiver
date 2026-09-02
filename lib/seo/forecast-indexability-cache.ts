@@ -7,17 +7,7 @@ import {
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
 
-/**
- * The beach page and its sub-pages are force-static with revalidate = 3600, so
- * the robots tag they serve is frozen for up to an hour. The sitemap is
- * force-dynamic and re-evaluated per request. Reading the coverage snapshot
- * through a cache on the same window puts every consumer on one clock: the
- * sitemap, the beach page's robots tag, and the sub-page robots tags all read
- * the same snapshot for the same hour instead of each racing the database.
- *
- * This bounds the disagreement to one revalidate period; it does not eliminate
- * it, because the page cache and the data cache do not turn over in phase.
- */
+/** Same window as the beach pages' revalidate; see app/sitemap.ts for why. */
 export const FORECAST_INDEXABILITY_REVALIDATE_SECONDS = 3600;
 
 /** Stable collision-resistant cache key for a beach-id set. */

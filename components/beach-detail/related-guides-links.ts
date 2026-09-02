@@ -116,11 +116,7 @@ type BuildRelatedGuideLinksInput = {
   beach: Beach;
   hasLeastCrowded: boolean;
   hasWaterTemp?: boolean;
-  /**
-   * True only when the beach's own /tides sub-page is indexable. Until
-   * 2026-09-01 no US beach page linked its tide chart, so every one of those
-   * sitemap URLs was an orphan in the Ahrefs crawl.
-   */
+  /** True only when the beach's own /tides sub-page is indexable. */
   hasTides?: boolean;
   bestTimeToSurfUrl?: string;
 };
@@ -158,7 +154,7 @@ export function buildRelatedGuideLinks({
 
   // The beach chart is added after the city tide page rather than swapped in,
   // so the city page keeps its inbound link.
-  if (hasTides === true) {
+  if (hasTides) {
     const cityTideIndex = guides.findIndex((guide) => guide.key === "tide");
     guides.splice(cityTideIndex + 1, 0, {
       key: "beach-tides",

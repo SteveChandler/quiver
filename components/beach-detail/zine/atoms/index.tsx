@@ -350,9 +350,7 @@ export function MapDoodle({
   return (
     <div
       style={{ position: "relative", width: "100%", height, background: "#EBDFC2", overflow: "hidden" }}
-      // The <img> carries the label when a real tile renders (crawlers and
-      // screen readers both read it there); the wrapper only stands in for the
-      // drawn fallback, which has no image element to label.
+      // The tile carries the label; the wrapper only labels the drawn fallback.
       role={hasRealMap ? undefined : "img"}
       aria-label={hasRealMap ? undefined : mapLabel}
     >
