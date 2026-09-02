@@ -7,9 +7,11 @@ import {
 } from "@/lib/data/cam-regions";
 
 describe("cam regions", () => {
-  it("routes Hawaii and Florida to their curated /surf-cams owners", () => {
+  it("routes Florida to its curated /surf-cams owner and keeps Hawaii on /cams", () => {
+    // GSC (28d to 2026-08-31): /cams/hawaii earned 152 impressions at pos 15 while
+    // /surf-cams/hawaii earned 1, so the directory page is the Hawaii canonical.
     expect(getCamRegionPath(getCamRegionBySlug("hawaii")!)).toBe(
-      "/surf-cams/hawaii",
+      "/cams/hawaii",
     );
     expect(getCamRegionPath(getCamRegionBySlug("florida")!)).toBe(
       "/surf-cams/florida",
@@ -22,7 +24,7 @@ describe("cam regions", () => {
   it("excludes redirecting regions from the indexable slug list", () => {
     const indexable = getIndexableCamRegionSlugs();
 
-    expect(indexable).not.toContain("hawaii");
+    expect(indexable).toContain("hawaii");
     expect(indexable).not.toContain("florida");
     expect(indexable).toContain("southern-california");
     expect(indexable.length).toBe(

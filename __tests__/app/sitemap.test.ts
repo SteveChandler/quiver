@@ -459,12 +459,13 @@ describe("Sitemap Generation", () => {
 
       expect(result.find((r) => r.url === `${baseUrl}/cams`)).not.toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/cams/southern-california`)).not.toBeUndefined();
-      // Hawaii and Florida are owned by curated /surf-cams pages; the /cams
-      // URLs permanently redirect there and must stay out of the sitemap.
-      expect(result.find((r) => r.url === `${baseUrl}/cams/hawaii`)).toBeUndefined();
+      // Florida is owned by the curated /surf-cams page; /cams/florida permanently
+      // redirects there and must stay out of the sitemap. Hawaii is the reverse:
+      // /cams/hawaii is canonical and the retired /surf-cams/hawaii must not appear.
       expect(result.find((r) => r.url === `${baseUrl}/cams/florida`)).toBeUndefined();
-      expect(result.find((r) => r.url === `${baseUrl}/surf-cams/hawaii`)).not.toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/surf-cams/florida`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/cams/hawaii`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/surf-cams/hawaii`)).toBeUndefined();
     });
   });
 

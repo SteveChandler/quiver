@@ -46,7 +46,6 @@ export const CAM_REGIONS: CamRegion[] = [
     slug: "hawaii",
     name: "Hawaii",
     states: ["HI"],
-    canonicalPath: "/surf-cams/hawaii",
     description:
       "Live surf cams across Oahu, Kauai, Maui, and the Big Island — watch Pipeline, Waikiki, and more.",
   },

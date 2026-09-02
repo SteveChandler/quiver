@@ -382,17 +382,20 @@ const nextConfig = {
         destination: "/cams",
         permanent: true,
       },
-      // Consolidated 2026-09-01: /cams/hawaii and /cams/florida duplicated the
-      // curated /surf-cams pages that already own those regional cam queries.
-      // lib/data/cam-regions.ts marks the same regions with canonicalPath.
-      {
-        source: "/cams/hawaii",
-        destination: "/surf-cams/hawaii",
-        permanent: true,
-      },
+      // Consolidated 2026-09-01: /cams/florida duplicated the curated
+      // /surf-cams/florida page that already owns the Florida cam queries.
+      // lib/data/cam-regions.ts marks the same region with canonicalPath.
       {
         source: "/cams/florida",
         destination: "/surf-cams/florida",
+        permanent: true,
+      },
+      // Hawaii runs the other way. GSC (28d to 2026-08-31): /cams/hawaii earned
+      // 152 impressions at pos 15, the curated /surf-cams/hawaii page earned 1.
+      // Google had already picked the directory page, so the curated page retired.
+      {
+        source: "/surf-cams/hawaii",
+        destination: "/cams/hawaii",
         permanent: true,
       },
       {

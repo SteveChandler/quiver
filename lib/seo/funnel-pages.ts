@@ -385,7 +385,7 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     src: "/images/seo-dioramas/surf-cams/florida/florida-choppy-sea-photo.webp",
     alt: "Florida surf cam beachbreak context",
   },
-  "/surf-cams/hawaii": {
+  "/cams/hawaii": {
     src: "/images/seo-dioramas/surf-cams/hawaii/hawaii-surf-check-photo.webp",
     alt: "Hawaii surf cam context",
   },
@@ -532,7 +532,7 @@ export function getSeoFunnelInternalLinks(
   for (const link of page.internalLinks) {
     const kind =
       link.kind ??
-      (link.href.startsWith("/surf-cams/")
+      (link.href.startsWith("/surf-cams/") || link.href.startsWith("/cams/")
         ? "cam"
         : link.href.startsWith("/surf-report/")
           ? "forecast"
@@ -1062,7 +1062,7 @@ const LONGBOARD_PAGES = [
     links: [
       { label: "Honolulu beginner surf", href: "/beginner/honolulu" },
       { label: "Best time to surf Honolulu", href: "/best-time-to-surf/honolulu" },
-      { label: "Hawaii surf cams", href: "/surf-cams/hawaii" },
+      { label: "Hawaii surf cams", href: "/cams/hawaii" },
       { label: "Open Quiver map", href: "/map?search=Honolulu" },
     ],
     spots: [
@@ -1076,7 +1076,7 @@ const LONGBOARD_PAGES = [
         href: "/hi/honolulu/waikiki-canoes",
         beachSlug: "waikiki-canoes",
       },
-      { label: "Hawaii cams", href: "/surf-cams/hawaii" },
+      { label: "Hawaii cams", href: "/cams/hawaii" },
     ],
     images: [
       [
@@ -1774,7 +1774,7 @@ const BEGINNER_PAGES = [
     namedBreaks: ["Waikiki", "Canoes", "Queens", "Diamond Head"],
     links: [
       { label: "Honolulu longboard guide", href: "/longboard/honolulu" },
-      { label: "Hawaii surf cams", href: "/surf-cams/hawaii" },
+      { label: "Hawaii surf cams", href: "/cams/hawaii" },
       { label: "Open Quiver map", href: "/map?search=Honolulu" },
     ],
     spots: [
@@ -1788,7 +1788,7 @@ const BEGINNER_PAGES = [
         href: "/hi/honolulu/waikiki-canoes",
         beachSlug: "waikiki-canoes",
       },
-      { label: "Hawaii cams", href: "/surf-cams/hawaii" },
+      { label: "Hawaii cams", href: "/cams/hawaii" },
     ],
     images: [
       [
@@ -2859,72 +2859,6 @@ const CAM_PAGES = [
         "Doheny State Beach shoreline for Orange County surf-cam planning",
         "Doheny - photo by Orange County Archives, CC BY 2.0",
       ),
-    ],
-  }),
-  buildCamPage({
-    slug: "hawaii",
-    locationName: "Hawaii",
-    title: "Hawaii Live Surf Cams | Quiver",
-    metaDescription:
-      "Watch Hawaii surf cams with Quiver forecast context for Waikiki, North Shore, Hanalei, Waimea, Pipeline, Canoes, and nearby spots.",
-    h1: "Hawaii Surf Cams",
-    intro:
-      "Hawaii cams help you see the real ocean energy, but the decision still needs wind, tide, swell direction, and skill-level honesty.",
-    camRegion: {
-      states: ["HI"],
-      regionSlugs: ["hawaii"],
-    },
-    sections: [
-      {
-        heading: "What to watch on Hawaii cams",
-        body: "Look for set spacing, reef exposure, channel traffic, and whether the lineup matches your ability. Warm water does not make heavy surf forgiving.",
-      },
-      {
-        heading: "Cam plus forecast",
-        body: "Use cams to verify the visual read, then use Quiver's forecast context to decide whether the next window is improving or getting less safe.",
-      },
-      {
-        heading: "Nearby planning links",
-        body: "For Waikiki-style waves, pair cams with Honolulu beginner and longboard guides. For heavier surf, make the safety filter the first decision.",
-      },
-    ],
-    links: [
-      { label: "Honolulu beginner surf", href: "/beginner/honolulu" },
-      { label: "Honolulu longboard guide", href: "/longboard/honolulu" },
-      { label: "Open Quiver map", href: "/map?search=Hawaii" },
-    ],
-    spots: [
-      {
-        label: "Waikiki Beach",
-        href: "/hi/honolulu/waikiki-beach",
-        beachSlug: "waikiki-beach",
-      },
-      {
-        label: "Waikiki Canoes",
-        href: "/hi/honolulu/waikiki-canoes",
-        beachSlug: "waikiki-canoes",
-      },
-      { label: "Hawaii map", href: "/map?search=Hawaii" },
-    ],
-    images: [
-      [
-        "hawaii-surf-check-photo",
-        "Surfer checking waves photo for Hawaii surf-cam planning",
-        "Surfer watching the lineup used as broad Hawaii camera planning context",
-        "Surf-check moment",
-      ],
-      [
-        "hawaii-aerial-swell-photo",
-        "Aerial swell photo for Hawaii camera context",
-        "Aerial view of swell lines moving toward a broad coastline",
-        "Aerial swell view",
-      ],
-      [
-        "hawaii-misty-lineup-photo",
-        "Misty lineup photo for Hawaii surf-cam context",
-        "Misty surf lineup used for Hawaii camera planning context",
-        "Misty lineup",
-      ],
     ],
   }),
   buildCamPage({
