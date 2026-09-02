@@ -176,7 +176,11 @@ export const createServerClient = async () => {
  *
  * Important:
  * - Use only for public read-only queries (no authenticated operations).
- * - Do NOT use createNoStoreFetch here — ISR relies on Next.js caching fetch requests.
+ * - Its fetch is cache: "no-store". A route that uses it without
+ *   `dynamic = "force-static"` is opted into dynamic rendering by that one
+ *   uncached fetch: on 2026-09-01 /surf-report/*, /surf-cams/*, the US Open
+ *   page, and the city hub all answered private/no-store on every request
+ *   (x-vercel-cache MISS, TTFB 1.2-4.9s) until force-static was added.
  * - A fresh client is created per call (no singleton) — anon key clients are stateless.
  */
 export const createPublicReadClient = () => {

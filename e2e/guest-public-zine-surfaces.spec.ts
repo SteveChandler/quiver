@@ -112,6 +112,11 @@ test.describe("Public zine surfaces", () => {
     await expect(
       page.getByRole("link", { name: /Hawaii/i }).first(),
     ).toBeVisible();
+    await expect(
+      page
+        .getByTestId("cam-guide-links")
+        .getByRole("link", { name: /San Diego surf cams/i }),
+    ).toHaveAttribute("href", "/surf-cams/san-diego");
   });
 
   test("Southern California cams region uses zine shell", async ({ page }) => {

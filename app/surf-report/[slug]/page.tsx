@@ -5,6 +5,8 @@ import { SeoLocationPage } from "@/components/seo/funnel/SeoLocationPage";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { getSeoFunnelPageByTypeAndSlug } from "@/lib/seo/funnel-pages";
 
+// The public read client fetches with no-store; see createPublicReadClient.
+export const dynamic = "force-static";
 export const revalidate = 900;
 
 interface PageProps {

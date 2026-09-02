@@ -64,6 +64,15 @@ describe("SEO legacy redirects", () => {
     expectPermanentRedirect(configSource, "/surf-cams", "/cams");
   });
 
+  it("permanently redirects duplicate cam region pages to their curated owners", () => {
+    const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
+
+    expectPermanentRedirect(configSource, "/cams/florida", "/surf-cams/florida");
+    // Hawaii runs the other way: the /cams directory page is the GSC winner.
+    expectPermanentRedirect(configSource, "/surf-cams/hawaii", "/cams/hawaii");
+    expect(configSource).not.toContain('source: "/cams/hawaii"');
+  });
+
   it("permanently redirects the retired Cocoa Beach Pier URL family", () => {
     const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
 

@@ -1,7 +1,7 @@
 # Requirements: Quiver Go-Live Campaign
 
 Defined: 2026-05-24
-Last updated: 2026-08-24
+Last updated: 2026-09-01
 Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/REQUIREMENTS-full-history.md](archive/2026-05-31-doc-cleanup/REQUIREMENTS-full-history.md)
 
 ## Current Goal
@@ -10,7 +10,7 @@ Track active requirements for the go-live/refactor and retention planning state 
 
 ## Current Status
 
-Phases 14-20 are complete. Phase 20.1 is the active urgent insertion for durable web beach ownership, conservative surf-intent qualification, exact web-to-native context, native recommendation continuity, watched calls, and useful decision-return evidence. Phase 21 remains planned after Phase 20.1 and adds production multi-forecaster ingestion and a bounded, auditable trusted-adjustment layer.
+Phases 14-20 are complete. Phase 20.1 implementation and web release are complete; replacement native build 17 is valid in App Store Connect, while physical-device proof and mature retention evidence remain. Phase 21 implementation is integrated and active only for Steven/Shapan. Its production integrity report is verified; production parity and outcome validation remain gated, and broad rollout stays dark.
 
 Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, release-quality, PBSC, Sentry, and controlled-refactor work is historical for this tracker unless a future task reopens it.
 
@@ -57,13 +57,13 @@ Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, relea
 
 ## Open Gaps
 
-- Phase 20.1 context, research, validation, and six executable plans are complete; implementation, approved production/device rollout, and mature retention evidence remain.
+- Phase 20.1 implementation and web release are complete; replacement native build 17 is valid in App Store Connect, while physical-device proof and mature retention evidence remain.
 - Current web ownership is too weak to determine whether broad utility visitors will return after following a beach.
 - The surf-qualified web-to-native funnel lacks complete handoff-through-first-open/context-resolution coverage.
-- Native Home continuity and all-user Week Scout stability need implementation/release verification against current build profiles and physical production telemetry.
+- Native Home continuity and Week Scout stability are in internal-TestFlight build 17 but need release verification and physical production telemetry.
 - Watch and alert adoption is too small to support a retention claim.
 - Native one-tap quick logging already exists and did not materially change product retention or sales; additional session-friction work is not an open Phase 20.1 hypothesis.
-- Phase 21 research and executable plans are complete; implementation and approval-gated production verification remain queued after Phase 20.1.
+- Phase 21 research and implementation are integrated. Exactly-two-account allowlist proof, the production integrity report, and canary activation passed on 2026-09-01. Production parity, local-scraper retirement, and outcome validation remain open under MFA-08; broad rollout stays dark.
 - Future candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Wrapper-internal helper collapse remains future work outside the completed Phase 13 checkpoint.
 
@@ -84,11 +84,10 @@ Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, relea
 
 ## Next Actions
 
-- Execute Phase 20.1 Plan 20.1-01 reuse audit, including a baseline audit of the already-shipped quick-log/session path and its non-impact.
-- Execute Plan 20.1-02 contracts without designing another outcome/session surface.
-- Execute Plans 20.1-03, 20.1-04, and 20.1-05 in parallel only after the contract wave passes.
-- Complete Plan 20.1-06 as a watched-call return, notification-quality, and causal evidence gate—not an outcome-feature implementation plan.
-- Resume Phase 21 after Phase 20.1 has an explicit expand, continued-pilot, revise, or rollback disposition.
+- Distribute the reviewed build containing native #312/#313 and the #309 deterministic two-arm release; then collect signed physical-device attribution evidence.
+- Keep Phase 20.1 delivery and Phase 21 forecast adjustments limited to the exact Steven/Shapan allowlist while production evidence accrues.
+- Complete Phase 20.1 Plan 20.1-06 only after the D1/D7 windows mature; do not claim retention lift from raw event counts.
+- Keep #309 `INCONCLUSIVE` until both experiment arms reach at least 50 eligible viewers with complete telemetry.
 - Preserve approval gates for deploys, production mutations, production flags, outbound sends, native releases, payment actions, and entitlement changes.
 
 ## Historical Notes

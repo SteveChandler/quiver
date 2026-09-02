@@ -35,6 +35,8 @@ export const metadata: Metadata = buildPageMetadata({
   ],
 });
 
+// The public read client fetches with no-store; see createPublicReadClient.
+export const dynamic = "force-static";
 export const revalidate = 1800;
 
 export default async function UsOpenOfSurfingForecastPage() {

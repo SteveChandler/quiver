@@ -86,6 +86,11 @@ describe("IndexNow URL collectors", () => {
 
     expect(urls.some((url) => url.startsWith(`${SITE_URL}/forecast/`))).toBe(true);
     expect(urls.some((url) => url.startsWith(`${SITE_URL}/cams/`))).toBe(true);
+    expect(urls).toContain(`${SITE_URL}/cams/southern-california`);
+    // Redirecting cam URLs must never be submitted to IndexNow.
+    expect(urls).not.toContain(`${SITE_URL}/cams/florida`);
+    expect(urls).not.toContain(`${SITE_URL}/surf-cams/hawaii`);
+    expect(urls).toContain(`${SITE_URL}/cams/hawaii`);
     expect(urls.some((url) => url.startsWith(`${SITE_URL}/guides/surfing-`))).toBe(true);
 
     for (const route of getIndexableSeoFunnelRoutes()) {

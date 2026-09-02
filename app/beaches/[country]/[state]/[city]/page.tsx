@@ -130,4 +130,6 @@ export default async function LocationPage(props: LocationPageProps) {
   );
 }
 
+// The public read client fetches with no-store; see createPublicReadClient.
+export const dynamic = "force-static";
 export const revalidate = 3600;

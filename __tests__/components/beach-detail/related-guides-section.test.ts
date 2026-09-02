@@ -80,6 +80,43 @@ describe("buildRelatedGuideLinks", () => {
     );
   });
 
+  it("links the beach tide chart when the tides sub-page is indexable", () => {
+    const links = buildRelatedGuideLinks({
+      beach: makeBeach({
+        slug: "3rd-avenue-jetty-belmar-nj",
+        city: "Belmar",
+        state: "NJ",
+        country: "USA",
+      }),
+      hasLeastCrowded: false,
+      hasTides: true,
+    });
+
+    const hrefs = links?.guides.map((guide) => guide.href) ?? [];
+    expect(hrefs).toContain("/nj/belmar/3rd-avenue-jetty-belmar-nj/tides");
+    // The city tide page keeps its link; the beach chart is added, not swapped.
+    expect(hrefs).toContain("/tide/belmar");
+    expect(hrefs.indexOf("/nj/belmar/3rd-avenue-jetty-belmar-nj/tides")).toBe(
+      hrefs.indexOf("/tide/belmar") + 1,
+    );
+  });
+
+  it("omits the beach tide chart link unless the sub-page is known indexable", () => {
+    const beach = makeBeach({
+      slug: "3rd-avenue-jetty-belmar-nj",
+      city: "Belmar",
+      state: "NJ",
+      country: "USA",
+    });
+
+    for (const hasTides of [false, undefined]) {
+      const links = buildRelatedGuideLinks({ beach, hasLeastCrowded: false, hasTides });
+      expect(links?.guides.map((guide) => guide.href)).not.toContain(
+        "/nj/belmar/3rd-avenue-jetty-belmar-nj/tides",
+      );
+    }
+  });
+
   it("keeps the city water-temperature link when eligibility is not supplied", () => {
     const links = buildRelatedGuideLinks({
       beach: makeBeach({

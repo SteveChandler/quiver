@@ -6,6 +6,7 @@ import {
   SEO_FUNNEL_PAGES,
   filterSeoCamBeaches,
   getIndexableSeoFunnelRoutes,
+  getIndexableSurfCamPages,
   getSeoFunnelInternalLinks,
   getSeoFunnelImagePrompts,
   getSeoFunnelPageByIntentRoute,
@@ -39,7 +40,6 @@ const REQUIRED_ROUTES = [
   "/surf-report/malibu-today",
   "/surf-cams/san-diego",
   "/surf-cams/orange-county",
-  "/surf-cams/hawaii",
   "/surf-cams/florida",
 ];
 
@@ -55,10 +55,23 @@ const REJECTED_SEO_IMAGE_SRCS = [
 ];
 
 describe("SEO funnel pages", () => {
+  it("exposes every indexable surf-cam page for cams hub linking", () => {
+    const paths = getIndexableSurfCamPages().map((page) => page.path);
+
+    expect(paths).toEqual([
+      "/surf-cams/san-diego",
+      "/surf-cams/orange-county",
+      "/surf-cams/florida",
+    ]);
+    expect(paths).not.toContain("/surf-cams/santa-cruz");
+    // Retired 2026-09-01: /cams/hawaii is the GSC winner, so the curated page redirects there.
+    expect(paths).not.toContain("/surf-cams/hawaii");
+  });
+
   it("defines the requested indexable routes and excludes Santa Cruz cams", () => {
     const routes = getIndexableSeoFunnelRoutes();
 
-    expect(routes).toHaveLength(28);
+    expect(routes).toHaveLength(27);
     expect(routes).toEqual(expect.arrayContaining(REQUIRED_ROUTES));
     expect(routes).not.toContain("/surf-cams/santa-cruz");
   });
@@ -136,7 +149,7 @@ describe("SEO funnel pages", () => {
       for (const link of links) {
         expect(link.href).not.toBe(page.path);
         expect(link.href).toMatch(
-          /^\/(?:[a-z]{2}\/[^/?#]+\/[^/?#]+(?:\/(?:tides|water-temp))?|surf-report\/[^/?#]+|surf-cams\/[^/?#]+|beginner\/[^/?#]+|longboard\/[^/?#]+|best-time-to-surf(?:\/[^/?#]+)?|map(?:\?search=[^#]+)?)$/,
+          /^\/(?:[a-z]{2}\/[^/?#]+\/[^/?#]+(?:\/(?:tides|water-temp))?|surf-report\/[^/?#]+|surf-cams\/[^/?#]+|cams\/[^/?#]+|beginner\/[^/?#]+|longboard\/[^/?#]+|best-time-to-surf(?:\/[^/?#]+)?|map(?:\?search=[^#]+)?)$/,
         );
       }
     }
@@ -185,7 +198,7 @@ describe("SEO funnel pages", () => {
   it("resolves every configured SEO image file", () => {
     const prompts = getSeoFunnelImagePrompts();
 
-    expect(prompts).toHaveLength(84);
+    expect(prompts).toHaveLength(81);
     for (const { image } of prompts) {
       expect(
         existsSync(join(process.cwd(), "public", image.src.slice(1))),
@@ -341,14 +354,14 @@ describe("SEO funnel pages", () => {
       ({ image }) => image.assetType === "diorama",
     );
 
-    expect(prompts).toHaveLength(84);
+    expect(prompts).toHaveLength(81);
     for (const { image } of prompts) {
       expect(image.prompt).toContain("Use case: ads-marketing");
       expect(image.prompt).toContain("no text");
       expect(image.prompt).toContain("no logos");
     }
 
-    expect(surfCamPrompts).toHaveLength(12);
+    expect(surfCamPrompts).toHaveLength(9);
     for (const { image } of surfCamPrompts) {
       expect(image.assetType).toBe("photo");
       expect(image.prompt).toContain("real photo image");

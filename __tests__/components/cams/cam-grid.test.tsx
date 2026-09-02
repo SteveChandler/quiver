@@ -42,6 +42,36 @@ describe("CamGrid", () => {
     expect(link).toHaveAttribute("href", "/cams/southern-california");
   });
 
+  it("points a region owned by a curated surf-cams page at that owner", () => {
+    const floridaBeach: CamBeachWithRegion = {
+      ...makeBeach(3),
+      city: "Cocoa Beach",
+      state: "FL",
+      regionSlug: "florida",
+    };
+
+    render(<CamGrid beaches={[floridaBeach]} groupByRegion />);
+
+    expect(
+      screen.getByRole("link", { name: /view all/i }),
+    ).toHaveAttribute("href", "/surf-cams/florida");
+  });
+
+  it("keeps Hawaii on its canonical /cams directory page", () => {
+    const hawaiiBeach: CamBeachWithRegion = {
+      ...makeBeach(4),
+      city: "Honolulu",
+      state: "HI",
+      regionSlug: "hawaii",
+    };
+
+    render(<CamGrid beaches={[hawaiiBeach]} groupByRegion />);
+
+    expect(
+      screen.getByRole("link", { name: /view all/i }),
+    ).toHaveAttribute("href", "/cams/hawaii");
+  });
+
   it("singularizes the region link for a single cam", () => {
     render(<CamGrid beaches={[makeBeach(1)]} groupByRegion />);
 

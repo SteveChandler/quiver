@@ -37,9 +37,9 @@ import { cityToSlug, regionToSlug } from "@/lib/utils/beach-url-utils";
 import { slugifyAscii } from "@/lib/utils/text-utils";
 import { applyIndexabilityToMetadata } from "@/lib/seo/indexability";
 import {
-  getForecastIndexabilityForBeaches,
   isBeachSubPageIndexable,
 } from "@/lib/seo/forecast-indexability";
+import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-indexability-cache";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -402,7 +402,7 @@ export async function generateBeachSubPageMetadata({
       image: `/api/og/beach?slug=${beachSlug}`,
     });
     const metadata = { ...meta, title: { absolute: title } };
-    const snapshots = await getForecastIndexabilityForBeaches([
+    const snapshots = await getCachedForecastIndexabilitySnapshots([
       { id: beach.id, timezone: beach.timezone ?? null },
     ]);
     const hasSubPageData =

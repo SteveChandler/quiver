@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-08-25"
+last_updated: "2026-09-01"
 progress:
-  total_phases: 9
-  completed_phases: 7
-  total_plans: 43
-  completed_plans: 31
-  percent: 72
+  total_phases: 22
+  completed_phases: 20
+  total_plans: 42
+  completed_plans: 36
+  percent: 91
 ---
 
 # Project State
@@ -24,18 +24,21 @@ The native retention hypothesis is explicit: Quiver earns a return by rememberin
 
 Phase: 20.1  
 Plan: 20.1-06  
-Status: Executing — six of seven lanes merged to `main` in both repositories. Nothing is released:
-web `main` has not been promoted to `prod`, no native build/OTA is published, and three migrations
-remain unapplied. Plan 20.1-06 Tasks 1 and 2 are complete; Tasks 3 and 4 are blocked on a signed
-device and mature cohorts, both of which are Steven's gates. See
+Status: Executing — implementation and web release are complete. Web `prod` is at `360fe219`,
+the Phase 20.1 and native-analytics migrations are applied, and the corrected install-to-paid
+report passed before re-promotion. Authenticated watched-call shadow and install-attribution
+issuance/redemption smoke passed; delivery is enabled only for the exact Steven/Shapan allowlist.
+Native build 16 has the Phase 20.1 OTA; replacement build 1.0.3 (17), containing native #312/#313
+and BFR-08, is valid in App Store Connect as of 2026-09-01. Plan 20.1-06 Tasks 1
+and 2 are complete; Tasks 3 and 4 remain open. See
 `quiver/docs/release/phase-20-1-retention-loop-evidence.md`.
 
 **BFR-03, BFR-04, and BFR-05 are withdrawn.** The web follow / My Coast surface was removed on
 2026-08-25 before it ever reached a user, on Steven's call. The requirement disposition and the
 traffic evidence behind it are in the evidence document above.
 
-Progress: 20 of 22 roadmap phases complete. Phase 20.1 has **6 of 7** execution lanes merged
-(none released), with the seventh partially complete:
+Progress: 20 of 22 roadmap phases complete. Phase 20.1 has **6 of 7** execution lanes merged,
+with the seventh partially complete:
 
 ```text
 20.1-01 audit/reuse/ownership          merged
@@ -43,14 +46,20 @@ Progress: 20 of 22 roadmap phases complete. Phase 20.1 has **6 of 7** execution 
 20.1-02 shared contracts               merged
 20.1-03 web follow/My Coast            merged, then WITHDRAWN and removed 2026-08-25
 20.1-04 exact handoff                  merged
-20.1-05 native continuity/watch/return merged (BFR-08 not met — stability flag unset)
-20.1-06 evidence/rollout decision      Tasks 1-2 complete; Tasks 3-4 blocked
+20.1-05 native continuity/watch/return merged; build 17 valid in App Store Connect
+20.1-06 evidence/rollout decision      Tasks 1-2 complete; Tasks 3-4 open
 ```
 
-Merged is not released. Every lane above sits behind the promotion, migration, flag, and build
-gates listed in the evidence document.
+Merged is not equivalent to validated. Promotion, migrations, authenticated shadow smoke, and the
+binary processing are complete; physical-device evidence and mature cohorts remain.
 
-Phase 21 remains sequenced after Phase 20.1, but it is not a clean untouched future phase: its summaries describe uncommitted implementation in worktrees for 21-03/21-04 and completed read-only verification in 21-05 with rollout blocked. Preserve and reconcile those worktrees before adjacent edits.
+Phase 21 implementation is integrated and present on `prod` dark. PR #654 replaced the stale
+baseline-only comparison with a restricted current-serving projection, and the obsolete clean
+worktrees were retired with their branches preserved. Plan 21-05 remains partial: exactly-two-account
+allowlist proof, production integrity verification, and serving activation passed on 2026-09-01. The
+allowlist resolves to exactly Steven and Shapan; control remains excluded, stored baselines remain
+untouched, and serving is fail-closed outside those accounts. Broad rollout remains dark; production
+parity and outcome validation are still open.
 
 ## Active Requirements
 
@@ -70,7 +79,7 @@ Phase 21 remains sequenced after Phase 20.1, but it is not a clean untouched fut
 - Treat Home quick log, one-tap rating, session prefill, reminders, and full SessionForm as baseline/non-regression behavior, not a Phase 20.1 product surface or primary metric.
 - Preserve Phase 20 exact app-link, attribution, baseline, and QA foundations.
 - Preserve or explicitly retire unique branch/worktree work before touching overlapping files; merge state is not release truth.
-- Preserve Phase 21 trusted-forecast worktrees until their uncommitted changes have a recorded disposition.
+- Preserve Phase 21's fail-closed controls; do not infer canary activation from code or environment-variable names alone.
 - Preserve approval gates for deploys, production mutations, flags, outbound sends, native releases, App Store actions, payment, and entitlement changes.
 
 ## Open Gaps
@@ -85,26 +94,20 @@ Phase 21 remains sequenced after Phase 20.1, but it is not a clean untouched fut
 
 ### Cleanup train
 
-The exact local paths/references have not yet been verified for:
-
-- TD-01 `nearest-beach.ts`;
-- TD-02 stale startup prefetch;
-- TD-03 retired payoff card;
-- TD-04 retired forecast prototype;
-- TD-05 dormant Plan My Next Session policy stack.
-
-The connected GitHub view did not expose these exact candidates on pushed `main`, so no deletion may occur until the local branch/worktree and current-main reference graph are captured.
+TD-01, TD-02, TD-04, and TD-05 are merged. TD-03 remains explicitly deferred because no safe
+simulator lane was reserved. Do not re-run the completed cleanup slices.
 
 ### Inflight and release truth
 
-- `claude/tech-debt-audit-codex-973g1t` was not visible as a remote ref; locate its expected native worktree and preserve committed/uncommitted findings.
-- `quiver#605` remains the current `main -> prod` promotion and must resolve before Phase 20.1 web release work.
-- `feat/redeem-success-page` overlaps utility/app-CTA surfaces and needs retire/rebuild/cherry-pick disposition.
-- Native `main` and `release/ota-build16-main-parity-20260822` diverge; exact production/TestFlight build, runtime, channel, update ID, source commit, and flag value remain to be established.
-- `quiver-native#131` is binary-gated and far behind current `main`; rebase/rebuild or close before another binary train.
-- Post-merge native PR #156 still has production migration, web counterpart, and device gaps.
-- Unique stale branches still touch Home/BeachHero and Looking Ahead.
-- Signed HTTPS universal-link/App Store first-open recovery remains a physical-device validation lane.
+- Web `main` and `prod` are promoted through `118bd21e` / `360fe219`; the required migrations are applied.
+- Authenticated watched-call create/dedupe/withheld-delivery smoke and install-attribution issuance/redemption smoke passed. Delivery is enabled only for the exact two-account allowlist.
+- Native 1.0.3 build 17 was uploaded from `53fdcfc2`; App Store Connect accepted Apple upload `22db3dc0-19c9-45ed-8357-7f9fb1207ec6` as `VALID` with no upload warnings or errors. #312/#313 and BFR-08 still need physical production-device proof.
+- Build 17 is assigned to the internal TestFlight group, but the group's sole tester is still `INVITED`; physical evidence has not started. It also cannot start #309's two-arm cohort because build 17 hard-holds all assignments to `control`.
+- Android 1.0.3 (17) has a locally verified production-channel APK with the #312/#313 markers and production RevenueCat key. It is debug-signed for direct installation and is not Play-ready.
+- Phase 21 exact Steven/Shapan allowlist, integrity proof, and serving activation passed. Broad rollout is out of scope and remains dark.
+- The minimal #309 hold-release patch `c5ba30bc` merged through native PR #317 as `ecb5cd14`. A local Xcode archive/export from merged `main` produced Apple-Distribution-signed iOS 1.0.3 (18); the IPA passed bundle/version, App Store provisioning, production push, Associated Domains, production update-channel, RevenueCat, and denied-secret checks and is archived under `.quiver/artifacts/native-build-18/` with SHA-256 `18b7fb964813db17950c9342a7fcefbf905b1c8af7ebd43c49fa9329a1629125`. Android 1.0.3 (17) was also rebuilt locally from the same commit; its production-channel APK passed package/version, RevenueCat, denied-secret, and signing checks and is archived there with SHA-256 `c8d4df95a11dade05491692c6a222c52ade3476897ce9d5d4036250379ccc39b`. It is debug-signed for direct installation, not Play-ready. Superseded EAS Android jobs are terminal (`37be191d…` `CANCELED`; `2ba4fcec…` `ERRORED`), as is iOS retry `7c968798…` (`ERRORED`). Neither replacement artifact has been distributed. D1 requires at least 2 days and D7 at least 8 days after a replacement signed native release; #309 requires at least 50 eligible viewers per arm.
+- Dirty primary checkouts and patch-unique worktrees remain preserved. Post-merge cleanup reduced the cross-repo total from 34 registered worktrees to 12 by removing only merged or superseded trees after archiving their unique notes, screenshots, migrations, and binary Git patches under `.quiver/artifacts/worktree-reconciliation-20260901/`. The stale native-analytics web tree was retired because its migration lacked the released dedupe index and its report logic predates the repaired production contract; it was not replayed over `main`.
+- Local branch cleanup removed only unreferenced branches proven to be ancestors of `origin/main`; checked-out and unique branches were preserved. Remaining local refs are web 62, native 51, and Seaside 6. Merged remote branch candidates remain untouched because remote deletion is a separate external mutation.
 
 ## Decisions Already Made
 
@@ -133,22 +136,16 @@ The connected GitHub view did not expose these exact candidates on pushed `main`
 Lanes 20.1-01, 20.1-TD, 20.1-02, 20.1-03, 20.1-04, and 20.1-05 are all merged; 20.1-03 was then
 withdrawn and removed. Do not re-execute any of them. The remaining work is release and evidence:
 
-1. Land `chore/cut-my-coast-beach-follow` (removes the follow/My Coast surface, records the BFR-05
-   disposition).
-2. **Steven's gates, in this order:** promote web `main` → `prod`; apply the three remaining
-   unapplied migrations (`add_bfr_analytics_events`, `add_exact_handoff_install_attribution`,
-   `add_active_watched_call_identity`); set
-   `EXPO_PUBLIC_WEEK_SCOUT_STABILITY_ENABLED=true` in both `eas.json` profiles and
-   `.env.production`; publish an approved native build/OTA.
-3. Complete 20.1-06 Task 3 (signed physical-device validation) once a device is available.
-4. Complete 20.1-06 Task 4 (requirement disposition + rollout decision) once cohorts mature —
+1. Keep alert delivery bounded to the exact Steven/Shapan allowlist while production evidence accrues.
+2. Install internal-TestFlight build 17 on the intended physical device, then complete signed validation
+   for #312/#313, exact handoff, push attribution, Week Scout stability, and purchase recovery.
+3. Complete 20.1-06 Task 4 (requirement disposition + rollout decision) once cohorts mature —
    D1 needs ≥ 2 days, D7 needs ≥ 8 days after release.
-5. Resume Phase 21 only after its worktrees are reconciled and Phase 20.1 has an evidence-backed
-   disposition.
+4. Validate Phase 21 production parity and outcomes for only Steven/Shapan; keep broad rollout dark.
 
-Known dispositions that no later data can change: **BFR-03/04/05 withdrawn** (surface removed);
-**BFR-08 not met** (the stability flag is unset in every configuration source, so Week Scout
-stability is off in every shipped binary and OTA).
+Known dispositions that no later data can change: **BFR-03/04/05 withdrawn** (surface removed).
+BFR-08 is implemented and configured in build 17 but remains unverified until that binary is
+distributed and observed on physical production devices.
 
 ## Accumulated Context
 
@@ -157,7 +154,7 @@ stability is off in every shipped binary and OTA).
 - It was corrected after confirming one-tap sessions already existed and did not move the needle; watched-call return became the hypothesis.
 - `claude/tech-debt-audit-codex-973g1t` became a mandatory local/worktree audit lane.
 - TD-01 through TD-05 were added as a separate pre-implementation cleanup train with exact reference/test/rollback gates.
-- Phase 21 remains sequenced after Phase 20.1 while its existing uncommitted work is preserved.
+- Phase 21 implementation is integrated and active only for Steven/Shapan; production parity and outcome validation remain incomplete.
 
 ## Historical Notes
 

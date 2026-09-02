@@ -24,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildPageMetadata({
     title: "Surf Guides | Quiver",
     description:
-      "Regional surf guides covering Southern California, Hawaii, Florida, the Outer Banks, and more. Wave types, seasonal windows, water temps, and the best breaks in each region.",
+      "Regional surf guides for Southern California, Hawaii, Florida, the Outer Banks, and more: wave types, seasonal windows, water temps, and the best breaks.",
     path: "/guides",
     keywords: [
       "surf guides",

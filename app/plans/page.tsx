@@ -6,7 +6,7 @@ import { SITE_URL } from "@/lib/constants/seo";
 import { buildPageMetadata } from "@/lib/seo/meta";
 
 const PLANS_DESCRIPTION =
-  "Start Quiver Pro with 14 days free on iPhone. Custom spots are free; Pro adds personal forecasting, board-aware picks, similarity alerts, and offline session saving.";
+  "Quiver Pro: 14 days free on iPhone. Custom spots stay free; Pro adds personal forecasting, board-aware picks, similarity alerts, and offline session saving.";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Quiver Pro Plans | 14 Days Free on iPhone",

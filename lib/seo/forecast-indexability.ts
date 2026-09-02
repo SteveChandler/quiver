@@ -1,6 +1,9 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getStalenessThreshold } from "@/lib/config/forecast-staleness";
-import { evaluateBeachForecastIndexability } from "@/lib/seo/indexability";
+import {
+  evaluateBeachForecastIndexability,
+  type IndexabilityDecision,
+} from "@/lib/seo/indexability";
 import {
   getLocalDateString,
   resolveBeachTimezone,
@@ -37,6 +40,24 @@ export interface SubPageDataAvailability {
 const FORECAST_COVERAGE_SELECT =
   "beach_id, forecast_at, wave_height, updated_at, data_source";
 const BEACH_ID_BATCH_SIZE = 20;
+
+/**
+ * One decision for the beach detail page, shared by the sitemap and the page's
+ * generateMetadata so a submitted URL cannot answer with noindex.
+ */
+export function evaluateBeachPageIndexability(
+  snapshot: ForecastIndexabilitySnapshot | undefined,
+  canonicalValid: boolean,
+): IndexabilityDecision {
+  if (!snapshot) return { indexable: false, reason: "forecast-missing" };
+
+  return evaluateBeachForecastIndexability({
+    canonicalValid,
+    forecastAvailable: snapshot.forecastAvailable,
+    selectedStateComplete: snapshot.selectedStateComplete,
+    forecastFresh: snapshot.forecastFresh,
+  });
+}
 
 /**
  * One predicate for beach tides/water-temp sub-pages, called by both the sitemap

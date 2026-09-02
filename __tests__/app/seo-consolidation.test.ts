@@ -29,6 +29,13 @@ const RETIRED = [
     to: "/learn/best-time-of-day-to-surf",
     dir: null,
   },
+  // 2026-09-01: /cams/hawaii (152 GSC impressions, pos 15) beat the curated
+  // /surf-cams/hawaii page (1 impression), so the curated page retired into it.
+  {
+    from: "/surf-cams/hawaii",
+    to: "/cams/hawaii",
+    dir: null,
+  },
 ];
 
 describe("SEO consolidation", () => {

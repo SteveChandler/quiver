@@ -1,12 +1,11 @@
 import type { MetadataRoute } from "next";
-import { createHash } from "node:crypto";
 
 import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
 import {
   FORECAST_REGIONS,
   getAllForecastRegionSlugs,
 } from "@/lib/data/forecast-regions";
-import { getAllCamRegionSlugs } from "@/lib/data/cam-regions";
+import { getIndexableCamRegionSlugs } from "@/lib/data/cam-regions";
 import { getCitiesWithBestMonthsData } from "@/actions/city/best-time-actions";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
@@ -43,7 +42,6 @@ import {
   evaluateBeachIndexability,
   evaluateCityDataIntentIndexability,
   evaluateCityEditorialIndexability,
-  evaluateBeachForecastIndexability,
   isDataBackedCityIntent,
   toBeachEditorialInput,
   toCityEditorialInput,
@@ -51,10 +49,15 @@ import {
   type CityEditorialDatabaseRecord,
 } from "@/lib/seo/indexability";
 import {
-  getForecastIndexabilityForBeaches,
+  evaluateBeachPageIndexability,
   isBeachSubPageIndexable,
   type ForecastIndexabilitySnapshot,
 } from "@/lib/seo/forecast-indexability";
+import {
+  FORECAST_INDEXABILITY_REVALIDATE_SECONDS,
+  fingerprintBeachIds,
+  getCachedForecastIndexabilitySnapshots,
+} from "@/lib/seo/forecast-indexability-cache";
 import { getBeachesForRegion } from "@/lib/utils/regional-forecast-utils";
 
 const baseUrl = (
@@ -199,15 +202,6 @@ function batchBeachIds(ids: readonly string[]): string[][] {
  * eliminate it, because the two caches do not turn over in phase. Closing the
  * window entirely would mean making the sub-pages dynamic.
  */
-const SUB_PAGE_REVALIDATE_SECONDS = 3600;
-
-/** Stable collision-resistant cache key for a beach-id set. */
-function fingerprintBeachIds(beachIds: readonly string[]): string {
-  const digest = createHash("sha256")
-    .update([...beachIds].sort().join("\n"))
-    .digest("hex");
-  return `${beachIds.length}-${digest}`;
-}
 
 async function getBeachSubPageCoverage(
   beachIds: readonly string[],
@@ -223,7 +217,7 @@ async function getBeachSubPageCoverage(
       };
     },
     ["beach-sub-page-coverage", fingerprintBeachIds(beachIds)],
-    { revalidate: SUB_PAGE_REVALIDATE_SECONDS },
+    { revalidate: FORECAST_INDEXABILITY_REVALIDATE_SECONDS },
   );
 
   const { tideCoverage, waterTempCoverage } = await load();
@@ -378,7 +372,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     beachesResponse.success && beachesResponse.data ? beachesResponse.data : [];
   const [forecastIndexabilityByBeachId, beachSubPageCoverage] =
     await Promise.all([
-      getForecastIndexabilityForBeaches(
+      getCachedForecastIndexabilitySnapshots(
         allBeaches.map((beach) => ({ id: beach.id, timezone: beach.timezone })),
       ),
       getBeachSubPageCoverage(allBeaches.map((beach) => beach.id)),
@@ -597,10 +591,10 @@ export function buildBeachRoutes(
       const isUsa = isUsaCountry(beach.country) && isValidStateSlug(stateSlug);
       const hasDedicatedSubPages = isUsa || countrySlug === "mexico";
       const forecastSnapshot = forecastIndexabilityByBeachId.get(beach.id);
-      const forecastIndexable = isBeachForecastIndexableForSitemap(
+      const forecastIndexable = evaluateBeachPageIndexability(
         forecastSnapshot,
-        beachPath,
-      );
+        !beachPath.startsWith("/beach/"),
+      ).indexable;
 
       const candidateRoutes = [
         ...(forecastIndexable
@@ -635,20 +629,6 @@ export function buildBeachRoutes(
 
       return candidateRoutes;
     });
-}
-
-export function isBeachForecastIndexableForSitemap(
-  snapshot: ForecastIndexabilitySnapshot | undefined,
-  canonicalPath: string,
-): boolean {
-  if (!snapshot) return false;
-
-  return evaluateBeachForecastIndexability({
-    canonicalValid: !canonicalPath.startsWith("/beach/"),
-    forecastAvailable: snapshot.forecastAvailable,
-    selectedStateComplete: snapshot.selectedStateComplete,
-    forecastFresh: snapshot.forecastFresh,
-  }).indexable;
 }
 
 /**
@@ -1040,8 +1020,9 @@ function getCamRoutes(): MetadataRoute.Sitemap {
     lastModified: SITEMAP_CONTENT_VERSIONS.camDirectory,
   });
 
-  // Regional cam pages (e.g., /cams/southern-california)
-  const camRegionSlugs = getAllCamRegionSlugs();
+  // Regional cam pages (e.g., /cams/southern-california). Regions owned by a
+  // curated /surf-cams page redirect and are listed via the funnel routes.
+  const camRegionSlugs = getIndexableCamRegionSlugs();
   for (const slug of camRegionSlugs) {
     routes.push({
       url: `${baseUrl}/cams/${slug}`,
