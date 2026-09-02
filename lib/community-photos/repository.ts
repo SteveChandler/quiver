@@ -30,7 +30,7 @@ interface CommunityPhotoClient {
     from(bucket: string): {
       upload(
         path: string,
-        bytes: Buffer,
+        bytes: Blob,
         options: {
           contentType: string;
           cacheControl: string;
@@ -194,11 +194,15 @@ export async function completeCommunityPhotoUpload({
     if (!image) throw new CommunityPhotoError("invalid_image");
     const upload = await database.storage
       .from("community-spot-photos")
-      .upload(reservation.storagePath, image.bytes, {
-        contentType: image.contentType,
-        cacheControl: "31536000",
-        upsert: false,
-      });
+      .upload(
+        reservation.storagePath,
+        new Blob([new Uint8Array(image.bytes)], { type: image.contentType }),
+        {
+          contentType: image.contentType,
+          cacheControl: "31536000",
+          upsert: false,
+        },
+      );
     if (upload.error) {
       await failCommunityPhotoUpload({
         photoId: reservation.photoId,
