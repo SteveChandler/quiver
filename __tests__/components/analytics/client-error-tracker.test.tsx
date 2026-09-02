@@ -1,11 +1,16 @@
 import React from "react";
 import { render, waitFor } from "@testing-library/react";
 import { ClientErrorTracker } from "@/components/providers/client-error-tracker";
+import * as Sentry from "@sentry/nextjs";
 
 const mockTrack = jest.fn();
 
 jest.mock("@/hooks/use-track-event", () => ({
   useTrackEvent: () => ({ track: mockTrack }),
+}));
+
+jest.mock("@sentry/nextjs", () => ({
+  captureException: jest.fn(),
 }));
 
 describe("ClientErrorTracker", () => {
@@ -93,6 +98,15 @@ describe("ClientErrorTracker", () => {
           source: "unhandled_rejection",
         }),
       });
+      expect(Sentry.captureException).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "Unexpected fetch failure" }),
+        expect.objectContaining({
+          tags: { client_error_source: "unhandled_rejection" },
+          extra: expect.objectContaining({
+            route: "/hi/honolulu/diamond-head-cliffs",
+          }),
+        }),
+      );
     });
   });
 });

@@ -203,6 +203,18 @@ export async function withCronOutcome<T>(
       durationMs: Date.now() - startedAt,
       errorMessage: message,
     });
+    try {
+      Sentry.captureException(error instanceof Error ? error : new Error(message), {
+        level: "error",
+        tags: {
+          cron_job: options.job,
+          cron_unit: options.unit,
+          cron_outcome_status: "error",
+        },
+      });
+    } catch {
+      // Error capture is best effort; the original handler error must survive.
+    }
     throw error;
   }
 }

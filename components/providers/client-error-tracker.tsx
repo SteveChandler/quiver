@@ -15,6 +15,7 @@
  */
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import type { ClientErrorMetadata } from "@/types/implicit-preferences";
 
@@ -90,9 +91,23 @@ export function ClientErrorTracker(): null {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const emit = (metadata: ClientErrorMetadata) => {
+    const emit = (error: unknown, metadata: ClientErrorMetadata) => {
       if (shouldIgnoreClientError(metadata)) return;
       if (!shouldEmit(Date.now())) return;
+      try {
+        Sentry.captureException(
+          error instanceof Error ? error : new Error(metadata.message),
+          {
+            tags: { client_error_source: metadata.source },
+            extra: {
+              route: metadata.route,
+              stack_top_frame: metadata.stack_top_frame ?? null,
+            },
+          },
+        );
+      } catch {
+        // Error capture must not interfere with the browser's native handler.
+      }
       // Fire-and-forget; useTrackEvent already swallows errors.
       void track("client_error", { metadata });
     };
@@ -106,7 +121,7 @@ export function ClientErrorTracker(): null {
         MAX_MESSAGE_LENGTH
       );
 
-      emit({
+      emit(event.error, {
         message: combined,
         stack_top_frame: firstStackFrame(event.error?.stack),
         // eslint-disable-next-line no-restricted-properties -- error tracker runs outside React, cannot use useRouter/usePathname
@@ -128,7 +143,7 @@ export function ClientErrorTracker(): null {
         MAX_MESSAGE_LENGTH
       );
 
-      emit({
+      emit(reason, {
         message: combined,
         stack_top_frame: firstStackFrame(reason?.stack),
         // eslint-disable-next-line no-restricted-properties -- error tracker runs outside React, cannot use useRouter/usePathname
