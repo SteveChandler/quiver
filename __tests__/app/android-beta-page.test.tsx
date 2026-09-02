@@ -49,9 +49,14 @@ describe("AndroidBetaPage", () => {
   });
 
   it("exports Android beta metadata", () => {
-    expect(metadata.title).toBe("Quiver Android Beta");
+    expect(metadata.title).toEqual({ absolute: "Quiver Android Beta" });
     expect(metadata.description).toMatch(/closed beta/i);
-    expect(metadata.alternates?.canonical).toBe("/android-beta");
+    expect(metadata.alternates?.canonical).toMatch(/\/android-beta$/);
+    // og:url must match the canonical; Ahrefs flagged this page for inheriting
+    // the root layout's og:url.
+    expect((metadata.openGraph as { url?: string } | undefined)?.url).toBe(
+      metadata.alternates?.canonical,
+    );
   });
 
   it("leads with current product value without promising a tester incentive", () => {

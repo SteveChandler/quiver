@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = buildPageMetadata({
   title: "Surf Beaches in Mexico",
   description:
-    "Browse surf beaches across Mexico. Explore top surf regions and their best beaches.",
+    "Browse surf beaches across Mexico, from Baja California points to mainland beachbreaks. Compare regions, then open a spot for forecasts, tides, and water temps.",
   path: "/beaches/mexico",
 });
 

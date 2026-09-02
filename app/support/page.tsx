@@ -4,13 +4,14 @@ import { Mail, HelpCircle, Bug } from "lucide-react";
 
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
+import { buildPageMetadata } from "@/lib/seo/meta";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Support",
   description:
-    "Get help with Quiver surf forecasts, session logging, and account management.",
-  alternates: { canonical: "/support" },
-};
+    "Get help with Quiver: surf forecasts and alerts, session logging, Pro subscriptions, and account settings, plus how to report a bug or reach the team.",
+  path: "/support",
+});
 
 const FAQ_ITEMS = [
   {
