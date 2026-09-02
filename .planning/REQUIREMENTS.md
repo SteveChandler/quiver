@@ -1,7 +1,7 @@
 # Requirements: Quiver Go-Live Campaign
 
 Defined: 2026-05-24
-Last updated: 2026-09-01
+Last updated: 2026-09-02
 Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/REQUIREMENTS-full-history.md](archive/2026-05-31-doc-cleanup/REQUIREMENTS-full-history.md)
 
 ## Current Goal
@@ -10,7 +10,7 @@ Track active requirements for the go-live/refactor and retention planning state 
 
 ## Current Status
 
-Phases 14-20 are complete. Phase 20.1 implementation and web release are complete; replacement native build 17 is valid in App Store Connect, while physical-device proof and mature retention evidence remain. Phase 21 implementation is integrated and active only for Steven/Shapan. Its production integrity report is verified; production parity and outcome validation remain gated, and broad rollout stays dark.
+Phases 14-20 are complete. Phase 20.1 implementation and web release are complete; native #312/#313, deterministic #309 assignment, and the Week Scout correction are released through the existing build-16 OTA. Exact Android OTA receipt and #312 physical completion are proven; #313 delivery attribution and mature #309/D1/D7 evidence remain. Phase 21 implementation is integrated and active only for Steven/Shapan. Its production integrity and ingestion-parity reports are verified; local-job retirement and outcome validation remain gated, and broad rollout stays dark.
 
 Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, release-quality, PBSC, Sentry, and controlled-refactor work is historical for this tracker unless a future task reopens it.
 
@@ -57,10 +57,10 @@ Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, relea
 
 ## Open Gaps
 
-- Phase 20.1 implementation and web release are complete; replacement native build 17 is valid in App Store Connect, while physical-device proof and mature retention evidence remain.
+- Phase 20.1 implementation and web release are complete; the build-16 OTA and exact Android receipt are proven, while #313 delivery attribution and mature retention evidence remain.
 - Current web ownership is too weak to determine whether broad utility visitors will return after following a beach.
 - The surf-qualified web-to-native funnel lacks complete handoff-through-first-open/context-resolution coverage.
-- Native Home continuity and Week Scout stability are in internal-TestFlight build 17 but need release verification and physical production telemetry.
+- Native Home continuity and Week Scout stability are released through the build-16 OTA; exact Android receipt and the first physical completion telemetry are proven, while sustained outcome evidence is still immature.
 - Watch and alert adoption is too small to support a retention claim.
 - Native one-tap quick logging already exists and did not materially change product retention or sales; additional session-friction work is not an open Phase 20.1 hypothesis.
 - Phase 21 research and implementation are integrated. Exactly-two-account allowlist proof, the production integrity report, and canary activation passed on 2026-09-01. Production parity, local-scraper retirement, and outcome validation remain open under MFA-08; broad rollout stays dark.
@@ -84,7 +84,7 @@ Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, relea
 
 ## Next Actions
 
-- Distribute the reviewed build containing native #312/#313 and the #309 deterministic two-arm release; then collect signed physical-device attribution evidence.
+- Keep #312 closed with its exact Android physical receipt; collect a genuine #313 push-attribution receipt and mature #309 assignment/readout evidence without synthetic replay.
 - Keep Phase 20.1 delivery and Phase 21 forecast adjustments limited to the exact Steven/Shapan allowlist while production evidence accrues.
 - Complete Phase 20.1 Plan 20.1-06 only after the D1/D7 windows mature; do not claim retention lift from raw event counts.
 - Keep #309 `INCONCLUSIVE` until both experiment arms reach at least 50 eligible viewers with complete telemetry.

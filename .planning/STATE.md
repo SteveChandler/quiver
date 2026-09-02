@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-09-01"
+last_updated: "2026-09-02"
 progress:
   total_phases: 22
   completed_phases: 20
@@ -24,13 +24,15 @@ The native retention hypothesis is explicit: Quiver earns a return by rememberin
 
 Phase: 20.1  
 Plan: 20.1-06  
-Status: Executing — implementation and web release are complete. Web `prod` is at `360fe219`,
+Status: Executing — implementation and web release are complete. Web `prod` is at `52f9603ee`,
 the Phase 20.1 and native-analytics migrations are applied, and the corrected install-to-paid
 report passed before re-promotion. Authenticated watched-call shadow and install-attribution
 issuance/redemption smoke passed; delivery is enabled only for the exact Steven/Shapan allowlist.
-Native build 16 has the Phase 20.1 OTA; replacement build 1.0.3 (18), containing the merged #312
-handoff correction and deterministic #309 assignment, is valid in App Store Connect as of 2026-09-01. Plan 20.1-06 Tasks 1
-and 2 are complete; Tasks 3 and 4 remain open. See
+Native build 16 has the approved Phase 20.1 OTA, including merged #312/#313 analytics,
+deterministic #309 assignment, and the Week Scout water/tide/no-best-window correction. The
+release path is the existing build-16 production channel, not TestFlight. Android physical-device
+receipt and #312 decision-loop completion are verified; #313 delivery attribution and the mature
+#309/D1/D7 cohorts remain open. Plan 20.1-06 Tasks 1 and 2 are complete; Tasks 3 and 4 remain open. See
 `quiver/docs/release/phase-20-1-retention-loop-evidence.md`.
 
 **BFR-03, BFR-04, and BFR-05 are withdrawn.** The web follow / My Coast surface was removed on
@@ -46,12 +48,13 @@ with the seventh partially complete:
 20.1-02 shared contracts               merged
 20.1-03 web follow/My Coast            merged, then WITHDRAWN and removed 2026-08-25
 20.1-04 exact handoff                  merged
-20.1-05 native continuity/watch/return merged; build 18 valid in App Store Connect
+20.1-05 native continuity/watch/return merged; released through build-16 OTA
 20.1-06 evidence/rollout decision      Tasks 1-2 complete; Tasks 3-4 open
 ```
 
-Merged is not equivalent to validated. Promotion, migrations, authenticated shadow smoke, and the
-binary processing are complete; physical-device evidence and mature cohorts remain.
+Merged is not equivalent to validated. Promotion, migrations, authenticated shadow smoke, exact
+Android OTA receipt, and #312 physical telemetry are complete; #313 delivery evidence and mature
+cohorts remain.
 
 Phase 21 implementation is integrated and present on `prod` dark. PR #654 replaced the stale
 baseline-only comparison with a restricted current-serving projection, and the obsolete clean
@@ -88,7 +91,7 @@ ingestion parity now passes, while local-scraper retirement and outcome validati
 
 - Web has broad coastal utility traffic but little durable beach ownership, intent qualification, or owned return destination.
 - The surf-qualified web-to-native funnel is not measurable end to end.
-- Native Home can silently reset/rerank context; all-user Week Scout stability still needs build and physical telemetry proof.
+- Native Home can silently reset/rerank context; the first physical Week Scout completion is proven, but sustained stability and retention evidence are not mature.
 - Watch/alert adoption is too low to establish retention impact.
 - One-tap sessions already exist and did not materially move retention or sales; another session-friction pass is not an open hypothesis.
 
@@ -99,16 +102,16 @@ simulator lane was reserved. Do not re-run the completed cleanup slices.
 
 ### Inflight and release truth
 
-- Web `main` and `prod` are promoted through `118bd21e` / `360fe219`; the required migrations are applied.
+- Web `main` and `prod` include county-advisory duplicate-site recovery through `e2c00b4c` / `52f9603ee`; the required migrations are applied.
 - Authenticated watched-call create/dedupe/withheld-delivery smoke and install-attribution issuance/redemption smoke passed. Delivery is enabled only for the exact two-account allowlist.
-- Native 1.0.3 build 18 is `VALID` in App Store Connect as build `5a4cbe11-a13c-4d6c-bc1e-f1b3c76e5983` and is assigned to the internal `Public Beta` group. #312/#313 and BFR-08 still need physical production-device proof.
-- The group's sole tester is still `INVITED`; PostHog has no build-18 experiment assignment or paywall events, so #309's cohort clock has not started.
+- Native #312/#313, deterministic #309 assignment, and the Week Scout correction are released on build 16 through OTA head `104532f3` (runtime `d7204dec7cc6a74be7b04ad0ccc547dc4fd42966`). Final updates are iOS `01a0620a-a8d9-7a63-a5d3-70977551168b` and Android `01a0620b-372a-7983-9611-c0f03253b4d8`. Android build 18 received the exact OTA, and #312 closed after a physical `decision_loop_completed` receipt with matching decision/install identity. #313 still requires a genuine attributed push delivery.
+- Keep #309 `INCONCLUSIVE` until both arms reach at least 50 eligible viewers with complete telemetry; the single #312 receipt is not a cohort readout.
 - Android 1.0.3 (17) has a locally verified production-channel APK with the #312/#313 markers and production RevenueCat key. It is debug-signed for direct installation and is not Play-ready.
-- The additive Week Scout water-temperature contract and Native no-best-window fallback are locally verified end to end: an authenticated Release simulator consumed the local Web API against production forecast rows and displayed `74°F`, `3 ft, rising`, and `No best window` without loading copy. The Web and Native changes remain uncommitted and unreleased.
-- Phase 21 exact Steven/Shapan allowlist, integrity proof, serving activation, and production ingestion parity passed. The legacy local ingestion LaunchAgent remains active pending explicit retirement approval. Broad rollout is out of scope and remains dark.
-- The minimal #309 hold-release patch `c5ba30bc` merged through native PR #317 as `ecb5cd14`. The local build-18 IPA is archived under `.quiver/artifacts/native-build-18/` with SHA-256 `18b7fb964813db17950c9342a7fcefbf905b1c8af7ebd43c49fa9329a1629125` and was uploaded successfully. D1 requires at least 2 days and D7 at least 8 days after actual eligible exposure; #309 requires at least 50 eligible viewers per arm.
-- Dirty primary checkouts and patch-unique worktrees remain preserved. Reconciliation reduced the cross-repo total from 34 registered worktrees to 9 (Web 3, Native 5, Seaside 1) by removing only merged or superseded trees after archiving their unique notes, screenshots, migrations, and binary Git patches under `.quiver/artifacts/worktree-reconciliation-20260901/`. Two clean merged Native trees await explicit cleanup approval. The stale native-analytics web tree was retired because its migration lacked the released dedupe index and its report logic predates the repaired production contract; it was not replayed over `main`.
-- Local branch cleanup removed only unreferenced branches proven to be ancestors of `origin/main`; checked-out and unique branches were preserved. Remaining local refs are web 62, native 51, and Seaside 6. Merged remote branch candidates remain untouched because remote deletion is a separate external mutation.
+- The additive Week Scout water-temperature contract and Native no-best-window fallback are merged through web PR #668 and native PR #322 and released in the final build-16 OTA. Physical Android recovery on 2026-09-02 showed Mission Beach ranked again with an 8:00–10:00 AM window, 69°F water, and a 3.4 ft rising tide after the county advisory circuit recovered.
+- Phase 21 exact Steven/Shapan allowlist, integrity proof, serving activation, and production ingestion parity passed. The legacy local ingestion LaunchAgent remains registered and scheduled but was not running at the latest inspection; retirement still requires explicit approval. Broad rollout is out of scope and remains dark.
+- D1 requires at least 2 days and D7 at least 8 days after actual eligible exposure; #309 requires at least 50 eligible viewers per arm.
+- Dirty primary checkouts and patch-unique worktrees remain preserved. Reconciliation reduced the cross-repo total from 34 registered worktrees to eight preserved operational checkouts before this temporary tracker-correction worktree was created. Only merged or superseded trees were removed after unique notes, screenshots, migrations, and binary patches were archived under `.quiver/artifacts/worktree-reconciliation-20260901/`.
+- Local branch cleanup removed six unreferenced branches proven to be ancestors of `origin/main`; checked-out, unique, and remote branches were preserved.
 
 ## Decisions Already Made
 
@@ -138,15 +141,15 @@ Lanes 20.1-01, 20.1-TD, 20.1-02, 20.1-03, 20.1-04, and 20.1-05 are all merged; 2
 withdrawn and removed. Do not re-execute any of them. The remaining work is release and evidence:
 
 1. Keep alert delivery bounded to the exact Steven/Shapan allowlist while production evidence accrues.
-2. Accept the internal TestFlight invitation and install build 18 on the intended physical device, then complete signed validation
-   for #312/#313, exact handoff, push attribution, Week Scout stability, and purchase recovery.
+2. Preserve the completed exact-OTA/#312 proof and collect the remaining genuine #313 push-attribution,
+   #309 assignment/cohort, sustained Week Scout, and purchase-recovery evidence.
 3. Complete 20.1-06 Task 4 (requirement disposition + rollout decision) once cohorts mature —
    D1 needs ≥ 2 days, D7 needs ≥ 8 days after release.
 4. Retire the legacy local ingestion job after explicit approval and validate Phase 21 outcomes for only Steven/Shapan; keep broad rollout dark.
 
 Known dispositions that no later data can change: **BFR-03/04/05 withdrawn** (surface removed).
-BFR-08 is implemented and configured in build 18 but remains unverified until that binary is
-distributed and observed on physical production devices.
+BFR-08 is implemented and distributed through the build-16 OTA; exact Android receipt and the first
+physical Week Scout completion are verified. Sustained stability and retention evidence remain open.
 
 ## Accumulated Context
 
