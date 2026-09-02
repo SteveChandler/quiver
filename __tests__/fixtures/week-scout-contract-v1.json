@@ -74,6 +74,7 @@
             "swellDirection": "S",
             "windSpeed": "5 mph",
             "windDirection": "NE",
+            "waterTemp": "78°F",
             "tideHeightFt": 1.4,
             "tidePhase": "Rising",
             "freshnessAt": "2026-07-15T18:00:00.000Z"

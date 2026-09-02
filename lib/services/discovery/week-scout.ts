@@ -130,6 +130,7 @@ export interface WeekScoutWindowResponse {
     swellDirection: string | null;
     windSpeed: string | null;
     windDirection: string | null;
+    waterTemp?: string | null;
     tideHeightFt: number | null;
     tidePhase: string | null;
     freshnessAt: string;
@@ -527,6 +528,7 @@ function buildDraftWindow(args: {
         swellDirection: forecast.wave_direction ?? null,
         windSpeed: forecast.wind_speed ?? null,
         windDirection: forecast.wind_direction ?? null,
+        waterTemp: forecast.water_temp ?? null,
         tideHeightFt: finiteNumber(forecast.tide_height),
         tidePhase: forecast.tide_status ?? null,
         freshnessAt: forecast.updated_at ?? forecast.forecast_at,

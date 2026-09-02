@@ -242,7 +242,10 @@ describe('POST /api/surf/week-scout', () => {
       bestWindowId: 'window-a',
       windows: [expect.objectContaining({
         beachId: BEACH_A,
-        forecast: expect.objectContaining({ waveHeight: '3-4 ft' }),
+        forecast: expect.objectContaining({
+          waveHeight: '3-4 ft',
+          waterTemp: '78°F',
+        }),
       })],
     });
   });
