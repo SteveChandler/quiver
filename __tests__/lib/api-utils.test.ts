@@ -63,6 +63,21 @@ describe("api-utils", () => {
     expect(json.details.originalError).toBe("boom");
   });
 
+  test("handleApiError never logs or returns credentials from exceptions", async () => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const error = new Error('Cannot create property user on string {"access_token":"synthetic-access","refresh_token":"synthetic-refresh"}');
+      const response = handleApiError(error, undefined, true);
+      const output = JSON.stringify({ body: await response.json(), logs: log.mock.calls });
+      expect(response.status).toBe(500);
+      expect(output).toContain("[REDACTED]");
+      expect(output).not.toContain("synthetic-access");
+      expect(output).not.toContain("synthetic-refresh");
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   test("validateRequiredParams detects missing", () => {
     expect(validateRequiredParams({ a: 1 }, ["a"])).toBeNull();
     const msg = validateRequiredParams({ a: 1 }, ["a", "b"]);
