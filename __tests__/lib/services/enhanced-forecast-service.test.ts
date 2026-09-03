@@ -14,9 +14,23 @@ const mockObservableBeachSelect: jest.Mock<any, any> = jest.fn(async () => ({
   error: null,
 }));
 
+const mockIOOSQuery = {
+  select: jest.fn().mockReturnThis(),
+  in: jest.fn().mockReturnThis(),
+  not: jest.fn().mockReturnThis(),
+  gte: jest.fn().mockReturnThis(),
+  order: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  maybeSingle: jest.fn(),
+};
+
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: async () => ({
     from: (table: string) => {
+      if (table === "ioos_stations") {
+        return { select: () => ({ eq: () => ({ eq: () => ({ limit: async () => ({ data: [{ station_id: "station-a" }], error: null }) }) }) }) };
+      }
+      if (table === "ioos_observations") return mockIOOSQuery;
       if (table === "observable_beaches") {
         return {
           select: mockObservableBeachSelect,
@@ -314,5 +328,32 @@ describe("EnhancedForecastService", () => {
 
     await expect(resultPromise).resolves.toBeNull();
     expect(abortController.signal.aborted).toBe(true);
+  });
+});
+
+describe("IOOS water temperature query", () => {
+  test("limits observations to the inclusive 48-hour window before selecting the latest", async () => {
+    const now = Date.parse("2026-09-03T12:00:00Z");
+    const clock = jest.spyOn(Date, "now").mockReturnValue(now);
+    try {
+      const service = new EnhancedForecastService();
+      const beach = { id: "beach-a", name: "Test Beach" } as any;
+      mockIOOSQuery.maybeSingle.mockResolvedValue({
+        data: { water_temp_c: "17.5", observed_at: "2026-09-01T12:00:00Z" }, error: null,
+      });
+      expect(await (service as any).fetchIOOSWaterTemp(beach)).toBe(17.5);
+      expect(mockIOOSQuery.in).toHaveBeenCalledWith("station_id", ["station-a"]);
+      expect(mockIOOSQuery.gte).toHaveBeenCalledWith("observed_at", "2026-09-01T12:00:00.000Z");
+      expect(mockIOOSQuery.order).toHaveBeenCalledWith("observed_at", { ascending: false });
+      expect(mockIOOSQuery.limit).toHaveBeenCalledWith(1);
+      mockIOOSQuery.maybeSingle.mockResolvedValue({
+        data: { water_temp_c: "17.5", observed_at: "2026-09-01T11:59:59Z" }, error: null,
+      });
+      expect(await (service as any).fetchIOOSWaterTemp(beach)).toBeNull();
+      mockIOOSQuery.maybeSingle.mockResolvedValue({ data: null, error: null });
+      expect(await (service as any).fetchIOOSWaterTemp(beach)).toBeNull();
+    } finally {
+      clock.mockRestore();
+    }
   });
 });
