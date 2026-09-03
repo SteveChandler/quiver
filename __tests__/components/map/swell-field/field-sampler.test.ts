@@ -435,12 +435,13 @@ describe("maskFieldToWater", () => {
       queryRenderedFeatures: () => [],
     };
 
-    maskFieldToWater(field, map, {
+    const applied = maskFieldToWater(field, map, {
       width: 800,
       height: 600,
       waterLayerIds: ["water"],
     });
 
+    expect(applied).toBe(false);
     expect(field.cells[0].speed).toBe(0.5);
     expect(field.cells[1].speed).toBe(0.5);
   });
@@ -464,12 +465,13 @@ describe("maskFieldToWater", () => {
       queryRenderedFeatures: ([x]) => (x === 0 ? [{}] : []),
     };
 
-    maskFieldToWater(field, map, {
+    const applied = maskFieldToWater(field, map, {
       width: 800,
       height: 600,
       waterLayerIds: ["water"],
     });
 
+    expect(applied).toBe(false);
     expect(field.cells.every((cell) => cell.speed === 0.5)).toBe(true);
   });
 
@@ -487,7 +489,8 @@ describe("maskFieldToWater", () => {
         return [];
       },
     };
-    maskFieldToWater(field, map, { width: 800, height: 600, waterLayerIds: ["water"] });
+    const applied = maskFieldToWater(field, map, { width: 800, height: 600, waterLayerIds: ["water"] });
+    expect(applied).toBe(true);
     expect(queried).toBe(false);
   });
 

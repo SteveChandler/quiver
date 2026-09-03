@@ -1738,6 +1738,19 @@ describe("InteractiveMap", () => {
     expect(queriesAfterStyle).toBeGreaterThan(queriesAfterTiles);
     for (let frame = 0; frame < 5; frame += 1) fire("idle");
     expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterStyle);
+
+    // Loaded tiles can still have no queryable water features until rendered.
+    mockQueryRenderedFeatures.mockReturnValue([]);
+    fire("style.load");
+    fire("idle");
+    const queriesAfterRejectedPass = mockQueryRenderedFeatures.mock.calls.length;
+    expect(queriesAfterRejectedPass).toBeGreaterThan(queriesAfterStyle);
+    mockQueryRenderedFeatures.mockReturnValue([{}]);
+    fire("idle");
+    const queriesAfterRecovery = mockQueryRenderedFeatures.mock.calls.length;
+    expect(queriesAfterRecovery).toBeGreaterThan(queriesAfterRejectedPass);
+    for (let frame = 0; frame < 5; frame += 1) fire("idle");
+    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterRecovery);
   });
 
   it("does not deadlock loaded swell data when map bounds are briefly unavailable", async () => {
