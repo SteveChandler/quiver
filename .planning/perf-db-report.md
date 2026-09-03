@@ -16,7 +16,7 @@ Inspected repository soul, migration safety, service/database architecture, test
 Production:
 - `lib/services/enhanced-forecast-service.ts`
 - `lib/services/observations/nowcast-anchor.ts`
-- `supabase/migrations/20260903180000_index_started_cron_runs.sql`
+- `supabase/migrations/20260903200100_index_started_cron_runs.sql`
 
 Tests:
 - `__tests__/lib/services/enhanced-forecast-service.test.ts`: query cutoff, inclusive boundary, stale rejection and empty fallback.
@@ -59,8 +59,8 @@ base = ['docker', 'exec', '-i', 'supabase_db_quiver']
 subprocess.run(base + ['createdb', '-U', 'postgres', name], check=True)
 try:
     sql = Path('.planning/verify-started-cron-index.sql').read_text()
-    migration = Path('supabase/migrations/20260903180000_index_started_cron_runs.sql').read_text()
-    sql = sql.replace('\\ir ../supabase/migrations/20260903180000_index_started_cron_runs.sql', migration)
+    migration = Path('supabase/migrations/20260903200100_index_started_cron_runs.sql').read_text()
+    sql = sql.replace('\\ir ../supabase/migrations/20260903200100_index_started_cron_runs.sql', migration)
     result = subprocess.run(base + ['psql', '-U', 'postgres', '-d', name, '-v', 'ON_ERROR_STOP=1'], input=sql, text=True, capture_output=True)
     print(result.stdout)
     print(result.stderr)

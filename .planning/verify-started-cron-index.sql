@@ -6,8 +6,8 @@ SELECT n, now() - interval '1 hour', CASE WHEN n <= 10 THEN 'started' ELSE 'ok' 
 FROM generate_series(1, 209000) n;
 ANALYZE public.cron_runs;
 EXPLAIN (ANALYZE, BUFFERS) SELECT id FROM public.cron_runs WHERE status = 'started' AND started_at < now() - interval '15 minutes';
-\ir ../supabase/migrations/20260903180000_index_started_cron_runs.sql
-\ir ../supabase/migrations/20260903180000_index_started_cron_runs.sql
+\ir ../supabase/migrations/20260903200100_index_started_cron_runs.sql
+\ir ../supabase/migrations/20260903200100_index_started_cron_runs.sql
 ANALYZE public.cron_runs;
 EXPLAIN (ANALYZE, BUFFERS) SELECT id FROM public.cron_runs WHERE status = 'started' AND started_at < now() - interval '15 minutes';
 DO $$

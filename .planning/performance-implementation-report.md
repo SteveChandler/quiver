@@ -81,7 +81,7 @@ Initial `yarn typecheck` before Next-generated route checks: PASS (58.32 seconds
 - `__tests__/lib/supabase/auth-session-recovery.test.ts`
 - `lib/monitoring/redact-secrets.ts`
 - `patches/@supabase+auth-js+2.100.0.patch`
-- `supabase/migrations/20260903180000_index_started_cron_runs.sql`
+- `supabase/migrations/20260903200100_index_started_cron_runs.sql`
 
 Combined lint command (PASS):
 
