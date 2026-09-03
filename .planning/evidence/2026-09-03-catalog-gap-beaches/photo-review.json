@@ -1,0 +1,1018 @@
+[
+  {
+    "targetSlug": "cowell",
+    "targetName": "Cowell Beach",
+    "source": "openverse",
+    "sourceId": "a7c4f94b-8faf-4c58-a50e-a45a15678bd1",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6d/View_of_Cowel_Beach_towards_Lighthouse_Point_-Santa_Cruz_-_panoramio.jpg",
+    "thumbUrl": "https://api.openverse.org/v1/images/a7c4f94b-8faf-4c58-a50e-a45a15678bd1/thumb/",
+    "sourceUrl": "https://commons.wikimedia.org/w/index.php?curid=53565370",
+    "title": "File:View of Cowel Beach towards Lighthouse Point -Santa Cruz - panoramio.jpg",
+    "creatorName": "loboford220",
+    "creatorUrl": "https://web.archive.org/web/20161022111025/http://www.panoramio.com/user/748109?with_photo_id=53996745",
+    "licenseCode": "BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "provider": "wikimedia",
+    "attributionHtml": "\"File:View of Cowel Beach towards Lighthouse Point -Santa Cruz - panoramio.jpg\" by <a href=\"https://web.archive.org/web/20161022111025/http://www.panoramio.com/user/748109?with_photo_id=53996745\" rel=\"noopener nofollow\">loboford220</a> \u00b7 <a href=\"https://creativecommons.org/licenses/by-sa/3.0/\" rel=\"noopener nofollow\">BY-SA 3.0</a> via Openverse",
+    "licenseStatus": "defensible",
+    "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+    "confidence": 50,
+    "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/cowell-photo.webp",
+    "score": 5,
+    "commons": {
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6d/View_of_Cowel_Beach_towards_Lighthouse_Point_-Santa_Cruz_-_panoramio.jpg/960px-View_of_Cowel_Beach_towards_Lighthouse_Point_-Santa_Cruz_-_panoramio.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 600,
+      "thumbheight": 381,
+      "responsiveUrls": {
+        "2": "https://upload.wikimedia.org/wikipedia/commons/6/6d/View_of_Cowel_Beach_towards_Lighthouse_Point_-Santa_Cruz_-_panoramio.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+      },
+      "thumbattribs": {
+        "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6d/View_of_Cowel_Beach_towards_Lighthouse_Point_-Santa_Cruz_-_panoramio.jpg/960px-View_of_Cowel_Beach_towards_Lighthouse_Point_-Santa_Cruz_-_panoramio.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 600,
+        "height": 381,
+        "srcset": "https://upload.wikimedia.org/wikipedia/commons/6/6d/View_of_Cowel_Beach_towards_Lighthouse_Point_-Santa_Cruz_-_panoramio.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/6/6d/View_of_Cowel_Beach_towards_Lighthouse_Point_-Santa_Cruz_-_panoramio.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:View_of_Cowel_Beach_towards_Lighthouse_Point_-Santa_Cruz_-_panoramio.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=53565370",
+      "extmetadata": {
+        "DateTime": {
+          "value": "2016-11-27 13:28:07",
+          "source": "mediawiki-metadata",
+          "hidden": ""
+        },
+        "ObjectName": {
+          "value": "View of Cowel Beach towards Lighthouse Point -Santa Cruz - panoramio",
+          "source": "mediawiki-metadata"
+        },
+        "CommonsMetadataExtension": {
+          "value": 1.2,
+          "source": "extension",
+          "hidden": ""
+        },
+        "Categories": {
+          "value": "Lighthouse Field State Beach|June 2011 in California|Panoramio files uploaded by Panoramio upload bot|2011 photographs of California|Panoramio images reviewed by trusted users|Photos from Panoramio|Files with coordinates missing SDC location of creation|United States photographs taken on 2011-06-10|2011 in Santa Cruz, California",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "Assessments": {
+          "value": "",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "GPSLatitude": {
+          "value": "36.961963",
+          "source": "commons-desc-page"
+        },
+        "GPSLongitude": {
+          "value": "-122.023087",
+          "source": "commons-desc-page"
+        },
+        "GPSMapDatum": {
+          "value": "WGS-84",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "ImageDescription": {
+          "value": "View of Cowel Beach towards Lighthouse Point -Santa Cruz",
+          "source": "commons-desc-page"
+        },
+        "DateTimeOriginal": {
+          "value": "10 June 2011 (original upload date)",
+          "source": "commons-desc-page"
+        },
+        "Credit": {
+          "value": "<a rel=\"nofollow\" class=\"external free\" href=\"https://web.archive.org/web/20161022111021/http://www.panoramio.com/photo/53996745\">https://web.archive.org/web/20161022111021/http://www.panoramio.com/photo/53996745</a>",
+          "source": "commons-desc-page"
+        },
+        "Artist": {
+          "value": "<a rel=\"nofollow\" class=\"external text\" href=\"https://web.archive.org/web/20161022111025/http://www.panoramio.com/user/748109?with_photo_id=53996745\">loboford220</a>",
+          "source": "commons-desc-page"
+        },
+        "Permission": {
+          "value": "<div class=\"responsive-license-cc layouttemplate licensetpl\" dir=\"ltr\" lang=\"en\"><div class=\"rlicense-icons\"><span class=\"skin-invert\" typeof=\"mw:File\"><span title=\"w:en:Creative Commons\"><img alt=\"w:en:Creative Commons\" src=\"https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/CC_some_rights_reserved.svg/120px-CC_some_rights_reserved.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"90\" height=\"36\" class=\"mw-file-element\" srcset=\"https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/CC_some_rights_reserved.svg/250px-CC_some_rights_reserved.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"744\" data-file-height=\"300\"></span></span><br>\n<span class=\"skin-invert\" typeof=\"mw:File\"><span title=\"attribution\"><img alt=\"attribution\" src=\"https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Cc-by_new_white.svg/40px-Cc-by_new_white.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"24\" height=\"24\" class=\"mw-file-element\" srcset=\"https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Cc-by_new_white.svg/60px-Cc-by_new_white.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"64\" data-file-height=\"64\"></span></span> <span class=\"skin-invert\" typeof=\"mw:File\"><span title=\"share alike\"><img alt=\"share alike\" src=\"https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Cc-sa_white.svg/40px-Cc-sa_white.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"24\" height=\"24\" class=\"mw-file-element\" srcset=\"https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Cc-sa_white.svg/60px-Cc-sa_white.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"64\" data-file-height=\"64\"></span></span></div><div class=\"rlicense-text\"><div class=\"rlicense-declaration\">This file is licensed under the <a href=\"https://en.wikipedia.org/wiki/en:Creative_Commons\" class=\"extiw\" title=\"w:en:Creative Commons\">Creative Commons</a> <a href=\"//creativecommons.org/licenses/by-sa/3.0/deed.en\" class=\"extiw\" title=\"creativecommons:by-sa/3.0/deed.en\">Attribution-Share Alike 3.0 Unported</a> license.</div><div class=\"rlicense-attr\" style=\"font-weight: bold;\">Attribution: <div style=\"display:inline;font-size:larger;\" class=\"licensetpl_attr\">loboford220</div></div><div class=\"rlicense-desc\" style=\"text-align:start;\" lang=\"en\">\n<dl><dd>You are free:\n<ul><li><b>to share</b> \u2013 to copy, distribute and transmit the work</li>\n<li><b>to remix</b> \u2013 to adapt the work</li></ul></dd>\n<dd>Under the following conditions:\n<ul><li><b>attribution</b> \u2013 You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.</li>\n<li><b>share alike</b> \u2013 If you remix, transform, or build upon the material, you must distribute your contributions under the <a href=\"https://creativecommons.org/share-your-work/licensing-considerations/compatible-licenses\" class=\"extiw\" title=\"ccorg:share-your-work/licensing-considerations/compatible-licenses\">same or compatible license</a> as the original.</li></ul></dd></dl></div><span class=\"licensetpl_link\" style=\"display:none;\">https://creativecommons.org/licenses/by-sa/3.0</span><span class=\"licensetpl_short\" style=\"display:none;\">CC BY-SA 3.0 </span><span class=\"licensetpl_long\" style=\"display:none;\">Creative Commons Attribution-Share Alike 3.0 </span><span class=\"licensetpl_link_req\" style=\"display:none;\">true</span><span class=\"licensetpl_attr_req\" style=\"display:none;\">true</span></div></div>\n<style data-mw-deduplicate=\"TemplateStyles:r901585720\">.mw-parser-output .panoramioreview{width:100%;margin:0.5em 0;background-color:var(--background-color-warning-subtle,#fffff0);padding:5px;border:1px solid var(--border-color-warning,#aa8);color:inherit}.mw-parser-output .panoramioreview-failed{background-color:var(--background-color-error-subtle,#fcc);color:inherit}.mw-parser-output .panoramioreview-passed{background-color:var(--background-color-success-subtle,#efe);color:inherit}</style>\n<table class=\"panoramioreview panoramioreview-passed\" lang=\"en\" dir=\"ltr\">\n\n<tbody><tr>\n<td><span typeof=\"mw:File\"><span><img alt=\"\" src=\"https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Checked_copyright_icon.svg/60px-Checked_copyright_icon.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"50\" height=\"48\" class=\"mw-file-element\" srcset=\"https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Checked_copyright_icon.svg/120px-Checked_copyright_icon.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"160\" data-file-height=\"153\"></span></span>\n</td>\n<td>This image, which was originally posted to <b><span lang=\"en\" dir=\"ltr\"><a href=\"https://en.wikipedia.org/wiki/Panoramio\" class=\"extiw\" title=\"en:Panoramio\">Panoramio</a></span></b>, was automatically reviewed on 27 November 2016 by <b><a href=\"//commons.wikimedia.org/wiki/User:Panoramio_upload_bot\" title=\"User:Panoramio upload bot\">Panoramio upload bot</a></b>, who confirmed that it was available on Panoramio under the above license on that date.\n</td>\n<td><span typeof=\"mw:File\"><a href=\"//commons.wikimedia.org/wiki/File:Star_and_ring.svg\" class=\"mw-file-description\"><img src=\"https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Star_and_ring.svg/60px-Star_and_ring.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"50\" height=\"50\" class=\"mw-file-element\" srcset=\"https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Star_and_ring.svg/120px-Star_and_ring.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"75\" data-file-height=\"75\"></a></span>\n</td></tr></tbody></table>",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "LicenseShortName": {
+          "value": "CC BY-SA 3.0",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "UsageTerms": {
+          "value": "Creative Commons Attribution-Share Alike 3.0",
+          "source": "commons-desc-page"
+        },
+        "AttributionRequired": {
+          "value": "true",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "Attribution": {
+          "value": "loboford220",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "LicenseUrl": {
+          "value": "https://creativecommons.org/licenses/by-sa/3.0",
+          "source": "commons-desc-page"
+        },
+        "Copyrighted": {
+          "value": "True",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "Restrictions": {
+          "value": "",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "License": {
+          "value": "cc-by-sa-3.0",
+          "source": "commons-templates",
+          "hidden": ""
+        }
+      }
+    },
+    "commonsTitle": "File:View of Cowel Beach towards Lighthouse Point -Santa Cruz - panoramio.jpg",
+    "local_preview": "/Users/stevenchandler/Desktop/dev/quiver/.planning/evidence/2026-09-03-catalog-gap-beaches/cowell-photo.jpg"
+  },
+  {
+    "targetSlug": "roads-end",
+    "targetName": "Roads End Beach",
+    "source": "openverse",
+    "sourceId": "609855a1-c66b-4668-a424-33e74c6c1c28",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/e/ef/View_of_roads_end_beach_in_Lincoln_City%2C_Oregon.jpg",
+    "thumbUrl": "https://api.openverse.org/v1/images/609855a1-c66b-4668-a424-33e74c6c1c28/thumb/",
+    "sourceUrl": "https://commons.wikimedia.org/w/index.php?curid=99329641",
+    "title": "View of roads end beach in Lincoln City, Oregon",
+    "creatorName": "Lonelystudentwithtoomuchtime",
+    "creatorUrl": "https://commons.wikimedia.org/w/index.php?title=User:Lonelystudentwithtoomuchtime&action=edit&redlink=1",
+    "licenseCode": "BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "provider": "wikimedia",
+    "attributionHtml": "\"View of roads end beach in Lincoln City, Oregon\" by <a href=\"https://commons.wikimedia.org/w/index.php?title=User:Lonelystudentwithtoomuchtime&action=edit&redlink=1\" rel=\"noopener nofollow\">Lonelystudentwithtoomuchtime</a> \u00b7 <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\" rel=\"noopener nofollow\">BY-SA 4.0</a> via Openverse",
+    "licenseStatus": "defensible",
+    "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+    "confidence": 100,
+    "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/roads-end-photo.webp",
+    "score": 12,
+    "commons": {
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/View_of_roads_end_beach_in_Lincoln_City%2C_Oregon.jpg/960px-View_of_roads_end_beach_in_Lincoln_City%2C_Oregon.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 600,
+      "thumbheight": 800,
+      "responsiveUrls": {
+        "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/View_of_roads_end_beach_in_Lincoln_City%2C_Oregon.jpg/1280px-View_of_roads_end_beach_in_Lincoln_City%2C_Oregon.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+      },
+      "thumbattribs": {
+        "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/View_of_roads_end_beach_in_Lincoln_City%2C_Oregon.jpg/960px-View_of_roads_end_beach_in_Lincoln_City%2C_Oregon.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 600,
+        "height": 800,
+        "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/View_of_roads_end_beach_in_Lincoln_City%2C_Oregon.jpg/1280px-View_of_roads_end_beach_in_Lincoln_City%2C_Oregon.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/e/ef/View_of_roads_end_beach_in_Lincoln_City%2C_Oregon.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:View_of_roads_end_beach_in_Lincoln_City,_Oregon.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=99329641",
+      "extmetadata": {
+        "DateTime": {
+          "value": "2021-01-27 22:03:08",
+          "source": "mediawiki-metadata",
+          "hidden": ""
+        },
+        "ObjectName": {
+          "value": "View of roads end beach in Lincoln City, Oregon",
+          "source": "mediawiki-metadata"
+        },
+        "CommonsMetadataExtension": {
+          "value": 1.2,
+          "source": "extension",
+          "hidden": ""
+        },
+        "Categories": {
+          "value": "Self-published work|Sea cliffs of Oregon|September 2018 in Oregon|Geography of Lincoln City, Oregon",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "Assessments": {
+          "value": "",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "ImageDescription": {
+          "value": "Shows a picture of the end of Lincoln City, Oregon's coastline known as Roads End.",
+          "source": "commons-desc-page"
+        },
+        "DateTimeOriginal": {
+          "value": "2018-09-07 06:09:59",
+          "source": "commons-desc-page"
+        },
+        "Credit": {
+          "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+          "source": "commons-desc-page"
+        },
+        "Artist": {
+          "value": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Lonelystudentwithtoomuchtime&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Lonelystudentwithtoomuchtime (page does not exist)\">Lonelystudentwithtoomuchtime</a>",
+          "source": "commons-desc-page"
+        },
+        "LicenseShortName": {
+          "value": "CC BY-SA 4.0",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "UsageTerms": {
+          "value": "Creative Commons Attribution-Share Alike 4.0",
+          "source": "commons-desc-page"
+        },
+        "AttributionRequired": {
+          "value": "true",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "LicenseUrl": {
+          "value": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "commons-desc-page"
+        },
+        "Copyrighted": {
+          "value": "True",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "Restrictions": {
+          "value": "",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "License": {
+          "value": "cc-by-sa-4.0",
+          "source": "commons-templates",
+          "hidden": ""
+        }
+      }
+    },
+    "commonsTitle": "File:View of roads end beach in Lincoln City, Oregon.jpg",
+    "local_preview": "/Users/stevenchandler/Desktop/dev/quiver/.planning/evidence/2026-09-03-catalog-gap-beaches/roads-end-photo.jpg"
+  },
+  {
+    "targetSlug": "napili",
+    "targetName": "Napili Bay",
+    "source": "openverse",
+    "sourceId": "1185a1e2-dd96-4a9f-b27a-e5f747586852",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/34/Sunset_at_Napili_Bay%2C_Maui.jpg",
+    "thumbUrl": "https://api.openverse.org/v1/images/1185a1e2-dd96-4a9f-b27a-e5f747586852/thumb/",
+    "sourceUrl": "https://commons.wikimedia.org/w/index.php?curid=75171828",
+    "title": "Sunset at Napili Bay, Maui",
+    "creatorName": "KAP03",
+    "creatorUrl": "https://commons.wikimedia.org/wiki/User:KAP03",
+    "licenseCode": "BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "provider": "wikimedia",
+    "attributionHtml": "\"Sunset at Napili Bay, Maui\" by <a href=\"https://commons.wikimedia.org/wiki/User:KAP03\" rel=\"noopener nofollow\">KAP03</a> \u00b7 <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\" rel=\"noopener nofollow\">BY-SA 4.0</a> via Openverse",
+    "licenseStatus": "defensible",
+    "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+    "confidence": 100,
+    "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/napili-photo.webp",
+    "score": 12,
+    "commons": {
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/34/Sunset_at_Napili_Bay%2C_Maui.jpg/960px-Sunset_at_Napili_Bay%2C_Maui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 600,
+      "thumbheight": 450,
+      "responsiveUrls": {
+        "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/34/Sunset_at_Napili_Bay%2C_Maui.jpg/1280px-Sunset_at_Napili_Bay%2C_Maui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+      },
+      "thumbattribs": {
+        "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/34/Sunset_at_Napili_Bay%2C_Maui.jpg/960px-Sunset_at_Napili_Bay%2C_Maui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 600,
+        "height": 450,
+        "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/34/Sunset_at_Napili_Bay%2C_Maui.jpg/1280px-Sunset_at_Napili_Bay%2C_Maui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/34/Sunset_at_Napili_Bay%2C_Maui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Sunset_at_Napili_Bay,_Maui.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=75171828",
+      "extmetadata": {
+        "DateTime": {
+          "value": "2018-12-19 00:12:07",
+          "source": "mediawiki-metadata",
+          "hidden": ""
+        },
+        "ObjectName": {
+          "value": "Sunset at Napili Bay, Maui",
+          "source": "mediawiki-metadata"
+        },
+        "CommonsMetadataExtension": {
+          "value": 1.2,
+          "source": "extension",
+          "hidden": ""
+        },
+        "Categories": {
+          "value": "Napili-Honokowai, Hawaii|Self-published work|Sunsets of Maui",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "Assessments": {
+          "value": "",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "ImageDescription": {
+          "value": "This depicts a sunset at Napili Bay, Maui",
+          "source": "commons-desc-page"
+        },
+        "DateTimeOriginal": {
+          "value": "2015-06-21 19:07:48",
+          "source": "commons-desc-page"
+        },
+        "Credit": {
+          "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+          "source": "commons-desc-page"
+        },
+        "Artist": {
+          "value": "<a href=\"//commons.wikimedia.org/wiki/User:KAP03\" title=\"User:KAP03\">KAP03</a>",
+          "source": "commons-desc-page"
+        },
+        "LicenseShortName": {
+          "value": "CC BY-SA 4.0",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "UsageTerms": {
+          "value": "Creative Commons Attribution-Share Alike 4.0",
+          "source": "commons-desc-page"
+        },
+        "AttributionRequired": {
+          "value": "true",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "LicenseUrl": {
+          "value": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "commons-desc-page"
+        },
+        "Copyrighted": {
+          "value": "True",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "Restrictions": {
+          "value": "",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "License": {
+          "value": "cc-by-sa-4.0",
+          "source": "commons-templates",
+          "hidden": ""
+        }
+      }
+    },
+    "commonsTitle": "File:Sunset at Napili Bay, Maui.jpg",
+    "local_preview": "/Users/stevenchandler/Desktop/dev/quiver/.planning/evidence/2026-09-03-catalog-gap-beaches/napili-photo.jpg"
+  },
+  {
+    "targetSlug": "kamaole-ii",
+    "targetName": "Kamaole II Beach",
+    "source": "openverse",
+    "sourceId": "420d483d-25fa-42c6-93d8-c42aac477f77",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/55/Kamaole_Beach_II_Kihei_Maui_Hawaii_%2830800124747%29.jpg",
+    "thumbUrl": "https://api.openverse.org/v1/images/420d483d-25fa-42c6-93d8-c42aac477f77/thumb/",
+    "sourceUrl": "https://commons.wikimedia.org/w/index.php?curid=74172811",
+    "title": "File:Kamaole Beach II Kihei Maui Hawaii (30800124747).jpg",
+    "creatorName": "dronepicr",
+    "creatorUrl": "https://www.flickr.com/people/132646954@N02",
+    "licenseCode": "BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "provider": "wikimedia",
+    "attributionHtml": "\"File:Kamaole Beach II Kihei Maui Hawaii (30800124747).jpg\" by <a href=\"https://www.flickr.com/people/132646954@N02\" rel=\"noopener nofollow\">dronepicr</a> \u00b7 <a href=\"https://creativecommons.org/licenses/by/2.0/\" rel=\"noopener nofollow\">BY 2.0</a> via Openverse",
+    "licenseStatus": "defensible",
+    "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+    "confidence": 50,
+    "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/kamaole-ii-photo.webp",
+    "score": 5,
+    "commons": {
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/55/Kamaole_Beach_II_Kihei_Maui_Hawaii_%2830800124747%29.jpg/960px-Kamaole_Beach_II_Kihei_Maui_Hawaii_%2830800124747%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 600,
+      "thumbheight": 400,
+      "responsiveUrls": {
+        "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/55/Kamaole_Beach_II_Kihei_Maui_Hawaii_%2830800124747%29.jpg/1280px-Kamaole_Beach_II_Kihei_Maui_Hawaii_%2830800124747%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+      },
+      "thumbattribs": {
+        "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/55/Kamaole_Beach_II_Kihei_Maui_Hawaii_%2830800124747%29.jpg/960px-Kamaole_Beach_II_Kihei_Maui_Hawaii_%2830800124747%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 600,
+        "height": 400,
+        "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/55/Kamaole_Beach_II_Kihei_Maui_Hawaii_%2830800124747%29.jpg/1280px-Kamaole_Beach_II_Kihei_Maui_Hawaii_%2830800124747%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/5/55/Kamaole_Beach_II_Kihei_Maui_Hawaii_%2830800124747%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Kamaole_Beach_II_Kihei_Maui_Hawaii_(30800124747).jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=74172811",
+      "extmetadata": {
+        "DateTime": {
+          "value": "2018-11-06 01:54:59",
+          "source": "mediawiki-metadata",
+          "hidden": ""
+        },
+        "ObjectName": {
+          "value": "Kamaole Beach II Kihei Maui Hawaii (30800124747)",
+          "source": "mediawiki-metadata"
+        },
+        "CommonsMetadataExtension": {
+          "value": 1.2,
+          "source": "extension",
+          "hidden": ""
+        },
+        "Categories": {
+          "value": "Kamaole Beach Park|Files with coordinates missing SDC location of creation|Flickr images reviewed by FlickreviewR 2|United States photographs taken on 2018-08-10|Files from dronepicr Flickr stream|Flickr images missing SDC published in",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "Assessments": {
+          "value": "",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "GPSLatitude": {
+          "value": "20.715513",
+          "source": "commons-desc-page"
+        },
+        "GPSLongitude": {
+          "value": "-156.446314",
+          "source": "commons-desc-page"
+        },
+        "GPSMapDatum": {
+          "value": "WGS-84",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "ImageDescription": {
+          "value": "Kamaole Beach II Kihei Maui Hawaii",
+          "source": "commons-desc-page"
+        },
+        "DateTimeOriginal": {
+          "value": "2018-08-10 22:02",
+          "source": "commons-desc-page"
+        },
+        "Credit": {
+          "value": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/132646954@N02/30800124747/\">Kamaole Beach II Kihei Maui Hawaii</a>",
+          "source": "commons-desc-page"
+        },
+        "Artist": {
+          "value": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/132646954@N02\">dronepicr</a>",
+          "source": "commons-desc-page"
+        },
+        "LicenseShortName": {
+          "value": "CC BY 2.0",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "UsageTerms": {
+          "value": "Creative Commons Attribution 2.0",
+          "source": "commons-desc-page"
+        },
+        "AttributionRequired": {
+          "value": "true",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "LicenseUrl": {
+          "value": "https://creativecommons.org/licenses/by/2.0",
+          "source": "commons-desc-page"
+        },
+        "Copyrighted": {
+          "value": "True",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "Restrictions": {
+          "value": "",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "License": {
+          "value": "cc-by-2.0",
+          "source": "commons-templates",
+          "hidden": ""
+        }
+      }
+    },
+    "commonsTitle": "File:Kamaole Beach II Kihei Maui Hawaii (30800124747).jpg",
+    "local_preview": "/Users/stevenchandler/Desktop/dev/quiver/.planning/evidence/2026-09-03-catalog-gap-beaches/kamaole-ii-photo.jpg"
+  },
+  {
+    "targetSlug": "kaanapali",
+    "targetName": "Kaanapali Beach",
+    "source": "openverse",
+    "sourceId": "5c704ece-8e08-4b8d-b04b-c8943b93caad",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/38/Kaanapali_Beach_Maui.jpg",
+    "thumbUrl": "https://api.openverse.org/v1/images/5c704ece-8e08-4b8d-b04b-c8943b93caad/thumb/",
+    "sourceUrl": "https://commons.wikimedia.org/w/index.php?curid=102333339",
+    "title": "Kaanapali Beach Maui",
+    "creatorName": "John P Salvatore",
+    "creatorUrl": "https://commons.wikimedia.org/w/index.php?title=User:John_P_Salvatore&action=edit&redlink=1",
+    "licenseCode": "BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "provider": "wikimedia",
+    "attributionHtml": "\"Kaanapali Beach Maui\" by <a href=\"https://commons.wikimedia.org/w/index.php?title=User:John_P_Salvatore&action=edit&redlink=1\" rel=\"noopener nofollow\">John P Salvatore</a> \u00b7 <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\" rel=\"noopener nofollow\">BY-SA 4.0</a> via Openverse",
+    "licenseStatus": "defensible",
+    "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+    "confidence": 100,
+    "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/kaanapali-photo.webp",
+    "score": 10,
+    "commons": {
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/38/Kaanapali_Beach_Maui.jpg/960px-Kaanapali_Beach_Maui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 600,
+      "thumbheight": 457,
+      "responsiveUrls": {
+        "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/38/Kaanapali_Beach_Maui.jpg/1280px-Kaanapali_Beach_Maui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+      },
+      "thumbattribs": {
+        "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/38/Kaanapali_Beach_Maui.jpg/960px-Kaanapali_Beach_Maui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 600,
+        "height": 457,
+        "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/38/Kaanapali_Beach_Maui.jpg/1280px-Kaanapali_Beach_Maui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/38/Kaanapali_Beach_Maui.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Kaanapali_Beach_Maui.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=102333339",
+      "extmetadata": {
+        "DateTime": {
+          "value": "2021-03-26 03:48:33",
+          "source": "mediawiki-metadata",
+          "hidden": ""
+        },
+        "ObjectName": {
+          "value": "Kaanapali Beach Maui",
+          "source": "mediawiki-metadata"
+        },
+        "CommonsMetadataExtension": {
+          "value": 1.2,
+          "source": "extension",
+          "hidden": ""
+        },
+        "Categories": {
+          "value": "Self-published work|Kaanapali Beach",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "Assessments": {
+          "value": "",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "ImageDescription": {
+          "value": "Beach in Kaanapali Beach on western shore of Maui, Hawaii",
+          "source": "commons-desc-page"
+        },
+        "DateTimeOriginal": {
+          "value": "2021-03-25",
+          "source": "commons-desc-page"
+        },
+        "Credit": {
+          "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+          "source": "commons-desc-page"
+        },
+        "Artist": {
+          "value": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:John_P_Salvatore&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:John P Salvatore (page does not exist)\">John P Salvatore</a>",
+          "source": "commons-desc-page"
+        },
+        "LicenseShortName": {
+          "value": "CC BY-SA 4.0",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "UsageTerms": {
+          "value": "Creative Commons Attribution-Share Alike 4.0",
+          "source": "commons-desc-page"
+        },
+        "AttributionRequired": {
+          "value": "true",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "LicenseUrl": {
+          "value": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "commons-desc-page"
+        },
+        "Copyrighted": {
+          "value": "True",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "Restrictions": {
+          "value": "",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "License": {
+          "value": "cc-by-sa-4.0",
+          "source": "commons-templates",
+          "hidden": ""
+        }
+      }
+    },
+    "commonsTitle": "File:Kaanapali Beach Maui.jpg",
+    "local_preview": "/Users/stevenchandler/Desktop/dev/quiver/.planning/evidence/2026-09-03-catalog-gap-beaches/kaanapali-photo.jpg"
+  },
+  {
+    "targetSlug": "turtle-bay",
+    "targetName": "Turtle Bay Beach",
+    "source": "openverse",
+    "sourceId": "6cf9a693-f871-4076-bdf0-5c2d5d2415f8",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Sunset_Waves_At_Turtle_Bay_%28175599379%29.jpeg",
+    "thumbUrl": "https://api.openverse.org/v1/images/6cf9a693-f871-4076-bdf0-5c2d5d2415f8/thumb/",
+    "sourceUrl": "https://commons.wikimedia.org/w/index.php?curid=73670161",
+    "title": "<div class='fn'> Sunset Waves At Turtle Bay</div>",
+    "creatorName": "Terry Lucas",
+    "creatorUrl": "https://500px.com/tdlucas5000",
+    "licenseCode": "BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+    "provider": "wikimedia",
+    "attributionHtml": "\"<div class='fn'> Sunset Waves At Turtle Bay</div>\" by <a href=\"https://500px.com/tdlucas5000\" rel=\"noopener nofollow\">Terry Lucas</a> \u00b7 <a href=\"https://creativecommons.org/licenses/by/3.0/\" rel=\"noopener nofollow\">BY 3.0</a> via Openverse",
+    "licenseStatus": "defensible",
+    "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+    "confidence": 50,
+    "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/turtle-bay-photo.webp",
+    "score": 5,
+    "commons": {
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3f/Sunset_Waves_At_Turtle_Bay_%28175599379%29.jpeg/960px-Sunset_Waves_At_Turtle_Bay_%28175599379%29.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 600,
+      "thumbheight": 375,
+      "responsiveUrls": {
+        "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3f/Sunset_Waves_At_Turtle_Bay_%28175599379%29.jpeg/1280px-Sunset_Waves_At_Turtle_Bay_%28175599379%29.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+      },
+      "thumbattribs": {
+        "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3f/Sunset_Waves_At_Turtle_Bay_%28175599379%29.jpeg/960px-Sunset_Waves_At_Turtle_Bay_%28175599379%29.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 600,
+        "height": 375,
+        "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3f/Sunset_Waves_At_Turtle_Bay_%28175599379%29.jpeg/1280px-Sunset_Waves_At_Turtle_Bay_%28175599379%29.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Sunset_Waves_At_Turtle_Bay_%28175599379%29.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Sunset_Waves_At_Turtle_Bay_(175599379).jpeg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=73670161",
+      "extmetadata": {
+        "DateTime": {
+          "value": "2018-10-17 06:51:16",
+          "source": "mediawiki-metadata",
+          "hidden": ""
+        },
+        "ObjectName": {
+          "value": "<div class=\"fn\">\nSunset Waves At Turtle Bay</div>",
+          "source": "commons-desc-page"
+        },
+        "CommonsMetadataExtension": {
+          "value": 1.2,
+          "source": "extension",
+          "hidden": ""
+        },
+        "Categories": {
+          "value": "Tone-mapped HDR images of Hawaii|Files with coordinates missing SDC location of creation|Sunsets of Oahu|Photos imported with import-500px|Turtle Bay Resort",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "Assessments": {
+          "value": "",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "GPSLatitude": {
+          "value": "21.706300",
+          "source": "commons-desc-page"
+        },
+        "GPSLongitude": {
+          "value": "-157.999535",
+          "source": "commons-desc-page"
+        },
+        "GPSMapDatum": {
+          "value": "WGS-84",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "Artist": {
+          "value": "<div class=\"fn value\">\n<a rel=\"nofollow\" class=\"external text\" href=\"https://500px.com/tdlucas5000\">Terry Lucas</a></div>",
+          "source": "commons-desc-page"
+        },
+        "ImageDescription": {
+          "value": "<div class=\"description\">\n500px provided description: Waiting for the sun to set. Nobody out this evening, lots of good little waves rolling in un-ridden. \u00a0:-) [#sea ,#sunset ,#beach ,#travel ,#clouds ,#ocean ,#waves ,#rocks ,#summer ,#seascape ,#hawaii ,#surf ,#oahu ,#turtle bay]</div>",
+          "source": "commons-desc-page"
+        },
+        "DateTimeOriginal": {
+          "value": "7 September 2016, 01:15:02 (UTC)",
+          "source": "commons-desc-page"
+        },
+        "Credit": {
+          "value": "Imported from <a rel=\"nofollow\" class=\"external text\" href=\"https://500px.com/photo/175599379/sunset-waves-at-turtle-bay-by-terry-lucas\">500px</a> (<a rel=\"nofollow\" class=\"external text\" href=\"https://web.archive.org/web/201807id_/https://drscdn.500px.org/photo/175599379/m%3D2048/v2?webp=true&amp;sig=0a586e559712735fb35a719e00928e2995ea52877303f8d9e5016bd0ec8fe443\">archived version</a>) by <a rel=\"nofollow\" class=\"external text\" href=\"https://www.archiveteam.org/index.php?title=500px\">the Archive Team</a>. (<a href=\"https://iw.toolforge.org/import-500px/photo/175599379\" class=\"extiw\" title=\"toolforge:import-500px/photo/175599379\">detail page</a>)",
+          "source": "commons-desc-page"
+        },
+        "Permission": {
+          "value": "<div class=\"responsive-license-cc layouttemplate licensetpl\" dir=\"ltr\" lang=\"en\"><div class=\"rlicense-icons\"><span class=\"skin-invert\" typeof=\"mw:File\"><span title=\"w:en:Creative Commons\"><img alt=\"w:en:Creative Commons\" src=\"https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/CC_some_rights_reserved.svg/120px-CC_some_rights_reserved.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"90\" height=\"36\" class=\"mw-file-element\" srcset=\"https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/CC_some_rights_reserved.svg/250px-CC_some_rights_reserved.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"744\" data-file-height=\"300\"></span></span><br>\n<span class=\"skin-invert\" typeof=\"mw:File\"><span title=\"attribution\"><img alt=\"attribution\" src=\"https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Cc-by_new_white.svg/40px-Cc-by_new_white.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"24\" height=\"24\" class=\"mw-file-element\" srcset=\"https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Cc-by_new_white.svg/60px-Cc-by_new_white.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"64\" data-file-height=\"64\"></span></span></div><div class=\"rlicense-text\"><div class=\"rlicense-declaration\">This file is licensed under the <a href=\"https://en.wikipedia.org/wiki/en:Creative_Commons\" class=\"extiw\" title=\"w:en:Creative Commons\">Creative Commons</a> <a href=\"//creativecommons.org/licenses/by/3.0/deed.en\" class=\"extiw\" title=\"creativecommons:by/3.0/deed.en\">Attribution 3.0 Unported</a> license.</div><div class=\"rlicense-desc\" style=\"text-align:start;\" dir=\"ltr\" lang=\"en\">\n<dl><dd>You are free:\n<ul><li><b>to share</b> \u2013 to copy, distribute and transmit the work</li>\n<li><b>to remix</b> \u2013 to adapt the work</li></ul></dd>\n<dd>Under the following conditions:\n<ul><li><b>attribution</b> \u2013 You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.</li></ul></dd></dl>\n</div><span class=\"licensetpl_link\" style=\"display:none;\">https://creativecommons.org/licenses/by/3.0</span><span class=\"licensetpl_short\" style=\"display:none;\">CC BY 3.0 </span><span class=\"licensetpl_long\" style=\"display:none;\">Creative Commons Attribution 3.0 </span><span class=\"licensetpl_link_req\" style=\"display:none;\">true</span><span class=\"licensetpl_attr_req\" style=\"display:none;\">true</span></div></div>",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "LicenseShortName": {
+          "value": "CC BY 3.0",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "UsageTerms": {
+          "value": "Creative Commons Attribution 3.0",
+          "source": "commons-desc-page"
+        },
+        "AttributionRequired": {
+          "value": "true",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "LicenseUrl": {
+          "value": "https://creativecommons.org/licenses/by/3.0",
+          "source": "commons-desc-page"
+        },
+        "Copyrighted": {
+          "value": "True",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "Restrictions": {
+          "value": "",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "License": {
+          "value": "cc-by-3.0",
+          "source": "commons-templates",
+          "hidden": ""
+        }
+      }
+    },
+    "commonsTitle": "File:Sunset Waves At Turtle Bay (175599379).jpeg",
+    "local_preview": "/Users/stevenchandler/Desktop/dev/quiver/.planning/evidence/2026-09-03-catalog-gap-beaches/turtle-bay-photo.jpg"
+  },
+  {
+    "targetSlug": "lawai",
+    "targetName": "Lawai Beach",
+    "source": "openverse",
+    "sourceId": "1e51eb47-c7fd-4808-8e33-41851988ab70",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e9/Lawai_Beach_Resort_at_Poipu_Kauai_Hawaii.jpg",
+    "thumbUrl": "https://api.openverse.org/v1/images/1e51eb47-c7fd-4808-8e33-41851988ab70/thumb/",
+    "sourceUrl": "https://commons.wikimedia.org/w/index.php?curid=160011333",
+    "title": "Lawai Beach Resort at Poipu Kauai Hawaii",
+    "creatorName": "Tony Webster",
+    "creatorUrl": "https://www.flickr.com/people/87296837@N00",
+    "licenseCode": "BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "provider": "wikimedia",
+    "attributionHtml": "\"Lawai Beach Resort at Poipu Kauai Hawaii\" by <a href=\"https://www.flickr.com/people/87296837@N00\" rel=\"noopener nofollow\">Tony Webster</a> \u00b7 <a href=\"https://creativecommons.org/licenses/by/2.0/\" rel=\"noopener nofollow\">BY 2.0</a> via Openverse",
+    "licenseStatus": "defensible",
+    "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+    "confidence": 100,
+    "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/lawai-photo.webp",
+    "score": 10,
+    "commons": {
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e9/Lawai_Beach_Resort_at_Poipu_Kauai_Hawaii.jpg/960px-Lawai_Beach_Resort_at_Poipu_Kauai_Hawaii.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 600,
+      "thumbheight": 400,
+      "responsiveUrls": {
+        "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e9/Lawai_Beach_Resort_at_Poipu_Kauai_Hawaii.jpg/1280px-Lawai_Beach_Resort_at_Poipu_Kauai_Hawaii.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+      },
+      "thumbattribs": {
+        "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e9/Lawai_Beach_Resort_at_Poipu_Kauai_Hawaii.jpg/960px-Lawai_Beach_Resort_at_Poipu_Kauai_Hawaii.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 600,
+        "height": 400,
+        "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e9/Lawai_Beach_Resort_at_Poipu_Kauai_Hawaii.jpg/1280px-Lawai_Beach_Resort_at_Poipu_Kauai_Hawaii.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/e/e9/Lawai_Beach_Resort_at_Poipu_Kauai_Hawaii.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Lawai_Beach_Resort_at_Poipu_Kauai_Hawaii.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=160011333",
+      "extmetadata": {
+        "DateTime": {
+          "value": "2025-02-19 00:56:01",
+          "source": "mediawiki-metadata",
+          "hidden": ""
+        },
+        "ObjectName": {
+          "value": "Lawai Beach Resort at Poipu Kauai Hawaii",
+          "source": "mediawiki-metadata"
+        },
+        "CommonsMetadataExtension": {
+          "value": 1.2,
+          "source": "extension",
+          "hidden": ""
+        },
+        "Categories": {
+          "value": "Poipu, Hawaii|Resorts in Hawaii|Files with coordinates missing SDC location of creation|Flickr images reviewed by FlickreviewR 2|Hotels in Kauai|February 2024 in Hawaii",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "Assessments": {
+          "value": "",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "GPSLatitude": {
+          "value": "21.881891",
+          "source": "commons-desc-page"
+        },
+        "GPSLongitude": {
+          "value": "-159.476548",
+          "source": "commons-desc-page"
+        },
+        "GPSMapDatum": {
+          "value": "WGS-84",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "ImageDescription": {
+          "value": "Lawai Beach Resort at Poipu, Kauai, Hawaii.",
+          "source": "commons-desc-page"
+        },
+        "DateTimeOriginal": {
+          "value": "2024-02-16 14:09",
+          "source": "commons-desc-page"
+        },
+        "Credit": {
+          "value": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/diversey/54269441114/\">Lawai Beach Resort at Poipu Kauai Hawaii</a>",
+          "source": "commons-desc-page"
+        },
+        "Artist": {
+          "value": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/87296837@N00\">Tony Webster</a>",
+          "source": "commons-desc-page"
+        },
+        "LicenseShortName": {
+          "value": "CC BY 2.0",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "UsageTerms": {
+          "value": "Creative Commons Attribution 2.0",
+          "source": "commons-desc-page"
+        },
+        "AttributionRequired": {
+          "value": "true",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "LicenseUrl": {
+          "value": "https://creativecommons.org/licenses/by/2.0",
+          "source": "commons-desc-page"
+        },
+        "Copyrighted": {
+          "value": "True",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "Restrictions": {
+          "value": "",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "License": {
+          "value": "cc-by-2.0",
+          "source": "commons-templates",
+          "hidden": ""
+        }
+      }
+    },
+    "commonsTitle": "File:Lawai Beach Resort at Poipu Kauai Hawaii.jpg",
+    "local_preview": "/Users/stevenchandler/Desktop/dev/quiver/.planning/evidence/2026-09-03-catalog-gap-beaches/lawai-photo.jpg"
+  },
+  {
+    "targetSlug": "ocean-city-md",
+    "targetName": "Ocean City Beach",
+    "source": "openverse",
+    "sourceId": "40ed896c-b341-4c7e-a0be-70001a73f260",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/52/Ocean_City_MD_beach_looking_north_from_pier.jpeg",
+    "thumbUrl": "https://api.openverse.org/v1/images/40ed896c-b341-4c7e-a0be-70001a73f260/thumb/",
+    "sourceUrl": "https://commons.wikimedia.org/w/index.php?curid=27599434",
+    "title": "Ocean City MD beach looking north from pier",
+    "creatorName": "User:Dough4872",
+    "creatorUrl": "https://commons.wikimedia.org/wiki/User:Dough4872",
+    "licenseCode": "BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "provider": "wikimedia",
+    "attributionHtml": "\"Ocean City MD beach looking north from pier\" by <a href=\"https://commons.wikimedia.org/wiki/User:Dough4872\" rel=\"noopener nofollow\">User:Dough4872</a> \u00b7 <a href=\"https://creativecommons.org/licenses/by-sa/3.0/\" rel=\"noopener nofollow\">BY-SA 3.0</a> via Openverse",
+    "licenseStatus": "defensible",
+    "usageNotes": "Openverse commercial-use Creative Commons candidate; manual beach-match review required before runtime use.",
+    "confidence": 50,
+    "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/ocean-city-md-photo.webp",
+    "score": 5,
+    "commons": {
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/52/Ocean_City_MD_beach_looking_north_from_pier.jpeg/960px-Ocean_City_MD_beach_looking_north_from_pier.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 600,
+      "thumbheight": 450,
+      "responsiveUrls": {
+        "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/52/Ocean_City_MD_beach_looking_north_from_pier.jpeg/1280px-Ocean_City_MD_beach_looking_north_from_pier.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+      },
+      "thumbattribs": {
+        "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/52/Ocean_City_MD_beach_looking_north_from_pier.jpeg/960px-Ocean_City_MD_beach_looking_north_from_pier.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+        "decoding": "async",
+        "loading": "lazy",
+        "width": 600,
+        "height": 450,
+        "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/52/Ocean_City_MD_beach_looking_north_from_pier.jpeg/1280px-Ocean_City_MD_beach_looking_north_from_pier.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/5/52/Ocean_City_MD_beach_looking_north_from_pier.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Ocean_City_MD_beach_looking_north_from_pier.jpeg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=27599434",
+      "extmetadata": {
+        "DateTime": {
+          "value": "2013-08-07 01:34:20",
+          "source": "mediawiki-metadata",
+          "hidden": ""
+        },
+        "ObjectName": {
+          "value": "Ocean City MD beach looking north from pier",
+          "source": "mediawiki-metadata"
+        },
+        "CommonsMetadataExtension": {
+          "value": 1.2,
+          "source": "extension",
+          "hidden": ""
+        },
+        "Categories": {
+          "value": "Taken with iPhone 4S|Ocean City, Maryland|Self-published work|Uploaded with Mobile/iOS|Files with coordinates missing SDC location of creation|People at the beach in Maryland|United States photographs taken on 2013-08-05",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "Assessments": {
+          "value": "",
+          "source": "commons-categories",
+          "hidden": ""
+        },
+        "GPSLatitude": {
+          "value": "38.327167",
+          "source": "commons-desc-page"
+        },
+        "GPSLongitude": {
+          "value": "-75.083167",
+          "source": "commons-desc-page"
+        },
+        "GPSMapDatum": {
+          "value": "WGS-84",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "ImageDescription": {
+          "value": "A view of the beach in Ocean City, Maryland looking north from the pier.",
+          "source": "commons-desc-page"
+        },
+        "DateTimeOriginal": {
+          "value": "5 August 2013\u00a0(according to <span lang=\"en\" dir=\"ltr\"><a href=\"https://en.wikipedia.org/wiki/Exif\" class=\"extiw\" title=\"en:Exif\">Exif</a></span> data)",
+          "source": "commons-desc-page"
+        },
+        "Credit": {
+          "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+          "source": "commons-desc-page"
+        },
+        "Artist": {
+          "value": "<a href=\"//commons.wikimedia.org/wiki/User:Dough4872\" title=\"User:Dough4872\">User:Dough4872</a>",
+          "source": "commons-desc-page"
+        },
+        "LicenseShortName": {
+          "value": "CC BY-SA 3.0",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "UsageTerms": {
+          "value": "Creative Commons Attribution-Share Alike 3.0",
+          "source": "commons-desc-page"
+        },
+        "AttributionRequired": {
+          "value": "true",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "LicenseUrl": {
+          "value": "https://creativecommons.org/licenses/by-sa/3.0",
+          "source": "commons-desc-page"
+        },
+        "Copyrighted": {
+          "value": "True",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "Restrictions": {
+          "value": "",
+          "source": "commons-desc-page",
+          "hidden": ""
+        },
+        "License": {
+          "value": "cc-by-sa-3.0",
+          "source": "commons-templates",
+          "hidden": ""
+        }
+      }
+    },
+    "commonsTitle": "File:Ocean City MD beach looking north from pier.jpeg",
+    "local_preview": "/Users/stevenchandler/Desktop/dev/quiver/.planning/evidence/2026-09-03-catalog-gap-beaches/ocean-city-md-photo.jpg"
+  }
+]

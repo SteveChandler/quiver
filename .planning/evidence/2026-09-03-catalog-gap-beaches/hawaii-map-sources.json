@@ -1,0 +1,90 @@
+[
+  {
+    "name": "kamakahonu",
+    "lat": 19.63966,
+    "lon": -155.99788,
+    "image": ".planning/evidence/2026-09-03-catalog-gap-beaches/kamakahonu.png",
+    "source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.00188%2C19.63666%2C-155.99388000000002%2C19.64266&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "meaning": "candidate is image center; unedited provider imagery, internal geometry evidence only"
+  },
+  {
+    "name": "turtle-bay-west",
+    "lat": 21.705403,
+    "lon": -158.00333,
+    "image": ".planning/evidence/2026-09-03-catalog-gap-beaches/turtle-bay-west.png",
+    "source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-158.00733%2C21.702403%2C-157.99933000000001%2C21.708403&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "meaning": "candidate is image center; unedited provider imagery, internal geometry evidence only"
+  },
+  {
+    "name": "ala-moana-courts",
+    "lat": 21.2855,
+    "lon": -157.8535,
+    "image": ".planning/evidence/2026-09-03-catalog-gap-beaches/ala-moana-courts.png",
+    "source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-157.8575%2C21.2825%2C-157.8495%2C21.2885&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "meaning": "candidate is image center; unedited provider imagery, internal geometry evidence only"
+  },
+  {
+    "name": "lawai",
+    "lat": 21.8812,
+    "lon": -159.4763,
+    "image": ".planning/evidence/2026-09-03-catalog-gap-beaches/lawai.png",
+    "source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-159.4803%2C21.8782%2C-159.47230000000002%2C21.8842&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "meaning": "candidate is image center; unedited provider imagery, internal geometry evidence only"
+  },
+  {
+    "name": "kaanapali",
+    "lat": 20.922221,
+    "lon": -156.695895,
+    "image": ".planning/evidence/2026-09-03-catalog-gap-beaches/kaanapali.png",
+    "source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.699895%2C20.919221%2C-156.69189500000002%2C20.925221&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "meaning": "candidate is image center; unedited provider imagery, internal geometry evidence only"
+  },
+  {
+    "name": "pohaku",
+    "lat": 20.96796,
+    "lon": -156.68114,
+    "image": ".planning/evidence/2026-09-03-catalog-gap-beaches/pohaku.png",
+    "source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.68514%2C20.96496%2C-156.67714%2C20.97096&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "meaning": "candidate is image center; unedited provider imagery, internal geometry evidence only"
+  },
+  {
+    "name": "kaunaoa",
+    "lat": 20.0045643,
+    "lon": -155.8247995,
+    "image": ".planning/evidence/2026-09-03-catalog-gap-beaches/kaunaoa.png",
+    "source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-155.8287995%2C20.0015643%2C-155.82079950000002%2C20.0075643&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "meaning": "candidate is image center; unedited provider imagery, internal geometry evidence only"
+  },
+  {
+    "name": "napili",
+    "lat": 20.997396,
+    "lon": -156.67063,
+    "image": ".planning/evidence/2026-09-03-catalog-gap-beaches/napili.png",
+    "source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.67462999999998%2C20.994396%2C-156.66663%2C21.000396&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "meaning": "candidate is image center; unedited provider imagery, internal geometry evidence only"
+  },
+  {
+    "name": "kamaole-ii",
+    "lat": 20.7164722,
+    "lon": -156.44675,
+    "image": ".planning/evidence/2026-09-03-catalog-gap-beaches/kamaole-ii.png",
+    "source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.45075%2C20.7134722%2C-156.44275000000002%2C20.7194722&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "meaning": "candidate is image center; unedited provider imagery, internal geometry evidence only"
+  },
+  {
+    "name": "wailea",
+    "lat": 20.6829994,
+    "lon": -156.4430594,
+    "image": ".planning/evidence/2026-09-03-catalog-gap-beaches/wailea.png",
+    "source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.4470594%2C20.6799994%2C-156.43905940000002%2C20.6859994&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "meaning": "candidate is image center; unedited provider imagery, internal geometry evidence only"
+  },
+  {
+    "name": "kihei-cove",
+    "lat": 20.730663,
+    "lon": -156.452916,
+    "image": ".planning/evidence/2026-09-03-catalog-gap-beaches/kihei-cove.png",
+    "source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.45691599999998%2C20.727663%2C-156.448916%2C20.733663&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "meaning": "candidate is image center; unedited provider imagery, internal geometry evidence only"
+  }
+]
