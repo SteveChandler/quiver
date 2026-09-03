@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducedMotion } from "framer-motion";
+import { useInView, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 
 interface AutoplayVideoProps {
@@ -8,14 +8,14 @@ interface AutoplayVideoProps {
   ariaLabel: string;
   className?: string;
   poster?: string;
-  /** Label for the reduced-motion fallback control. */
+  /** Label for the motion/data-saving fallback control. */
   playLabel?: string;
   playButtonClassName?: string;
 }
 
 /**
- * Muted, looping video that starts on its own for viewers who allow motion and
- * degrades to an explicit play control for viewers who do not.
+ * Load visible video only when motion and data preferences allow autoplay.
+ * Otherwise keep the poster until the viewer explicitly requests playback.
  */
 export function AutoplayVideo({
   src,
@@ -27,9 +27,19 @@ export function AutoplayVideo({
 }: AutoplayVideoProps): ReactElement {
   const videoRef = useRef<HTMLVideoElement>(null);
   const prefersReducedMotion = useReducedMotion();
-  const shouldReduceMotion = prefersReducedMotion === true;
-  const shouldAutoplay = prefersReducedMotion === false;
+  const isInView = useInView(videoRef, { once: true });
+  const [saveData, setSaveData] = useState<boolean | null>(null);
+  const [requestedPlay, setRequestedPlay] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const shouldAutoplay = prefersReducedMotion === false && saveData === false;
+  const shouldLoad = requestedPlay || (isInView && shouldAutoplay);
+
+  useEffect(() => {
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean };
+    }).connection;
+    setSaveData(connection?.saveData === true);
+  }, []);
 
   const playVideo = useCallback((): void => {
     const video = videoRef.current;
@@ -48,9 +58,9 @@ export function AutoplayVideo({
   }, []);
 
   useEffect(() => {
-    if (!shouldAutoplay) return;
+    if (!shouldLoad) return;
     playVideo();
-  }, [playVideo, shouldAutoplay]);
+  }, [playVideo, shouldLoad]);
 
   return (
     <>
@@ -59,17 +69,21 @@ export function AutoplayVideo({
           differs between server and client and breaks hydration. */}
       <video
         ref={videoRef}
-        src={src}
+        src={shouldLoad ? src : undefined}
         muted
         loop
         playsInline
-        preload="metadata"
+        preload="none"
         poster={poster}
         aria-label={ariaLabel}
         className={className}
       />
-      {shouldReduceMotion && !hasStarted ? (
-        <button type="button" onClick={playVideo} className={playButtonClassName}>
+      {saveData !== null && (prefersReducedMotion === true || saveData) && !hasStarted ? (
+        <button
+          type="button"
+          onClick={() => requestedPlay ? playVideo() : setRequestedPlay(true)}
+          className={playButtonClassName}
+        >
           {playLabel}
         </button>
       ) : null}
