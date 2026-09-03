@@ -79,6 +79,18 @@ describe("embed map bridge", () => {
         payload: { layerId: "rainbow" },
       }),
     ).toBeNull();
+    expect(
+      parseEmbedMapCommand({ type: "setLayer", payload: { layerId: "combined" } }),
+    ).toBeNull();
+  });
+
+  it("accepts only approved forecast layer commands", () => {
+    for (const layerId of ["s1", "s2", "ww", "wind", "tide"]) {
+      expect(parseEmbedMapCommand({ type: "setLayer", payload: { layerId } })).toEqual({
+        type: "setLayer",
+        payload: { layerId },
+      });
+    }
   });
 
   it("rounds forecast time indexes", () => {

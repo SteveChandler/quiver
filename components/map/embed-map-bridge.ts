@@ -1,4 +1,4 @@
-export type EmbedMapSwellLayerId = "combined" | "s1" | "s2" | "wind";
+export type EmbedMapSwellLayerId = "s1" | "s2" | "ww" | "wind" | "tide" | "combined";
 export type EmbedMapWaterQualityHold = "advisory" | "closure" | "held";
 export const EMBED_MAP_MAX_FORECAST_TIME_INDEX = 7;
 
@@ -71,10 +71,11 @@ export type EmbedMapEvent =
   | { type: "auth_token_expired" };
 
 const SWELL_LAYER_IDS = new Set<EmbedMapSwellLayerId>([
-  "combined",
   "s1",
   "s2",
+  "ww",
   "wind",
+  "tide",
 ]);
 const JWT_PATTERN = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const MAX_ACCESS_TOKEN_LENGTH = 4096;
