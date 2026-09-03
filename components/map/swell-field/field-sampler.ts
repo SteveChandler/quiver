@@ -151,7 +151,14 @@ export function maskFieldToWater(
     const cacheKey = `${cell.lon}:${cell.lat}`;
     const cachedIsWater = options.waterMaskCache?.get(cacheKey);
     if (cachedIsWater !== undefined) {
-      if (!cachedIsWater) {
+      if (cachedIsWater) {
+        // A cached water verdict is a real hit from this same camera. It must
+        // count toward the trust threshold: during playback the idle remask
+        // caches every live (water) cell, so a rebuilt field only sends LAND
+        // cells to the map and a fresh-hits-only count would abort the pass.
+        queriedCellCount += 1;
+        waterHitCount += 1;
+      } else {
         cell.speed = 0;
         cell.alpha = 0;
         cell.vx = 0;
