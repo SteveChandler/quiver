@@ -91,7 +91,9 @@ beforeEach(() => {
     // getBeachForecastPreview now also fetches a live observation via the
     // get_nowcast_anchors RPC. Default to "no observation" so existing tests
     // remain focused on forecast-side behavior.
-    rpc: jest.fn().mockResolvedValue({ data: [], error: null }),
+    rpc: jest.fn().mockReturnValue({
+      eq: jest.fn().mockResolvedValue({ data: [], error: null }),
+    }),
   };
 
   (createSupabaseServiceRoleClient as unknown as jest.Mock).mockResolvedValue(
@@ -431,6 +433,12 @@ describe("Forecast Actions", () => {
 
       const result = await getBeachForecastPreview("beach-123");
 
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+        "get_nowcast_anchors", expect.any(Object),
+      );
+      expect(mockSupabaseClient.rpc.mock.results[0].value.eq).toHaveBeenCalledWith(
+        "beach_id", "beach-123",
+      );
       expect(result.success).toBe(true);
       expect(result.data).toMatchObject({
         type: "enhanced",
