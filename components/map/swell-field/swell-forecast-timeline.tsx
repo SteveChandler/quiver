@@ -93,7 +93,10 @@ export function SwellForecastTimeline({
         type="button"
         aria-label="Previous forecast step"
         disabled={nearestStep === 0}
-        onClick={() => onIndexChange(Math.max(0, nearestStep - 1))}
+        onClick={() => {
+          setIsPlaying(false);
+          onIndexChange(Math.max(0, nearestStep - 1));
+        }}
         className={`min-h-11 min-w-11 rounded-sm px-2 py-1 text-xs disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${SWELL_MAP_CTA_CLASS}`}
       >
         ‹
@@ -107,7 +110,10 @@ export function SwellForecastTimeline({
         aria-valuetext={steps[nearestStep]}
         aria-label="Forecast time"
         data-testid="swell-timeline-range"
-        onChange={(e) => onIndexChange(Number(e.target.value))}
+        onChange={(e) => {
+          setIsPlaying(false);
+          onIndexChange(Number(e.target.value));
+        }}
         className={`h-11 cursor-pointer accent-[#F78E42] ${
           isLegendPlacement ? "min-w-0 flex-1" : "w-40"
         }`}
@@ -126,7 +132,10 @@ export function SwellForecastTimeline({
         type="button"
         aria-label="Next forecast step"
         disabled={nearestStep === steps.length - 1}
-        onClick={() => onIndexChange(Math.min(steps.length - 1, nearestStep + 1))}
+        onClick={() => {
+          setIsPlaying(false);
+          onIndexChange(Math.min(steps.length - 1, nearestStep + 1));
+        }}
         className={`min-h-11 min-w-11 rounded-sm px-2 py-1 text-xs disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${SWELL_MAP_CTA_CLASS}`}
       >
         ›
