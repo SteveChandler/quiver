@@ -20,6 +20,9 @@ let mockUser: { id: string } | null = null;
 let mockMapCenter = { lat: 32.7493, lng: -117.2511 };
 let mockAutoLoadMap = true;
 let mockMapBoundsAvailable = true;
+let mockTilesLoaded = true;
+let mockStyleLayers: Array<{ id: string }> = [];
+const mockQueryRenderedFeatures = jest.fn((): unknown[] => [{}]);
 
 jest.mock("mapbox-gl", () => ({
   Map: jest.fn(() => ({
@@ -58,7 +61,11 @@ jest.mock("mapbox-gl", () => ({
     ),
     getCanvasContainer: jest.fn(() => document.createElement("div")),
     getLayer: jest.fn(() => undefined),
-    getStyle: jest.fn(() => ({ layers: [] })),
+    getStyle: jest.fn(() => ({ layers: mockStyleLayers })),
+    getCanvas: jest.fn(() => ({ clientWidth: 800, clientHeight: 600 })),
+    project: jest.fn(() => ({ x: 400, y: 300 })),
+    queryRenderedFeatures: mockQueryRenderedFeatures,
+    areTilesLoaded: jest.fn(() => mockTilesLoaded),
     addLayer: jest.fn(),
     addControl: jest.fn(),
     removeLayer: jest.fn(),
@@ -143,6 +150,8 @@ describe("InteractiveMap", () => {
     mockMapCenter = { lat: 32.7493, lng: -117.2511 };
     mockAutoLoadMap = true;
     mockMapBoundsAvailable = true;
+    mockTilesLoaded = true;
+    mockStyleLayers = [];
     delete (
       window as typeof window & {
         __quiverMapDebugCenter?: { lat: number; lon: number };
@@ -1640,6 +1649,95 @@ describe("InteractiveMap", () => {
         bottom: "12px",
       });
     });
+  });
+
+  it("remasks the swell field on idle only when a remask is owed", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    mockStyleLayers = [{ id: "water" }];
+    mockHasViewportChanged.mockReturnValue(false);
+    const partition = {
+      s1Dir: 250,
+      s1PeriodS: 13,
+      s1HeightFt: 3,
+      s2Dir: null,
+      s2PeriodS: null,
+      s2HeightFt: null,
+      windDir: 280,
+      windMph: 6,
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          forecasts: {},
+          swellPartitions: { "san-diego": partition },
+          hourlySwellTimeline: {
+            timestamps: ["2026-07-10T20:00:00.000Z"],
+            partitionsByBeach: { "san-diego": [partition] },
+            hasMore: false,
+            nextStart: null,
+          },
+        },
+      }),
+    }) as unknown as typeof fetch;
+    const beach = {
+      id: "san-diego",
+      name: "San Diego",
+      lat: 32.75,
+      lon: -117.25,
+    } as import("@/types/database").Beach;
+
+    render(
+      <InteractiveMap
+        beaches={[beach]}
+        showSwellField
+        swellLayerId="s1"
+        swellTimelineMode="expandable-hourly"
+      />,
+    );
+
+    // The field build masks once against loaded tiles and caches every verdict.
+    await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalled());
+    await waitFor(() => expect(mockMapHandlers.idle.length).toBeGreaterThan(1));
+    await waitFor(() => expect(mockMapHandlers["style.load"].length).toBeGreaterThan(1));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const queriesAfterBuild = mockQueryRenderedFeatures.mock.calls.length;
+    expect(queriesAfterBuild).toBeGreaterThan(0);
+
+    const fire = (event: string): void => {
+      act(() => {
+        for (const handler of mockMapHandlers[event]) handler();
+      });
+    };
+
+    // Per-frame idle events (the animating layer's repaint loop) must not re-query.
+    for (let frame = 0; frame < 5; frame += 1) fire("idle");
+    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterBuild);
+
+    // A camera move before its tiles render cannot query, so the remask is owed.
+    mockTilesLoaded = false;
+    fire("moveend");
+    fire("idle");
+    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterBuild);
+
+    // Tiles render: the owed remask runs exactly once, then idle goes quiet again.
+    mockTilesLoaded = true;
+    fire("idle");
+    const queriesAfterTiles = mockQueryRenderedFeatures.mock.calls.length;
+    expect(queriesAfterTiles).toBeGreaterThan(queriesAfterBuild);
+    for (let frame = 0; frame < 5; frame += 1) fire("idle");
+    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterTiles);
+
+    // A style reload invalidates the cached verdicts and owes one more remask.
+    fire("style.load");
+    fire("idle");
+    const queriesAfterStyle = mockQueryRenderedFeatures.mock.calls.length;
+    expect(queriesAfterStyle).toBeGreaterThan(queriesAfterTiles);
+    for (let frame = 0; frame < 5; frame += 1) fire("idle");
+    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterStyle);
   });
 
   it("does not deadlock loaded swell data when map bounds are briefly unavailable", async () => {
