@@ -878,7 +878,8 @@ html.has-auth-cookie #ssr-beach-links {
   --seo-paper-mist: #EEE3C9;
   --seo-paper-line: rgba(17, 16, 13, 0.16);
   --seo-paper-muted: #655C4C;
-  --seo-paper-soft: #8A806F;
+  /* Soft captions: #8A806F was 3.3:1 on cream; #6B6252 clears AA on cream, panel, and mist. */
+  --seo-paper-soft: #6B6252;
   --seo-paper-blue: #0B3A75;
   --seo-paper-blue-soft: rgba(11, 58, 117, 0.1);
   --seo-paper-orange: #B65F1A;
@@ -961,6 +962,17 @@ html.has-auth-cookie #ssr-beach-links {
 .theme-retro-dark .seo-paper-page .text-slate-800,
 .theme-retro-dark .seo-paper-page .text-black,
 .theme-retro-dark .seo-paper-page .text-foreground {
+  color: var(--seo-paper-ink) !important;
+}
+
+/* shadcn surface tokens are never overridden inside .seo-paper-page, so a
+   Card's bg-card / text-card-foreground resolve to the twilight-dark values.
+   Map them to paper here rather than patching each card. */
+.theme-retro-dark .seo-paper-page .bg-card {
+  background-color: var(--seo-paper-panel) !important;
+}
+
+.theme-retro-dark .seo-paper-page .text-card-foreground {
   color: var(--seo-paper-ink) !important;
 }
 
