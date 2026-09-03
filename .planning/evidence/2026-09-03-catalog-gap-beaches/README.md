@@ -1,8 +1,8 @@
 # Catalog gap beach additions — 2026-09-03
 
-Prepared **28 new searchable beach records, 12 verified camera links and 5 licensed photographs**. Production remains unchanged. These are catalog entries, with SEO/recommendation and terrain enablement off until scoring inputs and live forecast behavior are reviewed. The lack of empirical shoaling calibration alone is not a blocker; no synthetic calibration was written.
+Released **28 new searchable beach records, 12 verified camera links and 5 licensed photographs** to production. [Release receipt, exact commands, verification and follow-up fixes](release-receipt.md). These are catalog entries, with SEO/recommendation and terrain enablement off until scoring inputs and live forecast behavior are reviewed. The lack of empirical shoaling calibration alone is not a blocker; no synthetic calibration was written.
 
-## Prepared rows
+## Released rows
 
 | Beach | State | Camera | Licensed photo |
 |---|---|---|
@@ -83,4 +83,4 @@ These are explicit outcomes, not unfinished imports. Restricted or ambiguous loc
 - PASS `yarn tsx /tmp/catalog-terrain.ts`: reused exported terrain analyzer in dry-run mode with real DEM, 28 successful computations. No database writes. Input snapshot and proposed output retained here.
 - E2E reviewed: e2e/guest-cam-funnel-analytics.spec.ts; not modified or run. Existing renderer changes were checked through component/API tests and provider browser playback; no local-app E2E or screenshot pass is claimed.
 
-No commit, push, deployment, production migration, or migration-ledger write has been performed for this batch.
+The approved migration is committed, applied, and tracked exactly. Production release and browser verification passed; see release-receipt.md.
