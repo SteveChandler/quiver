@@ -84,7 +84,7 @@ export function GuidesByIntentGrid({
           return (
             <div
               key={intent}
-              className="rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-shadow"
+              className="rounded-[14px_6px_16px_8px] border-2 border-[#11100D]/85 bg-[#FBF6E8] p-5 shadow-[3px_4px_0_rgba(17,16,13,0.18)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[4px_6px_0_rgba(17,16,13,0.22)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
             >
               <h3 className="text-lg font-semibold text-slate-900">
                 {definition.heading({ cityName })}

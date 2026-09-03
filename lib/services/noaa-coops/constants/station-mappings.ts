@@ -70,6 +70,12 @@ export const COOPS_STATIONS: Record<string, string> = {
   pacifica: "9414290",
   "half-moon-bay": "9414290",
   "ocean-beach-sf": "9414290",
+  "moonstone-beach-/-little-river": "9419059",
+  "houda-point-/-camel-rock": "9419059",
+  "trinidad-state-beach": "9419059",
+  "samoa-dunes-surf-area": "9418767",
+  "college-cove": "9419059",
+  "clam-beach": "9419059",
 
   // ==================== PACIFIC NORTHWEST ====================
 

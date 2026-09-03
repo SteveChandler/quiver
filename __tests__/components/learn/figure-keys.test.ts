@@ -43,7 +43,8 @@ it("groundswell article wires both v1 figures and a bumped dateModified", () => 
 
   const keys = article.sections.map((s) => s.figureKey).filter(Boolean);
   expect(keys).toEqual(expect.arrayContaining(["swell-period-morph", "swell-origin-fetch"]));
-  expect(article.dateModified).toBe("2026-07-06");
+  // The figure retrofit landed 2026-07-06; later edits may bump the date again.
+  expect(article.dateModified! >= "2026-07-06").toBe(true);
 });
 
 it("reuses registered figures across the swell education cluster", () => {
@@ -78,10 +79,11 @@ it("reuses registered figures across the swell education cluster", () => {
     }
 
     expect(article.sections.map((section) => section.figureKey)).toContain(figureKey);
-    expect(article.dateModified).toBe(
+    // Each figure retrofit bumped dateModified; treat that date as a floor, not a pin.
+    const retrofitDate =
       figureKey === "wave-height-reference" || figureKey === "tide-window"
         ? "2026-07-23"
-        : "2026-07-06",
-    );
+        : "2026-07-06";
+    expect(article.dateModified! >= retrofitDate).toBe(true);
   }
 });

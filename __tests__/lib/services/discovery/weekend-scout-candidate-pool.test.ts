@@ -91,6 +91,26 @@ describe("buildWeekendScoutCandidatePool", () => {
     expect(result.wasTruncated).toBe(true);
   });
 
+  it("excludes beaches that are not recommendation eligible", async () => {
+    const withheld = beach("withheld") as Beach & {
+      recommendation_eligible: boolean;
+    };
+    withheld.recommendation_eligible = false;
+    const deps = dependencies(
+      [{ id: "withheld", distance_meters: 1609.344, total_count: 1 }],
+      [withheld]
+    );
+
+    const result = await buildWeekendScoutCandidatePool(
+      "user-1",
+      { userLocation: { lat: 41.05, lon: -124.15 }, radiusMiles: 25 },
+      deps
+    );
+
+    expect(result.candidates).toEqual([]);
+    expect(result.wasTruncated).toBe(true);
+  });
+
   it("returns an empty pool without adding home or saved beaches", async () => {
     const deps = dependencies([], []);
 

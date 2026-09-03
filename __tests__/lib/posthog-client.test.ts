@@ -107,6 +107,9 @@ describe("posthog-client", () => {
     );
     expect(posthog.opt_in_capturing).toHaveBeenCalled();
     expect(posthog.opt_in_capturing).toHaveBeenCalledTimes(1);
+    expect(posthog.opt_in_capturing).toHaveBeenCalledWith({
+      captureEventName: false,
+    });
     expect(posthog.capture).toHaveBeenCalledWith(
       "beach_view",
       expect.objectContaining({ beach_id: "beach-1" }),

@@ -117,7 +117,7 @@ import {
 // loaded-beach footprint via computeCoastalBounds (an APPROXIMATE rectangular
 // coast corridor, not a pixel-perfect coastline mask).
 const SWELL_FIELD_MIN_ZOOM = 9;
-const SWELL_FIELD_MAX_ZOOM = 13.5;
+const SWELL_FIELD_MAX_ZOOM = 16;
 
 // Base custom-layer id for the single-layer swell field.
 const SWELL_FIELD_LAYER_ID = "quiver-swell-field";

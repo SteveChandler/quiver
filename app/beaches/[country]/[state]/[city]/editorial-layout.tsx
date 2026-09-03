@@ -31,6 +31,7 @@ import type { LocationPageParams } from "./city-page-utils";
 import { SITE_ORIGIN } from "./city-page-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ReviewedCityEditorialSection } from "@/components/seo/reviewed-city-editorial-section";
+import type { CityEditorialPhoto } from "@/lib/data/server/city-editorial-photo";
 
 interface EditorialLayoutProps {
   params: LocationPageParams;
@@ -43,6 +44,7 @@ interface EditorialLayoutProps {
   bestTimeToSurfUrl?: string;
   siblingCities?: TopCityInState[];
   surfReport?: CitySurfReportSummary | null;
+  editorialPhoto?: CityEditorialPhoto | null;
 }
 
 export function EditorialLayout({
@@ -56,6 +58,7 @@ export function EditorialLayout({
   bestTimeToSurfUrl,
   siblingCities,
   surfReport,
+  editorialPhoto,
 }: EditorialLayoutProps) {
   const surfSpots = transformBeachesToSurfSpots(beaches);
   const topSpot = beaches[0];
@@ -130,8 +133,6 @@ export function EditorialLayout({
             {displayCityName}
           </span>
         </nav>
-        <ReviewedCityEditorialSection editorial={editorial} />
-
         {/* Header with editorial region label */}
         <header className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
@@ -148,14 +149,22 @@ export function EditorialLayout({
           })()}
 
           <div className="flex flex-wrap items-center gap-4 text-gray-600">
-            <div className="flex items-center gap-1">
-              <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-              <span className="font-medium">
-                {stats.averageRating.toFixed(1)}
-              </span>
-              <span>·</span>
-              <span>{stats.totalReviews} {stats.totalReviews === 1 ? "review" : "reviews"}</span>
-            </div>
+            {stats.totalReviews > 0 ? (
+              <div className="flex items-center gap-1">
+                <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                <span className="font-medium">
+                  {stats.averageRating.toFixed(1)}
+                </span>
+                <span>·</span>
+                <span>{stats.totalReviews} {stats.totalReviews === 1 ? "review" : "reviews"}</span>
+              </div>
+            ) : (
+              // "0.0 · 0 reviews" reads as a failing grade; nobody has rated it yet.
+              <div className="flex items-center gap-1">
+                <Star className="h-5 w-5 text-[#B65F1A]" aria-hidden="true" />
+                <span>No reviews yet</span>
+              </div>
+            )}
             <div className="flex items-center gap-1">
               <MapPin className="h-5 w-5" />
               <span>{stats.totalBeaches} beaches</span>
@@ -167,6 +176,16 @@ export function EditorialLayout({
             )}
           </div>
         </header>
+
+        <ReviewedCityEditorialSection
+          editorial={editorial}
+          photo={editorialPhoto}
+          photoAlt={
+            editorialPhoto
+              ? beaches.find((beach) => beach.id === editorialPhoto.beachId)?.name
+              : undefined
+          }
+        />
 
         {/* Surf Report Today — live conditions hero */}
         {surfReport && surfReport.beaches.length > 0 && (
@@ -249,7 +268,10 @@ export function EditorialLayout({
         )}
 
         {/* Planning Checklist */}
-        <PlanningChecklist items={editorial.planning_checklist} />
+        <PlanningChecklist
+          items={editorial.planning_checklist}
+          storageKey={`${params.state}-${params.city}`}
+        />
 
         {/* FAQ Section for SEO */}
         <FAQSection items={cityFaqs} locationName={displayCityName} />

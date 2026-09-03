@@ -240,6 +240,52 @@ describe("GET /api/surf/call", () => {
     expect(body.data.report.verdict).toBe("MAYBE");
   });
 
+  it("keeps direct forecast visibility but never promotes a recommendation-ineligible beach", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockBeachQuery({
+      id: beachId,
+      name: "College Cove",
+      slug: "college-cove-ca",
+      lat: 41.067,
+      lon: -124.1517,
+      timezone: "America/Los_Angeles",
+      recommendation_eligible: false,
+      preference_model: {
+        eligibility_reason:
+          "Promotion disabled because the official access trail is closed for erosion.",
+      },
+      deleted_at: null,
+    });
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.report).toMatchObject({
+      verdict: "NO",
+      bestWindowStart: null,
+      bestWindowEnd: null,
+      score: null,
+      whySentence:
+        "Promotion disabled because the official access trail is closed for erosion.",
+      recommendationAvailability: {
+        state: "available",
+        holdEpoch: `recommendation-ineligible:${beachId}`,
+      },
+    });
+    expect(body.data.report.waveHeight).toBe("2.7 ft");
+    expect(body.data.forecastContext).toBeNull();
+    expect(body.data.sessionDecision).toMatchObject({
+      verdict: "no",
+      decisionBasis: "safety_override",
+      decisionBasisV2: "safety_override",
+      reasonCode: "invalid_candidate",
+      selection: null,
+    });
+  });
+
   it("returns a retryable error when canonical discovery fails operationally", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     mockBeachQuery({

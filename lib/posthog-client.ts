@@ -86,7 +86,8 @@ function isPostHogInitialized(): boolean {
 function safelySetPostHogCapturing(enabled: boolean): void {
   try {
     if (enabled) {
-      posthog.opt_in_capturing();
+      // Runs on every init, so the default `$opt_in` event would fire per page load.
+      posthog.opt_in_capturing({ captureEventName: false });
       return;
     }
     posthog.opt_out_capturing();

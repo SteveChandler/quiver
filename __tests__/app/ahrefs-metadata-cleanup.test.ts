@@ -55,13 +55,13 @@ describe("Ahrefs metadata cleanup", () => {
       screen.getByRole("link", { name: "Alfonsos surf report" }),
     ).toHaveAttribute(
       "href",
-      "/mexico/baja-california/rosarito/alfonsos",
+      "/mexico/baja-california/popotla/alfonsos",
     );
     expect(
       screen.getByRole("link", { name: "El Morro Point surf report" }),
     ).toHaveAttribute(
       "href",
-      "/mexico/baja-california/rosarito/el-morro-point-k375",
+      "/mexico/baja-california/popotla/el-morro-point-k37-5",
     );
   });
 
@@ -81,13 +81,13 @@ describe("Ahrefs metadata cleanup", () => {
       screen.getByRole("link", { name: "Alfonsos surf report" }),
     ).toHaveAttribute(
       "href",
-      "/mexico/baja-california/rosarito/alfonsos",
+      "/mexico/baja-california/popotla/alfonsos",
     );
     expect(
       screen.getByRole("link", { name: "El Morro Point surf report" }),
     ).toHaveAttribute(
       "href",
-      "/mexico/baja-california/rosarito/el-morro-point-k375",
+      "/mexico/baja-california/popotla/el-morro-point-k37-5",
     );
   });
 });

@@ -63,6 +63,21 @@ describe("PhotoAttribution", () => {
     expect(document.querySelector("a")).not.toBeInTheDocument();
   });
 
+  it("drops public-domain wording from curated credits but keeps the creator", () => {
+    render(
+      <PhotoAttribution
+        attribution={null}
+        attributionHtml={'"Marshall Beach Sunset" by <a href="https://www.flickr.com/photos/x">romainguy</a> · <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a> via Openverse'}
+      />,
+    );
+    expect(screen.getByText('"Marshall Beach Sunset" by romainguy via Openverse')).toBeInTheDocument();
+  });
+
+  it("keeps the licence on CC BY credits, which require it", () => {
+    render(<PhotoAttribution attribution={null} attributionHtml="dpstyles™ / CC BY 2.0" />);
+    expect(screen.getByText("dpstyles™ / CC BY 2.0")).toBeInTheDocument();
+  });
+
   it("renders nothing when no useful attribution exists", () => {
     const { container } = render(
       <PhotoAttribution attribution={null} attributionHtml="   " />,

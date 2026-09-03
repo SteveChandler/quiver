@@ -1039,7 +1039,8 @@ html.has-auth-cookie #ssr-beach-links {
 }
 
 .theme-retro-dark .seo-paper-page [data-testid="alert-capture-primary-cta"] {
-  background-color: var(--seo-paper-orange) !important;
+  /* Cream on --seo-paper-orange (#B65F1A) is 4.19:1; this shade clears AA at 5.39:1. */
+  background-color: #9E5010 !important;
   color: #FBF6E8 !important;
 }
 

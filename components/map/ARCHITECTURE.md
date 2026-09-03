@@ -235,7 +235,7 @@ const mapCenter = useMemo(() => {
 Toolbar search (`searchQuery` → first result) and region pills (`focusCenter`, set by
 `MapToolbar` from `map-regions.ts`) both recenter through this remount path. Remount is what
 makes cross-region nav **leash-safe**: when the swell field is ON, `interactive-map.tsx` pins
-`maxBounds` + zoom 9–13.5 to the current coast, but a remount starts a fresh map (no leash)
+`maxBounds` + zoom 9–16 to the current coast, but a remount starts a fresh map (no leash)
 and the leash re-derives around the new region. The retired region *tabs* used in-place
 `fitBounds`, which the leash silently clamped. `focusCenter` is cleared on every other
 camera-pinning action (beach select, search change, "use my location") so it never pins the

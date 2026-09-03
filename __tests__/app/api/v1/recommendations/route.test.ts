@@ -110,6 +110,7 @@ function blockedDecision(candidateId: string) {
 
 function setupCompleteRecommendationQuery(
   beachIds: readonly string[] = [BEACH_ID],
+  recommendationIneligibleIds: readonly string[] = [],
 ): void {
   mockSupabaseClient.rpc.mockResolvedValueOnce({
     data: beachIds.map((id, index) => ({
@@ -127,6 +128,7 @@ function setupCompleteRecommendationQuery(
       id,
       name: index === 0 ? "Bound Beach" : `Bound Beach ${index + 1}`,
       is_private: false,
+      recommendation_eligible: !recommendationIneligibleIds.includes(id),
       skill_level: "intermediate",
       preferred_tide_ft_min: null,
       preferred_tide_ft_max: null,
@@ -435,6 +437,26 @@ describe("GET /api/v1/recommendations", () => {
         .toEqual([BEACH_IDS[1]]);
     });
 
+    it("does not return a recommendation-ineligible beach", async () => {
+      setupCompleteRecommendationQuery(
+        [BEACH_ID, BEACH_IDS[1]],
+        [BEACH_ID],
+      );
+
+      const response = await GET(
+        createMockRequest(
+          "GET",
+          "http://localhost:3000/api/v1/recommendations",
+          { searchParams: { lat: "32.79", lon: "-117.23", time: QUERY_TIME } },
+        ),
+      );
+      const body = await expectSuccessResponse<any>(response, 200);
+
+      expect(
+        body.data.recommendations.map(({ spotId }: { spotId: string }) => spotId),
+      ).toEqual([BEACH_IDS[1]]);
+    });
+
     it("keeps positives in shadow mode without exposing would-block evidence", async () => {
       setupCompleteRecommendationQuery();
       mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
@@ -600,7 +622,7 @@ describe("GET /api/v1/recommendations", () => {
           fallback_to_simple_query: true,
         });
         expect(normalizeSelect(beachesChain.select.mock.calls[0][0])).toBe(
-          "id, name, is_private, skill_level, preferred_tide_ft_min, preferred_tide_ft_max, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, wind_cross_shore_ok_kt, wind_onshore_bad_kt",
+          "id, name, is_private, recommendation_eligible, skill_level, preferred_tide_ft_min, preferred_tide_ft_max, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, wind_cross_shore_ok_kt, wind_onshore_bad_kt",
         );
         expect(consoleWarnSpy).toHaveBeenCalledWith(
           "[DEGRADED] PostGIS RPC unavailable, using fallback query:",

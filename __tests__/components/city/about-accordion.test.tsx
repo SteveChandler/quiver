@@ -264,7 +264,8 @@ describe("AboutAccordion Component", () => {
     it("should apply rounded border styling", () => {
       const { container } = render(<AboutAccordion {...defaultProps} />);
 
-      const accordionItem = container.querySelector("[class*='rounded-xl']");
+      // Lifted off the paper page: tinted panel, ink border, offset shadow.
+      const accordionItem = container.querySelector("[class*='bg-[#FBF6E8]']");
       expect(accordionItem).toBeInTheDocument();
     });
 

@@ -1,0 +1,93 @@
+[
+  {
+    "slug": "beginner-breaks-santa-cruz",
+    "name": "learn-santa-cruz-west-cliff",
+    "imageUrl": "https://live.staticflickr.com/3729/11898380106_cfe15a0947_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/99247795@N00/11898380106",
+    "title": "Surfing teens",
+    "creator": "Richard Masoner / Cyclelicious",
+    "licenseCode": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Santa Cruz beginner guide hero/thumbnail: West Cliff Drive lineup with two learners carrying soft-tops. Verified the CC licence on the Flickr source page on 2026-09-02; stored at native resolution, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-santa-cruz-west-cliff.webp"
+  },
+  {
+    "slug": "how-quiver-calibrates-your-beach",
+    "name": "learn-noaa-buoy",
+    "imageUrl": "https://live.staticflickr.com/2926/14319396909_d4700c2848_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/51647007@N08/14319396909",
+    "title": "wea04459",
+    "creator": "NOAA Photo Library",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Calibration guide hero/thumbnail: NOAA crew servicing an ocean buoy; stands in for the buoy observations the guide describes. Verified the CC licence on the Flickr source page on 2026-09-02; stored at native resolution, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-noaa-buoy.webp"
+  },
+  {
+    "slug": "what-is-a-rip-current",
+    "name": "learn-rip-current-sign",
+    "imageUrl": "https://live.staticflickr.com/31/47920196_3a8ca15416_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/35034359460@N01/47920196",
+    "title": "Recurring Rip Currents",
+    "creator": "Peter Kaminski",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Rip current guide hero/thumbnail: California State Parks recurring rip currents warning sign. Verified the CC licence on the Flickr source page on 2026-09-02; stored at native resolution, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-rip-current-sign.webp"
+  },
+  {
+    "slug": "how-do-tides-work",
+    "name": "learn-minus-tide-twilight",
+    "imageUrl": "https://live.staticflickr.com/7158/6794705469_87cb563d6e_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/48048313@N02/6794705469",
+    "title": "Mavericks minus tide twilight",
+    "creator": "j-dub1980(THANK YOU FOR 100k+ Views)",
+    "licenseCode": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Tides guide hero/thumbnail: Mavericks reef exposed at a minus tide. Verified the CC licence on the Flickr source page on 2026-09-02; stored at native resolution, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-minus-tide-twilight.webp"
+  },
+  {
+    "slug": "how-long-to-learn-to-surf",
+    "name": "learn-first-waves",
+    "imageUrl": "https://live.staticflickr.com/82/243511224_187c07c2f8_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/40646519@N00/243511224",
+    "title": "Sue Surfing",
+    "creator": "Joe Shlabotnik",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Learning timeline guide hero/thumbnail: beginner standing up on a soft-top in whitewater. Verified the CC licence on the Flickr source page on 2026-09-02; stored at native resolution, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-first-waves.webp"
+  },
+  {
+    "slug": "how-does-water-temperature-affect-surfing",
+    "name": "learn-wetsuit-walk",
+    "imageUrl": "https://live.staticflickr.com/1587/25710415542_808a803ec9_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/14913305@N00/25710415542",
+    "title": "Surf Enthusiasts",
+    "creator": "Chris Hunkeler",
+    "licenseCode": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Water temperature guide hero/thumbnail: two surfers in full wetsuits walking out with boards. Verified the CC licence on the Flickr source page on 2026-09-02; stored at native resolution, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-wetsuit-walk.webp"
+  },
+  {
+    "slug": "how-to-read-surf-conditions",
+    "name": "learn-surf-check-from-the-bluff",
+    "imageUrl": "https://live.staticflickr.com/8217/8323018224_9909523c3d_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/28156071@N00/8323018224",
+    "title": "Surfers watching the waves from a cliff",
+    "creator": "donjd2",
+    "licenseCode": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Reading conditions guide hero/thumbnail: three surfers on a bluff watching the swell before paddling out. Verified the CC licence on the Flickr source page on 2026-09-02; stored at native resolution, no crop, no upscale.",
+    "runtimeAssetPath": "public/images/learn/learn-surf-check-from-the-bluff.webp"
+  }
+]

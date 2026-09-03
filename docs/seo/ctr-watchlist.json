@@ -29,6 +29,24 @@
       "label": "Malibu surf-report owner",
       "monitorUntil": "2026-07-26",
       "reason": "New owner route had only 4 GSC impressions in the latest mixed 28-day window."
+    },
+    {
+      "canonicalPath": "/learn/is-it-safe-to-surf-after-rain",
+      "label": "Rain safety guide (CTR)",
+      "monitorUntil": "2026-10-10",
+      "reason": "September 2 title covers 'in the rain' phrasing and adds a during-rain section; needs one complete post-deploy 28-day window against the 592 imp / 2 click / 0.34% baseline."
+    },
+    {
+      "canonicalPath": "/learn/how-are-waves-measured",
+      "label": "Wave height guide (CTR)",
+      "monitorUntil": "2026-10-10",
+      "reason": "September 2 title and description rewrite (description was 306 chars); needs one complete post-deploy 28-day window against the 311 imp / 0 click baseline."
+    },
+    {
+      "canonicalPath": "/learn/how-are-ocean-waves-formed",
+      "label": "Wave formation guide (position)",
+      "monitorUntil": "2026-10-10",
+      "reason": "September 2 title matches 'what causes ocean waves' phrasing; position 41.0 is a ranking problem, so measure position, not CTR, over one complete post-deploy 28-day window."
     }
   ]
 }

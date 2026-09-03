@@ -11,14 +11,14 @@
       "reason": "Google reports this sitemap-listed city page as unknown as of 2026-08-23; the indexed Baja California hub links directly to it."
     },
     {
-      "canonicalPath": "/mexico/baja-california/rosarito/alfonsos",
+      "canonicalPath": "/mexico/baja-california/popotla/alfonsos",
       "label": "Alfonsos beach page",
-      "reason": "Google reports this canonical sitemap URL as discovered but not crawled as of 2026-08-23; the indexed Baja California hub now links directly to it."
+      "reason": "Canonical Popotla beach URL; verify its current-forecast indexability and crawl state after the corrected Baja California hub link deploys."
     },
     {
-      "canonicalPath": "/mexico/baja-california/rosarito/el-morro-point-k375",
+      "canonicalPath": "/mexico/baja-california/popotla/el-morro-point-k37-5",
       "label": "El Morro beach page",
-      "reason": "Google reports this canonical sitemap URL as discovered but not crawled as of 2026-08-23; the indexed Baja California hub now links directly to it."
+      "reason": "Canonical Popotla beach URL; verify its current-forecast indexability and crawl state after the corrected Baja California hub link deploys."
     }
   ]
 }

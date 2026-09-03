@@ -40,7 +40,7 @@ export function AboutAccordion({
   return (
     <section className="mt-12">
       <Accordion type="single" collapsible className="w-full">
-        <AccordionItem value="about" className="border rounded-xl px-5">
+        <AccordionItem value="about" className="rounded-[8px_18px_6px_16px] border-2 border-[#11100D]/85 bg-[#FBF6E8] px-5 shadow-[3px_4px_0_rgba(17,16,13,0.18)]">
           <AccordionTrigger className="text-xl font-semibold text-slate-900 hover:no-underline">
             About {cityName} Surf
           </AccordionTrigger>

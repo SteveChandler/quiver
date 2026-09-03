@@ -27,9 +27,9 @@ const expectedLearnMetadata = [
   },
   {
     slug: "groundswell-vs-wind-swell",
-    title: "Groundswell vs Wind Swell: What Makes Better Surf?",
+    title: "Wind Swell vs Groundswell: Tell Them Apart by Period",
     description:
-      "Groundswell comes from distant storms with 12+ second period and organized waves. Wind swell comes from local wind with 5-9 second period and choppy surf.",
+      "Under 10 seconds is wind swell: choppy, weak, quick to fade. Past 12 seconds is groundswell: long lines and real push. How to read which one is arriving.",
   },
   {
     slug: "how-do-tides-work",
@@ -45,21 +45,45 @@ const expectedLearnMetadata = [
   },
   {
     slug: "best-time-of-day-to-surf",
-    title: "Best Time of Day to Surf: Dawn Patrol vs Glass-Off",
+    title: "Best Time of Day to Surf: Why Morning Usually Wins",
     description:
-      "Find the best time of day to surf: dawn patrol, midday wind risk, and glass-off windows, plus how to check today's local forecast.",
+      "Dawn usually wins on wind, but not always. What makes morning surf cleaner, when an afternoon glass-off beats it, and how to check today's window.",
   },
   {
     slug: "is-it-safe-to-surf-after-rain",
-    title: "Is It Safe to Surf After Rain? The 72-Hour Rule",
+    title: "Is It Safe to Surf in the Rain or After It Rains?",
     description:
-      "Is it safe to surf after rain? Use the 72-hour rule, runoff risk signs, water-quality checks, and safer open-coast choices.",
+      "Light rain is fine; runoff after heavy rain is not. When the 72-hour rule applies, how to spot a dirty lineup, and where to surf instead.",
   },
   {
     slug: "how-to-read-surf-conditions",
     title: "How to Read a Surf Report: Forecast & Conditions Guide",
     description:
       "Learn how to read a surf report or surf forecast: period, direction, wind, tide, and wave height, plus what changes at your break.",
+  },
+  {
+    slug: "how-are-waves-measured",
+    title: "How Big Is 3 ft Surf? Face Height vs Hawaiian Scale",
+    description:
+      "A 3-5 ft forecast is significant wave height. Faces run 1.5-2x that, so 4.5-10 ft; Hawaiian scale calls the same wave half. Know which you're reading.",
+  },
+  {
+    slug: "beginner-breaks-santa-cruz",
+    title: "Beginner Surf Spots in Santa Cruz: Cowell's to Capitola",
+    description:
+      "Santa Cruz's gentlest waves: Cowell's, Capitola, and Jack's at Pleasure Point, plus what 48-58°F water means for your wetsuit and when each spot works.",
+  },
+  {
+    slug: "how-long-to-learn-to-surf",
+    title: "How Long Does It Take to Learn to Surf? By Milestone",
+    description:
+      "Standing in whitewater takes 1-3 sessions; riding green waves down the line takes months. The realistic timeline by milestone and what speeds it up.",
+  },
+  {
+    slug: "how-are-ocean-waves-formed",
+    title: "What Causes Ocean Waves? How Wind Builds Swell",
+    description:
+      "Wind speed, duration, and fetch decide wave size. How a storm's energy becomes a swell that crosses an ocean, and why every forecast starts with the wind.",
   },
 ];
 
@@ -72,6 +96,24 @@ describe("learn article SEO metadata", () => {
       expect(article?.title).toBe(expected.title);
       expect(article?.description).toBe(expected.description);
       expect(article!.description.length).toBeLessThanOrEqual(155);
+    }
+  });
+
+  it("answers surfing during rain so the rain title is not a promise the page breaks", () => {
+    const article = learnArticles.find(({ slug }) => slug === "is-it-safe-to-surf-after-rain");
+    const section = article?.sections.find(({ id }) => id === "surfing-while-raining");
+
+    expect(section?.heading).toBe("Surfing While It Is Raining");
+    expect(section?.content).toMatch(/lightning/i);
+    expect(section?.content).toMatch(/72-hour/i);
+  });
+
+  it("does not claim a machine-learning forecast in learn metadata", () => {
+    // Quiver ships no live ML forecast; metadata must not assert one.
+    for (const article of learnArticles) {
+      for (const keyword of article.keywords) {
+        expect(keyword.toLowerCase()).not.toMatch(/machine learning/);
+      }
     }
   });
 
@@ -96,5 +138,27 @@ describe("learn article SEO metadata", () => {
     expect(article?.relatedLinks.some(({ href }) =>
       href.startsWith("/beginner/"),
     )).toBe(true);
+  });
+});
+
+describe("learn article imagery", () => {
+  it("gives every guide its own thumbnail so the hub does not repeat images", () => {
+    const seen = new Map<string, string>();
+    for (const article of learnArticles) {
+      const prior = seen.get(article.thumbnailImage);
+      expect(prior ? `${prior} and ${article.slug} share ${article.thumbnailImage}` : "").toBe("");
+      seen.set(article.thumbnailImage, article.slug);
+    }
+  });
+
+  it("points every hero and thumbnail at a file that exists in public/", () => {
+    // Static imports would be caught at build time; string paths are not.
+    const fs = jest.requireActual<typeof import("node:fs")>("node:fs");
+    const path = jest.requireActual<typeof import("node:path")>("node:path");
+    for (const article of learnArticles) {
+      for (const image of [article.heroImage, article.thumbnailImage]) {
+        expect(fs.existsSync(path.join(process.cwd(), "public", image))).toBe(true);
+      }
+    }
   });
 });

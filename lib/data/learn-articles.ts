@@ -1,6 +1,13 @@
 import type { FigureKey } from "@/components/learn/figures/figure-keys";
 
-interface LearnArticle {
+export interface LearnArticleAppHandoff {
+  eyebrow: string;
+  title: string;
+  description: string;
+  ctaLabel: string;
+}
+
+export interface LearnArticle {
   slug: string;
   title: string;
   description: string;
@@ -36,6 +43,8 @@ interface LearnArticle {
     href: string;
     description: string;
   }[];
+  /** Article-specific copy for the mid-article app handoff; falls back to a generic ask. */
+  appHandoff?: LearnArticleAppHandoff;
 }
 
 export const learnArticles: LearnArticle[] = [
@@ -176,8 +185,8 @@ export const learnArticles: LearnArticle[] = [
     readingTimeMin: 6,
     datePublished: "2026-03-26",
     dateModified: "2026-06-23",
-    heroImage: "/beginnerWhiteWater.jpg",
-    thumbnailImage: "/beginnerWhiteWater.jpg",
+    heroImage: "/images/learn/learn-surf-check-from-the-bluff.webp",
+    thumbnailImage: "/images/learn/learn-surf-check-from-the-bluff.webp",
     keywords: [
       "how to read a surf report",
       "how to read surf report",
@@ -303,8 +312,8 @@ export const learnArticles: LearnArticle[] = [
     datePublished: "2026-03-26",
     dateModified: "2026-07-06",
     readingTimeMin: 4,
-    heroImage: "/point-break.webp",
-    thumbnailImage: "/point-break.webp",
+    heroImage: "/images/seo-dioramas/surf-report/scripps-pier-today/scripps-clean-set-photo.webp",
+    thumbnailImage: "/images/seo-dioramas/surf-report/scripps-pier-today/scripps-clean-set-photo.webp",
     keywords: [
       "swell period",
       "what is swell period",
@@ -586,11 +595,12 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "groundswell-vs-wind-swell",
-    title: "Groundswell vs Wind Swell: What Makes Better Surf?",
-    description: "Groundswell comes from distant storms with 12+ second period and organized waves. Wind swell comes from local wind with 5-9 second period and choppy surf.",
+    title: "Wind Swell vs Groundswell: Tell Them Apart by Period",
+    description:
+      "Under 10 seconds is wind swell: choppy, weak, quick to fade. Past 12 seconds is groundswell: long lines and real push. How to read which one is arriving.",
     readingTimeMin: 4,
     datePublished: "2026-03-26",
-    dateModified: "2026-07-06",
+    dateModified: "2026-09-02",
     heroImage: "/offShore.jpeg",
     thumbnailImage: "/offShore.jpeg",
     keywords: [
@@ -709,6 +719,13 @@ export const learnArticles: LearnArticle[] = [
       { label: "How Surf Forecasts Work", href: "/learn/how-surf-forecasts-work", description: "Where the swell data comes from." },
       { label: "Quiver vs Surfline", href: "/vs/surfline", description: "Per-beach calls vs a regional star." },
     ],
+    appHandoff: {
+      eyebrow: "Read it live",
+      title: "See which swell is arriving at your beach.",
+      description:
+        "Quiver shows period and direction for each swell at your break, so you can spot groundswell before you drive.",
+      ctaLabel: "Check my beach in the app",
+    },
   },
 
   {
@@ -1024,12 +1041,12 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "how-are-waves-measured",
-    title: "What Does 3-5 Ft Surf Mean? How Waves Are Measured",
+    title: "How Big Is 3 ft Surf? Face Height vs Hawaiian Scale",
     description:
-      "Surf forecast height is significant wave height (Hs) — the average of the tallest third of waves measured by NDBC buoys. Face height (what you see) runs 1.5-2x the forecast number. So a '3-5 ft' forecast means 4.5-10 ft wave faces. Hawaiian scale uses roughly half of face height, adding further confusion.",
+      "A 3-5 ft forecast is significant wave height. Faces run 1.5-2x that, so 4.5-10 ft; Hawaiian scale calls the same wave half. Know which you're reading.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
-    dateModified: "2026-07-23",
+    dateModified: "2026-09-02",
     heroImage: "/images/hero/hero-2-barrel-wave.webp",
     thumbnailImage: "/images/hero/hero-2-barrel-wave.webp",
     keywords: [
@@ -1110,6 +1127,13 @@ export const learnArticles: LearnArticle[] = [
           "See current significant wave height at 279+ beaches.",
       },
     ],
+    appHandoff: {
+      eyebrow: "Same number, your beach",
+      title: "See what 3 ft means at your break.",
+      description:
+        "Quiver shows forecast height and period for your beach, so you can read the number the way this guide explains it.",
+      ctaLabel: "Open my beach's forecast",
+    },
   },
 
   {
@@ -1339,12 +1363,12 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "best-time-of-day-to-surf",
-    title: "Best Time of Day to Surf: Dawn Patrol vs Glass-Off",
+    title: "Best Time of Day to Surf: Why Morning Usually Wins",
     description:
-      "Find the best time of day to surf: dawn patrol, midday wind risk, and glass-off windows, plus how to check today's local forecast.",
+      "Dawn usually wins on wind, but not always. What makes morning surf cleaner, when an afternoon glass-off beats it, and how to check today's window.",
     readingTimeMin: 7,
     datePublished: "2026-03-30",
-    dateModified: "2026-08-19",
+    dateModified: "2026-09-02",
     heroImage: "/images/learn/learn-dawn-patrol.jpg",
     thumbnailImage: "/images/learn/learn-dawn-patrol.jpg",
     keywords: [
@@ -1467,15 +1491,23 @@ export const learnArticles: LearnArticle[] = [
           "See the 3-hour wind forecast for your break tonight.",
       },
     ],
+    appHandoff: {
+      eyebrow: "Today's window",
+      title: "Find this morning's window at your beach.",
+      description:
+        "Quiver scores every hour by wind, tide, and swell, so you can see when today's cleanest window actually falls.",
+      ctaLabel: "See today's windows",
+    },
   },
 
   {
     slug: "is-it-safe-to-surf-after-rain",
-    title: "Is It Safe to Surf After Rain? The 72-Hour Rule",
+    title: "Is It Safe to Surf in the Rain or After It Rains?",
     description:
-      "Is it safe to surf after rain? Use the 72-hour rule, runoff risk signs, water-quality checks, and safer open-coast choices.",
+      "Light rain is fine; runoff after heavy rain is not. When the 72-hour rule applies, how to spot a dirty lineup, and where to surf instead.",
     readingTimeMin: 2,
     datePublished: "2026-03-30",
+    dateModified: "2026-09-02",
     heroImage: "/images/learn/learn-choppy-sea.jpg",
     thumbnailImage: "/images/learn/learn-choppy-sea.jpg",
     keywords: [
@@ -1493,6 +1525,13 @@ export const learnArticles: LearnArticle[] = [
         content: `<p>The standard recommendation from the <strong>Surfrider Foundation</strong> and public health agencies is wait <strong>72 hours</strong> after rain before surfing near urban areas. Storm drains flush bacteria (fecal coliform, Enterococcus), chemicals, oil, pesticides, and debris into the ocean. A Surfrider study found <strong>12 extra illness cases per 1,000 surfers</strong> exposed to wet-weather runoff. Risk varies by location, rainfall intensity, and proximity to storm drain outfalls and river mouths.</p>`,
         keyTakeaway:
           "Wait 72 hours after rain near urban areas. Storm drains flush bacteria and chemicals. Risk increases near river mouths and storm drain outfalls.",
+      },
+      {
+        id: "surfing-while-raining",
+        heading: "Surfing While It Is Raining",
+        content: `<p>Rain falling on the lineup is not the hazard. Light rain often thins the crowd and can arrive with calm, glassy conditions, and the water you are surfing in is the same water that was there an hour earlier. The two things that change the answer are what is happening in the sky and what the rain is about to wash into the sea.</p><p>Lightning ends the session. If you can hear thunder, you are close enough to be struck, and the ocean offers no cover. Get out, wait until thirty minutes have passed since the last thunder, and only then reassess. Heavy rain is the second signal: it is the start of the runoff problem below, not a separate one. A drizzle at a clean open-coast beach is a normal surf. A downpour next to a storm drain or river mouth is the beginning of the 72-hour clock.</p>`,
+        keyTakeaway:
+          "Rain itself is fine; lightning is not. Heavy rain near drains or river mouths starts the runoff clock rather than ending the risk.",
       },
       {
         id: "detail",
@@ -1544,6 +1583,13 @@ export const learnArticles: LearnArticle[] = [
         description: "Earplugs and rash guards reduce post-rain risk.",
       },
     ],
+    appHandoff: {
+      eyebrow: "After the rain",
+      title: "See whether your break is worth it today.",
+      description:
+        "Open your beach in the Quiver app for today's swell, wind, and tide, and decide from the forecast rather than the drizzle.",
+      ctaLabel: "Check my beach in the app",
+    },
   },
 
   {
@@ -1759,13 +1805,14 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "how-long-to-learn-to-surf",
-    title: "How Long Does It Take to Learn to Surf?",
+    title: "How Long Does It Take to Learn to Surf? By Milestone",
     description:
-      "Standing on whitewater: 1-3 sessions. Catching unbroken green waves: 2-4 weeks of regular practice. Riding down the line confidently: 3-6 months. Intermediate turns and wave reading: 1-2 years at 2-3 sessions per week. Fitness, ocean comfort, and coaching accelerate every milestone.",
+      "Standing in whitewater takes 1-3 sessions; riding green waves down the line takes months. The realistic timeline by milestone and what speeds it up.",
     readingTimeMin: 2,
     datePublished: "2026-03-30",
-    heroImage: "/images/activities/beginner-friendly.webp",
-    thumbnailImage: "/images/activities/beginner-friendly.webp",
+    dateModified: "2026-09-02",
+    heroImage: "/images/learn/learn-first-waves.webp",
+    thumbnailImage: "/images/learn/learn-first-waves.webp",
     keywords: [
       "how long to learn to surf",
       "learning to surf timeline",
@@ -1841,6 +1888,13 @@ export const learnArticles: LearnArticle[] = [
         description: "The technique that shortens the learning curve most.",
       },
     ],
+    appHandoff: {
+      eyebrow: "Practice days",
+      title: "Find the small, clean days to learn on.",
+      description:
+        "Quiver's forecast shows wave size at your beach hour by hour, so you can pick the 1-3 ft sessions this timeline depends on.",
+      ctaLabel: "Check my beach in the app",
+    },
   },
 
   {
@@ -2217,8 +2271,8 @@ export const learnArticles: LearnArticle[] = [
       "A rip current is a narrow channel of water flowing from shore back out to sea at 1-8 feet per second. It pulls you OUT, not under. Escape: don't fight it — swim parallel to shore until free of the current, then swim back in. If exhausted, float and signal for help. NOAA reports roughly 100 rip current drownings per year in the US.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
-    heroImage: "/images/learn/learn-aerial-shore.jpg",
-    thumbnailImage: "/images/learn/learn-aerial-shore.jpg",
+    heroImage: "/images/learn/learn-rip-current-sign.webp",
+    thumbnailImage: "/images/learn/learn-rip-current-sign.webp",
     keywords: [
       "rip current",
       "how to escape rip current",
@@ -2303,13 +2357,14 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "how-are-ocean-waves-formed",
-    title: "How Are Ocean Waves Formed?",
+    title: "What Causes Ocean Waves? How Wind Builds Swell",
     description:
-      "Wind transfers energy to the ocean surface through friction. Three factors determine wave size: wind speed, wind duration, and fetch (the uninterrupted distance wind blows over open water). Stronger wind over a larger fetch for a longer duration creates bigger waves. Waves then organize into swells that travel thousands of miles, arriving at coastlines days later.",
+      "Wind speed, duration, and fetch decide wave size. How a storm's energy becomes a swell that crosses an ocean, and why every forecast starts with the wind.",
     readingTimeMin: 2,
     datePublished: "2026-03-30",
-    heroImage: "/images/hero/hero-5-aerial-ocean.webp",
-    thumbnailImage: "/images/hero/hero-5-aerial-ocean.webp",
+    dateModified: "2026-09-02",
+    heroImage: "/images/seo-dioramas/surf-cams/hawaii/hawaii-misty-lineup-photo.webp",
+    thumbnailImage: "/images/seo-dioramas/surf-cams/hawaii/hawaii-misty-lineup-photo.webp",
     keywords: [
       "how are waves formed",
       "ocean wave formation",
@@ -2385,6 +2440,13 @@ export const learnArticles: LearnArticle[] = [
         description: "How NOAA models predict wave formation globally.",
       },
     ],
+    appHandoff: {
+      eyebrow: "Storm to shore",
+      title: "See the swell that storm is sending you.",
+      description:
+        "Quiver shows the height, period, and direction of each swell arriving at your beach, so you can tell distant groundswell from local wind.",
+      ctaLabel: "Check my beach in the app",
+    },
   },
 
   {
@@ -2395,8 +2457,8 @@ export const learnArticles: LearnArticle[] = [
     readingTimeMin: 3,
     datePublished: "2026-03-30",
     dateModified: "2026-07-23",
-    heroImage: "/images/learn/learn-tide-pools.jpg",
-    thumbnailImage: "/images/learn/learn-tide-pools.jpg",
+    heroImage: "/images/learn/learn-minus-tide-twilight.webp",
+    thumbnailImage: "/images/learn/learn-minus-tide-twilight.webp",
     keywords: [
       "how do tides work",
       "what causes tides",
@@ -2481,8 +2543,8 @@ export const learnArticles: LearnArticle[] = [
       "Find beginner surf spots in San Diego with forgiving waves, mellow beaches, surf-school zones, gear tips, and when to paddle out.",
     readingTimeMin: 5,
     datePublished: "2026-03-30",
-    heroImage: "/beginnerWhiteWater.jpg",
-    thumbnailImage: "/beginnerWhiteWater.jpg",
+    heroImage: "/images/seo-dioramas/surf-cams/san-diego/san-diego-tourmaline-break-photo.webp",
+    thumbnailImage: "/images/seo-dioramas/surf-cams/san-diego/san-diego-tourmaline-break-photo.webp",
     keywords: [
       "beginner surf spots san diego",
       "learn to surf san diego",
@@ -2588,13 +2650,14 @@ export const learnArticles: LearnArticle[] = [
   },
   {
     slug: "beginner-breaks-santa-cruz",
-    title: "Best Beginner Surf Spots in Santa Cruz",
+    title: "Beginner Surf Spots in Santa Cruz: Cowell's to Capitola",
     description:
-      "Santa Cruz is the birthplace of mainland surfing and home to some of California's best beginner waves. The cold water (48-58°F year-round) demands a good wetsuit, but Cowell's Beach and Capitola deliver gentle, predictable waves in a stunning setting. Here's where to go, what to wear, and what to know.",
+      "Santa Cruz's gentlest waves: Cowell's, Capitola, and Jack's at Pleasure Point, plus what 48-58°F water means for your wetsuit and when each spot works.",
     readingTimeMin: 5,
     datePublished: "2026-03-30",
-    heroImage: "/4groms.jpg",
-    thumbnailImage: "/4groms.jpg",
+    dateModified: "2026-09-02",
+    heroImage: "/images/learn/learn-santa-cruz-west-cliff.webp",
+    thumbnailImage: "/images/learn/learn-santa-cruz-west-cliff.webp",
     keywords: [
       "beginner surf spots santa cruz",
       "learn to surf santa cruz",
@@ -2697,6 +2760,13 @@ export const learnArticles: LearnArticle[] = [
           "Master wave height, swell period, direction, wind, and tide readings.",
       },
     ],
+    appHandoff: {
+      eyebrow: "Cowell's, Capitola, Jack's",
+      title: "Check these spots before you go.",
+      description:
+        "Open Santa Cruz in the Quiver app for today's wave size, wind, and tide at each beginner break.",
+      ctaLabel: "Open Santa Cruz in the app",
+    },
   },
 
   {
@@ -2829,8 +2899,8 @@ export const learnArticles: LearnArticle[] = [
       "Calibration starts by saving a forecast, matching it to a later observation, and keeping offshore buoy height separate from breaking surf at the beach.",
     readingTimeMin: 7,
     datePublished: "2026-04-30",
-    heroImage: "/images/learn/learn-aerial-shore.jpg",
-    thumbnailImage: "/images/learn/learn-aerial-shore.jpg",
+    heroImage: "/images/learn/learn-noaa-buoy.webp",
+    thumbnailImage: "/images/learn/learn-noaa-buoy.webp",
     keywords: [
       "calibrated surf forecast",
       "how Quiver calibrates beach",
@@ -2838,7 +2908,6 @@ export const learnArticles: LearnArticle[] = [
       "buoy observations forecast correction",
       "personalized surf forecast per beach",
       "surf forecast transparency",
-      "machine learning surf forecast",
       "surf forecast methodology",
     ],
     sections: [
@@ -2950,8 +3019,8 @@ export const learnArticles: LearnArticle[] = [
       "Learn how water temperature affects surfing through wetsuit choice, session length, cold shock, fatigue, comfort, and local wind—not wave height.",
     readingTimeMin: 6,
     datePublished: "2026-08-19",
-    heroImage: "/images/learn/learn-tide-pools.jpg",
-    thumbnailImage: "/images/learn/learn-tide-pools.jpg",
+    heroImage: "/images/learn/learn-wetsuit-walk.webp",
+    thumbnailImage: "/images/learn/learn-wetsuit-walk.webp",
     keywords: [
       "how does water temperature affect surfing",
       "surfing water temperature",
@@ -3065,8 +3134,8 @@ export const learnArticles: LearnArticle[] = [
       "Compare beginner surf spots in Orange County, including Doheny, Bolsa Chica, Blackies, Old Man's, and Huntington Beach, plus conditions to check.",
     readingTimeMin: 7,
     datePublished: "2026-08-19",
-    heroImage: "/images/activities/beginner-friendly.webp",
-    thumbnailImage: "/images/activities/beginner-friendly.webp",
+    heroImage: "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
+    thumbnailImage: "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
     keywords: [
       "beginner surf spots orange county",
       "best beginner surf spots orange county",

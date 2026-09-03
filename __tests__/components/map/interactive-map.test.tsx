@@ -172,11 +172,31 @@ describe("InteractiveMap", () => {
     fitBounds: jest.Mock;
     getCenter: jest.Mock;
     setMaxBounds: jest.Mock;
+    setMaxZoom: jest.Mock;
     resize: jest.Mock;
   } {
     const Map = require("mapbox-gl").Map;
     return Map.mock.results[Map.mock.results.length - 1].value;
   }
+
+  it("allows beach-level zoom while the swell-field leash is active", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    render(
+      <InteractiveMap
+        beaches={[{
+          id: "ocean-beach",
+          name: "Ocean Beach",
+          lat: 32.7493,
+          lon: -117.2511,
+        } as import("@/types/database").Beach]}
+        showSwellField
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getMapInstance().setMaxZoom).toHaveBeenCalledWith(16);
+    });
+  });
 
   it("replaces the loading overlay with a retryable error after a fatal map failure", async () => {
     mockAutoLoadMap = false;

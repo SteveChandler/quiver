@@ -263,6 +263,32 @@ describe('buildCandidatePool', () => {
       expect(result.candidates[0].id).toBe(mockNearbyBeach1.id);
     });
 
+    it('should filter out beaches that are not recommendation eligible', async () => {
+      const withheldBeach = {
+        ...mockNearbyBeach1,
+        recommendation_eligible: false,
+      };
+      mockState.nearbyRpcResponse = {
+        data: [
+          { id: withheldBeach.id, is_private: false, distance_meters: 1000 },
+          { id: mockNearbyBeach2.id, is_private: false, distance_meters: 5000 },
+        ],
+        error: null,
+      };
+      mockState.beachesInResponse = {
+        data: [withheldBeach, mockNearbyBeach2],
+        error: null,
+      };
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+      });
+
+      expect(result.candidates.map((beach) => beach.id)).toEqual([
+        mockNearbyBeach2.id,
+      ]);
+    });
+
     it('should remove held beaches before discovery pool ordering', async () => {
       const heldId = '550e8400-e29b-41d4-a716-446655440000';
       const safeId = '550e8400-e29b-41d4-a716-446655440001';
