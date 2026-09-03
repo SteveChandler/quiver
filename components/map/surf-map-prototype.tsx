@@ -558,7 +558,7 @@ export function SurfMapPrototype() {
   const reducedMotion = useReducedMotion();
   const motionPreferenceChecked = useMotionPreferenceChecked();
   const effectiveReducedMotion = !motionPreferenceChecked || reducedMotion;
-  const [selectedLayerId, setSelectedLayerId] = useState<LayerId>("combined");
+  const [selectedLayerId, setSelectedLayerId] = useState<LayerId>("s1");
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(2);
   const [selectedSpotId, setSelectedSpotId] = useState("ocean-beach");
   const [menuOpen, setMenuOpen] = useState(false);

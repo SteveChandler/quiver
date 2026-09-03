@@ -1317,6 +1317,7 @@ export function InteractiveMap({
     flowFieldsRef.current = {
       s1: EMPTY_FLOW_FIELD,
       s2: EMPTY_FLOW_FIELD,
+      ww: EMPTY_FLOW_FIELD,
       wind: EMPTY_FLOW_FIELD,
     };
     setPartitionsMap(new Map());
