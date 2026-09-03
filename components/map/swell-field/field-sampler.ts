@@ -140,10 +140,7 @@ export function maskFieldToWater(
   options: WaterMaskOptions
 ): boolean {
   if (options.waterLayerIds.length === 0) return true;
-  // An empty rendered-feature query is indistinguishable from land until the
-  // basemap tiles are ready. Since masking mutates the field, querying early can
-  // permanently blank every in-viewport swell cell for this map session.
-  if (typeof map.areTilesLoaded === "function" && !map.areTilesLoaded()) return false;
+  const tilesLoaded = map.areTilesLoaded?.() ?? true;
   const pendingLandCells: FlowField["cells"] = [];
   let queriedCellCount = 0;
   let waterHitCount = 0;
@@ -196,16 +193,18 @@ export function maskFieldToWater(
     ? Math.max(2, Math.ceil(queriedCellCount * 0.1))
     : 1;
   if (waterHitCount < minimumTrustedWaterHits) {
-    return pendingLandCells.length === 0 && !queryFailed;
+    return pendingLandCells.length === 0 && !queryFailed && tilesLoaded;
   }
   for (const cell of pendingLandCells) {
-    options.waterMaskCache?.set(`${cell.lon}:${cell.lat}`, false);
+    if (tilesLoaded) {
+      options.waterMaskCache?.set(`${cell.lon}:${cell.lat}`, false);
+    }
     cell.speed = 0;
     cell.alpha = 0;
     cell.vx = 0;
     cell.vy = 0;
   }
-  return !queryFailed;
+  return tilesLoaded && !queryFailed;
 }
 
 export interface GeoBounds {
