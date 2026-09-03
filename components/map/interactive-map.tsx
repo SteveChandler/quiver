@@ -659,6 +659,7 @@ export function InteractiveMap({
   // `idle` fire per frame; an unconditional idle remask re-queried every field
   // cell ~60x/s.
   const waterMaskOwedRef = useRef(true);
+  const lastWaterMaskRetryAtRef = useRef<number | null>(null);
   const [maskRetryTick, setMaskRetryTick] = useState(0);
   const [hourlyTimelineBeachIds, setHourlyTimelineBeachIds] = useState<string[]>([]);
   // Loader-resolved beaches that partitionsMap is keyed by (the prop may be empty).
@@ -2055,6 +2056,12 @@ export function InteractiveMap({
     const remaskWhenOwed = (): void => {
       if (!waterMaskOwedRef.current) return;
       if (typeof map.areTilesLoaded === "function" && !map.areTilesLoaded()) return;
+      const now = Date.now();
+      if (
+        lastWaterMaskRetryAtRef.current !== null &&
+        now - lastWaterMaskRetryAtRef.current < 1_000
+      ) return;
+      lastWaterMaskRetryAtRef.current = now;
       waterMaskOwedRef.current = false;
       setMaskRetryTick((tick) => tick + 1);
     };
