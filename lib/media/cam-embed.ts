@@ -142,6 +142,28 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       return { kind: "external", pageUrl: href, provider: "The Surfers View" };
     }
 
+    if (u.hostname === "marriott.ozolio.com" && u.pathname === "/mauna-kea-beach-hotel/") {
+      return { kind: "external", pageUrl: href, provider: "Mauna Kea Beach Hotel" };
+    }
+
+    // Provider pages stay external until player embedding permission is confirmed.
+    const externalProviders: Record<string, string> = {
+      "flaglersurf.com": "Flagler Surf",
+      "corollalightresort.com": "Corolla Light Resort",
+      "7thstreetsurfshop.com": "7th Street Surf Shop",
+      "hilton.com": "Hilton",
+      "ozolio.com": "Ozolio",
+      "brenneckes.com": "Brennecke’s",
+      "napilisunset.com": "Napili Sunset",
+      "sigward.com": "Muir Beach Webcam",
+      "video.nest.com": "Nest",
+      "vbbound.com": "Virginia Beach Bound",
+    };
+    const hostname = u.hostname.replace(/^www\./, "");
+    if (Object.hasOwn(externalProviders, hostname)) {
+      return { kind: "external", pageUrl: href, provider: externalProviders[hostname] };
+    }
+
     // Default iframe attempt (may be blocked)
     return { kind: "iframe", src: href, title: "Live Cam", allow: "autoplay" };
   } catch {

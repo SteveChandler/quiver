@@ -1,0 +1,12 @@
+{
+  "path": "/tmp/quiver-catalog-gap-beaches-20260903.dump",
+  "bytes": 634898,
+  "sha256": "40bf43fe483d0851d59fcbb2875db5de25fb8d7ba9f760b94ac36631a8b6c458",
+  "created_at": "2026-09-03T19:26:25.402Z",
+  "tables": [
+    "public.beaches",
+    "public.beach_sources",
+    "public.beach_photos"
+  ],
+  "archive_list_verified": true
+}

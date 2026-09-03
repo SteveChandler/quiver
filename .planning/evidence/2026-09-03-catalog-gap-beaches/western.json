@@ -1,0 +1,702 @@
+[
+  {
+    "disposition": "import",
+    "name": "Sharp Park Beach",
+    "city": "Pacifica",
+    "state": "CA",
+    "country": "USA",
+    "region": "San Francisco Peninsula",
+    "lat": 37.6324357,
+    "lon": -122.494697,
+    "timezone": "America/Los_Angeles",
+    "break_type": "beach",
+    "description": "Sharp Park Beach is the public Pacifica shoreline between the municipal pier and Mori Point. The pier and beach form one coastal area, distinct from Linda Mar and Rockaway Beach.",
+    "access_tips": "Use Beach Boulevard access and the coastal promenade. Follow posted pier and beach notices; no lifeguard is on duty.",
+    "hazards": [
+      "no lifeguard"
+    ],
+    "editorial_sources": [
+      {
+        "url": "https://www.cityofpacifica.org/departments/parks-beaches-recreation/parks-and-beaches-locations-maps-safety-guides",
+        "publisher": "City of Pacifica",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "identity",
+          "access",
+          "hazards"
+        ]
+      },
+      {
+        "url": "https://www.cityofpacifica.org/home/showpublisheddocument/17180/638415314988430000",
+        "publisher": "City of Pacifica",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "identity",
+          "public_access",
+          "description"
+        ]
+      },
+      {
+        "url": "https://www.topozone.com/california/san-mateo-ca/beach/sharp-park-beach/",
+        "publisher": "TopoZone / USGS GNIS",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon"
+        ]
+      },
+      {
+        "url": "https://www.pacificbeachcoalition.org/take-action/monthly-adopt-a-beach-cleanups/sharp-park-beach-cleanup/",
+        "publisher": "Pacific Beach Coalition",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "hazards_context"
+        ]
+      }
+    ],
+    "aliases": [
+      "Pacifica Pier",
+      "Pacifica Municipal Pier",
+      "Sharp Park"
+    ],
+    "notes": "One broad beach row; pier alias is an area-search alias, not a separately verified takeoff. Local stewardship source warns powerful surf and rip currents; review for hazard array before promotion.",
+    "camera_url": "https://www.youtube.com/watch?v=QYRIc4LcvqQ",
+    "photo": null,
+    "skill_level": null,
+    "swell_window": null,
+    "offshore_wind": null,
+    "tide_range": null,
+    "seo_indexable": false,
+    "recommendation_eligible": false,
+    "eligibility_reason": "Spot-level surf inputs and terrain not yet reviewed; empirical-only calibration is not a blocker.",
+    "duplicate_review": "No matching name/slug in 467-row snapshot or candidate-name hits in pending 2026 migrations; coordinator must perform final proximity/UUID guard.",
+    "visual_review": {
+      "status": "reviewed",
+      "url": "https://www.google.com/maps?q=37.6324357,-122.494697&t=k&z=17",
+      "observation": "GNIS pin on narrow wet beach immediately south of pier; agrees with verified camera shore."
+    },
+    "camera_review": {
+      "checked_at": "2026-09-03T19:15:09Z",
+      "provider": "Chamberlin Nature / YouTube",
+      "playback": "Verified live shoreline and pier, overlay2026-09-03 12:15:09PM.",
+      "coverage": "Sharp Park shoreline immediately south of Pacifica Pier.",
+      "caveats": "Public watch link; commercial rebroadcast rights not established."
+    }
+  },
+  {
+    "disposition": "import",
+    "name": "Santa Cruz Main Beach",
+    "city": "Santa Cruz",
+    "state": "CA",
+    "country": "USA",
+    "region": "Santa Cruz",
+    "lat": 36.962058,
+    "lon": -122.02219,
+    "timezone": "America/Los_Angeles",
+    "break_type": "beach",
+    "description": "Santa Cruz Main Beach, also called Boardwalk Beach, is the sandy public shoreline east of the municipal wharf and west of the San Lorenzo River.",
+    "access_tips": "Use public pedestrian access from Beach Street. Check current city water-quality and ocean-safety notices and ask an on-duty lifeguard about conditions.",
+    "hazards": [],
+    "editorial_sources": [
+      {
+        "url": "https://www.slc.ca.gov/Programs/Granted_Lands/Forms/2014/16-01SantaCruzCityof.pdf",
+        "publisher": "City of Santa Cruz / California State Lands Commission",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "identity",
+          "description",
+          "public_access"
+        ]
+      },
+      {
+        "url": "https://www.santacruzca.gov/Government/City-Departments/Fire-Department/Marine-Safety-Division",
+        "publisher": "City of Santa Cruz",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "access",
+          "lifeguards",
+          "water_quality_checks"
+        ]
+      },
+      {
+        "url": "https://www.waterqualitydata.us/provider/STORET/CABEACH_WQX/CABEACH_WQX-Main-A/",
+        "publisher": "Water Quality Portal / California State Water Resources Control Board",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon",
+          "coordinate_datum",
+          "pin_meaning"
+        ]
+      }
+    ],
+    "aliases": [
+      "Main Beach",
+      "Boardwalk Beach",
+      "Santa Cruz Municipal Beach"
+    ],
+    "notes": "NAD83 beach-monitoring point 75ft east of wharf, not the older NAD27 Boardwalk point. No USGS snapshot camera assigned as live video.",
+    "camera_url": null,
+    "photo": null,
+    "skill_level": null,
+    "swell_window": null,
+    "offshore_wind": null,
+    "tide_range": null,
+    "seo_indexable": false,
+    "recommendation_eligible": false,
+    "eligibility_reason": "Spot-level surf inputs and terrain not yet reviewed; empirical-only calibration is not a blocker.",
+    "duplicate_review": "No matching name/slug in 467-row snapshot or candidate-name hits in pending 2026 migrations; coordinator must perform final proximity/UUID guard.",
+    "visual_review": {
+      "status": "reviewed",
+      "url": "https://www.google.com/maps?q=36.962058,-122.02219&t=k&z=17",
+      "observation": "Pin in shoreline water immediately east of municipal wharf."
+    }
+  },
+  {
+    "disposition": "import",
+    "name": "Roads End Beach",
+    "city": "Lincoln City",
+    "state": "OR",
+    "country": "USA",
+    "region": "Central Oregon Coast",
+    "lat": 45.00827,
+    "lon": -124.0105,
+    "timezone": "America/Los_Angeles",
+    "break_type": "beach",
+    "description": "Roads End Beach is the public ocean shoreline reached through Roads End State Recreation Site in northern Lincoln City.",
+    "access_tips": "Use the state recreation site beach path and required day-use parking permit. Check tides before walking around Roads End Point; rising water can cut off the cove.",
+    "hazards": [
+      "rising tides can cut off headland access"
+    ],
+    "editorial_sources": [
+      {
+        "url": "https://stateparks.oregon.gov/index.cfm?do=park.profile&parkId=163",
+        "publisher": "Oregon Parks and Recreation Department",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "identity",
+          "description",
+          "access",
+          "hazards"
+        ]
+      },
+      {
+        "url": "https://www.waterqualitydata.us/provider/STORET/21ORBCH/21ORBCH-29261/",
+        "publisher": "Water Quality Portal / Oregon Beach Monitoring Program",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "source_coordinates",
+          "coordinate_datum",
+          "source_pin_meaning"
+        ]
+      },
+      {
+        "url": "https://www.google.com/maps?q=45.00827,-124.0105&t=k&z=17",
+        "publisher": "Google Maps satellite imagery; reviewer-derived representative surf pin",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon",
+          "visual_geometry"
+        ]
+      }
+    ],
+    "aliases": [
+      "Roads End",
+      "Roads End State Recreation Site"
+    ],
+    "notes": "NAD83 ocean monitoring point at State Park Creek. Chinook Winds resort is farther south and is not asserted as an exact alias or assigned camera. Final coordinates are imagery-derived nearshore adjustments; original monitoring point retained separately.",
+    "camera_url": null,
+    "photo": null,
+    "skill_level": null,
+    "swell_window": null,
+    "offshore_wind": null,
+    "tide_range": null,
+    "seo_indexable": false,
+    "recommendation_eligible": false,
+    "eligibility_reason": "Spot-level surf inputs and terrain not yet reviewed; empirical-only calibration is not a blocker.",
+    "duplicate_review": "No matching name/slug in 467-row snapshot or candidate-name hits in pending 2026 migrations; coordinator must perform final proximity/UUID guard.",
+    "visual_review": {
+      "status": "reviewed",
+      "url": "https://www.google.com/maps?q=45.00827,-124.0105&t=k&z=17",
+      "observation": "Moved west approximately 53 m from the historic monitoring point on sand to visible breaking waves directly seaward of the park. Approximate representative nearshore surf zone, not a surveyed takeoff."
+    },
+    "source_coordinates": {
+      "lat": 45.00827,
+      "lon": -124.00983,
+      "datum": "NAD83",
+      "meaning": "Roads End State Park Creek ocean monitoring point"
+    }
+  },
+  {
+    "disposition": "import",
+    "name": "Muir Beach",
+    "city": "Muir Beach",
+    "state": "CA",
+    "country": "USA",
+    "region": "Marin County",
+    "lat": 37.8594,
+    "lon": -122.57728,
+    "timezone": "America/Los_Angeles",
+    "break_type": "beach",
+    "description": "Muir Beach is a Pacific coastal cove at the mouth of Redwood Creek in Golden Gate National Recreation Area.",
+    "access_tips": "Reach the beach over the pedestrian bridge from the parking lot. The lagoon and surrounding riparian habitat are closed to access; stay on established beach access routes.",
+    "hazards": [
+      "no lifeguard"
+    ],
+    "editorial_sources": [
+      {
+        "url": "https://home.nps.gov/goga/planyourvisit/muirbeach.htm",
+        "publisher": "National Park Service",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "identity",
+          "description",
+          "access",
+          "hazards"
+        ]
+      },
+      {
+        "url": "https://www.waterqualitydata.us/provider/STORET/21CABCH/21CABCH-1365/",
+        "publisher": "Water Quality Portal / Southern California Coastal Water Research Project",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "source_coordinates",
+          "coordinate_datum",
+          "source_pin_meaning"
+        ]
+      },
+      {
+        "url": "https://www.nps.gov/goga/planyourvisit/upload/MUBE-sb_web_17e.pdf",
+        "publisher": "National Park Service",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "map",
+          "historical_alias"
+        ]
+      },
+      {
+        "url": "https://www.google.com/maps?q=37.8594,-122.57728&t=k&z=17",
+        "publisher": "Google Maps satellite imagery; reviewer-derived representative surf pin",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon",
+          "visual_geometry"
+        ]
+      }
+    ],
+    "aliases": [
+      "Big Lagoon Beach"
+    ],
+    "notes": "NAD83 historic Muir Beach North monitoring point. Do not use populated-place centroid or Muir Beach Overlook. Sigward camera plays, but its on-image clock is incorrect; see camera_review. Final coordinates are imagery-derived nearshore adjustments; original monitoring point retained separately.",
+    "camera_url": "https://www.sigward.com/",
+    "photo": null,
+    "skill_level": null,
+    "swell_window": null,
+    "offshore_wind": null,
+    "tide_range": null,
+    "seo_indexable": false,
+    "recommendation_eligible": false,
+    "eligibility_reason": "Spot-level surf inputs and terrain not yet reviewed; empirical-only calibration is not a blocker.",
+    "duplicate_review": "No matching name/slug in 467-row snapshot or candidate-name hits in pending 2026 migrations; coordinator must perform final proximity/UUID guard.",
+    "visual_review": {
+      "status": "reviewed",
+      "url": "https://www.google.com/maps?q=37.8594,-122.57728&t=k&z=17",
+      "observation": "Moved south approximately 59 m from the historic monitoring point on sand to visible nearshore waves at the creek-mouth cove. Approximate representative surf zone, not a surveyed takeoff; outside the lagoon and riparian access closure."
+    },
+    "camera_review": {
+      "checked_at": "2026-09-03T19:17:00Z",
+      "provider": "Sigward / IPCamLive",
+      "embed_url": "https://g1.ipcamlive.com/player/player.php?alias=608dc4709bc06&autoplay=1&skin=white",
+      "playback": "Verified browser moving shoreline waves, LIVE control; overlay advances00:51:52 to00:52:02.",
+      "coverage": "Exact Muir cove view from north shore looking south.",
+      "caveats": "Camera overlay date/time Sept4 misconfigured relative to Sept3 verification. Public owner web link only; HLS proxy/native and rebroadcast rights not verified."
+    },
+    "source_coordinates": {
+      "lat": 37.85993,
+      "lon": -122.57728,
+      "datum": "NAD83",
+      "meaning": "Historic Muir Beach North ocean monitoring point"
+    }
+  },
+  {
+    "disposition": "import",
+    "name": "Cowell Beach",
+    "city": "Santa Cruz",
+    "state": "CA",
+    "country": "USA",
+    "region": "Santa Cruz",
+    "lat": 36.960806,
+    "lon": -122.0243,
+    "timezone": "America/Los_Angeles",
+    "break_type": "beach",
+    "description": "Cowell Beach is the sandy public beach west of the Santa Cruz Municipal Wharf, below the Dream Inn and West Cliff Drive.",
+    "access_tips": "Use public beach access west of the wharf. Check current water-quality notices and ocean conditions with an on-duty lifeguard before entering.",
+    "hazards": [],
+    "editorial_sources": [
+      {
+        "url": "https://www.slc.ca.gov/Programs/Granted_Lands/Forms/2014/16-01SantaCruzCityof.pdf",
+        "publisher": "City of Santa Cruz / California State Lands Commission",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "identity",
+          "description",
+          "public_access"
+        ]
+      },
+      {
+        "url": "https://www.santacruzca.gov/Government/City-Departments/Fire-Department/Marine-Safety-Division",
+        "publisher": "City of Santa Cruz",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "access",
+          "lifeguards",
+          "water_quality_checks"
+        ]
+      },
+      {
+        "url": "https://www.waterqualitydata.us/provider/STORET/CABEACH_WQX/CABEACH_WQX-Cowell/",
+        "publisher": "Water Quality Portal / California State Water Resources Control Board",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon",
+          "coordinate_datum",
+          "pin_meaning"
+        ]
+      }
+    ],
+    "aliases": [
+      "Cowells",
+      "Cowells Cove",
+      "Cowell’s Beach"
+    ],
+    "notes": "NAD83 monitoring midpoint between rocks and wharf. Separate from Main Beach east of wharf. Historical water-quality concern is not a claim of a current advisory.",
+    "camera_url": null,
+    "photo": null,
+    "skill_level": null,
+    "swell_window": null,
+    "offshore_wind": null,
+    "tide_range": null,
+    "seo_indexable": false,
+    "recommendation_eligible": false,
+    "eligibility_reason": "Spot-level surf inputs and terrain not yet reviewed; empirical-only calibration is not a blocker.",
+    "duplicate_review": "No matching name/slug in 467-row snapshot or candidate-name hits in pending 2026 migrations; coordinator must perform final proximity/UUID guard.",
+    "visual_review": {
+      "status": "reviewed",
+      "url": "https://www.google.com/maps?q=36.960806,-122.0243&t=k&z=17",
+      "observation": "Pin at water-facing beach west of wharf below Dream Inn."
+    }
+  },
+  {
+    "disposition": "import",
+    "name": "Dillon Beach",
+    "city": "Dillon Beach",
+    "state": "CA",
+    "country": "USA",
+    "region": "Marin County",
+    "lat": 38.249,
+    "lon": -122.9698,
+    "timezone": "America/Los_Angeles",
+    "break_type": "beach",
+    "description": "Dillon Beach is the ocean-facing sandy shoreline at the northern entrance to Tomales Bay. Lawson’s Landing provides one route to its southern frontage.",
+    "access_tips": "Day-use beach parking is offered by Lawson’s Landing, subject to current hours, rates and availability. Follow marked routes and restrictions protecting dunes and wetlands.",
+    "hazards": [],
+    "editorial_sources": [
+      {
+        "url": "https://www.lawsonslanding.com/dayuse.html",
+        "publisher": "Lawson’s Landing",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "identity",
+          "description",
+          "access"
+        ]
+      },
+      {
+        "url": "https://www.lawsonslanding.com/environment.html",
+        "publisher": "Lawson’s Landing",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "access_restrictions"
+        ]
+      },
+      {
+        "url": "https://www.waterqualitydata.us/provider/STORET/CABEACH_WQX/CABEACH_WQX-DILLON/",
+        "publisher": "Water Quality Portal / California State Water Resources Control Board",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "identity",
+          "source_coordinates",
+          "coordinate_datum",
+          "source_pin_meaning"
+        ]
+      },
+      {
+        "url": "https://www.google.com/maps?q=38.249,-122.9698&t=k&z=17",
+        "publisher": "Google Maps satellite imagery; reviewer-derived representative surf pin",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon",
+          "visual_geometry"
+        ]
+      }
+    ],
+    "aliases": [
+      "Dillon"
+    ],
+    "notes": "Publicly accessible via paid private operator; land ownership is not asserted as public. Do not equate Shark Pit offshore takeoff or bay-side campground/boat launch with this ocean beach. Shark Pit held pending exact coordinates and access/surf review; camera offline.",
+    "camera_url": null,
+    "photo": null,
+    "skill_level": null,
+    "swell_window": null,
+    "offshore_wind": null,
+    "tide_range": null,
+    "seo_indexable": false,
+    "recommendation_eligible": false,
+    "eligibility_reason": "Spot-level surf inputs and terrain not yet reviewed; empirical-only calibration is not a blocker.",
+    "duplicate_review": "No matching name/slug in 467-row snapshot or candidate-name hits in pending 2026 migrations; coordinator must perform final proximity/UUID guard.",
+    "visual_review": {
+      "status": "reviewed",
+      "url": "https://www.google.com/maps?q=38.249,-122.9698&t=k&z=17",
+      "observation": "Adjusted west from monitoring pin to visually verified nearshore water/fronting sandy beach; approximate representative surf zone, not surveyed takeoff."
+    },
+    "source_coordinates": {
+      "lat": 38.249,
+      "lon": -122.968,
+      "datum": "NAD83",
+      "meaning": "DILLON water quality monitor; currently on broad beach sand"
+    }
+  },
+  {
+    "disposition": "import",
+    "name": "North Salmon Creek Beach",
+    "city": "Bodega Bay",
+    "state": "CA",
+    "country": "USA",
+    "region": "Sonoma Coast",
+    "lat": 38.3573,
+    "lon": -123.0681,
+    "timezone": "America/Los_Angeles",
+    "break_type": "beach",
+    "description": "North Salmon Creek Beach is the sandy Sonoma Coast State Park shoreline north of the Salmon Creek mouth, with public access from Highway 1.",
+    "access_tips": "Use the signed North Salmon Creek parking area and beach paths. Follow posted habitat and ocean warnings; do not trample dunes.",
+    "hazards": [
+      "strong rip currents",
+      "heavy surf",
+      "sudden ground swells"
+    ],
+    "editorial_sources": [
+      {
+        "url": "https://limpets.org/monitoring-site/north-salmon-creek-beach/",
+        "publisher": "LiMPETS coastal monitoring program",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "identity",
+          "lat",
+          "lon",
+          "access",
+          "pin_meaning"
+        ]
+      },
+      {
+        "url": "https://www.parks.ca.gov/pages/451/files/SonomaCoastSP_Infosheet_8.5x11_010125_FINAL.pdf",
+        "publisher": "California State Parks",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "identity",
+          "description",
+          "public_access",
+          "surfing"
+        ]
+      },
+      {
+        "url": "https://www.sonomacounty.com/outdoor-activities/north-salmon-creek-beach/",
+        "publisher": "Sonoma County Tourism",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "identity",
+          "access_restrictions"
+        ]
+      },
+      {
+        "url": "https://www.parks.ca.gov/?page_id=451",
+        "publisher": "California State Parks",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "hazards",
+          "surfing_use",
+          "access_restrictions"
+        ]
+      }
+    ],
+    "aliases": [
+      "Salmon Creek Beach",
+      "North Salmon"
+    ],
+    "notes": "LiMPETS sandy-beach survey coordinate; not creek/lagoon centroid. South Salmon Creek is a distinct frontage, not a synonym for this exact north beach. BOON camera is Horseshoe Cove and cannot be assigned here. California State Parks explicitly recognizes North and South Salmon surfing use and warns of dangerous ocean conditions; this does not establish beginner suitability.",
+    "camera_url": null,
+    "photo": null,
+    "skill_level": null,
+    "swell_window": null,
+    "offshore_wind": null,
+    "tide_range": null,
+    "seo_indexable": false,
+    "recommendation_eligible": false,
+    "eligibility_reason": "Spot-level surf inputs and terrain not yet reviewed; empirical-only calibration is not a blocker.",
+    "duplicate_review": "No matching name/slug in 467-row snapshot or candidate-name hits in pending 2026 migrations; coordinator must perform final proximity/UUID guard.",
+    "visual_review": {
+      "status": "reviewed",
+      "url": "https://www.google.com/maps?q=38.3573,-123.0681&t=k&z=17",
+      "observation": "LiMPETS pin on wet water-facing sand north of creek mouth, west of Highway1; correct side of creek."
+    }
+  },
+  {
+    "disposition": "import",
+    "name": "Kalaloch Beach",
+    "city": "Kalaloch",
+    "state": "WA",
+    "country": "USA",
+    "region": "Olympic Coast",
+    "lat": 47.605564,
+    "lon": -124.378775,
+    "timezone": "America/Los_Angeles",
+    "break_type": "beach",
+    "description": "Kalaloch Beach is the sandy Olympic National Park shoreline around Kalaloch Creek on the southwest Olympic Peninsula.",
+    "access_tips": "Use designated coastal access from Highway 101 and check current park notices and tides. Stay off logs that waves can move and avoid routes that rising tides can close.",
+    "hazards": [
+      "powerful waves",
+      "moving beach logs",
+      "rip currents",
+      "tidal cutoff"
+    ],
+    "editorial_sources": [
+      {
+        "url": "https://www.nps.gov/olym/planyourvisit/visiting-kalaloch-and-ruby-beach.htm",
+        "publisher": "National Park Service",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "identity",
+          "description",
+          "public_access"
+        ]
+      },
+      {
+        "url": "https://www.nps.gov/olym/planyourvisit/kalaloch-area-brochure.htm",
+        "publisher": "National Park Service",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "access",
+          "hazards"
+        ]
+      },
+      {
+        "url": "https://repository.si.edu/bitstream/handle/10088/33774/Ruiz_Gregory_M_-20170807-aao1498_SupplementalMaterial_v2.pdf",
+        "publisher": "Smithsonian repository / Carlton et al. study supplement",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon",
+          "survey_location"
+        ]
+      }
+    ],
+    "aliases": [
+      "Kalaloch"
+    ],
+    "notes": "Primary study shoreline collection coordinate listed as Kalaloch Beach; not village/lodge/campground centroid. Do not use erroneous PANGAEA Kalaloch48.95,-126.66 or NPS event47.9694,-123.49853. Pixelcaster JPG is still-only, unassigned camera pending product handling.",
+    "camera_url": null,
+    "photo": null,
+    "skill_level": null,
+    "swell_window": null,
+    "offshore_wind": null,
+    "tide_range": null,
+    "seo_indexable": false,
+    "recommendation_eligible": false,
+    "eligibility_reason": "Spot-level surf inputs and terrain not yet reviewed; empirical-only calibration is not a blocker.",
+    "duplicate_review": "No matching name/slug in 467-row snapshot or candidate-name hits in pending 2026 migrations; coordinator must perform final proximity/UUID guard.",
+    "visual_review": {
+      "status": "reviewed",
+      "url": "https://www.google.com/maps?q=47.605564,-124.378775&t=k&z=17",
+      "observation": "Primary study point lies in breaking nearshore waves directly seaward of Kalaloch Creek mouth; not lodge/campground/road."
+    }
+  },
+  {
+    "disposition": "hold",
+    "name": "Point Reyes / Drakes Estero",
+    "city": null,
+    "state": "CA",
+    "country": "USA",
+    "region": null,
+    "lat": null,
+    "lon": null,
+    "timezone": "America/Los_Angeles",
+    "break_type": null,
+    "description": null,
+    "access_tips": null,
+    "hazards": null,
+    "editorial_sources": [
+      {
+        "url": "https://www.nps.gov/thingstodo/kayak-drakes-estero-and-estero-de-limantour.htm",
+        "publisher": "National Park Service",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "identity",
+          "access_restrictions"
+        ]
+      },
+      {
+        "url": "https://www.nps.gov/pore/planyourvisit/upload/map_seal_protection_closures_esteros.pdf",
+        "publisher": "National Park Service",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "restricted_area_map"
+        ]
+      }
+    ],
+    "aliases": [],
+    "notes": "HOLD: broad seashore and wilderness estuary are not one canonical surf beach. Drakes Estero is seasonally closed for harbor seal pupping; wildlife camera does not establish a surf takeoff. Do not silently substitute Drakes Beach, which is a different location.",
+    "camera_url": null,
+    "photo": null
+  },
+  {
+    "disposition": "hold",
+    "name": "Horseshoe Cove (Bodega Marine Reserve)",
+    "city": null,
+    "state": "CA",
+    "country": "USA",
+    "region": null,
+    "lat": null,
+    "lon": null,
+    "timezone": "America/Los_Angeles",
+    "break_type": null,
+    "description": null,
+    "access_tips": null,
+    "hazards": null,
+    "editorial_sources": [
+      {
+        "url": "https://marinescience.ucdavis.edu/bml/faq",
+        "publisher": "UC Davis",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "identity",
+          "access_restrictions"
+        ]
+      },
+      {
+        "url": "https://marinescience.ucdavis.edu/bml/webcam",
+        "publisher": "UC Davis",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "camera_location"
+        ]
+      }
+    ],
+    "aliases": [],
+    "notes": "HOLD: reserve research areas have restricted access; Friday laboratory tours do not establish recreational access to Horseshoe Cove. Do not import a public surf row merely because its wildlife webcam is live.",
+    "camera_url": null,
+    "photo": null
+  }
+]
