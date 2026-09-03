@@ -524,6 +524,7 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
     "/vs/surfline",
     "/vs/surfline/free",
     "/roadmap",
+    "/whats-new",
   ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: SITEMAP_CONTENT_VERSIONS.staticPages,
