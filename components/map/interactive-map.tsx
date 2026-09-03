@@ -73,7 +73,9 @@ import {
   SWELL_MAP_SURFACE,
   SWELL_MAP_STICKER_SHADOW,
   SWELL_MAP_STICKER_RADIUS,
+  fallbackSwellLayerId,
   type SwellLayerId,
+  type SwellLayerAvailability,
 } from "@/components/map/swell-map-theme";
 import {
   buildFlowField,
@@ -121,32 +123,25 @@ const SWELL_FIELD_MAX_ZOOM = 16;
 
 // Base custom-layer id for the single-layer swell field.
 const SWELL_FIELD_LAYER_ID = "quiver-swell-field";
-// Component sub-layers overlaid for the "combined" view, each its own GL layer +
-// flow field + color. Per-layer ids derive as `${SWELL_FIELD_LAYER_ID}-${id}`.
-const COMBINED_SUBLAYERS: ReadonlyArray<FlowComponentId> = [
-  "s1",
-  "s2",
-  "wind",
-];
-// Per-layer particle count for the combined view so three stacked layers keep the
-// sparse Windy-style spacing in budget (3 × 260 = 780 total).
-const COMBINED_PARTICLE_COUNT = 340;
 // Wind reads cleaner with a sparser field than swell - scale its particle count
 // down, but keep enough strokes visible on the light-blue basemap.
 const WIND_PARTICLE_SCALE = 0.4; // keep wind sparser than swell even at the higher base count
 const PARTICLE_MOTION_SCALE: Record<FlowComponentId, number> = {
   s1: 0.42,
   s2: 1,
+  ww: 0.3,
   wind: 0.25, // calm, slow wind drift (-75% movement)
 };
 const PARTICLE_VELOCITY_SMOOTHING: Record<FlowComponentId, number> = {
   s1: 0.04,
   s2: 0.16,
+  ww: 0.1,
   wind: 0.06, // heavier easing -> smoother wind direction changes
 };
 const PARTICLE_DASH_LENGTH_SCALE: Record<FlowComponentId, number> = {
   s1: 0.75,
   s2: 1,
+  ww: 0.7,
   wind: 1,
 };
 const HOUR_MS = 60 * 60 * 1000;
@@ -271,7 +266,7 @@ export function partitionAtAbsoluteTimelinePosition(
 function componentsForLayer(
   layerId: SwellLayerId
 ): ReadonlyArray<FlowComponentId> {
-  if (layerId === "combined") return COMBINED_SUBLAYERS;
+  if (layerId === "tide") return [];
   return [layerId];
 }
 
@@ -292,6 +287,12 @@ export interface MapSpotConditions {
   windDirection: string | null;
   tideState: string | null;
   tideHeight: string | null;
+}
+
+export interface MapPointInspector {
+  sourceState: "curated_nearest" | "unsupported";
+  nearestContext: { kind: "beach"; name: string; distanceMi: null } | null;
+  metrics: Array<{ id: "waveHeight" | "swellPeriod" | "swellDirection" | "windSpeed" | "windDirection"; label: string; value: string }>;
 }
 
 interface MapSpotConditionsContext {
@@ -356,7 +357,7 @@ interface InteractiveMapProps {
   initialCenter?: [number, number]; // [lat, lng]
   initialZoom?: number;
   onLocationClick?: (beach: Beach, conditions: MapSpotConditions) => void;
-  onMapClick?: (latlng: mapboxgl.LngLat) => void;
+  onMapClick?: (latlng: mapboxgl.LngLat, inspector: MapPointInspector) => void;
   cameraCommand?: MapCameraCommand | null;
   onUserCameraInteraction?: (interaction: {
     action: "pan" | "zoom" | "rotate";
@@ -395,6 +396,7 @@ interface InteractiveMapProps {
   showConditionsOnTap?: boolean; // Embed-only: tap open water shows a nearest-beach conditions callout.
   swellLayerId?: SwellLayerId;
   onSwellLayerChange?: (id: SwellLayerId) => void;
+  onSwellLayerAvailabilityChange?: (availability: SwellLayerAvailability) => void;
   /** Forecast-step labels for the timeline scrubber (e.g. ["Now","+3h"]). */
   swellTimelineSteps?: string[];
   swellTimelineIndex?: number;
@@ -408,6 +410,7 @@ interface InteractiveMapProps {
   placementPinDraggable?: boolean;
   onPlacementPinChange?: (latlng: mapboxgl.LngLat) => void;
   onMapLoadFailure?: (reason: string) => void;
+  reducedMotionOverride?: boolean;
 }
 
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
@@ -561,6 +564,7 @@ export function InteractiveMap({
   showConditionsOnTap = false,
   swellLayerId = "s1",
   onSwellLayerChange,
+  onSwellLayerAvailabilityChange,
   swellTimelineSteps = [],
   swellTimelineIndex = 0,
   onSwellTimelineChange,
@@ -573,6 +577,7 @@ export function InteractiveMap({
   placementPinDraggable = true,
   onPlacementPinChange,
   onMapLoadFailure,
+  reducedMotionOverride = false,
 }: InteractiveMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRetryButtonRef = useRef<HTMLButtonElement>(null);
@@ -668,13 +673,13 @@ export function InteractiveMap({
   const [showLeashHint, setShowLeashHint] = useState(false);
   const [leashHintFading, setLeashHintFading] = useState(false);
   const leashHintShownRef = useRef(false);
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = useReducedMotion() || reducedMotionOverride;
   // Live per-component flow fields read by the GL layers each frame (avoids re-adding
   // a layer on scrub). Keyed by component id: a single active layer populates just its
-  // own key; the "combined" view populates s1/s2/wind so three layers can overlay.
-  const flowFieldsRef = useRef<Record<"s1" | "s2" | "wind", FlowField>>({
+  const flowFieldsRef = useRef<Record<FlowComponentId, FlowField>>({
     s1: EMPTY_FLOW_FIELD,
     s2: EMPTY_FLOW_FIELD,
+    ww: EMPTY_FLOW_FIELD,
     wind: EMPTY_FLOW_FIELD,
   });
   // Free-camera zoom limits captured before the swell-field leash, for exact restore.
@@ -1187,6 +1192,27 @@ export function InteractiveMap({
     }
     showCalloutForBeach(nearest);
   }, [removeActiveCallout, showCalloutForBeach]);
+
+  const pointInspectorAt = useCallback((lngLat: mapboxgl.LngLat): MapPointInspector => {
+    const ctx = conditionsCtxRef.current;
+    const nearest = nearestBeachInBounds(lngLat.lng, lngLat.lat, ctx.beaches, ctx.bounds);
+    if (!nearest) return { sourceState: "unsupported", nearestContext: null, metrics: [] };
+    const conditions = mapSpotConditions(nearest.id, ctx);
+    const metrics = [
+      conditions.waveHeight ? { id: "waveHeight" as const, label: "Surf", value: conditions.waveHeight } : null,
+      conditions.swellPeriod ? { id: "swellPeriod" as const, label: "Period", value: conditions.swellPeriod } : null,
+      conditions.swellDirection ? { id: "swellDirection" as const, label: "Swell direction", value: conditions.swellDirection } : null,
+      conditions.windSpeed ? { id: "windSpeed" as const, label: "Wind", value: conditions.windSpeed } : null,
+      conditions.windDirection ? { id: "windDirection" as const, label: "Wind direction", value: conditions.windDirection } : null,
+    ].filter((metric): metric is NonNullable<typeof metric> => metric !== null);
+    return {
+      sourceState: "curated_nearest",
+      nearestContext: { kind: "beach", name: nearest.name, distanceMi: null },
+      metrics,
+    };
+  }, []);
+  const pointInspectorAtRef = useRef(pointInspectorAt);
+  useEffect(() => { pointInspectorAtRef.current = pointInspectorAt; }, [pointInspectorAt]);
 
   const handleConditionsTapRef = useRef(handleConditionsTap);
   useEffect(() => { handleConditionsTapRef.current = handleConditionsTap; }, [handleConditionsTap]);
@@ -1827,6 +1853,36 @@ export function InteractiveMap({
     swellLayerIdRef.current = swellLayerId;
   }, [swellLayerId]);
 
+  useEffect(() => {
+    if (swellFieldLoadStatus === "loading") return;
+    const partitions = isEmbedHourlyTimeline
+      ? activeEmbedHourlyPartitionsMap
+      : isExpandableTimeline
+        ? activeHourlyPartitionsMap
+        : partitionsMap;
+    const availability: SwellLayerAvailability = {
+      s1: Array.from(partitions.values()).some((partition) => partition.s1Dir != null || partition.swellDirOm != null),
+      s2: Array.from(partitions.values()).some((partition) => partition.s2Dir != null),
+      ww: Array.from(partitions.values()).some((partition) => partition.wwDir != null && partition.wwHeightFt != null),
+      wind: Array.from(partitions.values()).some((partition) => partition.windDir != null && partition.windMph != null),
+      // The current bulk response provides tide only as beach context, never as a spatial field.
+      tide: false,
+    };
+    onSwellLayerAvailabilityChange?.(availability);
+    const fallback = fallbackSwellLayerId(swellLayerId, availability);
+    if (fallback !== swellLayerId) onSwellLayerChange?.(fallback);
+  }, [
+    activeEmbedHourlyPartitionsMap,
+    activeHourlyPartitionsMap,
+    isEmbedHourlyTimeline,
+    isExpandableTimeline,
+    onSwellLayerAvailabilityChange,
+    onSwellLayerChange,
+    partitionsMap,
+    swellFieldLoadStatus,
+    swellLayerId,
+  ]);
+
   // Mask the live swell flow fields to water IN PLACE. Native lets wind advect
   // across the viewport, so only swell components are maskable. Robust against the
   // timing pitfall that blanked an earlier attempt: only
@@ -1885,6 +1941,7 @@ export function InteractiveMap({
       flowFieldsRef.current = {
         s1: EMPTY_FLOW_FIELD,
         s2: EMPTY_FLOW_FIELD,
+        ww: EMPTY_FLOW_FIELD,
         wind: EMPTY_FLOW_FIELD,
       };
     };
@@ -1933,11 +1990,11 @@ export function InteractiveMap({
           swellTimelineIndex,
         )
       : undefined;
-    // Build a flow field per active component (one for a single layer, three for
-    // combined); leave the rest empty so stale fields never render.
-    const nextFields: Record<"s1" | "s2" | "wind", FlowField> = {
+    // Build a flow field only for the active verified spatial layer.
+    const nextFields: Record<FlowComponentId, FlowField> = {
       s1: EMPTY_FLOW_FIELD,
       s2: EMPTY_FLOW_FIELD,
+      ww: EMPTY_FLOW_FIELD,
       wind: EMPTY_FLOW_FIELD,
     };
     let anyPoints = false;
@@ -2103,38 +2160,19 @@ export function InteractiveMap({
       return;
     }
 
-    // Every swell GL layer id this component can mount: the single-layer id plus the
-    // three combined sub-layer ids. Removing the full set before (re)adding the active
-    // set guarantees no layer leaks when switching between combined and a single layer.
-    const allLayerIds = [
-      SWELL_FIELD_LAYER_ID,
-      ...COMBINED_SUBLAYERS.map((c) => `${SWELL_FIELD_LAYER_ID}-${c}`),
-    ];
+    const allLayerIds = [SWELL_FIELD_LAYER_ID];
     const teardown = (): void => {
       for (const id of allLayerIds) {
         if (map.getLayer(id)) map.removeLayer(id);
       }
     };
 
-    // Only a SHAPE change (combined vs single, swell vs wind, or reduced-motion)
-    // forces a teardown+re-add, which re-seeds particles and reads as a jitter.
-    // Swell <-> Swell 2 share a shape, so we keep the layer and let its
-    // getField/getColorHex/getDynamics retarget it via refs (a smooth transition).
     const shapeKey = !showSwellField
       ? "none"
-      : `${
-          swellLayerId === "combined"
-            ? "combined"
-            : swellLayerId === "wind"
-              ? "wind"
-              : "swell"
-        }|${reducedMotion ? "rm" : "mo"}`;
+      : `${swellLayerId}|${reducedMotion ? "rm" : "mo"}`;
     // Skip the teardown only when the shape is unchanged AND the layer is genuinely
     // still mounted (a style reload can wipe layers while the ref says otherwise).
-    const mountedProbeId =
-      swellLayerId === "combined"
-        ? `${SWELL_FIELD_LAYER_ID}-${COMBINED_SUBLAYERS[0]}`
-        : SWELL_FIELD_LAYER_ID;
+    const mountedProbeId = SWELL_FIELD_LAYER_ID;
     const alreadyCorrect =
       swellLayerKeyRef.current === shapeKey &&
       (shapeKey === "none" || !!map.getLayer(mountedProbeId));
@@ -2142,62 +2180,31 @@ export function InteractiveMap({
 
     teardown();
     swellLayerKeyRef.current = "none";
-    if (!showSwellField) return;
+    if (!showSwellField || swellLayerId === "tide") return;
 
     const viewportWidthPx =
       typeof window !== "undefined" ? window.innerWidth : 1024;
     const baseParticleCount = resolveParticleCount(viewportWidthPx);
 
-    if (swellLayerId === "combined") {
-      // Overlay the three components, each its own colored layer + flow field. Cap
-      // per-layer particle count so three stacked layers stay in budget.
-      for (const component of COMBINED_SUBLAYERS) {
-        map.addLayer(
-          createSwellParticleLayer({
-            id: `${SWELL_FIELD_LAYER_ID}-${component}`,
-            getField: () => flowFieldsRef.current[component],
-            getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[component],
-            reducedMotion,
-            viewportWidthPx,
-            count:
-              component === "wind"
-                ? Math.round(COMBINED_PARTICLE_COUNT * WIND_PARTICLE_SCALE)
-                : COMBINED_PARTICLE_COUNT,
-            markStyle: component === "wind" ? "streak" : "dash",
-            motionScale: PARTICLE_MOTION_SCALE[component],
-            velocitySmoothing: PARTICLE_VELOCITY_SMOOTHING[component],
-            dashLengthScale: PARTICLE_DASH_LENGTH_SCALE[component],
-          })
-        );
-      }
-    } else {
-      // Single active layer. getField/getColorHex/getDynamics read the active
-      // component via refs each frame, so Swell <-> Swell 2 retargets this same
-      // layer without a teardown (no reseed jitter).
-      map.addLayer(
-        createSwellParticleLayer({
-          id: SWELL_FIELD_LAYER_ID,
-          getField: () =>
-            flowFieldsRef.current[swellLayerIdRef.current as FlowComponentId],
-          getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[swellLayerIdRef.current],
-          reducedMotion,
-          viewportWidthPx,
-          count:
-            swellLayerId === "wind"
-              ? Math.round(baseParticleCount * WIND_PARTICLE_SCALE)
-              : undefined,
-          markStyle: swellLayerId === "wind" ? "streak" : "dash",
-          getDynamics: () => {
-            const active = swellLayerIdRef.current as FlowComponentId;
-            return {
-              motionScale: PARTICLE_MOTION_SCALE[active],
-              velocitySmoothing: PARTICLE_VELOCITY_SMOOTHING[active],
-              dashLengthScale: PARTICLE_DASH_LENGTH_SCALE[active],
-            };
-          },
-        })
-      );
-    }
+    map.addLayer(
+      createSwellParticleLayer({
+        id: SWELL_FIELD_LAYER_ID,
+        getField: () => flowFieldsRef.current[swellLayerIdRef.current as FlowComponentId],
+        getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[swellLayerIdRef.current],
+        reducedMotion,
+        viewportWidthPx,
+        count: swellLayerId === "wind" ? Math.round(baseParticleCount * WIND_PARTICLE_SCALE) : undefined,
+        markStyle: swellLayerId === "wind" ? "streak" : "dash",
+        getDynamics: () => {
+          const active = swellLayerIdRef.current as FlowComponentId;
+          return {
+            motionScale: PARTICLE_MOTION_SCALE[active],
+            velocitySmoothing: PARTICLE_VELOCITY_SMOOTHING[active],
+            dashLengthScale: PARTICLE_DASH_LENGTH_SCALE[active],
+          };
+        },
+      }),
+    );
 
     swellLayerKeyRef.current = shapeKey;
     // No cleanup teardown: the layer persists across same-shape switches and is
@@ -2645,7 +2652,7 @@ export function InteractiveMap({
       ) {
         return;
       }
-      onMapClickRef.current?.(e.lngLat);
+      onMapClickRef.current?.(e.lngLat, pointInspectorAtRef.current(e.lngLat));
     };
     map.on("click", handleMapClick);
 

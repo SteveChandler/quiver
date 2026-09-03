@@ -132,6 +132,8 @@ function isSwellPartition(value: unknown): value is SwellPartition {
   return (
     !("swellDirOm" in partition) ||
     isFiniteNumberOrNull(partition.swellDirOm)
+  ) && ["wwDir", "wwPeriodS", "wwHeightFt"].every(
+    (key) => !(key in partition) || isFiniteNumberOrNull(partition[key]),
   );
 }
 

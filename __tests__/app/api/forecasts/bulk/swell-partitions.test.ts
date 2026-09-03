@@ -15,6 +15,9 @@ describe("rowToSwellPartition", () => {
       swell_2_height: "1 ft",
       swell_2_period: "9s",
       swell_2_direction: "WNW",
+      wind_wave_height: "1.5 ft",
+      wind_wave_period: "5s",
+      wind_wave_direction: "W",
       wind_speed: "7 mph",
       wind_direction_deg: "104",
     });
@@ -25,6 +28,9 @@ describe("rowToSwellPartition", () => {
     expect(p.s2Dir).toBe(292.5);
     expect(p.s2PeriodS).toBe(9);
     expect(p.s2HeightFt).toBe(1);
+    expect(p.wwHeightFt).toBe(1.5);
+    expect(p.wwPeriodS).toBe(5);
+    expect(p.wwDir).toBe(270);
     expect(p.windDir).toBe(104);
     expect(p.windMph).toBe(7);
     expect(p.s1HeightFt!).toBeGreaterThan(p.s2HeightFt!);
@@ -88,6 +94,9 @@ describe("rowToSwellPartition", () => {
       swell_2_direction: "",
       wind_speed: null,
       wind_direction_deg: null,
+      wind_wave_height: null,
+      wind_wave_period: null,
+      wind_wave_direction: null,
     });
     expect(p.s1Dir).toBeNull();
     expect(p.s1PeriodS).toBeNull();
@@ -96,5 +105,6 @@ describe("rowToSwellPartition", () => {
     expect(p.s2Dir).toBeNull();
     expect(p.windDir).toBeNull();
     expect(p.windMph).toBeNull();
+    expect(p.wwDir).toBeNull();
   });
 });

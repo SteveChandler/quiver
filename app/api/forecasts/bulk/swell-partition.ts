@@ -14,6 +14,9 @@ export interface SwellPartition {
   s2Dir: number | null; // degrees
   s2PeriodS: number | null;
   s2HeightFt: number | null;
+  wwDir?: number | null;
+  wwPeriodS?: number | null;
+  wwHeightFt?: number | null;
   windDir: number | null; // degrees
   windMph: number | null; // mph
 }
@@ -69,6 +72,9 @@ export function interpolateSwellPartition(
     s2Dir: lerpDirectionNullable(from.s2Dir, to.s2Dir, t),
     s2PeriodS: lerpNullable(from.s2PeriodS, to.s2PeriodS, t),
     s2HeightFt: lerpNullable(from.s2HeightFt, to.s2HeightFt, t),
+    wwDir: lerpDirectionNullable(from.wwDir ?? null, to.wwDir ?? null, t),
+    wwPeriodS: lerpNullable(from.wwPeriodS ?? null, to.wwPeriodS ?? null, t),
+    wwHeightFt: lerpNullable(from.wwHeightFt ?? null, to.wwHeightFt ?? null, t),
     windDir: lerpDirectionNullable(from.windDir, to.windDir, t),
     windMph: lerpNullable(from.windMph, to.windMph, t),
   };
@@ -114,6 +120,9 @@ type SwellPartitionRow = Pick<
   | "swell_2_height"
   | "swell_2_period"
   | "swell_2_direction"
+  | "wind_wave_height"
+  | "wind_wave_period"
+  | "wind_wave_direction"
   | "wind_speed"
 > & {
   // Typed `number | null` in EnhancedForecastEntity, but live `enhanced_forecasts`
@@ -130,6 +139,9 @@ export function rowToSwellPartition(row: SwellPartitionRow): SwellPartition {
     s2Dir: parseDirection(row.swell_2_direction),
     s2PeriodS: parseFiniteFloat(row.swell_2_period),
     s2HeightFt: parseSwellHeightFt(row.swell_2_height),
+    wwDir: parseDirection(row.wind_wave_direction),
+    wwPeriodS: parseFiniteFloat(row.wind_wave_period),
+    wwHeightFt: parseSwellHeightFt(row.wind_wave_height),
     windDir: parseDirection(row.wind_direction_deg),
     // wind_speed live rows store "<n> mph" → already mph, no conversion.
     windMph: parseFiniteFloat(row.wind_speed),

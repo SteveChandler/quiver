@@ -14,18 +14,14 @@ import {
 const LAYERS: Array<{ id: SwellLayerId; label: string }> = [
   { id: "s1", label: "Primary" },
   { id: "s2", label: "Secondary" },
+  { id: "ww", label: "Wind wave" },
   { id: "wind", label: "Wind" },
-  { id: "combined", label: "Combined" },
+  { id: "tide", label: "Tide" },
 ];
-
-// Combined reuses Primary's orange token (SWELL_LAYER_COLOR.combined === .s1), so a
-// flat swatch would read as a SECOND orange chip. Render its indicator as a tri-segment
-// dot of all three single-layer hues so it reads as "all layers" instead — three equal
-// vertical bands clipped to the circle. Sanctioned hues only, no new color introduced.
-const COMBINED_SWATCH_SEGMENTS: SwellLayerId[] = ["s1", "s2", "wind"];
 
 function captionForLayer(activeLayer: SwellLayerId): string {
   if (activeLayer === "wind") return "flow streaks = wind speed & direction";
+  if (activeLayer === "tide") return "contextual tide state; no spatial tide field";
   return "denser = bigger · longer marks = longer period";
 }
 
@@ -53,7 +49,7 @@ export function SwellLayerSelector({
         boxShadow: SWELL_MAP_STICKER_SHADOW,
       };
   const groupClassName = isLegendPlacement
-    ? "grid grid-cols-4 gap-1"
+    ? "grid grid-cols-5 gap-1"
     : "grid grid-cols-2 gap-1 sm:gap-1.5";
   const optionClassName = isLegendPlacement
     ? "flex min-h-11 items-center justify-center gap-1 rounded-sm px-1 py-0.5 text-[9px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] sm:gap-1.5 sm:px-2 sm:text-[10px]"
@@ -84,7 +80,6 @@ export function SwellLayerSelector({
       >
         {LAYERS.map((layer) => {
           const isActive = layer.id === active;
-          const isCombined = layer.id === "combined";
           return (
             <button
               key={layer.id}
@@ -105,34 +100,12 @@ export function SwellLayerSelector({
                 fontWeight: isActive ? 800 : 600,
               }}
             >
-              {isCombined ? (
-                // Tri-segment composite so Combined reads as "all layers" rather than a
-                // second Primary-orange chip — three equal bands of the single-layer
-                // hues clipped to the dot. Identity survives selection (no active swap).
-                <span
-                  aria-hidden="true"
-                  data-testid={`swell-layer-${layer.id}-swatch`}
-                  className="flex h-2 w-2 overflow-hidden rounded-full sm:h-2.5 sm:w-2.5"
-                >
-                  {COMBINED_SWATCH_SEGMENTS.map((segId) => (
-                    <span
-                      key={segId}
-                      data-testid={`swell-layer-combined-swatch-${segId}`}
-                      className="h-full flex-1"
-                      style={{ background: SWELL_LAYER_COLOR[segId] }}
-                    />
-                  ))}
-                </span>
-              ) : (
-                <span
-                  aria-hidden="true"
-                  data-testid={`swell-layer-${layer.id}-swatch`}
-                  className="h-2 w-2 rounded-full sm:h-2.5 sm:w-2.5"
-                  style={{
-                    background: isActive ? "#161A40" : SWELL_LAYER_COLOR[layer.id],
-                  }}
-                />
-              )}
+              <span
+                aria-hidden="true"
+                data-testid={`swell-layer-${layer.id}-swatch`}
+                className="h-2 w-2 rounded-full sm:h-2.5 sm:w-2.5"
+                style={{ background: isActive ? "#161A40" : SWELL_LAYER_COLOR[layer.id] }}
+              />
               {layer.label}
             </button>
           );

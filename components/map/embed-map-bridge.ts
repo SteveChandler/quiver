@@ -1,6 +1,6 @@
-export type EmbedMapSwellLayerId = "s1" | "s2" | "ww" | "wind" | "tide" | "combined";
+export type EmbedMapSwellLayerId = "s1" | "s2" | "ww" | "wind" | "tide";
 export type EmbedMapWaterQualityHold = "advisory" | "closure" | "held";
-export type EmbedMapPointLayerId = Exclude<EmbedMapSwellLayerId, "combined">;
+export type EmbedMapPointLayerId = EmbedMapSwellLayerId;
 export type EmbedMapPointSourceState =
   | "curated_exact"
   | "curated_nearest"

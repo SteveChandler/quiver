@@ -4,12 +4,12 @@ import { SwellLayerSelector } from "@/components/map/swell-field/swell-layer-sel
 import { SWELL_LAYER_COLOR } from "@/components/map/swell-map-theme";
 
 describe("SwellLayerSelector — pressed-button semantics", () => {
-  it("exposes a labelled group of four keyboard-native buttons", () => {
+  it("exposes a labelled group of five keyboard-native buttons", () => {
     render(<SwellLayerSelector active="s1" onChange={jest.fn()} />);
     const group = screen.getByRole("group", { name: "Swell field layer" });
     expect(group).toBeInTheDocument();
     const buttons = screen.getAllByRole("button");
-    expect(buttons).toHaveLength(4);
+    expect(buttons).toHaveLength(5);
     expect(buttons.every((button) => button.className.includes("min-h-11"))).toBe(true);
     const pressed = buttons.filter((button) => button.getAttribute("aria-pressed") === "true");
     expect(pressed).toHaveLength(1);
@@ -32,12 +32,12 @@ describe("SwellLayerSelector — pressed-button semantics", () => {
   it("calls onChange with the chosen layer id when a button is clicked", () => {
     const onChange = jest.fn();
     render(<SwellLayerSelector active="s1" onChange={onChange} />);
-    fireEvent.click(screen.getByTestId("swell-layer-combined"));
-    expect(onChange).toHaveBeenCalledWith("combined");
+    fireEvent.click(screen.getByTestId("swell-layer-ww"));
+    expect(onChange).toHaveBeenCalledWith("ww");
   });
 });
 
-describe("SwellLayerSelector — combined chip composite swatch", () => {
+describe("SwellLayerSelector — layer swatches", () => {
   // jsdom serializes a solid hex background to rgb(...), so compare via a normalized
   // rgb form rather than the raw hex.
   const hexToRgb = (hex: string): string => {
@@ -47,34 +47,21 @@ describe("SwellLayerSelector — combined chip composite swatch", () => {
     const b = parseInt(h.slice(4, 6), 16);
     return `rgb(${r}, ${g}, ${b})`;
   };
-  const segBg = (segId: string): string =>
-    screen.getByTestId(`swell-layer-combined-swatch-${segId}`).style.background;
-
-  it("renders the Combined swatch as a composite of all three layer hues", () => {
+  it("renders Wind wave as a distinct first-class layer", () => {
     render(<SwellLayerSelector active="s1" onChange={jest.fn()} />);
-    // The composite exposes ALL THREE single-layer hues (one solid band each) so
-    // Combined reads as "all layers" rather than a second Primary-orange chip.
-    expect(segBg("s1")).toBe(hexToRgb(SWELL_LAYER_COLOR.s1));
-    expect(segBg("s2")).toBe(hexToRgb(SWELL_LAYER_COLOR.s2));
-    expect(segBg("wind")).toBe(hexToRgb(SWELL_LAYER_COLOR.wind));
+    expect(screen.getByTestId("swell-layer-ww-swatch").style.background).toBe(
+      hexToRgb(SWELL_LAYER_COLOR.ww),
+    );
   });
 
-  it("keeps single-layer swatches a single hue (not a composite)", () => {
-    render(<SwellLayerSelector active="combined" onChange={jest.fn()} />);
-    // Inactive single-layer chip shows exactly its own hue, with no composite segments.
+  it("keeps each layer swatch a single hue", () => {
+    render(<SwellLayerSelector active="ww" onChange={jest.fn()} />);
     expect(screen.getByTestId("swell-layer-s2-swatch").style.background).toBe(
       hexToRgb(SWELL_LAYER_COLOR.s2)
     );
     expect(
       screen.queryByTestId("swell-layer-s2-swatch-wind")
     ).toBeNull();
-  });
-
-  it("keeps the Combined composite even when Combined is the active layer", () => {
-    render(<SwellLayerSelector active="combined" onChange={jest.fn()} />);
-    expect(segBg("s1")).toBe(hexToRgb(SWELL_LAYER_COLOR.s1));
-    expect(segBg("s2")).toBe(hexToRgb(SWELL_LAYER_COLOR.s2));
-    expect(segBg("wind")).toBe(hexToRgb(SWELL_LAYER_COLOR.wind));
   });
 });
 
