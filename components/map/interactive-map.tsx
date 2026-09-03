@@ -659,6 +659,8 @@ export function InteractiveMap({
   // `idle` fire per frame; an unconditional idle remask re-queried every field
   // cell ~60x/s.
   const waterMaskOwedRef = useRef(true);
+  const lastWaterMaskRetryAtRef = useRef<number | null>(null);
+  const [maskRetryTick, setMaskRetryTick] = useState(0);
   const [hourlyTimelineBeachIds, setHourlyTimelineBeachIds] = useState<string[]>([]);
   // Loader-resolved beaches that partitionsMap is keyed by (the prop may be empty).
   const [swellFieldBeaches, setSwellFieldBeaches] = useState<Beach[]>([]);
@@ -1890,7 +1892,6 @@ export function InteractiveMap({
       );
       if (!applied) needsRetry = true;
     }
-    // Loaded tiles can still lack queryable features; trust the mask result.
     waterMaskOwedRef.current = needsRetry;
   }, []);
 
@@ -2031,6 +2032,7 @@ export function InteractiveMap({
     isExpandableTimeline,
     isMapReady,
     mapBounds,
+    maskRetryTick,
     partitionsMap,
     partitionsTimelineMap,
     showSwellField,
@@ -2041,12 +2043,8 @@ export function InteractiveMap({
     swellTimelineSteps.length,
   ]);
 
-  // Re-mask the field to water once the map has actually rendered tiles: querying
-  // rendered features before tiles paint returns nothing and would blank the field.
-  // `idle` is the tiles-finished signal, but during animation it fires every frame,
-  // so the idle path only runs while a remask is owed (a pass ran before tiles were
-  // queryable, or the style reloaded). `moveend` always remasks: the camera moved.
-  // Re-masks the existing field in place (cheap) and repaints.
+  // Retry an owed provisional mask once tiles finish. Rebuilding restores cells
+  // provisionally zeroed over tiles that were still loading.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !isMapReady || !showSwellField) return;
@@ -2057,19 +2055,33 @@ export function InteractiveMap({
     };
     const remaskWhenOwed = (): void => {
       if (!waterMaskOwedRef.current) return;
-      remask();
+      if (typeof map.areTilesLoaded === "function" && !map.areTilesLoaded()) return;
+      const now = Date.now();
+      if (
+        lastWaterMaskRetryAtRef.current !== null &&
+        now - lastWaterMaskRetryAtRef.current < 1_000
+      ) return;
+      lastWaterMaskRetryAtRef.current = now;
+      waterMaskOwedRef.current = false;
+      setMaskRetryTick((tick) => tick + 1);
     };
     const invalidateForStyleReload = (): void => {
       waterMaskCacheRef.current = null;
       waterMaskOwedRef.current = true;
     };
     map.on("idle", remaskWhenOwed);
+    map.on("data", remaskWhenOwed);
+    map.on("sourcedata", remaskWhenOwed);
     map.on("moveend", remask);
     map.on("style.load", invalidateForStyleReload);
+    const retryTimer = window.setInterval(remaskWhenOwed, 1_000);
     return () => {
       map.off("idle", remaskWhenOwed);
+      map.off("data", remaskWhenOwed);
+      map.off("sourcedata", remaskWhenOwed);
       map.off("moveend", remask);
       map.off("style.load", invalidateForStyleReload);
+      window.clearInterval(retryTimer);
     };
   }, [isMapReady, showSwellField, applyWaterMask]);
 
