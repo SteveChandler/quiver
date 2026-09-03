@@ -2,6 +2,7 @@ import React from "react";
 import { act, render, waitFor } from "@testing-library/react";
 import {
   parseEmbedMapCommand,
+  parseEmbedMapPointEvent,
   serializeEmbedMapEvent,
 } from "@/components/map/embed-map-bridge";
 import type { HourlySwellTimeline } from "@/app/api/forecasts/bulk/route";
@@ -350,6 +351,43 @@ describe("embed map bridge", () => {
     ).toBe(
       '{"type":"forecastTimeChanged","payload":{"index":42,"forecastAt":"2026-07-12T14:00:00.000Z"}}',
     );
+  });
+
+  it("parses only trusted point-inspector event data", () => {
+    const payload = {
+      lat: 32.87,
+      lon: -117.25,
+      layerId: "s1",
+      forecastAt: "2026-07-19T14:00:00.000Z",
+      sourceState: "curated_exact",
+      nearestContext: null,
+      metrics: [{ id: "waveHeight", label: "Surf", value: "3 ft" }],
+    };
+    expect(parseEmbedMapPointEvent({ type: "mapTapped", payload })).toEqual({
+      type: "mapTapped",
+      payload,
+    });
+  });
+
+  it("rejects stale, malformed, and credential-bearing point-inspector event data", () => {
+    const payload = {
+      lat: 32.87,
+      lon: -117.25,
+      layerId: "s1",
+      forecastAt: "2026-07-19T14:00:00.000Z",
+      sourceState: "curated_exact",
+      nearestContext: null,
+      metrics: [],
+    };
+    for (const invalidPayload of [
+      { ...payload, lon: Number.POSITIVE_INFINITY },
+      { ...payload, layerId: "combined" },
+      { ...payload, forecastAt: "2026-07-19" },
+      { ...payload, accessToken: "header.payload.signature" },
+      { ...payload, metrics: [{ id: "waveHeight", label: "Surf", value: "header.payload.signature" }] },
+    ]) {
+      expect(parseEmbedMapPointEvent({ type: "mapTapped", payload: invalidPayload })).toBeNull();
+    }
   });
 
   it("posts an enriched spotSelected payload from the map's displayed conditions", async () => {

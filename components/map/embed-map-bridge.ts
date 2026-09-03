@@ -1,10 +1,51 @@
 export type EmbedMapSwellLayerId = "s1" | "s2" | "ww" | "wind" | "tide" | "combined";
 export type EmbedMapWaterQualityHold = "advisory" | "closure" | "held";
+export type EmbedMapPointLayerId = Exclude<EmbedMapSwellLayerId, "combined">;
+export type EmbedMapPointSourceState =
+  | "curated_exact"
+  | "curated_nearest"
+  | "noaa_gridpoint"
+  | "partial"
+  | "unsupported";
+export type EmbedMapPointMetricId =
+  | "waveHeight"
+  | "swellPeriod"
+  | "swellDirection"
+  | "windWaveHeight"
+  | "windSpeed"
+  | "windDirection"
+  | "tideHeight"
+  | "tideState";
 export const EMBED_MAP_MAX_FORECAST_TIME_INDEX = 7;
 
 export interface EmbedMapCoordinate {
   lat: number;
   lon: number;
+}
+
+export interface EmbedMapPointMetric {
+  id: EmbedMapPointMetricId;
+  label: string;
+  value: string;
+}
+
+export interface EmbedMapPointNearestContext {
+  kind: "beach" | "custom_spot";
+  name: string;
+  distanceMi: number | null;
+}
+
+export interface EmbedMapPointPayload extends EmbedMapCoordinate {
+  layerId: EmbedMapPointLayerId;
+  forecastAt: string;
+  sourceState: EmbedMapPointSourceState;
+  nearestContext: EmbedMapPointNearestContext | null;
+  metrics: EmbedMapPointMetric[];
+}
+
+export interface EmbedMapPointEvent {
+  type: "mapTapped";
+  payload: EmbedMapPointPayload;
 }
 
 export interface EmbedMapBounds {
@@ -61,7 +102,7 @@ export type EmbedMapEvent =
       };
     }
   | { type: "clusterSelected"; payload: { clusterId: number; lat: number; lon: number } }
-  | { type: "mapTapped"; payload: EmbedMapCoordinate }
+  | { type: "mapTapped"; payload: EmbedMapCoordinate | EmbedMapPointPayload }
   | { type: "placementStarted"; payload: EmbedMapCoordinate }
   | { type: "placementChanged"; payload: EmbedMapCoordinate }
   | { type: "placementConfirmed"; payload: EmbedMapCoordinate }
@@ -77,6 +118,24 @@ const SWELL_LAYER_IDS = new Set<EmbedMapSwellLayerId>([
   "wind",
   "tide",
 ]);
+const POINT_SOURCE_STATES = new Set<EmbedMapPointSourceState>([
+  "curated_exact",
+  "curated_nearest",
+  "noaa_gridpoint",
+  "partial",
+  "unsupported",
+]);
+const POINT_METRIC_IDS = new Set<EmbedMapPointMetricId>([
+  "waveHeight",
+  "swellPeriod",
+  "swellDirection",
+  "windWaveHeight",
+  "windSpeed",
+  "windDirection",
+  "tideHeight",
+  "tideState",
+]);
+const TOKEN_PATTERN = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const JWT_PATTERN = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const MAX_ACCESS_TOKEN_LENGTH = 4096;
 
@@ -87,6 +146,87 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function finiteNumber(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   return value;
+}
+
+function isoTimestamp(value: unknown): string | null {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) {
+    return null;
+  }
+  return Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value ? value : null;
+}
+
+function hasOnlyKeys(payload: Record<string, unknown>, keys: readonly string[]): boolean {
+  const payloadKeys = Object.keys(payload);
+  return payloadKeys.length === keys.length && payloadKeys.every((key) => keys.includes(key));
+}
+
+function safeText(value: unknown): value is string {
+  return typeof value === "string" && !TOKEN_PATTERN.test(value);
+}
+
+function pointMetricFromPayload(payload: unknown): EmbedMapPointMetric | null {
+  if (!isRecord(payload) || !hasOnlyKeys(payload, ["id", "label", "value"])) return null;
+  if (!POINT_METRIC_IDS.has(payload.id as EmbedMapPointMetricId)) return null;
+  if (!safeText(payload.label) || !safeText(payload.value)) return null;
+  return { id: payload.id as EmbedMapPointMetricId, label: payload.label, value: payload.value };
+}
+
+function pointNearestContextFromPayload(payload: unknown): EmbedMapPointNearestContext | null {
+  if (payload === null) return null;
+  if (!isRecord(payload) || !hasOnlyKeys(payload, ["kind", "name", "distanceMi"])) return null;
+  const distanceMi = payload.distanceMi === null ? null : finiteNumber(payload.distanceMi);
+  if (
+    (payload.kind !== "beach" && payload.kind !== "custom_spot")
+    || !safeText(payload.name)
+    || (distanceMi === null && payload.distanceMi !== null)
+  ) {
+    return null;
+  }
+  return { kind: payload.kind, name: payload.name, distanceMi };
+}
+
+export function parseEmbedMapPointEvent(
+  data: unknown,
+): EmbedMapPointEvent | null {
+  let parsed = data;
+  if (typeof data === "string") {
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      return null;
+    }
+  }
+  if (!isRecord(parsed) || parsed.type !== "mapTapped" || !isRecord(parsed.payload)) return null;
+  const payload = parsed.payload;
+  if (!hasOnlyKeys(payload, ["lat", "lon", "layerId", "forecastAt", "sourceState", "nearestContext", "metrics"])) {
+    return null;
+  }
+  const coordinate = coordinateFromPayload(payload);
+  const forecastAt = isoTimestamp(payload.forecastAt);
+  const nearestContext = pointNearestContextFromPayload(payload.nearestContext);
+  if (
+    !coordinate
+    || !SWELL_LAYER_IDS.has(payload.layerId as EmbedMapPointLayerId)
+    || !POINT_SOURCE_STATES.has(payload.sourceState as EmbedMapPointSourceState)
+    || !forecastAt
+    || (payload.nearestContext !== null && !nearestContext)
+    || !Array.isArray(payload.metrics)
+  ) {
+    return null;
+  }
+  const metrics = payload.metrics.map(pointMetricFromPayload);
+  if (metrics.some((metric) => metric === null)) return null;
+  return {
+    type: "mapTapped",
+    payload: {
+      ...coordinate,
+      layerId: payload.layerId as EmbedMapPointLayerId,
+      forecastAt,
+      sourceState: payload.sourceState as EmbedMapPointSourceState,
+      nearestContext,
+      metrics: metrics as EmbedMapPointMetric[],
+    },
+  };
 }
 
 function clampForecastTimeIndex(index: number, maxIndex: number): number {
