@@ -37,6 +37,9 @@ const isProd =
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Native dev clients load /embed/map from http://127.0.0.1:<port>; Next 16 blocks
+  // dev resources for origins it does not recognize, leaving the WebView on "Loading map".
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   // Expose VERCEL_ENV to client-side code for PWA/preview detection
   env: {
     NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV,
