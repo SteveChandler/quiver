@@ -404,15 +404,26 @@ describe("maskFieldToWater", () => {
     expect(field.cells[0].speed).toBe(0.5);
   });
 
-  it("does not destructively mask before rendered map tiles are ready", () => {
-    const field = makeField();
-    let queried = false;
+  it("applies cached verdicts when tiles are not loaded", () => {
+    const field: FlowField = {
+      cols: 3,
+      rows: 1,
+      cells: [
+        ...makeField().cells,
+        { lon: -117, lat: 32.7, vx: 1, vy: 0, speed: 0.5, alpha: 0.6 },
+      ],
+    };
+    const cache = new Map<string, boolean>([
+      ["-117.3:32.7", true],
+      ["-117.1:32.7", false],
+    ]);
+    const queriedLongitudes: number[] = [];
     const map: WaterMaskMap = {
       areTilesLoaded: () => false,
-      project: () => ({ x: 100, y: 100 }),
-      queryRenderedFeatures: () => {
-        queried = true;
-        return [];
+      project: ([lon]) => ({ x: (lon + 117.3) * 1000, y: 100 }),
+      queryRenderedFeatures: ([x]) => {
+        queriedLongitudes.push(x / 1000 - 117.3);
+        return [{}];
       },
     };
 
@@ -420,11 +431,76 @@ describe("maskFieldToWater", () => {
       width: 800,
       height: 600,
       waterLayerIds: ["water"],
+      waterMaskCache: cache,
     });
 
-    expect(queried).toBe(false);
     expect(field.cells[0].speed).toBe(0.5);
-    expect(field.cells[1].speed).toBe(0.5);
+    expect(field.cells[1].speed).toBe(0);
+    expect(field.cells[2].speed).toBe(0.5);
+    expect(queriedLongitudes).toHaveLength(1);
+    expect(queriedLongitudes[0]).toBeCloseTo(-117);
+  });
+
+  it("provisional pass zeroes land without caching land verdicts", () => {
+    const field: FlowField = {
+      cols: 20,
+      rows: 1,
+      cells: Array.from({ length: 20 }, (_, index) => ({
+        lon: index,
+        lat: 0,
+        vx: 1,
+        vy: 0,
+        speed: 0.5,
+        alpha: 0.6,
+      })),
+    };
+    const cache = new Map<string, boolean>();
+    const map: WaterMaskMap = {
+      areTilesLoaded: () => false,
+      project: ([lon]) => ({ x: lon * 10, y: 100 }),
+      queryRenderedFeatures: ([x]) => (x < 120 ? [{}] : []),
+    };
+
+    const complete = maskFieldToWater(field, map, {
+      width: 800,
+      height: 600,
+      waterLayerIds: ["water"],
+      waterMaskCache: cache,
+    });
+
+    expect(field.cells.slice(0, 12).every((cell) => cell.speed === 0.5)).toBe(true);
+    expect(field.cells.slice(12).every((cell) => cell.speed === 0)).toBe(true);
+    expect([...cache.values()]).toEqual(Array(12).fill(true));
+    expect(complete).toBe(false);
+  });
+
+  it("untrusted provisional pass touches nothing", () => {
+    const field: FlowField = {
+      cols: 20,
+      rows: 1,
+      cells: Array.from({ length: 20 }, (_, index) => ({
+        lon: index,
+        lat: 0,
+        vx: 1,
+        vy: 0,
+        speed: 0.5,
+        alpha: 0.6,
+      })),
+    };
+    const map: WaterMaskMap = {
+      areTilesLoaded: () => false,
+      project: ([lon]) => ({ x: lon * 10, y: 100 }),
+      queryRenderedFeatures: () => [],
+    };
+
+    const complete = maskFieldToWater(field, map, {
+      width: 800,
+      height: 600,
+      waterLayerIds: ["water"],
+    });
+
+    expect(field.cells.every((cell) => cell.speed === 0.5)).toBe(true);
+    expect(complete).toBe(false);
   });
 
   it("keeps the field intact when the rendered-style query has no water hits", () => {
