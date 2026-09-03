@@ -1687,9 +1687,8 @@ async function discoverSurfSpotsInner(
   const supabase = createSupabaseServiceRoleClient();
   const candidateBeachIds = Array.from(allBeachIds);
 
-  // Fetch user preferences first so we can pass them to fetchPersonalizationContext
-  // (avoids a duplicate getUserSurfPreferences call inside the personalization layer)
-  const userPrefs = await getUserSurfPreferences(userId).catch((err) => {
+  // Only personalization depends on preferences; other reads can start immediately.
+  const userPrefsPromise = getUserSurfPreferences(userId).catch((err) => {
     log.warn('Failed to fetch user surf preferences, continuing without them', err);
     return null;
   });
@@ -1701,15 +1700,17 @@ async function discoverSurfSpotsInner(
     personalizationCtx,
     userBoardContext,
     breakBehaviorRows,
+    userPrefs,
   ] = await Promise.all([
     getBatchSunTimes(Array.from(allBeachIds), uniqueDates),
     supabase
       .from('beach_water_quality')
       .select('beach_id, status')
       .in('beach_id', candidateBeachIds),
-    fetchPersonalizationContext(userId, candidateBeachIds, userPrefs),
+    userPrefsPromise.then((prefs) => fetchPersonalizationContext(userId, candidateBeachIds, prefs)),
     fetchUserBoardContext(supabase, userId, isPro),
     fetchBreakBehaviorSessionRows(supabase, candidateBeachIds, { now }),
+    userPrefsPromise,
   ]);
   const {
     dominantBoardClass,

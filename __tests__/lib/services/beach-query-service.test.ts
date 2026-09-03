@@ -1,9 +1,11 @@
 import type { Beach } from "@/types/database";
 
 const mockOrder = jest.fn();
+const mockSingle = jest.fn();
+const mockEq = jest.fn(() => ({ single: mockSingle }));
 const mockIs = jest.fn(() => ({ order: mockOrder }));
 const mockOr = jest.fn(() => ({ is: mockIs }));
-const mockSelect = jest.fn(() => ({ or: mockOr }));
+const mockSelect = jest.fn(() => ({ or: mockOr, eq: mockEq }));
 const mockFrom = jest.fn(() => ({ select: mockSelect }));
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -12,7 +14,7 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
 }));
 
-import { getBeachesFromDb } from "@/lib/services/beach-query-service";
+import { getBeachByIdFromDb, getBeachesFromDb } from "@/lib/services/beach-query-service";
 
 type BeachOverrides = Omit<Partial<Beach>, "lat" | "lon"> & {
   lat?: unknown;
@@ -37,6 +39,8 @@ function beach(overrides: BeachOverrides): Beach {
 describe("beach-query-service", () => {
   beforeEach(() => {
     mockOrder.mockReset();
+    mockSingle.mockReset();
+    mockEq.mockClear();
     mockIs.mockClear();
     mockOr.mockClear();
     mockSelect.mockClear();
@@ -45,6 +49,35 @@ describe("beach-query-service", () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  describe("getBeachByIdFromDb", () => {
+    it.each(["null", "moonlight-beach", "", "not-a-uuid"])(
+      "rejects %p without querying the database or logging an error",
+      async (id) => {
+        const logError = jest.spyOn(console, "error");
+        await expect(getBeachByIdFromDb(id)).resolves.toEqual({
+          success: false,
+          error: "Invalid beach ID",
+        });
+        expect(mockFrom).not.toHaveBeenCalled();
+        expect(logError).not.toHaveBeenCalled();
+      },
+    );
+
+    it("preserves UUID lookup and returns the matching beach", async () => {
+      const id = "12345678-1234-4567-89ab-123456789abc";
+      const expectedBeach = beach({ id });
+      mockSingle.mockResolvedValue({ data: expectedBeach, error: null });
+
+      await expect(getBeachByIdFromDb(id)).resolves.toEqual({
+        success: true,
+        data: expectedBeach,
+      });
+      expect(mockFrom).toHaveBeenCalledWith("beaches");
+      expect(mockEq).toHaveBeenCalledWith("id", id);
+      expect(mockSingle).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("getBeachesFromDb", () => {
