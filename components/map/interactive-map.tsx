@@ -1874,10 +1874,11 @@ export function InteractiveMap({
       waterMaskCacheRef.current = { cameraKey, verdicts: new Map() };
     }
     const canvas = map.getCanvas();
+    let needsRetry = false;
     for (const component of maskable) {
       const field = flowFieldsRef.current[component];
       if (field.cells.length === 0) continue;
-      maskFieldToWater(
+      const applied = maskFieldToWater(
         field,
         map as unknown as Parameters<typeof maskFieldToWater>[1],
         {
@@ -1887,10 +1888,10 @@ export function InteractiveMap({
           waterMaskCache: waterMaskCacheRef.current.verdicts,
         }
       );
+      if (!applied) needsRetry = true;
     }
-    // maskFieldToWater no-ops before tiles render; owe the retry to `idle`.
-    waterMaskOwedRef.current =
-      typeof map.areTilesLoaded === "function" && !map.areTilesLoaded();
+    // Loaded tiles can still lack queryable features; trust the mask result.
+    waterMaskOwedRef.current = needsRetry;
   }, []);
 
   useEffect(() => {
