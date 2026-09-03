@@ -1,0 +1,89 @@
+{
+  "checked_at": "2026-09-03T19:43:41.509720+00:00",
+  "results": [
+    {
+      "name": "Lawai Beach",
+      "url": "https://www.youtube.com/watch?v=3ATYHKN2hIg",
+      "status": 200,
+      "final_url": "https://www.youtube.com/oembed?format=json&url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D3ATYHKN2hIg",
+      "title": "Lawai Beach Resort - Live Cam"
+    },
+    {
+      "name": "Kaunaoa Beach",
+      "url": "https://marriott.ozolio.com/mauna-kea-beach-hotel/",
+      "status": 200,
+      "final_url": "https://marriott.ozolio.com/mauna-kea-beach-hotel/",
+      "title": null
+    },
+    {
+      "name": "Napili Bay Beach",
+      "url": "https://www.napilisunset.com/live-webcam/",
+      "status": 200,
+      "final_url": "https://www.napilisunset.com/live-webcam/",
+      "title": null
+    },
+    {
+      "name": "Sharp Park Beach",
+      "url": "https://www.youtube.com/watch?v=QYRIc4LcvqQ",
+      "status": 200,
+      "final_url": "https://www.youtube.com/oembed?format=json&url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DQYRIc4LcvqQ",
+      "title": "Pacifica Pier and Beach, Pacifica CA 4k Live"
+    },
+    {
+      "name": "Muir Beach",
+      "url": "https://www.sigward.com/",
+      "status": 200,
+      "final_url": "https://www.sigward.com/",
+      "title": null
+    },
+    {
+      "name": "Virginia Beach Oceanfront",
+      "url": "https://vbbound.com/webcams/courtyard-virginia-beach-boardwalk-webcam/",
+      "status": 200,
+      "final_url": "https://vbbound.com/webcams/courtyard-virginia-beach-boardwalk-webcam/",
+      "title": null
+    },
+    {
+      "name": "Jenkinson\u2019s Beach",
+      "url": "https://video.nest.com/live/JKTTcsayyN",
+      "status": 200,
+      "final_url": "https://video.nest.com/live/JKTTcsayyN",
+      "title": null
+    },
+    {
+      "name": "TOBAY Beach",
+      "url": "https://www.youtube.com/watch?v=Qzcvhq34p6w",
+      "status": 200,
+      "final_url": "https://www.youtube.com/oembed?format=json&url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DQzcvhq34p6w",
+      "title": "TOBAY Beach Live Stream"
+    },
+    {
+      "name": "Atlantic City Beach",
+      "url": "https://www.youtube.com/watch?v=vVyBOU9Huvo",
+      "status": 200,
+      "final_url": "https://www.youtube.com/oembed?format=json&url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DvVyBOU9Huvo",
+      "title": "Resorts Casino Hotel Beach Camera"
+    },
+    {
+      "name": "Main Beach (East Hampton)",
+      "url": "https://www.youtube.com/watch?v=E8fp7TDgQUk",
+      "status": 200,
+      "final_url": "https://www.youtube.com/oembed?format=json&url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DE8fp7TDgQUk",
+      "title": "EEOR - East Hampton, NY Main Beach Surf and Weather Webcam"
+    },
+    {
+      "name": "Rehoboth Beach",
+      "url": "https://www.youtube.com/watch?v=lq15dNFXISw",
+      "status": 200,
+      "final_url": "https://www.youtube.com/oembed?format=json&url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3Dlq15dNFXISw",
+      "title": "Rehoboth Boardwalk Plaza Hotel Cam"
+    },
+    {
+      "name": "Ocean City Beach (Maryland)",
+      "url": "https://www.youtube.com/watch?v=zCEiot7sEWY",
+      "status": 200,
+      "final_url": "https://www.youtube.com/oembed?format=json&url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DzCEiot7sEWY",
+      "title": "Gateway Subaru Camera at The Commander Hotel"
+    }
+  ]
+}

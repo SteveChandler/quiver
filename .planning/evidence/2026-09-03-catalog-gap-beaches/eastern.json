@@ -1,0 +1,877 @@
+[
+  {
+    "candidate": "VirginiaBeach25th",
+    "disposition": "import",
+    "name": "Virginia Beach Oceanfront",
+    "city": "Virginia Beach",
+    "state": "VA",
+    "region": "Virginia Beach",
+    "lat": 36.853333,
+    "lon": -75.973056,
+    "timezone": "America/New_York",
+    "beach_type": "beach",
+    "description": "Atlantic Ocean beach beside the Virginia Beach resort boardwalk. Surfing access varies by season, time and designated area.",
+    "access_tips": "Use public oceanfront access and check current city surfing restrictions and lifeguard instructions.",
+    "hazards": [],
+    "aliases": [
+      "Virginia Beach 25th Street"
+    ],
+    "camera_url": "https://vbbound.com/webcams/courtyard-virginia-beach-boardwalk-webcam/",
+    "camera_status": "Browser provider page identifies Courtyard Oceanfront/South and Norwegian Lady statue. Two screenshots show flags in changed positions with sand/ocean behind plaza; playback active. Broad Oceanfront match, limited surf-detail view.",
+    "photo_url": null,
+    "coordinate_review": "Federal Register 24th\u201325th Street shoreline reference 36\u00b051\u203212\u2033N 75\u00b058\u203223\u2033W. Imagery center is ocean approximately 150 m offshore. Broad oceanfront row; preserve distinct existing pier and 1st Street Jetty.",
+    "editorial_sources": [
+      {
+        "url": "https://cvb.virginiabeach.gov/resort-management/beach-rules",
+        "publisher": "City of Virginia Beach",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "name",
+          "city",
+          "state",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://www.govinfo.gov/content/pkg/FR-2008-04-15/pdf/FR-2008-04-15.pdf",
+        "publisher": "Federal Register",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon"
+        ]
+      },
+      {
+        "url": "https://vbbound.com/webcams/courtyard-virginia-beach-boardwalk-webcam/",
+        "publisher": "Camera provider",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "camera_url"
+        ],
+        "verification": "Browser provider page identifies Courtyard Oceanfront/South and Norwegian Lady statue. Two screenshots show flags in changed positions with sand/ocean behind plaza; playback active. Broad Oceanfront match, limited surf-detail view."
+      },
+      {
+        "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+        "publisher": "Esri World Imagery",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon"
+        ],
+        "verification": "Federal Register 24th\u201325th Street shoreline reference 36\u00b051\u203212\u2033N 75\u00b058\u203223\u2033W. Imagery center is ocean approximately 150 m offshore. Broad oceanfront row; preserve distinct existing pier and 1st Street Jetty."
+      }
+    ],
+    "camera_checked_at": "2026-09-03T19:22:47.140841+00:00",
+    "camera_delivery": "external-link",
+    "camera_embed_permission": "unverified",
+    "duplicate_review": [
+      {
+        "id": "67d08afe-542e-4efb-9b78-c51e6ecfbf53",
+        "name": "Virginia Beach Pier",
+        "approx_km": 1.03
+      },
+      {
+        "id": "5d9d578c-9f27-43eb-948a-ce23fa5e2aba",
+        "name": "1st Street Jetty (Virginia Beach)",
+        "approx_km": 2.49
+      }
+    ],
+    "recommendation_eligible": false,
+    "is_featured": false
+  },
+  {
+    "candidate": "Jenkinsons",
+    "disposition": "import",
+    "name": "Jenkinson\u2019s Beach",
+    "city": "Point Pleasant Beach",
+    "state": "NJ",
+    "region": "Jersey Shore",
+    "lat": 40.09355,
+    "lon": -74.03434,
+    "timezone": "America/New_York",
+    "beach_type": "beach",
+    "description": "Sandy Atlantic beach beside Jenkinson\u2019s Boardwalk in Point Pleasant Beach. The privately operated beach admits visitors through seasonal paid access.",
+    "access_tips": "Check current daily admission or season-pass requirements. Swim only when lifeguards are on duty.",
+    "hazards": [],
+    "aliases": [
+      "Jenkinsons Beach",
+      "Point Pleasant Beach"
+    ],
+    "camera_url": "https://video.nest.com/live/JKTTcsayyN",
+    "camera_status": "Nest page titled Jenks Beach Cam; Play Video clicked. Two subsequent screenshots show walking people changing positions on sand and boardwalk, visible ocean. Jenkinson\u2019s branded beach facility visible. External provider link only; not embed approval.",
+    "photo_url": null,
+    "coordinate_review": "NJDEP Central Avenue source 40.09355,-74.03494 was on sand. Selected pin shifted east 0.00060 degrees into visible nearshore water; point-pleasant-final.png. Privately owned with paid public admission.",
+    "editorial_sources": [
+      {
+        "url": "https://jenkinsons.com/beach/",
+        "publisher": "Jenkinson\u2019s",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "name",
+          "city",
+          "state",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://www.waterqualitydata.us/provider/STORET/21NJBCH/21NJBCH-OC1002/",
+        "publisher": "NJDEP via Water Quality Portal",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon",
+          "name"
+        ]
+      },
+      {
+        "url": "https://video.nest.com/live/JKTTcsayyN",
+        "publisher": "Camera provider",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "camera_url"
+        ],
+        "verification": "Nest page titled Jenks Beach Cam; Play Video clicked. Two subsequent screenshots show walking people changing positions on sand and boardwalk, visible ocean. Jenkinson\u2019s branded beach facility visible. External provider link only; not embed approval."
+      },
+      {
+        "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+        "publisher": "Esri World Imagery",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon"
+        ],
+        "verification": "NJDEP Central Avenue source 40.09355,-74.03494 was on sand. Selected pin shifted east 0.00060 degrees into visible nearshore water; point-pleasant-final.png. Privately owned with paid public admission."
+      }
+    ],
+    "camera_checked_at": "2026-09-03T19:22:00Z",
+    "camera_delivery": "external-link",
+    "camera_embed_permission": "unverified",
+    "duplicate_review": [
+      {
+        "id": "fb4fa0e0-328c-442b-b17a-82f95fbb6af5",
+        "name": "Manasquan Inlet",
+        "approx_km": 1.03
+      },
+      {
+        "id": "b9627a2a-493e-467f-9521-9081b47512cc",
+        "name": "Bay Head Beach",
+        "approx_km": 2.43
+      }
+    ],
+    "recommendation_eligible": false,
+    "is_featured": false
+  },
+  {
+    "candidate": "TOBAY",
+    "disposition": "import",
+    "name": "TOBAY Beach",
+    "city": "Massapequa",
+    "state": "NY",
+    "region": "Long Island",
+    "lat": 40.6078,
+    "lon": -73.4333,
+    "timezone": "America/New_York",
+    "beach_type": "beach",
+    "description": "Town of Oyster Bay ocean beach on Ocean Parkway, separate from the bayside TOBAY beach. Vehicle access is subject to town residency and permit rules.",
+    "access_tips": "Confirm Town of Oyster Bay residency eligibility and parking-permit requirements before visiting.",
+    "hazards": [],
+    "aliases": [
+      "Tobay Ocean Beach"
+    ],
+    "camera_url": "https://www.youtube.com/watch?v=Qzcvhq34p6w",
+    "camera_status": "Town of Oyster Bay official channel TOBAY Beach Live Stream. Two screenshots show moving people and changing ocean waves beside beach pavilion; ocean side confirmed, not bay.",
+    "photo_url": null,
+    "coordinate_review": "Official ocean monitoring coordinate, visually at nearshore ocean edge; not bay or marina. Town ownership; restricted public access does not imply private ownership.",
+    "editorial_sources": [
+      {
+        "url": "https://oysterbaytown.com/tobay/",
+        "publisher": "Town of Oyster Bay",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "name",
+          "city",
+          "state",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://www.waterqualitydata.us/provider/STORET/21NYBCH/21NYBCH-NY610050-01/",
+        "publisher": "New York State Department of Health via Water Quality Portal",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon",
+          "name"
+        ]
+      },
+      {
+        "url": "https://www.youtube.com/watch?v=Qzcvhq34p6w",
+        "publisher": "Camera provider",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "camera_url"
+        ],
+        "verification": "Town of Oyster Bay official channel TOBAY Beach Live Stream. Two screenshots show moving people and changing ocean waves beside beach pavilion; ocean side confirmed, not bay."
+      },
+      {
+        "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+        "publisher": "Esri World Imagery",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon"
+        ],
+        "verification": "Official ocean monitoring coordinate, visually at nearshore ocean edge; not bay or marina. Town ownership; restricted public access does not imply private ownership."
+      }
+    ],
+    "camera_checked_at": "2026-09-03T19:22:00Z",
+    "camera_delivery": "external-link",
+    "camera_embed_permission": "unverified",
+    "duplicate_review": [
+      {
+        "id": "22696f11-3897-4fa6-b266-2f52dae4d5ac",
+        "name": "Robert Moses State Park",
+        "approx_km": 14.74
+      },
+      {
+        "id": "03dc4aef-c5e3-48a6-9563-39e0fe08c9b5",
+        "name": "Long Beach",
+        "approx_km": 19.86
+      }
+    ],
+    "recommendation_eligible": false,
+    "is_featured": false
+  },
+  {
+    "candidate": "AtlanticCityResorts",
+    "disposition": "import",
+    "name": "Atlantic City Beach",
+    "city": "Atlantic City",
+    "state": "NJ",
+    "region": "Jersey Shore",
+    "lat": 39.35813,
+    "lon": -74.4178,
+    "timezone": "America/New_York",
+    "beach_type": "beach",
+    "description": "Atlantic beach along the Atlantic City Boardwalk, represented near Virginia Avenue and Steel Pier. Surfing is limited to designated areas and beach-patrol instructions.",
+    "access_tips": "Use public boardwalk beach access. Check the beach patrol\u2019s permitted surf areas before entering with a board.",
+    "hazards": [
+      "Pier structures"
+    ],
+    "aliases": [],
+    "camera_url": "https://www.youtube.com/watch?v=vVyBOU9Huvo",
+    "camera_status": "Resorts Casino Hotel Beach Camera official channel. Two screenshots show moving boardwalk pedestrians, Steel Pier structures, sand and breaking ocean visible. Broad Atlantic City Beach match; beach area partly obstructed.",
+    "photo_url": null,
+    "coordinate_review": "Virginia Avenue station 39.35813,-74.41861 adjusted east 0.00081 degrees to nearshore swash in atlantic-city-final.png. Broad beach identity; this pin is not a claim that Virginia Avenue is a designated surf zone.",
+    "editorial_sources": [
+      {
+        "url": "https://www.atlanticcitybeachpatrol.com/surf-beaches",
+        "publisher": "Atlantic City Beach Patrol",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "name",
+          "city",
+          "state",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://www.visitatlanticcity.com/things-to-do/beaches-boardwalk/access-facilities/",
+        "publisher": "Visit Atlantic City",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "name",
+          "city",
+          "state",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://www.waterqualitydata.us/provider/STORET/21NJBCH/21NJBCH-AC1183S/",
+        "publisher": "NJDEP via Water Quality Portal",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon",
+          "name"
+        ]
+      },
+      {
+        "url": "https://www.youtube.com/watch?v=vVyBOU9Huvo",
+        "publisher": "Camera provider",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "camera_url"
+        ],
+        "verification": "Resorts Casino Hotel Beach Camera official channel. Two screenshots show moving boardwalk pedestrians, Steel Pier structures, sand and breaking ocean visible. Broad Atlantic City Beach match; beach area partly obstructed."
+      },
+      {
+        "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+        "publisher": "Esri World Imagery",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon"
+        ],
+        "verification": "Virginia Avenue station 39.35813,-74.41861 adjusted east 0.00081 degrees to nearshore swash in atlantic-city-final.png. Broad beach identity; this pin is not a claim that Virginia Avenue is a designated surf zone."
+      }
+    ],
+    "camera_checked_at": "2026-09-03T19:22:00Z",
+    "camera_delivery": "external-link",
+    "camera_embed_permission": "unverified",
+    "duplicate_review": [
+      {
+        "id": "f7ebea96-dc6c-4a32-b881-9969cce2f986",
+        "name": "1st Street Jetty",
+        "approx_km": 15.43
+      },
+      {
+        "id": "336e967d-86a6-40db-9404-e398b057fefe",
+        "name": "7th Street Beach",
+        "approx_km": 16.07
+      }
+    ],
+    "recommendation_eligible": false,
+    "is_featured": false
+  },
+  {
+    "candidate": "EastHamptonMain",
+    "disposition": "import",
+    "name": "Main Beach (East Hampton)",
+    "city": "East Hampton",
+    "state": "NY",
+    "region": "Long Island",
+    "lat": 40.9424,
+    "lon": -72.1944,
+    "timezone": "America/New_York",
+    "beach_type": "beach",
+    "description": "Atlantic beach at the end of Ocean Avenue in the Village of East Hampton. Village beach-parking permit rules apply.",
+    "access_tips": "Check Village of East Hampton parking permit requirements; Town of East Hampton permits are a separate system.",
+    "hazards": [],
+    "aliases": [
+      "East Hampton Main Beach"
+    ],
+    "camera_url": "https://www.youtube.com/watch?v=E8fp7TDgQUk",
+    "camera_status": "EEOR East Hampton NY Main Beach by ErdmanVideoSystems. Description identifies Main Beach and East End Ocean Rescue. Two screenshots show walking people, changing waves and flag position. Live badge.",
+    "photo_url": null,
+    "coordinate_review": "Official monitoring point 40.943,-72.1944 on dry sand adjusted south 0.0006 degrees to visible surf edge; east-hampton-final.png.",
+    "editorial_sources": [
+      {
+        "url": "https://easthampton.thepermitportal.com/Home/",
+        "publisher": "Village of East Hampton",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "name",
+          "city",
+          "state",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://www.waterqualitydata.us/provider/STORET/21NYBCH/21NYBCH-NY540972-01/",
+        "publisher": "New York State Department of Health via Water Quality Portal",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon",
+          "name"
+        ]
+      },
+      {
+        "url": "https://www.youtube.com/watch?v=E8fp7TDgQUk",
+        "publisher": "Camera provider",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "camera_url"
+        ],
+        "verification": "EEOR East Hampton NY Main Beach by ErdmanVideoSystems. Description identifies Main Beach and East End Ocean Rescue. Two screenshots show walking people, changing waves and flag position. Live badge."
+      },
+      {
+        "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+        "publisher": "Esri World Imagery",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon"
+        ],
+        "verification": "Official monitoring point 40.943,-72.1944 on dry sand adjusted south 0.0006 degrees to visible surf edge; east-hampton-final.png."
+      }
+    ],
+    "camera_checked_at": "2026-09-03T19:22:00Z",
+    "camera_delivery": "external-link",
+    "camera_embed_permission": "unverified",
+    "duplicate_review": [
+      {
+        "id": "632e0e1c-a256-4d1f-8c6a-c1cbbc6ff2b6",
+        "name": "Ditch Plains",
+        "approx_km": 25.68
+      },
+      {
+        "id": "fad234b3-4c14-4c02-a0fe-db1ba6e67bbe",
+        "name": "Turtle Cove",
+        "approx_km": 31.74
+      }
+    ],
+    "recommendation_eligible": false,
+    "is_featured": false
+  },
+  {
+    "candidate": "Rehoboth",
+    "disposition": "import",
+    "name": "Rehoboth Beach",
+    "city": "Rehoboth Beach",
+    "state": "DE",
+    "region": "Delaware Coast",
+    "lat": 38.7202,
+    "lon": -75.0756,
+    "timezone": "America/New_York",
+    "beach_type": "beach",
+    "description": "Atlantic Ocean beach alongside Rehoboth Beach\u2019s boardwalk. Surfing is subject to city restrictions and designated areas.",
+    "access_tips": "Use public beach access and check current city beach conditions and surfing-area rules.",
+    "hazards": [],
+    "aliases": [],
+    "camera_url": "https://www.youtube.com/watch?v=lq15dNFXISw",
+    "camera_status": "Rehoboth Boardwalk Plaza Hotel Cam. Browser two screenshots show pedestrians moving along boardwalk, sand and Atlantic water visible. Hotel branding in video. Broad Rehoboth beach match.",
+    "photo_url": null,
+    "coordinate_review": "Official Virginia Avenue ocean monitoring site; imagery confirms nearshore water. Do not alias separate Deauville Beach.",
+    "editorial_sources": [
+      {
+        "url": "https://www.rehobothbeachde.gov/beach-conditions/",
+        "publisher": "City of Rehoboth Beach",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "name",
+          "city",
+          "state",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://ecode360.com/32105697",
+        "publisher": "City of Rehoboth Beach code",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "access_tips",
+          "description"
+        ]
+      },
+      {
+        "url": "https://www.waterqualitydata.us/provider/STORET/21DEBCH/21DEBCH-DE133779/",
+        "publisher": "Delaware DNREC via Water Quality Portal",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon",
+          "name"
+        ]
+      },
+      {
+        "url": "https://www.youtube.com/watch?v=lq15dNFXISw",
+        "publisher": "Camera provider",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "camera_url"
+        ],
+        "verification": "Rehoboth Boardwalk Plaza Hotel Cam. Browser two screenshots show pedestrians moving along boardwalk, sand and Atlantic water visible. Hotel branding in video. Broad Rehoboth beach match."
+      },
+      {
+        "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+        "publisher": "Esri World Imagery",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon"
+        ],
+        "verification": "Official Virginia Avenue ocean monitoring site; imagery confirms nearshore water. Do not alias separate Deauville Beach."
+      }
+    ],
+    "camera_checked_at": "2026-09-03T19:22:00Z",
+    "camera_delivery": "external-link",
+    "camera_embed_permission": "unverified",
+    "duplicate_review": [
+      {
+        "id": "d56a19ac-a0ee-4f99-b041-a10d70c26860",
+        "name": "The Cove (Cape May)",
+        "approx_km": 27.49
+      },
+      {
+        "id": "ef5d9f02-6dfa-4513-92c2-c158dc8c17b5",
+        "name": "Broadway Beach",
+        "approx_km": 27.82
+      }
+    ],
+    "recommendation_eligible": false,
+    "is_featured": false
+  },
+  {
+    "candidate": "StAugustinePier",
+    "disposition": "import",
+    "name": "St. Augustine Beach Pier",
+    "city": "St. Augustine Beach",
+    "state": "FL",
+    "region": "Northeast Florida",
+    "lat": 29.8576,
+    "lon": -81.264,
+    "timezone": "America/New_York",
+    "beach_type": "beach",
+    "description": "Ocean beach adjoining the St. Johns County Ocean and Fishing Pier on Anastasia Island. The county beach access includes parking, restrooms and showers.",
+    "access_tips": "Use county pier beach access. Check current pier conditions separately; beach access does not guarantee the pier itself is open.",
+    "hazards": [
+      "Pier structures"
+    ],
+    "aliases": [
+      "St Augustine Pier",
+      "St. Johns County Ocean Pier"
+    ],
+    "camera_url": null,
+    "camera_status": "North Pier Q6eZVkUKFxo browser showed obstructed close-up and buffering. Alternate H2q_DJc33kg plays ocean but expanded provider description explicitly says camera relocated more than ten blocks south of former pier position. Reject alternate for pier-specific row.",
+    "photo_url": null,
+    "coordinate_review": "County map destination 29.8569986,-81.2659358 is parking. Imagery-derived pin 29.8576,-81.2640 is nearshore water north of pier; st-augustine-final.png.",
+    "editorial_sources": [
+      {
+        "url": "https://www.sjcfl.us/beach-services/beach-access/",
+        "publisher": "St. Johns County",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "name",
+          "city",
+          "state",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://www.sjcfl.us/fishing-piers/",
+        "publisher": "St. Johns County",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "name",
+          "city",
+          "state",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://maps.app.goo.gl/zxwwHxKsKC88AcC96",
+        "publisher": "Google Maps linked by St. Johns County",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon"
+        ]
+      },
+      {
+        "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+        "publisher": "Esri World Imagery",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon"
+        ],
+        "verification": "County map destination 29.8569986,-81.2659358 is parking. Imagery-derived pin 29.8576,-81.2640 is nearshore water north of pier; st-augustine-final.png."
+      }
+    ],
+    "duplicate_review": [
+      {
+        "id": "9ca1fa2f-2b90-4aa3-8784-48721e5463bb",
+        "name": "Flagler Beach",
+        "approx_km": 44.64
+      },
+      {
+        "id": "a4472f56-626e-4905-b909-5f1dc27174a9",
+        "name": "Jacksonville Beach Pier",
+        "approx_km": 49.9
+      }
+    ],
+    "recommendation_eligible": false,
+    "is_featured": false
+  },
+  {
+    "candidate": "OceanCityMD",
+    "disposition": "import",
+    "name": "Ocean City Beach (Maryland)",
+    "city": "Ocean City",
+    "state": "MD",
+    "region": "Maryland Coast",
+    "lat": 38.370114,
+    "lon": -75.067683,
+    "timezone": "America/New_York",
+    "beach_type": "beach",
+    "description": "Atlantic beach along Ocean City, Maryland. Summer surfing uses designated rotating beach sections and other areas identified by the beach patrol.",
+    "access_tips": "Check the current surf-beach schedule and marked surfing areas; hotel-front beach sections are not permanently designated surf zones.",
+    "hazards": [
+      "Rip currents"
+    ],
+    "aliases": [
+      "Ocean City Maryland Beach"
+    ],
+    "camera_url": "https://www.youtube.com/watch?v=zCEiot7sEWY",
+    "camera_status": "Gateway Subaru Camera at The Commander Hotel. Two browser screenshots show changing breaking waves and moving people. Commander official hotel webcam page establishes 1401 Atlantic Ave Ocean City Maryland beachfront. Broad beach match, not 44th Street exact view.",
+    "photo_url": null,
+    "coordinate_review": "Official 44th Street ocean station 38.37011386,-75.0676825; imagery nearshore water. One broad beach row for 21st Street, Commander and Days Inn research entries; pin does not locate those hotels.",
+    "editorial_sources": [
+      {
+        "url": "https://oceancitymd.gov/oc/surf-beaches/",
+        "publisher": "Town of Ocean City",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "name",
+          "city",
+          "state",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://www.waterqualitydata.us/provider/NWIS/USGS-MD/USGS-382212075040501/",
+        "publisher": "USGS Maryland Water Science Center",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon",
+          "name"
+        ]
+      },
+      {
+        "url": "https://www.youtube.com/watch?v=zCEiot7sEWY",
+        "publisher": "Camera provider",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "camera_url"
+        ],
+        "verification": "Gateway Subaru Camera at The Commander Hotel. Two browser screenshots show changing breaking waves and moving people. Commander official hotel webcam page establishes 1401 Atlantic Ave Ocean City Maryland beachfront. Broad beach match, not 44th Street exact view."
+      },
+      {
+        "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+        "publisher": "Esri World Imagery",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon"
+        ],
+        "verification": "Official 44th Street ocean station 38.37011386,-75.0676825; imagery nearshore water. One broad beach row for 21st Street, Commander and Days Inn research entries; pin does not locate those hotels."
+      },
+      {
+        "url": "https://www.commanderhotel.com/webcam/",
+        "publisher": "Commander Hotel",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "camera_url"
+        ],
+        "verification": "Official site identifies beach webcam and hotel address at 1401 Atlantic Ave, Ocean City Maryland."
+      }
+    ],
+    "camera_checked_at": "2026-09-03T19:22:00Z",
+    "camera_delivery": "external-link",
+    "camera_embed_permission": "unverified",
+    "duplicate_review": [
+      {
+        "id": "49dcab29-7502-4835-b5f8-86716e7123f4",
+        "name": "Assateague Beach (Virginia)",
+        "approx_km": 58.59
+      },
+      {
+        "id": "d56a19ac-a0ee-4f99-b041-a10d70c26860",
+        "name": "The Cove (Cape May)",
+        "approx_km": 63.87
+      }
+    ],
+    "recommendation_eligible": false,
+    "is_featured": false
+  },
+  {
+    "candidate": "StSimons",
+    "disposition": "import",
+    "name": "East Beach (St. Simons Island)",
+    "city": "St. Simons Island",
+    "state": "GA",
+    "region": "Golden Isles",
+    "lat": 31.1439,
+    "lon": -81.3688,
+    "timezone": "America/New_York",
+    "beach_type": "beach",
+    "description": "Public ocean beach accessed through Coast Guard Park on St. Simons Island. Facilities include beach parking, restrooms and accessible beach mats.",
+    "access_tips": "Use the Coast Guard beach access at 4100 First Street and observe the beach warning light system.",
+    "hazards": [],
+    "aliases": [
+      "Coast Guard Beach St Simons"
+    ],
+    "camera_url": null,
+    "camera_status": "No exact accepted camera established. Regional generic listing is insufficient for this named public beach.",
+    "photo_url": null,
+    "coordinate_review": "Access reference 31.145364,-81.372025 is parking. Proposed imagery-derived nearshore pin 31.1439,-81.3688 southeast of access; final imagery shows wet nearshore sand/swash at center, adjacent to ocean. st-simons-final.png. Consider slight east shift for all-water sampling.",
+    "editorial_sources": [
+      {
+        "url": "https://www.glynncounty.org/government/departments/recreation-parks/beaches/coast-guard-east-beach",
+        "publisher": "Glynn County",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "name",
+          "city",
+          "state",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://www.saltchef.com/catch_fish/GA/Glynn/beaches.html",
+        "publisher": "Saltchef",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "coordinate_reference"
+        ]
+      },
+      {
+        "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+        "publisher": "Esri World Imagery",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon"
+        ],
+        "verification": "Access reference 31.145364,-81.372025 is parking. Proposed imagery-derived nearshore pin 31.1439,-81.3688 southeast of access; final imagery shows wet nearshore sand/swash at center, adjacent to ocean. st-simons-final.png. Consider slight east shift for all-water sampling."
+      }
+    ],
+    "duplicate_review": [
+      {
+        "id": "a4472f56-626e-4905-b909-5f1dc27174a9",
+        "name": "Jacksonville Beach Pier",
+        "approx_km": 94.61
+      },
+      {
+        "id": "d3740aa5-3c96-4575-a60c-d8200023affe",
+        "name": "Tybee Island",
+        "approx_km": 107.99
+      }
+    ],
+    "recommendation_eligible": false,
+    "is_featured": false
+  },
+  {
+    "candidate": "CapeCanaveral",
+    "disposition": "import",
+    "name": "Cherie Down Park Beach",
+    "city": "Cape Canaveral",
+    "state": "FL",
+    "region": "Space Coast",
+    "lat": 28.39179,
+    "lon": -80.59513,
+    "timezone": "America/New_York",
+    "beach_type": "beach",
+    "description": "Atlantic beach at Cherie Down Park in Cape Canaveral. The county park provides public beach access from Ridgewood Avenue.",
+    "access_tips": "Use Cherie Down Park\u2019s public beach access and follow posted county beach rules.",
+    "hazards": [],
+    "aliases": [
+      "Cherie Down Beach"
+    ],
+    "camera_url": null,
+    "camera_status": "No exact accepted camera established. Regional generic listing is insufficient for this named public beach.",
+    "photo_url": null,
+    "coordinate_review": "Surf-location coordinate crosschecked against imagery and official park address; nearshore water east of park. Cape Canaveral generic webcam cannot automatically map to this park.",
+    "editorial_sources": [
+      {
+        "url": "https://www.brevardfl.gov/ParksAndRecreation/ParkDirectory",
+        "publisher": "Brevard County",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "name",
+          "city",
+          "state",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://www.visitspacecoast.com/profile/cape-canaveral/beaches/cherie-down-park/",
+        "publisher": "Space Coast Office of Tourism",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "name",
+          "city",
+          "state",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://breakfinder.surf/nl/surf_spots/cherie-down-park",
+        "publisher": "Breakfinder",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon"
+        ]
+      },
+      {
+        "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+        "publisher": "Esri World Imagery",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "lat",
+          "lon"
+        ],
+        "verification": "Surf-location coordinate crosschecked against imagery and official park address; nearshore water east of park. Cape Canaveral generic webcam cannot automatically map to this park."
+      }
+    ],
+    "duplicate_review": [
+      {
+        "id": "99e50d6b-a1cf-458b-8fff-c199cd55b23c",
+        "name": "Cocoa Beach Pier",
+        "approx_km": 2.79
+      },
+      {
+        "id": "307d7cb3-f235-4b32-9b42-8a375ac9f54f",
+        "name": "Satellite Beach",
+        "approx_km": 24.59
+      }
+    ],
+    "recommendation_eligible": false,
+    "is_featured": false
+  },
+  {
+    "candidate": "VirginiaBeach5th",
+    "disposition": "merge",
+    "merge_into": "VirginiaBeach25th",
+    "reason": "Same continuous broad Virginia Beach Oceanfront; do not create hotel-named duplicate or overwrite distinct First Street Jetty."
+  },
+  {
+    "candidate": "OceanCity21stCommanderDaysInn",
+    "disposition": "merge",
+    "merge_into": "OceanCityMD",
+    "reason": "Multiple hotel/boardwalk camera viewpoints on one broad Ocean City Maryland beach; preserve actual camera identity when verified."
+  },
+  {
+    "candidate": "SagHarborWindmillBay",
+    "disposition": "hold",
+    "reason": "Sheltered Sag Harbor waterfront camera does not establish an exact public ocean surf beach. No town-centroid surrogate.",
+    "lat": null,
+    "lon": null,
+    "camera_url": null
+  },
+  {
+    "candidate": "NorthVilanoSouthPonteVedra",
+    "disposition": "hold",
+    "reason": "North Vilano and South Ponte Vedra are distinct coastal sections. Camera identity insufficient to choose an exact park. Official North Beach Oceanfront Park beach-access listing currently states closed until further notice; South Ponte Vedra recreation area is separate. Parent may import separately after resolving exact source.",
+    "editorial_sources": [
+      {
+        "url": "https://www.sjcfl.us/beach-services/beach-access/",
+        "publisher": "St. Johns County",
+        "retrievedAt": "2026-09-03",
+        "fields": [
+          "disposition"
+        ]
+      }
+    ],
+    "lat": null,
+    "lon": null,
+    "camera_url": null
+  }
+]

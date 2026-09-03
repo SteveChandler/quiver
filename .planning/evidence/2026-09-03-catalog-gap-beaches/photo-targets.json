@@ -1,0 +1,102 @@
+[
+  {
+    "slug": "sharp-park",
+    "name": "Sharp Park Beach",
+    "query": "Sharp Park Beach California"
+  },
+  {
+    "slug": "muir",
+    "name": "Muir Beach",
+    "query": "Muir Beach California"
+  },
+  {
+    "slug": "cowell",
+    "name": "Cowell Beach",
+    "query": "Cowell Beach Santa Cruz"
+  },
+  {
+    "slug": "santa-cruz-main",
+    "name": "Main Beach Santa Cruz",
+    "query": "Main Beach Santa Cruz California"
+  },
+  {
+    "slug": "roads-end",
+    "name": "Roads End Beach",
+    "query": "Roads End Beach Oregon"
+  },
+  {
+    "slug": "kalaloch",
+    "name": "Kalaloch Beach",
+    "query": "Kalaloch Beach Washington"
+  },
+  {
+    "slug": "kaunaoa",
+    "name": "Kaunaoa Beach",
+    "query": "Kaunaoa Beach Hawaii"
+  },
+  {
+    "slug": "napili",
+    "name": "Napili Bay",
+    "query": "Napili Bay Maui"
+  },
+  {
+    "slug": "kamaole-ii",
+    "name": "Kamaole II Beach",
+    "query": "Kamaole II Beach Maui"
+  },
+  {
+    "slug": "wailea",
+    "name": "Wailea Beach",
+    "query": "Wailea Beach Maui"
+  },
+  {
+    "slug": "kaanapali",
+    "name": "Kaanapali Beach",
+    "query": "Kaanapali Beach Maui"
+  },
+  {
+    "slug": "turtle-bay",
+    "name": "Turtle Bay Beach",
+    "query": "Turtle Bay Beach Oahu"
+  },
+  {
+    "slug": "lawai",
+    "name": "Lawai Beach",
+    "query": "Lawai Beach Kauai"
+  },
+  {
+    "slug": "east-hampton",
+    "name": "Main Beach East Hampton",
+    "query": "Main Beach East Hampton New York"
+  },
+  {
+    "slug": "rehoboth",
+    "name": "Rehoboth Beach",
+    "query": "Rehoboth Beach Delaware"
+  },
+  {
+    "slug": "point-pleasant",
+    "name": "Point Pleasant Beach",
+    "query": "Point Pleasant Beach New Jersey"
+  },
+  {
+    "slug": "tobay",
+    "name": "TOBAY Beach",
+    "query": "TOBAY Beach New York"
+  },
+  {
+    "slug": "ocean-city-md",
+    "name": "Ocean City Beach",
+    "query": "Ocean City Beach Maryland"
+  },
+  {
+    "slug": "st-augustine",
+    "name": "St Augustine Beach Pier",
+    "query": "St Augustine Beach Pier Florida"
+  },
+  {
+    "slug": "st-simons",
+    "name": "East Beach St Simons",
+    "query": "East Beach St Simons Georgia"
+  }
+]
