@@ -16,6 +16,16 @@ import {
 
 describe("Beach URL Utils", () => {
   describe("stateToSlug", () => {
+    it.each([
+      ["DE", "Delaware", "de"],
+      ["MD", "Maryland", "md"],
+    ])("recognizes %s catalog beach routes", (code, name, slug) => {
+      expect(stateToSlug(code)).toBe(slug);
+      expect(stateToSlug(name)).toBe(slug);
+      expect(isValidStateSlug(slug)).toBe(true);
+      expect(getUsStateRootPathOrNull(code)).toBe(`/beaches/usa/${slug}`);
+    });
+
     it("should convert CA to ca", () => {
       expect(stateToSlug("CA")).toBe("ca");
     });
