@@ -289,8 +289,18 @@ test.describe('Guest Landing - Zine Field Guide', () => {
       }),
     ).toBeVisible();
     await expect(
-      insideAppSection.getByAltText(/nearby surf spots and local intel/i),
+      insideAppSection.getByAltText(/next 7 days of best windows/i),
     ).toBeVisible();
+    await expect(insideAppSection.locator('video')).toHaveAttribute(
+      'src',
+      '/videos/whats-new/home.mp4',
+    );
+  });
+
+  test('links the hero to the newest release', async ({ page }) => {
+    const strip = page.getByTestId('field-guide-release-strip');
+    await expect(strip).toBeVisible({ timeout: 5000 });
+    await expect(strip).toHaveAttribute('href', '/whats-new');
   });
 
   test('shows audience and access context', async ({ page }) => {

@@ -2,6 +2,20 @@ import { render, screen, within } from "@testing-library/react";
 
 import { FieldGuideFeatures } from "@/components/landing-page/field-guide/field-guide-features";
 
+// jsdom has no HTMLMediaElement.play; the inside-app panel's recording renders
+// as a plain <video> here.
+jest.mock("@/components/landing-page/field-guide/autoplay-video", () => ({
+  AutoplayVideo: ({
+    src,
+    poster,
+    ariaLabel,
+  }: {
+    src: string;
+    poster?: string;
+    ariaLabel: string;
+  }) => <video src={src} poster={poster} aria-label={ariaLabel} />,
+}));
+
 jest.mock("next/image", () => ({
   __esModule: true,
   default: ({ alt = "" }: { alt?: string }) => <img alt={alt} />,

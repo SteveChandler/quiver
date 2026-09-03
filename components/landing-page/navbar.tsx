@@ -208,6 +208,15 @@ export function Navbar({
             >
               Features
             </Link>
+            <Link
+              href="/whats-new"
+              className={cn(
+                "font-mono text-sm font-bold uppercase tracking-[0.18em] transition-colors",
+                navTextClass,
+              )}
+            >
+              What&apos;s New
+            </Link>
 
             {/* Explore Dropdown */}
             {mounted ? (
@@ -345,6 +354,13 @@ export function Navbar({
                         onClick={() => setMobileMenuOpen(false)}
                       >
                         Features
+                      </Link>
+                      <Link
+                        href="/whats-new"
+                        className="block px-3 py-2 font-mono text-sm font-bold uppercase tracking-[0.18em] text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        What&apos;s New
                       </Link>
 
                       {/* Mobile Explore - Region groups */}

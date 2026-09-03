@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ImgHTMLAttributes } from "react";
 
 import { QuiverFieldGuideLanding } from "@/components/landing-page/field-guide/quiver-field-guide-landing";
+import { formatReleaseDate, getLatestRelease } from "@/lib/data/whats-new";
 
 jest.mock("next/image", () => ({
   __esModule: true,
@@ -173,8 +174,20 @@ describe("QuiverFieldGuideLanding", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByAltText(/nearby surf spots and local intel/i),
-    ).toHaveAttribute("src", expect.stringContaining("local-intel-720.webp"));
+      screen.getByAltText(/next 7 days of best windows/i),
+    ).toHaveAttribute("src", expect.stringContaining("/images/whats-new/home-poster.jpg"));
+    const video = insideApp.querySelector("video");
+    expect(video).toHaveAttribute("src", "/videos/whats-new/home.mp4");
+    expect(video).toHaveAttribute("poster", "/images/whats-new/home-poster.jpg");
+  });
+
+  it("links the hero to the newest release", () => {
+    render(<QuiverFieldGuideLanding platform="ios" />);
+
+    const strip = screen.getByTestId("field-guide-release-strip");
+    expect(strip).toHaveAttribute("href", "/whats-new");
+    expect(strip).toHaveTextContent(getLatestRelease().title);
+    expect(strip).toHaveTextContent(formatReleaseDate(getLatestRelease().date));
   });
 
   it("renders audience and access context", () => {

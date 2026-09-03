@@ -4,12 +4,15 @@ import Link from "next/link";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
 import type { FirstTouchPlatform } from "@/lib/analytics/web-context";
 import { FieldGuideHeroVideo } from "./field-guide-hero-video";
+import { FieldGuideReleaseStrip } from "./field-guide-release-strip";
 
 interface FieldGuideHeroProps {
   platform: FirstTouchPlatform;
 }
 
-export function FieldGuideHero({ platform }: FieldGuideHeroProps): ReactElement {
+export function FieldGuideHero({
+  platform,
+}: FieldGuideHeroProps): ReactElement {
   const downloadHref = `/download?source=landing_hero&placement=hero&platform=${platform}`;
 
   return (
@@ -56,6 +59,7 @@ export function FieldGuideHero({ platform }: FieldGuideHeroProps): ReactElement 
           <FieldGuideHeroVideo />
         </div>
       </div>
+      <FieldGuideReleaseStrip />
     </ZineSurface>
   );
 }
