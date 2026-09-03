@@ -49,7 +49,7 @@ describe("StoreDownloadButtons", () => {
 
     expect(screen.getByTestId("funnel-cta")).toHaveAttribute(
       "data-desktop-class",
-      expect.stringContaining("bg-[#11100D]"),
+      expect.stringContaining("bg-[#EFE5CF]"),
     );
     expect(screen.getByTestId("funnel-cta")).toHaveAttribute(
       "data-desktop-show-email-form",

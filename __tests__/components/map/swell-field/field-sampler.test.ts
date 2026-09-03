@@ -435,12 +435,13 @@ describe("maskFieldToWater", () => {
       queryRenderedFeatures: () => [],
     };
 
-    maskFieldToWater(field, map, {
+    const applied = maskFieldToWater(field, map, {
       width: 800,
       height: 600,
       waterLayerIds: ["water"],
     });
 
+    expect(applied).toBe(false);
     expect(field.cells[0].speed).toBe(0.5);
     expect(field.cells[1].speed).toBe(0.5);
   });
@@ -464,12 +465,13 @@ describe("maskFieldToWater", () => {
       queryRenderedFeatures: ([x]) => (x === 0 ? [{}] : []),
     };
 
-    maskFieldToWater(field, map, {
+    const applied = maskFieldToWater(field, map, {
       width: 800,
       height: 600,
       waterLayerIds: ["water"],
     });
 
+    expect(applied).toBe(false);
     expect(field.cells.every((cell) => cell.speed === 0.5)).toBe(true);
   });
 
@@ -487,7 +489,8 @@ describe("maskFieldToWater", () => {
         return [];
       },
     };
-    maskFieldToWater(field, map, { width: 800, height: 600, waterLayerIds: ["water"] });
+    const applied = maskFieldToWater(field, map, { width: 800, height: 600, waterLayerIds: ["water"] });
+    expect(applied).toBe(true);
     expect(queried).toBe(false);
   });
 
@@ -516,5 +519,52 @@ describe("maskFieldToWater", () => {
     });
 
     expect(queryCount).toBe(2);
+  });
+
+  it("still zeroes land when every water verdict is cache-served (playback rebuild)", () => {
+    // During playback the idle remask re-queries only the LIVE (water) cells and
+    // caches them as water. The next tick rebuilds the field with land cells alive
+    // again; those are the only cells that reach queryRenderedFeatures, so the
+    // fresh pass sees zero water hits. Cached water verdicts must count toward the
+    // trust threshold, or the guard aborts and land stays animated for a frame.
+    const cache = new Map<string, boolean>();
+    const water = Array.from({ length: 65 }, (_, index) => ({
+      lon: -117.5 + index * 0.001,
+      lat: 32.7,
+      vx: 1,
+      vy: 0,
+      speed: 0.5,
+      alpha: 0.6,
+    }));
+    const land = Array.from({ length: 56 }, (_, index) => ({
+      lon: -117.1 + index * 0.001,
+      lat: 32.7,
+      vx: 1,
+      vy: 0,
+      speed: 0.5,
+      alpha: 0.6,
+    }));
+    for (const cell of water) cache.set(`${cell.lon}:${cell.lat}`, true);
+    const field: FlowField = { cols: 121, rows: 1, cells: [...water, ...land] };
+    const queried: number[] = [];
+    const map: WaterMaskMap = {
+      areTilesLoaded: () => true,
+      project: ([lon]) => ({ x: lon < -117.3 ? 100 : 500, y: 100 }),
+      queryRenderedFeatures: ([x]) => {
+        queried.push(x);
+        return x === 100 ? [{}] : [];
+      },
+    };
+
+    maskFieldToWater(field, map, {
+      width: 800,
+      height: 600,
+      waterLayerIds: ["water"],
+      waterMaskCache: cache,
+    });
+
+    expect(queried.every((x) => x === 500)).toBe(true); // only land reached the map
+    expect(water.every((cell) => cell.speed === 0.5)).toBe(true);
+    expect(land.every((cell) => cell.speed === 0 && cell.alpha === 0)).toBe(true);
   });
 });

@@ -86,7 +86,7 @@ export function WaterTempHeroSection({ data }: WaterTempHeroSectionProps) {
                 {wetsuitRecommendation.description}
               </p>
               {wetsuitRecommendation.extras.length > 0 && (
-                <p className="text-xs text-[#8A806F]">
+                <p className="text-xs text-[#6B6252]">
                   Recommended extras:{" "}
                   {wetsuitRecommendation.extras.join(", ")}
                 </p>
@@ -212,7 +212,7 @@ export function WaterTempHeroSection({ data }: WaterTempHeroSectionProps) {
           )}
 
           {/* Attribution */}
-          <p className="text-xs text-[#8A806F]">
+          <p className="text-xs text-[#6B6252]">
             Data from {beachName} · Updated hourly
           </p>
         </CardContent>

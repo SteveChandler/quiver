@@ -582,6 +582,8 @@ export class EnhancedForecastService {
       }
 
       const stationIds = stations.map(s => s.station_id);
+      const stalenessMs = EnhancedForecastService.IOOS_STALENESS_HOURS * 60 * 60 * 1000;
+      const cutoff = new Date(Date.now() - stalenessMs).toISOString();
 
       // Get latest water temp observation from any of these stations
       const { data: obs, error: obsError } = await supabase
@@ -589,6 +591,7 @@ export class EnhancedForecastService {
         .select("water_temp_c, observed_at")
         .in("station_id", stationIds)
         .not("water_temp_c", "is", null)
+        .gte("observed_at", cutoff)
         .order("observed_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -599,7 +602,6 @@ export class EnhancedForecastService {
 
       // Only use if observation is recent
       const obsAge = Date.now() - new Date(obs.observed_at).getTime();
-      const stalenessMs = EnhancedForecastService.IOOS_STALENESS_HOURS * 60 * 60 * 1000;
       if (obsAge > stalenessMs) {
         log.debug(`IOOS water temp for ${beach.name} is stale (${Math.round(obsAge / 3600000)}h old), skipping`);
         return null;

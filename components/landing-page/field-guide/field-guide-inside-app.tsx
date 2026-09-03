@@ -3,6 +3,8 @@ import type { ReactElement } from "react";
 
 import { QuiverSticker } from "@/components/zine";
 
+import { AutoplayVideo } from "./autoplay-video";
+
 export function FieldGuideInsideApp(): ReactElement {
   return (
     <section
@@ -56,14 +58,22 @@ export function FieldGuideInsideApp(): ReactElement {
             <div className="relative mx-auto w-full max-w-[320px] md:max-w-[360px]">
               <div className="relative aspect-[9/13] overflow-hidden rounded-[16px_6px_18px_8px] border-2 border-[#11100D] bg-[#0D1020] shadow-[5px_6px_0_rgba(17,16,13,0.18)]">
                 <Image
-                  src="/images/app-screenshots/local-intel-720.webp"
-                  alt="Quiver app showing nearby surf spots and local intel"
+                  src="/images/whats-new/home-poster.jpg"
+                  alt="Quiver Home showing today's conditions and the next 7 days of best windows"
                   fill
                   sizes="(min-width: 1024px) 360px, 80vw"
                   className="object-cover object-top"
                 />
-                <div className="absolute bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap bg-[#FFFDF4] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#0B3A75] shadow-[2px_3px_0_rgba(17,16,13,0.18)]">
-                  Nearby breaks - live
+                <AutoplayVideo
+                  src="/videos/whats-new/home.mp4"
+                  poster="/images/whats-new/home-poster.jpg"
+                  ariaLabel="Quiver Home scrolling to the Looking Ahead card"
+                  className="absolute inset-0 h-full w-full object-cover object-top"
+                  playLabel="Play preview"
+                  playButtonClassName="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border-2 border-[#11100D] bg-[#F4EBD8] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.2)]"
+                />
+                <div className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap bg-[#FFFDF4] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#0B3A75] shadow-[2px_3px_0_rgba(17,16,13,0.18)]">
+                  Looking ahead - live
                 </div>
               </div>
               <QuiverSticker

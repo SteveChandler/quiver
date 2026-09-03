@@ -27,8 +27,11 @@ const mockRpcRows = [
 ];
 
 function makeSupabaseMock(data: any, error: any = null) {
-  const rpc = jest.fn().mockResolvedValue({ data, error });
-  return { rpc } as any;
+  const eq = jest.fn((_column: string, beachId: string) =>
+    Promise.resolve({ data: data?.filter((row: { beach_id: string }) => row.beach_id === beachId), error }),
+  );
+  const rpc = jest.fn().mockReturnValue(Object.assign(Promise.resolve({ data, error }), { eq }));
+  return { rpc, eq } as any;
 }
 
 describe("fetchNowcastAnchors", () => {
@@ -37,6 +40,7 @@ describe("fetchNowcastAnchors", () => {
     const result = await fetchNowcastAnchors(supabase);
 
     expect(result.size).toBe(2);
+    expect(supabase.eq).not.toHaveBeenCalled();
     expect(result.get("beach-a")).toEqual({
       beachId: "beach-a",
       stationId: "edu_ucsd_cdip_073",
@@ -137,6 +141,7 @@ describe("fetchLatestObservation", () => {
     const supabase = makeSupabaseMock(mockRpcRows);
     const result = await fetchLatestObservation(supabase, "beach-a");
 
+    expect(supabase.eq).toHaveBeenCalledWith("beach_id", "beach-a");
     expect(result).toEqual({
       stationId: "edu_ucsd_cdip_073",
       observedAt: "2026-04-19T14:56:00Z",

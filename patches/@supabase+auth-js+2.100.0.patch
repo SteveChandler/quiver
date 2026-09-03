@@ -1,0 +1,99 @@
+diff --git a/node_modules/@supabase/auth-js/src/GoTrueClient.ts b/node_modules/@supabase/auth-js/src/GoTrueClient.ts
+--- a/node_modules/@supabase/auth-js/src/GoTrueClient.ts
++++ b/node_modules/@supabase/auth-js/src/GoTrueClient.ts
+@@ -2742,6 +2742,15 @@
+     try {
+       const currentSession = (await getItemAsync(this.storage, this.storageKey)) as Session | null
+ 
++      if (!this._isValidSession(currentSession)) {
++        this._debug(debugName, 'session is not valid')
++        if (currentSession !== null) {
++          await this._removeSession()
++        }
++
++        return
++      }
++
+       if (currentSession && this.userStorage) {
+         let maybeUser: { user: User | null } | null = (await getItemAsync(
+           this.userStorage,
+@@ -2782,15 +2791,6 @@
+       }
+ 
+       this._debug(debugName, 'session from storage', currentSession)
+-
+-      if (!this._isValidSession(currentSession)) {
+-        this._debug(debugName, 'session is not valid')
+-        if (currentSession !== null) {
+-          await this._removeSession()
+-        }
+-
+-        return
+-      }
+ 
+       const expiresWithMargin =
+         (currentSession.expires_at ?? Infinity) * 1000 - Date.now() < EXPIRY_MARGIN_MS
+diff --git a/node_modules/@supabase/auth-js/dist/main/GoTrueClient.js b/node_modules/@supabase/auth-js/dist/main/GoTrueClient.js
+--- a/node_modules/@supabase/auth-js/dist/main/GoTrueClient.js
++++ b/node_modules/@supabase/auth-js/dist/main/GoTrueClient.js
+@@ -2050,6 +2050,14 @@
+         this._debug(debugName, 'begin');
+         try {
+             const currentSession = (await (0, helpers_1.getItemAsync)(this.storage, this.storageKey));
++
++            if (!this._isValidSession(currentSession)) {
++                this._debug(debugName, 'session is not valid');
++                if (currentSession !== null) {
++                    await this._removeSession();
++                }
++                return;
++            }
+             if (currentSession && this.userStorage) {
+                 let maybeUser = (await (0, helpers_1.getItemAsync)(this.userStorage, this.storageKey + '-user'));
+                 if (!this.storage.isServer && Object.is(this.storage, this.userStorage) && !maybeUser) {
+@@ -2079,13 +2087,6 @@
+                 }
+             }
+             this._debug(debugName, 'session from storage', currentSession);
+-            if (!this._isValidSession(currentSession)) {
+-                this._debug(debugName, 'session is not valid');
+-                if (currentSession !== null) {
+-                    await this._removeSession();
+-                }
+-                return;
+-            }
+             const expiresWithMargin = ((_b = currentSession.expires_at) !== null && _b !== void 0 ? _b : Infinity) * 1000 - Date.now() < constants_1.EXPIRY_MARGIN_MS;
+             this._debug(debugName, `session has${expiresWithMargin ? '' : ' not'} expired with margin of ${constants_1.EXPIRY_MARGIN_MS}s`);
+             if (expiresWithMargin) {
+diff --git a/node_modules/@supabase/auth-js/dist/module/GoTrueClient.js b/node_modules/@supabase/auth-js/dist/module/GoTrueClient.js
+--- a/node_modules/@supabase/auth-js/dist/module/GoTrueClient.js
++++ b/node_modules/@supabase/auth-js/dist/module/GoTrueClient.js
+@@ -2047,6 +2047,14 @@
+         this._debug(debugName, 'begin');
+         try {
+             const currentSession = (await getItemAsync(this.storage, this.storageKey));
++
++            if (!this._isValidSession(currentSession)) {
++                this._debug(debugName, 'session is not valid');
++                if (currentSession !== null) {
++                    await this._removeSession();
++                }
++                return;
++            }
+             if (currentSession && this.userStorage) {
+                 let maybeUser = (await getItemAsync(this.userStorage, this.storageKey + '-user'));
+                 if (!this.storage.isServer && Object.is(this.storage, this.userStorage) && !maybeUser) {
+@@ -2076,13 +2084,6 @@
+                 }
+             }
+             this._debug(debugName, 'session from storage', currentSession);
+-            if (!this._isValidSession(currentSession)) {
+-                this._debug(debugName, 'session is not valid');
+-                if (currentSession !== null) {
+-                    await this._removeSession();
+-                }
+-                return;
+-            }
+             const expiresWithMargin = ((_b = currentSession.expires_at) !== null && _b !== void 0 ? _b : Infinity) * 1000 - Date.now() < EXPIRY_MARGIN_MS;
+             this._debug(debugName, `session has${expiresWithMargin ? '' : ' not'} expired with margin of ${EXPIRY_MARGIN_MS}s`);
+             if (expiresWithMargin) {

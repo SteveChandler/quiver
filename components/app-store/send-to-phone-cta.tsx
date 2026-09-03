@@ -230,7 +230,7 @@ export function SendToPhoneCta({
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="font-sans text-sm leading-6 text-[#11100D]/80">
+          <p className="font-sans text-sm leading-6 text-current opacity-80">
             {showEmailForm
               ? "Scan to get Quiver on your phone, or email yourself the link."
               : "Scan with your phone to open Quiver."}
@@ -240,7 +240,7 @@ export function SendToPhoneCta({
             <form onSubmit={onSubmit} className="mt-3" noValidate>
               <label
                 htmlFor="send-to-phone-email"
-                className="block font-sans text-xs font-semibold uppercase tracking-widest text-[#11100D]/65"
+                className="block font-sans text-xs font-semibold uppercase tracking-widest text-current opacity-65"
               >
                 Your email
               </label>
@@ -292,7 +292,7 @@ export function SendToPhoneCta({
 
           <a
             href={IOS_APP_STORE_WEB_REDIRECT_PATH}
-            className="mt-2 inline-block font-sans text-sm text-[#11100D]/75 underline underline-offset-2 hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EFE5CF]"
+            className="mt-2 inline-block font-sans text-sm text-current opacity-75 underline underline-offset-2 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EFE5CF]"
           >
             Open App Store anyway
           </a>

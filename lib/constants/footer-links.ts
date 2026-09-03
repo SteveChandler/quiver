@@ -3,6 +3,7 @@ export const FOOTER_LINKS = {
     { name: "About Quiver", href: "/about" },
     { name: "Features", href: "/features" },
     { name: "Roadmap", href: "/roadmap" },
+    { name: "What's New", href: "/whats-new" },
     { name: "Quiver vs Surfline", href: "/vs/surfline" },
     { name: "For Businesses", href: "/for-businesses" },
     { name: "For Surf Schools", href: "/for-surf-schools" },

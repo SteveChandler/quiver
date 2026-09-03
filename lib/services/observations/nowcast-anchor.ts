@@ -7,6 +7,7 @@ const LOG_PREFIX = "[nowcast-anchor]";
 
 type FetchOptions = {
   maxAgeHours?: number;
+  beachId?: string;
 };
 
 type RpcRow = {
@@ -44,9 +45,12 @@ export async function fetchNowcastAnchors(
   const maxAgeHours = options.maxAgeHours ?? DEFAULT_MAX_AGE_HOURS;
 
   try {
-    const { data, error } = await supabase.rpc("get_nowcast_anchors", {
+    const query = supabase.rpc("get_nowcast_anchors", {
       max_age_hours: maxAgeHours,
     });
+    const { data, error } = await (options.beachId !== undefined
+      ? query.eq("beach_id", options.beachId)
+      : query);
 
     if (error) {
       console.warn(`${LOG_PREFIX} RPC error, falling through to forecast-only`, error);
@@ -88,7 +92,7 @@ export async function fetchLatestObservation(
   beachId: string,
   options: FetchOptions = {},
 ): Promise<LatestObservation | null> {
-  const map = await fetchNowcastAnchors(supabase, options);
+  const map = await fetchNowcastAnchors(supabase, { ...options, beachId });
   const anchor = map.get(beachId);
   if (!anchor) return null;
   return {

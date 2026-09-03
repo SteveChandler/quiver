@@ -6,7 +6,7 @@ The 28 listings classified **No matching catalog beach** group into **22 locatio
 
 ## Prepared additions (2026-09-03)
 
-The research now resolves to **28 new catalog records, 12 verified camera links and 5 licensed photos**, prepared in migration `20260903200000_add_verified_catalog_gap_beaches.sql`. [See the exact beach list, exclusions and validation](../.planning/evidence/2026-09-03-catalog-gap-beaches/README.md). Production release approved by plan hash `e5541a9139468452474cd53752ce2f5f4b3acec634b8760ee1eb568be82e9d4e`; application status is recorded in the batch evidence. SEO/recommendations remain disabled until scoring inputs and forecast runtime are reviewed.
+The research now resolves to **28 new catalog records, 12 verified camera links and 5 licensed photos**, released in migration `20260903200000_add_verified_catalog_gap_beaches.sql`. [See the exact beach list, exclusions and validation](../.planning/evidence/2026-09-03-catalog-gap-beaches/README.md). Applied to production under the approved plan; see the batch release receipt. SEO/recommendations remain disabled until scoring inputs and forecast runtime are reviewed.
 
 ## Missing locations behind the 28 listings
 

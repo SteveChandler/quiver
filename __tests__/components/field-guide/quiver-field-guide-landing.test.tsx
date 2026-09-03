@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ImgHTMLAttributes } from "react";
 
 import { QuiverFieldGuideLanding } from "@/components/landing-page/field-guide/quiver-field-guide-landing";
+import { formatReleaseDate, getLatestRelease } from "@/lib/data/whats-new";
 
 jest.mock("next/image", () => ({
   __esModule: true,
@@ -29,9 +30,11 @@ jest.mock("@/components/app-store/native-app-funnel-cta", () => ({
 // framer-motion resolves reduced-motion from a module-level store, so a late
 // window.matchMedia stub does not reach it. Drive the hook directly instead.
 const mockUseReducedMotion = jest.fn<boolean | null, []>(() => false);
+const mockUseInView = jest.fn<boolean, []>(() => true);
 jest.mock("framer-motion", () => ({
   ...jest.requireActual("framer-motion"),
   useReducedMotion: () => mockUseReducedMotion(),
+  useInView: () => mockUseInView(),
 }));
 
 describe("QuiverFieldGuideLanding", () => {
@@ -44,6 +47,7 @@ describe("QuiverFieldGuideLanding", () => {
       .spyOn(window.HTMLMediaElement.prototype, "play")
       .mockResolvedValue(undefined);
     mockUseReducedMotion.mockReturnValue(false);
+    mockUseInView.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -173,8 +177,20 @@ describe("QuiverFieldGuideLanding", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByAltText(/nearby surf spots and local intel/i),
-    ).toHaveAttribute("src", expect.stringContaining("local-intel-720.webp"));
+      screen.getByAltText(/next 7 days of best windows/i),
+    ).toHaveAttribute("src", expect.stringContaining("/images/whats-new/home-poster.jpg"));
+    const video = insideApp.querySelector("video");
+    expect(video).toHaveAttribute("src", "/videos/whats-new/home.mp4");
+    expect(video).toHaveAttribute("poster", "/images/whats-new/home-poster.jpg");
+  });
+
+  it("links the hero to the newest release", () => {
+    render(<QuiverFieldGuideLanding platform="ios" />);
+
+    const strip = screen.getByTestId("field-guide-release-strip");
+    expect(strip).toHaveAttribute("href", "/whats-new");
+    expect(strip).toHaveTextContent(getLatestRelease().title);
+    expect(strip).toHaveTextContent(formatReleaseDate(getLatestRelease().date));
   });
 
   it("renders audience and access context", () => {
@@ -223,6 +239,19 @@ describe("QuiverFieldGuideLanding", () => {
       "src",
       expect.stringContaining("/images/hero/quiver-landing-hero-poster.jpg"),
     );
+  });
+
+  it("defers the hero source until it enters the viewport", () => {
+    mockUseInView.mockReturnValue(false);
+    const { rerender } = render(<QuiverFieldGuideLanding platform="ios" />);
+    const video = screen.getByTestId("field-guide-hero-video").querySelector("video");
+    expect(video).not.toHaveAttribute("src");
+    expect(play).not.toHaveBeenCalled();
+
+    mockUseInView.mockReturnValue(true);
+    rerender(<QuiverFieldGuideLanding platform="ios" />);
+    expect(video).toHaveAttribute("src", "/videos/quiver-landing-hero-720.mp4");
+    expect(play).toHaveBeenCalled();
   });
 
   it("waits for an explicit play when the viewer prefers reduced motion", () => {

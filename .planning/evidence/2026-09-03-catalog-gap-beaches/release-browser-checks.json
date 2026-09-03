@@ -1,0 +1,205 @@
+{
+  "checked_at": "2026-09-03T20:13:30.334773+00:00",
+  "method": "Production UI through Codex browser: map search options and canonical beach detail headings/camera anchors.",
+  "rows": [
+    {
+      "id": "ab8127ed-3653-505b-968f-b0a5bbf074a4",
+      "name": "Kamakahonu Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "58a2b3e5-6a3a-541c-8d4d-afacfd26dab1",
+      "name": "Turtle Bay West",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "6270f847-045d-5be4-b8ab-e98d7fdfdd5e",
+      "name": "Lawai Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "PASS"
+    },
+    {
+      "id": "75e0bd7d-f25d-54eb-b455-af99eb561200",
+      "name": "Kaanapali Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "d640e904-4a17-597a-98e7-11c42e9c8166",
+      "name": "Pohaku Park (S-Turns)",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "313e745b-4521-57d4-9d33-808acaca4761",
+      "name": "Kaunaoa Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "PASS"
+    },
+    {
+      "id": "0922be9c-e437-5f0a-90a8-82588f429564",
+      "name": "Napili Bay Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "PASS"
+    },
+    {
+      "id": "67def85b-7500-5ccb-bd86-7141652da53e",
+      "name": "Kamaole Beach Park II",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "52a9f0a9-7252-55c7-837d-8843e60bd43f",
+      "name": "Wailea Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "ac6d886e-7326-5710-91e7-0bc3c7f21e70",
+      "name": "Kihei Cove",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "090f4927-d319-53fb-990c-9c6bca55289b",
+      "name": "Sharp Park Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "PASS"
+    },
+    {
+      "id": "41637008-fad6-53f2-92ac-3377df9aec36",
+      "name": "Santa Cruz Main Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "ae84ce3a-25ed-5600-804c-cd1d8aa5ca00",
+      "name": "Roads End Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "f73cea3d-d7c7-57cf-b2d1-9a4370f75123",
+      "name": "Muir Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "PASS"
+    },
+    {
+      "id": "90df1267-5d2e-51b6-ba06-21e89405166c",
+      "name": "Cowell Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "0a76eb21-c49a-562a-ad1a-19240b44b543",
+      "name": "Dillon Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "a7a94616-4d60-5965-b1be-568890d162e8",
+      "name": "North Salmon Creek Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "5f857910-8ba3-555a-992d-7180018ea486",
+      "name": "Kalaloch Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "34e148b8-08cc-50cb-908f-012464b7fa74",
+      "name": "Virginia Beach Oceanfront",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "PASS"
+    },
+    {
+      "id": "c5cb000f-c684-5fa6-8e71-52ca2ff71cfe",
+      "name": "Jenkinson\u2019s Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "PASS"
+    },
+    {
+      "id": "008db74c-cddf-50c7-802d-80f039ad0868",
+      "name": "TOBAY Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "PASS"
+    },
+    {
+      "id": "b1831be4-6333-5c39-9d69-6624d40c2175",
+      "name": "Atlantic City Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "PASS"
+    },
+    {
+      "id": "fea81a34-3a55-5a3c-9656-1de099818e07",
+      "name": "Main Beach (East Hampton)",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "PASS"
+    },
+    {
+      "id": "c018c79c-ece5-5140-9d2c-50a664c6d493",
+      "name": "Rehoboth Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "PASS"
+    },
+    {
+      "id": "f950d05c-2a78-5bcd-8d5f-01fcc7c51633",
+      "name": "St. Augustine Beach Pier",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "0bc849fa-7e06-5600-8176-d2fda5ecfbf0",
+      "name": "Ocean City Beach (Maryland)",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "PASS"
+    },
+    {
+      "id": "fa504123-92e2-59fd-a0b5-0c4a85cca27a",
+      "name": "East Beach (St. Simons Island)",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    },
+    {
+      "id": "91a6c7f9-ae5d-5a26-89b1-fd7587e1fee4",
+      "name": "Cherie Down Park Beach",
+      "map_search": "PASS",
+      "detail_page": "PASS",
+      "camera_control": "not applicable"
+    }
+  ],
+  "photo_status": "PASS: all five production image-proxy responses are valid JPEGs; Kaanapali hero complete with naturalWidth=960.",
+  "native": "Not tested",
+  "automated_e2e": "Not run; production browser smoke passed."
+}

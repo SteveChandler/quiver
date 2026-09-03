@@ -164,6 +164,7 @@ export function AppHeader() {
         { name: "Live Cams", href: "/cams" },
         { name: "Tools", href: "/tools" },
         { name: "Roadmap", href: "/roadmap" },
+        { name: "What's New", href: "/whats-new" },
         { name: "About", href: "/about" },
       ];
 
