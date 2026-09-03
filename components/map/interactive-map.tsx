@@ -653,6 +653,12 @@ export function InteractiveMap({
     cameraKey: string;
     verdicts: Map<string, boolean>;
   } | null>(null);
+  // True when the last mask pass could not run against rendered tiles (or the
+  // style reloaded), so the next `idle` owes a remask. The swell layer calls
+  // triggerRepaint every animation frame without dirtying Mapbox, which makes
+  // `idle` fire per frame; an unconditional idle remask re-queried every field
+  // cell ~60x/s.
+  const waterMaskOwedRef = useRef(true);
   const [hourlyTimelineBeachIds, setHourlyTimelineBeachIds] = useState<string[]>([]);
   // Loader-resolved beaches that partitionsMap is keyed by (the prop may be empty).
   const [swellFieldBeaches, setSwellFieldBeaches] = useState<Beach[]>([]);
@@ -1842,9 +1848,14 @@ export function InteractiveMap({
       const style = map.getStyle();
       waterLayerIds = detectWaterLayerIds(style?.layers ?? []);
     } catch {
-      return; // can't read the style yet → leave the field intact
+      waterMaskOwedRef.current = true;
+      return; // can't read the style yet → leave the field intact, retry on idle
     }
-    if (waterLayerIds.length === 0) return;
+    if (waterLayerIds.length === 0) {
+      // Nothing to query against; a style reload re-arms the idle remask.
+      waterMaskOwedRef.current = false;
+      return;
+    }
     const bounds = map.getBounds();
     const center = map.getCenter();
     const cameraKey = JSON.stringify({
@@ -1877,6 +1888,9 @@ export function InteractiveMap({
         }
       );
     }
+    // maskFieldToWater no-ops before tiles render; owe the retry to `idle`.
+    waterMaskOwedRef.current =
+      typeof map.areTilesLoaded === "function" && !map.areTilesLoaded();
   }, []);
 
   useEffect(() => {
@@ -2026,10 +2040,12 @@ export function InteractiveMap({
     swellTimelineSteps.length,
   ]);
 
-  // Re-mask the field to water once the map has actually rendered tiles. Running on
-  // `idle` (fired after tiles finish loading) and `moveend` is what makes the mask
-  // robust — querying rendered features before tiles paint returns nothing and would
-  // blank the field. Re-masks the existing field in place (cheap) and repaints.
+  // Re-mask the field to water once the map has actually rendered tiles: querying
+  // rendered features before tiles paint returns nothing and would blank the field.
+  // `idle` is the tiles-finished signal, but during animation it fires every frame,
+  // so the idle path only runs while a remask is owed (a pass ran before tiles were
+  // queryable, or the style reloaded). `moveend` always remasks: the camera moved.
+  // Re-masks the existing field in place (cheap) and repaints.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !isMapReady || !showSwellField) return;
@@ -2038,11 +2054,21 @@ export function InteractiveMap({
       applyWaterMask(map);
       map.triggerRepaint();
     };
-    map.on("idle", remask);
+    const remaskWhenOwed = (): void => {
+      if (!waterMaskOwedRef.current) return;
+      remask();
+    };
+    const invalidateForStyleReload = (): void => {
+      waterMaskCacheRef.current = null;
+      waterMaskOwedRef.current = true;
+    };
+    map.on("idle", remaskWhenOwed);
     map.on("moveend", remask);
+    map.on("style.load", invalidateForStyleReload);
     return () => {
-      map.off("idle", remask);
+      map.off("idle", remaskWhenOwed);
       map.off("moveend", remask);
+      map.off("style.load", invalidateForStyleReload);
     };
   }, [isMapReady, showSwellField, applyWaterMask]);
 
