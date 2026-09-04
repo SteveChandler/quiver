@@ -247,6 +247,14 @@ export function processNOAAGridData(
         windWavePeriod !== null ? Math.round(windWavePeriod * 10) / 10 : 0,
       wind_wave_direction: Math.round(windWaveDirection),
       data_source: "NOAA_NWS" as const,
+      has_reported_wave_height: true,
+      inferred_input_count: [
+        wavePeriod, waveDirection,
+        shouldSwap ? secondarySwellHeightRaw : primarySwellHeight ?? swellHeight,
+        shouldSwap ? wavePeriod2Raw : swellPeriod ?? wavePeriod,
+        shouldSwap ? secondarySwellDirectionRaw : primarySwellDirection ?? swellDirection,
+      ].filter((value) => value === null).length,
+      period_basis: wavePeriod === null ? "inferred" : "peak",
     });
   }
 
@@ -293,13 +301,13 @@ export function processOpenMeteoData(
 
     // Extract wave data (already in meters from Open-Meteo)
     const significantWaveHeight = data.hourly.wave_height?.[i] ?? 0.8;
-    const peakWavePeriod = data.hourly.wave_period?.[i] ?? 8;
+    const peakWavePeriod = data.hourly.wave_peak_period?.[i] ?? data.hourly.wave_period?.[i] ?? 8;
     const peakWaveDirection = data.hourly.wave_direction?.[i] ?? 225; // SW default for CA
 
     // Extract swell data
     const swell1Height =
       data.hourly.swell_wave_height?.[i] ?? significantWaveHeight * 0.7;
-    const swell1Period = data.hourly.swell_wave_period?.[i] ?? peakWavePeriod;
+    const swell1Period = data.hourly.swell_wave_peak_period?.[i] ?? data.hourly.swell_wave_period?.[i] ?? peakWavePeriod;
     const swell1Direction =
       data.hourly.swell_wave_direction?.[i] ?? peakWaveDirection;
 
@@ -307,7 +315,7 @@ export function processOpenMeteoData(
     const windWaveHeight =
       data.hourly.wind_wave_height?.[i] ?? significantWaveHeight * 0.3;
     const windWavePeriod =
-      data.hourly.wind_wave_period?.[i] ?? Math.max(4, peakWavePeriod * 0.6);
+      data.hourly.wind_wave_peak_period?.[i] ?? data.hourly.wind_wave_period?.[i] ?? Math.max(4, peakWavePeriod * 0.6);
     const windWaveDirection =
       data.hourly.wind_wave_direction?.[i] ?? peakWaveDirection;
 
@@ -377,6 +385,12 @@ export function processOpenMeteoData(
       rawOm.tertiary_swell_direction_om ?? null,
     ]);
 
+    const secondaryHeight = rawOm.secondary_swell_height_om;
+    const secondaryPeriod = rawOm.secondary_swell_period_om;
+    const secondaryDirection = rawOm.secondary_swell_direction_om;
+    const hasSecondary = secondaryHeight != null && secondaryHeight > 0
+      && secondaryPeriod != null && secondaryPeriod > 0
+      && secondaryDirection != null && secondaryDirection >= 0 && secondaryDirection <= 360;
     const forecast: WaveWatchData = {
       timestamp: timestamp.toISOString(),
       significant_wave_height: significantWaveHeight,
@@ -385,18 +399,25 @@ export function processOpenMeteoData(
       swell_1_height: swell1Height,
       swell_1_period: swell1Period,
       swell_1_direction: swell1Direction,
-      // Do not synthesize a secondary partition from primary swell. Emit the
-      // `0` sentinel so downstream
-      // `swell_2_height > 0 && swell_2_period > 0` guards treat this as
-      // "no second swell train," not as "small second swell."
-      swell_2_height: 0,
-      swell_2_period: 0,
-      swell_2_direction: 0,
+      swell_2_height: hasSecondary ? secondaryHeight : 0,
+      swell_2_period: hasSecondary ? secondaryPeriod : 0,
+      swell_2_direction: hasSecondary ? secondaryDirection : 0,
       wind_wave_height: windWaveHeight,
       wind_wave_period: windWavePeriod,
       wind_wave_direction: windWaveDirection,
       data_source: "OPEN_METEO" as const,
       om_values: rawOm,
+      has_reported_wave_height: rawOm.wave_height_om !== null,
+      inferred_input_count: [
+        rawOm.wave_height_om,
+        rawOm.wave_peak_period_om ?? rawOm.wave_period_om,
+        rawOm.wave_direction_om,
+        rawOm.swell_height_om,
+        rawOm.swell_wave_peak_period_om ?? rawOm.swell_period_om,
+        rawOm.swell_direction_om,
+      ].filter((value) => value == null).length,
+      period_basis: rawOm.wave_peak_period_om != null ? "peak"
+        : rawOm.wave_period_om != null ? "mean" : "inferred",
     };
 
     forecasts.push(forecast);

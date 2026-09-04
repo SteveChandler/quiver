@@ -1338,6 +1338,10 @@ export class ForecastBuilder {
       snapshotIndex,
     });
 
+    const sourceSelection = waveHeightResult.debug.source?.startsWith('model_')
+      ? wavePoint?.source_selection : undefined;
+    const effectiveConfidence = sourceSelection?.disagreement
+      ? Math.min(confidenceScore, 40) : confidenceScore;
     return {
       id: `forecast-${beach.id}-${forecastTime.getTime()}`,
       forecast_date: dateString,
@@ -1407,27 +1411,30 @@ export class ForecastBuilder {
       air_temperature: this.getAirTemperature(weatherPoint, beach, forecastTime),
 
       beach_id: beach.id,
-      confidence_score: confidenceScore,
+      confidence_score: effectiveConfidence,
       data_source: timepointDataSource,
       created_at: now.toISOString(),
       updated_at: now.toISOString(),
 
       // Raw forecast metadata
-      raw_forecast: this.buildRawForecast({
-        dataSources,
-        useCDIPData,
-        cdipData,
-        confidenceScore,
-        isFirstOfDay,
-        tideData,
-        now,
-        waveHeightDebug: waveHeightResult.debug,
-        nowcastAnchor: appliedSouthOcSanoGuardrail?.anchor ?? nowcastAnchor,
-        southOcSanoGuardrail:
-          southOcSanoGuardrail.kind !== "noop" ? southOcSanoGuardrail : null,
-        southOcSanoGuardrailHeightFloorApplied:
-          appliedSouthOcSanoGuardrail !== null,
-      }),
+      raw_forecast: {
+        ...this.buildRawForecast({
+          dataSources,
+          useCDIPData,
+          cdipData,
+          confidenceScore: effectiveConfidence,
+          isFirstOfDay,
+          tideData,
+          now,
+          waveHeightDebug: waveHeightResult.debug,
+          nowcastAnchor: appliedSouthOcSanoGuardrail?.anchor ?? nowcastAnchor,
+          southOcSanoGuardrail:
+            southOcSanoGuardrail.kind !== "noop" ? southOcSanoGuardrail : null,
+          southOcSanoGuardrailHeightFloorApplied:
+            appliedSouthOcSanoGuardrail !== null,
+        }),
+        ...(sourceSelection ? { wave_source_selection: sourceSelection } : {}),
+      },
     } as EnhancedForecastWithRawData;
   }
 

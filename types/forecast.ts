@@ -1,4 +1,5 @@
 // Domain types for the enhanced forecast system
+import type { WaveWatchData } from "@/lib/services/noaa-wavewatch/types";
 // Branded types for better type safety
 
 export type ConfidenceScore = number & { readonly __brand: "ConfidenceScore" };
@@ -230,6 +231,7 @@ export interface EnhancedForecastEntity {
 
   // Optional raw forecast payload for transparency/debugging
   raw_forecast?: {
+    wave_source_selection?: WaveWatchData["source_selection"];
     cdip_data?: any;
     noaa_data?: any;
     data_sources?: string[];
@@ -591,6 +593,7 @@ export interface WaveHeightProvenance {
 // Enhanced Forecast with Raw Data
 export interface EnhancedForecastWithRawData extends EnhancedForecastEntity {
   raw_forecast?: {
+    wave_source_selection?: WaveWatchData["source_selection"];
     cdip_data?: CDIPBuoyData | null;
     noaa_data?: any;
     data_sources: string[];

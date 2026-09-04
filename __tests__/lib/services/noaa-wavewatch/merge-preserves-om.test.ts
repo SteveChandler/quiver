@@ -1,6 +1,6 @@
 /**
  * Merge test: NOAA + OM parallel fetch co-locates raw OM values on merged
- * slots in the days-1-3 horizon (where NOAA wins as the primary data_source).
+ * slots where NOAA wins on equal input completeness.
  *
  * Guards the Seaside ML contract that `enhanced_forecasts` rows carry OM
  * values alongside NOAA values whenever both sources had data for the slot.
@@ -130,9 +130,18 @@ describe("NOAAWaveWatchService.mergeForecasts: OM co-location", () => {
     jest.clearAllMocks();
   });
 
-  it("carries om_values on NOAA-primary slots (days 1-3) when OM has the slot", async () => {
-    const earlySlot = makeSlotNow(6); // within 72h → NOAA wins
-    const lateSlot = makeSlotNow(96); // >72h → OM wins
+  it('does not let earlier OM hours consume the forward forecast horizon', async () => {
+    const past = makeSlotNow(-6);
+    const future = makeSlotNow(6);
+    (processNOAAGridData as jest.Mock).mockReturnValue([noaaPoint(future, 1.1)]);
+    (processOpenMeteoData as jest.Mock).mockReturnValue([omPoint(past, 1.0), omPoint(future, 1.05)]);
+    const result = await new NOAAWaveWatchService().fetchWaveWatchForecast(32.7, -117.2, 7);
+    expect(result!.forecast.map((point) => point.timestamp)).toEqual([future]);
+  });
+
+  it("carries om_values on equal-completeness NOAA slots at both horizons", async () => {
+    const earlySlot = makeSlotNow(6);
+    const lateSlot = makeSlotNow(96);
 
     (processNOAAGridData as jest.Mock).mockReturnValue([
       noaaPoint(earlySlot, 1.1),
@@ -181,7 +190,7 @@ describe("NOAAWaveWatchService.mergeForecasts: OM co-location", () => {
     );
 
     expect(late).toEqual(expect.any(Object));
-    expect(late!.data_source).toBe("OPEN_METEO");
+    expect(late!.data_source).toBe("NOAA_NWS"); // Equal completeness does not change at 72h.
     expect(late!.om_values?.wave_height_om).toBe(0.95);
     expect(late!.om_values?.om_partition_schema_version).toBe(1);
   });

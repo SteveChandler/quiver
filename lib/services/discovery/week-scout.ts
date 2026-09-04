@@ -451,13 +451,14 @@ function buildDraftWindow(args: {
   distanceMiles?: number;
   deps: WeekScoutServiceDependencies;
 }): DraftWindow | null {
+  const skillLevel = getSkillLevelOrDefault(args.userSkillLevel);
   const window = args.deps.selectBestWindow({
     forecasts: args.forecasts,
     beach: args.beach,
     userPrefs: args.userPrefs,
     sunTimesCache: args.sunTimes,
     now: args.deps.now,
-    userSkillLevel: args.userSkillLevel,
+    userSkillLevel: skillLevel,
     boardClasses: args.boardClasses,
   });
   if (!window) return null;
@@ -470,13 +471,13 @@ function buildDraftWindow(args: {
     : { affinityBonus: 0, personalizationBonus: 0, reasons: [] };
   const detailed = args.deps.scoreBeach(args.beach, forecast, {
     affinityBonus: personalization.affinityBonus,
-    userSkillLevel: args.userSkillLevel,
+    userSkillLevel: skillLevel,
     beachSkillLevel: args.beach.skill_level,
   });
   const conditionScore = args.deps.scoreWindowCondition(
     forecast,
     args.beach,
-    args.userSkillLevel,
+    skillLevel,
     args.boardClasses,
   );
   const representativeScore = clampScore(
@@ -491,23 +492,29 @@ function buildDraftWindow(args: {
     args.bucket,
     WEEK_SCOUT_SCORER_VERSION,
   ]).slice(0, 24);
-  const verdict = verdictForScore(representativeScore);
-  const slotScores = args.forecasts
-    .filter((row) => {
-      const time = new Date(row.forecast_at).getTime();
-      return time >= window.start.getTime() && time < end.getTime();
-    })
+  const windowForecasts = args.forecasts.filter((row) => {
+    const time = new Date(row.forecast_at).getTime();
+    return time >= window.start.getTime() && time < end.getTime();
+  });
+  const sourcesDisagree = windowForecasts.some((row) =>
+    row.raw_forecast?.wave_source_selection?.disagreement === true,
+  );
+  const verdict = sourcesDisagree ? 'skip' : verdictForScore(representativeScore);
+  const slotScores = windowForecasts
     .map((row) => args.deps.scoreWindowCondition(
       row,
       args.beach,
-      args.userSkillLevel,
+      skillLevel,
       args.boardClasses,
     ));
   const subscores = {
     ...detailed.subscores,
     personalizationBonus: personalization.personalizationBonus,
   };
-  const reasons = [...personalization.reasons, ...detailed.reasons];
+  const reasons = [
+    ...(sourcesDisagree ? ['Wave forecasts disagree; check conditions before choosing this window.'] : []),
+    ...personalization.reasons, ...detailed.reasons,
+  ];
 
   return {
     response: {
@@ -578,26 +585,28 @@ function rankDrafts(
     }))
     .sort((left, right) =>
       compareWeekScoutWindows(left, right, distanceOf(left.id), distanceOf(right.id)));
-  const rankedSpots = responses.map((window, index): WeekScoutRankedSpotResponse => ({
-    beachId: window.beachId,
-    beachName: draftById.get(window.id)?.recommendation.beach.name ?? '',
-    conditionScore: window.conditionScore,
-    rankingScore: window.rankingScore,
-    verdict: window.verdict,
-    ...(index <= 1
-      && (draftById.get(window.id)?.recommendation.distanceMiles ?? 0)
-        > WORTH_THE_DRIVE_DISTANCE_MILES
-      ? { reason: WORTH_THE_DRIVE_REASON }
-      : {}),
-    // Carry each spot's own conditions through instead of dropping them.
-    forecast: {
-      waveHeight: window.forecast.waveHeight,
-      period: window.forecast.period,
-      swellDirection: window.forecast.swellDirection,
-      windSpeed: window.forecast.windSpeed,
-      windDirection: window.forecast.windDirection,
-    },
-  }));
+  const rankedSpots = responses
+    .filter((window) => window.safe && window.rideable && window.verdict !== 'skip')
+    .map((window, index): WeekScoutRankedSpotResponse => ({
+      beachId: window.beachId,
+      beachName: draftById.get(window.id)?.recommendation.beach.name ?? '',
+      conditionScore: window.conditionScore,
+      rankingScore: window.rankingScore,
+      verdict: window.verdict,
+      ...(index <= 1
+        && (draftById.get(window.id)?.recommendation.distanceMiles ?? 0)
+          > WORTH_THE_DRIVE_DISTANCE_MILES
+        ? { reason: WORTH_THE_DRIVE_REASON }
+        : {}),
+      // Carry each spot's own conditions through instead of dropping them.
+      forecast: {
+        waveHeight: window.forecast.waveHeight,
+        period: window.forecast.period,
+        swellDirection: window.forecast.swellDirection,
+        windSpeed: window.forecast.windSpeed,
+        windDirection: window.forecast.windDirection,
+      },
+    }));
 
   return responses.map((window) => ({ ...window, rankedSpots }));
 }
@@ -663,6 +672,7 @@ function buildWeekScoutCanonicalCandidates(args: {
         !beach
         || window.rankingScore === null
         || window.verdict === null
+        || window.verdict === 'skip'
       ) {
         return [];
       }
@@ -768,7 +778,9 @@ async function generateWeekScoutForecastInternal(
     { length: request.dayCount },
     (_, index) => addLocalDays(request.startLocalDate, index),
   );
-  const beaches = await deps.fetchBeaches(request.candidateBeachIds);
+  // Canonical order breaks exact ties consistently before shared-setup ranking.
+  const beaches = [...await deps.fetchBeaches(request.candidateBeachIds)]
+    .sort((left, right) => left.id.localeCompare(right.id));
   const beachIds = beaches.map((candidate) => candidate.id);
   const [forecastsByBeach, sunTimes, userPrefs, userSkillLevel, personalizationContext, boardClasses] = await Promise.all([
     deps.fetchForecasts(beaches, 24 * (request.dayCount + 1)),

@@ -11,6 +11,7 @@ import { createContextLogger } from "@/lib/logger";
 import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logger";
 import { fetchNOAAPointData, fetchNOAAGridData, fetchOpenMeteoData, constructGridUrl } from "./api-client";
 import { processNOAAGridData, processOpenMeteoData } from "./data-processors";
+import { mergeWaveSources } from "./source-selection";
 import { generateFallbackData, generateFallbackSlotsFrom } from "./fallback-generator";
 import { FORECAST_CONFIG } from "./constants";
 import { hasValidWaveData, logWaveDataAvailability, metersToFeet, getWaveDirectionText } from "./wave-analysis";
@@ -54,6 +55,12 @@ export class NOAAWaveWatchService {
 
       // First, try to get real NOAA data
       const noaaData = await this.fetchRealNOAAData(latitude, longitude, days);
+      if (noaaData) {
+        // OM starts at midnight; past slots must not consume the forward-horizon budget.
+        const intervalMs = FORECAST_CONFIG.FORECAST_INTERVAL_HOURS * 3600000;
+        const firstSlotMs = Math.floor(Date.now() / intervalMs) * intervalMs;
+        noaaData.forecast = noaaData.forecast.filter((point) => Date.parse(point.timestamp) >= firstSlotMs);
+      }
 
       if (noaaData && noaaData.forecast.length > 0) {
         const expectedSlots = days * FORECAST_CONFIG.FORECASTS_PER_DAY;
@@ -151,7 +158,7 @@ export class NOAAWaveWatchService {
       const openMeteoData =
         openMeteoResult.status === "fulfilled" ? openMeteoResult.value : null;
 
-      // If we have both, merge by time horizon
+      // If we have both, select by input quality at each valid time.
       if (noaaData?.forecast.length && openMeteoData?.forecast.length) {
         return this.mergeForecasts(noaaData, openMeteoData, latitude, longitude);
       }
@@ -168,9 +175,9 @@ export class NOAAWaveWatchService {
             context: { latitude, longitude },
           });
         }
-        return noaaData;
+        return { ...noaaData, forecast: mergeWaveSources(noaaData.forecast, []) };
       }
-      if (openMeteoData?.forecast.length) return openMeteoData;
+      if (openMeteoData?.forecast.length) return { ...openMeteoData, forecast: mergeWaveSources([], openMeteoData.forecast) };
 
       log.debug(
         `Both NOAA NWS and Open-Meteo failed for ${latitude}, ${longitude}`
@@ -183,9 +190,7 @@ export class NOAAWaveWatchService {
   }
 
   /**
-   * Merge NOAA (near-term) and Open-Meteo (extended) forecasts.
-   * NOAA is authoritative for days 1-3, Open-Meteo for days 4-12.
-   * Days 13+ fall back to NOAA (Open-Meteo maxes at 12).
+   * Merge by reported-input completeness at each exact valid time.
    */
   private mergeForecasts(
     noaaData: WaveWatchForecast,
@@ -193,67 +198,13 @@ export class NOAAWaveWatchService {
     latitude: number,
     longitude: number
   ): WaveWatchForecast {
-    const NOAA_CUTOFF_HOURS = 72; // 3 days
-    const now = Date.now();
-
-    // Build a map of Open-Meteo forecasts by 3-hour time slot
-    const openMeteoMap = new Map<number, WaveWatchData>();
-    for (const fc of openMeteoData.forecast) {
-      const ts = new Date(fc.timestamp).getTime();
-      const slot = Math.round(ts / (3 * 3600000)) * (3 * 3600000);
-      openMeteoMap.set(slot, fc);
-    }
-
-    const merged: WaveWatchData[] = [];
-    const matchedSlots = new Set<number>();
-
-    for (const fc of noaaData.forecast) {
-      const ts = new Date(fc.timestamp).getTime();
-      const hoursAhead = (ts - now) / 3600000;
-      const slot = Math.round(ts / (3 * 3600000)) * (3 * 3600000);
-      const omFc = openMeteoMap.get(slot);
-
-      if (hoursAhead <= NOAA_CUTOFF_HOURS) {
-        // Days 1-3: use NOAA as the primary values, but still co-locate
-        // Open-Meteo raw values when available for the slot.
-        merged.push(omFc?.om_values ? { ...fc, om_values: omFc.om_values } : fc);
-        matchedSlots.add(slot);
-      } else {
-        // Days 4+: prefer Open-Meteo, fall back to NOAA
-        if (omFc) {
-          merged.push({ ...omFc, data_source: "OPEN_METEO" });
-          matchedSlots.add(slot);
-        } else {
-          merged.push(fc);
-        }
-      }
-    }
-
-    // Append Open-Meteo entries beyond NOAA range that weren't already matched.
-    // This covers the case where NOAA has fewer entries than Open-Meteo (e.g., 3 days
-    // of NOAA wave heights vs 7 days of Open-Meteo) — the merge loop above only
-    // iterates NOAA entries, so Open-Meteo entries beyond NOAA's range would be lost.
-    const lastNoaaTs = noaaData.forecast.length > 0
-      ? new Date(noaaData.forecast[noaaData.forecast.length - 1].timestamp).getTime()
-      : 0;
-
-    const appendEntries: WaveWatchData[] = [];
-    for (const [slot, fc] of openMeteoMap) {
-      if (!matchedSlots.has(slot) && slot > lastNoaaTs) {
-        appendEntries.push({ ...fc, data_source: "OPEN_METEO" });
-      }
-    }
-    // Sort chronologically before appending
-    appendEntries.sort(
-      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
-    merged.push(...appendEntries);
+    const merged = mergeWaveSources(noaaData.forecast, openMeteoData.forecast);
 
     const openMeteoCount = merged.filter(
       (f) => f.data_source === "OPEN_METEO"
     ).length;
     log.info(
-      `Merged forecasts: ${merged.length} total (${merged.length - openMeteoCount} NOAA ≤3d, ${openMeteoCount} Open-Meteo 4+d, ${appendEntries.length} appended beyond NOAA range)`
+      `Merged forecasts: ${merged.length} total (${merged.length - openMeteoCount} NOAA, ${openMeteoCount} Open-Meteo)`
     );
 
     return {
