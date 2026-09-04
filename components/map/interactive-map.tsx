@@ -367,7 +367,10 @@ interface InteractiveMapProps {
     phase: "start" | "end";
   }) => void;
   onLocationMove?: (latlng: mapboxgl.LngLat, beach: Beach) => void;
-  onBoundsChange?: (bounds: { west: number; south: number; east: number; north: number }) => void;
+  onBoundsChange?: (
+    bounds: { west: number; south: number; east: number; north: number },
+    metadata: { interactionSource: "initial" | "programmatic" | "user" },
+  ) => void;
   onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
   onDisplayForecastsChange?: (map: Map<string, ForecastDisplay | undefined>) => void;
   onMapReady?: () => void;
@@ -2368,7 +2371,7 @@ export function InteractiveMap({
   // Optimized and debounced map move handler with viewport change detection
   const handleMoveEnd = useMemo(
     () =>
-      debounce(async () => {
+      debounce(async (interactionSource: "programmatic" | "user") => {
         if (!mapRef.current) return;
         const center = mapRef.current.getCenter();
         const zoom = mapRef.current.getZoom();
@@ -2383,7 +2386,9 @@ export function InteractiveMap({
             north: bounds.getNorth(),
           };
           setMapBounds(boundsObj);
-          onBoundsChangeRef.current?.(boundsObj);
+          if (interactionSource !== "user") {
+            onBoundsChangeRef.current?.(boundsObj, { interactionSource });
+          }
         }
         setCurrentZoom(zoom);
 
@@ -2572,7 +2577,7 @@ export function InteractiveMap({
           north: bounds.getNorth(),
         };
         setMapBounds(boundsObj);
-        onBoundsChangeRef.current?.(boundsObj);
+        onBoundsChangeRef.current?.(boundsObj, { interactionSource: "initial" });
       }
       setCurrentZoom(map.getZoom());
     };
@@ -2677,8 +2682,24 @@ export function InteractiveMap({
           current === pendingLeashCommand.id ? null : current,
         );
       }
-      handleMoveEndRef.current?.();
       const activeUserGesture = activeUserCameraGestureRef.current;
+      // Emit the user viewport at the event boundary. The normal move-end work
+      // is debounced, so its eventual bounds read may describe a later camera
+      // command rather than the gesture that just completed.
+      if (activeUserGesture) {
+        const bounds = map.getBounds();
+        if (bounds) {
+          onBoundsChangeRef.current?.({
+            west: bounds.getWest(),
+            south: bounds.getSouth(),
+            east: bounds.getEast(),
+            north: bounds.getNorth(),
+          }, { interactionSource: "user" });
+        }
+      }
+      // Keep the existing debounced fetch/reconciliation path separate from
+      // the user-scope emission above, without reposting that same viewport.
+      handleMoveEndRef.current?.(activeUserGesture ? "user" : "programmatic");
       if (activeUserGesture) {
         activeUserCameraGestureRef.current = null;
         const center = map.getCenter();
