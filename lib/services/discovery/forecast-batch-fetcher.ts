@@ -32,6 +32,8 @@ export interface ForecastBatchOptions {
   forecastWindowHours?: number;
   /** When true, return stale forecast rows instead of excluding them (default false) */
   allowStale?: boolean;
+  /** Enforce source-aware freshness for every returned forecast row. */
+  requirePerRowFreshness?: boolean;
 }
 
 /**
@@ -92,11 +94,18 @@ export async function batchFetchForecasts(
   }
 
   // Fetch all forecasts in 2 queries instead of 2N queries
-  const batchResults = await getBatchFreshForecastsFromCache(
-    beaches.map((b) => b.id),
-    forecastWindowHours,
-    options?.allowStale ?? false
-  );
+  const batchResults = options?.requirePerRowFreshness
+    ? await getBatchFreshForecastsFromCache(
+      beaches.map((b) => b.id),
+      forecastWindowHours,
+      options?.allowStale ?? false,
+      true,
+    )
+    : await getBatchFreshForecastsFromCache(
+      beaches.map((b) => b.id),
+      forecastWindowHours,
+      options?.allowStale ?? false,
+    );
 
   const successful: Array<{ beach: Beach; forecasts: EnhancedForecastEntity[] }> = [];
   const failed: Array<{ beach: Beach; reason: string; stale: boolean }> = [];

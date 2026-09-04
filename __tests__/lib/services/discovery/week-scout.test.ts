@@ -216,6 +216,33 @@ describe('generateWeekScoutForecast', () => {
     expect(response.scorerVersion).toBe('week-scout-v1:discovery-hero-v1');
   });
 
+  it('returns every scored-row partition and identifies the existing scorer focus only when material', async () => {
+    const deps = dependencies();
+    const rows = new Map<string, EnhancedForecastEntity[]>([
+      [BEACH_A, [{
+        ...forecast(BEACH_A, '2026-07-31T16:00:00.000Z'),
+        swell_1_height: '2 ft', swell_1_period: '13s', swell_1_direction: 'SSW',
+        swell_2_height: '3 ft', swell_2_period: '6s', swell_2_direction: 'W',
+        wind_wave_height: '0 ft', wind_wave_period: null, wind_wave_direction: null,
+      }]],
+      [BEACH_B, [forecast(BEACH_B, '2026-07-31T16:00:00.000Z')]],
+    ]);
+    deps.fetchForecasts = jest.fn(async () => rows);
+
+    const response = await generateWeekScoutForecastForDays('user-week-scout', {
+      candidateBeachIds: [BEACH_A, BEACH_B],
+      localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 1,
+    }, deps);
+    const window = response.days[0].windows.find((item) => item.beachId === BEACH_A);
+
+    expect(window?.forecast.components).toEqual([
+      expect.objectContaining({ kind: 'swell_1', height: '2 ft', period: '13s', direction: 'SSW', source: null }),
+      expect.objectContaining({ kind: 'swell_2', height: '3 ft', period: '6s', direction: 'W', source: null }),
+      expect.objectContaining({ kind: 'wind_sea', height: '0 ft', period: null, direction: null, source: null }),
+    ]);
+    expect(window?.forecast.scoringComponent).toBe('swell_2');
+  });
+
   it('preserves every allowed two-day window for Weekend Scout ranking', async () => {
     const response = await generateWeekScoutRankingForDays(
       'user-week-scout',
@@ -421,6 +448,60 @@ describe('generateWeekScoutForecast', () => {
     );
 
     expect(first.candidateFingerprint).toBe(second.candidateFingerprint);
+  });
+
+  it('counts pre-cap evaluated rows separately from missing rows and selector rejections', async () => {
+    const deps = dependencies();
+    const ids = Array.from({ length: 10 }, (_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`);
+    const evaluatedIds = ids.slice(0, 9);
+    deps.fetchBeaches = jest.fn(async () => ids.map((id) => beach(id, id)));
+    deps.fetchForecasts = jest.fn(async () => new Map(evaluatedIds.map((id) => [
+      id,
+      [forecast(id, '2026-07-31T16:00:00.000Z')],
+    ])));
+    const defaultSelect = deps.selectBestWindow;
+    deps.selectBestWindow = jest.fn((options) => (
+      options.forecasts[0].beach_id === ids[8] ? null : defaultSelect(options)
+    ));
+
+    const response = await generateWeekScoutForecast('user-week-scout', {
+      candidateBeachIds: ids,
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-31',
+      dayCount: 7,
+    }, deps);
+
+    expect(response.coverage?.days[0]).toEqual(expect.objectContaining({
+      eligible: 10,
+      evaluated: 9,
+      missing: 1,
+      excluded: null,
+    }));
+    expect(response.coverage?.days[0].buckets).toEqual([
+      expect.objectContaining({ bucket: 'morning', eligible: 10, evaluated: 9, missing: 1, noWindow: 1 }),
+      expect.objectContaining({ bucket: 'midday', eligible: 10, evaluated: 0, missing: 10, noWindow: 0 }),
+      expect.objectContaining({ bucket: 'evening', eligible: 10, evaluated: 0, missing: 10, noWindow: 0 }),
+    ]);
+    expect(response.days[0].windows.length).toBeLessThanOrEqual(8);
+  });
+
+  it('retains the requested eligible denominator when beach hydration omits an ID', async () => {
+    const ids = Array.from({ length: 10 }, (_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`);
+    const hydratedIds = ids.slice(0, 9);
+    const deps = dependencies();
+    deps.fetchBeaches = jest.fn(async () => hydratedIds.map((id) => beach(id, id)));
+    deps.fetchForecasts = jest.fn(async () => new Map(hydratedIds.map((id) => [
+      id, [forecast(id, '2026-07-31T16:00:00.000Z')],
+    ])));
+
+    const response = await generateWeekScoutForecast('user-week-scout', {
+      candidateBeachIds: ids,
+      localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-31', dayCount: 7,
+    }, deps);
+
+    expect(response.coverage?.days[0]).toEqual(expect.objectContaining({
+      eligible: 10, evaluated: 9, missing: 1,
+    }));
   });
 
   it('marks a high-scoring window unrideable when its size exceeds the surfer skill band', async () => {

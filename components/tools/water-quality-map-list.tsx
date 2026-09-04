@@ -12,8 +12,9 @@ import Link from "next/link";
 import { CheckCircle, AlertTriangle, XCircle, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WQ_STATUS, type WQStatus } from "@/lib/constants/water-quality";
+import type { CountyStatusMetadata } from "@/lib/services/water-quality/current-status";
 
-interface BeachWQSummary {
+interface BeachWQSummary extends CountyStatusMetadata {
   beachId: string;
   beachName: string;
   beachSlug: string;
@@ -108,7 +109,9 @@ export function WaterQualityMapList({ beaches, currentSlug }: WaterQualityMapLis
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {sorted.map((beach) => {
-                const config = STATUS_CONFIG[beach.status] ?? STATUS_CONFIG[WQ_STATUS.UNKNOWN];
+                const config = beach.county_advisory_status === "clear" || beach.county_advisory_status === "unavailable"
+                  ? { ...STATUS_CONFIG[WQ_STATUS.UNKNOWN], label: beach.county_advisory_status === "clear" ? "No county advisory" : "County status unavailable" }
+                  : STATUS_CONFIG[beach.status] ?? STATUS_CONFIG[WQ_STATUS.UNKNOWN];
                 const { Icon } = config;
                 const isActive = beach.beachSlug === currentSlug;
 
@@ -136,7 +139,7 @@ export function WaterQualityMapList({ beaches, currentSlug }: WaterQualityMapLis
                       <span className={cn("text-xs font-semibold", config.textColor)}>
                         {config.label}
                       </span>
-                      <p className="text-[11px] text-slate-500">{formatDate(beach.latestSampleDate)}</p>
+                      {!beach.county_advisory_status && <p className="text-[11px] text-slate-500">{formatDate(beach.latestSampleDate)}</p>}
                     </div>
                   </Link>
                 );
