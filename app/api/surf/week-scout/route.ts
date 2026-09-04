@@ -31,15 +31,6 @@ export const maxDuration = 30;
 
 const MAX_CANDIDATE_BEACHES = 30;
 
-/**
- * Ceiling on beaches actually scored, from the 2026-07-26 latency hotfix
- * (d7a4fd3bf). It predates the hot-path fix above and is no longer required to
- * stay inside maxDuration. Raising it toward MAX_CANDIDATE_BEACHES changes
- * which spots appear in a user's week, so it belongs in a behaviour change with
- * its own verification — not in this performance pass.
- */
-const MAX_SCORED_BEACHES = 8;
-
 function isValidLocalDate(value: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return false;
@@ -133,7 +124,6 @@ async function weekScoutHandler(
 
   const forecast = await generateWeekScoutForecast(user.id, {
     ...parsed.data,
-    candidateBeachIds: parsed.data.candidateBeachIds.slice(0, MAX_SCORED_BEACHES),
     ...(userLocation ? { userLocation } : {}),
   });
   return createSuccessResponse(forecast);

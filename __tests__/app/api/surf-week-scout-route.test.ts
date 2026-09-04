@@ -80,8 +80,8 @@ describe('POST /api/surf/week-scout', () => {
     );
   });
 
-  it('accepts legacy requests but evaluates only the first eight unique candidates in order', async () => {
-    const candidateBeachIds = Array.from({ length: 12 }, (_, index) => (
+  it('evaluates all 30 unique candidates before the service limits ranked results', async () => {
+    const candidateBeachIds = Array.from({ length: 30 }, (_, index) => (
       `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`
     ));
 
@@ -96,7 +96,7 @@ describe('POST /api/surf/week-scout', () => {
     expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith(
       'user-week-scout',
       expect.objectContaining({
-        candidateBeachIds: candidateBeachIds.slice(0, 8),
+        candidateBeachIds,
       }),
     );
   });

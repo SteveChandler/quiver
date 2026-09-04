@@ -211,6 +211,20 @@ describe("ForecastBuilder", () => {
     expect(forecasts[0].beach_id).toBe("beach-1");
   });
 
+  it('persists source disagreement and the same reduced confidence in row and metadata', async () => {
+    const selection = { reason: 'reported_inputs' as const, disagreement: true, noaa_height_m: 0.91, open_meteo_height_m: 1.58 };
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: { ...mockWaveData, forecast: mockWaveData.forecast.map((point) => ({ ...point, source_selection: selection })) },
+      tideData: mockTideData, weatherData: [], buoyData: null, cdipData: null,
+      ioosWaterTempC: null, coopsWaterTempC: null,
+    });
+    expect(forecasts.length).toBeGreaterThan(0);
+    expect(forecasts[0].confidence_score).toBe(40);
+    expect(forecasts[0].raw_forecast?.quality_scores?.overall).toBe(40);
+    expect(forecasts[0].raw_forecast?.wave_source_selection).toEqual(selection);
+  });
+
   it("includes forecast_date and forecast_time", async () => {
     const forecasts = await builder.buildForecasts({
       beach: mockBeach,
