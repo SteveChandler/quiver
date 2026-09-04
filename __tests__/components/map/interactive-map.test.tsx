@@ -18,11 +18,13 @@ const mockHasViewportChanged = jest.fn(
 );
 let mockUser: { id: string } | null = null;
 let mockMapCenter = { lat: 32.7493, lng: -117.2511 };
+let mockMapZoom = 13;
 let mockAutoLoadMap = true;
 let mockMapBoundsAvailable = true;
 let mockTilesLoaded = true;
 let mockStyleLayers: Array<{ id: string }> = [];
 const mockQueryRenderedFeatures = jest.fn((): unknown[] => [{}]);
+const mockProject = jest.fn((_lngLat: [number, number]) => ({ x: 400, y: 300 }));
 
 jest.mock("mapbox-gl", () => ({
   Map: jest.fn(() => ({
@@ -38,7 +40,7 @@ jest.mock("mapbox-gl", () => ({
       ...mockMapCenter,
       toArray: (): [number, number] => [mockMapCenter.lng, mockMapCenter.lat],
     })),
-    getZoom: jest.fn(() => 13),
+    getZoom: jest.fn(() => mockMapZoom),
     getMaxZoom: jest.fn(() => 22),
     getMinZoom: jest.fn(() => 0),
     setCenter: jest.fn(),
@@ -63,7 +65,7 @@ jest.mock("mapbox-gl", () => ({
     getLayer: jest.fn(() => undefined),
     getStyle: jest.fn(() => ({ layers: mockStyleLayers })),
     getCanvas: jest.fn(() => ({ clientWidth: 800, clientHeight: 600 })),
-    project: jest.fn(() => ({ x: 400, y: 300 })),
+    project: mockProject,
     queryRenderedFeatures: mockQueryRenderedFeatures,
     areTilesLoaded: jest.fn(() => mockTilesLoaded),
     addLayer: jest.fn(),
@@ -148,11 +150,13 @@ describe("InteractiveMap", () => {
     mockFetchNearbyBeaches.mockResolvedValue({ data: [] });
     mockHasViewportChanged.mockReturnValue(true);
     mockMapCenter = { lat: 32.7493, lng: -117.2511 };
+    mockMapZoom = 13;
     mockAutoLoadMap = true;
     mockMapBoundsAvailable = true;
     mockTilesLoaded = true;
     mockStyleLayers = [];
     mockQueryRenderedFeatures.mockImplementation(() => [{}]);
+    mockProject.mockImplementation(() => ({ x: 400, y: 300 }));
     delete (
       window as typeof window & {
         __quiverMapDebugCenter?: { lat: number; lon: number };
@@ -1704,7 +1708,6 @@ describe("InteractiveMap", () => {
 
     // The provisional field build still queries and masks while tiles are stalled.
     await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalled());
-    await waitFor(() => expect(mockMapHandlers.idle.length).toBeGreaterThan(1));
     await waitFor(() => expect(mockMapHandlers["style.load"].length).toBeGreaterThan(1));
     await waitFor(() => expect(mockMapHandlers.sourcedata.length).toBeGreaterThan(0));
     await act(async () => {
@@ -1719,10 +1722,6 @@ describe("InteractiveMap", () => {
       });
     };
 
-    // Stalled idle events cannot complete the owed retry.
-    for (let frame = 0; frame < 5; frame += 1) fire("idle");
-    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterBuild);
-
     // A sourcedata event rebuilds and re-masks once tiles finish, with no idle event.
     mockTilesLoaded = true;
     fire("sourcedata");
@@ -1730,8 +1729,6 @@ describe("InteractiveMap", () => {
       expect(mockQueryRenderedFeatures.mock.calls.length).toBeGreaterThan(queriesAfterBuild),
     );
     const queriesAfterTiles = mockQueryRenderedFeatures.mock.calls.length;
-    for (let frame = 0; frame < 5; frame += 1) fire("idle");
-    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterTiles);
 
     // A style reload invalidates the cached verdicts and owes one more remask.
     fire("style.load");
@@ -1739,15 +1736,13 @@ describe("InteractiveMap", () => {
     act(() => {
       jest.advanceTimersByTime(1_000);
     });
-    fire("idle");
+    fire("data");
     await waitFor(() =>
       expect(mockQueryRenderedFeatures.mock.calls.length).toBeGreaterThan(
         queriesAfterTiles,
       ),
     );
     const queriesAfterStyle = mockQueryRenderedFeatures.mock.calls.length;
-    for (let frame = 0; frame < 5; frame += 1) fire("idle");
-    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterStyle);
 
     // Loaded tiles can still have no queryable water features until rendered.
     mockQueryRenderedFeatures.mockReturnValue([]);
@@ -1755,19 +1750,172 @@ describe("InteractiveMap", () => {
     act(() => {
       jest.advanceTimersByTime(1_000);
     });
-    fire("idle");
+    fire("data");
     const queriesAfterRejectedPass = mockQueryRenderedFeatures.mock.calls.length;
     expect(queriesAfterRejectedPass).toBeGreaterThan(queriesAfterStyle);
     mockQueryRenderedFeatures.mockReturnValue([{}]);
     act(() => {
       jest.advanceTimersByTime(1_000);
     });
-    fire("idle");
+    fire("data");
     const queriesAfterRecovery = mockQueryRenderedFeatures.mock.calls.length;
     expect(queriesAfterRecovery).toBeGreaterThan(queriesAfterRejectedPass);
-    for (let frame = 0; frame < 5; frame += 1) fire("idle");
+    fire("data");
     expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterRecovery);
     jest.useRealTimers();
+  });
+
+  it("reuses cached cell verdicts across moveend and queries only missing cells", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    mockStyleLayers = [{ id: "water" }];
+    mockHasViewportChanged.mockReturnValue(false);
+    mockProject.mockImplementation(([lon]: [number, number]) => ({
+      x: lon === -117.2 ? 900 : 400,
+      y: 300,
+    }));
+    const partition = {
+      s1Dir: 250,
+      s1PeriodS: 13,
+      s1HeightFt: 3,
+      s2Dir: null,
+      s2PeriodS: null,
+      s2HeightFt: null,
+      windDir: null,
+      windMph: null,
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          forecasts: {},
+          swellPartitions: { "san-diego": partition },
+        },
+      }),
+    }) as unknown as typeof fetch;
+
+    render(
+      <InteractiveMap
+        beaches={[{
+          id: "san-diego",
+          name: "San Diego",
+          lat: 32.75,
+          lon: -117.25,
+        } as import("@/types/database").Beach]}
+        showSwellField
+        swellLayerId="s1"
+      />,
+    );
+
+    await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(132));
+    mockProject.mockImplementation(() => ({ x: 400, y: 300 }));
+    act(() => {
+      for (const handler of mockMapHandlers.moveend) handler();
+    });
+    await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(144));
+
+    act(() => {
+      for (const handler of mockMapHandlers.moveend) handler();
+    });
+    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(144);
+  });
+
+  it("invalidates cached water verdicts when the integer zoom bucket changes", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    mockStyleLayers = [{ id: "water" }];
+    mockHasViewportChanged.mockReturnValue(false);
+    const partition = {
+      s1Dir: 250,
+      s1PeriodS: 13,
+      s1HeightFt: 3,
+      s2Dir: null,
+      s2PeriodS: null,
+      s2HeightFt: null,
+      windDir: null,
+      windMph: null,
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: { forecasts: {}, swellPartitions: { "san-diego": partition } },
+      }),
+    }) as unknown as typeof fetch;
+
+    render(
+      <InteractiveMap
+        beaches={[{
+          id: "san-diego",
+          name: "San Diego",
+          lat: 32.75,
+          lon: -117.25,
+        } as import("@/types/database").Beach]}
+        showSwellField
+        swellLayerId="s1"
+      />,
+    );
+
+    await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(144));
+    mockMapZoom = 13.9;
+    act(() => {
+      for (const handler of mockMapHandlers.moveend) handler();
+    });
+    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(144);
+
+    mockMapZoom = 14;
+    act(() => {
+      for (const handler of mockMapHandlers.moveend) handler();
+    });
+    await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(288));
+  });
+
+  it("updates a playback field from its cached grid without querying warm mask verdicts", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    mockStyleLayers = [{ id: "water" }];
+    const first = {
+      s1Dir: 250,
+      s1PeriodS: 10,
+      s1HeightFt: 2,
+      s2Dir: null,
+      s2PeriodS: null,
+      s2HeightFt: null,
+      windDir: null,
+      windMph: null,
+    };
+    const second = { ...first, s1PeriodS: 16, s1HeightFt: 5 };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          forecasts: {},
+          swellPartitions: { "san-diego": first },
+          swellPartitionTimeline: { "san-diego": [first, second] },
+        },
+      }),
+    }) as unknown as typeof fetch;
+    const beach = {
+      id: "san-diego",
+      name: "San Diego",
+      lat: 32.75,
+      lon: -117.25,
+    } as import("@/types/database").Beach;
+    const props = (swellTimelineIndex: number) => ({
+      beaches: [beach],
+      showSwellField: true,
+      swellLayerId: "s1" as const,
+      swellTimelineSteps: ["Now", "+3h"],
+      swellTimelineIndex,
+    });
+    const { rerender } = render(<InteractiveMap {...props(0)} />);
+
+    await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(144));
+    rerender(<InteractiveMap {...props(1)} />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(144);
   });
 
   it("throttles repeated owed swell mask retries to once per second", async () => {
@@ -1814,14 +1962,14 @@ describe("InteractiveMap", () => {
 
     await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalled());
     await waitFor(() => expect(mockMapHandlers.data.length).toBeGreaterThan(0));
-    const fire = (event: "idle" | "data"): void => {
+    const fire = (event: "data" | "sourcedata"): void => {
       act(() => {
         for (const handler of mockMapHandlers[event]) handler();
       });
     };
 
     const queriesAfterBuild = mockQueryRenderedFeatures.mock.calls.length;
-    fire("idle");
+    fire("data");
     await waitFor(() =>
       expect(mockQueryRenderedFeatures.mock.calls.length).toBeGreaterThan(
         queriesAfterBuild,
@@ -1831,7 +1979,7 @@ describe("InteractiveMap", () => {
     jest.useFakeTimers();
 
     for (let event = 0; event < 10; event += 1) {
-      fire(event % 2 === 0 ? "idle" : "data");
+      fire(event % 2 === 0 ? "sourcedata" : "data");
     }
     expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(
       queriesAfterFirstRetry,
