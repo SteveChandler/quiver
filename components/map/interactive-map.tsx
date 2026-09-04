@@ -76,16 +76,18 @@ import {
   type SwellLayerId,
 } from "@/components/map/swell-map-theme";
 import {
-  buildFlowField,
+  buildFlowFieldGrid,
   computeCoastalBounds,
   detectWaterLayerIds,
   interpolateSwellPartition,
   maskFieldToWater,
   partitionToPoint,
+  updateFlowFieldValues,
   waterMaskableFlowComponents,
   type BeachPartitionPoint,
   type FlowComponentId,
   type FlowField,
+  type FlowFieldGrid,
 } from "@/components/map/swell-field/field-sampler";
 import { embedTimelineArrayPositionForHourOffset } from "@/components/map/embed-map-timeline";
 import {
@@ -650,14 +652,11 @@ export function InteractiveMap({
   >(new Map());
   const [hourlyTimelineSeed, setHourlyTimelineSeed] = useState<HourlySwellTimeline | null>(null);
   const waterMaskCacheRef = useRef<{
-    cameraKey: string;
+    zoomBucket: number;
     verdicts: Map<string, boolean>;
   } | null>(null);
   // True when the last mask pass could not run against rendered tiles (or the
-  // style reloaded), so the next `idle` owes a remask. The swell layer calls
-  // triggerRepaint every animation frame without dirtying Mapbox, which makes
-  // `idle` fire per frame; an unconditional idle remask re-queried every field
-  // cell ~60x/s.
+  // style reloaded), so the next data event or fallback tick owes a remask.
   const waterMaskOwedRef = useRef(true);
   const lastWaterMaskRetryAtRef = useRef<number | null>(null);
   const [maskRetryTick, setMaskRetryTick] = useState(0);
@@ -685,6 +684,10 @@ export function InteractiveMap({
     s2: EMPTY_FLOW_FIELD,
     wind: EMPTY_FLOW_FIELD,
   });
+  const flowFieldGridCacheRef = useRef<Record<
+    "s1" | "s2" | "wind",
+    { key: string; grid: FlowFieldGrid } | null
+  >>({ s1: null, s2: null, wind: null });
   // Free-camera zoom limits captured before the swell-field leash, for exact restore.
   // Non-null only while the leash is applied — also gates the release path so we
   // never touch the camera constraint API when it was never set.
@@ -1851,29 +1854,19 @@ export function InteractiveMap({
       waterLayerIds = detectWaterLayerIds(style?.layers ?? []);
     } catch {
       waterMaskOwedRef.current = true;
-      return; // can't read the style yet → leave the field intact, retry on idle
+      return; // can't read the style yet → leave the field intact and retry
     }
     if (waterLayerIds.length === 0) {
-      // Nothing to query against; a style reload re-arms the idle remask.
+      // Nothing to query against; a style reload re-arms the remask.
       waterMaskOwedRef.current = false;
       return;
     }
-    const bounds = map.getBounds();
-    const center = map.getCenter();
-    const cameraKey = JSON.stringify({
-      west: bounds?.getWest() ?? null,
-      south: bounds?.getSouth() ?? null,
-      east: bounds?.getEast() ?? null,
-      north: bounds?.getNorth() ?? null,
-      centerLng: center.lng,
-      centerLat: center.lat,
-      zoom: map.getZoom(),
-      width: map.getCanvas().clientWidth,
-      height: map.getCanvas().clientHeight,
-      waterLayerIds,
-    });
-    if (waterMaskCacheRef.current?.cameraKey !== cameraKey) {
-      waterMaskCacheRef.current = { cameraKey, verdicts: new Map() };
+    const zoomBucket = Math.floor(map.getZoom());
+    if (
+      waterMaskCacheRef.current?.zoomBucket !== zoomBucket ||
+      waterMaskCacheRef.current.verdicts.size > 20_000
+    ) {
+      waterMaskCacheRef.current = { zoomBucket, verdicts: new Map() };
     }
     const canvas = map.getCanvas();
     let needsRetry = false;
@@ -1888,9 +1881,13 @@ export function InteractiveMap({
           height: canvas.clientHeight,
           waterLayerIds,
           waterMaskCache: waterMaskCacheRef.current.verdicts,
+          zoomBucket,
         }
       );
       if (!applied) needsRetry = true;
+    }
+    if (waterMaskCacheRef.current.verdicts.size > 20_000) {
+      waterMaskCacheRef.current.verdicts.clear();
     }
     waterMaskOwedRef.current = needsRetry;
   }, []);
@@ -1959,6 +1956,7 @@ export function InteractiveMap({
     let anyPoints = false;
     for (const component of components) {
       const points: BeachPartitionPoint[] = [];
+      const beachIds: string[] = [];
       for (const beach of beachList) {
         const partition = isExpandableTimeline
           ? partitionAtAbsoluteTimelinePosition(
@@ -1989,7 +1987,10 @@ export function InteractiveMap({
             );
         if (!partition || beach.lat == null || beach.lon == null) continue;
         const point = partitionToPoint(beach.lon, beach.lat, partition, component);
-        if (point) points.push(point);
+        if (point) {
+          points.push(point);
+          beachIds.push(beach.id);
+        }
       }
       if (points.length > 0) anyPoints = true;
       // A regional swell layer should move in UNISON (one direction), but per-beach
@@ -2007,7 +2008,16 @@ export function InteractiveMap({
         const meanDeg = ((Math.atan2(sumY, sumX) * 180) / Math.PI + 360) % 360;
         for (const p of points) p.dir = meanDeg;
       }
-      nextFields[component] = buildFlowField(points, bounds, 12);
+      const gridKey = JSON.stringify({ bounds, resolution: 12, beachIds });
+      let cachedGrid = flowFieldGridCacheRef.current[component];
+      if (cachedGrid?.key !== gridKey) {
+        cachedGrid = {
+          key: gridKey,
+          grid: buildFlowFieldGrid(points, bounds, 12),
+        };
+        flowFieldGridCacheRef.current[component] = cachedGrid;
+      }
+      nextFields[component] = updateFlowFieldValues(cachedGrid.grid, points);
     }
     if (!anyPoints && expandableTimeline.isPlaying) {
       setSwellFieldLoadStatus("ready");
@@ -2015,7 +2025,7 @@ export function InteractiveMap({
     }
     flowFieldsRef.current = nextFields;
     setSwellFieldLoadStatus(anyPoints ? "ready" : "empty");
-    // Best-effort mask now; the idle/moveend listener re-masks once tiles render.
+    // Best-effort mask now; data/moveend retries once tiles render.
     applyWaterMask(map);
     // Nudge a repaint so a static (reduced-motion) frame reflects the new field.
     map.triggerRepaint();
@@ -2049,7 +2059,6 @@ export function InteractiveMap({
     const map = mapRef.current;
     if (!map || !isMapReady || !showSwellField) return;
     const remask = (): void => {
-      waterMaskCacheRef.current = null;
       applyWaterMask(map);
       map.triggerRepaint();
     };
@@ -2069,14 +2078,12 @@ export function InteractiveMap({
       waterMaskCacheRef.current = null;
       waterMaskOwedRef.current = true;
     };
-    map.on("idle", remaskWhenOwed);
     map.on("data", remaskWhenOwed);
     map.on("sourcedata", remaskWhenOwed);
     map.on("moveend", remask);
     map.on("style.load", invalidateForStyleReload);
     const retryTimer = window.setInterval(remaskWhenOwed, 1_000);
     return () => {
-      map.off("idle", remaskWhenOwed);
       map.off("data", remaskWhenOwed);
       map.off("sourcedata", remaskWhenOwed);
       map.off("moveend", remask);
