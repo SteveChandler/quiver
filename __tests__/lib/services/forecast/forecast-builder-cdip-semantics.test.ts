@@ -459,6 +459,24 @@ describe("ForecastBuilder CDIP height semantics", () => {
     expect(prov?.raw_value_ft).toBeCloseTo(cdipHsFt, 2);
   });
 
+  test('model disagreement does not downgrade an authoritative CDIP observation', async () => {
+    const waveData = makeWaveData(FROZEN_NOW_ISO);
+    const forecasts = await makeBuilder().buildForecasts({
+      beach: makeBeach({ shoaling_factors: CALIBRATED_SHOALING as unknown as Beach['shoaling_factors'] }),
+      waveData: { ...waveData, forecast: waveData.forecast.map((point) => ({ ...point,
+        source_selection: { reason: 'reported_inputs' as const, disagreement: true, noaa_height_m: 0.91, open_meteo_height_m: 1.58 },
+      })) },
+      tideData: null, weatherData: [], buoyData: null,
+      cdipData: makeCdipBuoyData(FROZEN_NOW_ISO, 2) as never,
+      ioosWaterTempC: null, coopsWaterTempC: null,
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+    expect(forecasts[0].raw_forecast?.wave_height_provenance?.source).toBe('cdip_sig');
+    expect(forecasts[0].raw_forecast?.wave_source_selection).toBeUndefined();
+    expect(forecasts[0].confidence_score).toBeGreaterThan(40);
+    expect(extractFt(forecasts[0].wave_height)).toBeCloseTo(4, 1);
+  });
+
   test("Rincon-style low long-period CDIP bucket renders from generic path with quarantine debug", async () => {
     const builder = makeBuilder();
 

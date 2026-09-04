@@ -18,6 +18,7 @@ import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
+import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
 import {
   buildBeachUrl,
   buildHiCityUrlForBeach,
@@ -203,7 +204,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             .select("*")
             .eq("beach_id", beach.id)
             .maybeSingle();
-          return data as WaterQuality | null;
+          return data ? (await currentWaterQuality([data]))[0] as WaterQuality : null;
         } catch {
           // Gracefully degrade if the table doesn't exist yet
           return null;

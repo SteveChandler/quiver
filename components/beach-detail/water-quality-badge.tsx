@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { CountyStatusMetadata } from "@/lib/services/water-quality/current-status";
 import {
   Card,
   CardContent,
@@ -20,7 +21,7 @@ import {
 // Types
 // ------------------------------------------------
 
-export interface WaterQuality {
+export interface WaterQuality extends CountyStatusMetadata {
   beach_id: string;
   status: "good" | "advisory" | "closure" | "unknown";
   latest_enterococcus: number | null;
@@ -80,11 +81,15 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
   const [expanded, setExpanded] = useState(false);
 
   // Render nothing for null data or unknown status
-  if (!waterQuality || waterQuality.status === "unknown") {
+  if (!waterQuality || (waterQuality.status === "unknown" && !waterQuality.county_advisory_status)) {
     return null;
   }
 
-  const config = STATUS_CONFIG[waterQuality.status];
+  const config = waterQuality.county_advisory_status === "clear" || waterQuality.county_advisory_status === "unavailable"
+    ? { ...STATUS_CONFIG.advisory, label: waterQuality.county_advisory_status === "clear" ? "No current county advisory" : "County status unavailable", icon: Droplets,
+        iconColor: "text-muted-foreground", textColor: "text-foreground",
+        headerBg: "bg-muted/30", cardBg: "bg-card", badgeBg: "bg-muted/50" }
+    : STATUS_CONFIG[waterQuality.status as keyof typeof STATUS_CONFIG];
   const StatusIcon = config.icon;
 
   const formattedSampleDate = waterQuality.latest_sample_date
@@ -98,7 +103,7 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
       <CardHeader
         className={`pb-3 border-b ${config.headerBg}`}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-lg font-heading text-gray-800 dark:text-foreground">
             <Droplets className={`h-5 w-5 ${config.iconColor}`} />
             Water Quality
@@ -124,19 +129,27 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
 
       {expanded && (
         <CardContent className="pt-4 space-y-3 text-sm text-muted-foreground">
+          {waterQuality.county_advisory_status && (
+            <div>
+              <a href="https://www.sdbeachinfo.com/" target="_blank" rel="noopener noreferrer" className="underline">
+                County of San Diego: current advisory status
+              </a>
+              <p>{waterQuality.county_checked_at ? `Checked ${new Date(waterQuality.county_checked_at).toLocaleString()}. No advisory does not guarantee safe water.` : "Current county status could not be verified. Check the county before entering the water."}</p>
+            </div>
+          )}
           {/* Sample date */}
-          {formattedSampleDate && (
+          {!waterQuality.county_advisory_status && formattedSampleDate && (
             <div>
               <span className="font-medium text-gray-700 dark:text-gray-200">Latest sample: </span>
               {formattedSampleDate}
               <span className="ml-2 text-xs text-muted-foreground/70">
-                (Data may be 1–5 days delayed)
+                (Historical laboratory data; see sample date)
               </span>
             </div>
           )}
 
           {/* Enterococcus reading */}
-          {waterQuality.latest_enterococcus != null && (
+          {!waterQuality.county_advisory_status && waterQuality.latest_enterococcus != null && (
             <div>
               <span className="font-medium text-gray-700 dark:text-gray-200">Enterococcus: </span>
               {waterQuality.latest_enterococcus} CFU/100mL
@@ -144,7 +157,7 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
           )}
 
           {/* Fecal coliform reading */}
-          {waterQuality.latest_fecal_coliform != null && (
+          {!waterQuality.county_advisory_status && waterQuality.latest_fecal_coliform != null && (
             <div>
               <span className="font-medium text-gray-700 dark:text-gray-200">Fecal Coliform: </span>
               {waterQuality.latest_fecal_coliform} CFU/100mL
@@ -152,7 +165,7 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
           )}
 
           {/* 30-day exceedance summary */}
-          {waterQuality.total_samples_30d > 0 && (
+          {!waterQuality.county_advisory_status && waterQuality.total_samples_30d > 0 && (
             <div>
               <span className="font-medium text-gray-700 dark:text-gray-200">30-day exceedances: </span>
               {waterQuality.exceedance_count_30d} of{" "}
@@ -161,7 +174,7 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
           )}
 
           {/* Status reason */}
-          {waterQuality.status_reason && (
+          {!waterQuality.county_advisory_status && waterQuality.status_reason && (
             <div>
               <span className="font-medium text-gray-700 dark:text-gray-200">Reason: </span>
               {waterQuality.status_reason}
@@ -169,7 +182,7 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
           )}
 
           {/* Source attribution */}
-          <div className="pt-1 border-t border-gray-100 dark:border-white/10">
+          {!waterQuality.county_advisory_status && <div className="pt-1 border-t border-gray-100 dark:border-white/10">
             {beachState === "HI" ? (
               <a
                 href="https://health.hawaii.gov/cwb/"
@@ -189,7 +202,7 @@ export function WaterQualityBadge({ waterQuality, beachState }: WaterQualityBadg
                 Source: CA Safe to Swim (CEDEN)
               </a>
             )}
-          </div>
+          </div>}
         </CardContent>
       )}
     </Card>

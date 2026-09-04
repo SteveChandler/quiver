@@ -95,6 +95,17 @@ export interface OpenMeteoSlotValues {
  * Wave forecast data point
  */
 export interface WaveWatchData {
+  /** Synthesized total/primary height, period, direction inputs; absent means unknown provenance. */
+  inferred_input_count?: number;
+  has_reported_wave_height?: boolean;
+  period_basis?: "peak" | "mean" | "inferred";
+  source_selection?: {
+    reason: "reported_inputs" | "tie" | "only_source";
+    disagreement: boolean;
+    noaa_height_m: number | null;
+    open_meteo_height_m: number | null;
+    period_basis?: "peak" | "mean" | "inferred";
+  };
   /** ISO 8601 timestamp */
   timestamp: string;
   /** Significant wave height in meters */
@@ -159,7 +170,7 @@ export interface WaveWatchData {
  *
  * Source attribution lives per-slot on `forecast[].data_source`. The wrapper
  * intentionally has no `data_source` field — a merged response can mix NOAA
- * (days 1-3) and Open-Meteo (days 4-12), and any aggregate label hides that.
+ * and Open-Meteo, and any aggregate label hides that.
  */
 export interface WaveWatchForecast {
   /** Latitude of forecast location */
@@ -176,23 +187,23 @@ export interface WaveWatchForecast {
 export interface OpenMeteoMarineResponse {
   hourly?: {
     time: Array<string | number>;
-    wave_height?: number[];
-    wave_direction?: number[];
-    wave_period?: number[];
-    wave_peak_period?: number[];
-    swell_wave_height?: number[];
-    swell_wave_direction?: number[];
-    swell_wave_period?: number[];
-    swell_wave_peak_period?: number[];
-    wind_wave_height?: number[];
-    wind_wave_direction?: number[];
-    wind_wave_period?: number[];
-    wind_wave_peak_period?: number[];
-    secondary_swell_wave_height?: number[];
-    secondary_swell_wave_period?: number[];
-    secondary_swell_wave_direction?: number[];
-    tertiary_swell_wave_height?: number[];
-    tertiary_swell_wave_period?: number[];
-    tertiary_swell_wave_direction?: number[];
+    wave_height?: Array<number | null>;
+    wave_direction?: Array<number | null>;
+    wave_period?: Array<number | null>;
+    wave_peak_period?: Array<number | null>;
+    swell_wave_height?: Array<number | null>;
+    swell_wave_direction?: Array<number | null>;
+    swell_wave_period?: Array<number | null>;
+    swell_wave_peak_period?: Array<number | null>;
+    wind_wave_height?: Array<number | null>;
+    wind_wave_direction?: Array<number | null>;
+    wind_wave_period?: Array<number | null>;
+    wind_wave_peak_period?: Array<number | null>;
+    secondary_swell_wave_height?: Array<number | null>;
+    secondary_swell_wave_period?: Array<number | null>;
+    secondary_swell_wave_direction?: Array<number | null>;
+    tertiary_swell_wave_height?: Array<number | null>;
+    tertiary_swell_wave_period?: Array<number | null>;
+    tertiary_swell_wave_direction?: Array<number | null>;
   };
 }

@@ -205,6 +205,8 @@ export interface ForecastCacheMetadata {
   dataSource?: string | null;
   lastUpdated?: string;
   displayStale?: boolean;
+  /** At least one contributing row has no usable source write timestamp. */
+  freshnessUnknown?: boolean;
 }
 
 export interface ForecastCacheOptions {
@@ -218,6 +220,8 @@ export interface ForecastCacheOptions {
 }
 
 const DEFAULT_DISPLAY_STALE_MAX_HOURS = 24;
+const FORECAST_QUERY_PAGE_SIZE = 1000;
+const FORECAST_QUERY_CHUNK_CONCURRENCY = 4;
 
 /**
  * Fetch forecast from cache with staleness awareness
@@ -409,7 +413,8 @@ export interface BatchForecastCacheResult {
 export async function getBatchFreshForecastsFromCache(
   beachIds: string[],
   windowHours: number = 48,
-  allowStale: boolean = false
+  allowStale: boolean = false,
+  requirePerRowFreshness: boolean = false,
 ): Promise<Map<string, BatchForecastCacheResult>> {
   const startTime = Date.now();
   const results = new Map<string, BatchForecastCacheResult>();
@@ -422,10 +427,19 @@ export async function getBatchFreshForecastsFromCache(
     const supabase = await createSupabaseServiceRoleClient();
 
     // Query 1: Get staleness metadata for all beaches in one query
-    const { data: latestData, error: latestError } = await supabase
-      .from("v_enhanced_forecast_latest")
-      .select("beach_id, updated_at, data_source")
-      .in("beach_id", beachIds);
+    const latestRows: Array<{ beach_id: string; updated_at: string; data_source: string | null }> = [];
+    let latestError: { message: string } | null = null;
+    for (const ids of chunkArray(beachIds, 500)) {
+      const { data, error } = await supabase
+        .from("v_enhanced_forecast_latest")
+        .select("beach_id, updated_at, data_source")
+        .in("beach_id", ids);
+      if (error) {
+        latestError = error;
+        break;
+      }
+      latestRows.push(...((data ?? []) as Array<{ beach_id: string; updated_at: string; data_source: string | null }>));
+    }
 
     if (latestError) {
       console.error("❌ [getBatchFreshForecastsFromCache] Error fetching latest metadata:", latestError);
@@ -447,7 +461,7 @@ export async function getBatchFreshForecastsFromCache(
 
     // Build lookup map for latest metadata
     const latestMap = new Map<string, { updated_at: string; data_source: string | null }>();
-    for (const row of latestData || []) {
+    for (const row of latestRows) {
       if (row.beach_id && row.updated_at) {
         latestMap.set(row.beach_id, {
           updated_at: row.updated_at,
@@ -482,7 +496,7 @@ export async function getBatchFreshForecastsFromCache(
       const stalenessDetails = getStalenessDetails(latest.updated_at, dataSource);
       stalenessMap.set(beachId, stalenessDetails);
 
-      if (stalenessDetails.isStale) {
+      if (stalenessDetails.isStale && !requirePerRowFreshness) {
         if (allowStale) {
           // Stale but caller wants data anyway — include in batch fetch
           freshBeachIds.push(beachId);
@@ -525,9 +539,16 @@ export async function getBatchFreshForecastsFromCache(
     const CHUNK_SIZE = 10;
     const chunks = chunkArray(freshBeachIds, CHUNK_SIZE);
 
-    const chunkResults = await Promise.all(
-      chunks.map((chunk) =>
-        supabase
+    // PostgREST defaults to 1,000 rows. Seven days of hourly forecasts can
+    // exceed that for even a small chunk, so every chunk is range-paged rather
+    // than treating a page boundary as an advisory warning.
+    const fetchChunkPages = async (chunk: string[]): Promise<{
+      forecasts: EnhancedForecastEntity[];
+      error: unknown | null;
+    }> => {
+      const chunkForecasts: EnhancedForecastEntity[] = [];
+      for (let offset = 0; ; offset += FORECAST_QUERY_PAGE_SIZE) {
+        const result = await supabase
           .from("enhanced_forecasts")
           .select("*")
           .in("beach_id", chunk)
@@ -535,25 +556,31 @@ export async function getBatchFreshForecastsFromCache(
           .lt("forecast_at", `${futureDateEnd}T00:00:00Z`)
           .order("beach_id")
           .order("forecast_at", { ascending: true })
-      )
-    );
+          .range(offset, offset + FORECAST_QUERY_PAGE_SIZE - 1);
+        if (result.error) return { forecasts: chunkForecasts, error: result.error };
+        const page = (result.data ?? []) as EnhancedForecastEntity[];
+        chunkForecasts.push(...page);
+        if (page.length < FORECAST_QUERY_PAGE_SIZE) {
+          return { forecasts: chunkForecasts, error: null };
+        }
+      }
+    };
 
-    // Merge results and check for errors / truncation
     let forecasts: EnhancedForecastEntity[] = [];
     let forecastError: any = null;
-    for (const result of chunkResults) {
-      if (result.error) {
-        forecastError = result.error;
-        break;
-      }
-      if (result.data) {
-        if (result.data.length === 1000) {
-          console.warn(
-            "⚠️ [getBatchFreshForecastsFromCache] Chunk returned exactly 1000 rows — possible PostgREST truncation"
-          );
+    for (let offset = 0; offset < chunks.length; offset += FORECAST_QUERY_CHUNK_CONCURRENCY) {
+      const batch = await Promise.all(
+        chunks
+          .slice(offset, offset + FORECAST_QUERY_CHUNK_CONCURRENCY)
+          .map(fetchChunkPages),
+      );
+      for (const result of batch) {
+        forecasts = forecasts.concat(result.forecasts);
+        if (result.error && !forecastError) {
+          forecastError = result.error;
         }
-        forecasts = forecasts.concat(result.data as EnhancedForecastEntity[]);
       }
+      if (forecastError) break;
     }
 
     if (forecastError) {
@@ -589,30 +616,77 @@ export async function getBatchFreshForecastsFromCache(
       const beachForecasts = forecastsByBeach.get(beachId) || [];
       const stalenessDetails = stalenessMap.get(beachId);
       const isStaleEntry = stalenessDetails?.isStale ?? false;
+      const rowFreshness = beachForecasts.map((forecast) => {
+        // `updated_at` is Quiver's storage write time, not an upstream issue
+        // or observation time. The enhanced row currently carries a source
+        // freshness timestamp only for Open-Meteo; every other source stays
+        // explicitly unknown instead of being presented as freshly observed.
+        const sourceFetchedAt = forecast.data_source === 'OPEN_METEO'
+          ? forecast.om_fetched_at
+          : null;
+        if (
+          typeof sourceFetchedAt !== 'string'
+          || !Number.isFinite(Date.parse(sourceFetchedAt))
+          || Date.parse(sourceFetchedAt) > Date.now()
+        ) {
+          return null;
+        }
+        return getStalenessDetails(sourceFetchedAt, forecast.data_source);
+      });
+      const rowStorageFreshness = beachForecasts.map((forecast) => {
+        // Storage recency decides whether this cache row is safe to consume.
+        // It is intentionally not exposed as provider issue/observation age.
+        if (
+          typeof forecast.updated_at !== 'string'
+          || !Number.isFinite(Date.parse(forecast.updated_at))
+          || Date.parse(forecast.updated_at) > Date.now()
+        ) return null;
+        return getStalenessDetails(forecast.updated_at, forecast.data_source);
+      });
+      const freshnessUnknown = rowFreshness.some((entry) => entry === null);
+      const freshForecasts = requirePerRowFreshness && !allowStale
+        ? beachForecasts.filter((_forecast, index) => {
+          const storage = rowStorageFreshness[index];
+          const source = rowFreshness[index];
+          return storage !== null && !storage.isStale && (source === null || !source.isStale);
+        })
+        : beachForecasts;
+      const allKnownRowsStale = beachForecasts.length > 0
+        && beachForecasts.every((_forecast, index) => {
+          const storage = rowStorageFreshness[index];
+          const source = rowFreshness[index];
+          return storage === null || storage.isStale || source?.isStale === true;
+        });
 
-      if (beachForecasts.length === 0) {
+      if (freshForecasts.length === 0) {
         results.set(beachId, {
           beachId,
           forecasts: [],
           metadata: {
-            cached: false,
-            stale: false,
-            missing: true,
-            reason: "No forecast rows returned - waiting for background job",
+            cached: beachForecasts.length > 0,
+            stale: requirePerRowFreshness
+              ? allKnownRowsStale
+              : isStaleEntry,
+            missing: beachForecasts.length === 0,
+            reason: beachForecasts.length === 0
+              ? "No forecast rows returned - waiting for background job"
+              : "No fresh forecast rows returned - refusing stale cache",
+            freshnessUnknown,
           },
         });
       } else {
         results.set(beachId, {
           beachId,
-          forecasts: beachForecasts,
+          forecasts: freshForecasts,
           metadata: {
             cached: true,
-            stale: isStaleEntry,
+            stale: requirePerRowFreshness ? allKnownRowsStale : isStaleEntry,
             missing: false,
             reason: isStaleEntry
               ? `Data is ${stalenessDetails!.hoursSinceUpdate.toFixed(1)}h old (threshold: ${stalenessDetails!.threshold}h) - serving stale cache (allowStale)`
               : null,
-            stalenessDetails,
+            ...(requirePerRowFreshness ? {} : { stalenessDetails }),
+            freshnessUnknown,
           },
         });
       }
