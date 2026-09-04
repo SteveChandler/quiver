@@ -105,6 +105,7 @@ import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking"
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import type { MapCameraCommand } from "@/components/map/map-camera-command";
 import { MapPreloadPreview } from "@/components/map/map-preload-preview";
+import { createTileStallWatchdog } from "@/components/map/tile-stall-watchdog";
 import {
   formatSwellPeriod,
   formatWaveHeightRange,
@@ -2052,6 +2053,14 @@ export function InteractiveMap({
     swellTimelineIndex,
     swellTimelineSteps.length,
   ]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isMapReady) return;
+
+    const watchdog = createTileStallWatchdog(map);
+    return watchdog.dispose;
+  }, [isMapReady]);
 
   // Retry an owed provisional mask once tiles finish. Rebuilding restores cells
   // provisionally zeroed over tiles that were still loading.
