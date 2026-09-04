@@ -189,6 +189,7 @@ describe("createSwellParticleLayer — particle count", () => {
     draws: { mode: number; vertexCount: number }[];
     uploads: number[][];
     repaintCalls: number;
+    activeCount: number;
     LINES: number;
     POINTS: number;
     TRIANGLES: number;
@@ -301,6 +302,7 @@ describe("createSwellParticleLayer — particle count", () => {
       draws,
       uploads,
       repaintCalls: triggerRepaint.mock.calls.length,
+      activeCount: layer.getActiveParticleCount(),
       LINES,
       POINTS,
       TRIANGLES,
@@ -360,6 +362,27 @@ describe("createSwellParticleLayer — particle count", () => {
 
   it("honors an explicit count override (combined-view per-layer budget)", () => {
     expect(renderedVertexCount(500)).toBe(500 * 6);
+  });
+
+  it("reduces sustained-low-fps work and restores it after sustained recovery", () => {
+    const lowTimestamps = Array.from({ length: 180 }, (_, i) => i * 50);
+    const highStart = lowTimestamps[lowTimestamps.length - 1];
+    const highTimestamps = Array.from(
+      { length: 1200 },
+      (_, i) => highStart + (i + 1) * (1000 / 60),
+    );
+    const result = renderedDraw({
+      count: 100,
+      reducedMotion: false,
+      renders: lowTimestamps.length + highTimestamps.length,
+      timestamps: [...lowTimestamps, ...highTimestamps],
+    });
+    const drawnParticleCounts = new Set(
+      result.draws.map(({ vertexCount }) => vertexCount / 6),
+    );
+
+    expect(drawnParticleCounts).toEqual(new Set([100, 75, 50, 40]));
+    expect(result.activeCount).toBe(100);
   });
 
   it("ignores a non-positive override and falls back to the default", () => {

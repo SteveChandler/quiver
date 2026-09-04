@@ -411,6 +411,10 @@ export interface SwellParticleLayerOptions {
   };
 }
 
+export interface SwellParticleLayer extends mapboxgl.CustomLayerInterface {
+  getActiveParticleCount: () => number;
+}
+
 export function shouldAnimateSwellParticles(map: mapboxgl.Map): boolean {
   if (typeof document !== "undefined") {
     if (document.hidden || document.visibilityState === "hidden") return false;
@@ -450,7 +454,7 @@ export function shouldAnimateSwellParticles(map: mapboxgl.Map): boolean {
  */
 export function createSwellParticleLayer(
   options: SwellParticleLayerOptions
-): mapboxgl.CustomLayerInterface {
+): SwellParticleLayer {
   const count =
     options.count != null && options.count > 0
       ? Math.floor(options.count)
@@ -506,6 +510,17 @@ export function createSwellParticleLayer(
   const STEP_FRACTION = 0.00055;
   const FRAME_MS = 1000 / 60;
   const MAX_FRAME_STEP = 1.6;
+  const activeCounts = [
+    count,
+    Math.max(1, Math.round(count * 0.75)),
+    Math.max(1, Math.round(count * 0.5)),
+    Math.max(1, Math.ceil(count * 0.4)),
+  ];
+  let activeCountLevel = 0;
+  let activeCount = count;
+  let smoothedFrameMs = FRAME_MS;
+  let slowFrameMs = 0;
+  let fastFrameMs = 0;
   const MIN_LIFE_FRAMES = 300;
   const LIFE_JITTER_FRAMES = 360;
   const BIRTH_FADE_PORTION = 0.08;
@@ -530,7 +545,7 @@ export function createSwellParticleLayer(
     return MIN_LIFE_FRAMES + rng() * LIFE_JITTER_FRAMES;
   }
 
-  function frameStep(): number {
+  function frameStep(adaptParticleCount: boolean): number {
     const now =
       typeof performance !== "undefined" && typeof performance.now === "function"
         ? performance.now()
@@ -539,9 +554,25 @@ export function createSwellParticleLayer(
       lastFrameMs = now;
       return 1;
     }
-    const deltaFrames = (now - lastFrameMs) / FRAME_MS;
+    const deltaMs = now - lastFrameMs;
+    const deltaFrames = deltaMs / FRAME_MS;
     lastFrameMs = now;
     if (!Number.isFinite(deltaFrames) || deltaFrames <= 0) return 1;
+    if (adaptParticleCount) {
+      const measuredFrameMs = Math.min(deltaMs, 100);
+      smoothedFrameMs += (measuredFrameMs - smoothedFrameMs) * 0.1;
+      slowFrameMs = smoothedFrameMs > 1000 / 30 ? slowFrameMs + measuredFrameMs : 0;
+      fastFrameMs = smoothedFrameMs < 1000 / 50 ? fastFrameMs + measuredFrameMs : 0;
+      if (slowFrameMs >= 2000 && activeCountLevel < activeCounts.length - 1) {
+        activeCountLevel += 1;
+        activeCount = activeCounts[activeCountLevel];
+        slowFrameMs = 0;
+      } else if (fastFrameMs >= 5000 && activeCountLevel > 0) {
+        activeCountLevel -= 1;
+        activeCount = activeCounts[activeCountLevel];
+        fastFrameMs = 0;
+      }
+    }
     return Math.min(MAX_FRAME_STEP, deltaFrames);
   }
 
@@ -579,13 +610,22 @@ export function createSwellParticleLayer(
       page[i] = rng() * life[i];
     }
     lastFrameMs = null;
+    activeCountLevel = 0;
+    activeCount = count;
+    smoothedFrameMs = FRAME_MS;
+    slowFrameMs = 0;
+    fastFrameMs = 0;
   }
 
-  function advanceAndFill(map: mapboxgl.Map, field: FlowField): void {
+  function advanceAndFill(
+    map: mapboxgl.Map,
+    field: FlowField,
+    adaptParticleCount: boolean
+  ): void {
     const box = viewBoxMercator(map);
     const fieldBounds = getMercatorFieldBounds(field);
     const span = Math.max(box.maxX - box.minX, 1e-6);
-    const deltaFrames = frameStep();
+    const deltaFrames = frameStep(adaptParticleCount);
     // Read dynamics each frame so the active single layer can retarget without a
     // teardown (falls back to the values fixed at creation, e.g. combined sub-layers).
     const dyn = options.getDynamics?.();
@@ -599,7 +639,7 @@ export function createSwellParticleLayer(
     const { cols: seedCols, rows: seedRows } = gridDimensions(count, box);
     const seedCellWidth = (box.maxX - box.minX) / seedCols;
     const seedCellHeight = (box.maxY - box.minY) / seedRows;
-    for (let i = 0; i < count; i += 1) {
+    for (let i = 0; i < activeCount; i += 1) {
       sampleFlowFieldMercator(field, fieldBounds, px[i], py[i], flowSample);
       const rawLen = Math.hypot(flowSample.vx, flowSample.vy);
       let flowVx = rawLen > 1e-6 ? flowSample.vx / rawLen : 0;
@@ -765,6 +805,7 @@ export function createSwellParticleLayer(
     id: options.id,
     type: "custom",
     renderingMode: "2d",
+    getActiveParticleCount: () => activeCount,
 
     onAdd(map: mapboxgl.Map, gl: WebGL2RenderingContext) {
       mapRef = map;
@@ -802,7 +843,7 @@ export function createSwellParticleLayer(
         !options.reducedMotion && shouldAnimateSwellParticles(mapRef);
       const shouldRenderStaticFrame = !shouldAnimate && staticRenderedField !== field;
       if (shouldAnimate || shouldRenderStaticFrame) {
-        advanceAndFill(mapRef, field);
+        advanceAndFill(mapRef, field, shouldAnimate);
         staticRenderedField = shouldAnimate ? null : field;
       }
 
@@ -835,14 +876,14 @@ export function createSwellParticleLayer(
 
       if (markStyle === "dot") {
         // One vertex per particle drawn as a GL point.
-        gl.drawArrays(gl.POINTS, 0, count);
+        gl.drawArrays(gl.POINTS, 0, activeCount);
       } else if (markStyle === "streak") {
         // Worm: polyline pairs.
         gl.lineWidth(1);
-        gl.drawArrays(gl.LINES, 0, count * verticesPerParticle);
+        gl.drawArrays(gl.LINES, 0, activeCount * verticesPerParticle);
       } else {
         // Dash: quads (two triangles per particle) for real, controllable width.
-        gl.drawArrays(gl.TRIANGLES, 0, count * verticesPerParticle);
+        gl.drawArrays(gl.TRIANGLES, 0, activeCount * verticesPerParticle);
       }
 
       // Animate only when motion is allowed. When animation is suppressed, draw
