@@ -5,6 +5,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import type { Database, Json } from "@/types/database";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
@@ -75,7 +76,10 @@ export class IntelGenerationService {
       .maybeSingle() as { data: { status: string; latest_sample_date: string | null } | null };
 
     // 4. Analyze conditions
-    const intel = this.analyzeForecasts(forecasts, beachPrefs, targetTime, timezone, wqData);
+    const effectiveWq = wqData
+      ? (await currentWaterQuality([{ ...wqData, beach_id: beachId }]))[0] : null;
+    const intel = this.analyzeForecasts(forecasts, beachPrefs, targetTime, timezone,
+      effectiveWq ? { ...effectiveWq, latest_sample_date: effectiveWq.county_advisory_status ? null : effectiveWq.latest_sample_date } : null);
 
     return intel;
   }

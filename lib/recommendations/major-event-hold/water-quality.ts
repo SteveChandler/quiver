@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
@@ -444,6 +445,12 @@ export async function resolveWaterQualityHolds(
       rowsByBeachId.set(parsed.data.beach_id, parsed.data);
     }
 
+    const effectiveRows = await currentWaterQuality([...rowsByBeachId.values()], client, now);
+    const countyHeld = new Set(effectiveRows
+      .filter((row) => row.county_advisory_status === "advisory" || row.county_advisory_status === "closure")
+      .map((row) => row.beach_id));
+    for (const row of effectiveRows) rowsByBeachId.set(row.beach_id, row);
+
     const heldBeachIds: string[] = [];
     const waterQualityStatusByBeachId: Record<
       string,
@@ -463,7 +470,7 @@ export async function resolveWaterQualityHolds(
 
       const hasRealData =
         row !== undefined &&
-        row.total_samples_30d > 0 &&
+        (row.total_samples_30d > 0 || countyHeld.has(beachId)) &&
         row.status !== "unknown";
       if (!hasRealData) {
         snapshot.push(`${beachId}:fallback:allow`);

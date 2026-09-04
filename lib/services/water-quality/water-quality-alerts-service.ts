@@ -16,6 +16,9 @@
 import type { SupabaseServiceClient } from "@/types/supabase";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 
+import { currentWaterQuality } from "./current-status";
+import type { WaterQualityHoldClient } from "@/lib/recommendations/major-event-hold/water-quality";
+
 type WaterQualityStatus = "good" | "advisory" | "closure" | "unknown";
 
 type ChangedBeachRow = {
@@ -113,7 +116,9 @@ export async function processWaterQualityAlerts(
     return result;
   }
 
-  const changed = (changedBeaches || []) as ChangedBeachRow[];
+  // County alerts own covered beaches; sample transitions must not send stale alerts or all-clears.
+  const changed = (await currentWaterQuality((changedBeaches || []) as ChangedBeachRow[], supabase as unknown as WaterQualityHoldClient))
+    .filter((row) => row.status !== "unknown" && !row.county_advisory_status);
   result.beachesWithChanges = changed.length;
 
   if (changed.length === 0) {

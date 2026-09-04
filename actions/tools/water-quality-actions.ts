@@ -1,6 +1,7 @@
 "use server";
 
 import { unstable_cache } from "next/cache";
+import { currentWaterQuality, type CountyStatusMetadata } from "@/lib/services/water-quality/current-status";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { withServerAction, type ServerActionResponse } from "@/lib/server-action-utils";
 import {
@@ -9,7 +10,7 @@ import {
   type WQStatus,
 } from "@/lib/constants/water-quality";
 
-export interface BeachWaterQualityData {
+export interface BeachWaterQualityData extends CountyStatusMetadata {
   beachId: string;
   beachName: string;
   beachSlug: string;
@@ -70,18 +71,21 @@ export async function getBeachWaterQuality(
 
     if (!wq) return null;
 
+    const effective = (await currentWaterQuality([{ ...wq, beach_id: data.id }]))[0];
     return {
+      county_advisory_status: effective.county_advisory_status,
+      county_checked_at: effective.county_checked_at,
       beachId: data.id,
       beachName: data.name,
       beachSlug: data.slug ?? beachSlug,
       state: data.state ?? "",
       city: data.city,
-      status: (wq.status as WQStatus) ?? WQ_STATUS.UNKNOWN,
-      latestEnterococcus: wq.latest_enterococcus,
-      latestFecalColiform: wq.latest_fecal_coliform,
-      latestSampleDate: wq.latest_sample_date,
-      exceedanceCount30d: wq.exceedance_count_30d,
-      totalSamples30d: wq.total_samples_30d,
+      status: (effective.status as WQStatus) ?? WQ_STATUS.UNKNOWN,
+      latestEnterococcus: effective.county_advisory_status ? null : wq.latest_enterococcus,
+      latestFecalColiform: effective.county_advisory_status ? null : wq.latest_fecal_coliform,
+      latestSampleDate: effective.county_advisory_status ? null : wq.latest_sample_date,
+      exceedanceCount30d: effective.county_advisory_status ? 0 : wq.exceedance_count_30d,
+      totalSamples30d: effective.county_advisory_status ? 0 : wq.total_samples_30d,
       updatedAt: wq.updated_at,
       epaEnterococcusSTV: EPA_BEACH_CRITERIA.enterococcus.stv,
       epaFecalColiformSTV: EPA_BEACH_CRITERIA.fecalColiform.stv,
@@ -166,5 +170,11 @@ const fetchMonitoredBeachesList = unstable_cache(
 export async function getBeachesWithWaterQuality(): Promise<
   ServerActionResponse<WaterQualityBeachListItem[]>
 > {
-  return withServerAction(async () => fetchMonitoredBeachesList());
+  return withServerAction(async () => {
+    const rows = await fetchMonitoredBeachesList();
+    const effective = await currentWaterQuality(rows.map((row) => ({ ...row, beach_id: row.beachId })));
+    return effective.map((row) => ({ ...row,
+      latestSampleDate: row.county_advisory_status ? null : row.latestSampleDate,
+    }));
+  });
 }
