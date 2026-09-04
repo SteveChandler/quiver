@@ -31,6 +31,7 @@ if (typeof (globalThis as any).Response?.json !== "function") {
  */
 
 import { GET } from "@/app/api/cron/condition-alert-deliver/route";
+import { withCronOutcome } from "@/lib/cron/outcome";
 import { ConsolidatedAlertEmail } from "@/lib/mailer/templates/ConsolidatedAlertEmail";
 import { buildCanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
@@ -145,6 +146,8 @@ interface MockStore {
   deliveryInserts: DeliveryRow[];
   queueUpdates: QueueUpdate[];
   queueRefreshUpdates: Array<{ id: string; values: any }>;
+  queueRefreshErrors: Record<string, { code: string; message: string }>;
+  queueConsumeError: { message: string } | null;
   // Pre-existing attempt rows (for cooldown/cap throttle queries).
   // Worker reads these via SELECT on alert_delivery_attempts where status='sent'
   // and attempted_at >= sinceWeek. Inserts during the run land in attemptInserts.
@@ -165,6 +168,8 @@ const store: MockStore = {
   deliveryInserts: [],
   queueUpdates: [],
   queueRefreshUpdates: [],
+  queueRefreshErrors: {},
+  queueConsumeError: null,
   seededAttempts: [],
   forecastRows: [],
 };
@@ -216,11 +221,11 @@ function mockFrom(table: string) {
       const updateChain: any = {
         in: jest.fn((_col: string, ids: string[]) => {
           store.queueUpdates.push({ ids, sent: vals.sent === true });
-          return Promise.resolve({ error: null });
+          return Promise.resolve({ error: store.queueConsumeError });
         }),
         eq: jest.fn((_col: string, id: string) => {
           store.queueRefreshUpdates.push({ id, values: vals });
-          return Promise.resolve({ error: null });
+          return Promise.resolve({ error: store.queueRefreshErrors[id] ?? null });
         }),
       };
       return updateChain;
@@ -476,6 +481,8 @@ beforeEach(() => {
   store.deliveryInserts = [];
   store.queueUpdates = [];
   store.queueRefreshUpdates = [];
+  store.queueRefreshErrors = {};
+  store.queueConsumeError = null;
   store.seededAttempts = [];
   store.forecastRows = [];
   mockLogDelivery.mockReset().mockResolvedValue({ success: true });
@@ -503,6 +510,104 @@ afterEach(() => {
 });
 
 describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows", () => {
+  it("consumes a refreshed-window duplicate and still delivers the surviving queue item", async () => {
+    seedQueueRow();
+    const survivor = "00000000-0000-0000-0000-0000000000c2";
+    seedQueueRow({ id: survivor });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+    store.queueRefreshErrors[QUEUE_1] = {
+      code: "23505",
+      message: 'duplicate key value violates unique constraint "idx_alert_queue_rule_dedup"',
+    };
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.queue_marked_by_reason.deduplicated).toBe(1);
+    expect(body.queue_marked_by_reason.delivered).toBe(1);
+    expect(body.emailSent).toBe(1);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(store.attemptInserts.filter((row) => row.queue_id === QUEUE_1)).toEqual([
+      expect.objectContaining({ channel: "email", status: "skipped_dedup_collision" }),
+      expect.objectContaining({ channel: "push", status: "skipped_dedup_collision" }),
+    ]);
+    expect(store.attemptInserts.filter((row) => row.status === "sent")).toEqual([
+      expect.objectContaining({ queue_id: survivor, channel: "email" }),
+    ]);
+    expectQueueReasonTotals(body);
+  });
+
+  it.each([
+    { code: "23505", message: 'duplicate key value violates unique constraint "another_constraint"' },
+    { code: "42501", message: "permission denied" },
+  ])("preserves fatal queue refresh errors: $code $message", async (error) => {
+    seedQueueRow();
+    store.queueRefreshErrors[QUEUE_1] = error;
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect((await GET(makeRequest())).status).toBe(500);
+      expect(store.queueUpdates).toEqual([]);
+      expect(store.attemptInserts).toEqual([]);
+      expect(mockEmailsSend).not.toHaveBeenCalled();
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("accepts accounted-for skips as zero output while rejecting errors and unexplained consumption", async () => {
+    seedQueueRow({ best_score: 0.09 });
+    const response = await GET(makeRequest());
+    const body = await response.json();
+    const options = jest.mocked(withCronOutcome).mock.calls[0][0];
+    expect(options.legitimatelyZero?.(body)).toEqual({
+      reason: "All consumed alert queue items had deliberate skip outcomes",
+    });
+    for (const reason of ["allowlist_excluded", "stale", "deduplicated"]) {
+      expect(options.legitimatelyZero?.({
+        ...body,
+        queue_marked_by_reason: { ...body.queue_marked_by_reason, below_score_floor: 0, [reason]: 1 },
+      })).toEqual({ reason: "All consumed alert queue items had deliberate skip outcomes" });
+    }
+    expect(options.legitimatelyZero?.({ ...body, errors: 1 })).toBeUndefined();
+    expect(options.legitimatelyZero?.({ ...body, status: "degraded" })).toBeUndefined();
+    expect(options.legitimatelyZero?.({ ...body, holdStateUnavailableDeferred: 1 })).toBeUndefined();
+    expect(options.legitimatelyZero?.({ ...body, queueMarked: 2 })).toBeUndefined();
+    expect(options.legitimatelyZero?.({
+      ...body,
+      queue_marked_by_reason: { ...body.queue_marked_by_reason, below_score_floor: 0, failed_delivery: 1 },
+    })).toBeUndefined();
+    expect(options.legitimatelyZero?.({
+      ...body, queueMarked: 0, processed: 1, emailQuietHoursSkipped: 1,
+      queue_marked_by_reason: { ...body.queue_marked_by_reason, below_score_floor: 0 },
+    })).toEqual({ reason: "Alert emails deferred during recipient quiet hours" });
+  });
+
+  it("returns a failure when consuming a duplicate cannot be persisted", async () => {
+    seedQueueRow();
+    store.queueRefreshErrors[QUEUE_1] = {
+      code: "23505",
+      message: 'duplicate key value violates unique constraint "idx_alert_queue_rule_dedup"',
+    };
+    store.queueConsumeError = { message: "queue update failed" };
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const warningSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const response = await GET(makeRequest());
+      const body = await response.json();
+      expect(response.status).toBe(503);
+      expect(body.errors).toBe(1);
+      expect(body.queueMarked).toBe(0);
+      expect(mockEmailsSend).not.toHaveBeenCalled();
+      const options = jest.mocked(withCronOutcome).mock.calls[0][0];
+      expect(options.legitimatelyZero?.(body)).toBeUndefined();
+      expect(options.failureReason?.(body)).toBe("Alert queue consumption was unresolved or unexplained");
+    } finally {
+      errorSpy.mockRestore();
+      warningSpy.mockRestore();
+    }
+  });
+
   const routeSource = readFileSync(
     "app/api/cron/condition-alert-deliver/route.ts",
     "utf8",
@@ -916,11 +1021,12 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       .mockImplementation(() => {});
     const res = await GET(makeRequest());
     consoleErrorSpy.mockRestore();
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(503);
     const body = await res.json();
 
     expect(body.errors).toBe(1);
     expect(body.emailSent).toBe(0);
+    expectConsoleWarnings([/degraded queue consumption/]);
     expect(mockEmailsSend).toHaveBeenCalledTimes(1);
     expect(mockLogDelivery).not.toHaveBeenCalled();
     expect(store.deliveryInserts).toHaveLength(1);
@@ -1442,7 +1548,8 @@ describe("condition-alert-deliver — watched-call queue", () => {
     store.queueUpdates = [];
     seedWatchedQueueRow();
     mockEnqueueNotification.mockResolvedValueOnce({ enqueued: false, reason: "internal_error" });
-    await GET(makeRequest());
+    expect((await GET(makeRequest())).status).toBe(503);
+    expectConsoleWarnings([/degraded queue consumption/]);
     expect(store.queueUpdates).toEqual([]);
     expect(store.attemptInserts).toContainEqual(expect.objectContaining({
       status: "failed_internal",
@@ -2084,11 +2191,12 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
       .mockImplementation(() => {});
     const res = await GET(makeRequest());
     consoleErrorSpy.mockRestore();
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(503);
     const body = await res.json();
 
     expect(body.errors).toBe(1);
     expect(body.pushSent).toBe(0);
+    expectConsoleWarnings([/degraded queue consumption/]);
     expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
     expect(store.deliveryInserts).toHaveLength(1);
     expect(
@@ -2541,7 +2649,8 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
       expect.objectContaining({ reason: "internal_error" }),
     );
     consoleErrorSpy.mockRestore();
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(503);
+    expectConsoleWarnings([/degraded queue consumption/]);
 
     expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
     const simAttempts = store.attemptInserts.filter(
