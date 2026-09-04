@@ -18,6 +18,7 @@ export interface EmbedMapViewport {
   center: EmbedMapCoordinate;
   zoom?: number;
   bounds?: EmbedMapBounds;
+  interactionSource?: "initial" | "programmatic" | "user";
 }
 
 export type EmbedMapCommand =

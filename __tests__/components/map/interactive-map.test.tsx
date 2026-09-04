@@ -21,6 +21,7 @@ let mockMapCenter = { lat: 32.7493, lng: -117.2511 };
 let mockMapZoom = 13;
 let mockAutoLoadMap = true;
 let mockMapBoundsAvailable = true;
+let mockMapBounds = { west: -117.3, south: 32.7, east: -117.2, north: 32.8 };
 let mockTilesLoaded = true;
 let mockStyleLayers: Array<{ id: string }> = [];
 const mockQueryRenderedFeatures = jest.fn((): unknown[] => [{}]);
@@ -54,10 +55,10 @@ jest.mock("mapbox-gl", () => ({
     getBounds: jest.fn(() =>
       mockMapBoundsAvailable
         ? {
-            getWest: () => -117.3,
-            getSouth: () => 32.7,
-            getEast: () => -117.2,
-            getNorth: () => 32.8,
+            getWest: () => mockMapBounds.west,
+            getSouth: () => mockMapBounds.south,
+            getEast: () => mockMapBounds.east,
+            getNorth: () => mockMapBounds.north,
           }
         : null,
     ),
@@ -153,6 +154,7 @@ describe("InteractiveMap", () => {
     mockMapZoom = 13;
     mockAutoLoadMap = true;
     mockMapBoundsAvailable = true;
+    mockMapBounds = { west: -117.3, south: 32.7, east: -117.2, north: 32.8 };
     mockTilesLoaded = true;
     mockStyleLayers = [];
     mockQueryRenderedFeatures.mockImplementation(() => [{}]);
@@ -586,6 +588,125 @@ describe("InteractiveMap", () => {
       center: { lat: 21.29, lon: -157.86 },
       phase: "end",
     });
+  });
+
+  it("keeps a user viewport when a later command reaches the debounce queue", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onBoundsChange = jest.fn();
+    mockHasViewportChanged.mockReturnValue(false);
+    const { rerender } = render(<InteractiveMap beaches={[]} onBoundsChange={onBoundsChange} />);
+
+    await waitFor(() => expect(mockMapHandlers.moveend).toHaveLength(1));
+    await waitFor(() => expect(onBoundsChange).toHaveBeenCalledWith(
+      { west: -117.3, south: 32.7, east: -117.2, north: 32.8 },
+      { interactionSource: "initial" },
+    ));
+    jest.useFakeTimers();
+    try {
+      onBoundsChange.mockClear();
+      mockMapHandlers.dragstart[0]({ originalEvent: new MouseEvent("mousedown") });
+      mockMapBounds = { west: -117.5, south: 32.6, east: -117.4, north: 32.7 };
+      mockMapHandlers.moveend[0]();
+      rerender(
+        <InteractiveMap
+          beaches={[]}
+          onBoundsChange={onBoundsChange}
+          cameraCommand={{
+            id: 700,
+            source: "region",
+            center: { lat: 33.15, lon: -118.15 },
+          }}
+        />,
+      );
+      await waitFor(() => expect(getMapInstance().flyTo).toHaveBeenCalledWith({
+        center: [-118.15, 33.15],
+        zoom: 13,
+        duration: 800,
+      }));
+      mockMapBounds = { west: -118.2, south: 33.1, east: -118.1, north: 33.2 };
+      mockMapHandlers.moveend[0]();
+
+      expect(onBoundsChange).toHaveBeenCalledWith(
+        { west: -117.5, south: 32.6, east: -117.4, north: 32.7 },
+        { interactionSource: "user" },
+      );
+      act(() => jest.advanceTimersByTime(1_500));
+      const userBounds = onBoundsChange.mock.calls.filter(
+        ([, metadata]) => metadata?.interactionSource === "user",
+      );
+      expect(userBounds).toEqual([[
+        { west: -117.5, south: 32.6, east: -117.4, north: 32.7 },
+        { interactionSource: "user" },
+      ]]);
+      expect(onBoundsChange).toHaveBeenLastCalledWith(
+        { west: -118.2, south: 33.1, east: -118.1, north: 33.2 },
+        { interactionSource: "programmatic" },
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("does not repost a solitary user viewport as programmatic after debounce", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onBoundsChange = jest.fn();
+    mockHasViewportChanged.mockReturnValue(false);
+    render(<InteractiveMap beaches={[]} onBoundsChange={onBoundsChange} />);
+
+    await waitFor(() => expect(mockMapHandlers.moveend).toHaveLength(1));
+    jest.useFakeTimers();
+    try {
+      onBoundsChange.mockClear();
+      mockMapHandlers.dragstart[0]({ originalEvent: new MouseEvent("mousedown") });
+      mockMapBounds = { west: -117.5, south: 32.6, east: -117.4, north: 32.7 };
+      mockMapHandlers.moveend[0]();
+
+      expect(onBoundsChange).toHaveBeenCalledTimes(1);
+      expect(onBoundsChange).toHaveBeenCalledWith(
+        { west: -117.5, south: 32.6, east: -117.4, north: 32.7 },
+        { interactionSource: "user" },
+      );
+
+      act(() => jest.advanceTimersByTime(1_500));
+      expect(onBoundsChange).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("labels the map's ready bounds as initial", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onBoundsChange = jest.fn();
+    render(<InteractiveMap beaches={[]} onBoundsChange={onBoundsChange} />);
+
+    await waitFor(() => expect(onBoundsChange).toHaveBeenCalledWith(
+      { west: -117.3, south: 32.7, east: -117.2, north: 32.8 },
+      { interactionSource: "initial" },
+    ));
+  });
+
+  it("does not infer user provenance from source-less map events", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onBoundsChange = jest.fn();
+    mockHasViewportChanged.mockReturnValue(false);
+    render(<InteractiveMap beaches={[]} onBoundsChange={onBoundsChange} />);
+
+    await waitFor(() => expect(mockMapHandlers.moveend).toHaveLength(1));
+    jest.useFakeTimers();
+    try {
+      onBoundsChange.mockClear();
+      mockMapHandlers.dragstart[0]({});
+      mockMapBounds = { west: -118.2, south: 33.1, east: -118.1, north: 33.2 };
+      mockMapHandlers.moveend[0]();
+      act(() => jest.advanceTimersByTime(1_500));
+      expect(onBoundsChange).toHaveBeenCalledTimes(1);
+      expect(onBoundsChange).toHaveBeenCalledWith(
+        { west: -118.2, south: 33.1, east: -118.1, north: 33.2 },
+        { interactionSource: "programmatic" },
+      );
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("does not reapply stale beach bounds after a cross-region command and drag", async () => {
