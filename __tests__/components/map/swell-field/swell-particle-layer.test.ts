@@ -1,4 +1,3 @@
-// Minimal mapbox-gl mock: the layer touches MercatorCoordinate during render.
 jest.mock("mapbox-gl", () => {
   class MercatorCoordinate {
     x: number;
@@ -8,15 +7,27 @@ jest.mock("mapbox-gl", () => {
       this.y = y;
     }
     toLngLat(): { lng: number; lat: number } {
-      return { lng: 0, lat: 0 };
+      return {
+        lng: this.x * 360 - 180,
+        lat:
+          (2 * Math.atan(Math.exp((180 - this.y * 360) * Math.PI / 180)) -
+            Math.PI / 2) *
+          180 /
+          Math.PI,
+      };
     }
-    static fromLngLat(): MercatorCoordinate {
-      return new MercatorCoordinate(0.5, 0.5);
+    static fromLngLat({ lng, lat }: { lng: number; lat: number }): MercatorCoordinate {
+      return new MercatorCoordinate(
+        (lng + 180) / 360,
+        (180 - (180 / Math.PI) * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360))) /
+          360,
+      );
     }
   }
   return { __esModule: true, default: { MercatorCoordinate } };
 });
 
+import mapboxgl from "mapbox-gl";
 import {
   PARTICLE_VERTEX_SHADER,
   PARTICLE_FRAGMENT_SHADER,
@@ -30,6 +41,8 @@ import {
   sampleFlowField,
   createSwellParticleLayer,
   shouldAnimateSwellParticles,
+  longitudeFromMercatorX,
+  latitudeFromMercatorY,
 } from "@/components/map/swell-field/swell-particle-layer";
 import type {
   FlowField,
@@ -89,6 +102,16 @@ describe("swell particle layer — pure exports", () => {
     expect(sample.vy).toBeCloseTo(Math.SQRT1_2, 6);
     expect(sample.speed).toBeCloseTo(0.5, 6);
     expect(sample.alpha).toBeCloseTo(0.5, 6);
+  });
+
+  it("round-trips inverse Mercator helpers against Mapbox coordinates", () => {
+    for (const lon of [-180, -120, 0, 75, 180]) {
+      for (const lat of [-80, -45, 0, 45, 80]) {
+        const coordinate = mapboxgl.MercatorCoordinate.fromLngLat({ lng: lon, lat });
+        expect(longitudeFromMercatorX(coordinate.x)).toBeCloseTo(lon, 12);
+        expect(latitudeFromMercatorY(coordinate.y)).toBeCloseTo(lat, 12);
+      }
+    }
   });
 });
 
@@ -159,12 +182,14 @@ describe("createSwellParticleLayer — particle count", () => {
     field?: FlowField;
     fields?: FlowField[];
     captureUploads?: boolean;
+    timestamps?: number[];
   }): {
     mode: number;
     vertexCount: number;
     draws: { mode: number; vertexCount: number }[];
     uploads: number[][];
     repaintCalls: number;
+    activeCount: number;
     LINES: number;
     POINTS: number;
     TRIANGLES: number;
@@ -255,9 +280,16 @@ describe("createSwellParticleLayer — particle count", () => {
       dashLengthScale: opts?.dashLengthScale,
     });
 
+    const nowSpy = opts?.timestamps
+      ? jest.spyOn(performance, "now").mockImplementation(() => opts.timestamps?.shift() ?? 0)
+      : null;
     layer.onAdd?.(map, gl);
-    for (let i = 0; i < (opts?.renders ?? 1); i += 1) {
-      layer.render(gl, new Array(16).fill(0));
+    try {
+      for (let i = 0; i < (opts?.renders ?? 1); i += 1) {
+        layer.render(gl, new Array(16).fill(0));
+      }
+    } finally {
+      nowSpy?.mockRestore();
     }
     // drawArrays(mode, 0, vertexCount) - capture all calls.
     const draws = (gl.drawArrays as jest.Mock).mock.calls.map((c) => ({
@@ -270,6 +302,7 @@ describe("createSwellParticleLayer — particle count", () => {
       draws,
       uploads,
       repaintCalls: triggerRepaint.mock.calls.length,
+      activeCount: layer.getActiveParticleCount(),
       LINES,
       POINTS,
       TRIANGLES,
@@ -285,8 +318,71 @@ describe("createSwellParticleLayer — particle count", () => {
     expect(renderedVertexCount()).toBe(PARTICLE_COUNT_DESKTOP * 6);
   });
 
+  it("preserves the legacy particle positions after 100 frames", () => {
+    const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.25);
+    const field: FlowField = {
+      cols: 2,
+      rows: 2,
+      cells: [
+        { lon: -180, lat: -85, vx: 1, vy: 0, speed: 0.1, alpha: 1 },
+        { lon: 180, lat: -85, vx: 0, vy: 1, speed: 0.1, alpha: 1 },
+        { lon: -180, lat: 85, vx: -1, vy: 0, speed: 0.1, alpha: 1 },
+        { lon: 180, lat: 85, vx: 0, vy: -1, speed: 0.1, alpha: 1 },
+      ],
+    };
+    try {
+      const result = renderedDraw({
+        count: 4,
+        markStyle: "dot",
+        field,
+        reducedMotion: false,
+        renders: 100,
+        captureUploads: true,
+        timestamps: Array.from({ length: 100 }, (_, i) => i * (1000 / 60)),
+      });
+      const expected = [
+        0.11955291032791138,
+        0.12423904985189438,
+        0.622158944606781,
+        0.12029054760932922,
+        0.1304423063993454,
+        0.6257948875427246,
+        0.6278185844421387,
+        0.6297227144241333,
+      ];
+      const positions = result.uploads.at(-2);
+      expect(positions).toHaveLength(expected.length);
+      positions?.forEach((position, index) => {
+        expect(position).toBeCloseTo(expected[index], 9);
+      });
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
   it("honors an explicit count override (combined-view per-layer budget)", () => {
     expect(renderedVertexCount(500)).toBe(500 * 6);
+  });
+
+  it("reduces sustained-low-fps work and restores it after sustained recovery", () => {
+    const lowTimestamps = Array.from({ length: 180 }, (_, i) => i * 50);
+    const highStart = lowTimestamps[lowTimestamps.length - 1];
+    const highTimestamps = Array.from(
+      { length: 1200 },
+      (_, i) => highStart + (i + 1) * (1000 / 60),
+    );
+    const result = renderedDraw({
+      count: 100,
+      reducedMotion: false,
+      renders: lowTimestamps.length + highTimestamps.length,
+      timestamps: [...lowTimestamps, ...highTimestamps],
+    });
+    const drawnParticleCounts = new Set(
+      result.draws.map(({ vertexCount }) => vertexCount / 6),
+    );
+
+    expect(drawnParticleCounts).toEqual(new Set([100, 75, 50, 40]));
+    expect(result.activeCount).toBe(100);
   });
 
   it("ignores a non-positive override and falls back to the default", () => {
