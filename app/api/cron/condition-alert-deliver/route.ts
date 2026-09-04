@@ -523,7 +523,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   async function persistRefreshedQueueItem(
     item: QueueItemWithMeta,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const update: AlertQueueRefreshUpdateWithBestScore = {
       window_start: item.window_start,
       window_end: item.window_end,
@@ -537,11 +537,19 @@ export async function GET(request: Request): Promise<NextResponse> {
       .update(update)
       .eq("id", item.id);
 
+    if (
+      error?.code === "23505" &&
+      error.message.includes('"idx_alert_queue_rule_dedup"')
+    ) {
+      // Another queue row owns this refreshed rule/date/window.
+      return false;
+    }
     if (error) {
       throw new Error(
         `failed to persist refreshed alert_queue row ${item.id}: ${error.message}`,
       );
     }
+    return true;
   }
 
   try {
@@ -553,15 +561,20 @@ export async function GET(request: Request): Promise<NextResponse> {
         getProduced: (result) => result.emailSent + result.pushSent,
         legitimatelyZero: (result) => {
           if (
-            result.errors === 0 &&
-            result.holdStateUnavailableDeferred === 0 &&
+            result.errors > 0 ||
+            result.status !== "ok" ||
+            result.holdStateUnavailableDeferred > 0
+          ) {
+            return undefined;
+          }
+          if (
             result.processed === 0 &&
-            result.queueMarked === 0
+            result.queueMarked === 0 &&
+            result.emailQuietHoursSkipped === 0
           ) {
             return { reason: "No alert queue items were due for delivery" };
           }
           if (
-            result.errors === 0 &&
             result.queueMarked > 0 &&
             result.queue_marked_by_reason.delivery_disabled ===
               result.queueMarked
@@ -569,6 +582,21 @@ export async function GET(request: Request): Promise<NextResponse> {
             return {
               reason: "Condition-alert delivery is disabled by feature flag",
             };
+          }
+          const deliberateSkips = QUEUE_MARK_REASONS.filter(
+            (reason) =>
+              reason !== "delivered" && !DEGRADED_QUEUE_MARK_REASONS.has(reason),
+          ).reduce((sum, reason) => sum + result.queue_marked_by_reason[reason], 0);
+          if (
+            result.queueMarked > 0 &&
+            deliberateSkips === result.queueMarked
+          ) {
+            return {
+              reason: "All consumed alert queue items had deliberate skip outcomes",
+            };
+          }
+          if (result.queueMarked === 0 && result.emailQuietHoursSkipped > 0) {
+            return { reason: "Alert emails deferred during recipient quiet hours" };
           }
           return undefined;
         },
@@ -895,7 +923,21 @@ export async function GET(request: Request): Promise<NextResponse> {
         for (const item of forecastItems) {
           const refreshed = await refreshQueueItemFromLatestForecasts(item);
           if (refreshed) {
-            await persistRefreshedQueueItem(refreshed);
+            const persisted = await persistRefreshedQueueItem(refreshed);
+            if (!persisted) {
+              for (const channel of enabledChannels(item)) {
+                await recordAttempt({
+                  queueId: item.id,
+                  ruleId: item.rule_id,
+                  userId: item.user_id,
+                  channel,
+                  status: "skipped_dedup_collision",
+                  skipReason: "refreshed rule/date/window already belongs to another queue row",
+                });
+              }
+              await markQueueItemsConsumed([item], "deduplicated");
+              continue;
+            }
             items.push(refreshed);
           } else {
             staleItems.push(item);
@@ -2289,6 +2331,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           0,
         );
         if (
+          result.errors > 0 ||
           reasonTotal !== result.queueMarked ||
           unexplainedConsumed > 0 ||
           result.holdStateUnavailableDeferred > 0

@@ -146,9 +146,38 @@ condition-alert sender.
 **Rate Limiting:**
 - Active routes apply their route-specific candidate, suppression, cooldown,
   and deduplication rules.
-- Canonical condition-alert delivery atomically claims queued work before send.
+- Canonical condition-alert delivery selects due, unsent queue rows, revalidates
+  forecast windows, and applies eligibility and deduplication gates. It marks
+  rows consumed after delivery or a terminal skip; this is not an atomic claim
+  before sending. Quiet-hour deferrals remain unsent for a later run.
 - Welcome and engagement sends use `email_send_log` for delivery logging and
   deduplication.
+
+**Condition-alert accounting:**
+
+- `alert_queue.sent=true` means consumed, including deliberate skips; it does
+  not prove a notification was sent. `queue_marked_by_reason` explains consumption.
+- `alert_delivery_attempts` records queue-item/channel outcomes. Multiple queue
+  items can contribute to one consolidated notification, so successful attempt
+  counts are not notification counts. Below-score-floor consumption occurs
+  before channel attempts are recorded.
+- `alert_deliveries` records consolidated delivery/deduplication entries. Push
+  entries represent notification enqueueing, not confirmed device receipt.
+  Reconcile these separately from email sends, attempts, and enabled rules.
+
+**Delivery failure handling — local fixes pending deployment (2026-09-04):**
+
+- A refreshed window colliding with `idx_alert_queue_rule_dedup` records
+  `skipped_dedup_collision` for enabled channels and consumes only the redundant
+  row. The worker continues processing; other refresh errors remain fatal.
+- Error-free, fully accounted-for deliberate skips and quiet-hour deferrals
+  qualify as legitimate zero output in `cron_runs`. Unknown consumption and
+  unresolved holds remain failures.
+- Counted persistence/enqueue errors produce a degraded result and HTTP 503;
+  uncaught fatal errors return HTTP 500. Existing retry and deduplication
+  behavior still applies. These fixes do not change the production allowlist.
+- For liveness, inspect all runs in the observation window and their skip/error
+  reasons: a later successful empty-queue run does not erase an earlier failure.
 
 ### ML System
 
