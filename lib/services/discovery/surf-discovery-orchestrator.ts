@@ -340,21 +340,24 @@ export async function getBatchSunTimes(
     return new Map();
   }
 
-  const { data, error } = await supabase
-    .from('sun_times')
-    .select('beach_id, sunrise_utc, sunset_utc')
-    .in('beach_id', uniqueBeachIds)
-    .in('date', uniqueDates)
-    .order('sunrise_utc', { ascending: true });
-
-  if (error) {
-    log.error('Error fetching sun times:', error);
-    return new Map();
+  const data: Array<{ beach_id: string; sunrise_utc: string | null; sunset_utc: string | null }> = [];
+  for (let offset = 0; offset < uniqueBeachIds.length; offset += 100) {
+    const { data: page, error } = await supabase
+      .from('sun_times')
+      .select('beach_id, sunrise_utc, sunset_utc')
+      .in('beach_id', uniqueBeachIds.slice(offset, offset + 100))
+      .in('date', uniqueDates)
+      .order('sunrise_utc', { ascending: true });
+    if (error) {
+      log.error('Error fetching sun times:', error);
+      return new Map();
+    }
+    data.push(...(page ?? []));
   }
 
   const sunMap = new Map<string, { sunrises: Date[]; sunsets: Date[] }>();
 
-  data?.forEach((row) => {
+  data.forEach((row) => {
     const beachId = row.beach_id;
 
     if (!sunMap.has(beachId)) {

@@ -114,7 +114,7 @@ function dependencies(): WeekendScoutDependencies {
       homeBeachId: NEAR,
       savedBeachIds: new Set([NEAR]),
     })),
-    buildCandidatePool: jest.fn(async () => ({ candidates, wasTruncated: false })),
+    buildCandidatePool: jest.fn(async () => ({ candidates, totalCount: candidates.length, incomplete: false, wasTruncated: false })),
     generateForecast: jest.fn(async () => forecast([
       window(NEAR, 84),
       window(FAR, 94),
@@ -193,6 +193,8 @@ describe('buildWeekendScoutRanking', () => {
     const deps = dependencies();
     deps.buildCandidatePool = jest.fn(async () => ({
       candidates: [candidate(NEAR, 'Good Nearby', 5), candidate(FAR, 'Exceptional Farther', 30)],
+      totalCount: 2,
+      incomplete: false,
       wasTruncated: false,
     }));
     deps.generateForecast = jest.fn(async () => forecast([
@@ -218,6 +220,8 @@ describe('buildWeekendScoutRanking', () => {
         candidate(THIRD, 'Third ID', 5),
         candidate(NEAR, 'First ID', 5),
       ],
+      totalCount: 3,
+      incomplete: false,
       wasTruncated: false,
     }));
     deps.generateForecast = jest.fn(async () => forecast([
@@ -237,6 +241,8 @@ describe('buildWeekendScoutRanking', () => {
     const truncated = dependencies();
     truncated.buildCandidatePool = jest.fn(async () => ({
       candidates: [candidate(NEAR, 'Good Nearby', 5)],
+      totalCount: 1,
+      incomplete: true,
       wasTruncated: true,
     }));
     await expect(buildWeekendScoutRanking('user-1', truncated)).resolves.toEqual({
@@ -244,7 +250,7 @@ describe('buildWeekendScoutRanking', () => {
     });
 
     const empty = dependencies();
-    empty.buildCandidatePool = jest.fn(async () => ({ candidates: [], wasTruncated: false }));
+    empty.buildCandidatePool = jest.fn(async () => ({ candidates: [], totalCount: 0, incomplete: false, wasTruncated: false }));
     await expect(buildWeekendScoutRanking('user-1', empty)).resolves.toEqual({
       status: 'no_candidates',
     });

@@ -25,11 +25,19 @@ jest.mock('@/lib/recommendations/major-event-hold/water-quality', () => ({
   ...jest.requireActual('@/lib/recommendations/major-event-hold/water-quality'),
   resolveWaterQualityHolds: (...args: unknown[]) => mockResolveWaterQuality(...args),
 }));
+const mockBuildWeekendScoutCandidatePool = jest.fn();
+jest.mock('@/lib/services/discovery/weekend-scout-candidate-pool', () => ({
+  buildWeekendScoutCandidatePool: (...args: unknown[]) => mockBuildWeekendScoutCandidatePool(...args),
+}));
 
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/surf/week-scout/route';
 import type {
   CanonicalWeekScoutResponse, WeekScoutRequest, WeekScoutServiceDependencies,
+} from '@/lib/services/discovery/week-scout';
+import {
+  generateWeekScoutForecastForDays,
+  generateWeekScoutRankingForDays,
 } from '@/lib/services/discovery/week-scout';
 import { createMockBeach } from '@/__tests__/setup/typed-mocks';
 import { createDiscoveryScoringEngine, scoreBeachWithEngine, beachToSpotProfile } from '@/lib/domains/scoring';
@@ -43,6 +51,13 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 
 const NOW = new Date('2026-09-03T12:00:00Z');
 const DATE = '2026-09-05';
+type CompleteRadiusRouteResponse = Omit<CanonicalWeekScoutResponse, 'coverage'> & {
+  candidateBeaches?: Array<{ beachId: string; distanceMiles: number | null }>;
+  coverage?: {
+    scope: { candidates: { enumerated: number; hydrated: number; filteredOut: number } };
+    days: Array<{ eligible: number; evaluated: number; missing: number }>;
+  };
+};
 const ACCOUNT_BOARDS = Array.from(new Set(
   ['fish', 'longboard-2-plus-1', 'midlength', 'thruster', 'fish']
     .map(normalizeBoardClass).filter((board): board is BoardClass => board !== null),
@@ -83,11 +98,15 @@ function dependencies(
   skill: SkillLevel | null,
   boards: BoardClass[],
   forecasts: Map<string, EnhancedForecastEntity[]>,
+  candidateBeaches: Beach[] = BEACHES,
 ): WeekScoutServiceDependencies {
   const engine = createDiscoveryScoringEngine();
   return {
     now: NOW,
-    fetchBeaches: jest.fn(async (ids) => ids.map((id) => BEACHES.find((beach) => beach.id === id)!)),
+    fetchBeaches: jest.fn(async (ids) => ids.flatMap((id) => {
+      const beach = candidateBeaches.find((candidate) => candidate.id === id);
+      return beach ? [beach] : [];
+    })),
     fetchForecasts: jest.fn(async () => forecasts),
     fetchSunTimes: jest.fn(async (ids) => new Map(ids.map((id) => [id, {
       sunrises: [new Date(`${DATE}T13:00:00Z`)],
@@ -118,11 +137,69 @@ async function call(ids: string[]): Promise<CanonicalWeekScoutResponse> {
   return (await response.json()).data;
 }
 
+async function callCompleteRadius(): Promise<CompleteRadiusRouteResponse> {
+  const profiles = {
+    from: (table: string) => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => table === 'profiles'
+            ? { data: { max_drive_minutes: 60 }, error: null }
+            : { data: { lat: 32.75, lon: -117.096, captured_at: NOW.toISOString() }, error: null },
+        }),
+      }),
+    }),
+  };
+  const response = await POST(new NextRequest('http://localhost/api/surf/week-scout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      candidateScope: {
+        kind: 'complete-radius',
+        mapBounds: { minLat: 32.7, maxLat: 33, minLon: -117.3, maxLon: -117 },
+      },
+      localTimezone: 'America/Los_Angeles',
+      startLocalDate: DATE,
+      dayCount: 7,
+    }),
+  }), { user: { id: 'anonymous-contract-account' }, supabase: profiles, params: {} } as never);
+  expect(response.status).toBe(200);
+  return (await response.json()).data as CompleteRadiusRouteResponse;
+}
+
 function best(
-  response: CanonicalWeekScoutResponse,
+  response: Pick<CanonicalWeekScoutResponse, 'days'>,
 ): CanonicalWeekScoutResponse['days'][number]['windows'][number] | undefined {
   const day = response.days[0];
   return day.windows.find((window) => window.id === day.bestWindowId);
+}
+
+function radiusContractBeaches(): Beach[] {
+  const origin = { lat: 32.75, lon: -117.096 };
+  const near = Array.from({ length: 8 }, (_, index) => createMockBeach({
+    ...BEACHES[index],
+    id: `10000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+    name: `Near ${index}`,
+    slug: `near-${index}`,
+    lat: origin.lat + index / 20_000,
+    lon: origin.lon + index / 20_000,
+  }));
+  const delMar = createMockBeach({
+    ...BEACHES[8],
+    id: '20000000-0000-4000-8000-000000000008',
+    name: 'Del Mar late winner',
+    slug: 'del-mar-late-winner',
+    lat: 32.959489,
+    lon: -117.265315,
+  });
+  const others = Array.from({ length: 42 }, (_, index) => createMockBeach({
+    ...BEACHES[index % BEACHES.length],
+    id: `30000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+    name: `Other ${index}`,
+    slug: `other-${index}`,
+    lat: origin.lat + 0.02 + index / 20_000,
+    lon: origin.lon + 0.02 + index / 20_000,
+  }));
+  return [...near, delMar, ...others];
 }
 
 describe('Week Scout route → real ranking profile contracts', () => {
@@ -132,6 +209,7 @@ describe('Week Scout route → real ranking profile contracts', () => {
     jest.setSystemTime(NOW);
     process.env.WEEK_SCOUT_ENDPOINT_ENABLED = 'true';
     mockResolveWaterQuality.mockResolvedValue({ state: 'resolved', heldBeachIds: [], waterQualityStatusByBeachId: {}, epoch: 'clear' });
+    mockBuildWeekendScoutCandidatePool.mockReset();
   });
   afterEach(() => {
     jest.useRealTimers();
@@ -152,6 +230,88 @@ describe('Week Scout route → real ranking profile contracts', () => {
     expect(mockDependencies.fetchForecasts).toHaveBeenCalledTimes(2);
     expect(mockDependencies.fetchForecasts).toHaveBeenCalledWith(expect.arrayContaining(BEACHES), 192);
     expect(forward.sessionDecision.selection?.beachId).toBe(BEACHES[29].id);
+  });
+
+  it('evaluates every candidate in a complete 51-beach radius before serializing eight windows', async () => {
+    const beaches = radiusContractBeaches();
+    const near = beaches.slice(0, 8);
+    const delMar = beaches[8];
+    const lateWinner = beaches[50];
+    const forecasts = new Map(beaches.map((beach, index) => [
+      beach.id,
+      rows(beach, index === 50 ? 4.4 : index <= 8 ? 3 : 2, index === 50 ? 2 : index <= 8 ? 5 : 15),
+    ]));
+    mockDependencies = dependencies('advanced', ACCOUNT_BOARDS, forecasts, beaches);
+    mockBuildWeekendScoutCandidatePool.mockResolvedValue({
+      candidates: beaches.map((beach) => ({ beach, distanceMiles: 1 })),
+      totalCount: beaches.length,
+      enumeratedCount: beaches.length,
+      hydratedCount: beaches.length,
+      filteredOutCount: 0,
+      incomplete: false,
+      wasTruncated: false,
+    });
+
+    const response = await callCompleteRadius();
+    const day = response.days[0];
+
+    expect(mockDependencies.fetchBeaches).toHaveBeenCalledWith(beaches.map((beach) => beach.id));
+    expect(mockDependencies.fetchForecasts).toHaveBeenCalledWith(
+      expect.arrayContaining(beaches),
+      192,
+      expect.objectContaining({ requirePerRowFreshness: true }),
+    );
+    expect(day.windows).toHaveLength(8);
+    expect(response.candidateBeaches).toHaveLength(51);
+    expect(response.candidateBeaches?.some((beach) => beach.beachId === delMar.id)).toBe(true);
+    expect(best(response)?.beachId).toBe(lateWinner.id);
+    expect(response.sessionDecision.selection?.beachId).toBe(lateWinner.id);
+    expect(response.coverage?.scope).toEqual(expect.objectContaining({
+      candidates: { enumerated: 51, hydrated: 51, filteredOut: 0 },
+    }));
+    expect(response.coverage?.days[0]).toEqual(expect.objectContaining({
+      eligible: 51, evaluated: 51, missing: 0,
+    }));
+    expect(response.candidateBeaches?.find((beach) => beach.beachId === delMar.id)?.distanceMiles).toBeGreaterThan(17);
+    expect(near).toHaveLength(8);
+  });
+
+  it('retains a real-scored ninth canonical winner when the compacted day best is held', async () => {
+    const beaches = radiusContractBeaches().slice(0, 9);
+    const near = beaches.slice(0, 8);
+    const lateWinner = beaches[8];
+    const forecasts = new Map(beaches.map((beach, index) => [
+      beach.id,
+      rows(beach, index < 8 ? 3 : 4, index < 8 ? 5 : 4),
+    ]));
+    mockDependencies = dependencies('advanced', ACCOUNT_BOARDS, forecasts, beaches);
+
+    const request = {
+      candidateBeachIds: beaches.map((beach) => beach.id),
+      localTimezone: 'America/Los_Angeles', startLocalDate: DATE, dayCount: 7,
+      userLocation: { lat: 32.75, lon: -117.096 },
+    } as const;
+    const uncompacted = await generateWeekScoutRankingForDays('anonymous-contract-account', request, dependencies('advanced', ACCOUNT_BOARDS, forecasts, beaches));
+    expect(uncompacted.days[0].windows.findIndex((window) => window.beachId === lateWinner.id)).toBe(8);
+
+    const initial = await generateWeekScoutForecastForDays('anonymous-contract-account', request, mockDependencies);
+    expect(initial.days[0].windows).toHaveLength(8);
+    expect(initial.days[0].windows.some((window) => window.beachId === lateWinner.id)).toBe(true);
+    expect(best(initial)?.beachId).toBe(near[0].id);
+    expect(initial.sessionDecision.selection?.beachId).toBe(lateWinner.id);
+
+    mockResolveWaterQuality.mockResolvedValueOnce({
+      state: 'resolved',
+      heldBeachIds: [near[0].id],
+      waterQualityStatusByBeachId: { [near[0].id]: 'closure' },
+      epoch: 'held',
+    });
+    const held = await generateWeekScoutForecastForDays('anonymous-contract-account', request, mockDependencies);
+
+    expect(best(held)?.beachId).toBe(lateWinner.id);
+    expect(held.sessionDecision.selection?.beachId).toBe(lateWinner.id);
+    expect(held.days[0].windows.every((window) => window.beachId !== near[0].id)).toBe(true);
+    expect(held.days[0].windows.every((window) => window.rankedSpots.every((spot) => spot.beachId !== near[0].id))).toBe(true);
   });
 
   it('preserves EPIC-eligible 2.9-ft longboard scoring for the reported account', async () => {
@@ -254,7 +414,7 @@ describe('Week Scout route → real ranking profile contracts', () => {
   it('recomputes corrected rows and removes the newly unsafe selection', async () => {
     mockDependencies = dependencies('beginner', [], new Map([[BEACHES[0].id, rows(BEACHES[0], 2.9)]]));
     const before = await call([BEACHES[0].id]);
-    expect(best(before)).toBeDefined();
+    expect(best(before)).toEqual(expect.objectContaining({ beachId: BEACHES[0].id }));
     mockDependencies.fetchForecasts = async () => new Map([[BEACHES[0].id, rows(BEACHES[0], 8)]]);
     const after = await call([BEACHES[0].id]);
     expect(after.days[0].bestWindowId).toBeNull();

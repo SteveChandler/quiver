@@ -15,12 +15,16 @@ jest.mock('@/lib/middleware/api-wrappers', () => {
 });
 
 const mockGenerateWeekScoutForecast = jest.fn();
+const mockBuildWeekendScoutCandidatePool = jest.fn();
 jest.mock(
   '@/lib/services/discovery/week-scout',
   () => ({
     generateWeekScoutForecast: (...args: unknown[]) => mockGenerateWeekScoutForecast(...args),
   }),
 );
+jest.mock('@/lib/services/discovery/weekend-scout-candidate-pool', () => ({
+  buildWeekendScoutCandidatePool: (...args: unknown[]) => mockBuildWeekendScoutCandidatePool(...args),
+}));
 
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/surf/week-scout/route';
@@ -30,6 +34,7 @@ import {
   WEEK_SCOUT_CONTRACT_FIXTURE,
   WEEK_SCOUT_CONTRACT_GENERATED_AT,
 } from '@/__tests__/fixtures/week-scout-contract';
+import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
 
 const BEACH_A = WEEK_SCOUT_CONTRACT_BEACH_ID;
 const BEACH_B = '22222222-2222-4222-8222-222222222222';
@@ -55,6 +60,7 @@ describe('POST /api/surf/week-scout', () => {
     jest.clearAllMocks();
     process.env.WEEK_SCOUT_ENDPOINT_ENABLED = 'true';
     mockGenerateWeekScoutForecast.mockResolvedValue(WEEK_SCOUT_CONTRACT_FIXTURE);
+    mockBuildWeekendScoutCandidatePool.mockResolvedValue({ candidates: [], incomplete: false });
   });
 
   it('deduplicates candidate IDs and returns the exact private no-store response', async () => {
@@ -101,6 +107,54 @@ describe('POST /api/surf/week-scout', () => {
     );
   });
 
+  it('keeps legacy payloads free of complete-radius coverage metadata', async () => {
+    mockGenerateWeekScoutForecast.mockResolvedValueOnce({
+      ...WEEK_SCOUT_CONTRACT_FIXTURE,
+      coverage: {
+        days: [{
+          localDate: '2026-07-15', eligible: 12, evaluated: 10, missing: 2, excluded: null,
+          buckets: [
+            { bucket: 'morning', eligible: 12, evaluated: 10, missing: 2, noWindow: 1, held: 0 },
+            { bucket: 'midday', eligible: 12, evaluated: 10, missing: 2, noWindow: 0, held: 0 },
+            { bucket: 'evening', eligible: 12, evaluated: 9, missing: 3, noWindow: 0, held: 1 },
+          ],
+        }],
+      },
+    });
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A], localTimezone: 'Pacific/Honolulu', startLocalDate: '2026-07-15', dayCount: 7,
+    });
+    expect((await response.json()).data.coverage).toBeUndefined();
+  });
+
+  it('enumerates an explicit map scope without a GPS snapshot', async () => {
+    const from = jest.fn(() => ({ select: jest.fn(() => ({ eq: jest.fn(() => ({ maybeSingle: jest.fn(async () => ({ data: null, error: null })) })) })) }));
+    mockBuildWeekendScoutCandidatePool.mockResolvedValue({
+      candidates: [{
+        beach: { id: BEACH_A, name: 'Map beach', slug: 'map-beach', lat: 32.05, lon: -117.15, timezone: 'America/Los_Angeles' },
+        distanceMiles: 0,
+      }],
+      enumeratedCount: 1, hydratedCount: 1, filteredOutCount: 0, incomplete: false,
+    });
+    const response = await callRoute({
+      candidateScope: { kind: 'complete-radius', mapBounds: { minLat: 32, maxLat: 32.1, minLon: -117.2, maxLon: -117.1 } },
+      localTimezone: 'America/Los_Angeles', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+    expect(response.status).toBe(200);
+    expect(mockBuildWeekendScoutCandidatePool).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      userLocation: { lat: 32.05, lon: -117.15 },
+    }));
+    const poolOptions = mockBuildWeekendScoutCandidatePool.mock.calls[0]?.[1];
+    const cornerDistance = calculateDistanceInMiles(
+      { lat: 32.05, lon: -117.15 },
+      { lat: 32.1, lon: -117.1 },
+    );
+    expect(poolOptions.radiusMiles).toBeGreaterThan(cornerDistance);
+    const body = await response.json();
+    expect(body.data.candidateBeaches).toEqual([expect.objectContaining({ beachId: BEACH_A, distanceMiles: null })]);
+    expect(body.data.coverage.scope.candidates).toEqual({ enumerated: 1, hydrated: 1, filteredOut: 0 });
+  });
+
   it('applies distance friction from a fresh authenticated user location snapshot', async () => {
     const maybeSingle = jest.fn(async () => ({
       data: { lat: 32.2, lon: -116.91, captured_at: new Date().toISOString() },
@@ -125,6 +179,55 @@ describe('POST /api/surf/week-scout', () => {
       'user-week-scout',
       expect.objectContaining({ userLocation: { lat: 32.2, lon: -116.91 } }),
     );
+  });
+
+  it('uses map center for enumeration while reporting actual user distance', async () => {
+    const from = jest.fn((table: string) => {
+      if (table === 'user_location_snapshots') {
+        return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { lat: 32, lon: -118, captured_at: new Date().toISOString() }, error: null }) }) }) };
+      }
+      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { max_drive_minutes: null }, error: null }) }) }) };
+    });
+    mockBuildWeekendScoutCandidatePool.mockResolvedValueOnce({
+      candidates: [{
+        beach: { id: BEACH_A, name: 'Map beach', slug: 'map-beach', lat: 32.05, lon: -117.15, timezone: 'America/Los_Angeles' },
+        distanceMiles: 0,
+      }],
+      enumeratedCount: 1, hydratedCount: 1, filteredOutCount: 0, incomplete: false,
+    });
+    const response = await callRoute({
+      candidateScope: { kind: 'complete-radius', mapBounds: { minLat: 32, maxLat: 32.1, minLon: -117.2, maxLon: -117.1 } },
+      localTimezone: 'America/Los_Angeles', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from });
+
+    expect(response.status).toBe(200);
+    expect(mockBuildWeekendScoutCandidatePool).toHaveBeenCalledWith('user-week-scout', expect.objectContaining({
+      userLocation: { lat: 32.05, lon: -117.15 },
+      nearbyLocation: { lat: 32, lon: -118 },
+    }));
+    expect((await response.json()).data.candidateBeaches[0].distanceMiles).toBeGreaterThan(40);
+  });
+
+  it('keeps map-corner candidates inside a conservatively expanded prefilter near the supported extent', async () => {
+    mockBuildWeekendScoutCandidatePool.mockResolvedValueOnce({
+      candidates: [], enumeratedCount: 0, hydratedCount: 0, filteredOutCount: 0, incomplete: false,
+    });
+    const response = await callRoute({
+      candidateScope: {
+        kind: 'complete-radius',
+        // The latitude-only extent is roughly 98.5 miles, close enough to
+        // exercise a radius-scaled (rather than fixed) geodesic margin.
+        mapBounds: { minLat: 32, maxLat: 33.42, minLon: -117.1, maxLon: -117.1 },
+      },
+      localTimezone: 'America/Los_Angeles', startLocalDate: '2026-07-15', dayCount: 7,
+    }, { from: jest.fn(() => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) })) });
+
+    expect(response.status).toBe(200);
+    const options = mockBuildWeekendScoutCandidatePool.mock.calls[0]?.[1];
+    const center = { lat: 32.71, lon: -117.1 };
+    const cornerDistance = calculateDistanceInMiles(center, { lat: 33.42, lon: -117.1 });
+    expect(options.radiusMiles).toBeGreaterThan(cornerDistance * 1.005);
+    expect(options.radiusMiles).toBeLessThanOrEqual(100);
   });
 
   it.each([
