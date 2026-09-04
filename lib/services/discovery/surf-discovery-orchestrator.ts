@@ -31,6 +31,7 @@ import type {
   PersonalizedForecastWindow,
 } from '@/types/personalization';
 import type { ConditionBadge } from '@/types/personalization';
+import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
 import {
   createDiscoveryScoringEngine,
   scoreBeachWithEngine,
@@ -1720,7 +1721,7 @@ async function discoverSurfSpotsInner(
   const breakBehaviorRowsByBeach = groupBreakBehaviorRowsByBeach(breakBehaviorRows);
 
   const wqMap = new Map<string, string>();
-  for (const row of wqResult.data ?? []) {
+  for (const row of await currentWaterQuality(wqResult.data ?? [])) {
     wqMap.set(row.beach_id, row.status);
   }
 
