@@ -1690,9 +1690,8 @@ describe("InteractiveMap", () => {
       );
 
       await waitFor(() => {
-        expect(onDisplayForecastsChange).toHaveBeenCalledWith(
-          expect.objectContaining({ get: expect.any(Function) }),
-        );
+        const forecasts = onDisplayForecastsChange.mock.calls.at(-1)?.[0];
+        expect(forecasts?.get(beach.id)).toMatchObject({ label: "2-3ft" });
         expect(getBeachMarkerBadge(beach.id)).toHaveAttribute(
           "data-marker-badge",
           "true",
