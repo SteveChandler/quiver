@@ -5,6 +5,7 @@ import {
   getConditionMarkerCall,
   getConditionMarkerGradient,
   getWaterTempBadgeColor,
+  getWaterQualityHold,
 } from "@/components/map/map-marker-builder";
 
 const beach = (id: string): Beach =>
@@ -197,4 +198,23 @@ describe("map condition summaries", () => {
   ] as const)("names a %s marker call precisely", (waterQualityHold, label) => {
     expect(getConditionMarkerCall({ waterQualityHold }).label).toBe(label);
   });
+});
+
+test.each([null, "invalid", "2026-08-01", "2099-01-01"])("ignores stale or unverified sample alerts: %s", (sampleDate) => {
+  const pin = { ...beach("sample"), waterQualityHold: "advisory", waterQualityEvidence: { source: "sample", sampleDate } } as unknown as Beach;
+  expect(getWaterQualityHold(pin)).toBeNull();
+  expect(getWaterQualityHold({ ...pin, waterQualityEvidence: { source: "county" } } as unknown as Beach)).toBe("advisory");
+});
+test("retains a recent sample alert", () => {
+  expect(getWaterQualityHold({ ...beach("sample"), waterQualityHold: "advisory", waterQualityEvidence: { source: "sample", sampleDate: new Date().toISOString() } } as unknown as Beach)).toBe("advisory");
+});
+
+test("changes from a sample hold to an unconfirmed warning at seven days", () => {
+  const now = Date.parse("2026-09-06T12:00:00Z");
+  const clock = jest.spyOn(Date, "now").mockReturnValue(now);
+  try {
+    const pin = (age: number): Beach => ({ ...beach("sample"), waterQualityHold: "closure", waterQualityEvidence: { source: "sample", sampleDate: new Date(now - age).toISOString() } } as unknown as Beach);
+    expect(getWaterQualityHold(pin(7 * 86400000 - 1))).toBe("closure");
+    expect(getWaterQualityHold(pin(7 * 86400000))).toBeNull();
+  } finally { clock.mockRestore(); }
 });
