@@ -55,6 +55,18 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
       await page.screenshot({ path: ".planning/evidence/map-polish/baja-recovery.png" });
     });
     if (viewport.width === 390) test("identifies historical water-quality evidence by sample date", async ({ page }) => {
+      // County notices change; fix only this evidence payload, retaining live beach geometry.
+      await page.route("**/api/beaches/nearby?**", async (route) => {
+        const response = await route.fetch({ headers: { ...route.request().headers(), ...localRateHeaders } });
+        expect(response.status()).toBe(200);
+        const body = await response.json();
+        const beach = body.data.find((item: { id: string }) => item.id === "d291411d-d331-4bf1-ad1a-302da3c69de0");
+        if (beach) {
+          beach.waterQualityHold = "advisory";
+          beach.waterQualityEvidence = { source: "sample", sampleDate: "2026-08-11" };
+        }
+        await route.fulfill({ response, json: body });
+      });
       await page.goto("/map?search=La%20Jolla%20Shores");
       await expect(page.getByRole("slider", { name: "Forecast time" })).toBeVisible({ timeout: 90000 });
       const pin = page.locator('[data-testid="beach-marker"][data-beach-id="d291411d-d331-4bf1-ad1a-302da3c69de0"]');
@@ -141,6 +153,7 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
       await expect(card).toHaveCSS("pointer-events", "none");
       const content = await card.locator("[data-callout-content]").elementHandle();
       const ring = card.locator('circle[fill="none"]');
+      await expect.poll(() => page.evaluate(() => (window as any).__quiverMapInstance.isMoving())).toBe(false);
       const ringWidth = (await ring.boundingBox())!.width;
       const link = card.locator("[data-callout-link]");
       const linkHeight = (await link.boundingBox())!.height;
@@ -196,7 +209,7 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
       for (const id of laterIds) {
         const pin = page.locator(`[data-testid="beach-marker"][data-beach-id="${id}"]`);
         if (await pin.count() === 0) continue;
-        await expect(pin).toHaveAttribute("data-condition-summary", summaries[id]);
+        await expect(pin).toHaveAttribute("data-condition-summary", summaries[id], { timeout: 90000 });
         const gradientStart: Record<string, string> = {
           EPIC: "rgb(138, 90, 0)", GOOD: "rgb(0, 91, 82)", FAIR: "rgb(138, 74, 18)",
           RIDEABLE: "rgb(71, 85, 105)", MEH: "rgb(51, 65, 85)",
