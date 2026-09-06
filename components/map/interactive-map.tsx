@@ -2409,10 +2409,10 @@ export function InteractiveMap({
         }
         lastViewportRef.current = { lat: latitude, lon: longitude, zoom };
 
-        // Only populate locations with enhanced forecast data
-        await populateLocations(latitude, longitude);
+        // A queued pan may outlive a beach-scope update.
+        await populateLocationsRef.current?.(latitude, longitude);
       }, 1500), // Increased debounce time since we're caching aggressively
-    [populateLocations, hasViewportChanged, getMapViewportMetadata]
+    [hasViewportChanged, getMapViewportMetadata]
   );
 
   useEffect(() => {

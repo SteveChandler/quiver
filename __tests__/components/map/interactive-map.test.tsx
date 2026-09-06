@@ -2689,6 +2689,30 @@ describe("InteractiveMap", () => {
     expect(new URL(String((global.fetch as jest.Mock).mock.calls[3][0]), "https://example.test").searchParams.get("beachIds")).toBe("a,c");
   });
 
+  it("uses the latest beach scope when a queued pan finishes after region loading", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), "https://example.test");
+      const ids = (url.searchParams.get("beachIds") ?? "").split(",");
+      return {
+        ok: true, status: 200,
+        json: async () => timelineResponse(ids, "2026-07-10T20:00:00.000Z", 8, false),
+      } as Response;
+    });
+    const beach = (id: string) => ({ id, name: id, lat: 32.75, lon: -117.25 } as import("@/types/database").Beach);
+    const { rerender } = render(<InteractiveMap beaches={[beach("old")]} swellTimelineMode="expandable-hourly" />);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockMapHandlers.moveend).toBeDefined());
+    jest.useFakeTimers();
+    act(() => mockMapHandlers.moveend[0]());
+    rerender(<InteractiveMap beaches={[beach("new")]} swellTimelineMode="expandable-hourly" />);
+    await act(async () => { await jest.advanceTimersByTimeAsync(0); });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    await act(async () => { await jest.advanceTimersByTimeAsync(1500); });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(new URL(String((global.fetch as jest.Mock).mock.calls.at(-1)[0]), "https://example.test").searchParams.get("beachIds")).toBe("new");
+  });
+
   it("retains loaded forecast data when a background refresh fails", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     const onDisplayForecastsChange = jest.fn();
