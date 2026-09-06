@@ -67,7 +67,9 @@ describe("createConditionsCalloutElement", () => {
     const link = withHref.element.querySelector("[data-callout-link]");
     expect(link?.getAttribute("href")).toBe("/ca/san-diego/del-mar");
     expect(link?.textContent).toBe("Full forecast →");
-    expect(link).toHaveStyle({ top: "362px" });
+    expect(withHref.element).toHaveStyle({ pointerEvents: "none" });
+    expect(withHref.element.querySelector("[data-callout-content]")).toHaveStyle({ pointerEvents: "auto" });
+    expect(link).toHaveStyle({ top: "calc(50% + 122px * var(--callout-zoom, 1))" });
 
     const noHref = createConditionsCalloutElement({ beachName: "Del Mar", tempLabel: "68°", components: [S1] });
     expect(noHref.element.querySelector("[data-callout-link]")).toBeNull();
@@ -92,15 +94,15 @@ describe("createConditionsCalloutElement", () => {
     const badge = element.querySelector("[data-callout-water-quality]");
 
     expect(markerCall.label).toBe("Water quality closure");
-    expect(badge).toHaveTextContent("Closed — county water-quality data");
+    expect(badge).toHaveTextContent("Closed — water-quality alert");
     expect(badge).toHaveAttribute(
       "aria-label",
-      "Closed — county water-quality data",
+      "Closed — water-quality alert",
     );
   });
 
   it.each([
-    ["advisory", "Advisory — county water-quality data"],
+    ["advisory", "Advisory — water-quality alert"],
     ["held", "Water quality hold"],
   ] as const)(
     "renders unmistakable wording for a %s",
@@ -156,4 +158,58 @@ describe("createConditionsCalloutElement", () => {
       expect(badgeTop).toBeCloseTo(expectedBadgeTop);
     },
   );
+});
+
+it("keeps the original SVG arrows on their real bearing instead of fanning directions", () => {
+  const { element } = createConditionsCalloutElement({
+    beachName: "Osprey Point", tempLabel: "75°", mapBearing: 20,
+    components: [{ ...S1, bearingDeg: 180 }, { ...S2, bearingDeg: 180 }],
+  });
+  expect(element.querySelector("svg")).toHaveAttribute("viewBox", "0 0 480 480");
+  for (const banner of element.querySelectorAll("[data-callout-banner]")) {
+    expect(banner).toHaveAttribute("data-bearing", "180");
+    expect(banner.getAttribute("transform")).toContain("rotate(250)");
+  }
+});
+
+it.each([false, true])("turns across north by the shortest arc (reduced motion: %s)", (reduced) => {
+  const descriptor = Object.getOwnPropertyDescriptor(SVGElement.prototype, "animate");
+  const animate = jest.fn();
+  Object.defineProperty(SVGElement.prototype, "animate", { configurable: true, value: animate });
+  const media = jest.spyOn(window, "matchMedia").mockReturnValue({ matches: reduced } as MediaQueryList);
+  try {
+    const previous = createConditionsCalloutElement({ beachName: "A", tempLabel: null, components: [{ ...S1, bearingDeg: 260 }] }).element;
+    const { element } = createConditionsCalloutElement({ beachName: "B", tempLabel: null, components: [{ ...S1, bearingDeg: 280 }], previousElement: previous });
+    expect(element.querySelector("[data-callout-banner]")?.getAttribute("transform")).toContain("rotate(10)");
+    if (reduced) {
+      expect(animate).not.toHaveBeenCalled();
+    } else {
+      expect(animate).toHaveBeenCalledTimes(1);
+      const [frames, options] = animate.mock.calls[0];
+      expect(frames[0].transform).toContain("rotate(350deg)");
+      expect(frames[1].transform).toContain("rotate(370deg)");
+      expect(options.duration).toBe(500);
+    }
+  } finally {
+    media.mockRestore();
+    if (descriptor) Object.defineProperty(SVGElement.prototype, "animate", descriptor);
+    else delete (SVGElement.prototype as Partial<Element>).animate;
+  }
+});
+
+ test("dates historical bacteria evidence instead of claiming a current county advisory", () => {
+  (window.matchMedia as jest.Mock).mockReturnValue({ matches: false });
+  const { element } = createConditionsCalloutElement({ beachName: "La Jolla Shores", tempLabel: null, components: [], waterQualityHold: "advisory", waterQualityEvidence: { source: "sample", sampleDate: "2026-08-11" } });
+  expect(element.querySelector("[data-callout-water-quality]")).toHaveTextContent("Elevated bacteria · sample 2026-08-11");
+  expect(element).not.toHaveTextContent("Advisory");
+});
+
+ test("flips text within its own colored section when arrows turn left", () => {
+  (window.matchMedia as jest.Mock).mockReturnValue({ matches: false });
+  const { element } = createConditionsCalloutElement({ beachName: "K-38", tempLabel: null, components: [{ ...S1, bearingDeg: 10 }] });
+  const banner = element.querySelector('[data-callout-banner="s1"]')!;
+  expect(banner).toHaveAttribute("data-callout-flipped", "true");
+  const labels = banner.querySelectorAll("text");
+  labels.forEach((label) => expect(label).toHaveAttribute("transform", `rotate(180 ${label.getAttribute("x")} 17)`));
+  expect(labels[0].parentElement).not.toHaveAttribute("transform");
 });

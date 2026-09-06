@@ -2417,7 +2417,7 @@ describe('discoverSurfSpots - Personalization Integration', () => {
       beach_id: 'beach-1',
       user_id: `user-${index % 4}`,
       status: 'completed',
-      arrival_time: `2026-06-${String((index % 9) + 1).padStart(2, '0')}T14:00:00Z`,
+      arrival_time: new Date(Date.now() - ((index % 9) + 1) * 86_400_000).toISOString(),
       created_at: '2026-06-01T12:00:00Z',
       wave_height_ft: 3,
       wind_speed_mph: 7,

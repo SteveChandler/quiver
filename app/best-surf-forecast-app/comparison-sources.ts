@@ -5,7 +5,7 @@ export interface ComparisonSourceLink {
 }
 
 export const COMPARISON_SOURCE_REVIEW = {
-  lastVerified: "2026-07-08",
+  lastVerified: "2026-09-06",
   reviewedBy: "Quiver editorial team",
   // Pricing and product features change often enough to warrant review every two months.
   freshnessThresholdDays: 60,
@@ -16,7 +16,7 @@ export const COMPARISON_SOURCE_LINKS: readonly ComparisonSourceLink[] = [
     label: "Quiver App Store listing",
     href: "https://apps.apple.com/us/app/surf-forecast-quiver/id6759300320",
     note:
-      "Quiver free listing with custom spots and session logging, plus Pro monthly, annual, and lifetime in-app purchases for alerts, board recommendations, and offline mode.",
+      "Quiver iPhone listing with session logging and Pro monthly, annual, and lifetime in-app purchases; Pro features include similarity alerts, board recommendations, and offline mode.",
   },
   {
     label: "Surfline upgrade page",

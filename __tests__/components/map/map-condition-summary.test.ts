@@ -90,10 +90,10 @@ describe("map condition summaries", () => {
     expect(result.locations).toEqual([heldBeach]);
   });
 
-  it("renders wave-height markers with condition semantics and gradients", () => {
+  it.each([false, true])("renders accessible wave-height markers (selected: %s)", (selected) => {
     const marker = createWaveHeightBadge(beach("beach-fair"), 2.0, {
       favoriteBeachIds: new Set(),
-      selectedBeachId: null,
+      selectedBeachId: selected ? "beach-fair" : null,
       hoveredBeachId: null,
       onHoverChange: jest.fn(),
       onSelectChange: jest.fn(),
@@ -107,6 +107,8 @@ describe("map condition summaries", () => {
     const markerGradient = getConditionMarkerGradient("FAIR");
 
     expect(badge).toBeInstanceOf(HTMLButtonElement);
+    expect(marker).toHaveAttribute("role", "group");
+    expect(marker).toHaveAttribute("aria-label", "Beach beach-fair");
     expect(badge).toHaveAttribute("type", "button");
     expect(badge).toHaveAttribute(
       "aria-label",
@@ -117,9 +119,11 @@ describe("map condition summaries", () => {
     expect(badge).toHaveAttribute("data-marker-gradient", markerGradient);
     expect(markerGradient).toContain("linear-gradient");
     expect(badge).toHaveStyle({ width: "44px", height: "44px" });
+    expect(visual.style.transform).toBe("");
+    expect(visual).toHaveAttribute("aria-hidden", "true");
     expect(visual).toHaveStyle({
-      width: "15px",
-      height: "15px",
+      width: selected ? "21px" : "15px",
+      height: selected ? "21px" : "15px",
       borderRadius: "50%",
     });
   });

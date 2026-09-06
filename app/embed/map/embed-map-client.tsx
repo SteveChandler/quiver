@@ -439,10 +439,12 @@ export function EmbedMapClient() {
       handleCommand(command);
     };
     const receiveWindowMessage = (event: MessageEvent): void => {
-      if (event.source !== window) return;
+      // iOS WebView injects window messages without a source; Android uses document.
+      const fromNative = event.source === null && Boolean(window.ReactNativeWebView);
+      if (event.source !== window && !fromNative) return;
       const command = parseMessage(event);
       if (!command) return;
-      if (command.type === "auth_token") return;
+      if (command.type === "auth_token" && !fromNative) return;
       handleCommand(command);
     };
 

@@ -339,3 +339,9 @@ describe("water-quality recommendation holds", () => {
     expect(resolution.heldBeachIds).toEqual([BEACH_A]);
   });
 });
+
+ test("preserves the actual sample date and distinguishes live county evidence", async () => {
+  const result = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_B)], { client: clientFor({ qualityRows: [{ beach_id: BEACH_A, status: "advisory", total_samples_30d: 8, latest_sample_date: "2026-08-11" }], liveRows: [{ beach_id: BEACH_B, advisory_type: "advisory", source_site_identifier: "site-b" }] }) });
+  expect(result.waterQualityEvidenceByBeachId).toEqual({ [BEACH_A]: { source: "sample", sampleDate: "2026-08-11" }, [BEACH_B]: { source: "county" } });
+  expect(result.heldBeachIds).toEqual([BEACH_A, BEACH_B]);
+});

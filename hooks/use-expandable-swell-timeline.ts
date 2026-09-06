@@ -196,7 +196,7 @@ export function useExpandableSwellTimeline({
 
     setTimeline(nextTimeline);
     setIndexState(nextIndex);
-    setPlayingState(false);
+    if (!nextTimeline?.timestamps.length) setPlayingState(false);
     setLoadingMore(false);
     setExhausted(!nextTimeline?.hasMore);
     setError(null);
