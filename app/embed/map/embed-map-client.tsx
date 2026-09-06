@@ -136,6 +136,16 @@ export function focusEmbedBeachMarker(beachId: string): boolean {
   return document.activeElement === focusTarget;
 }
 
+function restoredForecastIndex(
+  timestamps: readonly (string | undefined)[],
+  forecastAt: string,
+  maxIndex: number,
+): number | null {
+  const first = forecastAtForEmbedTimelineIndex(timestamps, 0);
+  if (!first) return null;
+  return clampTimelineStep((Date.parse(forecastAt) - Date.parse(first)) / 3_600_000, maxIndex);
+}
+
 export function EmbedMapClient() {
   const searchParams = useSearchParams();
   const isHourlyTimeline = searchParams.get("timeline") === "hourly";
@@ -217,6 +227,7 @@ export function EmbedMapClient() {
   // Forecast playback: smoothly sweep the (fractional) timeline so the field
   // morphs through the day. The map interpolates between hourly steps.
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isActive, setIsActive] = useState(true);
   // "None" hides the swell field so users can read just the map + spots.
   const [fieldHidden, setFieldHidden] = useState(false);
   const timelineIndexRef = useRef(timelineIndex);
@@ -227,7 +238,7 @@ export function EmbedMapClient() {
   // are 3h apart, hourly indexes 1h apart, so hourly advances 3x per tick.
   const playbackIncrement = isHourlyTimeline ? 0.18 : 0.06;
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || !isActive) return;
     const id = window.setInterval(() => {
       let next = timelineIndexRef.current + playbackIncrement;
       if (next >= maxTimelineIndex) next = 0;
@@ -236,7 +247,7 @@ export function EmbedMapClient() {
       setTimelineIndex(next);
     }, 80);
     return () => window.clearInterval(id);
-  }, [isPlaying, maxTimelineIndex, playbackIncrement]);
+  }, [isActive, isPlaying, maxTimelineIndex, playbackIncrement]);
   const nativeCommandKeyRef = useRef(0);
   const accessTokenRef = useRef<string | null>(null);
   const authGenerationRef = useRef(0);
@@ -264,7 +275,9 @@ export function EmbedMapClient() {
   // fractional index; native renders integer steps. No-op in the browser.
   const roundedStep = clampTimelineStep(timelineIndex, maxTimelineIndex);
   const lastEmittedForecastTimeRef = useRef<string | null>(null);
+  const pendingForecastAtRef = useRef<string | null>(null);
   useEffect(() => {
+    if (pendingForecastAtRef.current) return;
     const forecastAt = isHourlyTimeline
       ? forecastAtForEmbedTimelineIndex(hourlyTimestamps, roundedStep)
       : undefined;
@@ -279,7 +292,13 @@ export function EmbedMapClient() {
 
   const handleHourlyTimelineLoaded = useCallback((timeline: HourlySwellTimeline | null): void => {
     setHourlyTimeline(timeline);
-  }, []);
+    const pending = pendingForecastAtRef.current;
+    if (!pending) return;
+    const index = restoredForecastIndex(hourlyEmbedTimelineTimestamps(timeline), pending, maxTimelineIndex);
+    if (index === null) return;
+    pendingForecastAtRef.current = null;
+    setTimelineIndex(index);
+  }, [maxTimelineIndex]);
 
   const postReady = useCallback(
     (viewport: EmbedMapViewport): boolean => {
@@ -334,7 +353,7 @@ export function EmbedMapClient() {
   }, [postEvent]);
 
   useEffect(() => {
-    if (sentReadyRef.current) return;
+    if (!isActive || sentReadyRef.current) return;
 
     const intervalId = window.setInterval(() => {
       const pendingViewport = pendingReadyViewportRef.current;
@@ -343,7 +362,7 @@ export function EmbedMapClient() {
     }, 100);
 
     return () => window.clearInterval(intervalId);
-  }, [postReady]);
+  }, [isActive, postReady]);
 
   const updatePlacement = useCallback(
     (coordinate: EmbedMapCoordinate): void => {
@@ -365,9 +384,13 @@ export function EmbedMapClient() {
         case "setLayer":
           setLayerId(command.payload.layerId);
           return;
-        case "setForecastTime":
-          setTimelineIndex(clampTimelineStep(command.payload.index, maxTimelineIndex));
+        case "setForecastTime": {
+          const forecastAt = isHourlyTimeline && command.payload.index > 0 ? command.payload.forecastAt : undefined;
+          const restored = forecastAt ? restoredForecastIndex(hourlyTimestamps, forecastAt, maxTimelineIndex) : null;
+          pendingForecastAtRef.current = forecastAt && restored === null ? forecastAt : null;
+          setTimelineIndex(restored ?? clampTimelineStep(command.payload.index, maxTimelineIndex));
           return;
+        }
         case "setSelectedSpot": {
           const { lat, lon } = command.payload;
           if (lat === undefined || lon === undefined) return;
@@ -408,10 +431,15 @@ export function EmbedMapClient() {
           postEvent({ type: "placementConfirmed", payload: point });
           return;
         }
+        case "setActive":
+          setIsActive(command.payload.active);
+          if (!command.payload.active) setIsPlaying(false);
+          return;
         case "setFieldVisible":
           setFieldHidden(!command.payload.visible);
           return;
         case "setForecastPlaying":
+          if (command.payload.playing) pendingForecastAtRef.current = null;
           setIsPlaying(command.payload.playing);
           return;
         case "auth_token":
@@ -426,7 +454,7 @@ export function EmbedMapClient() {
           return;
       }
     },
-    [maxTimelineIndex, placementPoint, postEvent],
+    [hourlyTimestamps, isHourlyTimeline, maxTimelineIndex, placementPoint, postEvent],
   );
 
   useEffect(() => {
@@ -439,8 +467,9 @@ export function EmbedMapClient() {
       handleCommand(command);
     };
     const receiveWindowMessage = (event: MessageEvent): void => {
-      // iOS WebView injects window messages without a source; Android uses document.
-      const fromNative = event.source === null && Boolean(window.ReactNativeWebView);
+      // iOS RNCWebView dispatches a synthetic window event with no source/origin.
+      const fromNative = Boolean(window.ReactNativeWebView)
+        && event.source === null && event.origin === "";
       if (event.source !== window && !fromNative) return;
       const command = parseMessage(event);
       if (!command) return;
@@ -458,7 +487,7 @@ export function EmbedMapClient() {
   }, [handleCommand, maxTimelineIndex]);
 
   useEffect(() => {
-    if (!window.ReactNativeWebView || typeof window.requestAnimationFrame !== "function") return;
+    if (!isActive || !window.ReactNativeWebView || typeof window.requestAnimationFrame !== "function") return;
 
     let rafId = 0;
     let frameCount = 0;
@@ -489,7 +518,7 @@ export function EmbedMapClient() {
       window.cancelAnimationFrame(rafId);
       window.clearInterval(intervalId);
     };
-  }, [postEvent]);
+  }, [isActive, postEvent]);
 
   const handleBeachSelect = useCallback(
     (beach: Beach, conditions?: MapSpotConditions): void => {
@@ -581,7 +610,7 @@ export function EmbedMapClient() {
         regionViewport={regionViewport}
         showConditionsOnTap={!isPlacementActive}
         showMapChrome={false}
-        showSwellField={!fieldHidden}
+        showSwellField={isActive && !fieldHidden}
         skillLevel={searchParams.get("skill") ?? undefined}
         swellLayerId={layerId as SwellLayerId}
         swellTimelineIndex={timelineIndex}
