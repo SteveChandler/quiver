@@ -107,6 +107,17 @@ describe('raw wave sources → selection → face-height contracts', () => {
     expect(mergeWaveSources([nws()], [{ ...om(), swell_1_direction: NaN }])[0].data_source).toBe('NOAA_NWS');
   });
 
+  it.each(['swell_2_height', 'swell_2_period', 'swell_2_direction'] as const)(
+    'rejects a source with missing %s without fabricating a partition', (field) => {
+      const incomplete = { ...om(), [field]: null };
+      expect(mergeWaveSources([], [incomplete])).toEqual([]);
+      expect(mergeWaveSources([nws()], [incomplete])[0]).toMatchObject({
+        data_source: 'NOAA_NWS',
+        source_selection: { reason: 'only_source', open_meteo_height_m: null },
+      });
+    },
+  );
+
   it('flags materially different swell exposure even when total heights match, with circular direction comparison', () => {
     const first = { ...nws(), significant_wave_height: 1, swell_1_direction: 350 };
     const second = { ...om(), significant_wave_height: 1, swell_1_direction: 10 };

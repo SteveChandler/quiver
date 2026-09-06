@@ -2,11 +2,12 @@ import type { WaveWatchData } from "./types";
 
 function dominantSwell(point: WaveWatchData): { height: number; period: number; direction: number } {
   // NWS is period-ranked and OM is provider-ranked; compare the same height-ranked train.
-  const secondary = point.swell_2_height > point.swell_1_height
-    || (point.swell_2_height === point.swell_1_height && point.swell_2_period > point.swell_1_period);
-  return secondary
-    ? { height: point.swell_2_height, period: point.swell_2_period, direction: point.swell_2_direction }
-    : { height: point.swell_1_height, period: point.swell_1_period, direction: point.swell_1_direction };
+  if (point.swell_2_height != null && point.swell_2_period != null
+    && point.swell_2_direction != null && (point.swell_2_height > point.swell_1_height
+    || (point.swell_2_height === point.swell_1_height && point.swell_2_period > point.swell_1_period))) {
+    return { height: point.swell_2_height, period: point.swell_2_period, direction: point.swell_2_direction };
+  }
+  return { height: point.swell_1_height, period: point.swell_1_period, direction: point.swell_1_direction };
 }
 
 function valid(point: WaveWatchData): boolean {
@@ -21,9 +22,9 @@ function valid(point: WaveWatchData): boolean {
       [point.swell_1_height, point.swell_1_period, point.swell_1_direction],
       [point.swell_2_height, point.swell_2_period, point.swell_2_direction],
       [point.wind_wave_height, point.wind_wave_period, point.wind_wave_direction],
-    ].every(([height, period, direction]) => Number.isFinite(height) && height >= 0
-      && Number.isFinite(period) && period >= 0
-      && Number.isFinite(direction) && direction >= 0 && direction <= 360);
+    ].every(([height, period, direction]) => height != null && Number.isFinite(height) && height >= 0
+      && period != null && Number.isFinite(period) && period >= 0
+      && direction != null && Number.isFinite(direction) && direction >= 0 && direction <= 360);
 }
 
 /** Select a whole source bundle, never the largest height or a blend of partitions. */
