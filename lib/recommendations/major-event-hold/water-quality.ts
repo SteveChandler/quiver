@@ -486,7 +486,8 @@ export async function resolveWaterQualityHolds(
       }
 
       if (row.status === "advisory" || row.status === "closure") {
-        evidence[beachId] = { source: "sample", ...(typeof row.latest_sample_date === "string" ? { sampleDate: row.latest_sample_date } : {}) };
+        evidence[beachId] = countyHeld.has(beachId) ? { source: "county" }
+          : { source: "sample", ...(typeof row.latest_sample_date === "string" ? { sampleDate: row.latest_sample_date } : {}) };
         heldBeachIds.push(beachId);
         waterQualityStatusByBeachId[beachId] = row.status;
       }

@@ -501,7 +501,7 @@ function MapConditionLegend({
         </div>
       ) : (
         <>
-          <div className="mb-2 text-[10px] font-semibold">Pin colors: today’s surf rating</div>
+          <div className="mb-2 text-[10px] font-semibold">Pin colors: surf rating at selected time</div>
           <div className="flex items-start gap-2">
             <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
               {CONDITION_LEGEND_ITEMS.map((item) => (
