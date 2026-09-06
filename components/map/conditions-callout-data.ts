@@ -1,3 +1,4 @@
+import { mapSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
 import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
 import type { Beach } from "@/types/database";
 
@@ -25,9 +26,10 @@ function swellLabel(heightFt: number, periodS: number | null): string {
 }
 
 export function resolveCalloutComponents(p: SwellPartition): CalloutComponent[] {
+  p = mapSwellPartition(p);
   const out: CalloutComponent[] = [];
 
-  const s1Dir = isReal(p.s1Dir) ? p.s1Dir : p.swellDirOm;
+  const s1Dir = p.s1Dir;
   if (isReal(s1Dir) && isReal(p.s1HeightFt) && p.s1HeightFt > 0) {
     out.push({ kind: "s1", name: "SWELL", bearingDeg: s1Dir, label: swellLabel(p.s1HeightFt, p.s1PeriodS), color: CONDITIONS_CALLOUT_COLORS.s1 });
   }

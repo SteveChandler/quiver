@@ -7,7 +7,8 @@ import type {
 import { API_BATCH_CONFIG } from "@/lib/constants/ui";
 import { fetchInBatches } from "@/lib/utils/batch-fetch";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
-import { selectTimelineFieldBeachIds } from "@/components/map/timeline-beach-sampler";
+import { MAX_TIMELINE_FIELD_BEACHES, selectTimelineFieldBeachIds } from "@/components/map/timeline-beach-sampler";
+import { forecastCache } from "@/lib/utils/request-cache";
 
 export type { ConditionSummary } from "@/app/api/forecasts/bulk/route";
 export type ForecastLoadStatus = "ready" | "empty" | "unavailable";
@@ -38,9 +39,9 @@ export interface BeachLoaderDeps {
  * Result of loadBeachesAndWaveHeights — pure data, no side effects.
  */
 export interface BeachLoaderResult {
-  /** Resolved list of beaches to display on map (max 20) */
+  /** Resolved list of beaches to display on map */
   locations: Beach[];
-  /** Map from beach ID to wave height (includes interpolated values) */
+  /** Map from beach ID to its own forecast wave height. */
   waveHeightMap: Map<string, number | undefined>;
   /** Map from beach ID to canonical forecast display label */
   displayForecastMap: Map<string, ForecastDisplay | undefined>;
@@ -66,6 +67,7 @@ export interface BeachLoaderResult {
 
 export interface BeachLoaderOptions {
   skillLevel?: string;
+  includeWaterQuality?: boolean;
   getAccessToken?: () => string | null;
   onAuthTokenExpired?: () => void;
   timeline?: "hourly";
@@ -79,6 +81,21 @@ export interface BeachLoaderOptions {
   onLocationsResolved?: (locations: Beach[]) => void;
 }
 
+async function waitForForecastRetry(ms: number, signal?: AbortSignal): Promise<void> {
+  assertNotAborted(signal);
+  await new Promise<void>((resolve, reject) => {
+    const abort = (): void => {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
 export async function fetchBulkForecast(
   url: string,
   signal: AbortSignal | undefined,
@@ -86,16 +103,32 @@ export async function fetchBulkForecast(
   onAuthTokenExpired?: () => void,
 ): Promise<Response> {
   const accessToken = getAccessToken?.();
-  if (!accessToken) return fetch(url, { signal });
+  const cacheKey = `map-bulk:${accessToken ?? "guest"}:${url}`;
+  assertNotAborted(signal);
+  const cached = forecastCache.get<Response>(cacheKey);
+  if (cached) return cached.clone();
 
-  const response = await fetch(url, {
-    signal,
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (![401, 403, 500].includes(response.status)) return response;
-
-  onAuthTokenExpired?.();
-  return fetch(url, { signal });
+  const request = async (): Promise<Response> => {
+    if (!accessToken) return fetch(url, { signal });
+    const response = await fetch(url, { signal, headers: { Authorization: `Bearer ${accessToken}` } });
+    if (![401, 403].includes(response.status)) return response;
+    onAuthTokenExpired?.();
+    return fetch(url, { signal });
+  };
+  let response = await request();
+  if (response.status === 429) {
+    const header = response.headers.get("Retry-After");
+    const seconds = header ? Number(header) : NaN;
+    const delay = Number.isFinite(seconds)
+      ? Math.max(1000, seconds * 1000)
+      : Math.max(1000, Date.parse(header ?? "") - Date.now() || 60_000);
+    await waitForForecastRetry(delay, signal);
+    response = await request();
+  }
+  if (response.ok && typeof response.clone === "function") {
+    forecastCache.set(cacheKey, response.clone(), 60_000);
+  }
+  return response;
 }
 
 const REQUIRED_SWELL_PARTITION_KEYS = [
@@ -129,10 +162,8 @@ function isSwellPartition(value: unknown): value is SwellPartition {
     return false;
   }
 
-  return (
-    !("swellDirOm" in partition) ||
-    isFiniteNumberOrNull(partition.swellDirOm)
-  );
+  return (!("swellDirOm" in partition) || isFiniteNumberOrNull(partition.swellDirOm))
+    && (!("conditionScore" in partition) || isFiniteNumberOrNull(partition.conditionScore));
 }
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -227,12 +258,11 @@ function hourlySwellTimelineHasData(
  * React state with the returned result.
  *
  * Beach resolution priority:
- * 1. If `providedBeaches` is non-empty, use those (sliced to 20)
+ * 1. If `providedBeaches` is non-empty, use those
  * 2. Otherwise fetch from nearby API, falling back to public list
  *
  * Wave height fetching:
  * - Batch-fetches from `/api/forecasts/bulk`
- * - Interpolates missing heights from the nearest beach with data
  *
  * @param latitude - Map center latitude
  * @param longitude - Map center longitude
@@ -250,7 +280,7 @@ export async function loadBeachesAndWaveHeights(
 
   // Use provided beaches prop first (filtered beaches from parent)
   if (providedBeaches !== undefined) {
-    locations = providedBeaches.slice(0, 20);
+    locations = providedBeaches;
   } else {
     // Fallback to API fetch when no beaches prop provided
     try {
@@ -318,7 +348,7 @@ export async function loadBeachesAndWaveHeights(
     ? selectTimelineFieldBeachIds(
         locations,
         { lat: latitude, lon: longitude },
-        undefined,
+        locations.length,
         options.timelineFocusBeachId,
       )
     : [];
@@ -327,14 +357,18 @@ export async function loadBeachesAndWaveHeights(
 
   if (beachesForWaveData.length > 0) {
     try {
-      const allBeachIds = beachesForWaveData
-        .map((beach) => beach.id)
-        .filter(Boolean) as string[];
+      const allBeachIds = options.timeline === "hourly" ? hourlyTimelineBeachIds
+        : beachesForWaveData.map((beach) => beach.id).filter(Boolean) as string[];
       let initialForecastResponsePromise = options.initialForecastResponsePromise;
+      const timelineStart = options.timelineStart ?? (
+        allBeachIds.length > (options.timeline === "hourly" ? MAX_TIMELINE_FIELD_BEACHES : API_BATCH_CONFIG.BEACH_ID_BATCH_SIZE)
+          ? new Date(Math.floor(Date.now() / HOUR_MS) * HOUR_MS).toISOString()
+          : undefined
+      );
 
       const results = await fetchInBatches({
         items: allBeachIds,
-        batchSize: API_BATCH_CONFIG.BEACH_ID_BATCH_SIZE,
+        batchSize: options.timeline === "hourly" ? MAX_TIMELINE_FIELD_BEACHES : API_BATCH_CONFIG.BEACH_ID_BATCH_SIZE,
         fetchBatch: async (batchIds) => {
           if (
             initialForecastResponsePromise &&
@@ -349,15 +383,18 @@ export async function loadBeachesAndWaveHeights(
               return { data, expectedBeachIds: batchIds };
             }
           }
+          const batchTimelineBeachIds = hourlyTimelineBeachIds.filter((id) => batchIds.includes(id));
           const searchParams = new URLSearchParams({ beachIds: batchIds.join(",") });
           if (options.skillLevel !== undefined) {
             searchParams.set("skillLevel", options.skillLevel);
           }
-          if (options.timeline === "hourly") {
+          if (options.timeline === "hourly" && batchTimelineBeachIds.length > 0) {
             searchParams.set("timeline", "hourly");
+            searchParams.set("includeConditions", "true");
             if (options.timelineOnly) searchParams.set("timelineOnly", "true");
-            searchParams.set("timelineBeachIds", hourlyTimelineBeachIds.join(","));
-            if (options.timelineStart) searchParams.set("timelineStart", options.timelineStart);
+            else if (timelineStart) searchParams.set("timelineOnly", "false");
+            searchParams.set("timelineBeachIds", batchTimelineBeachIds.join(","));
+            if (timelineStart) searchParams.set("timelineStart", timelineStart);
             if (options.timelineHours !== undefined) {
               searchParams.set("timelineHours", String(options.timelineHours));
             }
@@ -489,10 +526,18 @@ export async function loadBeachesAndWaveHeights(
           data?.data?.hourlySwellTimeline,
           expectedBeachIds,
         );
-        if (options.timeline === "hourly" && !parsedHourlyTimeline) {
+        if (options.timeline === "hourly" && expectedBeachIds.length > 0 && !parsedHourlyTimeline) {
           invalidHourlyTimeline = true;
         } else if (parsedHourlyTimeline) {
-          hourlySwellTimeline = parsedHourlyTimeline;
+          hourlySwellTimeline = hourlySwellTimeline
+            ? {
+                ...hourlySwellTimeline,
+                partitionsByBeach: {
+                  ...hourlySwellTimeline.partitionsByBeach,
+                  ...parsedHourlyTimeline.partitionsByBeach,
+                },
+              }
+            : parsedHourlyTimeline;
         }
       });
 
@@ -516,8 +561,19 @@ export async function loadBeachesAndWaveHeights(
     }
   }
 
-  // Fill missing wave heights from nearest beach with data
-  interpolateMissingWaveHeights(beachesForWaveData, waveHeightMap);
+  if (providedBeaches !== undefined && options.includeWaterQuality && locations.some((beach) => !("waterQualityHold" in beach))) {
+    const anchor = locations.find((beach) => Number.isFinite(beach.lat) && Number.isFinite(beach.lon));
+    if (anchor) {
+      try {
+        const nearby = await deps.fetchNearbyBeaches(anchor.lat!, anchor.lon!, options.signal);
+        const evidence = new Map<string, Beach>((Array.isArray(nearby?.data) ? nearby.data : []).map((beach: Beach) => [beach.id, beach]));
+        locations = locations.map((beach) => ({ ...beach, ...evidence.get(beach.id) }));
+      } catch (error) {
+        assertNotAborted(options.signal);
+        console.warn("Unable to load beach water-quality context", error);
+      }
+    }
+  }
 
   return {
     locations,
@@ -533,38 +589,4 @@ export async function loadBeachesAndWaveHeights(
     hourlyTimelineBeachIds,
     forecastStatus,
   };
-}
-
-/**
- * Fill missing wave heights by copying from the geographically nearest
- * beach that has data. Mutates `waveHeightMap` in place.
- */
-function interpolateMissingWaveHeights(
-  beaches: Beach[],
-  waveHeightMap: Map<string, number | undefined>
-): void {
-  if (waveHeightMap.size === 0 || beaches.length === 0) return;
-
-  const beachesWithData = beaches.filter((b) => waveHeightMap.has(b.id));
-  const beachesWithoutData = beaches.filter((b) => !waveHeightMap.has(b.id));
-
-  for (const beach of beachesWithoutData) {
-    let nearestDistance = Infinity;
-    let nearestHeight: number | undefined;
-
-    for (const dataBeach of beachesWithData) {
-      const dist = Math.hypot(
-        (beach.lat ?? 0) - (dataBeach.lat ?? 0),
-        (beach.lon ?? 0) - (dataBeach.lon ?? 0)
-      );
-      if (dist < nearestDistance) {
-        nearestDistance = dist;
-        nearestHeight = waveHeightMap.get(dataBeach.id);
-      }
-    }
-
-    if (nearestHeight !== undefined) {
-      waveHeightMap.set(beach.id, nearestHeight);
-    }
-  }
 }

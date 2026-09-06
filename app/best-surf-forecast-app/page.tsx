@@ -86,7 +86,7 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     why:
       "Surfline remains the strongest pick for live cams, expert reports, 16-day forecasts, and global coverage.",
     freeTier:
-      "Free tier; Premium $119.99/yr; Premium+ $149.99/yr; App Store 4.7 stars from about 30K ratings (checked on 2026-06-24).",
+      "Free tier; Premium $119.99/yr; Premium+ $149.99/yr (checked on 2026-09-06).",
     tradeoff:
       "The strongest cam and premium features sit behind paid plans, and the product is less centered on your personal session history.",
     sourceHref: "https://www.surfline.com/upgrade",
@@ -97,7 +97,7 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     why:
       "LazySurfer is the closest session-driven personalization competitor and publicly compares itself around per-user prediction and ratings history.",
     freeTier:
-      "Paid personalized session-driven forecasting; no price captured in source notes (checked on 2026-06-24).",
+      "Free tier plus Pro at $7.99/mo or $49.99/yr (checked on 2026-09-06).",
     tradeoff:
       "Its own comparison positions Quiver as cheaper annually, while LazySurfer has broader platform availability.",
     sourceHref: "https://lazysurfer.app/compare/quiver.html",
@@ -108,7 +108,7 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     why:
       "Surf-Forecast.com is useful when you want broad spot coverage, wave maps, tide timing, alerts, and 16-day planning.",
     freeTier:
-      "Free web and app with hourly and 16-day forecasts noted in source check (checked on 2026-06-24).",
+      "Web and app forecasts; hourly forecasts, alerts and 16-day planning are advertised. Check current subscription terms for access.",
     tradeoff:
       "It is a broad forecast product, not a personal session-learning app.",
     sourceHref: "https://www.surf-forecast.com/pages/app-store",
@@ -119,17 +119,17 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     why:
       "Surf Captain is useful when you want straightforward 5-day free forecasts or a low-cost Pro path to 16-day local forecasts for covered regions.",
     freeTier:
-      "Free 5-day forecast with ads; Pro $19.99/yr for 16-day forecasts (checked on 2026-06-24).",
+      "Free 5-day forecast with ads; Pro $19.99/yr for 16-day forecasts (checked on 2026-09-06).",
     tradeoff:
       "It is a simple forecast product, not a personal session-learning app or broad live-cam network.",
     sourceHref: "https://surfcaptain.com/faq",
   },
   {
     job: "Raw wind and swell map reading",
-    bestPick: "Windy",
+    bestPick: "Windy.app",
     why:
       "Windy is strongest when you want to inspect raw wind, swell, and weather layers yourself instead of receiving a finished surf call.",
-    freeTier: "Free raw swell and wind maps (checked on 2026-06-24).",
+    freeTier: "Free wind map; check the current plan for additional forecast layers.",
     tradeoff:
       "You still need to translate model layers into beach-specific surf quality.",
     sourceHref: "https://windy.app/guide/mini-guide-to-surfing.html",
@@ -139,7 +139,7 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     bestPick: "NDBC",
     why:
       "NOAA NDBC is the cleanest free source for buoy observations and historical station data.",
-    freeTier: "Free NOAA buoy observations (checked on 2026-06-24).",
+    freeTier: "Free NOAA buoy observations (checked on 2026-09-06).",
     tradeoff:
       "It is not a consumer surf app and does not convert observations into a local paddle-out recommendation.",
     sourceHref: "https://www.ndbc.noaa.gov/observations.shtml",
@@ -360,11 +360,11 @@ export default function BestSurfForecastAppPage(): ReactElement {
                 <p>
                   The best free choice changes with the job. Surfline offers a
                   free tier, while Premium and Premium+ are paid. Surf-Forecast.com
-                  offers free web and app forecasts. Surf Captain has a free
+                  offers web and app forecasts. Surf Captain has a free
                   5-day forecast with ads, with 16-day forecasts in paid Pro.
-                  Windy provides free raw swell and wind maps, and NDBC provides
-                  free NOAA buoy observations. LazySurfer&apos;s session-driven
-                  personalization is paid.
+                  Windy.app provides a free wind map, and NDBC provides
+                  free NOAA buoy observations. LazySurfer offers a free tier
+                  alongside paid Pro plans.
                 </p>
               </div>
             </div>

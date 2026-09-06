@@ -34,10 +34,13 @@ import type { Database } from "@/types/database.generated";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { MAX_TIMELINE_FIELD_BEACHES } from "@/components/map/timeline-beach-sampler";
 import {
+  conditionSummaryFromScore,
   interpolateSwellPartition,
   rowToSwellPartition,
   type SwellPartition,
 } from "./swell-partition";
+
+import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event-hold/adapters/shared";
 
 export const dynamic = 'force-dynamic';
 
@@ -84,7 +87,7 @@ const BULK_FORECAST_SELECT =
   "beach_id, forecast_date, forecast_time, forecast_at, wave_height, wave_period, wave_direction, wave_height_om, wave_direction_om, swell_height_om, swell_period_om, swell_direction_om, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_wave_height, wind_wave_period, wind_wave_direction, wind_speed, wind_direction, wind_direction_deg, water_temp, tide_height, tide_status, confidence_score, data_source" as const;
 
 const HOURLY_TIMELINE_SELECT =
-  "beach_id, forecast_at, swell_direction_om, wave_direction_om, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_speed, wind_direction_deg" as const;
+  "beach_id, forecast_at, swell_height_om, swell_period_om, swell_direction_om, wave_direction_om, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_speed, wind_direction_deg" as const;
 
 const BULK_BEACH_SELECT =
   "id, name, slug, lat, lon, city, state, country, region, timezone, break_type, skill_level, cdip_station, cdip_eligible, wind_offshore_deg, wind_offshore_tol_deg, wind_cross_shore_ok_kt, wind_onshore_bad_kt, swell_window_center_deg, swell_window_halfwidth_deg, swell_access_factors, wind_exposure_factors, preferred_tide_direction, preferred_tide_ft_min, preferred_tide_ft_max, tide_direction_sensitivity, preference_model, features, hazards, average_rating, review_count, shoaling_factors" as const;
@@ -123,7 +126,8 @@ type HourlyTimelineWindowParseResult =
  *
  * Query params:
  * - beachIds: comma-separated list of beach IDs (required)
- * - timelineOnly=true: hourly timeline phase-2 response without forecast enrichment
+ * - timelineOnly=true: omit today-headline enrichment
+ * - includeConditions=true: add safety-checked suitability scores to hourly partitions
  *
  * Returns:
  * {
@@ -146,14 +150,7 @@ type HourlyTimelineWindowParseResult =
  *   }
  * }
  */
-export function conditionSummaryFromScore(score: number): ConditionSummary {
-  if (!Number.isFinite(score)) return "UNKNOWN";
-  if (score >= 80) return "EPIC";
-  if (score >= 70) return "GOOD";
-  if (score >= 55) return "FAIR";
-  if (score >= 40) return "RIDEABLE";
-  return "MEH";
-}
+export { conditionSummaryFromScore } from "./swell-partition";
 
 function buildBulkCandidateBindings(
   response: BulkForecastResponseLike,
@@ -449,9 +446,14 @@ function forecastAtMs(row: Pick<EnhancedForecastEntity, "forecast_at">): number 
 function partitionForTimelineHour(
   rowsByHour: ReadonlyMap<number, EnhancedForecastEntity>,
   hourMs: number,
+  scores?: ReadonlyMap<EnhancedForecastEntity, number | null>,
 ): SwellPartition | null {
+  const partition = (row: EnhancedForecastEntity): SwellPartition => ({
+    ...rowToSwellPartition(row),
+    ...(scores ? { conditionScore: scores.get(row) ?? null } : {}),
+  });
   const exact = rowsByHour.get(hourMs);
-  if (exact) return rowToSwellPartition(exact);
+  if (exact) return partition(exact);
 
   let previous: EnhancedForecastEntity | null = null;
   let next: EnhancedForecastEntity | null = null;
@@ -477,8 +479,8 @@ function partitionForTimelineHour(
   }
 
   return interpolateSwellPartition(
-    rowToSwellPartition(previous),
-    rowToSwellPartition(next),
+    partition(previous),
+    partition(next),
     (hourMs - previousMs) / (nextMs - previousMs),
   );
 }
@@ -488,6 +490,7 @@ function buildHourlySwellTimeline(
   beachIds: string[],
   window: HourlyTimelineWindow,
   nextStart: string | null,
+  scores?: ReadonlyMap<EnhancedForecastEntity, number | null>,
 ): HourlySwellTimeline {
   const requestedBeachIds = new Set(beachIds);
   const rowsByBeach = new Map<string, Map<number, EnhancedForecastEntity>>();
@@ -527,7 +530,7 @@ function buildHourlySwellTimeline(
       beachId,
       hourKeys.map((hourMs) => {
         const beachRows = rowsByBeach.get(beachId);
-        return beachRows ? partitionForTimelineHour(beachRows, hourMs) : null;
+        return beachRows ? partitionForTimelineHour(beachRows, hourMs, scores) : null;
       }),
     ]),
   ) as Record<string, Array<SwellPartition | null>>;
@@ -545,20 +548,22 @@ export async function fetchHourlySwellTimelineRows(
   beachIds: string[],
   start: Date,
   end: Date,
+  includeConditions = false,
 ): Promise<{
   data: EnhancedForecastEntity[] | null;
   error: { message: string } | null;
 }> {
   const anchorTimestamps = timelineAnchorTimestamps(start, end);
   const chunks: string[][] = [];
-  for (let index = 0; index < beachIds.length; index += 10) {
-    chunks.push(beachIds.slice(index, index + 10));
+  const chunkSize = Math.min(10, Math.max(1, Math.floor(999 / Math.max(1, anchorTimestamps.length))));
+  for (let index = 0; index < beachIds.length; index += chunkSize) {
+    chunks.push(beachIds.slice(index, index + chunkSize));
   }
   const chunkResults = await Promise.all(
     chunks.map((chunk) =>
       supabase
         .from("enhanced_forecasts")
-        .select(HOURLY_TIMELINE_SELECT)
+        .select((includeConditions ? BULK_FORECAST_SELECT : HOURLY_TIMELINE_SELECT) as string)
         .in("beach_id", chunk)
         .in("forecast_at", anchorTimestamps)
         .gte("forecast_at", new Date(start.getTime() - HOURLY_SAMPLE_HALO_MS).toISOString())
@@ -619,6 +624,7 @@ async function fetchHourlySwellTimeline(
   supabase: SupabaseClient<Database>,
   beachIds: string[],
   window: HourlyTimelineWindow,
+  scoring?: { skillLevel: string | null; boardClasses: BoardClass[] },
 ): Promise<{
   timeline: HourlySwellTimeline | null;
   error: { message: string } | null;
@@ -628,6 +634,7 @@ async function fetchHourlySwellTimeline(
     beachIds,
     window.start,
     window.end,
+    Boolean(scoring),
   );
   const nextStartPromise = fetchNextHourlySwellTimelineStart(
     supabase,
@@ -649,10 +656,45 @@ async function fetchHourlySwellTimeline(
   const { nextStart, error: nextStartError } = nextStartResult;
   if (nextStartError) return { timeline: null, error: nextStartError };
 
-  return {
-    timeline: buildHourlySwellTimeline(rows, beachIds, window, nextStart),
-    error: null,
-  };
+  let scores: Map<EnhancedForecastEntity, number | null> | undefined;
+  if (scoring) {
+    const result = await supabase.from("beaches").select(BULK_BEACH_SELECT).in("id", beachIds);
+    if (result.error) return { timeline: null, error: { message: result.error.message } };
+    const beaches = new Map((result.data as unknown as Beach[]).map((beach) => [beach.id, beach]));
+    scores = new Map();
+    const displayRows = await applyV51DisplayOverrideToForecasts(rows);
+    const displayByTime = new Map(displayRows.map((row) => [`${row.beach_id}:${row.forecast_at}`, row]));
+    for (const row of rows) {
+      const displayRow = displayByTime.get(`${row.beach_id}:${row.forecast_at}`) ?? row;
+      const beach = beaches.get(row.beach_id);
+      const score = beach && displayRow.wave_height != null
+        ? scoreWindowConditionScore(displayRow, beach, scoring.skillLevel, null, scoring.boardClasses)
+        : null;
+      scores.set(row, score != null && Number.isFinite(score) ? score : null);
+    }
+  }
+  const timeline = buildHourlySwellTimeline(rows, beachIds, window, nextStart, scores);
+  if (scoring) {
+    const candidates = Object.entries(timeline.partitionsByBeach).flatMap(([beachId, partitions]) =>
+      partitions.flatMap((partition, index) => partition?.conditionScore == null ? [] : [{
+        candidateId: `hourly-map:${beachId}:${timeline.timestamps[index]}`,
+        beachId,
+        startsAt: timeline.timestamps[index],
+        endsAt: new Date(Date.parse(timeline.timestamps[index]) + HOUR_MS).toISOString(),
+      }]),
+    );
+    const decisions = await evaluateMajorEventHoldCandidates({ candidates, profileExperience: scoring.skillLevel });
+    const boundary = resolveMajorEventHoldBoundary(candidates, candidates, decisions);
+    const unavailable = boundary.recommendationAvailability.reasonCode === "hold_state_unavailable";
+    for (const [beachId, partitions] of Object.entries(timeline.partitionsByBeach)) {
+      partitions.forEach((partition, index) => {
+        if (partition && (unavailable || boundary.blockedCandidateIds.has(`hourly-map:${beachId}:${timeline.timestamps[index]}`))) {
+          partition.conditionScore = null;
+        }
+      });
+    }
+  }
+  return { timeline, error: null };
 }
 
 async function fetchBulkForecastRowsWithV51Display(
@@ -791,12 +833,36 @@ export async function bulkForecastHandler(
     }
     const timelineBeachIds = timelineBeachIdResult?.beachIds ?? [];
     const { supabase, user } = context;
+    const includeConditions = searchParams.get("includeConditions") === "true";
+    const timelineResponseOnly = (isHourlyTimelineExtension && timelineOnlyParam !== "false") || isHourlyTimelineOnly;
+    const loadScoring = includeConditions || !timelineResponseOnly;
+    const [profileSkillLevel, boardClasses] = await Promise.all([
+      loadScoring ? getProfileExperienceLevel(supabase, user?.id) : Promise.resolve(null),
+      user?.id && loadScoring
+        ? supabase
+            .from("boards")
+            .select("board_type")
+            .eq("user_id", user.id)
+            .then(({ data }) => Array.from(new Set(
+              (data ?? [])
+                .map((row) => normalizeBoardClass(row.board_type))
+                .filter((boardClass): boardClass is BoardClass => boardClass !== null)
+            )))
+        : Promise.resolve<BoardClass[]>([]),
+    ]);
+    // Authenticated profiles win; the validated hint covers native WebViews without cookies.
+    const userSkillLevel = profileSkillLevel ?? parseSkillLevel(
+      searchParams.get("skillLevel"),
+    );
+    const scoring = includeConditions ? { skillLevel: userSkillLevel ?? null, boardClasses } : undefined;
 
-    if ((isHourlyTimelineExtension || isHourlyTimelineOnly) && hourlyTimelineWindow) {
+
+    if (timelineResponseOnly && hourlyTimelineWindow) {
       const { timeline, error } = await fetchHourlySwellTimeline(
         supabase,
         timelineBeachIds,
         hourlyTimelineWindow,
+        scoring,
       );
       if (error || !timeline) {
         console.error("Error fetching hourly swell timeline:", error);
@@ -828,7 +894,7 @@ export async function bulkForecastHandler(
       fetchWindow.end
     );
     const hourlyTimelinePromise = hourlyTimelineWindow
-      ? fetchHourlySwellTimeline(supabase, timelineBeachIds, hourlyTimelineWindow)
+      ? fetchHourlySwellTimeline(supabase, timelineBeachIds, hourlyTimelineWindow, scoring)
       : Promise.resolve(null);
     const beachPromise = supabase
       .from("beaches")
@@ -850,24 +916,6 @@ export async function bulkForecastHandler(
       },
     );
 
-    const [profileSkillLevel, boardClasses] = await Promise.all([
-      getProfileExperienceLevel(supabase, user?.id),
-      user?.id
-        ? supabase
-            .from("boards")
-            .select("board_type")
-            .eq("user_id", user.id)
-            .then(({ data }) => Array.from(new Set(
-              (data ?? [])
-                .map((row) => normalizeBoardClass(row.board_type))
-                .filter((boardClass): boardClass is BoardClass => boardClass !== null)
-            )))
-        : Promise.resolve<BoardClass[]>([]),
-    ]);
-    // Authenticated profiles win; the validated hint covers native WebViews without cookies.
-    const userSkillLevel = profileSkillLevel ?? parseSkillLevel(
-      searchParams.get("skillLevel"),
-    );
     const hourlyTimelineSettledPromise = hourlyTimelinePromise.then(
       (value) => ({ status: "fulfilled" as const, value }),
       (reason: unknown) => ({ status: "rejected" as const, reason }),

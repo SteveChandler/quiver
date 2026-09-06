@@ -7,8 +7,12 @@ import { compassToDegrees } from "@/components/map/swell-map-theme";
  * live `enhanced_forecasts` rows are sparse.
  */
 export interface SwellPartition {
+  /** Hourly beach suitability; null when scoring or safety evidence is unavailable. */
+  conditionScore?: number | null;
   s1Dir: number | null; // degrees
   swellDirOm?: number | null; // Open-Meteo swell direction (deg), with wave_direction_om fallback — matches native's field-direction source
+  swellHeightOmFt?: number | null;
+  swellPeriodOmS?: number | null;
   s1PeriodS: number | null;
   s1HeightFt: number | null;
   s2Dir: number | null; // degrees
@@ -58,12 +62,18 @@ export function interpolateSwellPartition(
 ): SwellPartition {
   const t = clamp01(progress);
   return {
+    ...("conditionScore" in from || "conditionScore" in to ? {
+      conditionScore: from.conditionScore == null || to.conditionScore == null
+        ? null : lerpNullable(from.conditionScore, to.conditionScore, t),
+    } : {}),
     s1Dir: lerpDirectionNullable(from.s1Dir, to.s1Dir, t),
     swellDirOm: lerpDirectionNullable(
       from.swellDirOm ?? null,
       to.swellDirOm ?? null,
       t,
     ),
+    swellHeightOmFt: lerpNullable(from.swellHeightOmFt ?? null, to.swellHeightOmFt ?? null, t),
+    swellPeriodOmS: lerpNullable(from.swellPeriodOmS ?? null, to.swellPeriodOmS ?? null, t),
     s1PeriodS: lerpNullable(from.s1PeriodS, to.s1PeriodS, t),
     s1HeightFt: lerpNullable(from.s1HeightFt, to.s1HeightFt, t),
     s2Dir: lerpDirectionNullable(from.s2Dir, to.s2Dir, t),
@@ -116,6 +126,8 @@ type SwellPartitionRow = Pick<
   | "swell_2_direction"
   | "wind_speed"
 > & {
+  swell_height_om?: number | null;
+  swell_period_om?: number | null;
   // Typed `number | null` in EnhancedForecastEntity, but live `enhanced_forecasts`
   // rows store wind_direction_deg as a compass/numeric STRING — accept both.
   wind_direction_deg?: number | string | null;
@@ -125,6 +137,8 @@ export function rowToSwellPartition(row: SwellPartitionRow): SwellPartition {
   return {
     s1Dir: parseDirection(row.swell_1_direction),
     swellDirOm: parseDirection(row.swell_direction_om ?? row.wave_direction_om),
+    swellHeightOmFt: row.swell_direction_om != null && row.swell_height_om != null ? row.swell_height_om * METERS_TO_FEET : null,
+    swellPeriodOmS: parseFiniteFloat(row.swell_period_om),
     s1PeriodS: parseFiniteFloat(row.swell_1_period),
     s1HeightFt: parseSwellHeightFt(row.swell_1_height),
     s2Dir: parseDirection(row.swell_2_direction),
@@ -134,4 +148,21 @@ export function rowToSwellPartition(row: SwellPartitionRow): SwellPartition {
     // wind_speed live rows store "<n> mph" → already mph, no conversion.
     windMph: parseFiniteFloat(row.wind_speed),
   };
+}
+
+/** Map swell uses one complete offshore provider tuple; never mix its direction with a beach partition. */
+export function mapSwellPartition(partition: SwellPartition): SwellPartition {
+  if (partition.swellDirOm == null || !Number.isFinite(partition.swellDirOm)
+    || !partition.swellHeightOmFt || !Number.isFinite(partition.swellHeightOmFt) || partition.swellHeightOmFt <= 0
+    || !partition.swellPeriodOmS || !Number.isFinite(partition.swellPeriodOmS) || partition.swellPeriodOmS <= 0) return partition;
+  return { ...partition, s1Dir: partition.swellDirOm, s1HeightFt: partition.swellHeightOmFt, s1PeriodS: partition.swellPeriodOmS };
+}
+
+export function conditionSummaryFromScore(score: number): import("./route").ConditionSummary {
+  if (!Number.isFinite(score)) return "UNKNOWN";
+  if (score >= 80) return "EPIC";
+  if (score >= 70) return "GOOD";
+  if (score >= 55) return "FAIR";
+  if (score >= 40) return "RIDEABLE";
+  return "MEH";
 }

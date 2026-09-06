@@ -121,7 +121,13 @@ export interface WaterQualityHoldClient {
   };
 }
 
+export interface WaterQualityEvidence {
+  source: "sample" | "county" | "hold";
+  sampleDate?: string;
+}
+
 export interface WaterQualityHoldResolution {
+  waterQualityEvidenceByBeachId?: Record<string, WaterQualityEvidence>;
   state: "resolved" | "unresolved";
   heldBeachIds: string[];
   waterQualityStatusByBeachId: Record<string, WaterQualityHoldStatus>;
@@ -451,6 +457,7 @@ export async function resolveWaterQualityHolds(
       .map((row) => row.beach_id));
     for (const row of effectiveRows) rowsByBeachId.set(row.beach_id, row);
 
+    const evidence: Record<string, WaterQualityEvidence> = {};
     const heldBeachIds: string[] = [];
     const waterQualityStatusByBeachId: Record<
       string,
@@ -460,6 +467,7 @@ export async function resolveWaterQualityHolds(
     for (const beachId of requestedBeachIds) {
       const row = rowsByBeachId.get(beachId);
       if (ownerHeldBeachIds.has(beachId)) {
+        evidence[beachId] = { source: "hold" };
         heldBeachIds.push(beachId);
         if (row?.status === "advisory" || row?.status === "closure") {
           waterQualityStatusByBeachId[beachId] = row.status;
@@ -478,6 +486,8 @@ export async function resolveWaterQualityHolds(
       }
 
       if (row.status === "advisory" || row.status === "closure") {
+        evidence[beachId] = countyHeld.has(beachId) ? { source: "county" }
+          : { source: "sample", ...(typeof row.latest_sample_date === "string" ? { sampleDate: row.latest_sample_date } : {}) };
         heldBeachIds.push(beachId);
         waterQualityStatusByBeachId[beachId] = row.status;
       }
@@ -494,6 +504,9 @@ export async function resolveWaterQualityHolds(
       for (const [beachId, status] of Object.entries(
         liveResolution.waterQualityStatusByBeachId,
       )) {
+        if (status === "closure" || waterQualityStatusByBeachId[beachId] !== "closure") {
+          evidence[beachId] = { source: "county" };
+        }
         waterQualityStatusByBeachId[beachId] =
           moreSevereWaterQualityStatus(
             waterQualityStatusByBeachId[beachId],
@@ -506,7 +519,7 @@ export async function resolveWaterQualityHolds(
       snapshot.push(...liveResolution.snapshot);
     }
 
-    return unresolved
+    const resolution = unresolved
       ? unresolvedResolution(
           heldBeachIds,
           [...resolutionSnapshot, ...snapshot],
@@ -517,6 +530,7 @@ export async function resolveWaterQualityHolds(
           [...resolutionSnapshot, ...snapshot],
           waterQualityStatusByBeachId,
         );
+    return { ...resolution, waterQualityEvidenceByBeachId: evidence };
   } catch (error) {
     console.error("[water-quality-hold:resolution-threw]", {
       beachCount: requestedBeachIds.length,

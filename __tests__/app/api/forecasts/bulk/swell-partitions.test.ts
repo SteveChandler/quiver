@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { rowToSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
+import { interpolateSwellPartition, rowToSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
 
 describe("rowToSwellPartition", () => {
   it("parses real-shaped live fields (ft + compass + mph) into numbers", () => {
@@ -97,4 +97,25 @@ describe("rowToSwellPartition", () => {
     expect(p.windDir).toBeNull();
     expect(p.windMph).toBeNull();
   });
+});
+
+describe("map swell source consistency", () => {
+  it("uses a complete offshore tuple for both the field and the selected reading", () => {
+    const { mapSwellPartition } = require("@/app/api/forecasts/bulk/swell-partition");
+    const { partitionToPoint } = require("@/components/map/swell-field/field-sampler");
+    const { resolveCalloutComponents } = require("@/components/map/conditions-callout-data");
+    const partition = { s1Dir: 292.5, s1HeightFt: 1.7, s1PeriodS: 18, swellDirOm: 182, swellHeightOmFt: 4, swellPeriodOmS: 12, s2Dir: null, s2HeightFt: null, s2PeriodS: null, windDir: null, windMph: null };
+    expect(mapSwellPartition(partition)).toMatchObject({ s1Dir: 182, s1HeightFt: 4, s1PeriodS: 12 });
+    expect(partitionToPoint(-117.25, 32.74, partition, "s1")).toMatchObject({ dir: 182, heightFt: 4, periodS: 12 });
+    expect(resolveCalloutComponents(partition)[0]).toMatchObject({ bearingDeg: 182, label: "4ft, 12s" });
+    expect(mapSwellPartition({ ...partition, swellPeriodOmS: null }).s1Dir).toBe(292.5);
+    expect(partitionToPoint(-117.25, 32.74, { ...partition, swellPeriodOmS: null, s1PeriodS: null }, "s1")).toBeNull();
+  });
+});
+
+it("does not interpolate an unavailable safety score into a positive pin color", () => {
+  const from = { ...rowToSwellPartition({} as never), conditionScore: null };
+  const to = { ...from, conditionScore: 80 };
+  expect(interpolateSwellPartition(from, to, 0.5).conditionScore).toBeNull();
+  expect(interpolateSwellPartition(to, from, 0.5).conditionScore).toBeNull();
 });

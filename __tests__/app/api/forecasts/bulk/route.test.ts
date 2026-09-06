@@ -568,6 +568,42 @@ describe("/api/forecasts/bulk", () => {
     ) as any;
   });
 
+  it("retains current details when an initial timeline batch supplies a shared start time", async () => {
+    const rows = [hourlyTimelineRow("beach-1", "2", "2026-07-07T18:00:00.000Z")];
+    mockBulkQueries({ forecastRows: rows, hourlyTimelineRows: rows, beachRows: [beachRow("beach-1")] });
+    const response = await GET(createHourlyTimelineRequest(
+      "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly&timelineOnly=false&timelineStart=2026-07-07T18:00:00.000Z&timelineHours=1",
+    ));
+    expect(response.status).toBe(200);
+    const body = (await response.json()).data;
+    expect(body.forecasts["beach-1"]).toBe(2);
+    expect(body.hourlySwellTimeline.timestamps).toEqual(["2026-07-07T18:00:00.000Z"]);
+    expect(getProfileExperienceLevel).toHaveBeenCalled();
+  });
+
+  it.each(["allow", "blocked", "unavailable"] as const)("returns time-aligned condition scores with %s safety decisions", async (state) => {
+    const rows = [
+      hourlyTimelineRow("11111111-1111-4111-8111-111111111111", "2", "2026-07-07T18:00:00.000Z"),
+      hourlyTimelineRow("11111111-1111-4111-8111-111111111111", "5", "2026-07-07T21:00:00.000Z"),
+    ];
+    mockBulkQueries({ extensionOnly: true, hourlyTimelineRows: rows, beachRows: [beachRow("11111111-1111-4111-8111-111111111111")] });
+    (scoreWindowConditionScore as jest.Mock).mockImplementation((row) => row.wave_height === "2" ? 75 : 30);
+    mockEvaluateMajorEventHoldCandidates.mockImplementation(({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+      Promise.resolve(candidates.map(({ candidateId }) => majorEventDecision(candidateId, state))));
+    const response = await GET(createHourlyTimelineRequest(
+      "http://localhost:3000/api/forecasts/bulk?beachIds=11111111-1111-4111-8111-111111111111&timeline=hourly&timelineOnly=true&includeConditions=true&timelineStart=2026-07-07T18:00:00.000Z&timelineHours=4",
+    ));
+    expect(response.status).toBe(200);
+    const timeline = (await response.json()).data.hourlySwellTimeline;
+    expect(timeline.partitionsByBeach["11111111-1111-4111-8111-111111111111"].map((p: { conditionScore: number | null }) => p.conditionScore))
+      .toEqual(state === "allow" ? [75, 60, 45, 30] : [null, null, null, null]);
+    expect(timeline.partitionsByBeach["11111111-1111-4111-8111-111111111111"][0].s1Dir).toBe(270);
+    expect(applyV51DisplayOverrideToForecasts).toHaveBeenCalledWith(rows);
+    expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledWith(expect.objectContaining({
+      candidates: expect.arrayContaining([expect.objectContaining({ startsAt: "2026-07-07T19:00:00.000Z" })]),
+    }));
+  });
+
   it("chunks hourly timeline rows by beach to avoid the PostgREST row cap", async () => {
     const beachIds = Array.from({ length: 20 }, (_, index) => `beach-${index}`);
     const { hourlyTimelineChain, nextHourlyTimelineChain } = mockBulkQueries({
@@ -1733,7 +1769,7 @@ describe("/api/forecasts/bulk", () => {
   });
 
   it("requires an explicit bounded timeline sample for larger marker sets", async () => {
-    const beachIds = Array.from({ length: 9 }, (_, index) => `beach-${index}`);
+    const beachIds = Array.from({ length: 21 }, (_, index) => `beach-${index}`);
     const response = await GET(
       createHourlyTimelineRequest(
         `http://localhost:3000/api/forecasts/bulk?beachIds=${beachIds.join(",")}&timeline=hourly`,
@@ -1742,16 +1778,16 @@ describe("/api/forecasts/bulk", () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual(expect.objectContaining({
-      error: "timelineBeachIds is required when beachIds includes more than 8 beaches",
+      error: "timelineBeachIds is required when beachIds includes more than 20 beaches",
     }));
     expect(mockSupabaseClient.from).not.toHaveBeenCalled();
   });
 
   it.each([
     {
-      label: "more than eight timeline beaches",
-      timelineBeachIds: Array.from({ length: 9 }, (_, index) => `beach-${index}`),
-      error: "timelineBeachIds supports at most 8 beaches",
+      label: "more than twenty timeline beaches",
+      timelineBeachIds: Array.from({ length: 21 }, (_, index) => `beach-${index}`),
+      error: "timelineBeachIds supports at most 20 beaches",
     },
     {
       label: "a timeline beach outside the marker set",
@@ -1759,7 +1795,7 @@ describe("/api/forecasts/bulk", () => {
       error: "timelineBeachIds must be a subset of beachIds",
     },
   ])("rejects $label", async ({ timelineBeachIds, error }) => {
-    const beachIds = Array.from({ length: 9 }, (_, index) => `beach-${index}`);
+    const beachIds = Array.from({ length: 21 }, (_, index) => `beach-${index}`);
     const response = await GET(
       createHourlyTimelineRequest(
         `http://localhost:3000/api/forecasts/bulk?beachIds=${beachIds.join(",")}&timeline=hourly&timelineBeachIds=${timelineBeachIds.join(",")}`,

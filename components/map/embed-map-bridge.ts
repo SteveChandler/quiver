@@ -22,9 +22,10 @@ export interface EmbedMapViewport {
 }
 
 export type EmbedMapCommand =
+  | { type: "setActive"; payload: { active: boolean } }
   | { type: "setViewport"; payload: EmbedMapViewport }
   | { type: "setLayer"; payload: { layerId: EmbedMapSwellLayerId } }
-  | { type: "setForecastTime"; payload: { index: number } }
+  | { type: "setForecastTime"; payload: { index: number; forecastAt?: string } }
   | { type: "setSelectedSpot"; payload: { beachId: string; lat?: number; lon?: number } }
   | { type: "focusSelectedSpot"; payload: { beachId: string } }
   | { type: "startPlacement"; payload?: EmbedMapCoordinate }
@@ -165,7 +166,12 @@ export function parseEmbedMapCommand(
         ? null
         : {
             type: "setForecastTime",
-            payload: { index: clampForecastTimeIndex(index, maxForecastTimeIndex) },
+            payload: {
+              index: clampForecastTimeIndex(index, maxForecastTimeIndex),
+              ...(typeof payload.forecastAt === "string" && Number.isFinite(Date.parse(payload.forecastAt))
+                ? { forecastAt: new Date(payload.forecastAt).toISOString() }
+                : {}),
+            },
           };
     }
     case "setSelectedSpot": {
@@ -207,6 +213,10 @@ export function parseEmbedMapCommand(
     case "setReducedMotion": {
       if (!isRecord(payload) || typeof payload.enabled !== "boolean") return null;
       return { type: "setReducedMotion", payload: { enabled: payload.enabled } };
+    }
+    case "setActive": {
+      if (!isRecord(payload) || typeof payload.active !== "boolean") return null;
+      return { type: "setActive", payload: { active: payload.active } };
     }
     case "setFieldVisible": {
       if (!isRecord(payload) || typeof payload.visible !== "boolean") return null;

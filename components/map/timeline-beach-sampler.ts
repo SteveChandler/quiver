@@ -1,6 +1,6 @@
 import type { Beach } from "@/types/database";
 
-export const MAX_TIMELINE_FIELD_BEACHES = 8;
+export const MAX_TIMELINE_FIELD_BEACHES = 20;
 
 interface TimelineBeachCandidate {
   beach: Beach;
@@ -34,7 +34,7 @@ export function selectTimelineFieldBeachIds(
     return true;
   });
   if (uniqueBeaches.length <= cappedLimit) {
-    return uniqueBeaches.map((beach) => beach.id);
+    return uniqueBeaches.map((beach) => beach.id).sort((a, b) => a === preferredBeachId ? -1 : b === preferredBeachId ? 1 : 0);
   }
 
   const candidates = uniqueBeaches.flatMap<TimelineBeachCandidate>((beach) => {
