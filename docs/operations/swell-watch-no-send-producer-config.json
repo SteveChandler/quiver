@@ -1,0 +1,93 @@
+{
+  "cohort": [
+    {
+      "sourcePointId": "01330afc-00d3-461b-88f3-b173774766f4",
+      "regionKey": "san-diego"
+    },
+    {
+      "sourcePointId": "4b0cf129-c706-4e24-8210-2219defc5ea7",
+      "regionKey": "san-diego"
+    },
+    {
+      "sourcePointId": "72726bcb-bed0-4b76-8336-f90d7fb57159",
+      "regionKey": "orange-county"
+    },
+    {
+      "sourcePointId": "025cfc18-8357-49d6-994e-e0abf0a16f6d",
+      "regionKey": "orange-county"
+    },
+    {
+      "sourcePointId": "2609a9ff-d247-4e0b-888f-a793ff7177a5",
+      "regionKey": "santa-cruz"
+    },
+    {
+      "sourcePointId": "e8a921b7-c2b5-4259-9e5c-bd06765f7ae4",
+      "regionKey": "san-francisco"
+    },
+    {
+      "sourcePointId": "6a0674ac-3e6d-49f3-9fd4-a4f1857c408a",
+      "regionKey": "oahu-north"
+    },
+    {
+      "sourcePointId": "2ac8b200-fdf2-4822-bcb1-3ec336b83d05",
+      "regionKey": "oahu-south"
+    },
+    {
+      "sourcePointId": "d264fbf8-0525-4d31-adb5-9a0742eaeb7e",
+      "regionKey": "outer-banks"
+    },
+    {
+      "sourcePointId": "f11ccd59-b778-4ea1-a8ff-88bffb447cd8",
+      "regionKey": "rincon-pr"
+    }
+  ],
+  "policy": {
+    "schema_version": "swell-watch-policy.v2",
+    "profile_id": "swell-watch-no-send-evaluation-proposal.v1",
+    "provenance": "pending_review",
+    "policy_values": {
+      "local_significance": {
+        "minimum_height_rise_ft": 1,
+        "minimum_energy_ratio": 1.25
+      },
+      "local_impact": {
+        "minimum_impact_score": 1
+      },
+      "partition_matching": {
+        "maximum_direction_delta_deg": 25,
+        "maximum_period_delta_s": 2,
+        "maximum_arrival_delta_hours": 6
+      },
+      "missing_or_disagreement": {
+        "suppress_on_missing_partition": true,
+        "suppress_on_material_source_disagreement": true
+      },
+      "actionability": {
+        "minimum_days_before_arrival": 2,
+        "maximum_days_before_arrival": 5
+      },
+      "stability": {
+        "minimum_genuine_evaluations": 2
+      },
+      "volume_caps": {
+        "maximum_candidates_per_region": 50,
+        "maximum_recipients_per_event": 1000,
+        "maximum_projected_sends_per_window": 1000,
+        "projected_send_window_hours": 24
+      },
+      "provider_failure_hold": {
+        "window_minutes": 60,
+        "maximum_failure_rate": 0.05,
+        "minimum_samples": 20
+      },
+      "staleness": {
+        "maximum_forecast_age_hours": 12
+      },
+      "cadence": {
+        "evaluation_interval_minutes": 60
+      }
+    },
+    "value_hash": "4c9ec372e9dff824039956ef5d2f46e6d3445b9d0d80d6626cac9932de436ecd",
+    "approval_evidence": null
+  }
+}

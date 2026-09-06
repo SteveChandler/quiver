@@ -63,6 +63,12 @@ function resolvedCacheControl(path: string, rules: HeaderRule[]): string | undef
 }
 
 describe("next.config private endpoint cache policy", () => {
+  it.each(["/api/cron/swell-watch-acquire", "/api/cron/swell-watch-evaluate"])(
+    "emits no-store for the no-send operation %s", async (path) => {
+      expect(resolvedCacheControl(path, await loadConfiguredHeaders()))
+        .toBe("private, no-store, no-cache, must-revalidate");
+    },
+  );
   it("emits no-store for experiments while retaining the blanket policy for a control API path", async () => {
     const headers = await loadConfiguredHeaders();
 
