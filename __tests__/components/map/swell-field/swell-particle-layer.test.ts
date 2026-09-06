@@ -183,6 +183,7 @@ describe("createSwellParticleLayer — particle count", () => {
     fields?: FlowField[];
     captureUploads?: boolean;
     timestamps?: number[];
+    beforeRender?: (map: import("mapbox-gl").Map, index: number) => void;
   }): {
     mode: number;
     vertexCount: number;
@@ -230,6 +231,7 @@ describe("createSwellParticleLayer — particle count", () => {
       uniformMatrix4fv: jest.fn(),
       uniform3f: jest.fn(),
       uniform1f: jest.fn(),
+      uniform1i: jest.fn(),
       enable: jest.fn(),
       blendFunc: jest.fn(),
       bindBuffer: jest.fn(),
@@ -286,6 +288,7 @@ describe("createSwellParticleLayer — particle count", () => {
     layer.onAdd?.(map, gl);
     try {
       for (let i = 0; i < (opts?.renders ?? 1); i += 1) {
+        opts?.beforeRender?.(map, i);
         layer.render(gl, new Array(16).fill(0));
       }
     } finally {
@@ -308,6 +311,23 @@ describe("createSwellParticleLayer — particle count", () => {
       TRIANGLES,
     };
   }
+
+  it("spreads existing particles across the wider viewport after zooming out", () => {
+    const mapbox = require("mapbox-gl").default;
+    const from = jest.spyOn(mapbox.MercatorCoordinate, "fromLngLat").mockImplementation((value: any) => new mapbox.MercatorCoordinate(value.lng, value.lat));
+    const result = renderedDraw({ count: 100, markStyle: "dot", captureUploads: true, renders: 2, reducedMotion: true,
+      field: { cols: 1, rows: 1, cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 0, alpha: 1 }] },
+      beforeRender: (map, index) => {
+        if (index === 0) return;
+        map.getBounds = (() => ({ getWest: () => -1, getSouth: () => -1, getEast: () => 2, getNorth: () => 2 })) as any;
+      },
+    });
+    const positions = result.uploads[2];
+    const xs = positions.filter((_, index) => index % 2 === 0);
+    expect(Math.min(...xs)).toBeLessThan(-0.5);
+    expect(Math.max(...xs)).toBeGreaterThan(1.5);
+    from.mockRestore();
+  });
 
   /** Backwards-compat helper: just the vertex count for the default dash path. */
   function renderedVertexCount(count?: number): number {

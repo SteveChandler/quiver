@@ -1,5 +1,6 @@
 "use client";
 
+import { fromZonedTime } from "date-fns-tz";
 import { Pause, Play } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ReactElement, ReactNode } from "react";
@@ -175,21 +176,18 @@ function timelineSegmentLabels(
   segmentIndex: number,
   timestamps: string[],
   timezone: string,
-): { full: string; compact: string; hint: string | undefined } {
+): { full: string; compact: string } {
   const isPartial = isPartialCurrentDaySegment(segment, segmentIndex, timezone, timestamps);
   if (!isPartial) {
     return {
       full: segment.label,
       compact: compactTimelineDayLabel(segment.label),
-      hint: undefined,
     };
   }
 
-  const remainingHours = segment.endIndex - segment.startIndex + 1;
   return {
     full: "Today",
     compact: "Today",
-    hint: `${remainingHours}h left`,
   };
 }
 
@@ -219,7 +217,7 @@ function TimelineStatus({
   if (error) {
     return (
       <div role="status" aria-live="polite" aria-atomic="true" className="flex items-center gap-2 text-xs font-semibold">
-        <span>Forecast extension unavailable: {error}</span>
+        <span>More forecast hours are temporarily unavailable. Please retry.</span>
         <button
           type="button"
           onClick={onRetry}
@@ -324,6 +322,7 @@ export function SwellDayTimeline({
     : "No forecast hours available";
   const safeIndex = clampIndex(index, timestamps.length);
   const canPlay = timestamps.length > 1;
+  const hasTimestamps = timestamps.length > 0;
   const maxIndex = Math.max(0, timestamps.length - 1);
   const visualFrameMs = getPlaybackVisualFrameMs(timestamps.length);
   const [visualIndex, setVisualIndex] = useState(safeIndex);
@@ -345,7 +344,7 @@ export function SwellDayTimeline({
     const observer = new ResizeObserver(measure);
     observer.observe(track);
     return () => observer.disconnect();
-  }, []);
+  }, [hasTimestamps]);
 
   useEffect(() => {
     onPlaybackPositionChangeRef.current = onPlaybackPositionChange;
@@ -413,7 +412,11 @@ export function SwellDayTimeline({
     );
   }
 
-  const progress = timestamps.length <= 1 ? 0 : visualIndex / maxIndex;
+  const elapsedTodayHours = daySegments[0]
+    ? Math.max(0, (Date.parse(timestamps[0]) - fromZonedTime(`${daySegments[0].key}T00:00:00`, timezone).getTime()) / 3_600_000)
+    : 0;
+  const axisHours = elapsedTodayHours + timestamps.length;
+  const progress = (elapsedTodayHours + visualIndex) / axisHours;
   const bubbleLeft = `${progress * 100}%`;
   const bubbleTransform = progress <= 0.15
     ? "translateX(0)"
@@ -496,6 +499,7 @@ export function SwellDayTimeline({
               max={timestamps.length - 1}
               step={1}
               value={safeIndex}
+              style={{ left: `${elapsedTodayHours / axisHours * 100}%`, width: `${maxIndex / axisHours * 100}%` }}
               disabled={!canPlay}
               aria-label="Forecast time"
               aria-valuetext={bubbleLabel}
@@ -530,11 +534,11 @@ export function SwellDayTimeline({
 
                 if (endIndex < startIndex) return null;
 
-                const left = (startIndex / timestamps.length) * 100;
+                const left = segmentIndex === 0 ? 0 : ((elapsedTodayHours + startIndex) / axisHours) * 100;
                 const width = timelineDayLabelWidthPercent(
-                  startIndex,
+                  segmentIndex === 0 ? -elapsedTodayHours : startIndex,
                   endIndex,
-                  timestamps.length,
+                  axisHours,
                 );
                 const labels = timelineSegmentLabels(
                   segment,
@@ -549,11 +553,15 @@ export function SwellDayTimeline({
                   <div
                     key={segment.key}
                     data-testid={dayTestId(segment.label)}
-                    title={labels.hint ? `${labels.full} · ${labels.hint}` : labels.full}
+                    title={labels.full}
                     className="absolute bottom-0 top-0 flex min-w-0 items-center justify-center border-r border-[var(--swell-timeline-ink)] px-0.5 text-xs font-bold uppercase tracking-[0.04em] last:border-r-0 sm:justify-start sm:px-2 sm:tracking-[0.08em]"
                     style={{
                       left: `${left}%`,
                       width: `${width}%`,
+                      ...(labels.full === "Today" ? { paddingInline: 0, justifyContent: "flex-start", zIndex: 1 } : {}),
+                      ...(segmentIndex === 1 && trackWidth > 0 && left * trackWidth / 100 < 48
+                        ? { paddingLeft: 50 - left * trackWidth / 100, justifyContent: "flex-start" }
+                        : {}),
                       background: segmentIndex % 2 === 0
                         ? SWELL_MAP_TIMELINE.dayBand
                         : SWELL_MAP_TIMELINE.dayBandAlternate,
@@ -561,15 +569,11 @@ export function SwellDayTimeline({
                   >
                     <span className={labelClasses.full}>
                       {labels.full}
-                      {labels.hint ? (
-                        <span className="font-medium normal-case tracking-normal">
-                          {` · ${labels.hint}`}
-                        </span>
-                      ) : null}
                     </span>
                     <span
                       data-testid={`${dayTestId(segment.label)}-compact`}
                       className={labelClasses.compact}
+                      style={labels.full === "Today" ? { minWidth: 48, flexShrink: 0, textAlign: "center" } : undefined}
                     >
                       {labels.compact}
                     </span>

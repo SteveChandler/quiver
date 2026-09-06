@@ -482,7 +482,7 @@ describe("Map Forecast Basic Tests", () => {
     }, { timeout: 3000 });
   });
 
-  it("should clear the swell-field leash before an explicit camera command without a remount", async () => {
+  it("keeps the swell field geographically unrestricted through explicit camera commands", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     const mockBeaches = [
       { id: "test-1", name: "Test Beach", lat: 32.75, lon: -117.25 },
@@ -496,9 +496,8 @@ describe("Map Forecast Basic Tests", () => {
       />
     );
 
-    await waitFor(() => {
-      expect(mockSetMaxBounds).toHaveBeenCalledWith(expect.any(Array));
-    });
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+    expect(mockSetMaxBounds.mock.calls.some(([bounds]) => Array.isArray(bounds))).toBe(false);
 
     mockFlyTo.mockClear();
     mockSetMaxBounds.mockClear();
@@ -527,8 +526,7 @@ describe("Map Forecast Basic Tests", () => {
     });
 
     expect(mockSetMaxBounds).toHaveBeenCalledWith(null);
-    expect(mockSetMinZoom).toHaveBeenCalledWith(0);
-    expect(mockSetMaxZoom).toHaveBeenCalledWith(22);
+    expect(mockSetMaxBounds.mock.calls.some(([bounds]) => Array.isArray(bounds))).toBe(false);
     expect(mockSetMaxBounds.mock.invocationCallOrder[0]).toBeLessThan(
       mockFlyTo.mock.invocationCallOrder[0]
     );

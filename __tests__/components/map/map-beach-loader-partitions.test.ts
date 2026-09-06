@@ -111,7 +111,7 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
     );
   });
 
-  it.each([401, 403, 500])(
+  it.each([401, 403])(
     "retries authenticated status %i once without auth and reports expiry",
     async (status) => {
       const onAuthTokenExpired = jest.fn();
@@ -301,7 +301,7 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
     );
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "/api/forecasts/bulk?beachIds=a&timeline=hourly&timelineOnly=true&timelineBeachIds=a&timelineStart=2026-07-10T20%3A00%3A00.000Z&timelineHours=48",
+      "/api/forecasts/bulk?beachIds=a&timeline=hourly&includeConditions=true&timelineOnly=true&timelineBeachIds=a&timelineStart=2026-07-10T20%3A00%3A00.000Z&timelineHours=48",
       {
         signal: undefined,
         headers: { Authorization: "Bearer signed-user-token" },
@@ -309,47 +309,49 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
     );
   });
 
-  it("requests timeline data for a bounded spatial sample while retaining every marker beach", async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        data: {
-          forecasts: {},
-          hourlySwellTimeline: {
+  it.each([50, 120])("loads scores for all %i marker beaches while bounding timeline batches", async (count) => {
+    global.fetch = jest.fn(async (url: string) => {
+      const params = new URL(url, "https://example.test").searchParams;
+      const ids = params.get("beachIds")!.split(",");
+      const timelineIds = params.get("timelineBeachIds")?.split(",") ?? [];
+      expect(ids.length).toBeLessThanOrEqual(20);
+      expect(params.get("includeConditions")).toBe("true");
+      expect(timelineIds.every((id) => ids.includes(id))).toBe(true);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ data: {
+          conditionScores: Object.fromEntries(ids.map((id) => [id, 75])),
+          conditionSummaries: Object.fromEntries(ids.map((id) => [id, "GOOD"])),
+          ...(timelineIds.length ? { hourlySwellTimeline: {
             timestamps: ["2026-07-10T20:00:00.000Z"],
-            partitionsByBeach: Object.fromEntries(
-              Array.from({ length: 20 }, (_, index) => [`beach-${index}`, [null]]),
-            ),
+            partitionsByBeach: Object.fromEntries(timelineIds.map((id) => [id, [partition()]])),
             hasMore: false,
             nextStart: null,
-          },
-        },
-      }),
+          } } : {}),
+        } }),
+      } as Response;
     }) as unknown as typeof fetch;
-    const beaches = Array.from({ length: 20 }, (_, index) =>
+    const beaches = Array.from({ length: count }, (_, index) =>
       beach(`beach-${index}`, 32.7 + index * 0.02, -117.2),
     );
-
     const result = await loadBeachesAndWaveHeights(
-      32.7,
-      -117.2,
-      beaches,
+      32.7, -117.2, beaches,
       { fetchNearbyBeaches: async () => ({ data: [] }) },
-      { timeline: "hourly", timelineFocusBeachId: "beach-10" },
+      { timeline: "hourly", timelineFocusBeachId: `beach-${count - 1}` },
     );
-    const requestedUrl = new URL(
-      (global.fetch as jest.Mock).mock.calls[0][0] as string,
-      "https://example.test",
+    const requests = (global.fetch as jest.Mock).mock.calls.map(([url]) => new URL(url, "https://example.test").searchParams);
+    expect(new Set(requests.map((params) => params.get("timelineStart"))).size).toBe(1);
+    expect(requests.every((params) => params.get("timelineStart") && params.get("timelineOnly") === "false")).toBe(true);
+    expect(result.locations).toHaveLength(count);
+    expect(result.conditionScoreMap.size).toBe(count);
+    expect(result.conditionSummaryMap.get(`beach-${count - 1}`)).toBe("GOOD");
+    expect(result.hourlyTimelineBeachIds).toHaveLength(count);
+    expect(result.hourlyTimelineBeachIds[0]).toBe(`beach-${count - 1}`);
+    expect(Object.keys(result.hourlySwellTimeline!.partitionsByBeach).sort()).toEqual(
+      [...result.hourlyTimelineBeachIds].sort(),
     );
-
-    expect(result.locations).toHaveLength(20);
-    expect(result.hourlyTimelineBeachIds).toHaveLength(8);
-    expect(result.hourlyTimelineBeachIds[0]).toBe("beach-10");
-    expect(requestedUrl.searchParams.get("beachIds")?.split(",")).toHaveLength(20);
-    expect(requestedUrl.searchParams.get("timelineBeachIds")?.split(",")).toEqual(
-      result.hourlyTimelineBeachIds,
-    );
+    expect(result.forecastStatus).toBe("ready");
   });
 
   it("returns a defensively parsed hourly envelope without losing current marker data", async () => {
@@ -643,7 +645,7 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
     );
   });
 
-  it("requests forecast data only for the capped rendered beach set", async () => {
+  it("requests forecast data for every rendered beach", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -657,13 +659,13 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
       fetchNearbyBeaches: async () => ({ data: [] }),
     });
 
-    expect(result.locations).toHaveLength(20);
+    expect(result.locations).toHaveLength(25);
     const requestedUrl = (global.fetch as jest.Mock).mock.calls[0][0] as string;
     const requestedIds = new URL(requestedUrl, "https://example.test").searchParams
       .get("beachIds")
       ?.split(",");
-    expect(requestedIds).toHaveLength(20);
-    expect(requestedIds).not.toContain("beach-20");
+    expect(requestedIds).toHaveLength(25);
+    expect(requestedIds).toContain("beach-24");
   });
 
   it("returns an empty partitionsMap when the field is absent", async () => {
@@ -683,4 +685,14 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
     expect(result.partitionsTimelineMap.size).toBe(0);
     expect(result.forecastStatus).toBe("empty");
   });
+});
+
+ test("enriches searched beaches with their own dated advisory and never borrows surf height", async () => {
+  const originalFetch = global.fetch;
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: { forecasts: { a: 5 } } }) });
+  const a = beach("a", 32.7, -117.2), b = beach("b", 32.71, -117.21);
+  const result = await loadBeachesAndWaveHeights(32.7, -117.2, [a,b], { fetchNearbyBeaches: async () => ({ data: [{ ...b, waterQualityHold: "advisory", waterQualityEvidence: { source: "sample", sampleDate: "2026-08-11" } }] }) }, { includeWaterQuality: true });
+  expect(result.locations[1]).toMatchObject({ id: "b", waterQualityEvidence: { source: "sample", sampleDate: "2026-08-11" } });
+  expect(result.waveHeightMap.has("b")).toBe(false);
+  global.fetch = originalFetch;
 });

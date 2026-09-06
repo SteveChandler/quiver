@@ -3,13 +3,14 @@ import { createPublicReadClient } from "@/lib/supabase/server";
 import { normalizeBeachCountry } from "@/lib/utils/beach-url-utils";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import { rankBeaches } from "@/lib/recommendations/selection";
-import type { WaterQualityHoldStatus } from "@/lib/recommendations/major-event-hold/water-quality";
+import type { WaterQualityEvidence, WaterQualityHoldStatus } from "@/lib/recommendations/major-event-hold/water-quality";
 import type { Beach } from "@/types/database";
 
 export type WaterQualityHoldKind = WaterQualityHoldStatus | "held";
 
 export type MapBeach = Beach & {
   waterQualityHold: WaterQualityHoldKind | null;
+  waterQualityEvidence?: WaterQualityEvidence;
 };
 
 export const MAX_NEARBY_RADIUS_MILES = 50;
@@ -118,6 +119,7 @@ async function rankNearbyBeachesForMap<T extends Beach>(
   compare: (left: T, right: T) => number,
   limit: number,
 ): Promise<MapBeach[]> {
+  let waterQualityEvidenceByBeachId: Record<string, WaterQualityEvidence> = {};
   let waterQualityStatusByBeachId: Record<
     string,
     WaterQualityHoldStatus
@@ -126,6 +128,7 @@ async function rankNearbyBeachesForMap<T extends Beach>(
     compare,
     onWaterQualityResolution: (resolution) => {
       waterQualityStatusByBeachId = resolution.waterQualityStatusByBeachId;
+      waterQualityEvidenceByBeachId = resolution.waterQualityEvidenceByBeachId ?? {};
     },
   });
   const safeBeachIds = new Set(
@@ -138,7 +141,7 @@ async function rankNearbyBeachesForMap<T extends Beach>(
       const waterQualityHold = safeBeachIds.has(beachId)
         ? null
         : waterQualityStatusByBeachId[beachId] ?? "held";
-      return { ...beach, waterQualityHold };
+      return { ...beach, waterQualityHold, waterQualityEvidence: waterQualityEvidenceByBeachId[beachId] };
     })
     .sort(compare)
     .slice(0, limit);

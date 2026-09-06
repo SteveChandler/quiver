@@ -1,5 +1,7 @@
 "use client";
 
+import { conditionSummaryFromScore, mapSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
+
 import {
   Children,
   useEffect,
@@ -14,6 +16,7 @@ import { ChevronDown, ChevronUp, LoaderCircle } from "lucide-react";
 import mapboxgl from "mapbox-gl";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { debounce } from "@/lib/utils/debounce";
+import type { MapBeach } from "@/lib/services/nearby-beach-service";
 import type { Beach } from "@/types/database";
 import * as AuthContext from "@/context/auth-context";
 import { usePathname, useRouter } from "next/navigation";
@@ -37,8 +40,6 @@ import {
 } from "@/components/map/map-marker-builder";
 import {
   loadBeachesAndWaveHeights,
-  fetchBulkForecast,
-  parseHourlySwellTimeline,
   type ConditionSummary,
   type BeachLoaderResult,
   type ForecastLoadStatus,
@@ -77,7 +78,6 @@ import {
 } from "@/components/map/swell-map-theme";
 import {
   buildFlowFieldGrid,
-  computeCoastalBounds,
   detectWaterLayerIds,
   interpolateSwellPartition,
   maskFieldToWater,
@@ -119,8 +119,6 @@ import {
 // open-ocean / continent scale. The pan corridor (maxBounds) is derived from the
 // loaded-beach footprint via computeCoastalBounds (an APPROXIMATE rectangular
 // coast corridor, not a pixel-perfect coastline mask).
-const SWELL_FIELD_MIN_ZOOM = 9;
-const SWELL_FIELD_MAX_ZOOM = 16;
 
 // Base custom-layer id for the single-layer swell field.
 const SWELL_FIELD_LAYER_ID = "quiver-swell-field";
@@ -324,7 +322,8 @@ function mapSpotConditions(
   );
   const waveLabel = context.displayForecastMap.get(beachId)?.label?.trim();
   const rawWaveHeight = context.waveHeightMap.get(beachId);
-  const swellDirection = partition?.s1Dir ?? partition?.swellDirOm;
+  const displayPartition = partition ? mapSwellPartition(partition) : undefined;
+  const swellDirection = displayPartition?.s1Dir;
   const waterQualityHold = getWaterQualityHold(
     context.beaches.find((beach) => beach.id === beachId),
   );
@@ -337,8 +336,8 @@ function mapSpotConditions(
     waveHeight: waveLabel || (isFiniteNumber(rawWaveHeight)
       ? formatWaveHeightRange(rawWaveHeight)
       : null),
-    swellPeriod: isFiniteNumber(partition?.s1PeriodS) && partition.s1PeriodS > 0
-      ? formatSwellPeriod(partition.s1PeriodS)
+    swellPeriod: isFiniteNumber(displayPartition?.s1PeriodS) && displayPartition.s1PeriodS > 0
+      ? formatSwellPeriod(displayPartition.s1PeriodS)
       : null,
     swellDirection: isFiniteNumber(swellDirection)
       ? degreesToCompass(swellDirection)
@@ -419,7 +418,7 @@ interface InteractiveMapProps {
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
 const EMPTY_CUSTOM_SPOTS: CustomSpot[] = [];
 const FULL_FORECAST_TIMELINE_HOURS = 14 * 24;
-const INITIAL_EXPANDABLE_TIMELINE_HOURS = 48;
+const INITIAL_EXPANDABLE_TIMELINE_HOURS = 10 * 24;
 const PUBLIC_MAP_TIMELINE_HORIZON_DAYS = 10;
 const MAP_LOAD_TIMEOUT_MS = 15_000;
 
@@ -502,6 +501,7 @@ function MapConditionLegend({
         </div>
       ) : (
         <>
+          <div className="mb-2 text-[10px] font-semibold">Pin colors: today’s surf rating</div>
           <div className="flex items-start gap-2">
             <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
               {CONDITION_LEGEND_ITEMS.map((item) => (
@@ -509,7 +509,7 @@ function MapConditionLegend({
                   <span
                     aria-hidden="true"
                     className="h-2.5 w-2.5 rounded-full border border-black/30"
-                    style={{ background: getConditionMarkerGradient(item.label) }}
+                    style={{ background: getConditionMarkerGradient(item.label), ...(item.label === "UNKNOWN" ? { border: "1px dashed #64748B" } : {}) }}
                   />
                   <span className="text-[10px] font-semibold leading-none tracking-normal">
                     {item.display}
@@ -595,6 +595,7 @@ export function InteractiveMap({
   const lastCalloutRefreshRef = useRef<{
     step: number;
     partitions: Map<string, SwellPartition>;
+    waterQuality: string;
   } | null>(null);
   const conditionsCtxRef = useRef({
     beaches: [] as Beach[],
@@ -602,6 +603,7 @@ export function InteractiveMap({
     partitionsTimelineMap: new Map<string, SwellPartition[]>(),
     timelineIndex: 0,
     stepsLen: 0,
+    forecastAt: undefined as string | undefined,
     bounds: { west: -118, south: 32, east: -117, north: 33 },
     waterTempMap: new Map<string, string | undefined>(),
     waveHeightMap: new Map<string, number | undefined>(),
@@ -629,7 +631,7 @@ export function InteractiveMap({
     useState<MapLoadFailure | null>(null);
   const [mapRetryNonce, setMapRetryNonce] = useState(0);
   const [mapStyleRevision, setMapStyleRevision] = useState(0);
-  const [leashSuspendedCommandId, setLeashSuspendedCommandId] = useState<
+  const [, setLeashSuspendedCommandId] = useState<
     number | null
   >(null);
   const [favoriteBeachIds, setFavoriteBeachIds] = useState<Set<string>>(
@@ -647,8 +649,8 @@ export function InteractiveMap({
   const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
   const [displayForecastMap, setDisplayForecastMap] = useState<Map<string, ForecastDisplay | undefined>>(new Map());
   const [waterTempMap, setWaterTempMap] = useState<Map<string, string | undefined>>(new Map());
-  const [conditionScoreMap, setConditionScoreMap] = useState<Map<string, number | undefined>>(new Map());
-  const [conditionSummaryMap, setConditionSummaryMap] = useState<Map<string, ConditionSummary>>(new Map());
+  const [initialConditionScoreMap, setConditionScoreMap] = useState<Map<string, number | undefined>>(new Map());
+  const [initialConditionSummaryMap, setConditionSummaryMap] = useState<Map<string, ConditionSummary>>(new Map());
   const [isCalibratedMap, setIsCalibratedMap] = useState<Map<string, boolean>>(new Map());
   const [partitionsMap, setPartitionsMap] = useState<Map<string, SwellPartition>>(new Map());
   const [partitionsTimelineMap, setPartitionsTimelineMap] = useState<
@@ -678,7 +680,6 @@ export function InteractiveMap({
   // drives the opacity transition out (skipped under reduced motion).
   const [showLeashHint, setShowLeashHint] = useState(false);
   const [leashHintFading, setLeashHintFading] = useState(false);
-  const leashHintShownRef = useRef(false);
   const reducedMotion = useReducedMotion();
   // Live per-component flow fields read by the GL layers each frame (avoids re-adding
   // a layer on scrub). Keyed by component id: a single active layer populates just its
@@ -751,7 +752,10 @@ export function InteractiveMap({
   const { track } = useTrackEvent();
   const router = useRouter();
   const pathname = usePathname();
-  const markerBeaches = beaches ?? swellFieldBeaches;
+  const markerBeaches = useMemo(() => {
+    const enriched = new Map(swellFieldBeaches.map((beach) => [beach.id, beach]));
+    return (beaches ?? swellFieldBeaches).map((beach) => ({ ...beach, ...enriched.get(beach.id) }));
+  }, [beaches, swellFieldBeaches]);
 
   useEffect(() => {
     isMapReadyRef.current = isMapReady;
@@ -873,30 +877,20 @@ export function InteractiveMap({
       const beachIds = hourlyTimelineBeachIdsRef.current;
       if (beachIds.length === 0) throw new Error("No beaches are available for the forecast timeline");
 
-      const searchParams = new URLSearchParams({
-        beachIds: beachIds.join(","),
-        timeline: "hourly",
-        timelineStart: start,
-        timelineHours: String(hours),
-      });
-      if (skillLevel !== undefined) searchParams.set("skillLevel", skillLevel);
-      const response = await fetchBulkForecast(
-        `/api/forecasts/bulk?${searchParams.toString()}`,
-        signal,
-        getAccessToken,
-        onAuthTokenExpired,
-      );
-      if (!response.ok) throw new Error(`Bulk forecast API returned ${response.status}`);
-
-      const body = await response.json();
+      const result = await loadBeachesAndWaveHeights(0, 0,
+        beachIds.map((id) => ({ id }) as Beach),
+        { fetchNearbyBeaches: fetchNearbyBeachesWithPreload },
+        { timeline: "hourly", timelineOnly: true, timelineStart: start, timelineHours: hours,
+          skillLevel, getAccessToken, onAuthTokenExpired, signal });
       if ((getAuthGeneration?.() ?? authGeneration) !== requestAuthGeneration) {
         throw new DOMException("Aborted", "AbortError");
       }
-      const timeline = parseHourlySwellTimeline(body?.data?.hourlySwellTimeline, beachIds);
-      if (!timeline) throw new Error("Bulk forecast API returned an invalid hourly timeline");
-      return timeline;
+      if (result.forecastStatus === "unavailable" || !result.hourlySwellTimeline) {
+        throw new Error("Unable to load hourly map conditions");
+      }
+      return result.hourlySwellTimeline;
     },
-    [authGeneration, getAccessToken, getAuthGeneration, onAuthTokenExpired, skillLevel],
+    [authGeneration, getAccessToken, getAuthGeneration, onAuthTokenExpired, skillLevel, fetchNearbyBeachesWithPreload],
   );
   const isExpandableFramePlayable = useCallback(
     (timeline: HourlySwellTimeline, index: number): boolean => {
@@ -968,6 +962,22 @@ export function InteractiveMap({
     return active;
   }, [hourlyTimelineSeed, partitionsMap, swellTimelineIndex]);
 
+  const activeConditionPartitions = isExpandableTimeline ? activeHourlyPartitionsMap
+    : isEmbedHourlyTimeline ? activeEmbedHourlyPartitionsMap : null;
+  const conditionScoreMap = useMemo(() => {
+    if (!activeConditionPartitions) return initialConditionScoreMap;
+    return new Map(markerBeaches.map((beach) => {
+      const partition = activeConditionPartitions.get(beach.id);
+      return [beach.id, partition?.conditionScore ?? undefined];
+    }));
+  }, [activeConditionPartitions, initialConditionScoreMap, markerBeaches]);
+  const conditionSummaryMap = useMemo(() => {
+    if (!activeConditionPartitions) return initialConditionSummaryMap;
+    return new Map(markerBeaches.map((beach) => [beach.id,
+      conditionSummaryFromScore(conditionScoreMap.get(beach.id) ?? NaN),
+    ]));
+  }, [activeConditionPartitions, initialConditionSummaryMap, markerBeaches, conditionScoreMap]);
+
   useEffect(() => {
     const activePartitions = isExpandableTimeline
       ? activeHourlyPartitionsMap
@@ -976,11 +986,12 @@ export function InteractiveMap({
         : partitionsMap;
     const usesAbsoluteTimeline = isExpandableTimeline || isEmbedHourlyTimeline;
     conditionsCtxRef.current = {
-      beaches: beaches ?? swellFieldBeaches,
+      beaches: markerBeaches,
       partitionsMap: activePartitions,
       partitionsTimelineMap: usesAbsoluteTimeline ? new Map() : partitionsTimelineMap,
       timelineIndex: usesAbsoluteTimeline ? 0 : swellTimelineIndex,
       stepsLen: usesAbsoluteTimeline ? 1 : swellTimelineSteps.length,
+      forecastAt: isExpandableTimeline ? expandableTimeline.timestamps[expandableTimeline.index] : hourlyTimelineSeed?.timestamps[Math.round(swellTimelineIndex)],
       bounds: mapBounds || { west: -118, south: 32, east: -117, north: 33 },
       waterTempMap,
       waveHeightMap,
@@ -991,7 +1002,10 @@ export function InteractiveMap({
   }, [
     activeHourlyPartitionsMap,
     activeEmbedHourlyPartitionsMap,
-    beaches,
+    expandableTimeline.index,
+    expandableTimeline.timestamps,
+    hourlyTimelineSeed?.timestamps,
+    markerBeaches,
     isEmbedHourlyTimeline,
     isExpandableTimeline,
     mapBounds,
@@ -1000,7 +1014,6 @@ export function InteractiveMap({
     isCalibratedMap,
     partitionsMap,
     partitionsTimelineMap,
-    swellFieldBeaches,
     swellTimelineIndex,
     swellTimelineSteps.length,
     waterTempMap,
@@ -1126,12 +1139,29 @@ export function InteractiveMap({
   const removeActiveCallout = useCallback((): void => {
     activeCalloutRef.current?.marker.remove();
     activeCalloutRef.current = null;
+    setSelectedBeachId(null);
   }, []);
+
+  const syncCalloutZoom = useCallback((): void => {
+    const map = mapRef.current;
+    const element = activeCalloutRef.current?.marker.getElement?.();
+    if (!map || !element) return;
+    const zoomScale = Math.min(1, Math.max(0.12, 2 ** ((map.getZoom() - 13) / 2)));
+    element.style.setProperty("--callout-zoom", String(zoomScale));
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!isMapReady || !map) return;
+    map.on("zoom", syncCalloutZoom);
+    return () => { map.off("zoom", syncCalloutZoom); };
+  }, [isMapReady, syncCalloutZoom]);
 
   const showCalloutForBeach = useCallback((beach: Beach): void => {
     const map = mapRef.current;
     if (!map) return;
     const ctx = conditionsCtxRef.current;
+    setSelectedBeachId(beach.id);
     const clampedIndex = Math.min(Math.max(ctx.timelineIndex, 0), Math.max(0, ctx.stepsLen - 1));
     const partition = partitionAtTimelinePosition(beach.id, clampedIndex, ctx.partitionsTimelineMap, ctx.partitionsMap);
     const components = partition ? resolveCalloutComponents(partition) : [];
@@ -1142,7 +1172,7 @@ export function InteractiveMap({
     // phone screen and the ring looks oversized. Sized so the arrow span stays within
     // ~78% of the viewport, capped at 1 for desktop.
     const viewportWidthPx =
-      typeof window !== "undefined" ? window.innerWidth : 1024;
+      map.getCanvas().clientWidth || 1024;
     const calloutScale = Math.max(
       0.55,
       Math.min(1, (viewportWidthPx * 0.78) / CALLOUT_FULL_WIDTH)
@@ -1153,7 +1183,11 @@ export function InteractiveMap({
       components,
       beachHref,
       waterQualityHold,
+      waterQualityEvidence: (beach as MapBeach).waterQualityEvidence,
       scale: calloutScale,
+      forecastAt: ctx.forecastAt,
+      mapBearing: map.getBearing?.() ?? 0,
+      previousElement: activeCalloutRef.current?.marker.getElement?.(),
     });
     // An active callout is the immediate interaction target. Keep it above the
     // persistent legend so its forecast link remains tappable on narrow screens.
@@ -1164,32 +1198,48 @@ export function InteractiveMap({
       ev.stopPropagation();
       removeActiveCallout();
     });
-    removeActiveCallout();
-    const marker = new mapboxgl.Marker({ element, anchor: "center" }).setLngLat([beach.lon!, beach.lat!]).addTo(map);
+    const previous = activeCalloutRef.current;
+    let marker: mapboxgl.Marker;
+    if (previous?.beachId === beach.id && typeof previous.marker.getElement === "function") {
+      const currentElement = previous.marker.getElement();
+      currentElement.replaceChildren(...Array.from(element.childNodes));
+      currentElement.dataset.forecastAt = element.dataset.forecastAt;
+      marker = previous.marker;
+    } else {
+      previous?.marker.remove();
+      marker = new mapboxgl.Marker({ element, anchor: "center" }).setLngLat([beach.lon!, beach.lat!]).addTo(map);
+    }
     // Mapbox stamps a generic "Map marker" aria-label; replace it with the real
     // conditions so screen readers get the same info the arrows convey visually.
     const conditionsRead =
       components.map((c) => `${c.name} ${c.label}`).join("; ") || "no current reading";
     element.setAttribute(
       "aria-label",
-      `${beach.name}${tempLabel ? `, ${tempLabel}` : ""}${
-        waterQualityHold
-          ? waterQualityHold === "held"
-            ? ", water quality hold"
-            : `, ${
-                waterQualityHold === "closure" ? "closed" : "under advisory"
-              } according to county water-quality data`
-          : ""
-      } surf conditions: ${conditionsRead}`
+      `${beach.name}${tempLabel ? `, ${tempLabel}` : ""}${waterQualityHold ? `, ${element.querySelector("[data-callout-water-quality]")?.textContent ?? "water quality hold"}` : ""} surf conditions: ${conditionsRead}`
     );
+    marker.getElement?.().setAttribute("role", "group");
+    marker.getElement?.().setAttribute("aria-label", element.getAttribute("aria-label") ?? beach.name);
     activeCalloutRef.current = { marker, beachId: beach.id };
+    syncCalloutZoom();
     // Record what this build rendered so playback ticks that land on the same
     // displayed step can skip the rebuild (see the timeline refresh effect).
     lastCalloutRefreshRef.current = {
       step: Math.round(Number.isFinite(ctx.timelineIndex) ? ctx.timelineIndex : 0),
       partitions: ctx.partitionsMap,
+      waterQuality: JSON.stringify([(beach as MapBeach).waterQualityHold, (beach as MapBeach).waterQualityEvidence]),
     };
-  }, [removeActiveCallout]);
+  }, [removeActiveCallout, syncCalloutZoom]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!isMapReady || !map) return;
+    const refreshBearing = (): void => {
+      const beach = conditionsCtxRef.current.beaches.find((item) => item.id === activeCalloutRef.current?.beachId);
+      if (beach) showCalloutForBeach(beach);
+    };
+    map.on("rotateend", refreshBearing);
+    return () => { map.off("rotateend", refreshBearing); };
+  }, [isMapReady, showCalloutForBeach]);
 
   const handleConditionsTap = useCallback((lngLat: mapboxgl.LngLat): void => {
     const ctx = conditionsCtxRef.current;
@@ -1259,7 +1309,7 @@ export function InteractiveMap({
   // Helper: remove all markers
   const cleanupMarkers = useCallback(() => {
     closeBeachPreviewPopup();
-    removeActiveCallout();
+    // Selection survives forecast and marker refreshes.
 
     // Clean up cluster event listeners
     clusterCleanupRef.current.forEach((cleanup) => cleanup());
@@ -1271,13 +1321,14 @@ export function InteractiveMap({
     Object.values(markersRef.current).forEach((marker) => marker.remove());
     markersRef.current = {};
     markerSignatureRef.current = {};
-  }, [closeBeachPreviewPopup, removeActiveCallout]);
+  }, [closeBeachPreviewPopup]);
 
   // Helper: full cleanup
   const cleanupMap = useCallback(() => {
     populateAbortControllerRef.current?.abort();
     populateAbortControllerRef.current = null;
     cleanupMarkers();
+    removeActiveCallout();
     clearMapDebugCenter();
     if (mapRef.current) {
       mapRef.current.remove();
@@ -1291,7 +1342,7 @@ export function InteractiveMap({
     favoriteBeachIdsRef.current = new Set();
     isMapReadyRef.current = false;
     setIsMapReady(false);
-  }, [cleanupMarkers]);
+  }, [cleanupMarkers, removeActiveCallout]);
 
   const invalidateSwellForecastState = useCallback((): void => {
     populateAbortControllerRef.current?.abort();
@@ -1577,22 +1628,16 @@ export function InteractiveMap({
   /** Populate beach markers with enhanced forecast data */
   const populateLocations = useCallback(
     async (latitude: number, longitude: number) => {
-      const map = mapRef.current;
-      const zoom = map?.getZoom() ?? initialZoom;
       // Include beaches state in cache key: undefined vs empty array vs populated array
       const beachesKey = beaches === undefined
         ? "none"
         : beaches
-          .slice(0, 20)
           .map((beach) => beach.id)
           .filter((beachId): beachId is string => Boolean(beachId))
           .sort()
           .join(",");
-      const populateKey = `${latitude.toFixed(4)}-${longitude.toFixed(
-        4
-      )}-${zoom.toFixed(2)}-${beachesKey}-${swellTimelineMode ?? "legacy"}-${
-        timelineFocusBeachId ?? "no-focus"
-      }-${skillLevel ?? "no-skill"}-${authGeneration}`;
+      const locationKey = beaches === undefined ? `${latitude.toFixed(3)}-${longitude.toFixed(3)}` : "provided";
+      const populateKey = `${locationKey}-${beachesKey}-${swellTimelineMode ?? "legacy"}-${skillLevel ?? "no-skill"}-${authGeneration}`;
 
       if (lastPopulateKeyRef.current === populateKey) {
         return;
@@ -1610,23 +1655,7 @@ export function InteractiveMap({
         !abortController.signal.aborted &&
         (getAuthGeneration?.() ?? authGeneration) === requestAuthGeneration;
       forecastUnavailableRef.current = false;
-      setSwellFieldLoadStatus("loading");
-      if (swellTimelineMode === "hourly") {
-        const emptyWaveHeights = new Map<string, number | undefined>();
-        const emptyDisplayForecasts = new Map<string, ForecastDisplay | undefined>();
-        setWaveHeightMap(emptyWaveHeights);
-        setDisplayForecastMap(emptyDisplayForecasts);
-        setWaterTempMap(new Map());
-        setConditionScoreMap(new Map());
-        setConditionSummaryMap(new Map());
-        setIsCalibratedMap(new Map());
-        setPartitionsMap(new Map());
-        setPartitionsTimelineMap(new Map());
-        setHourlyTimelineSeed(null);
-        onWaveHeightsChangeRef.current?.(emptyWaveHeights);
-        onDisplayForecastsChangeRef.current?.(emptyDisplayForecasts);
-        onHourlyTimelineLoadedRef.current?.(null);
-      }
+      if (partitionsMapRef.current.size === 0) setSwellFieldLoadStatus("loading");
       try {
         let committedWaveHeightMap = new Map<string, number | undefined>();
         let committedDisplayForecastMap = new Map<string, ForecastDisplay | undefined>();
@@ -1744,11 +1773,6 @@ export function InteractiveMap({
             setHourlyTimelineSeed(result.hourlySwellTimeline);
           }
         };
-        // Clean up existing markers when provided beaches change
-        if (beaches !== undefined) {
-          cleanupMarkers();
-        }
-
         const preloadedForecast = initialForecastResponsePromiseRef.current;
         initialForecastResponsePromiseRef.current = null;
         const initialResult = await loadBeachesAndWaveHeights(
@@ -1763,6 +1787,7 @@ export function InteractiveMap({
                 getAccessToken,
                 onAuthTokenExpired,
                 timelineHours: INITIAL_EXPANDABLE_TIMELINE_HOURS,
+                includeWaterQuality: true,
                 timelineFocusBeachId,
                 signal: abortController.signal,
                 onLocationsResolved,
@@ -1773,10 +1798,16 @@ export function InteractiveMap({
                 onAuthTokenExpired,
                 signal: abortController.signal,
                 initialForecastResponsePromise: preloadedForecast,
+                includeWaterQuality: true,
                 onLocationsResolved,
               },
         );
         if (!isCurrentRequest()) return;
+        if (initialResult.forecastStatus === "unavailable" && partitionsMapRef.current.size > 0) {
+          lastPopulateKeyRef.current = null;
+          setSwellFieldLoadStatus("ready");
+          return;
+        }
         commitResult(initialResult, false);
 
         if (swellTimelineMode === "hourly") {
@@ -1822,9 +1853,7 @@ export function InteractiveMap({
     [
       beaches,
       authGeneration,
-      cleanupMarkers,
       fetchNearbyBeachesWithPreload,
-      initialZoom,
       getAccessToken,
       getAuthGeneration,
       onAuthTokenExpired,
@@ -1997,20 +2026,12 @@ export function InteractiveMap({
         }
       }
       if (points.length > 0) anyPoints = true;
-      // A regional swell layer should move in UNISON (one direction), but per-beach
-      // readings vary ~45° (e.g. SD primary is SW/SSW/WSW), which would fan the marks
-      // out. Collapse to the circular-mean direction so every mark shares one heading;
-      // per-beach period/height still vary (so speed/density read locally).
-      if (points.length > 0) {
-        let sumX = 0;
-        let sumY = 0;
-        for (const p of points) {
-          const rad = (p.dir * Math.PI) / 180;
-          sumX += Math.cos(rad);
-          sumY += Math.sin(rad);
-        }
-        const meanDeg = ((Math.atan2(sumY, sumX) * 180) / Math.PI + 360) % 360;
-        for (const p of points) p.dir = meanDeg;
+      const selected = activeCalloutRef.current?.beachId;
+      const selectedBeach = beachList.find((beach) => beach.id === selected);
+      const selectedPartition = selected ? conditionsCtxRef.current.partitionsMap.get(selected) : undefined;
+      if (selectedBeach && selectedPartition && selectedBeach.lon != null && selectedBeach.lat != null) {
+        const anchor = partitionToPoint(selectedBeach.lon, selectedBeach.lat, selectedPartition, component);
+        if (anchor) for (const point of points) point.dir = anchor.dir;
       }
       const gridKey = JSON.stringify({ bounds, resolution: 12, beachIds });
       let cachedGrid = flowFieldGridCacheRef.current[component];
@@ -2035,6 +2056,7 @@ export function InteractiveMap({
     map.triggerRepaint();
   }, [
     applyWaterMask,
+    selectedBeachId,
     beaches,
     expandableTimeline.index,
     expandableTimeline.isPlaying,
@@ -2136,11 +2158,11 @@ export function InteractiveMap({
       Number.isFinite(swellTimelineIndex) ? swellTimelineIndex : 0
     );
     const last = lastCalloutRefreshRef.current;
-    if (last && last.step === step && last.partitions === partitionsMap) return;
     const ctx = conditionsCtxRef.current;
     const beach = ctx.beaches.find((b) => b.id === open.beachId);
+    if (last && last.step === step && last.partitions === ctx.partitionsMap && last.waterQuality === JSON.stringify([(beach as MapBeach | undefined)?.waterQualityHold, (beach as MapBeach | undefined)?.waterQualityEvidence])) return;
     if (beach) showCalloutForBeach(beach);
-  }, [swellTimelineIndex, partitionsMap, showCalloutForBeach]);
+  }, [swellTimelineIndex, partitionsMap, activeHourlyPartitionsMap, activeEmbedHourlyPartitionsMap, markerBeaches, showCalloutForBeach]);
 
   const releaseSwellFieldLeash = useCallback((map: mapboxgl.Map): void => {
     const captured = zoomLimitsCaptureRef.current;
@@ -2213,6 +2235,7 @@ export function InteractiveMap({
         map.addLayer(
           createSwellParticleLayer({
             id: `${SWELL_FIELD_LAYER_ID}-${component}`,
+            maskToWater: component !== "wind",
             getField: () => flowFieldsRef.current[component],
             getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[component],
             reducedMotion,
@@ -2235,6 +2258,7 @@ export function InteractiveMap({
       map.addLayer(
         createSwellParticleLayer({
           id: SWELL_FIELD_LAYER_ID,
+          maskToWater: () => swellLayerIdRef.current !== "wind",
           getField: () =>
             flowFieldsRef.current[swellLayerIdRef.current as FlowComponentId],
           getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[swellLayerIdRef.current],
@@ -2261,86 +2285,6 @@ export function InteractiveMap({
     // No cleanup teardown: the layer persists across same-shape switches and is
     // removed on the next shape change (or with the map on unmount).
   }, [showSwellField, isMapReady, reducedMotion, swellLayerId, mapStyleRevision]);
-
-  // Leash the camera to the coastal data corridor while the swell field is ON.
-  // Locks zoom (so users can't pull back to open-ocean/continent scale) and pins
-  // a dynamic maxBounds to the loaded-beach footprint. Recomputes as beaches load
-  // so the reachable corridor extends along the coast (along-coast travel chains:
-  // the generous lat padding lets the next stretch enter the viewport and load,
-  // which widens the bbox on the next pass). Fully restores the free camera on OFF.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !isMapReady) return;
-
-    if (leashSuspendedCommandId !== null) {
-      releaseSwellFieldLeash(map);
-      appliedLeashKeyRef.current = null;
-      return;
-    }
-
-    // Wait until beaches load before constraining; never leash an empty footprint.
-    if (!showSwellField || swellFieldBeaches.length === 0) {
-      releaseSwellFieldLeash(map);
-      appliedLeashKeyRef.current = null;
-      return;
-    }
-
-    const bounds = computeCoastalBounds(swellFieldBeaches);
-    if (!bounds) {
-      releaseSwellFieldLeash(map);
-      appliedLeashKeyRef.current = null;
-      return;
-    }
-    const center = map.getCenter();
-    if (
-      center.lng < bounds.west ||
-      center.lng > bounds.east ||
-      center.lat < bounds.south ||
-      center.lat > bounds.north
-    ) {
-      releaseSwellFieldLeash(map);
-      appliedLeashKeyRef.current = null;
-      return;
-    }
-
-    // Re-applying setMaxBounds on every beach-list update (a new array reference
-    // each load) is what bounced the camera inland and back: setMaxBounds(null) on
-    // cleanup freed the camera, then the re-apply yanked it back to the corridor.
-    // Skip when the corridor is materially unchanged so the leash applies once.
-    const leashKey = `${bounds.west.toFixed(3)},${bounds.south.toFixed(3)},${bounds.east.toFixed(3)},${bounds.north.toFixed(3)}`;
-    if (appliedLeashKeyRef.current === leashKey) return;
-
-    // Capture the free-camera zoom limits once, before the first lock. Presence of
-    // this capture also marks the leash as applied (gates the release path).
-    if (!zoomLimitsCaptureRef.current) {
-      zoomLimitsCaptureRef.current = {
-        minZoom: map.getMinZoom(),
-        maxZoom: map.getMaxZoom(),
-      };
-      // First time the leash locks this mount → flash the one-time zoom hint.
-      if (!leashHintShownRef.current) {
-        leashHintShownRef.current = true;
-        setShowLeashHint(true);
-      }
-    }
-    map.setMinZoom(SWELL_FIELD_MIN_ZOOM);
-    map.setMaxZoom(SWELL_FIELD_MAX_ZOOM);
-    map.setMaxBounds([
-      [bounds.west, bounds.south],
-      [bounds.east, bounds.north],
-    ]);
-    appliedLeashKeyRef.current = leashKey;
-
-    // No cleanup-release: the leash is released explicitly when the field turns off
-    // (handled above) and torn down with the map on unmount. Releasing on every
-    // re-run is what produced the inland/back bounce.
-  }, [
-    showSwellField,
-    isMapReady,
-    swellFieldBeaches,
-    leashSuspendedCommandId,
-    releaseSwellFieldLeash,
-  ]);
 
   // Auto-dismiss the one-time coastal-leash hint ~4s after it appears. With
   // motion, kick a CSS opacity fade ~500ms before unmount; under reduced motion
@@ -2885,10 +2829,29 @@ export function InteractiveMap({
       if (typeof marker.getElement !== "function") return;
       const beachId = markerId.replace("location-", "");
       const element = marker.getElement();
-      const badge = element.querySelector("[data-marker-badge='true']");
+      const summary = conditionSummaryMap.get(beachId) ?? "UNKNOWN";
+      const score = conditionScoreMap.get(beachId);
+      element.setAttribute("data-condition-summary", summary);
+      if (score == null) element.removeAttribute("data-condition-score");
+      else element.setAttribute("data-condition-score", String(score));
+      const beach = beachesRef.current?.find((item) => item.id === beachId);
+      const button = element.querySelector("[data-marker-badge]");
+      if (beach && button && (beach as MapBeach).waterQualityEvidence?.source !== "sample") button.setAttribute("title", `${beach.name}: ${getConditionMarkerCall({ conditionSummary: summary, waterQualityHold: getWaterQualityHold(beach) }).label}`);
+      const badge = element.querySelector("[data-marker-visual='true']");
       const existingRing = element.querySelector(
         '[data-testid="selection-ring"]'
       );
+      if (badge instanceof HTMLElement) {
+        // Nested transforms inflate WebKit's accessibility bounds for map pins.
+        const scale = selectedBeachId === beachId ? 1.4 : hoveredBeachId === beachId ? 1.2 : 1;
+        const size = (markerDisplay === "points" ? 18 : 15) * scale;
+        badge.style.width = `${size}px`;
+        badge.style.height = `${size}px`;
+        badge.style.borderWidth = `${2.5 * scale}px`;
+        const missing = summary === "UNKNOWN" && !getWaterQualityHold(beach);
+        badge.style.borderStyle = missing ? "dashed" : "solid";
+        badge.style.borderColor = missing ? "#64748B" : favoriteBeachIds.has(beachId) ? "#FDB84B" : "#ffffff";
+      }
 
       if (selectedBeachId === beachId) {
         // Add selection ring if not present
@@ -2897,10 +2860,10 @@ export function InteractiveMap({
           selectionRing.setAttribute("data-testid", "selection-ring");
           selectionRing.style.cssText = `
             position: absolute;
-            top: -8px;
-            left: -8px;
-            right: -8px;
-            bottom: -8px;
+            top: 7px;
+            left: 7px;
+            right: 7px;
+            bottom: 7px;
             border: 3px solid #F78E42;
             border-radius: 50%;
             pointer-events: none;
@@ -2922,7 +2885,6 @@ export function InteractiveMap({
               : getConditionMarkerGradient(
                   conditionSummaryMap.get(beachId) ?? "UNKNOWN"
                 );
-          (badge as HTMLElement).style.transform = "scale(1.4)";
           (badge as HTMLElement).style.background = gradient;
           badge.setAttribute("data-marker-gradient", gradient);
         }
@@ -2934,11 +2896,6 @@ export function InteractiveMap({
 
         // Reset badge scale and background
         if (badge) {
-          const isHovered = hoveredBeachId === beachId;
-          (badge as HTMLElement).style.transform = isHovered
-            ? "scale(1.2)"
-            : "scale(1)";
-
           const waterQualityHold = getWaterQualityHold(
             beachesRef.current?.find((beach) => beach.id === beachId),
           );
@@ -2963,7 +2920,9 @@ export function InteractiveMap({
     displayMode,
     waterTempMap,
     conditionSummaryMap,
+    conditionScoreMap,
     reducedMotion,
+    markerDisplay,
   ]);
 
   // Camera commands are monotonic. A command is applied once, after the map is
@@ -2976,7 +2935,7 @@ export function InteractiveMap({
     // A command represents a new location intent. Invalidate any prior viewport
     // load before releasing its coastal leash so stale data cannot constrain the
     // camera back to the previous region when that request resolves.
-    invalidateSwellForecastState();
+    if (cameraCommand.source !== "pin") invalidateSwellForecastState();
     pendingLeashCommandRef.current = cameraCommand;
     setLeashSuspendedCommandId(cameraCommand.id);
     releaseSwellFieldLeash(map);
@@ -3147,9 +3106,10 @@ export function InteractiveMap({
             id: location.id,
             waveHeight,
             waveLabel: displayForecastMap.get(location.id)?.label ?? null,
-            conditionScore: conditionScoreMap.get(location.id),
-            conditionSummary: conditionSummaryMap.get(location.id),
+            conditionScore: activeConditionPartitions ? null : conditionScoreMap.get(location.id),
+            conditionSummary: activeConditionPartitions ? null : conditionSummaryMap.get(location.id),
             waterQualityHold: getWaterQualityHold(location),
+            waterQualityEvidence: (location as MapBeach).waterQualityEvidence,
             waterTemp: waterTempMap.get(location.id),
             lngLat,
             displayMode,
@@ -3253,6 +3213,7 @@ export function InteractiveMap({
     isMapReady,
     conditionScoreMap,
     conditionSummaryMap,
+    activeConditionPartitions,
     displayForecastMap,
     waterTempMap,
     buildClusterMarker,
@@ -3265,6 +3226,32 @@ export function InteractiveMap({
     markerBeaches.length,
     swellFieldLoadStatus,
   ]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!isMapReady || !map || !disableBeachClustering) return;
+    const declutter = (): void => {
+      const occupied: Array<{ x: number; y: number }> = [];
+      const markers = Object.entries(markersRef.current)
+        .filter(([id]) => id.startsWith("location-"))
+        .sort(([a], [b]) => Number(b === `location-${selectedBeachId}`) - Number(a === `location-${selectedBeachId}`) || a.localeCompare(b));
+      // ponytail: pairwise checks are bounded by the direct-marker cap of 150.
+      for (const [, marker] of markers) {
+        const element = marker.getElement();
+        element.style.visibility = "visible";
+        if (map.getZoom() >= 11) continue;
+        const coordinates = marker.getLngLat?.();
+        if (!coordinates) continue;
+        const point = map.project(coordinates);
+        const overlaps = occupied.some((other) => Math.hypot(point.x - other.x, point.y - other.y) < 24);
+        element.style.visibility = overlaps ? "hidden" : "visible";
+        if (!overlaps) occupied.push(point);
+      }
+    };
+    declutter();
+    map.on("move", declutter);
+    return () => { map.off("move", declutter); };
+  }, [clusters, selectedBeachId, isMapReady, disableBeachClustering]);
 
   const swellTimeline =
     showMapChrome &&

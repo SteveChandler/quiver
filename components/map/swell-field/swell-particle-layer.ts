@@ -1,3 +1,4 @@
+import { drawWaterMask } from "./water-mask";
 import mapboxgl from "mapbox-gl";
 import type {
   FlowCell,
@@ -67,8 +68,12 @@ export const PARTICLE_FRAGMENT_SHADER = `
 precision highp float;
 uniform vec3 u_color;
 uniform float u_alpha;
+uniform sampler2D u_waterMask;
+uniform vec2 u_viewport;
+uniform bool u_maskToWater;
 varying float v_alpha;
 void main() {
+  if (u_maskToWater && texture2D(u_waterMask, vec2(gl_FragCoord.x / u_viewport.x, 1.0 - gl_FragCoord.y / u_viewport.y)).a < 0.99) discard;
   gl_FragColor = vec4(u_color, v_alpha * u_alpha);
 }
 `;
@@ -383,6 +388,7 @@ export interface SwellParticleLayerOptions {
    * (keeps the total in budget).
    */
   count?: number;
+  maskToWater?: boolean | (() => boolean);
   /**
    * Mark style for the drawn particle. "dash" (default) renders a crest line
    * (two vertices per particle, GL LINES). "dot" renders a single GL point per
@@ -477,6 +483,10 @@ export function createSwellParticleLayer(
   const staticMotionScale = clampMotion(options.motionScale, 1);
   const staticVelocitySmoothing = clampSmoothing(options.velocitySmoothing, 0.16);
   const staticDashLengthScale = clampDashScale(options.dashLengthScale, 1);
+  let waterTexture: WebGLTexture | null = null;
+  let maskCanvas: HTMLCanvasElement | null = null;
+  let maskDirty = true;
+  const invalidateMask = (): void => { maskDirty = true; };
   let program: WebGLProgram | null = null;
   let posBuffer: WebGLBuffer | null = null;
   let alphaBuffer: WebGLBuffer | null = null;
@@ -487,6 +497,8 @@ export function createSwellParticleLayer(
   let uAlphaLoc: WebGLUniformLocation | null = null;
   let uPointSizeLoc: WebGLUniformLocation | null = null;
   let staticRenderedField: FlowField | null = null;
+  let staticRenderedCamera = "";
+  let particleBox: MercatorBox | null = null;
   let mapRef: mapboxgl.Map | null = null;
 
   // Particle state in Mercator unit space [0..1].
@@ -599,6 +611,7 @@ export function createSwellParticleLayer(
 
   function seedAll(map: mapboxgl.Map): void {
     const box = viewBoxMercator(map);
+    particleBox = box;
     for (let i = 0; i < count; i += 1) {
       // Jittered grid: even, Windy-style spacing instead of a random blanket.
       const s = gridSeedParticle(i, count, box, rng);
@@ -625,6 +638,17 @@ export function createSwellParticleLayer(
     const box = viewBoxMercator(map);
     const fieldBounds = getMercatorFieldBounds(field);
     const span = Math.max(box.maxX - box.minX, 1e-6);
+    if (particleBox) {
+      const oldWidth = particleBox.maxX - particleBox.minX;
+      const oldHeight = particleBox.maxY - particleBox.minY;
+      if (oldWidth > 0 && oldHeight > 0 && Math.abs(span / oldWidth - 1) > 0.001) {
+        for (let i = 0; i < count; i += 1) {
+          px[i] = box.minX + ((px[i] - particleBox.minX) / oldWidth) * span;
+          py[i] = box.minY + ((py[i] - particleBox.minY) / oldHeight) * (box.maxY - box.minY);
+        }
+      }
+    }
+    particleBox = box;
     const deltaFrames = frameStep(adaptParticleCount);
     // Read dynamics each frame so the active single layer can retarget without a
     // teardown (falls back to the values fixed at creation, e.g. combined sub-layers).
@@ -809,6 +833,13 @@ export function createSwellParticleLayer(
 
     onAdd(map: mapboxgl.Map, gl: WebGL2RenderingContext) {
       mapRef = map;
+      if (options.maskToWater) {
+        maskCanvas = document.createElement("canvas");
+        waterTexture = gl.createTexture();
+        map.on("move", invalidateMask);
+        map.on("resize", invalidateMask);
+        map.on("sourcedata", invalidateMask);
+      }
       const vs = compileShader(gl, gl.VERTEX_SHADER, PARTICLE_VERTEX_SHADER);
       const fs = compileShader(gl, gl.FRAGMENT_SHADER, PARTICLE_FRAGMENT_SHADER);
       const prog = gl.createProgram();
@@ -841,13 +872,33 @@ export function createSwellParticleLayer(
       const field = options.getField();
       const shouldAnimate =
         !options.reducedMotion && shouldAnimateSwellParticles(mapRef);
-      const shouldRenderStaticFrame = !shouldAnimate && staticRenderedField !== field;
+      const camera = JSON.stringify(viewBoxMercator(mapRef));
+      const shouldRenderStaticFrame = !shouldAnimate && (staticRenderedField !== field || staticRenderedCamera !== camera);
       if (shouldAnimate || shouldRenderStaticFrame) {
         advanceAndFill(mapRef, field, shouldAnimate);
         staticRenderedField = shouldAnimate ? null : field;
+        staticRenderedCamera = camera;
       }
 
       gl.useProgram(program);
+      const maskToWater = typeof options.maskToWater === "function" ? options.maskToWater() : options.maskToWater;
+      gl.uniform1i(gl.getUniformLocation(program, "u_maskToWater"), maskToWater ? 1 : 0);
+      if (options.maskToWater && maskCanvas && waterTexture) {
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, waterTexture);
+        if (maskDirty) {
+          drawWaterMask(mapRef, maskCanvas);
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, maskCanvas);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          maskDirty = false;
+        }
+        gl.uniform1i(gl.getUniformLocation(program, "u_waterMask"), 0);
+        gl.uniform2f(gl.getUniformLocation(program, "u_viewport"), gl.drawingBufferWidth, gl.drawingBufferHeight);
+      }
       gl.uniformMatrix4fv(uMatrixLoc, false, matrix);
       const [r, g, b] = hexToRgb(options.getColorHex());
       gl.uniform3f(uColorLoc, r, g, b);
@@ -894,6 +945,10 @@ export function createSwellParticleLayer(
     },
 
     onRemove(_map: mapboxgl.Map, gl: WebGL2RenderingContext) {
+      _map.off("move", invalidateMask);
+      _map.off("resize", invalidateMask);
+      _map.off("sourcedata", invalidateMask);
+      if (waterTexture) gl.deleteTexture(waterTexture);
       if (program) gl.deleteProgram(program);
       if (posBuffer) gl.deleteBuffer(posBuffer);
       if (alphaBuffer) gl.deleteBuffer(alphaBuffer);

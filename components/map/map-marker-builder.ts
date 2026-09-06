@@ -98,7 +98,7 @@ export function getConditionMarkerGradient(
     return "linear-gradient(to right, #475569, #64748B)";
   }
   if (summary === "MEH") return "linear-gradient(to right, #334155, #475569)";
-  return "linear-gradient(to right, #5F6673, #475569)";
+  return "linear-gradient(to right, #F4ECD8, #F4ECD8)";
 }
 
 export function getConditionMarkerCall({
@@ -229,6 +229,9 @@ export function createWaveHeightBadge(
 
     // Create wrapper element that Mapbox will position
     const wrapper = document.createElement("div");
+    // Mapbox's default image role hides the interactive child from VoiceOver.
+    wrapper.setAttribute("role", "group");
+    wrapper.setAttribute("aria-label", location.name);
     wrapper.setAttribute("data-testid", "beach-marker");
     wrapper.setAttribute("data-beach-id", location.id);
     wrapper.setAttribute("data-condition-summary", conditionSummary);
@@ -252,10 +255,10 @@ export function createWaveHeightBadge(
       selectionRing.setAttribute("data-testid", "selection-ring");
       selectionRing.style.cssText = `
         position: absolute;
-        top: -8px;
-        left: -8px;
-        right: -8px;
-        bottom: -8px;
+        top: 7px;
+        left: 7px;
+        right: 7px;
+        bottom: 7px;
         border: 3px solid #F78E42;
         border-radius: 50%;
         pointer-events: none;
@@ -298,18 +301,19 @@ export function createWaveHeightBadge(
       justify-content: center;
     `;
     const visual = document.createElement("span");
+    const visualScale = isSelected ? 1.4 : isHovered ? 1.2 : 1;
+    const visualSize = (markerDisplay === "points" ? 18 : 15) * visualScale;
     visual.setAttribute("data-marker-visual", "true");
+    visual.setAttribute("aria-hidden", "true");
     visual.style.cssText = `
       display: block;
-      width: ${markerDisplay === "points" ? "18px" : "15px"};
-      height: ${markerDisplay === "points" ? "18px" : "15px"};
+      width: ${visualSize}px;
+      height: ${visualSize}px;
       border-radius: 50%;
-      border: 2.5px solid #ffffff;
+      border: ${2.5 * visualScale}px solid #ffffff;
       background: ${markerGradient};
       pointer-events: none;
-      transform-origin: center;
       transition: ${reducedMotion ? "none" : "all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1)"};
-      transform: scale(${isSelected ? "1.7" : isHovered ? "1.45" : "1"});
       box-shadow: ${
         isSelected
           ? "0 0 20px rgba(247, 142, 66,0.4), 0 8px 25px rgba(0, 0, 0, 0.3)"
@@ -320,6 +324,17 @@ export function createWaveHeightBadge(
     `;
     if (isFavorite) {
       visual.style.borderColor = "#FDB84B";
+    }
+    if (conditionSummary === "UNKNOWN" && !deps.waterQualityHold) {
+      visual.style.background = "#F4ECD8";
+      visual.style.borderColor = "#64748B";
+      visual.style.borderStyle = "dashed";
+    }
+    badge.title = `${location.name}: ${conditionMarkerCall.label}`;
+    const evidence = (location as Partial<MapBeach>).waterQualityEvidence;
+    if (deps.waterQualityHold && evidence?.source === "sample") {
+      badge.title = `${location.name}: elevated bacteria in ${evidence.sampleDate ?? "historical"} sample`;
+      badge.setAttribute("aria-label", badge.title);
     }
     badge.appendChild(visual);
 

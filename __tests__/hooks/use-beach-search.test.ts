@@ -384,6 +384,19 @@ describe("useBeachSearch", () => {
     });
   });
 
+  it("keeps visible beaches while a background pan request is pending", async () => {
+    const { result } = renderHook(() => useBeachSearch());
+    await act(async () => { await result.current.loadNearbyBeaches(32.75, -117.25); });
+    const visible = result.current.filteredBeaches;
+    let resolveNearby!: (value: any) => void;
+    mockGetNearbyBeaches.mockImplementationOnce(() => new Promise((resolve) => { resolveNearby = resolve; }));
+    let pending!: Promise<void>;
+    act(() => { pending = result.current.loadNearbyBeaches(32.76, -117.25, { background: true }); });
+    expect(result.current.filteredBeaches).toBe(visible);
+    await act(async () => { resolveNearby({ success: true, data: mockBeaches.slice(1) }); await pending; });
+    expect(result.current.filteredBeaches).toEqual(mockBeaches.slice(1));
+  });
+
   describe("nearbyBeachesForScroll", () => {
     it("should return beaches excluding selected beach", async () => {
       const { result } = renderHook(() => useBeachSearch());

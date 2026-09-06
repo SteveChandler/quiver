@@ -1,3 +1,4 @@
+import { mapSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
 import type { SwellLayerId } from "@/components/map/swell-map-theme";
 import {
   interpolateSwellPartition,
@@ -343,6 +344,7 @@ export function partitionToPoint(
   partition: SwellPartition,
   layerId: SwellLayerId
 ): BeachPartitionPoint | null {
+  partition = mapSwellPartition(partition);
   if (layerId === "wind") {
     if (partition.windDir == null || partition.windMph == null) return null;
     // Treat wind like a short-period, height-proxied flow: period from mph, height from mph.
@@ -355,24 +357,24 @@ export function partitionToPoint(
     };
   }
   if (layerId === "s2") {
-    if (partition.s2Dir == null) return null;
+    if (partition.s2Dir == null || !partition.s2PeriodS || !partition.s2HeightFt) return null;
     return {
       lon,
       lat,
       dir: partition.s2Dir,
-      periodS: partition.s2PeriodS ?? 8,
-      heightFt: partition.s2HeightFt ?? 1,
+      periodS: partition.s2PeriodS,
+      heightFt: partition.s2HeightFt,
     };
   }
   // "s1" and "combined" both anchor on the primary swell.
-  const dir = partition.s1Dir ?? partition.swellDirOm;
-  if (dir == null) return null;
+  const dir = partition.s1Dir;
+  if (dir == null || !partition.s1PeriodS || !partition.s1HeightFt) return null;
   return {
     lon,
     lat,
     dir,
-    periodS: partition.s1PeriodS ?? 12,
-    heightFt: partition.s1HeightFt ?? 2,
+    periodS: partition.s1PeriodS,
+    heightFt: partition.s1HeightFt,
   };
 }
 

@@ -1,5 +1,5 @@
 import type { CalloutComponent } from "@/components/map/conditions-callout-data";
-import type { WaterQualityHoldKind } from "@/lib/services/nearby-beach-service";
+import type { WaterQualityHoldKind, MapBeach } from "@/lib/services/nearby-beach-service";
 
 export interface ConditionsCalloutOptions {
   beachName: string;
@@ -8,12 +8,16 @@ export interface ConditionsCalloutOptions {
   /** When set, renders a tappable "Full forecast →" link to the beach page. */
   beachHref?: string;
   waterQualityHold?: WaterQualityHoldKind | null;
+  waterQualityEvidence?: MapBeach["waterQualityEvidence"];
   /**
    * Uniform render scale (default 1). Below 1 shrinks the whole callout — ring,
    * scrim, arrows, and labels together — so it fits narrow mobile viewports where
    * the full-size arrows would run off-screen and the ring looks oversized.
    */
   scale?: number;
+  forecastAt?: string;
+  mapBearing?: number;
+  previousElement?: HTMLElement;
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -24,7 +28,6 @@ const RING_R = 150;
 const BANNER_LEN = 190; // local x of the arrowhead tip
 const BODY_END = 165; // local x where the taper begins
 const GAP = 42; // px the arrowhead sits out from the beach center (breathing room around the label)
-const MIN_ARROW_SEP_DEG = 36; // fan clustered same-bearing arrows apart so they don't stack
 const CENTER_NAME_BASELINE_Y = CY - 6;
 const CENTER_NAME_FONT_SIZE = 20;
 const WATER_QUALITY_BADGE_HEIGHT = 26;
@@ -53,40 +56,13 @@ function pillCssText(top: number, interactive = false): string {
   ].join(";");
 }
 
-/**
- * Screen angles for each banner, fanned apart so swells sharing a bearing don't
- * stack into an unreadable blob. Already-separated arrows keep their exact angle;
- * only clustered ones are nudged (recentred on their mean so the fan stays balanced).
- */
-function spreadDisplayAngles(components: CalloutComponent[]): number[] {
-  const raw = components.map((c) => travelScreenAngleDeg(c.bearingDeg));
-  if (raw.length < 2) return raw;
-  const ref = raw[0];
-  const unwrap = (a: number): number => {
-    let d = (((a - ref) % 360) + 360) % 360;
-    if (d > 180) d -= 360;
-    return ref + d;
-  };
-  const order = raw.map((a, i) => ({ a: unwrap(a), i })).sort((x, y) => x.a - y.a);
-  for (let k = 1; k < order.length; k += 1) {
-    if (order[k].a - order[k - 1].a < MIN_ARROW_SEP_DEG) {
-      order[k].a = order[k - 1].a + MIN_ARROW_SEP_DEG;
-    }
-  }
-  const meanBefore = raw.reduce((s, a) => s + unwrap(a), 0) / raw.length;
-  const meanAfter = order.reduce((s, o) => s + o.a, 0) / order.length;
-  const shift = meanBefore - meanAfter;
-  const out = new Array<number>(raw.length);
-  for (const o of order) out[o.i] = o.a + shift;
-  return out;
-}
-
 export function travelScreenAngleDeg(bearingDeg: number): number {
   return ((bearingDeg + 90) % 360 + 360) % 360;
 }
 
 export function textNeedsFlip(screenAngleDeg: number): boolean {
-  return screenAngleDeg > 90 && screenAngleDeg < 270;
+  const normalized = ((screenAngleDeg % 360) + 360) % 360;
+  return normalized > 90 && normalized < 270;
 }
 
 function svgEl(name: string, attrs: Record<string, string>): SVGElement {
@@ -103,6 +79,7 @@ function buildBanner(c: CalloutComponent, gamma: number): SVGElement {
     transform: `translate(${CX},${CY}) rotate(${gamma}) translate(${-(BANNER_LEN + GAP)},-17)`,
   });
   group.setAttribute("data-callout-banner", c.kind);
+  group.setAttribute("data-bearing", String(c.bearingDeg));
   group.setAttribute("data-callout-label", c.label);
   group.setAttribute("data-callout-flipped", String(flip));
 
@@ -116,7 +93,7 @@ function buildBanner(c: CalloutComponent, gamma: number): SVGElement {
     svgEl("path", { d: `M17,0 H${pillW} V34 H17 A17,17 0 0 1 17,0 Z`, fill: "#2E2A26" })
   );
 
-  const textGroup = svgEl("g", flip ? { transform: `rotate(180 ${(17 + BANNER_LEN) / 2} 17)` } : {});
+  const textGroup = svgEl("g", {});
   const name = svgEl("text", {
     x: String(pillW / 2 + 8), y: "23", "text-anchor": "middle",
     "font-family": "system-ui, sans-serif", "font-size": "14", "font-weight": "800", fill: "#fff",
@@ -127,6 +104,10 @@ function buildBanner(c: CalloutComponent, gamma: number): SVGElement {
     "font-family": "system-ui, sans-serif", "font-size": "15", "font-weight": "800", fill: "#1a1208",
   });
   value.textContent = c.label;
+  if (flip) {
+    name.setAttribute("transform", `rotate(180 ${pillW / 2 + 8} 17)`);
+    value.setAttribute("transform", `rotate(180 ${(pillW + BANNER_LEN) / 2} 17)`);
+  }
   textGroup.appendChild(name);
   textGroup.appendChild(value);
   group.appendChild(textGroup);
@@ -143,10 +124,16 @@ export function createConditionsCalloutElement(
   const scale = opts.scale && opts.scale > 0 ? opts.scale : 1;
   const RENDER = Math.round(SIZE * scale);
   const center = RENDER / 2;
+  const reducedMotion =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 
   const wrapper = document.createElement("div");
   wrapper.setAttribute("data-conditions-callout", "true");
-  wrapper.style.cssText = `position:relative;width:${RENDER}px;height:${RENDER}px;pointer-events:auto;cursor:pointer;`;
+  wrapper.dataset.forecastAt = opts.forecastAt ?? "";
+  wrapper.style.cssText = `position:relative;width:${RENDER}px;height:${RENDER}px;pointer-events:none;cursor:pointer;`;
 
   const svg = svgEl("svg", { viewBox: `0 0 ${SIZE} ${SIZE}`, width: String(RENDER), height: String(RENDER) });
 
@@ -168,9 +155,28 @@ export function createConditionsCalloutElement(
   svg.appendChild(svgEl("circle", { cx: String(CX), cy: String(CY), r: String(RING_R), fill: "url(#calloutScrim)" }));
   svg.appendChild(svgEl("circle", { cx: String(CX), cy: String(CY), r: String(RING_R), fill: "none", stroke: "rgba(255,255,255,0.85)", "stroke-width": "2" }));
 
-  // Fan clustered same-bearing banners apart so they don't stack into a blob.
-  const displayAngles = spreadDisplayAngles(opts.components);
-  opts.components.forEach((c, i) => svg.appendChild(buildBanner(c, displayAngles[i])));
+  // Keep the existing banners aligned with the field’s real bearings.
+  const displayAngles = opts.components.map((component) => travelScreenAngleDeg(component.bearingDeg) - (opts.mapBearing ?? 0));
+  opts.components.forEach((component, index) => {
+    const target = displayAngles[index];
+    const banner = buildBanner(component, target);
+    banner.setAttribute("data-screen-angle", String(target));
+    const previous = opts.previousElement?.querySelector<SVGElement>(`[data-callout-banner="${component.kind}"]`);
+    if (previous && !reducedMotion && typeof banner.animate === "function") {
+      const transform = window.getComputedStyle(previous).transform;
+      const matrix = transform && transform !== "none" && typeof DOMMatrix !== "undefined" ? new DOMMatrix(transform) : null;
+      const from = matrix ? Math.atan2(matrix.b, matrix.a) * 180 / Math.PI : Number(previous.getAttribute("data-screen-angle"));
+      const delta = ((target - from + 540) % 360 + 360) % 360 - 180;
+      if (Number.isFinite(from) && Math.abs(delta) > 0.01) {
+        const pose = (angle: number): string => `translate(${CX}px, ${CY}px) rotate(${angle}deg) translate(${-(BANNER_LEN + GAP)}px, -17px)`;
+        banner.animate([{ transform: pose(from) }, { transform: pose(from + delta) }], {
+          duration: 500,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        });
+      }
+    }
+    svg.appendChild(banner);
+  });
 
   svg.appendChild(svgEl("circle", { cx: String(CX), cy: String(CY), r: "6", fill: "#fff" }));
   // paint-order:stroke gives the label a dark halo so it reads on any backdrop.
@@ -211,10 +217,6 @@ export function createConditionsCalloutElement(
     "background:rgba(255,255,255,0.5)",
     "pointer-events:none",
   ].join(";");
-  const reducedMotion =
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (typeof pulse.animate === "function" && !reducedMotion) {
     pulse.animate(
       [
@@ -227,11 +229,15 @@ export function createConditionsCalloutElement(
   wrapper.appendChild(pulse);
 
   if (opts.waterQualityHold) {
-    const statusCopy =
-      opts.waterQualityHold === "closure"
-        ? "Closed — county water-quality data"
+    const sampleDate = opts.waterQualityEvidence?.sampleDate;
+    const statusCopy = opts.waterQualityEvidence?.source === "sample"
+      ? `Elevated bacteria${sampleDate ? ` · sample ${sampleDate}` : " · historical sample"}`
+      : opts.waterQualityEvidence?.source === "hold"
+        ? "Water quality hold"
+        : opts.waterQualityHold === "closure"
+        ? "Closed — water-quality alert"
         : opts.waterQualityHold === "advisory"
-          ? "Advisory — county water-quality data"
+          ? "Advisory — water-quality alert"
           : "Water quality hold";
     const statusBadge = document.createElement("div");
     statusBadge.setAttribute("data-callout-water-quality", opts.waterQualityHold);
@@ -255,6 +261,12 @@ export function createConditionsCalloutElement(
     wrapper.appendChild(statusBadge);
   }
 
+  const content = document.createElement("div");
+  content.setAttribute("data-callout-content", "true");
+  content.style.cssText = "width:100%;height:100%;position:relative;pointer-events:auto;transform:scale(var(--callout-zoom, 1));transform-origin:center;";
+  content.append(...Array.from(wrapper.childNodes));
+  wrapper.appendChild(content);
+
   if (opts.beachHref) {
     // The arrows already carry name/temp/swell/wind; the only thing the old info
     // card added is the path to the full forecast. Render it as a tappable pill
@@ -267,6 +279,7 @@ export function createConditionsCalloutElement(
     link.style.cssText = [
       // Position scales with the callout; the pill's own size stays for tappability.
       pillCssText((CY + 122) * scale, true),
+      `top:calc(50% + ${122 * scale}px * var(--callout-zoom, 1))`,
       "color:#fff",
       "font-size:13px",
       "text-decoration:none",
