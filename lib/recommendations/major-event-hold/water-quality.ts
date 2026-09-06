@@ -1,3 +1,4 @@
+import { isCurrentWaterQualitySample } from "@/lib/constants/water-quality";
 import "server-only";
 
 import { createHash } from "node:crypto";
@@ -476,9 +477,17 @@ export async function resolveWaterQualityHolds(
         continue;
       }
 
+      if (row && (row.status === "advisory" || row.status === "closure")
+        && !countyHeld.has(beachId)
+        && !isCurrentWaterQualitySample(row.latest_sample_date, now.getTime())) {
+        evidence[beachId] = { source: "sample", ...(typeof row.latest_sample_date === "string" ? { sampleDate: row.latest_sample_date } : {}) };
+        snapshot.push(`${beachId}:sample-unconfirmed:${row.latest_sample_date ?? "undated"}`);
+        continue;
+      }
+
       const hasRealData =
         row !== undefined &&
-        (row.total_samples_30d > 0 || countyHeld.has(beachId)) &&
+        ((row.total_samples_30d > 0 && isCurrentWaterQualitySample(row.latest_sample_date, now.getTime())) || countyHeld.has(beachId)) &&
         row.status !== "unknown";
       if (!hasRealData) {
         snapshot.push(`${beachId}:fallback:allow`);

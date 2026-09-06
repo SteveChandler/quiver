@@ -6,6 +6,7 @@ import {
   logGfsWaveShadowRows,
 } from "@/lib/services/noaa-wavewatch/gfs-wave-shadow";
 import type { Beach } from "@/types/database";
+import { toFaceHeightFeetDecomposedWithDebug } from "@/lib/utils/wave-formatters";
 
 // Mock dependencies
 jest.mock("@/lib/services/forecast/confidence-scorer", () => ({
@@ -559,6 +560,40 @@ describe("ForecastBuilder", () => {
     // Defensive: peak_wave_direction (270 → "W") must never appear as the
     // wave_direction text — direction must follow the picked component.
     expect(forecasts[0].wave_direction).not.toBe("W");
+  });
+
+  it.each([
+    { height: null, period: 13, direction: 180, dominant: false },
+    { height: 2, period: null, direction: 180, dominant: false },
+    { height: 2, period: 13, direction: null, dominant: false },
+    { height: null, period: null, direction: null, dominant: false },
+    { height: 2, period: 13, direction: 0, dominant: true },
+  ])("preserves secondary missingness: %j", async ({ height, period, direction, dominant }) => {
+    const directionAwareBuilder = new ForecastBuilder({
+      getWaveDirectionText: (deg: number) => `${deg} degrees`,
+      getTideStatusAtTime: () => "Rising",
+      getTideHeightAtTime: () => 3.5,
+      getNextTideFromTime: () => ({ time: Math.floor(Date.now() / 1000) + 7200, height: 5.2, type: "high", name: "High" }),
+      getDataQualityScore: () => 85,
+    });
+    const forecasts = await directionAwareBuilder.buildForecasts({
+      beach: mockBeach,
+      waveData: { ...mockOpenMeteoWaveData, forecast: [{
+        ...mockOpenMeteoWaveData.forecast[0],
+        swell_2_height: height, swell_2_period: period, swell_2_direction: direction,
+      }] },
+      tideData: mockTideData, weatherData: [], buoyData: null, cdipData: null,
+      ioosWaterTempC: null, coopsWaterTempC: null,
+    });
+    expect(forecasts[0].wave_period).toBe(dominant ? "13s" : "8s");
+    expect(forecasts[0].wave_direction).toBe(dominant ? "0 degrees" : "270 degrees");
+    expect(forecasts[0].swell_2_direction).toBe(
+      height == null || direction == null ? null : `${direction} degrees`,
+    );
+    const secondary = jest.mocked(toFaceHeightFeetDecomposedWithDebug).mock.calls[0][0].components?.[1];
+    expect(secondary).toEqual(height == null || period == null ? null : {
+      heightFt: height * 3.28084, periodS: period, directionDeg: direction,
+    });
   });
 
   it("wind_wave_period renders null when source emits the 0 sentinel", async () => {

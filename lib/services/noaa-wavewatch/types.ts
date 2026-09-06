@@ -65,6 +65,26 @@ export interface NOAAGridData {
  * numeric quantities returned by Open-Meteo (meters / seconds / degrees)
  * — never synthesized defaults.
  */
+export type ForecastProvider = "noaa" | "open_meteo";
+
+export interface SwellFieldSource {
+  kind: "provider_field" | "derived" | "missing";
+  field: string | null;
+  sample?: {
+    value: number | null;
+    validTime: string | number;
+    unit: string | null;
+    timezone?: string | null;
+    utcOffsetSeconds?: number | null;
+  };
+}
+
+export interface SwellTupleSources {
+  height: SwellFieldSource;
+  period: SwellFieldSource;
+  direction: SwellFieldSource;
+}
+
 export interface OpenMeteoSlotValues {
   wave_height_om: number | null;
   wave_period_om: number | null;
@@ -87,6 +107,7 @@ export interface OpenMeteoSlotValues {
   om_wind_wave_missing?: boolean | null;
   om_primary_swell_missing?: boolean | null;
   om_secondary_swell_missing?: boolean | null;
+  om_secondary_swell_complete?: boolean | null;
   om_tertiary_swell_missing?: boolean | null;
   om_partition_schema_version?: number | null;
 }
@@ -125,29 +146,27 @@ export interface WaveWatchData {
    *
    * Holds a REAL secondary-partition value from NOAA (`secondarySwellHeight`)
    * or CDIP when available. No longer derived from `swell_1_height * magic`.
-   * `0` when no real secondary partition exists for the slot — downstream
-   * consumers must treat `swell_2_height === 0` (or `swell_2_period === 0`)
-   * as "no second swell train," not as "small second swell." This is the
-   * pipeline-level sentinel; persisted/DB-level values are nullable at the
-   * `EnhancedForecastEntity` layer.
+   * NOAA uses `0` when no real secondary partition exists; Open-Meteo uses
+   * `null` for an absent or incomplete tuple. Consumers must treat either as
+   * unavailable rather than as a detectable partition.
    */
-  swell_2_height: number;
+  swell_2_height: number | null;
   /**
    * Secondary swell period in seconds.
    *
    * Real NOAA `wavePeriod2` or CDIP secondary-partition period. Not synthetic.
-   * `0` when no real secondary partition exists for the slot (sentinel; see
-   * `swell_2_height` note).
+   * `0` or `null` when no complete secondary partition exists (see
+   * `swell_2_height`).
    */
-  swell_2_period: number;
+  swell_2_period: number | null;
   /**
    * Secondary swell direction in degrees.
    *
    * Real NOAA `secondarySwellDirection` or CDIP secondary-partition direction.
-   * Not synthetic. `0` when no real secondary partition exists (sentinel; see
-   * `swell_2_height` note).
+   * Not synthetic. `0` or `null` when no complete secondary partition exists
+   * (see `swell_2_height`).
    */
-  swell_2_direction: number;
+  swell_2_direction: number | null;
   /** Wind wave height in meters */
   wind_wave_height: number;
   /** Wind wave period in seconds */
@@ -163,6 +182,13 @@ export interface WaveWatchData {
    * OM values on the same row.
    */
   om_values?: OpenMeteoSlotValues;
+  /** Field-selection lineage only; neither endpoint proves an immutable run. */
+  swell_field_sources?: {
+    provider: ForecastProvider;
+    immutableRunId: null;
+    s1: SwellTupleSources;
+    s2: SwellTupleSources;
+  };
 }
 
 /**
@@ -185,6 +211,9 @@ export interface WaveWatchForecast {
  * Open-Meteo Marine API response structure
  */
 export interface OpenMeteoMarineResponse {
+  hourly_units?: Record<string, string>;
+  timezone?: string;
+  utc_offset_seconds?: number;
   hourly?: {
     time: Array<string | number>;
     wave_height?: Array<number | null>;

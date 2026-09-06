@@ -1,0 +1,250 @@
+{
+  "status": "local_review_inventory_not_deployment_approval",
+  "base": "8813c02df5b43744106fd0eab8e50c48685f57c5",
+  "branch": "orch/phase-26-no-send-current",
+  "files": [
+    {
+      "path": "__tests__/api/cron/swell-watch-acquire.test.ts",
+      "sha256": "1fb150a77f3e10e8272843679a0942cf30226a46d32d6044aec14228561b2db0"
+    },
+    {
+      "path": "__tests__/api/cron/swell-watch-evaluate.test.ts",
+      "sha256": "d4693096ded88a283012b99ea1ff64551decab767c32d4de1c770a9305df379c"
+    },
+    {
+      "path": "__tests__/fixtures/swell-watch-provisional-policy.json",
+      "sha256": "0ff33d162c4d5ff92d80c4a405e22f72bbaf28d3f1bfe7eb36154f8dcc0eeded"
+    },
+    {
+      "path": "__tests__/lib/alerts/swell-watch/acquisition.test.ts",
+      "sha256": "11cd33ab5f3690c33019fb25af6636dbcb1b8acb01ec02c47bd41fae8f176a80"
+    },
+    {
+      "path": "__tests__/lib/alerts/swell-watch/attested-run.test.ts",
+      "sha256": "2f6b0dfe104f7252f71c827fa7a891d871ec23b85465ba56544731456ed06cbf"
+    },
+    {
+      "path": "__tests__/lib/alerts/swell-watch/persisted-history.test.ts",
+      "sha256": "71b463abb728749a85e5f9d9f30ea7ffc3e3db7d283c9e7191eb16165b0bff21"
+    },
+    {
+      "path": "__tests__/lib/alerts/swell-watch/provider-impact-ingestion.test.ts",
+      "sha256": "5be37483c09c104b1f463dbc66a6e95982665919e75abc623931ccb17dba2515"
+    },
+    {
+      "path": "__tests__/lib/alerts/swell-watch/provider-run-store.test.ts",
+      "sha256": "8b69675e3253579c4d8f55fe9cf00ceeb68985e1e5e7d9d50ce1fb8d7e793f4c"
+    },
+    {
+      "path": "__tests__/lib/alerts/swell-watch/shadow-evaluation.test.ts",
+      "sha256": "9c7e39d496e240ea2a25bb56fe6e033ca4864124300429759d7368866201a81b"
+    },
+    {
+      "path": "__tests__/lib/community-photos/observability.test.ts",
+      "sha256": "6567a56820a40a244966369485635ac02a1824d70ed59d53596537c4b1a1ec1d"
+    },
+    {
+      "path": "__tests__/lib/services/forecast/forecast-builder.test.ts",
+      "sha256": "434bca4e4a17c59b81b92f7be0538c91a3e7f1d6d68b80847c6ef0c7f94ad070"
+    },
+    {
+      "path": "__tests__/lib/services/noaa-wavewatch/source-selection.test.ts",
+      "sha256": "93a00adf31ea2a6d4032dc0a697abe5e34bd5b8091a72a47e0af363f78d94e2c"
+    },
+    {
+      "path": "__tests__/next-config-experiment-cache.test.ts",
+      "sha256": "3bee0723104d50b8819ee5f84215eaec3f8f60a6bc45d4f9c8ca32d06101580f"
+    },
+    {
+      "path": "app/api/cron/swell-watch-acquire/route.ts",
+      "sha256": "be5b2c18b8133832ecd6c7f50e06e01f0393120fdc2306c5c0066e37157e9cb5"
+    },
+    {
+      "path": "app/api/cron/swell-watch-evaluate/route.ts",
+      "sha256": "2731591ffebc2e685566d0e771556b595152489a178080ce0e758f32b2f64b95"
+    },
+    {
+      "path": "app/api/surf/call/route.ts",
+      "sha256": "eab6420bbd52c0a94557da7e80f0a1b7761a2d209e349ad2ac1f75d4d95f56b4"
+    },
+    {
+      "path": "lib/alerts/swell-watch/acquisition.ts",
+      "sha256": "4a47322586f49baeedda16b08be7ba68da51162b53119bebc67b761137a2aee0"
+    },
+    {
+      "path": "lib/alerts/swell-watch/attested-run.ts",
+      "sha256": "6fc5793629f45b71ac37a330975bc983d6b06485daa8cf8f0c2353b323e9f7b2"
+    },
+    {
+      "path": "lib/alerts/swell-watch/audience.ts",
+      "sha256": "57b6f1f6a76c15251c4cc9860acb6f5d547272883eb550beb78cbd7d4aa37f71"
+    },
+    {
+      "path": "lib/alerts/swell-watch/event-matcher.ts",
+      "sha256": "81dcd557983652a66cfa63efbd3a38d5594534301e861b2ba925cd3d206ab25f"
+    },
+    {
+      "path": "lib/alerts/swell-watch/horizon-derivation.ts",
+      "sha256": "d804de8a86de6904c7178d9d5375836b4d7f13b09c4818ee684c810847015b96"
+    },
+    {
+      "path": "lib/alerts/swell-watch/impact-evaluator.ts",
+      "sha256": "56f5f14ec5129ce7c9dd507f7bf5a0b17da725e77157d10ac6ce0a0c9f20d40f"
+    },
+    {
+      "path": "lib/alerts/swell-watch/partition-normalizer.ts",
+      "sha256": "f721d20f4f4a097b6eb253881cc97a50619f77b774afc2f351fbd1ed0b91f358"
+    },
+    {
+      "path": "lib/alerts/swell-watch/persisted-history.ts",
+      "sha256": "8a25ec5349826876a11a01d516f0584554a180656255d169796aa009ac55dd3b"
+    },
+    {
+      "path": "lib/alerts/swell-watch/policy.ts",
+      "sha256": "830f3027977777fcdd56f4a14afe7c515a4b01049c07a49c637cb6d0e0bd7931"
+    },
+    {
+      "path": "lib/alerts/swell-watch/provider-impact-ingestion.ts",
+      "sha256": "6652659d9c6b510a73950562a8836c2651874b449bc29c54cee42ff211fb1f3c"
+    },
+    {
+      "path": "lib/alerts/swell-watch/provider-run-store.ts",
+      "sha256": "c50f3104ba1dd663cb953511c5110d65abe22e3ee95f0640e728ee4f83aae683"
+    },
+    {
+      "path": "lib/alerts/swell-watch/regional-consolidator.ts",
+      "sha256": "ff8c3ade289fa29fbcf862c7f56b24a3d44ab01b497241a64e01503f09d5f1aa"
+    },
+    {
+      "path": "lib/alerts/swell-watch/safety-control.ts",
+      "sha256": "84dc72641076bfcf3f283c1caf66c043c76c23e670da0ba4a7a9c2f0a9ac0e92"
+    },
+    {
+      "path": "lib/alerts/swell-watch/shadow-evaluation.ts",
+      "sha256": "2c03cd43d58ca67fd7eb9fc1c695a6e3457f8ebc7a49776bc88a95776f3cbeb5"
+    },
+    {
+      "path": "lib/alerts/swell-watch/single-run-receipt.ts",
+      "sha256": "369e2d643d58ebdb2b0f85bb6c8d5e3ae9a479e2932ff10fcc4fad3011a488da"
+    },
+    {
+      "path": "lib/community-photos/observability.ts",
+      "sha256": "1271ed645b1ff36424557ad111bfad7c7e914a3c4ee579500a2a9dc738064cec"
+    },
+    {
+      "path": "lib/middleware/api-wrappers/types.ts",
+      "sha256": "7c91a5573badc676547651d9212fc655eca8d0a87f2e4e3ce494fa0c2f79ff2b"
+    },
+    {
+      "path": "lib/services/forecast/forecast-builder.ts",
+      "sha256": "25960818a79398943f32fd93edce88014fd2b4fd9af7a55b6d58ef96cf432517"
+    },
+    {
+      "path": "lib/services/noaa-wavewatch/source-selection.ts",
+      "sha256": "78e4c5f54fbbaa19446b0fd2508bed0bacc55fefe40359c5c0db1a98c270772c"
+    },
+    {
+      "path": "lib/services/noaa-wavewatch/types.ts",
+      "sha256": "84ee45a1a2791c085f8bdd07b43f2c2e020ef6e29e0e86e60696310b2001611a"
+    },
+    {
+      "path": "next.config.mjs",
+      "sha256": "9ce99a03cca6ed40ccd8eff9b5a17fa7eb9087775a03e3ca4a8980e61a2151db"
+    },
+    {
+      "path": "supabase/migrations/20260824120000_create_swell_watch_event_pipeline.sql",
+      "sha256": "7bfe861b4d481d1bdd9751122bfd71d8bd1b0d639b9237b55bdb3cba5a25538e"
+    },
+    {
+      "path": "supabase/migrations/20260824130000_create_swell_watch_production_approval_authority.sql",
+      "sha256": "42be086ea57fcd9286685cb0061f88c4be02cfe11bf29f63d910191cccfb16d9"
+    },
+    {
+      "path": "supabase/migrations/20260902195500_add_humboldt_city_editorial.sql",
+      "sha256": "e001bdf22a68a7947e647dd5877db6593fa7c335ade1be4914a4d01069490ecd"
+    },
+    {
+      "path": "supabase/migrations/20260903180000_email_contact_policy.sql",
+      "sha256": "155525bedfbd825dbae70ec4b6975211bf21928b30fc2939c6bb6bf076ee5698"
+    },
+    {
+      "path": "supabase/migrations/20260904120001_add_swell_watch_v2_enqueue_dedupe.sql",
+      "sha256": "8cb4d3d2b5a5344f2bbb16dd61fa66eeee84c5ad29ca72685dbec7e44f112b12"
+    },
+    {
+      "path": "supabase/migrations/20260904140000_create_swell_watch_provider_run_receipts.sql",
+      "sha256": "85b0dcee4dd0c4b929c516ba46737502c6c0a0d9181d7699377f1232b7e92f13"
+    },
+    {
+      "path": "supabase/migrations/20260905010000_add_swell_watch_owner_attestation.sql",
+      "sha256": "a9efd6573a40ac991ab2e3edfec7a3b57862b2fdc09c0300d621dbf8c48b1b93"
+    },
+    {
+      "path": "supabase/migrations/20260905020000_resolve_swell_watch_event_identity.sql",
+      "sha256": "1a5114ec4ff6a73c4ad7ae76f4c29945d7e91cb7f05f4149392f1c8001a68d99"
+    },
+    {
+      "path": "supabase/migrations/20260905030000_retain_swell_watch_unavailable_components.sql",
+      "sha256": "242f8e1884fdba684897414785c46f1117bacdd6ab1f2d30647b8002ddb7d1a2"
+    },
+    {
+      "path": "supabase/migrations/20260905040000_require_current_swell_watch_run_evidence.sql",
+      "sha256": "67ec1e230164e8b33af962349522c00399b593310410a11e952ed96bb3809cae"
+    },
+    {
+      "path": "supabase/migrations/20260905050000_read_attested_swell_watch_run.sql",
+      "sha256": "de462897fbe8da6844fa112c35f0acb116ec076206e1c2f7c13bd2fd5c7c3ec2"
+    },
+    {
+      "path": "supabase/migrations/20260905060000_ingest_swell_watch_run_atomically.sql",
+      "sha256": "f5ca9db4248b26603174b8dbd015f29401960751abcfa59031799c9ace1d13b9"
+    },
+    {
+      "path": "supabase/migrations/20260905070000_read_swell_watch_delivery_health.sql",
+      "sha256": "86be505c547dc264e7a2f1242b66df7974d95be3310986b44f29b670f56618f4"
+    },
+    {
+      "path": "supabase/migrations/20260905080000_read_swell_watch_run_scope.sql",
+      "sha256": "e9471152a45497ed25fbb5d3f37aa7bfb2388808427ed40881e68a4ede3ea10b"
+    },
+    {
+      "path": "supabase/migrations/20260905090000_ingest_swell_watch_cohort.sql",
+      "sha256": "0f1f676937a51ce5ca640db4a2528090aacd531ff9321a61a3372ccb68cc78e8"
+    },
+    {
+      "path": "supabase/migrations/20260906140000_add_swell_watch_collection_lease.sql",
+      "sha256": "0a2ae1ae3368a429e2791415798205fa5e2054d638df53c174d71305d11280e9"
+    },
+    {
+      "path": "supabase/migrations/20260906150000_separate_swell_watch_evaluation_policy.sql",
+      "sha256": "543ce6ef45b48c82c8cc8e366e9a3e0aa2764dbcede467f2cef4264e558a51c2"
+    },
+    {
+      "path": "supabase/migrations/20260906160000_record_swell_watch_shadow_demand.sql",
+      "sha256": "732f1083af6b265b4ae1aab3ec18f6aae95f35dd77c755084b7c5594c539d841"
+    },
+    {
+      "path": "types/database.generated.ts",
+      "sha256": "1974de460adcc9a6880753cea8b55ff67e8a7eb7d571b8a05e1b9cee757e79dc"
+    },
+    {
+      "path": "types/forecast.ts",
+      "sha256": "0774fe707ea5f65dc1920d45db51ebcbef6bc43f3254a8151fe3ae4b34c93e4d"
+    },
+    {
+      "path": "vercel.json",
+      "sha256": "0990d93ed1cc95cd4bf6cee8e2be443e847a49e8536f7fa2384209e286907c2c"
+    }
+  ],
+  "source_manifest_sha256": "55b39945e11a89b425ea6592ed5445b90a814fd40826889fc9fb818a6603ff31",
+  "producer_config": {
+    "path": "docs/operations/swell-watch-no-send-producer-config.json",
+    "sha256": "f8d3549aec17646288a8a00bb174075973f2ab461b7506315c5c5aab5784d977"
+  },
+  "policy_value_hash": "4c9ec372e9dff824039956ef5d2f46e6d3445b9d0d80d6626cac9932de436ecd",
+  "holds": [
+    "no_swell_watch_sends",
+    "no_ota",
+    "no_automatic_activation"
+  ]
+}
