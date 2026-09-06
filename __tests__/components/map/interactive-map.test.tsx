@@ -1612,7 +1612,7 @@ describe("InteractiveMap", () => {
       const view = render(<InteractiveMap {...props} />);
       await waitFor(() => expect(sampledIds.size).toBe(21));
       const excluded = beaches[20];
-      await waitFor(() => expect(getBeachMarkerBadge(excluded.id)).toBeDefined());
+      await waitFor(() => expect(getBeachMarkerBadge(excluded.id)).toBeInstanceOf(HTMLElement));
       fireEvent.click(getBeachMarkerBadge(excluded.id));
       await waitFor(() => {
         expect(getBeachMarkerBadge(excluded.id).parentElement).toHaveAttribute("data-condition-summary", "GOOD");
@@ -2702,7 +2702,7 @@ describe("InteractiveMap", () => {
     const beach = (id: string) => ({ id, name: id, lat: 32.75, lon: -117.25 } as import("@/types/database").Beach);
     const { rerender } = render(<InteractiveMap beaches={[beach("old")]} swellTimelineMode="expandable-hourly" />);
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(mockMapHandlers.moveend).toBeDefined());
+    await waitFor(() => expect(mockMapHandlers.moveend).toEqual(expect.arrayContaining([expect.any(Function)])));
     jest.useFakeTimers();
     act(() => mockMapHandlers.moveend[0]());
     rerender(<InteractiveMap beaches={[beach("new")]} swellTimelineMode="expandable-hourly" />);
