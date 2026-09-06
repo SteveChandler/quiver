@@ -50,6 +50,64 @@ describe("embed map bridge", () => {
     view.unmount();
   });
 
+  it('validates the additive native visibility command', () => {
+    expect(parseEmbedMapCommand({ type: 'setActive', payload: { active: false } }))
+      .toEqual({ type: 'setActive', payload: { active: false } });
+    for (const payload of [{}, { active: 'false' }, null]) {
+      expect(parseEmbedMapCommand({ type: 'setActive', payload })).toBeNull();
+    }
+  });
+
+  it.each(['document', 'window'] as const)('stops hidden work and preserves time via the native %s channel', async (channel) => {
+    jest.useFakeTimers();
+    const postMessage = jest.fn();
+    Object.defineProperty(window, 'ReactNativeWebView', { configurable: true, value: { postMessage } });
+    mockSearchParams = new URLSearchParams('timeline=hourly');
+    const { EmbedMapClient } = await import('@/app/embed/map/embed-map-client');
+    const view = render(React.createElement(EmbedMapClient));
+    const command = (type: string, payload: Record<string, unknown>): void => {
+      act(() => (channel === 'document' ? document : window).dispatchEvent(new MessageEvent('message', {
+        data: JSON.stringify({ type, payload }),
+      })));
+    };
+    try {
+      act(() => window.dispatchEvent(new MessageEvent('message', {
+        data: JSON.stringify({ type: 'setActive', payload: { active: false } }),
+        origin: 'https://untrusted.example',
+      })));
+      expect(mockInteractiveMapProps.showSwellField).toBe(true);
+      command('setForecastPlaying', { playing: true });
+      act(() => jest.advanceTimersByTime(800));
+      const selectedTime = mockInteractiveMapProps.swellTimelineIndex as number;
+      expect(selectedTime).toBeGreaterThan(0);
+      command('setActive', { active: false });
+      expect(mockInteractiveMapProps.showSwellField).toBe(false);
+      expect(jest.getTimerCount()).toBe(0);
+      postMessage.mockClear();
+      act(() => jest.advanceTimersByTime(6_000));
+      expect(mockInteractiveMapProps.swellTimelineIndex).toBe(selectedTime);
+      expect(postMessage.mock.calls.map(([data]) => JSON.parse(data)))
+        .not.toContainEqual(expect.objectContaining({ type: 'renderHealth' }));
+      command('setActive', { active: true });
+      expect(mockInteractiveMapProps.showSwellField).toBe(true);
+      act(() => jest.advanceTimersByTime(3_000));
+      expect(mockInteractiveMapProps.swellTimelineIndex).toBe(selectedTime);
+      expect(postMessage.mock.calls.map(([data]) => JSON.parse(data)))
+        .toContainEqual(expect.objectContaining({ type: 'renderHealth' }));
+      command('setForecastPlaying', { playing: true });
+      act(() => jest.advanceTimersByTime(800));
+      expect(mockInteractiveMapProps.swellTimelineIndex).toBeGreaterThan(selectedTime);
+      command('setFieldVisible', { visible: false });
+      command('setActive', { active: false });
+      command('setActive', { active: true });
+      expect(mockInteractiveMapProps.showSwellField).toBe(false);
+    } finally {
+      view.unmount();
+      delete window.ReactNativeWebView;
+      jest.useRealTimers();
+    }
+  });
+
   it("parses viewport commands from JSON", () => {
     expect(
       parseEmbedMapCommand(
@@ -439,6 +497,47 @@ describe("embed map bridge", () => {
         '{"type":"forecastTimeChanged","payload":{"index":7}}',
       );
     });
+  });
+
+  it("restores an absolute forecast time after the hourly window advances", async () => {
+    mockSearchParams = new URLSearchParams("timeline=hourly");
+    const postMessage = jest.fn();
+    Object.defineProperty(window, "ReactNativeWebView", { configurable: true, value: { postMessage } });
+    const { EmbedMapClient } = await import("@/app/embed/map/embed-map-client");
+    render(React.createElement(EmbedMapClient));
+    const forecastAt = "2026-07-11T14:00:00.000Z";
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        data: JSON.stringify({ type: "setForecastTime", payload: { index: 19, forecastAt } }),
+      }));
+    });
+    expect(postMessage.mock.calls.map(([message]) => JSON.parse(message))).not.toContainEqual({
+      type: "forecastTimeChanged", payload: { index: 19 },
+    });
+    act(() => {
+      (mockInteractiveMapProps.onHourlyTimelineLoaded as (timeline: HourlySwellTimeline) => void)(hourlyTimeline());
+    });
+    await waitFor(() => {
+      expect(mockInteractiveMapProps.swellTimelineIndex).toBe(18);
+      expect(postMessage.mock.calls.map(([message]) => JSON.parse(message))).toContainEqual({
+        type: "forecastTimeChanged", payload: { index: 18, forecastAt },
+      });
+    });
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        data: JSON.stringify({ type: "setForecastTime", payload: { index: 30, forecastAt } }),
+      }));
+    });
+    expect(mockInteractiveMapProps.swellTimelineIndex).toBe(18);
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        data: JSON.stringify({ type: "setForecastTime", payload: { index: 0 } }),
+      }));
+    });
+    expect(mockInteractiveMapProps.swellTimelineIndex).toBe(0);
+    expect(parseEmbedMapCommand(JSON.stringify({
+      type: "setForecastTime", payload: { index: 4, forecastAt: "invalid" },
+    }))).toEqual({ type: "setForecastTime", payload: { index: 4 } });
   });
 
   it("re-emits an hourly step once when its server timestamp arrives", async () => {
