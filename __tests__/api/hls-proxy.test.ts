@@ -27,6 +27,11 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   withRateLimit: (handler: any) => handler,
 }));
 
+const mockDelay = jest.fn();
+jest.mock("node:timers/promises", () => ({
+  setTimeout: (...args: unknown[]) => mockDelay(...args),
+}));
+
 // Mock global fetch
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -82,6 +87,89 @@ function mockUpstreamResponse(
 describe("HLS Proxy Route", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDelay.mockReset().mockResolvedValue(undefined);
+  });
+
+  describe("HDOnTap cold source playlists", () => {
+    const context = () => createContext(["live.hdontap.com", "hls", "cam", "chunklist.m3u8"]);
+    const request = () => createRequest("/api/hls-proxy/live.hdontap.com/hls/cam/chunklist.m3u8");
+    const manifest = (segment: string) => `#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:10,\n${segment}\n`;
+    const edge = "https://edge01.virginia.nginx.hdontap.com/cam/";
+
+    it("replaces an expired HTTP 200 playlist before the browser sees its broken segment", async () => {
+      mockUpstreamResponse(manifest(`${edge}expired.ts`));
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+      mockUpstreamResponse(manifest(`${edge}current.ts`));
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+      const response = await GET(request(), context());
+      expect(response.status).toBe(200);
+      expect(response.headers.get("X-HLS-Proxy-Attempts")).toBe("2");
+      const body = await response.text();
+      expect(body).toContain("current.ts");
+      expect(body).not.toContain("expired.ts");
+      const signal = mockFetch.mock.calls[0][1].signal;
+      expect(mockDelay).toHaveBeenCalledWith(2000, undefined, { signal });
+      expect(mockFetch.mock.calls[1]).toEqual([`${edge}expired.ts`, { method: "HEAD", cache: "no-store", redirect: "error", signal }]);
+      expect(mockFetch.mock.calls[3][1].signal).toBe(signal);
+    });
+
+    it("stops after four expired playlists and returns an uncached source failure", async () => {
+      for (let i = 0; i < 4; i++) {
+        mockUpstreamResponse(manifest(`${edge}expired.ts`));
+        mockFetch.mockResolvedValueOnce({ ok: false, status: 410 });
+      }
+      const response = await GET(request(), context());
+      expect(response.status).toBe(502);
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+      expect(await response.text()).not.toContain("expired.ts");
+      expect(mockFetch).toHaveBeenCalledTimes(8);
+      expect(mockDelay.mock.calls.map(([ms]) => ms)).toEqual([2000, 4000, 6000]);
+    });
+
+    it.each([
+      "https://edge01.nginx.hdontap.com.evil.test/segment.ts",
+      "https://user@edge01.nginx.hdontap.com/segment.ts",
+      "https://127.0.0.1/segment.ts",
+      "https://edge01.nginx.hdontap.com:8443/segment.ts",
+      "http://edge01.nginx.hdontap.com/segment.ts",
+    ])("never probes an untrusted media URL: %s", async (url) => {
+      mockUpstreamResponse(manifest(url));
+      expect((await GET(request(), context())).status).toBe(502);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockDelay).not.toHaveBeenCalled();
+    });
+
+    it("does not retry unrelated source failures", async () => {
+      mockUpstreamResponse(manifest(`${edge}unavailable.ts`));
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 503 });
+      const response = await GET(request(), context());
+      expect(response.status).toBe(502);
+      expect(mockFetch.mock.calls[1][1].redirect).toBe("error");
+      expect(mockDelay).not.toHaveBeenCalled();
+    });
+
+    it.each(["probe", "backoff"])("keeps the original deadline during %s", async (phase) => {
+      jest.useFakeTimers();
+      try {
+        mockUpstreamResponse(manifest(`${edge}expired.ts`));
+        const waitForAbort = (signal: AbortSignal): Promise<never> => new Promise((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(Object.assign(new Error("Aborted"), { name: "AbortError" })), { once: true });
+        });
+        if (phase === "probe") {
+          mockFetch.mockImplementationOnce((_url, { signal }) => waitForAbort(signal));
+        } else {
+          mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+          mockDelay.mockImplementationOnce((_ms, _value, { signal }) => waitForAbort(signal));
+        }
+        const response = GET(request(), context());
+        await jest.advanceTimersByTimeAsync(15000);
+        expect((await response).status).toBe(504);
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 
   // ---------------------------------------------------------------------------
