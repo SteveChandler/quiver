@@ -9,6 +9,7 @@ import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-constants';
 import { formatDateInTimezone } from '@/lib/utils/date-time';
 import { extractForecastDate } from '@/lib/utils/forecast-at-adapter';
+import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getBatchSunTimes } from '@/lib/services/discovery';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
@@ -307,8 +308,10 @@ const getRequestSurfReport = cache(
     // 2. Determine "today" and "tomorrow" in beach timezone
     const now = new Date();
     const todayStr = formatDateInTimezone(now, beachTz);
-    const tomorrow = new Date(now.getTime() + 86_400_000);
-    const tomorrowStr = formatDateInTimezone(tomorrow, beachTz);
+    // Advance the calendar date; elapsed 24-hour periods skip/repeat dates at DST.
+    const tomorrow = new Date(`${todayStr}T00:00:00Z`);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
 
     // 2.5. Fetch sun times for sunset capping
     const sunTimesCache = await getBatchSunTimes([beachId], [todayStr, tomorrowStr]);
@@ -320,8 +323,8 @@ const getRequestSurfReport = cache(
       .from('enhanced_forecasts')
       .select('*')
       .eq('beach_id', beachId)
-      .gte('forecast_at', `${todayStr}T00:00:00Z`)
-      .lt('forecast_at', `${dayAfterTomorrow}T00:00:00Z`)
+      .gte('forecast_at', localDateTimeToUTC(todayStr, '00:00:00', beachTz).toISOString())
+      .lt('forecast_at', localDateTimeToUTC(dayAfterTomorrow, '00:00:00', beachTz).toISOString())
       .order('forecast_at', { ascending: true })
       .limit(48);
 

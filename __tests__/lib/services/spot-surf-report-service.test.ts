@@ -87,23 +87,21 @@ describe("spot surf report service", () => {
     confidence_score: 80,
   };
 
-  function setupDatabase(rows: Partial<EnhancedForecastEntity>[] = [forecast], error: { message: string; code: string } | null = null): void {
+  function setupDatabase(
+    rows: Partial<EnhancedForecastEntity>[] = [forecast],
+    error: { message: string; code: string } | null = null,
+  ): { gte: jest.Mock; lt: jest.Mock } {
+    const query = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      gte: jest.fn().mockReturnThis(),
+      lt: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({ data: rows, error }),
+    };
     const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
-    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
-      from: jest.fn(() => ({
-        select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            gte: jest.fn(() => ({
-              lt: jest.fn(() => ({
-                order: jest.fn(() => ({
-                  limit: jest.fn().mockResolvedValue({ data: rows, error }),
-                })),
-              })),
-            })),
-          })),
-        })),
-      })),
-    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({ from: jest.fn(() => query) });
+    return query;
   }
 
   beforeEach(() => {
@@ -192,6 +190,21 @@ describe("spot surf report service", () => {
     const nextDay = await getSpotSurfReportPublic(beach);
     expect(getBatchSunTimes).toHaveBeenLastCalledWith([beachId], ["2024-01-16", "2024-01-17"]);
     expect(nextDay?.hourlyForecasts).toEqual([expect.objectContaining({ forecast_at: "2024-01-16T10:00:00Z" })]);
+  });
+
+  it.each([
+    ["2024-01-15T18:00:00Z", "2024-01-15", "2024-01-16", "2024-01-15T08:00:00.000Z", "2024-01-17T08:00:00.000Z"],
+    ["2026-11-01T07:30:00Z", "2026-11-01", "2026-11-02", "2026-11-01T07:00:00.000Z", "2026-11-03T08:00:00.000Z"],
+    ["2026-03-08T07:30:00Z", "2026-03-07", "2026-03-08", "2026-03-07T08:00:00.000Z", "2026-03-09T07:00:00.000Z"],
+  ])("reads both complete beach-local days, including DST boundaries, at %s", async (clock, today, tomorrow, start, end) => {
+    jest.setSystemTime(new Date(clock));
+    const query = setupDatabase([]);
+    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
+    const { getBatchSunTimes } = require("@/lib/services/discovery");
+    await getSpotSurfReportPublic(beach);
+    expect(getBatchSunTimes).toHaveBeenLastCalledWith([beachId], [today, tomorrow]);
+    expect(query.gte).toHaveBeenCalledWith("forecast_at", start);
+    expect(query.lt).toHaveBeenCalledWith("forecast_at", end);
   });
 
   it("lets Next interrupt static generation instead of caching a fallback", async () => {
