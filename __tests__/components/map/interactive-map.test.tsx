@@ -532,6 +532,32 @@ describe("InteractiveMap", () => {
     });
   });
 
+  it("retries an overlay mount deferred by tile loading without another style.load", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const { rerender, unmount } = render(<InteractiveMap beaches={[]} showSwellField={false} />);
+    await waitFor(() => expect(mockMapHandlers["style.load"]).toHaveLength(1));
+    const map = getMapInstance() as ReturnType<typeof getMapInstance> & {
+      isStyleLoaded: jest.Mock;
+      getBounds: jest.Mock;
+      addLayer: jest.Mock;
+      off: jest.Mock;
+    };
+    await waitFor(() => expect(map.getBounds).toHaveBeenCalled());
+    map.isStyleLoaded = jest.fn(() => false);
+    rerender(<InteractiveMap beaches={[]} showSwellField swellLayerId="s1" />);
+    expect(map.addLayer).not.toHaveBeenCalled();
+    const retry = mockMapHandlers.data.at(-1)!;
+    act(() => retry());
+    expect(map.addLayer).not.toHaveBeenCalled();
+    map.isStyleLoaded.mockReturnValue(true);
+    act(() => retry());
+    await waitFor(() => expect(map.addLayer).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "quiver-swell-field" }),
+    ));
+    expect(map.off).toHaveBeenCalledWith("data", retry);
+    unmount();
+  });
+
   it("resizes Mapbox when its container changes size", async () => {
     let resizeCallback: ResizeObserverCallback | null = null;
     global.ResizeObserver = jest.fn((callback: ResizeObserverCallback) => {

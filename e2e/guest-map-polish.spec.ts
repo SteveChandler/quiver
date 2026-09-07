@@ -240,6 +240,11 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
     });
     if (viewport.width === 390) test("native embed opens a sourced conditions card on one tap", async ({ page }) => {
       await page.goto("/embed/map?lat=32.728&lon=-117.258&zoom=13&timeline=hourly");
+      await page.waitForFunction(() => Boolean((window as any).__quiverMapInstance?.getLayer("quiver-swell-field")));
+      for (const active of [false, true]) {
+        await page.evaluate((active) => window.postMessage({ type: "setActive", payload: { active } }, "*"), active);
+        await page.waitForFunction((active) => Boolean((window as any).__quiverMapInstance?.getLayer("quiver-swell-field")) === active, active);
+      }
       await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
       const pin = page.locator('[data-testid="beach-marker"][data-beach-id="c3b42f85-e650-445f-89b1-1debe661652e"]');
       await expect(pin).toBeVisible({ timeout: 90000 });
