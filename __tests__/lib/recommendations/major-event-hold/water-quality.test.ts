@@ -97,8 +97,8 @@ describe("water-quality recommendation holds", () => {
           ownerRows: [{ beach_id: BEACH_A }],
           qualityRows: [
             { beach_id: BEACH_A, status: "good", total_samples_30d: 1 },
-            { beach_id: BEACH_B, status: "advisory", total_samples_30d: 2 },
-            { beach_id: BEACH_C, status: "closure", total_samples_30d: 1 },
+            { beach_id: BEACH_B, status: "advisory", total_samples_30d: 2, latest_sample_date: new Date().toISOString() },
+            { beach_id: BEACH_C, status: "closure", total_samples_30d: 1, latest_sample_date: new Date().toISOString() },
           ],
         }),
       },
@@ -341,7 +341,23 @@ describe("water-quality recommendation holds", () => {
 });
 
  test("preserves the actual sample date and distinguishes live county evidence", async () => {
-  const result = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_B)], { client: clientFor({ qualityRows: [{ beach_id: BEACH_A, status: "advisory", total_samples_30d: 8, latest_sample_date: "2026-08-11" }], liveRows: [{ beach_id: BEACH_B, advisory_type: "advisory", source_site_identifier: "site-b" }] }) });
-  expect(result.waterQualityEvidenceByBeachId).toEqual({ [BEACH_A]: { source: "sample", sampleDate: "2026-08-11" }, [BEACH_B]: { source: "county" } });
+  const sampleDate = new Date().toISOString();
+  const result = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_B)], { client: clientFor({ qualityRows: [{ beach_id: BEACH_A, status: "advisory", total_samples_30d: 8, latest_sample_date: sampleDate }], liveRows: [{ beach_id: BEACH_B, advisory_type: "advisory", source_site_identifier: "site-b" }] }) });
+  expect(result.waterQualityEvidenceByBeachId).toEqual({ [BEACH_A]: { source: "sample", sampleDate }, [BEACH_B]: { source: "county" } });
   expect(result.heldBeachIds).toEqual([BEACH_A, BEACH_B]);
+});
+
+ test.each([7, 14, 30])("does not hold a beach for a %i-day-old sample, but retains county and owner holds", async (days) => {
+  const now = new Date();
+  const latest_sample_date = new Date(now.getTime() - days * 86400000).toISOString();
+  const result = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_B), candidate(BEACH_C)], {
+    now, client: clientFor({
+      qualityRows: [BEACH_A, BEACH_B, BEACH_C].map(beach_id => ({ beach_id, status: "advisory", total_samples_30d: 8, latest_sample_date })),
+      ownerRows: [{ beach_id: BEACH_C }],
+      liveRows: [{ beach_id: BEACH_B, advisory_type: "closure", source_site_identifier: "site-b" }],
+    }),
+  });
+  expect(result.heldBeachIds).toEqual([BEACH_B, BEACH_C]);
+  expect(result.waterQualityEvidenceByBeachId).toEqual({ [BEACH_A]: { source: "sample", sampleDate: latest_sample_date }, [BEACH_B]: { source: "county" }, [BEACH_C]: { source: "hold" } });
+  expect(result.waterQualityStatusByBeachId).not.toHaveProperty(BEACH_A);
 });

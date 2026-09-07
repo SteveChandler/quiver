@@ -54,7 +54,7 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
       await page.waitForFunction(() => (window as any).__quiverMapInstance.areTilesLoaded());
       await page.screenshot({ path: ".planning/evidence/map-polish/baja-recovery.png" });
     });
-    if (viewport.width === 390) test("identifies historical water-quality evidence by sample date", async ({ page }) => {
+    if (viewport.width === 390) test("warns about old samples without treating the beach as closed", async ({ page }) => {
       // County notices change; fix only this evidence payload, retaining live beach geometry.
       await page.route("**/api/beaches/nearby?**", async (route) => {
         const response = await route.fetch({ headers: { ...route.request().headers(), ...localRateHeaders } });
@@ -73,8 +73,12 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
       await expect(pin).toBeVisible({ timeout: 90000 });
       await pin.getByRole("button").click();
       const badge = page.locator('[data-callout-water-quality]');
-      await expect(badge).toContainText("sample 2026-08-11");
-      await expect(badge).not.toContainText("Advisory");
+      await expect(page.locator('[data-conditions-callout="true"]')).toContainText("La Jolla Shores");
+      await expect(badge).toContainText("Water quality not recently verified");
+      await expect(badge).toContainText("Sample: 2026-08-11");
+      await expect(badge).not.toContainText("Closed");
+      await expect(badge).toHaveAttribute("data-callout-water-quality", "unconfirmed");
+      await expect(pin).toHaveAttribute("data-water-quality-hold", "none");
       await page.screenshot({ path: ".planning/evidence/map-polish/advisory-source.png" });
     });
     test("updates pin colors and arrows from cached hourly conditions without replacing markers", async ({ page }) => {
@@ -236,6 +240,11 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
     });
     if (viewport.width === 390) test("native embed opens a sourced conditions card on one tap", async ({ page }) => {
       await page.goto("/embed/map?lat=32.728&lon=-117.258&zoom=13&timeline=hourly");
+      await page.waitForFunction(() => Boolean((window as any).__quiverMapInstance?.getLayer("quiver-swell-field")));
+      for (const active of [false, true]) {
+        await page.evaluate((active) => window.postMessage({ type: "setActive", payload: { active } }, "*"), active);
+        await page.waitForFunction((active) => Boolean((window as any).__quiverMapInstance?.getLayer("quiver-swell-field")) === active, active);
+      }
       await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
       const pin = page.locator('[data-testid="beach-marker"][data-beach-id="c3b42f85-e650-445f-89b1-1debe661652e"]');
       await expect(pin).toBeVisible({ timeout: 90000 });

@@ -1,4 +1,5 @@
 import { capturePostHogEvent } from "@/lib/posthog-server";
+import type { RouteHandler } from "@/lib/middleware/api-wrappers/types";
 
 type CommunityPhotoRouteSurface = "read" | "write" | "admin" | "retention";
 type CommunityPhotoRolloutEligibility =
@@ -115,6 +116,23 @@ function emitOutcome({
   }
 }
 
+export function withCommunityPhotoRouteObservability<ResponseType extends Response>(
+  config: CommunityPhotoRouteObservabilityConfig,
+  handler: () => ResponseType | Promise<ResponseType>,
+): (request: Request) => Promise<ResponseType>;
+// Preserve both route signatures rather than inferring only the final overload.
+export function withCommunityPhotoRouteObservability(
+  config: CommunityPhotoRouteObservabilityConfig,
+  handler: RouteHandler,
+): RouteHandler;
+export function withCommunityPhotoRouteObservability<
+  RequestType extends Request,
+  Args extends unknown[],
+  ResponseType extends Response,
+>(
+  config: CommunityPhotoRouteObservabilityConfig,
+  handler: (request: RequestType, ...args: Args) => ResponseType | Promise<ResponseType>,
+): (request: RequestType, ...args: Args) => Promise<ResponseType>;
 export function withCommunityPhotoRouteObservability<
   RequestType extends Request,
   Args extends unknown[],

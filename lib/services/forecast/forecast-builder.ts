@@ -1763,7 +1763,8 @@ export class ForecastBuilder {
                   cardinalToDegrees(wavePoint.swell_1_direction) ?? null,
               }
             : null,
-          wavePoint.swell_2_height > 0 && wavePoint.swell_2_period > 0
+          wavePoint.swell_2_height != null && wavePoint.swell_2_height > 0 &&
+          wavePoint.swell_2_period != null && wavePoint.swell_2_period > 0
             ? {
                 heightFt: wavePoint.swell_2_height * METERS_TO_FEET,
                 periodS: wavePoint.swell_2_period,
@@ -1907,7 +1908,10 @@ export class ForecastBuilder {
   ): { height: number; period: number; direction: number } | null {
     return pickDominantSwell({
       swell_1: { height: wavePoint.swell_1_height, period: wavePoint.swell_1_period, direction: wavePoint.swell_1_direction },
-      swell_2: { height: wavePoint.swell_2_height, period: wavePoint.swell_2_period, direction: wavePoint.swell_2_direction },
+      swell_2: wavePoint.swell_2_height != null &&
+        wavePoint.swell_2_period != null && wavePoint.swell_2_direction != null
+        ? { height: wavePoint.swell_2_height, period: wavePoint.swell_2_period, direction: wavePoint.swell_2_direction }
+        : null,
       wind_wave: { height: wavePoint.wind_wave_height, period: wavePoint.wind_wave_period, direction: wavePoint.wind_wave_direction },
     });
   }
@@ -1991,7 +1995,7 @@ export class ForecastBuilder {
   private getSwell2Direction(wavePoint: WaveWatchData | null): string | null {
     // Gate on height: 0° is a legitimate direction on its own, but if the
     // secondary-swell height is the 0 sentinel the direction is meaningless.
-    if (!wavePoint || wavePoint.swell_2_height == null || wavePoint.swell_2_height === 0) return null;
+    if (!wavePoint || wavePoint.swell_2_height == null || wavePoint.swell_2_height === 0 || wavePoint.swell_2_direction == null) return null;
     return this.services.getWaveDirectionText(wavePoint.swell_2_direction);
   }
 

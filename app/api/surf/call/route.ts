@@ -450,10 +450,8 @@ const protectedGET = withRateLimit(
   'surf-discovery'
 );
 
-export const GET = async (
-  ...args: Parameters<typeof protectedGET>
-): Promise<NextResponse> => {
-  const response = await protectedGET(...args);
+export const GET: typeof protectedGET = async (request, context) => {
+  const response = await protectedGET(request, context);
   response.headers.delete('ETag');
   response.headers.set(
     'Cache-Control',

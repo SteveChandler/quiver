@@ -166,6 +166,10 @@
       "schedule": "0 15 * * *"
     },
     {
+      "path": "/api/cron/swell-watch-acquire",
+      "schedule": "15 * * * *"
+    },
+    {
       "path": "/api/cron/condition-alert-deliver",
       "schedule": "0 * * * *"
     },

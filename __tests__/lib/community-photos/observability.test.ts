@@ -8,6 +8,8 @@ jest.mock("@/lib/posthog-server", () => ({
 
 import { capturePostHogEvent } from "@/lib/posthog-server";
 import { withCommunityPhotoRouteObservability } from "@/lib/community-photos/observability";
+import { NextRequest, NextResponse } from "next/server";
+import type { RouteHandler } from "@/lib/middleware/api-wrappers/types";
 
 const mockCapturePostHogEvent = capturePostHogEvent as jest.Mock;
 
@@ -74,6 +76,31 @@ describe("community photo route observability", () => {
       "must-not-be-captured",
     );
     now.mockRestore();
+  });
+
+  it("preserves overloaded route context signatures and forwards context unchanged", async () => {
+    const response = NextResponse.json({ ok: true });
+    const calls = jest.fn();
+    const original: RouteHandler = async (request, context) => {
+      calls(request, context);
+      return response;
+    };
+    const wrapped: RouteHandler = withCommunityPhotoRouteObservability(
+      { route: "/api/community-photos/:photoId", surface: "write" },
+      original,
+    );
+    const request = new NextRequest("https://example.com/api/community-photos/photo");
+    const plain = { params: { photoId: "photo" } };
+    const promised = { params: Promise.resolve({ photoId: "photo" }) };
+
+    expect(await wrapped(request)).toBe(response);
+    expect(await wrapped(request, plain)).toBe(response);
+    expect(await wrapped(request, promised)).toBe(response);
+    expect(calls.mock.calls).toEqual([
+      [request, undefined], [request, plain], [request, promised],
+    ]);
+    expect(calls.mock.calls[1][1]).toBe(plain);
+    expect(calls.mock.calls[2][1]).toBe(promised);
   });
 
   it.each([

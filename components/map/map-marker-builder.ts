@@ -1,3 +1,4 @@
+import { isCurrentWaterQualitySample } from "@/lib/constants/water-quality";
 import type { Beach } from "@/types/database";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 import { track } from "@/lib/analytics";
@@ -60,7 +61,8 @@ export function getWaterQualityHold(
   beach: Beach | undefined,
 ): WaterQualityHoldKind | null {
   if (beach === undefined) return null;
-  const hold = (beach as Partial<MapBeach>).waterQualityHold;
+  const { waterQualityHold: hold, waterQualityEvidence: evidence } = beach as Partial<MapBeach>;
+  if (evidence?.source === "sample" && !isCurrentWaterQualitySample(evidence.sampleDate)) return null;
   return hold === "advisory" || hold === "closure" || hold === "held"
     ? hold
     : null;
@@ -332,8 +334,10 @@ export function createWaveHeightBadge(
     }
     badge.title = `${location.name}: ${conditionMarkerCall.label}`;
     const evidence = (location as Partial<MapBeach>).waterQualityEvidence;
-    if (deps.waterQualityHold && evidence?.source === "sample") {
-      badge.title = `${location.name}: elevated bacteria in ${evidence.sampleDate ?? "historical"} sample`;
+    if (evidence?.source === "sample") {
+      badge.title = isCurrentWaterQualitySample(evidence.sampleDate)
+        ? `${location.name}: elevated bacteria in ${evidence.sampleDate} sample`
+        : `${location.name}: old water-quality sample; current status unconfirmed`;
       badge.setAttribute("aria-label", badge.title);
     }
     badge.appendChild(visual);

@@ -1,3 +1,4 @@
+import { isCurrentWaterQualitySample } from "@/lib/constants/water-quality";
 import type { CalloutComponent } from "@/components/map/conditions-callout-data";
 import type { WaterQualityHoldKind, MapBeach } from "@/lib/services/nearby-beach-service";
 
@@ -228,9 +229,13 @@ export function createConditionsCalloutElement(
   }
   wrapper.appendChild(pulse);
 
-  if (opts.waterQualityHold) {
+  const staleSample = opts.waterQualityEvidence?.source === "sample"
+    && !isCurrentWaterQualitySample(opts.waterQualityEvidence.sampleDate);
+  if (opts.waterQualityHold || staleSample) {
     const sampleDate = opts.waterQualityEvidence?.sampleDate;
-    const statusCopy = opts.waterQualityEvidence?.source === "sample"
+    const statusCopy = staleSample
+      ? "Water quality not recently verified"
+      : opts.waterQualityEvidence?.source === "sample"
       ? `Elevated bacteria${sampleDate ? ` · sample ${sampleDate}` : " · historical sample"}`
       : opts.waterQualityEvidence?.source === "hold"
         ? "Water quality hold"
@@ -240,16 +245,24 @@ export function createConditionsCalloutElement(
           ? "Advisory — water-quality alert"
           : "Water quality hold";
     const statusBadge = document.createElement("div");
-    statusBadge.setAttribute("data-callout-water-quality", opts.waterQualityHold);
+    statusBadge.setAttribute("data-callout-water-quality", staleSample ? "unconfirmed" : opts.waterQualityHold!);
+    if (staleSample) statusBadge.title = `Sample: ${sampleDate ?? "date unavailable"}. Current water quality is unconfirmed.`;
     statusBadge.setAttribute("role", "status");
-    statusBadge.setAttribute("aria-label", statusCopy);
+    const sampleCopy = staleSample ? `Sample: ${sampleDate ?? "date unavailable"}` : null;
+    statusBadge.setAttribute("aria-label", [statusCopy, sampleCopy].filter(Boolean).join(". "));
     statusBadge.textContent = statusCopy;
+    if (sampleCopy) {
+      const dateLabel = document.createElement("span");
+      dateLabel.textContent = sampleCopy;
+      dateLabel.style.fontWeight = "500";
+      statusBadge.appendChild(dateLabel);
+    }
     // Center the fixed-height badge halfway from CY to the ring's top
     // (CY - RING_R / 2), then subtract its unscaled half-height. This is 152px
     // at scale 1; at the 0.55 floor its 103.75px bottom clears the name's
     // 117.7px top, while its 77.75px top remains inside the 264px render.
     const statusBadgeTop =
-      (CY - RING_R / 2) * scale - WATER_QUALITY_BADGE_HEIGHT / 2;
+      (CY - RING_R / 2) * scale - WATER_QUALITY_BADGE_HEIGHT / 2 - (staleSample ? 16 : 0);
     statusBadge.style.cssText = [
       pillCssText(statusBadgeTop),
       "box-sizing:border-box",
@@ -257,6 +270,7 @@ export function createConditionsCalloutElement(
       "color:#FFF7E8",
       "font-size:12px",
       "line-height:1.2",
+      ...(staleSample ? ["flex-direction:column", "gap:2px", "border-radius:12px"] : []),
     ].join(";");
     wrapper.appendChild(statusBadge);
   }

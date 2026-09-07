@@ -11355,7 +11355,716 @@ export type Database = {
           },
         ]
       }
-      tide_forecasts: {
+      swell_watch_automation_control: {
+        Row: {
+          created_at: string
+          id: string
+          reason_code: string
+          state: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          reason_code: string
+          state: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason_code?: string
+          state?: string
+        }
+        Relationships: []
+      }
+      swell_watch_automation_control_transitions: {
+        Row: {
+          actor_kind: string
+          actor_user_id: string | null
+          created_at: string
+          epoch: number
+          expected_epoch: number
+          id: string
+          idempotency_key: string
+          operation: string
+          reason_code: string
+          state: string
+          system_actor: string | null
+        }
+        Insert: {
+          actor_kind?: string
+          actor_user_id?: string | null
+          created_at?: string
+          epoch: number
+          expected_epoch: number
+          id: string
+          idempotency_key: string
+          operation: string
+          reason_code: string
+          state: string
+          system_actor?: string | null
+        }
+        Update: {
+          actor_kind?: string
+          actor_user_id?: string | null
+          created_at?: string
+          epoch?: number
+          expected_epoch?: number
+          id?: string
+          idempotency_key?: string
+          operation?: string
+          reason_code?: string
+          state?: string
+          system_actor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swell_watch_automation_control_transitions_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      swell_watch_beach_impacts: {
+        Row: {
+          beach_id: string
+          evaluated_at: string
+          evaluation_id: string
+          id: string
+          impact_hash: string
+          observation_id: string
+          policy_hash: string
+          policy_id: string
+          projected_face_height_ft: number
+        }
+        Insert: {
+          beach_id: string
+          evaluated_at?: string
+          evaluation_id: string
+          id: string
+          impact_hash: string
+          observation_id: string
+          policy_hash: string
+          policy_id: string
+          projected_face_height_ft: number
+        }
+        Update: {
+          beach_id?: string
+          evaluated_at?: string
+          evaluation_id?: string
+          id?: string
+          impact_hash?: string
+          observation_id?: string
+          policy_hash?: string
+          policy_id?: string
+          projected_face_height_ft?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swell_watch_beach_impacts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_watch_beach_impacts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_beach_impacts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_watch_beach_impacts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_beach_impacts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_beach_impacts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_beach_impacts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_beach_impacts_observation_id_fkey"
+            columns: ["observation_id"]
+            isOneToOne: false
+            referencedRelation: "swell_watch_observations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swell_watch_event_aliases: {
+        Row: {
+          alias_key: string
+          created_at: string
+          id: string
+          regional_event_id: string
+        }
+        Insert: {
+          alias_key: string
+          created_at?: string
+          id: string
+          regional_event_id: string
+        }
+        Update: {
+          alias_key?: string
+          created_at?: string
+          id?: string
+          regional_event_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swell_watch_event_aliases_regional_event_id_fkey"
+            columns: ["regional_event_id"]
+            isOneToOne: false
+            referencedRelation: "swell_watch_regional_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swell_watch_event_evaluations: {
+        Row: {
+          arrival_at: string
+          beach_impact_id: string
+          evaluated_at: string
+          evaluation_id: string
+          id: string
+          identity_kind: string
+          peak_at: string
+          regional_event_id: string
+        }
+        Insert: {
+          arrival_at: string
+          beach_impact_id: string
+          evaluated_at?: string
+          evaluation_id: string
+          id: string
+          identity_kind: string
+          peak_at: string
+          regional_event_id: string
+        }
+        Update: {
+          arrival_at?: string
+          beach_impact_id?: string
+          evaluated_at?: string
+          evaluation_id?: string
+          id?: string
+          identity_kind?: string
+          peak_at?: string
+          regional_event_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swell_watch_event_evaluations_beach_impact_id_fkey"
+            columns: ["beach_impact_id"]
+            isOneToOne: false
+            referencedRelation: "swell_watch_beach_impacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_watch_event_evaluations_regional_event_id_fkey"
+            columns: ["regional_event_id"]
+            isOneToOne: false
+            referencedRelation: "swell_watch_regional_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swell_watch_event_impacts: {
+        Row: {
+          arrival_at: string
+          beach_id: string
+          beach_impact_id: string
+          evaluated_at: string
+          evaluation_id: string
+          id: string
+          peak_at: string
+          regional_event_id: string
+        }
+        Insert: {
+          arrival_at: string
+          beach_id: string
+          beach_impact_id: string
+          evaluated_at: string
+          evaluation_id: string
+          id: string
+          peak_at: string
+          regional_event_id: string
+        }
+        Update: {
+          arrival_at?: string
+          beach_id?: string
+          beach_impact_id?: string
+          evaluated_at?: string
+          evaluation_id?: string
+          id?: string
+          peak_at?: string
+          regional_event_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swell_watch_event_impacts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_watch_event_impacts_beach_impact_id_beach_id_evaluat_fkey"
+            columns: ["beach_impact_id", "beach_id", "evaluation_id"]
+            isOneToOne: false
+            referencedRelation: "swell_watch_beach_impacts"
+            referencedColumns: ["id", "beach_id", "evaluation_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_event_impacts_beach_impact_id_fkey"
+            columns: ["beach_impact_id"]
+            isOneToOne: false
+            referencedRelation: "swell_watch_beach_impacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_watch_event_impacts_regional_event_id_evaluation_id_fkey"
+            columns: ["regional_event_id", "evaluation_id"]
+            isOneToOne: false
+            referencedRelation: "swell_watch_event_evaluations"
+            referencedColumns: ["regional_event_id", "evaluation_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_event_impacts_regional_event_id_fkey"
+            columns: ["regional_event_id"]
+            isOneToOne: false
+            referencedRelation: "swell_watch_regional_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swell_watch_event_state_transitions: {
+        Row: {
+          created_at: string
+          id: string
+          regional_event_id: string
+          state: string
+          trigger_evaluation_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          regional_event_id: string
+          state: string
+          trigger_evaluation_id: string
+          version: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          regional_event_id?: string
+          state?: string
+          trigger_evaluation_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swell_watch_event_state_transitions_regional_event_id_fkey"
+            columns: ["regional_event_id"]
+            isOneToOne: false
+            referencedRelation: "swell_watch_regional_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swell_watch_notification_event_bindings: {
+        Row: {
+          approval_evidence_hash: string
+          authority_epoch: number
+          authority_id: string
+          beach_id: string
+          control_epoch: number
+          created_at: string
+          notification_event_id: string
+          policy_hash: string
+          policy_provenance: string
+          policy_values: Json
+          recipient_id: string
+          regional_event_id: string
+        }
+        Insert: {
+          approval_evidence_hash: string
+          authority_epoch: number
+          authority_id: string
+          beach_id: string
+          control_epoch: number
+          created_at?: string
+          notification_event_id: string
+          policy_hash: string
+          policy_provenance: string
+          policy_values: Json
+          recipient_id: string
+          regional_event_id: string
+        }
+        Update: {
+          approval_evidence_hash?: string
+          authority_epoch?: number
+          authority_id?: string
+          beach_id?: string
+          control_epoch?: number
+          created_at?: string
+          notification_event_id?: string
+          policy_hash?: string
+          policy_provenance?: string
+          policy_values?: Json
+          recipient_id?: string
+          regional_event_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swell_watch_notification_event_bindi_notification_event_id_fkey"
+            columns: ["notification_event_id"]
+            isOneToOne: true
+            referencedRelation: "notification_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_watch_notification_event_bindings_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_watch_notification_event_bindings_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_notification_event_bindings_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_watch_notification_event_bindings_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_notification_event_bindings_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_notification_event_bindings_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_notification_event_bindings_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_notification_event_bindings_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_notification_event_bindings_regional_event_id_fkey"
+            columns: ["regional_event_id"]
+            isOneToOne: false
+            referencedRelation: "swell_watch_regional_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swell_watch_observations: {
+        Row: {
+          direction_deg: number
+          evaluation_id: string
+          forecast_at: string
+          height_m: number
+          id: string
+          identity_kind: string
+          observed_at: string
+          period_s: number
+          provider: string
+          source_point_id: string
+          source_slot: string
+        }
+        Insert: {
+          direction_deg: number
+          evaluation_id: string
+          forecast_at: string
+          height_m: number
+          id: string
+          identity_kind: string
+          observed_at?: string
+          period_s: number
+          provider: string
+          source_point_id: string
+          source_slot: string
+        }
+        Update: {
+          direction_deg?: number
+          evaluation_id?: string
+          forecast_at?: string
+          height_m?: number
+          id?: string
+          identity_kind?: string
+          observed_at?: string
+          period_s?: number
+          provider?: string
+          source_point_id?: string
+          source_slot?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swell_watch_observations_source_point_id_fkey"
+            columns: ["source_point_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_watch_observations_source_point_id_fkey"
+            columns: ["source_point_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_observations_source_point_id_fkey"
+            columns: ["source_point_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_watch_observations_source_point_id_fkey"
+            columns: ["source_point_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_observations_source_point_id_fkey"
+            columns: ["source_point_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_observations_source_point_id_fkey"
+            columns: ["source_point_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_observations_source_point_id_fkey"
+            columns: ["source_point_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+        ]
+      }
+      swell_watch_production_approval_authority: {
+        Row: {
+          approval_evidence_hash: string
+          approval_id: string
+          authority_epoch: number
+          authority_id: string
+          created_at: string
+          expires_at: string
+          not_before: string
+          policy_hash: string
+          policy_provenance: string
+          policy_values: Json
+          production_scope: string
+          record_id: string
+          reviewer: string
+          revokes_authority_id: string | null
+          state: string
+        }
+        Insert: {
+          approval_evidence_hash: string
+          approval_id: string
+          authority_epoch: number
+          authority_id: string
+          created_at?: string
+          expires_at: string
+          not_before: string
+          policy_hash: string
+          policy_provenance: string
+          policy_values: Json
+          production_scope: string
+          record_id: string
+          reviewer: string
+          revokes_authority_id?: string | null
+          state: string
+        }
+        Update: {
+          approval_evidence_hash?: string
+          approval_id?: string
+          authority_epoch?: number
+          authority_id?: string
+          created_at?: string
+          expires_at?: string
+          not_before?: string
+          policy_hash?: string
+          policy_provenance?: string
+          policy_values?: Json
+          production_scope?: string
+          record_id?: string
+          reviewer?: string
+          revokes_authority_id?: string | null
+          state?: string
+        }
+        Relationships: []
+      }
+      swell_watch_provider_delivery_outcomes: {
+        Row: {
+          attempt_number: number
+          created_at: string
+          failure_count: number
+          id: string
+          notification_event_id: string
+          sample_count: number
+        }
+        Insert: {
+          attempt_number: number
+          created_at?: string
+          failure_count: number
+          id: string
+          notification_event_id: string
+          sample_count: number
+        }
+        Update: {
+          attempt_number?: number
+          created_at?: string
+          failure_count?: number
+          id?: string
+          notification_event_id?: string
+          sample_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swell_watch_provider_delivery_outcom_notification_event_id_fkey"
+            columns: ["notification_event_id"]
+            isOneToOne: false
+            referencedRelation: "notification_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swell_watch_recipient_announcements: {
+        Row: {
+          claimed_at: string
+          id: string
+          notification_event_id: string | null
+          recipient_id: string
+          regional_event_id: string
+        }
+        Insert: {
+          claimed_at?: string
+          id: string
+          notification_event_id?: string | null
+          recipient_id: string
+          regional_event_id: string
+        }
+        Update: {
+          claimed_at?: string
+          id?: string
+          notification_event_id?: string | null
+          recipient_id?: string
+          regional_event_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swell_watch_recipient_announcements_notification_event_id_fkey"
+            columns: ["notification_event_id"]
+            isOneToOne: false
+            referencedRelation: "notification_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swell_watch_recipient_announcements_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "swell_watch_recipient_announcements_regional_event_id_fkey"
+            columns: ["regional_event_id"]
+            isOneToOne: false
+            referencedRelation: "swell_watch_regional_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swell_watch_regional_events: {
+        Row: {
+          created_at: string
+          id: string
+          physical_key: string
+          region_key: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          physical_key: string
+          region_key: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          physical_key?: string
+          region_key?: string
+        }
+        Relationships: []
+      }
+tide_forecasts: {
         Row: {
           beach_id: string
           created_at: string
@@ -14714,7 +15423,18 @@ export type Database = {
         }
         Returns: Json
       }
-      allocate_experiment_batch: {
+      advance_swell_watch_event: {
+        Args: {
+          p_arrival_at: string
+          p_beach_impact_id: string
+          p_evaluation_id: string
+          p_peak_at: string
+          p_regional_event_id: string
+          p_transition_id: string
+        }
+        Returns: string
+      }
+allocate_experiment_batch: {
         Args: {
           p_experiment_key: string
           p_index_at?: string
@@ -14776,7 +15496,17 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      apply_android_tester_roster_snapshot: {
+      append_swell_watch_state_transition: {
+        Args: {
+          p_evaluation_id: string
+          p_expected_version: number
+          p_regional_event_id: string
+          p_state: string
+          p_transition_id: string
+        }
+        Returns: number
+      }
+apply_android_tester_roster_snapshot: {
         Args: {
           p_actor_user_id: string
           p_claim_token: string
@@ -14965,7 +15695,15 @@ export type Database = {
         }
         Returns: boolean
       }
-      cleanup_expired_events: { Args: never; Returns: number }
+      claim_swell_watch_recipient_announcement: {
+        Args: {
+          p_claim_id: string
+          p_recipient_id: string
+          p_regional_event_id: string
+        }
+        Returns: boolean
+      }
+cleanup_expired_events: { Args: never; Returns: number }
       cleanup_inactive_buoys: {
         Args: { inactive_days?: number }
         Returns: number
@@ -16083,7 +16821,32 @@ export type Database = {
           xp_total: number
         }[]
       }
-      is_admin_user: { Args: never; Returns: boolean }
+      ingest_swell_watch_evaluation: {
+        Args: {
+          p_arrival_at: string
+          p_direction_deg: number
+          p_evaluation_id: string
+          p_forecast_at: string
+          p_height_m: number
+          p_identity_kind: string
+          p_impact_hash: string
+          p_impact_id: string
+          p_observation_id: string
+          p_peak_at: string
+          p_period_s: number
+          p_physical_key: string
+          p_policy_hash: string
+          p_policy_id: string
+          p_projected_face_height_ft: number
+          p_provider: string
+          p_region_key: string
+          p_regional_event_id: string
+          p_source_point_id: string
+          p_source_slot: string
+        }
+        Returns: undefined
+      }
+is_admin_user: { Args: never; Returns: boolean }
       is_mutual_follow: { Args: { a: string; b: string }; Returns: boolean }
       like_session_with_notification: {
         Args: { p_actor_id: string; p_dedupe_key: string; p_session_id: string }
@@ -16686,6 +17449,80 @@ export type Database = {
           user_id: string
         }[]
       }
+      swell_watch_enqueue_notification: {
+        Args: {
+          p_expected_epoch: number
+          p_payload: Json
+          p_policy_hash: string
+          p_recipient_id: string
+        }
+        Returns: {
+          enqueued: boolean
+          notification_event_id: string
+          reason_code: string
+        }[]
+      }
+      swell_watch_get_automation_control: {
+        Args: never
+        Returns: {
+          epoch: number
+          reason_code: string
+          state: string
+        }[]
+      }
+      swell_watch_get_production_authority: {
+        Args: never
+        Returns: {
+          approval_evidence_hash: string
+          approval_id: string
+          authority_epoch: number
+          authority_id: string
+          expires_at: string
+          not_before: string
+          policy_hash: string
+          policy_provenance: string
+          policy_values: Json
+          production_scope: string
+          reviewer: string
+          revoked_at: string
+          superseded_at: string
+        }[]
+      }
+      swell_watch_production_policy_values_valid: {
+        Args: { p_values: Json }
+        Returns: boolean
+      }
+      swell_watch_projected_send_count: {
+        Args: { p_exclude?: string }
+        Returns: number
+      }
+      swell_watch_record_provider_delivery_outcome: {
+        Args: {
+          p_attempt_number: number
+          p_failure_count: number
+          p_notification_event_id: string
+          p_sample_count: number
+        }
+        Returns: {
+          control_epoch: number
+          held: boolean
+          reason_code: string
+        }[]
+      }
+      swell_watch_validate_notification_release: {
+        Args: {
+          p_beach_id: string
+          p_forecast_at: string
+          p_notification_event_id: string
+          p_recipient_id: string
+          p_regional_event_id: string
+        }
+        Returns: {
+          allowed: boolean
+          control_epoch: number
+          reason_code: string
+        }[]
+      }
       swell_windows_overlap: {
         Args: { p_max1: number; p_max2: number; p_min1: number; p_min2: number }
         Returns: number
@@ -16709,6 +17546,21 @@ export type Database = {
       toggle_favorite_spot_guarded: {
         Args: { p_beach_id?: string; p_custom_spot_id?: string }
         Returns: string
+      }
+      transition_swell_watch_automation_control: {
+        Args: {
+          p_actor_user_id: string
+          p_expected_epoch: number
+          p_idempotency_key: string
+          p_operation: string
+          p_reason_code: string
+          p_system_actor?: string
+        }
+        Returns: {
+          epoch: number
+          reason_code: string
+          state: string
+        }[]
       }
       trigger_manual_maintenance: { Args: never; Returns: Json }
       trusted_forecast_canonical_alert: { Args: { p_row: Json }; Returns: Json }

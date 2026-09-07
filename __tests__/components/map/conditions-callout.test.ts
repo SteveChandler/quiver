@@ -197,11 +197,14 @@ it.each([false, true])("turns across north by the shortest arc (reduced motion: 
   }
 });
 
- test("dates historical bacteria evidence instead of claiming a current county advisory", () => {
+ test("warns about historical samples without calling the beach closed", () => {
   (window.matchMedia as jest.Mock).mockReturnValue({ matches: false });
-  const { element } = createConditionsCalloutElement({ beachName: "La Jolla Shores", tempLabel: null, components: [], waterQualityHold: "advisory", waterQualityEvidence: { source: "sample", sampleDate: "2026-08-11" } });
-  expect(element.querySelector("[data-callout-water-quality]")).toHaveTextContent("Elevated bacteria · sample 2026-08-11");
+  const { element } = createConditionsCalloutElement({ beachName: "La Jolla Shores", tempLabel: null, components: [], waterQualityHold: null, waterQualityEvidence: { source: "sample", sampleDate: "2026-08-11" } });
+  expect(element.querySelector("[data-callout-water-quality]")).toHaveTextContent("Water quality not recently verified");
+  expect(element.querySelector("[data-callout-water-quality]")).toHaveAttribute("data-callout-water-quality", "unconfirmed");
   expect(element).not.toHaveTextContent("Advisory");
+  expect(element).not.toHaveTextContent("Closed");
+  expect(element).toHaveTextContent("Sample: 2026-08-11");
 });
 
  test("flips text within its own colored section when arrows turn left", () => {
