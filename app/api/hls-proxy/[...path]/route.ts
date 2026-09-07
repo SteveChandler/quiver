@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { setTimeout as delay } from "node:timers/promises";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 
 export const dynamic = "force-dynamic";
@@ -86,11 +87,7 @@ async function hlsProxyHandler(
   const resourcePath = "/" + pathSegments.slice(1).join("/");
   const queryString = request.nextUrl.search; // includes "?" prefix if present
   const isManifest = /\.m3u8$/i.test(resourcePath);
-  let targetUrl = `https://${hostname}${resourcePath}${queryString}`;
-  // HDOnTap can return an expired segment list even with no-cache headers.
-  if (isManifest && hostname === "live.hdontap.com") {
-    targetUrl += `${queryString ? "&" : "?"}_quiver_live=${Date.now()}`;
-  }
+  const targetUrl = `https://${hostname}${resourcePath}${queryString}`;
 
   // Security: strict hostname whitelist
   const hostConfig = ALLOWED_HOSTS[hostname];
@@ -106,100 +103,128 @@ async function hlsProxyHandler(
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
   try {
-    const upstream = await fetch(targetUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        ...hostConfig,
-        ...(isManifest ? { "Cache-Control": "no-cache" } : {}),
-        // Forward range requests for partial segment loads
-        ...(request.headers.get("range")
-          ? { Range: request.headers.get("range")! }
-          : {}),
-      },
-      signal: controller.signal,
-      cache: "no-store",
-    });
-
-    if (!upstream.ok) {
-      console.warn("[hls-proxy] Upstream error:", {
-        url: targetUrl,
-        status: upstream.status,
+    for (let attempt = 0; attempt < 4; attempt++) {
+      let requestUrl = targetUrl;
+      if (isManifest && hostname === "live.hdontap.com") {
+        requestUrl += `${queryString ? "&" : "?"}_quiver_live=${Date.now()}`;
+      }
+      const upstream = await fetch(requestUrl, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+          ...hostConfig,
+          ...(isManifest ? { "Cache-Control": "no-cache" } : {}),
+          // Forward range requests for partial segment loads
+          ...(request.headers.get("range")
+            ? { Range: request.headers.get("range")! }
+            : {}),
+        },
+        signal: controller.signal,
+        cache: "no-store",
       });
-      return new NextResponse(null, { status: upstream.status });
+
+      if (!upstream.ok) {
+        console.warn("[hls-proxy] Upstream error:", {
+          url: targetUrl,
+          status: upstream.status,
+        });
+        return new NextResponse(null, { status: upstream.status });
+      }
+
+      // Size check from Content-Length header
+      const contentLength = upstream.headers.get("content-length");
+      if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_SIZE) {
+        return new NextResponse("Response too large", { status: 413 });
+      }
+
+      const body = await upstream.arrayBuffer();
+
+      if (body.byteLength > MAX_RESPONSE_SIZE) {
+        return new NextResponse("Response too large", { status: 413 });
+      }
+
+      // Determine content type and caching
+      const isSegment =
+        resourcePath.endsWith(".ts") || resourcePath.endsWith(".aac");
+
+      // Rewrite absolute URLs in manifests to proxy-relative paths so hls.js
+      // follows them through the proxy instead of directly to the CDN
+      let responseBody: ArrayBuffer = body;
+      if (isManifest) {
+        const text = new TextDecoder().decode(body);
+        // A cold HDOnTap edge can return expired segments with HTTP 200/no-store.
+        if (hostname === "live.hdontap.com" && text.includes("#EXT-X-MEDIA-SEQUENCE:")) {
+          const firstMedia = text.split(/\r?\n/).map(line => line.trim()).find(line => line && !line.startsWith("#"));
+          const media = firstMedia ? new URL(firstMedia, targetUrl) : null;
+          if (!media || media.protocol !== "https:" || media.username || media.password || media.port ||
+            !(media.hostname === "live.hdontap.com" || /^edge\d+(?:\.[a-z0-9-]+)?\.nginx\.hdontap\.com$/.test(media.hostname))) {
+            return new NextResponse("Invalid media source", { status: 502, headers: { "Cache-Control": "no-store" } });
+          }
+          const probe = await fetch(media.href, {
+            method: "HEAD", cache: "no-store", redirect: "error", signal: controller.signal,
+          });
+          if (!probe.ok) {
+            if ((probe.status === 404 || probe.status === 410) && attempt < 3) {
+              await delay(2000 * (attempt + 1), undefined, { signal: controller.signal });
+              continue;
+            }
+            return new NextResponse("Live playlist unavailable", { status: 502, headers: { "Cache-Control": "no-store" } });
+          }
+        }
+        const rewritten = rewriteManifestUrls(text);
+        const encoded = new TextEncoder().encode(rewritten);
+        responseBody = encoded.buffer as ArrayBuffer;
+      }
+
+      const contentType = isManifest
+        ? "application/vnd.apple.mpegurl"
+        : isSegment
+          ? "video/mp2t"
+          : upstream.headers.get("content-type") || "application/octet-stream";
+
+      // Manifests must not be cached long (live stream); segments are immutable
+      const cacheControl = isManifest
+        ? "no-store"
+        : isSegment
+          ? "public, max-age=3600, immutable"
+          : "public, max-age=60";
+
+      const elapsed = Date.now() - start;
+
+      // Monitoring log
+      console.log("[hls-proxy]", {
+        host: hostname,
+        path: resourcePath,
+        type: isManifest ? "manifest" : isSegment ? "segment" : "other",
+        bytes: responseBody.byteLength,
+        ms: elapsed,
+      });
+
+      return new NextResponse(responseBody, {
+        status: upstream.status,
+        headers: {
+          "Content-Type": contentType,
+          "Cache-Control": cacheControl,
+          "Access-Control-Allow-Origin": "*",
+          "X-HLS-Proxy-Host": hostname,
+          "X-HLS-Proxy-Bytes": responseBody.byteLength.toString(),
+          "X-HLS-Proxy-Ms": elapsed.toString(),
+          "X-HLS-Proxy-Attempts": (attempt + 1).toString(),
+        },
+      });
     }
-
-    // Size check from Content-Length header
-    const contentLength = upstream.headers.get("content-length");
-    if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_SIZE) {
-      return new NextResponse("Response too large", { status: 413 });
-    }
-
-    const body = await upstream.arrayBuffer();
-    const elapsed = Date.now() - start;
-
-    if (body.byteLength > MAX_RESPONSE_SIZE) {
-      return new NextResponse("Response too large", { status: 413 });
-    }
-
-    // Determine content type and caching
-    const isSegment =
-      resourcePath.endsWith(".ts") || resourcePath.endsWith(".aac");
-
-    // Rewrite absolute URLs in manifests to proxy-relative paths so hls.js
-    // follows them through the proxy instead of directly to the CDN
-    let responseBody: ArrayBuffer = body;
-    if (isManifest) {
-      const text = new TextDecoder().decode(body);
-      const rewritten = rewriteManifestUrls(text);
-      const encoded = new TextEncoder().encode(rewritten);
-      responseBody = encoded.buffer as ArrayBuffer;
-    }
-
-    const contentType = isManifest
-      ? "application/vnd.apple.mpegurl"
-      : isSegment
-        ? "video/mp2t"
-        : upstream.headers.get("content-type") || "application/octet-stream";
-
-    // Manifests must not be cached long (live stream); segments are immutable
-    const cacheControl = isManifest
-      ? "no-store"
-      : isSegment
-        ? "public, max-age=3600, immutable"
-        : "public, max-age=60";
-
-    // Monitoring log
-    console.log("[hls-proxy]", {
-      host: hostname,
-      path: resourcePath,
-      type: isManifest ? "manifest" : isSegment ? "segment" : "other",
-      bytes: responseBody.byteLength,
-      ms: elapsed,
-    });
-
-    return new NextResponse(responseBody, {
-      status: upstream.status,
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": cacheControl,
-        "Access-Control-Allow-Origin": "*",
-        "X-HLS-Proxy-Host": hostname,
-        "X-HLS-Proxy-Bytes": responseBody.byteLength.toString(),
-        "X-HLS-Proxy-Ms": elapsed.toString(),
-      },
-    });
+    return new NextResponse("Live playlist unavailable", { status: 502, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       console.warn("[hls-proxy] Timeout:", targetUrl);
-      return new NextResponse("Gateway timeout", { status: 504 });
+      return new NextResponse("Gateway timeout", { status: 504, headers: { "Cache-Control": "no-store" } });
     }
 
     console.error("[hls-proxy] Error:", {
       url: targetUrl,
       error: error instanceof Error ? error.message : String(error),
     });
-    return new NextResponse("Proxy error", { status: 502 });
+    return new NextResponse("Proxy error", { status: 502, headers: { "Cache-Control": "no-store" } });
   } finally {
     clearTimeout(timeoutId);
   }
