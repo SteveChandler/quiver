@@ -2180,7 +2180,12 @@ export function InteractiveMap({
     const map = mapRef.current;
     if (!map || !isMapReady) return;
     if (typeof map.isStyleLoaded === "function" && !map.isStyleLoaded()) {
-      return;
+      // Tile/source loading can defer mounting after style.load has already fired.
+      const retryMount = (): void => {
+        if (map.isStyleLoaded()) setMapStyleRevision((current) => current + 1);
+      };
+      map.on("data", retryMount);
+      return () => { map.off("data", retryMount); };
     }
 
     // Every swell GL layer id this component can mount: the single-layer id plus the
