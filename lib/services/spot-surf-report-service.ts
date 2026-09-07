@@ -1,6 +1,7 @@
 import "server-only";
 
-import { unstable_cache } from 'next/cache';
+import { cache } from 'react';
+import { connection } from 'next/server';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { computeSurfCall, computeSurfCallTiers, type SurfCallResult } from '@/lib/utils/surf-call-logic';
@@ -8,6 +9,7 @@ import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-constants';
 import { formatDateInTimezone } from '@/lib/utils/date-time';
 import { extractForecastDate } from '@/lib/utils/forecast-at-adapter';
+import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getBatchSunTimes } from '@/lib/services/discovery';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
@@ -185,7 +187,7 @@ interface BuildReportOptions {
 
 /**
  * Wrap `computeSurfCall` to also attach the per-skill tier verdict ladder.
- * The wrapper exists so the return sites in `getCachedSurfReport` stay terse.
+ * The wrapper exists so the return sites in `getRequestSurfReport` stay terse.
  */
 function buildReport(
   window: PersonalizedForecastWindow | null,
@@ -210,22 +212,16 @@ function clampScore(score: number | null): number | null {
   return score == null ? null : Math.max(0, Math.min(100, score));
 }
 
-/**
- * Cookie-free surf report for ISR/SSG beach pages.
- *
- * Uses the service-role client directly (no cookies()) so Next.js can honour
- * the page-level `revalidate = 3600` export without being forced into dynamic
- * rendering.  Returns the anonymous-user report — personalisation happens
- * client-side inside BeachDetailClient after hydration.
- *
- */
+/** Cookie-free, request-scoped report; personalization happens after hydration. */
 export async function getSpotSurfReportPublic(beach: Beach): Promise<SpotSurfReportResult | null> {
   if (!beach.id) return null;
 
+  // Outside the catch: Next must be able to interrupt static prerendering.
+  await connection();
+
   try {
-    const cached = await getCachedSurfReport(
-      beach.id,
-      canonicalizeBeachForSurfCall(beach),
+    const cached = await getRequestSurfReport(
+      JSON.stringify(canonicalizeBeachForSurfCall(beach)),
     );
     return cached
       ? await applySurfCallMajorEventHold(cached, beach.id, null, null)
@@ -241,11 +237,8 @@ export async function getSpotSurfReportPublic(beach: Beach): Promise<SpotSurfRep
 
 /**
  * Canonicalize a beach to the stable subset that surf-call computation
- * actually reads. Without this, `unstable_cache` would hash the entire beach
- * object — callers can provide different projections of the same beach, which
- * would otherwise produce divergent cache keys and surf calls. Every public
- * caller now routes through this canonicalizer before reaching the cached
- * function, so cache keys converge.
+ * actually reads. A serialized key lets different projections of the same
+ * beach share one report within a render, without retaining it across requests.
  *
  * IMPORTANT: the field set below MUST mirror every `beach.*` read inside
  * `lib/services/discovery/window-selector/*` and `lib/utils/surf-call-logic.ts`.
@@ -302,27 +295,11 @@ function toPublicForecastHour(forecast: EnhancedForecastEntity): PublicForecastH
   ) as PublicForecastHour;
 }
 
-/**
- * Cached surf report computation.
- *
- * Cache duration: 900s (15 minutes). Rationale:
- * - Forecast data (NOAA/NDBC) refreshes every 1–6 hours; 15 min is well
- *   within the freshness window while cutting DB load by ~95% on popular spots.
- * - Public spot pages can be force-dynamic for unrelated data, so without
- *   this cache every page load would re-fetch forecasts + run window selection.
- * - "Updated" timestamp shown in the UI reflects computation time, not page
- *   serve time, so users see how recent the call actually is.
- * - 15 min is short enough that a surf report won't feel stale before/during
- *   a session, but long enough to survive traffic spikes on popular spots.
- *
- * Cache is keyed by the beach id and canonical beach fields so all public
- * callers share the same anonymous report.
- */
-const getCachedSurfReport = unstable_cache(
-  async (
-    beachId: string,
-    beach: Beach,
-  ): Promise<CachedSpotSurfReportResult | null> => {
+// A forecast revision or clock change must be visible on the next request.
+const getRequestSurfReport = cache(
+  async (beachKey: string): Promise<CachedSpotSurfReportResult | null> => {
+    const beach = JSON.parse(beachKey) as Beach;
+    const beachId = beach.id;
     // 1. Determine beach timezone
     const beachTz = beach.lat != null && beach.lon != null
       ? getTimezoneFromCoords(beach.lat, beach.lon)
@@ -331,8 +308,10 @@ const getCachedSurfReport = unstable_cache(
     // 2. Determine "today" and "tomorrow" in beach timezone
     const now = new Date();
     const todayStr = formatDateInTimezone(now, beachTz);
-    const tomorrow = new Date(now.getTime() + 86_400_000);
-    const tomorrowStr = formatDateInTimezone(tomorrow, beachTz);
+    // Advance the calendar date; elapsed 24-hour periods skip/repeat dates at DST.
+    const tomorrow = new Date(`${todayStr}T00:00:00Z`);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
 
     // 2.5. Fetch sun times for sunset capping
     const sunTimesCache = await getBatchSunTimes([beachId], [todayStr, tomorrowStr]);
@@ -344,13 +323,13 @@ const getCachedSurfReport = unstable_cache(
       .from('enhanced_forecasts')
       .select('*')
       .eq('beach_id', beachId)
-      .gte('forecast_at', `${todayStr}T00:00:00Z`)
-      .lt('forecast_at', `${dayAfterTomorrow}T00:00:00Z`)
+      .gte('forecast_at', localDateTimeToUTC(todayStr, '00:00:00', beachTz).toISOString())
+      .lt('forecast_at', localDateTimeToUTC(dayAfterTomorrow, '00:00:00', beachTz).toISOString())
       .order('forecast_at', { ascending: true })
       .limit(48);
 
     if (error) {
-      console.error('[getCachedSurfReport] Database error:', {
+      console.error('[getRequestSurfReport] Database error:', {
         beachId,
         message: error.message,
         code: error.code,
@@ -482,6 +461,4 @@ const getCachedSurfReport = unstable_cache(
       hourlyForecastDay: 'today',
     };
   },
-  ['spot-surf-report'],
-  { revalidate: 900 } // 15-minute cache
 );

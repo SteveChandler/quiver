@@ -59,10 +59,8 @@ import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-index
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 
-// Public beach data is cookie-free. Major-event hold transitions explicitly
-// revalidate affected paths, so hourly ISR remains safe between transitions.
-export const dynamic = "force-static";
-export const revalidate = 3600;
+// Forecast revisions and selected windows must reflect this request.
+export const dynamic = "force-dynamic";
 
 const getCachedBeachCandidates = cache(async (slug: string) => {
   const { getBeachesBySlug } =

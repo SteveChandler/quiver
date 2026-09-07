@@ -19,26 +19,19 @@ jest.mock("@/lib/utils/timezone-utils.server", () => ({
   getTimezoneFromCoords: jest.fn(() => "America/Los_Angeles"),
 }));
 
-let formatDateCallCount = 0;
-jest.mock("@/lib/utils/date-time", () => ({
-  formatDateInTimezone: jest.fn(() => {
-    formatDateCallCount += 1;
-    return formatDateCallCount % 2 === 1 ? "2024-01-15" : "2024-01-16";
-  }),
-}));
-
 const mockCacheInputs: unknown[][] = [];
-let mockCacheConfig: unknown[] | null = null;
-const mockUnstableCache = jest.fn(
-  (fn: (...args: unknown[]) => unknown, ...config: unknown[]) => {
-    mockCacheConfig = config;
-    return (...args: unknown[]) => {
-      mockCacheInputs.push(args);
-      return fn(...args);
-    };
+let mockRequestCache = new Map<string, unknown>();
+jest.mock("react", () => ({
+  ...jest.requireActual("react"),
+  cache: (fn: (...args: string[]) => unknown) => (...args: string[]) => {
+    mockCacheInputs.push(args);
+    const key = JSON.stringify(args);
+    if (!mockRequestCache.has(key)) mockRequestCache.set(key, fn(...args));
+    return mockRequestCache.get(key);
   },
-);
-jest.mock("next/cache", () => ({ unstable_cache: mockUnstableCache }));
+}));
+const mockConnection = jest.fn().mockResolvedValue(undefined);
+jest.mock("next/server", () => ({ connection: () => mockConnection() }));
 
 const mockSelectBestWindow = jest.fn();
 jest.mock("@/lib/services/discovery/window-selector", () => ({
@@ -94,29 +87,29 @@ describe("spot surf report service", () => {
     confidence_score: 80,
   };
 
-  function setupDatabase(rows: Partial<EnhancedForecastEntity>[] = [forecast]): void {
+  function setupDatabase(
+    rows: Partial<EnhancedForecastEntity>[] = [forecast],
+    error: { message: string; code: string } | null = null,
+  ): { gte: jest.Mock; lt: jest.Mock } {
+    const query = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      gte: jest.fn().mockReturnThis(),
+      lt: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({ data: rows, error }),
+    };
     const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
-    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
-      from: jest.fn(() => ({
-        select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            gte: jest.fn(() => ({
-              lt: jest.fn(() => ({
-                order: jest.fn(() => ({
-                  limit: jest.fn().mockResolvedValue({ data: rows, error: null }),
-                })),
-              })),
-            })),
-          })),
-        })),
-      })),
-    });
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({ from: jest.fn(() => query) });
+    return query;
   }
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockCacheInputs.length = 0;
-    formatDateCallCount = 0;
+    mockRequestCache = new Map();
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2024-01-15T18:00:00Z"));
     const { getBatchSunTimes } = require("@/lib/services/discovery");
     (getBatchSunTimes as jest.Mock).mockResolvedValue(new Map([
       [beachId, { sunrises: [], sunsets: [new Date("2024-01-16T01:00:00Z")] }],
@@ -145,6 +138,83 @@ describe("spot surf report service", () => {
     });
   });
 
+  afterEach(() => jest.useRealTimers());
+
+  it("deduplicates one render but reads the next revision and clock on the next request", async () => {
+    setupDatabase([{ ...forecast, forecast_at: "2024-01-15T23:00:00Z", updated_at: "2024-01-15T17:00:00Z" }]);
+    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
+    const first = await getSpotSurfReportPublic(beach);
+    setupDatabase([{ ...forecast, forecast_at: "2024-01-15T23:00:00Z", updated_at: "2024-01-15T18:01:00Z" }]);
+    jest.setSystemTime(new Date("2024-01-15T18:02:00Z"));
+    const sameRequest = await getSpotSurfReportPublic({ ...beach, description: "other projection" } as Beach);
+    expect(sameRequest?.forecastContext).toEqual(first?.forecastContext);
+    expect(mockApplyV51DisplayOverrideToForecasts).toHaveBeenCalledTimes(1);
+
+    mockRequestCache = new Map(); // React discards its memoization between requests.
+    const nextRequest = await getSpotSurfReportPublic(beach);
+    expect(nextRequest?.forecastContext?.sourceDataUpdatedAt).toBe("2024-01-15T18:01:00Z");
+    expect(first?.forecastContext?.sourceDataUpdatedAt).toBe("2024-01-15T17:00:00Z");
+    expect(nextRequest?.report.updatedAt).toBe("2024-01-15T18:02:00.000Z");
+    expect(first?.report.updatedAt).toBe("2024-01-15T18:00:00.000Z");
+    expect(mockApplyV51DisplayOverrideToForecasts).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retain a successful report through source failure or cache that failure after recovery", async () => {
+    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
+    setupDatabase();
+    expect((await getSpotSurfReportPublic(beach))?.forecastContext).toEqual(expect.objectContaining({ beachId }));
+    mockRequestCache = new Map();
+    setupDatabase([], { message: "Source unavailable", code: "503" });
+    const failed = await getSpotSurfReportPublic(beach);
+    expect(failed?.forecastContext).toBeNull();
+    expect(failed?.hourlyForecasts).toEqual([]);
+    expect(failed?.report.bestWindowStart).toBeNull();
+    mockRequestCache = new Map();
+    setupDatabase([{ ...forecast, forecast_at: "2024-01-15T23:00:00Z", updated_at: "2024-01-15T18:03:00Z" }]);
+    expect((await getSpotSurfReportPublic(beach))?.forecastContext?.sourceDataUpdatedAt).toBe("2024-01-15T18:03:00Z");
+  });
+
+  it("advances the beach-local date after midnight on the next request", async () => {
+    setupDatabase([
+      { ...forecast, forecast_at: "2024-01-15T23:00:00Z" },
+      { ...forecast, forecast_at: "2024-01-16T10:00:00Z" },
+    ]);
+    mockSelectBestWindow.mockReturnValue(null);
+    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
+    jest.setSystemTime(new Date("2024-01-16T07:59:00Z"));
+    const { getBatchSunTimes } = require("@/lib/services/discovery");
+    expect((await getSpotSurfReportPublic(beach))?.hourlyForecasts).toEqual([expect.objectContaining({ forecast_at: "2024-01-15T23:00:00Z" })]);
+    expect(getBatchSunTimes).toHaveBeenLastCalledWith([beachId], ["2024-01-15", "2024-01-16"]);
+    mockRequestCache = new Map();
+    jest.setSystemTime(new Date("2024-01-16T08:01:00Z"));
+    const nextDay = await getSpotSurfReportPublic(beach);
+    expect(getBatchSunTimes).toHaveBeenLastCalledWith([beachId], ["2024-01-16", "2024-01-17"]);
+    expect(nextDay?.hourlyForecasts).toEqual([expect.objectContaining({ forecast_at: "2024-01-16T10:00:00Z" })]);
+  });
+
+  it.each([
+    ["2024-01-15T18:00:00Z", "2024-01-15", "2024-01-16", "2024-01-15T08:00:00.000Z", "2024-01-17T08:00:00.000Z"],
+    ["2026-11-01T07:30:00Z", "2026-11-01", "2026-11-02", "2026-11-01T07:00:00.000Z", "2026-11-03T08:00:00.000Z"],
+    ["2026-03-08T07:30:00Z", "2026-03-07", "2026-03-08", "2026-03-07T08:00:00.000Z", "2026-03-09T07:00:00.000Z"],
+  ])("reads both complete beach-local days, including DST boundaries, at %s", async (clock, today, tomorrow, start, end) => {
+    jest.setSystemTime(new Date(clock));
+    const query = setupDatabase([]);
+    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
+    const { getBatchSunTimes } = require("@/lib/services/discovery");
+    await getSpotSurfReportPublic(beach);
+    expect(getBatchSunTimes).toHaveBeenLastCalledWith([beachId], [today, tomorrow]);
+    expect(query.gte).toHaveBeenCalledWith("forecast_at", start);
+    expect(query.lt).toHaveBeenCalledWith("forecast_at", end);
+  });
+
+  it("lets Next interrupt static generation instead of caching a fallback", async () => {
+    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
+    const interruption = new Error("Dynamic server usage");
+    mockConnection.mockRejectedValueOnce(interruption);
+    await expect(getSpotSurfReportPublic(beach)).rejects.toBe(interruption);
+    expect(mockCacheInputs).toEqual([]);
+  });
+
   it("returns null without a beach id", async () => {
     const { getSpotSurfReportPublic } = await import(
       "@/lib/services/spot-surf-report-service"
@@ -153,7 +223,7 @@ describe("spot surf report service", () => {
     await expect(getSpotSurfReportPublic({ ...beach, id: undefined } as unknown as Beach)).resolves.toBeNull();
   });
 
-  it("builds the public report from the cached forecast path", async () => {
+  it("builds the public report during the request", async () => {
     setupDatabase();
     const { getSpotSurfReportPublic } = await import(
       "@/lib/services/spot-surf-report-service"
@@ -165,7 +235,7 @@ describe("spot surf report service", () => {
     expect(result?.report.userTier).toBeNull();
     expect(result?.report.skillSource).toBeNull();
     expect(result?.report.isCalibrated).toBe(true);
-    expect(mockCacheConfig).toEqual([["spot-surf-report"], { revalidate: 900 }]);
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(result?.hourlyForecasts).toEqual([
       expect.objectContaining({ forecast_at: forecast.forecast_at }),
     ]);
@@ -195,16 +265,13 @@ describe("spot surf report service", () => {
       description: "ignored projection field",
     } as unknown as Beach);
 
-    expect(mockCacheInputs[0]).toEqual([
-      beachId,
-      expect.objectContaining({
+    expect(JSON.parse(mockCacheInputs[0][0] as string)).toEqual(expect.objectContaining({
         id: beachId,
         max_wind_any_mph: 18,
         swell_window_min_deg: 300,
         shoaling_factors: { "0": 0.8, "90": 1.1 },
-      }),
-    ]);
-    expect(mockCacheInputs[0]?.[1]).not.toHaveProperty("description");
+      }));
+    expect(JSON.parse(mockCacheInputs[0][0] as string)).not.toHaveProperty("description");
   });
 
   it("applies the V5 display projection before selecting a window", async () => {
