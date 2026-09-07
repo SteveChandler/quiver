@@ -432,7 +432,7 @@ export const GET = withAuth(handler);
 
 - Strict hostname whitelist (`ALLOWED_HOSTS`) -- prevents use as an open proxy / SSRF vector. Currently allows only `hls.cdn-surfline.com`.
 - Path traversal validation (rejects `..` and `.` segments)
-- Request timeout: 15 seconds
+- Request timeout: 15 seconds, including response body reads
 - Response size limit: 10 MB (typical HLS segments are 2-6 MB)
 - Rate limiting via `withRateLimit("hls-proxy")`: 120 req/min, 5000 req/hour, burst 60
 
@@ -446,7 +446,7 @@ export const GET = withAuth(handler);
 
 | Resource Type | `Cache-Control` |
 |---------------|-----------------|
-| `.m3u8` manifests | `public, max-age=2, stale-while-revalidate=5` (live stream, must refresh frequently) |
+| `.m3u8` manifests | `no-store` (live playlists can reference expired segments) |
 | `.ts` / `.aac` segments | `public, max-age=3600, immutable` (immutable once written) |
 | Other | `public, max-age=60` |
 

@@ -322,7 +322,7 @@ describe("HLS Proxy Route", () => {
   // Cache-Control policies
   // ---------------------------------------------------------------------------
   describe("Cache-Control Policies", () => {
-    it("should set short cache for manifests (live stream)", async () => {
+    it("must not serve cached live manifests", async () => {
       mockUpstreamResponse("#EXTM3U\n");
 
       const request = createRequest(
@@ -335,8 +335,54 @@ describe("HLS Proxy Route", () => {
 
       const response = await GET(request, context);
       expect(response.headers.get("Cache-Control")).toBe(
-        "public, max-age=2, stale-while-revalidate=5"
+        "no-store"
       );
+    });
+
+    it("refreshes HDOnTap playlists without losing provider query parameters", async () => {
+      jest.useFakeTimers();
+      try {
+        jest.setSystemTime(new Date("2026-09-07T16:10:00Z"));
+        const request = createRequest("/api/hls-proxy/live.hdontap.com/hls/cam/chunklist.m3u8?token=a%2Bb&quality=high");
+        const context = createContext(["live.hdontap.com", "hls", "cam", "chunklist.m3u8"]);
+        mockUpstreamResponse("#EXTM3U\nold.ts");
+        const first = await GET(request, context);
+        jest.advanceTimersByTime(12_000);
+        mockUpstreamResponse("#EXTM3U\nnew.ts");
+        const second = await GET(request, context);
+        const urls = mockFetch.mock.calls.map(([url]) => new URL(url));
+        expect(urls[0].searchParams.get("_quiver_live")).toBe("1788797400000");
+        expect(urls[1].searchParams.get("_quiver_live")).toBe("1788797412000");
+        for (const [url, options] of mockFetch.mock.calls) {
+          expect(new URL(url).searchParams.get("token")).toBe("a+b");
+          expect(new URL(url).searchParams.get("quality")).toBe("high");
+          expect(options.cache).toBe("no-store");
+          expect(options.headers["Cache-Control"]).toBe("no-cache");
+        }
+        expect(await first.text()).toContain("old.ts");
+        expect(await second.text()).toContain("new.ts");
+        expect(second.headers.get("Cache-Control")).toBe("no-store");
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it("times out a source whose headers arrive but body stalls", async () => {
+      jest.useFakeTimers();
+      try {
+        mockFetch.mockImplementationOnce(async (_url, { signal }) => ({
+          ok: true, status: 200, headers: new Headers(),
+          arrayBuffer: () => new Promise((_resolve, reject) => {
+            signal.addEventListener("abort", () => reject(Object.assign(new Error("Aborted"), { name: "AbortError" })), { once: true });
+          }),
+        }));
+        const response = GET(createRequest("/api/hls-proxy/live.hdontap.com/playlist.m3u8"), createContext(["live.hdontap.com", "playlist.m3u8"]));
+        await jest.advanceTimersByTimeAsync(15_000);
+        expect((await response).status).toBe(504);
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it("should set long immutable cache for segments", async () => {
@@ -870,9 +916,11 @@ describe("HLS Proxy Route", () => {
       await GET(request, context);
 
       const fetchCall = mockFetch.mock.calls[0];
-      expect(fetchCall[0]).toBe(
-        "https://live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc123&e=9999999999"
-      );
+      const upstreamUrl = new URL(fetchCall[0]);
+      expect(upstreamUrl.origin + upstreamUrl.pathname).toBe("https://live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8");
+      expect(upstreamUrl.searchParams.get("t")).toBe("abc123");
+      expect(upstreamUrl.searchParams.get("e")).toBe("9999999999");
+      expect(upstreamUrl.searchParams.get("_quiver_live")).toMatch(/^\d+$/);
     });
 
     it("should not append query string when none is present (Surfline regression)", async () => {

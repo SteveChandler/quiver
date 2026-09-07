@@ -85,7 +85,12 @@ async function hlsProxyHandler(
   const hostname = pathSegments[0];
   const resourcePath = "/" + pathSegments.slice(1).join("/");
   const queryString = request.nextUrl.search; // includes "?" prefix if present
-  const targetUrl = `https://${hostname}${resourcePath}${queryString}`;
+  const isManifest = /\.m3u8$/i.test(resourcePath);
+  let targetUrl = `https://${hostname}${resourcePath}${queryString}`;
+  // HDOnTap can return an expired segment list even with no-cache headers.
+  if (isManifest && hostname === "live.hdontap.com") {
+    targetUrl += `${queryString ? "&" : "?"}_quiver_live=${Date.now()}`;
+  }
 
   // Security: strict hostname whitelist
   const hostConfig = ALLOWED_HOSTS[hostname];
@@ -106,15 +111,15 @@ async function hlsProxyHandler(
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         ...hostConfig,
+        ...(isManifest ? { "Cache-Control": "no-cache" } : {}),
         // Forward range requests for partial segment loads
         ...(request.headers.get("range")
           ? { Range: request.headers.get("range")! }
           : {}),
       },
       signal: controller.signal,
+      cache: "no-store",
     });
-
-    clearTimeout(timeoutId);
 
     if (!upstream.ok) {
       console.warn("[hls-proxy] Upstream error:", {
@@ -138,8 +143,6 @@ async function hlsProxyHandler(
     }
 
     // Determine content type and caching
-    const isManifest =
-      resourcePath.endsWith(".m3u8") || resourcePath.endsWith(".M3U8");
     const isSegment =
       resourcePath.endsWith(".ts") || resourcePath.endsWith(".aac");
 
@@ -161,7 +164,7 @@ async function hlsProxyHandler(
 
     // Manifests must not be cached long (live stream); segments are immutable
     const cacheControl = isManifest
-      ? "public, max-age=2, stale-while-revalidate=5"
+      ? "no-store"
       : isSegment
         ? "public, max-age=3600, immutable"
         : "public, max-age=60";
@@ -187,8 +190,6 @@ async function hlsProxyHandler(
       },
     });
   } catch (error) {
-    clearTimeout(timeoutId);
-
     if (error instanceof Error && error.name === "AbortError") {
       console.warn("[hls-proxy] Timeout:", targetUrl);
       return new NextResponse("Gateway timeout", { status: 504 });
@@ -199,6 +200,8 @@ async function hlsProxyHandler(
       error: error instanceof Error ? error.message : String(error),
     });
     return new NextResponse("Proxy error", { status: 502 });
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
