@@ -480,7 +480,10 @@ describe("GET /api/surf/call", () => {
     expect(mockResolveCanonicalSessionDecisionContext).not.toHaveBeenCalled();
   });
 
-  it("uses objective metrics from the exact canonical window", async () => {
+  it.each(["2026-05-08T22:00:00.000Z", "2026-05-08T23:00:00.000Z"])(
+    "uses only in-window objective measurements from %s", async (sampleTime) => {
+    const recommendation = canonicalContext.discovery.recommendations[0];
+    recommendation.forecast = { ...(recommendation.forecast as Record<string, unknown>), forecast_at: sampleTime };
     const beachId = "11111111-1111-4111-8111-111111111111";
     mockBeachQuery({
       id: beachId,
@@ -507,10 +510,10 @@ describe("GET /api/surf/call", () => {
       beachId,
       selectedWindowStart: "2026-05-08T22:30:00.000Z",
       selectedWindowEnd: "2026-05-09T01:30:00.000Z",
-      selectedRowTime: "2026-05-08T22:00:00.000Z",
+      selectedRowTime: "2026-05-08T23:00:00.000Z",
       waveHeight: "2.7 ft",
-      windSpeed: "5 mph",
-      windDirection: "W",
+      windSpeed: sampleTime === "2026-05-08T23:00:00.000Z" ? "5 mph" : null,
+      windDirection: sampleTime === "2026-05-08T23:00:00.000Z" ? "W" : null,
       score: 72,
       confidence: 80,
     });

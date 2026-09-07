@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import type { Beach } from "@/types/database";
-import { formatBeachDateTime, formatTimeRangeInTimezone } from "@/lib/utils/date-time";
+import { formatBeachDateTime, formatDateInTimezone, formatTimeRangeInTimezone } from "@/lib/utils/date-time";
+import { RipCurrentWarning } from "@/components/beach-detail/rip-current-warning";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { useAuthenticatedForecastDecision } from "@/components/beach-detail/authenticated-forecast-decision";
 import { ForecastDecisionLoginLink } from "@/components/beach-detail/forecast-decision-login-link";
@@ -89,17 +90,25 @@ function sourceLabel(source: string): string {
 
 export function PublicForecastAnswer({
   beach,
-  report,
-  context,
-  isTomorrow,
+  report: publicReport,
+  context: publicContext,
+  isTomorrow: publicIsTomorrow,
   publicDecisionWindow,
   nearbyBeaches = [],
   headingLevel,
   returnTo,
 }: PublicForecastAnswerProps) {
   const authenticatedDecision = useAuthenticatedForecastDecision();
-  const decisionReport = authenticatedDecision.report;
-  const decisionContext = authenticatedDecision.context;
+  const decisionReport = authenticatedDecision.isAuthenticated && !authenticatedDecision.isLoading
+    ? authenticatedDecision.report
+    : null;
+  const decisionContext = decisionReport ? authenticatedDecision.context : null;
+  const hasResolvedAuthenticatedDecision = decisionReport !== null;
+  const report = hasResolvedAuthenticatedDecision ? decisionReport : publicReport;
+  const context = hasResolvedAuthenticatedDecision ? decisionContext : publicContext;
+  const isTomorrow = hasResolvedAuthenticatedDecision
+    ? authenticatedDecision.isTomorrow
+    : publicIsTomorrow;
   const timezone =
     beach.timezone ??
     context?.timezone ??
@@ -108,18 +117,12 @@ export function PublicForecastAnswer({
   const waveHeight = context?.waveHeightRangeLabel ?? context?.waveHeight ?? report?.waveHeight;
   // Once the authenticated decision resolves, its selection owns the answer
   // deck. Before then, keep the crawlable public window as context only.
-  const hasResolvedAuthenticatedDecision =
-    authenticatedDecision.isAuthenticated &&
-    !authenticatedDecision.isLoading &&
-    decisionReport !== null;
   const [windowStart, windowEnd] = hasResolvedAuthenticatedDecision
-    ? [decisionReport.bestWindowStart, decisionReport.bestWindowEnd]
-    : publicDecisionWindow
-      ? [publicDecisionWindow.start, publicDecisionWindow.end]
-      : [
-          decisionContext?.displayWindowStart ?? decisionReport?.bestWindowStart ?? null,
-          decisionContext?.displayWindowEnd ?? decisionReport?.bestWindowEnd ?? null,
-        ];
+    ? [
+        decisionContext?.displayWindowStart ?? decisionReport.bestWindowStart,
+        decisionContext?.displayWindowEnd ?? decisionReport.bestWindowEnd,
+      ]
+    : [publicDecisionWindow?.start ?? null, publicDecisionWindow?.end ?? null];
   const hasDisplayedWindow = Boolean(windowStart && windowEnd);
   const bestWindow = formatTimeRangeInTimezone(
     windowStart,
@@ -163,6 +166,7 @@ export function PublicForecastAnswer({
     : null;
   const HeadingTag = headingLevel;
   const hasForecastDetails = Boolean(
+    decisionReport?.verdict ||
     (context?.selectedRowTime && waveHeight) ||
       (hasDisplayedWindow && (waveHeight || bestWindow || wind || tide)),
   );
@@ -198,6 +202,12 @@ export function PublicForecastAnswer({
           </span>
         )}
       </div>
+
+      <RipCurrentWarning
+        beachId={beach.id}
+        localDate={context?.localDate ?? formatDateInTimezone(new Date(), timezone)}
+        timezone={timezone}
+      />
 
       {hasForecastDetails ? (
         <dl className="mt-4">

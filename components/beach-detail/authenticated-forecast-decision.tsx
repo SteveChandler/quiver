@@ -26,7 +26,7 @@ interface AuthenticatedForecastDecision {
 type ForecastDecisionState = Omit<
   AuthenticatedForecastDecision,
   "isAuthenticated" | "isProvided"
->;
+> & { scope?: string };
 
 const DEFAULT_DECISION: ForecastDecisionState = {
   report: null,
@@ -55,6 +55,7 @@ export function AuthenticatedForecastDecisionProvider({
 }: AuthenticatedForecastDecisionProviderProps) {
   const { user, isLoading: authLoading } = useAuth();
   const userId = user?.id;
+  const scope = userId ? `${userId}:${beachId}` : undefined;
   const [decision, setDecision] = useState<ForecastDecisionState>(
     DEFAULT_DECISION,
   );
@@ -66,7 +67,8 @@ export function AuthenticatedForecastDecisionProvider({
     }
 
     const controller = new AbortController();
-    setDecision((current) => ({ ...current, isLoading: true }));
+    setDecision({ ...DEFAULT_DECISION, scope, isLoading: true });
+    const unavailable = { ...DEFAULT_DECISION, scope };
 
     async function fetchDecision(): Promise<void> {
       try {
@@ -74,19 +76,22 @@ export function AuthenticatedForecastDecisionProvider({
           cache: "no-store",
           signal: controller.signal,
         });
+        if (controller.signal.aborted) return;
         if (!response.ok) {
-          setDecision(DEFAULT_DECISION);
+          setDecision(unavailable);
           return;
         }
 
         const payload = await response.json();
+        if (controller.signal.aborted) return;
         const data = payload?.data;
         if (!data?.report) {
-          setDecision(DEFAULT_DECISION);
+          setDecision(unavailable);
           return;
         }
 
         setDecision({
+          scope,
           report: data.report as SurfCallResult,
           context:
             (data.forecastContext as ForecastRecommendationContext | null) ??
@@ -95,23 +100,23 @@ export function AuthenticatedForecastDecisionProvider({
           isLoading: false,
         });
       } catch (error) {
-        if ((error as Error).name === "AbortError") return;
-        setDecision(DEFAULT_DECISION);
+        if (controller.signal.aborted || (error as Error).name === "AbortError") return;
+        setDecision(unavailable);
       }
     }
 
     void fetchDecision();
     return () => controller.abort();
-  }, [beachId, userId]);
+  }, [beachId, userId, scope]);
 
   const value = useMemo(
     () => ({
-      ...decision,
-      isLoading: authLoading || decision.isLoading,
+      ...(decision.scope === scope ? decision : DEFAULT_DECISION),
+      isLoading: authLoading || (Boolean(userId) && decision.scope !== scope) || decision.isLoading,
       isAuthenticated: Boolean(userId),
       isProvided: true,
     }),
-    [authLoading, decision, userId],
+    [authLoading, decision, userId, scope],
   );
 
   return (
