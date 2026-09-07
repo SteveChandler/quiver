@@ -30,10 +30,8 @@ import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-index
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-// Personalization happens client-side; the server render stays cookie-free so
-// Vercel can cache public Mexico beach pages between explicit hold invalidations.
-export const dynamic = "force-static";
-export const revalidate = 3600;
+// Forecast revisions and selected windows must reflect this request.
+export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ region: string; city: string; beachSlug: string }>;

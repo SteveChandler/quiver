@@ -29,10 +29,8 @@ import {
   selectPublicForecastReportFacts,
 } from "@/lib/utils/public-forecast-facts";
 
-// The route only reads public beach data; cache on demand instead of rendering
-// every crawler request from scratch.
-export const dynamic = "force-static";
-export const revalidate = 3600;
+// Forecast revisions and selected windows must reflect this request.
+export const dynamic = "force-dynamic";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
