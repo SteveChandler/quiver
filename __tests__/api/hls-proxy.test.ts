@@ -105,11 +105,11 @@ describe("HLS Proxy Route", () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
-    it("should reject requests to non-whitelisted hosts", async () => {
+    it.each(["evil.example.com", "constructor", "__proto__"])("rejects non-whitelisted host %s before fetching", async (hostname) => {
       const request = createRequest(
-        "http://localhost/api/hls-proxy/evil.example.com/steal-data"
+        `http://localhost/api/hls-proxy/${hostname}/steal-data`
       );
-      const context = createContext(["evil.example.com", "steal-data"]);
+      const context = createContext([hostname, "steal-data"]);
 
       const response = await GET(request, context);
       const json = await response.json();

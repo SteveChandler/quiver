@@ -94,7 +94,7 @@ async function hlsProxyHandler(
 
   // Security: strict hostname whitelist
   const hostConfig = ALLOWED_HOSTS[hostname];
-  if (!hostConfig) {
+  if (!Object.hasOwn(ALLOWED_HOSTS, hostname)) {
     console.warn("[hls-proxy] Blocked disallowed host:", hostname);
     return NextResponse.json(
       { error: "Host not allowed" },
