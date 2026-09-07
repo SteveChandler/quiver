@@ -549,7 +549,20 @@ export interface OutreachDigestInput {
   statusCounts: Record<string, number>;
   totalRows: number;
   candidates: OutreachDraftCandidate[];
+  /**
+   * Queued rows in the rotation that cannot be drafted because the tracker holds no
+   * verified email for them. They are reported separately rather than as candidates so
+   * the candidate count reflects what is actually draftable.
+   */
+  blockedOnContactResearch: OutreachBlockedTarget[];
   missing?: string[];
+}
+
+export interface OutreachBlockedTarget {
+  target: string;
+  website?: string;
+  contact?: string;
+  notes?: string;
 }
 
 export type WeeklySeoSourceFreshnessStatus = "fresh" | "lagged" | "stale" | "missing";
