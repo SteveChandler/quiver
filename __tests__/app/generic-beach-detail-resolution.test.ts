@@ -462,6 +462,8 @@ describe("GenericBeachDetailPage slug resolution", () => {
       ],
     });
     const forecastResult = freshForecastResult();
+    forecastResult.forecastContext.displayWindowStart = "2026-09-07T15:00:00.000Z";
+    forecastResult.forecastContext.displayWindowEnd = "2026-09-07T17:30:00.000Z";
     (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(forecastResult);
     (getNearbyBeaches as jest.Mock).mockResolvedValueOnce({
       success: true,
@@ -493,6 +495,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(html).not.toContain(forecastResult.report.bestWindowEnd);
     expect(html).not.toContain("Sign in to reveal");
     expect(html).toContain("Best window");
+    expect(html).toContain("8:00 AM–10:30 AM");
     expect(html).toContain("Nearby backups");
     expect(html).toContain('href="/ca/encinitas/swamis"');
     expect(html).toContain('href="/ca/san-diego/ocean-beach"');
