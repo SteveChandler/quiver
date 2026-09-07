@@ -326,8 +326,8 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                 context={publicForecastContext}
                 isTomorrow={surfCallIsTomorrow}
                 publicDecisionWindow={{
-                  start: surfCallReport?.bestWindowStart ?? null,
-                  end: surfCallReport?.bestWindowEnd ?? null,
+                  start: forecastContext?.displayWindowStart ?? surfCallReport?.bestWindowStart ?? null,
+                  end: forecastContext?.displayWindowEnd ?? surfCallReport?.bestWindowEnd ?? null,
                 }}
                 nearbyBeaches={nearbyBeachesRaw}
                 headingLevel="h1"

@@ -2,10 +2,10 @@
  * @jest-environment jsdom
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { PublicForecastAnswer } from "@/components/beach-detail/public-forecast-answer";
-import { AuthenticatedForecastDecisionProvider } from "@/components/beach-detail/authenticated-forecast-decision";
+import { AuthenticatedForecastDecisionProvider, useAuthenticatedForecastDecision } from "@/components/beach-detail/authenticated-forecast-decision";
 import { useAuth } from "@/context/auth-context";
 import type { Beach } from "@/types/database";
 import type { ForecastRecommendationContext } from "@/lib/services/forecast-recommendation-context";
@@ -14,6 +14,10 @@ import {
   selectPublicForecastContextFacts,
   selectPublicForecastReportFacts,
 } from "@/lib/utils/public-forecast-facts";
+
+jest.mock("@/components/beach-detail/rip-current-warning", () => ({
+  RipCurrentWarning: ({ localDate }: { localDate: string }) => <div data-testid="risk-date">{localDate}</div>,
+}));
 
 jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(),
@@ -347,4 +351,59 @@ describe("PublicForecastAnswer", () => {
     expect(screen.queryByText("Best window")).not.toBeInTheDocument();
     expect(screen.getByText("Nearby backups")).toBeInTheDocument();
   });
+});
+
+// September 7 live case: raw 8 AM–noon selection has a 150-minute display range.
+describe("public forecast context consistency", () => {
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-09-07T14:45:10.082Z"));
+    mockUseAuth.mockReturnValue({ user: null, isLoading: false } as ReturnType<typeof useAuth>);
+    global.fetch = jest.fn();
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it("shows the canonical public display range without exposing a guest score", () => {
+    renderAnswer({ publicWindow: { start: "2026-09-07T15:00:00Z", end: "2026-09-07T17:30:00Z" } });
+    expect(screen.getByText("8:00 AM–10:30 AM")).toBeInTheDocument();
+    expect(screen.queryByText("Score")).not.toBeInTheDocument();
+  });
+
+  it("switches window, measurements, date, hazard scope and provenance together after authentication", async () => {
+    mockUseAuth.mockReturnValue({ user: { id: "user-1" }, isLoading: false } as ReturnType<typeof useAuth>);
+    (global.fetch as jest.Mock).mockResolvedValue(new Response(JSON.stringify({ data: {
+      report: { ...report, bestWindowStart: "2026-09-07T15:00:00Z", bestWindowEnd: "2026-09-07T19:00:00Z", updatedAt: "2026-09-07T14:45:10.082Z" },
+      forecastContext: { ...context, localDate: "2026-09-07", displayWindowStart: "2026-09-07T15:00:00Z", displayWindowEnd: "2026-09-07T17:30:00Z", waveHeightRangeLabel: "3-4 ft", selectedRowTime: "2026-09-07T15:00:00Z", sourceDataUpdatedAt: "2026-09-07T12:01:05.348Z" },
+      isTomorrow: false,
+    } }), { status: 200 }));
+    renderAnswer();
+    await waitFor(() => expect(screen.getByText("YES")).toBeInTheDocument());
+    expect(screen.getByText("8:00 AM–10:30 AM")).toBeInTheDocument();
+    expect(screen.queryByText("8:00 AM–12:00 PM")).not.toBeInTheDocument();
+    expect(screen.getByText("3-4 ft")).toBeInTheDocument();
+    expect(screen.queryByText("2-3 ft")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tomorrow")).not.toBeInTheDocument();
+    expect(screen.getByTestId("risk-date")).toHaveTextContent("2026-09-07");
+    expect(screen.getByText(/Source updated Mon 5:01 AM/)).toBeInTheDocument();
+  });
+});
+
+function DecisionProbe() {
+  const decision = useAuthenticatedForecastDecision();
+  return <span data-testid="decision-beach">{decision.context?.beachId ?? "unavailable"}</span>;
+}
+
+it("ignores a late beach response and removes account-scoped data on sign-out", async () => {
+  mockUseAuth.mockReturnValue({ user: { id: "user-1" }, isLoading: false } as ReturnType<typeof useAuth>);
+  let resolveOld!: (value: Response) => void;
+  global.fetch = jest.fn()
+    .mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve; }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ data: { report, forecastContext: { ...context, beachId: "beach-2" } } }), { status: 200 }));
+  const view = render(<AuthenticatedForecastDecisionProvider beachId="beach-1"><DecisionProbe /></AuthenticatedForecastDecisionProvider>);
+  view.rerender(<AuthenticatedForecastDecisionProvider beachId="beach-2"><DecisionProbe /></AuthenticatedForecastDecisionProvider>);
+  await waitFor(() => expect(screen.getByTestId("decision-beach")).toHaveTextContent("beach-2"));
+  await act(async () => { resolveOld(new Response(JSON.stringify({ data: { report, forecastContext: context } }), { status: 200 })); });
+  expect(screen.getByTestId("decision-beach")).toHaveTextContent("beach-2");
+  mockUseAuth.mockReturnValue({ user: null, isLoading: false } as ReturnType<typeof useAuth>);
+  view.rerender(<AuthenticatedForecastDecisionProvider beachId="beach-2"><DecisionProbe /></AuthenticatedForecastDecisionProvider>);
+  expect(screen.getByTestId("decision-beach")).toHaveTextContent("unavailable");
 });

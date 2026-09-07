@@ -1,0 +1,13 @@
+{
+  "observedAt": "2026-09-07T14:45:10.082Z",
+  "timezone": "America/Los_Angeles",
+  "risk": {
+    "id": "b30360e4-cff3-4583-9631-b94776fb72c9",
+    "beach_id": "d291411d-d331-4bf1-ad1a-302da3c69de0",
+    "risk_level": "high",
+    "source": "srf",
+    "valid_date": "2026-09-07",
+    "fetched_at": "2026-09-07T12:40:00.181144+00:00",
+    "raw_zone": "CAZ043"
+  }
+}

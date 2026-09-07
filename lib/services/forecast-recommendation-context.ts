@@ -482,11 +482,9 @@ export function buildForecastRecommendationContext({
   const nowMs = now.getTime();
 
   if (window) {
-    const sourceForecast = window.sourceForecast ?? null;
     const start = new Date(window.start);
     const end = new Date(window.end);
     const peak = new Date(window.peakTime ?? window.start);
-    const selectedForecast = nearestForecastToTime(forecasts, peak) ?? sourceForecast;
     const displayWindow =
       !Number.isNaN(start.getTime()) &&
       !Number.isNaN(end.getTime()) &&
@@ -498,6 +496,17 @@ export function buildForecastRecommendationContext({
           timezone: resolvedTimezone,
         })
         : { start, end };
+    const sampleWindow = containsTime(start, end, peak) ? { start, end } : displayWindow;
+    const belongsToWindow = (row: EnhancedForecastEntity): boolean =>
+      row.beach_id === String(beach.id) && containsTime(sampleWindow.start, sampleWindow.end, new Date(row.forecast_at));
+    const sourceForecast = window.sourceForecast && belongsToWindow(window.sourceForecast)
+      ? window.sourceForecast
+      : null;
+    // Keep the selected source on ties when independently fetched rows disagree.
+    const selectedForecast = nearestForecastToTime(
+      [...(sourceForecast ? [sourceForecast] : []), ...forecasts.filter(belongsToWindow)],
+      peak,
+    );
     const startTime = toIso(start);
     const endTime = toIso(end);
     const displayWindowStart = toIso(displayWindow.start);
