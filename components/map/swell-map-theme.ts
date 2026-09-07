@@ -8,7 +8,21 @@
  * updating both plans and components/map/__tests__/swell-map-theme.test.ts.
  */
 
-export type SwellLayerId = "s1" | "s2" | "wind" | "combined";
+/** Layers exposed by the current map controls. */
+export type VisibleSwellLayerId = "s1" | "s2" | "ww" | "wind" | "tide";
+/** `combined` is retained only for already-installed native clients. */
+export type SwellLayerId = VisibleSwellLayerId | "combined";
+export const SWELL_LAYER_ORDER: readonly VisibleSwellLayerId[] = ["s1", "s2", "ww", "wind", "tide"];
+export type SwellLayerAvailability = Record<VisibleSwellLayerId, boolean>;
+
+export function fallbackSwellLayerId(
+  current: SwellLayerId,
+  availability: SwellLayerAvailability,
+): SwellLayerId {
+  if (current === "combined") return current;
+  if (availability[current]) return current;
+  return SWELL_LAYER_ORDER.find((layerId) => availability[layerId]) ?? "s1";
+}
 
 // Opaque navy surfaces (NO glass). rgba alphas are for layering over the map, still navy-tinted.
 export const SWELL_MAP_SURFACE = {
@@ -36,8 +50,10 @@ export const SWELL_MAP_STICKER_RADIUS = "12px 4px 14px 6px"; // asymmetric
 export const SWELL_LAYER_COLOR: Record<SwellLayerId, string> = {
   s1: "#F78E42",   // primary swell — Charming Orange (decorative)
   s2: "#FDB84B",   // secondary swell — Paradise Gold
+  ww: "#80C8E2",   // wind-wave — pale ocean blue, distinct from wind
   wind: "#00D4AA", // wind — Pacific Teal (the ONE sanctioned teal; NOT #38bdf8 cyan)
-  combined: "#F78E42",
+  tide: "#7D8DBD", // contextual tide state; no spatial field is implied
+  combined: "#F78E42", // compatibility-only all-components renderer
 };
 
 // Timeline materials use the same cream-paper instrument language as the legend.
@@ -66,8 +82,10 @@ export const SWELL_MAP_TIMELINE_CSS_VARIABLES = {
 export const SWELL_FIELD_PARTICLE_COLOR: Record<SwellLayerId, string> = {
   s1: "#8A3B0A",   // primary swell - deep Charming Orange
   s2: "#252D6B",   // secondary swell - Deep Twilight navy for hue separation
+  ww: "#355A7A",   // wind-wave - darkened ocean blue
   wind: "#004C40", // wind - dark Pacific Teal, distinct from S2 navy
-  combined: "#8A3B0A",
+  tide: "#4A5682", // contextual tide state; not rendered as a spatial field
+  combined: "#8A3B0A", // compatibility-only; individual components supply colors
 };
 
 // CTA tokens (Tailwind classes). Interactive buttons w/ white text MUST use ocean-blue

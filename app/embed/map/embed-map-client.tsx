@@ -6,15 +6,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type mapboxgl from "mapbox-gl";
 import type { Beach } from "@/types/database";
 import type { HourlySwellTimeline } from "@/app/api/forecasts/bulk/route";
-import type { SwellLayerId } from "@/components/map/swell-map-theme";
-import type { MapSpotConditions } from "@/components/map/interactive-map";
+import {
+  fallbackSwellLayerId,
+  SWELL_LAYER_ORDER,
+  type SwellLayerAvailability,
+  type SwellLayerId,
+  type VisibleSwellLayerId,
+} from "@/components/map/swell-map-theme";
+import type { MapPointInspector, MapSpotConditions } from "@/components/map/interactive-map";
 import {
   parseEmbedMapCommand,
   serializeEmbedMapEvent,
   type EmbedMapCommand,
   type EmbedMapCoordinate,
   type EmbedMapEvent,
-  type EmbedMapSwellLayerId,
   type EmbedMapViewport,
 } from "@/components/map/embed-map-bridge";
 import {
@@ -38,11 +43,12 @@ const InteractiveMap = dynamic(
 
 const DEFAULT_CENTER: EmbedMapCoordinate = { lat: 32.8667, lon: -117.2544 };
 const DEFAULT_ZOOM = 11.5;
-const LAYER_SWITCHER: ReadonlyArray<{ id: EmbedMapSwellLayerId; label: string }> = [
-  { id: "s1", label: "Swell" },
-  { id: "s2", label: "Swell 2" },
+const LAYER_SWITCHER: ReadonlyArray<{ id: VisibleSwellLayerId; label: string }> = [
+  { id: "s1", label: "S1" },
+  { id: "s2", label: "S2" },
+  { id: "ww", label: "WW" },
   { id: "wind", label: "Wind" },
-  { id: "combined", label: "All" },
+  { id: "tide", label: "Tide" },
 ];
 const FATAL_MAP_FAILURE_REASONS = new Set(["token_invalid", "webgl_unsupported"]);
 const RENDER_HEALTH_SAMPLE_MS = 3_000;
@@ -70,8 +76,8 @@ function clampTimelineStep(index: number, maxTimelineIndex: number): number {
   return Math.round(clampTimelineIndex(index, maxTimelineIndex));
 }
 
-function layerParam(value: string | null): EmbedMapSwellLayerId {
-  if (value === "combined" || value === "s1" || value === "s2" || value === "wind") {
+function layerParam(value: string | null): SwellLayerId {
+  if (value === "combined" || value === "s1" || value === "s2" || value === "ww" || value === "wind" || value === "tide") {
     return value;
   }
   return "s1";
@@ -194,9 +200,18 @@ export function EmbedMapClient() {
       return data.forecast;
     }).catch(() => null);
   }, [initialBootstrapPromise]);
-  const [layerId, setLayerId] = useState<EmbedMapSwellLayerId>(
+  const [layerId, setLayerId] = useState<SwellLayerId>(
     layerParam(searchParams.get("layer")),
   );
+  const [layerAvailability, setLayerAvailability] = useState<SwellLayerAvailability>({
+    s1: true,
+    s2: true,
+    ww: true,
+    wind: true,
+    tide: true,
+  });
+  const [reducedMotionOverride, setReducedMotionOverride] = useState(false);
+  const [hasNativePointInspectorCapability, setHasNativePointInspectorCapability] = useState(false);
   const [timelineIndex, setTimelineIndex] = useState(
     clampTimelineStep(
       finiteParam(searchParams.get("timeIndex")) ?? 0,
@@ -366,6 +381,7 @@ export function EmbedMapClient() {
           setLayerId(command.payload.layerId);
           return;
         case "setForecastTime":
+          setIsPlaying(false);
           setTimelineIndex(clampTimelineStep(command.payload.index, maxTimelineIndex));
           return;
         case "setSelectedSpot": {
@@ -419,8 +435,11 @@ export function EmbedMapClient() {
           authGenerationRef.current += 1;
           setAuthGeneration(authGenerationRef.current);
           return;
-        case "setTheme":
         case "setReducedMotion":
+          setHasNativePointInspectorCapability(true);
+          setReducedMotionOverride(command.payload.enabled);
+          return;
+        case "setTheme":
           return;
         default:
           return;
@@ -516,7 +535,7 @@ export function EmbedMapClient() {
   );
 
   const handleMapClick = useCallback(
-    (latlng: mapboxgl.LngLat): void => {
+    (latlng: mapboxgl.LngLat, inspector: MapPointInspector): void => {
       const coordinate = {
         lat: Number(latlng.lat.toFixed(6)),
         lon: Number(latlng.lng.toFixed(6)),
@@ -527,9 +546,22 @@ export function EmbedMapClient() {
         return;
       }
 
-      postEvent({ type: "mapTapped", payload: coordinate });
+      const forecastAt = isHourlyTimeline
+        ? forecastAtForEmbedTimelineIndex(hourlyTimestamps, roundedStep)
+        : new Date(timelineNow.getTime() + roundedStep * 3 * 60 * 60 * 1000).toISOString();
+      postEvent({
+        type: "mapTapped",
+        payload: {
+          ...coordinate,
+          layerId,
+          forecastAt,
+          sourceState: inspector.sourceState,
+          nearestContext: inspector.nearestContext,
+          metrics: inspector.metrics,
+        },
+      });
     },
-    [isPlacementActive, postEvent, updatePlacement],
+    [hourlyTimestamps, isHourlyTimeline, isPlacementActive, layerId, postEvent, roundedStep, timelineNow, updatePlacement],
   );
 
   const handlePlacementPinChange = useCallback(
@@ -549,6 +581,14 @@ export function EmbedMapClient() {
     },
     [postEvent],
   );
+  const handleSwellLayerAvailabilityChange = useCallback((availability: SwellLayerAvailability): void => {
+    setLayerAvailability((current) => (
+      SWELL_LAYER_ORDER.every((layer) => current[layer] === availability[layer])
+        ? current
+        : availability
+    ));
+    setLayerId((current) => fallbackSwellLayerId(current, availability));
+  }, []);
 
   return (
     <main className="fixed inset-0 h-[100dvh] w-screen overflow-hidden bg-[#111833]">
@@ -572,16 +612,18 @@ export function EmbedMapClient() {
         onMapPresentationReady={handleMapPresentationReady}
         onAuthTokenExpired={handleAuthTokenExpired}
         onMapClick={handleMapClick}
+        onSwellLayerAvailabilityChange={handleSwellLayerAvailabilityChange}
         onHourlyTimelineLoaded={isHourlyTimeline ? handleHourlyTimelineLoaded : undefined}
         onPlacementPinChange={handlePlacementPinChange}
         placementPin={isPlacementActive ? placementPoint : null}
         placementPinDraggable
         regionViewport={regionViewport}
-        showConditionsOnTap={!isPlacementActive}
+        showConditionsOnTap={!isPlacementActive && !hasNativePointInspectorCapability}
         showMapChrome={false}
         showSwellField={!fieldHidden}
+        reducedMotionOverride={reducedMotionOverride}
         skillLevel={searchParams.get("skill") ?? undefined}
-        swellLayerId={layerId as SwellLayerId}
+        swellLayerId={layerId}
         swellTimelineIndex={timelineIndex}
         swellTimelineMode={isHourlyTimeline ? "hourly" : undefined}
         swellTimelineSteps={timelineSteps}
@@ -618,8 +660,9 @@ export function EmbedMapClient() {
                     aria-pressed={active}
                     onClick={() => {
                       setFieldHidden(false);
-                      setLayerId(opt.id);
+                      if (layerAvailability[opt.id]) setLayerId(opt.id);
                     }}
+                    disabled={!layerAvailability[opt.id]}
                     style={{
                       border: "none",
                       cursor: "pointer",

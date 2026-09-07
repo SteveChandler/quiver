@@ -2,6 +2,7 @@ import React from "react";
 import { act, render, waitFor } from "@testing-library/react";
 import {
   parseEmbedMapCommand,
+  parseEmbedMapPointEvent,
   serializeEmbedMapEvent,
 } from "@/components/map/embed-map-bridge";
 import type { HourlySwellTimeline } from "@/app/api/forecasts/bulk/route";
@@ -50,6 +51,67 @@ describe("embed map bridge", () => {
     view.unmount();
   });
 
+  it("falls back when the selected spatial layer is unavailable", async () => {
+    mockSearchParams = new URLSearchParams("layer=s2");
+    delete window.ReactNativeWebView;
+    const { EmbedMapClient } = await import("@/app/embed/map/embed-map-client");
+    const view = render(React.createElement(EmbedMapClient));
+    const onSwellLayerAvailabilityChange = mockInteractiveMapProps.onSwellLayerAvailabilityChange as (
+      availability: { s1: boolean; s2: boolean; ww: boolean; wind: boolean; tide: boolean },
+    ) => void;
+
+    act(() => onSwellLayerAvailabilityChange({
+      s1: true,
+      s2: false,
+      ww: false,
+      wind: false,
+      tide: false,
+    }));
+
+    await waitFor(() => expect(mockInteractiveMapProps.swellLayerId).toBe("s1"));
+    view.unmount();
+  });
+
+  it("keeps the legacy combined command renderable without exposing it in the new controls", async () => {
+    const postMessage = jest.fn();
+    Object.defineProperty(window, "ReactNativeWebView", {
+      configurable: true,
+      value: { postMessage },
+    });
+    const { EmbedMapClient } = await import("@/app/embed/map/embed-map-client");
+    const view = render(React.createElement(EmbedMapClient));
+
+    act(() => {
+      document.dispatchEvent(new MessageEvent("message", {
+        data: JSON.stringify({ type: "setLayer", payload: { layerId: "combined" } }),
+      }));
+    });
+
+    await waitFor(() => expect(mockInteractiveMapProps.swellLayerId).toBe("combined"));
+    view.unmount();
+  });
+
+  it("keeps the legacy callout until the native point-inspector capability is observed", async () => {
+    const postMessage = jest.fn();
+    Object.defineProperty(window, "ReactNativeWebView", {
+      configurable: true,
+      value: { postMessage },
+    });
+    const { EmbedMapClient } = await import("@/app/embed/map/embed-map-client");
+    const view = render(React.createElement(EmbedMapClient));
+
+    expect(mockInteractiveMapProps.showConditionsOnTap).toBe(true);
+
+    act(() => {
+      document.dispatchEvent(new MessageEvent("message", {
+        data: JSON.stringify({ type: "setReducedMotion", payload: { enabled: false } }),
+      }));
+    });
+
+    await waitFor(() => expect(mockInteractiveMapProps.showConditionsOnTap).toBe(false));
+    view.unmount();
+  });
+
   it("parses viewport commands from JSON", () => {
     expect(
       parseEmbedMapCommand(
@@ -72,13 +134,26 @@ describe("embed map bridge", () => {
     });
   });
 
-  it("rejects invalid layer commands", () => {
+  it("rejects invalid layer commands while retaining legacy combined", () => {
     expect(
       parseEmbedMapCommand({
         type: "setLayer",
         payload: { layerId: "rainbow" },
       }),
     ).toBeNull();
+    expect(parseEmbedMapCommand({ type: "setLayer", payload: { layerId: "combined" } })).toEqual({
+      type: "setLayer",
+      payload: { layerId: "combined" },
+    });
+  });
+
+  it("accepts only approved forecast layer commands", () => {
+    for (const layerId of ["combined", "s1", "s2", "ww", "wind", "tide"]) {
+      expect(parseEmbedMapCommand({ type: "setLayer", payload: { layerId } })).toEqual({
+        type: "setLayer",
+        payload: { layerId },
+      });
+    }
   });
 
   it("rounds forecast time indexes", () => {
@@ -383,6 +458,42 @@ describe("embed map bridge", () => {
       },
     });
     view.unmount();
+  });
+
+  it("parses only trusted point-inspector event data", () => {
+    const payload = {
+      lat: 32.87,
+      lon: -117.25,
+      layerId: "s1",
+      forecastAt: "2026-07-19T14:00:00.000Z",
+      sourceState: "curated_exact",
+      nearestContext: null,
+      metrics: [{ id: "waveHeight", label: "Surf", value: "3 ft" }],
+    };
+    expect(parseEmbedMapPointEvent({ type: "mapTapped", payload })).toEqual({
+      type: "mapTapped",
+      payload,
+    });
+  });
+
+  it("rejects stale, malformed, and credential-bearing point-inspector event data", () => {
+    const payload = {
+      lat: 32.87,
+      lon: -117.25,
+      layerId: "s1",
+      forecastAt: "2026-07-19T14:00:00.000Z",
+      sourceState: "curated_exact",
+      nearestContext: null,
+      metrics: [],
+    };
+    for (const invalidPayload of [
+      { ...payload, lon: Number.POSITIVE_INFINITY },
+      { ...payload, forecastAt: "2026-07-19" },
+      { ...payload, accessToken: "header.payload.signature" },
+      { ...payload, metrics: [{ id: "waveHeight", label: "Surf", value: "header.payload.signature" }] },
+    ]) {
+      expect(parseEmbedMapPointEvent({ type: "mapTapped", payload: invalidPayload })).toBeNull();
+    }
   });
 
   it("posts an enriched spotSelected payload from the map's displayed conditions", async () => {

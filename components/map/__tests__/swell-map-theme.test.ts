@@ -9,6 +9,7 @@ import {
   degreesToCompass,
   compassToDegrees,
   type SwellLayerId,
+  type VisibleSwellLayerId,
 } from "../swell-map-theme";
 
 describe("swell-map-theme tokens", () => {
@@ -28,7 +29,8 @@ describe("swell-map-theme tokens", () => {
     expect(SWELL_LAYER_COLOR.s1).toBe("#F78E42");
     expect(SWELL_LAYER_COLOR.s2).toBe("#FDB84B");
     expect(SWELL_LAYER_COLOR.wind).toBe("#00D4AA");
-    expect(SWELL_LAYER_COLOR.combined).toBe("#F78E42");
+    expect(SWELL_LAYER_COLOR.ww).toBe("#80C8E2");
+    expect(SWELL_LAYER_COLOR.tide).toBe("#7D8DBD");
     const banned = ["#38bdf8", "#47e0d1", "#67e8f9", "#7dd3fc", "#7c3aed", "#9333ea", "#818cf8"];
     const values = Object.values(SWELL_LAYER_COLOR).map((c) => c.toLowerCase());
     for (const bad of banned) expect(values).not.toContain(bad);
@@ -38,7 +40,8 @@ describe("swell-map-theme tokens", () => {
     expect(SWELL_FIELD_PARTICLE_COLOR.s1).toBe("#8A3B0A");
     expect(SWELL_FIELD_PARTICLE_COLOR.s2).toBe("#252D6B");
     expect(SWELL_FIELD_PARTICLE_COLOR.wind).toBe("#004C40");
-    expect(SWELL_FIELD_PARTICLE_COLOR.combined).toBe("#8A3B0A");
+    expect(SWELL_FIELD_PARTICLE_COLOR.ww).toBe("#355A7A");
+    expect(SWELL_FIELD_PARTICLE_COLOR.tide).toBe("#4A5682");
     // The field rides the LIGHT Windy-style basemap (no recolor), so the dashes are
     // DARKENED variants of the native hues — recognizably the brand colors, just dark
     // enough to read on light-blue water. Each field color must be DARKER than its
@@ -51,7 +54,7 @@ describe("swell-map-theme tokens", () => {
         parseInt(h.slice(4, 6), 16)
       );
     };
-    for (const id of ["s1", "s2", "wind", "combined"] as SwellLayerId[]) {
+    for (const id of ["s1", "s2", "ww", "wind", "tide"] as SwellLayerId[]) {
       expect(hexSum(SWELL_FIELD_PARTICLE_COLOR[id])).toBeLessThan(
         hexSum(SWELL_LAYER_COLOR[id])
       );
@@ -128,8 +131,10 @@ describe("compassToDegrees", () => {
   });
 });
 
-// Type-level sanity: the union is exactly these four ids.
-it("exposes the SwellLayerId union", () => {
-  const ids: SwellLayerId[] = ["s1", "s2", "wind", "combined"];
-  expect(ids).toHaveLength(4);
+it("keeps legacy combined internal to the five-layer visible map order", () => {
+  const ids: VisibleSwellLayerId[] = ["s1", "s2", "ww", "wind", "tide"];
+  expect(ids).toHaveLength(5);
+  expect(ids).not.toContain("combined");
+  const allIds: SwellLayerId[] = [...ids, "combined"];
+  expect(allIds).toContain("combined");
 });

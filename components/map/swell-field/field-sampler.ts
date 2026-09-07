@@ -50,7 +50,7 @@ export interface FlowFieldGrid extends FlowField {
   beachWeights: FlowCellBeachWeight[][];
 }
 
-export type FlowComponentId = "s1" | "s2" | "wind";
+export type FlowComponentId = "s1" | "s2" | "ww" | "wind";
 
 const WIND_PARTICLE_MIN_SCALE = 0.25;
 const WIND_PARTICLE_FULL_SPEED = 0.85;
@@ -354,6 +354,16 @@ export function partitionToPoint(
       heightFt: Math.max(0.5, partition.windMph * 0.12),
     };
   }
+  if (layerId === "ww") {
+    if (partition.wwDir == null || partition.wwHeightFt == null) return null;
+    return {
+      lon,
+      lat,
+      dir: partition.wwDir,
+      periodS: partition.wwPeriodS ?? 5,
+      heightFt: partition.wwHeightFt,
+    };
+  }
   if (layerId === "s2") {
     if (partition.s2Dir == null) return null;
     return {
@@ -364,7 +374,8 @@ export function partitionToPoint(
       heightFt: partition.s2HeightFt ?? 1,
     };
   }
-  // "s1" and "combined" both anchor on the primary swell.
+  if (layerId === "tide") return null;
+  // S1 anchors on the primary swell.
   const dir = partition.s1Dir ?? partition.swellDirOm;
   if (dir == null) return null;
   return {

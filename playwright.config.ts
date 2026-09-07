@@ -40,9 +40,11 @@ const defaultBaseURL = process.env.BASE_URL ||
 const localWebServerPort = new URL(defaultBaseURL).port || "3000";
 const nextFontGoogleMockPath = `${process.cwd()}/e2e/fixtures/next-font-google-mock.cjs`;
 const shouldStartLocalWebServer =
-  !process.env.BASE_URL ||
-  process.env.BASE_URL.includes("localhost") ||
-  process.env.BASE_URL.includes("127.0.0.1");
+  process.env.SKIP_LOCAL_WEBSERVER !== "true" && (
+    !process.env.BASE_URL ||
+    process.env.BASE_URL.includes("localhost") ||
+    process.env.BASE_URL.includes("127.0.0.1")
+  );
 
 function readEnvFileValue(filePath: string, key: string): string | undefined {
   if (!existsSync(filePath)) return undefined;

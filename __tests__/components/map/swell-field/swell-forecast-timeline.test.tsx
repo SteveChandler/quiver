@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState, type ReactElement } from "react";
 import { SwellForecastTimeline } from "@/components/map/swell-field/swell-forecast-timeline";
@@ -165,5 +165,16 @@ describe("SwellForecastTimeline", () => {
     expect(
       screen.getByRole("button", { name: "Previous forecast step" }),
     ).toHaveClass("min-h-11", "min-w-11");
+  });
+
+  it("keeps the selected timestamp exposed and pauses on a user scrub", async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    render(<TimelineHarness />);
+    await user.click(screen.getByRole("button", { name: "Play forecast timeline" }));
+    fireEvent.change(screen.getByTestId("swell-timeline-range"), { target: { value: "2" } });
+    expect(screen.getByTestId("swell-timeline-range")).toHaveAttribute("aria-valuetext", "+6h");
+    expect(screen.getByRole("button", { name: "Play forecast timeline" })).toBeInTheDocument();
+    act(() => { jest.advanceTimersByTime(500); });
+    expect(screen.getByTestId("timeline-index")).toHaveTextContent("2");
   });
 });

@@ -190,6 +190,7 @@ describe("InteractiveMap", () => {
     setMaxBounds: jest.Mock;
     setMaxZoom: jest.Mock;
     resize: jest.Mock;
+    addLayer: jest.Mock;
   } {
     const Map = require("mapbox-gl").Map;
     return Map.mock.results[Map.mock.results.length - 1].value;
@@ -1070,6 +1071,124 @@ describe("InteractiveMap", () => {
       });
     });
     expect(onMapClick).not.toHaveBeenCalled();
+  });
+
+  it("reports the selected component rather than primary swell for embedded point inspection", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onMapClick = jest.fn();
+    const beach = {
+      id: "component-beach",
+      name: "Component Beach",
+      lat: 32.75,
+      lon: -117.25,
+    } as import("@/types/database").Beach;
+    const partition = {
+      s1Dir: 270,
+      s1PeriodS: 9,
+      s1HeightFt: 1.5,
+      s2Dir: 180,
+      s2PeriodS: 15,
+      s2HeightFt: 4.5,
+      wwDir: 45,
+      wwPeriodS: 6,
+      wwHeightFt: 2.5,
+      windDir: 300,
+      windMph: 8,
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          forecasts: {},
+          swellPartitions: { [beach.id]: partition },
+          hourlySwellTimeline: {
+            timestamps: ["2026-07-10T20:00:00.000Z"],
+            partitionsByBeach: { [beach.id]: [partition] },
+            hasMore: false,
+            nextStart: null,
+          },
+        },
+      }),
+    }) as unknown as typeof fetch;
+
+    const { rerender } = render(
+      <InteractiveMap
+        beaches={[beach]}
+        onMapClick={onMapClick}
+        swellLayerId="s2"
+        swellTimelineMode="hourly"
+        swellTimelineIndex={0}
+      />,
+    );
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+    act(() => {
+      mockMapHandlers.click[0]({ lngLat: { lat: 32.751, lng: -117.251 } });
+    });
+    const s2Inspector = onMapClick.mock.calls[0][1];
+    expect(s2Inspector.metrics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "swellPeriod", label: "S2 period", value: "15s" }),
+      expect.objectContaining({ id: "swellDirection", label: "S2 direction", value: "S" }),
+    ]));
+    expect(s2Inspector.metrics).not.toContainEqual(expect.objectContaining({ value: "9s" }));
+    expect(s2Inspector.nearestContext.distanceMi).toBeGreaterThan(0);
+
+    onMapClick.mockClear();
+    rerender(
+      <InteractiveMap
+        beaches={[beach]}
+        onMapClick={onMapClick}
+        swellLayerId="ww"
+        swellTimelineMode="hourly"
+        swellTimelineIndex={0}
+      />,
+    );
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    act(() => {
+      mockMapHandlers.click[0]({ lngLat: { lat: 32.751, lng: -117.251 } });
+    });
+    const wwInspector = onMapClick.mock.calls[0][1];
+    expect(wwInspector.metrics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "swellPeriod", label: "Wind wave period", value: "6s" }),
+      expect.objectContaining({ id: "swellDirection", label: "Wind wave direction", value: "NE" }),
+    ]));
+    expect(wwInspector.metrics).not.toContainEqual(expect.objectContaining({ value: "9s" }));
+
+    onMapClick.mockClear();
+    rerender(
+      <InteractiveMap
+        beaches={[beach]}
+        onMapClick={onMapClick}
+        swellLayerId="tide"
+        swellTimelineMode="hourly"
+        swellTimelineIndex={0}
+      />,
+    );
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    act(() => {
+      mockMapHandlers.click[0]({ lngLat: { lat: 32.751, lng: -117.251 } });
+    });
+    expect(onMapClick.mock.calls[0][1]).toEqual({
+      sourceState: "unsupported",
+      nearestContext: null,
+      metrics: [],
+    });
+  });
+
+  it("keeps the legacy combined field renderable as distinct component layers", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    render(<InteractiveMap beaches={[]} showSwellField swellLayerId="combined" />);
+
+    await waitFor(() => {
+      const ids = getMapInstance().addLayer.mock.calls.map(([layer]: [{ id: string }]) => layer.id);
+      expect(ids).toEqual(expect.arrayContaining([
+        "quiver-swell-field-s1",
+        "quiver-swell-field-s2",
+        "quiver-swell-field-wind",
+      ]));
+    });
   });
 
   it("creates distinct custom spot markers and filters invalid coordinates", async () => {

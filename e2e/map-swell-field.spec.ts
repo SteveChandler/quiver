@@ -88,16 +88,27 @@ async function tryWaitForLayer(page: Page, timeout = 5000): Promise<boolean> {
 async function requireRenderedSwellLayer(page: Page): Promise<void> {
   await waitForMapIdle(page);
   await page.getByRole("button", { name: "Expand map legend" }).click();
-  await expect(page.getByTestId("swell-layer-selector")).toBeVisible({
+  const selector = page.getByTestId("swell-layer-selector");
+  await expect(selector).toBeVisible({
     timeout: 30000,
   });
+  await expect(selector.getByRole("button")).toHaveCount(5);
+  for (const testId of [
+    "swell-layer-s1",
+    "swell-layer-s2",
+    "swell-layer-ww",
+    "swell-layer-wind",
+    "swell-layer-tide",
+  ]) {
+    await expect(page.getByTestId(testId)).toBeVisible();
+  }
   if (await tryWaitForLayer(page, 3000)) return;
 
   for (const testId of [
-    "swell-layer-s2",
-    "swell-layer-wind",
-    "swell-layer-combined",
     "swell-layer-s1",
+    "swell-layer-s2",
+    "swell-layer-ww",
+    "swell-layer-wind",
   ]) {
     const option = page.getByTestId(testId);
     if (!(await option.isVisible({ timeout: 1000 }).catch(() => false))) {
@@ -155,11 +166,14 @@ function hourlyTimelineChunk(
     s1Dir: 270,
     s1PeriodS: 14,
     s1HeightFt: 3.5 + index / 10,
-    s2Dir: null,
-    s2PeriodS: null,
-    s2HeightFt: null,
-    windDir: null,
-    windMph: null,
+    s2Dir: 225,
+    s2PeriodS: 10,
+    s2HeightFt: 1.5,
+    wwDir: 315,
+    wwPeriodS: 6,
+    wwHeightFt: 1.2,
+    windDir: 290,
+    windMph: 8,
   });
 
   return {
@@ -340,7 +354,13 @@ test.describe("expandable local forecast timeline", () => {
     await expect(page.getByText("Unable to Load map data")).toHaveCount(0);
 
     try {
-      const requestUrl = await forecastRequest;
+      const requestUrl = await Promise.race([
+        forecastRequest,
+        page.getByText("Unable to Load map data").waitFor().then(async () => {
+          const details = await page.locator("details pre").textContent().catch(() => null);
+          throw new Error(`Map failed before requesting the forecast${details ? `: ${details}` : ""}`);
+        }),
+      ]);
       expect(requestUrl.searchParams.get("timelineHours")).toBe("48");
       await expect(page.getByTestId("swell-field-loading-note")).toBeVisible();
       await expect(page.getByTestId("swell-field-empty-note")).toHaveCount(0);
@@ -582,17 +602,23 @@ for (const viewport of [
       await page.getByRole("button", { name: "Expand map legend" }).click();
       await expect(page.getByTestId("swell-layer-selector")).toBeVisible();
 
-      await page.getByTestId("swell-layer-wind").click();
-      await expect(page.getByTestId("swell-layer-wind")).toHaveAttribute(
-        "aria-pressed",
-        "true"
-      );
-      await page.getByTestId("swell-layer-s2").click();
-      await expect(page.getByTestId("swell-layer-s2")).toHaveAttribute(
-        "aria-pressed",
-        "true"
-      );
-      expect(await layerExists(page)).toBe(true);
+      for (const testId of [
+        "swell-layer-s1",
+        "swell-layer-s2",
+        "swell-layer-ww",
+        "swell-layer-wind",
+        "swell-layer-tide",
+      ]) {
+        await expect(page.getByTestId(testId)).toBeVisible();
+      }
+      for (const testId of ["swell-layer-s2", "swell-layer-ww", "swell-layer-wind"]) {
+        await page.getByTestId(testId).click();
+        await expect(page.getByTestId(testId)).toHaveAttribute(
+          "aria-pressed",
+          "true",
+        );
+        expect(await layerExists(page)).toBe(true);
+      }
     });
 
     test("keeps layer controls in the legend while the public forecast timeline stays map-contained", async ({ page }) => {
@@ -618,8 +644,8 @@ for (const viewport of [
       await expect(legend).toHaveCSS("background-color", "rgb(244, 235, 216)");
       await expect(legend).toHaveCSS("color", "rgb(17, 16, 13)");
       await expect(legend).toHaveCSS("border-top-width", "2px");
-      await expect(legend.getByText("Worth it")).toBeVisible();
-      await expect(legend.getByText("Scout it")).toBeVisible();
+      await expect(legend.getByText("Worth a look")).toBeVisible();
+      await expect(legend.getByText("Slim pickings")).toBeVisible();
       await expect(legend.getByText("GOOD")).toHaveCount(0);
       await expect(legend.getByText("CHECK")).toHaveCount(0);
 

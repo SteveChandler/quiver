@@ -47,7 +47,7 @@ import {
 } from "@/components/map/swell-map-theme";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
-type LayerId = "s1" | "s2" | "wind" | "combined";
+type LayerId = "s1" | "s2" | "ww" | "wind" | "tide";
 
 interface SurfLayer {
   id: LayerId;
@@ -108,6 +108,14 @@ const SURF_LAYERS: SurfLayer[] = [
     background: "linear-gradient(135deg, #161A40, #FDB84B)",
   },
   {
+    id: "ww",
+    label: "Wind wave",
+    meta: "NW 5s",
+    icon: CloudSun,
+    color: SWELL_LAYER_COLOR.ww,
+    background: "linear-gradient(135deg, #161A40, #80C8E2)",
+  },
+  {
     id: "wind",
     label: "Wind",
     meta: "W 8 mph",
@@ -116,12 +124,12 @@ const SURF_LAYERS: SurfLayer[] = [
     background: "linear-gradient(135deg, #161A40, #00D4AA)",
   },
   {
-    id: "combined",
-    label: "Combined",
-    meta: "Surf energy",
-    icon: CloudSun,
-    color: SWELL_LAYER_COLOR.combined, // #F78E42
-    background: "linear-gradient(135deg, #1E2558, #FDB84B 55%, #F78E42)",
+    id: "tide",
+    label: "Tide",
+    meta: "Context only",
+    icon: Droplets,
+    color: SWELL_LAYER_COLOR.tide,
+    background: "linear-gradient(135deg, #161A40, #7D8DBD)",
   },
 ];
 
@@ -230,14 +238,16 @@ function layerVector(
   const layerAngle: Record<LayerId, number> = {
     s1: -0.48,
     s2: -0.18,
+    ww: -0.06,
     wind: 0.18,
-    combined: -0.36,
+    tide: 0,
   };
   const layerSpeed: Record<LayerId, number> = {
     s1: 1.15,
     s2: 0.82,
+    ww: 0.9,
     wind: 1.55,
-    combined: 1.22,
+    tide: 0,
   };
 
   const angle = layerAngle[layerId] + curl * (layerId === "wind" ? 0.82 : 0.44);
@@ -548,7 +558,7 @@ export function SurfMapPrototype() {
   const reducedMotion = useReducedMotion();
   const motionPreferenceChecked = useMotionPreferenceChecked();
   const effectiveReducedMotion = !motionPreferenceChecked || reducedMotion;
-  const [selectedLayerId, setSelectedLayerId] = useState<LayerId>("combined");
+  const [selectedLayerId, setSelectedLayerId] = useState<LayerId>("s1");
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(2);
   const [selectedSpotId, setSelectedSpotId] = useState("ocean-beach");
   const [menuOpen, setMenuOpen] = useState(false);

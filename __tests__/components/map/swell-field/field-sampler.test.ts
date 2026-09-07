@@ -50,6 +50,9 @@ describe("interpolateSwellPartition", () => {
     s2Dir: 180,
     s2PeriodS: 8,
     s2HeightFt: 1,
+    wwDir: 315,
+    wwPeriodS: 5,
+    wwHeightFt: 1.5,
     windDir: 300,
     windMph: 10,
     ...overrides,
@@ -113,7 +116,7 @@ describe("partitionToPoint", () => {
     ...overrides,
   });
 
-  it.each(["s1", "combined"] as const)(
+  it.each(["s1"] as const)(
     "uses s1Dir before Open-Meteo swell direction for %s",
     (layerId) => {
       const point = partitionToPoint(
@@ -131,9 +134,9 @@ describe("partitionToPoint", () => {
     ["null", null],
     ["undefined", undefined],
   ] as const)(
-    "falls back to s1Dir for s1/combined when swellDirOm is %s",
+    "falls back to s1Dir for s1 when swellDirOm is %s",
     (_label, swellDirOm) => {
-      for (const layerId of ["s1", "combined"] as const) {
+      for (const layerId of ["s1"] as const) {
         const point = partitionToPoint(
           -117.2,
           32.7,
