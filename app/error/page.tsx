@@ -18,13 +18,18 @@ import Link from "next/link";
 function ErrorCard() {
   const searchParams = useSearchParams();
   const reason = searchParams.get("reason");
+  const isRecovery = searchParams.get("flow") === "recovery";
 
   const getErrorMessage = (reason: string | null) => {
     switch (reason) {
       case "invalid_or_expired_link":
-        return "The reset link is invalid or has expired. Please request a new password reset link.";
+        return isRecovery
+          ? "The reset link is invalid or has expired. Please request a new password reset link."
+          : "We couldn't finish confirming your email. The link may have already been used. Try signing in with your email and password.";
       case "expired_link":
-        return "Your session has expired. Please request a new password reset link.";
+        return isRecovery
+          ? "Your session has expired. Please request a new password reset link."
+          : "This link has expired. Please sign in to continue.";
       default:
         return "An unexpected error occurred. Please try again.";
     }
@@ -34,7 +39,7 @@ function ErrorCard() {
     switch (reason) {
       case "invalid_or_expired_link":
       case "expired_link":
-        return "Link Expired";
+        return isRecovery ? "Link Expired" : "Unable to Confirm Email";
       default:
         return "Error";
     }
@@ -57,11 +62,13 @@ function ErrorCard() {
       </CardContent>
       <CardFooter className="flex flex-col gap-2">
         <Button asChild className="w-full">
-          <Link href="/auth/forgot-password">Request New Reset Link</Link>
+          <Link href={isRecovery ? "/auth/forgot-password" : "/auth/sign-in"}>
+            {isRecovery ? "Request New Reset Link" : "Sign In"}
+          </Link>
         </Button>
-        <Button variant="outline" asChild className="w-full">
+        {isRecovery && <Button variant="outline" asChild className="w-full">
           <Link href="/auth/sign-in">Back to Sign In</Link>
-        </Button>
+        </Button>}
       </CardFooter>
     </Card>
   );

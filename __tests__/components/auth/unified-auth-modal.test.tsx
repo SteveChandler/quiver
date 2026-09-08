@@ -87,6 +87,10 @@ describe("UnifiedAuthModal", () => {
   });
 
   describe("Modal rendering", () => {
+    it("does not overwrite the return destination while the header modal is closed", () => {
+      render(<UnifiedAuthModal isOpen={false} onClose={mockOnClose} mode="signup" returnTo="/auth/sign-up" />);
+      expect(authUtils.setAuthRedirect).not.toHaveBeenCalled();
+    });
     it("should not render when closed", () => {
       render(
         <UnifiedAuthModal
@@ -674,14 +678,21 @@ describe("UnifiedAuthModal", () => {
       expect(mockOnClose).toHaveBeenCalled();
     });
 
-    it("should handle successful signup", async () => {
+    it.each([
+      { returnTo: undefined, stored: null, expected: "/" },
+      { returnTo: "/auth/sign-up", stored: null, expected: "/" },
+      { returnTo: undefined, stored: "/auth/sign-up", expected: "/" },
+      { returnTo: "/beach/123?tab=forecast", stored: null, expected: "/beach/123?tab=forecast" },
+    ])("should handle successful signup with destination $expected", async ({ returnTo, stored, expected }) => {
       mockSignUp.mockResolvedValue(undefined);
+      (authUtils.getAuthRedirect as jest.Mock).mockReturnValue(stored);
 
       render(
         <UnifiedAuthModal
           isOpen={true}
           onClose={mockOnClose}
           mode="signup"
+          returnTo={returnTo}
         />
       );
 
@@ -707,7 +718,7 @@ describe("UnifiedAuthModal", () => {
           expect.objectContaining({
             signup_context: expect.any(Object),
           }),
-          expect.any(String) // returnTo path
+          expected
         );
       });
 

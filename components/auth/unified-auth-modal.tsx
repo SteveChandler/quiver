@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useAuth } from "@/context/auth-context";
 import { usePathname, useRouter } from "next/navigation";
+import { resolveConfirmNext } from "@/lib/auth/confirm-utils";
 import {
   Dialog,
   DialogContent,
@@ -220,10 +221,10 @@ export function UnifiedAuthModal({
 
   // Store returnTo in localStorage when provided
   useEffect(() => {
-    if (returnTo) {
-      setAuthRedirect(returnTo);
+    if (isOpen && returnTo) {
+      setAuthRedirect(resolveConfirmNext(null, returnTo));
     }
-  }, [returnTo]);
+  }, [isOpen, returnTo]);
 
   // Focus email input when view changes to forms
   useEffect(() => {
@@ -258,10 +259,7 @@ export function UnifiedAuthModal({
 
   // Get return path
   const getReturnPath = (): string => {
-    if (returnTo) return returnTo;
-    const stored = getAuthRedirect();
-    if (stored) return stored;
-    return "/";
+    return resolveConfirmNext(null, returnTo || getAuthRedirect());
   };
 
   // Reset form when modal opens/closes
