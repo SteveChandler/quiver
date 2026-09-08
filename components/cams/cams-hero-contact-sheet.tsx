@@ -1,4 +1,6 @@
-import type { ReactElement } from "react";
+"use client";
+
+import { useState, type ReactElement } from "react";
 import Image from "next/image";
 
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
@@ -16,6 +18,7 @@ export function CamsHeroContactSheet({
   beaches,
   label,
 }: CamsHeroContactSheetProps): ReactElement | null {
+  const [failedImages, setFailedImages] = useState<Set<string>>(() => new Set());
   const featuredBeaches = beaches.slice(0, 3).map((beach) => {
     const [imageUrl = CAM_CARD_FALLBACK_IMAGE_URL] = getDisplayCamThumbnailUrls(
       {
@@ -51,7 +54,8 @@ export function CamsHeroContactSheet({
               }
             >
               <Image
-                src={beach.imageUrl}
+                src={failedImages.has(beach.id) ? CAM_CARD_FALLBACK_IMAGE_URL : beach.imageUrl}
+                onError={() => setFailedImages((current) => current.has(beach.id) ? current : new Set(current).add(beach.id))}
                 alt={`${beach.name} surf cam preview`}
                 fill
                 className="object-cover"
