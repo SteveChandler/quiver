@@ -459,9 +459,7 @@ Two mobile surfaces coexist:
 ### Testing Strategy
 
 - **Test Types**: Unit (utils), Integration (actions), Component (UI), E2E (critical flows).
-- **Playwright**: Prefer `waitForLoadState("load")`.
-- **Performance**: Thresholds tuned for dev environments (e.g., loadTime 15000ms).
-- **API**: Validate flexible status ranges (200/400/401/etc).
+- **Playwright/API**: Follow the [E2E contract](../e2e/AGENTS.md) for state-based waits, exact HTTP assertions, fixtures, and targeted execution.
 
 ---
 
@@ -559,5 +557,6 @@ validation is documented in [Coordinate Conventions](COORDINATE_CONVENTIONS.md).
 
 The repository uses Yarn 1.22.17 and Node 22. The normal local verification
 surface is TypeScript, Jest, scoped ESLint, and Playwright as appropriate to the
-change. Production deployment is Vercel-backed; remote GitHub Actions are not a
-substitute for the local gate because repository Actions are unavailable.
+change. Production deployment is Vercel-backed. The [Main Gate](../.github/workflows/main-gate.yml)
+and [Prod Gate](../.github/workflows/prod-gate.yml) define PR verification alongside
+the local checks; consult those workflows and their current results for CI status.
