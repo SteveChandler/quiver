@@ -103,7 +103,7 @@ export async function currentWaterQuality<T extends SampleQualityRow>(
         .select("beach_id, source_site_identifier, advisory_type, county_latitude, county_longitude")
         .eq("run_id", run.data.id),
       client.from("water_quality_held_beaches").select("beach_id")
-        .in("beach_id", rows.map((row) => row.beach_id)),
+        .in("beach_id", rows.filter((row) => COVERAGE[row.beach_id.toLowerCase()]).map((row) => row.beach_id)),
     ]);
     if (notices.error || owners.error) return unavailable(rows);
     return projectCurrentWaterQuality(rows, runs[0], notices.data, owners.data, now);

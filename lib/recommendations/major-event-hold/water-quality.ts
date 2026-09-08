@@ -322,6 +322,24 @@ async function resolveCountyLiveHolds(
   };
 }
 
+async function readQualityRows(
+  client: WaterQualityHoldClient,
+  table: "water_quality_held_beaches" | "beach_water_quality",
+  columns: string,
+  beachIds: readonly string[],
+): Promise<{ data: unknown; error: unknown }> {
+  const rows: unknown[] = [];
+  // Catalog-wide filters overflow response headers when the upstream echoes the URL.
+  for (let offset = 0; offset < beachIds.length; offset += 100) {
+    const result = await client.from(table).select(columns)
+      .in("beach_id", beachIds.slice(offset, offset + 100));
+    // Never turn a partial hazard read into a successful result.
+    if ((result.error !== null && result.error !== undefined) || !Array.isArray(result.data)) return result;
+    rows.push(...result.data);
+  }
+  return { data: rows, error: null };
+}
+
 /**
  * Resolves owner-directed holds and current sampled advisory/closure status.
  * This is called only by recommendation/discovery surfaces.
@@ -347,14 +365,8 @@ export async function resolveWaterQualityHolds(
     const resolutionSnapshot: string[] = [];
     let unresolved = false;
 
-    const heldQuery = client
-      .from("water_quality_held_beaches")
-      .select("beach_id")
-      .in("beach_id", requestedBeachIds);
-    const qualityQuery = client
-      .from("beach_water_quality")
-      .select(WATER_QUALITY_SELECT)
-      .in("beach_id", requestedBeachIds);
+    const heldQuery = readQualityRows(client, "water_quality_held_beaches", "beach_id", requestedBeachIds);
+    const qualityQuery = readQualityRows(client, "beach_water_quality", WATER_QUALITY_SELECT, requestedBeachIds);
     const qualityResultPromise = Promise.resolve(qualityQuery);
     void qualityResultPromise.catch(() => undefined);
     const { data: heldData, error: heldError } = await heldQuery;
