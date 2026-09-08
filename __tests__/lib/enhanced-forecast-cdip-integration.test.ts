@@ -10,6 +10,14 @@ import { CDIPBuoyData } from "@/types/forecast";
 import type { CDIPBuoyDataDiagnostic } from "@/lib/services/cdip/types";
 
 // Create spy for Supabase upsert
+// These baseline/observation tests do not provision private adjustment stores.
+const originalTrustedAdjustments = process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
+beforeEach(() => { process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = "false"; });
+afterAll(() => {
+  if (originalTrustedAdjustments === undefined) delete process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
+  else process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = originalTrustedAdjustments;
+});
+
 const mockUpsert = jest.fn(() => Promise.resolve({ data: [], error: null }));
 
 // Mock the Supabase client

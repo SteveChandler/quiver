@@ -27,6 +27,14 @@ import { CDIP_NOWCAST_HORIZON_HOURS } from "@/lib/config/forecast-staleness";
 import { FORECAST_HANDOFF_BLEND_ENABLED_FLAG } from "@/lib/flags/forecast-handoff-blend";
 import type { Beach } from "@/types/database";
 
+// These baseline/observation tests do not provision private adjustment stores.
+const originalTrustedAdjustments = process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
+beforeEach(() => { process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = "false"; });
+afterAll(() => {
+  if (originalTrustedAdjustments === undefined) delete process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
+  else process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = originalTrustedAdjustments;
+});
+
 const FROZEN_NOW_ISO = "2026-04-19T15:00:00Z";
 const CALIBRATION_COVERAGE_WARNING = /calibrated_shoaling_coverage_gap/;
 const HELPER_NOW_MS = Date.parse("2026-06-15T12:00:00Z");

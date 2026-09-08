@@ -241,7 +241,12 @@ describe("major-event hold route integration", () => {
   });
 
   it("resolves exact no-store Next header exceptions after the blanket rule", async () => {
-    const configModule = (await import("../../../next.config.mjs")) as {
+    const originalEnv = process.env;
+    const configModule = (await (async () => {
+      process.env = { ...originalEnv, SUPABASE_SERVICE_ROLE_KEY: "test-service-role", NEXT_PUBLIC_SITE_URL: "http://localhost:3000" };
+      try { return await import("../../../next.config.mjs"); }
+      finally { process.env = originalEnv; }
+    })()) as {
       default: {
         headers: () => Promise<
           Array<{
