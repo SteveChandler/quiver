@@ -31,6 +31,7 @@
   },
   "include": [
     "next-env.d.ts",
+    ".planning/playwright-decision.config.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
