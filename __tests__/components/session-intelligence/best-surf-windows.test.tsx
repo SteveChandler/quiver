@@ -129,41 +129,25 @@ describe("BestSurfWindows", () => {
     expect(screen.getByRole("button", { name: /why this call/i })).toBeInTheDocument();
   });
 
-  it("renders the zine variant as a complete paper editorial entry", () => {
-    render(
-      <BestSurfWindows
-        recommendations={[
-          makeRecommendation(1, {
-            beach: {
-              ...makeRecommendation(1).beach,
-              photoUrl: "https://example.com/ocean-beach.jpg",
-            },
-          }),
-        ]}
-        variant="zine"
-      />
-    );
-
-    const section = screen.getByTestId("best-surf-windows");
+  it("shows a dated zine decision with visible caveats and one selection-preserving action", async () => {
+    render(<BestSurfWindows recommendations={[makeRecommendation(1)]} variant="zine" />);
     const entry = screen.getByTestId("surf-window-card");
-
-    expect(section).toHaveAttribute("data-variant", "zine");
     expect(entry).toHaveAttribute("data-variant", "zine");
-    expect(entry.className).toContain("bg-[#FBF6E8]");
-    expect(entry.className).not.toMatch(/#252D6B|#2D357D|#1a2051/i);
-    expect(section.innerHTML).not.toMatch(/#252D6B|#2D357D|#1a2051/i);
-    expect(
-      screen.getByText("7:00-9:30 AM looks worth it at Ocean Beach")
-    ).toBeVisible();
-    expect(screen.getByText("4 ft at 12s from W")).toBeVisible();
-    expect(screen.getByText("5 NE (offshore)")).toBeVisible();
-    expect(screen.getByText("Rising, 3.5 ft")).toBeVisible();
-    expect(screen.getByText("longboard")).toBeVisible();
-    expect(screen.getByAltText(/surf photo of ocean beach/i)).toBeVisible();
-    expect(entry.querySelector(".halftone-photo")).toBeInTheDocument();
-    expect(screen.getByTestId("surf-window-web-cta")).toBeVisible();
-    expect(screen.getByTestId("app-deep-link-cta")).toBeVisible();
-    expect(screen.getByRole("button", { name: /why this call/i })).toBeVisible();
+    expect(entry).toHaveTextContent("Wed, Jun 3 · 7:00-9:30 AM");
+    expect(entry).toHaveTextContent("America/Los_Angeles");
+    expect(screen.getByText("Morning crowd may build")).toBeVisible();
+    expect(screen.getByText("Light offshore wind")).toBeVisible();
+    expect(screen.queryByText("7:00-9:30 AM looks worth it at Ocean Beach")).not.toBeInTheDocument();
+    expect(screen.queryByText("longboard")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("app-deep-link-cta")).not.toBeInTheDocument();
+    const action = screen.getByRole("link", { name: "View Ocean Beach window" });
+    const href = new URL(action.getAttribute("href")!);
+    expect(href.searchParams.get("window")).toBe("2026-06-03T14:00:00.000Z");
+    expect(href.searchParams.get("windowEnd")).toBe("2026-06-03T16:30:00.000Z");
+    expect(href.searchParams.get("tab")).toBe("forecast");
+    await userEvent.click(screen.getByRole("button", { name: /why this call/i }));
+    expect(screen.getByText("Forecast model row is present")).toBeVisible();
+    expect(mockTrack).toHaveBeenCalledWith("why_this_call_opened", expect.anything());
   });
 
   it("renders a beach photo when one is available", () => {

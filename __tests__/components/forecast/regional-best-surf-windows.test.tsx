@@ -112,7 +112,9 @@ describe("RegionalBestSurfWindows", () => {
     expect(region.className).toContain("bg-[#FBF6E8]");
     expect(windows).toHaveAttribute("data-variant", "zine");
     expect(region.innerHTML).not.toMatch(/#252D6B|#2D357D|#1a2051/i);
-    expect(screen.getByText("Window 1 looks worth it at Blacks")).toBeVisible();
+    expect(screen.queryByText("Window 1 looks worth it at Blacks")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Blacks" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "View Blacks window" })).toHaveAttribute("href", expect.stringContaining("window="));
   });
 
   it("renders up to five regional windows to avoid a lonely final card", () => {

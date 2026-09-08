@@ -9,6 +9,9 @@ import {
   type ReactNode,
 } from "react";
 
+import { useSearchParams } from "next/navigation";
+import { normalizeForecastDateParam, normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
+
 import { useAuth } from "@/context/auth-context";
 import type { ForecastRecommendationContext } from "@/lib/services/forecast-recommendation-context";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
@@ -55,7 +58,9 @@ export function AuthenticatedForecastDecisionProvider({
 }: AuthenticatedForecastDecisionProviderProps) {
   const { user, isLoading: authLoading } = useAuth();
   const userId = user?.id;
-  const scope = userId ? `${userId}:${beachId}` : undefined;
+  const searchParams = useSearchParams();
+  const forecastAt = normalizeForecastDateParam(searchParams?.get("date")) ? null : normalizeForecastWindowParam(searchParams?.get("window"));
+  const scope = userId ? `${userId}:${beachId}:${forecastAt ?? "latest"}` : undefined;
   const [decision, setDecision] = useState<ForecastDecisionState>(
     DEFAULT_DECISION,
   );
@@ -72,7 +77,7 @@ export function AuthenticatedForecastDecisionProvider({
 
     async function fetchDecision(): Promise<void> {
       try {
-        const response = await fetch(`/api/surf/call?beachId=${beachId}`, {
+        const response = await fetch(`/api/surf/call?${new URLSearchParams({ beachId, ...(forecastAt ? { forecastAt } : {}) })}`, {
           cache: "no-store",
           signal: controller.signal,
         });
@@ -107,7 +112,7 @@ export function AuthenticatedForecastDecisionProvider({
 
     void fetchDecision();
     return () => controller.abort();
-  }, [beachId, userId, scope]);
+  }, [beachId, userId, scope, forecastAt]);
 
   const value = useMemo(
     () => ({

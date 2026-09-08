@@ -353,9 +353,6 @@ function BeachDetailContent({
 
   // Handle URL parameters and default section opening
   useEffect(() => {
-    // Only sync tab from URL once on mount
-    if (tabSynced) return;
-
     // Wait for searchParams to be available (Suspense boundary resolves)
     if (!searchParams) return;
 
@@ -371,6 +368,8 @@ function BeachDetailContent({
       setTabSynced(true);
       return;
     }
+
+    if (tabSynced) return;
 
     // Prefer query param, fallback to hash for legacy intel deep-linking
     const sectionParam = searchParams.get("section");
@@ -985,7 +984,7 @@ function BeachDetailContent({
         heroSummarySlot={heroSummarySlot}
         heroForecastSlot={heroForecastSlot}
       >
-        <div ref={signupCtaRef} />
+        <div id="operational-forecast" tabIndex={-1} className="scroll-mt-20" ref={signupCtaRef} />
         {beforeTabsContent ? (
           <div className="mx-auto mb-6 max-w-5xl">{beforeTabsContent}</div>
         ) : null}
@@ -999,7 +998,12 @@ function BeachDetailContent({
         ) : null}
         <BeachTabs
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={(tab) => {
+            setActiveTab(tab);
+            const params = new URLSearchParams(searchParams?.toString());
+            params.set("tab", tab);
+            window.history.pushState(null, "", `${pathname}?${params}`);
+          }}
           actions={tabActions}
           publicMode={publicMode}
         >

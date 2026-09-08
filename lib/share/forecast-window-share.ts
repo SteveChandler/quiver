@@ -1,3 +1,5 @@
+import { normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
+export { normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
 import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event-hold/adapters/shared";
 import { parseMajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/evaluator";
 import type { EvaluateMajorEventHoldCandidatesInput } from "@/lib/recommendations/major-event-hold/service";
@@ -66,7 +68,6 @@ const FALLBACK_DESCRIPTION = "Open this surf window in Quiver.";
 const NEUTRAL_DESCRIPTION =
   "Wave, wind, and tide conditions can change quickly. Check the latest forecast and official advisories.";
 const FORECAST_SLOT_DURATION_MS = 60 * 60 * 1000;
-const ABSOLUTE_INSTANT_SUFFIX_PATTERN = /(?:Z|[+-]\d{2}:\d{2})$/;
 
 function firstSearchValue(
   value: string | string[] | null | undefined,
@@ -112,20 +113,6 @@ function isValidTimeZone(value: unknown): value is string {
   } catch {
     return false;
   }
-}
-
-export function normalizeForecastWindowParam(
-  value: string | string[] | null | undefined,
-): string | null {
-  const text = cleanText(firstSearchValue(value));
-  if (!text) return null;
-  if (
-    !/^\d{4}-\d{2}-\d{2}T/.test(text) ||
-    !ABSOLUTE_INSTANT_SUFFIX_PATTERN.test(text)
-  ) {
-    return null;
-  }
-  return Number.isNaN(Date.parse(text)) ? null : text;
 }
 
 export function formatForecastWindowLabel(

@@ -222,7 +222,7 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
 
   // -------------------------------------------------------------------------
   // Viewport-specific CTA invariant (2026-04-29 + app handoff):
-  //   - Both viewports: contextual app handoff CTA appears before the tabs.
+  //   - Both viewports: contextual app handoff CTA follows the operational hourly forecast.
   //   - Desktop ≥768px: InlineSignupCta remains available after the tabs;
   //     StickySignupBar is hidden.
   //   - Mobile <768px: StickySignupBar remains available after scroll;
@@ -241,7 +241,7 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
 
     const appHandoffCta = page.getByTestId('content-page-app-handoff-cta-beach_detail');
     await expect(appHandoffCta).toBeVisible({ timeout: 10000 });
-    await expect(appHandoffCta).toHaveAttribute('data-placement', 'above_fold_after_public_answer');
+    await expect(appHandoffCta).toHaveAttribute('data-placement', 'after_public_hourly_forecast');
     await expect(
       appHandoffCta.getByRole('link', { name: /watch the next window in the app/i }),
     ).toHaveAttribute('href', /\/app\/handoff/);
@@ -267,7 +267,7 @@ test.describe('Anonymous beach page — CTA reduction (Phase 1A + 1B)', () => {
 
     const appHandoffCta = page.getByTestId('content-page-app-handoff-cta-beach_detail');
     await expect(appHandoffCta).toBeVisible({ timeout: 10000 });
-    await expect(appHandoffCta).toHaveAttribute('data-placement', 'above_fold_after_public_answer');
+    await expect(appHandoffCta).toHaveAttribute('data-placement', 'after_public_hourly_forecast');
     await expect(
       appHandoffCta.getByRole('link', { name: /watch the next window in the app/i }),
     ).toHaveAttribute('href', /\/app\/handoff/);

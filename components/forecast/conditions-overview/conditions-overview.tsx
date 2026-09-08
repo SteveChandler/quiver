@@ -9,6 +9,8 @@
  * @module components/forecast/conditions-overview/conditions-overview
  */
 
+import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
+import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
 import type { DaySummary } from "@/lib/utils/horizon-strip-utils";
@@ -77,6 +79,9 @@ export function ConditionsOverview({
   const selectedDay = selectedDate
     ? enrichedDays.find((d) => d.fullDate === selectedDate)
     : undefined;
+  if (selectedDate && !selectedDay) {
+    return <p role="status" className="p-4 text-base">Forecast unavailable for {selectedDate}. Choose another day above.</p>;
+  }
   const heroDay = selectedDay ?? overallBest;
   const isUserSelected = !!selectedDay;
 
@@ -99,14 +104,17 @@ export function ConditionsOverview({
         isPersonalized={heroDay.isPersonalized}
       />
 
+      <details className="border-t-2 border-[#11100D]/30 pt-4"><summary className="cursor-pointer text-base font-bold focus-visible:outline focus-visible:outline-2">Advanced forecast · swell, wind, tide &amp; hourly data</summary>
       <ErrorBoundary fallback={() => <p className="text-sm text-muted-foreground py-4">Unable to load chart.</p>}>
         <OutlookBarChart days={enrichedDays} />
       </ErrorBoundary>
 
       <DetailedForecastTable
-        forecasts={forecasts}
+        forecasts={selectedDate ? forecasts.filter((row) => extractForecastDate(row.forecast_at, resolveBeachTimezone(beachTimezone ?? beach.timezone)) === selectedDate) : forecasts}
         beachTimezone={beachTimezone}
       />
+
+      </details>
 
       <ExploreMoreLinks beach={beach} />
     </div>

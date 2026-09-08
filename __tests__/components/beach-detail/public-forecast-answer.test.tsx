@@ -15,6 +15,9 @@ import {
   selectPublicForecastReportFacts,
 } from "@/lib/utils/public-forecast-facts";
 
+let mockSearch = new URLSearchParams();
+jest.mock("next/navigation", () => ({ useSearchParams: () => mockSearch, usePathname: () => "/ca/san-diego/ocean-beach" }));
+
 jest.mock("@/components/beach-detail/rip-current-warning", () => ({
   RipCurrentWarning: ({ localDate }: { localDate: string }) => <div data-testid="risk-date">{localDate}</div>,
 }));
@@ -149,11 +152,46 @@ function renderAnswer({
 describe("PublicForecastAnswer", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSearch = new URLSearchParams();
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: false,
     } as ReturnType<typeof useAuth>);
     global.fetch = jest.fn();
+  });
+
+  it("keeps the selected guest window and hazard date visible without presenting the latest call as its verdict", () => {
+    mockSearch = new URLSearchParams({ window: "2026-09-10T15:00:00Z", windowEnd: "2026-09-10T19:00:00Z" });
+    renderAnswer();
+    expect(screen.getByText(/Selected comparison window:/)).toHaveTextContent("Thu, Sep 10");
+    expect(screen.getByTestId("risk-date")).toHaveTextContent("2026-09-10");
+    expect(screen.getByText(/Latest forecast/).closest("details")).not.toHaveAttribute("open");
+    expect(screen.queryByText("YES")).not.toBeInTheDocument();
+  });
+
+  it("uses a valid selected date consistently when a URL also contains an older window", () => {
+    mockSearch = new URLSearchParams({ date: "2026-09-11", window: "2026-09-10T15:00:00Z" });
+    renderAnswer();
+    expect(screen.getByText(/Selected day:/)).toHaveTextContent("2026-09-11");
+    expect(screen.getByTestId("risk-date")).toHaveTextContent("2026-09-11");
+    expect(screen.queryByText(/Selected comparison window:/)).not.toBeInTheDocument();
+  });
+
+  it("ignores impossible selected calendar dates", () => {
+    mockSearch = new URLSearchParams({ date: "2026-02-31" });
+    renderAnswer();
+    expect(screen.queryByText(/Selected day:/)).not.toBeInTheDocument();
+  });
+
+  it("requests the authenticated call for the selected instant", async () => {
+    mockSearch = new URLSearchParams({ window: "2026-09-10T15:00:00Z" });
+    mockUseAuth.mockReturnValue({ user: { id: "user-1" }, isLoading: false } as ReturnType<typeof useAuth>);
+    (global.fetch as jest.Mock).mockResolvedValue(new Response("{}", { status: 503 }));
+    renderAnswer();
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
+      "/api/surf/call?beachId=beach-1&forecastAt=2026-09-10T15%3A00%3A00Z", expect.objectContaining({ cache: "no-store" }),
+    ));
+    await waitFor(() => expect(screen.getByText(/Selected call unavailable/)).toBeVisible());
   });
 
   it("renders every live decision field and three buildBeachUrl backup links for guests", () => {
@@ -223,7 +261,7 @@ describe("PublicForecastAnswer", () => {
   it("renders fewer than three backups and omits the section when none exist", () => {
     const { rerender } = renderAnswer({ backups: nearbyBeaches.slice(0, 2) });
 
-    expect(screen.getByText("Nearby backups")).toBeInTheDocument();
+    expect(screen.getByText("Nearby spots")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /Swami's|Ocean Beach/ })).toHaveLength(2);
     expect(screen.queryByRole("link", { name: "Pipeline" })).not.toBeInTheDocument();
 
@@ -242,7 +280,7 @@ describe("PublicForecastAnswer", () => {
         returnTo="/ca/san-diego/ocean-beach"
       />,
     );
-    expect(screen.queryByText("Nearby backups")).not.toBeInTheDocument();
+    expect(screen.queryByText("Nearby spots")).not.toBeInTheDocument();
   });
 
   it("keeps personalized decisions out of the projected public report", () => {
@@ -349,7 +387,7 @@ describe("PublicForecastAnswer", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(/Forecast valid at/)).not.toBeInTheDocument();
     expect(screen.queryByText("Best window")).not.toBeInTheDocument();
-    expect(screen.getByText("Nearby backups")).toBeInTheDocument();
+    expect(screen.getByText("Nearby spots")).toBeInTheDocument();
   });
 });
 

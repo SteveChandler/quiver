@@ -1,6 +1,10 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useSearchParams, usePathname } from "next/navigation";
+import { normalizeForecastDateParam, normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
+import { useAuthenticatedForecastDecision } from "@/components/beach-detail/authenticated-forecast-decision";
+import { RipCurrentWarning } from "@/components/beach-detail/rip-current-warning";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import dynamic from "next/dynamic";
 import {
@@ -80,14 +84,23 @@ export function ForecastTab({
   const { user } = useAuth();
   const profileContext = useOptionalProfileContext();
   const profileExperienceLevel = profileContext?.profile?.experience_level ?? null;
+  const { isProvided: hasHeroDecision } = useAuthenticatedForecastDecision();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const selectedDate = normalizeForecastDateParam(searchParams?.get("date"));
+  const selectedWindow = selectedDate ? null : normalizeForecastWindowParam(searchParams?.get("window"));
+
   const [activeSubTab, setActiveSubTab] = useState<
     "today" | "tides" | "conditions"
-  >(defaultSubTab || "today");
+  >(defaultSubTab || (selectedWindow || selectedDate ? "conditions" : "today"));
 
-  // Horizon Strip: selected date for filtering (defaults to today)
-  const [horizonSelectedDate, setHorizonSelectedDate] = useState<string>(() => {
-    return getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
-  });
+  useEffect(() => {
+    if (selectedDate || selectedWindow) setActiveSubTab("conditions");
+  }, [selectedDate, selectedWindow]);
+
+  const horizonSelectedDate = selectedDate ?? getLocalDateString(
+    selectedWindow ? new Date(selectedWindow) : new Date(), resolveBeachTimezone(beachTimezone),
+  );
 
   const handleHorizonDaySelect = useCallback((date: string) => {
     trackEvent('forecast_interaction', {
@@ -95,9 +108,14 @@ export function ForecastTab({
       metadata: { action: 'change_slot', slot: date },
       debounceMs: 1000,
     });
-    setHorizonSelectedDate(date);
+    const params = new URLSearchParams(searchParams?.toString());
+    params.set("date", date);
+    params.set("tab", "forecast");
+    params.delete("window");
+    params.delete("windowEnd");
+    window.history.pushState(null, "", `${pathname}?${params}`);
     setActiveSubTab("conditions");
-  }, [beach.id, trackEvent]); // State setters are stable refs
+  }, [beach.id, trackEvent, pathname, searchParams]);
 
   const todayStr = useMemo(() => {
     return getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
@@ -321,7 +339,10 @@ export function ForecastTab({
 
   return (
     <DataErrorBoundary dataType="forecast" componentName="ForecastTab">
-    <div className="space-y-6 py-6">
+    <div className="space-y-6 py-6 scroll-mt-20">
+      <p role="status" className="text-base font-semibold text-[#11100D]">Selected day: {horizonSelectedDate} · {resolveBeachTimezone(beachTimezone)}</p>
+      {!hasHeroDecision && (selectedWindow || selectedDate) && <RipCurrentWarning beachId={beach.id} localDate={horizonSelectedDate} timezone={resolveBeachTimezone(beachTimezone)} />}
+
       {isDisplayStaleForecast && (
         <div
           data-testid="stale-forecast-banner"
@@ -382,7 +403,7 @@ export function ForecastTab({
             className="flex items-center justify-center gap-2 rounded-full px-3 py-2 font-heading text-sm font-black uppercase text-[#5F5646] transition-[color,background-color,box-shadow] data-[state=active]:bg-[#11100D] data-[state=active]:text-[#F4EBD8] data-[state=active]:shadow-[0_2px_0_#F78E42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
           >
             <Sun className="h-4 w-4" />
-            <span>Today</span>
+            <span>Now</span>
           </TabsTrigger>
           <TabsTrigger
             value="tides"
@@ -533,7 +554,7 @@ export function ForecastTab({
               beach={beach}
               forecast={currentForecast}
               forecastMetadata={forecastMetadata}
-              surfCall={surfCall}
+              surfCall={selectedWindow ? null : surfCall}
               beachTimezone={beachTimezone}
               isCalibrated={beachIsCalibrated}
               isDisplayStaleForecast={isDisplayStaleForecast}
@@ -548,7 +569,7 @@ export function ForecastTab({
           )}
 
           {/* Best Surf Window — authenticated users only. */}
-          {user && surfCall?.verdict !== "NO" && (
+          {user && !selectedWindow && surfCall?.verdict !== "NO" && (
           <BestSurfWindow
             beachId={beach.id}
             beachName={beach.name}
@@ -597,6 +618,7 @@ export function ForecastTab({
 
         {/* Tides Tab */}
         <TabsContent value="tides" className="space-y-4 mt-6">
+          <p className="text-sm">Current tide and upcoming tide cycle · separate from the selected day.</p>
           <TideStatusStrip dynamicTide={dynamicTide} />
           <TideChartSection forecasts={forecasts} />
           {beach.preferred_tide_direction && <TideAlertBadge alert={tideAlert} />}

@@ -402,7 +402,7 @@ export function HorizonStrip({
             ? index - (publicGateFromIndex as number)
             : undefined;
           return (
-            <div key={`${day.fullDate}-${index}`} data-day-card className="flex-shrink-0 w-[88px] sm:flex-1 sm:min-w-0">
+            <div key={`${day.fullDate}-${index}`} data-day-card className="flex-shrink-0 w-[88px] sm:flex-1 sm:min-w-[88px]">
               <DayCard
                 day={day}
                 isSelected={day.fullDate === selectedDate}
