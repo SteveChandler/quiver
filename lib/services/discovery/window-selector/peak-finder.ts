@@ -27,8 +27,9 @@
  * @param forecasts - Array of scored forecasts with forecastTime
  * @param now - Current time; forecasts before `now` are ignored when the
  *              window is still open. Defaults to `new Date()`.
- * @returns Peak time within the window (interpolated for sub-hour precision),
- *          never in the past while the window is still open.
+ * @returns Peak time within the window (interpolated for sub-hour precision).
+ *          Empty active windows return `now`; empty future or closed windows
+ *          return the window midpoint.
  */
 export function findPeakWithinWindow(
   windowStart: Date,
@@ -55,10 +56,9 @@ export function findPeakWithinWindow(
   );
 
   if (windowForecasts.length === 0) {
-    // No future forecasts left in an open window → the best available
-    // time to go is literally right now. For closed/empty windows, fall
-    // back to the window midpoint (legacy behavior).
-    if (!windowClosed) {
+    // Only an active window can use `now`; future and closed windows use a
+    // midpoint so the reported peak always belongs to the window.
+    if (now.getTime() >= windowStart.getTime() && !windowClosed) {
       return new Date(now.getTime());
     }
     return new Date((windowStart.getTime() + windowEnd.getTime()) / 2);
