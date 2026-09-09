@@ -109,7 +109,10 @@ export function withDisplayWindow(
   window: PersonalizedForecastWindow,
   timezone?: string | null,
 ): AuthoritativeWindow {
-  const resolvedTimezone = resolveBeachTimezone(timezone ?? window.timezone);
+  // The selector already stamped the frame it computed the window in; a
+  // caller-supplied zone only fills a gap, so the response contract's
+  // `timezone` never changes underneath an installed client.
+  const resolvedTimezone = resolveBeachTimezone(window.timezone || timezone);
   const peakTime = window.peakTime && containsTime(window.start, window.end, window.peakTime)
     ? window.peakTime
     : new Date((window.start.getTime() + window.end.getTime()) / 2);
