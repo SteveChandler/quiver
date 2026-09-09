@@ -1,21 +1,24 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Request } from '@playwright/test';
 
 import { ensureAuthenticated } from './utils/auth-helpers';
+import { assertNoErrors, setupErrorDetection, type ErrorCapture } from './utils/error-detection';
 
 /**
- * Temporary measurement probe for the signed-in home screen.
- *
- * Not a assertion-style test — it records the request waterfall and the time
- * to a rendered surf call so the actual bottleneck can be identified instead
- * of guessed at. Tagged @perf so it never runs in the normal suite.
+ * Opt-in measurement probe for the signed-in home screen.
+ * Records each request and time to a rendered surf call. Only rendering and
+ * runtime errors are assertions; variable wall-clock timings are reported.
  */
 test.describe('@perf signed-in home', () => {
-  // Opt-in only. This is a measurement tool, not a gate — it has no meaningful
-  // pass/fail and would just add minutes to every suite run.
-  test.skip(
-    !process.env.RUN_PERF_PROBE,
-    'Measurement probe — run with RUN_PERF_PROBE=1'
-  );
+  // Register only when explicitly requested; this probe uses a real account.
+  if (!process.env.RUN_PERF_PROBE) return;
+
+  let errorCapture: ErrorCapture;
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'signed-in home performance probe' });
+  });
 
   test('records the request waterfall and time to first call', async ({ page }) => {
     await ensureAuthenticated(page);
@@ -27,20 +30,24 @@ test.describe('@perf signed-in home', () => {
       startedAt: number;
       endedAt?: number;
     };
-    const timed = new Map<string, Timed>();
+    const timed = new Map<Request, Timed>();
     let t0 = 0;
 
     page.on('request', (r) => {
       const u = r.url();
-      if (!/\/api\/|_next\/data|\.rsc/.test(u)) return;
-      timed.set(u + r.method(), {
-        url: u.replace(/^https?:\/\/[^/]+/, ''),
+      if (!/\/api\/|_next\/data|\.rsc/.test(u) && !r.headers()['next-action']) return;
+      timed.set(r, {
+        // Query parameters and profile IDs are unnecessary for a timing report.
+        url: new URL(u).pathname.replace(
+          /[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}/gi,
+          '<id>',
+        ),
         method: r.method(),
         startedAt: Date.now() - t0,
       });
     });
     page.on('response', (r) => {
-      const rec = timed.get(r.url() + r.request().method());
+      const rec = timed.get(r.request());
       if (!rec) return;
       rec.endedAt = Date.now() - t0;
       rec.status = r.status();
@@ -82,11 +89,13 @@ test.describe('@perf signed-in home', () => {
       };
     });
 
-    /* eslint-disable no-console -- probe output is the deliverable */
     console.log('\n===== HOME PERF PROBE =====');
     console.log('time to rendered surf call (ms):', heroMs);
     console.log('time to network idle (ms):', totalMs);
     console.log('navigation timing:', JSON.stringify(nav));
+    console.log('discovery requests:', [...timed.values()].filter(
+      (r) => r.url === '/api/surf/discover',
+    ).length);
     console.log('\nrequest waterfall (start -> end, duration):');
     for (const r of rows) {
       const dur = (r.endedAt ?? 0) - r.startedAt;
@@ -96,7 +105,6 @@ test.describe('@perf signed-in home', () => {
       );
     }
     console.log('===========================\n');
-    /* eslint-enable no-console */
 
     expect(heroMs).toBeGreaterThan(-1);
   });
