@@ -8,6 +8,13 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 
+let mockSearch = new URLSearchParams();
+jest.mock("next/navigation", () => ({ useSearchParams: () => mockSearch, usePathname: () => "/ca/san-diego/ocean-beach" }));
+
+jest.mock("@/components/beach-detail/rip-current-warning", () => ({
+  RipCurrentWarning: ({ localDate }: { localDate: string }) => <div data-testid="rip-current-warning">{localDate}</div>,
+}));
+
 // Mock ALL child components as simple divs with data-testid
 jest.mock("@/components/beach-detail/best-surf-window", () => ({
   BestSurfWindow: (props: any) => <div data-testid="best-surf-window" />,
@@ -233,8 +240,26 @@ describe("ForecastTab", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSearch = new URLSearchParams();
     mockTrackEvent.mockClear();
     mockUseAuth.mockReturnValue({ user: null });
+  });
+
+  it("switches to dated conditions when navigation changes the selected window", () => {
+    const { rerender } = render(<ForecastTab {...defaultProps} />);
+    expect(screen.getByTestId("tabs")).toHaveAttribute("data-value", "today");
+    mockSearch = new URLSearchParams({ window: "2026-09-10T15:00:00Z" });
+    rerender(<ForecastTab {...defaultProps} />);
+    expect(screen.getByTestId("tabs")).toHaveAttribute("data-value", "conditions");
+  });
+
+  it("does not repeat a future comparison call inside the current-conditions tab", () => {
+    mockUseAuth.mockReturnValue({ user: { id: "user-1" } });
+    mockSearch = new URLSearchParams({ window: "2026-09-10T15:00:00Z" });
+    render(<ForecastTab {...defaultProps} surfCall={{ verdict: "YES" } as SurfCallResult} />);
+    fireEvent.click(screen.getByTestId("tab-trigger-today"));
+    expect(screen.getByTestId("tabs")).toHaveAttribute("data-value", "today");
+    expect(screen.queryByTestId("best-surf-window")).not.toBeInTheDocument();
   });
 
   describe("Tab Rendering", () => {
@@ -245,7 +270,7 @@ describe("ForecastTab", () => {
       expect(screen.getByTestId("tab-trigger-tides")).toBeInTheDocument();
       expect(screen.getByTestId("tab-trigger-conditions")).toBeInTheDocument();
 
-      expect(screen.getByTestId("tab-trigger-today")).toHaveTextContent("Today");
+      expect(screen.getByTestId("tab-trigger-today")).toHaveTextContent("Now");
       expect(screen.getByTestId("tab-trigger-tides")).toHaveTextContent("Tides");
       expect(screen.getByTestId("tab-trigger-conditions")).toHaveTextContent("Conditions");
     });

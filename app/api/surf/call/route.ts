@@ -26,6 +26,7 @@ import { checkBoardFit } from '@/lib/domains/scoring/discovery-adapter';
 import type { BoardClass, SkillLevel } from '@/lib/domains/user-preferences';
 import type { RecommendationAvailability } from '@/lib/recommendations/major-event-hold/types';
 import { resolveScopedRecommendationAvailability } from '@/lib/services/discovery/discovery-availability';
+import { loadNowRecommendation } from '@/lib/services/discovery/now-recommendation';
 import {
   FORECAST_ALIGNMENT_TOLERANCE_MINUTES,
   resolveForecastAlignment,
@@ -38,11 +39,23 @@ export const maxDuration = 15;
 const QuerySchema = z.object({
   beachId: z.string().uuid({ message: 'beachId must be a valid UUID' }),
   forecastAt: z.string().datetime({ offset: true }).optional(),
+  includeNow: z.enum(['1', 'true']).optional(),
 });
 
 type CanonicalSurfCallResponse = SpotSurfReportResult & {
   sessionDecision: CanonicalSessionDecision;
   forecastAlignment?: SurfCallForecastAlignment;
+  /**
+   * The beach's now-mode discovery recommendation, present only when the
+   * request asked for it with `includeNow=1`. It is the same object
+   * `/api/surf/discover?mode=now` returns for this beach, so a client that
+   * labels spots from now-mode discovery on one screen and grades "now" from
+   * the surf call on another reads one producer. `null` when the current
+   * window is closed, the beach is held or ineligible, the entitlement gate
+   * withholds recommendations, or the now-mode discovery failed; the surf
+   * call itself is unaffected by any of those.
+   */
+  nowRecommendation?: SurfDiscoveryRecommendation | null;
 };
 
 type RecommendationGateBeach = Beach & {
@@ -76,6 +89,7 @@ function applyRecommendationEligibilityGate(
     ...result,
     isTomorrow: false,
     forecastContext: null,
+    ...(result.nowRecommendation !== undefined ? { nowRecommendation: null } : {}),
     report: {
       ...result.report,
       verdict: 'NO',
@@ -283,10 +297,14 @@ function buildCanonicalSurfCall(
 }
 
 /**
- * GET /api/surf/call?beachId=<uuid>&boardClass=<BoardClass>
+ * GET /api/surf/call?beachId=<uuid>&boardClass=<BoardClass>&includeNow=1
  *
  * Returns a personalized surf-call verdict for a single beach.
  * Consumed by the Quiver Native app so the native surf call matches web exactly.
+ * `includeNow=1` additionally returns the beach's now-mode discovery
+ * recommendation (`data.nowRecommendation`), the same object Home's
+ * `/api/surf/discover?mode=now` returns, so Beach Detail grades "now" from the
+ * producer Home labels with.
  *
  * Authentication: required (user session)
  * Rate limit: surf-discovery bucket (shared with /api/surf/discover)
@@ -300,12 +318,13 @@ async function surfCallHandler(
   const validation = validateOrError(QuerySchema, {
     beachId: searchParams.get('beachId') ?? undefined,
     forecastAt: searchParams.get('forecastAt') ?? undefined,
+    includeNow: searchParams.get('includeNow') ?? undefined,
   });
   if ('error' in validation) {
     return validation.error;
   }
 
-  const { beachId, forecastAt } = validation.data;
+  const { beachId, forecastAt, includeNow } = validation.data;
   const boardClass = normalizeBoardClass(
     searchParams.get('boardClass'),
   ) as BoardClass | null;
@@ -376,6 +395,17 @@ async function surfCallHandler(
       requestedScopeEndMs,
     ),
   );
+  // Started alongside the canonical decision so the now call adds latency
+  // only where it is slower than the best-window discovery it runs beside.
+  const nowRecommendationPromise = includeNow
+    ? loadNowRecommendation({
+        userId: user.id,
+        beach: typedBeach,
+        isPro,
+        profileExperience,
+        now: anchor,
+      })
+    : null;
   let canonicalContext;
   try {
     canonicalContext = await resolveCanonicalSessionDecisionContext({
@@ -415,16 +445,21 @@ async function surfCallHandler(
     canonicalContext.discovery,
     sessionDecision.holdEpoch,
   );
-  const canonicalResult = buildCanonicalSurfCall(
-    sessionDecision,
-    beachId,
-    recommendations,
-    typedBeach,
-    anchor,
-    profileExperience,
-    boardClass,
-    recommendationAvailability,
-  );
+  const canonicalResult: CanonicalSurfCallResponse = {
+    ...buildCanonicalSurfCall(
+      sessionDecision,
+      beachId,
+      recommendations,
+      typedBeach,
+      anchor,
+      profileExperience,
+      boardClass,
+      recommendationAvailability,
+    ),
+    ...(nowRecommendationPromise
+      ? { nowRecommendation: await nowRecommendationPromise }
+      : {}),
+  };
   const scopedCanonicalResult: CanonicalSurfCallResponse = forecastAt
     ? {
         ...canonicalResult,

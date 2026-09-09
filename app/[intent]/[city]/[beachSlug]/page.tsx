@@ -320,6 +320,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             heroForecastSlot={
               <PublicForecastAnswer
                 beach={publicBeach}
+                waterQuality={waterQualityResult}
                 report={publicForecastReport}
                 context={publicForecastContext}
                 isTomorrow={surfCallIsTomorrow}
@@ -333,20 +334,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
               />
             }
             freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
-            beforeTabsContent={
-              forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
-                <ContentPageAppHandoffCta
-                  source={`content-beach-detail-${beachSlug}`}
-                  surface="beach_detail"
-                  placement="above_fold_after_public_answer"
-                  target={`beach:${beachSlug}`}
-                  eyebrow={`Next call · ${beach.name}`}
-                  title={`Watch the next good window at ${beach.name}.`}
-                  description="Today's call is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
-                  ctaLabel="Watch the next window in the app"
-                />
-              ) : null
-            }
             afterTabsContent={
               <div className="pt-2">
                 <PublicForecastHourly
@@ -356,6 +343,18 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                   forecastDay={hourlyForecastDay}
                   returnTo={returnTo}
                 />
+                {forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
+                <ContentPageAppHandoffCta
+                  source={`content-beach-detail-${beachSlug}`}
+                  surface="beach_detail"
+                  placement="after_public_hourly_forecast"
+                  target={`beach:${beachSlug}`}
+                  eyebrow={`Next call · ${beach.name}`}
+                  title={`Watch the next good window at ${beach.name}.`}
+                  description="Today's call is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
+                  ctaLabel="Watch the next window in the app"
+                />
+              ) : null}
                 {/* One ask here, not two. The home-break signup this used to stack
                     underneath is the same ask the sticky bar already carries, so
                     it read as the page repeating itself. The install section takes

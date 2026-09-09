@@ -35,6 +35,17 @@ function clientFor(tables: Record<string, unknown>, errorTable?: string): WaterQ
 }
 
 describe("current county water-quality contract", () => {
+  it("limits county owner reads to covered beaches even for a full catalog", async () => {
+    const client = clientFor({ county_beach_advisory_runs: [run] });
+    const rows = [row, ...Array.from({ length: 500 }, (_, i) => ({ beach_id: `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, "0")}`, status: "good" }))];
+    const result = await currentWaterQuality(rows, client, now);
+    const ownerIndex = jest.mocked(client.from).mock.calls.findIndex(([table]) => table === "water_quality_held_beaches");
+    const query = jest.mocked(client.from).mock.results[ownerIndex].value;
+    expect(query.in).toHaveBeenCalledWith("beach_id", [id]);
+    expect(result[0].county_advisory_status).toBe("clear");
+    expect(result.slice(1)).toEqual(rows.slice(1));
+  });
+
   it.each(["good", "advisory"])("does not send sample-derived %s notifications for county-governed beaches", async (status) => {
     const tables = (beachId: string) => ({
       beach_water_quality: [{ ...row, beach_id: beachId, status, previous_status: status === "good" ? "advisory" : "good", status_changed_at: now.toISOString() }],

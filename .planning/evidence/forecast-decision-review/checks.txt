@@ -1,0 +1,41 @@
+Final local checks (review worktree based on b5b81db2df60462c1859c06d1e5dcabcfc56e5a3)
+
+PASS — full Jest:
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-test yarn test:unit --bail=0 --maxWorkers=2
+Test Suites: 16 skipped, 1410 passed, 1410 of 1426 total
+Tests:       195 skipped, 1 todo, 18122 passed, 18318 total
+Snapshots:   4 passed, 4 total
+Time:        100.663 s, estimated 474 s
+
+PASS — final focused Jest after all source edits:
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-test yarn test:unit --runInBand __tests__/components/forecast/horizon-strip.test.tsx __tests__/components/beach-detail/tabs/forecast-tab.test.tsx __tests__/components/forecast/regional-best-surf-windows.test.tsx
+3 suites, 77 tests; 1.637s (Yarn total 3.82s)
+
+PASS — Chromium integration:
+npx playwright test -c .planning/playwright-decision.config.ts e2e/guest-forecast-decision-journey.spec.ts --project=guest
+6 passed in 40.8s. Existing console-error gate passed. Guest only; read-only real forecast responses, analytics writes intercepted. No real devices or live authenticated session.
+
+PASS — yarn typecheck
+Done in 5.42s.
+
+PASS — changed-file ESLint, --max-warnings=0
+All changed .ts/.tsx/.js plus lib/utils/forecast-window-param.ts and e2e/guest-forecast-decision-journey.spec.ts. Exact command in handoff.
+
+PASS — git diff HEAD --check
+
+PASS — visual evidence renderer
+python3 /Users/stevenchandler/.codex/skills/visual-screenshot-evidence/scripts/render_visual_evidence.py --input .planning/evidence/forecast-decision-review/evidence.json
+Original-resolution inspection: 360/768/1440px, no main-content clipping/overlap; day strip and tab bar intentionally scroll. No human comprehension study.
+
+FAIL — raw knip, on clean current-main AND reviewed branch.
+PASS — normalized deadcode delta: 1,506 findings each, zero introduced.
+
+EXPECTED FAIL before fixes: camera/display-units baseline (2 tests); date/query regressions (4 tests); future verdict in Now (1 test); share overlap at 768px (1 browser test); 47px day cards at 768px (1 browser test).
+RESOLVED FAIL: 10 suites/30 tests on first full Jest; typecheck unsupported RTL option; scoped lint conditional assertions. All rerun green as above.
+NOT RUN: real-device/screen-reader/live-authenticated E2E; complete guest CTA suite. Auth forecast-tabs suite collected only, 42 tests.
+
+PASS — final production build after all source edits:
+VERCEL_ENV=preview yarn build
+Compiled successfully; generated route output; exit 0, Yarn total 93.04s. Existing local NEXT_PUBLIC_SITE_URL warning remains. This command built locally; it did not deploy.
+
+PASS — commit hooks: gitleaks staged scan, guardctl precommit (14 pass, 0 fail, 0 could-not-check). No bypass.

@@ -1,0 +1,95 @@
+{
+  "screenshots": [
+    {
+      "path": "after-cams.png",
+      "viewport": "1280x720",
+      "primary_asset_visible": true,
+      "text_fits": true,
+      "overlap_detected": false
+    },
+    {
+      "path": "after-hero-1440.png",
+      "viewport": "1440x1000",
+      "primary_asset_visible": true,
+      "text_fits": true,
+      "overlap_detected": false
+    },
+    {
+      "path": "after-hero-768.png",
+      "viewport": "768x1000",
+      "primary_asset_visible": true,
+      "text_fits": true,
+      "overlap_detected": false
+    },
+    {
+      "path": "after-list-1440.png",
+      "viewport": "1440x1000",
+      "primary_asset_visible": true,
+      "text_fits": true,
+      "overlap_detected": false
+    },
+    {
+      "path": "after-list-360.png",
+      "viewport": "360x1000",
+      "primary_asset_visible": true,
+      "text_fits": true,
+      "overlap_detected": false
+    },
+    {
+      "path": "after-list-768.png",
+      "viewport": "768x1000",
+      "primary_asset_visible": true,
+      "text_fits": true,
+      "overlap_detected": false
+    },
+    {
+      "path": "after-spot-1440.png",
+      "viewport": "1440x1000",
+      "primary_asset_visible": true,
+      "text_fits": true,
+      "overlap_detected": false
+    },
+    {
+      "path": "after-spot-360.png",
+      "viewport": "360x1000",
+      "primary_asset_visible": true,
+      "text_fits": true,
+      "overlap_detected": false
+    },
+    {
+      "path": "after-spot-768.png",
+      "viewport": "768x1000",
+      "primary_asset_visible": true,
+      "text_fits": true,
+      "overlap_detected": false
+    }
+  ],
+  "console_errors": [],
+  "interactions": [
+    {
+      "name": "Selected window, keyboard, reload and Back at 360/768/1440px",
+      "passed": true,
+      "evidence": "e2e-final.log"
+    },
+    {
+      "name": "Share action separation at tablet and desktop",
+      "passed": true,
+      "evidence": "e2e-final.log"
+    },
+    {
+      "name": "Readable day cards at each viewport",
+      "passed": true,
+      "evidence": "e2e-final.log"
+    },
+    {
+      "name": "Unavailable selected day and Explore forecast",
+      "passed": true,
+      "evidence": "e2e-final.log"
+    },
+    {
+      "name": "Camera hub HTTP 200",
+      "passed": true,
+      "evidence": "e2e-final.log"
+    }
+  ]
+}

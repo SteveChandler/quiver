@@ -77,6 +77,14 @@ function dayForecast(day: number, overrides: Partial<EnhancedForecastEntity> = {
 }
 
 describe("buildSurfWindowRecommendations", () => {
+  it("renders existing feet units once without changing raw measurements", () => {
+    const result = buildBeachSurfWindowRecommendations(makeBeach(), [makeForecast({ wave_height: "3-4 ft", tide_height: "-0.5 ft" })], { now: NOW });
+    expect(result.recommendations).toHaveLength(1);
+    expect(result.recommendations[0].wave.summary).toContain("3-4 ft at");
+    expect(result.recommendations[0].tide.summary).toBe("Rising, -0.5 ft");
+    expect(result.recommendations[0].wave.height).toBe("3-4 ft");
+  });
+
   it("returns top 3 ranked recommendations for normal beach input", () => {
     const result = buildBeachSurfWindowRecommendations(
       makeBeach(),

@@ -177,7 +177,7 @@ function waveSummary(row: EnhancedForecastEntity): SurfWindowRecommendation["wav
   const period = row.wave_period ?? row.swell_1_period ?? null;
   const direction = row.wave_direction ?? row.swell_1_direction ?? null;
   const pieces = [
-    height ? `${height} ft` : null,
+    height ? `${height.replace(/\s*ft$/i, "")} ft` : null,
     period ? `at ${period}` : null,
     direction ? `from ${direction}` : null,
   ].filter(Boolean);
@@ -218,7 +218,7 @@ function tideSummary(
   const nextTideAt = row.next_tide_at ?? row.next_tide_time ?? null;
   const summary =
     status || height
-      ? `${[status, height ? `${height} ft` : null].filter(Boolean).join(", ")}`
+      ? `${[status, height ? `${height.replace(/\s*ft$/i, "")} ft` : null].filter(Boolean).join(", ")}`
       : "Tide data is unavailable";
 
   return {

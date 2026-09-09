@@ -1,0 +1,326 @@
+yarn run v1.22.17
+$ NODE_OPTIONS="${NODE_OPTIONS:-} --disable-warning=DEP0040" jest --runInBand __tests__/lib/media/cam-thumbnail.test.ts __tests__/lib/recommendations/surf-window-recommendations.test.ts
+⚠️  Environment Configuration Warnings:
+   • SUPABASE_SERVICE_ROLE_KEY not set - admin operations will fail
+   • NEXT_PUBLIC_SITE_URL not set - OAuth redirects may not work correctly
+FAIL __tests__/lib/media/cam-thumbnail.test.ts
+  ● getDisplayCamThumbnailUrls › uses a beach photo before the generic fallback when provided
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+      Array [
+    -   "/api/image-proxy?url=https%3A%2F%2Fphotos.example%2Fbeach.jpg",
+    +   "https://photos.example/beach.jpg",
+        "/images/og-location-default.jpg",
+      ]
+
+      259 |         fallbackImageUrl: "https://photos.example/beach.jpg",
+      260 |       }),
+    > 261 |     ).toEqual([
+          |       ^
+      262 |       "/api/image-proxy?url=https%3A%2F%2Fphotos.example%2Fbeach.jpg",
+      263 |       CAM_CARD_FALLBACK_IMAGE_URL,
+      264 |     ]);
+
+      at Object.toEqual (__tests__/lib/media/cam-thumbnail.test.ts:261:7)
+
+FAIL __tests__/lib/recommendations/surf-window-recommendations.test.ts
+  ● Console
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 4 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-16, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-17, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-18, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 4 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach B: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Beach B: No same-day sunset found for 2024-01-16, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach B: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach A: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Beach A: No same-day sunset found for 2024-01-16, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach A: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach B: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Beach B: No same-day sunset found for 2024-01-16, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach B: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach A: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Beach A: No same-day sunset found for 2024-01-16, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach A: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 3 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-16, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-20, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 3 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 2 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-24, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 2 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 4 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-16, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-17, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-18, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 4 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+  ● buildSurfWindowRecommendations › renders existing feet units once without changing raw measurements
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected substring: "3-4 ft at"
+    Received string:    "3-4 ft ft at 12s from W"
+
+      81 |     const result = buildBeachSurfWindowRecommendations(makeBeach(), [makeForecast({ wave_height: "3-4 ft", tide_height: "-0.5 ft" })], { now: NOW });
+      82 |     expect(result.recommendations).toHaveLength(1);
+    > 83 |     expect(result.recommendations[0].wave.summary).toContain("3-4 ft at");
+         |                                                    ^
+      84 |     expect(result.recommendations[0].tide.summary).toBe("Rising, -0.5 ft");
+      85 |     expect(result.recommendations[0].wave.height).toBe("3-4 ft");
+      86 |   });
+
+      at Object.toContain (__tests__/lib/recommendations/surf-window-recommendations.test.ts:83:52)
+
+Test Suites: 2 failed, 2 total
+Tests:       2 failed, 42 passed, 44 total
+Snapshots:   0 total
+Time:        2.14 s
+Ran all test suites matching /__tests__\/lib\/media\/cam-thumbnail.test.ts|__tests__\/lib\/recommendations\/surf-window-recommendations.test.ts/i.
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.

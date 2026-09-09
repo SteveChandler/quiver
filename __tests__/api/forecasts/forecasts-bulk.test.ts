@@ -9,6 +9,12 @@ import {
   setupApiTestEnvironment,
 } from "@/test-utils/api-test-helpers";
 
+import { getCachedRateLimiter } from "@/lib/utils/enhanced-rate-limiter";
+import { RATE_LIMITS } from "@/lib/api/rate-limit-config";
+
+// The route owns a real cleanup interval; release it after this test module.
+afterAll(() => getCachedRateLimiter("forecast-bulk", RATE_LIMITS["forecast-bulk"]).destroy());
+
 interface ForecastsBulkResponse {
   forecasts: Record<string, number>;
   displayForecasts: Record<string, {

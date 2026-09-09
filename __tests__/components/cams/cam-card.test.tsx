@@ -1,6 +1,7 @@
 import { forwardRef, type ImgHTMLAttributes } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 
+import { CamsHeroContactSheet } from "@/components/cams/cams-hero-contact-sheet";
 import { CamCard } from "@/components/cams/cam-card";
 import { CAM_CARD_FALLBACK_IMAGE_URL } from "@/lib/media/cam-thumbnail";
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
@@ -63,7 +64,7 @@ describe("CamCard", () => {
 
     expect(screen.getByAltText("Test Beach live camera")).toHaveAttribute(
       "src",
-      "https://photos.example/test-beach.jpg",
+      "/api/image-proxy?url=https%3A%2F%2Fphotos.example%2Ftest-beach.jpg",
     );
     expect(screen.queryByText("Preview unavailable")).not.toBeInTheDocument();
   });
@@ -110,3 +111,13 @@ describe("CamCard", () => {
     expect(screen.getByText("Open cam page →")).toBeInTheDocument();
   });
 });
+
+ it("routes untrusted hero photos through the proxy and falls back when rejected", () => {
+   render(<CamsHeroContactSheet beaches={[{ ...baseBeach, camera_url: "https://example.com/cam", thumbnail_url: null, photo_url: "https://untrusted.example/photo.jpg" }]} label="Featured cameras" />);
+   const image = screen.getByAltText("Test Beach surf cam preview");
+   expect(image).toHaveAttribute("src", "/api/image-proxy?url=https%3A%2F%2Funtrusted.example%2Fphoto.jpg");
+   fireEvent.error(image);
+   expect(image).toHaveAttribute("src", CAM_CARD_FALLBACK_IMAGE_URL);
+   fireEvent.error(image);
+   expect(image).toHaveAttribute("src", CAM_CARD_FALLBACK_IMAGE_URL);
+ });

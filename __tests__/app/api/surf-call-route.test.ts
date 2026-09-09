@@ -51,6 +51,17 @@ jest.mock("@/lib/recommendations/canonical-decision", () => ({
     mockResolveCanonicalSessionDecisionContext(...args),
 }));
 
+const mockDiscoverSurfSpots = jest.fn();
+jest.mock("@/lib/services/surf-discovery-service", () => ({
+  discoverSurfSpots: (...args: unknown[]) => mockDiscoverSurfSpots(...args),
+}));
+
+jest.mock("@/lib/services/discovery/major-event-hold", () => ({
+  sanitizeSurfDiscoveryForSerializationMajorEventHold: jest.fn(
+    async (discovery: unknown) => discovery,
+  ),
+}));
+
 const mockGetProfileExperienceLevel = jest.fn();
 jest.mock("@/lib/profile/skill-level", () => ({
   getProfileExperienceLevel: (...args: unknown[]) =>
@@ -750,5 +761,159 @@ describe("GET /api/surf/call", () => {
         holdEpoch: "major-event-epoch",
       });
     });
+  });
+});
+
+describe("GET /api/surf/call includeNow", () => {
+  const beachId = "11111111-1111-4111-8111-111111111111";
+
+  function nowDiscovery(overrides: { start?: Date; end?: Date; availabilityState?: "available" | "none" } = {}) {
+    const now = Date.now();
+    const start = overrides.start ?? new Date(now - 30 * 60 * 1000);
+    const end = overrides.end ?? new Date(now + 2 * 60 * 60 * 1000);
+    return {
+      recommendations: [
+        {
+          recommendationId: `beach:${beachId}:now`,
+          beach: { id: beachId, name: "Ocean Beach Pier", lat: 32.75, lon: -117.25 },
+          window: {
+            start,
+            end,
+            peakTime: start,
+            timezone: "America/Los_Angeles",
+            tide: "rising",
+            wind: "5 mph N",
+            waveHeight: "5-6 ft",
+            wavePeriod: "12s",
+            confidence: 80,
+            score: 62,
+          },
+          forecast: { wave_height: "5-6 ft", wind_speed: "5 mph" },
+          score: 62,
+          recommendationLabel: "Maybe",
+          reasons: [],
+        },
+      ],
+      includedRecommendations: [],
+      recommendationAvailability: {
+        state: overrides.availabilityState ?? "available",
+        holdEpoch: "now-test",
+        ...(overrides.availabilityState === "none"
+          ? { reasonCode: "major_event_hold" }
+          : {}),
+      },
+      searchCriteria: { maxResults: 1 },
+      metadata: { outcome: "success", generated_at: new Date().toISOString() },
+    };
+  }
+
+  function mockEligibleBeach() {
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+  }
+
+  it("does not run now-mode discovery unless asked", async () => {
+    mockEligibleBeach();
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`),
+    );
+    const body = await response.json();
+
+    expect(mockDiscoverSurfSpots).not.toHaveBeenCalled();
+    expect(body.data).not.toHaveProperty("nowRecommendation");
+  });
+
+  it("returns the beach's now-mode recommendation from the same discovery Home runs", async () => {
+    mockEligibleBeach();
+    mockDiscoverSurfSpots.mockResolvedValue(nowDiscovery());
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&includeNow=1`),
+    );
+    const body = await response.json();
+
+    expect(mockDiscoverSurfSpots).toHaveBeenCalledWith(
+      mockUser.id,
+      expect.objectContaining({
+        discoveryMode: "now",
+        includeBeachIds: [beachId],
+        candidatePoolLimit: 1,
+        userLocation: { lat: 32.75, lon: -117.25 },
+      }),
+    );
+    expect(body.data.nowRecommendation).toMatchObject({
+      beach: { id: beachId },
+      score: 62,
+      recommendationLabel: "Maybe",
+    });
+    // The surf call itself is untouched.
+    expect(body.data.report.verdict).toBe("MAYBE");
+  });
+
+  it("returns null when the now window has closed or the discovery is held", async () => {
+    mockEligibleBeach();
+    mockDiscoverSurfSpots.mockResolvedValueOnce(
+      nowDiscovery({
+        start: new Date(Date.now() - 4 * 60 * 60 * 1000),
+        end: new Date(Date.now() - 60 * 60 * 1000),
+      }),
+    );
+    let response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&includeNow=1`),
+    );
+    expect((await response.json()).data.nowRecommendation).toBeNull();
+
+    mockDiscoverSurfSpots.mockResolvedValueOnce(nowDiscovery({ availabilityState: "none" }));
+    response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&includeNow=1`),
+    );
+    expect((await response.json()).data.nowRecommendation).toBeNull();
+  });
+
+  it("never fails the surf call because the now-mode discovery failed", async () => {
+    mockEligibleBeach();
+    mockDiscoverSurfSpots.mockRejectedValue(
+      Object.assign(new Error("Forecast service unavailable"), { code: "forecast_unavailable" }),
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&includeNow=1`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.nowRecommendation).toBeNull();
+    expect(body.data.report.verdict).toBe("MAYBE");
+  });
+
+  it("withholds the now recommendation for a recommendation-ineligible beach", async () => {
+    mockBeachQuery({
+      id: beachId,
+      name: "College Cove",
+      slug: "college-cove-ca",
+      lat: 41.067,
+      lon: -124.1517,
+      timezone: "America/Los_Angeles",
+      recommendation_eligible: false,
+      preference_model: { eligibility_reason: "Trail closed." },
+      deleted_at: null,
+    });
+    mockDiscoverSurfSpots.mockResolvedValue(nowDiscovery());
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&includeNow=1`),
+    );
+    const body = await response.json();
+
+    expect(body.data.nowRecommendation).toBeNull();
+    expect(body.data.report.verdict).toBe("NO");
   });
 });

@@ -1,0 +1,40 @@
+
+Running 1 test using 1 worker
+
+(node:31566) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:31566) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [guest] › e2e/guest-forecast-decision-journey.spec.ts:78:7 › Forecast decision journey › hero share control does not overlap its links on tablet or desktop (4.2s)
+
+
+  1) [guest] › e2e/guest-forecast-decision-journey.spec.ts:78:7 › Forecast decision journey › hero share control does not overlap its links on tablet or desktop
+
+    Error: Share overlaps Sign up for YOUR home beach at 768px
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: false
+    Received: true
+
+      88 |         const overlaps = shareBox.x < box.x + box.width && shareBox.x + shareBox.width > box.x
+      89 |           && shareBox.y < box.y + box.height && shareBox.y + shareBox.height > box.y;
+    > 90 |         expect(overlaps, `Share overlaps ${await link.innerText()} at ${width}px`).toBe(false);
+         |                                                                                    ^
+      91 |       }
+      92 |       await expect(share).toContainText("Share forecast");
+      93 |     }
+        at /Users/stevenchandler/Desktop/dev/quiver/.worktrees/forecast-decision-review-main/e2e/guest-forecast-decision-journey.spec.ts:90:84
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/guest-forecast-decision-jo-ed12d--links-on-tablet-or-desktop-guest/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/guest-forecast-decision-jo-ed12d--links-on-tablet-or-desktop-guest/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/guest-forecast-decision-jo-ed12d--links-on-tablet-or-desktop-guest/error-context.md
+
+  1 failed
+    [guest] › e2e/guest-forecast-decision-journey.spec.ts:78:7 › Forecast decision journey › hero share control does not overlap its links on tablet or desktop

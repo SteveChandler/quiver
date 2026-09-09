@@ -56,12 +56,9 @@ export function ZinePageShell({
             headingSuffix={heroHeadingSuffix}
             summarySlot={heroSummarySlot}
             forecastSlot={heroForecastSlot}
-          />
-
-          {/* Integrated tabs row + per-tab content lives inside the cream paper */}
-          <div className="zine-tabs-slot mt-7">
-            {children}
-          </div>
+          >
+            <div className="zine-tabs-slot mt-7 min-w-0">{children}</div>
+          </ZineHero>
 
           <ZineFooter city={beach.city} state={beach.state} />
         </div>

@@ -27,6 +27,14 @@ export const maxDuration = 300;
 
 const MAX_DURATION_SECONDS = 300;
 const DEFAULT_SAFETY_MARGIN_MS = 20_000;
+const MARINE_INPUT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+function usableWaveObservation(row: { ts: string; wave_height_m: unknown; wave_period_s: unknown }, nowMs: number): boolean {
+  const timestamp = Date.parse(row.ts);
+  return Number.isFinite(timestamp) && timestamp <= nowMs && nowMs - timestamp < MARINE_INPUT_MAX_AGE_MS
+    && typeof row.wave_height_m === "number" && Number.isFinite(row.wave_height_m) && row.wave_height_m >= 0
+    && typeof row.wave_period_s === "number" && Number.isFinite(row.wave_period_s) && row.wave_period_s > 0;
+}
 
 function getCronDeadlineMs(): { deadlineMs: number; timeBudgetMs: number; safetyMarginMs: number } {
   const hardLimitMs = MAX_DURATION_SECONDS * 1000;
@@ -196,18 +204,29 @@ async function _GET(request: Request): Promise<Response> {
       const staleThresholdMs = nowMs - args.windowHours * 60 * 60 * 1000;
       const latestByBeachMs = new Map<string, number>();
 
-      const { data, error } = await supabase
-        .from(args.view)
-        .select(`beach_id, ${args.tsField}`);
-      if (error) throw error;
-
-      for (const row of (data ?? []) as any[]) {
-        const beachId = row?.beach_id as string | undefined;
-        const ts = row?.[args.tsField] as string | undefined;
-        if (!beachId || !ts) continue;
-        const ms = new Date(ts).getTime();
-        if (!Number.isFinite(ms)) continue;
-        latestByBeachMs.set(beachId, ms);
+      if (args.view === "v_marine_forecast_latest") {
+        // The latest-row view may contain only wind; skip only usable observations.
+        for (let offset = 0; ; offset += 1000) {
+          const { data, error } = await supabase.from("marine_forecasts")
+            .select("id, beach_id, ts, wave_height_m, wave_period_s")
+            .eq("is_observed", true).in("source", ["cdip", "ndbc"])
+            .gte("ts", new Date(nowMs - MARINE_INPUT_MAX_AGE_MS).toISOString())
+            .lte("ts", new Date(nowMs).toISOString())
+            .order("id").range(offset, offset + 999);
+          if (error) throw error;
+          for (const row of data ?? []) {
+            if (!usableWaveObservation(row, nowMs)) continue;
+            latestByBeachMs.set(row.beach_id, Math.max(latestByBeachMs.get(row.beach_id) ?? 0, Date.parse(row.ts)));
+          }
+          if (!data || data.length < 1000) break;
+        }
+      } else {
+        const { data, error } = await supabase.from(args.view).select(`beach_id, ${args.tsField}`);
+        if (error) throw error;
+        for (const row of (data ?? []) as any[]) {
+          const ms = Date.parse(row?.[args.tsField]);
+          if (row?.beach_id && Number.isFinite(ms)) latestByBeachMs.set(row.beach_id, ms);
+        }
       }
 
       const missing = args.beaches.filter((b) => !latestByBeachMs.has(b.id));
@@ -218,7 +237,10 @@ async function _GET(request: Request): Promise<Response> {
         })
         .sort((a, b) => (latestByBeachMs.get(a.id) ?? 0) - (latestByBeachMs.get(b.id) ?? 0));
 
-      const selected = [...missing, ...stale].slice(0, args.maxBeaches);
+      const candidates = args.view === "v_marine_forecast_latest"
+        ? args.beaches.filter(b => !latestByBeachMs.has(b.id) || (latestByBeachMs.get(b.id) ?? 0) < staleThresholdMs)
+        : [...missing, ...stale];
+      const selected = candidates.slice(0, args.maxBeaches);
       return selected;
     };
 
@@ -233,15 +255,45 @@ async function _GET(request: Request): Promise<Response> {
               ? 261
               : 60;
 
+    // Wave-cache timestamps retain input age; retries must not renew old observations.
+    const marineCoverage = {
+      expectedCoverage: 0, actualCoverage: 0, attemptedCoverage: 0,
+      lastAttemptedBeachId: null as string | null,
+      rejectionCounts: {} as Record<string, number>,
+      providerOutcomes: {} as Record<string, number>,
+    };
+    const rejectMarine = (reason: string): void => {
+      marineCoverage.rejectionCounts[reason] = (marineCoverage.rejectionCounts[reason] ?? 0) + 1;
+    };
+    // Resume after the last attempted beach, including runs with zero usable output.
+    // Missing providers must not monopolize every bounded hourly invocation.
+    let marineInventory = allBeaches;
+    if (runMarine) {
+      const { data: last, error } = await supabase.from("cron_runs").select("summary")
+        .eq("route", `/api/cron/forecasts/refresh?source=${source}`)
+        .not("summary->result->marineCoverage->>lastAttemptedBeachId", "is", null)
+        .order("started_at", { ascending: false }).limit(1).maybeSingle();
+      if (error) throw error;
+      const summary = last?.summary;
+      const result = summary && typeof summary === "object" && !Array.isArray(summary) ? summary.result : null;
+      const coverage = result && typeof result === "object" && !Array.isArray(result) ? result.marineCoverage : null;
+      const cursor = coverage && typeof coverage === "object" && !Array.isArray(coverage) ? coverage.lastAttemptedBeachId : null;
+      marineCoverage.lastAttemptedBeachId = typeof cursor === "string" ? cursor : null;
+      const sorted = [...allBeaches].sort((a, b) => a.id.localeCompare(b.id));
+      const after = sorted.findIndex(b => b.id === cursor) + 1;
+      marineInventory = [...sorted.slice(after), ...sorted.slice(0, after)];
+    }
     const selectedMarineBeaches = runMarine
       ? await selectStaleBeaches({
           view: "v_marine_forecast_latest",
           tsField: "created_at",
           windowHours: MARINE_FRESHNESS_WINDOW_HOURS,
-          beaches: allBeaches,
+          beaches: marineInventory,
           maxBeaches: Math.min(effectiveMaxBeaches, allBeaches.length),
         })
       : [];
+
+    marineCoverage.expectedCoverage = selectedMarineBeaches.length;
 
     const selectedSunBeaches = runSun
       ? await selectStaleBeaches({
@@ -306,6 +358,16 @@ async function _GET(request: Request): Promise<Response> {
             let addedSun = 0;
 
             if (runMarine) {
+              marineCoverage.attemptedCoverage += 1;
+              marineCoverage.lastAttemptedBeachId = b.id;
+              let waveWritten = false;
+              const writeMarine = async (rows: Record<string, unknown>[]): Promise<boolean> => {
+                const { error } = await supabase.from("marine_forecasts")
+                  .upsert(rows as any[], { onConflict: "beach_id,ts,source" });
+                if (error) { rejectMarine("write_failed"); return false; }
+                addedMarine += rows.length;
+                return true;
+              };
               // Marine from NDBC/CDIP
               try {
                 const marineRows: any[] = [];
@@ -313,11 +375,11 @@ async function _GET(request: Request): Promise<Response> {
                 if (ndbc) {
                   const obs = await fetchLatestNDBCObservation(ndbc.id);
                   // Only use observations with valid wave height data
-                  if (obs && obs.wave_height_m !== null) {
+                  if (obs && usableWaveObservation(obs, nowMs)) {
                     marineRows.push({
                       beach_id: b.id,
                       ts: obs.ts,
-                      created_at: refreshedAt,
+                      created_at: obs.ts,
                       wave_height_m: obs.wave_height_m,
                       wave_period_s: obs.wave_period_s,
                       wave_direction_deg: obs.wave_direction_deg,
@@ -329,22 +391,32 @@ async function _GET(request: Request): Promise<Response> {
                   }
                 }
                 if (!marineRows.length) {
-                  const station = await cdip.getNearestStation(b.lat, b.lon, 80);
-                  if (station) {
-                    const buoy = await cdip.fetchBuoyData(station);
-                    const points = buoy?.data || [];
+                  const excluded: string[] = [];
+                  for (let attempt = 0; attempt < 2 && !marineRows.length; attempt++) {
+                    const station = await cdip.getNearestStation(b.lat, b.lon, 80, excluded);
+                    if (!station) break;
+                    excluded.push(station);
+                    const diagnostic = await cdip.fetchBuoyDataWithDiagnostics(station);
+                    const outcome = diagnostic.skipReason;
+                    marineCoverage.providerOutcomes[outcome] = (marineCoverage.providerOutcomes[outcome] ?? 0) + 1;
+                    const points = diagnostic.data?.data || [];
                     if (points.length > 0) {
-                      // Upsert up to last 24 hours of observations to increase coverage
-                      const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+                      // Keep only observations usable by the derived-hazard consumer.
                       for (const p of points) {
-                        const ts = new Date(p.timestamp).toISOString();
-                        if (new Date(ts).getTime() < cutoffMs) continue;
+                        if (!p) continue;
+                        const row = {
+                          ts: p.timestamp,
+                          wave_height_m: typeof p.significantWaveHeight === "number" ? p.significantWaveHeight * 0.3048 : null,
+                          wave_period_s: p.peakWavePeriod ?? null,
+                        };
+                        if (!usableWaveObservation(row, nowMs)) continue;
+                        const ts = new Date(row.ts).toISOString();
                         marineRows.push({
                           beach_id: b.id,
                           ts,
-                          created_at: refreshedAt,
-                          wave_height_m: p.significantWaveHeight ? p.significantWaveHeight * 0.3048 : null,
-                          wave_period_s: p.peakWavePeriod ?? null,
+                          created_at: ts,
+                          wave_height_m: row.wave_height_m,
+                          wave_period_s: row.wave_period_s,
                           wave_direction_deg: p.peakWaveDirection ?? null,
                           wind_speed_ms: null,
                           wind_direction_deg: null,
@@ -355,12 +427,9 @@ async function _GET(request: Request): Promise<Response> {
                     }
                   }
                 }
-                if (marineRows.length) {
-                  const { error } = await supabase
-                    .from("marine_forecasts")
-                    .upsert(marineRows, { onConflict: "beach_id,ts,source" });
-                  if (!error) addedMarine += marineRows.length;
-                }
+                const usableRows = marineRows.filter(row => usableWaveObservation(row, nowMs));
+                if (usableRows.length) waveWritten = await writeMarine(usableRows);
+                else rejectMarine("missing_wave_observation");
 
                 // Short-horizon persistence projection (no Open-Meteo). Carry forward latest observed
                 try {
@@ -374,8 +443,9 @@ async function _GET(request: Request): Promise<Response> {
                     .limit(1)
                     .maybeSingle();
 
+                  if (latestObserved.error) throw new Error("marine cache read failed");
                   const base = latestObserved.data as any | null;
-                  if (base && base.ts && (base.wave_height_m || base.wave_period_s || base.wave_direction_deg)) {
+                  if (base && usableWaveObservation(base, nowMs)) {
                     const horizonHours = 12;
                     const start = new Date();
                     const roundedStart = new Date(Math.ceil(start.getTime() / 3600000) * 3600000);
@@ -385,7 +455,7 @@ async function _GET(request: Request): Promise<Response> {
                       projections.push({
                         beach_id: b.id,
                         ts: t.toISOString(),
-                        created_at: refreshedAt,
+                        created_at: base.ts,
                         wave_height_m: base.wave_height_m ?? null,
                         wave_period_s: base.wave_period_s ?? null,
                         wave_direction_deg: base.wave_direction_deg ?? null,
@@ -397,17 +467,14 @@ async function _GET(request: Request): Promise<Response> {
                     }
 
                     if (projections.length) {
-                      const { error: pErr } = await supabase
-                        .from("marine_forecasts")
-                        .upsert(projections, { onConflict: "beach_id,ts,source" });
-                      if (!pErr) addedMarine += projections.length;
+                      waveWritten = (await writeMarine(projections)) || waveWritten;
                     }
                   }
                 } catch (projErr) {
-                  console.warn("marine persistence projection failed", b.name, projErr);
+                  rejectMarine("projection_failed");
                 }
               } catch (e) {
-                console.warn("marine ingest error", b.name, e);
+                rejectMarine("wave_fetch_failed");
               }
 
               // Wind-only hourly rows from NOAA/NWS (fill missing wind for scoring; do not overwrite wave rows)
@@ -435,15 +502,12 @@ async function _GET(request: Request): Promise<Response> {
                     is_observed: false,
                   }));
 
-                  const { error } = await supabase
-                    .from("marine_forecasts")
-                    .upsert(windRows, { onConflict: "beach_id,ts,source" });
-
-                  if (!error) addedMarine += windRows.length;
+                  await writeMarine(windRows);
                 }
               } catch (e) {
-                console.warn("nws wind ingest error", b.name, e);
+                rejectMarine("wind_fetch_failed");
               }
+              if (waveWritten) marineCoverage.actualCoverage += 1;
             }
 
             if (runSun) {
@@ -720,7 +784,9 @@ async function _GET(request: Request): Promise<Response> {
           : source === "sun"
             ? "sun_events_written"
             : "forecast_rows_written";
-    return createSuccessResponse(await withCronOutcome(
+    const marineIncomplete = (): boolean => runMarine && (marineCoverage.actualCoverage < marineCoverage.expectedCoverage
+      || Object.keys(marineCoverage.rejectionCounts).length > 0);
+    const result = await withCronOutcome(
       {
         job: `/api/cron/forecasts/refresh?source=${source}`,
         unit,
@@ -731,13 +797,20 @@ async function _GET(request: Request): Promise<Response> {
           if (source === "sun") return value.totals.sun;
           return value.totals.marine + value.totals.tides + value.totals.sun;
         },
+        onPersistenceFailure: runMarine ? () => rejectMarine("cursor_write_failed") : undefined,
+        failureReason: () => marineIncomplete() ? "marine coverage incomplete" : null,
         legitimatelyZero: (value) =>
-          value.totals.beaches === 0
-            ? { reason: "No beaches with coordinates were targeted by this refresh" }
+          (runMarine && marineCoverage.expectedCoverage === 0) || value.totals.beaches === 0
+            ? { reason: runMarine && marineCoverage.expectedCoverage === 0
+                ? "No marine caches require refresh" : "No beaches with coordinates were targeted by this refresh" }
             : undefined,
       },
-      async () => ({ totals }),
-    ));
+      async () => ({ totals, ...(runMarine ? { marineCoverage } : {}) }),
+    );
+    if (marineIncomplete()) {
+      return Response.json({ success: false, error: "Marine coverage incomplete", data: result }, { status: 503 });
+    }
+    return createSuccessResponse(result);
   } catch (error) {
     return handleApiError(error);
   }

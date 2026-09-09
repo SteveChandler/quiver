@@ -177,11 +177,11 @@ export function WhyThisCall({
         </AccordionTrigger>
         <AccordionContent className="px-3 pb-4 pt-1">
           <div className="grid gap-4 sm:grid-cols-2">
-            <section aria-label="Positive signals" className="space-y-2">
+            {variant !== "zine" && <><section aria-label="Positive signals" className="space-y-2">
               <h4
                 className={cn(
                   "font-heading text-sm font-semibold",
-                  variant === "zine" ? "text-[#11100D]" : "text-white",
+                  "text-white",
                 )}
               >
                 Positive signals
@@ -197,7 +197,7 @@ export function WhyThisCall({
               <h4
                 className={cn(
                   "font-heading text-sm font-semibold",
-                  variant === "zine" ? "text-[#11100D]" : "text-white",
+                  "text-white",
                 )}
               >
                 Watchouts
@@ -209,6 +209,7 @@ export function WhyThisCall({
                 variant={variant}
               />
             </section>
+            </>}
             <section aria-label="Confidence" className="space-y-2">
               <h4
                 className={cn(
@@ -218,6 +219,7 @@ export function WhyThisCall({
               >
                 Confidence
               </h4>
+              {variant === "zine" && <p className="text-sm">Surf window score: {recommendation.score}/100 · Forecast confidence: {recommendation.confidence.score}/100 (data confidence, not a guarantee).</p>}
               {/* Demoted from the card badge row — confidence detail belongs with the explanation */}
               <SourceConfidenceBadge
                 confidence={recommendation.confidence}

@@ -73,18 +73,8 @@ function coerceDate(value: Date | string | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function headlineForScore(peakScore: number, regionName: string): string {
-  if (peakScore >= 75) return `${regionName} is lit.`;
-  if (peakScore >= 60) return `${regionName} is on this week.`;
-  if (peakScore >= 45) return `${regionName} — fun-size midweek.`;
-  return `Calm week in ${regionName} — go longboard.`;
-}
-
-function pullquoteForScore(peakScore: number): string {
-  if (peakScore >= 75) return "go go go";
-  if (peakScore >= 60) return "worth the paddle";
-  if (peakScore >= 45) return "take a friend";
-  return "flat — longboard it";
+function headlineForScore(_peakScore: number, regionName: string): string {
+  return `${regionName} this week.`;
 }
 
 function windDescriptor(
@@ -116,7 +106,7 @@ function computeHeadlineAngle(
     (best, d) => (d.score > best.score ? d : best),
     summary.days[0]
   );
-  const dayName = peakDay.dayOfWeek;
+  const dayName = `${peakDay.dayOfWeek}, ${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(peakDay.date))}`;
   const setHeight = formatWaveHeightRange(peakDay.avgWaveHeight);
   const size = getWaveSizeDescription(peakDay.avgWaveHeight);
   const wind = windDescriptor(peakDay.windConditions);
@@ -195,9 +185,6 @@ export function RegionalCallHero({
   const photoAlt = summary?.photoBeachName
     ? `${summary.photoBeachName}, ${region.name}`
     : region.name;
-  const pullquote = recommendationsAvailable
-    ? pullquoteForScore(angle.peakScore)
-    : null;
 
   useEffect(() => {
     const hero = heroRef.current;
@@ -378,99 +365,6 @@ export function RegionalCallHero({
         </div>
       )}
 
-      {/* Bottom-right handwritten pullquote — score-keyed, Caveat font.
-          Acts as a share button: opens native share sheet on mobile, falls
-          back to clipboard-copy + toast on desktop browsers that lack the
-          Web Share API. Every tier is interactive (per /over scope). */}
-      {pullquote ? (
-        <button
-          type="button"
-          onClick={() => {
-          // Prefer the build-time canonical origin. When absent (e.g. a preview
-          // env that didn't set `NEXT_PUBLIC_SITE_URL`) fall back to a relative
-          // URL — `navigator.share` + `clipboard.writeText` both resolve it
-          // against the current location, so the share recipient still gets
-          // an absolute URL from their OS share sheet.
-          const origin = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
-          const url = `${origin}/forecast?region=${region.slug}`;
-          const payload = {
-            title: `${region.name} surf forecast`,
-            text: angle.headline,
-            url,
-          };
-          const fireEvent = () => {
-            try {
-              fetch("/api/events", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  event: "forecast_share",
-                  properties: {
-                    region: region.slug,
-                    surface: "hero-pullquote",
-                    peak_score: angle.peakScore,
-                  },
-                }),
-                keepalive: true,
-              }).catch(() => {});
-            } catch {
-              /* no-op */
-            }
-          };
-
-          (async () => {
-            if (
-              typeof navigator !== "undefined" &&
-              typeof navigator.share === "function"
-            ) {
-              try {
-                if (
-                  typeof navigator.canShare !== "function" ||
-                  navigator.canShare(payload)
-                ) {
-                  await navigator.share(payload);
-                  fireEvent();
-                  return;
-                }
-              } catch (err) {
-                if ((err as Error).name === "AbortError") return;
-                // fall through to clipboard
-              }
-            }
-            try {
-              await navigator.clipboard.writeText(url);
-              toast.success("Link copied — send it to your crew");
-              fireEvent();
-            } catch {
-              toast.error("Couldn't copy the link");
-            }
-          })();
-          }}
-          aria-label={`Share ${region.name}'s forecast`}
-          className="group absolute bottom-5 right-5 hidden max-w-[16rem] flex-col items-end gap-0.5 rounded-[10px_4px_14px_4px] text-right transition-transform hover:scale-[1.04] hover:rotate-[-1.5deg] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B] motion-reduce:hover:scale-100 motion-reduce:hover:rotate-0 sm:right-8 sm:bottom-8 sm:inline-flex md:text-3xl"
-          style={{
-            willChange: "transform",
-            transform: stickerTransform(11, 7, -30, "-3deg"),
-          }}
-        >
-          {/* Gold rather than orange: over the photo scrim the orange sat at
-              2.9:1, under AA even for large display text. */}
-          <span className="inline-flex items-center gap-2 font-[var(--font-handwritten)] text-2xl leading-tight text-[#FDB84B] md:text-3xl">
-            <span className="whitespace-nowrap">{pullquote}</span>
-            <Share2
-              aria-hidden="true"
-              className="h-4 w-4 shrink-0 opacity-70 transition-opacity group-hover:opacity-100 md:h-5 md:w-5"
-            />
-          </span>
-          <span
-            aria-hidden="true"
-            className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-[#F4EBD8] transition-colors group-hover:text-[#FDB84B]"
-          >
-            Tap to share
-          </span>
-        </button>
-      ) : null}
-
       <div className="relative flex flex-col gap-6">
         {/* Date sticker + wave-height tag + region chip */}
         <div className="flex flex-wrap items-center gap-3">
@@ -591,6 +485,95 @@ export function RegionalCallHero({
           )}
         </div>
       </div>
+
+      {recommendationsAvailable ? (
+        <button
+          type="button"
+          onClick={() => {
+          // Prefer the build-time canonical origin. When absent (e.g. a preview
+          // env that didn't set `NEXT_PUBLIC_SITE_URL`) fall back to a relative
+          // URL — `navigator.share` + `clipboard.writeText` both resolve it
+          // against the current location, so the share recipient still gets
+          // an absolute URL from their OS share sheet.
+          const origin = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
+          const url = `${origin}/forecast?region=${region.slug}`;
+          const payload = {
+            title: `${region.name} surf forecast`,
+            text: angle.headline,
+            url,
+          };
+          const fireEvent = () => {
+            try {
+              fetch("/api/events", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  event: "forecast_share",
+                  properties: {
+                    region: region.slug,
+                    surface: "hero-pullquote",
+                    peak_score: angle.peakScore,
+                  },
+                }),
+                keepalive: true,
+              }).catch(() => {});
+            } catch {
+              /* no-op */
+            }
+          };
+
+          (async () => {
+            if (
+              typeof navigator !== "undefined" &&
+              typeof navigator.share === "function"
+            ) {
+              try {
+                if (
+                  typeof navigator.canShare !== "function" ||
+                  navigator.canShare(payload)
+                ) {
+                  await navigator.share(payload);
+                  fireEvent();
+                  return;
+                }
+              } catch (err) {
+                if ((err as Error).name === "AbortError") return;
+                // fall through to clipboard
+              }
+            }
+            try {
+              await navigator.clipboard.writeText(url);
+              toast.success("Link copied — send it to your crew");
+              fireEvent();
+            } catch {
+              toast.error("Couldn't copy the link");
+            }
+          })();
+          }}
+          aria-label={`Share ${region.name}'s forecast`}
+          className="group relative ml-auto mt-7 hidden w-fit max-w-[16rem] flex-col items-end gap-0.5 rounded-[10px_4px_14px_4px] text-right transition-transform hover:scale-[1.04] hover:rotate-[-1.5deg] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B] motion-reduce:hover:scale-100 motion-reduce:hover:rotate-0 sm:flex md:text-3xl"
+          style={{
+            willChange: "transform",
+            transform: stickerTransform(11, 7, -30, "-3deg"),
+          }}
+        >
+          {/* Gold rather than orange: over the photo scrim the orange sat at
+              2.9:1, under AA even for large display text. */}
+          <span className="inline-flex items-center gap-2 font-[var(--font-handwritten)] text-2xl leading-tight text-[#FDB84B] md:text-3xl">
+            <span className="whitespace-nowrap">Share forecast</span>
+            <Share2
+              aria-hidden="true"
+              className="h-4 w-4 shrink-0 opacity-70 transition-opacity group-hover:opacity-100 md:h-5 md:w-5"
+            />
+          </span>
+          <span
+            aria-hidden="true"
+            className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-[#F4EBD8] transition-colors group-hover:text-[#FDB84B]"
+          >
+            Tap to share
+          </span>
+        </button>
+      ) : null}
     </section>
   );
 }

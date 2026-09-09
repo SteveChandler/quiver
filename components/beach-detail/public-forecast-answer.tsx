@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { normalizeForecastDateParam, normalizeForecastWindowParam } from "@/lib/utils/forecast-window-param";
 import type { Beach } from "@/types/database";
 import { formatBeachDateTime, formatDateInTimezone, formatTimeRangeInTimezone } from "@/lib/utils/date-time";
+import { WaterQualityBadge, type WaterQuality } from "@/components/beach-detail/water-quality-badge";
 import { RipCurrentWarning } from "@/components/beach-detail/rip-current-warning";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { useAuthenticatedForecastDecision } from "@/components/beach-detail/authenticated-forecast-decision";
@@ -21,14 +24,15 @@ const VERDICT_COLOR: Record<string, string> = {
 };
 
 const DECK_LABEL =
-  "font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#0B3A75]";
+  "font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#0B3A75]";
 const DECK_VALUE =
   "mt-0.5 font-[var(--font-zine-display)] text-3xl leading-none text-[#11100D] sm:text-4xl";
 const STRIP_LABEL =
-  "font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#11100D]";
+  "font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#11100D]";
 
 interface PublicForecastAnswerProps {
   beach: Beach;
+  waterQuality?: WaterQuality | null;
   report: PublicForecastReportFacts | null;
   context: PublicForecastContextFacts | null;
   isTomorrow: boolean;
@@ -90,6 +94,7 @@ function sourceLabel(source: string): string {
 
 export function PublicForecastAnswer({
   beach,
+  waterQuality,
   report: publicReport,
   context: publicContext,
   isTomorrow: publicIsTomorrow,
@@ -98,12 +103,18 @@ export function PublicForecastAnswer({
   headingLevel,
   returnTo,
 }: PublicForecastAnswerProps) {
+  const searchParams = useSearchParams();
+  const selectedDate = normalizeForecastDateParam(searchParams?.get("date"));
+  const selectedWindow = selectedDate ? null : normalizeForecastWindowParam(searchParams?.get("window"));
+  const selectedEnd = normalizeForecastWindowParam(searchParams?.get("windowEnd"));
+
+  const hasSelection = Boolean(selectedWindow || selectedDate);
   const authenticatedDecision = useAuthenticatedForecastDecision();
-  const decisionReport = authenticatedDecision.isAuthenticated && !authenticatedDecision.isLoading
+  const decisionReport = !selectedDate && authenticatedDecision.isAuthenticated && !authenticatedDecision.isLoading
     ? authenticatedDecision.report
     : null;
   const decisionContext = decisionReport ? authenticatedDecision.context : null;
-  const hasResolvedAuthenticatedDecision = decisionReport !== null;
+  const hasResolvedAuthenticatedDecision = decisionReport !== null && !selectedDate;
   const report = hasResolvedAuthenticatedDecision ? decisionReport : publicReport;
   const context = hasResolvedAuthenticatedDecision ? decisionContext : publicContext;
   const isTomorrow = hasResolvedAuthenticatedDecision
@@ -185,34 +196,43 @@ export function PublicForecastAnswer({
       data-testid="public-forecast-answer"
       className="border-t-2 border-dashed border-[#0B3A75]/30 pt-5"
     >
-      {/* Sits directly under the hero's beach name, so this is a label line,
-          not a second display headline. The full "<Beach> Surf Forecast" string
-          stays intact for the H1 contract; only its weight comes down. */}
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <HeadingTag
-          id="public-forecast-answer-heading"
-          className="max-w-xl font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#0B3A75]"
-        >
-          {beach.name} Surf Forecast{titleDate}
-        </HeadingTag>
-        {/* The date alone does not read as "not today" at a glance. */}
-        {isTomorrow && (
-          <span className="border border-[#11100D] px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#11100D]">
-            Tomorrow
-          </span>
-        )}
-      </div>
-
+      <HeadingTag id="public-forecast-answer-heading" className="font-mono text-sm font-bold uppercase text-[#0B3A75]">
+        {beach.name} Surf Forecast{hasSelection ? "" : titleDate}
+      </HeadingTag>
+      {hasSelection ? (
+        <p className="mt-3 text-base font-semibold" role="status">
+          {selectedWindow ? <>Selected comparison window: {formatBeachDateTime(selectedWindow, timezone, "EEE, MMM d")}{" · "}
+            {selectedEnd && Date.parse(selectedEnd) > Date.parse(selectedWindow)
+              ? formatTimeRangeInTimezone(selectedWindow, selectedEnd, timezone)
+              : formatBeachDateTime(selectedWindow, timezone, "h:mm a")}</> : <>Selected day: {selectedDate}</>}
+          {" · "}{timezone}
+        </p>
+      ) : isTomorrow ? <p className="mt-2 text-sm font-bold">Tomorrow</p> : null}
       <RipCurrentWarning
         beachId={beach.id}
-        localDate={context?.localDate ?? formatDateInTimezone(new Date(), timezone)}
+        localDate={selectedDate ?? (selectedWindow ? formatDateInTimezone(new Date(selectedWindow), timezone) : context?.localDate ?? formatDateInTimezone(new Date(), timezone))}
         timezone={timezone}
       />
-
+      {(waterQuality?.status === "advisory" || waterQuality?.status === "closure") && (
+        <div className="mt-3"><p className="text-sm font-bold">Current water notice · check again before your session</p><WaterQualityBadge waterQuality={waterQuality} beachState={beach.state} /></div>
+      )}
+      {hasSelection && !hasResolvedAuthenticatedDecision && (
+        <p className="mt-3 text-base">
+          {authenticatedDecision.isAuthenticated
+            ? authenticatedDecision.isLoading ? "Loading the selected call…" : "Selected call unavailable. Check the dated conditions below."
+            : <><ForecastDecisionLoginLink returnTo={`${returnTo}?${searchParams?.toString() ?? ""}`} /> for the surf verdict. Dated conditions are below.</>}
+        </p>
+      )}
+      {isStale && <p role="status" className="mt-3 border-l-4 border-[#B47A0F] bg-[#F7E7BE] p-3 text-base">Source data is stale; conditions may have changed.</p>}
+      <Link href={`${returnTo}?${new URLSearchParams({ ...Object.fromEntries(searchParams?.entries() ?? []), tab: "forecast" })}#operational-forecast`} className="mt-4 inline-flex min-h-11 items-center border-2 border-[#11100D] bg-[#F78E42] px-4 text-base font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">Explore forecast</Link>
+      <details open={!hasSelection || hasResolvedAuthenticatedDecision} className="mt-4">
+        <summary className="cursor-pointer text-sm font-semibold focus-visible:outline focus-visible:outline-2">
+          {hasResolvedAuthenticatedDecision && selectedWindow ? "Selected call" : "Latest forecast"}{titleDate}
+        </summary>
       {hasForecastDetails ? (
-        <dl className="mt-4">
+        <div className="mt-4">
           {/* Deck: the answer itself, sized to win the squint test. */}
-          <div className="flex flex-wrap items-baseline gap-x-7 gap-y-3">
+          <dl className="flex flex-wrap items-baseline gap-x-7 gap-y-3">
             {waveHeight && (
               <div>
                 <dt className={DECK_LABEL}>Surf</dt>
@@ -251,13 +271,13 @@ export function PublicForecastAnswer({
                 </dd>
               </div>
             )}
-          </div>
+          </dl>
 
           {/* Matches the bordered fact boxes used across the zine tabs:
               rounded-[8px] + 2px ink border + hard offset shadow. The
               .condition-strip class draws a 1px inset instead, which read as a
               flat unoutlined panel next to them. */}
-          <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-[8px] border-2 border-[#11100D] bg-[#11100D] shadow-[3px_3px_0_#11100D] sm:grid-cols-4">
+          <dl className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-[8px] border-2 border-[#11100D] bg-[#11100D] shadow-[3px_3px_0_#11100D] lg:grid-cols-4">
             {[
               { label: "Primary swell", value: primarySwell },
               { label: "Wind", value: wind },
@@ -279,10 +299,12 @@ export function PublicForecastAnswer({
                   </dd>
                 </div>
               ))}
-          </div>
+          </dl>
 
+          <details className="mt-4 text-sm">
+            <summary className="cursor-pointer font-bold focus-visible:outline focus-visible:outline-2">Sources &amp; forecast details</summary>
           {(secondarySwell || decisionReport?.score != null) && (
-            <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 font-mono text-xs text-[#11100D]/75">
+            <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-1 font-mono text-xs text-[#11100D]/75">
               {secondarySwell && (
                 <div className="flex gap-1.5">
                   <dt className="font-bold uppercase tracking-[0.14em]">Secondary swell</dt>
@@ -295,9 +317,12 @@ export function PublicForecastAnswer({
                   <dd>{decisionReport.score}/100</dd>
                 </div>
               )}
-            </div>
+            </dl>
           )}
-        </dl>
+          {provenance.length > 0 && <p className="mt-3 text-sm leading-6">{provenance.join(" · ")}</p>}
+          <Link href="/forecast-accuracy" className="mt-2 inline-block underline">Forecast accuracy &amp; methodology</Link>
+          </details>
+        </div>
       ) : (
         // Always explain an empty forecast. The route passes publicDecisionWindow
         // as an object literal on every beach page, so gating this on its
@@ -313,18 +338,11 @@ export function PublicForecastAnswer({
         </p>
       )}
 
-      {/* One provenance line, not four. Every fact a crawler needs is still
-          here; it just no longer reads as a paragraph of boilerplate. */}
-      {provenance.length > 0 && (
-        <p className="mt-4 font-mono text-[11px] leading-5 text-[#11100D]/55">
-          {provenance.join(" · ")}
-          {isStale ? " · Source data is stale; conditions may have changed." : ""}
-        </p>
-      )}
+      </details>
 
       {nearbyBeaches.length > 0 && (
-        <nav aria-label="Nearby backups" className="mt-5">
-          <p className={DECK_LABEL}>Nearby backups</p>
+        <nav aria-label="Nearby spots" className="mt-5">
+          <p className={DECK_LABEL}>Nearby spots</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {nearbyBeaches.slice(0, 3).map((backup) => (
               <Link
