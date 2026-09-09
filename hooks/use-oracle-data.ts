@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useCachedProfile } from "@/hooks/use-cached-profile";
+import { useProfileContext } from "@/context/profile-context";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
@@ -93,7 +93,7 @@ function getFallbackImageForBeach(beach: Beach | null): string | null {
  * Aggregates all data needed for the oracle hero screen.
  *
  * Composes:
- * - useCachedProfile — profile + home beach
+ * - useProfileContext — shared profile + home beach
  * - useGeolocation — GPS with fallback chain (GPS > home beach > San Diego)
  * - useSurfDiscovery — surf recommendations
  * - Beach photo fetching — with three-tier fallback
@@ -106,7 +106,7 @@ export function useOracleData(): OracleData {
   // ------------------------------------------------------------------
   // Profile
   // ------------------------------------------------------------------
-  const { profile, homeBeach, refreshProfile, profileLoading } = useCachedProfile();
+  const { profile, homeBeach, refreshProfile, isLoading: profileLoading } = useProfileContext();
 
   // ------------------------------------------------------------------
   // Geolocation — explicit GPS > home beach > San Diego default
