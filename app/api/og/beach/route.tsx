@@ -1,8 +1,62 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import sharp from 'sharp';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { withApprovedPhotos } from '@/lib/supabase/query-builders';
+import { getFreshForecastFromCache, getStalenessDetails } from '@/lib/utils/forecast-service-utils';
+import { getCurrentForecast } from '@/lib/utils/current-forecast-utils';
+import { validateURL } from '@/lib/security/ip-validation';
+import type { Database } from '@/types/supabase';
 
 export const runtime = "nodejs";
+
+function truncate(value: string, max: number): string {
+  return value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value;
+}
+
+function measurement(value: string | null | undefined, units: string): string | null {
+  if (!value || value.length > 24) return null;
+  const match = value.trim().match(new RegExp(`^(-?\\d+(?:\\.\\d+)?)(?:\\s*[-–]\\s*(\\d+(?:\\.\\d+)?))?\\s*(${units})$`, 'i'));
+  if (!match) return null;
+  const low = Number(match[1]);
+  const high = match[2] ? Number(match[2]) : low;
+  if (!Number.isFinite(low) || !Number.isFinite(high) || high < low || (low < 0 && units !== 'ft')) return null;
+  return `${match[1]}${match[2] ? `–${match[2]}` : ''} ${match[3]}`;
+}
+
+async function loadPhoto(url: string, supabaseUrl: string): Promise<string | null> {
+  try {
+    const validation = await validateURL(url, [
+      new URL(supabaseUrl).hostname, 'cdn.quiversurf.app',
+      'upload.wikimedia.org', 'thumb.wikimedia.org', 'live.staticflickr.com',
+      'api.openverse.org', 'i0.wp.com', 'i1.wp.com', 'i2.wp.com', 'files.wordpress.com',
+    ]);
+    if (!validation.isValid) return null;
+    const response = await fetch(url, { signal: AbortSignal.timeout(5000), redirect: 'error' });
+    if (!response.ok || !response.headers.get('content-type')?.startsWith('image/') || !response.body) return null;
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > 10 * 1024 * 1024) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+    // Decode before rendering so an unavailable or corrupt photo cannot break the image stream.
+    const image = await sharp(Buffer.concat(chunks), { limitInputPixels: 40000000 })
+      .rotate().resize(1200, 630, { fit: 'cover' }).jpeg({ quality: 85 }).toBuffer();
+    return `data:image/jpeg;base64,${image.toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
 
 function renderFallback() {
   const response = new ImageResponse(
@@ -57,232 +111,102 @@ function renderFallback() {
   return response;
 }
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const slug = searchParams.get('slug');
-
-  if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/.test(slug)) {
-    return renderFallback();
-  }
+export async function GET(request: NextRequest): Promise<ImageResponse> {
+  const slug = new URL(request.url).searchParams.get('slug');
+  if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/.test(slug)) return renderFallback();
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return renderFallback();
-  }
+  if (!supabaseUrl || !supabaseAnonKey) return renderFallback();
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: beach } = await supabase
-      .from('beaches')
-      .select('name, city, state, average_rating, review_count, break_type')
-      .eq('slug', slug)
-      .limit(1)
-      .single();
+    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+    const { data: beach } = await supabase.from('beaches')
+      .select('id, name, city, state, timezone').eq('slug', slug).limit(1).single();
+    if (!beach) return renderFallback();
 
-    if (!beach) {
-      return renderFallback();
-    }
+    const [photoResult, forecastResult] = await Promise.allSettled([
+      withApprovedPhotos(supabase.from('beach_photos')
+        .select('image_url, creator_name, license_code').eq('beach_id', beach.id))
+        .order('fetched_at', { ascending: false }).limit(1).maybeSingle(),
+      getFreshForecastFromCache(beach.id, 6),
+    ]);
+    const photo = photoResult.status === 'fulfilled' && !photoResult.value.error
+      ? photoResult.value.data : null;
+    const background = photo?.image_url ? await loadPhoto(photo.image_url, supabaseUrl) : null;
+    const cache = forecastResult.status === 'fulfilled' ? forecastResult.value : null;
+    const now = Date.now();
+    const forecast = getCurrentForecast(!cache || cache.metadata.stale ? [] : cache.forecasts.filter(row => {
+      const age = getStalenessDetails(row.updated_at, row.data_source);
+      return Number.isFinite(age.hoursSinceUpdate) && age.hoursSinceUpdate >= 0 && !age.isStale &&
+        row.data_source?.toUpperCase() !== 'FALLBACK' &&
+        Math.abs(new Date(row.forecast_at).getTime() - now) <= 3 * 60 * 60 * 1000;
+    }));
+    const waveHeight = measurement(forecast?.wave_height, 'ft');
+    const waves = waveHeight?.startsWith('-') ? null : waveHeight;
+    const windSpeed = forecast?.wind_source ? measurement(forecast.wind_speed, 'mph|kts|knots|km/h') : null;
+    const windDirection = /^(N|NNE|NE|ENE|E|ESE|SE|SSE|S|SSW|SW|WSW|W|WNW|NW|NNW)$/i.test(forecast?.wind_direction ?? '')
+      ? forecast?.wind_direction?.toUpperCase() : null;
+    const wind = windSpeed ? [windSpeed, windDirection].filter(Boolean).join(' · ') : null;
+    const tideStatus = /^(rising|falling|high|low|slack)$/i.test(forecast?.tide_status ?? '')
+      ? forecast?.tide_status : null;
+    const tide = [measurement(forecast?.tide_height, 'ft'), tideStatus].filter(Boolean).join(' · ');
+    const name = truncate(beach.name?.trim() || 'Beach', 90);
+    const location = truncate([beach.city, beach.state].filter(Boolean).join(', '), 70);
+    const hasConditions = Boolean(waves || wind || tide);
+    // A dated snapshot remains honest when a third-party cache retains the card.
+    const snapshot = forecast && hasConditions ? new Intl.DateTimeFormat('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+      timeZone: beach.timezone || 'UTC', timeZoneName: 'short',
+    }).format(new Date(forecast.forecast_at)) : null;
 
-    const name = beach.name || 'Beach';
-    const location = [beach.city, beach.state].filter(Boolean).join(', ');
-    const ratingNum = beach.average_rating ? Number(beach.average_rating) : null;
-    const rating = ratingNum?.toFixed(1) ?? null;
-    const reviewCount = beach.review_count ?? 0;
-    const breakType = beach.break_type || null;
-    const clampedStars = ratingNum ? Math.round(ratingNum) : 0;
-
-    const Star = ({ filled }: { filled: boolean }) => (
-      <svg width={28} height={28} viewBox="0 0 24 24" style={{ marginRight: 3, display: 'flex' }}>
-        <path
-          d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-          fill={filled ? '#FFD700' : 'rgba(255,255,255,0.25)'}
-        />
-      </svg>
-    );
-
+    const font = await readFile(path.join(process.cwd(), 'public/fonts/SpaceGrotesk/SpaceGrotesk-Bold.ttf')).catch(() => null);
     const response = new ImageResponse(
-      (
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            padding: '60px 72px',
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            position: 'relative',
-          }}
-        >
-          {/* Wave decoration top-right */}
-          <svg
-            width="200"
-            height="120"
-            viewBox="0 0 200 120"
-            style={{ position: 'absolute', top: 20, right: 30, opacity: 0.12, display: 'flex' }}
-          >
-            <path
-              d="M0 60c20-20 40 0 60-20s40 0 60-20 40 0 60-20 40 0 60-20"
-              stroke="white"
-              strokeWidth="4"
-              fill="none"
-              strokeLinecap="round"
-            />
-            <path
-              d="M0 90c20-20 40 0 60-20s40 0 60-20 40 0 60-20 40 0 60-20"
-              stroke="white"
-              strokeWidth="4"
-              fill="none"
-              strokeLinecap="round"
-            />
-          </svg>
-
-          {/* Top content */}
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div
-              style={{
-                fontSize: 52,
-                fontWeight: 800,
-                color: '#ffffff',
-                lineHeight: 1.1,
-                display: 'flex',
-                maxWidth: 900,
-              }}
-            >
-              {name}
-            </div>
-
-            {location && (
-              <div
-                style={{
-                  marginTop: 12,
-                  fontSize: 26,
-                  color: 'rgba(255,255,255,0.65)',
-                  display: 'flex',
-                }}
-              >
-                {location}
-              </div>
-            )}
-
-            {rating && (
-              <div
-                style={{
-                  marginTop: 24,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <Star key={i} filled={i < clampedStars} />
-                  ))}
-                </div>
-                <div
-                  style={{
-                    fontSize: 26,
-                    fontWeight: 600,
-                    color: 'rgba(255,255,255,0.9)',
-                    display: 'flex',
-                  }}
-                >
-                  {rating}
-                </div>
-                {reviewCount > 0 && (
-                  <div
-                    style={{
-                      fontSize: 22,
-                      color: 'rgba(255,255,255,0.5)',
-                      display: 'flex',
-                    }}
-                  >
-                    ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
-                  </div>
-                )}
-              </div>
-            )}
-
-            {breakType && (
-              <div
-                style={{
-                  marginTop: 20,
-                  display: 'flex',
-                }}
-              >
-                <div
-                  style={{
-                    padding: '8px 18px',
-                    borderRadius: 8,
-                    backgroundColor: 'rgba(249, 115, 22, 0.15)',
-                    border: '1px solid rgba(249, 115, 22, 0.4)',
-                    fontSize: 20,
-                    color: '#F78E42',
-                    fontWeight: 500,
-                    display: 'flex',
-                  }}
-                >
-                  {breakType}
-                </div>
-              </div>
-            )}
+      <div style={{ width: '100%', height: '100%', display: 'flex', position: 'relative',
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#fff',
+        fontFamily: 'system-ui, sans-serif' }}>
+        {/* Satori requires a native image element with decoded image data. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {background && <img alt="" src={background} width={1200} height={630}
+          style={{ position: 'absolute', top: 0, left: 0 }} />}
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'linear-gradient(90deg, rgba(10,18,32,0.88), rgba(10,18,32,0.48))' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', padding: '42px 54px', width: '100%', position: 'relative' }}>
+          <div style={{ display: 'flex', fontSize: 25, fontWeight: 700, color: '#F78E42', letterSpacing: 2 }}>
+            Surf Report & Forecast
           </div>
-
-          {/* Bottom section */}
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {/* Accent line */}
-            <div
-              style={{
-                width: 80,
-                height: 3,
-                backgroundColor: '#F78E42',
-                marginBottom: 28,
-                display: 'flex',
-              }}
-            />
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                width: '100%',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 36,
-                  fontWeight: 700,
-                  color: '#ffffff',
-                  display: 'flex',
-                }}
-              >
-                Quiver
-              </div>
-              <div
-                style={{
-                  fontSize: 22,
-                  color: 'rgba(255,255,255,0.55)',
-                  display: 'flex',
-                }}
-              >
-                quiversurf.app
-              </div>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', height: 154, flexShrink: 0,
+            fontSize: name.length > 65 ? 32 : name.length > 45 ? 40 : name.length > 28 ? 50 : 72,
+            fontFamily: 'SpaceGrotesk, system-ui, sans-serif', fontWeight: 700, lineHeight: 1.06, overflow: 'hidden', wordBreak: 'break-word' }}>{name}</div>
+          <div style={{ display: 'flex', fontSize: 27, height: 42, color: '#F5EEDC' }}>{location}</div>
+          <div style={{ display: 'flex', fontSize: 20, marginTop: 12, marginBottom: 14, color: '#F5EEDC' }}>
+            {snapshot ? `Forecast snapshot · ${snapshot}` : 'Check Quiver for the latest conditions'}
           </div>
+          <div style={{ display: 'flex', background: '#F5EEDC', color: '#171C2A', padding: '22px 26px', height: 126 }}>
+            {[
+              ['WAVES', waves || 'Unavailable'],
+              ['WIND', wind || 'Unavailable'],
+              ['TIDE', tide || 'Unavailable'],
+            ].map(([label, value], index) => (
+              <div key={label} style={{ display: 'flex', flexDirection: 'column', width: index === 0 ? '32%' : '34%',
+                paddingLeft: index ? 24 : 0, borderLeft: index ? '1px solid #B9B6AB' : undefined }}>
+                <div style={{ display: 'flex', fontSize: 18, letterSpacing: 2 }}>{label}</div>
+                <div style={{ display: 'flex', fontSize: value.length > 16 ? 25 : 32, fontWeight: 700, marginTop: 9 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24 }}>
+            <div style={{ display: 'flex', fontSize: 40, fontFamily: 'SpaceGrotesk, system-ui, sans-serif', fontWeight: 700, color: '#F78E42' }}>Quiver</div>
+            <div style={{ display: 'flex', fontSize: 23 }}>quiversurf.app</div>
+          </div>
+          {background && photo && <div style={{ display: 'flex', fontSize: 14, marginTop: 7, color: '#F5EEDC' }}>
+            {truncate(['Photo', photo.creator_name, photo.license_code].filter(Boolean).join(' · '), 120)}
+          </div>}
         </div>
-      ),
-      { width: 1200, height: 630 }
+      </div>,
+      { width: 1200, height: 630, ...(font ? { fonts: [{ name: 'SpaceGrotesk', data: font, weight: 700 as const, style: 'normal' as const }] } : {}) }
     );
-
-    response.headers.set(
-      'Cache-Control',
-      'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800'
-    );
-
+    response.headers.set('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');
     return response;
   } catch {
     return renderFallback();
