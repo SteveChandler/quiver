@@ -44,6 +44,7 @@ import {
 } from '@/lib/services/discovery/week-scout';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import type { WindowSelectorOptions } from '@/lib/services/discovery/window-selector/types';
 
 const CLEAN_BEACH = '11111111-1111-4111-8111-111111111111';
 const HELD_BEACH = '22222222-2222-4222-8222-222222222222';
@@ -56,6 +57,7 @@ function beach(id: string, name: string): Beach {
     lon: -157.8,
     is_private: false,
     skill_level: 'intermediate',
+    timezone: 'Pacific/Honolulu',
   } as Beach;
 }
 
@@ -91,21 +93,8 @@ function dependencies(): WeekScoutServiceDependencies {
     ]),
   );
 
-  return {
-    now: new Date('2026-07-31T14:00:00.000Z'),
-    fetchBeaches: jest.fn(async () => beaches),
-    fetchForecasts: jest.fn(async () => rows),
-    fetchSunTimes: jest.fn(async () => new Map()),
-    fetchPreferences: jest.fn(async () => null),
-    fetchSkill: jest.fn(async () => 'intermediate'),
-    fetchPersonalizationContext: jest.fn(async () => null),
-    calculatePersonalizationBonus: jest.fn(() => ({
-      affinityBonus: 0,
-      personalizationBonus: 0,
-      reasons: [],
-    })),
-    selectBestWindow: jest.fn(({ forecasts }) => {
-      const sourceForecast = forecasts[0];
+  const selectBestWindows = jest.fn((options: WindowSelectorOptions) => (
+    options.forecasts.map((sourceForecast) => {
       const start = new Date(sourceForecast.forecast_at);
       return {
         start,
@@ -120,7 +109,23 @@ function dependencies(): WeekScoutServiceDependencies {
         timezone: 'Pacific/Honolulu',
         sourceForecast,
       };
-    }),
+    })
+  ));
+
+  return {
+    now: new Date('2026-07-31T14:00:00.000Z'),
+    fetchBeaches: jest.fn(async () => beaches),
+    fetchForecasts: jest.fn(async () => rows),
+    fetchSunTimes: jest.fn(async () => new Map()),
+    fetchPreferences: jest.fn(async () => null),
+    fetchSkill: jest.fn(async () => 'intermediate'),
+    fetchPersonalizationContext: jest.fn(async () => null),
+    calculatePersonalizationBonus: jest.fn(() => ({
+      affinityBonus: 0,
+      personalizationBonus: 0,
+      reasons: [],
+    })),
+    selectBestWindows: selectBestWindows as unknown as WeekScoutServiceDependencies['selectBestWindows'],
     scoreWindowCondition: jest.fn(() => 84),
     scoreBeach: jest.fn(() => ({
       total: 80,
@@ -241,5 +246,31 @@ describe('Week Scout with a water-quality-held beach', () => {
         ).toBe(false);
       }
     }
+  });
+
+  it('clears bestDayWindow when a hold removes the selected window', async () => {
+    mockRankBeaches.mockImplementation(async (items: Array<{ id: string }>) => items);
+    mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
+      async ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+        candidates.map(({ candidateId }) => ({
+          candidateId,
+          evaluation: {
+            outcome: 'explicit_none',
+            reasonCode: 'major_event_hold',
+            holdIds: ['hold-1'],
+            holdEpoch: 'held-beach-test-epoch',
+          },
+          recommendationAvailability: {
+            state: 'none',
+            reasonCode: 'major_event_hold',
+            holdEpoch: 'held-beach-test-epoch',
+          },
+        })),
+    );
+
+    const response = await run();
+
+    expect(response.days[0].bestWindowId).toBeNull();
+    expect(response.days[0].bestDayWindow).toBeNull();
   });
 });

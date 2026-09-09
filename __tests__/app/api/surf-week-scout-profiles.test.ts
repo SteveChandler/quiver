@@ -41,7 +41,7 @@ import {
 } from '@/lib/services/discovery/week-scout';
 import { createMockBeach } from '@/__tests__/setup/typed-mocks';
 import { createDiscoveryScoringEngine, scoreBeachWithEngine, beachToSpotProfile } from '@/lib/domains/scoring';
-import { selectBestWindow, scoreWindowConditionScore } from '@/lib/services/discovery/window-selector';
+import { selectBestWindows, scoreWindowConditionScore } from '@/lib/services/discovery/window-selector';
 import { rerankHero } from '@/lib/services/discovery/hero-ranking';
 import { calculatePersonalizationBonus } from '@/lib/services/discovery/personalization-layer';
 import { BOARD_CLASSES, getRideabilityBand, normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability';
@@ -117,7 +117,7 @@ function dependencies(
     fetchBoardClasses: jest.fn(async () => boards),
     fetchPersonalizationContext: jest.fn(async () => null),
     calculatePersonalizationBonus,
-    selectBestWindow,
+    selectBestWindows,
     scoreWindowCondition: (forecast, beach, level, inventory) =>
       scoreWindowConditionScore(forecast, beach, level, null, inventory),
     scoreBeach: (beach, forecast, options) => scoreBeachWithEngine(engine, beach, forecast, options),

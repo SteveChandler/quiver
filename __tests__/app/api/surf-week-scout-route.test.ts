@@ -343,8 +343,11 @@ describe('POST /api/surf/week-scout', () => {
     });
     expect(payload.data.days[0]).toMatchObject({
       bestWindowId: 'window-a',
+      bestDayWindow: expect.objectContaining({ id: 'window-a' }),
       windows: [expect.objectContaining({
         beachId: BEACH_A,
+        displayWindowStart: '2026-07-15T16:00:00.000Z',
+        displayWindowEnd: '2026-07-15T18:30:00.000Z',
         forecast: expect.objectContaining({
           waveHeight: '3-4 ft',
           waterTemp: '78°F',
@@ -383,6 +386,8 @@ describe('POST /api/surf/week-scout', () => {
               beachId: BEACH_A,
               start: '2026-07-15T16:00:00.000Z',
               end: '2026-07-15T18:00:00.000Z',
+              displayWindowStart: '2026-07-15T16:00:00.000Z',
+              displayWindowEnd: '2026-07-15T18:00:00.000Z',
               conditionScore: null,
               rankingScore: null,
               verdict: null,
@@ -390,6 +395,7 @@ describe('POST /api/surf/week-scout', () => {
             },
           ],
           bestWindowId: null,
+          bestDayWindow: null,
         },
       ],
       recommendationAvailability: {
@@ -409,6 +415,7 @@ describe('POST /api/surf/week-scout', () => {
 
     expect(response.status).toBe(200);
     expect(body.data.days[0].bestWindowId).toBeNull();
+    expect(body.data.days[0].bestDayWindow).toBeNull();
     expect(body.data.recommendationAvailability).toEqual({
       state: 'none',
       reasonCode: 'major_event_hold',

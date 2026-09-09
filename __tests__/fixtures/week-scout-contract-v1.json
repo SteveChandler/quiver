@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-07-15T18:00:00.000Z",
-  "scorerVersion": "week-scout-v1:discovery-hero-v1",
+  "scorerVersion": "week-scout-v2:day-window-authority-v1",
   "candidateFingerprint": "candidate-fingerprint-v1",
   "recommendationAvailability": {
     "state": "available",
@@ -60,6 +60,8 @@
           "bucket": "morning",
           "start": "2026-07-15T16:00:00.000Z",
           "end": "2026-07-15T19:00:00.000Z",
+          "displayWindowStart": "2026-07-15T16:00:00.000Z",
+          "displayWindowEnd": "2026-07-15T18:30:00.000Z",
           "peakTime": "2026-07-15T17:00:00.000Z",
           "beachId": "11111111-1111-4111-8111-111111111111",
           "conditionScore": 84,
@@ -92,42 +94,85 @@
         }
       ],
       "bestWindowId": "window-a",
+      "bestDayWindow": {
+        "id": "window-a",
+        "bucket": "morning",
+        "start": "2026-07-15T16:00:00.000Z",
+        "end": "2026-07-15T19:00:00.000Z",
+        "displayWindowStart": "2026-07-15T16:00:00.000Z",
+        "displayWindowEnd": "2026-07-15T18:30:00.000Z",
+        "peakTime": "2026-07-15T17:00:00.000Z",
+        "beachId": "11111111-1111-4111-8111-111111111111",
+        "conditionScore": 84,
+        "rankingScore": 88,
+        "verdict": "worth_it",
+        "rideable": true,
+        "safe": true,
+        "confidence": 82,
+        "forecast": {
+          "waveHeight": "3-4 ft",
+          "period": "12s",
+          "swellDirection": "S",
+          "windSpeed": "5 mph",
+          "windDirection": "NE",
+          "waterTemp": "78°F",
+          "tideHeightFt": 1.4,
+          "tidePhase": "Rising",
+          "freshnessAt": "2026-07-15T18:00:00.000Z"
+        },
+        "takeaway": "Cleanest before the trades fill in.",
+        "rankedSpots": [
+          {
+            "beachId": "11111111-1111-4111-8111-111111111111",
+            "beachName": "Ala Moana",
+            "conditionScore": 84,
+            "rankingScore": 88,
+            "verdict": "worth_it"
+          }
+        ]
+      },
       "exclusionReasons": []
     },
     {
       "localDate": "2026-07-16",
       "windows": [],
       "bestWindowId": null,
+      "bestDayWindow": null,
       "exclusionReasons": ["no_forecasts"]
     },
     {
       "localDate": "2026-07-17",
       "windows": [],
       "bestWindowId": null,
+      "bestDayWindow": null,
       "exclusionReasons": ["no_forecasts"]
     },
     {
       "localDate": "2026-07-18",
       "windows": [],
       "bestWindowId": null,
+      "bestDayWindow": null,
       "exclusionReasons": ["no_forecasts"]
     },
     {
       "localDate": "2026-07-19",
       "windows": [],
       "bestWindowId": null,
+      "bestDayWindow": null,
       "exclusionReasons": ["no_forecasts"]
     },
     {
       "localDate": "2026-07-20",
       "windows": [],
       "bestWindowId": null,
+      "bestDayWindow": null,
       "exclusionReasons": ["no_forecasts"]
     },
     {
       "localDate": "2026-07-21",
       "windows": [],
       "bestWindowId": null,
+      "bestDayWindow": null,
       "exclusionReasons": ["no_forecasts"]
     }
   ]

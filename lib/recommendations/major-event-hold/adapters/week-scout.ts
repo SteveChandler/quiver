@@ -23,9 +23,10 @@ export type MajorEventHoldWeekScoutWindow = Omit<
 
 export type MajorEventHoldWeekScoutDay = Omit<
   WeekScoutDayResponse,
-  "windows"
+  "windows" | "bestDayWindow"
 > & {
   windows: MajorEventHoldWeekScoutWindow[];
+  bestDayWindow: MajorEventHoldWeekScoutWindow | null;
 };
 
 export type MajorEventHoldWeekScoutResponse = Omit<
