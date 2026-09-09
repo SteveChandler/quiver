@@ -177,6 +177,8 @@ export interface EnhancedForecastEntity {
   water_temp: string | null;
   air_temperature?: string | null;
   wind_speed?: string | null;
+  /** Null when the pipeline could only supply default wind values. */
+  wind_source?: string | null;
   wind_direction?: string | null;
   tide_status?: string | null;
   tide_height?: string | null;
