@@ -37,7 +37,7 @@ let observed: Record<string, unknown> | null;
 
 function query(data: unknown): Record<string, unknown> {
   const builder: Record<string, unknown> = {};
-  for (const method of ['select', 'not', 'eq', 'in', 'order', 'limit', 'gte', 'lte', 'range']) builder[method] = () => builder;
+  for (const method of ['select', 'not', 'eq', 'in', 'order', 'limit', 'gte', 'lte', 'range', 'abortSignal']) builder[method] = () => builder;
   builder.range = (from: number, to: number) => query(Array.isArray(data) ? data.slice(from, to + 1) : data);
   builder.maybeSingle = async () => ({ data: Array.isArray(data) ? data[0] ?? null : data, error: null });
   builder.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data: Array.isArray(data) ? data.slice(0, 1000) : data, error: null }).then(resolve);
@@ -159,7 +159,9 @@ it('preserves the durable cursor when the time budget allows no attempts', async
     const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=1'));
     expect(response.status).toBe(503);
     expect((await response.json()).data.marineCoverage).toMatchObject({
-      attemptedCoverage: 0, lastAttemptedBeachId: 'b', actualCoverage: 0, expectedCoverage: 1,
+      attemptedCoverage: 0, lastAttemptedBeachId: 'b', actualCoverage: 0, expectedCoverage: 0,
+      freshnessCoverage: { expectedCoverage: 3, actualCoverage: 0 },
+      rejectionCounts: { freshness_budget_exhausted: 1 },
     });
     expect(mockNearest).not.toHaveBeenCalled();
   } finally {
@@ -241,7 +243,7 @@ it.each([{ significantWaveHeight: null }, { timestamp: 'invalid' }])(
 
 it('reads fresh usable coverage past the PostgREST page limit', async () => {
   const wave = { ts: '2026-09-09T11:00:00Z', wave_height_m: 1, wave_period_s: 10 };
-  latest = [...Array.from({ length: 1000 }, (_, i) => ({ beach_id: `other-${i}`, ...wave })),
+  latest = [...Array.from({ length: 1000 }, () => ({ beach_id: 'a', ...wave, wave_period_s: 0 })),
     ...['a', 'b', 'c'].map(beach_id => ({ beach_id, ...wave }))];
   const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine'));
   expect(response.status).toBe(200);
@@ -314,6 +316,7 @@ it.each([false, true])('checks the cursor acknowledgement through real PostgREST
   expect(cursorRequest?.url.searchParams.get('route')).toBe('eq./api/cron/forecasts/refresh?source=marine');
   const inventoryRequest = requests.find(({ url }) => url.pathname === '/rest/v1/marine_forecasts'
     && url.searchParams.get('select')?.includes('beach_id'));
+  expect(inventoryRequest?.url.searchParams.get('beach_id')).toBe('in.(a)');
   expect(inventoryRequest?.url.searchParams.get('is_observed')).toBe('eq.true');
   expect(inventoryRequest?.url.searchParams.get('source')).toBe('in.(cdip,ndbc)');
   expect(inventoryRequest?.url.searchParams.getAll('ts')).toEqual(['gte.2026-09-09T00:00:00.000Z', 'lte.2026-09-09T12:00:00.000Z']);
@@ -321,5 +324,145 @@ it.each([false, true])('checks the cursor acknowledgement through real PostgREST
   expect(inserted).toHaveLength(1);
   expect(inserted[0].summary.result.marineCoverage.lastAttemptedBeachId).toBe('a');
   expect(written.flat()).toHaveLength(1);
+  expect(JSON.stringify(body)).not.toContain('private');
+});
+
+
+it.each(['none', 'timeout', 'malformed', 'transport'])('bounds all 495 beaches and retains usable output after a freshness failure: %s', async (failure) => {
+  const failBatch = failure !== 'none';
+  const timeout = jest.spyOn(AbortSignal, 'timeout');
+  const { createClient } = jest.requireActual<typeof import('@supabase/supabase-js')>('@supabase/supabase-js');
+  const beaches = Array.from({ length: 495 }, (_, i) => ({ id: `beach-${String(i).padStart(3, '0')}`, name: 'fixture', lat: 32, lon: -117 }));
+  const checked: string[][] = [];
+  const transport = jest.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = new URL(String(input));
+    const method = init?.method ?? 'GET';
+    if (url.pathname.endsWith('/beaches')) return Response.json(beaches);
+    if (url.pathname.endsWith('/cron_runs')) {
+      if (method === 'GET') return Response.json([]);
+      ledger.push(JSON.parse(String(init?.body)));
+      return new Response(null, { status: 201 });
+    }
+    if (url.pathname.endsWith('/marine_forecasts') && method === 'POST') {
+      written.push(JSON.parse(String(init?.body)));
+      return new Response(null, { status: 201 });
+    }
+    if (url.searchParams.get('select')?.includes('beach_id')) {
+      const ids = (url.searchParams.get('beach_id') ?? '').replace(/^in\.\(|\)$/g, '').split(',');
+      checked.push(ids);
+      if (!ids[0] || ids.length > 25) return Response.json({ code: '57014', message: 'private timeout' }, { status: 500 });
+      if (failBatch && checked.length === 1) {
+        if (failure === 'malformed') return Response.json(null);
+        if (failure === 'transport') throw new DOMException('private timeout', 'TimeoutError');
+        return Response.json({ code: '57014', message: 'private timeout' }, { status: 500 });
+      }
+      // Fresh valid-zero waves in the first 475; the final 20 need ingestion.
+      return Response.json(ids.filter(id => id < 'beach-475').map(beach_id => ({ beach_id,
+        ts: '2026-09-09T11:00:00Z', wave_height_m: 0, wave_period_s: 10 })));
+    }
+    return Response.json([]);
+  });
+  const client = createClient('https://fixture.supabase.co', 'fixture-key', {
+    global: { fetch: transport }, auth: { persistSession: false, autoRefreshToken: false },
+  });
+  mockFrom.mockImplementation(client.from.bind(client));
+  mockNearest.mockResolvedValue({ id: 'fixture' });
+  mockObservation.mockResolvedValue({ ts: '2026-09-09T11:00:00Z', wave_height_m: 1, wave_period_s: 10 });
+  const response = await GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=2'));
+  const body = await response.json();
+  expect(response.status).toBe(failBatch ? 503 : 200);
+  expect(checked).toHaveLength(20);
+  expect(timeout.mock.calls).toEqual(Array.from({ length: 20 }, () => [8000]));
+  expect(checked.flat()).toEqual(beaches.map(b => b.id));
+  expect(body.data.marineCoverage).toMatchObject({ expectedCoverage: 2, actualCoverage: 2,
+    lastAttemptedBeachId: 'beach-476', freshnessCoverage: { expectedCoverage: 495, actualCoverage: failBatch ? 470 : 495 } });
+  expect(written.flat().map(row => row.beach_id).sort()).toEqual(['beach-475', 'beach-476']);
+  expect(ledger[0].status).toBe(failBatch ? 'failed' : 'ok');
+  expect(body.data.marineCoverage.freshnessCoverage.failures).toEqual(failBatch ? [{
+    beachIds: beaches.slice(0, 25).map(b => b.id), attemptedAt: now.toISOString(), attempts: 1,
+    code: failure === 'timeout' ? '57014' : 'unknown',
+  }] : []);
+  expect(JSON.stringify(body)).not.toContain('private');
+});
+
+it.each([
+  { budgetMs: 20_000, abortAfterMs: 8_000, checked: 1, produced: 1 },
+  { budgetMs: 2_000, abortAfterMs: 2_000, checked: 0, produced: 0 },
+])('cancels stalled HTTP within the remaining $budgetMs ms budget', async ({ budgetMs, abortAfterMs, checked, produced }) => {
+  jest.replaceProperty(process, 'env', { ...process.env, FORECAST_CRON_TIME_BUDGET_MS: String(budgetMs) });
+  // Native AbortSignal.timeout uses Node's internal clock; drive its signal with Jest's clock.
+  const timeout = jest.spyOn(AbortSignal, 'timeout').mockImplementation((delay: number): AbortSignal => {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(new DOMException('private transport timeout', 'TimeoutError')), delay);
+    return controller.signal;
+  });
+  const { createClient } = jest.requireActual<typeof import('@supabase/supabase-js')>('@supabase/supabase-js');
+  const beaches = Array.from({ length: 26 }, (_, i) => ({ id: `beach-${String(i).padStart(3, '0')}`, name: 'fixture', lat: 32, lon: -117 }));
+  const cursor = beaches[25].id;
+  let inventoryRequests = 0;
+  let aborts = 0;
+  let stalledSignal: AbortSignal | null | undefined;
+  let signalStarted!: () => void;
+  const started = new Promise<void>(resolve => { signalStarted = resolve; });
+  const transport = jest.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = new URL(String(input));
+    const method = init?.method ?? 'GET';
+    if (url.pathname.endsWith('/beaches')) return Response.json(beaches);
+    if (url.pathname.endsWith('/cron_runs')) {
+      if (method === 'GET') return Response.json([{ summary: { result: { marineCoverage: { lastAttemptedBeachId: cursor } } } }]);
+      ledger.push(JSON.parse(String(init?.body)));
+      return new Response(null, { status: 201 });
+    }
+    if (url.pathname.endsWith('/marine_forecasts') && method === 'POST') {
+      written.push(JSON.parse(String(init?.body)));
+      return new Response(null, { status: 201 });
+    }
+    if (url.searchParams.get('select')?.includes('beach_id')) {
+      inventoryRequests++;
+      if (inventoryRequests === 1) {
+        stalledSignal = init?.signal;
+        signalStarted();
+        return new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal;
+          if (!signal) throw new Error('Missing request cancellation signal');
+          const onAbort = (): void => { aborts++; reject(signal.reason); };
+          if (signal.aborted) onAbort();
+          else signal.addEventListener('abort', onAbort, { once: true });
+        });
+      }
+    }
+    return Response.json([]);
+  });
+  const client = createClient('https://fixture.supabase.co', 'fixture-key', {
+    global: { fetch: transport }, auth: { persistSession: false, autoRefreshToken: false },
+  });
+  mockFrom.mockImplementation(client.from.bind(client));
+  mockNearest.mockResolvedValue({ id: 'fixture' });
+  mockObservation.mockResolvedValue({ ts: '2026-09-09T11:00:00Z', wave_height_m: 1, wave_period_s: 10 });
+  let settled = false;
+  const pending = GET(new Request('http://localhost/api/cron/forecasts/refresh?source=marine&maxBeaches=1'))
+    .then(response => { settled = true; return response; });
+  await started;
+  expect(stalledSignal).toBeInstanceOf(AbortSignal);
+  expect(timeout).toHaveBeenNthCalledWith(1, abortAfterMs);
+  await jest.advanceTimersByTimeAsync(abortAfterMs - 1);
+  expect(aborts).toBe(0);
+  expect(settled).toBe(false);
+  expect(mockNearest).not.toHaveBeenCalled();
+  await jest.advanceTimersByTimeAsync(1);
+  expect(aborts).toBe(1);
+  expect(stalledSignal?.aborted).toBe(true);
+  const response = await pending;
+  const body = await response.json();
+  expect(response.status).toBe(503);
+  expect(inventoryRequests).toBe(1 + checked);
+  expect(mockNearest).toHaveBeenCalledTimes(produced);
+  expect(written.flat().map(row => row.beach_id)).toEqual(produced ? [cursor] : []);
+  expect(body.data.marineCoverage).toMatchObject({ actualCoverage: produced, attemptedCoverage: produced,
+    lastAttemptedBeachId: cursor, freshnessCoverage: { expectedCoverage: 26, actualCoverage: checked,
+      failures: [{ beachIds: beaches.slice(0, 25).map(b => b.id), attempts: 1, code: 'unknown' }] } });
+  expect(body.data.marineCoverage.rejectionCounts).toEqual(produced
+    ? { freshness_read_failed: 1 } : { freshness_read_failed: 1, freshness_budget_exhausted: 1 });
+  expect(ledger[0]).toMatchObject({ status: 'failed', legitimately_zero_reason: null });
   expect(JSON.stringify(body)).not.toContain('private');
 });

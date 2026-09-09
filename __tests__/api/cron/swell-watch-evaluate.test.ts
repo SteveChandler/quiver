@@ -111,7 +111,7 @@ it("retains suppressed evaluation identity and unknown counts through the real c
   expect(response.status).toBe(200);
   const body = await response.json();
   expect(body.data).toEqual(suppressed);
-  expect(insert).toHaveBeenCalledWith({ route: "/api/cron/swell-watch-evaluate", status: "started" });
+  expect(insert).toHaveBeenCalledWith({ route: "/api/cron/swell-watch-evaluate", job: "/api/cron/swell-watch-evaluate", status: "started" });
   expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "ok", summary: body }));
   expect(body.data.candidateCount).toBeNull();
   expect(body.data.sendEligibility).toBe("not_evaluated");

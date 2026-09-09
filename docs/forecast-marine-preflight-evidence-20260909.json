@@ -1,0 +1,745 @@
+{
+  "base_sha": "ec9fce6bb2a58f4ae7268c2e2fc3f9878610af61",
+  "branch": "orch/marine-preflight-repair-20260909",
+  "release_status": "operator authorized commit, push and production rollout; preparation evidence; final receipts on release PRs",
+  "window": {
+    "start_date": "2026-09-09",
+    "end_date": "2026-09-09",
+    "timezone": "America/Los_Angeles",
+    "is_partial": true,
+    "latest_complete_date": "2026-09-08",
+    "comparison_start_date": "2026-09-08",
+    "comparison_end_date": "2026-09-08",
+    "window_label": "2026-09-09..2026-09-09"
+  },
+  "original_query_recheck": {
+    "checked_at": "2026-09-09T18:35:04.066903+00:00",
+    "checks": [
+      {
+        "check": "deployed cursor query",
+        "status": "ok",
+        "rows": 0,
+        "seconds": 0.889
+      },
+      {
+        "check": "deployed full inventory query",
+        "status": "failed",
+        "code": "57014",
+        "error_type": "APIError",
+        "seconds": 8.061
+      },
+      {
+        "check": "same inventory bounded to 25 public beaches",
+        "status": "ok",
+        "rows": 0,
+        "seconds": 0.07
+      },
+      {
+        "check": "recent general cron records",
+        "status": "ok",
+        "rows": 1,
+        "seconds": 0.067
+      }
+    ]
+  },
+  "patched_query_current_inventory": {
+    "checked_at": "2026-09-09T18:28:39.932020+00:00",
+    "method": "GET only; exact patched query; complete coordinate inventory",
+    "expected": 495,
+    "actual": 495,
+    "rows": 0,
+    "seconds": 2.113,
+    "batches": [
+      {
+        "batch": 0,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.122
+      },
+      {
+        "batch": 1,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.13
+      },
+      {
+        "batch": 2,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.105
+      },
+      {
+        "batch": 3,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.117
+      },
+      {
+        "batch": 4,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.104
+      },
+      {
+        "batch": 5,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.101
+      },
+      {
+        "batch": 6,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.083
+      },
+      {
+        "batch": 7,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.09
+      },
+      {
+        "batch": 8,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.105
+      },
+      {
+        "batch": 9,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.133
+      },
+      {
+        "batch": 10,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.115
+      },
+      {
+        "batch": 11,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.091
+      },
+      {
+        "batch": 12,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.12
+      },
+      {
+        "batch": 13,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.092
+      },
+      {
+        "batch": 14,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.111
+      },
+      {
+        "batch": 15,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.097
+      },
+      {
+        "batch": 16,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.102
+      },
+      {
+        "batch": 17,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.098
+      },
+      {
+        "batch": 18,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.1
+      },
+      {
+        "batch": 19,
+        "expected": 20,
+        "actual": 20,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.097
+      }
+    ]
+  },
+  "patched_query_historical_inventory": {
+    "method": "GET only; historical characterization at latest stored wave timestamp; NOT current freshness",
+    "expected": 495,
+    "actual": 495,
+    "rows": 54,
+    "seconds": 2.075,
+    "batches": [
+      {
+        "batch": 0,
+        "expected": 25,
+        "actual": 25,
+        "rows": 1,
+        "pages": 1,
+        "seconds": 0.106
+      },
+      {
+        "batch": 1,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.096
+      },
+      {
+        "batch": 2,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.116
+      },
+      {
+        "batch": 3,
+        "expected": 25,
+        "actual": 25,
+        "rows": 24,
+        "pages": 1,
+        "seconds": 0.084
+      },
+      {
+        "batch": 4,
+        "expected": 25,
+        "actual": 25,
+        "rows": 1,
+        "pages": 1,
+        "seconds": 0.079
+      },
+      {
+        "batch": 5,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.096
+      },
+      {
+        "batch": 6,
+        "expected": 25,
+        "actual": 25,
+        "rows": 1,
+        "pages": 1,
+        "seconds": 0.107
+      },
+      {
+        "batch": 7,
+        "expected": 25,
+        "actual": 25,
+        "rows": 1,
+        "pages": 1,
+        "seconds": 0.114
+      },
+      {
+        "batch": 8,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.105
+      },
+      {
+        "batch": 9,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.103
+      },
+      {
+        "batch": 10,
+        "expected": 25,
+        "actual": 25,
+        "rows": 1,
+        "pages": 1,
+        "seconds": 0.095
+      },
+      {
+        "batch": 11,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.087
+      },
+      {
+        "batch": 12,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.11
+      },
+      {
+        "batch": 13,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.094
+      },
+      {
+        "batch": 14,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.093
+      },
+      {
+        "batch": 15,
+        "expected": 25,
+        "actual": 25,
+        "rows": 1,
+        "pages": 1,
+        "seconds": 0.123
+      },
+      {
+        "batch": 16,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.085
+      },
+      {
+        "batch": 17,
+        "expected": 25,
+        "actual": 25,
+        "rows": 24,
+        "pages": 1,
+        "seconds": 0.163
+      },
+      {
+        "batch": 18,
+        "expected": 25,
+        "actual": 25,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.136
+      },
+      {
+        "batch": 19,
+        "expected": 20,
+        "actual": 20,
+        "rows": 0,
+        "pages": 1,
+        "seconds": 0.083
+      }
+    ],
+    "source_reference_at": "2026-09-07T16:30:01+00:00",
+    "executed_on": "2026-09-09"
+  },
+  "hrrr_trace": {
+    "checked_at": "2026-09-09T18:33:03.866513+00:00",
+    "job": {
+      "id": "2222a06b-b6fb-460e-afd0-a38dbfbd8c4c",
+      "started_at": "2026-09-09T18:15:00.021179+00:00",
+      "finished_at": "2026-09-09T18:15:05.289252+00:00",
+      "status": "succeeded"
+    },
+    "job_coverage": {
+      "expected_coverage": 442,
+      "actual_coverage": 442,
+      "model_run": "2026-09-09T16:00:00+00:00"
+    },
+    "expected": 442,
+    "actual_rows": 442,
+    "slot_states": {
+      "matching_current_HRRR": 422,
+      "other_source_or_run": 20
+    },
+    "unavailable_slot_evidence": [
+      {
+        "forecast_at": "2026-09-09T18:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:30.148+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T21:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:30.148+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T18:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:46.81+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T21:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:46.81+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T18:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:31:00.802+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T21:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:31:00.802+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T18:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:51.429+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T21:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:51.429+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T18:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:43.646+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T21:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:43.646+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T18:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:34.727+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T21:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:34.727+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T18:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:48.985+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T21:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:48.985+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T18:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:54.345+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T21:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:54.345+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T18:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:57.546+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T21:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:57.546+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T18:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:57.964+00:00"
+      },
+      {
+        "forecast_at": "2026-09-09T21:00:00+00:00",
+        "wind_source": "NWS",
+        "wind_model_run_at": "2026-09-09T16:00:00+00:00",
+        "updated_at": "2026-09-09T18:30:57.964+00:00"
+      }
+    ],
+    "readiness_http": 503,
+    "sources": {
+      "rtma": {
+        "ready": true,
+        "expected_coverage": 382,
+        "actual_coverage": 382,
+        "coverage_unit": "eligible_beaches",
+        "fresh_after": "2026-09-09T16:33:04.917354+00:00",
+        "affected_scope": [],
+        "reason": null
+      },
+      "trusted_forecasts": {
+        "mode": "enabled",
+        "ready": false,
+        "expected_coverage": 36,
+        "actual_coverage": 34,
+        "coverage_unit": "enabled_sources",
+        "ingest_run_id": "8e8768fa-ad3b-4fd3-be33-ef34e8da1b2f",
+        "degraded_item_count": 0
+      },
+      "hrrr": {
+        "ready": false,
+        "expected_coverage": 442,
+        "actual_coverage": 422,
+        "coverage_unit": "beach_forecast_slots",
+        "forecast_interval_hours": 3,
+        "model_run": "2026-09-09T16:00:00+00:00",
+        "freshness_basis": "persisted_model_run",
+        "max_age_minutes": 210
+      },
+      "rip_current_risk": {
+        "ready": false,
+        "run_id": "d1cacc4d-50b0-418e-a57d-298cb9bf42fe",
+        "expected_coverage": 180,
+        "actual_coverage": 145,
+        "coverage_unit": "mapped_source_scopes",
+        "derived_ready": false,
+        "inventory_matches": true,
+        "derived_expected_coverage": 163,
+        "derived_actual_coverage": 0,
+        "derived_rejection_counts": {},
+        "persistence_failed": false,
+        "affected_scope": [
+          "alerts:CAZ349",
+          "alerts:CAZ350",
+          "alerts:CAZ354",
+          "alerts:CAZ362",
+          "alerts:CAZ366",
+          "srf:BOX:ANZ230",
+          "srf:CHS:AMZ360",
+          "srf:CRP:GMZ250",
+          "srf:GYX:ANZ154",
+          "srf:HFO:PHZ111",
+          "srf:HFO:PHZ112",
+          "srf:HFO:PHZ114",
+          "srf:HFO:PHZ115",
+          "srf:HFO:PHZ118",
+          "srf:HFO:PHZ123",
+          "srf:ILM:AMZ250",
+          "srf:LOX:CAZ356",
+          "srf:LOX:CAZ366",
+          "srf:LOX:CAZ369",
+          "srf:LOX:CAZ370",
+          "srf:MFL:AMZ650",
+          "srf:MLB:AMZ550",
+          "srf:MLB:AMZ552",
+          "srf:MOB:GMZ655",
+          "srf:MTR:CAZ006",
+          "srf:MTR:CAZ517",
+          "srf:OKX:ANZ353",
+          "srf:PHI:ANZ451",
+          "srf:PHI:ANZ453",
+          "srf:PQR:ORZ101",
+          "srf:PQR:ORZ102",
+          "srf:PQR:ORZ103",
+          "srf:PQR:WAZ201",
+          "srf:SJU:AMZ712",
+          "srf:SJU:AMZ742"
+        ],
+        "valid_empty_scopes": 103
+      }
+    }
+  },
+  "trusted_trace": {
+    "checked_at": "2026-09-09T18:35:56.478580+00:00",
+    "run": {
+      "ingest_run_id": "8e8768fa-ad3b-4fd3-be33-ef34e8da1b2f",
+      "started_at": "2026-09-09T12:10:00.135002+00:00",
+      "finished_at": "2026-09-09T12:10:10.278608+00:00"
+    },
+    "non_ok_sources": [
+      {
+        "source_key": "nws_gum_srf",
+        "status": "skipped_disabled",
+        "failure_code": null,
+        "finished_at": "2026-09-09T12:10:04.867777+00:00"
+      },
+      {
+        "source_key": "stormsurf_pnw_links",
+        "status": "skipped_disabled",
+        "failure_code": null,
+        "finished_at": "2026-09-09T12:10:09.718866+00:00"
+      },
+      {
+        "source_key": "stormsurf_pnw_buoy",
+        "status": "skipped_disabled",
+        "failure_code": null,
+        "finished_at": "2026-09-09T12:10:09.718876+00:00"
+      },
+      {
+        "source_key": "nj_beach_cams_reports",
+        "status": "skipped_disabled",
+        "failure_code": null,
+        "finished_at": "2026-09-09T12:10:10.278112+00:00"
+      },
+      {
+        "source_key": "surfers_view_nj",
+        "status": "skipped_disabled",
+        "failure_code": null,
+        "finished_at": "2026-09-09T12:10:10.27812+00:00"
+      }
+    ],
+    "missing_usable_issues": [
+      {
+        "source_key": "nws_pqr_srf",
+        "freshness_max_age_hours": 24,
+        "latest_issues": [
+          {
+            "issued_at": "2026-09-08T13:02:00+00:00",
+            "valid_end_at": "2026-09-09T01:00:00+00:00"
+          }
+        ]
+      },
+      {
+        "source_key": "surf_institute_pnw",
+        "freshness_max_age_hours": 36,
+        "latest_issues": [
+          {
+            "issued_at": "2026-09-09T00:17:12.7+00:00",
+            "valid_end_at": "2026-09-09T07:00:00+00:00"
+          }
+        ]
+      }
+    ]
+  },
+  "tests": {
+    "initial_regression": {
+      "failed": 6,
+      "passed": 41
+    },
+    "full_jest": {
+      "passed": 18173,
+      "skipped": 195,
+      "todo": 1,
+      "suites_passed": 1411,
+      "suites_skipped": 16
+    },
+    "focused_jest": {
+      "passed": 150,
+      "skipped": 0
+    },
+    "clean_smoke": {
+      "passed": 4,
+      "skipped": 0,
+      "platform": "macOS, fresh Python 3.11 venv; real SDK, mocked HTTP, sockets blocked",
+      "legacy_modules_absent": [
+        "xgboost",
+        "sklearn",
+        "pandas"
+      ]
+    },
+    "typecheck": "passed",
+    "build": "passed",
+    "scoped_eslint": "passed",
+    "browser_e2e": "not run; backend-only patch",
+    "device_simulator": "not run; backend-only patch"
+  },
+  "later_readiness_snapshot": {
+    "checked_at": "2026-09-09T18:40:58.637733+00:00",
+    "http_status": 503,
+    "official_actual": 70,
+    "official_expected": 180,
+    "derived_actual": 0,
+    "derived_expected": 163,
+    "hazard_run_id": "d1cacc4d-50b0-418e-a57d-298cb9bf42fe",
+    "new_hazard_completion_verified": false
+  },
+  "cancellation_review_resolution": {
+    "production_code_changed": false,
+    "test_file": "__tests__/app/api/cron/forecasts-refresh.marine.test.ts",
+    "focused_passed": 152,
+    "focused_skipped": 0,
+    "marine_suite_passed": 30,
+    "disconnected_signal_mutation": {
+      "expected_failures": 2,
+      "excluded_by_name_filter": 28,
+      "restored_byte_for_byte": true
+    },
+    "unclipped_deadline_mutation": {
+      "expected_failures": 1,
+      "excluded_by_name_filter": 29,
+      "restored_byte_for_byte": true
+    },
+    "clock": "Jest virtual timer drives real AbortController; real Supabase SDK and mocked HTTP await request-signal abort",
+    "typecheck": "passed",
+    "eslint": "passed",
+    "full_suite_build_e2e_live": "not rerun for test-only follow-up",
+    "review": "no remaining actionable findings in reviewed diff"
+  },
+  "release_preflight": {
+    "full_jest_passed": 18175,
+    "full_jest_skipped": 195,
+    "todo": 1,
+    "suites_passed": 1411,
+    "seconds": 108.282,
+    "typecheck": "passed",
+    "runtime_diff_reviewed": true
+  }
+}
