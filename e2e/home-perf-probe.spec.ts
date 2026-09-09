@@ -108,4 +108,58 @@ test.describe('@perf signed-in home', () => {
 
     expect(heroMs).toBeGreaterThan(-1);
   });
+
+  test('keeps the call during clicks and repeated focus, then rechecks a blur/focus return', async ({ page }) => {
+    await ensureAuthenticated(page);
+    let discoveryRequests = 0;
+    let navigations = 0;
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname === '/api/surf/discover') discoveryRequests++;
+    });
+    page.on('framenavigated', (frame) => {
+      if (frame === page.mainFrame()) navigations++;
+    });
+    await page.goto('/');
+    const call = page.locator('section[role="banner"]');
+    await expect(call).toBeVisible({ timeout: 60_000 });
+    expect(discoveryRequests).toBeGreaterThan(0);
+    const initialRequests = discoveryRequests;
+    const initialNavigations = navigations;
+
+    await call.getByRole('heading', { level: 1 }).click();
+    await page.getByRole('searchbox', { name: 'Search Quiver' }).click();
+    await page.evaluate(async () => {
+      window.dispatchEvent(new Event('focus'));
+      document.dispatchEvent(new Event('visibilitychange'));
+      // Let React commit the effects caused by these browser lifecycle signals.
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
+    await expect(call).toBeVisible();
+    expect(discoveryRequests).toBe(initialRequests);
+    expect(navigations).toBe(initialNavigations);
+
+    let releaseResume!: () => void;
+    const resumeGate = new Promise<void>((resolve) => { releaseResume = resolve; });
+    await page.route('**/api/surf/discover', async (route) => {
+      await resumeGate;
+      await route.continue();
+    });
+    const resumedRequest = page.waitForRequest((request) =>
+      new URL(request.url()).pathname === '/api/surf/discover',
+    );
+    try {
+      await page.evaluate(() => {
+        window.dispatchEvent(new Event('blur'));
+        window.dispatchEvent(new Event('focus'));
+      });
+      await resumedRequest;
+      await expect(page.getByRole('heading', { name: 'Rechecking the call' })).toBeVisible();
+      await expect(call).not.toBeVisible();
+    } finally {
+      releaseResume();
+    }
+    await expect(call).toBeVisible({ timeout: 60_000 });
+    expect(discoveryRequests).toBe(initialRequests + 1);
+    expect(navigations).toBe(initialNavigations);
+  });
 });

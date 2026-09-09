@@ -8,8 +8,8 @@
  * doubled load on `/api/surf/discover` — an uncacheable route with a 30s
  * budget — and doubled the time the home screen spent with no payload.
  *
- * A resume revalidation already in flight reflects state as of its own
- * response, so it covers every resume event raised while it runs.
+ * A later real return still requires its own check; repeated focus signals
+ * without leaving the page must not erase the current call.
  */
 
 import { renderHook, act, waitFor } from "@testing-library/react";
@@ -52,10 +52,16 @@ const response = {
 describe("useSurfDiscovery resume revalidation", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(document, "hasFocus").mockReturnValue(true);
     global.fetch = jest
       .fn()
       .mockResolvedValue({ ok: true, json: async () => ({ data: response }) });
     window.localStorage?.clear();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    Reflect.deleteProperty(document, "visibilityState");
   });
 
   it("issues one revalidation for a tab switch that fires focus and visibilitychange", async () => {
@@ -65,6 +71,7 @@ describe("useSurfDiscovery resume revalidation", () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
 
     act(() => {
+      window.dispatchEvent(new Event("blur"));
       window.dispatchEvent(new Event("focus"));
       document.dispatchEvent(new Event("visibilitychange"));
     });
@@ -72,6 +79,27 @@ describe("useSurfDiscovery resume revalidation", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the call when an already-focused page receives repeated focus signals", async () => {
+    const focused = jest.spyOn(document, "hasFocus").mockReturnValue(true);
+    try {
+      const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      const previous = result.current.discovery;
+
+      await act(async () => {
+        window.dispatchEvent(new Event("focus"));
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      await act(async () => { window.dispatchEvent(new Event("focus")); });
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(result.current.discovery).toBe(previous);
+      expect(result.current.loading).toBe(false);
+    } finally {
+      focused.mockRestore();
+    }
   });
 
   it("does not revalidate when focus arrives during the initial Home request", async () => {
@@ -99,6 +127,7 @@ describe("useSurfDiscovery resume revalidation", () => {
     expect(captureClientPostHogEventAfterConsent).toHaveBeenCalledTimes(1);
 
     act(() => {
+      window.dispatchEvent(new Event("blur"));
       window.dispatchEvent(new Event("focus"));
       document.dispatchEvent(new Event("visibilitychange"));
       releaseInitial?.();
@@ -145,6 +174,7 @@ describe("useSurfDiscovery resume revalidation", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
+      window.dispatchEvent(new Event("blur"));
       window.dispatchEvent(new Event("focus"));
     });
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
@@ -152,6 +182,11 @@ describe("useSurfDiscovery resume revalidation", () => {
     // Well past the pairing window — a separate resume, not the focus/
     // visibilitychange pair from one tab switch.
     nowSpy.mockReturnValue(base + 5_000);
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    act(() => { document.dispatchEvent(new Event("visibilitychange")); });
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
       value: "visible",
@@ -176,12 +211,14 @@ describe("useSurfDiscovery resume revalidation", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
+      window.dispatchEvent(new Event("blur"));
       window.dispatchEvent(new Event("focus"));
     });
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(global.fetch).toHaveBeenCalledTimes(2);
 
     act(() => {
+      window.dispatchEvent(new Event("blur"));
       window.dispatchEvent(new Event("focus"));
     });
     await waitFor(() => expect(result.current.loading).toBe(false));

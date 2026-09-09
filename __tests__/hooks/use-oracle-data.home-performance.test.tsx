@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { useCachedProfile } from "@/hooks/use-cached-profile";
+import { useProfileContext } from "@/context/profile-context";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useOracleData } from "@/hooks/use-oracle-data";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
@@ -10,6 +11,10 @@ type HomeDiscoveryWindow = Window & {
 
 jest.mock("@/hooks/use-cached-profile", () => ({
   useCachedProfile: jest.fn(),
+}));
+
+jest.mock("@/context/profile-context", () => ({
+  useProfileContext: jest.fn(),
 }));
 
 jest.mock("@/hooks/use-geolocation", () => ({
@@ -40,7 +45,7 @@ describe("useOracleData home performance gates", () => {
       value: markMock,
     });
 
-    (useCachedProfile as jest.Mock).mockReturnValue({
+    (useProfileContext as jest.Mock).mockReturnValue({
       profile: { id: "profile-1", experience_level: "intermediate" },
       homeBeach: {
         id: "beach-1",
@@ -49,7 +54,7 @@ describe("useOracleData home performance gates", () => {
         lon: -117.25,
       },
       refreshProfile: jest.fn(),
-      profileLoading: false,
+      isLoading: false,
     });
     (useGeolocation as jest.Mock).mockReturnValue({
       coords: { lat: 32.75, lon: -117.25 },
@@ -102,5 +107,27 @@ describe("useOracleData home performance gates", () => {
       2,
       "quiver:home:discovery-request:2:fallback"
     );
+  });
+
+  it("starts discovery from the shared profile without fetching a second profile", () => {
+    const shared = {
+      ...(useProfileContext as jest.Mock)(),
+      isLoading: false,
+    };
+    (useProfileContext as jest.Mock).mockReturnValue(shared);
+    (useCachedProfile as jest.Mock).mockClear().mockReturnValue({
+      profile: null, homeBeach: null, profileLoading: true, refreshProfile: jest.fn(),
+    });
+
+    const { result } = renderHook(() => useOracleData());
+
+    expect(useCachedProfile).not.toHaveBeenCalled();
+    expect(result.current.profile).toBe(shared.profile);
+    expect(result.current.homeBeach).toBe(shared.homeBeach);
+    expect(result.current.profileLoading).toBe(false);
+    expect(result.current.refreshProfile).toBe(shared.refreshProfile);
+    expect(useSurfDiscovery).toHaveBeenCalledWith(expect.objectContaining({
+      enabled: true, userLocation: { lat: 32.75, lon: -117.25 },
+    }));
   });
 });
