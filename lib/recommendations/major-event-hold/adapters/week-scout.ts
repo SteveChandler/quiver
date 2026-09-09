@@ -93,7 +93,7 @@ export function sanitizeWeekScoutForMajorEventHold(
     const bestAllowedWindow = originalBestWindow && isEligible(originalBestWindow)
       ? originalBestWindow
       : day.windows
-        .filter(isEligible)
+        .filter((window) => window.isBeachDayBest === true && isEligible(window))
         .reduce<WeekScoutWindowResponse | null>(
           (current, candidate) =>
             !current || candidate.rankingScore > current.rankingScore

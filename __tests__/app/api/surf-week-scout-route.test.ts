@@ -346,6 +346,7 @@ describe('POST /api/surf/week-scout', () => {
       bestDayWindow: expect.objectContaining({ id: 'window-a' }),
       windows: [expect.objectContaining({
         beachId: BEACH_A,
+        isBeachDayBest: true,
         displayWindowStart: '2026-07-15T16:00:00.000Z',
         displayWindowEnd: '2026-07-15T18:30:00.000Z',
         forecast: expect.objectContaining({
@@ -384,6 +385,7 @@ describe('POST /api/surf/week-scout', () => {
             {
               id: 'window-1',
               beachId: BEACH_A,
+              isBeachDayBest: true,
               start: '2026-07-15T16:00:00.000Z',
               end: '2026-07-15T18:00:00.000Z',
               displayWindowStart: '2026-07-15T16:00:00.000Z',

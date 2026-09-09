@@ -53,6 +53,7 @@ function window(
     displayWindowEnd: '2026-07-25T16:30:00.000Z',
     peakTime: '2026-07-25T15:00:00.000Z',
     beachId,
+    isBeachDayBest: true,
     conditionScore: rankingScore,
     rankingScore,
     verdict: 'worth_it',
@@ -247,6 +248,34 @@ describe('buildWeekendScoutRanking', () => {
     if (result.status !== 'ready') throw new Error('expected ready');
     expect(result.ranking.results).toHaveLength(1);
     expect(result.ranking.results[0]).toMatchObject({ beachId: NEAR, rankingScore: 84 });
+  });
+
+  it('leads a beach with its day best instead of a higher-scoring preview', async () => {
+    const deps = dependencies();
+    const missingMarker = window(NEAR, 100, { bucket: 'midday' });
+    delete (missingMarker as Partial<WeekScoutWindowResponse>).isBeachDayBest;
+    deps.buildCandidatePool = jest.fn(async () => ({
+      candidates: [candidate(NEAR, 'Good Nearby', 5)],
+      totalCount: 1,
+      incomplete: false,
+      wasTruncated: false,
+    }));
+    deps.generateForecast = jest.fn(async () => forecast([
+      missingMarker,
+      window(NEAR, 99, { bucket: 'evening', isBeachDayBest: false }),
+      window(NEAR, 98, { isBeachDayBest: null as never }),
+      window(NEAR, 84),
+    ]));
+
+    const result = await buildWeekendScoutRanking('user-1', deps);
+
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') throw new Error('expected ready');
+    expect(result.ranking.results[0]).toMatchObject({
+      beachId: NEAR,
+      rankingScore: 84,
+      bestWindow: { localLabel: 'Saturday morning' },
+    });
   });
 
   it('breaks equal adjusted scores by distance and then beach ID', async () => {

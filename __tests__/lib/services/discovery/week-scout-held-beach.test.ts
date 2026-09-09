@@ -212,6 +212,7 @@ describe('Week Scout with a water-quality-held beach', () => {
 
     expect(windows.length).toBeGreaterThan(0);
     expect(windows.every((window) => window.beachId !== HELD_BEACH)).toBe(true);
+    expect(windows.some((window) => window.isBeachDayBest)).toBe(true);
     // The whole point: survivors keep their verdicts instead of being blanked.
     expect(windows.some((window) => window.verdict !== null)).toBe(true);
     expect(

@@ -148,6 +148,7 @@ export interface WeekScoutWindowResponse {
   displayWindowEnd: string;
   peakTime: string;
   beachId: string;
+  isBeachDayBest: boolean;
   conditionScore: number;
   rankingScore: number;
   verdict: WeekScoutVerdict;
@@ -525,6 +526,7 @@ function buildDraftWindow(args: {
   bucket: WeekScoutBucket;
   localDate: string;
   window: AuthoritativeWindow;
+  isBeachDayBest: boolean;
   forecasts: EnhancedForecastEntity[];
   userSkillLevel: SkillLevel | null;
   boardClasses: readonly BoardClass[];
@@ -596,6 +598,7 @@ function buildDraftWindow(args: {
       displayWindowEnd: window.displayWindowEnd.toISOString(),
       peakTime: window.peakTime.toISOString(),
       beachId: args.beach.id,
+      isBeachDayBest: args.isBeachDayBest,
       conditionScore,
       verdict,
       rideable: isRideable(forecast, args.userSkillLevel, args.boardClasses),
@@ -745,6 +748,7 @@ function buildWeekScoutCanonicalCandidates(args: {
       const beach = beachById.get(window.beachId);
       if (
         !beach
+        || window.isBeachDayBest !== true
         || window.rankingScore === null
         || window.verdict === null
         || window.verdict === 'skip'
@@ -790,7 +794,9 @@ function exclusionReasonsForDay(
 ): WeekScoutDayExclusionReason[] {
   if (bestWindowId !== null) return [];
   if (windows.length === 0) return ['no_forecasts'];
-  const safeWindows = windows.filter((window) => window.safe);
+  const dayBestWindows = windows.filter((window) => window.isBeachDayBest);
+  if (dayBestWindows.length === 0) return ['no_recommendable_windows'];
+  const safeWindows = dayBestWindows.filter((window) => window.safe);
   if (safeWindows.length === 0) return ['no_safe_windows'];
   const rideableWindows = safeWindows.filter((window) => window.rideable);
   if (rideableWindows.length === 0) return ['no_rideable_windows'];
@@ -817,7 +823,9 @@ function compactHeldResponse<T extends MajorEventHoldWeekScoutResponse>(
           visibleWindows.length > 0 ? visibleWindows : bucketWindows
         ).slice(0, WEEK_SCOUT_RESPONSE_RANK_LIMIT);
         const required = bucketWindows.filter((window) => (
-          window.id === day.bestWindowId || window.id === selectedWindowId
+          window.isBeachDayBest === true
+          || window.id === day.bestWindowId
+          || window.id === selectedWindowId
         ));
         const missingRequired = required.filter((window) => !selected.some((item) => item.id === window.id));
         if (missingRequired.length > 0) {
@@ -922,7 +930,8 @@ async function generateWeekScoutForecastInternal(
       let noWindow = 0;
       const drafts = beaches.flatMap((candidate) => {
         const bucketForecasts = slotsByBeach.get(candidate.id)?.get(slotKey(localDate, bucket)) ?? [];
-        const window = authoritiesByBeach.get(candidate.id)?.dayparts[bucket] ?? null;
+        const authority = authoritiesByBeach.get(candidate.id);
+        const window = authority?.dayparts[bucket] ?? null;
         if (bucketForecasts.length > 0) {
           evaluated += 1;
           if (!window) noWindow += 1;
@@ -934,6 +943,7 @@ async function generateWeekScoutForecastInternal(
           bucket,
           localDate,
           window,
+          isBeachDayBest: window === authority?.bestDayWindow,
           forecasts: forecastsByBeach.get(candidate.id) ?? [],
           userSkillLevel,
           boardClasses,
@@ -958,7 +968,10 @@ async function generateWeekScoutForecastInternal(
     });
     const best = windows
       .filter((candidate) => (
-        candidate.safe && candidate.rideable && candidate.verdict !== 'skip'
+        candidate.isBeachDayBest
+        && candidate.safe
+        && candidate.rideable
+        && candidate.verdict !== 'skip'
       ))
       .reduce<WeekScoutWindowResponse | null>((current, candidate) => (
         !current || compareWeekScoutWindows(

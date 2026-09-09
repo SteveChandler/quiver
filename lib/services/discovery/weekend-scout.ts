@@ -197,7 +197,8 @@ function rankedWindows(
 
   for (const window of forecast.days.flatMap((day) => day.windows)) {
     if (
-      window.safe !== true
+      window.isBeachDayBest !== true
+      || window.safe !== true
       || window.rideable !== true
       || window.verdict !== 'worth_it'
       || window.rankingScore === null
