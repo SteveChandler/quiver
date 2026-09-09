@@ -10,14 +10,14 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 // Supabase query builders are thenables, not full Promises — they expose
 // .then() but not .catch(). PromiseLike accurately reflects that shape;
 // using Promise<...> would falsely advertise .catch() on the raw chain.
-type CronRunUpdateChain = PromiseLike<unknown> & {
-  lt: (col: string, val: string) => PromiseLike<unknown>;
+type CronRunUpdateChain = PromiseLike<{ error?: unknown }> & {
+  lt: (col: string, val: string) => PromiseLike<{ error?: unknown }>;
 };
 
 type CronRunsTable = {
   from: (table: "cron_runs") => {
     insert: (row: Record<string, unknown>) => {
-      select: (cols: string) => { single: () => PromiseLike<{ data: { id: string } | null }> };
+      select: (cols: string) => { single: () => PromiseLike<{ data: { id: string } | null; error?: unknown }> };
     };
     update: (row: Record<string, unknown>) => { eq: (col: string, val: string) => CronRunUpdateChain };
   };
@@ -77,21 +77,41 @@ function captureCronFailure(
   }
 }
 
-async function sweepStaleStartedRows(db: CronRunsTable): Promise<void> {
+async function recordCronWrite<T extends { error?: unknown }>(
+  route: string,
+  operation: "insert" | "update" | "sweep",
+  runId: string | null,
+  write: () => PromiseLike<T>,
+): Promise<T | null> {
   try {
+    const result = await write();
+    if (result.error) throw result.error;
+    return result;
+  } catch (error) {
+    if (process.env.NODE_ENV !== "test") {
+      const code = error && typeof error === "object" && "code" in error ? error.code : null;
+      console.warn("[cron-observability] ledger write failed", {
+        job: route, runId, operation, attempt: 1, timestamp: new Date().toISOString(),
+        code: typeof code === "string" && /^(?:[0-9A-Z]{5}|PGRST[0-9]{3})$/.test(code) ? code : "unknown",
+      });
+    }
+    return null;
+  }
+}
+
+async function sweepStaleStartedRows(db: CronRunsTable, route: string): Promise<void> {
+  await recordCronWrite(route, "sweep", null, () => {
     const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    await db
+    return db
       .from("cron_runs")
       .update({
         status: "timeout",
         finished_at: new Date().toISOString(),
-        error_message: "Vercel function killed before post-handler update (likely maxDuration exceeded)",
+        error_message: "No completion recorded within 15 minutes; process termination or timeout is unverified",
       })
       .eq("status", "started")
       .lt("started_at", cutoff);
-  } catch {
-    // Sweeper failures must never block the handler.
-  }
+  });
 }
 
 function shouldStartSentryCronMonitor(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -127,7 +147,7 @@ async function finishSentryCronCheckIn(
  * `duration_ms`, and the parsed JSON body as `summary` (best-effort, capped
  * at 8 KB to avoid pathological payloads). On thrown error: stores
  * `status='error'` and `error_message`. Observability never blocks the
- * handler — failures to write to cron_runs are swallowed.
+ * handler — ledger failures are reported with safe codes.
  */
 export function withObservedCron<H extends (request: Request) => Promise<Response>>(
   route: string,
@@ -148,29 +168,16 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
       if (monitor && shouldStartSentryCronMonitor()) {
         checkInId = startCronCheckIn(monitor) || null;
       }
-      try {
+      const insertResult = await recordCronWrite(route, "insert", null, async () => {
         const supabase = await createSupabaseServiceRoleClient();
         const db = supabase as unknown as CronRunsTable;
-        const [, insertResult] = await Promise.all([
-          sweepStaleStartedRows(db),
-          db
-            .from("cron_runs")
-            .insert({ route, status: "started" })
-            .select("id")
-            .single(),
+        const [, result] = await Promise.all([
+          sweepStaleStartedRows(db, route),
+          db.from("cron_runs").insert({ route, job: route, status: "started" }).select("id").single(),
         ]);
-        runId = insertResult.data?.id ?? null;
-      } catch (err) {
-        // Never block the handler. Log so cron_runs unavailability is at least
-        // visible in Vercel function logs (otherwise an unobserved run leaves
-        // no trail at all — the post-handler UPDATE is gated on runId).
-        // Silenced in Jest because cron-route tests mock supabase per-test and
-        // don't stub the cron_runs.from(...).insert chain; the resulting noise
-        // trips the global console.warn fail-fast guardrail.
-        if (process.env.NODE_ENV !== "test") {
-          console.warn(`[cron-observability] insert failed for ${route}`, err);
-        }
-      }
+        return result;
+      });
+      runId = insertResult?.data?.id ?? null;
     }
 
     try {
@@ -204,10 +211,10 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
       }
 
       if (runId) {
-        try {
+        await recordCronWrite(route, "update", runId, async () => {
           const supabase = await createSupabaseServiceRoleClient();
           const db = supabase as unknown as CronRunsTable;
-          await db
+          return db
             .from("cron_runs")
             .update({
               status: response.ok ? "ok" : "error",
@@ -217,9 +224,7 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
               error_message: response.ok ? null : extractErrorMessage(summary, response.status),
             })
             .eq("id", runId);
-        } catch {
-          // swallow
-        }
+        });
       }
       return response;
     } catch (err) {
@@ -229,10 +234,10 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
       }
 
       if (runId) {
-        try {
+        await recordCronWrite(route, "update", runId, async () => {
           const supabase = await createSupabaseServiceRoleClient();
           const db = supabase as unknown as CronRunsTable;
-          await db
+          return db
             .from("cron_runs")
             .update({
               status: "error",
@@ -241,9 +246,7 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
               error_message: err instanceof Error ? err.message : String(err),
             })
             .eq("id", runId);
-        } catch {
-          // swallow
-        }
+        });
       }
       throw err;
     }
@@ -256,26 +259,22 @@ export async function withCronObservability<T>(
   handler: () => Promise<T>,
   options?: CronObservabilityOptions<T>,
 ): Promise<T> {
-  const supabase = await createSupabaseServiceRoleClient();
   const start = Date.now();
+  let db: CronRunsTable | null = null;
 
-  // cron_runs is not yet in the generated types — cast to any until db:types is regenerated.
-  const db = supabase as unknown as CronRunsTable;
-
-  let runId: string | null = null;
-  try {
-    const [, insertResult] = await Promise.all([
-      sweepStaleStartedRows(db),
+  const insertResult = await recordCronWrite(route, "insert", null, async () => {
+    db = await createSupabaseServiceRoleClient() as unknown as CronRunsTable;
+    const [, result] = await Promise.all([
+      sweepStaleStartedRows(db, route),
       db
         .from("cron_runs")
-        .insert({ route, status: "started" })
+        .insert({ route, job: route, status: "started" })
         .select("id")
         .single(),
     ]);
-    runId = insertResult.data?.id ?? null;
-  } catch {
-    // Observability must never block the handler.
-  }
+    return result;
+  });
+  const runId = insertResult?.data?.id ?? null;
 
   try {
     const result = await handler();
@@ -288,7 +287,7 @@ export async function withCronObservability<T>(
       );
     }
     if (runId) {
-      await db
+      await recordCronWrite(route, "update", runId, () => db!
         .from("cron_runs")
         .update({
           status,
@@ -300,13 +299,13 @@ export async function withCronObservability<T>(
               ? options?.errorMessageForResult?.(result) ?? "Cron reported a degraded result"
               : null,
         })
-        .eq("id", runId);
+        .eq("id", runId));
     }
     return result;
   } catch (err) {
     captureCronFailure(route, err, { source: "throw" });
     if (runId) {
-      await db
+      await recordCronWrite(route, "update", runId, () => db!
         .from("cron_runs")
         .update({
           status: "error",
@@ -314,7 +313,7 @@ export async function withCronObservability<T>(
           duration_ms: Date.now() - start,
           error_message: err instanceof Error ? err.message : String(err),
         })
-        .eq("id", runId);
+        .eq("id", runId));
     }
     throw err;
   }

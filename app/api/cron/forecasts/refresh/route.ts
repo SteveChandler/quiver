@@ -205,21 +205,48 @@ async function _GET(request: Request): Promise<Response> {
       const latestByBeachMs = new Map<string, number>();
 
       if (args.view === "v_marine_forecast_latest") {
-        // The latest-row view may contain only wind; skip only usable observations.
-        for (let offset = 0; ; offset += 1000) {
-          const { data, error } = await supabase.from("marine_forecasts")
-            .select("id, beach_id, ts, wave_height_m, wave_period_s")
-            .eq("is_observed", true).in("source", ["cdip", "ndbc"])
-            .gte("ts", new Date(nowMs - MARINE_INPUT_MAX_AGE_MS).toISOString())
-            .lte("ts", new Date(nowMs).toISOString())
-            .order("id").range(offset, offset + 999);
-          if (error) throw error;
-          for (const row of data ?? []) {
-            if (!usableWaveObservation(row, nowMs)) continue;
-            latestByBeachMs.set(row.beach_id, Math.max(latestByBeachMs.get(row.beach_id) ?? 0, Date.parse(row.ts)));
+        // The beach/time index bounds database work; output pagination alone does not.
+        const checkedBeaches = new Set<string>();
+        marineCoverage.freshnessCoverage.expectedCoverage = args.beaches.length;
+        for (const batch of chunkArray(args.beaches, 25)) {
+          if (shouldStop()) {
+            rejectMarine("freshness_budget_exhausted");
+            break;
           }
-          if (!data || data.length < 1000) break;
+          try {
+            for (let offset = 0; ; offset += 1000) {
+              if (shouldStop()) throw new Error("freshness_budget_exhausted");
+              const { data, error } = await supabase.from("marine_forecasts")
+                .select("id, beach_id, ts, wave_height_m, wave_period_s")
+                .in("beach_id", batch.map(b => b.id))
+                .eq("is_observed", true).in("source", ["cdip", "ndbc"])
+                .gte("ts", new Date(nowMs - MARINE_INPUT_MAX_AGE_MS).toISOString())
+                .lte("ts", new Date(nowMs).toISOString())
+                .order("beach_id").order("ts").order("id").range(offset, offset + 999)
+                .abortSignal(AbortSignal.timeout(Math.max(1, Math.min(8000, msRemaining()))));
+              if (error) throw error;
+              if (!Array.isArray(data)) throw new Error("invalid_freshness_response");
+              for (const row of data) {
+                if (!usableWaveObservation(row, nowMs)) continue;
+                latestByBeachMs.set(row.beach_id, Math.max(latestByBeachMs.get(row.beach_id) ?? 0, Date.parse(row.ts)));
+              }
+              if (data.length < 1000) break;
+            }
+            for (const beach of batch) checkedBeaches.add(beach.id);
+          } catch (error) {
+            const code = error && typeof error === "object" && "code" in error ? error.code : null;
+            marineCoverage.freshnessCoverage.failures.push({
+              beachIds: batch.map(b => b.id), attemptedAt: new Date().toISOString(), attempts: 1,
+              code: typeof code === "string" && /^(?:[0-9A-Z]{5}|PGRST[0-9]{3})$/.test(code) ? code : "unknown",
+            });
+            // Unknown coverage is never fresh; other batches can still produce waves.
+            rejectMarine("freshness_read_failed");
+          }
         }
+        marineCoverage.freshnessCoverage.actualCoverage = checkedBeaches.size;
+        return args.beaches.filter(b => checkedBeaches.has(b.id)
+          && (!latestByBeachMs.has(b.id) || (latestByBeachMs.get(b.id) ?? 0) < staleThresholdMs))
+          .slice(0, args.maxBeaches);
       } else {
         const { data, error } = await supabase.from(args.view).select(`beach_id, ${args.tsField}`);
         if (error) throw error;
@@ -237,9 +264,7 @@ async function _GET(request: Request): Promise<Response> {
         })
         .sort((a, b) => (latestByBeachMs.get(a.id) ?? 0) - (latestByBeachMs.get(b.id) ?? 0));
 
-      const candidates = args.view === "v_marine_forecast_latest"
-        ? args.beaches.filter(b => !latestByBeachMs.has(b.id) || (latestByBeachMs.get(b.id) ?? 0) < staleThresholdMs)
-        : [...missing, ...stale];
+      const candidates = [...missing, ...stale];
       const selected = candidates.slice(0, args.maxBeaches);
       return selected;
     };
@@ -258,6 +283,8 @@ async function _GET(request: Request): Promise<Response> {
     // Wave-cache timestamps retain input age; retries must not renew old observations.
     const marineCoverage = {
       expectedCoverage: 0, actualCoverage: 0, attemptedCoverage: 0,
+      freshnessCoverage: { expectedCoverage: 0, actualCoverage: 0,
+        failures: [] as { beachIds: string[]; attemptedAt: string; attempts: number; code: string }[] },
       lastAttemptedBeachId: null as string | null,
       rejectionCounts: {} as Record<string, number>,
       providerOutcomes: {} as Record<string, number>,
