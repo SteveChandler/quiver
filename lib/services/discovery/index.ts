@@ -62,6 +62,19 @@ export {
   type WindowSelectorOptions,
 } from './window-selector';
 
+export {
+  deriveDisplayWindow,
+  withDisplayWindow,
+  daypartForLocalHour,
+  daypartForTime,
+  selectBeachDayWindows,
+  DISPLAY_WINDOW_MINUTES,
+  WINDOW_AUTHORITY_MAX_WINDOWS,
+  type AuthoritativeWindow,
+  type BeachDayWindowAuthority,
+  type WindowDaypart,
+} from './window-authority';
+
 // Response Formatter
 export {
   enrichWithPhotos,

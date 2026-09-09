@@ -11,6 +11,7 @@
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { SurfDiscoveryRecommendation } from '@/types/personalization';
+import { deriveDisplayWindow } from '@/lib/services/discovery/window-authority';
 
 // Mock beach data
 const mockBeach1: Partial<Beach> = {
@@ -848,6 +849,23 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     // Should still return recommendations, just none marked as favorites
     expect(result.recommendations.length).toBeGreaterThan(0);
     expect(result.recommendations.every(r => !r.isFavorite)).toBe(true);
+  });
+
+  test('attaches authoritative display bounds in best-window mode', async () => {
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 1,
+    });
+    const selectedWindow = result.recommendations[0].window;
+    const expected = deriveDisplayWindow({
+      rawStart: selectedWindow.start,
+      rawEnd: selectedWindow.end,
+      peak: selectedWindow.peakTime!,
+      timezone: selectedWindow.timezone,
+    });
+
+    expect(selectedWindow.displayWindowStart).toEqual(expected.start);
+    expect(selectedWindow.displayWindowEnd).toEqual(expected.end);
   });
 
   test('scores only the forecast row nearest a requested forecastAt', async () => {
@@ -2664,6 +2682,10 @@ describe('discoverSurfSpots - Now Discovery Mode', () => {
       'beach-2-now',
       'beach-1-now',
     ]);
+    expect(result.recommendations.every(
+      (rec) => rec.window.displayWindowStart === undefined
+        && rec.window.displayWindowEnd === undefined,
+    )).toBe(true);
   });
 
   test('scores custom spots from active nearest-beach forecast buckets in now mode', async () => {

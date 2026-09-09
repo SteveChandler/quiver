@@ -78,6 +78,10 @@ export interface PersonalizedForecastWindow {
   score?: number;
   /** Peak time within the window (highest score moment) */
   peakTime?: Date;
+  /** Additive user-facing display band; serialized as ISO strings in API responses. */
+  displayWindowStart?: Date;
+  /** Additive user-facing display band; serialized as ISO strings in API responses. */
+  displayWindowEnd?: Date;
   /** Original forecast entity this window was derived from (used for scoring, not serialized) */
   sourceForecast?: EnhancedForecastEntity;
 }

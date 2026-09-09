@@ -117,6 +117,7 @@ import type { ScoringEngine } from '@/lib/domains/scoring';
 import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
 import { boardStyleFit } from './board-style-fit';
 import { resolveForecastAlignment } from './forecast-alignment';
+import { withDisplayWindow } from './window-authority';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -1852,6 +1853,10 @@ async function discoverSurfSpotsInner(
       } else if (selectedWindows.length === 0) {
         log.warn(`[discoverSurfSpots] ${beach.name}: pre/post-sunset fall-through failed (today=${todayForecasts.length}, total=${forecasts.length}, hoursUntilSunset=${hoursUntilSunset?.toFixed(2)})`);
       }
+    }
+
+    if (forecastAt || discoveryMode !== 'now') {
+      selectedWindows = selectedWindows.map((window) => withDisplayWindow(window, beachTz));
     }
 
     if (selectedWindows.length === 0) {

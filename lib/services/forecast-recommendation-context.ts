@@ -2,9 +2,9 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { PersonalizedForecastWindow } from "@/types/personalization";
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
-import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
 import { cardinalToDegrees } from "@/lib/services/forecast/forecast-transformer";
 import { degreeToCardinal } from "@/lib/utils/geo-utils";
+import { containsTime, deriveDisplayWindow } from "@/lib/services/discovery/window-authority";
 
 export type ForecastRecommendationType =
   | "best_window"
@@ -218,87 +218,6 @@ function formatRange(start: Date, end: Date, timezone: string): string {
   return `${startLabel}-${endLabel}`;
 }
 
-const TIGHT_DISPLAY_WINDOW_MINUTES = 150;
-const DISPLAY_WINDOW_HALF_MINUTES = TIGHT_DISPLAY_WINDOW_MINUTES / 2;
-
-function containsTime(start: Date, end: Date, time: Date): boolean {
-  return start.getTime() <= time.getTime() && time.getTime() <= end.getTime();
-}
-
-function displayWindowAroundPeak(peak: Date, timezone: string): { start: Date; end: Date } {
-  let start = new Date(peak.getTime() - DISPLAY_WINDOW_HALF_MINUTES * 60 * 1000);
-  let end = new Date(peak.getTime() + DISPLAY_WINDOW_HALF_MINUTES * 60 * 1000);
-
-  const localDate = getLocalDateString(peak, timezone);
-  const daylightStart = localDateTimeToUTC(localDate, "06:00:00", timezone);
-  const daylightEnd = localDateTimeToUTC(localDate, "19:00:00", timezone);
-
-  if (containsTime(daylightStart, daylightEnd, peak)) {
-    if (start < daylightStart) {
-      start = daylightStart;
-      end = new Date(start.getTime() + TIGHT_DISPLAY_WINDOW_MINUTES * 60 * 1000);
-    }
-    if (end > daylightEnd) {
-      end = daylightEnd;
-      start = new Date(end.getTime() - TIGHT_DISPLAY_WINDOW_MINUTES * 60 * 1000);
-    }
-  }
-
-  if (!containsTime(start, end, peak)) {
-    return {
-      start: new Date(peak.getTime() - DISPLAY_WINDOW_HALF_MINUTES * 60 * 1000),
-      end: new Date(peak.getTime() + DISPLAY_WINDOW_HALF_MINUTES * 60 * 1000),
-    };
-  }
-
-  return { start, end };
-}
-
-function deriveDisplayWindow({
-  rawStart,
-  rawEnd,
-  peak,
-  timezone,
-}: {
-  rawStart: Date;
-  rawEnd: Date;
-  peak: Date;
-  timezone: string;
-}): { start: Date; end: Date } {
-  const rawDurationMinutes = (rawEnd.getTime() - rawStart.getTime()) / (60 * 1000);
-  const rawContainsPeak = rawDurationMinutes > 0 && containsTime(rawStart, rawEnd, peak);
-
-  if (rawContainsPeak && rawDurationMinutes <= TIGHT_DISPLAY_WINDOW_MINUTES) {
-    return { start: rawStart, end: rawEnd };
-  }
-
-  let display = displayWindowAroundPeak(peak, timezone);
-
-  if (rawContainsPeak) {
-    if (display.start < rawStart) {
-      const shiftMs = rawStart.getTime() - display.start.getTime();
-      display = {
-        start: rawStart,
-        end: new Date(display.end.getTime() + shiftMs),
-      };
-    }
-
-    if (display.end > rawEnd) {
-      const shiftMs = display.end.getTime() - rawEnd.getTime();
-      display = {
-        start: new Date(display.start.getTime() - shiftMs),
-        end: rawEnd,
-      };
-    }
-  }
-
-  if (!containsTime(display.start, display.end, peak)) {
-    return displayWindowAroundPeak(peak, timezone);
-  }
-
-  return display;
-}
-
 function describeWind(windSpeed: string | null | undefined): string | null {
   const mph = parseNumber(windSpeed);
   if (mph == null) return null;
@@ -485,10 +404,22 @@ export function buildForecastRecommendationContext({
     const start = new Date(window.start);
     const end = new Date(window.end);
     const peak = new Date(window.peakTime ?? window.start);
-    const displayWindow =
-      !Number.isNaN(start.getTime()) &&
-      !Number.isNaN(end.getTime()) &&
-      !Number.isNaN(peak.getTime())
+    const providedDisplayStart = window.displayWindowStart
+      ? new Date(window.displayWindowStart)
+      : null;
+    const providedDisplayEnd = window.displayWindowEnd
+      ? new Date(window.displayWindowEnd)
+      : null;
+    const hasValidDisplayWindow = providedDisplayStart !== null
+      && providedDisplayEnd !== null
+      && !Number.isNaN(providedDisplayStart.getTime())
+      && !Number.isNaN(providedDisplayEnd.getTime())
+      && providedDisplayEnd > providedDisplayStart;
+    const displayWindow = hasValidDisplayWindow
+      ? { start: providedDisplayStart, end: providedDisplayEnd }
+      : !Number.isNaN(start.getTime())
+        && !Number.isNaN(end.getTime())
+        && !Number.isNaN(peak.getTime())
         ? deriveDisplayWindow({
           rawStart: start,
           rawEnd: end,
