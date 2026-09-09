@@ -1,5 +1,6 @@
 /** @jest-environment node */
 import React from 'react';
+import { execFileSync } from 'node:child_process';
 import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/og/beach/route';
 import { getFreshForecastFromCache } from '@/lib/utils/forecast-service-utils';
@@ -152,4 +153,38 @@ test.each(['unknown beach', 'missing configuration'])('uses the original safe ca
   const response = await GET(request());
   expect(text(mockElement)).toContain('Surf Forecasts & Conditions');
   expect(response.headers.get('Cache-Control')).toBe('public, max-age=86400, s-maxage=86400');
+});
+
+test('renders the actual PNG stream, preserving undefined style properties', async () => {
+  await GET(request());
+  // Next's renderer uses ESM; run outside Jest's VM without dropping undefined CSS values.
+  const bytes = execFileSync(process.execPath, ['-e', `
+    const React = require('react');
+    const { ImageResponse } = require('next/og');
+    const fs = require('node:fs');
+    function restore(value) {
+      if (value === '__OG_UNDEFINED__') return undefined;
+      if (Array.isArray(value)) return value.map(restore);
+      if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, restore(child)]));
+      }
+      return value;
+    }
+    function element(node) {
+      if (Array.isArray(node)) return node.map(element);
+      if (!node || typeof node !== 'object') return node;
+      return React.createElement(node.type, node.props, element(node.props.children));
+    }
+    const input = restore(JSON.parse(fs.readFileSync(0, 'utf8')));
+    input.options.fonts?.forEach(font => { font.data = Buffer.from(font.data.data); });
+    new ImageResponse(element(input.element), input.options).arrayBuffer()
+      .then(bytes => process.stdout.write(Buffer.from(bytes)))
+      .catch(error => { console.error(error); process.exitCode = 1; });
+  `], {
+    input: JSON.stringify({ element: mockElement, options: mockOptions }, (_key, value) =>
+      value === undefined ? '__OG_UNDEFINED__' : value),
+    timeout: 10000,
+    maxBuffer: 4 * 1024 * 1024,
+  });
+  expect(await sharp(bytes).metadata()).toMatchObject({ format: 'png', width: 1200, height: 630 });
 });
