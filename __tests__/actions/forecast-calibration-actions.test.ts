@@ -913,3 +913,23 @@ describe("Forecast Calibration Actions", () => {
     });
   });
 });
+
+
+describe("characteristic evidence in calibration reads", () => {
+  it("requests original session tags in both user and beach queries", async () => {
+    const builder = {
+      select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(), range: jest.fn().mockResolvedValue({ data: [], error: null }),
+      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    mockSupabaseClient.from.mockReturnValue(builder);
+    withAuthenticatedAction.mockImplementation((action: (user: { id: string }, client: typeof mockSupabaseClient) => unknown) => action({ id: "user-1" }, mockSupabaseClient));
+    withDatabaseOperation.mockImplementation((action: (client: typeof mockSupabaseClient) => unknown) => action(mockSupabaseClient));
+    await getUserSessionSnapshots();
+    await getBeachSessionSnapshots("beach-1");
+    expect(builder.select).toHaveBeenCalledTimes(2);
+    for (const [selection] of builder.select.mock.calls) {
+      expect(selection).toMatch(/session:sessions\([\s\S]*wave_characteristics/);
+    }
+  });
+});

@@ -110,12 +110,7 @@ const testBeach = {
 } as unknown as Beach;
 
 describe("forecastToConditionsData with beach (wave frequency)", () => {
-  it("returns 0 when wave_height is below the break's threshold even with stacked swell components", () => {
-    // Rockaway-like components (2.7 + 2.2 + 1.3 ft) that would RSS-combine
-    // above the 2.0 ft beach threshold but wave_height itself reads 1.8 ft.
-    // The gate now reads wave_height directly — same source as the card
-    // display — so below-threshold displayed heights gate out regardless
-    // of per-component energy.
+  it("withholds frequency below the legacy threshold", () => {
     const forecast = makeForecast({
       wave_height: "1.8 ft",
       wave_period: "10s",
@@ -127,10 +122,10 @@ describe("forecastToConditionsData with beach (wave frequency)", () => {
       wind_wave_height: "1.3 ft",
     });
     const result = forecastToConditionsData(forecast, testBeach);
-    expect(result.rideableWavesPerHour).toBe(0);
+    expect(result.rideableWavesPerHour).toBeNull();
   });
 
-  it("passes the gate when wave_height is above the break's threshold", () => {
+  it("withholds frequency above the legacy threshold", () => {
     const forecast = makeForecast({
       wave_height: "3 ft",
       wave_period: "12s",
@@ -139,26 +134,27 @@ describe("forecastToConditionsData with beach (wave frequency)", () => {
       swell_1_direction: "S",
     });
     const result = forecastToConditionsData(forecast, testBeach);
-    expect(result.rideableWavesPerHour).toBeGreaterThan(0);
+    expect(result.rideableWavesPerHour).toBeNull();
+    expect(result.dominantBeatIntervalS).toBeNull();
   });
 
-  it("gates on wave_height string, including range formats like '4-5ft'", () => {
+  it("withholds frequency for height ranges", () => {
     const forecast = makeForecast({
       wave_height: "4-5ft",
       wave_period: "10s",
     });
     const result = forecastToConditionsData(forecast, testBeach);
-    // wave_height lower bound 4ft > 2.0ft threshold → should produce waves
-    expect(result.rideableWavesPerHour).toBeGreaterThan(0);
+    expect(result.rideableWavesPerHour).toBeNull();
+    expect(result.dominantBeatIntervalS).toBeNull();
   });
 
-  it("returns 0 waves/hr when all components are flat", () => {
+  it("withholds frequency when all components are flat", () => {
     const forecast = makeForecast({
       wave_height: "Flat",
       wave_period: "8s",
     });
     const result = forecastToConditionsData(forecast, testBeach);
-    expect(result.rideableWavesPerHour).toBe(0);
+    expect(result.rideableWavesPerHour).toBeNull();
   });
 
   it("returns null rideableWavesPerHour when no beach provided", () => {
@@ -171,10 +167,7 @@ describe("forecastToConditionsData with beach (wave frequency)", () => {
     expect(result.rideableWavesPerHour).toBeUndefined();
   });
 
-  it("still passes the gate when swell components are null as long as wave_height is above threshold", () => {
-    // All swell fields null/missing but wave_height has a real value.
-    // Swell components are still used downstream for period/weighting math,
-    // but the gate is purely wave_height-driven.
+  it("withholds frequency when swell partitions are absent", () => {
     const forecast = makeForecast({
       wave_height: "3 ft",
       wave_period: "10s",
@@ -183,6 +176,7 @@ describe("forecastToConditionsData with beach (wave frequency)", () => {
       wind_wave_height: null,
     });
     const result = forecastToConditionsData(forecast, testBeach);
-    expect(result.rideableWavesPerHour).toBeGreaterThan(0);
+    expect(result.rideableWavesPerHour).toBeNull();
+    expect(result.dominantBeatIntervalS).toBeNull();
   });
 });
