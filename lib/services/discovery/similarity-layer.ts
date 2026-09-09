@@ -21,6 +21,7 @@ import {
 } from "@/lib/personalization/match-state-compat";
 
 const log = createContextLogger("SimilarityLayer");
+const MATCH_RPC_CONCURRENCY = 10;
 
 /**
  * Shape of a single row from compute_user_match_score_batch.
@@ -187,44 +188,49 @@ export async function applySimilarityLayer(
   const similarityByIndex: SimilarityRecommendation[] =
     recommendations.map(() => null);
 
-  await Promise.all(
-    Array.from(indexesByBeach.entries()).map(async ([beachId, indexes]) => {
-      try {
-        const { data, error } = await supabase.rpc(
-          "compute_user_match_score_batch",
-          {
-            p_user_id: userId,
-            p_beach_id: beachId,
-            p_slots: indexes.flatMap((index) =>
-              recToSlotPayload(recommendations[index]),
-            ),
-          },
-        );
+  const beaches = indexesByBeach.entries();
+  // Bound the database burst without letting one slow beach stall the queue.
+  await Promise.all(Array.from(
+    { length: Math.min(MATCH_RPC_CONCURRENCY, indexesByBeach.size) },
+    async () => {
+      for (const [beachId, indexes] of beaches) {
+        try {
+          const { data, error } = await supabase.rpc(
+            "compute_user_match_score_batch",
+            {
+              p_user_id: userId,
+              p_beach_id: beachId,
+              p_slots: indexes.flatMap((index) =>
+                recToSlotPayload(recommendations[index]),
+              ),
+            },
+          );
 
-        if (error) {
+          if (error) {
+            log.warn(
+              `Bulk match-score RPC error for beach=${beachId}: ${error.message}`,
+            );
+            continue;
+          }
+
+          const rowsBySlot = new Map(
+            ((data ?? []) as BatchRpcRow[]).map((row) => [row.slot_idx, row]),
+          );
+          indexes.forEach((recommendationIndex, slotIndex) => {
+            similarityByIndex[recommendationIndex] = interpretRpcResult(
+              rowsBySlot.get(slotIndex)?.result ?? null,
+            );
+          });
+        } catch (err) {
           log.warn(
-            `Bulk match-score RPC error for beach=${beachId}: ${error.message}`,
+            `Bulk match-score RPC threw for beach=${beachId}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
           );
-          return;
         }
-
-        const rowsBySlot = new Map(
-          ((data ?? []) as BatchRpcRow[]).map((row) => [row.slot_idx, row]),
-        );
-        indexes.forEach((recommendationIndex, slotIndex) => {
-          similarityByIndex[recommendationIndex] = interpretRpcResult(
-            rowsBySlot.get(slotIndex)?.result ?? null,
-          );
-        });
-      } catch (err) {
-        log.warn(
-          `Bulk match-score RPC threw for beach=${beachId}: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
       }
-    }),
-  );
+    },
+  ));
 
   return {
     recommendations: recommendations.map((rec, index) => ({

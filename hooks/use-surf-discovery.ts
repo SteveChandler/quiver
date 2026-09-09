@@ -408,13 +408,19 @@ export function useSurfDiscovery(
 
   // Refetch when options change (e.g., timeSlot) - debounced to prevent rapid clicks
   const prevOptionsHashRef = useRef(optionsHash);
+  const autoFetchEnabled = enabled && immediate && !!user;
+  const prevAutoFetchEnabledRef = useRef(autoFetchEnabled);
   useEffect(() => {
+    const wasAutoFetchEnabled = prevAutoFetchEnabledRef.current;
+    prevAutoFetchEnabledRef.current = autoFetchEnabled;
     if (prevOptionsHashRef.current === optionsHash) {
       prevOptionsHashRef.current = optionsHash;
       return;
     }
     prevOptionsHashRef.current = optionsHash;
-    if (!enabled || !immediate || !user) return;
+    // First enable already starts with the latest options. Later changes must
+    // still clear any previous recommendation while fresh policy is checked.
+    if (!autoFetchEnabled || (!wasAutoFetchEnabled && !hasCompletedRequestRef.current)) return;
 
     // Debounce to prevent rapid time slot switching from hitting rate limits
     reset();
@@ -423,7 +429,7 @@ export function useSurfDiscovery(
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [enabled, immediate, optionsHash, refreshDiscovery, reset, user]);
+  }, [autoFetchEnabled, optionsHash, refreshDiscovery, reset, user]);
 
   useEffect(() => {
     const decision = freshData?.sessionDecision;
