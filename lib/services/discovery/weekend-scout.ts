@@ -22,6 +22,7 @@ import type {
   MajorEventHoldWeekScoutResponse,
   MajorEventHoldWeekScoutWindow,
 } from '@/lib/recommendations/major-event-hold/adapters/week-scout';
+import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
 
 export const LOCATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const LOCATION_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
@@ -290,8 +291,13 @@ export async function buildWeekendScoutRanking(
       bestWindow: {
         start: window.start,
         end: window.end,
+        displayWindowStart: window.displayWindowStart,
+        displayWindowEnd: window.displayWindowEnd,
         peakTime: window.peakTime,
-        localLabel: localWindowLabel(window, location.timezone),
+        localLabel: localWindowLabel(
+          window,
+          resolveBeachTimezone(candidate.beach.timezone || location.timezone),
+        ),
         waveHeight: window.forecast.waveHeight,
         period: window.forecast.period,
         windSpeed: window.forecast.windSpeed,
