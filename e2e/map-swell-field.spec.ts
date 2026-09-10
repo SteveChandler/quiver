@@ -152,6 +152,7 @@ function hourlyTimelineChunk(
     new Date(startMs + index * 60 * 60 * 1000).toISOString(),
   );
   const partition = (index = 0) => ({
+    recommendationLabel: null,
     s1Dir: 270,
     s1PeriodS: 14,
     s1HeightFt: 3.5 + index / 10,
@@ -166,6 +167,17 @@ function hourlyTimelineChunk(
     success: true,
     data: {
       forecasts: Object.fromEntries(beachIds.map((beachId) => [beachId, "3.5 ft"])),
+      recommendationLabels: Object.fromEntries(
+        beachIds.map((beachId) => [beachId, null]),
+      ),
+      displaySwell: Object.fromEntries(
+        beachIds.map((beachId) => [beachId, {
+          periodSeconds: 14,
+          directionDeg: 270,
+          heightFt: 3.5,
+          source: "partition",
+        }]),
+      ),
       swellPartitions: Object.fromEntries(
         beachIds.map((beachId) => [beachId, partition()]),
       ),
@@ -619,9 +631,10 @@ for (const viewport of [
       await expect(legend).toHaveCSS("color", "rgb(17, 16, 13)");
       await expect(legend).toHaveCSS("border-top-width", "2px");
       await expect(legend.getByText("Worth it")).toBeVisible();
+      await expect(legend.getByText("Maybe")).toBeVisible();
+      await expect(legend.getByText("Skip")).toBeVisible();
+      await expect(legend.getByText("No read")).toBeVisible();
       await expect(legend.getByText("Scout it")).toBeVisible();
-      await expect(legend.getByText("GOOD")).toHaveCount(0);
-      await expect(legend.getByText("CHECK")).toHaveCount(0);
 
       const legendBox = await legend.boundingBox();
       const selectorBox = await selector.boundingBox();
