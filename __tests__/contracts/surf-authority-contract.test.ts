@@ -8,10 +8,10 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { WeekScoutServiceDependencies } from "@/lib/services/discovery/week-scout";
 
 const BEACH_ID = "11111111-1111-4111-8111-111111111111";
-const NOW = new Date("2026-09-11T01:40:00.000Z");
-const SHIFTED_NOW = new Date("2026-09-11T03:10:00.000Z");
-const CURRENT_AT = "2026-09-11T00:00:00.000Z";
-const NEXT_AT = "2026-09-11T03:00:00.000Z";
+const NOW = new Date("2026-09-10T20:40:00.000Z");
+const SHIFTED_NOW = new Date("2026-09-10T22:10:00.000Z");
+const CURRENT_AT = "2026-09-10T18:00:00.000Z";
+const NEXT_AT = "2026-09-10T21:00:00.000Z";
 
 const beach = {
   id: BEACH_ID,
@@ -298,7 +298,11 @@ async function runProducers(now: Date) {
     bulk: bulkBody.data,
     nowRecommendation: nowDiscovery.recommendations[0],
     bestRecommendation,
-    context: buildForecastRecommendationContext({
+    nowContext: buildForecastRecommendationContext({
+      beach, forecasts: [nowDiscovery.recommendations[0].forecast],
+      window: nowDiscovery.recommendations[0].window, now,
+    })!,
+    bestWindowContext: buildForecastRecommendationContext({
       beach, forecasts: [bestRecommendation.forecast], window: bestRecommendation.window, now,
     })!,
     authority,
@@ -342,30 +346,55 @@ describe("surf authority producer contract", () => {
   describe("current row", () => {
     it("keeps current, bulk, and discovery on the latest past row", () => {
       const bulkAt = result.bulk.displayForecasts[BEACH_ID].forecastAt;
-      expect(result.current.forecast_at).toBe(bulkAt);
-      expect(result.nowRecommendation.forecast.forecast_at).toBe(bulkAt);
-      expect(bulkAt).toBe(CURRENT_AT);
+      expect({
+        current: result.current.forecast_at,
+        bulk: bulkAt,
+        discovery: result.nowRecommendation.forecast.forecast_at,
+      }).toEqual({ current: CURRENT_AT, bulk: CURRENT_AT, discovery: CURRENT_AT });
       expect([result.current.forecast_at, bulkAt, result.nowRecommendation.forecast.forecast_at])
         .not.toContain(NEXT_AT);
     });
 
     it("moves every current-row producer together after the next row becomes current", () => {
       const bulkAt = shifted.bulk.displayForecasts[BEACH_ID].forecastAt;
-      expect(shifted.current.forecast_at).toBe(bulkAt);
-      expect(shifted.recommendation.forecast.forecast_at).toBe(bulkAt);
-      expect(bulkAt).toBe(NEXT_AT);
+      expect({
+        current: shifted.current.forecast_at,
+        bulk: bulkAt,
+        discovery: shifted.recommendation.forecast.forecast_at,
+      }).toEqual({ current: NEXT_AT, bulk: NEXT_AT, discovery: NEXT_AT });
     });
   });
 
   describe("display swell", () => {
     it("uses the same offshore tuple everywhere", () => {
       const direct = resolveDisplaySwell(currentRow, { centerDeg: 200, halfwidthDeg: 30 });
-      expect(result.bulk.displaySwell[BEACH_ID]).toEqual(direct);
       expect(direct.source).toBe("offshore");
-      expect(result.context.swellPeriod).toBe(formatPeriodSeconds(direct.periodSeconds));
-      expect(result.context.swellDirection).toBe(degreeToCardinal(direct.directionDeg!));
-      expect(JSON.stringify([result.bulk.displaySwell[BEACH_ID], result.context.swellPeriod, result.context.swellDirection]))
+      expect({
+        bulk: result.bulk.displaySwell[BEACH_ID],
+        nowContext: {
+          period: result.nowContext.swellPeriod,
+          direction: result.nowContext.swellDirection,
+        },
+      }).toEqual({
+        bulk: direct,
+        nowContext: {
+          period: formatPeriodSeconds(direct.periodSeconds),
+          direction: degreeToCardinal(direct.directionDeg!),
+        },
+      });
+      expect(JSON.stringify([
+        result.bulk.displaySwell[BEACH_ID], result.nowContext.swellPeriod, result.nowContext.swellDirection,
+      ]))
         .not.toMatch(/3 ft|9s|\bW\b/);
+    });
+
+    it("resolves the best-window context swell from its own forecast row", () => {
+      const direct = resolveDisplaySwell(
+        result.bestRecommendation.forecast,
+        { centerDeg: 200, halfwidthDeg: 30 },
+      );
+      expect(result.bestWindowContext.swellPeriod).toBe(formatPeriodSeconds(direct.periodSeconds));
+      expect(result.bestWindowContext.swellDirection).toBe(degreeToCardinal(direct.directionDeg!));
     });
   });
 
@@ -383,8 +412,8 @@ describe("surf authority producer contract", () => {
     it("shares display bounds across discovery, surf call, authority, and Week Scout", () => {
       const discoveryStart = result.bestRecommendation.window.displayWindowStart!.toISOString();
       const discoveryEnd = result.bestRecommendation.window.displayWindowEnd!.toISOString();
-      expect(result.context.displayWindowStart).toBe(discoveryStart);
-      expect(result.context.displayWindowEnd).toBe(discoveryEnd);
+      expect(result.bestWindowContext.displayWindowStart).toBe(discoveryStart);
+      expect(result.bestWindowContext.displayWindowEnd).toBe(discoveryEnd);
       expect(result.authority.bestDayWindow?.displayWindowStart.toISOString()).toBe(discoveryStart);
       expect(result.authority.bestDayWindow?.displayWindowEnd.toISOString()).toBe(discoveryEnd);
       expect(result.weekScout.bestDayWindow?.displayWindowStart).toBe(discoveryStart);
