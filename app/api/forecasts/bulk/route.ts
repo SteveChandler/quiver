@@ -29,6 +29,7 @@ import {
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import { getBatchSunTimes } from "@/lib/services/discovery";
 import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
+import { withDisplayWindow } from "@/lib/services/discovery/window-authority";
 import {
   resolveDisplaySwell,
   type DisplaySwell,
@@ -83,6 +84,7 @@ export type ConditionSummary =
 const emptyBulkForecastResponse = {
   forecasts: {},
   displayForecasts: {},
+  todayHeadlines: {},
   waterTemps: {},
   isCalibrated: {},
   conditionScores: {},
@@ -149,6 +151,10 @@ type HourlyTimelineWindowParseResult =
  *     displayForecasts: {
  *       [beachId]: { label, minFt, maxFt, forecastAt, context } | undefined
  *     },
+ *     todayHeadlines: {
+ *       [beachId]: { label, minFt, maxFt, forecastAt, windowStart, windowEnd,
+ *         displayWindowStart, displayWindowEnd } | undefined
+ *     }, // Additive best-window context; the web map does not consume this yet.
  *     waterTemps: {
  *       [beachId]: string | undefined
  *     },
@@ -1001,6 +1007,16 @@ export async function bulkForecastHandler(
     const forecastsByBeach = groupForecastsByBeach(data);
     const waveHeightMap: Record<string, number | undefined> = {};
     const displayForecastMap: Record<string, ForecastDisplay | undefined> = {};
+    const todayHeadlineMap: Record<string, {
+      label: string;
+      minFt: number;
+      maxFt: number;
+      forecastAt: string;
+      windowStart: string;
+      windowEnd: string;
+      displayWindowStart: string;
+      displayWindowEnd: string;
+    }> = {};
     const timelineByBeach = groupForecastsByBeach(timelineRows);
     const swellPartitionMap: Record<string, SwellPartition> = {};
     const swellPartitionRows = new Map<string, EnhancedForecastEntity>();
@@ -1065,7 +1081,7 @@ export async function bulkForecastHandler(
       for (const [beachId, rows] of forecastsByBeach) {
         const row =
           fetchWindow.selectedAt === null
-            ? rows[0]
+            ? swellPartitionRows.get(beachId)
             : closestForecastRow(rows, fetchWindow.selectedAt);
         const parsed = parseLegacyWaveHeight(row?.wave_height);
         if (parsed != null) {
@@ -1090,6 +1106,12 @@ export async function bulkForecastHandler(
         if (fetchWindow.selectedAt) {
           display = resolveSelectedHourDisplay(forecastForScore);
         } else {
+          const currentRow = designateCurrentRow(beachForecasts, now, {
+            toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
+          })?.row ?? null;
+          display = resolveSelectedHourDisplay(currentRow);
+          scoreForecast = currentRow;
+
           const localToday = beachTodayDate(beach, new Date());
           const todayForecasts = beachForecasts.filter(
             (forecast) =>
@@ -1106,21 +1128,18 @@ export async function bulkForecastHandler(
             sunTimesCache,
             userSkillLevel,
           });
-          display = headline?.display ?? null;
-          scoreForecast = headline?.window.sourceForecast ?? null;
-          if (!display) {
-            // After the last daylight window of the local day there is no
-            // "today's best window" — but current conditions still exist, and
-            // every map marker and spot sheet reads these two maps. Withhold the
-            // recommendation, not the measurement: fall back to the latest row
-            // at or before now, the same rule as the swell-partition path.
-            const currentRow = designateCurrentRow(beachForecasts, now, {
-              toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
-            })?.row ?? null;
-            if (currentRow) {
-              display = resolveSelectedHourDisplay(currentRow);
-              scoreForecast = currentRow;
-            }
+          if (headline) {
+            const window = withDisplayWindow(headline.window);
+            todayHeadlineMap[beach.id] = {
+              label: headline.display.label,
+              minFt: headline.display.minFt,
+              maxFt: headline.display.maxFt,
+              forecastAt: headline.display.forecastAt,
+              windowStart: window.start.toISOString(),
+              windowEnd: window.end.toISOString(),
+              displayWindowStart: window.displayWindowStart.toISOString(),
+              displayWindowEnd: window.displayWindowEnd.toISOString(),
+            };
           }
         }
 
@@ -1174,6 +1193,7 @@ export async function bulkForecastHandler(
     const response = {
       forecasts: waveHeightMap,
       displayForecasts: displayForecastMap,
+      todayHeadlines: todayHeadlineMap,
       waterTemps: waterTempMap,
       isCalibrated: isCalibratedMap,
       conditionScores: conditionScoreMap,

@@ -12,6 +12,7 @@ import {
 import { getCachedRateLimiter } from "@/lib/utils/enhanced-rate-limiter";
 import { RATE_LIMITS } from "@/lib/api/rate-limit-config";
 import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
+import { resolveTodayHeadline } from "@/lib/services/forecast/today-headline";
 
 // The route owns a real cleanup interval; release it after this test module.
 afterAll(() => getCachedRateLimiter("forecast-bulk", RATE_LIMITS["forecast-bulk"]).destroy());
@@ -25,6 +26,16 @@ interface ForecastsBulkResponse {
     forecastAt: string;
     context: "today_headline" | "selected_hour";
   } | undefined>;
+  todayHeadlines: Record<string, {
+    label: string;
+    minFt: number;
+    maxFt: number;
+    forecastAt: string;
+    windowStart: string;
+    windowEnd: string;
+    displayWindowStart: string;
+    displayWindowEnd: string;
+  }>;
   waterTemps: Record<string, string | undefined>;
   isCalibrated: Record<string, boolean>;
   conditionScores: Record<string, number | undefined>;
@@ -255,7 +266,7 @@ describe("conditionSummaryFromScore", () => {
 function forecastRow(
   beachId: string,
   waveHeight: string | null,
-  offsetHours = 1,
+  offsetHours = -1,
 ): ForecastRow {
   const forecastAt = new Date(Date.now() + offsetHours * 60 * 60 * 1000);
   return {
@@ -458,6 +469,75 @@ describe("GET /api/forecasts/bulk", () => {
     });
   });
 
+  it("uses the latest past row for map fields and keeps the future best window separately", async () => {
+    const currentRow = forecastRow(BEACH_ONE_ID, "1.9", -1);
+    const headlineRow = forecastRow(BEACH_ONE_ID, "3.7", 2);
+    (resolveTodayHeadline as jest.Mock).mockImplementationOnce(() => ({
+      display: mockDisplayForForecast(headlineRow, "today_headline"),
+      window: {
+        start: new Date(headlineRow.forecast_at),
+        end: new Date(Date.parse(headlineRow.forecast_at) + 60 * 60 * 1000),
+        waveHeight: headlineRow.wave_height,
+        sourceForecast: headlineRow,
+      },
+    }));
+    const selectedBeach = beachRow(BEACH_ONE_ID);
+    mockBulkQueries({
+      forecastRows: [currentRow, headlineRow],
+      beachRows: [selectedBeach],
+    });
+
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: BEACH_ONE_ID },
+    });
+    const response = await GET(request);
+    const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
+
+    expect(result.data.displayForecasts[BEACH_ONE_ID]).toMatchObject({
+      forecastAt: currentRow.forecast_at,
+      context: "selected_hour",
+    });
+    expect(result.data.forecasts).toEqual({ [BEACH_ONE_ID]: 1.9 });
+    expect(result.data.todayHeadlines[BEACH_ONE_ID]).toMatchObject({
+      forecastAt: headlineRow.forecast_at,
+      windowStart: headlineRow.forecast_at,
+    });
+    expect(result.data.conditionScores).toEqual({ [BEACH_ONE_ID]: 72 });
+    expect(result.data.recommendationLabels[BEACH_ONE_ID]).toBe(
+      resolveRecommendationLabel({
+        beach: selectedBeach as never,
+        forecast: currentRow as never,
+        score: 72,
+      }).label,
+    );
+  });
+
+  it("keeps explicit forecastAt selection on the selected hour", async () => {
+    const currentRow = forecastRow(BEACH_ONE_ID, "1.9", -1);
+    const selectedRow = forecastRow(BEACH_ONE_ID, "3.7", 2);
+    mockBulkQueries({
+      forecastRows: [currentRow, selectedRow],
+      beachRows: [beachRow(BEACH_ONE_ID)],
+    });
+
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: {
+        beachIds: BEACH_ONE_ID,
+        forecastAt: selectedRow.forecast_at,
+      },
+    });
+    const response = await GET(request);
+    const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
+
+    expect(result.data.displayForecasts[BEACH_ONE_ID]).toMatchObject({
+      forecastAt: selectedRow.forecast_at,
+      context: "selected_hour",
+    });
+    expect(result.data.forecasts).toEqual({ [BEACH_ONE_ID]: 3.7 });
+    expect(result.data.todayHeadlines).toEqual({});
+    expect(resolveTodayHeadline).not.toHaveBeenCalled();
+  });
+
   it("returns all empty maps for missing, empty, or whitespace-only beachIds", async () => {
     const cases: Array<Record<string, string>> = [
       {},
@@ -476,6 +556,7 @@ describe("GET /api/forecasts/bulk", () => {
       expect(result.data).toEqual({
         forecasts: {},
         displayForecasts: {},
+        todayHeadlines: {},
         waterTemps: {},
         isCalibrated: {},
         conditionScores: {},
@@ -625,7 +706,7 @@ describe("GET /api/forecasts/bulk", () => {
   });
 
   it("returns water temps and calibration status in the envelope", async () => {
-    const currentRow = forecastRow(BEACH_ONE_ID, "4.5");
+    const currentRow = forecastRow(BEACH_ONE_ID, "4.5", 0);
     currentRow.water_temp = "63";
     mockBulkQueries({
       forecastRows: [currentRow],

@@ -35,6 +35,16 @@ interface BulkForecastResponse {
       }
     | undefined
   >;
+  todayHeadlines: Record<string, {
+    label: string;
+    minFt: number;
+    maxFt: number;
+    forecastAt: string;
+    windowStart: string;
+    windowEnd: string;
+    displayWindowStart: string;
+    displayWindowEnd: string;
+  }>;
   waterTemps: Record<string, string | undefined>;
   isCalibrated: Record<string, boolean>;
   conditionScores: Record<string, number | undefined>;
@@ -277,7 +287,7 @@ jest.mock("@/lib/api-utils", () => {
 function forecastRow(
   beachId: string,
   waveHeight: string | null,
-  offsetHours = 1,
+  offsetHours = -1,
 ): ForecastRow {
   const forecastAt = new Date(Date.now() + offsetHours * 60 * 60 * 1000);
   return {
@@ -683,6 +693,7 @@ describe("/api/forecasts/bulk", () => {
       expect(data.data).toEqual({
         forecasts: {},
         displayForecasts: {},
+        todayHeadlines: {},
         waterTemps: {},
         isCalibrated: {},
         conditionScores: {},
@@ -811,6 +822,7 @@ describe("/api/forecasts/bulk", () => {
       createMockRequest(
         "GET",
         "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1",
+        { headers: { "x-forwarded-for": "203.0.113.245" } },
       ),
     );
     const data = await expectSuccessResponse<BulkForecastResponse>(
@@ -964,8 +976,8 @@ describe("/api/forecasts/bulk", () => {
     });
   });
 
-  it("returns the canonical today headline display instead of recomputing from the first row", async () => {
-    const currentRow = forecastRow("beach-1", "1.9", 1);
+  it("uses the current row for map fields and preserves the best window as a headline", async () => {
+    const currentRow = forecastRow("beach-1", "1.9", -1);
     const headlineRow = forecastRow("beach-1", "2.7", 10);
     (resolveTodayHeadline as jest.Mock).mockImplementationOnce(
       ({ forecasts }: { forecasts: ForecastRow[] }) => {
@@ -1002,13 +1014,67 @@ describe("/api/forecasts/bulk", () => {
     );
 
     expect(data.data.displayForecasts["beach-1"]).toMatchObject({
+      label: "1-2ft",
+      minFt: 1,
+      maxFt: 2,
+      forecastAt: currentRow.forecast_at,
+      context: "selected_hour",
+    });
+    expect(data.data.todayHeadlines["beach-1"]).toEqual({
       label: "2-3ft",
       minFt: 2,
       maxFt: 3,
       forecastAt: headlineRow.forecast_at,
-      context: "today_headline",
+      windowStart: headlineRow.forecast_at,
+      windowEnd: new Date(
+        Date.parse(headlineRow.forecast_at) + 60 * 60 * 1000,
+      ).toISOString(),
+      displayWindowStart: headlineRow.forecast_at,
+      displayWindowEnd: new Date(
+        Date.parse(headlineRow.forecast_at) + 60 * 60 * 1000,
+      ).toISOString(),
     });
-    expect(data.data.forecasts).toEqual({ "beach-1": 2.7 });
+    expect(data.data.forecasts).toEqual({ "beach-1": 1.9 });
+    expect(scoreWindowConditionScore).toHaveBeenCalledWith(
+      currentRow,
+      expect.objectContaining({ id: "beach-1" }),
+      null,
+      null,
+      [],
+    );
+  });
+
+  it("keeps explicit forecastAt selection on the selected hour", async () => {
+    const currentRow = forecastRow("beach-1", "1.9", -1);
+    const selectedRow = forecastRow("beach-1", "3.7", 2);
+    mockBulkQueries({
+      forecastRows: [currentRow, selectedRow],
+      beachRows: [beachRow("beach-1")],
+    });
+
+    const response = await GET(
+      createMockRequest(
+        "GET",
+        `http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&forecastAt=${selectedRow.forecast_at}`,
+        { headers: { "x-forwarded-for": "203.0.113.246" } },
+      ),
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+    expect(data.data.displayForecasts["beach-1"]).toMatchObject({
+      forecastAt: selectedRow.forecast_at,
+      context: "selected_hour",
+    });
+    expect(data.data.forecasts).toEqual({ "beach-1": 3.7 });
+    expect(data.data.todayHeadlines).toEqual({});
+    expect(resolveTodayHeadline).not.toHaveBeenCalled();
+    expect(scoreWindowConditionScore).toHaveBeenCalledWith(
+      selectedRow,
+      expect.objectContaining({ id: "beach-1" }),
+      null,
+      null,
+      [],
+    );
   });
 
   it("falls back to the row nearest now when no today headline window remains (after sunset)", async () => {
@@ -1177,6 +1243,7 @@ describe("/api/forecasts/bulk", () => {
     expect(data.data).toEqual({
       forecasts: {},
       displayForecasts: {},
+      todayHeadlines: {},
       waterTemps: {},
       isCalibrated: {},
       conditionScores: {},
@@ -1241,7 +1308,7 @@ describe("/api/forecasts/bulk", () => {
     expect(data.data.forecasts).toEqual({ "beach-1": 3 });
     expect(data.data.displayForecasts["beach-1"]).toMatchObject({
       label: "3-4ft",
-      context: "today_headline",
+      context: "selected_hour",
     });
   });
 
@@ -1627,6 +1694,7 @@ describe("/api/forecasts/bulk", () => {
     expect(data.data).toEqual(expect.objectContaining({
       forecasts: {},
       displayForecasts: {},
+      todayHeadlines: {},
       waterTemps: {},
       isCalibrated: {},
       conditionScores: {},
@@ -2015,12 +2083,12 @@ describe("/api/forecasts/bulk", () => {
     expect(data.data.forecasts).toEqual({ "beach-1": 0 });
     expect(data.data.displayForecasts["beach-1"]).toMatchObject({
       label: "Flat",
-      context: "today_headline",
+      context: "selected_hour",
     });
   });
 
   it("returns water temps from the nearest future enhanced forecast row", async () => {
-    const nearestRow = forecastRow("beach-1", "2.5");
+    const nearestRow = forecastRow("beach-1", "2.5", 1);
     nearestRow.water_temp = "64";
     mockBulkQueries({
       forecastRows: [nearestRow],
@@ -2125,7 +2193,7 @@ describe("/api/forecasts/bulk", () => {
   });
 
   it("binds policy to the selected score forecast and sanitizes after physical computation", async () => {
-    const currentRow = forecastRow(BOUND_BEACH_ID, "1.9", 1);
+    const currentRow = forecastRow(BOUND_BEACH_ID, "1.9", -1);
     const selectedScoreRow = forecastRow(BOUND_BEACH_ID, "3.7", 10);
     (resolveTodayHeadline as jest.Mock).mockImplementationOnce(() => ({
       display: mockDisplayForForecast(selectedScoreRow, "today_headline"),
@@ -2160,22 +2228,25 @@ describe("/api/forecasts/bulk", () => {
     );
     const body = await expectSuccessResponse<any>(response, 200);
     const expectedEnd = new Date(
-      Date.parse(selectedScoreRow.forecast_at) + 3 * 60 * 60 * 1000,
+      Date.parse(currentRow.forecast_at) + 3 * 60 * 60 * 1000,
     ).toISOString();
 
     expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledWith({
       candidates: [
         {
-          candidateId: `bulk-forecast:${BOUND_BEACH_ID}:${selectedScoreRow.forecast_at}`,
+          candidateId: `bulk-forecast:${BOUND_BEACH_ID}:${currentRow.forecast_at}`,
           beachId: BOUND_BEACH_ID,
-          startsAt: selectedScoreRow.forecast_at,
+          startsAt: currentRow.forecast_at,
           endsAt: expectedEnd,
         },
       ],
       profileExperience: null,
     });
-    expect(body.data.forecasts).toEqual({ [BOUND_BEACH_ID]: 3.7 });
+    expect(body.data.forecasts).toEqual({ [BOUND_BEACH_ID]: 1.9 });
     expect(body.data.displayForecasts[BOUND_BEACH_ID]).toMatchObject({
+      forecastAt: currentRow.forecast_at,
+    });
+    expect(body.data.todayHeadlines[BOUND_BEACH_ID]).toMatchObject({
       forecastAt: selectedScoreRow.forecast_at,
     });
     expect(body.data.conditionScores).toEqual({});
@@ -2194,7 +2265,7 @@ describe("/api/forecasts/bulk", () => {
   });
 
   it("fails unresolved policy closed while retaining physical forecast fields", async () => {
-    const row = forecastRow(BOUND_BEACH_ID, "2.5", 2);
+    const row = forecastRow(BOUND_BEACH_ID, "2.5", -1);
     mockBulkQueries({
       forecastRows: [row],
       beachRows: [beachRow(BOUND_BEACH_ID)],
