@@ -240,7 +240,7 @@ import { selectBeachDayWindows } from "@/lib/services/discovery/window-authority
 import { selectBestWindows, scoreWindowConditionScore } from "@/lib/services/discovery/window-selector";
 import { beachToSpotProfile, createDiscoveryScoringEngine, scoreBeachWithEngine } from "@/lib/domains/scoring";
 import { rerankHero } from "@/lib/services/discovery/hero-ranking";
-import { formatPeriodSeconds } from "@/lib/formatters/surf-data";
+import { formatDisplaySwellPeriod } from "@/lib/domains/conditions/display-swell";
 import { degreeToCardinal } from "@/lib/utils/geo-utils";
 
 type ProducerResults = Awaited<ReturnType<typeof runProducers>>;
@@ -378,7 +378,7 @@ describe("surf authority producer contract", () => {
       }).toEqual({
         bulk: direct,
         nowContext: {
-          period: formatPeriodSeconds(direct.periodSeconds),
+          period: formatDisplaySwellPeriod(direct.periodSeconds),
           direction: degreeToCardinal(direct.directionDeg!),
         },
       });
@@ -393,7 +393,7 @@ describe("surf authority producer contract", () => {
         result.bestRecommendation.forecast,
         { centerDeg: 200, halfwidthDeg: 30 },
       );
-      expect(result.bestWindowContext.swellPeriod).toBe(formatPeriodSeconds(direct.periodSeconds));
+      expect(result.bestWindowContext.swellPeriod).toBe(formatDisplaySwellPeriod(direct.periodSeconds));
       expect(result.bestWindowContext.swellDirection).toBe(degreeToCardinal(direct.directionDeg!));
     });
   });

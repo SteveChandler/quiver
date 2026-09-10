@@ -107,6 +107,7 @@ import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import type { MapCameraCommand } from "@/components/map/map-camera-command";
 import { MapPreloadPreview } from "@/components/map/map-preload-preview";
 import { createTileStallWatchdog } from "@/components/map/tile-stall-watchdog";
+import { formatDisplaySwellPeriod } from "@/lib/domains/conditions/display-swell";
 import {
   formatSwellPeriod,
   formatWaveHeightRange,
@@ -353,9 +354,11 @@ function mapSpotConditions(
     waveHeight: waveLabel || (isFiniteNumber(rawWaveHeight)
       ? formatWaveHeightRange(rawWaveHeight)
       : null),
-    swellPeriod: isFiniteNumber(swellPeriod) && swellPeriod > 0
-      ? formatSwellPeriod(swellPeriod)
-      : null,
+    swellPeriod: displaySwell
+      ? formatDisplaySwellPeriod(displaySwell.periodSeconds)
+      : isFiniteNumber(swellPeriod) && swellPeriod > 0
+        ? formatSwellPeriod(swellPeriod)
+        : null,
     swellDirection: isFiniteNumber(swellDirection)
       ? degreesToCompass(swellDirection)
       : null,

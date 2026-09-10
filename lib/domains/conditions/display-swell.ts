@@ -41,6 +41,11 @@ function isInWindow(directionDeg: number | null, window: DisplaySwellWindow): bo
     && angleDifference(directionDeg, window.centerDeg) <= window.halfwidthDeg;
 }
 
+export function formatDisplaySwellPeriod(periodSeconds: number | null): string | null {
+  if (periodSeconds === null || !Number.isFinite(periodSeconds) || periodSeconds <= 0) return null;
+  return `${Math.round(periodSeconds * 10) / 10}s`;
+}
+
 export function resolveDisplaySwell(
   row: DisplaySwellRow | null,
   window: DisplaySwellWindow | null,

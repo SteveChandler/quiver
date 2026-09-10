@@ -5,6 +5,7 @@ import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-u
 import { degreeToCardinal } from "@/lib/utils/geo-utils";
 import { containsTime, deriveDisplayWindow } from "@/lib/services/discovery/window-authority";
 import {
+  formatDisplaySwellPeriod,
   resolveDisplaySwell,
   type DisplaySwellWindow,
 } from "@/lib/domains/conditions/display-swell";
@@ -147,12 +148,6 @@ function toFiniteNumber(value: unknown): number | null {
   return value;
 }
 
-function formatPeriodSeconds(value: number | null): string | null {
-  if (value == null || value <= 0) return null;
-  const rounded = Math.round(value * 10) / 10;
-  return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}s`;
-}
-
 function displaySwellWindow(beach?: Beach): DisplaySwellWindow | null {
   if (!beach) return null;
   const center = toFiniteNumber(
@@ -174,7 +169,7 @@ function pickSwellPeriod(
   const period = row
     ? resolveDisplaySwell(row, displaySwellWindow(beach)).periodSeconds
     : null;
-  return formatPeriodSeconds(period) ?? normalizePeriod(window?.wavePeriod ?? null);
+  return formatDisplaySwellPeriod(period) ?? normalizePeriod(window?.wavePeriod ?? null);
 }
 
 function pickSwellDirection(row: EnhancedForecastEntity | null, beach?: Beach): string | null {
