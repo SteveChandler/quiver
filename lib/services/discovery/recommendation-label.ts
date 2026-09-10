@@ -44,7 +44,8 @@ export function resolveRecommendationLabel({
     const character = getConditionCharacter(snapshot, profile, composite);
     return {
       label: getRecommendationLabelGated(score, character.category),
-      character,
+      // Only the two fields the recommendation contract exposes.
+      character: { label: character.label, category: character.category },
     };
   } catch {
     return { label: getRecommendationLabel(score), character: undefined };
