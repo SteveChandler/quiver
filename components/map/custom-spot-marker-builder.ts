@@ -1,18 +1,18 @@
 import { getConditionMarkerCall } from "@/components/map/map-marker-builder";
-import type { ConditionSummary } from "@/components/map/map-beach-loader";
+import type { RecommendationLabel } from "@/components/map/map-beach-loader";
 import type { CustomSpot } from "@/hooks/use-custom-spots";
 
 const CUSTOM_SPOT_RING_COLOR = "#F78E42";
 
 export interface CustomSpotMarkerData {
-  conditionSummary?: ConditionSummary;
+  recommendationLabel?: RecommendationLabel;
   conditionScore?: number;
   waveLabel?: string | null;
 }
 
 function hasUsableVerdict(data?: CustomSpotMarkerData): boolean {
   if (!data) return false;
-  if (data.conditionSummary) return true;
+  if (data.recommendationLabel) return true;
   return (
     typeof data.conditionScore === "number" &&
     Number.isFinite(data.conditionScore)
@@ -43,12 +43,11 @@ export function createCustomSpotMarkerElement(
   }
 
   const conditionCall = getConditionMarkerCall({
-    conditionSummary: data?.conditionSummary,
-    conditionScore: data?.conditionScore,
+    recommendationLabel: data?.recommendationLabel,
   });
   const waveLabel = data?.waveLabel?.trim() || null;
 
-  element.setAttribute("data-condition-summary", conditionCall.summary);
+  element.setAttribute("data-recommendation-label", conditionCall.label);
   element.setAttribute("data-marker-gradient", conditionCall.gradient);
   if (typeof data?.conditionScore === "number") {
     element.setAttribute("data-condition-score", String(data.conditionScore));

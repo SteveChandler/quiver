@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Beach } from "@/types/database";
-import type { ConditionSummary } from "@/components/map/map-beach-loader";
+import type { RecommendationLabel } from "@/components/map/map-beach-loader";
 import {
   getConditionMarkerGradient,
   getWaterQualityHold,
@@ -77,7 +77,7 @@ interface MapPreloadPreviewProps {
   beaches: Beach[];
   center: [number, number];
   zoom: number;
-  conditionSummaryMap: Map<string, ConditionSummary>;
+  recommendationLabelMap: Map<string, RecommendationLabel>;
   displayForecastMap: Map<string, ForecastDisplay | undefined>;
 }
 
@@ -85,7 +85,7 @@ export function MapPreloadPreview({
   beaches,
   center,
   zoom,
-  conditionSummaryMap,
+  recommendationLabelMap,
   displayForecastMap,
 }: MapPreloadPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -165,7 +165,7 @@ export function MapPreloadPreview({
         />
       ) : null}
       {markers.map(({ beach, offset }) => {
-        const summary = conditionSummaryMap.get(beach.id) ?? "UNKNOWN";
+        const label = recommendationLabelMap.get(beach.id) ?? null;
         const waveLabel = displayForecastMap.get(beach.id)?.label?.trim();
         const waterQualityHold = getWaterQualityHold(beach);
         return (
@@ -176,11 +176,11 @@ export function MapPreloadPreview({
               left: `calc(50% + ${offset.x}px)`,
               top: `calc(50% + ${offset.y}px)`,
               background: getConditionMarkerGradient(
-                waterQualityHold ?? summary,
+                waterQualityHold ?? label,
               ),
             }}
             data-testid="map-preload-marker"
-            data-condition-summary={summary}
+            data-recommendation-label={label ?? "No read"}
           >
             {waveLabel || "\u2022"}
           </div>

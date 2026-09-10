@@ -1,0 +1,32 @@
+{
+  "forecasts": 2.7,
+  "displayForecasts": {
+    "label": "2-3ft",
+    "minFt": 2,
+    "maxFt": 3,
+    "forecastAt": "2026-09-10T00:00:00+00:00",
+    "context": "selected_hour"
+  },
+  "waterTemps": "76\u00b0F",
+  "isCalibrated": true,
+  "conditionScores": 64,
+  "conditionSummaries": "FAIR",
+  "swellPartitions": {
+    "s1Dir": 225,
+    "swellDirOm": 209,
+    "swellHeightOmFt": 2.2309712,
+    "swellPeriodOmS": 6.9,
+    "s1PeriodS": 9,
+    "s1HeightFt": 3,
+    "s2Dir": 225,
+    "s2PeriodS": 16,
+    "s2HeightFt": 1.7,
+    "windDir": 233,
+    "windMph": 8
+  },
+  "recommendationAvailability": {
+    "state": "available",
+    "holdEpoch": "ed8d09e43510d52f088d830e8a9e03ee92914a5c73dd128ab4f23a4c44591106",
+    "resolutionAsOf": "2026-09-10T01:06:53.229Z"
+  }
+}

@@ -28,6 +28,15 @@ import {
 } from "@/lib/services/forecast/today-headline";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import { getBatchSunTimes } from "@/lib/services/discovery";
+import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
+import { withDisplayWindow } from "@/lib/services/discovery/window-authority";
+import {
+  resolveDisplaySwell,
+  type DisplaySwell,
+  type DisplaySwellWindow,
+} from "@/lib/domains/conditions/display-swell";
+import { designateCurrentRow } from "@/lib/services/current-conditions/current-row";
+import type { RecommendationLabel } from "@/lib/scoring";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import type { Database } from "@/types/database.generated";
@@ -75,10 +84,13 @@ export type ConditionSummary =
 const emptyBulkForecastResponse = {
   forecasts: {},
   displayForecasts: {},
+  todayHeadlines: {},
   waterTemps: {},
   isCalibrated: {},
   conditionScores: {},
   conditionSummaries: {},
+  displaySwell: {},
+  recommendationLabels: {},
   swellPartitions: {},
   swellPartitionTimeline: {},
 };
@@ -139,6 +151,10 @@ type HourlyTimelineWindowParseResult =
  *     displayForecasts: {
  *       [beachId]: { label, minFt, maxFt, forecastAt, context } | undefined
  *     },
+ *     todayHeadlines: {
+ *       [beachId]: { label, minFt, maxFt, forecastAt, windowStart, windowEnd,
+ *         displayWindowStart, displayWindowEnd } | undefined
+ *     }, // Additive best-window context; the web map does not consume this yet.
  *     waterTemps: {
  *       [beachId]: string | undefined
  *     },
@@ -146,7 +162,11 @@ type HourlyTimelineWindowParseResult =
  *     conditionScores: { [beachId]: number | undefined },
  *     conditionSummaries: {
  *       [beachId]: "EPIC" | "GOOD" | "FAIR" | "RIDEABLE" | "MEH" | "UNKNOWN"
- *     }
+ *     },
+ *     displaySwell: {
+ *       [beachId]: { periodSeconds, directionDeg, heightFt, source }
+ *     },
+ *     recommendationLabels: { [beachId]: "Worth it" | "Maybe" | "Skip" | null }
  *   }
  * }
  */
@@ -426,7 +446,11 @@ function buildSwellPartitionTimeline(
   rowsByBeach.forEach((beachRows, beachId) => {
     const partitions = hourOffsets.map((offsetHours) => {
       const targetMs = nowMs + offsetHours * 60 * 60 * 1000;
-      const row = nearestForecastRow(beachRows, targetMs);
+      const row = offsetHours === 0
+        ? designateCurrentRow(beachRows, now, {
+            toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
+          })?.row ?? null
+        : nearestForecastRow(beachRows, targetMs);
       return row ? rowToSwellPartition(row) : null;
     }).filter((partition): partition is SwellPartition => partition !== null);
 
@@ -447,11 +471,20 @@ function partitionForTimelineHour(
   rowsByHour: ReadonlyMap<number, EnhancedForecastEntity>,
   hourMs: number,
   scores?: ReadonlyMap<EnhancedForecastEntity, number | null>,
+  beach?: Beach,
 ): SwellPartition | null {
-  const partition = (row: EnhancedForecastEntity): SwellPartition => ({
-    ...rowToSwellPartition(row),
-    ...(scores ? { conditionScore: scores.get(row) ?? null } : {}),
-  });
+  const partition = (row: EnhancedForecastEntity): SwellPartition => {
+    const score = scores?.get(row) ?? null;
+    return {
+      ...rowToSwellPartition(row),
+      ...(scores ? {
+        conditionScore: score,
+        recommendationLabel: beach && score != null
+          ? resolveRecommendationLabel({ beach, forecast: row, score }).label
+          : null,
+      } : {}),
+    };
+  };
   const exact = rowsByHour.get(hourMs);
   if (exact) return partition(exact);
 
@@ -491,6 +524,7 @@ function buildHourlySwellTimeline(
   window: HourlyTimelineWindow,
   nextStart: string | null,
   scores?: ReadonlyMap<EnhancedForecastEntity, number | null>,
+  beaches?: ReadonlyMap<string, Beach>,
 ): HourlySwellTimeline {
   const requestedBeachIds = new Set(beachIds);
   const rowsByBeach = new Map<string, Map<number, EnhancedForecastEntity>>();
@@ -530,7 +564,9 @@ function buildHourlySwellTimeline(
       beachId,
       hourKeys.map((hourMs) => {
         const beachRows = rowsByBeach.get(beachId);
-        return beachRows ? partitionForTimelineHour(beachRows, hourMs, scores) : null;
+        return beachRows
+          ? partitionForTimelineHour(beachRows, hourMs, scores, beaches?.get(beachId))
+          : null;
       }),
     ]),
   ) as Record<string, Array<SwellPartition | null>>;
@@ -657,10 +693,11 @@ async function fetchHourlySwellTimeline(
   if (nextStartError) return { timeline: null, error: nextStartError };
 
   let scores: Map<EnhancedForecastEntity, number | null> | undefined;
+  let beaches: Map<string, Beach> | undefined;
   if (scoring) {
     const result = await supabase.from("beaches").select(BULK_BEACH_SELECT).in("id", beachIds);
     if (result.error) return { timeline: null, error: { message: result.error.message } };
-    const beaches = new Map((result.data as unknown as Beach[]).map((beach) => [beach.id, beach]));
+    beaches = new Map((result.data as unknown as Beach[]).map((beach) => [beach.id, beach]));
     scores = new Map();
     const displayRows = await applyV51DisplayOverrideToForecasts(rows);
     const displayByTime = new Map(displayRows.map((row) => [`${row.beach_id}:${row.forecast_at}`, row]));
@@ -673,7 +710,14 @@ async function fetchHourlySwellTimeline(
       scores.set(row, score != null && Number.isFinite(score) ? score : null);
     }
   }
-  const timeline = buildHourlySwellTimeline(rows, beachIds, window, nextStart, scores);
+  const timeline = buildHourlySwellTimeline(
+    rows,
+    beachIds,
+    window,
+    nextStart,
+    scores,
+    beaches,
+  );
   if (scoring) {
     const candidates = Object.entries(timeline.partitionsByBeach).flatMap(([beachId, partitions]) =>
       partitions.flatMap((partition, index) => partition?.conditionScore == null ? [] : [{
@@ -690,6 +734,7 @@ async function fetchHourlySwellTimeline(
       partitions.forEach((partition, index) => {
         if (partition && (unavailable || boundary.blockedCandidateIds.has(`hourly-map:${beachId}:${timeline.timestamps[index]}`))) {
           partition.conditionScore = null;
+          partition.recommendationLabel = null;
         }
       });
     }
@@ -962,25 +1007,42 @@ export async function bulkForecastHandler(
     const forecastsByBeach = groupForecastsByBeach(data);
     const waveHeightMap: Record<string, number | undefined> = {};
     const displayForecastMap: Record<string, ForecastDisplay | undefined> = {};
+    const todayHeadlineMap: Record<string, {
+      label: string;
+      minFt: number;
+      maxFt: number;
+      forecastAt: string;
+      windowStart: string;
+      windowEnd: string;
+      displayWindowStart: string;
+      displayWindowEnd: string;
+    }> = {};
     const timelineByBeach = groupForecastsByBeach(timelineRows);
     const swellPartitionMap: Record<string, SwellPartition> = {};
-    const nowMs = Date.now();
+    const swellPartitionRows = new Map<string, EnhancedForecastEntity>();
+    const now = new Date();
+    const nowMs = now.getTime();
     for (const [beachId, rows] of timelineByBeach) {
       const row = fetchWindow.selectedAt
         ? closestForecastRow(rows, fetchWindow.selectedAt)
-        : nearestForecastRow(rows, nowMs);
+        : designateCurrentRow(rows, now, {
+            toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
+          })?.row ?? null;
       if (row) {
+        swellPartitionRows.set(beachId, row);
         swellPartitionMap[beachId] = rowToSwellPartition(row);
       }
     }
     const swellPartitionTimeline = buildSwellPartitionTimeline(
       timelineRows,
-      new Date(),
+      now,
       isHourlyTimeline
         ? HOURLY_SWELL_TIMELINE_HOUR_OFFSETS
         : SWELL_TIMELINE_HOUR_OFFSETS,
     );
     const conditionScoreMap: Record<string, number | undefined> = {};
+    const recommendationLabelMap: Record<string, RecommendationLabel | null> =
+      Object.fromEntries(limitedBeachIds.map((beachId) => [beachId, null]));
     const selectedScoreForecastAtByBeach = new Map<string, string>();
     const conditionSummaryMap: Record<string, ConditionSummary> =
       Object.fromEntries(
@@ -994,6 +1056,23 @@ export async function bulkForecastHandler(
     // deletes) default to `false`.
     const isCalibratedMap: Record<string, boolean> = {};
     const { data: beachRows, error: beachError } = beachResult;
+    const scoringBeachRows = (beachRows || []) as unknown as Beach[];
+    const beachById = new Map(scoringBeachRows.map((beach) => [beach.id, beach]));
+    const displaySwellMap: Record<string, DisplaySwell> = {};
+
+    for (const [beachId, row] of swellPartitionRows) {
+      const beach = beachById.get(beachId);
+      const centerDeg = beach?.swell_window_center_deg;
+      const halfwidthDeg = beach?.swell_window_halfwidth_deg;
+      const window: DisplaySwellWindow | null =
+        typeof centerDeg === "number"
+        && Number.isFinite(centerDeg)
+        && typeof halfwidthDeg === "number"
+        && Number.isFinite(halfwidthDeg)
+          ? { centerDeg, halfwidthDeg }
+          : null;
+      displaySwellMap[beachId] = resolveDisplaySwell(row, window);
+    }
 
     if (beachError) {
       console.error("Error fetching beach calibration status:", beachError);
@@ -1002,7 +1081,7 @@ export async function bulkForecastHandler(
       for (const [beachId, rows] of forecastsByBeach) {
         const row =
           fetchWindow.selectedAt === null
-            ? rows[0]
+            ? swellPartitionRows.get(beachId)
             : closestForecastRow(rows, fetchWindow.selectedAt);
         const parsed = parseLegacyWaveHeight(row?.wave_height);
         if (parsed != null) {
@@ -1010,8 +1089,6 @@ export async function bulkForecastHandler(
         }
       }
     } else {
-      const scoringBeachRows = (beachRows || []) as unknown as Beach[];
-
       scoringBeachRows.forEach((row) => {
         isCalibratedMap[row.id] = row.shoaling_factors !== null;
       });
@@ -1029,6 +1106,12 @@ export async function bulkForecastHandler(
         if (fetchWindow.selectedAt) {
           display = resolveSelectedHourDisplay(forecastForScore);
         } else {
+          const currentRow = designateCurrentRow(beachForecasts, now, {
+            toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
+          })?.row ?? null;
+          display = resolveSelectedHourDisplay(currentRow);
+          scoreForecast = currentRow;
+
           const localToday = beachTodayDate(beach, new Date());
           const todayForecasts = beachForecasts.filter(
             (forecast) =>
@@ -1045,24 +1128,18 @@ export async function bulkForecastHandler(
             sunTimesCache,
             userSkillLevel,
           });
-          display = headline?.display ?? null;
-          scoreForecast = headline?.window.sourceForecast ?? null;
-          if (!display) {
-            // After the last daylight window of the local day there is no
-            // "today's best window" — but current conditions still exist, and
-            // every map marker and spot sheet reads these two maps. Withhold the
-            // recommendation, not the measurement: fall back to the row nearest
-            // now, the same row the swell-partition path already resolves.
-            const currentRow = nearestForecastRow(beachForecasts, nowMs);
-            const currentRowMs = currentRow ? forecastTimeMs(currentRow) : null;
-            if (
-              currentRow &&
-              currentRowMs != null &&
-              Math.abs(currentRowMs - nowMs) <= CURRENT_CONDITIONS_TOLERANCE_MS
-            ) {
-              display = resolveSelectedHourDisplay(currentRow);
-              scoreForecast = currentRow;
-            }
+          if (headline) {
+            const window = withDisplayWindow(headline.window);
+            todayHeadlineMap[beach.id] = {
+              label: headline.display.label,
+              minFt: headline.display.minFt,
+              maxFt: headline.display.maxFt,
+              forecastAt: headline.display.forecastAt,
+              windowStart: window.start.toISOString(),
+              windowEnd: window.end.toISOString(),
+              displayWindowStart: window.displayWindowStart.toISOString(),
+              displayWindowEnd: window.displayWindowEnd.toISOString(),
+            };
           }
         }
 
@@ -1088,6 +1165,11 @@ export async function bulkForecastHandler(
           conditionScoreMap[beach.id] = score;
           conditionSummaryMap[beach.id] =
             conditionSummaryFromScore(score);
+          recommendationLabelMap[beach.id] = resolveRecommendationLabel({
+            beach,
+            forecast,
+            score,
+          }).label;
           selectedScoreForecastAtByBeach.set(beach.id, forecast.forecast_at);
         } catch (error) {
           console.warn("Failed to score bulk forecast condition:", {
@@ -1111,10 +1193,13 @@ export async function bulkForecastHandler(
     const response = {
       forecasts: waveHeightMap,
       displayForecasts: displayForecastMap,
+      todayHeadlines: todayHeadlineMap,
       waterTemps: waterTempMap,
       isCalibrated: isCalibratedMap,
       conditionScores: conditionScoreMap,
       conditionSummaries: conditionSummaryMap,
+      displaySwell: displaySwellMap,
+      recommendationLabels: recommendationLabelMap,
       swellPartitions: swellPartitionMap,
       swellPartitionTimeline,
       ...(hourlySwellTimeline ? { hourlySwellTimeline } : {}),

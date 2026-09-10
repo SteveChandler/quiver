@@ -43,7 +43,7 @@ component state. This makes them independently unit-testable.
 
 `interactive-map.tsx` renders the loaded `beaches` directly. After `loadBeachesAndWaveHeights()` resolves forecast data, the marker effect iterates `(beaches ?? [])` and creates one Mapbox marker per spot with valid `lat`/`lon`. `map-beach-loader.ts` caps the resolved beach set at 20.
 
-Beach markers are small verdict-colored dots created by `components/map/map-marker-builder.ts`. `getConditionMarkerCall()` maps forecast scores/summaries to call labels, and `getConditionMarkerGradient()` supplies the marker color. Favorite spots switch the marker border to Quiver amber; selected/hovered states scale the dot and add the existing selection ring.
+Beach markers are small verdict-colored dots created by `components/map/map-marker-builder.ts`. `getConditionMarkerCall()` displays the bulk API's canonical recommendation label, and `getConditionMarkerGradient()` supplies its marker color. Favorite spots switch the marker border to Quiver amber; selected/hovered states scale the dot and add the existing selection ring.
 
 ### **Preview Popup**
 
@@ -183,7 +183,7 @@ const populateLocations = async (lat: number, lng: number) => {
   const result = await loadBeachesAndWaveHeights(lat, lng, beaches, deps);
   setWaveHeightMap(result.waveHeightMap);
   setDisplayForecastMap(result.displayForecastMap);
-  setConditionSummaryMap(result.conditionSummaryMap);
+  setRecommendationLabelMap(result.recommendationLabelMap);
 
   (beaches ?? []).forEach((location) => {
     const marker = createWaveHeightBadge(
@@ -200,7 +200,7 @@ const populateLocations = async (lat: number, lng: number) => {
 
 `EmbedMapEvent`'s `spotSelected` payload is additive because installed native
 clients may consume older shapes. Its required fields remain `beachId`, `name`,
-`lat`, and `lon`; `slug`, `conditionSummary`, `waveHeight`, `swellPeriod`,
+`lat`, and `lon`; `slug`, `conditionSummary`, `waveHeight`, `swellPeriod`, `swellLabel`,
 `swellDirection`, `isCalibrated`, `windSpeed`, `windDirection`, `tideState`, and
 `tideHeight` are optional and nullable. Display metrics come from the same bulk
 forecast maps and active swell/wind partition used by the marker and conditions
@@ -268,8 +268,7 @@ const createWaveHeightBadge = (
   deps: MarkerBuilderDeps
 ) => {
   const call = getConditionMarkerCall({
-    conditionSummary: deps.conditionSummary,
-    conditionScore: deps.conditionScore,
+    recommendationLabel: deps.recommendationLabel,
   });
 
   const badge = document.createElement("div");
@@ -286,8 +285,7 @@ const createWaveHeightBadge = (
   badge.addEventListener("mouseenter", () => {
     deps.onPreviewOpen?.(location, deps.previewLngLat, {
       waveLabel: deps.waveHeightLabel,
-      conditionSummary: call.summary,
-      conditionScore: deps.conditionScore,
+      recommendationLabel: deps.recommendationLabel,
     });
   });
 

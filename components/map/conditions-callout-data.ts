@@ -31,7 +31,7 @@ export function resolveCalloutComponents(p: SwellPartition): CalloutComponent[] 
 
   const s1Dir = p.s1Dir;
   if (isReal(s1Dir) && isReal(p.s1HeightFt) && p.s1HeightFt > 0) {
-    out.push({ kind: "s1", name: "SWELL", bearingDeg: s1Dir, label: swellLabel(p.s1HeightFt, p.s1PeriodS), color: CONDITIONS_CALLOUT_COLORS.s1 });
+    out.push({ kind: "s1", name: p.s1Source === "offshore" ? "OFFSHORE SWELL" : "SWELL", bearingDeg: s1Dir, label: swellLabel(p.s1HeightFt, p.s1PeriodS), color: CONDITIONS_CALLOUT_COLORS.s1 });
   }
   if (isReal(p.s2Dir) && isReal(p.s2HeightFt) && p.s2HeightFt > 0) {
     out.push({ kind: "s2", name: "SWELL 2", bearingDeg: p.s2Dir, label: swellLabel(p.s2HeightFt, p.s2PeriodS), color: CONDITIONS_CALLOUT_COLORS.s2 });

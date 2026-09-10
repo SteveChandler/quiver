@@ -2,9 +2,14 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { PersonalizedForecastWindow } from "@/types/personalization";
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
-import { cardinalToDegrees } from "@/lib/services/forecast/forecast-transformer";
 import { degreeToCardinal } from "@/lib/utils/geo-utils";
 import { containsTime, deriveDisplayWindow } from "@/lib/services/discovery/window-authority";
+import {
+  formatDisplaySwellPeriod,
+  resolveDisplaySwell,
+  type DisplaySwellWindow,
+} from "@/lib/domains/conditions/display-swell";
+import { designateCurrentRow } from "@/lib/services/current-conditions/current-row";
 
 export type ForecastRecommendationType =
   | "best_window"
@@ -143,34 +148,17 @@ function toFiniteNumber(value: unknown): number | null {
   return value;
 }
 
-function formatPeriodSeconds(value: number | null): string | null {
-  if (value == null || value <= 0) return null;
-  const rounded = Math.round(value * 10) / 10;
-  return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}s`;
-}
-
-function directionInBeachWindow(directionDeg: number | null, beach: Beach): boolean | null {
+function displaySwellWindow(beach?: Beach): DisplaySwellWindow | null {
+  if (!beach) return null;
   const center = toFiniteNumber(
     (beach as { swell_window_center_deg?: number | null }).swell_window_center_deg,
   );
   const halfwidth = toFiniteNumber(
     (beach as { swell_window_halfwidth_deg?: number | null }).swell_window_halfwidth_deg,
   );
-  if (directionDeg == null || center == null || halfwidth == null || halfwidth <= 0) return null;
-  const delta = ((directionDeg - center) % 360 + 540) % 360 - 180;
-  return Math.abs(delta) <= halfwidth;
-}
-
-function shouldUseOmSwellContext(row: EnhancedForecastEntity | null, beach?: Beach): boolean {
-  if (!row || !beach) return false;
-  const omDirectionDeg = toFiniteNumber(row.swell_direction_om);
-  const omPeriod = toFiniteNumber(row.swell_period_om);
-  if (omDirectionDeg == null || omPeriod == null) return false;
-
-  const namedDirectionDeg = cardinalToDegrees(row.swell_1_direction ?? row.wave_direction ?? null);
-  const omInWindow = directionInBeachWindow(omDirectionDeg, beach);
-  const namedInWindow = directionInBeachWindow(namedDirectionDeg, beach);
-  return omInWindow === true && namedInWindow !== true;
+  return center === null || halfwidth === null
+    ? null
+    : { centerDeg: center, halfwidthDeg: halfwidth };
 }
 
 function pickSwellPeriod(
@@ -178,18 +166,19 @@ function pickSwellPeriod(
   window?: PersonalizedForecastWindow | null,
   beach?: Beach,
 ): string | null {
-  if (shouldUseOmSwellContext(row, beach)) {
-    return formatPeriodSeconds(toFiniteNumber(row?.swell_period_om));
-  }
-  return normalizePeriod(row?.swell_1_period ?? row?.wave_period ?? window?.wavePeriod ?? null);
+  const period = row
+    ? resolveDisplaySwell(row, displaySwellWindow(beach)).periodSeconds
+    : null;
+  return formatDisplaySwellPeriod(period) ?? normalizePeriod(window?.wavePeriod ?? null);
 }
 
 function pickSwellDirection(row: EnhancedForecastEntity | null, beach?: Beach): string | null {
-  if (shouldUseOmSwellContext(row, beach)) {
-    const omDirectionDeg = toFiniteNumber(row?.swell_direction_om);
-    return omDirectionDeg == null ? null : degreeToCardinal(omDirectionDeg);
-  }
-  return row?.swell_1_direction ?? row?.wave_direction ?? null;
+  if (!row) return null;
+  const direction = resolveDisplaySwell(
+    row,
+    displaySwellWindow(beach),
+  ).directionDeg;
+  return direction === null ? null : degreeToCardinal(direction);
 }
 
 function toIso(value: Date | string | null | undefined): string | null {
@@ -296,23 +285,6 @@ function swellFields(row: EnhancedForecastEntity | null): {
     secondarySwellPeriod: normalizePeriod(row?.swell_2_period ?? null),
     secondarySwellDirection: row?.swell_2_direction ?? null,
   };
-}
-
-function pickCurrentRow(
-  forecasts: EnhancedForecastEntity[],
-  nowMs: number,
-): EnhancedForecastEntity | null {
-  const sorted = [...forecasts].sort(
-    (a, b) => Date.parse(a.forecast_at) - Date.parse(b.forecast_at),
-  );
-  let current: EnhancedForecastEntity | null = null;
-  for (const row of sorted) {
-    const rowMs = Date.parse(row.forecast_at);
-    if (Number.isNaN(rowMs)) continue;
-    if (rowMs <= nowMs) current = row;
-    else break;
-  }
-  return current;
 }
 
 function pickNextRideableRow(
@@ -488,7 +460,7 @@ export function buildForecastRecommendationContext({
     };
   }
 
-  const current = pickCurrentRow(forecasts, nowMs);
+  const current = designateCurrentRow(forecasts, now)?.row ?? null;
   if (isRideable(current)) {
     return contextFromRow({
       beach,

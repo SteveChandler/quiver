@@ -59,7 +59,7 @@ function baseDeps(overrides: Partial<MarkerBuilderDeps> = {}): MarkerBuilderDeps
     autoNavigate: true,
     displayMode: "wave-height",
     waveHeightLabel: "3-4 ft",
-    conditionSummary: "GOOD",
+    recommendationLabel: "Worth it",
     conditionScore: 82,
     previewLngLat: beachLngLat,
     ...overrides,
@@ -77,7 +77,6 @@ describe("map marker preview popup", () => {
     const content = createBeachPreviewPopupContent({
       location: beach,
       waveLabel: "3-4 ft",
-      conditionScore: 82,
     });
 
     expect(content).toHaveTextContent("Windansea");
@@ -96,13 +95,25 @@ describe("map marker preview popup", () => {
     const content = createBeachPreviewPopupContent({
       location: beach,
       waveLabel: "",
-      conditionSummary: "UNKNOWN",
+      recommendationLabel: null,
     });
 
     expect(
       content.querySelector(".quiver-beach-preview-popup__verdict")
     ).toBeNull();
     expect(content).not.toHaveTextContent("No read");
+  });
+
+  it("renders the canonical recommendation label", () => {
+    const content = createBeachPreviewPopupContent({
+      location: beach,
+      waveLabel: "3-4 ft",
+      recommendationLabel: "Maybe",
+    });
+
+    expect(
+      content.querySelector(".quiver-beach-preview-popup__verdict"),
+    ).toHaveTextContent("Maybe");
   });
 
   it("renders live surf, swell, wind, and spot details when partition data exists", () => {
@@ -120,7 +131,6 @@ describe("map marker preview popup", () => {
     const content = createBeachPreviewPopupContent({
       location: beach,
       waveLabel: "3-4 ft",
-      conditionScore: 82,
       partition,
     });
 
@@ -149,7 +159,6 @@ describe("map marker preview popup", () => {
         skill_level: "intermediate",
       } as Beach,
       waveLabel: "3-4 ft",
-      conditionScore: 82,
       partition,
     });
 
@@ -177,7 +186,6 @@ describe("map marker preview popup", () => {
         skill_level: null,
       } as Beach,
       waveLabel: "3-4 ft",
-      conditionScore: 82,
     });
 
     expect(content).not.toHaveTextContent("WAVE");
@@ -200,7 +208,6 @@ describe("map marker preview popup", () => {
     const content = createBeachPreviewPopupContent({
       location: { ...beach, city: null, state: null } as Beach,
       waveLabel: "3-4 ft",
-      conditionScore: 82,
       partition,
     });
 
@@ -269,8 +276,7 @@ describe("map marker preview popup", () => {
       beachLngLat,
       {
         waveLabel: "3-4 ft",
-        conditionSummary: "GOOD",
-        conditionScore: 82,
+        recommendationLabel: "Worth it",
       }
     );
     expect(router.push).not.toHaveBeenCalled();
@@ -303,8 +309,7 @@ describe("map marker preview popup", () => {
       beachLngLat,
       {
         waveLabel: "3-4 ft",
-        conditionSummary: "GOOD",
-        conditionScore: 82,
+        recommendationLabel: "Worth it",
       }
     );
 

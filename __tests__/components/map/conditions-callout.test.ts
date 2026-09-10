@@ -82,7 +82,6 @@ describe("createConditionsCalloutElement", () => {
 
   it("labels a closure consistently in the marker call and conditions callout", () => {
     const markerCall = getConditionMarkerCall({
-      conditionSummary: "EPIC",
       waterQualityHold: "closure",
     });
     const { element } = createConditionsCalloutElement({
@@ -181,15 +180,12 @@ it.each([false, true])("turns across north by the shortest arc (reduced motion: 
     const previous = createConditionsCalloutElement({ beachName: "A", tempLabel: null, components: [{ ...S1, bearingDeg: 260 }] }).element;
     const { element } = createConditionsCalloutElement({ beachName: "B", tempLabel: null, components: [{ ...S1, bearingDeg: 280 }], previousElement: previous });
     expect(element.querySelector("[data-callout-banner]")?.getAttribute("transform")).toContain("rotate(10)");
-    if (reduced) {
-      expect(animate).not.toHaveBeenCalled();
-    } else {
-      expect(animate).toHaveBeenCalledTimes(1);
-      const [frames, options] = animate.mock.calls[0];
-      expect(frames[0].transform).toContain("rotate(350deg)");
-      expect(frames[1].transform).toContain("rotate(370deg)");
-      expect(options.duration).toBe(500);
-    }
+    expect(animate).toHaveBeenCalledTimes(reduced ? 0 : 1);
+    if (reduced) return;
+    const [frames, options] = animate.mock.calls[0];
+    expect(frames[0].transform).toContain("rotate(350deg)");
+    expect(frames[1].transform).toContain("rotate(370deg)");
+    expect(options.duration).toBe(500);
   } finally {
     media.mockRestore();
     if (descriptor) Object.defineProperty(SVGElement.prototype, "animate", descriptor);

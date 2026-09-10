@@ -33,13 +33,9 @@ import type {
 import type { ConditionBadge } from '@/types/personalization';
 import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
 import {
-  createDiscoveryScoringEngine,
   scoreBeachWithEngine,
   beachToSpotProfile,
-  forecastToSnapshot,
-  getConditionCharacter,
 } from '@/lib/domains/scoring';
-import type { ConditionCharacterCategory } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
 import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability';
@@ -86,10 +82,12 @@ import { scoreWindowConditionDetails } from './window-selector/window-scorer';
 import {
   enrichWithPhotos,
   generateDiscoverySummary,
-  getRecommendationLabel,
-  getRecommendationLabelGated,
   buildDiscoveryMessage,
 } from './response-formatter';
+import {
+  getDiscoveryScoringEngine,
+  resolveRecommendationLabel,
+} from './recommendation-label';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
 import { applySimilarityLayer } from './similarity-layer';
 import { computeWindowDistinctionReason } from './window-distinction';
@@ -614,16 +612,6 @@ function toRecommendationV2Candidate(
 // ============================================================================
 // Scoring Engine
 // ============================================================================
-
-// Singleton scoring engine instance for performance
-let _discoveryScoringEngine: ReturnType<typeof createDiscoveryScoringEngine> | null = null;
-
-function getDiscoveryScoringEngine() {
-  if (!_discoveryScoringEngine) {
-    _discoveryScoringEngine = createDiscoveryScoringEngine();
-  }
-  return _discoveryScoringEngine;
-}
 
 function normalizeBoardForPick(row: BoardPickRow): BoardForPick | null {
   if (
@@ -1969,36 +1957,14 @@ async function discoverSurfSpotsInner(
     }
     detailedScore.reasons = detailedScore.reasons.slice(0, 5);
 
-    // Compute condition character using the new domain-engine classifier.
-    // Re-runs the engine to obtain a CompositeScore (subscores Map keyed by
-    // 'windQuality' / 'tideFit' on the 0-100 scale that getConditionCharacter
-    // expects). Plugins are pure and the engine instance is a singleton, so
-    // the duplicate score() call is microseconds — cheaper than maintaining
-    // a parallel CompositeScore-bearing return type from scoreBeachForDiscovery
-    // (which still hands back the lossy DetailedScore for the rest of the flow).
-    let conditionCharacter: SurfDiscoveryRecommendation['character'] | undefined;
-    try {
-      const profile = beachToSpotProfile(beach);
-      const snapshot = forecastToSnapshot(bestWindowForecast);
-      const composite = getDiscoveryScoringEngine().score({
-        profile,
-        snapshot,
-        window: null,
-        preferences: null,
-      });
-      const character = getConditionCharacter(snapshot, profile, composite);
-      conditionCharacter = {
-        label: character.label,
-        category: character.category,
-      };
-    } catch {
-      // Non-fatal — character is optional
-    }
-
-    const recommendationLabel = getRecommendationLabelGated(
-      detailedScore.total,
-      (conditionCharacter?.category ?? null) as ConditionCharacterCategory | null,
-    );
+    const {
+      label: recommendationLabel,
+      character: conditionCharacter,
+    } = resolveRecommendationLabel({
+      beach,
+      forecast: bestWindowForecast,
+      score: detailedScore.total,
+    });
     const conditionBoardPick =
       userBoardsForPicks.length > 0
         ? getConditionBoardPick(
@@ -2033,11 +1999,6 @@ async function discoverSurfSpotsInner(
       // Carry the SpotProfile through so hero-ranking's setupSuitability
       // consumes the same window/exposure config the engine just used.
       spotProfile: beachToSpotProfile(beach),
-      // PR 4: gate "Worth it" on character category — a high score with
-      // medium-rough/medium-mixed character now caps at "Maybe" instead of
-      // promoting NOW FIRING on a windy day. Falls back to score-only when
-      // character is unavailable. The cast is safe because getConditionCharacter
-      // produces values from the ConditionCharacterCategory union by construction.
       recommendationLabel,
       subscores: detailedScore.subscores,
       summary: generateDiscoverySummary(beach, responseWindow, detailedScore),
@@ -2123,29 +2084,14 @@ async function discoverSurfSpotsInner(
       }
       customDetailedScore.reasons = customDetailedScore.reasons.slice(0, 5);
 
-      let customConditionCharacter: SurfDiscoveryRecommendation['character'] | undefined;
-      try {
-        const profile = beachToSpotProfile(customBeach);
-        const snapshot = forecastToSnapshot(bestWindowForecast);
-        const composite = getDiscoveryScoringEngine().score({
-          profile,
-          snapshot,
-          window: null,
-          preferences: null,
-        });
-        const character = getConditionCharacter(snapshot, profile, composite);
-        customConditionCharacter = {
-          label: character.label,
-          category: character.category,
-        };
-      } catch {
-        // Non-fatal — character is optional
-      }
-
-      const customRecommendationLabel = getRecommendationLabelGated(
-        customDetailedScore.total,
-        (customConditionCharacter?.category ?? null) as ConditionCharacterCategory | null,
-      );
+      const {
+        label: customRecommendationLabel,
+        character: customConditionCharacter,
+      } = resolveRecommendationLabel({
+        beach: customBeach,
+        forecast: bestWindowForecast,
+        score: customDetailedScore.total,
+      });
       const customBoardPick =
         userBoardsForPicks.length > 0
           ? getConditionBoardPick(
