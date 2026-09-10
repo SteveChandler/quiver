@@ -9,6 +9,8 @@ import { compassToDegrees } from "@/components/map/swell-map-theme";
 export interface SwellPartition {
   /** Hourly beach suitability; null when scoring or safety evidence is unavailable. */
   conditionScore?: number | null;
+  /** Whether map display kept the named partition or substituted the offshore tuple. */
+  s1Source?: "partition" | "offshore";
   s1Dir: number | null; // degrees
   swellDirOm?: number | null; // Open-Meteo swell direction (deg), with wave_direction_om fallback — matches native's field-direction source
   swellHeightOmFt?: number | null;
@@ -154,8 +156,10 @@ export function rowToSwellPartition(row: SwellPartitionRow): SwellPartition {
 export function mapSwellPartition(partition: SwellPartition): SwellPartition {
   if (partition.swellDirOm == null || !Number.isFinite(partition.swellDirOm)
     || !partition.swellHeightOmFt || !Number.isFinite(partition.swellHeightOmFt) || partition.swellHeightOmFt <= 0
-    || !partition.swellPeriodOmS || !Number.isFinite(partition.swellPeriodOmS) || partition.swellPeriodOmS <= 0) return partition;
-  return { ...partition, s1Dir: partition.swellDirOm, s1HeightFt: partition.swellHeightOmFt, s1PeriodS: partition.swellPeriodOmS };
+    || !partition.swellPeriodOmS || !Number.isFinite(partition.swellPeriodOmS) || partition.swellPeriodOmS <= 0) {
+    return { ...partition, s1Source: "partition" };
+  }
+  return { ...partition, s1Dir: partition.swellDirOm, s1HeightFt: partition.swellHeightOmFt, s1PeriodS: partition.swellPeriodOmS, s1Source: "offshore" };
 }
 
 export function conditionSummaryFromScore(score: number): import("./route").ConditionSummary {

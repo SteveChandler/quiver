@@ -105,10 +105,10 @@ describe("map swell source consistency", () => {
     const { partitionToPoint } = require("@/components/map/swell-field/field-sampler");
     const { resolveCalloutComponents } = require("@/components/map/conditions-callout-data");
     const partition = { s1Dir: 292.5, s1HeightFt: 1.7, s1PeriodS: 18, swellDirOm: 182, swellHeightOmFt: 4, swellPeriodOmS: 12, s2Dir: null, s2HeightFt: null, s2PeriodS: null, windDir: null, windMph: null };
-    expect(mapSwellPartition(partition)).toMatchObject({ s1Dir: 182, s1HeightFt: 4, s1PeriodS: 12 });
+    expect(mapSwellPartition(partition)).toMatchObject({ s1Dir: 182, s1HeightFt: 4, s1PeriodS: 12, s1Source: "offshore" });
     expect(partitionToPoint(-117.25, 32.74, partition, "s1")).toMatchObject({ dir: 182, heightFt: 4, periodS: 12 });
-    expect(resolveCalloutComponents(partition)[0]).toMatchObject({ bearingDeg: 182, label: "4ft, 12s" });
-    expect(mapSwellPartition({ ...partition, swellPeriodOmS: null }).s1Dir).toBe(292.5);
+    expect(resolveCalloutComponents(partition)[0]).toMatchObject({ name: "OFFSHORE SWELL", bearingDeg: 182, label: "4ft, 12s" });
+    expect(mapSwellPartition({ ...partition, swellPeriodOmS: null })).toMatchObject({ s1Dir: 292.5, s1Source: "partition" });
     expect(partitionToPoint(-117.25, 32.74, { ...partition, swellPeriodOmS: null, s1PeriodS: null }, "s1")).toBeNull();
   });
 });
