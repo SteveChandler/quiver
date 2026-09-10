@@ -132,7 +132,7 @@ export function withDisplayWindow(
   };
 }
 
-export function daypartForLocalHour(hour: number): WindowDaypart {
+function daypartForLocalHour(hour: number): WindowDaypart {
   if (hour < 10) return 'morning';
   if (hour < 14) return 'midday';
   return 'evening';
