@@ -299,6 +299,10 @@ export function useSurfDiscovery(
   }, [currentUserId, enabled, immediate, refreshDiscovery]);
 
   const resumeRevalidationRef = useRef<Promise<unknown> | null>(null);
+  const resumeNeededRef = useRef(
+    typeof document !== "undefined" &&
+      (document.visibilityState !== "visible" || !document.hasFocus()),
+  );
   const resumeRevalidationQueuedRef = useRef(false);
   const resumeStartedAtRef = useRef(0);
   const [resumeRevalidationPending, setResumeRevalidationPending] =
@@ -391,16 +395,31 @@ export function useSurfDiscovery(
   useEffect(() => {
     if (!enabled || !immediate || !user) return;
 
-    const handleFocus = () => revalidateOnResume();
+    const resumeIfNeeded = () => {
+      if (!resumeNeededRef.current || document.visibilityState !== "visible") return;
+      resumeNeededRef.current = false;
+      revalidateOnResume();
+    };
+    const handleBlur = (event: FocusEvent) => {
+      if (event.target === window) resumeNeededRef.current = true;
+    };
+    const handleFocus = (event: FocusEvent) => {
+      // Embedded browsers can repeat focus without the user leaving the page.
+      if (event.target === window) resumeIfNeeded();
+    };
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        revalidateOnResume();
+      if (document.visibilityState !== "visible") {
+        resumeNeededRef.current = true;
+        return;
       }
+      resumeIfNeeded();
     };
 
+    window.addEventListener("blur", handleBlur);
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
+      window.removeEventListener("blur", handleBlur);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
@@ -408,13 +427,19 @@ export function useSurfDiscovery(
 
   // Refetch when options change (e.g., timeSlot) - debounced to prevent rapid clicks
   const prevOptionsHashRef = useRef(optionsHash);
+  const autoFetchEnabled = enabled && immediate && !!user;
+  const prevAutoFetchEnabledRef = useRef(autoFetchEnabled);
   useEffect(() => {
+    const wasAutoFetchEnabled = prevAutoFetchEnabledRef.current;
+    prevAutoFetchEnabledRef.current = autoFetchEnabled;
     if (prevOptionsHashRef.current === optionsHash) {
       prevOptionsHashRef.current = optionsHash;
       return;
     }
     prevOptionsHashRef.current = optionsHash;
-    if (!enabled || !immediate || !user) return;
+    // First enable already starts with the latest options. Later changes must
+    // still clear any previous recommendation while fresh policy is checked.
+    if (!autoFetchEnabled || (!wasAutoFetchEnabled && !hasCompletedRequestRef.current)) return;
 
     // Debounce to prevent rapid time slot switching from hitting rate limits
     reset();
@@ -423,7 +448,7 @@ export function useSurfDiscovery(
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [enabled, immediate, optionsHash, refreshDiscovery, reset, user]);
+  }, [autoFetchEnabled, optionsHash, refreshDiscovery, reset, user]);
 
   useEffect(() => {
     const decision = freshData?.sessionDecision;

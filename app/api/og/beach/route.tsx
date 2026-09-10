@@ -189,7 +189,7 @@ export async function GET(request: NextRequest): Promise<ImageResponse> {
               ['TIDE', tide || 'Unavailable'],
             ].map(([label, value], index) => (
               <div key={label} style={{ display: 'flex', flexDirection: 'column', width: index === 0 ? '32%' : '34%',
-                paddingLeft: index ? 24 : 0, borderLeft: index ? '1px solid #B9B6AB' : undefined }}>
+                paddingLeft: index ? 24 : 0, borderLeft: index ? '1px solid #B9B6AB' : '0px solid transparent' }}>
                 <div style={{ display: 'flex', fontSize: 18, letterSpacing: 2 }}>{label}</div>
                 <div style={{ display: 'flex', fontSize: value.length > 16 ? 25 : 32, fontWeight: 700, marginTop: 9 }}>{value}</div>
               </div>
