@@ -217,7 +217,10 @@ export function createWaveHeightBadge(
     wrapper.setAttribute("aria-label", location.name);
     wrapper.setAttribute("data-testid", "beach-marker");
     wrapper.setAttribute("data-beach-id", location.id);
-    wrapper.setAttribute("data-condition-summary", conditionMarkerCall.label);
+    wrapper.setAttribute(
+      "data-recommendation-label",
+      recommendationLabel ?? "No read",
+    );
     wrapper.setAttribute(
       "data-water-quality-hold",
       deps.waterQualityHold ?? "none",

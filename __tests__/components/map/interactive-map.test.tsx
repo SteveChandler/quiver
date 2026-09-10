@@ -326,7 +326,7 @@ describe("InteractiveMap", () => {
       expect(mockMarkerInstances).toHaveLength(0);
       await waitFor(() =>
         expect(screen.getByTestId("map-preload-marker")).toHaveAttribute(
-          "data-condition-summary",
+          "data-recommendation-label",
           "Worth it",
         ),
       );
@@ -1613,12 +1613,12 @@ describe("InteractiveMap", () => {
       expect(onLocationClick).toHaveBeenCalledTimes(1);
     });
 
-    it.each(["hourly", "expandable-hourly"] as const)("shows no read for %s partitions that only carry scores", async (mode) => {
+    it.each(["hourly", "expandable-hourly"] as const)("shows canonical labels for %s partitions", async (mode) => {
       const { InteractiveMap } = await import("@/components/map/interactive-map");
       const beaches = Array.from({ length: 21 }, (_, index) => ({
         ...beach, id: `spot-${index}`, name: `Spot ${index}`, lat: 32.75 + index * 0.001,
       }));
-      const partition = { conditionScore: 75, s1Dir: 190, s1HeightFt: 4, s1PeriodS: 12, s2Dir: null, s2HeightFt: null, s2PeriodS: null, windDir: 90, windMph: 6 };
+      const partition = { conditionScore: 75, recommendationLabel: "Worth it", s1Dir: 190, s1HeightFt: 4, s1PeriodS: 12, s2Dir: null, s2HeightFt: null, s2PeriodS: null, windDir: 90, windMph: 6 };
       const sampledIds = new Set<string>();
       global.fetch = jest.fn(async (input: string) => {
         const params = new URL(input, "https://example.test").searchParams;
@@ -1628,7 +1628,7 @@ describe("InteractiveMap", () => {
           forecasts: {},
           hourlySwellTimeline: {
             timestamps: ["2026-09-06T12:00:00.000Z", "2026-09-06T13:00:00.000Z"],
-            partitionsByBeach: Object.fromEntries(ids.map((id) => [id, [partition, { ...partition, s1HeightFt: 5, conditionScore: 30 }]])),
+            partitionsByBeach: Object.fromEntries(ids.map((id) => [id, [partition, { ...partition, s1HeightFt: 5, conditionScore: 30, recommendationLabel: "Skip" }]])),
             hasMore: false, nextStart: null,
           },
         } }) };
@@ -1641,7 +1641,7 @@ describe("InteractiveMap", () => {
       await waitFor(() => expect(getBeachMarkerBadge(excluded.id)).toBeInstanceOf(HTMLElement));
       fireEvent.click(getBeachMarkerBadge(excluded.id));
       await waitFor(() => {
-        expect(getBeachMarkerBadge(excluded.id).parentElement).toHaveAttribute("data-condition-summary", "No read");
+        expect(getBeachMarkerBadge(excluded.id).parentElement).toHaveAttribute("data-recommendation-label", "Worth it");
         const Marker = require("mapbox-gl").Marker;
         const callout = Marker.mock.calls.filter(([options]: [{ element?: HTMLElement }]) => options.element?.hasAttribute("data-conditions-callout")).at(-1)?.[0].element;
         expect(callout?.querySelector('[data-callout-banner="s1"]')).not.toBeNull();
@@ -1649,11 +1649,11 @@ describe("InteractiveMap", () => {
       });
       expect(calloutMarkerCallCount()).toBe(1);
       const badge = getBeachMarkerBadge(excluded.id);
-      expect(badge.querySelector("[data-marker-visual]")).toHaveStyle({ borderStyle: "dashed" });
+      expect(badge.querySelector("[data-marker-visual]")).toHaveStyle({ borderStyle: "solid" });
       const requests = (global.fetch as jest.Mock).mock.calls.length;
       if (mode === "hourly") view.rerender(<InteractiveMap {...props} swellTimelineIndex={1} />);
       else fireEvent.change(screen.getByRole("slider", { name: "Forecast time" }), { target: { value: "1" } });
-      await waitFor(() => expect(badge.parentElement).toHaveAttribute("data-condition-summary", "No read"));
+      await waitFor(() => expect(badge.parentElement).toHaveAttribute("data-recommendation-label", "Skip"));
       expect(getBeachMarkerBadge(excluded.id)).toBe(badge);
       expect(global.fetch).toHaveBeenCalledTimes(requests);
     });

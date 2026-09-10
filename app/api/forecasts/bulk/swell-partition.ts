@@ -1,5 +1,6 @@
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { compassToDegrees } from "@/components/map/swell-map-theme";
+import type { RecommendationLabel } from "@/lib/scoring";
 
 /**
  * Parsed primary/secondary swell + wind partition for one beach's current
@@ -9,6 +10,8 @@ import { compassToDegrees } from "@/components/map/swell-map-theme";
 export interface SwellPartition {
   /** Hourly beach suitability; null when scoring or safety evidence is unavailable. */
   conditionScore?: number | null;
+  /** Canonical hourly recommendation; null when scoring or safety evidence is unavailable. */
+  recommendationLabel?: RecommendationLabel | null;
   /** Whether map display kept the named partition or substituted the offshore tuple. */
   s1Source?: "partition" | "offshore";
   s1Dir: number | null; // degrees
@@ -67,6 +70,10 @@ export function interpolateSwellPartition(
     ...("conditionScore" in from || "conditionScore" in to ? {
       conditionScore: from.conditionScore == null || to.conditionScore == null
         ? null : lerpNullable(from.conditionScore, to.conditionScore, t),
+    } : {}),
+    ...("recommendationLabel" in from || "recommendationLabel" in to ? {
+      recommendationLabel:
+        (t < 0.5 ? from.recommendationLabel : to.recommendationLabel) ?? null,
     } : {}),
     s1Dir: lerpDirectionNullable(from.s1Dir, to.s1Dir, t),
     swellDirOm: lerpDirectionNullable(

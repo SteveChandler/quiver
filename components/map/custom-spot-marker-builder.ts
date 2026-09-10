@@ -47,7 +47,7 @@ export function createCustomSpotMarkerElement(
   });
   const waveLabel = data?.waveLabel?.trim() || null;
 
-  element.setAttribute("data-condition-summary", conditionCall.label);
+  element.setAttribute("data-recommendation-label", conditionCall.label);
   element.setAttribute("data-marker-gradient", conditionCall.gradient);
   if (typeof data?.conditionScore === "number") {
     element.setAttribute("data-condition-score", String(data.conditionScore));

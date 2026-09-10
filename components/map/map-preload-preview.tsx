@@ -180,7 +180,7 @@ export function MapPreloadPreview({
               ),
             }}
             data-testid="map-preload-marker"
-            data-condition-summary={label ?? "No read"}
+            data-recommendation-label={label ?? "No read"}
           >
             {waveLabel || "\u2022"}
           </div>

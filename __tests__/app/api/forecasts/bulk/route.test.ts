@@ -598,7 +598,8 @@ describe("/api/forecasts/bulk", () => {
       hourlyTimelineRow("11111111-1111-4111-8111-111111111111", "2", "2026-07-07T18:00:00.000Z"),
       hourlyTimelineRow("11111111-1111-4111-8111-111111111111", "5", "2026-07-07T21:00:00.000Z"),
     ];
-    mockBulkQueries({ extensionOnly: true, hourlyTimelineRows: rows, beachRows: [beachRow("11111111-1111-4111-8111-111111111111")] });
+    const beach = beachRow("11111111-1111-4111-8111-111111111111");
+    mockBulkQueries({ extensionOnly: true, hourlyTimelineRows: rows, beachRows: [beach] });
     (scoreWindowConditionScore as jest.Mock).mockImplementation((row) => row.wave_height === "2" ? 75 : 30);
     mockEvaluateMajorEventHoldCandidates.mockImplementation(({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
       Promise.resolve(candidates.map(({ candidateId }) => majorEventDecision(candidateId, state))));
@@ -607,9 +608,19 @@ describe("/api/forecasts/bulk", () => {
     ));
     expect(response.status).toBe(200);
     const timeline = (await response.json()).data.hourlySwellTimeline;
-    expect(timeline.partitionsByBeach["11111111-1111-4111-8111-111111111111"].map((p: { conditionScore: number | null }) => p.conditionScore))
+    const partitions = timeline.partitionsByBeach["11111111-1111-4111-8111-111111111111"];
+    expect(partitions.map((p: { conditionScore: number | null }) => p.conditionScore))
       .toEqual(state === "allow" ? [75, 60, 45, 30] : [null, null, null, null]);
-    expect(timeline.partitionsByBeach["11111111-1111-4111-8111-111111111111"][0].s1Dir).toBe(270);
+    const anchorLabels = rows.map((row, index) => resolveRecommendationLabel({
+      beach: beach as never,
+      forecast: row as never,
+      score: index === 0 ? 75 : 30,
+    }).label);
+    expect(partitions.map((p: { recommendationLabel: string | null }) => p.recommendationLabel))
+      .toEqual(state === "allow"
+        ? [anchorLabels[0], anchorLabels[0], anchorLabels[1], anchorLabels[1]]
+        : [null, null, null, null]);
+    expect(partitions[0].s1Dir).toBe(270);
     expect(applyV51DisplayOverrideToForecasts).toHaveBeenCalledWith(rows);
     expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledWith(expect.objectContaining({
       candidates: expect.arrayContaining([expect.objectContaining({ startsAt: "2026-07-07T19:00:00.000Z" })]),

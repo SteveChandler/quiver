@@ -41,7 +41,7 @@ describe("createCustomSpotMarkerElement", () => {
 
     expect(marker).toHaveAttribute("data-testid", "custom-spot-marker");
     expect(marker).toHaveAttribute("data-custom-spot-id", "spot-1");
-    expect(marker).toHaveAttribute("data-condition-summary", "Worth it");
+    expect(marker).toHaveAttribute("data-recommendation-label", "Worth it");
     expect(marker).toHaveAttribute("data-condition-score", "82");
     expect(marker).toHaveAttribute("data-marker-gradient", markerCall.gradient);
     expect(marker).toHaveAttribute("data-wave-label", "3-4 ft");
@@ -63,7 +63,7 @@ describe("createCustomSpotMarkerElement", () => {
     expect(markerCall).toMatchObject({
       label: "No read",
     });
-    expect(marker).toHaveAttribute("data-condition-summary", "No read");
+    expect(marker).toHaveAttribute("data-recommendation-label", "No read");
     expect(marker).toHaveAttribute("data-condition-score", "82");
     expect(marker).toHaveAttribute("data-wave-label", "3-4 ft");
     expect(marker.textContent).toBe("3-4 ft");

@@ -993,8 +993,11 @@ export function InteractiveMap({
   }, [activeConditionPartitions, initialConditionScoreMap, markerBeaches]);
   const recommendationLabelMap = useMemo(() => {
     if (!activeConditionPartitions) return initialRecommendationLabelMap;
-    return new Map<string, RecommendationLabel>();
-  }, [activeConditionPartitions, initialRecommendationLabelMap]);
+    return new Map(markerBeaches.map((beach) => [
+      beach.id,
+      activeConditionPartitions.get(beach.id)?.recommendationLabel ?? null,
+    ]));
+  }, [activeConditionPartitions, initialRecommendationLabelMap, markerBeaches]);
 
   useEffect(() => {
     const activePartitions = isExpandableTimeline
@@ -2862,7 +2865,7 @@ export function InteractiveMap({
       const element = marker.getElement();
       const recommendationLabel = recommendationLabelMap.get(beachId) ?? null;
       const score = conditionScoreMap.get(beachId);
-      element.setAttribute("data-condition-summary", recommendationLabel ?? "No read");
+      element.setAttribute("data-recommendation-label", recommendationLabel ?? "No read");
       if (score == null) element.removeAttribute("data-condition-score");
       else element.setAttribute("data-condition-score", String(score));
       const beach = beachesRef.current?.find((item) => item.id === beachId);

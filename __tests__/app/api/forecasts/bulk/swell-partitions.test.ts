@@ -114,8 +114,29 @@ describe("map swell source consistency", () => {
 });
 
 it("does not interpolate an unavailable safety score into a positive pin color", () => {
-  const from = { ...rowToSwellPartition({} as never), conditionScore: null };
-  const to = { ...from, conditionScore: 80 };
+  const from = {
+    ...rowToSwellPartition({} as never),
+    conditionScore: null,
+    recommendationLabel: null,
+  };
+  const to = {
+    ...from,
+    conditionScore: 80,
+    recommendationLabel: "Worth it" as const,
+  };
   expect(interpolateSwellPartition(from, to, 0.5).conditionScore).toBeNull();
   expect(interpolateSwellPartition(to, from, 0.5).conditionScore).toBeNull();
+});
+
+it("carries the nearer recommendation label across interpolated hours", () => {
+  const from = {
+    ...rowToSwellPartition({} as never),
+    recommendationLabel: "Worth it" as const,
+  };
+  const to = { ...from, recommendationLabel: "Skip" as const };
+
+  expect(interpolateSwellPartition(from, to, 1 / 3).recommendationLabel)
+    .toBe("Worth it");
+  expect(interpolateSwellPartition(from, to, 2 / 3).recommendationLabel)
+    .toBe("Skip");
 });

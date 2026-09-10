@@ -465,11 +465,20 @@ function partitionForTimelineHour(
   rowsByHour: ReadonlyMap<number, EnhancedForecastEntity>,
   hourMs: number,
   scores?: ReadonlyMap<EnhancedForecastEntity, number | null>,
+  beach?: Beach,
 ): SwellPartition | null {
-  const partition = (row: EnhancedForecastEntity): SwellPartition => ({
-    ...rowToSwellPartition(row),
-    ...(scores ? { conditionScore: scores.get(row) ?? null } : {}),
-  });
+  const partition = (row: EnhancedForecastEntity): SwellPartition => {
+    const score = scores?.get(row) ?? null;
+    return {
+      ...rowToSwellPartition(row),
+      ...(scores ? {
+        conditionScore: score,
+        recommendationLabel: beach && score != null
+          ? resolveRecommendationLabel({ beach, forecast: row, score }).label
+          : null,
+      } : {}),
+    };
+  };
   const exact = rowsByHour.get(hourMs);
   if (exact) return partition(exact);
 
@@ -509,6 +518,7 @@ function buildHourlySwellTimeline(
   window: HourlyTimelineWindow,
   nextStart: string | null,
   scores?: ReadonlyMap<EnhancedForecastEntity, number | null>,
+  beaches?: ReadonlyMap<string, Beach>,
 ): HourlySwellTimeline {
   const requestedBeachIds = new Set(beachIds);
   const rowsByBeach = new Map<string, Map<number, EnhancedForecastEntity>>();
@@ -548,7 +558,9 @@ function buildHourlySwellTimeline(
       beachId,
       hourKeys.map((hourMs) => {
         const beachRows = rowsByBeach.get(beachId);
-        return beachRows ? partitionForTimelineHour(beachRows, hourMs, scores) : null;
+        return beachRows
+          ? partitionForTimelineHour(beachRows, hourMs, scores, beaches?.get(beachId))
+          : null;
       }),
     ]),
   ) as Record<string, Array<SwellPartition | null>>;
@@ -675,10 +687,11 @@ async function fetchHourlySwellTimeline(
   if (nextStartError) return { timeline: null, error: nextStartError };
 
   let scores: Map<EnhancedForecastEntity, number | null> | undefined;
+  let beaches: Map<string, Beach> | undefined;
   if (scoring) {
     const result = await supabase.from("beaches").select(BULK_BEACH_SELECT).in("id", beachIds);
     if (result.error) return { timeline: null, error: { message: result.error.message } };
-    const beaches = new Map((result.data as unknown as Beach[]).map((beach) => [beach.id, beach]));
+    beaches = new Map((result.data as unknown as Beach[]).map((beach) => [beach.id, beach]));
     scores = new Map();
     const displayRows = await applyV51DisplayOverrideToForecasts(rows);
     const displayByTime = new Map(displayRows.map((row) => [`${row.beach_id}:${row.forecast_at}`, row]));
@@ -691,7 +704,14 @@ async function fetchHourlySwellTimeline(
       scores.set(row, score != null && Number.isFinite(score) ? score : null);
     }
   }
-  const timeline = buildHourlySwellTimeline(rows, beachIds, window, nextStart, scores);
+  const timeline = buildHourlySwellTimeline(
+    rows,
+    beachIds,
+    window,
+    nextStart,
+    scores,
+    beaches,
+  );
   if (scoring) {
     const candidates = Object.entries(timeline.partitionsByBeach).flatMap(([beachId, partitions]) =>
       partitions.flatMap((partition, index) => partition?.conditionScore == null ? [] : [{
@@ -708,6 +728,7 @@ async function fetchHourlySwellTimeline(
       partitions.forEach((partition, index) => {
         if (partition && (unavailable || boundary.blockedCandidateIds.has(`hourly-map:${beachId}:${timeline.timestamps[index]}`))) {
           partition.conditionScore = null;
+          partition.recommendationLabel = null;
         }
       });
     }

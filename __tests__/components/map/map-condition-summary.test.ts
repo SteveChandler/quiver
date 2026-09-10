@@ -142,7 +142,7 @@ describe("map recommendation labels", () => {
       "aria-label",
       "View Beach beach-fair conditions"
     );
-    expect(marker).toHaveAttribute("data-condition-summary", "Maybe");
+    expect(marker).toHaveAttribute("data-recommendation-label", "Maybe");
     expect(badge.textContent).toBe("");
     expect(badge).toHaveAttribute("data-marker-gradient", markerGradient);
     expect(markerGradient).toContain("linear-gradient");
@@ -173,7 +173,7 @@ describe("map recommendation labels", () => {
     const visual = getMarkerVisual(marker);
     const markerGradient = getWaterTempBadgeColor("76");
 
-    expect(marker).toHaveAttribute("data-condition-summary", "Worth it");
+    expect(marker).toHaveAttribute("data-recommendation-label", "Worth it");
     expect(badge.textContent).toBe("");
     expect(badge).toHaveAttribute("data-marker-gradient", markerGradient);
     expect(markerGradient).toContain("linear-gradient");
