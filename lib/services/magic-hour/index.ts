@@ -20,31 +20,12 @@ export { findMagicHour } from "./magic-hour-finder";
 export type {
   ForecastSlot,
   BeachMetadata,
-  EnhancedForecastEntity,
   MagicHourResult,
-  OptimalWindow,
   WeightConfig,
-  WindQualityResult,
 } from "./types";
 
-// Constants
-export {
-  DIRECTION_MAP,
-  DEFAULT_WEIGHTS,
-  SLACK_TIDE_THRESHOLD_FT,
-  WINDOW_HALF_SIZE_MS,
-  DAYLIGHT_START_HOUR,
-  DAYLIGHT_END_HOUR,
-  DEFAULT_SEARCH_WINDOW_MS,
-  DEFAULT_TIMEZONE,
-} from "./constants";
-
 // Direction utilities (CRITICAL: circular math)
-export {
-  circularAngleDiff,
-  normalizeAngle,
-  interpolateAngle,
-} from "./direction-utils";
+export { circularAngleDiff } from "./direction-utils";
 
 // Condition checkers
 export {
@@ -52,11 +33,6 @@ export {
   checkWindOffshore,
   isTideInRange,
 } from "./condition-checkers";
-
-// Interpolation
-export {
-  formatTime,
-} from "./interpolation";
 
 // Scoring
 export {

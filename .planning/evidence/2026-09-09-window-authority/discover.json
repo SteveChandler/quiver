@@ -1,0 +1,145 @@
+{
+  "metadata": {
+    "totalBeachesConsidered": 44,
+    "successfulForecasts": 44,
+    "partialSuccess": false,
+    "failedBeaches": 0,
+    "staleBeaches": 0,
+    "usingStaleData": false,
+    "generated_at": "2026-09-09T22:03:51.419Z"
+  },
+  "recommendations": [
+    {
+      "beach": {
+        "id": "5e72b79d-a12d-4cd3-8da4-b7b92069efbf",
+        "name": "Del Mar"
+      },
+      "window": {
+        "start": "2026-09-10T00:00:00.000Z",
+        "end": "2026-09-10T02:05:32.724Z",
+        "tide": "Rising",
+        "wind": "3 mph NW",
+        "waveHeight": "3.6 ft",
+        "wavePeriod": "7s",
+        "dataSource": "OPEN_METEO",
+        "confidence": 40,
+        "timezone": "America/Los_Angeles",
+        "usedTideBoundaries": false,
+        "score": 83,
+        "peakTime": "2026-09-10T00:00:00.000Z"
+      },
+      "score": 83,
+      "recommendationLabel": "Maybe"
+    },
+    {
+      "beach": {
+        "id": "badd7986-4609-421a-ab3d-81fcd8409a5b",
+        "name": "Ponto"
+      },
+      "window": {
+        "start": "2026-09-10T00:00:00.000Z",
+        "end": "2026-09-10T02:05:47.850Z",
+        "tide": "Rising",
+        "wind": "3 mph SSW",
+        "waveHeight": "3.7 ft",
+        "wavePeriod": "9s",
+        "dataSource": "CDIP",
+        "confidence": 99,
+        "timezone": "America/Los_Angeles",
+        "usedTideBoundaries": false,
+        "score": 85,
+        "peakTime": "2026-09-10T00:00:00.000Z"
+      },
+      "score": 85,
+      "recommendationLabel": "Worth it"
+    },
+    {
+      "beach": {
+        "id": "7dca6429-25ee-4161-a2c2-800555ed8a6a",
+        "name": "George's"
+      },
+      "window": {
+        "start": "2026-09-10T00:00:00.000Z",
+        "end": "2026-09-10T02:05:36.496Z",
+        "tide": "Rising",
+        "wind": "3 mph WNW",
+        "waveHeight": "3.4 ft",
+        "wavePeriod": "7s",
+        "dataSource": "OPEN_METEO",
+        "confidence": 92,
+        "timezone": "America/Los_Angeles",
+        "usedTideBoundaries": false,
+        "score": 83,
+        "peakTime": "2026-09-10T00:00:00.000Z"
+      },
+      "score": 83,
+      "recommendationLabel": "Maybe"
+    },
+    {
+      "beach": {
+        "id": "902a215b-2a3d-40af-9391-16b0afed7dee",
+        "name": "D Street"
+      },
+      "window": {
+        "start": "2026-09-10T00:00:00.000Z",
+        "end": "2026-09-10T02:05:42.866Z",
+        "tide": "Rising",
+        "wind": "2 mph SW",
+        "waveHeight": "3.4 ft",
+        "wavePeriod": "7s",
+        "dataSource": "OPEN_METEO",
+        "confidence": 40,
+        "timezone": "America/Los_Angeles",
+        "usedTideBoundaries": false,
+        "score": 84,
+        "peakTime": "2026-09-10T00:00:00.000Z"
+      },
+      "score": 84,
+      "recommendationLabel": "Maybe"
+    },
+    {
+      "beach": {
+        "id": "22536002-c7d2-48ab-a676-9b489fd79874",
+        "name": "Beacons"
+      },
+      "window": {
+        "start": "2026-09-10T00:00:00.000Z",
+        "end": "2026-09-10T02:05:46.695Z",
+        "tide": "Rising",
+        "wind": "3 mph SSW",
+        "waveHeight": "3.3 ft",
+        "wavePeriod": "9s",
+        "dataSource": "CDIP",
+        "confidence": 99,
+        "timezone": "America/Los_Angeles",
+        "usedTideBoundaries": false,
+        "score": 85,
+        "peakTime": "2026-09-10T00:00:00.000Z"
+      },
+      "score": 85,
+      "recommendationLabel": "Worth it"
+    },
+    {
+      "beach": {
+        "id": "15c7337e-5258-4339-9dc3-c435c666926b",
+        "name": "Ocean Beach"
+      },
+      "window": {
+        "start": "2026-09-10T00:00:00.000Z",
+        "end": "2026-09-10T02:05:22.495Z",
+        "tide": "Rising",
+        "wind": "9 mph NNW",
+        "waveHeight": "3 ft",
+        "wavePeriod": "16s",
+        "dataSource": "OPEN_METEO",
+        "confidence": 40,
+        "timezone": "America/Los_Angeles",
+        "usedTideBoundaries": false,
+        "score": 62,
+        "peakTime": "2026-09-10T00:00:00.000Z"
+      },
+      "score": 62,
+      "recommendationLabel": "Maybe"
+    }
+  ]
+}

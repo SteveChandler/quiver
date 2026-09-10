@@ -162,6 +162,21 @@ describe('findPeakWithinWindow', () => {
     expect(result.getTime()).toBe(expectedMidpoint);
   });
 
+  it('returns the window midpoint when a future window has no interior grid point', () => {
+    const now = new Date('2026-09-09T22:03:00.000Z');
+    const windowStart = new Date('2026-09-12T00:05:00.000Z');
+    const windowEnd = new Date('2026-09-12T02:02:00.000Z');
+    const forecasts = makeForecasts(new Date('2026-09-12T00:00:00.000Z'), [
+      { hourOffset: 0, score: 90 },
+      { hourOffset: 3, score: 80 },
+    ]);
+
+    const result = findPeakWithinWindow(windowStart, windowEnd, forecasts, now);
+
+    expect(result.getTime()).toBe((windowStart.getTime() + windowEnd.getTime()) / 2);
+    expect(result.getTime()).not.toBe(now.getTime());
+  });
+
   // --------------------------------------------------------------------
   // Back-compat — default `now` argument
   // --------------------------------------------------------------------

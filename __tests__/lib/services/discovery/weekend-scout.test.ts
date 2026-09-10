@@ -18,7 +18,12 @@ const FAR = '22222222-2222-4222-8222-222222222222';
 const THIRD = '33333333-3333-4333-8333-333333333333';
 const FOURTH = '44444444-4444-4444-8444-444444444444';
 
-function candidate(id: string, name: string, distanceMiles: number): WeekendScoutCandidate {
+function candidate(
+  id: string,
+  name: string,
+  distanceMiles: number,
+  timezone = 'America/Los_Angeles',
+): WeekendScoutCandidate {
   return {
     beach: {
       id,
@@ -28,6 +33,7 @@ function candidate(id: string, name: string, distanceMiles: number): WeekendScou
       lon: -117.2,
       is_private: false,
       deleted_at: null,
+      timezone,
     } as Beach,
     distanceMiles,
   };
@@ -43,8 +49,11 @@ function window(
     bucket: 'morning',
     start: '2026-07-25T14:00:00.000Z',
     end: '2026-07-25T17:00:00.000Z',
+    displayWindowStart: '2026-07-25T14:00:00.000Z',
+    displayWindowEnd: '2026-07-25T16:30:00.000Z',
     peakTime: '2026-07-25T15:00:00.000Z',
     beachId,
+    isBeachDayBest: true,
     conditionScore: rankingScore,
     rankingScore,
     verdict: 'worth_it',
@@ -70,19 +79,21 @@ function window(
 function forecast(windows: WeekScoutWindowResponse[]): MajorEventHoldWeekScoutResponse {
   return {
     generatedAt: '2026-07-24T20:00:00.000Z',
-    scorerVersion: 'week-scout-v1:discovery-hero-v1',
+    scorerVersion: 'week-scout-v2:day-window-authority-v1',
     candidateFingerprint: 'fingerprint',
     days: [
       {
         localDate: '2026-07-25',
         windows,
         bestWindowId: windows[0]?.id ?? null,
+        bestDayWindow: windows[0] ?? null,
         exclusionReasons: [],
       },
       {
         localDate: '2026-07-26',
         windows: [],
         bestWindowId: null,
+        bestDayWindow: null,
         exclusionReasons: ['no_forecasts'],
       },
     ],
@@ -182,11 +193,38 @@ describe('buildWeekendScoutRanking', () => {
       sourceLabels: ['nearby', 'home', 'saved'],
       bestWindow: {
         localLabel: 'Saturday morning',
+        displayWindowStart: '2026-07-25T14:00:00.000Z',
+        displayWindowEnd: '2026-07-25T16:30:00.000Z',
         freshnessAt: '2026-07-24T18:30:00.000Z',
       },
     });
     expect(result.ranking.qualifyingCount).toBe(3);
     expect(result.ranking.contractVersion).toBe('weekend-scout-v1');
+  });
+
+  it('labels a result in the beach timezone when it differs from the location', async () => {
+    const deps = dependencies();
+    deps.buildCandidatePool = jest.fn(async () => ({
+      candidates: [candidate(NEAR, 'Hawaii Beach', 5, 'Pacific/Honolulu')],
+      totalCount: 1,
+      incomplete: false,
+      wasTruncated: false,
+    }));
+    deps.generateForecast = jest.fn(async () => forecast([
+      window(NEAR, 84, {
+        start: '2026-07-25T06:00:00.000Z',
+        end: '2026-07-25T09:00:00.000Z',
+        displayWindowStart: '2026-07-25T06:00:00.000Z',
+        displayWindowEnd: '2026-07-25T08:30:00.000Z',
+        peakTime: '2026-07-25T07:00:00.000Z',
+      }),
+    ]));
+
+    const result = await buildWeekendScoutRanking('user-1', deps);
+
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') throw new Error('expected ready');
+    expect(result.ranking.results[0].bestWindow.localLabel).toBe('Friday morning');
   });
 
   it('applies the quality floor before selecting a beach best window', async () => {
@@ -210,6 +248,34 @@ describe('buildWeekendScoutRanking', () => {
     if (result.status !== 'ready') throw new Error('expected ready');
     expect(result.ranking.results).toHaveLength(1);
     expect(result.ranking.results[0]).toMatchObject({ beachId: NEAR, rankingScore: 84 });
+  });
+
+  it('leads a beach with its day best instead of a higher-scoring preview', async () => {
+    const deps = dependencies();
+    const missingMarker = window(NEAR, 100, { bucket: 'midday' });
+    delete (missingMarker as Partial<WeekScoutWindowResponse>).isBeachDayBest;
+    deps.buildCandidatePool = jest.fn(async () => ({
+      candidates: [candidate(NEAR, 'Good Nearby', 5)],
+      totalCount: 1,
+      incomplete: false,
+      wasTruncated: false,
+    }));
+    deps.generateForecast = jest.fn(async () => forecast([
+      missingMarker,
+      window(NEAR, 99, { bucket: 'evening', isBeachDayBest: false }),
+      window(NEAR, 98, { isBeachDayBest: null as never }),
+      window(NEAR, 84),
+    ]));
+
+    const result = await buildWeekendScoutRanking('user-1', deps);
+
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') throw new Error('expected ready');
+    expect(result.ranking.results[0]).toMatchObject({
+      beachId: NEAR,
+      rankingScore: 84,
+      bestWindow: { localLabel: 'Saturday morning' },
+    });
   });
 
   it('breaks equal adjusted scores by distance and then beach ID', async () => {

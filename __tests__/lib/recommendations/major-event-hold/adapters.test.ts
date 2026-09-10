@@ -353,6 +353,7 @@ const weekScoutFixture: WeekScoutResponse = {
     {
       localDate: "2026-07-19",
       bestWindowId: "window-primary",
+      bestDayWindow: null,
       exclusionReasons: [],
       windows: [
         {
@@ -360,8 +361,11 @@ const weekScoutFixture: WeekScoutResponse = {
           bucket: "morning",
           start: "2026-07-19T18:00:00.000Z",
           end: "2026-07-19T20:00:00.000Z",
+          displayWindowStart: "2026-07-19T18:00:00.000Z",
+          displayWindowEnd: "2026-07-19T20:00:00.000Z",
           peakTime: "2026-07-19T19:00:00.000Z",
           beachId: PRIMARY_BEACH_ID,
+          isBeachDayBest: true,
           conditionScore: 91,
           rankingScore: 94,
           verdict: "worth_it",
@@ -401,8 +405,11 @@ const weekScoutFixture: WeekScoutResponse = {
           bucket: "morning",
           start: "2026-07-19T18:30:00.000Z",
           end: "2026-07-19T20:30:00.000Z",
+          displayWindowStart: "2026-07-19T18:30:00.000Z",
+          displayWindowEnd: "2026-07-19T20:30:00.000Z",
           peakTime: "2026-07-19T19:30:00.000Z",
           beachId: INCLUDED_BEACH_ID,
+          isBeachDayBest: true,
           conditionScore: 75,
           rankingScore: 78,
           verdict: "maybe",
@@ -2117,8 +2124,11 @@ describe("major-event hold adapters", () => {
         bucket: window.bucket,
         start: window.start,
         end: window.end,
+        displayWindowStart: window.displayWindowStart,
+        displayWindowEnd: window.displayWindowEnd,
         peakTime: window.peakTime,
         beachId: window.beachId,
+        isBeachDayBest: window.isBeachDayBest,
         confidence: window.confidence,
         forecast: window.forecast,
       })),
@@ -2128,8 +2138,11 @@ describe("major-event hold adapters", () => {
         bucket: window.bucket,
         start: window.start,
         end: window.end,
+        displayWindowStart: window.displayWindowStart,
+        displayWindowEnd: window.displayWindowEnd,
         peakTime: window.peakTime,
         beachId: window.beachId,
+        isBeachDayBest: window.isBeachDayBest,
         confidence: window.confidence,
         forecast: window.forecast,
       })),
@@ -2167,6 +2180,27 @@ describe("major-event hold adapters", () => {
     });
   });
 
+  it("does not promote an allowed preview when the selected day best is held", () => {
+    const input = structuredClone(weekScoutFixture);
+    input.days[0].windows[1].isBeachDayBest = false;
+
+    const result = sanitizeWeekScoutForMajorEventHold(
+      input,
+      weekScoutCandidates(),
+      [
+        decision("window-primary", "blocked"),
+        decision("window-included", "allow"),
+      ],
+    );
+
+    expect(result.recommendationAvailability.state).toBe("available");
+    expect(result.days[0].bestWindowId).toBeNull();
+    expect(result.days[0].windows[1]).toMatchObject({
+      isBeachDayBest: false,
+      rankingScore: 78,
+    });
+  });
+
   it("marks only the fully held day when another day keeps the response available", () => {
     const firstDay = structuredClone(weekScoutFixture.days[0]);
     const secondDay = structuredClone(weekScoutFixture.days[0]);
@@ -2178,6 +2212,8 @@ describe("major-event hold adapters", () => {
       start: window.start.replace("2026-07-19", "2026-07-20"),
       end: window.end.replace("2026-07-19", "2026-07-20"),
       peakTime: window.peakTime.replace("2026-07-19", "2026-07-20"),
+      displayWindowStart: window.displayWindowStart.replace("2026-07-19", "2026-07-20"),
+      displayWindowEnd: window.displayWindowEnd.replace("2026-07-19", "2026-07-20"),
     }));
     const input: WeekScoutResponse = {
       ...structuredClone(weekScoutFixture),

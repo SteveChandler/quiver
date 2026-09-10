@@ -1,0 +1,88 @@
+{
+  "report": {
+    "verdict": "NO",
+    "bestWindowStart": null,
+    "bestWindowEnd": null,
+    "windowMinutes": null,
+    "shortWindow": false,
+    "waveHeight": "3 ft",
+    "windDescription": "NNW 9 mph (cross-shore)",
+    "windSpeed": "9 mph",
+    "windCompass": "NNW",
+    "windType": "cross-shore",
+    "tideDescription": "Rising \u2192 High",
+    "tidePhase": "rising",
+    "tideHeight": "4.6ft",
+    "nextTideType": "High",
+    "nextTideAt": "2026-09-10T04:00:00+00:00",
+    "whySentence": "This break is above your current skill level.",
+    "forecastConfidence": 40,
+    "lowForecastConfidence": false,
+    "score": null,
+    "peakTime": null,
+    "trendTags": [],
+    "updatedAt": "2026-09-09T22:03:44.461Z",
+    "isCalibrated": true,
+    "rideableWavesPerHour": 4,
+    "dominantBeatIntervalS": 60,
+    "character": {
+      "category": "medium-clean",
+      "label": "Dialed \u2014 everything's lining up"
+    },
+    "cautions": [],
+    "tiers": null,
+    "userTier": "intermediate",
+    "skillSource": "profile",
+    "recommendationAvailability": {
+      "state": "available",
+      "holdEpoch": "discovery-water-quality-filtered"
+    }
+  },
+  "isTomorrow": false,
+  "forecastContext": null,
+  "sessionDecision": {
+    "schemaVersion": "canonical-session-decision.v1",
+    "engineVersion": "rules.v1",
+    "decisionId": "85a893a56c9f8adb8c8fcfe8ae8305dc82c2bc5bec771ed88c6d0fe61082c528",
+    "createdAt": "2026-09-09T22:03:42.019Z",
+    "expiresAt": "2026-09-09T22:18:42.019Z",
+    "scope": {
+      "kind": "plan_next_session",
+      "windowStart": "2026-09-09T22:03:42.019Z",
+      "windowEnd": "2026-09-10T22:03:42.019Z",
+      "timezone": "America/Los_Angeles"
+    },
+    "verdict": "no",
+    "decisionBasis": "safety_override",
+    "decisionBasisV2": "safety_override",
+    "reasonCode": "beach_skill_exceeds_user",
+    "selection": null,
+    "skillEligibility": {
+      "skill": "intermediate",
+      "state": "ineligible",
+      "reasonCodes": [
+        "beach_skill_exceeds_user"
+      ]
+    },
+    "holdEpoch": "discovery-water-quality-filtered",
+    "effects": []
+  },
+  "nowRecommendation": {
+    "window": {
+      "start": "2026-09-09T21:00:00.000Z",
+      "end": "2026-09-10T00:00:00.000Z",
+      "tide": "Rising",
+      "wind": "12 mph WSW",
+      "waveHeight": "3 ft",
+      "wavePeriod": "9s",
+      "dataSource": "CDIP",
+      "confidence": 99,
+      "timezone": "America/Los_Angeles",
+      "usedTideBoundaries": false,
+      "score": 63,
+      "peakTime": "2026-09-09T22:03:45.731Z"
+    },
+    "score": 63,
+    "recommendationLabel": "Maybe"
+  }
+}

@@ -73,5 +73,19 @@ describe("weekend-scout-v1 contract", () => {
         generatedAt: "not-a-timestamp",
       })
     ).toThrow(/generatedAt/i);
+
+    const results = fixture.results as Array<Record<string, unknown>>;
+    expect(() =>
+      parseWeekendScoutSnapshot({
+        ...fixture,
+        results: [{
+          ...results[0],
+          bestWindow: {
+            ...(results[0].bestWindow as Record<string, unknown>),
+            displayWindowStart: "not-a-timestamp",
+          },
+        }, ...results.slice(1)],
+      })
+    ).toThrow(/displayWindowStart/i);
   });
 });
