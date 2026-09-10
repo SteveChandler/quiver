@@ -217,6 +217,8 @@ export function createMajorEventBulkForecastFixture(
   forecastAt.setUTCMinutes(0, 0, 0);
   const held = phase === "held";
   const swellPartition = {
+    conditionScore: held ? null : 91,
+    recommendationLabel: held ? null : "Worth it",
     s1Dir: 270,
     swellDirOm: 270,
     s1PeriodS: 14,
@@ -257,6 +259,17 @@ export function createMajorEventBulkForecastFixture(
         : Object.fromEntries(beachIds.map((beachId) => [beachId, 91])),
       conditionSummaries: Object.fromEntries(
         beachIds.map((beachId) => [beachId, held ? "UNKNOWN" : "GOOD"]),
+      ),
+      recommendationLabels: Object.fromEntries(
+        beachIds.map((beachId) => [beachId, held ? null : "Worth it"]),
+      ),
+      displaySwell: Object.fromEntries(
+        beachIds.map((beachId) => [beachId, {
+          periodSeconds: 14,
+          directionDeg: 270,
+          heightFt: 3.5,
+          source: "partition",
+        }]),
       ),
       swellPartitions: Object.fromEntries(
         beachIds.map((beachId) => [beachId, swellPartition]),

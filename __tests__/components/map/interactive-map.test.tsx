@@ -316,7 +316,7 @@ describe("InteractiveMap", () => {
             data: {
               forecasts: { [beach.id]: 2.5 },
               displayForecasts: { [beach.id]: { label: "2-3ft" } },
-              conditionSummaries: { [beach.id]: "GOOD" },
+              recommendationLabels: { [beach.id]: "Worth it" },
               swellPartitions: {},
             },
           }),
@@ -326,8 +326,8 @@ describe("InteractiveMap", () => {
       expect(mockMarkerInstances).toHaveLength(0);
       await waitFor(() =>
         expect(screen.getByTestId("map-preload-marker")).toHaveAttribute(
-          "data-condition-summary",
-          "GOOD",
+          "data-recommendation-label",
+          "Worth it",
         ),
       );
       expect(screen.getByTestId("map-preload-marker")).toHaveTextContent("2-3ft");
@@ -1613,12 +1613,12 @@ describe("InteractiveMap", () => {
       expect(onLocationClick).toHaveBeenCalledTimes(1);
     });
 
-    it.each(["hourly", "expandable-hourly"] as const)("loads all %s pin conditions in bounded batches and updates colors without replacing pins", async (mode) => {
+    it.each(["hourly", "expandable-hourly"] as const)("shows canonical labels for %s partitions", async (mode) => {
       const { InteractiveMap } = await import("@/components/map/interactive-map");
       const beaches = Array.from({ length: 21 }, (_, index) => ({
         ...beach, id: `spot-${index}`, name: `Spot ${index}`, lat: 32.75 + index * 0.001,
       }));
-      const partition = { conditionScore: 75, s1Dir: 190, s1HeightFt: 4, s1PeriodS: 12, s2Dir: null, s2HeightFt: null, s2PeriodS: null, windDir: 90, windMph: 6 };
+      const partition = { conditionScore: 75, recommendationLabel: "Worth it", s1Dir: 190, s1HeightFt: 4, s1PeriodS: 12, s2Dir: null, s2HeightFt: null, s2PeriodS: null, windDir: 90, windMph: 6 };
       const sampledIds = new Set<string>();
       global.fetch = jest.fn(async (input: string) => {
         const params = new URL(input, "https://example.test").searchParams;
@@ -1628,7 +1628,7 @@ describe("InteractiveMap", () => {
           forecasts: {},
           hourlySwellTimeline: {
             timestamps: ["2026-09-06T12:00:00.000Z", "2026-09-06T13:00:00.000Z"],
-            partitionsByBeach: Object.fromEntries(ids.map((id) => [id, [partition, { ...partition, s1HeightFt: 5, conditionScore: 30 }]])),
+            partitionsByBeach: Object.fromEntries(ids.map((id) => [id, [partition, { ...partition, s1HeightFt: 5, conditionScore: 30, recommendationLabel: "Skip" }]])),
             hasMore: false, nextStart: null,
           },
         } }) };
@@ -1641,7 +1641,7 @@ describe("InteractiveMap", () => {
       await waitFor(() => expect(getBeachMarkerBadge(excluded.id)).toBeInstanceOf(HTMLElement));
       fireEvent.click(getBeachMarkerBadge(excluded.id));
       await waitFor(() => {
-        expect(getBeachMarkerBadge(excluded.id).parentElement).toHaveAttribute("data-condition-summary", "GOOD");
+        expect(getBeachMarkerBadge(excluded.id).parentElement).toHaveAttribute("data-recommendation-label", "Worth it");
         const Marker = require("mapbox-gl").Marker;
         const callout = Marker.mock.calls.filter(([options]: [{ element?: HTMLElement }]) => options.element?.hasAttribute("data-conditions-callout")).at(-1)?.[0].element;
         expect(callout?.querySelector('[data-callout-banner="s1"]')).not.toBeNull();
@@ -1653,7 +1653,7 @@ describe("InteractiveMap", () => {
       const requests = (global.fetch as jest.Mock).mock.calls.length;
       if (mode === "hourly") view.rerender(<InteractiveMap {...props} swellTimelineIndex={1} />);
       else fireEvent.change(screen.getByRole("slider", { name: "Forecast time" }), { target: { value: "1" } });
-      await waitFor(() => expect(badge.parentElement).toHaveAttribute("data-condition-summary", "MEH"));
+      await waitFor(() => expect(badge.parentElement).toHaveAttribute("data-recommendation-label", "Skip"));
       expect(getBeachMarkerBadge(excluded.id)).toBe(badge);
       expect(global.fetch).toHaveBeenCalledTimes(requests);
     });
@@ -1664,10 +1664,6 @@ describe("InteractiveMap", () => {
       );
       const onLocationClick = jest.fn();
       const onDisplayForecastsChange = jest.fn();
-      const heldBeach = {
-        ...beach,
-        waterQualityHold: "advisory",
-      } as typeof beach & { waterQualityHold: "advisory" };
       const partition = {
         s1Dir: 280,
         swellDirOm: 292.5,
@@ -1688,7 +1684,15 @@ describe("InteractiveMap", () => {
             displayForecasts: { [beach.id]: { label: "2-3ft" } },
             waterTemps: {},
             conditionScores: { [beach.id]: 82 },
-            conditionSummaries: { [beach.id]: "GOOD" },
+            recommendationLabels: { [beach.id]: "Maybe" },
+            displaySwell: {
+              [beach.id]: {
+                periodSeconds: 11.7,
+                directionDeg: 205,
+                heightFt: 4.1,
+                source: "offshore",
+              },
+            },
             isCalibrated: { [beach.id]: false },
             swellPartitions: { [beach.id]: partition },
             hourlySwellTimeline: {
@@ -1703,13 +1707,11 @@ describe("InteractiveMap", () => {
 
       render(
         <InteractiveMap
-          beaches={[heldBeach]}
+          beaches={[beach]}
           autoNavigateOnMarkerClick={false}
           disableBeachClustering
           markerDisplay="points"
           showConditionsOnTap
-          swellTimelineMode="hourly"
-          swellTimelineIndex={0}
           onDisplayForecastsChange={onDisplayForecastsChange}
           onLocationClick={onLocationClick}
         />
@@ -1729,11 +1731,12 @@ describe("InteractiveMap", () => {
       expect(onLocationClick).toHaveBeenCalledWith(
         expect.objectContaining({ id: beach.id }),
         {
-          conditionSummary: "WATER QUALITY ADVISORY",
-          waterQualityHold: "advisory",
+          conditionSummary: "Maybe",
+          waterQualityHold: null,
           waveHeight: "2-3ft",
-          swellPeriod: "14s",
-          swellDirection: "W",
+          swellPeriod: "11.7s",
+          swellDirection: "SSW",
+          swellLabel: "Offshore swell",
           isCalibrated: false,
           windSpeed: "6 mph",
           windDirection: "W",

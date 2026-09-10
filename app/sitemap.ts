@@ -5,7 +5,7 @@ import {
   FORECAST_REGIONS,
   getAllForecastRegionSlugs,
 } from "@/lib/data/forecast-regions";
-import { getIndexableCamRegionSlugs } from "@/lib/data/cam-regions";
+import { getAllCamRegionSlugs } from "@/lib/data/cam-regions";
 import { getCitiesWithBestMonthsData } from "@/actions/city/best-time-actions";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
@@ -1021,12 +1021,20 @@ function getCamRoutes(): MetadataRoute.Sitemap {
     lastModified: SITEMAP_CONTENT_VERSIONS.camDirectory,
   });
 
-  // Regional cam pages (e.g., /cams/southern-california). Regions owned by a
-  // curated /surf-cams page redirect and are listed via the funnel routes.
-  const camRegionSlugs = getIndexableCamRegionSlugs();
+  // Regional cam pages use /surf-cams regardless of whether their content is
+  // curated or directory-backed. Curated routes are emitted by the funnel
+  // route group, so only add the directory-backed remainder here.
+  const curatedCamSlugs = new Set(
+    INDEXABLE_SEO_FUNNEL_PAGES.filter((page) => page.type === "surf-cams").map(
+      (page) => page.slug,
+    ),
+  );
+  const camRegionSlugs = getAllCamRegionSlugs().filter(
+    (slug) => !curatedCamSlugs.has(slug),
+  );
   for (const slug of camRegionSlugs) {
     routes.push({
-      url: `${baseUrl}/cams/${slug}`,
+      url: `${baseUrl}/surf-cams/${slug}`,
       lastModified: SITEMAP_CONTENT_VERSIONS.camDirectory,
     });
   }

@@ -117,6 +117,34 @@ describe("buildForecastRecommendationContext", () => {
     expect(context?.source).toBe("looking_ahead");
   });
 
+  it("uses serialized display bounds verbatim when the window provides them", () => {
+    const window = {
+      start: new Date("2026-05-08T22:30:00.000Z"),
+      end: new Date("2026-05-09T01:30:00.000Z"),
+      tide: "Rising",
+      wind: "5 mph W",
+      waveHeight: "2.7 ft",
+      wavePeriod: "13s",
+      dataSource: "CDIP",
+      confidence: 80,
+      timezone: "America/Los_Angeles",
+      peakTime: new Date("2026-05-08T23:00:00.000Z"),
+      displayWindowStart: "2026-05-08T23:10:00.000Z",
+      displayWindowEnd: "2026-05-09T00:20:00.000Z",
+    } as unknown as PersonalizedForecastWindow;
+
+    const context = buildForecastRecommendationContext({
+      beach: beach(),
+      forecasts: [row({ forecast_at: "2026-05-08T23:00:00.000Z" })],
+      window,
+      now: new Date("2026-05-08T13:00:00.000Z"),
+    });
+
+    expect(context?.displayWindowStart).toBe("2026-05-08T23:10:00.000Z");
+    expect(context?.displayWindowEnd).toBe("2026-05-09T00:20:00.000Z");
+    expect(context?.displayTimeLabel).toBe("Best window: 4:10-5:20 PM");
+  });
+
   it("uses OM south swell context when a named north component is outside the beach swell window", () => {
     const context = buildForecastRecommendationContext({
       beach: beach({

@@ -322,7 +322,7 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
         status: 200,
         json: async () => ({ data: {
           conditionScores: Object.fromEntries(ids.map((id) => [id, 75])),
-          conditionSummaries: Object.fromEntries(ids.map((id) => [id, "GOOD"])),
+          recommendationLabels: Object.fromEntries(ids.map((id) => [id, "Worth it"])),
           ...(timelineIds.length ? { hourlySwellTimeline: {
             timestamps: ["2026-07-10T20:00:00.000Z"],
             partitionsByBeach: Object.fromEntries(timelineIds.map((id) => [id, [partition()]])),
@@ -345,7 +345,7 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
     expect(requests.every((params) => params.get("timelineStart") && params.get("timelineOnly") === "false")).toBe(true);
     expect(result.locations).toHaveLength(count);
     expect(result.conditionScoreMap.size).toBe(count);
-    expect(result.conditionSummaryMap.get(`beach-${count - 1}`)).toBe("GOOD");
+    expect(result.recommendationLabelMap.get(`beach-${count - 1}`)).toBe("Worth it");
     expect(result.hourlyTimelineBeachIds).toHaveLength(count);
     expect(result.hourlyTimelineBeachIds[0]).toBe(`beach-${count - 1}`);
     expect(Object.keys(result.hourlySwellTimeline!.partitionsByBeach).sort()).toEqual(

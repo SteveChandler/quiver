@@ -41,7 +41,7 @@ import {
 } from '@/lib/services/discovery/week-scout';
 import { createMockBeach } from '@/__tests__/setup/typed-mocks';
 import { createDiscoveryScoringEngine, scoreBeachWithEngine, beachToSpotProfile } from '@/lib/domains/scoring';
-import { selectBestWindow, scoreWindowConditionScore } from '@/lib/services/discovery/window-selector';
+import { selectBestWindows, scoreWindowConditionScore } from '@/lib/services/discovery/window-selector';
 import { rerankHero } from '@/lib/services/discovery/hero-ranking';
 import { calculatePersonalizationBonus } from '@/lib/services/discovery/personalization-layer';
 import { BOARD_CLASSES, getRideabilityBand, normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability';
@@ -117,7 +117,7 @@ function dependencies(
     fetchBoardClasses: jest.fn(async () => boards),
     fetchPersonalizationContext: jest.fn(async () => null),
     calculatePersonalizationBonus,
-    selectBestWindow,
+    selectBestWindows,
     scoreWindowCondition: (forecast, beach, level, inventory) =>
       scoreWindowConditionScore(forecast, beach, level, null, inventory),
     scoreBeach: (beach, forecast, options) => scoreBeachWithEngine(engine, beach, forecast, options),
@@ -217,7 +217,7 @@ describe('Week Scout route → real ranking profile contracts', () => {
     else process.env.WEEK_SCOUT_ENDPOINT_ENABLED = originalFlag;
   });
 
-  it('finds the advanced multi-board winner past eight; caps results only after ranking', async () => {
+  it('finds the advanced multi-board winner past eight and keeps every beach day best', async () => {
     const forecasts = new Map(BEACHES.map((beach, index) => [beach.id, rows(beach, index === 29 ? 4.4 : 2.9)]));
     mockDependencies = dependencies('advanced', ACCOUNT_BOARDS, forecasts);
     const forward = await call(BEACHES.map((beach) => beach.id));
@@ -225,14 +225,15 @@ describe('Week Scout route → real ranking profile contracts', () => {
     expect(best(forward)?.beachId).toBe(BEACHES[29].id);
     expect(best(reverse)?.beachId).toBe(BEACHES[29].id);
     expect(reverse).toEqual(forward);
-    expect(forward.days[0].windows.length).toBe(8);
+    expect(forward.days[0].windows).toHaveLength(30);
+    expect(forward.days[0].windows.every((window) => window.isBeachDayBest)).toBe(true);
     expect(best(forward)?.rankedSpots).toHaveLength(8);
     expect(mockDependencies.fetchForecasts).toHaveBeenCalledTimes(2);
     expect(mockDependencies.fetchForecasts).toHaveBeenCalledWith(expect.arrayContaining(BEACHES), 192);
     expect(forward.sessionDecision.selection?.beachId).toBe(BEACHES[29].id);
   });
 
-  it('evaluates every candidate in a complete 51-beach radius before serializing eight windows', async () => {
+  it('evaluates every candidate in a complete 51-beach radius and keeps every beach day best', async () => {
     const beaches = radiusContractBeaches();
     const near = beaches.slice(0, 8);
     const delMar = beaches[8];
@@ -261,7 +262,8 @@ describe('Week Scout route → real ranking profile contracts', () => {
       192,
       expect.objectContaining({ requirePerRowFreshness: true }),
     );
-    expect(day.windows).toHaveLength(8);
+    expect(day.windows).toHaveLength(51);
+    expect(day.windows.every((window) => window.isBeachDayBest)).toBe(true);
     expect(response.candidateBeaches).toHaveLength(51);
     expect(response.candidateBeaches?.some((beach) => beach.beachId === delMar.id)).toBe(true);
     expect(best(response)?.beachId).toBe(lateWinner.id);
@@ -295,7 +297,7 @@ describe('Week Scout route → real ranking profile contracts', () => {
     expect(uncompacted.days[0].windows.findIndex((window) => window.beachId === lateWinner.id)).toBe(8);
 
     const initial = await generateWeekScoutForecastForDays('anonymous-contract-account', request, mockDependencies);
-    expect(initial.days[0].windows).toHaveLength(8);
+    expect(initial.days[0].windows).toHaveLength(9);
     expect(initial.days[0].windows.some((window) => window.beachId === lateWinner.id)).toBe(true);
     expect(best(initial)?.beachId).toBe(near[0].id);
     expect(initial.sessionDecision.selection?.beachId).toBe(lateWinner.id);
@@ -429,7 +431,7 @@ describe('Week Scout route → real ranking profile contracts', () => {
     expect(response.days[0].windows.every((window) => window.rankedSpots.every((spot) => spot.beachId !== BEACHES[1].id))).toBe(true);
   });
 
-  it('keeps a full seven-day 30-beach request batched and the response bounded', async () => {
+  it('keeps a full seven-day 30-beach request batched and ranked spot previews bounded', async () => {
     const dates = Array.from({ length: 7 }, (_, day) => `2026-09-${String(day + 5).padStart(2, '0')}`);
     const forecasts = new Map(BEACHES.map((beach) => [beach.id, dates.flatMap((date) =>
       rows(beach, 4.4).map((row) => ({ ...row, id: `${row.id}:${date}`, forecast_at: row.forecast_at.replace(DATE, date) })),
@@ -444,8 +446,9 @@ describe('Week Scout route → real ranking profile contracts', () => {
     expect(mockDependencies.fetchBeaches).toHaveBeenCalledTimes(1);
     expect(response.days).toHaveLength(7);
     for (const day of response.days) {
-      expect(day.windows).toHaveLength(8);
+      expect(day.windows).toHaveLength(30);
       expect(day.bestWindowId).not.toBeNull();
+      expect(day.windows.every((window) => window.isBeachDayBest)).toBe(true);
       expect(day.windows.every((window) => window.rankedSpots.length === 8)).toBe(true);
     }
   });

@@ -62,6 +62,13 @@ export {
   type WindowSelectorOptions,
 } from './window-selector';
 
+// Window authority (one selector run per beach and day). Consumers that need
+// the ruler or the daypart helpers import './window-authority' directly.
+export {
+  selectBeachDayWindows,
+  type AuthoritativeWindow,
+} from './window-authority';
+
 // Response Formatter
 export {
   enrichWithPhotos,

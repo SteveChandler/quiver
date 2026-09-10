@@ -1,5 +1,5 @@
 import type { Beach } from "@/types/database";
-import type { ConditionSummary } from "@/components/map/map-beach-loader";
+import type { RecommendationLabel } from "@/components/map/map-beach-loader";
 import type { SwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { getConditionMarkerCall } from "@/components/map/map-marker-builder";
@@ -9,8 +9,7 @@ import type { WaterQualityHoldKind, MapBeach } from "@/lib/services/nearby-beach
 interface BeachPreviewPopupContentOptions {
   location: Beach;
   waveLabel?: string | null;
-  conditionSummary?: ConditionSummary;
-  conditionScore?: number;
+  recommendationLabel?: RecommendationLabel;
   waterQualityHold?: WaterQualityHoldKind | null;
   partition?: SwellPartition;
 }
@@ -72,8 +71,7 @@ function appendLiveRow(
 export function createBeachPreviewPopupContent({
   location,
   waveLabel,
-  conditionSummary,
-  conditionScore,
+  recommendationLabel,
   waterQualityHold,
   partition,
 }: BeachPreviewPopupContentOptions): HTMLElement {
@@ -102,8 +100,7 @@ export function createBeachPreviewPopupContent({
   root.appendChild(body);
 
   const call = getConditionMarkerCall({
-    conditionSummary,
-    conditionScore,
+    recommendationLabel,
     waterQualityHold,
   });
   // No quality read -> hide the verdict entirely. Showing "No read" next to real

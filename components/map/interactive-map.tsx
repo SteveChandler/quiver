@@ -1,6 +1,6 @@
 "use client";
 
-import { conditionSummaryFromScore, mapSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
+import { mapSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
 
 import {
   Children,
@@ -40,9 +40,10 @@ import {
 } from "@/components/map/map-marker-builder";
 import {
   loadBeachesAndWaveHeights,
-  type ConditionSummary,
   type BeachLoaderResult,
+  type DisplaySwell,
   type ForecastLoadStatus,
+  type RecommendationLabel,
 } from "@/components/map/map-beach-loader";
 import { createBeachPreviewPopupContent } from "@/components/map/map-beach-preview-popup";
 import {
@@ -106,6 +107,7 @@ import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import type { MapCameraCommand } from "@/components/map/map-camera-command";
 import { MapPreloadPreview } from "@/components/map/map-preload-preview";
 import { createTileStallWatchdog } from "@/components/map/tile-stall-watchdog";
+import { formatDisplaySwellPeriod } from "@/lib/domains/conditions/display-swell";
 import {
   formatSwellPeriod,
   formatWaveHeightRange,
@@ -288,6 +290,7 @@ export interface MapSpotConditions {
   waveHeight: string | null;
   swellPeriod: string | null;
   swellDirection: string | null;
+  swellLabel: "Swell" | "Offshore swell" | null;
   isCalibrated: boolean | null;
   windSpeed: string | null;
   windDirection: string | null;
@@ -302,7 +305,8 @@ interface MapSpotConditionsContext {
   timelineIndex: number;
   waveHeightMap: Map<string, number | undefined>;
   displayForecastMap: Map<string, ForecastDisplay | undefined>;
-  conditionSummaryMap: Map<string, ConditionSummary>;
+  recommendationLabelMap: Map<string, RecommendationLabel>;
+  displaySwellMap: Map<string, DisplaySwell>;
   isCalibratedMap: Map<string, boolean>;
 }
 
@@ -322,8 +326,20 @@ function mapSpotConditions(
   );
   const waveLabel = context.displayForecastMap.get(beachId)?.label?.trim();
   const rawWaveHeight = context.waveHeightMap.get(beachId);
-  const displayPartition = partition ? mapSwellPartition(partition) : undefined;
-  const swellDirection = displayPartition?.s1Dir;
+  const fallbackSwell = partition ? mapSwellPartition(partition) : undefined;
+  const displaySwell = context.displaySwellMap.get(beachId);
+  const swellPeriod = displaySwell
+    ? displaySwell.periodSeconds
+    : fallbackSwell?.s1PeriodS;
+  const swellDirection = displaySwell
+    ? displaySwell.directionDeg
+    : fallbackSwell?.s1Dir;
+  const swellHeight = displaySwell
+    ? displaySwell.heightFt
+    : fallbackSwell?.s1HeightFt;
+  const swellSource = displaySwell
+    ? displaySwell.source
+    : fallbackSwell?.s1Source;
   const waterQualityHold = getWaterQualityHold(
     context.beaches.find((beach) => beach.id === beachId),
   );
@@ -331,16 +347,23 @@ function mapSpotConditions(
   return {
     conditionSummary: waterQualityHold
       ? getConditionMarkerCall({ waterQualityHold }).label.toUpperCase()
-      : context.conditionSummaryMap.get(beachId) ?? null,
+      : getConditionMarkerCall({
+          recommendationLabel: context.recommendationLabelMap.get(beachId),
+        }).label,
     waterQualityHold,
     waveHeight: waveLabel || (isFiniteNumber(rawWaveHeight)
       ? formatWaveHeightRange(rawWaveHeight)
       : null),
-    swellPeriod: isFiniteNumber(displayPartition?.s1PeriodS) && displayPartition.s1PeriodS > 0
-      ? formatSwellPeriod(displayPartition.s1PeriodS)
-      : null,
+    swellPeriod: displaySwell
+      ? formatDisplaySwellPeriod(displaySwell.periodSeconds)
+      : isFiniteNumber(swellPeriod) && swellPeriod > 0
+        ? formatSwellPeriod(swellPeriod)
+        : null,
     swellDirection: isFiniteNumber(swellDirection)
       ? degreesToCompass(swellDirection)
+      : null,
+    swellLabel: isFiniteNumber(swellPeriod) || isFiniteNumber(swellDirection) || isFiniteNumber(swellHeight)
+      ? swellSource === "offshore" ? "Offshore swell" : "Swell"
       : null,
     isCalibrated: context.isCalibratedMap.get(beachId) ?? null,
     windSpeed: isFiniteNumber(partition?.windMph) && partition.windMph >= 0
@@ -431,15 +454,13 @@ type MapFailureReason =
   | "unknown";
 
 const CONDITION_LEGEND_ITEMS: Array<{
-  label: ConditionSummary;
+  label: RecommendationLabel;
   display: string;
 }> = [
-  { label: "EPIC", display: "Go now!" },
-  { label: "GOOD", display: "Go surf!" },
-  { label: "FAIR", display: "Worth a look" },
-  { label: "RIDEABLE", display: "Slim pickings" },
-  { label: "MEH", display: "Skip it" },
-  { label: "UNKNOWN", display: "No read" },
+  { label: "Worth it", display: "Worth it" },
+  { label: "Maybe", display: "Maybe" },
+  { label: "Skip", display: "Skip" },
+  { label: null, display: "No read" },
 ];
 
 interface MapConditionLegendProps {
@@ -505,11 +526,11 @@ function MapConditionLegend({
           <div className="flex items-start gap-2">
             <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
               {CONDITION_LEGEND_ITEMS.map((item) => (
-                <div key={item.label} className="flex items-center gap-1.5">
+                <div key={item.display} className="flex items-center gap-1.5">
                   <span
                     aria-hidden="true"
                     className="h-2.5 w-2.5 rounded-full border border-black/30"
-                    style={{ background: getConditionMarkerGradient(item.label), ...(item.label === "UNKNOWN" ? { border: "1px dashed #64748B" } : {}) }}
+                    style={{ background: getConditionMarkerGradient(item.label), ...(item.label === null ? { border: "1px dashed #64748B" } : {}) }}
                   />
                   <span className="text-[10px] font-semibold leading-none tracking-normal">
                     {item.display}
@@ -608,7 +629,8 @@ export function InteractiveMap({
     waterTempMap: new Map<string, string | undefined>(),
     waveHeightMap: new Map<string, number | undefined>(),
     displayForecastMap: new Map<string, ForecastDisplay | undefined>(),
-    conditionSummaryMap: new Map<string, ConditionSummary>(),
+    recommendationLabelMap: new Map<string, RecommendationLabel>(),
+    displaySwellMap: new Map<string, DisplaySwell>(),
     isCalibratedMap: new Map<string, boolean>(),
   });
   const beachPreviewCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -650,7 +672,8 @@ export function InteractiveMap({
   const [displayForecastMap, setDisplayForecastMap] = useState<Map<string, ForecastDisplay | undefined>>(new Map());
   const [waterTempMap, setWaterTempMap] = useState<Map<string, string | undefined>>(new Map());
   const [initialConditionScoreMap, setConditionScoreMap] = useState<Map<string, number | undefined>>(new Map());
-  const [initialConditionSummaryMap, setConditionSummaryMap] = useState<Map<string, ConditionSummary>>(new Map());
+  const [initialRecommendationLabelMap, setRecommendationLabelMap] = useState<Map<string, RecommendationLabel>>(new Map());
+  const [displaySwellMap, setDisplaySwellMap] = useState<Map<string, DisplaySwell>>(new Map());
   const [isCalibratedMap, setIsCalibratedMap] = useState<Map<string, boolean>>(new Map());
   const [partitionsMap, setPartitionsMap] = useState<Map<string, SwellPartition>>(new Map());
   const [partitionsTimelineMap, setPartitionsTimelineMap] = useState<
@@ -971,12 +994,13 @@ export function InteractiveMap({
       return [beach.id, partition?.conditionScore ?? undefined];
     }));
   }, [activeConditionPartitions, initialConditionScoreMap, markerBeaches]);
-  const conditionSummaryMap = useMemo(() => {
-    if (!activeConditionPartitions) return initialConditionSummaryMap;
-    return new Map(markerBeaches.map((beach) => [beach.id,
-      conditionSummaryFromScore(conditionScoreMap.get(beach.id) ?? NaN),
+  const recommendationLabelMap = useMemo(() => {
+    if (!activeConditionPartitions) return initialRecommendationLabelMap;
+    return new Map(markerBeaches.map((beach) => [
+      beach.id,
+      activeConditionPartitions.get(beach.id)?.recommendationLabel ?? null,
     ]));
-  }, [activeConditionPartitions, initialConditionSummaryMap, markerBeaches, conditionScoreMap]);
+  }, [activeConditionPartitions, initialRecommendationLabelMap, markerBeaches]);
 
   useEffect(() => {
     const activePartitions = isExpandableTimeline
@@ -996,7 +1020,8 @@ export function InteractiveMap({
       waterTempMap,
       waveHeightMap,
       displayForecastMap,
-      conditionSummaryMap,
+      recommendationLabelMap,
+      displaySwellMap,
       isCalibratedMap,
     };
   }, [
@@ -1009,7 +1034,8 @@ export function InteractiveMap({
     isEmbedHourlyTimeline,
     isExpandableTimeline,
     mapBounds,
-    conditionSummaryMap,
+    recommendationLabelMap,
+    displaySwellMap,
     displayForecastMap,
     isCalibratedMap,
     partitionsMap,
@@ -1278,8 +1304,7 @@ export function InteractiveMap({
       const content = createBeachPreviewPopupContent({
         location,
         waveLabel: preview.waveLabel,
-        conditionSummary: preview.conditionSummary,
-        conditionScore: preview.conditionScore,
+        recommendationLabel: preview.recommendationLabel,
         waterQualityHold: preview.waterQualityHold,
         partition: partitionsMapRef.current.get(location.id),
       });
@@ -1528,7 +1553,7 @@ export function InteractiveMap({
         waterTemp: waterTempMap.get(location.id),
         waveHeightLabel: displayForecastMap.get(location.id)?.label ?? null,
         conditionScore: conditionScoreMap.get(location.id),
-        conditionSummary: conditionSummaryMap.get(location.id),
+        recommendationLabel: recommendationLabelMap.get(location.id),
         waterQualityHold: getWaterQualityHold(location),
         previewLngLat,
         // In the embed, tapping a pin opens the conditions callout (arrows + name +
@@ -1552,7 +1577,7 @@ export function InteractiveMap({
       waterTempMap,
       displayForecastMap,
       conditionScoreMap,
-      conditionSummaryMap,
+      recommendationLabelMap,
       markerDisplay,
       getMapViewportMetadata,
       openBeachPreviewPopup,
@@ -1661,7 +1686,8 @@ export function InteractiveMap({
         let committedDisplayForecastMap = new Map<string, ForecastDisplay | undefined>();
         let committedWaterTempMap = new Map<string, string | undefined>();
         let committedConditionScoreMap = new Map<string, number | undefined>();
-        let committedConditionSummaryMap = new Map<string, ConditionSummary>();
+        let committedRecommendationLabelMap = new Map<string, RecommendationLabel>();
+        let committedDisplaySwellMap = new Map<string, DisplaySwell>();
         let committedIsCalibratedMap = new Map<string, boolean>();
         let committedPartitionsMap = new Map<string, SwellPartition>();
         let committedPartitionsTimelineMap = new Map<string, SwellPartition[]>();
@@ -1724,9 +1750,14 @@ export function InteractiveMap({
             result.conditionScoreMap,
             merge,
           );
-          committedConditionSummaryMap = mergeMapEntries(
-            committedConditionSummaryMap,
-            result.conditionSummaryMap,
+          committedRecommendationLabelMap = mergeMapEntries(
+            committedRecommendationLabelMap,
+            result.recommendationLabelMap,
+            merge,
+          );
+          committedDisplaySwellMap = mergeMapEntries(
+            committedDisplaySwellMap,
+            result.displaySwellMap,
             merge,
           );
           committedIsCalibratedMap = mergeMapEntries(
@@ -1749,7 +1780,8 @@ export function InteractiveMap({
           setDisplayForecastMap(committedDisplayForecastMap);
           setWaterTempMap(committedWaterTempMap);
           setConditionScoreMap(committedConditionScoreMap);
-          setConditionSummaryMap(committedConditionSummaryMap);
+          setRecommendationLabelMap(committedRecommendationLabelMap);
+          setDisplaySwellMap(committedDisplaySwellMap);
           setIsCalibratedMap(committedIsCalibratedMap);
           setPartitionsMap(committedPartitionsMap);
           setPartitionsTimelineMap(committedPartitionsTimelineMap);
@@ -2834,14 +2866,14 @@ export function InteractiveMap({
       if (typeof marker.getElement !== "function") return;
       const beachId = markerId.replace("location-", "");
       const element = marker.getElement();
-      const summary = conditionSummaryMap.get(beachId) ?? "UNKNOWN";
+      const recommendationLabel = recommendationLabelMap.get(beachId) ?? null;
       const score = conditionScoreMap.get(beachId);
-      element.setAttribute("data-condition-summary", summary);
+      element.setAttribute("data-recommendation-label", recommendationLabel ?? "No read");
       if (score == null) element.removeAttribute("data-condition-score");
       else element.setAttribute("data-condition-score", String(score));
       const beach = beachesRef.current?.find((item) => item.id === beachId);
       const button = element.querySelector("[data-marker-badge]");
-      if (beach && button && (beach as MapBeach).waterQualityEvidence?.source !== "sample") button.setAttribute("title", `${beach.name}: ${getConditionMarkerCall({ conditionSummary: summary, waterQualityHold: getWaterQualityHold(beach) }).label}`);
+      if (beach && button && (beach as MapBeach).waterQualityEvidence?.source !== "sample") button.setAttribute("title", `${beach.name}: ${getConditionMarkerCall({ recommendationLabel, waterQualityHold: getWaterQualityHold(beach) }).label}`);
       const badge = element.querySelector("[data-marker-visual='true']");
       const existingRing = element.querySelector(
         '[data-testid="selection-ring"]'
@@ -2853,7 +2885,7 @@ export function InteractiveMap({
         badge.style.width = `${size}px`;
         badge.style.height = `${size}px`;
         badge.style.borderWidth = `${2.5 * scale}px`;
-        const missing = summary === "UNKNOWN" && !getWaterQualityHold(beach);
+        const missing = recommendationLabel === null && !getWaterQualityHold(beach);
         badge.style.borderStyle = missing ? "dashed" : "solid";
         badge.style.borderColor = missing ? "#64748B" : favoriteBeachIds.has(beachId) ? "#FDB84B" : "#ffffff";
       }
@@ -2888,7 +2920,7 @@ export function InteractiveMap({
               : displayMode === "water-temp"
               ? getWaterTempBadgeColor(waterTempMap.get(beachId))
               : getConditionMarkerGradient(
-                  conditionSummaryMap.get(beachId) ?? "UNKNOWN"
+                  recommendationLabelMap.get(beachId) ?? null
                 );
           (badge as HTMLElement).style.background = gradient;
           badge.setAttribute("data-marker-gradient", gradient);
@@ -2910,7 +2942,7 @@ export function InteractiveMap({
               : displayMode === "water-temp"
               ? getWaterTempBadgeColor(waterTempMap.get(beachId))
               : getConditionMarkerGradient(
-                  conditionSummaryMap.get(beachId) ?? "UNKNOWN"
+                  recommendationLabelMap.get(beachId) ?? null
                 );
           (badge as HTMLElement).style.background = gradient;
           badge.setAttribute("data-marker-gradient", gradient);
@@ -2924,7 +2956,7 @@ export function InteractiveMap({
     isMapReady,
     displayMode,
     waterTempMap,
-    conditionSummaryMap,
+    recommendationLabelMap,
     conditionScoreMap,
     reducedMotion,
     markerDisplay,
@@ -3112,7 +3144,7 @@ export function InteractiveMap({
             waveHeight,
             waveLabel: displayForecastMap.get(location.id)?.label ?? null,
             conditionScore: activeConditionPartitions ? null : conditionScoreMap.get(location.id),
-            conditionSummary: activeConditionPartitions ? null : conditionSummaryMap.get(location.id),
+            recommendationLabel: activeConditionPartitions ? null : recommendationLabelMap.get(location.id),
             waterQualityHold: getWaterQualityHold(location),
             waterQualityEvidence: (location as MapBeach).waterQualityEvidence,
             waterTemp: waterTempMap.get(location.id),
@@ -3142,7 +3174,7 @@ export function InteractiveMap({
       const nearestBeachId = spot.nearestBeachId;
       const markerData = nearestBeachId
         ? {
-            conditionSummary: conditionSummaryMap.get(nearestBeachId),
+            recommendationLabel: recommendationLabelMap.get(nearestBeachId),
             conditionScore: conditionScoreMap.get(nearestBeachId),
             waveLabel: displayForecastMap.get(nearestBeachId)?.label ?? null,
           }
@@ -3217,7 +3249,7 @@ export function InteractiveMap({
     customSpots,
     isMapReady,
     conditionScoreMap,
-    conditionSummaryMap,
+    recommendationLabelMap,
     activeConditionPartitions,
     displayForecastMap,
     waterTempMap,
@@ -3360,7 +3392,7 @@ export function InteractiveMap({
             beaches={markerBeaches}
             center={initialCenterRef.current}
             zoom={initialZoom}
-            conditionSummaryMap={conditionSummaryMap}
+            recommendationLabelMap={recommendationLabelMap}
             displayForecastMap={displayForecastMap}
           />
           <div className="relative flex items-center gap-2 rounded-lg border border-white/25 bg-[#151C36]/90 px-4 py-3 text-sm font-medium text-white shadow-lg">
