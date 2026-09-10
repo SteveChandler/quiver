@@ -11,6 +11,7 @@ import {
 
 import { getCachedRateLimiter } from "@/lib/utils/enhanced-rate-limiter";
 import { RATE_LIMITS } from "@/lib/api/rate-limit-config";
+import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
 
 // The route owns a real cleanup interval; release it after this test module.
 afterAll(() => getCachedRateLimiter("forecast-bulk", RATE_LIMITS["forecast-bulk"]).destroy());
@@ -31,6 +32,13 @@ interface ForecastsBulkResponse {
     string,
     "EPIC" | "GOOD" | "FAIR" | "RIDEABLE" | "MEH" | "UNKNOWN"
   >;
+  displaySwell: Record<string, {
+    periodSeconds: number | null;
+    directionDeg: number | null;
+    heightFt: number | null;
+    source: "partition" | "offshore";
+  }>;
+  recommendationLabels: Record<string, "Worth it" | "Maybe" | "Skip" | null>;
   swellPartitions: Record<string, unknown>;
   swellPartitionTimeline: Record<string, unknown[]>;
   recommendationAvailability: {
@@ -63,6 +71,8 @@ type ForecastRow = {
   wave_direction: string | null;
   wave_height_om: number | null;
   wave_direction_om: number | null;
+  swell_height_om: number | null;
+  swell_period_om: number | null;
   swell_direction_om: number | null;
   swell_1_height: string | null;
   swell_1_period: string | null;
@@ -101,6 +111,8 @@ type BeachRow = {
   tide_direction_sensitivity: string | null;
   skill_level: string | null;
   break_type: string | null;
+  swell_window_center_deg: number | null;
+  swell_window_halfwidth_deg: number | null;
 };
 
 const mockSupabaseClient = createMockSupabaseClient();
@@ -256,6 +268,8 @@ function forecastRow(
     wave_direction: "W",
     wave_height_om: null,
     wave_direction_om: null,
+    swell_height_om: null,
+    swell_period_om: null,
     swell_direction_om: null,
     swell_1_height: waveHeight,
     swell_1_period: "12s",
@@ -296,6 +310,8 @@ function beachRow(id: string, overrides: Partial<BeachRow> = {}): BeachRow {
     tide_direction_sensitivity: null,
     skill_level: null,
     break_type: null,
+    swell_window_center_deg: null,
+    swell_window_halfwidth_deg: null,
     ...overrides,
   };
 }
@@ -384,18 +400,17 @@ describe("GET /api/forecasts/bulk", () => {
   });
 
   it("fetches forecasts for multiple beaches from enhanced_forecasts", async () => {
-    mockBulkQueries({
-      forecastRows: [
-        forecastRow(BEACH_ONE_ID, "4.5"),
-        forecastRow(BEACH_TWO_ID, "3.2"),
-        forecastRow(BEACH_THREE_ID, "5.8"),
-      ],
-      beachRows: [
-        beachRow(BEACH_ONE_ID),
-        beachRow(BEACH_TWO_ID),
-        beachRow(BEACH_THREE_ID),
-      ],
-    });
+    const forecastRows = [
+      forecastRow(BEACH_ONE_ID, "4.5", -1),
+      forecastRow(BEACH_TWO_ID, "3.2", -1),
+      forecastRow(BEACH_THREE_ID, "5.8", -1),
+    ];
+    const beachRows = [
+      beachRow(BEACH_ONE_ID),
+      beachRow(BEACH_TWO_ID),
+      beachRow(BEACH_THREE_ID),
+    ];
+    mockBulkQueries({ forecastRows, beachRows });
 
     const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
       searchParams: {
@@ -421,6 +436,21 @@ describe("GET /api/forecasts/bulk", () => {
       [BEACH_TWO_ID]: "GOOD",
       [BEACH_THREE_ID]: "GOOD",
     });
+    expect(result.data.displaySwell).toEqual({
+      [BEACH_ONE_ID]: expect.objectContaining({ heightFt: 4.5, source: "partition" }),
+      [BEACH_TWO_ID]: expect.objectContaining({ heightFt: 3.2, source: "partition" }),
+      [BEACH_THREE_ID]: expect.objectContaining({ heightFt: 5.8, source: "partition" }),
+    });
+    expect(result.data.recommendationLabels).toEqual(Object.fromEntries(
+      forecastRows.map((forecast, index) => [
+        forecast.beach_id,
+        resolveRecommendationLabel({
+          beach: beachRows[index] as never,
+          forecast: forecast as never,
+          score: 72,
+        }).label,
+      ]),
+    ));
     expect(result.data.recommendationAvailability).toEqual({
       state: "available",
       holdEpoch: AVAILABLE_HOLD_EPOCH,
@@ -450,6 +480,8 @@ describe("GET /api/forecasts/bulk", () => {
         isCalibrated: {},
         conditionScores: {},
         conditionSummaries: {},
+        displaySwell: {},
+        recommendationLabels: {},
         swellPartitions: {},
         swellPartitionTimeline: {},
         recommendationAvailability: {
@@ -657,6 +689,7 @@ describe("GET /api/forecasts/bulk", () => {
     });
     expect(result.data.conditionScores).toEqual({});
     expect(result.data.conditionSummaries).toEqual({ [BEACH_ONE_ID]: "UNKNOWN" });
+    expect(result.data.recommendationLabels).toEqual({ [BEACH_ONE_ID]: null });
     expect(result.data.recommendationAvailability).toEqual({
       state: "none",
       reasonCode: "hold_state_unavailable",

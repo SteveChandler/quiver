@@ -28,6 +28,14 @@ import {
 } from "@/lib/services/forecast/today-headline";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import { getBatchSunTimes } from "@/lib/services/discovery";
+import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
+import {
+  resolveDisplaySwell,
+  type DisplaySwell,
+  type DisplaySwellWindow,
+} from "@/lib/domains/conditions/display-swell";
+import { designateCurrentRow } from "@/lib/services/current-conditions/current-row";
+import type { RecommendationLabel } from "@/lib/scoring";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import type { Database } from "@/types/database.generated";
@@ -79,6 +87,8 @@ const emptyBulkForecastResponse = {
   isCalibrated: {},
   conditionScores: {},
   conditionSummaries: {},
+  displaySwell: {},
+  recommendationLabels: {},
   swellPartitions: {},
   swellPartitionTimeline: {},
 };
@@ -146,7 +156,11 @@ type HourlyTimelineWindowParseResult =
  *     conditionScores: { [beachId]: number | undefined },
  *     conditionSummaries: {
  *       [beachId]: "EPIC" | "GOOD" | "FAIR" | "RIDEABLE" | "MEH" | "UNKNOWN"
- *     }
+ *     },
+ *     displaySwell: {
+ *       [beachId]: { periodSeconds, directionDeg, heightFt, source }
+ *     },
+ *     recommendationLabels: { [beachId]: "Worth it" | "Maybe" | "Skip" | null }
  *   }
  * }
  */
@@ -426,7 +440,11 @@ function buildSwellPartitionTimeline(
   rowsByBeach.forEach((beachRows, beachId) => {
     const partitions = hourOffsets.map((offsetHours) => {
       const targetMs = nowMs + offsetHours * 60 * 60 * 1000;
-      const row = nearestForecastRow(beachRows, targetMs);
+      const row = offsetHours === 0
+        ? designateCurrentRow(beachRows, now, {
+            toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
+          })?.row ?? null
+        : nearestForecastRow(beachRows, targetMs);
       return row ? rowToSwellPartition(row) : null;
     }).filter((partition): partition is SwellPartition => partition !== null);
 
@@ -964,23 +982,30 @@ export async function bulkForecastHandler(
     const displayForecastMap: Record<string, ForecastDisplay | undefined> = {};
     const timelineByBeach = groupForecastsByBeach(timelineRows);
     const swellPartitionMap: Record<string, SwellPartition> = {};
-    const nowMs = Date.now();
+    const swellPartitionRows = new Map<string, EnhancedForecastEntity>();
+    const now = new Date();
+    const nowMs = now.getTime();
     for (const [beachId, rows] of timelineByBeach) {
       const row = fetchWindow.selectedAt
         ? closestForecastRow(rows, fetchWindow.selectedAt)
-        : nearestForecastRow(rows, nowMs);
+        : designateCurrentRow(rows, now, {
+            toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
+          })?.row ?? null;
       if (row) {
+        swellPartitionRows.set(beachId, row);
         swellPartitionMap[beachId] = rowToSwellPartition(row);
       }
     }
     const swellPartitionTimeline = buildSwellPartitionTimeline(
       timelineRows,
-      new Date(),
+      now,
       isHourlyTimeline
         ? HOURLY_SWELL_TIMELINE_HOUR_OFFSETS
         : SWELL_TIMELINE_HOUR_OFFSETS,
     );
     const conditionScoreMap: Record<string, number | undefined> = {};
+    const recommendationLabelMap: Record<string, RecommendationLabel | null> =
+      Object.fromEntries(limitedBeachIds.map((beachId) => [beachId, null]));
     const selectedScoreForecastAtByBeach = new Map<string, string>();
     const conditionSummaryMap: Record<string, ConditionSummary> =
       Object.fromEntries(
@@ -994,6 +1019,23 @@ export async function bulkForecastHandler(
     // deletes) default to `false`.
     const isCalibratedMap: Record<string, boolean> = {};
     const { data: beachRows, error: beachError } = beachResult;
+    const scoringBeachRows = (beachRows || []) as unknown as Beach[];
+    const beachById = new Map(scoringBeachRows.map((beach) => [beach.id, beach]));
+    const displaySwellMap: Record<string, DisplaySwell> = {};
+
+    for (const [beachId, row] of swellPartitionRows) {
+      const beach = beachById.get(beachId);
+      const centerDeg = beach?.swell_window_center_deg;
+      const halfwidthDeg = beach?.swell_window_halfwidth_deg;
+      const window: DisplaySwellWindow | null =
+        typeof centerDeg === "number"
+        && Number.isFinite(centerDeg)
+        && typeof halfwidthDeg === "number"
+        && Number.isFinite(halfwidthDeg)
+          ? { centerDeg, halfwidthDeg }
+          : null;
+      displaySwellMap[beachId] = resolveDisplaySwell(row, window);
+    }
 
     if (beachError) {
       console.error("Error fetching beach calibration status:", beachError);
@@ -1010,8 +1052,6 @@ export async function bulkForecastHandler(
         }
       }
     } else {
-      const scoringBeachRows = (beachRows || []) as unknown as Beach[];
-
       scoringBeachRows.forEach((row) => {
         isCalibratedMap[row.id] = row.shoaling_factors !== null;
       });
@@ -1051,15 +1091,12 @@ export async function bulkForecastHandler(
             // After the last daylight window of the local day there is no
             // "today's best window" — but current conditions still exist, and
             // every map marker and spot sheet reads these two maps. Withhold the
-            // recommendation, not the measurement: fall back to the row nearest
-            // now, the same row the swell-partition path already resolves.
-            const currentRow = nearestForecastRow(beachForecasts, nowMs);
-            const currentRowMs = currentRow ? forecastTimeMs(currentRow) : null;
-            if (
-              currentRow &&
-              currentRowMs != null &&
-              Math.abs(currentRowMs - nowMs) <= CURRENT_CONDITIONS_TOLERANCE_MS
-            ) {
+            // recommendation, not the measurement: fall back to the latest row
+            // at or before now, the same rule as the swell-partition path.
+            const currentRow = designateCurrentRow(beachForecasts, now, {
+              toleranceMs: CURRENT_CONDITIONS_TOLERANCE_MS,
+            })?.row ?? null;
+            if (currentRow) {
               display = resolveSelectedHourDisplay(currentRow);
               scoreForecast = currentRow;
             }
@@ -1088,6 +1125,11 @@ export async function bulkForecastHandler(
           conditionScoreMap[beach.id] = score;
           conditionSummaryMap[beach.id] =
             conditionSummaryFromScore(score);
+          recommendationLabelMap[beach.id] = resolveRecommendationLabel({
+            beach,
+            forecast,
+            score,
+          }).label;
           selectedScoreForecastAtByBeach.set(beach.id, forecast.forecast_at);
         } catch (error) {
           console.warn("Failed to score bulk forecast condition:", {
@@ -1115,6 +1157,8 @@ export async function bulkForecastHandler(
       isCalibrated: isCalibratedMap,
       conditionScores: conditionScoreMap,
       conditionSummaries: conditionSummaryMap,
+      displaySwell: displaySwellMap,
+      recommendationLabels: recommendationLabelMap,
       swellPartitions: swellPartitionMap,
       swellPartitionTimeline,
       ...(hourlySwellTimeline ? { hourlySwellTimeline } : {}),

@@ -14,6 +14,7 @@ import { getBatchSunTimes } from "@/lib/services/discovery";
 import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
 import { resolveTodayHeadline } from "@/lib/services/forecast/today-headline";
+import { resolveRecommendationLabel } from "@/lib/services/discovery/recommendation-label";
 import {
   createMockRequest,
   createMockSupabaseClient,
@@ -38,6 +39,13 @@ interface BulkForecastResponse {
   isCalibrated: Record<string, boolean>;
   conditionScores: Record<string, number | undefined>;
   conditionSummaries: Record<string, "EPIC" | "GOOD" | "FAIR" | "RIDEABLE" | "MEH" | "UNKNOWN">;
+  displaySwell: Record<string, {
+    periodSeconds: number | null;
+    directionDeg: number | null;
+    heightFt: number | null;
+    source: "partition" | "offshore";
+  }>;
+  recommendationLabels: Record<string, "Worth it" | "Maybe" | "Skip" | null>;
   swellPartitions: Record<string, unknown>;
   swellPartitionTimeline: Record<string, unknown[]>;
   hourlySwellTimeline?: {
@@ -69,6 +77,8 @@ type ForecastRow = {
   wave_direction: string | null;
   wave_height_om: number | null;
   wave_direction_om: number | null;
+  swell_height_om: number | null;
+  swell_period_om: number | null;
   swell_direction_om: number | null;
   swell_1_height: string | null;
   swell_1_period: string | null;
@@ -280,6 +290,8 @@ function forecastRow(
     wave_direction: "W",
     wave_height_om: null,
     wave_direction_om: null,
+    swell_height_om: null,
+    swell_period_om: null,
     swell_direction_om: null,
     swell_1_height: waveHeight,
     swell_1_period: "12s",
@@ -664,6 +676,8 @@ describe("/api/forecasts/bulk", () => {
         isCalibrated: {},
         conditionScores: {},
         conditionSummaries: {},
+        displaySwell: {},
+        recommendationLabels: {},
         swellPartitions: {},
         swellPartitionTimeline: {},
         recommendationAvailability: {
@@ -1053,6 +1067,40 @@ describe("/api/forecasts/bulk", () => {
     expect(data.data.conditionSummaries[BOUND_BEACH_ID]).toBe("UNKNOWN");
   });
 
+  it("uses the latest past row for every current-condition surface", async () => {
+    jest.setSystemTime(Date.parse("2026-09-10T01:40:00.000Z")); // 6:40 PM PDT
+    const pastRow = forecastRow(BOUND_BEACH_ID, "5", -5 / 3); // 5:00 PM
+    const futureRow = forecastRow(BOUND_BEACH_ID, "8", 4 / 3); // 8:00 PM
+    (resolveTodayHeadline as jest.Mock).mockImplementationOnce(() => null);
+    mockBulkQueries({
+      forecastRows: [pastRow, futureRow],
+      beachRows: [beachRow(BOUND_BEACH_ID)],
+    });
+
+    const response = await GET(
+      createMockRequest(
+        "GET",
+        `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}`,
+        { headers: { "x-forwarded-for": "203.0.113.244" } },
+      ),
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+    expect(data.data.displayForecasts[BOUND_BEACH_ID]).toMatchObject({
+      forecastAt: pastRow.forecast_at,
+    });
+    expect(data.data.swellPartitions[BOUND_BEACH_ID]).toMatchObject({ s1HeightFt: 5 });
+    expect(data.data.swellPartitionTimeline[BOUND_BEACH_ID][0]).toMatchObject({
+      s1HeightFt: 5,
+    });
+    expect(data.data.displaySwell[BOUND_BEACH_ID]).toEqual({
+      periodSeconds: 12,
+      directionDeg: 270,
+      heightFt: 5,
+      source: "partition",
+    });
+  });
+
   it("limits, trims, and filters beach IDs before querying", async () => {
     const beachIds = Array.from({ length: 60 }, (_, i) => `beach-${i}`);
     const { forecastChain } = mockBulkQueries();
@@ -1124,6 +1172,11 @@ describe("/api/forecasts/bulk", () => {
       conditionSummaries: {
         "beach-1": "UNKNOWN",
         "beach-2": "UNKNOWN",
+      },
+      displaySwell: {},
+      recommendationLabels: {
+        "beach-1": null,
+        "beach-2": null,
       },
       swellPartitions: {},
       swellPartitionTimeline: {},
@@ -1265,7 +1318,7 @@ describe("/api/forecasts/bulk", () => {
       null,
     ]);
     expect(timeline).toMatchObject({ hasMore: false, nextStart: null });
-    expect(hourlyData.data.swellPartitionTimeline["beach-1"]).toHaveLength(43);
+    expect(hourlyData.data.swellPartitionTimeline["beach-1"]).toHaveLength(42);
   });
 
   it("aligns requested beaches, clamps the window, and keeps a contiguous cursor", async () => {
@@ -1567,6 +1620,8 @@ describe("/api/forecasts/bulk", () => {
       isCalibrated: {},
       conditionScores: {},
       conditionSummaries: {},
+      displaySwell: {},
+      recommendationLabels: {},
       swellPartitions: {},
       swellPartitionTimeline: {},
       hourlySwellTimeline: expect.any(Object),
@@ -1984,18 +2039,17 @@ describe("/api/forecasts/bulk", () => {
       .mockReturnValueOnce(71)
       .mockReturnValueOnce(40)
       .mockReturnValueOnce(39);
-    mockBulkQueries({
-      forecastRows: [
-        forecastRow(BOUND_BEACH_ID, "3.5"),
-        forecastRow(BOUND_BEACH_ID_TWO, "2.5"),
-        forecastRow(BOUND_BEACH_ID_THREE, "1.2"),
-      ],
-      beachRows: [
-        beachRow(BOUND_BEACH_ID),
-        beachRow(BOUND_BEACH_ID_TWO),
-        beachRow(BOUND_BEACH_ID_THREE),
-      ],
-    });
+    const forecastRows = [
+      forecastRow(BOUND_BEACH_ID, "3.5", -1),
+      forecastRow(BOUND_BEACH_ID_TWO, "2.5", -1),
+      forecastRow(BOUND_BEACH_ID_THREE, "1.2", -1),
+    ];
+    const beachRows = [
+      beachRow(BOUND_BEACH_ID),
+      beachRow(BOUND_BEACH_ID_TWO),
+      beachRow(BOUND_BEACH_ID_THREE),
+    ];
+    mockBulkQueries({ forecastRows, beachRows });
 
     const response = await GET(
       createMockRequest(
@@ -2018,6 +2072,44 @@ describe("/api/forecasts/bulk", () => {
       [BOUND_BEACH_ID_TWO]: "RIDEABLE",
       [BOUND_BEACH_ID_THREE]: "MEH",
       [BOUND_BEACH_ID_FOUR]: "UNKNOWN",
+    });
+    expect(data.data.displaySwell).toEqual({
+      [BOUND_BEACH_ID]: {
+        periodSeconds: 12,
+        directionDeg: 270,
+        heightFt: 3.5,
+        source: "partition",
+      },
+      [BOUND_BEACH_ID_TWO]: {
+        periodSeconds: 12,
+        directionDeg: 270,
+        heightFt: 2.5,
+        source: "partition",
+      },
+      [BOUND_BEACH_ID_THREE]: {
+        periodSeconds: 12,
+        directionDeg: 270,
+        heightFt: 1.2,
+        source: "partition",
+      },
+    });
+    expect(data.data.recommendationLabels).toEqual({
+      [BOUND_BEACH_ID]: resolveRecommendationLabel({
+        beach: beachRows[0] as never,
+        forecast: forecastRows[0] as never,
+        score: 71,
+      }).label,
+      [BOUND_BEACH_ID_TWO]: resolveRecommendationLabel({
+        beach: beachRows[1] as never,
+        forecast: forecastRows[1] as never,
+        score: 40,
+      }).label,
+      [BOUND_BEACH_ID_THREE]: resolveRecommendationLabel({
+        beach: beachRows[2] as never,
+        forecast: forecastRows[2] as never,
+        score: 39,
+      }).label,
+      [BOUND_BEACH_ID_FOUR]: null,
     });
   });
 
@@ -2079,6 +2171,7 @@ describe("/api/forecasts/bulk", () => {
     expect(body.data.conditionSummaries).toEqual({
       [BOUND_BEACH_ID]: "UNKNOWN",
     });
+    expect(body.data.recommendationLabels).toEqual({ [BOUND_BEACH_ID]: null });
     expect(body.data.recommendationAvailability).toMatchObject({
       state: "none",
       reasonCode: "major_event_hold",

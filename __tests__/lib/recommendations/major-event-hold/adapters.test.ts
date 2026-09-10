@@ -538,6 +538,10 @@ function bulkForecastFixture() {
       [PRIMARY_BEACH_ID]: "GOOD",
       [INCLUDED_BEACH_ID]: "FAIR",
     },
+    recommendationLabels: {
+      [PRIMARY_BEACH_ID]: "Worth it" as const,
+      [INCLUDED_BEACH_ID]: "Maybe" as const,
+    },
     swellPartitions: {
       [PRIMARY_BEACH_ID]: {
         s1Dir: 315,
@@ -2345,6 +2349,10 @@ describe("major-event hold adapters", () => {
       [PRIMARY_BEACH_ID]: "UNKNOWN",
       [INCLUDED_BEACH_ID]: "UNKNOWN",
     });
+    expect(result.recommendationLabels).toEqual({
+      [PRIMARY_BEACH_ID]: null,
+      [INCLUDED_BEACH_ID]: null,
+    });
     expect(bulkPhysicalSnapshot(result)).toEqual(
       bulkPhysicalSnapshot(original),
     );
@@ -2371,6 +2379,10 @@ describe("major-event hold adapters", () => {
     expect(result.conditionSummaries).toEqual({
       [PRIMARY_BEACH_ID]: "UNKNOWN",
       [INCLUDED_BEACH_ID]: "FAIR",
+    });
+    expect(result.recommendationLabels).toEqual({
+      [PRIMARY_BEACH_ID]: null,
+      [INCLUDED_BEACH_ID]: "Maybe",
     });
     expect(bulkPhysicalSnapshot(result)).toEqual(bulkPhysicalSnapshot(input));
   });
