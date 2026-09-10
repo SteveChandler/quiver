@@ -26,11 +26,11 @@ export function formatWindSpeed(mph: number): string {
 }
 
 /**
- * Format swell period in seconds, rounded to one decimal place.
+ * Format swell period in seconds, rounded to nearest integer.
  */
 export function formatSwellPeriod(seconds: number): string {
   if (!Number.isFinite(seconds)) return '--s';
-  return `${Math.round(seconds * 10) / 10}s`;
+  return `${Math.round(seconds)}s`;
 }
 
 /**

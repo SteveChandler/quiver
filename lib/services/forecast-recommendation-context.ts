@@ -9,7 +9,6 @@ import {
   type DisplaySwellWindow,
 } from "@/lib/domains/conditions/display-swell";
 import { designateCurrentRow } from "@/lib/services/current-conditions/current-row";
-import { formatPeriodSeconds } from "@/lib/formatters/surf-data";
 
 export type ForecastRecommendationType =
   | "best_window"
@@ -146,6 +145,12 @@ function normalizePeriod(value: string | null | undefined): string | null {
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   return value;
+}
+
+function formatPeriodSeconds(value: number | null): string | null {
+  if (value == null || value <= 0) return null;
+  const rounded = Math.round(value * 10) / 10;
+  return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}s`;
 }
 
 function displaySwellWindow(beach?: Beach): DisplaySwellWindow | null {
