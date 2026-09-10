@@ -1,0 +1,27 @@
+{
+  "rule": "One display-swell convention. Inputs are a forecast row (DB string fields; OM fields numeric) and the beach swell window {centerDeg, halfwidthDeg} or null. Order: (1) CDIP numeric conflict: data_source === 'CDIP' and wave_direction_om is numeric and the named text direction (swell_1_direction ?? wave_direction) is missing or differs by >= 45 deg -> directionDeg = wave_direction_om, period/height stay named, source 'partition'. (2) Offshore tuple: swell_direction_om and swell_period_om present, OM direction inside the window, named direction NOT inside it -> periodSeconds = swell_period_om, directionDeg = swell_direction_om, heightFt = swell_height_om * 3.28084, source 'offshore'. (3) Otherwise the named partition: periodSeconds from swell_1_period ?? wave_period, directionDeg from swell_1_direction ?? wave_direction (cardinal text or numeric string), heightFt from swell_1_height ?? wave_height, source 'partition'. Formatting (\"9s\", \"SW\") is each app's job; this fixture pins the primitives.",
+  "cases": [
+    { "name": "named partition only", "row": { "data_source": "NOAA_NWS", "swell_1_height": "3 ft", "swell_1_period": "9s", "swell_1_direction": "SW", "wave_height": "2.7 ft", "wave_period": "8s", "wave_direction": "SW" }, "window": null,
+      "expected": { "periodSeconds": 9, "directionDeg": 225, "heightFt": 3, "source": "partition" } },
+    { "name": "offshore tuple when OM is in the window and the named swell is not", "row": { "data_source": "NOAA_NWS", "swell_1_height": "3 ft", "swell_1_period": "9s", "swell_1_direction": "W", "swell_height_om": 0.68, "swell_period_om": 6.9, "swell_direction_om": 209 }, "window": { "centerDeg": 200, "halfwidthDeg": 30 },
+      "expected": { "periodSeconds": 6.9, "directionDeg": 209, "heightFt": 2.231, "source": "offshore" } },
+    { "name": "named wins when both are in the window", "row": { "data_source": "NOAA_NWS", "swell_1_height": "3 ft", "swell_1_period": "9s", "swell_1_direction": "SW", "swell_height_om": 0.68, "swell_period_om": 6.9, "swell_direction_om": 209 }, "window": { "centerDeg": 200, "halfwidthDeg": 30 },
+      "expected": { "periodSeconds": 9, "directionDeg": 225, "heightFt": 3, "source": "partition" } },
+    { "name": "no window means no offshore override", "row": { "data_source": "NOAA_NWS", "swell_1_height": "3 ft", "swell_1_period": "9s", "swell_1_direction": "W", "swell_height_om": 0.68, "swell_period_om": 6.9, "swell_direction_om": 209 }, "window": null,
+      "expected": { "periodSeconds": 9, "directionDeg": 270, "heightFt": 3, "source": "partition" } },
+    { "name": "CDIP numeric direction wins on a large conflict", "row": { "data_source": "CDIP", "swell_1_height": "3 ft", "swell_1_period": "9s", "swell_1_direction": "SW", "wave_direction_om": 300 }, "window": null,
+      "expected": { "periodSeconds": 9, "directionDeg": 300, "heightFt": 3, "source": "partition" } },
+    { "name": "CDIP small conflict keeps the named direction", "row": { "data_source": "CDIP", "swell_1_height": "3 ft", "swell_1_period": "9s", "swell_1_direction": "SW", "wave_direction_om": 240 }, "window": null,
+      "expected": { "periodSeconds": 9, "directionDeg": 225, "heightFt": 3, "source": "partition" } },
+    { "name": "non-CDIP large conflict keeps the named direction", "row": { "data_source": "NOAA_NWS", "swell_1_height": "3 ft", "swell_1_period": "9s", "swell_1_direction": "SW", "wave_direction_om": 300 }, "window": null,
+      "expected": { "periodSeconds": 9, "directionDeg": 225, "heightFt": 3, "source": "partition" } },
+    { "name": "CDIP numeric direction fills a missing text direction", "row": { "data_source": "CDIP", "swell_1_height": "3 ft", "swell_1_period": "9s", "wave_direction_om": 300 }, "window": null,
+      "expected": { "periodSeconds": 9, "directionDeg": 300, "heightFt": 3, "source": "partition" } },
+    { "name": "wave_* fallback when swell_1 is absent", "row": { "data_source": "NOAA_NWS", "wave_height": "2.7 ft", "wave_period": "8s", "wave_direction": "S" }, "window": null,
+      "expected": { "periodSeconds": 8, "directionDeg": 180, "heightFt": 2.7, "source": "partition" } },
+    { "name": "CDIP conflict beats the offshore rule", "row": { "data_source": "CDIP", "swell_1_height": "3 ft", "swell_1_period": "9s", "swell_1_direction": "W", "wave_direction_om": 300, "swell_height_om": 0.68, "swell_period_om": 6.9, "swell_direction_om": 209 }, "window": { "centerDeg": 200, "halfwidthDeg": 30 },
+      "expected": { "periodSeconds": 9, "directionDeg": 300, "heightFt": 3, "source": "partition" } },
+    { "name": "empty row", "row": { "data_source": null }, "window": null,
+      "expected": { "periodSeconds": null, "directionDeg": null, "heightFt": null, "source": "partition" } }
+  ]
+}
