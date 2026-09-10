@@ -485,6 +485,7 @@ describe("embed map bridge", () => {
       waveHeight: "2-3ft",
       swellPeriod: "14s",
       swellDirection: "WNW",
+      swellLabel: "Offshore swell",
       isCalibrated: false,
       windSpeed: "6 mph",
       windDirection: "W",

@@ -208,7 +208,6 @@ describe("map marker preview popup", () => {
     const content = createBeachPreviewPopupContent({
       location: { ...beach, city: null, state: null } as Beach,
       waveLabel: "3-4 ft",
-      conditionScore: 82,
       partition,
     });
 
