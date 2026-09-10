@@ -29,13 +29,6 @@ const RETIRED = [
     to: "/learn/best-time-of-day-to-surf",
     dir: null,
   },
-  // 2026-09-01: /cams/hawaii (152 GSC impressions, pos 15) beat the curated
-  // /surf-cams/hawaii page (1 impression), so the curated page retired into it.
-  {
-    from: "/surf-cams/hawaii",
-    to: "/cams/hawaii",
-    dir: null,
-  },
 ];
 
 describe("SEO consolidation", () => {
@@ -47,7 +40,7 @@ describe("SEO consolidation", () => {
       .split("{")
       .find((chunk) => chunk.includes(`source: "${from}"`));
 
-    expect(block).toBeDefined();
+    expect(block).toEqual(expect.any(String));
     expect(block).toContain(`destination: "${to}"`);
     expect(block).toContain("permanent: true");
   });
@@ -73,5 +66,13 @@ describe("SEO consolidation", () => {
     const survivor = learnArticles.find((a) => a.slug === "best-time-of-day-to-surf");
     const keywords = (survivor?.keywords ?? []).join(" ").toLowerCase();
     expect(keywords).toMatch(/morning/);
+  });
+
+  it("consolidates regional cam URLs under /surf-cams", () => {
+    expect(nextConfig).toContain('source: "/cams/:region"');
+    expect(nextConfig).toContain('destination: "/surf-cams/:region"');
+    expect(nextConfig).toContain("permanent: true");
+    expect(sitemap).not.toContain("/cams/southern-california");
+    expect(sitemap).toContain("${baseUrl}/surf-cams/${slug}");
   });
 });

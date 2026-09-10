@@ -19,6 +19,10 @@ jest.mock("next/image", () => ({
   }),
 }));
 
+jest.mock("@/components/cams/cam-card", () => ({
+  CamCard: () => null,
+}));
+
 function makeBeach(index: number): CamBeachWithRegion {
   return {
     id: `beach-${index}`,
@@ -39,7 +43,7 @@ describe("CamGrid", () => {
 
     const link = screen.getByRole("link", { name: /view all/i });
     expect(link).toHaveTextContent("View all 2 cams →");
-    expect(link).toHaveAttribute("href", "/cams/southern-california");
+    expect(link).toHaveAttribute("href", "/surf-cams/southern-california");
   });
 
   it("points a region owned by a curated surf-cams page at that owner", () => {
@@ -57,7 +61,7 @@ describe("CamGrid", () => {
     ).toHaveAttribute("href", "/surf-cams/florida");
   });
 
-  it("keeps Hawaii on its canonical /cams directory page", () => {
+  it("uses the consolidated /surf-cams family for Hawaii", () => {
     const hawaiiBeach: CamBeachWithRegion = {
       ...makeBeach(4),
       city: "Honolulu",
@@ -69,7 +73,7 @@ describe("CamGrid", () => {
 
     expect(
       screen.getByRole("link", { name: /view all/i }),
-    ).toHaveAttribute("href", "/cams/hawaii");
+    ).toHaveAttribute("href", "/surf-cams/hawaii");
   });
 
   it("singularizes the region link for a single cam", () => {
