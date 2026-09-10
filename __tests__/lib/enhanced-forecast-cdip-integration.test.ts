@@ -322,7 +322,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       // Uncalibrated CDIP rows now use the population prior: 1.8 × 1.119 ×
       // 1.15 (13s) = 2.317 → 2.3ft. The UI still receives isCalibrated=false.
       expect(firstForecast.wave_height).toBe("2.3 ft");
-      expect(firstForecast.wave_period).toBe("13s");
+      expect(firstForecast.wave_period).toBe("12.5s");
       // Provenance must record CDIP-driven scalar path, not decomposed.
       const prov = firstForecast.raw_forecast?.wave_height_provenance;
       expect(prov?.source).toBe("cdip_sig");

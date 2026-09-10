@@ -1734,7 +1734,7 @@ describe("InteractiveMap", () => {
           conditionSummary: "Maybe",
           waterQualityHold: null,
           waveHeight: "2-3ft",
-          swellPeriod: "12s",
+          swellPeriod: "11.7s",
           swellDirection: "SSW",
           swellLabel: "Offshore swell",
           isCalibrated: false,

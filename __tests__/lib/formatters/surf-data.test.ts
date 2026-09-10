@@ -203,21 +203,21 @@ describe("formatSwellPeriod", () => {
     });
   });
 
-  describe("decimal inputs – rounds to nearest integer", () => {
-    it("rounds 13.6 up to 14", () => {
-      expect(formatSwellPeriod(13.6)).toBe("14s");
+  describe("decimal inputs – rounds to one decimal place", () => {
+    it("preserves 13.6", () => {
+      expect(formatSwellPeriod(13.6)).toBe("13.6s");
     });
 
-    it("rounds 9.2 down to 9", () => {
-      expect(formatSwellPeriod(9.2)).toBe("9s");
+    it("preserves 9.2", () => {
+      expect(formatSwellPeriod(9.2)).toBe("9.2s");
     });
 
-    it("rounds 7.5 up to 8", () => {
-      expect(formatSwellPeriod(7.5)).toBe("8s");
+    it("preserves 7.5", () => {
+      expect(formatSwellPeriod(7.5)).toBe("7.5s");
     });
 
-    it("rounds 6.4 down to 6", () => {
-      expect(formatSwellPeriod(6.4)).toBe("6s");
+    it("preserves 6.4", () => {
+      expect(formatSwellPeriod(6.4)).toBe("6.4s");
     });
   });
 
@@ -231,8 +231,8 @@ describe("formatSwellPeriod", () => {
       expect(formatSwellPeriod(9)).toMatch(/s$/);
     });
 
-    it("no decimal in output", () => {
-      expect(formatSwellPeriod(13.6)).not.toContain(".");
+    it("omits the decimal for integers", () => {
+      expect(formatSwellPeriod(14)).not.toContain(".");
     });
   });
 
@@ -410,13 +410,11 @@ describe("formatPeriodSeconds", () => {
   });
 
   it("formats valid number with s suffix", () => {
-    // formatPeriodSeconds delegates to formatSwellPeriod which rounds: round(12.5)=13
-    expect(formatPeriodSeconds(12.5)).toBe("13s");
+    expect(formatPeriodSeconds(12.5)).toBe("12.5s");
   });
 
   it("parses string input", () => {
-    // formatSwellPeriod rounds: round(14.2)=14
-    expect(formatPeriodSeconds("14.2")).toBe("14s");
+    expect(formatPeriodSeconds("14.2")).toBe("14.2s");
   });
 
   it("rejects periods below 4s as invalid", () => {

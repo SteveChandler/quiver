@@ -16,13 +16,11 @@ describe("formatPeriodSeconds", () => {
   });
 
   it("formats valid number with s suffix", () => {
-    // formatPeriodSeconds delegates to formatSwellPeriod which rounds: round(12.5)=13
-    expect(formatPeriodSeconds(12.5)).toBe("13s");
+    expect(formatPeriodSeconds(12.5)).toBe("12.5s");
   });
 
   it("parses string input", () => {
-    // formatSwellPeriod rounds: round(14.2)=14
-    expect(formatPeriodSeconds("14.2")).toBe("14s");
+    expect(formatPeriodSeconds("14.2")).toBe("14.2s");
   });
 
   it("rejects periods below 4s as invalid", () => {
