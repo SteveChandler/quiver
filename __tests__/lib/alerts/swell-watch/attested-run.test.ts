@@ -1,7 +1,8 @@
 /** @jest-environment node */
 import { deriveAttestedSwellWatchRun, loadAttestedSwellWatchRun } from "@/lib/alerts/swell-watch/attested-run";
 import fixturePolicy from "@/__tests__/fixtures/swell-watch-provisional-policy.json";
-import { verifySwellWatchPolicy } from "@/lib/alerts/swell-watch/policy";
+import { verifySwellWatchPolicy, validateProductionPolicyAuthority } from "@/lib/alerts/swell-watch/policy";
+import evaluationConfig from "@/docs/operations/swell-watch-no-send-producer-config.json";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const input = { providerBatchId: id, sourcePointId: id };
@@ -70,6 +71,20 @@ describe("attested horizon derivation", () => {
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(result).not.toHaveProperty("qualifyingEvaluationCount");
     expect(result).not.toHaveProperty("productionApproved");
+  });
+  it("derives with the deployed no-send policy without granting push authority", async () => {
+    const policy = structuredClone(evaluationConfig.policy);
+    if (!verifySwellWatchPolicy(policy)) throw new Error("Invalid evaluation policy");
+    const result = await deriveAttestedSwellWatchRun({ ...request(), policy }, {
+      rpc: jest.fn().mockResolvedValue({ data: horizon(), error: null }),
+    });
+    expect(result).toMatchObject({ kind: "derived", thresholdPolicyHash: policy.value_hash,
+      events: [{ arrivalAt: at(78), peakAt: at(81) }] });
+    expect(policy.provenance).toBe("pending_review");
+    expect(policy.approval_evidence).toBeNull();
+    expect(validateProductionPolicyAuthority(policy, null)).toEqual({
+      authorized: false, reason: "policy is not production approved",
+    });
   });
   it.each(["missing", "short", "stale", "future"])("suppresses %s evidence", async (failure) => {
     const data = failure === "short" ? run() : horizon();

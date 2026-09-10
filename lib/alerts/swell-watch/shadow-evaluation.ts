@@ -10,6 +10,7 @@ interface ShadowEvaluation {
   evaluationIds: string[];
   status: "evaluated" | "suppressed";
   reason: string | null;
+  scopeOutcomes: Array<{ sourcePointId: string; status: "derived" | "suppressed"; reason: string | null }> | null;
   suppressionReasons: Record<string, number>;
   candidateCount: number | null;
   stableRegionalEventCount: number | null;
@@ -33,12 +34,12 @@ export async function evaluateSwellWatchShadow(
   input = structuredClone(input);
   const result: ShadowEvaluation = {
     providerBatchId: input.providerBatchId, policyHash: input.policy.value_hash, evaluationIds: [],
-    status: "suppressed", reason: null, suppressionReasons: {}, candidateCount: null, stableRegionalEventCount: null,
+    status: "suppressed", reason: null, scopeOutcomes: null, suppressionReasons: {}, candidateCount: null, stableRegionalEventCount: null,
     preSafetyRecipientsThisEvaluation: null, sendEligibility: "not_evaluated",
     projectedSendsRolling24Hours: null, deliveryHealth: null, recordedDemand: null, safety: null, enqueued: 0,
   };
   const cohort = await ingestAttestedSwellWatchCohort(input, client);
-  if (cohort.kind === "suppressed") return { ...result, reason: cohort.reason };
+  if (cohort.kind === "suppressed") return { ...result, reason: cohort.reason, scopeOutcomes: cohort.scopeOutcomes };
   const candidates: Array<Awaited<ReturnType<typeof loadMatchedSwellWatchHistory>> & {
     beachId: string; projectedImpact: number;
   }> = [];

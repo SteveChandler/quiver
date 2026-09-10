@@ -5,6 +5,7 @@ import { evaluateSwellWatchImpact, type SwellWatchImpactResult } from "./impact-
 import { normalizeSwellPartitions } from "./partition-normalizer";
 import { deriveAttestedSwellWatchRun } from "./attested-run";
 import { loadAttestedProviderRunScope } from "./provider-run-store";
+import { verifySwellWatchPolicy } from "./policy";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type RpcResult = { data: unknown; error: { message: string } | null };
@@ -101,6 +102,9 @@ type RunClient = ImpactIngestionClient & Parameters<typeof deriveAttestedSwellWa
   rpc: (name: "ingest_swell_watch_run" | "ingest_swell_watch_cohort",
     args: { p_impacts: Record<string, string | number>[] }) => Promise<RpcResult>;
 };
+type CohortScopeOutcome = { sourcePointId: string; status: "derived" | "suppressed"; reason: string | null };
+type SuppressedCohort = { kind: "suppressed"; reason: string; sourcePointId: string; scopeOutcomes: CohortScopeOutcome[] };
+type IngestedCohort = { kind: "ingested"; runs: IngestedRun[]; scopeOutcomes: CohortScopeOutcome[] };
 
 function prepareImpacts(input: RunInput, derived: DerivedRun): Record<string, string | number>[] {
   return derived.events.map((event) => {
@@ -161,22 +165,30 @@ export async function ingestAttestedSwellWatchCohort(
     scopes: Array<Parameters<typeof loadAttestedProviderRunScope>[0]["scopes"][number] & Pick<RunInput, "regionKey" | "beach">>;
   },
   client: RunClient & Parameters<typeof loadAttestedProviderRunScope>[1],
-): Promise<{ kind: "suppressed"; reason: string; sourcePointId: string } | { kind: "ingested"; runs: IngestedRun[] }> {
+): Promise<SuppressedCohort | IngestedCohort> {
   input = structuredClone(input);
   if (input.scopes.some((scope) => !scope.regionKey.trim() || scope.regionKey.trim().length > 100)) {
     throw new Error("Invalid region key");
   }
+  if (!verifySwellWatchPolicy(input.policy)) throw new Error("Invalid derivation policy");
   const coverage = await loadAttestedProviderRunScope(input, client);
   const prepared: Array<{ input: RunInput; derived: DerivedRun }> = [];
+  const scopeOutcomes: CohortScopeOutcome[] = [];
   for (const scope of input.scopes) {
     const runInput = { providerBatchId: input.providerBatchId, sourcePointId: scope.sourcePointId,
       now: input.now, policy: input.policy, regionKey: scope.regionKey, beach: scope.beach };
     const derived = await deriveAttestedSwellWatchRun(runInput, client);
-    if (derived.kind === "suppressed") return { ...derived, sourcePointId: scope.sourcePointId };
+    if (derived.kind === "suppressed") {
+      scopeOutcomes.push({ sourcePointId: scope.sourcePointId, status: "suppressed", reason: derived.reason });
+      continue;
+    }
     if (derived.source.evaluationId !== coverage.evaluationId || Date.parse(derived.source.issuedAt) !== Date.parse(coverage.issuedAt)) {
       throw new Error("Cohort evaluation identity changed");
     }
+    scopeOutcomes.push({ sourcePointId: scope.sourcePointId, status: "derived", reason: null });
     prepared.push({ input: runInput, derived });
   }
-  return { kind: "ingested", runs: await persistRuns(prepared, client, "ingest_swell_watch_cohort") };
+  const suppressed = scopeOutcomes.find((outcome) => outcome.status === "suppressed");
+  if (suppressed) return { kind: "suppressed", reason: suppressed.reason!, sourcePointId: suppressed.sourcePointId, scopeOutcomes };
+  return { kind: "ingested", runs: await persistRuns(prepared, client, "ingest_swell_watch_cohort"), scopeOutcomes };
 }
