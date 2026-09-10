@@ -55,6 +55,7 @@ export type EmbedMapEvent =
         waveHeight?: string | null;
         swellPeriod?: string | null;
         swellDirection?: string | null;
+        swellLabel?: "Swell" | "Offshore swell" | null;
         isCalibrated?: boolean | null;
         windSpeed?: string | null;
         windDirection?: string | null;

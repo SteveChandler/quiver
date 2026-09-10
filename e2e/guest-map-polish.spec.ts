@@ -39,7 +39,11 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
       await page.goto("/map?search=K-38");
       const pin = page.locator('[data-testid="beach-marker"][data-beach-id="77d286c5-87e9-4678-82d3-81d0125285fa"]');
       await expect(pin).toBeVisible({ timeout: 90000 });
-      await expect(pin).not.toHaveAttribute("data-condition-summary", "UNKNOWN", { timeout: 90000 });
+      await expect(pin).toHaveAttribute(
+        "data-recommendation-label",
+        /^(Worth it|Maybe|Skip)$/,
+        { timeout: 90000 },
+      );
       await pin.getByRole("button").click();
       const callout = page.locator('[data-conditions-callout="true"]');
       await expect(callout.locator('[data-callout-banner="s1"]')).toBeVisible();
@@ -93,9 +97,12 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
         const timeline = body.data.hourlySwellTimeline;
         if (timeline) {
           loadedBeachCount += Object.keys(timeline.partitionsByBeach).length;
-          // Deterministic score change; real geometry, times, arrows, and all other scores.
-          timeline.partitionsByBeach[delMarId]?.forEach((partition: { conditionScore: number } | null, index: number) => {
-            if (partition) partition.conditionScore = index < 24 ? 75 : 30;
+          // Deterministic verdict change; real geometry, times, and arrows.
+          timeline.partitionsByBeach[delMarId]?.forEach((partition: { conditionScore: number; recommendationLabel: string | null } | null, index: number) => {
+            if (partition) {
+              partition.conditionScore = index < 24 ? 75 : 30;
+              partition.recommendationLabel = index < 24 ? "Worth it" : "Skip";
+            }
           });
         }
         await route.fulfill({ response, json: body });
@@ -106,7 +113,7 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
       await expect(slider).toBeVisible({ timeout: 90000 });
       await page.evaluate(() => (window as any).__quiverMapInstance.jumpTo({ center: [-117.265, 32.955], zoom: 13 }));
       const pin = page.locator(`[data-testid="beach-marker"][data-beach-id="${delMarId}"]`);
-      await expect(pin).toHaveAttribute("data-condition-summary", "GOOD");
+      await expect(pin).toHaveAttribute("data-recommendation-label", "Worth it");
       const markerElement = await pin.elementHandle();
       const canvas = await page.locator("canvas.mapboxgl-canvas").elementHandle();
       await pin.getByRole("button").click();
@@ -116,14 +123,14 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
       const original = await card.getAttribute("data-forecast-at");
       await slider.fill("24");
       await expect(card).not.toHaveAttribute("data-forecast-at", original!);
-      await expect(pin).toHaveAttribute("data-condition-summary", "MEH");
+      await expect(pin).toHaveAttribute("data-recommendation-label", "Skip");
       await expect(pin.locator("[data-marker-visual]")).toHaveCSS("background-image", "linear-gradient(to right, rgb(51, 65, 85), rgb(71, 85, 105))");
       await expect(card.locator('[data-callout-banner="s1"]')).toBeVisible();
       expect(await markerElement!.evaluate((element) => element.isConnected)).toBe(true);
       expect(await canvas!.evaluate((element) => element.isConnected)).toBe(true);
       expect(forecastRequests).toBe(requestsBefore);
       await slider.fill("0");
-      await expect(pin).toHaveAttribute("data-condition-summary", "GOOD");
+      await expect(pin).toHaveAttribute("data-recommendation-label", "Worth it");
       await page.screenshot({ path: `.planning/evidence/map-polish/unified-hourly-${viewport.width}.png` });
     });
     test("shows Today and the whole week without clipped labels", async ({ page }) => {
@@ -201,26 +208,32 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
       const beaches = (await nearby.json()).data as Array<{ id: string }>;
       expect(beaches.length).toBeGreaterThan(20);
       const forecast = await bulkResponse;
-      const timeline = (await forecast.json()).data.hourlySwellTimeline;
-      const summaries: Record<string, string> = Object.fromEntries(Object.entries(timeline.partitionsByBeach).map(([id, values]) => {
-        const score = (values as Array<{ conditionScore: number | null } | null>)[0]?.conditionScore;
-        return [id, score == null ? "UNKNOWN" : score >= 80 ? "EPIC" : score >= 70 ? "GOOD" : score >= 55 ? "FAIR" : score >= 40 ? "RIDEABLE" : "MEH"];
+      const bulkData = (await forecast.json()).data;
+      const timeline = bulkData.hourlySwellTimeline;
+      const labels: Record<string, "Worth it" | "Maybe" | "Skip" | null> = Object.fromEntries(Object.entries(timeline.partitionsByBeach).map(([id, values]) => {
+        const partitionLabel = (values as Array<{ recommendationLabel?: "Worth it" | "Maybe" | "Skip" | null } | null>)[0]?.recommendationLabel;
+        return [id, partitionLabel ?? null];
       }));
-      const laterIds = beaches.slice(20).map((beach) => beach.id).filter((id) => summaries[id] && summaries[id] !== "UNKNOWN");
+      const laterIds = beaches.slice(20).map((beach) => beach.id).filter((id) => typeof labels[id] === "string");
       expect(laterIds.length).toBeGreaterThan(0);
       await expect.poll(() => page.locator(laterIds.map((id) => `[data-testid="beach-marker"][data-beach-id="${id}"]`).join(",")).count()).toBeGreaterThan(0);
       const checked: string[] = [];
       for (const id of laterIds) {
         const pin = page.locator(`[data-testid="beach-marker"][data-beach-id="${id}"]`);
+        // Some fetched beaches remain outside the rendered viewport.
+        // eslint-disable-next-line playwright/no-conditional-in-test
         if (await pin.count() === 0) continue;
-        await expect(pin).toHaveAttribute("data-condition-summary", summaries[id], { timeout: 90000 });
+        await expect(pin).toHaveAttribute("data-recommendation-label", labels[id]!, { timeout: 90000 });
         const gradientStart: Record<string, string> = {
-          EPIC: "rgb(138, 90, 0)", GOOD: "rgb(0, 91, 82)", FAIR: "rgb(138, 74, 18)",
-          RIDEABLE: "rgb(71, 85, 105)", MEH: "rgb(51, 65, 85)",
+          "Worth it": "rgb(0, 91, 82)",
+          Maybe: "rgb(138, 74, 18)",
+          Skip: "rgb(51, 65, 85)",
         };
         const hold = await pin.getAttribute("data-water-quality-hold");
-        const expectedColor = hold === "none" ? gradientStart[summaries[id]] : "rgb(153, 27, 27)";
-        await expect.poll(() => pin.locator("[data-marker-visual]").evaluate((element) => getComputedStyle(element).backgroundImage), { message: `Hourly color for ${id}: ${summaries[id]}`, timeout: 90000 }).toContain(expectedColor);
+        // Water-quality holds intentionally override the recommendation color.
+        // eslint-disable-next-line playwright/no-conditional-in-test
+        const expectedColor = hold === "none" ? gradientStart[labels[id]!] : "rgb(153, 27, 27)";
+        await expect.poll(() => pin.locator("[data-marker-visual]").evaluate((element) => getComputedStyle(element).backgroundImage), { message: `Hourly color for ${id}: ${labels[id]}`, timeout: 90000 }).toContain(expectedColor);
         checked.push(id);
       }
       expect(checked.length).toBeGreaterThan(0);
@@ -311,6 +324,8 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
       await page.evaluate(() => (window as any).__quiverMapInstance.jumpTo({ center: [-117.255, 32.74], zoom: 12 }));
       await page.waitForFunction(() => (window as any).__quiverMapInstance.areTilesLoaded());
       await expect(page.getByTestId("swell-field-loading-note")).toBeHidden({ timeout: 90000 });
+      // Pixel-level coastline validation only runs at the desktop viewport.
+      // eslint-disable-next-line playwright/no-conditional-in-test
       if (viewport.width > 1000) {
         const canvas = page.locator("canvas.mapboxgl-canvas");
         const points = await page.evaluate(() => {
@@ -324,6 +339,8 @@ for (const viewport of [{ width: 1400, height: 1000 }, { width: 390, height: 844
           let count = 0;
           for (let y = Math.round(point.y) - 25; y < point.y + 25; y++) for (let x = Math.round(point.x) - 25; x < point.x + 25; x++) {
             const i = (y * first.width + x) * 4;
+            // Count only materially changed pixels.
+            // eslint-disable-next-line playwright/no-conditional-in-test
             if (Math.abs(first.data[i] - second.data[i]) + Math.abs(first.data[i+1] - second.data[i+1]) + Math.abs(first.data[i+2] - second.data[i+2]) > 24) count++;
           }
           return count;

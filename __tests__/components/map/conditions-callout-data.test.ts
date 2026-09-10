@@ -30,6 +30,24 @@ describe("resolveCalloutComponents", () => {
     expect(out[0].bearingDeg).toBe(290);
   });
 
+  it("labels a substituted offshore tuple", () => {
+    const out = resolveCalloutComponents({
+      ...EMPTY,
+      s1Dir: 290,
+      s1PeriodS: 9,
+      s1HeightFt: 3,
+      swellDirOm: 205,
+      swellHeightOmFt: 4,
+      swellPeriodOmS: 12,
+    });
+
+    expect(out[0]).toMatchObject({
+      name: "OFFSHORE SWELL",
+      bearingDeg: 205,
+      label: "4ft, 12s",
+    });
+  });
+
   it("omits a component with null direction", () => {
     const out = resolveCalloutComponents({ ...EMPTY, s1Dir: null, s1HeightFt: 3, s1PeriodS: 9, windDir: 230, windMph: 8 });
     expect(out.map((c) => c.kind)).toEqual(["wind"]);

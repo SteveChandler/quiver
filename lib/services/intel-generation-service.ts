@@ -7,7 +7,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
-import type { Database, Json } from "@/types/database";
+import type { Beach, Database, Json } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 import type {
   BeachPreferences,
@@ -20,12 +21,23 @@ import {
   recommendTideWindow,
   primarySecondarySwell,
   windAt,
-  bestWindowHeuristic,
   confidenceHeuristic,
   analyzeConditions,
   getConservativeRecommendation,
 } from "@/lib/utils/morning-intel-utils";
 import { scoreNativeConditionInputs } from "@/lib/scoring/native-condition-score";
+import {
+  getBatchSunTimes,
+  selectBeachDayWindows,
+  type AuthoritativeWindow,
+} from "@/lib/services/discovery";
+
+interface DailyForecastContext {
+  rows: EnhancedForecastEntity[];
+  fullDayForecasts: ForecastSlice["forecasts"];
+  morningSlice: ForecastSlice;
+  localDate: string;
+}
 
 export class IntelGenerationService {
   private supabase;
@@ -60,11 +72,19 @@ export class IntelGenerationService {
     targetTime: string = "06:00",
     timezone?: string | null
   ): Promise<MorningIntelData> {
-    // 1. Fetch beach preferences
-    const beachPrefs = await this.fetchBeachPreferences(beachId);
+    const generatedAt = new Date();
+
+    // 1. Fetch beach metadata and preferences
+    const beach = await this.fetchBeach(beachId);
+    const beachPrefs = beach ? this.toBeachPreferences(beach) : null;
+    const effectiveTimezone = timezone || beach?.timezone || DEFAULT_TIMEZONE;
 
     // 2. Fetch forecast data
-    const forecasts = await this.fetchForecasts(beachId, timezone);
+    const forecasts = await this.fetchForecasts(
+      beachId,
+      effectiveTimezone,
+      generatedAt
+    );
 
     // 3. Fetch water quality (optional — missing rows are handled gracefully)
     // Cast through `any` because the typed client was constructed before beach_water_quality
@@ -75,11 +95,38 @@ export class IntelGenerationService {
       .eq("beach_id", beachId)
       .maybeSingle() as { data: { status: string; latest_sample_date: string | null } | null };
 
+    const sunTimesCache = await getBatchSunTimes([beachId], [forecasts.localDate]);
+    const bestDayWindow = beach
+      ? selectBeachDayWindows({
+          forecasts: forecasts.rows,
+          beach: { ...beach, timezone: effectiveTimezone },
+          userPrefs: null,
+          now: generatedAt,
+          sunTimesCache,
+          localDate: forecasts.localDate,
+        }).bestDayWindow
+      : null;
+
     // 4. Analyze conditions
     const effectiveWq = wqData
       ? (await currentWaterQuality([{ ...wqData, beach_id: beachId }]))[0] : null;
-    const intel = this.analyzeForecasts(forecasts, beachPrefs, targetTime, timezone,
-      effectiveWq ? { ...effectiveWq, latest_sample_date: effectiveWq.county_advisory_status ? null : effectiveWq.latest_sample_date } : null);
+    const intel = this.analyzeForecasts(
+      forecasts.morningSlice,
+      forecasts.fullDayForecasts,
+      beachPrefs,
+      targetTime,
+      effectiveTimezone,
+      generatedAt,
+      bestDayWindow,
+      effectiveWq
+        ? {
+            ...effectiveWq,
+            latest_sample_date: effectiveWq.county_advisory_status
+              ? null
+              : effectiveWq.latest_sample_date,
+          }
+        : null
+    );
 
     return intel;
   }
@@ -87,17 +134,19 @@ export class IntelGenerationService {
   /**
    * Fetch beach preferences
    */
-  private async fetchBeachPreferences(beachId: string): Promise<BeachPreferences | null> {
+  private async fetchBeach(beachId: string): Promise<Beach | null> {
     const { data: beach, error } = await this.supabase
       .from("beaches")
-      .select(
-        "name, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, preferred_tide_ft_min, preferred_tide_ft_max, hazards, skill_level, break_type, aspect_deg"
-      )
+      .select("*")
       .eq("id", beachId)
       .single();
 
     if (error || !beach) return null;
 
+    return beach as unknown as Beach;
+  }
+
+  private toBeachPreferences(beach: Beach): BeachPreferences {
     const aspectDeg: number | null = beach.aspect_deg ?? null;
     const expectedOffshoreDeg =
       aspectDeg == null ? null : (Number(aspectDeg) + 180) % 360;
@@ -142,10 +191,12 @@ export class IntelGenerationService {
   /**
    * Parse numeric value from text with units
    */
-  private parseNumericValue(value: string | number | null): number | null {
+  private parseNumericValue(
+    value: string | number | null | undefined
+  ): number | null {
     if (value === null || value === undefined) return null;
     if (typeof value === "number") return value;
-    
+
     const match = String(value).match(/(\d+(?:\.\d+)?)/);
     return match ? parseFloat(match[1]) : null;
   }
@@ -153,17 +204,19 @@ export class IntelGenerationService {
   /**
    * Parse direction from text or number
    */
-  private parseDirection(value: string | number | null): number | null {
+  private parseDirection(
+    value: string | number | null | undefined
+  ): number | null {
     if (value === null || value === undefined) return null;
     if (typeof value === "number") return value;
-    
+
     const cardinalMap: Record<string, number> = {
       "N": 0, "NNE": 22.5, "NE": 45, "ENE": 67.5,
       "E": 90, "ESE": 112.5, "SE": 135, "SSE": 157.5,
       "S": 180, "SSW": 202.5, "SW": 225, "WSW": 247.5,
       "W": 270, "WNW": 292.5, "NW": 315, "NNW": 337.5,
     };
-    
+
     const direction = String(value).trim().toUpperCase();
     return cardinalMap[direction] ?? this.parseNumericValue(value);
   }
@@ -173,30 +226,36 @@ export class IntelGenerationService {
    */
   private async fetchForecasts(
     beachId: string,
-    timezone?: string | null
-  ): Promise<ForecastSlice> {
-    const now = new Date();
-    const tz = timezone || DEFAULT_TIMEZONE;
+    tz: string,
+    now: Date
+  ): Promise<DailyForecastContext> {
     const today = formatInTimeZone(now, tz, "yyyy-MM-dd");
+    const nextDate = new Date(`${today}T00:00:00.000Z`);
+    nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+    const dayStart = fromZonedTime(`${today}T00:00:00`, tz);
+    const dayEnd = fromZonedTime(
+      `${nextDate.toISOString().slice(0, 10)}T00:00:00`,
+      tz
+    );
     const morningStart = fromZonedTime(`${today}T04:00:00`, tz);
     const morningEnd = fromZonedTime(`${today}T13:00:00`, tz);
 
     const { data: forecasts, error } = await this.supabase
       .from("enhanced_forecasts")
-      .select(
-        "forecast_at, forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction, tide_height, tide_status, next_tide_time, next_tide_type, next_tide_height, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, confidence_score"
-      )
+      .select("*")
       .eq("beach_id", beachId)
-      .gte("forecast_at", morningStart.toISOString())
-      .lt("forecast_at", morningEnd.toISOString())
+      .gte("forecast_at", dayStart.toISOString())
+      .lt("forecast_at", dayEnd.toISOString())
       .order("forecast_at", { ascending: true });
 
     if (error) {
       throw new Error(`Failed to fetch forecasts: ${error.message}`);
     }
 
+    const rows = (forecasts || []) as unknown as EnhancedForecastEntity[];
+
     // Parse text values to numbers and map to ForecastSlice property names
-    const parsedForecasts = (forecasts || []).map((f: any) => {
+    const parsedForecasts = rows.map((f) => {
       const forecastAt = f.forecast_at ? new Date(f.forecast_at) : null;
       const hasValidForecastAt =
         forecastAt instanceof Date && !Number.isNaN(forecastAt.getTime());
@@ -228,10 +287,39 @@ export class IntelGenerationService {
       };
     });
 
+    const morningForecasts = parsedForecasts.filter((forecast) => {
+      const forecastAt = Date.parse(forecast.forecast_at || "");
+      return (
+        forecastAt >= morningStart.getTime() &&
+        forecastAt < morningEnd.getTime()
+      );
+    });
+
     return {
-      forecasts: parsedForecasts,
-      tides: [], // Tide data is embedded in forecasts
+      rows,
+      fullDayForecasts: parsedForecasts,
+      morningSlice: {
+        forecasts: morningForecasts,
+        tides: [], // Tide data is embedded in forecasts
+      },
+      localDate: today,
     };
+  }
+
+  private formatBestWindow(
+    window: AuthoritativeWindow | null,
+    fullDayForecasts: ForecastSlice["forecasts"],
+    timezone: string
+  ): string {
+    if (!window) return "Variable conditions; check throughout the morning";
+
+    const startTime = formatInTimeZone(window.displayWindowStart, timezone, "HH:mm");
+    const endTime = formatInTimeZone(window.displayWindowEnd, timezone, "HH:mm");
+    const peakTime = formatInTimeZone(window.peakTime, timezone, "HH:mm");
+    const wind = windAt(peakTime, fullDayForecasts, timezone);
+    const windNote = wind.offshore ? "; cleaner before onshores" : "";
+
+    return `${startTime}–${endTime}${windNote}`;
   }
 
   /**
@@ -239,21 +327,26 @@ export class IntelGenerationService {
    */
   private analyzeForecasts(
     slice: ForecastSlice,
+    fullDayForecasts: ForecastSlice["forecasts"],
     beachPrefs: BeachPreferences | null,
     targetTime: string,
-    timezone?: string | null,
+    timezone: string,
+    generatedAt: Date,
+    bestDayWindow: AuthoritativeWindow | null,
     wqData?: { status: string; latest_sample_date: string | null } | null
   ): MorningIntelData {
-    const now = new Date();
-    const tz = timezone || DEFAULT_TIMEZONE;
-    const date = formatInTimeZone(now, tz, "yyyy-MM-dd");
+    const date = formatInTimeZone(generatedAt, timezone, "yyyy-MM-dd");
 
     // Calculate metrics
     const surf = deriveSurfRange(slice.forecasts);
     const tide = recommendTideWindow(slice.forecasts, beachPrefs);
     const swells = primarySecondarySwell(slice.forecasts);
-    const wind = windAt(targetTime, slice.forecasts, tz);
-    const bestWindow = bestWindowHeuristic(slice.forecasts, slice.tides, tz);
+    const wind = windAt(targetTime, slice.forecasts, timezone);
+    const bestWindow = this.formatBestWindow(
+      bestDayWindow,
+      fullDayForecasts,
+      timezone
+    );
     const confidence = confidenceHeuristic(slice.forecasts, slice.tides);
 
     // Analyze conditions
@@ -328,12 +421,18 @@ export class IntelGenerationService {
       conditions,
       payload: {
         kind: "morning_intel_v2",
-        generatedAt: new Date().toISOString(),
+        generatedAt: generatedAt.toISOString(),
         date,
         time: targetTime,
         recommendation,
         conditions,
         bestWindow,
+        ...(bestDayWindow
+          ? {
+              bestWindowStart: bestDayWindow.displayWindowStart.toISOString(),
+              bestWindowEnd: bestDayWindow.displayWindowEnd.toISOString(),
+            }
+          : {}),
         confidence,
         surf,
         tide,
