@@ -18,6 +18,32 @@ function follows(left: SwellPartitionObservation, right: SwellPartitionObservati
     && Math.abs(left.periodS - right.periodS) <= policy.policy_values.partition_matching.maximum_period_delta_s;
 }
 
+export function matchSwellWatchFrame(active: SwellPartitionObservation[][], frame: SwellPartitionObservation[], policy: SwellWatchPolicy): Array<number | null> {
+  const legacy = policy.policy_values.partition_matching.trajectory_assignment === undefined;
+  if (legacy) {
+    const matches = frame.map((part) => active.filter((track) => follows(track[track.length - 1], part, policy)));
+    if (matches.some((items) => items.length > 1) || (matches[0][0] && matches[0][0] === matches[1][0])) throw new Error("ambiguous_partition_path");
+    return matches.map((items) => items.length ? active.indexOf(items[0]) : null);
+  }
+  const candidates: Array<{ links: Array<number | null>; cardinality: number; worst: number; sum: number }> = [];
+  for (const links of [[0, 1], [1, 0], [0, null], [null, 0], [1, null], [null, 1], [null, null]] as Array<Array<number | null>>) {
+    if (links.some((previous, current) => previous !== null && !follows(active[previous][active[previous].length - 1], frame[current], policy))) continue;
+    const scores = links.flatMap((previous, current) => previous === null ? [] : [
+      distance(active[previous][active[previous].length - 1].directionDeg, frame[current].directionDeg) / policy.policy_values.partition_matching.maximum_direction_delta_deg,
+      Math.abs(active[previous][active[previous].length - 1].periodS - frame[current].periodS) / policy.policy_values.partition_matching.maximum_period_delta_s,
+    ]);
+    candidates.push({ links, cardinality: scores.length / 2, worst: Math.max(0, ...scores), sum: scores.reduce((total, score) => total + score, 0) });
+  }
+  const maxCardinality = Math.max(...candidates.map((candidate) => candidate.cardinality));
+  const maxCandidates = candidates.filter((candidate) => candidate.cardinality === maxCardinality);
+  const bestWorst = Math.min(...maxCandidates.map((candidate) => candidate.worst));
+  const minimax = maxCandidates.filter((candidate) => candidate.worst === bestWorst);
+  const bestSum = Math.min(...minimax.map((candidate) => candidate.sum));
+  const winners = minimax.filter((candidate) => candidate.sum === bestSum);
+  if (winners.length !== 1) throw new Error("ambiguous_partition_path");
+  return winners[0].links;
+}
+
 /** Pure calculation over validated complete frames; does not establish evidence or release authority. */
 export function deriveSwellWatchHorizon(input: {
   series: SwellPartitionObservation[][];
@@ -44,13 +70,10 @@ export function deriveSwellWatchHorizon(input: {
   const tracks: SwellPartitionObservation[][] = series[0].map((part) => [part]);
   let active = tracks.slice();
   for (const frame of series.slice(1)) {
-    const matches = frame.map((part) => active.filter((track) => follows(track[track.length - 1], part, policy)));
-    // ponytail: ambiguous adjacent matches suppress; reviewed trajectory assignment if this loses useful coverage.
-    if (matches.some((items) => items.length > 1) || (matches[0][0] && matches[0][0] === matches[1][0])) {
-      throw new Error("ambiguous_partition_path");
-    }
+    const matches = matchSwellWatchFrame(active, frame, policy);
     active = frame.map((part, index) => {
-      const track = matches[index][0];
+      const previous = matches[index];
+      const track = previous === null ? undefined : active[previous];
       if (track) { track.push(part); return track; }
       const fresh = [part];
       tracks.push(fresh);
@@ -96,5 +119,3 @@ export function deriveSwellWatchHorizon(input: {
     || left.impact.partition.sourceSlot.localeCompare(right.impact.partition.sourceSlot));
   return { baseline, events };
 }
-
-

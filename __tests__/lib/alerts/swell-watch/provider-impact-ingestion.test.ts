@@ -2,6 +2,10 @@
 import fixturePolicy from "@/__tests__/fixtures/swell-watch-provisional-policy.json";
 import { ingestAttestedSwellWatchCohort, ingestAttestedSwellWatchImpact, ingestAttestedSwellWatchRun } from "@/lib/alerts/swell-watch/provider-impact-ingestion";
 import type { SwellWatchPolicy } from "@/lib/alerts/swell-watch/policy";
+import proposed from "@/docs/operations/swell-watch-no-send-producer-config-v2-proposed.json";
+import { gunzipSync } from "node:zlib";
+import { createHash } from "node:crypto";
+import { swellWatchAttestedReplayGzipBase64 } from "@/__tests__/fixtures/swell-watch-attested-replay-20260910";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const input: Parameters<typeof ingestAttestedSwellWatchImpact>[0] = {
@@ -24,7 +28,37 @@ beforeEach(() => {
 });
 
 describe("attested component impact ingestion", () => {
-  it("does not persist a run with an unavailable component or read an invalid region", async () => {
+  it("replays all ten captured horizons through cohort derivation without an ingest write", async () => {
+    const text = gunzipSync(Buffer.from(swellWatchAttestedReplayGzipBase64, "base64")).toString();
+    const replay = JSON.parse(text).rows[0].value as Array<{ sourcePointId: string; latitude: number; longitude: number; beach: Record<string, unknown>; run: { source: { evaluationId: string; issuedAt: string; providerBatchId: string } } }>;
+    const bySource = new Map(replay.map((item) => [item.sourcePointId, item]));
+    const first = replay[0].run.source;
+    const scopes = proposed.cohort.map(({ sourcePointId, regionKey }) => {
+      const item = bySource.get(sourcePointId)!;
+      return { sourcePointId, regionKey, latitude: item.latitude, longitude: item.longitude, beach: item.beach };
+    });
+    expect(new Set(replay.map((item) => item.sourcePointId)).size).toBe(10);
+    expect(createHash("sha256").update(swellWatchAttestedReplayGzipBase64).digest("hex")).toBe("191897bdcb75cb1dfd4362bb8a6bdcbcba91ac23aff99a45a2f13ec821bad488");
+    expect([...bySource.keys()].sort()).toEqual(proposed.cohort.map((scope) => scope.sourcePointId).sort());
+    expect(replay.every((item) => item.run.source.providerBatchId === first.providerBatchId && item.run.source.evaluationId === first.evaluationId && item.run.source.issuedAt === "2026-09-09T18:00:00+00:00")).toBe(true);
+    expect(replay.every((item) => (item.run as typeof item.run & { samples: unknown[] }).samples.length === 168)).toBe(true);
+    const rpc = jest.fn(async (name: string, args: Record<string, string>) => {
+      if (name === "read_swell_watch_run_scope") return { data: { providerBatchId: first.providerBatchId, evaluationId: first.evaluationId,
+        issuedAt: first.issuedAt, scopeHash: "a".repeat(64), expectedComponentCount: 3360,
+        scopes: scopes.map((scope) => ({ ...scope, forecastDays: 7 })) }, error: null };
+      if (name === "read_swell_watch_attested_run") return { data: bySource.get(args.p_source_point_id)!.run, error: null };
+      throw new Error(`Forbidden replay write: ${name}`);
+    });
+    const result = await ingestAttestedSwellWatchCohort({ providerBatchId: first.providerBatchId, forecastDays: 7, now: "2026-09-10T00:00:00Z",
+      policy: proposed.policy as SwellWatchPolicy, scopes: scopes as never }, { rpc, ...identityReader } as never);
+    expect(result).toMatchObject({ kind: "suppressed", reason: "unbounded_episode", sourcePointId: "e8a921b7-c2b5-4259-9e5c-bd06765f7ae4" });
+    expect(result.scopeOutcomes).toHaveLength(10);
+    expect(result.scopeOutcomes.filter((outcome) => outcome.status === "derived")).toHaveLength(7);
+    expect(result.scopeOutcomes.filter((outcome) => outcome.reason === "incomplete_partition")).toHaveLength(2);
+    expect(result.scopeOutcomes.filter((outcome) => outcome.reason === "unbounded_episode")).toHaveLength(1);
+    expect(rpc.mock.calls.map(([name]) => name)).not.toContain("ingest_swell_watch_cohort");
+  });
+  it("does not persist incomplete cohort coverage, and reports every scope", async () => {
     const value = { providerBatchId: id, sourcePointId: id, regionKey: "fixture-region",
       now: "2026-09-05T00:00:00.000Z", policy: fixturePolicy as SwellWatchPolicy,
       beach: { swell_window_center_deg: 170, swell_window_halfwidth_deg: 90 } };
@@ -50,7 +84,8 @@ describe("attested component impact ingestion", () => {
     expect(rpc).not.toHaveBeenCalled();
     expect(from).not.toHaveBeenCalled();
     const other = "22222222-2222-4222-8222-222222222222";
-    const scopes = [id, other].map((sourcePointId) => ({ sourcePointId, latitude: 32.8, longitude: -117.3,
+    const third = "33333333-3333-4333-8333-333333333333";
+    const scopes = [id, other, third].map((sourcePointId) => ({ sourcePointId, latitude: 32.8, longitude: -117.3,
       regionKey: "fixture-region", beach: value.beach }));
     const good = { ...data, forecastDays: 7, samples: Array.from({ length: 168 }, (_, hour) => ({
       forecastAt: new Date(Date.parse(value.now) + hour * 3_600_000).toISOString(),
@@ -64,18 +99,37 @@ describe("attested component impact ingestion", () => {
     rpc.mockReset().mockImplementation(async (name: string, args: Record<string, string>) => {
       if (name === "read_swell_watch_run_scope") return { data: { providerBatchId: id,
         evaluationId: data.source.evaluationId, issuedAt: value.now, scopeHash: "a".repeat(64),
-        expectedComponentCount: 672, scopes: scopes.map((scope) => ({ ...scope, forecastDays: 7 })) }, error: null };
+        expectedComponentCount: 1008, scopes: scopes.map((scope) => ({ ...scope, forecastDays: 7 })) }, error: null };
       if (name === "read_swell_watch_attested_run") {
-        return { data: args.p_source_point_id === id ? good : missing, error: null };
+        if (args.p_source_point_id === other) return { data: missing, error: null };
+        return { data: { ...good, source: { ...good.source, sourcePointId: args.p_source_point_id } }, error: null };
       }
       throw new Error("Cohort must not write after failed preflight");
     });
     expect(await ingestAttestedSwellWatchCohort({ providerBatchId: id, forecastDays: 7,
       now: value.now, policy: value.policy, scopes }, { rpc, ...identityReader }))
-      .toEqual({ kind: "suppressed", reason: "incomplete_partition", sourcePointId: other });
+      .toEqual({ kind: "suppressed", reason: "incomplete_partition", sourcePointId: other,
+        scopeOutcomes: [
+          { sourcePointId: id, status: "derived", reason: null },
+          { sourcePointId: other, status: "suppressed", reason: "incomplete_partition" },
+          { sourcePointId: third, status: "derived", reason: null },
+        ] });
     expect(rpc.mock.calls.map(([name]) => name)).toEqual([
-      "read_swell_watch_run_scope", "read_swell_watch_attested_run", "read_swell_watch_attested_run",
+      "read_swell_watch_run_scope", "read_swell_watch_attested_run", "read_swell_watch_attested_run", "read_swell_watch_attested_run",
     ]);
+    expect(rpc.mock.calls.map(([name]) => name)).not.toContain("ingest_swell_watch_cohort");
+    expect(rpc.mock.calls.map(([name]) => name)).not.toContain("ingest_swell_watch_run");
+    rpc.mockReset().mockImplementation(async (name: string) => {
+      if (name === "read_swell_watch_run_scope") return { data: { providerBatchId: id,
+        evaluationId: data.source.evaluationId, issuedAt: value.now, scopeHash: "a".repeat(64),
+        expectedComponentCount: 1008, scopes: scopes.map((scope) => ({ ...scope, forecastDays: 7 })) }, error: null };
+      if (name === "read_swell_watch_attested_run") return { data: null, error: { message: "fixture trust failure" } };
+      throw new Error("Cohort must not write after failed preflight");
+    });
+    await expect(ingestAttestedSwellWatchCohort({ providerBatchId: id, forecastDays: 7,
+      now: value.now, policy: value.policy, scopes }, { rpc, ...identityReader })).rejects.toThrow("Attested run read failed");
+    expect(rpc.mock.calls.map(([name]) => name)).not.toContain("ingest_swell_watch_cohort");
+    expect(rpc.mock.calls.map(([name]) => name)).not.toContain("ingest_swell_watch_run");
   });
 
   it("persists the exact attested S2, not headline S1, through the verified RPC only", async () => {
