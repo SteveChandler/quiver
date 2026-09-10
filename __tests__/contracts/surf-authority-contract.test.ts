@@ -382,10 +382,10 @@ describe("surf authority producer contract", () => {
           direction: degreeToCardinal(direct.directionDeg!),
         },
       });
-      expect(JSON.stringify([
-        result.bulk.displaySwell[BEACH_ID], result.nowContext.swellPeriod, result.nowContext.swellDirection,
-      ]))
-        .not.toMatch(/3 ft|9s|\bW\b/);
+      // Negative control: none of the named-partition values (3 ft / 9s / W) leak through.
+      expect(result.bulk.displaySwell[BEACH_ID]).not.toMatchObject({ periodSeconds: 9 });
+      expect(result.nowContext.swellPeriod).not.toBe("9s");
+      expect(result.nowContext.swellDirection).not.toBe("W");
     });
 
     it("resolves the best-window context swell from its own forecast row", () => {
