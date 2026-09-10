@@ -67,11 +67,6 @@ export function resolveDisplaySwell(
     && (
       namedDirection === null
       || angleDifference(waveDirectionOm, namedDirection) >= 45
-      || (
-        offshoreIsDisplayCandidate
-        && offshoreDirection !== null
-        && angleDifference(waveDirectionOm, offshoreDirection) >= 45
-      )
     )
   ) {
     return {
