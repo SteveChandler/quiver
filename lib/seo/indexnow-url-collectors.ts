@@ -1,4 +1,4 @@
-import { getIndexableCamRegionSlugs } from "@/lib/data/cam-regions";
+import { getAllCamRegionSlugs } from "@/lib/data/cam-regions";
 import { getAllForecastRegionSlugs } from "@/lib/data/forecast-regions";
 import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
 import { SITE_URL } from "@/lib/constants/seo";
@@ -403,8 +403,8 @@ export function collectStaticSeoUrls(): string[] {
   }
 
   urls.push(`${SITE_URL}/cams`);
-  for (const slug of getIndexableCamRegionSlugs()) {
-    urls.push(`${SITE_URL}/cams/${slug}`);
+  for (const slug of getAllCamRegionSlugs()) {
+    urls.push(`${SITE_URL}/surf-cams/${slug}`);
   }
 
   for (const region of HUB_REGION_SLUGS) {
