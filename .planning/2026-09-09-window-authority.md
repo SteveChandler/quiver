@@ -53,10 +53,25 @@ Module: `lib/services/discovery/window-authority.ts`.
 Native prefers the new fields in `buildDiscoveryForecastContext`, the Week Scout adapter and
 the Explore → Beach Detail CTA bounds; `buildLookingAhead` no longer names a best window.
 
+## Second finding (review harness, same captured rows)
+
+With the cap gone the bounds agreed, but for Thursday the selector ranked the morning window
+(8:00 AM–12:00 PM) first while Week Scout's cross-window comparator (hero `rankingScore` +
+distance) still nominated the evening window (5:00–7:04 PM) for the same beach. Week Scout was
+re-picking a window inside a beach. Rule added: `isBeachDayBest` marks the selector's pick per
+beach and day; the day best, the canonical candidates, the hold fallback and the Weekend Scout
+lead are chosen only among those. Preview windows stay in the response. Evidence:
+`.planning/evidence/2026-09-09-window-authority/review-harness.md`.
+
+Visible consequence: a poor day now shows fewer preview cells than before (one full-day run
+returns only the windows above the selector's threshold, plus one fallback), where the per-bucket
+runs used to fill all three cells with bucket-local fallbacks.
+
 ## Packets
 
 - A (web): authority module + discovery/surf-call wiring + peak-finder fix.
 - B (web): Week Scout + Weekend Scout on the authority, beach timezone bucketing.
+- B2 (web): Week Scout ranks beaches only; `isBeachDayBest`.
 - C (web): daily intel on the selector; retire `bestWindowHeuristic`.
 - N (native): consume the fields; retire the client "looks best" claim; beach-timezone "today".
 
