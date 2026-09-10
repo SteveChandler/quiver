@@ -6,8 +6,10 @@ const mockScore = jest.fn();
 const mockProfile = { id: "profile" };
 const mockSnapshot = { id: "snapshot" };
 const mockCharacter = { label: "Clean", category: "medium-clean" };
-const mockGetRecommendationLabel = jest.fn(() => "Maybe");
-const mockGetRecommendationLabelGated = jest.fn(() => "Worth it");
+const mockGetRecommendationLabel = jest.fn((_score: number) => "Maybe");
+const mockGetRecommendationLabelGated = jest.fn(
+  (_score: number, _category: string | null | undefined) => "Worth it",
+);
 
 jest.mock("@/lib/domains/scoring", () => ({
   beachToSpotProfile: jest.fn(() => mockProfile),
@@ -17,9 +19,11 @@ jest.mock("@/lib/domains/scoring", () => ({
 }));
 
 jest.mock("@/lib/services/discovery/response-formatter", () => ({
-  getRecommendationLabel: (...args: unknown[]) => mockGetRecommendationLabel(...args),
-  getRecommendationLabelGated: (...args: unknown[]) =>
-    mockGetRecommendationLabelGated(...args),
+  getRecommendationLabel: (score: number) => mockGetRecommendationLabel(score),
+  getRecommendationLabelGated: (
+    score: number,
+    category: string | null | undefined,
+  ) => mockGetRecommendationLabelGated(score, category),
 }));
 
 describe("resolveRecommendationLabel", () => {
