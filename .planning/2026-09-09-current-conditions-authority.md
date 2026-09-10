@@ -48,3 +48,25 @@ features use it only as a gap-fill fallback for the sheet.
 - B (web): map UI reads `recommendationLabels`/`displaySwell`; offshore label on the callout.
 - N (native): route-backed `useCurrentConditions`, map sheets on the route row, unified
   `rowDisplaySwell`, label chip.
+
+## Contract test and what it forced (2026-09-09, evening)
+
+`__tests__/contracts/surf-authority-contract.test.ts` (web) and
+`src/__tests__/contracts/current-conditions-contract.test.ts` (native) assert producer-vs-producer
+equality rather than fixed strings. The web test found two more divergences and each became a rule:
+
+4. **The bulk route's "now" describes one row.** Without `selectedAt`, `displayForecasts`,
+   `conditionScores`, `recommendationLabels` and `selectedScoreForecastAtByBeach` now come from the
+   designated current row, the same row `swellPartitions`/`displaySwell` and now-mode discovery use.
+   Before, they came from today's best-window row (`resolveTodayHeadline`), a future row mid-day, so a
+   marker was coloured and labelled for a later window while its sheet showed the current row. The
+   headline stays available additively as `todayHeadlines[beachId]` (`label, minFt, maxFt,
+   forecastAt, windowStart, windowEnd, displayWindowStart, displayWindowEnd`); nothing on the web map
+   consumes it yet.
+5. **One swell-period formatter.** `lib/formatters/surf-data.ts` keeps one decimal (`6.9s`, `9s`),
+   matching native; the surf-call context's private copy is gone. Web tests that pinned integer
+   rounding (`7s`, `12s`, `13s`) were updated, no E2E expectation changed.
+
+Deliberately untouched: the web forecast pages' `getScoreCall` phrases (`score-band-call.ts`) are a
+separate verdict producer outside the map; Week Scout's go/no-go (`verdictForScore` +
+`sourcesDisagree`) is likewise still its own rule (windows are unified, verdicts are not).
