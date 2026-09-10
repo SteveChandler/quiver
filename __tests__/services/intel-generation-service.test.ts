@@ -111,11 +111,8 @@ function forecastRow(
 
 function authorityResult(bestDayWindow: AuthoritativeWindow | null) {
   return {
-    localDate: "2026-06-20",
-    timezone: "America/Los_Angeles",
     bestDayWindow,
     dayparts: { morning: null, midday: null, evening: bestDayWindow },
-    rankedWindows: bestDayWindow ? [bestDayWindow] : [],
   };
 }
 

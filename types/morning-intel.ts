@@ -86,8 +86,6 @@ export interface MorningIntelSurfConditionsPayloadV2 {
   conditions?: ConditionsAnalysis;
 
   bestWindow: string;
-  bestWindowStart?: string;
-  bestWindowEnd?: string;
   confidence: "Low" | "Medium" | "High";
 
   surf: SurfMetrics;

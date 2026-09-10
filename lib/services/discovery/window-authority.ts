@@ -18,11 +18,8 @@ export type AuthoritativeWindow = PersonalizedForecastWindow & {
 export type WindowDaypart = 'morning' | 'midday' | 'evening';
 
 export interface BeachDayWindowAuthority {
-  localDate: string;
-  timezone: string;
   bestDayWindow: AuthoritativeWindow | null;
   dayparts: Record<WindowDaypart, AuthoritativeWindow | null>;
-  rankedWindows: AuthoritativeWindow[];
 }
 
 export const WINDOW_AUTHORITY_MAX_WINDOWS = 6;
@@ -107,12 +104,8 @@ export function deriveDisplayWindow({
 
 export function withDisplayWindow(
   window: PersonalizedForecastWindow,
-  timezone?: string | null,
 ): AuthoritativeWindow {
-  // The selector already stamped the frame it computed the window in; a
-  // caller-supplied zone only fills a gap, so the response contract's
-  // `timezone` never changes underneath an installed client.
-  const resolvedTimezone = resolveBeachTimezone(window.timezone || timezone);
+  const resolvedTimezone = resolveBeachTimezone(window.timezone);
   const peakTime = window.peakTime && containsTime(window.start, window.end, window.peakTime)
     ? window.peakTime
     : new Date((window.start.getTime() + window.end.getTime()) / 2);
@@ -166,11 +159,8 @@ export function selectBeachDayWindows(
 
   if (dayRows.length === 0) {
     return {
-      localDate,
-      timezone,
       bestDayWindow: null,
       dayparts,
-      rankedWindows: [],
     };
   }
 
@@ -178,7 +168,7 @@ export function selectBeachDayWindows(
     ...selectorOptions,
     forecasts: dayRows,
     maxWindows: WINDOW_AUTHORITY_MAX_WINDOWS,
-  }).map((window) => withDisplayWindow(window, timezone));
+  }).map(withDisplayWindow);
 
   for (const window of rankedWindows) {
     const daypart = daypartForTime(window.peakTime, timezone);
@@ -186,10 +176,7 @@ export function selectBeachDayWindows(
   }
 
   return {
-    localDate,
-    timezone,
     bestDayWindow: rankedWindows[0] ?? null,
     dayparts,
-    rankedWindows,
   };
 }

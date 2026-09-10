@@ -404,16 +404,10 @@ export function buildForecastRecommendationContext({
     const start = new Date(window.start);
     const end = new Date(window.end);
     const peak = new Date(window.peakTime ?? window.start);
-    const providedDisplayStart = window.displayWindowStart
-      ? new Date(window.displayWindowStart)
-      : null;
-    const providedDisplayEnd = window.displayWindowEnd
-      ? new Date(window.displayWindowEnd)
-      : null;
-    const hasValidDisplayWindow = providedDisplayStart !== null
-      && providedDisplayEnd !== null
-      && !Number.isNaN(providedDisplayStart.getTime())
-      && !Number.isNaN(providedDisplayEnd.getTime())
+    const providedDisplayStart = new Date(window.displayWindowStart ?? "");
+    const providedDisplayEnd = new Date(window.displayWindowEnd ?? "");
+    const hasValidDisplayWindow = Number.isFinite(providedDisplayStart.getTime())
+      && Number.isFinite(providedDisplayEnd.getTime())
       && providedDisplayEnd > providedDisplayStart;
     const displayWindow = hasValidDisplayWindow
       ? { start: providedDisplayStart, end: providedDisplayEnd }

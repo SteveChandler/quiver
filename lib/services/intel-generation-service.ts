@@ -20,7 +20,6 @@ import {
   deriveSurfRange,
   recommendTideWindow,
   primarySecondarySwell,
-  tideAt,
   windAt,
   confidenceHeuristic,
   analyzeConditions,
@@ -138,21 +137,7 @@ export class IntelGenerationService {
   private async fetchBeach(beachId: string): Promise<Beach | null> {
     const { data: beach, error } = await this.supabase
       .from("beaches")
-      .select(
-        "id, name, slug, lat, lon, city, state, country, region, " +
-          "timezone, break_type, skill_level, cdip_station, cdip_eligible, " +
-          "recommendation_eligible, " +
-          "wind_offshore_deg, wind_offshore_tol_deg, " +
-          "wind_cross_shore_ok_kt, wind_onshore_bad_kt, " +
-          "max_wind_onshore_mph, max_wind_any_mph, " +
-          "swell_window_min_deg, swell_window_max_deg, " +
-          "swell_window_center_deg, swell_window_halfwidth_deg, " +
-          "swell_access_factors, wind_exposure_factors, " +
-          "shoaling_factors, aspect_deg, " +
-          "preferred_tide_direction, preferred_tide_ft_min, " +
-          "preferred_tide_ft_max, tide_direction_sensitivity, preference_model, " +
-          "features, hazards, average_rating, review_count, deleted_at"
-      )
+      .select("*")
       .eq("id", beachId)
       .single();
 
@@ -324,7 +309,6 @@ export class IntelGenerationService {
   private formatBestWindow(
     window: AuthoritativeWindow | null,
     fullDayForecasts: ForecastSlice["forecasts"],
-    tides: ForecastSlice["tides"],
     timezone: string
   ): string {
     if (!window) return "Variable conditions; check throughout the morning";
@@ -332,17 +316,10 @@ export class IntelGenerationService {
     const startTime = formatInTimeZone(window.displayWindowStart, timezone, "HH:mm");
     const endTime = formatInTimeZone(window.displayWindowEnd, timezone, "HH:mm");
     const peakTime = formatInTimeZone(window.peakTime, timezone, "HH:mm");
-    const tide = tideAt(peakTime, tides, timezone);
     const wind = windAt(peakTime, fullDayForecasts, timezone);
-    const tideNote =
-      tide.direction === "falling" && tide.height > 3
-        ? " on the drop"
-        : tide.direction === "rising" && tide.height < 4
-          ? " on the push"
-          : "";
     const windNote = wind.offshore ? "; cleaner before onshores" : "";
 
-    return `${startTime}–${endTime}${tideNote}${windNote}`;
+    return `${startTime}–${endTime}${windNote}`;
   }
 
   /**
@@ -368,7 +345,6 @@ export class IntelGenerationService {
     const bestWindow = this.formatBestWindow(
       bestDayWindow,
       fullDayForecasts,
-      slice.tides,
       timezone
     );
     const confidence = confidenceHeuristic(slice.forecasts, slice.tides);

@@ -1856,7 +1856,7 @@ async function discoverSurfSpotsInner(
     }
 
     if (forecastAt || discoveryMode !== 'now') {
-      selectedWindows = selectedWindows.map((window) => withDisplayWindow(window, beachTz));
+      selectedWindows = selectedWindows.map(withDisplayWindow);
     }
 
     if (selectedWindows.length === 0) {

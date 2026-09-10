@@ -114,10 +114,17 @@ describe('selectBeachDayWindows', () => {
       forecasts: requestedDayRows,
       maxWindows: WINDOW_AUTHORITY_MAX_WINDOWS,
     }));
-    expect(result.bestDayWindow).toBe(result.rankedWindows[0]);
-    expect(result.dayparts.morning).toBe(result.bestDayWindow);
-    expect(result.dayparts.morning?.peakTime.toISOString()).toBe('2026-09-09T15:00:00.000Z');
-    expect(result.dayparts.midday).toBe(result.rankedWindows[2]);
+    expect(result.bestDayWindow).toBe(result.dayparts.morning);
+    expect(result.dayparts.morning).toMatchObject({
+      ...ranked[0],
+      displayWindowStart: new Date('2026-09-09T14:00:00.000Z'),
+      displayWindowEnd: new Date('2026-09-09T16:30:00.000Z'),
+    });
+    expect(result.dayparts.midday).toMatchObject({
+      ...ranked[2],
+      displayWindowStart: new Date('2026-09-09T18:00:00.000Z'),
+      displayWindowEnd: new Date('2026-09-09T20:30:00.000Z'),
+    });
     expect(result.dayparts.evening).toBeNull();
   });
 
@@ -134,11 +141,8 @@ describe('selectBeachDayWindows', () => {
 
     expect(selectWindows).not.toHaveBeenCalled();
     expect(result).toEqual({
-      localDate: '2026-09-09',
-      timezone,
       bestDayWindow: null,
       dayparts: { morning: null, midday: null, evening: null },
-      rankedWindows: [],
     });
   });
 });
