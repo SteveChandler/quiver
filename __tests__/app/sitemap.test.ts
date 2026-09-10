@@ -952,6 +952,8 @@ describe("Sitemap Generation", () => {
           { city: "Newport Beach", state: "CA", country: "USA", beachCount: 10, hasBeginnerBeaches: true, hasAdvancedBeaches: true, hasLeastCrowdedBeaches: false },
           { city: "Koloa", state: "HI", country: "USA", beachCount: 3, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false },
           { city: "Waikoloa", state: "HI", country: "USA", beachCount: 5, hasBeginnerBeaches: false, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false },
+          { city: "Ocean City", state: "NJ", country: "USA", beachCount: 3, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false },
+          { city: "Ocean City", state: "MD", country: "USA", beachCount: 3, hasBeginnerBeaches: true, hasAdvancedBeaches: false, hasLeastCrowdedBeaches: false },
         ],
       });
 
@@ -970,6 +972,12 @@ describe("Sitemap Generation", () => {
 
       // "waikoloa" is NOT in collision list → no suffix
       expect(result.find((r) => r.url === `${baseUrl}/tide/waikoloa`)).not.toBeUndefined();
+
+      // Ocean City exists in NJ and MD, so both sitemap routes are state-qualified.
+      expect(result.find((r) => r.url === `${baseUrl}/tide/ocean-city-nj`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/ocean-city-md`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/ocean-city`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/longboard/ocean-city-nj`)).not.toBeUndefined();
     });
 
     it("should still include non-filtered intents for all cities regardless of skill/crowd flags", async () => {

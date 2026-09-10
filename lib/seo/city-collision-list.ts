@@ -21,6 +21,7 @@ export const COLLISION_CITY_MAP = new Map<string, number>([
   ["koloa", 2],       // HI - substring collision (matches waikoloa)
   ["long-beach", 3],  // CA, NY, WA
   ["newport", 2],     // OR - substring of newport-beach, newport-coast
+  ["ocean-city", 2],  // NJ, MD
 ]);
 
 /**
