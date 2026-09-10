@@ -103,6 +103,33 @@ describe("city intent indexability", () => {
     expect(String(metadata.description).length).toBeLessThanOrEqual(160);
   });
 
+  it("keeps the state-qualified Ocean City longboard route indexable", async () => {
+    (findCityBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: {
+        cityName: "Ocean City",
+        state: "NJ",
+        stateName: "New Jersey",
+        totalBeaches: 3,
+        beginnerCount: 1,
+        intermediateCount: 2,
+        advancedCount: 0,
+        beaches: [],
+        centerLat: 39.28,
+        centerLon: -74.57,
+      },
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ intent: "longboard", city: "ocean-city-nj" }),
+    });
+
+    expect(metadata.robots).toMatchObject({ index: true, follow: true });
+    expect(metadata.alternates?.canonical).toContain(
+      "/longboard/ocean-city-nj",
+    );
+  });
+
   it("keeps /beginner/{city} noindexed without an approved editorial row", async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ intent: "beginner", city: "corolla" }),

@@ -43,6 +43,10 @@ describe("GSC performance protection", () => {
     ]);
   });
 
+  it("protects the state-qualified Ocean City longboard route", () => {
+    expect(isGscPerformanceProtected("/longboard/ocean-city-nj")).toBe(true);
+  });
+
   it("protects eligible Mexico five-segment subpages", () => {
     const result = buildGscProtectionSnapshot(
       exportInput([

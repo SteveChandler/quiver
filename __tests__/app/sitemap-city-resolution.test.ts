@@ -16,6 +16,7 @@
  */
 
 import { buildCitySlug, detectCityCollisions } from "@/lib/seo/city-slug-utils";
+import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { findCityBySlug } from "@/actions/city/city-metadata-actions";
 import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-actions";
 
@@ -77,6 +78,15 @@ jest.mock("@/lib/supabase/server", () => ({
 
 describe("Sitemap City Slug Resolution", () => {
   describe("buildCitySlug → findCityBySlug roundtrip", () => {
+    it("disambiguates Ocean City URLs by state", () => {
+      expect(buildCitySlug("Ocean City", "NJ", COLLISION_CITY_MAP)).toBe(
+        "ocean-city-nj",
+      );
+      expect(buildCitySlug("Ocean City", "MD", COLLISION_CITY_MAP)).toBe(
+        "ocean-city-md",
+      );
+    });
+
     it("resolves unique city slugs without state suffix", async () => {
       // Santa Cruz is unique - no collision
       const collisions = new Map<string, number>();
