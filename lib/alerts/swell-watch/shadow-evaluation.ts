@@ -102,7 +102,8 @@ export async function evaluateSwellWatchShadow(
     recipientCount: Math.max(0, ...recipientCounts.values()), projectedSendCount: null, providerFailures: null,
     hasDiscontinuousData: !!(reasons.continuity_broken || reasons.missing_immutable_issuance),
     hasMaterialDisagreement: !!(reasons.incoherent_evaluation || reasons.ambiguous_persisted_event), stale: false });
-  return { ...result, status: "evaluated", evaluationIds: [...new Set(cohort.runs.map((run) => run.source.evaluationId))].sort(),
+  return { ...result, status: "evaluated", scopeOutcomes: cohort.scopeOutcomes,
+    evaluationIds: [...new Set(cohort.runs.map((run) => run.source.evaluationId))].sort(),
     candidateCount: candidates.length, stableRegionalEventCount: events.length,
     preSafetyRecipientsThisEvaluation: recipients.length, safety, recordedDemand };
 }
