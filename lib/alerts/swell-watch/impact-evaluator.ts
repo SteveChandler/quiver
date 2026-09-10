@@ -95,10 +95,10 @@ export function evaluateSwellWatchPhysicalImpact(input: PhysicalInput): Physical
 
 function validatePhysicalInput(input: PhysicalInput): Extract<SwellWatchImpactResult, { kind: "suppressed" }> | null {
   // Calculation is not release authority; enqueue and dispatch require the durable owner decision.
-  const productionPolicy = verifySwellWatchPolicy(input.policy)
+  const evaluationPolicy = verifySwellWatchPolicy(input.policy)
     && input.policy.schema_version === "swell-watch-policy.v2"
-    && input.policy.provenance === "production_approved";
-  if (!isProvisionalFixturePolicy(input.policy) && !productionPolicy) {
+    && (input.policy.provenance === "production_approved" || input.policy.provenance === "pending_review");
+  if (!isProvisionalFixturePolicy(input.policy) && !evaluationPolicy) {
     return { kind: "suppressed", reason: "invalid_provisional_policy" };
   }
   if (
