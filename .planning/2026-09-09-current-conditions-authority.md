@@ -63,9 +63,12 @@ equality rather than fixed strings. The web test found two more divergences and 
    headline stays available additively as `todayHeadlines[beachId]` (`label, minFt, maxFt,
    forecastAt, windowStart, windowEnd, displayWindowStart, displayWindowEnd`); nothing on the web map
    consumes it yet.
-5. **One swell-period formatter.** `lib/formatters/surf-data.ts` keeps one decimal (`6.9s`, `9s`),
-   matching native; the surf-call context's private copy is gone. Web tests that pinned integer
-   rounding (`7s`, `12s`, `13s`) were updated, no E2E expectation changed.
+5. **One display-period formatter.** `formatDisplaySwellPeriod` in
+   `lib/domains/conditions/display-swell.ts` (one decimal: `6.9s`, `9s`) is what the map and the
+   surf-call context print for a resolved display swell, mirroring native's
+   `formatDisplaySwellPeriod`. The persisted-string formatter in `lib/formatters/surf-data.ts`
+   (integer seconds, used by the forecast builder, NOAA processors, push and email copy) is
+   untouched: a first cut changed it and would have altered every stored `*_period` string.
 
 Deliberately untouched: the web forecast pages' `getScoreCall` phrases (`score-band-call.ts`) are a
 separate verdict producer outside the map; Week Scout's go/no-go (`verdictForScore` +
