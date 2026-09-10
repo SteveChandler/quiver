@@ -4,7 +4,7 @@ import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
-import type { ConditionSummary } from "@/components/map/map-beach-loader";
+import type { RecommendationLabel } from "@/components/map/map-beach-loader";
 import type {
   MapBeach,
   WaterQualityHoldKind,
@@ -15,13 +15,8 @@ export type MapDisplayMode = "wave-height" | "water-temp";
 export type MapMarkerDisplay = "forecast" | "points";
 
 export interface ConditionMarkerCall {
-  summary: ConditionSummary;
   label:
-    | "Go now!"
-    | "Go surf!"
-    | "Worth a look"
-    | "Slim pickings"
-    | "Skip it"
+    | Exclude<RecommendationLabel, null>
     | "Water quality advisory"
     | "Water quality closure"
     | "Water quality hold"
@@ -31,21 +26,18 @@ export interface ConditionMarkerCall {
 
 export interface MarkerPreviewData {
   waveLabel?: string | null;
-  conditionSummary?: ConditionSummary;
-  conditionScore?: number;
+  recommendationLabel?: RecommendationLabel;
   waterQualityHold?: WaterQualityHoldKind | null;
 }
 
 export const CONDITION_MARKER_CALLS: ReadonlyArray<{
-  summary: ConditionSummary;
+  recommendationLabel: RecommendationLabel;
   label: ConditionMarkerCall["label"];
 }> = [
-  { summary: "EPIC", label: "Go now!" },
-  { summary: "GOOD", label: "Go surf!" },
-  { summary: "FAIR", label: "Worth a look" },
-  { summary: "RIDEABLE", label: "Slim pickings" },
-  { summary: "MEH", label: "Skip it" },
-  { summary: "UNKNOWN", label: "No read" },
+  { recommendationLabel: "Worth it", label: "Worth it" },
+  { recommendationLabel: "Maybe", label: "Maybe" },
+  { recommendationLabel: "Skip", label: "Skip" },
+  { recommendationLabel: null, label: "No read" },
 ];
 
 const WATER_QUALITY_HOLD_LABELS: Record<
@@ -83,49 +75,39 @@ export function getWaterTempBadgeColor(temp?: string | null): string {
 }
 
 export function getConditionMarkerGradient(
-  condition: ConditionSummary | WaterQualityHoldKind = "UNKNOWN",
+  condition: RecommendationLabel | "No read" | WaterQualityHoldKind = null,
 ): string {
   // Derived from Quiver brand/score colors but darkened for white marker text
   // on light map tiles; raw native teal (#00D4AA) is too low-contrast here.
   if (condition in WATER_QUALITY_HOLD_LABELS) {
     return "linear-gradient(to right, #991B1B, #B91C1C)";
   }
-  const summary = condition as ConditionSummary;
-  if (summary === "EPIC") {
-    return "linear-gradient(to right, #8A5A00, #B87900)";
-  }
-  if (summary === "GOOD") return "linear-gradient(to right, #005B52, #008F7A)";
-  if (summary === "FAIR") return "linear-gradient(to right, #8A4A12, #9E5010)";
-  if (summary === "RIDEABLE") {
-    return "linear-gradient(to right, #475569, #64748B)";
-  }
-  if (summary === "MEH") return "linear-gradient(to right, #334155, #475569)";
+  if (condition === "Worth it") return "linear-gradient(to right, #005B52, #008F7A)";
+  if (condition === "Maybe") return "linear-gradient(to right, #8A4A12, #9E5010)";
+  if (condition === "Skip") return "linear-gradient(to right, #334155, #475569)";
   return "linear-gradient(to right, #F4ECD8, #F4ECD8)";
 }
 
 export function getConditionMarkerCall({
-  conditionSummary,
+  recommendationLabel,
   waterQualityHold,
 }: {
-  conditionSummary?: ConditionSummary;
-  conditionScore?: number;
+  recommendationLabel?: RecommendationLabel;
   waterQualityHold?: WaterQualityHoldKind | null;
 }): ConditionMarkerCall {
-  const summary = conditionSummary ?? "UNKNOWN";
   const label = waterQualityHold
     ? WATER_QUALITY_HOLD_LABELS[waterQualityHold]
-    : CONDITION_MARKER_CALLS.find((item) => item.summary === summary)?.label ??
+    : CONDITION_MARKER_CALLS.find((item) => item.recommendationLabel === (recommendationLabel ?? null))?.label ??
       "No read";
 
   return {
-    summary,
     label,
-    gradient: getConditionMarkerGradient(waterQualityHold ?? summary),
+    gradient: getConditionMarkerGradient(waterQualityHold ?? recommendationLabel),
   };
 }
 
-function getWaveHeightBadgeColor(summary?: ConditionSummary): string {
-  return getConditionMarkerGradient(summary ?? "UNKNOWN");
+function getWaveHeightBadgeColor(label?: RecommendationLabel): string {
+  return getConditionMarkerGradient(label);
 }
 
 function formatFallbackWaveHeight(waveHeight?: number | string | null): string {
@@ -163,8 +145,8 @@ export interface MarkerBuilderDeps {
   waterTemp?: string | null;
   /** Canonical API-provided wave label for wave-height mode */
   waveHeightLabel?: string | null;
-  /** Native-aligned condition summary for wave-height mode marker color */
-  conditionSummary?: ConditionSummary;
+  /** Server-owned recommendation label for wave-height mode marker color */
+  recommendationLabel?: RecommendationLabel;
   /** 0-100 condition score, reserved for tooltips/analytics */
   conditionScore?: number;
   /** Map visibility warning; does not make the beach recommendation-eligible. */
@@ -209,7 +191,7 @@ export function createWaveHeightBadge(
     const isFavorite = deps.favoriteBeachIds.has(location.id);
     const displayMode = deps.displayMode ?? "wave-height";
     const markerDisplay = deps.markerDisplay ?? "forecast";
-    const conditionSummary = deps.conditionSummary ?? "UNKNOWN";
+    const recommendationLabel = deps.recommendationLabel ?? null;
     const previewWaveLabel =
       deps.waveHeightLabel ??
       (displayMode === "wave-height" ? formatFallbackWaveHeight(waveHeight) : null);
@@ -224,8 +206,7 @@ export function createWaveHeightBadge(
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const conditionMarkerCall = getConditionMarkerCall({
-      conditionSummary,
-      conditionScore: deps.conditionScore,
+      recommendationLabel,
       waterQualityHold: deps.waterQualityHold,
     });
 
@@ -236,7 +217,7 @@ export function createWaveHeightBadge(
     wrapper.setAttribute("aria-label", location.name);
     wrapper.setAttribute("data-testid", "beach-marker");
     wrapper.setAttribute("data-beach-id", location.id);
-    wrapper.setAttribute("data-condition-summary", conditionSummary);
+    wrapper.setAttribute("data-condition-summary", conditionMarkerCall.label);
     wrapper.setAttribute(
       "data-water-quality-hold",
       deps.waterQualityHold ?? "none",
@@ -283,7 +264,7 @@ export function createWaveHeightBadge(
         ? getConditionMarkerGradient(deps.waterQualityHold)
         : displayMode === "water-temp"
         ? getWaterTempBadgeColor(deps.waterTemp)
-        : getWaveHeightBadgeColor(conditionSummary);
+        : getWaveHeightBadgeColor(recommendationLabel);
     badge.setAttribute("data-marker-badge", "true");
     badge.setAttribute("data-marker-gradient", markerGradient);
     badge.style.cssText = `
@@ -327,7 +308,7 @@ export function createWaveHeightBadge(
     if (isFavorite) {
       visual.style.borderColor = "#FDB84B";
     }
-    if (conditionSummary === "UNKNOWN" && !deps.waterQualityHold) {
+    if (recommendationLabel === null && !deps.waterQualityHold) {
       visual.style.background = "#F4ECD8";
       visual.style.borderColor = "#64748B";
       visual.style.borderStyle = "dashed";
@@ -349,8 +330,7 @@ export function createWaveHeightBadge(
         deps.onPreviewHold?.();
         deps.onPreviewOpen(location, deps.previewLngLat, {
           waveLabel: hasPreviewWaveLabel,
-          conditionSummary,
-          conditionScore: deps.conditionScore,
+          recommendationLabel,
           waterQualityHold: deps.waterQualityHold,
         });
       }
@@ -389,8 +369,7 @@ export function createWaveHeightBadge(
           deps.onPreviewHold?.();
           deps.onPreviewOpen(location, deps.previewLngLat, {
             waveLabel: hasPreviewWaveLabel,
-            conditionSummary,
-            conditionScore: deps.conditionScore,
+            recommendationLabel,
             waterQualityHold: deps.waterQualityHold,
           });
         }

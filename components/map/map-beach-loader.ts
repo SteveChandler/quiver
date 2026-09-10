@@ -1,6 +1,5 @@
 import type { Beach } from "@/types/database";
 import type {
-  ConditionSummary,
   HourlySwellTimeline,
   SwellPartition,
 } from "@/app/api/forecasts/bulk/route";
@@ -10,16 +9,20 @@ import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import { MAX_TIMELINE_FIELD_BEACHES, selectTimelineFieldBeachIds } from "@/components/map/timeline-beach-sampler";
 import { forecastCache } from "@/lib/utils/request-cache";
 
-export type { ConditionSummary } from "@/app/api/forecasts/bulk/route";
 export type ForecastLoadStatus = "ready" | "empty" | "unavailable";
+export type RecommendationLabel = "Worth it" | "Maybe" | "Skip" | null;
 
-const VALID_CONDITION_SUMMARIES = new Set<ConditionSummary>([
-  "EPIC",
-  "GOOD",
-  "FAIR",
-  "RIDEABLE",
-  "MEH",
-  "UNKNOWN",
+export interface DisplaySwell {
+  periodSeconds: number | null;
+  directionDeg: number | null;
+  heightFt: number | null;
+  source: "partition" | "offshore";
+}
+
+const VALID_RECOMMENDATION_LABELS = new Set<Exclude<RecommendationLabel, null>>([
+  "Worth it",
+  "Maybe",
+  "Skip",
 ]);
 
 /**
@@ -49,8 +52,10 @@ export interface BeachLoaderResult {
   waterTempMap: Map<string, string | undefined>;
   /** Map from beach ID to 0-100 condition score */
   conditionScoreMap: Map<string, number | undefined>;
-  /** Map from beach ID to native-aligned condition summary */
-  conditionSummaryMap: Map<string, ConditionSummary>;
+  /** Map from beach ID to the server-owned recommendation label. */
+  recommendationLabelMap: Map<string, RecommendationLabel>;
+  /** Map from beach ID to the server-selected swell tuple for display. */
+  displaySwellMap: Map<string, DisplaySwell>;
   /** Map from beach ID to whether the displayed height uses beach calibration */
   isCalibratedMap: Map<string, boolean>;
   /** Map from beach ID to parsed swell/wind partition for the flow field */
@@ -163,7 +168,16 @@ function isSwellPartition(value: unknown): value is SwellPartition {
   }
 
   return (!("swellDirOm" in partition) || isFiniteNumberOrNull(partition.swellDirOm))
-    && (!("conditionScore" in partition) || isFiniteNumberOrNull(partition.conditionScore));
+    && (!("conditionScore" in partition) || isFiniteNumberOrNull(partition.conditionScore))
+    && (!("s1Source" in partition) || partition.s1Source === "partition" || partition.s1Source === "offshore");
+}
+
+function isDisplaySwell(value: unknown): value is DisplaySwell {
+  if (!isRecord(value)) return false;
+  return isFiniteNumberOrNull(value.periodSeconds)
+    && isFiniteNumberOrNull(value.directionDeg)
+    && isFiniteNumberOrNull(value.heightFt)
+    && (value.source === "partition" || value.source === "offshore");
 }
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -339,7 +353,8 @@ export async function loadBeachesAndWaveHeights(
   const displayForecastMap = new Map<string, ForecastDisplay | undefined>();
   const waterTempMap = new Map<string, string | undefined>();
   const conditionScoreMap = new Map<string, number | undefined>();
-  const conditionSummaryMap = new Map<string, ConditionSummary>();
+  const recommendationLabelMap = new Map<string, RecommendationLabel>();
+  const displaySwellMap = new Map<string, DisplaySwell>();
   const isCalibratedMap = new Map<string, boolean>();
   const partitionsMap = new Map<string, SwellPartition>();
   const partitionsTimelineMap = new Map<string, SwellPartition[]>();
@@ -470,11 +485,16 @@ export async function loadBeachesAndWaveHeights(
           }
         });
 
-        const conditionSummaries = data?.data?.conditionSummaries || {};
-        Object.entries(conditionSummaries).forEach(([beachId, summary]) => {
-          if (VALID_CONDITION_SUMMARIES.has(summary as ConditionSummary)) {
-            conditionSummaryMap.set(beachId, summary as ConditionSummary);
+        const recommendationLabels = data?.data?.recommendationLabels || {};
+        Object.entries(recommendationLabels).forEach(([beachId, label]) => {
+          if (label === null || VALID_RECOMMENDATION_LABELS.has(label as Exclude<RecommendationLabel, null>)) {
+            recommendationLabelMap.set(beachId, label as RecommendationLabel);
           }
+        });
+
+        const displaySwell = data?.data?.displaySwell || {};
+        Object.entries(displaySwell).forEach(([beachId, swell]) => {
+          if (isDisplaySwell(swell)) displaySwellMap.set(beachId, swell);
         });
 
         const calibrationStatuses = data?.data?.isCalibrated || {};
@@ -581,7 +601,8 @@ export async function loadBeachesAndWaveHeights(
     displayForecastMap,
     waterTempMap,
     conditionScoreMap,
-    conditionSummaryMap,
+    recommendationLabelMap,
+    displaySwellMap,
     isCalibratedMap,
     partitionsMap,
     partitionsTimelineMap,
