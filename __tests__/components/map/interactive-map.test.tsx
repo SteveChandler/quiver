@@ -837,12 +837,14 @@ describe("InteractiveMap", () => {
         beaches={[{ id: "beach-1", name: "Beach", lat: 32.75, lon: -117.25 } as import("@/types/database").Beach]}
         onHourlyTimelineLoaded={onHourlyTimelineLoaded}
         swellTimelineMode="hourly"
+        swellTimelineStart="2026-07-10T20:00:00.000Z"
       />,
     );
 
     await waitFor(() => {
       expect(onHourlyTimelineLoaded).toHaveBeenCalledWith(timeline);
     });
+    expect((global.fetch as jest.Mock).mock.calls.some(([url]) => new URL(String(url), 'https://example.com').searchParams.get('timelineStart') === '2026-07-10T20:00:00.000Z')).toBe(true);
   });
 
   it("commits current enrichment before the full hourly timeline resolves", async () => {

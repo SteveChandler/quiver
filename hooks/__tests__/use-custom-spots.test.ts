@@ -21,6 +21,17 @@ describe("useCustomSpots", () => {
     jest.clearAllMocks();
   });
 
+  it('refreshes the retained map list when it becomes active again', async () => {
+    const query = setupSupabaseQuery({ data: [], error: null });
+    const { rerender, result } = renderHook(({ active }) => useCustomSpots(active), { initialProps: { active: true } });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    rerender({ active: false });
+    expect(query.from).toHaveBeenCalledTimes(1);
+    query.is.mockResolvedValue({ data: [{ id: "new", name: "New beach", lat: 21, lon: -157, visibility: "public" }], error: null });
+    rerender({ active: true });
+    await waitFor(() => expect(result.current.customSpots).toEqual([expect.objectContaining({ id: "new", visibility: "public" })]));
+  });
+
   it("maps custom spot rows and filters non-finite coordinates", async () => {
     const query = setupSupabaseQuery({
       data: [

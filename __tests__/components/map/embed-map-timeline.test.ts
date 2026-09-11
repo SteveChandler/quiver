@@ -1,5 +1,6 @@
 import {
   HOURLY_EMBED_TIMELINE_STEPS,
+  embedTimelineStart,
   embedTimelineArrayPositionForHourOffset,
   forecastAtForEmbedTimelineIndex,
   formatEmbedMapTimelineLabel,
@@ -10,10 +11,10 @@ import {
 describe("embed map hourly timeline", () => {
   const now = new Date(2026, 6, 9, 15, 30);
 
-  it("exposes every hour from now through +12 days", () => {
-    expect(HOURLY_EMBED_TIMELINE_STEPS).toHaveLength(12 * 24 + 1);
+  it("exposes every hour across the full 14-day API range", () => {
+    expect(HOURLY_EMBED_TIMELINE_STEPS).toHaveLength(14 * 24);
     expect(HOURLY_EMBED_TIMELINE_STEPS[0]).toBe(0);
-    expect(HOURLY_EMBED_TIMELINE_STEPS.at(-1)).toBe(12 * 24);
+    expect(HOURLY_EMBED_TIMELINE_STEPS.at(-1)).toBe(14 * 24 - 1);
   });
 
   it("formats same-day and next-day labels for the standalone embed", () => {
@@ -44,7 +45,7 @@ describe("embed map hourly timeline", () => {
 
     const labels = hourlyEmbedTimelineLabels(now, timestamps, "Invalid/Timezone");
 
-    expect(labels).toHaveLength(12 * 24 + 1);
+    expect(labels).toHaveLength(14 * 24);
     expect(labels[0]).toBe("Fri 8 PM");
     expect(labels[1]).toBe("Fri 9 PM");
     expect(labels[2]).toBe("Fri 10 PM");
@@ -90,4 +91,11 @@ describe("embed map hourly timeline", () => {
     );
     expect(embedTimelineArrayPositionForHourOffset(timestamps, 2)).toBe(2);
   });
+});
+
+it('validates a detail forecast start without dropping earlier hours', () => {
+  expect(embedTimelineStart('2026-09-10T11:00:00-10:00')).toBe('2026-09-10T21:00:00.000Z');
+  for (const value of [null, 'bad', '2026-09-10T11:00:00', '2026-09-10T11:30:00Z']) {
+    expect(embedTimelineStart(value)).toBeUndefined();
+  }
 });

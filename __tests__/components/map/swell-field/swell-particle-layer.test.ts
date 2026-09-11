@@ -78,7 +78,7 @@ describe("swell particle layer — pure exports", () => {
 
   it("keeps the desktop count populated but well below a dense blanket", () => {
     expect(PARTICLE_COUNT_DESKTOP).toBe(650);
-    expect(PARTICLE_COUNT_MOBILE).toBe(520);
+    expect(PARTICLE_COUNT_MOBILE).toBe(280);
     // Denser than the first pass (which read too sparse) but still far below the
     // earlier 4000 blanket.
     expect(PARTICLE_COUNT_DESKTOP).toBeLessThanOrEqual(800);
@@ -183,12 +183,14 @@ describe("createSwellParticleLayer — particle count", () => {
     fields?: FlowField[];
     captureUploads?: boolean;
     timestamps?: number[];
+    bounds?: { getWest(): number; getSouth(): number; getEast(): number; getNorth(): number };
     beforeRender?: (map: import("mapbox-gl").Map, index: number) => void;
   }): {
     mode: number;
     vertexCount: number;
     draws: { mode: number; vertexCount: number }[];
     uploads: number[][];
+    matrix: number[];
     repaintCalls: number;
     activeCount: number;
     LINES: number;
@@ -248,7 +250,7 @@ describe("createSwellParticleLayer — particle count", () => {
 
     const triggerRepaint = jest.fn();
     const map = {
-      getBounds: () => null,
+      getBounds: () => opts?.bounds ?? null,
       getCanvas: () => ({
         width: 1440,
         getBoundingClientRect: () => ({
@@ -289,7 +291,7 @@ describe("createSwellParticleLayer — particle count", () => {
     try {
       for (let i = 0; i < (opts?.renders ?? 1); i += 1) {
         opts?.beforeRender?.(map, i);
-        layer.render(gl, new Array(16).fill(0));
+        layer.render(gl, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
       }
     } finally {
       nowSpy?.mockRestore();
@@ -304,6 +306,7 @@ describe("createSwellParticleLayer — particle count", () => {
       vertexCount: draws[0].vertexCount,
       draws,
       uploads,
+      matrix: Array.from((gl.uniformMatrix4fv as jest.Mock).mock.calls.at(-1)[2] as Float32Array),
       repaintCalls: triggerRepaint.mock.calls.length,
       activeCount: layer.getActiveParticleCount(),
       LINES,
@@ -311,6 +314,35 @@ describe("createSwellParticleLayer — particle count", () => {
       TRIANGLES,
     };
   }
+
+  it("advects north at beach zoom instead of rounding small steps to zero", () => {
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+    try {
+      const { uploads } = renderedDraw({
+        count: 1, markStyle: "dot", captureUploads: true, reducedMotion: false,
+        renders: 61, timestamps: Array.from({ length: 61 }, (_, i) => i * 1000 / 60),
+        bounds: { getWest: () => -157.84, getEast: () => -157.835, getSouth: () => 21.277, getNorth: () => 21.282 },
+        field: { cols: 1, rows: 1, cells: [{ lon: -157.838, lat: 21.279, vx: 0, vy: -1, speed: 0.6, alpha: 1 }] },
+      });
+      expect(uploads[120][1]).toBeLessThan(uploads[0][1] - 1e-7);
+      expect(uploads[120][0]).toBe(uploads[0][0]);
+    } finally { random.mockRestore(); }
+  });
+
+  it("keeps close-up crest widths stable while moving across GPU rounding boundaries", () => {
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+    try {
+      const { uploads } = renderedDraw({
+        count: 1, markStyle: "dash", captureUploads: true, reducedMotion: false,
+        renders: 61, timestamps: Array.from({ length: 61 }, (_, i) => i * 1000 / 60),
+        bounds: { getWest: () => -157.84, getEast: () => -157.835, getSouth: () => 21.277, getNorth: () => 21.282 },
+        field: { cols: 1, rows: 1, cells: [{ lon: -157.838, lat: 21.279, vx: 0, vy: -1, speed: 0.6, alpha: 1 }] },
+      });
+      const widths = uploads.filter((_, i) => i % 2 === 0).map(p => Math.hypot(p[2] - p[0], p[3] - p[1]));
+      expect(Math.min(...widths)).toBeGreaterThan(0);
+      expect(Math.max(...widths) / Math.min(...widths)).toBeLessThan(1.01);
+    } finally { random.mockRestore(); }
+  });
 
   it("spreads existing particles across the wider viewport after zooming out", () => {
     const mapbox = require("mapbox-gl").default;
@@ -325,7 +357,7 @@ describe("createSwellParticleLayer — particle count", () => {
     const positions = result.uploads[2];
     const xs = positions.filter((_, index) => index % 2 === 0);
     expect(Math.min(...xs)).toBeLessThan(-0.5);
-    expect(Math.max(...xs)).toBeGreaterThan(1.5);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(2);
     from.mockRestore();
   });
 
@@ -338,7 +370,7 @@ describe("createSwellParticleLayer — particle count", () => {
     expect(renderedVertexCount()).toBe(PARTICLE_COUNT_DESKTOP * 6);
   });
 
-  it("preserves the legacy particle positions after 100 frames", () => {
+  it("preserves the legacy trajectory within float rounding after 100 frames", () => {
     const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.25);
     const field: FlowField = {
       cols: 2,
@@ -373,7 +405,7 @@ describe("createSwellParticleLayer — particle count", () => {
       const positions = result.uploads.at(-2);
       expect(positions).toHaveLength(expected.length);
       positions?.forEach((position, index) => {
-        expect(position).toBeCloseTo(expected[index], 9);
+        expect(position + result.matrix[12 + index % 2]).toBeCloseTo(expected[index], 5);
       });
     } finally {
       randomSpy.mockRestore();
