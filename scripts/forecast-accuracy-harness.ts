@@ -39,20 +39,17 @@ import {
   type ForecastAccuracyMetric,
 } from "../lib/services/forecast/accuracy-metrics";
 import {
-  transformToFaceHeightDecomposed,
   type BeachTerrainConfig,
-  type SwellComponentInput,
   type WaveHeightSourceTag,
 } from "../lib/utils/wave-height-transformer";
-import { WAVE_HEIGHT_SOURCE_TAG_SET } from "../lib/utils/wave-height-source";
-import { METERS_TO_FEET } from "../lib/utils/unit-conversions";
+import { parseForecastDisplayReplayContext, replayForecastDisplayHeightM } from "../lib/utils/forecast-display-replay";
 
 config({ path: ".env.local" });
 config({ path: ".env.production.local" });
 
 const PAGE_SIZE = 1000;
 const CANONICAL_DISPLAY_SOURCE = "face-Hs-transformer-v1";
-const FORECAST_ACCURACY_HARNESS_REPORT_SCHEMA_VERSION = 1;
+const FORECAST_ACCURACY_HARNESS_REPORT_SCHEMA_VERSION = 2;
 const SESSION_FACE_HEIGHT_CONSISTENCY_TOLERANCE_M = 0.01;
 
 type TruthSource = "buoy" | "session" | "both";
@@ -89,6 +86,7 @@ interface PredictionRow extends ForecastAccuracyInputRow {
   has_horizon_bucket_provenance?: boolean;
   display_wave_source?: WaveHeightSourceTag | null;
   display_raw_input_height_m?: number | null;
+  display_replay_context?: unknown;
   noaa_swell_1_height_m: number | null;
   noaa_swell_1_period_s: number | null;
   noaa_swell_1_direction_deg: number | null;
@@ -622,6 +620,7 @@ const PREDICTION_HORIZON_BUCKET_SELECT_COLUMNS = ["forecast_horizon_bucket"];
 const PREDICTION_REPLAY_SELECT_COLUMNS = [
   "display_wave_source",
   "display_raw_input_height_m",
+  "display_replay_context",
 ];
 
 function predictionSelectColumns({
@@ -652,7 +651,7 @@ function isMissingOptionalPredictionColumnError(error: {
   if (
     isMissingColumn &&
     (message.includes("display_wave_source") ||
-      message.includes("display_raw_input_height_m"))
+      message.includes("display_replay_context") || message.includes("display_raw_input_height_m"))
   ) {
     return "replay";
   }
@@ -661,7 +660,7 @@ function isMissingOptionalPredictionColumnError(error: {
   }
   if (
     message.includes("display_wave_source") ||
-    message.includes("display_raw_input_height_m")
+    message.includes("display_replay_context") || message.includes("display_raw_input_height_m")
   ) {
     return "replay";
   }
@@ -997,6 +996,7 @@ function buildSessionTruthPredictionRows(
           prediction?.v5_shadow_height_m ??
           null,
         display_wave_source: prediction?.display_wave_source ?? null,
+        display_replay_context: prediction?.display_replay_context ?? null,
         display_raw_input_height_m:
           prediction?.display_raw_input_height_m ?? null,
         noaa_swell_1_height_m: prediction?.noaa_swell_1_height_m ?? null,
@@ -1080,10 +1080,7 @@ function applyProposedInput(
       continue;
     }
 
-    const proposedM = computeProposedDisplayHeightM(row, {
-      ...beach,
-      ...override,
-    });
+    const proposedM = computeProposedDisplayHeightM(row, override);
     if (proposedM == null) {
       output.push(row);
       missingCount++;
@@ -1191,102 +1188,22 @@ function hasHorizonBucketProvenance(row: PredictionRow): boolean {
 }
 
 function hasDisplayReplayProvenance(row: PredictionRow): boolean {
-  return (
-    row.display_wave_source != null &&
-    WAVE_HEIGHT_SOURCE_TAG_SET.has(row.display_wave_source) &&
-    typeof row.display_raw_input_height_m === "number" &&
-    Number.isFinite(row.display_raw_input_height_m) &&
-    row.display_raw_input_height_m >= 0
-  );
+  return computeProposedDisplayHeightM(row, {}) != null;
 }
 
 function computeProposedDisplayHeightM(
   row: PredictionRow,
-  beach: BeachTerrainConfig
+  overrides: BeachTerrainConfig
 ): number | null {
-  const components = [
-    toComponent(
-      row.noaa_swell_1_height_m,
-      row.noaa_swell_1_period_s,
-      row.noaa_swell_1_direction_deg
-    ),
-    toComponent(
-      row.noaa_swell_2_height_m,
-      row.noaa_swell_2_period_s,
-      row.noaa_swell_2_direction_deg
-    ),
-    toComponent(
-      row.noaa_wind_wave_height_m,
-      row.noaa_wind_wave_period_s,
-      row.noaa_wind_wave_direction_deg,
-      "wind_wave"
-    ),
-  ];
-  const hasComponent = components.some((component) => component != null);
-  const replaySource = getReplayWaveSource(row, hasComponent);
-  const replayComponents =
-    replaySource === "model_swell" ? components : [null, null, null];
-  const rawHeightM = firstNonnegativeFinite([
-    row.display_raw_input_height_m ?? null,
-    row.wave_height_om,
-    row.raw_display_height_m,
-    row.noaa_swell_1_height_m,
-    row.noaa_swell_2_height_m,
-    row.noaa_wind_wave_height_m,
-  ]);
-
-  if (rawHeightM == null) {
-    return null;
-  }
-
-  const result = transformToFaceHeightDecomposed({
-    components: replayComponents,
-    beach,
-    source: replaySource,
-    rawHeightFt: rawHeightM * METERS_TO_FEET,
-    periodS: row.wave_period_s ?? row.wave_period_om,
-    swellDirectionDeg: row.wave_direction_deg ?? row.wave_direction_om,
-  });
-
-  return Math.round((result.faceHeightFt / METERS_TO_FEET) * 1000) / 1000;
-}
-
-function getReplayWaveSource(
-  row: PredictionRow,
-  hasComponent: boolean
-): WaveHeightSourceTag {
-  if (
-    row.display_wave_source != null &&
-    WAVE_HEIGHT_SOURCE_TAG_SET.has(row.display_wave_source)
-  ) {
-    return row.display_wave_source;
-  }
-  return hasComponent ? "model_swell" : "model_hs";
-}
-
-function toComponent(
-  heightM: number | null,
-  periodS: number | null,
-  directionDeg: number | null,
-  partition?: "wind_wave"
-): SwellComponentInput | null {
-  if (
-    heightM == null ||
-    periodS == null ||
-    !Number.isFinite(heightM) ||
-    !Number.isFinite(periodS) ||
-    heightM <= 0 ||
-    periodS <= 0
-  ) {
-    return null;
-  }
-
-  return {
-    heightFt: heightM * METERS_TO_FEET,
-    periodS,
-    directionDeg,
-    ...(partition ? { partition } : {}),
-  };
+  const context = parseForecastDisplayReplayContext(row.display_replay_context);
+  if (!context || Date.parse(context.forecastAt) !== Date.parse(row.predicted_at)) return null;
+  const baseline = replayForecastDisplayHeightM(context);
+  if (baseline == null || row.raw_display_height_m == null ||
+    row.offset_corrected_display_height_m == null ||
+    !Number.isFinite(row.raw_display_height_m) || !Number.isFinite(row.offset_corrected_display_height_m) ||
+    Math.abs(baseline - row.raw_display_height_m) > 0.001 ||
+    Math.abs(baseline - row.offset_corrected_display_height_m) > 0.001) return null;
+  return replayForecastDisplayHeightM(context, overrides);
 }
 
 function buildProposedBeachMap(
@@ -1916,14 +1833,6 @@ function predictionKey(
 ): string {
   const baseKey = `${beachId}:${new Date(predictedAt).toISOString()}`;
   return horizonBucket ? `${baseKey}:${horizonBucket}` : baseKey;
-}
-
-function firstNonnegativeFinite(values: Array<number | null>): number | null {
-  return (
-    values.find(
-      (value) => value != null && Number.isFinite(value) && value >= 0
-    ) ?? null
-  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
