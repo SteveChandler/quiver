@@ -30,7 +30,7 @@ import {
 import { OutsideAudio } from "./audio";
 import type { GameSnapshot } from "./game-types";
 import { HUD } from "./HUD";
-import { ControlPrimer, HeatResult, JudgeCard, StartScreen } from "./Overlays";
+import { ControlPrimer, HeatResult, JudgeCard, StartScreen, WipeoutScreen } from "./Overlays";
 
 const PhaserHost = dynamic(() => import("./phaser/PhaserHost"), {
   ssr: false,
@@ -47,6 +47,7 @@ interface OutsideGameProps {
 interface JudgeResult {
   score: number;
   wipedOut: boolean;
+  reason: string;
 }
 
 function announcerForManeuver(maneuver: ManeuverEvent): string {
@@ -93,7 +94,8 @@ export function OutsideGame({
     heat: initialHeat,
     liveScore: 0,
   });
-  const [judgeResult, setJudgeResult] = useState<JudgeResult>({ score: 0, wipedOut: false });
+  const [judgeResult, setJudgeResult] = useState<JudgeResult>({ score: 0, wipedOut: false, reason: "Caught by the foam" });
+  const [sessionFrame, setSessionFrame] = useState<string>("");
   const [announcerLine, setAnnouncerLine] = useState("Three waves. Best two count.");
   const [initials, setInitials] = useState("");
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -186,7 +188,7 @@ export function OutsideGame({
       latestManeuverCountRef.current = next.simulation.stats.maneuvers.length;
     }
     if (previousPhaseRef.current !== "wipeout" && next.simulation.phase === "wipeout") {
-      setAnnouncerLine("Closed out. The ocean does not care.");
+      setAnnouncerLine(next.simulation.wipeoutReason ?? "Caught by the foam");
     }
     previousPhaseRef.current = next.simulation.phase;
     setSnapshot(next);
@@ -220,7 +222,7 @@ export function OutsideGame({
   ): void => {
     setHeat(nextHeat);
     setSimulation(nextSimulation);
-    setJudgeResult({ score, wipedOut: nextSimulation.stats.wipeout });
+    setJudgeResult({ score, wipedOut: nextSimulation.stats.wipeout, reason: nextSimulation.wipeoutReason ?? "Caught by the foam" });
     if (nextHeat.status === "passed" || nextHeat.status === "failed") persistResult(nextHeat);
     setMode("judge");
   }, [persistResult]);
@@ -241,14 +243,31 @@ export function OutsideGame({
   }, [heat, waves]);
 
   useEffect(() => {
-    if (mode !== "judge") return;
+    if (mode !== "judge" || judgeResult.wipedOut) return;
     const timeout = window.setTimeout(continueAfterJudge, 2_500);
     return (): void => window.clearTimeout(timeout);
-  }, [continueAfterJudge, mode]);
+  }, [continueAfterJudge, judgeResult.wipedOut, mode]);
 
   const retry = (): void => {
     prepareRun(selectedBreakIndex, activeSeed, true, heat.practice);
     setAnnouncerLine("Same set. Make the adjustment.");
+    setMode("riding");
+  };
+
+  const retryLastSection = (): void => {
+    const waveIndex = Math.max(0, heat.currentWaveIndex - 1);
+    const practiceHeat: HeatState = {
+      ...startHeat(createHeatState(selectedBreakIndex, activeSeed, true)),
+      currentWaveIndex: waveIndex,
+      waveScores: Array(Math.max(0, definition.maxWaves - 1)).fill(0),
+    };
+    const nextSimulation = createSimulationState(waves[waveIndex]);
+    setHeat(practiceHeat);
+    setSimulation(nextSimulation);
+    setSnapshot({ simulation: nextSimulation, heat: practiceHeat, liveScore: 0 });
+    setAnnouncerLine("Last section. Practice pace. Find the gap.");
+    latestManeuverCountRef.current = 0;
+    previousPhaseRef.current = nextSimulation.phase;
     setMode("riding");
   };
 
@@ -295,6 +314,7 @@ export function OutsideGame({
         reducedMotion={reducedMotion}
         audio={audio}
         onSnapshot={handleSnapshot}
+        onFrameCapture={setSessionFrame}
         onWaveComplete={handleWaveComplete}
       />
 
@@ -302,7 +322,7 @@ export function OutsideGame({
         <HUD
           definition={definition}
           snapshot={snapshot}
-          waveDuration={activeWave.duration}
+          wave={activeWave}
           bestScore={progress.bestHeatTotals[definition.beachSlug] ?? 0}
           ghostTotal={challenge?.breakIndex === selectedBreakIndex ? challenge.heatTotal : undefined}
           muted={progress.muted}
@@ -327,7 +347,19 @@ export function OutsideGame({
         />
       ) : null}
       {mode === "primer" ? <ControlPrimer onContinue={dismissPrimer} /> : null}
-      {mode === "judge" ? (
+      {mode === "judge" && judgeResult.wipedOut ? (
+        <WipeoutScreen
+          definition={definition}
+          reason={judgeResult.reason}
+          heatTotal={heat.heatTotal}
+          challengeCode={resultChallengeCode}
+          isHeatOver={heat.status === "passed" || heat.status === "failed"}
+          onRetry={retry}
+          onLastSection={retryLastSection}
+          onResult={continueAfterJudge}
+        />
+      ) : null}
+      {mode === "judge" && !judgeResult.wipedOut ? (
         <JudgeCard
           score={judgeResult.score}
           wipedOut={judgeResult.wipedOut}
@@ -344,6 +376,8 @@ export function OutsideGame({
           challenge={challenge}
           challengeCode={resultChallengeCode}
           initials={initials}
+          bestScore={progress.bestHeatTotals[definition.beachSlug] ?? 0}
+          sessionFrame={sessionFrame}
           onInitialsChange={setInitials}
           onRetry={retry}
           onNext={nextBreak}

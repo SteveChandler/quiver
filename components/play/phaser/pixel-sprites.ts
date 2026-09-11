@@ -413,6 +413,130 @@ const BUOY = rows(`
 ....r....
 `);
 
+const FISH = rows(`
+......n.......
+....nnonn.....
+..nnorrronn...
+.norrrrrrron..
+..nnorrronn...
+....nnonn.....
+......n.......
+`);
+
+const SPLASH_MARKER = rows(`
+....f....f....
+..f..F..F..f..
+.f.F..ff..F.f.
+FFFFffffffFFFF
+`);
+
+const GULL_SHADOW = rows(`
+..NN......NN..
+...NNNNNNNN...
+.....NNNN.....
+`);
+
+const DEBRIS_PLANK = rows(`
+..LLLLLLLLLL..
+.LMMMMMMMMMML.
+DDDDDDDDDDDDDD
+`);
+
+const DEBRIS_CRATE = rows(`
+.LLLLLLLL.
+.LMMMMMML.
+.LMDDDDML.
+.LMDMM.DML.
+.LMDDDDML.
+.LMMMMMML.
+.LLLLLLLL.
+`);
+
+const DEBRIS_BARREL = rows(`
+..LLLL..
+.LMMMML.
+.MDDDDM.
+.MLLLLM.
+.MDDDDM.
+.LMMMML.
+..LLLL..
+`);
+
+const DEBRIS_TIRE = rows(`
+..NNNNN..
+.NN...NN.
+NN.....NN
+NN.....NN
+.NN...NN.
+..NNNNN..
+`);
+
+const DEBRIS_COOLER = rows(`
+.wwwwwwww.
+wccccccccw
+wcrrrrrrcw
+wccccccccw
+.wwwwwwww.
+`);
+
+const DEBRIS_DRIFTWOOD = rows(`
+...LL.........
+MMMMMMMMMM....
+..DDDDDDMMMMMM
+.......DDD....
+`);
+
+const SWIMMER_A = rows(`
+.....hhh.....
+....hsssh....
+.....sss.....
+..ssmmmmss...
+ffffNNNNfffff
+`);
+
+const SWIMMER_B = rows(`
+.....hhh.....
+....hsssh....
+.....sss.....
+sss..mmmm..ss
+ffffNNNNfffff
+`);
+
+const BODYBOARDER_A = rows(`
+.....hhh......
+....hsssh.....
+..ss.mmm.ss...
+.rrrrrrrrrrrr.
+ffffNNNNNfffff
+`);
+
+const BODYBOARDER_B = rows(`
+.....hhh......
+....hsssh.....
+sss..mmm..sss.
+.rrrrrrrrrrrr.
+ffffNNNNNfffff
+`);
+
+const PIER_SPLASH = rows(`
+...f...f...
+.f..F.F..f.
+fffFFFFFfff
+`);
+
+const PIER_REFLECTION = rows(`
+..MDDM..
+...DD...
+..M..M..
+...M....
+`);
+
+const PIER_SILHOUETTE = rows(`
+NNNNNNNNNNNNNNNNNNNN
+..NN....NN....NN....
+..NN....NN....NN....
+`);
+
 const POSE_FRAMES: readonly [string, readonly string[]][] = [
   ["surfer-idle-0", TRIM], ["surfer-idle-1", PUMP],
   ["surfer-pump-0", TRIM], ["surfer-pump-1", PUMP], ["surfer-pump-2", LOW], ["surfer-pump-3", PUMP],
@@ -449,7 +573,23 @@ export const PIXEL_TEXTURES: readonly PixelTextureDefinition[] = [
   { key: "sun", rows: SUN },
   { key: "seagull-0", rows: GULL_UP },
   { key: "seagull-1", rows: GULL_DOWN },
+  { key: "gull-shadow", rows: GULL_SHADOW },
+  { key: "fish", rows: FISH },
+  { key: "splash-marker", rows: SPLASH_MARKER },
+  { key: "debris-plank", rows: DEBRIS_PLANK },
+  { key: "debris-crate", rows: DEBRIS_CRATE },
+  { key: "debris-barrel", rows: DEBRIS_BARREL },
+  { key: "debris-tire", rows: DEBRIS_TIRE },
+  { key: "debris-cooler", rows: DEBRIS_COOLER },
+  { key: "debris-driftwood", rows: DEBRIS_DRIFTWOOD },
+  { key: "swimmer-0", rows: SWIMMER_A },
+  { key: "swimmer-1", rows: SWIMMER_B },
+  { key: "bodyboarder-0", rows: BODYBOARDER_A },
+  { key: "bodyboarder-1", rows: BODYBOARDER_B },
   { key: "pier-post", rows: PIER },
   { key: "pier-brace", rows: BRACE },
+  { key: "pier-splash", rows: PIER_SPLASH },
+  { key: "pier-reflection", rows: PIER_REFLECTION },
+  { key: "pier-silhouette", rows: PIER_SILHOUETTE },
   { key: "buoy", rows: BUOY },
 ] as const;

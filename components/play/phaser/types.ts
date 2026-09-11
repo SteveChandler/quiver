@@ -33,6 +33,7 @@ export interface PhaserBridge {
   fontFamily: string;
   audio: PlayAudio;
   onSnapshot(snapshot: GameSnapshot): void;
+  onFrameCapture(dataUrl: string): void;
   onWaveComplete(heat: HeatState, simulation: SimulationState, score: number): void;
 }
 

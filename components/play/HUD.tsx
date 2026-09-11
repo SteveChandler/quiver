@@ -4,13 +4,13 @@ import { Volume2, VolumeX } from "lucide-react";
 import type { ReactElement } from "react";
 
 import { Button } from "@/components/ui/button";
-import { getNeedsScore, type BreakDefinition } from "@/lib/play";
+import { getNeedsScore, getPierWarning, type BreakDefinition, type WaveDefinition } from "@/lib/play";
 import type { GameSnapshot } from "./game-types";
 
 interface HUDProps {
   definition: BreakDefinition;
   snapshot: GameSnapshot;
-  waveDuration: number;
+  wave: WaveDefinition;
   bestScore: number;
   ghostTotal?: number;
   muted: boolean;
@@ -26,7 +26,7 @@ function formatTimer(seconds: number): string {
 export function HUD({
   definition,
   snapshot,
-  waveDuration,
+  wave,
   bestScore,
   ghostTotal,
   muted,
@@ -34,14 +34,15 @@ export function HUD({
   onToggleMute,
 }: HUDProps): ReactElement {
   const needs = getNeedsScore(snapshot.heat, snapshot.liveScore);
-  const gap = Math.max(0, Math.min(1, snapshot.simulation.sectionDistance / 0.82));
-  const waveProgress = Math.max(0, Math.min(1, snapshot.simulation.elapsed / waveDuration));
+  const pierWarning = getPierWarning(wave.obstacles, snapshot.simulation.elapsed);
+  const rawGap = Math.max(0, Math.min(1, snapshot.simulation.sectionDistance / 0.82));
+  const gap = pierWarning ? rawGap * 0.65 : rawGap;
+  const waveProgress = Math.max(0, Math.min(1, snapshot.simulation.elapsed / wave.duration));
   const dangerColour = gap < 0.25 ? "#FF5C6C" : gap < 0.48 ? "#FFD447" : "#75E3E1";
-  const contextualAlert = snapshot.simulation.phase === "wipeout"
-    ? "WIPEOUT · CAUGHT BY THE FOAM"
-    : gap < 0.25
-    ? "FOAM GAP!"
-    : waveProgress > 0.72 ? "PIER AHEAD" : needs !== null ? `NEEDS ${needs.toFixed(2)}` : announcerLine;
+  const contextualAlert = snapshot.simulation.stats.wipeout
+    ? `WIPEOUT · ${snapshot.simulation.wipeoutReason ?? "Caught by the foam"}`
+    : pierWarning ? "PIER AHEAD"
+    : gap < 0.25 ? "FOAM GAP!" : needs !== null ? `NEEDS ${needs.toFixed(2)}` : announcerLine;
 
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-2 text-[#F8FEFF] [font-family:var(--font-play-pixel)] [text-shadow:1px_1px_0_#0A1D2B] sm:p-3">

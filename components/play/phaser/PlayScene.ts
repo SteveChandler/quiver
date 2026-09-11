@@ -9,6 +9,8 @@ import {
   tickHeat,
   type HeatState,
   type ManeuverEvent,
+  type Obstacle,
+  type PierObstacle,
   type SimulationInput,
   type SimulationState,
 } from "@/lib/play";
@@ -46,6 +48,12 @@ const C = {
   wood: colour(PLAY_PALETTE.wood),
   woodDark: colour(PLAY_PALETTE.woodDark),
 } as const;
+
+interface RenderedObstacle {
+  obstacle: Obstacle;
+  bodies: Phaser.GameObjects.Image[];
+  cues: Phaser.GameObjects.Image[];
+}
 
 const IDLE_INPUT: SimulationInput = {
   vertical: 0,
@@ -92,6 +100,7 @@ export class PlayScene extends Phaser.Scene {
   private foam: Phaser.GameObjects.Image[] = [];
   private sparkles: Phaser.GameObjects.Image[] = [];
   private pier: Phaser.GameObjects.Image[] = [];
+  private obstacles: RenderedObstacle[] = [];
   private overrides: Record<string, AtlasOverride> = {};
   private inputState: SimulationInput = { ...IDLE_INPUT };
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -154,6 +163,7 @@ export class PlayScene extends Phaser.Scene {
       this.add.image(457, 169, "pier-post"),
       this.add.image(444, 143, "pier-brace"),
     ];
+    this.obstacles = this.createObstacleSprites();
     this.wake = this.add.image(182, 214, "wake-streak").setOrigin(1, 0.5).setDepth(4);
     this.spray = this.add.image(205, 190, "spray-burst").setDepth(4);
     this.board = this.add.image(0, 0, "surfboard").setScale(1.8);
@@ -324,6 +334,7 @@ export class PlayScene extends Phaser.Scene {
     const score = judgeWave(this.simulation.stats).score;
     this.heat = completeWave(this.heat, score, this.simulation.stats.wipeout, this.simulation.stats);
     const bridge = this.bridgeRef.current;
+    bridge.onFrameCapture(this.game.canvas.toDataURL("image/png"));
     bridge.onSnapshot({ simulation: this.simulation, heat: this.heat, liveScore: score });
     bridge.onWaveComplete(this.heat, this.simulation, score);
   }
@@ -355,6 +366,7 @@ export class PlayScene extends Phaser.Scene {
     this.drawSky(motionElapsed);
     this.drawWave(faceTop, sectionX, throwing, motionElapsed, foamPressure, launchZone);
     this.positionScenery(motionElapsed, active, sectionX, foamPressure);
+    this.positionObstacles(elapsed, active);
     this.positionRider(facePosition, riderX, riderY - airLift, elapsed);
     this.positionEffects(riderX, riderY - airLift, sectionX, motionElapsed, throwing);
   }
@@ -581,9 +593,9 @@ export class PlayScene extends Phaser.Scene {
       : 0.86;
     const pierX = active ? 590 - pierProgress * 170 : 392;
     const pierScale = active ? 3 : 2;
-    this.pier[0].setPosition(pierX, active ? 187 : 151).setScale(pierScale).setVisible(pierProgress > 0.58);
-    this.pier[1].setPosition(pierX + 30, active ? 187 : 151).setScale(pierScale).setVisible(pierProgress > 0.58);
-    this.pier[2].setPosition(pierX + 15, active ? 157 : 132).setScale(pierScale).setVisible(pierProgress > 0.58);
+    this.pier[0].setPosition(pierX, 151).setScale(pierScale).setVisible(!active && pierProgress > 0.58);
+    this.pier[1].setPosition(pierX + 30, 151).setScale(pierScale).setVisible(!active && pierProgress > 0.58);
+    this.pier[2].setPosition(pierX + 15, 132).setScale(pierScale).setVisible(!active && pierProgress > 0.58);
 
     for (let index = 0; index < this.foam.length; index += 1) {
       const drift = (elapsed * (5 + foamPressure * 8) + index * 19) % 58;
@@ -592,6 +604,105 @@ export class PlayScene extends Phaser.Scene {
         .setScale(1.2 + foamPressure * 0.7)
         .setAlpha(0.72 + foamPressure * 0.22);
     }
+  }
+
+  private createObstacleSprites(): RenderedObstacle[] {
+    return this.bridgeRef.current.wave.obstacles.map((obstacle) => {
+      if (obstacle.kind === "pier") {
+        const bodies = obstacle.posts.flatMap(() => [
+          this.add.image(0, 0, "pier-post"),
+          this.add.image(0, 0, "pier-splash"),
+          this.add.image(0, 0, "gull-shadow"),
+          this.add.image(0, 0, "pier-reflection"),
+        ]);
+        if (obstacle.pattern === "cross-brace") bodies.push(this.add.image(0, 0, "pier-brace"));
+        return {
+          obstacle,
+          bodies: bodies.map((image) => image.setDepth(5).setVisible(false)),
+          cues: [this.add.image(0, 0, "pier-silhouette").setDepth(2).setVisible(false)],
+        };
+      }
+
+      const key = obstacle.kind === "debris"
+        ? `debris-${obstacle.variant}`
+        : obstacle.kind === "seagull" ? "seagull-0" : obstacle.kind === "bodyboarder" ? "bodyboarder-0" : obstacle.kind === "swimmer" ? "swimmer-0" : obstacle.kind;
+      const bodies = obstacle.kind === "fish"
+        ? [this.add.image(0, 0, "splash-marker"), this.add.image(0, 0, "fish"), this.add.image(0, 0, "splash-marker")]
+        : [this.add.image(0, 0, key)];
+      const cues = obstacle.kind === "seagull" ? [this.add.image(0, 0, "gull-shadow")] : [];
+      return {
+        obstacle,
+        bodies: bodies.map((image) => image.setDepth(5).setVisible(false)),
+        cues: cues.map((image) => image.setDepth(4).setVisible(false)),
+      };
+    });
+  }
+
+  private positionObstacles(elapsed: number, active: boolean): void {
+    for (const rendered of this.obstacles) {
+      [...rendered.bodies, ...rendered.cues].forEach((image) => image.setVisible(false));
+      const obstacle = rendered.obstacle;
+      if (!active || elapsed < obstacle.cueAt || elapsed > obstacle.endAt + 0.75) continue;
+      const x = 205 + (obstacle.hitAt - elapsed) * 66;
+
+      if (obstacle.kind === "pier") {
+        this.positionPier(rendered, obstacle, x, elapsed);
+        continue;
+      }
+      if (obstacle.kind === "seagull") {
+        if (elapsed < obstacle.hitAt - 1) {
+          rendered.cues[0].setPosition(x, 224).setScale(1.8).setAlpha(0.52).setVisible(true);
+          continue;
+        }
+        const gull = rendered.bodies[0];
+        this.applyTexture(gull, Math.floor(elapsed * 8) % 2 === 0 ? "seagull-0" : "seagull-1");
+        gull.setPosition(x, 117).setScale(3.2).setVisible(true);
+        rendered.cues[0].setPosition(x + 9, 224).setScale(2).setAlpha(0.4).setVisible(true);
+        continue;
+      }
+      if (obstacle.kind === "fish") {
+        if (elapsed < obstacle.hitAt) {
+          rendered.bodies[0].setPosition(x, 210).setScale(1.7).setVisible(true);
+          continue;
+        }
+        if (elapsed <= obstacle.endAt) {
+          const progress = (elapsed - obstacle.hitAt) / (obstacle.endAt - obstacle.hitAt);
+          rendered.bodies[1].setPosition(x, 207 - Math.sin(progress * Math.PI) * 48).setAngle(-35 + progress * 70).setScale(1.8).setVisible(true);
+          continue;
+        }
+        rendered.bodies[2].setPosition(x, 210).setScale(2).setVisible(true);
+        continue;
+      }
+      if (obstacle.kind === "debris") {
+        rendered.bodies[0].setPosition(x, 223 + Math.sin(elapsed * 5) * 2).setScale(1.8).setVisible(true);
+        continue;
+      }
+      if (obstacle.kind === "swimmer" || obstacle.kind === "bodyboarder") {
+        const image = rendered.bodies[0];
+        this.applyTexture(image, `${obstacle.kind}-${Math.floor(elapsed * 5) % 2}`);
+        image.setPosition(x, 183 + Math.sin(elapsed * 4) * 2).setScale(1.7).setVisible(true);
+        continue;
+      }
+      rendered.bodies[0].setPosition(x, 211 + Math.sin(elapsed * 3) * 3).setScale(1.8).setVisible(true);
+    }
+  }
+
+  private positionPier(rendered: RenderedObstacle, obstacle: PierObstacle, x: number, elapsed: number): void {
+    if (elapsed < obstacle.hitAt - 2) {
+      rendered.cues[0].setPosition(Math.min(450, x), 119).setScale(1.8).setAlpha(0.7).setVisible(true);
+      return;
+    }
+    const laneY = { upper: 126, mid: 170, low: 214 } as const;
+    obstacle.posts.forEach((post, index) => {
+      const offset = index * 4;
+      const y = laneY[post.lane];
+      rendered.bodies[offset].setPosition(x, y).setScale(2.3).setVisible(true);
+      rendered.bodies[offset + 1].setPosition(x, y + 15).setScale(1.6).setVisible(true);
+      rendered.bodies[offset + 2].setPosition(x - 3, y + 13).setScale(1.5, 0.7).setAlpha(0.42).setVisible(true);
+      rendered.bodies[offset + 3].setPosition(x, y + 29).setScale(1.8).setAlpha(0.5).setVisible(true);
+    });
+    if (obstacle.pattern !== "cross-brace") return;
+    rendered.bodies.at(-1)?.setPosition(x, 181).setScale(2.2).setVisible(true);
   }
 
   private positionRider(
@@ -605,7 +716,7 @@ export class PlayScene extends Phaser.Scene {
       this.applyTexture(this.rider, key);
       this.currentRiderKey = key;
     }
-    const wipeout = this.simulation.phase === "wipeout";
+    const wipeout = this.simulation.stats.wipeout;
     this.riderDirection = this.isCutback(elapsed) ? -1 : 1;
     this.riderAngle = this.getRiderAngle(facePosition, elapsed);
     const joinedAirFrame = key.includes("air-") || key.startsWith("surfer-landing");
@@ -646,7 +757,7 @@ export class PlayScene extends Phaser.Scene {
 
   private getRiderKey(elapsed: number, facePosition: number): string {
     const state = this.simulation;
-    if (state.phase === "wipeout") return RIDER_FRAMES.wipeout[Math.floor(state.phaseElapsed * 5) % 4];
+    if (state.stats.wipeout) return RIDER_FRAMES.wipeout[Math.floor(state.phaseElapsed * 5) % 4];
     if (state.phase === "airborne") {
       if (state.phaseElapsed < 0.09) return RIDER_FRAMES.takeoff[this.frame % 2];
       return this.inputState.action

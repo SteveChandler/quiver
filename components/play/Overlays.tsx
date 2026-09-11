@@ -183,9 +183,10 @@ interface ShareButtonProps {
   definition: BreakDefinition;
   heatTotal: number;
   challengeCode: string;
+  label?: string;
 }
 
-function ShareButton({ definition, heatTotal, challengeCode }: ShareButtonProps): ReactElement {
+function ShareButton({ definition, heatTotal, challengeCode, label = "Send challenge" }: ShareButtonProps): ReactElement {
   const [copied, setCopied] = useState(false);
   const canShare = typeof navigator !== "undefined" && "share" in navigator;
 
@@ -219,8 +220,45 @@ function ShareButton({ definition, heatTotal, challengeCode }: ShareButtonProps)
   return (
     <Button type="button" onClick={() => void share()} className="w-full rounded-none border-2 border-[#FFD447] bg-[#0B5FA5] text-[8px] uppercase text-[#F8FEFF] hover:bg-[#127CC1]">
       {copied ? <Check /> : canShare ? <Share2 /> : <Copy />}
-      {copied ? "Challenge copied" : "Send this heat to a friend"}
+      {copied ? "Challenge copied" : label}
     </Button>
+  );
+}
+
+interface WipeoutScreenProps {
+  definition: BreakDefinition;
+  reason: string;
+  heatTotal: number;
+  challengeCode: string;
+  isHeatOver: boolean;
+  onRetry(): void;
+  onLastSection(): void;
+  onResult(): void;
+}
+
+export function WipeoutScreen({
+  definition,
+  reason,
+  heatTotal,
+  challengeCode,
+  isHeatOver,
+  onRetry,
+  onLastSection,
+  onResult,
+}: WipeoutScreenProps): ReactElement {
+  return (
+    <div className="absolute inset-0 z-20 flex items-end p-4 sm:p-6">
+      <section className="mx-auto w-full max-w-xl border-4 border-[#FFD447] bg-[#D93B72]/95 p-5 text-center text-[#F8FEFF] shadow-[5px_5px_0_#0A1D2B]">
+        <h2 className="text-3xl uppercase text-[#FFF0B0]">Wipeout</h2>
+        <p className="mt-3 text-[10px] uppercase">{reason}</p>
+        <div className="mt-5 grid gap-2 sm:grid-cols-3">
+          <Button type="button" onClick={onRetry} className="rounded-none border-2 border-[#FFD447] bg-[#0B5FA5] text-[8px] uppercase text-[#F8FEFF] hover:bg-[#127CC1]">Try again</Button>
+          <Button type="button" onClick={onLastSection} className="rounded-none border-2 border-[#29C7F6] bg-[#127CC1] text-[8px] uppercase text-[#F8FEFF] hover:bg-[#0B5FA5]">Last section</Button>
+          <ShareButton definition={definition} heatTotal={heatTotal} challengeCode={challengeCode} label="Challenge a friend" />
+        </div>
+        {isHeatOver ? <Button type="button" onClick={onResult} className="mt-2 w-full rounded-none border-2 border-[#75E3E1] bg-[#43D87D] text-[8px] uppercase text-[#0A1D2B] hover:bg-[#75E3E1]">Heat result</Button> : null}
+      </section>
+    </div>
   );
 }
 
@@ -230,6 +268,8 @@ interface HeatResultProps {
   challenge: Challenge | null;
   challengeCode: string;
   initials: string;
+  bestScore: number;
+  sessionFrame: string;
   onInitialsChange(value: string): void;
   onRetry(): void;
   onNext(): void;
@@ -241,17 +281,29 @@ export function HeatResult({
   challenge,
   challengeCode,
   initials,
+  bestScore,
+  sessionFrame,
   onInitialsChange,
   onRetry,
   onNext,
 }: HeatResultProps): ReactElement {
   const passed = heat.status === "passed";
   const beatChallenge = challenge ? heat.heatTotal > challenge.heatTotal : false;
+  const closestPass = heat.stats.closestPierPass === null ? "—" : `${Math.max(1, Math.round(heat.stats.closestPierPass * 36))} in`;
 
   return (
     <div className="absolute inset-0 z-20 overflow-y-auto bg-[#0A1D2B]/65 p-4 sm:p-8">
       <div className="mx-auto w-full max-w-xl py-4">
-        <section className="border-4 border-[#29C7F6] bg-[#127CC1] p-5 text-[#F8FEFF] shadow-[4px_4px_0_#0A1D2B] sm:p-7">
+        <section className="rotate-[-0.4deg] border-4 border-[#0A1D2B] bg-[#FFF0B0] p-3 text-[#0A1D2B] shadow-[6px_6px_0_#0A1D2B] sm:p-5">
+          {sessionFrame ? (
+            <div
+              role="img"
+              aria-label={`Captured ride at ${definition.name}`}
+              className="aspect-video border-4 border-[#0B5FA5] bg-cover bg-center [image-rendering:pixelated]"
+              style={{ backgroundImage: `url(${sessionFrame})` }}
+            />
+          ) : null}
+          <div className="mt-3 border-4 border-[#29C7F6] bg-[#127CC1] p-4 text-[#F8FEFF] sm:p-5">
           <p className={`w-fit border-2 px-3 py-2 text-[8px] uppercase ${passed ? "border-[#75E3E1] bg-[#43D87D] text-[#0A1D2B]" : "border-[#FFD447] bg-[#D93B72] text-[#F8FEFF]"}`}>
             {heat.practice ? "Practice complete" : passed ? "Through the heat" : "Outside the cut"}
           </p>
@@ -265,6 +317,12 @@ export function HeatResult({
           <div className="mt-4 flex gap-3 text-[8px] tabular-nums text-[#E6F9FF]">
             {heat.waveScores.map((score, index) => <span key={index}>W{index + 1} {score.toFixed(2)}</span>)}
           </div>
+          <dl className="mt-4 grid grid-cols-2 gap-2 border-y-2 border-[#29C7F6] py-3 text-[7px] uppercase sm:grid-cols-4">
+            <div><dt className="text-[#B8F1FF]">Best</dt><dd className="mt-1 text-[#F8FEFF]">{bestScore.toFixed(2)}</dd></div>
+            <div><dt className="text-[#B8F1FF]">Tricks landed</dt><dd className="mt-1 text-[#F8FEFF]">{heat.stats.tricksLanded}</dd></div>
+            <div><dt className="text-[#B8F1FF]">Longest ride</dt><dd className="mt-1 text-[#F8FEFF]">{heat.stats.longestRideSeconds.toFixed(1)} s</dd></div>
+            <div><dt className="text-[#B8F1FF]">Closest pier pass</dt><dd className="mt-1 text-[#F8FEFF]">{closestPass}</dd></div>
+          </dl>
           <p className="mt-4 text-[8px] leading-5 text-[#E6F9FF]">
             {heat.practice
               ? "Nothing saved. Take that line into a scored run."
@@ -296,7 +354,7 @@ export function HeatResult({
 
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             <Button type="button" variant="outline" onClick={onRetry} className="rounded-none border-2 border-[#29C7F6] bg-[#B8F1FF] text-[8px] uppercase text-[#0A1D2B] hover:bg-[#75E3E1]">
-              Retry this set
+              Play again
             </Button>
             {passed && !challenge && definition.index < BREAKS.length - 1 ? (
               <Button type="button" onClick={onNext} className="rounded-none border-2 border-[#75E3E1] bg-[#0B5FA5] text-[8px] uppercase text-[#F8FEFF] hover:bg-[#127CC1]">
@@ -313,6 +371,7 @@ export function HeatResult({
           <Link href="/" className="mt-5 block text-center text-[7px] uppercase text-[#B8F1FF] underline-offset-4 hover:underline">
             Made by Quiver
           </Link>
+          </div>
         </section>
 
         <LeadCapture
