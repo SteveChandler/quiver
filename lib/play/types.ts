@@ -90,6 +90,7 @@ export type HeatStatus = "ready" | "running" | "passed" | "failed";
 export interface HeatState {
   breakIndex: number;
   seed: number;
+  practice: boolean;
   status: HeatStatus;
   secondsRemaining: number;
   waveScores: number[];

@@ -14,11 +14,16 @@ function calculateHeatTotal(scores: number[], bestWaveCount: number): number {
   );
 }
 
-export function createHeatState(breakIndex: number, seed: number): HeatState {
+export function createHeatState(
+  breakIndex: number,
+  seed: number,
+  practice = false,
+): HeatState {
   const definition = getBreak(breakIndex);
   return {
     breakIndex: definition.index,
     seed: seed >>> 0,
+    practice,
     status: "ready",
     secondsRemaining: definition.heatSeconds,
     waveScores: [],
@@ -33,7 +38,7 @@ export function startHeat(state: HeatState): HeatState {
 }
 
 export function tickHeat(state: HeatState, seconds: number): HeatState {
-  if (state.status !== "running") return state;
+  if (state.status !== "running" || state.practice) return state;
   const secondsRemaining = Math.max(0, state.secondsRemaining - seconds);
   if (secondsRemaining > 0) return { ...state, secondsRemaining };
 
@@ -55,7 +60,9 @@ export function completeWave(
   const definition = getBreak(state.breakIndex);
   const waveScores = [...state.waveScores, roundScore(score)];
   const heatTotal = calculateHeatTotal(waveScores, definition.maxWaves === 1 ? 1 : 2);
-  const secondsRemaining = Math.max(0, state.secondsRemaining - (wipedOut ? 4 : 1.5));
+  const secondsRemaining = state.practice
+    ? state.secondsRemaining
+    : Math.max(0, state.secondsRemaining - (wipedOut ? 4 : 1.5));
   const finished = waveScores.length >= definition.maxWaves || secondsRemaining <= 0;
 
   return {

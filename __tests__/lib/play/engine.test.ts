@@ -198,6 +198,15 @@ describe("OUTSIDE engine", () => {
     expect(expired.status).toBe("failed");
   });
 
+  it("keeps the heat timer paused in practice mode", () => {
+    let heat = startHeat(createHeatState(0, 1, true));
+    heat = tickHeat(heat, 30);
+    heat = completeWave(heat, 4.2, true);
+
+    expect(heat.practice).toBe(true);
+    expect(heat.secondsRemaining).toBe(90);
+  });
+
   it("derives the daily seed from the UTC date", () => {
     expect(dailySeed(new Date("2026-09-10T00:05:00Z"))).toBe(
       dailySeed(new Date("2026-09-10T23:55:00Z")),
