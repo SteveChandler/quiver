@@ -17,23 +17,29 @@ export function LeadCapture({ breakSlug, breakName, heatTotal, challengeCode, se
   const [phone, setPhone] = useState("");
   const [consent, setConsent] = useState(false);
   const [pending, setPending] = useState(false);
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "success" | "validation-error" | "server-error">("idle");
   const smsEnabled = process.env.NEXT_PUBLIC_PLAY_SMS_ENABLED === "true";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    setPending(true);
     setStatus("idle");
+    const hasContact = Boolean(email.trim() || (smsEnabled && phone.trim()));
+    if (!hasContact || !consent || !event.currentTarget.checkValidity()) {
+      setStatus("validation-error");
+      return;
+    }
+
+    setPending(true);
     try {
       const response = await fetch("/api/play/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email || undefined, phone: smsEnabled && phone ? phone : undefined, consent, breakSlug, breakName, heatTotal, challengeCode, sessionId }),
+        body: JSON.stringify({ email: email.trim() || undefined, phone: smsEnabled && phone.trim() ? phone.trim() : undefined, consent, breakSlug, breakName, heatTotal, challengeCode, sessionId }),
       });
-      const result = await response.json();
-      setStatus(result.success ? "success" : "error");
+      const result: { success?: boolean } = await response.json();
+      setStatus(response.ok && result.success ? "success" : "server-error");
     } catch {
-      setStatus("error");
+      setStatus("server-error");
     } finally {
       setPending(false);
     }
@@ -44,7 +50,7 @@ export function LeadCapture({ breakSlug, breakName, heatTotal, challengeCode, se
       <h3 className="font-heading text-xl font-black uppercase">{breakName} is real.</h3>
       <p className="mt-2 text-sm leading-6 text-[#11100D]/75">Quiver tells you the morning it is actually working. Get this week&apos;s {breakName} forecast and the app.</p>
       {status === "success" ? <p className="mt-4 border-l-4 border-[#B91C1C] pl-3 font-heading text-lg font-black" role="status">Forecast on its way. Now go beat your score.</p> : null}
-      <form className="mt-4 grid gap-3" aria-label={`${breakName} forecast signup`} onSubmit={handleSubmit}>
+      <form className="mt-4 grid gap-3" aria-label={`${breakName} forecast signup`} onSubmit={handleSubmit} noValidate>
         <label className="grid gap-1 font-mono text-xs font-bold uppercase tracking-[0.1em]">
           Email
           <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@outside.surf" autoComplete="email" className="h-11 border-2 border-[#11100D] bg-[#F5EEDC] px-3 font-sans text-sm" />
@@ -57,8 +63,9 @@ export function LeadCapture({ breakSlug, breakName, heatTotal, challengeCode, se
           <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1" />
           <span>Send me the forecast for this break and Quiver updates. Unsubscribe any time.</span>
         </label>
-        {status === "error" ? <p className="text-sm font-bold text-[#B91C1C]" role="alert">Add an email or mobile number and check consent to try again.</p> : null}
-        <Button type="submit" disabled={pending || (!email && !phone)} className="rounded-none font-heading uppercase">{pending ? "Sending..." : "Get the real forecast"}</Button>
+        {status === "validation-error" ? <p className="text-sm font-bold text-[#B91C1C]" role="alert">Add an email or mobile number and check consent to try again.</p> : null}
+        {status === "server-error" ? <p className="text-sm font-bold text-[#B91C1C]" role="alert">Couldn&apos;t save that. Try again in a moment.</p> : null}
+        <Button type="submit" disabled={pending} className="rounded-none font-heading uppercase">{pending ? "Sending..." : "Get the real forecast"}</Button>
       </form>
     </section>
   );
