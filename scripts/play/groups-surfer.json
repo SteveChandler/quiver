@@ -1,0 +1,11 @@
+[{"name":"idle","boxes":[3],"count":4},{"name":"pump","boxes":[4],"count":4},{"name":"lowline","boxes":[5],"count":4},
+{"name":"bottomturn","boxes":[6],"count":4},{"name":"topturn","boxes":[7],"count":4},{"name":"cutback-init","boxes":[8],"count":4},
+{"name":"cutback-rebound","boxes":[9],"count":3},{"name":"tuck","boxes":[10],"count":4},{"name":"takeoff","boxes":[11,12],"count":3},
+{"name":"air","boxes":[17],"count":1},{"name":"air","boxes":[18],"count":1},{"name":"air","boxes":[19],"count":1},
+{"name":"grab","boxes":[20],"count":1},{"name":"grab","boxes":[21],"count":1},{"name":"grab","boxes":[22],"count":1},
+{"name":"landing-wobble","boxes":[23],"count":6},
+{"name":"wipeout","boxes":[25],"count":1},{"name":"wipeout","boxes":[26],"count":1},{"name":"wipeout","boxes":[27],"count":1},{"name":"wipeout","boxes":[28],"count":1},
+{"name":"splash-board","boxes":[29],"count":1},{"name":"board-loose","boxes":[30],"count":1},{"name":"splash","boxes":[31],"count":1},{"name":"splash-board2","boxes":[32],"count":1},{"name":"splash-small","boxes":[33],"count":1},
+{"name":"board-top","boxes":[37],"count":1},{"name":"board-top","boxes":[38],"count":1},{"name":"board-top","boxes":[39],"count":1},{"name":"board-side","boxes":[40],"count":1},{"name":"board-top","boxes":[41],"count":1},{"name":"board-angled","boxes":[42],"count":4,"upper":1},
+{"name":"fx","boxes":[43],"count":1},{"name":"fx","boxes":[44],"count":1},{"name":"fx","boxes":[45],"count":1},{"name":"fx-wake","boxes":[46],"count":2,"upper":1},
+{"name":"shadow","boxes":[47],"count":1},{"name":"shadow","boxes":[48],"count":1},{"name":"shadow","boxes":[49],"count":1}]

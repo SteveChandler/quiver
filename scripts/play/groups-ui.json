@@ -1,0 +1,8 @@
+[{"name":"panel-score","xRange":[32,318],"yRange":[131,258],"count":1},{"name":"panel-best","xRange":[32,318],"yRange":[262,311],"count":1},{"name":"panel-time","boxes":[1],"count":1},
+{"name":"bar-wave","xRange":[583,1150],"yRange":[136,200],"count":1},{"name":"panel-pier-mini","xRange":[1160,1416],"yRange":[136,200],"count":1},{"name":"bar-danger","xRange":[583,1416],"yRange":[220,311],"count":1},
+{"name":"btn-sound","boxes":[3],"count":1},{"name":"btn-help","boxes":[4],"count":1},{"name":"btn-pause","boxes":[5],"count":1},{"name":"btn-mute","boxes":[6],"count":1},{"name":"btn-help2","boxes":[7],"count":1},{"name":"btn-play","boxes":[8],"count":1},
+{"name":"banner-pier","boxes":[9],"count":1},
+{"name":"popup","boxes":[10],"count":5,"rows":2,"upper":1},
+{"name":"key","boxes":[11],"count":1},{"name":"key","boxes":[12],"count":1},{"name":"key","boxes":[13],"count":1},{"name":"key-space","boxes":[14],"count":1},{"name":"key","boxes":[15],"count":1},{"name":"key","boxes":[16],"count":1},
+{"name":"circle-btn","boxes":[17],"count":5,"upper":1},
+{"name":"stamp","boxes":[18],"count":3,"upper":1},{"name":"stamp-complete","boxes":[19],"count":1},{"name":"stamp-gameover","boxes":[20],"count":1}]
