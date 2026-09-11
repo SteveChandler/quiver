@@ -162,6 +162,52 @@ export const AndroidBetaLeadSchema = z.object({
 
 export type AndroidBetaLeadInput = z.infer<typeof AndroidBetaLeadSchema>;
 
+function normalizePlayLeadPhone(value: string): string | null {
+  const trimmed = value.trim();
+  if (!/^\+?[0-9\s().-]+$/.test(trimmed)) return null;
+  const digits = trimmed.startsWith("+")
+    ? trimmed.slice(1).replace(/[^0-9]/g, "")
+    : trimmed.replace(/[^0-9]/g, "");
+
+  if (!/^\d{10,15}$/.test(digits) || digits.startsWith("0")) return null;
+  if (trimmed.startsWith("+")) return `+${digits}`;
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return null;
+}
+
+const playLeadEmailSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  normalizedEmailSchema.optional(),
+);
+
+const playLeadPhoneSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z
+    .string()
+    .transform(normalizePlayLeadPhone)
+    .refine((value): value is string => value !== null, "invalid_phone")
+    .optional(),
+);
+
+export const PlayLeadSchema = z
+  .object({
+    email: playLeadEmailSchema,
+    phone: playLeadPhoneSchema,
+    consent: z.literal(true),
+    breakSlug: z.string().trim().min(1).max(120),
+    breakName: z.string().trim().min(1).max(120),
+    heatTotal: z.number().min(0).max(20),
+    challengeCode: z.string().max(200),
+    sessionId: z.string().uuid().optional(),
+  })
+  .refine((value) => Boolean(value.email) !== Boolean(value.phone), {
+    message: "exactly_one_contact_required",
+    path: ["email"],
+  });
+
+export type PlayLeadInput = z.infer<typeof PlayLeadSchema>;
+
 export const IntelReportSchema = z.object({
   reason: z.string()
     .max(500, 'Reason cannot exceed 500 characters')
