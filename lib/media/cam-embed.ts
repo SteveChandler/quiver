@@ -27,7 +27,7 @@ export function getViewableUrl(url: string | null | undefined): string | null {
 export function toProxiedHlsUrl(url: string): string {
   try {
     const parsed = new URL(url);
-    if (parsed.hostname === "live.hdontap.com") {
+    if (parsed.hostname === "live.hdontap.com" || parsed.hostname === "watch.hdrelay.io") {
       return `/api/hls-proxy/${parsed.hostname}${parsed.pathname}${parsed.search}`;
     }
     return url;
@@ -79,7 +79,7 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       if (u.hostname === "hls.cdn-surfline.com") {
         return { kind: "hls", src: `/api/hls-proxy/${u.hostname}${u.pathname}` };
       }
-      return { kind: "hls", src: href };
+      return { kind: "hls", src: u.hostname === "watch.hdrelay.io" ? toProxiedHlsUrl(href) : href };
     }
 
     if (

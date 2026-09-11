@@ -33,7 +33,7 @@ interface CustomSpotRow {
   nearest_beach_distance_mi: number | null;
 }
 
-export function useCustomSpots(): {
+export function useCustomSpots(enabled = true): {
   customSpots: CustomSpot[];
   loading: boolean;
 } {
@@ -41,6 +41,7 @@ export function useCustomSpots(): {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!enabled) return;
     let isMounted = true;
 
     async function fetchCustomSpots(): Promise<void> {
@@ -101,7 +102,7 @@ export function useCustomSpots(): {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [enabled]);
 
   return { customSpots, loading };
 }

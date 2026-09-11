@@ -2,6 +2,12 @@
  * @jest-environment node
  */
 
+import { getCachedRateLimiter } from "@/lib/utils/enhanced-rate-limiter";
+import { RATE_LIMITS } from "@/lib/api/rate-limit-config";
+
+// Release the real route limiter so its cleanup timer cannot outlive this suite.
+afterAll(() => getCachedRateLimiter("forecast-bulk", RATE_LIMITS["forecast-bulk"]).destroy());
+
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
