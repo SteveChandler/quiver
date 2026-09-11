@@ -101,6 +101,7 @@ function latestSitemapDate(
 const SITEMAP_ACQUISITION_ROUTES = [
   { path: "/download", lastModified: "2026-07-15" },
   { path: "/android-beta", lastModified: "2026-07-22" },
+  { path: "/play", lastModified: "2026-09-10" },
   { path: "/guides", lastModified: "2026-06-25" },
   { path: "/support", lastModified: "2026-06-25" },
   { path: "/data-deletion", lastModified: "2026-06-25" },
