@@ -215,7 +215,7 @@ export function OutsideGame({
     setMode("judge");
   }, [persistResult]);
 
-  const continueAfterJudge = (): void => {
+  const continueAfterJudge = useCallback((): void => {
     if (heat.status === "passed" || heat.status === "failed") {
       setMode("result");
       return;
@@ -228,7 +228,13 @@ export function OutsideGame({
     previousPhaseRef.current = nextSimulation.phase;
     setAnnouncerLine(`Wave ${heat.currentWaveIndex + 1}. Put a number on it.`);
     setMode("riding");
-  };
+  }, [heat, waves]);
+
+  useEffect(() => {
+    if (mode !== "judge") return;
+    const timeout = window.setTimeout(continueAfterJudge, 2_500);
+    return (): void => window.clearTimeout(timeout);
+  }, [continueAfterJudge, mode]);
 
   const retry = (): void => {
     prepareRun(selectedBreakIndex, activeSeed, true);
@@ -306,6 +312,7 @@ export function OutsideGame({
           score={judgeResult.score}
           wipedOut={judgeResult.wipedOut}
           isHeatOver={heat.status === "passed" || heat.status === "failed"}
+          incomingWaveNumber={heat.status === "running" ? heat.currentWaveIndex + 1 : null}
           onContinue={continueAfterJudge}
         />
       ) : null}

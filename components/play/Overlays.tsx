@@ -127,10 +127,11 @@ interface JudgeCardProps {
   score: number;
   wipedOut: boolean;
   isHeatOver: boolean;
+  incomingWaveNumber: number | null;
   onContinue(): void;
 }
 
-export function JudgeCard({ score, wipedOut, isHeatOver, onContinue }: JudgeCardProps): ReactElement {
+export function JudgeCard({ score, wipedOut, isHeatOver, incomingWaveNumber, onContinue }: JudgeCardProps): ReactElement {
   return (
     <div className="absolute inset-0 z-20 flex bg-[#0D1020]/55 p-4">
       <section
@@ -142,6 +143,11 @@ export function JudgeCard({ score, wipedOut, isHeatOver, onContinue }: JudgeCard
         <p className="mt-3 font-heading font-bold">
           {wipedOut ? "The ocean does not care. Twenty percent gone." : score >= 7 ? "That wave had teeth." : "Bank it. Keep moving."}
         </p>
+        {incomingWaveNumber !== null ? (
+          <p className="mt-3 font-mono text-xs font-bold uppercase tracking-[0.14em]" aria-live="polite">
+            Wave {incomingWaveNumber} incoming
+          </p>
+        ) : null}
         <Button type="button" onClick={onContinue} className="mt-5 w-full rounded-none font-heading font-black uppercase">
           {isHeatOver ? "See the result" : "Next wave"}
         </Button>
