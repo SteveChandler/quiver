@@ -608,12 +608,14 @@ export class PlayScene extends Phaser.Scene {
     const wipeout = this.simulation.phase === "wipeout";
     this.riderDirection = this.isCutback(elapsed) ? -1 : 1;
     this.riderAngle = this.getRiderAngle(facePosition, elapsed);
+    const joinedAirFrame = key.includes("air-") || key.startsWith("surfer-landing");
     this.riderRig
       .setPosition(riderX, riderY)
       .setAngle(wipeout ? this.simulation.phaseElapsed * 240 : this.riderAngle)
       .setScale(this.riderDirection, 1);
+    this.rider.setY(joinedAirFrame ? 4 : -4);
     this.rider.setScale(1.8, this.simulation.inBarrel ? 1.5 : 1.8);
-    this.board.setVisible(!wipeout);
+    this.board.setVisible(!wipeout && !joinedAirFrame);
     this.looseBoard
       .setVisible(wipeout)
       .setPosition(riderX + 35 + this.simulation.phaseElapsed * 10, riderY + 14)

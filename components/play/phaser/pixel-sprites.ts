@@ -89,6 +89,12 @@ function riderOnly(textureRows: readonly string[]): readonly string[] {
   return textureRows.slice(0, bodyEnd);
 }
 
+function riderAndBoard(textureRows: readonly string[]): readonly string[] {
+  const boardStart = textureRows.findIndex((row) => /n{8}/.test(row));
+  if (boardStart < 0) return textureRows;
+  return [...riderOnly(textureRows), ...textureRows.slice(boardStart)];
+}
+
 const TRIM = rows(`
 .......hhh..............
 ......hHHh..............
@@ -428,7 +434,9 @@ const POSE_FRAMES: readonly [string, readonly string[]][] = [
 export const PIXEL_TEXTURES: readonly PixelTextureDefinition[] = [
   ...POSE_FRAMES.map(([key, textureRows]) => ({
     key,
-    rows: key.startsWith("surfer-wipeout") ? textureRows : riderOnly(textureRows),
+    rows: key.startsWith("surfer-wipeout") || key.includes("air-") || key.startsWith("surfer-landing")
+      ? riderAndBoard(textureRows)
+      : riderOnly(textureRows),
   })),
   { key: "surfboard", rows: BOARD },
   { key: "foam-chunk", rows: FOAM },
