@@ -1033,3 +1033,25 @@ describe("HLS Proxy Route", () => {
     });
   });
 });
+
+
+describe('HDRelay Apple playlist compatibility', () => {
+  beforeEach(() => mockFetch.mockReset());
+  it('rejects non-media HDRelay paths', async () => {
+    const response = await GET(createRequest('/api/hls-proxy/watch.hdrelay.io/api/player'), createContext(['watch.hdrelay.io', 'api', 'player']));
+    expect(response.status).toBe(403);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+  it('keeps complete segments and initialization while dropping low-latency tags', async () => {
+    const manifest = '#EXTM3U\n#EXT-X-VERSION:10\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:10\n#EXT-X-MAP:URI="init.mp4"\n#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES\n#EXT-X-PART-INF:PART-TARGET=0.2\n#EXTINF:2.0,\nsegment.mp4\n#EXT-X-PART:DURATION=0.2,URI="part.mp4"\n#EXT-X-PRELOAD-HINT:TYPE=PART,URI="next.mp4"\n';
+    mockUpstreamResponse(manifest);
+    const response = await GET(createRequest('/api/hls-proxy/watch.hdrelay.io/live/cam/stream.m3u8'), createContext(['watch.hdrelay.io', 'live', 'cam', 'stream.m3u8']));
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(text).toContain('#EXT-X-VERSION:6');
+    expect(text).toContain('#EXT-X-MAP:URI="init.mp4"');
+    expect(text).toContain('#EXT-X-MEDIA-SEQUENCE:10');
+    expect(text).toContain('#EXTINF:2.0,\nsegment.mp4');
+    expect(text).not.toMatch(/EXT-X-(PART|PRELOAD-HINT|SERVER-CONTROL)/);
+  });
+});

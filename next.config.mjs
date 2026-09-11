@@ -37,6 +37,7 @@ const isProd =
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  devIndicators: false,
   // Native dev clients load /embed/map from http://127.0.0.1:<port>; Next 16 blocks
   // dev resources for origins it does not recognize, leaving the WebView on "Loading map".
   allowedDevOrigins: ["127.0.0.1", "localhost"],
