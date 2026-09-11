@@ -146,12 +146,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const isLandingPage = pathname === "/";
   const isWelcomePage = pathname === "/welcome";
   const isEmbedRoute = pathname.startsWith("/embed");
+  const isPlayRoute = pathname === "/play";
 
   // Embed routes get a minimal shell — no providers, nav, footer, or heavy assets.
   // Body styles are applied via EmbedBodyOverride since the root layout is now
   // non-async (no headers() call) to enable ISR caching across the site.
   if (isEmbedRoute) {
     return <EmbedBodyOverride>{children}</EmbedBodyOverride>;
+  }
+
+  if (isPlayRoute) {
+    return <main id="main-content" role="main">{children}</main>;
   }
 
   // Note: We keep SelectedBeachProvider mounted even on "/"

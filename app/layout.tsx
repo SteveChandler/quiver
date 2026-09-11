@@ -159,6 +159,7 @@ const hideFooterPrefixes = [
   "/sessions",
   "/prefs",
   "/embed",
+  "/play",
   "/welcome",
   "/map",
   "/redeem",

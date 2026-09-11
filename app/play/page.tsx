@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import type { ReactElement } from "react";
 
 import { OutsideGame } from "@/components/play/OutsideGame";
-import { ZineSurface } from "@/components/zine/zine-surface";
 import { dailySeed } from "@/lib/play";
 import { buildPageMetadata } from "@/lib/seo/meta";
 
@@ -28,16 +27,9 @@ export default async function PlayPage({ searchParams }: PlayPageProps): Promise
   const challengeCode = typeof params.c === "string" ? params.c : undefined;
 
   return (
-    <ZineSurface
-      sectionLabel="ONE MORE WAVE"
-      editionLabel="Daily heat"
-      className="min-h-screen bg-[#0B5FA5]"
-      stageClassName="min-h-screen pt-20"
-      paperClassName="overflow-hidden !bg-[#B8F1FF] !p-1 sm:!p-3"
-      data-testid="outside-game-page"
-    >
+    <div className="h-svh overflow-hidden bg-[#0B5FA5]" data-testid="outside-game-page">
       <h1 className="sr-only">ONE MORE WAVE — Ride the line. Beat the pier. Get the real one.</h1>
       <OutsideGame challengeCode={challengeCode} todaySeed={dailySeed()} />
-    </ZineSurface>
+    </div>
   );
 }

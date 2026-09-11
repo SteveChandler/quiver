@@ -49,7 +49,7 @@ export default function PhaserHost(props: PhaserHostProps): ReactElement {
   return (
     <div
       ref={parentRef}
-      className={`${props.active ? "aspect-video" : "min-h-[calc(100svh-112px)] max-sm:[&>canvas]:-translate-y-20 sm:aspect-video sm:min-h-0"} w-full touch-none overflow-hidden bg-[#FFBE8A] [font-family:var(--font-play-pixel)]`}
+      className="absolute inset-0 h-full w-full touch-none overflow-hidden bg-[#FFBE8A] [font-family:var(--font-play-pixel)] [&>canvas]:!h-full [&>canvas]:!w-full"
       data-testid="phaser-game"
     />
   );

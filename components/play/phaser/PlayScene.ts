@@ -70,6 +70,12 @@ const DEBRIS_FRAMES = {
   tire: "debris-6",
 } as const;
 
+const WAVE_BOTTOM = 474;
+const FACE_OVERLAP = 20;
+const FACE_FRAMES = ["wave-tile-1", "wave-tile-2", "wave-tile-3", "wave-tile-2"] as const;
+const FACE_HEIGHTS = [230, 228, 228, 228] as const;
+const FACE_SCALE_Y = [1.18, 1.05, 0.92, 0.8] as const;
+
 interface RenderedObstacle {
   obstacle: Obstacle;
   bodies: Phaser.GameObjects.Image[];
@@ -105,7 +111,6 @@ export class PlayScene extends Phaser.Scene {
   private palms: Phaser.GameObjects.Image[] = [];
   private ambientGulls: Phaser.GameObjects.Image[] = [];
   private whitewater!: Phaser.GameObjects.Image;
-  private curl!: Phaser.GameObjects.Image;
   private sun!: Phaser.GameObjects.Image;
   private rider!: Phaser.GameObjects.Image;
   private looseBoard!: Phaser.GameObjects.Image;
@@ -127,6 +132,7 @@ export class PlayScene extends Phaser.Scene {
   private muteButton!: Phaser.GameObjects.Image;
   private pauseButton!: Phaser.GameObjects.Image;
   private helpPanel!: Phaser.GameObjects.Container;
+  private hudStatic: Phaser.GameObjects.Components.Visible[] = [];
   private inputState: SimulationInput = { ...IDLE_INPUT };
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private pointerSide: "left" | "right" | null = null;
@@ -142,6 +148,7 @@ export class PlayScene extends Phaser.Scene {
   private wasActive = false;
   private paused = false;
   private warnedPierId = "";
+  private capturing = false;
 
   constructor() {
     super("play");
@@ -156,7 +163,7 @@ export class PlayScene extends Phaser.Scene {
     this.drawSkyGradient();
     this.createCoast();
     this.waveBackdrop = this.add.graphics().setDepth(2);
-    this.waveBackdrop.fillStyle(PALETTE.trough).fillRect(0, 245, GAME_WIDTH, GAME_HEIGHT - 245);
+    this.waveBackdrop.fillStyle(PALETTE.trough).fillRect(0, WAVE_BOTTOM, GAME_WIDTH, GAME_HEIGHT - WAVE_BOTTOM);
     this.createWave();
     this.createRider();
     this.obstacles = this.createObstacleSprites();
@@ -220,22 +227,22 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private createWave(): void {
-    this.waterTiles = Array.from({ length: 8 }, (_, index) =>
-      this.add.image(index * 140, 475, "water", `water-tile-${index % 5}`).setOrigin(0, 0.5).setScale(1.08, 1.4).setDepth(2),
+    this.waterTiles = Array.from({ length: 12 }, (_, index) =>
+      this.add.image(index * 140, WAVE_BOTTOM - 2, "water", `water-tile-${index % 5}`).setOrigin(0).setScale(1.08, 0.9).setDepth(3),
     );
-    this.faceTiles = Array.from({ length: 10 }, (_, index) =>
-      this.add.image(125 + index * 96, 455, "water", `wave-tile-${1 + index % 3}`).setOrigin(0.5, 1).setDepth(4),
+    this.faceTiles = FACE_FRAMES.map((frame) =>
+      this.add.image(0, WAVE_BOTTOM, "water", frame).setOrigin(0, 1).setDepth(4),
     );
     this.shoulderTiles = [
-      this.add.image(755, 440, "water", "shoulder-tile-0"),
-      this.add.image(885, 442, "water", "shoulder-tile-1"),
-      this.add.image(940, 456, "water", "shoulder-tile-2"),
+      this.add.image(0, WAVE_BOTTOM, "water", "shoulder-tile-0").setOrigin(0, 1),
+      this.add.image(0, WAVE_BOTTOM, "water", "shoulder-tile-1").setOrigin(0, 1),
+      this.add.image(0, WAVE_BOTTOM, "water", "shoulder-tile-2").setOrigin(0, 1),
     ];
-    this.foamTiles = Array.from({ length: 7 }, (_, index) =>
-      this.add.image(35 + index * 92, 360 + index % 2 * 70, "water", `foam-tile-${index % 6}`).setDepth(5),
+    this.foamTiles = Array.from({ length: 6 }, (_, index) =>
+      this.add.image(0, 0, "water", `foam-tile-${index}`).setDepth(5),
     );
-    this.lipTiles = Array.from({ length: 7 }, (_, index) =>
-      this.add.image(250 + index * 108, 260 + index * 13, "water", `foam-line-${index % 2}`).setDepth(7),
+    this.lipTiles = FACE_FRAMES.map((_, index) =>
+      this.add.image(0, 0, "water", `foam-line-${index % 2}`).setDepth(7),
     );
     this.foamChunks = Array.from({ length: 6 }, (_, index) =>
       this.add.image(0, 0, "obstacles", `foam-${index}`).setDepth(8),
@@ -243,12 +250,9 @@ export class PlayScene extends Phaser.Scene {
     this.sparkles = Array.from({ length: 12 }, (_, index) =>
       this.add.image(0, 0, "water", `sparkle-${index}`).setDepth(8),
     );
-    this.whitewater = this.add.image(230, 365, "water", "wave-tile-0").setOrigin(1, 0.5).setDepth(6);
-    this.curl = this.add.image(400, 348, "water", "wave-tile-4").setOrigin(0.5, 0.6).setDepth(9).setVisible(false);
-    for (const tile of this.faceTiles) tile.setScale(1.05, 1.08);
-    for (const tile of this.shoulderTiles) tile.setScale(0.8).setDepth(4);
-    for (const tile of this.foamTiles) tile.setScale(0.78).setAlpha(0.94);
-    for (const tile of this.lipTiles) tile.setScale(0.88, 0.65);
+    this.whitewater = this.add.image(230, WAVE_BOTTOM, "water", "wave-tile-0").setOrigin(1, 1).setDepth(6);
+    for (const tile of this.shoulderTiles) tile.setDepth(4);
+    for (const tile of this.foamTiles) tile.setAlpha(0.96);
   }
 
   private createRider(): void {
@@ -262,16 +266,22 @@ export class PlayScene extends Phaser.Scene {
 
   private createHud(): void {
     const bridge = this.bridgeRef.current;
-    const panel = (x: number, y: number, width: number, height: number): Phaser.GameObjects.NineSlice =>
-      this.add.nineslice(x, y, "ui", "plate-dark", width, height, 10, 10, 10, 10).setOrigin(0).setDepth(30);
-    const label = (x: number, y: number, value: string, size = 11): Phaser.GameObjects.Text =>
-      this.add.text(x, y, value, {
+    const panel = (x: number, y: number, width: number, height: number): Phaser.GameObjects.NineSlice => {
+      const image = this.add.nineslice(x, y, "ui", "plate-dark", width, height, 10, 10, 10, 10).setOrigin(0).setDepth(30);
+      this.hudStatic.push(image);
+      return image;
+    };
+    const label = (x: number, y: number, value: string, size = 11): Phaser.GameObjects.Text => {
+      const text = this.add.text(x, y, value, {
         fontFamily: bridge.fontFamily,
         fontSize: `${size}px`,
         color: "#F8FEFF",
         stroke: "#0A1D2B",
         strokeThickness: 3,
       }).setDepth(33);
+      this.hudStatic.push(text);
+      return text;
+    };
 
     panel(12, 10, 184, 73);
     panel(12, 87, 184, 33);
@@ -288,17 +298,19 @@ export class PlayScene extends Phaser.Scene {
     this.dangerText = label(226, 75, "DANGER / FOAM GAP", 9);
     this.safeText = label(704, 94, "SAFE", 9).setOrigin(1, 0);
     this.hudBars = this.add.graphics().setDepth(32);
-    this.pierMini = this.add.image(848, 104, "ui", "panel-pier-mini-0").setScale(0.56).setDepth(34).setVisible(false);
-    this.pierBanner = this.add.image(GAME_WIDTH + 310, 155, "ui", "banner-pier-0").setScale(0.72).setDepth(36).setVisible(false);
+    this.hudStatic.push(this.hudBars);
+    this.pierMini = this.add.image(860, 105, "ui", "panel-pier-mini-0").setScale(0.56).setDepth(34).setVisible(false);
+    this.pierBanner = this.add.image(GAME_WIDTH + 310, 220, "ui", "banner-pier-0").setScale(0.72).setDepth(36).setVisible(false);
     this.popup = this.add.image(GAME_WIDTH / 2, 150, "ui", "popup-8").setScale(0.65).setDepth(37).setVisible(false);
     this.stamp = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, "ui", "stamp-1").setScale(0.88).setDepth(38).setVisible(false);
 
-    this.muteButton = this.add.image(800, 111, "ui", bridge.muted ? "btn-mute-0" : "btn-sound-0")
+    this.muteButton = this.add.image(800, 133, "ui", bridge.muted ? "btn-mute-0" : "btn-sound-0")
       .setOrigin(0, 0).setScale(0.42).setDepth(35).setInteractive({ useHandCursor: true });
-    const helpButton = this.add.image(844, 111, "ui", "btn-help-0")
+    const helpButton = this.add.image(844, 133, "ui", "btn-help-0")
       .setOrigin(0, 0).setScale(0.42).setDepth(35).setInteractive({ useHandCursor: true });
-    this.pauseButton = this.add.image(888, 111, "ui", "btn-pause-0")
+    this.pauseButton = this.add.image(888, 133, "ui", "btn-pause-0")
       .setOrigin(0, 0).setScale(0.42).setDepth(35).setInteractive({ useHandCursor: true });
+    this.hudStatic.push(this.muteButton, helpButton, this.pauseButton);
     this.muteButton.on("pointerdown", (): void => {
       bridge.onToggleMute();
       this.muteButton.setFrame(this.bridgeRef.current.muted ? "btn-mute-0" : "btn-sound-0");
@@ -311,7 +323,7 @@ export class PlayScene extends Phaser.Scene {
     helpButton.on("pointerdown", (): void => {
       this.helpPanel.setVisible(!this.helpPanel.visible);
     });
-    this.createTouchControls();
+    this.hudStatic.push(...this.createTouchControls());
   }
 
   private createHelpPanel(): Phaser.GameObjects.Container {
@@ -339,8 +351,8 @@ export class PlayScene extends Phaser.Scene {
     return this.add.container(270, 180, [plate, title, copy, ...keys]).setDepth(45).setVisible(false);
   }
 
-  private createTouchControls(): void {
-    if (!window.matchMedia("(pointer: coarse)").matches) return;
+  private createTouchControls(): Phaser.GameObjects.Image[] {
+    if (!window.matchMedia("(pointer: coarse)").matches) return [];
     const up = this.add.image(65, 455, "ui", "circle-btn-0").setScale(0.55).setDepth(40).setInteractive();
     const down = this.add.image(135, 468, "ui", "circle-btn-1").setScale(0.55).setDepth(40).setInteractive();
     const jump = this.add.image(815, 465, "ui", "circle-btn-3").setScale(0.55).setDepth(40).setInteractive();
@@ -353,6 +365,7 @@ export class PlayScene extends Phaser.Scene {
     trick.on("pointerdown", (): void => this.onActionDown());
     jump.on("pointerup", (): void => this.onActionUp());
     trick.on("pointerup", (): void => this.onActionUp());
+    return [up, down, jump, trick];
   }
 
   private configureInput(): void {
@@ -492,13 +505,17 @@ export class PlayScene extends Phaser.Scene {
     const score = judgeWave(this.simulation.stats).score;
     this.heat = completeWave(this.heat, score, this.simulation.stats.wipeout, this.simulation.stats);
     const bridge = this.bridgeRef.current;
-    const gameOver = this.heat.status === "failed";
-    this.stamp.setFrame(gameOver ? "stamp-gameover-0" : "stamp-complete-0").setVisible(true);
+    this.stamp.setVisible(false);
     const delay = bridge.reducedMotion ? 0 : 650;
     this.time.delayedCall(delay, (): void => {
-      bridge.onFrameCapture(this.game.canvas.toDataURL("image/png"));
-      bridge.onSnapshot({ simulation: this.simulation, heat: this.heat, liveScore: score });
-      bridge.onWaveComplete(this.heat, this.simulation, score);
+      this.capturing = true;
+      this.setHudVisible(false);
+      this.time.delayedCall(34, (): void => {
+        bridge.onFrameCapture(this.game.canvas.toDataURL("image/png"));
+        this.capturing = false;
+        bridge.onSnapshot({ simulation: this.simulation, heat: this.heat, liveScore: score });
+        bridge.onWaveComplete(this.heat, this.simulation, score);
+      });
     });
   }
 
@@ -515,7 +532,6 @@ export class PlayScene extends Phaser.Scene {
       ? Phaser.Math.Linear(this.previousSimulation.sectionDistance, state.sectionDistance, interpolation)
       : 0.72;
     const riderX = 410;
-    const baseY = 448 - facePosition * 225;
     const airProgress = state.phase === "airborne" ? Phaser.Math.Clamp(state.phaseElapsed / 0.31, 0, 1) : 0;
     const airLift = state.phase === "airborne" ? Math.sin(airProgress * Math.PI) * 92 : 0;
     const sectionX = riderX - sectionDistance * 230;
@@ -524,9 +540,10 @@ export class PlayScene extends Phaser.Scene {
 
     this.positionCoast(motionElapsed);
     this.positionWave(sectionX, motionElapsed, throwing, foamPressure);
+    const riderY = this.getRiderY(riderX, facePosition) - airLift;
     this.positionObstacles(elapsed, active);
-    this.positionRider(facePosition, riderX, baseY - airLift, elapsed);
-    this.positionEffects(riderX, baseY - airLift, sectionX, motionElapsed, throwing);
+    this.positionRider(facePosition, riderX, riderY, elapsed);
+    this.positionEffects(riderX, riderY, sectionX, motionElapsed, throwing);
     this.updateHud(active);
   }
 
@@ -550,34 +567,74 @@ export class PlayScene extends Phaser.Scene {
 
   private positionWave(sectionX: number, elapsed: number, throwing: boolean, pressure: number): void {
     const scale = 0.82 + this.bridgeRef.current.wave.height * 0.18;
+    const waterLoopWidth = this.waterTiles.slice(0, 5).reduce((width, tile) => width + tile.displayWidth - 2, 0);
+    let waterX = -(elapsed * 7 % waterLoopWidth);
     for (let index = 0; index < this.waterTiles.length; index += 1) {
-      this.waterTiles[index].x = Phaser.Math.Wrap(index * 140 - elapsed * 13, -140, 980);
+      const tile = this.waterTiles[index];
+      tile.x = waterX;
+      waterX += tile.displayWidth - 2;
     }
+
+    let faceX = sectionX - FACE_OVERLAP - Math.min(elapsed, 50) * 2;
     for (let index = 0; index < this.faceTiles.length; index += 1) {
       const tile = this.faceTiles[index];
-      tile.setPosition(125 + index * 96, 458 + index * 1.5).setScale(scale * 1.08, scale * 1.05);
+      const curling = throwing && index === 0;
+      const frame = curling ? "wave-tile-4" : FACE_FRAMES[index];
+      const targetHeight = FACE_HEIGHTS[index] * scale * FACE_SCALE_Y[index] * (curling ? 1.15 : 1);
+      tile.setFrame(frame)
+        .setPosition(faceX, WAVE_BOTTOM)
+        .setScale(scale * (curling ? 1 : 1.08), targetHeight / (curling ? 270 : FACE_HEIGHTS[index]))
+        .setFlipX(index % 2 === 1);
+      faceX += tile.displayWidth - FACE_OVERLAP;
     }
-    this.whitewater.setPosition(sectionX + 18, 360).setScale(scale * (1 + pressure * 0.12), scale * 1.08);
-    this.curl.setPosition(390, 344).setScale(scale * 0.9).setVisible(throwing);
+    this.whitewater.setPosition(sectionX, WAVE_BOTTOM).setScale(scale * (1 + pressure * 0.12), scale * 1.08);
+
+    const shoulderScaleX = [0.72, 0.9, 0.82] as const;
+    const shoulderScaleY = [0.58, 0.46, 0.38] as const;
+    let shoulderX = faceX - FACE_OVERLAP;
+    for (let index = 0; index < this.shoulderTiles.length; index += 1) {
+      const tile = this.shoulderTiles[index];
+      tile.setPosition(shoulderX, WAVE_BOTTOM)
+        .setScale(shoulderScaleX[index] * scale, shoulderScaleY[index] * scale)
+        .setFlipX(index === 1);
+      shoulderX += tile.displayWidth - 12;
+    }
+
     for (let index = 0; index < this.foamTiles.length; index += 1) {
       const tile = this.foamTiles[index];
-      tile.setPosition(sectionX - 80 - index % 3 * 75, 300 + Math.floor(index / 3) * 82);
-      tile.setFrame(`foam-tile-${(index + Math.floor(elapsed * 5)) % 6}`);
+      const spacing = Math.max(42, sectionX / 5);
+      tile.setOrigin(0.5, 1)
+        .setPosition(sectionX - 54 - index * spacing, WAVE_BOTTOM - 18 - index % 3 * 44)
+        .setScale(0.7 + index % 2 * 0.08, 0.72)
+        .setFlipX(index % 2 === 1);
     }
     for (let index = 0; index < this.lipTiles.length; index += 1) {
       const tile = this.lipTiles[index];
-      tile.setPosition(225 + index * 112, 251 + index * 11 + Math.sin(elapsed * 4 + index) * 2);
+      const face = this.faceTiles[index];
+      tile.setPosition(
+        face.x + face.displayWidth / 2,
+        face.y - face.displayHeight + 30 + Math.sin(elapsed * 4 + index) * 2,
+      ).setScale(Math.max(0.72, face.displayWidth / 145), 0.48).setFlipX(index % 2 === 1);
     }
     for (let index = 0; index < this.foamChunks.length; index += 1) {
       const chunk = this.foamChunks[index];
-      chunk.setPosition(sectionX + 25 + (elapsed * (12 + pressure * 15) + index * 38) % 145, 286 + index * 31);
-      chunk.setScale(0.32 + pressure * 0.12).setAlpha(0.78 + pressure * 0.2);
+      const orbit = elapsed * (18 + pressure * 16) + index * 31;
+      chunk.setPosition(sectionX - 8 + orbit % 105, 218 + index * 37 + orbit % 24)
+        .setAngle(orbit * (index % 2 ? -1 : 1))
+        .setScale(0.3 + pressure * 0.12)
+        .setAlpha(0.8 + pressure * 0.18);
     }
     for (let index = 0; index < this.sparkles.length; index += 1) {
       const sparkle = this.sparkles[index];
-      sparkle.setPosition(275 + (index * 73 - elapsed * (16 + index)) % 660, 305 + index % 4 * 42);
+      sparkle.setPosition(Phaser.Math.Wrap(275 + index * 73 - elapsed * (16 + index), 245, 940), 310 + index % 4 * 38);
       sparkle.setScale(0.38).setVisible(!this.bridgeRef.current.reducedMotion || index < 4);
     }
+  }
+
+  private getRiderY(riderX: number, facePosition: number): number {
+    const face = this.faceTiles.find((tile) => riderX >= tile.x && riderX <= tile.x + tile.displayWidth)
+      ?? this.faceTiles[0];
+    return face.y - 10 - facePosition * Math.max(70, face.displayHeight - 24);
   }
 
   private createObstacleSprites(): RenderedObstacle[] {
@@ -666,8 +723,8 @@ export class PlayScene extends Phaser.Scene {
       rendered.bodies[0].setFrame(`buoy-${Math.floor(elapsed * 7) % 4}`).setPosition(x, 417 + Math.sin(elapsed * 3) * 5).setScale(0.5).setVisible(true);
     }
 
-    const warning = getPierWarning(this.bridgeRef.current.wave.obstacles, elapsed);
-    this.pierMini.setVisible(Boolean(warning));
+    const warning = active ? getPierWarning(this.bridgeRef.current.wave.obstacles, elapsed) : null;
+    this.pierMini.setVisible(Boolean(warning) && !this.capturing);
     if (warning && warning.id !== this.warnedPierId) {
       this.warnedPierId = warning.id;
       this.showPierBanner();
@@ -767,6 +824,10 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private updateHud(active: boolean): void {
+    const visible = active && !this.capturing;
+    this.setHudVisible(visible);
+    if (!visible) return;
+
     const bridge = this.bridgeRef.current;
     const arcadeScore = this.heat.arcadeScore + (active && !this.finished ? getArcadeScore(this.simulation.stats) : 0);
     const best = bridge.currentBestArcadeScore ?? 0;
@@ -783,6 +844,16 @@ export class PlayScene extends Phaser.Scene {
     this.hudBars.fillStyle(PALETTE.shadow).fillRect(385, 28, 345, 16).fillRect(385, 91, 300, 14);
     this.hudBars.fillStyle(PALETTE.coral).fillRect(388, 31, 339 * waveProgress, 10);
     this.hudBars.fillStyle(gapColour).fillRect(388, 94, 294 * gap, 8);
+  }
+
+  private setHudVisible(visible: boolean): void {
+    for (const object of this.hudStatic) object.setVisible(visible);
+    if (visible) return;
+    this.pierMini.setVisible(false);
+    this.pierBanner.setVisible(false);
+    this.popup.setVisible(false);
+    this.stamp.setVisible(false);
+    this.helpPanel.setVisible(false);
   }
 
   private showManeuverPopup(maneuver: ManeuverEvent): void {
@@ -824,7 +895,7 @@ export class PlayScene extends Phaser.Scene {
 
   private showPierBanner(): void {
     this.tweens.killTweensOf(this.pierBanner);
-    this.pierBanner.setPosition(GAME_WIDTH + 260, 165).setVisible(true);
+    this.pierBanner.setPosition(GAME_WIDTH + 260, 220).setVisible(true);
     if (this.bridgeRef.current.reducedMotion) {
       this.pierBanner.setX(GAME_WIDTH / 2);
       this.time.delayedCall(1_100, (): void => {

@@ -29,14 +29,14 @@ import {
 } from "@/lib/play";
 import { OutsideAudio } from "./audio";
 import type { GameSnapshot } from "./game-types";
-import { ControlPrimer, HeatResult, JudgeCard, StartScreen, WipeoutScreen } from "./Overlays";
+import { ControlPrimer, GameOverScreen, HeatResult, JudgeCard, StartScreen, WipeoutScreen } from "./Overlays";
 
 const PhaserHost = dynamic(() => import("./phaser/PhaserHost"), {
   ssr: false,
   loading: () => <div className="min-h-[650px] bg-[#FFBE8A]" aria-label="Loading surf" />,
 });
 
-type GameMode = "start" | "primer" | "riding" | "judge" | "result";
+type GameMode = "start" | "primer" | "riding" | "judge" | "gameover" | "result";
 
 interface OutsideGameProps {
   challengeCode?: string;
@@ -235,7 +235,11 @@ export function OutsideGame({
   }, [persistResult]);
 
   const continueAfterJudge = useCallback((): void => {
-    if (heat.status === "passed" || heat.status === "failed") {
+    if (heat.status === "failed") {
+      setMode("gameover");
+      return;
+    }
+    if (heat.status === "passed") {
       setMode("result");
       return;
     }
@@ -254,6 +258,12 @@ export function OutsideGame({
     const timeout = window.setTimeout(continueAfterJudge, 2_500);
     return (): void => window.clearTimeout(timeout);
   }, [continueAfterJudge, judgeResult.wipedOut, mode]);
+
+  useEffect(() => {
+    if (mode !== "gameover") return;
+    const timeout = window.setTimeout((): void => setMode("result"), reducedMotion ? 0 : 1_000);
+    return (): void => window.clearTimeout(timeout);
+  }, [mode, reducedMotion]);
 
   const retry = (): void => {
     prepareRun(selectedBreakIndex, activeSeed, true, heat.practice);
@@ -302,7 +312,7 @@ export function OutsideGame({
   const activeWave = waves[displayWaveIndex];
 
   return (
-    <section className="one-more-wave relative isolate overflow-hidden border-4 border-[#0A1D2B] bg-[#FFBE8A] tracking-[0.04em] shadow-[5px_5px_0_#0A1D2B] [font-family:var(--font-play-pixel)] [text-shadow:1px_1px_0_#0A1D2B]">
+    <section className="one-more-wave relative isolate h-svh w-full overflow-hidden bg-[#FFBE8A] tracking-[0.04em] [font-family:var(--font-play-pixel)] [text-shadow:1px_1px_0_#0A1D2B]">
       <style>{`
         .one-more-wave, .one-more-wave * { font-family: var(--font-play-pixel) !important; }
         .one-more-wave h1, .one-more-wave h2, .one-more-wave h3 { font-family: var(--font-play-pixel) !important; }
@@ -375,6 +385,7 @@ export function OutsideGame({
           onContinue={continueAfterJudge}
         />
       ) : null}
+      {mode === "gameover" ? <GameOverScreen /> : null}
       {mode === "result" ? (
         <HeatResult
           definition={definition}

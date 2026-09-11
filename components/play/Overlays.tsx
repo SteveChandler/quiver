@@ -304,6 +304,14 @@ export function WipeoutScreen({
   );
 }
 
+export function GameOverScreen(): ReactElement {
+  return (
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0A1D2B]/20 p-4" aria-live="assertive">
+      <AtlasFrame frame="stamp-gameover-0" label="Game over" className="w-80 max-w-full" />
+    </div>
+  );
+}
+
 interface HeatResultProps {
   definition: BreakDefinition;
   heat: HeatState;

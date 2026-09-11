@@ -13,5 +13,5 @@ interface PlayLayoutProps {
 }
 
 export default function PlayLayout({ children }: PlayLayoutProps): ReactElement {
-  return <div className={`${pixelFont.variable} [font-family:var(--font-play-pixel)]`}>{children}</div>;
+  return <div className={`${pixelFont.variable} min-h-svh [font-family:var(--font-play-pixel)]`}>{children}</div>;
 }
