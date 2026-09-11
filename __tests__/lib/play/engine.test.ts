@@ -11,6 +11,7 @@ import {
   encodeChallenge,
   generateWaveSet,
   getNeedsScore,
+  getArcadeScore,
   getProjectedHeatTotal,
   judgeWave,
   performManeuver,
@@ -151,6 +152,13 @@ describe("OUTSIDE engine", () => {
 
     expect(judgeWave(stats).score).toBe(8.69);
     expect(judgeWave({ ...stats, wipeout: true }).score).toBe(6.95);
+  });
+
+  it("builds the arcade counter from judging, bonuses, and flow", () => {
+    let stats = performManeuver(createRideStats(), "air", 2);
+    stats = { ...stats, barrelSeconds: 2, maxFlow: 2 };
+
+    expect(getArcadeScore(stats)).toBe(Math.round((judgeWave(stats).score * 100 + 300 + 100) * 2));
   });
 
   it("generates identical sets from the same seed", () => {

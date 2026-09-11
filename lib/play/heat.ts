@@ -1,4 +1,5 @@
 import { getBreak } from "./breaks";
+import { getArcadeScore } from "./judge";
 import type { HeatState, RideStats } from "./types";
 
 function roundScore(score: number): number {
@@ -29,6 +30,7 @@ export function createHeatState(
     waveScores: [],
     currentWaveIndex: 0,
     heatTotal: 0,
+    arcadeScore: 0,
     stats: { tricksLanded: 0, longestRideSeconds: 0, closestPierPass: null },
   };
 }
@@ -71,6 +73,7 @@ export function completeWave(
     ...state,
     waveScores,
     heatTotal,
+    arcadeScore: state.arcadeScore + (rideStats ? getArcadeScore(rideStats) : 0),
     secondsRemaining,
     currentWaveIndex: state.currentWaveIndex + 1,
     stats: rideStats ? {

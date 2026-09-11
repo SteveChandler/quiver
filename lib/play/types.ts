@@ -148,6 +148,7 @@ export interface HeatState {
   waveScores: number[];
   currentWaveIndex: number;
   heatTotal: number;
+  arcadeScore: number;
   stats: HeatStats;
 }
 

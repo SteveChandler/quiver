@@ -37,3 +37,9 @@ export function judgeWave(stats: RideStats): JudgeBreakdown {
     score: Number(score.toFixed(2)),
   };
 }
+
+export function getArcadeScore(stats: RideStats): number {
+  const airBonus = stats.maneuvers.filter(({ type }) => type === "air").length * 300;
+  const barrelBonus = stats.barrelSeconds * 50;
+  return Math.round((judgeWave(stats).score * 100 + airBonus + barrelBonus) * stats.maxFlow);
+}

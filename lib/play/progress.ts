@@ -3,6 +3,7 @@ export const PLAY_PROGRESS_KEY = "quiver.play.outside.v1";
 export interface PlayProgress {
   unlockedBreakIndex: number;
   bestHeatTotals: Record<string, number>;
+  bestArcadeScores: Record<string, number>;
   muted: boolean;
   controlsSeen: boolean;
 }
@@ -20,6 +21,7 @@ export interface ProgressStore {
 export const DEFAULT_PLAY_PROGRESS: PlayProgress = {
   unlockedBreakIndex: 0,
   bestHeatTotals: {},
+  bestArcadeScores: {},
   muted: false,
   controlsSeen: false,
 };
@@ -34,6 +36,9 @@ function parseProgress(value: string | null): PlayProgress {
         : 0,
       bestHeatTotals: parsed.bestHeatTotals && typeof parsed.bestHeatTotals === "object"
         ? parsed.bestHeatTotals
+        : {},
+      bestArcadeScores: parsed.bestArcadeScores && typeof parsed.bestArcadeScores === "object"
+        ? parsed.bestArcadeScores
         : {},
       muted: parsed.muted === true,
       controlsSeen: parsed.controlsSeen === true,
