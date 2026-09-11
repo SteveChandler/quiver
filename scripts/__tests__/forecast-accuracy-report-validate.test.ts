@@ -305,7 +305,7 @@ describe("forecast-accuracy-report-validate", () => {
     ).toMatchObject({
       ok: false,
       findings: expect.arrayContaining([
-        "Approval report must declare report_schema_version 1.",
+        "Approval report must declare report_schema_version 2.",
       ]),
     });
 
@@ -313,14 +313,14 @@ describe("forecast-accuracy-report-validate", () => {
       validateForecastAccuracyReport(
         {
           ...buildReport(proposedJsonPath),
-          report_schema_version: 2,
+          report_schema_version: 1, // legacy version is no longer approval-ready
         },
         approvalOptions
       )
     ).toMatchObject({
       ok: false,
       findings: expect.arrayContaining([
-        "Approval report must declare report_schema_version 1.",
+        "Approval report must declare report_schema_version 2.",
       ]),
     });
   });
@@ -2698,7 +2698,7 @@ describe("forecast-accuracy-report-validate", () => {
 
 function buildReport(proposedJsonPath = "/tmp/proposed.json"): ForecastAccuracyReport {
   return {
-    report_schema_version: 1,
+    report_schema_version: 2,
     generated_at: "2026-06-19T00:00:00.000Z",
     range: {
       start: "2026-06-01T00:00:00.000Z",
@@ -2839,7 +2839,7 @@ function buildPhase0BaselineReport(): ForecastAccuracyReport {
   ];
 
   return {
-    report_schema_version: 1,
+    report_schema_version: 2,
     generated_at: "2026-06-20T08:34:15.000Z",
     range: {
       start: "2026-05-21T08:24:00.000Z",

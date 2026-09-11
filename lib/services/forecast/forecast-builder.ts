@@ -1036,6 +1036,9 @@ export class ForecastBuilder {
       beach,
       nowcastAnchor,
     );
+    const replayBase = waveHeightResult.debug.replayInput
+      ? { input: waveHeightResult.debug.replayInput, supported: southOcSanoGuardrail.kind === "noop" }
+      : null;
     let appliedSouthOcSanoGuardrail: SouthOcSanoGuardrailResult | null = null;
 
     if (southOcSanoGuardrail.kind !== "noop") {
@@ -1070,6 +1073,7 @@ export class ForecastBuilder {
         waveHeight: waveHeightResult.value,
         dataSource: timepointDataSource,
         waveHeightSource: waveHeightResult.debug.source,
+        ...(replayBase ? { replay: replayBase } : {}),
       },
     });
     if (handoffStep.metric) {
@@ -1266,6 +1270,14 @@ export class ForecastBuilder {
         display_source: "face-Hs-transformer-v1",
         display_wave_source: waveHeightResult.debug.source,
         display_raw_input_height_m: displayRawInputHeightM,
+        display_replay_context: replayBase ? JSON.parse(JSON.stringify({
+          version: 1, generatedAt: now.toISOString(), forecastAt, base: replayBase,
+          handoff: handoffBlendEnabled ? handoffBlendState.replay ?? null : null,
+          unsupportedReason: (beachOffsetCfgRow.enabled && heightOffset != null) || feedbackCalibrationCandidate != null
+            ? "offset"
+            : handoffBlendEnabled && handoffBlendState.seam && !handoffBlendState.replay
+              ? "missing-handoff" : null,
+        })) : null,
         wave_height_om_m: omHeightM,
         noaa_swell_1_height_m: wavePoint?.swell_1_height ?? null,
         noaa_swell_1_period_s: wavePoint?.swell_1_period ?? null,

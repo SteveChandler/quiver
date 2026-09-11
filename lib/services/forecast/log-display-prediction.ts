@@ -36,6 +36,7 @@ import {
 const log = createContextLogger("LogDisplayPrediction");
 
 export type DisplayPredictionRow = {
+  display_replay_context?: import("@/lib/utils/forecast-display-replay").ForecastDisplayReplayContext | null;
   beach_id: string;
   /** ISO timestamp of the forecast slot (forecast_at). */
   predicted_at: string;
@@ -230,6 +231,7 @@ export async function logDisplayPredictions(
       display_source: r.display_source,
       display_wave_source: r.display_wave_source,
       display_raw_input_height_m: r.display_raw_input_height_m,
+      display_replay_context: r.display_replay_context ?? null,
       model_version: r.model_version ?? r.display_source,
       wave_height_om: r.wave_height_om_m,
       noaa_swell_1_height_m: r.noaa_swell_1_height_m,
@@ -278,7 +280,7 @@ export async function logDisplayPredictions(
     // keeps the feedback-loop invariant inside each Phase 0 horizon bucket
     // while still allowing short-horizon snapshots to land after an earlier
     // long-horizon snapshot for the same forecast slot.
-    const { error } = await supabase
+    let { error } = await supabase
       .from("ml_predictions_log")
       .upsert(payload as unknown as never, {
         onConflict:
@@ -286,10 +288,20 @@ export async function logDisplayPredictions(
         ignoreDuplicates: true,
       });
 
+    if (error && (error.code === "42703" || error.code === "PGRST204") &&
+      error.message?.includes("display_replay_context")) {
+      const withoutContext = payload.map(({ display_replay_context: _context, ...row }) => row);
+      ({ error } = await supabase.from("ml_predictions_log").upsert(withoutContext as unknown as never, {
+        onConflict: "beach_id,predicted_at,forecast_horizon_bucket,display_source",
+        ignoreDuplicates: true,
+      }));
+      log.warn("Replay context column unavailable; snapshot retry omitted replay context");
+    }
     if (error) {
       if (shouldFallbackToLegacyConflictTarget(error)) {
         const legacyPayload = payload.map(
           ({
+            display_replay_context: _displayReplayContext,
             forecast_horizon_bucket: _forecastHorizonBucket,
             display_wave_source: _displayWaveSource,
             display_raw_input_height_m: _displayRawInputHeightM,

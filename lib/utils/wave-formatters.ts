@@ -31,6 +31,7 @@ import {
   CDIP_OUTLIER_THRESHOLD,
   MAX_TRUSTED_CDIP_FT,
 } from '@/lib/config/forecast-staleness';
+import type { ForecastReplayInput } from './forecast-display-replay';
 import type { ForecastHandoffBlendMetadata } from './forecast-handoff-blend';
 
 // Re-export for backward compatibility (consumers may import from here)
@@ -691,6 +692,7 @@ export interface WaveHeightDebugInfo {
   calibrationBucketQuarantined?: boolean;
   handoffDiscontinuityFt?: number;
   handoffBlend?: ForecastHandoffBlendMetadata;
+  replayInput?: ForecastReplayInput;
   cdipRejection?: {
     reason: 'cdip_too_large' | 'cdip_outlier_vs_model';
     rawCdipHs: number;
@@ -725,7 +727,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
     };
   }
 
-  const result = transformToFaceHeightDecomposed({
+  const replayInput = {
     components: params.components,
     beach: params.beach ?? {},
     source: source.source,
@@ -733,7 +735,8 @@ export function toFaceHeightFeetDecomposedWithDebug(
     periodS: params.periodS ?? null,
     swellDirectionDeg: params.swellDirectionDeg ?? null,
     allowCalibratedShoaling: params.allowCalibratedShoaling,
-  });
+  };
+  const result = transformToFaceHeightDecomposed(replayInput);
 
   const clamped = clampWaveHeight(result.faceHeightFt);
   const rounded = roundWaveHeight(clamped);
@@ -748,6 +751,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
   return {
     value: `${rounded} ft`,
     debug: {
+      replayInput: JSON.parse(JSON.stringify(replayInput)),
       source: source.source,
       rawHeightFt: source.heightFt,
       provenance: result.provenance,
