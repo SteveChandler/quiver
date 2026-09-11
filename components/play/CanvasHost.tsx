@@ -16,7 +16,7 @@ import {
   type WaveDefinition,
 } from "@/lib/play";
 import type { PlayAudio } from "./audio";
-import { renderCanvasScene } from "./canvas-renderer";
+import { renderCanvasScene, type CanvasScene } from "./canvas-renderer";
 
 export interface GameSnapshot {
   simulation: SimulationState;
@@ -64,24 +64,35 @@ export function CanvasHost({
   const pointerYRef = useRef(0);
   const finishedRef = useRef(false);
   const frameRef = useRef(0);
+  const sceneRef = useRef<CanvasScene>({
+    definition,
+    wave,
+    current: initialSimulation,
+    previous: initialSimulation,
+    interpolation: 0,
+    reducedMotion,
+  });
 
   const render = useCallback((interpolation: number): void => {
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return;
-    const ratio = Math.max(1, window.devicePixelRatio || 1);
+    const deviceRatio = window.devicePixelRatio || 1;
+    if (!Number.isFinite(deviceRatio) || deviceRatio <= 0) return;
+    const ratio = Math.max(1, deviceRatio);
     const width = canvas.width / ratio;
     const height = canvas.height / ratio;
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     context.clearRect(0, 0, width, height);
-    renderCanvasScene(context, width, height, {
-      definition,
-      wave,
-      current: simulationRef.current,
-      previous: previousRef.current,
-      interpolation,
-      reducedMotion,
-    });
+    const scene = sceneRef.current;
+    scene.definition = definition;
+    scene.wave = wave;
+    scene.current = simulationRef.current;
+    scene.previous = previousRef.current;
+    scene.interpolation = interpolation;
+    scene.reducedMotion = reducedMotion;
+    renderCanvasScene(context, width, height, scene);
   }, [definition, reducedMotion, wave]);
 
   useEffect(() => {
@@ -98,7 +109,16 @@ export function CanvasHost({
     if (!canvas) return;
     const resize = (): void => {
       const rect = canvas.getBoundingClientRect();
-      const ratio = Math.max(1, window.devicePixelRatio || 1);
+      const deviceRatio = window.devicePixelRatio || 1;
+      if (
+        !Number.isFinite(rect.width)
+        || !Number.isFinite(rect.height)
+        || !Number.isFinite(deviceRatio)
+        || rect.width <= 0
+        || rect.height <= 0
+        || deviceRatio <= 0
+      ) return;
+      const ratio = Math.max(1, deviceRatio);
       canvas.width = Math.round(rect.width * ratio);
       canvas.height = Math.round(rect.height * ratio);
       render(0);
