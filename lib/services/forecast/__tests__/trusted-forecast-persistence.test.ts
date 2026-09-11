@@ -385,6 +385,7 @@ describe("persistTrustedForecastBuild — the eight transport states", () => {
       beach_id: BEACH_ID,
       predicted_at: BUILD_ANCHOR.toISOString(),
       wave_height_om_m: 1.1,
+      display_replay_context: { version: 1, generatedAt: BUILD_ANCHOR.toISOString() },
       display_source: "face-Hs-transformer-v1",
     } as unknown as DisplayPredictionRow;
 
@@ -392,6 +393,7 @@ describe("persistTrustedForecastBuild — the eight transport states", () => {
 
     expect(payload).not.toHaveProperty("wave_height_om_m");
     expect(payload.wave_height_om).toBe(1.1);
+    expect(payload.display_replay_context).toEqual(row.display_replay_context);
     expect(payload.model_version).toBe("face-Hs-transformer-v1");
   });
 
