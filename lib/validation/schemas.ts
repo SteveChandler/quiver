@@ -200,6 +200,8 @@ export const PlayLeadSchema = z
     heatTotal: z.number().min(0).max(20),
     challengeCode: z.string().max(200),
     sessionId: z.string().uuid().optional(),
+    homeBreak: z.string().trim().max(80).optional(),
+    surfFrequency: z.enum(["a few times a year", "monthly", "weekly", "every chance I get"]).optional(),
   })
   .refine((value) => Boolean(value.email) !== Boolean(value.phone), {
     message: "exactly_one_contact_required",

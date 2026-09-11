@@ -12,9 +12,14 @@ export interface LeadCaptureProps {
   sessionId?: string;
 }
 
+const SURF_FREQUENCIES = ["a few times a year", "monthly", "weekly", "every chance I get"] as const;
+type SurfFrequency = typeof SURF_FREQUENCIES[number];
+
 export function LeadCapture({ breakSlug, breakName, heatTotal, challengeCode, sessionId }: LeadCaptureProps): ReactElement {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [homeBreak, setHomeBreak] = useState("");
+  const [surfFrequency, setSurfFrequency] = useState<SurfFrequency | "">("");
   const [consent, setConsent] = useState(false);
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "validation-error" | "server-error">("idle");
@@ -34,7 +39,7 @@ export function LeadCapture({ breakSlug, breakName, heatTotal, challengeCode, se
       const response = await fetch("/api/play/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() || undefined, phone: smsEnabled && phone.trim() ? phone.trim() : undefined, consent, breakSlug, breakName, heatTotal, challengeCode, sessionId }),
+        body: JSON.stringify({ email: email.trim() || undefined, phone: smsEnabled && phone.trim() ? phone.trim() : undefined, consent, breakSlug, breakName, heatTotal, challengeCode, sessionId, homeBreak: homeBreak.trim() || undefined, surfFrequency: surfFrequency || undefined }),
       });
       const result: { success?: boolean } = await response.json();
       setStatus(response.ok && result.success ? "success" : "server-error");
@@ -59,6 +64,17 @@ export function LeadCapture({ breakSlug, breakName, heatTotal, challengeCode, se
           Mobile number <span className="font-sans text-[10px] font-normal normal-case tracking-normal">(optional)</span>
           <input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="(831) 555-0123" autoComplete="tel" className="h-11 border-2 border-[#29C7F6] bg-[#B8F1FF] px-3 font-sans text-sm font-bold text-[#0A1D2B]" />
         </label> : null}
+        <label className="grid gap-2 text-[7px] uppercase text-[#B8F1FF]">
+          Home break <span className="font-sans text-[10px] font-normal normal-case tracking-normal">(optional)</span>
+          <input type="text" value={homeBreak} maxLength={80} onChange={(event) => setHomeBreak(event.target.value)} placeholder="Pleasure Point" autoComplete="off" className="h-11 border-2 border-[#29C7F6] bg-[#B8F1FF] px-3 font-sans text-sm font-bold text-[#0A1D2B]" />
+        </label>
+        <label className="grid gap-2 text-[7px] uppercase text-[#B8F1FF]">
+          How often do you surf? <span className="font-sans text-[10px] font-normal normal-case tracking-normal">(optional)</span>
+          <select value={surfFrequency} onChange={(event) => setSurfFrequency(event.target.value as SurfFrequency | "")} className="h-11 border-2 border-[#29C7F6] bg-[#B8F1FF] px-3 font-sans text-sm font-bold text-[#0A1D2B]">
+            <option value="">Choose one</option>
+            {SURF_FREQUENCIES.map((frequency) => <option key={frequency} value={frequency}>{frequency}</option>)}
+          </select>
+        </label>
         <label className="flex items-start gap-2 font-sans text-xs font-bold leading-5 text-[#E6F9FF]">
           <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1" />
           <span>Send me the forecast for this break and Quiver updates. Unsubscribe any time.</span>

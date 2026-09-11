@@ -18,7 +18,7 @@ export const POST = withErrorHandler(
           return NextResponse.json({ success: false, error: field === "email" ? "invalid_email" : field === "consent" ? "consent_required" : "invalid_input" });
         }
 
-        const { email, phone, breakSlug, breakName, heatTotal, challengeCode, sessionId } = parsed.data;
+        const { email, phone, breakSlug, breakName, heatTotal, challengeCode, sessionId, homeBreak, surfFrequency } = parsed.data;
         if (phone && !email && process.env.PLAY_SMS_ENABLED !== "true") {
           return NextResponse.json({ success: false, error: "sms_unavailable" });
         }
@@ -33,6 +33,8 @@ export const POST = withErrorHandler(
             heat_total: heatTotal,
             challenge_code: challengeCode,
             ...(sessionId ? { session_id: sessionId } : {}),
+            ...(homeBreak ? { home_break: homeBreak } : {}),
+            ...(surfFrequency ? { surf_frequency: surfFrequency } : {}),
           },
           { onConflict: email ? "email" : "phone" },
         );

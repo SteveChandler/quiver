@@ -64,6 +64,16 @@ describe("POST /api/play/leads", () => {
     expect(mockUpdate).toHaveBeenCalledWith({ forecast_email_sent_at: expect.any(String) });
   });
 
+  it("stores optional home break and surf frequency", async () => {
+    await expect((await post(validLead({ homeBreak: "  Pleasure Point  ", surfFrequency: "weekly" }))).json()).resolves.toEqual({ success: true, emailSent: true });
+    expect(mockUpsert).toHaveBeenCalledWith(expect.objectContaining({ home_break: "Pleasure Point", surf_frequency: "weekly" }), { onConflict: "email" });
+  });
+
+  it("rejects an unsupported surf frequency", async () => {
+    await expect((await post(validLead({ surfFrequency: "daily" }))).json()).resolves.toEqual({ success: false, error: "invalid_input" });
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
   it("returns success when email sending fails", async () => {
     const { sendPlayOutsideEmail } = await import("@/lib/mailer/play-outside");
     (sendPlayOutsideEmail as jest.Mock).mockResolvedValueOnce({ success: false, error: new Error("down") });
