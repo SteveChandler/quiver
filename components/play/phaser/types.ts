@@ -13,14 +13,8 @@ export interface AtlasManifestEntry {
   json: string;
 }
 
-export interface AtlasOverride {
-  atlas: string;
-  frame: string;
-}
-
 export interface SpriteManifest {
   atlases: AtlasManifestEntry[];
-  overrides?: Record<string, AtlasOverride>;
 }
 
 export interface PhaserBridge {
@@ -30,8 +24,11 @@ export interface PhaserBridge {
   initialHeat: HeatState;
   active: boolean;
   reducedMotion: boolean;
+  currentBestArcadeScore: number;
   fontFamily: string;
   audio: PlayAudio;
+  muted: boolean;
+  onToggleMute(): void;
   onSnapshot(snapshot: GameSnapshot): void;
   onFrameCapture(dataUrl: string): void;
   onWaveComplete(heat: HeatState, simulation: SimulationState, score: number): void;

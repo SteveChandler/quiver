@@ -29,7 +29,6 @@ import {
 } from "@/lib/play";
 import { OutsideAudio } from "./audio";
 import type { GameSnapshot } from "./game-types";
-import { HUD } from "./HUD";
 import { ControlPrimer, HeatResult, JudgeCard, StartScreen, WipeoutScreen } from "./Overlays";
 
 const PhaserHost = dynamic(() => import("./phaser/PhaserHost"), {
@@ -102,6 +101,7 @@ export function OutsideGame({
   const [progress, setProgress] = useState<PlayProgress>({
     ...DEFAULT_PLAY_PROGRESS,
     bestHeatTotals: {},
+    bestArcadeScores: {},
   });
   const latestManeuverCountRef = useRef(0);
   const previousPhaseRef = useRef(initialSimulation.phase);
@@ -209,6 +209,13 @@ export function OutsideGame({
             finishedHeat.heatTotal,
           ),
         },
+        bestArcadeScores: {
+          ...current.bestArcadeScores,
+          [BREAKS[finishedHeat.breakIndex].beachSlug]: Math.max(
+            current.bestArcadeScores[BREAKS[finishedHeat.breakIndex].beachSlug] ?? 0,
+            finishedHeat.arcadeScore,
+          ),
+        },
       };
       createProgressStore(window.localStorage).save(next);
       return next;
@@ -289,13 +296,22 @@ export function OutsideGame({
     heatTotal: heat.heatTotal,
     ...(initials ? { initials } : {}),
   });
-  const activeWave = waves[Math.min(heat.currentWaveIndex, waves.length - 1)];
+  const displayWaveIndex = mode === "judge"
+    ? Math.max(0, heat.currentWaveIndex - 1)
+    : Math.min(heat.currentWaveIndex, waves.length - 1);
+  const activeWave = waves[displayWaveIndex];
 
   return (
     <section className="one-more-wave relative isolate overflow-hidden border-4 border-[#0A1D2B] bg-[#FFBE8A] tracking-[0.04em] shadow-[5px_5px_0_#0A1D2B] [font-family:var(--font-play-pixel)] [text-shadow:1px_1px_0_#0A1D2B]">
       <style>{`
         .one-more-wave, .one-more-wave * { font-family: var(--font-play-pixel) !important; }
         .one-more-wave h1, .one-more-wave h2, .one-more-wave h3 { font-family: var(--font-play-pixel) !important; }
+        .one-more-wave button {
+          background-image: url('/play/sprites/ui.png') !important;
+          background-position: 71.23% 87.82% !important;
+          background-size: 5477.78% 1796.67% !important;
+          image-rendering: pixelated;
+        }
         @keyframes outside-card-flip {
           from { opacity: 0; transform: perspective(700px) rotateY(-78deg) scale(.92); }
           to { opacity: 1; transform: perspective(700px) rotateY(0) scale(1); }
@@ -305,31 +321,21 @@ export function OutsideGame({
         }
       `}</style>
       <PhaserHost
-        key={`${selectedBreakIndex}-${activeSeed}-${heat.currentWaveIndex}`}
+        key={`${selectedBreakIndex}-${activeSeed}-${displayWaveIndex}`}
         definition={definition}
         wave={activeWave}
         initialSimulation={simulation}
         initialHeat={heat}
         active={mode === "riding"}
         reducedMotion={reducedMotion}
+        muted={progress.muted}
+        currentBestArcadeScore={progress.bestArcadeScores[definition.beachSlug] ?? 0}
         audio={audio}
+        onToggleMute={toggleMute}
         onSnapshot={handleSnapshot}
         onFrameCapture={setSessionFrame}
         onWaveComplete={handleWaveComplete}
       />
-
-      {mode === "riding" || mode === "judge" ? (
-        <HUD
-          definition={definition}
-          snapshot={snapshot}
-          wave={activeWave}
-          bestScore={progress.bestHeatTotals[definition.beachSlug] ?? 0}
-          ghostTotal={challenge?.breakIndex === selectedBreakIndex ? challenge.heatTotal : undefined}
-          muted={progress.muted}
-          announcerLine={announcerLine}
-          onToggleMute={toggleMute}
-        />
-      ) : null}
 
       {mode === "start" ? (
         <StartScreen

@@ -3,7 +3,9 @@ import Phaser from "phaser";
 import {
   completeWave,
   FIXED_TIMESTEP_SECONDS,
+  getArcadeScore,
   getLiveWaveScore,
+  getPierWarning,
   judgeWave,
   stepSimulation,
   tickHeat,
@@ -15,45 +17,25 @@ import {
   type SimulationState,
 } from "@/lib/play";
 import { GAME_HEIGHT, GAME_WIDTH } from "./constants";
-import { PLAY_PALETTE } from "./pixel-sprites";
-import type { AtlasOverride, PhaserBridgeRef } from "./types";
+import type { PhaserBridgeRef } from "./types";
 
-const colour = (value: string): number => Phaser.Display.Color.HexStringToColor(value).color;
-
-const C = {
-  deepBlue: colour(PLAY_PALETTE.deepBlue),
-  oceanBlue: colour(PLAY_PALETTE.oceanBlue),
-  cyan: colour(PLAY_PALETTE.cyan),
-  mint: colour(PLAY_PALETTE.mint),
-  sky: colour(PLAY_PALETTE.sky),
-  trough: colour(PLAY_PALETTE.trough),
-  pocket: colour(PLAY_PALETTE.pocket),
-  face: colour(PLAY_PALETTE.face),
-  sunlit: colour(PLAY_PALETTE.sunlit),
-  glow: colour(PLAY_PALETTE.glow),
-  foam: colour(PLAY_PALETTE.foam),
-  foamCool: colour(PLAY_PALETTE.foamCool),
-  foamShadow: colour(PLAY_PALETTE.foamShadow),
-  foamBlue: colour(PLAY_PALETTE.foamBlue),
-  sun: colour(PLAY_PALETTE.sun),
-  peach: colour(PLAY_PALETTE.peach),
-  coral: colour(PLAY_PALETTE.coral),
-  pink: colour(PLAY_PALETTE.pink),
-  lavender: colour(PLAY_PALETTE.lavender),
-  yellow: colour(PLAY_PALETTE.yellow),
-  hotCoral: colour(PLAY_PALETTE.hotCoral),
-  wipeout: colour(PLAY_PALETTE.wipeout),
-  navy: colour(PLAY_PALETTE.navy),
-  shadow: colour(PLAY_PALETTE.shadow),
-  wood: colour(PLAY_PALETTE.wood),
-  woodDark: colour(PLAY_PALETTE.woodDark),
+const PALETTE = {
+  deepBlue: 0x0b5fa5,
+  oceanBlue: 0x127cc1,
+  cyan: 0x29c7f6,
+  mint: 0x75e3e1,
+  sky: 0xb8f1ff,
+  foam: 0xf8feff,
+  peach: 0xffbe8a,
+  coral: 0xff8d73,
+  pink: 0xf57cb3,
+  lavender: 0x7d7ccf,
+  yellow: 0xffd447,
+  hotCoral: 0xff5c6c,
+  green: 0x43d87d,
+  shadow: 0x0a1d2b,
+  trough: 0x0b6c82,
 } as const;
-
-interface RenderedObstacle {
-  obstacle: Obstacle;
-  bodies: Phaser.GameObjects.Image[];
-  cues: Phaser.GameObjects.Image[];
-}
 
 const IDLE_INPUT: SimulationInput = {
   vertical: 0,
@@ -63,45 +45,88 @@ const IDLE_INPUT: SimulationInput = {
 };
 
 const RIDER_FRAMES = {
-  idle: ["surfer-idle-0", "surfer-idle-1"],
-  pump: ["surfer-pump-0", "surfer-pump-1", "surfer-pump-2", "surfer-pump-3"],
-  low: ["surfer-low-0", "surfer-low-1"],
-  bottomTurn: ["surfer-bottom-turn-0", "surfer-bottom-turn-1", "surfer-bottom-turn-2"],
-  topTurn: ["surfer-top-turn-0", "surfer-top-turn-1", "surfer-top-turn-2"],
-  cutbackInit: ["surfer-cutback-init-0", "surfer-cutback-init-1"],
-  cutback: ["surfer-cutback-rebound-0", "surfer-cutback-rebound-1"],
-  barrel: ["surfer-barrel-0", "surfer-barrel-1"],
-  takeoff: ["surfer-air-takeoff-0", "surfer-air-takeoff-1"],
-  air: ["surfer-air-straight-0", "surfer-air-straight-1"],
-  grab: ["surfer-air-grab-0", "surfer-air-grab-1"],
-  landing: ["surfer-landing-0", "surfer-landing-1"],
-  wobble: ["surfer-wobble-0", "surfer-wobble-1"],
-  wipeout: ["surfer-wipeout-0", "surfer-wipeout-1", "surfer-wipeout-2", "surfer-wipeout-3"],
+  idle: ["idle-0", "idle-1", "idle-2", "idle-3"],
+  pump: ["pump-0", "pump-1", "pump-2", "pump-3"],
+  low: ["lowline-0", "lowline-1", "lowline-2", "lowline-3"],
+  bottomTurn: ["bottomturn-0", "bottomturn-1", "bottomturn-2", "bottomturn-3"],
+  topTurn: ["topturn-0", "topturn-1", "topturn-2", "topturn-3"],
+  cutbackInit: ["cutback-init-0", "cutback-init-1", "cutback-init-2", "cutback-init-3"],
+  cutback: ["cutback-rebound-0", "cutback-rebound-1", "cutback-rebound-2"],
+  barrel: ["tuck-0", "tuck-1", "tuck-2", "tuck-3"],
+  takeoff: ["takeoff-0", "takeoff-1", "takeoff-2"],
+  air: ["air-0", "air-1", "air-2"],
+  grab: ["grab-0", "grab-1", "grab-2"],
+  landing: ["landing-wobble-0", "landing-wobble-1", "landing-wobble-2"],
+  wobble: ["landing-wobble-3", "landing-wobble-4", "landing-wobble-5"],
+  wipeout: ["wipeout-0", "wipeout-1", "wipeout-2", "wipeout-3"],
 } as const;
+
+const DEBRIS_FRAMES = {
+  plank: "debris-0",
+  crate: "debris-1",
+  barrel: "debris-2",
+  driftwood: "debris-3",
+  cooler: "debris-5",
+  tire: "debris-6",
+} as const;
+
+interface RenderedObstacle {
+  obstacle: Obstacle;
+  bodies: Phaser.GameObjects.Image[];
+  cues: Phaser.GameObjects.Image[];
+}
+
+function frameAt(frames: readonly string[], elapsed: number, fps: number): string {
+  return frames[Math.floor(elapsed * fps) % frames.length];
+}
+
+function formatTimer(seconds: number): string {
+  const safeSeconds = Math.max(0, Math.ceil(seconds));
+  return `${String(Math.floor(safeSeconds / 60)).padStart(2, "0")}:${String(safeSeconds % 60).padStart(2, "0")}`;
+}
 
 export class PlayScene extends Phaser.Scene {
   private bridgeRef!: PhaserBridgeRef;
   private simulation!: SimulationState;
   private previousSimulation!: SimulationState;
   private heat!: HeatState;
-  private world!: Phaser.GameObjects.Graphics;
-  private wave!: Phaser.GameObjects.Graphics;
-  private riderRig!: Phaser.GameObjects.Container;
-  private rider!: Phaser.GameObjects.Image;
-  private board!: Phaser.GameObjects.Image;
-  private looseBoard!: Phaser.GameObjects.Image;
-  private wake!: Phaser.GameObjects.Image;
-  private spray!: Phaser.GameObjects.Image;
-  private sun!: Phaser.GameObjects.Image;
+  private sky!: Phaser.GameObjects.Graphics;
+  private waveBackdrop!: Phaser.GameObjects.Graphics;
+  private hudBars!: Phaser.GameObjects.Graphics;
+  private waterTiles: Phaser.GameObjects.Image[] = [];
+  private faceTiles: Phaser.GameObjects.Image[] = [];
+  private shoulderTiles: Phaser.GameObjects.Image[] = [];
+  private foamTiles: Phaser.GameObjects.Image[] = [];
+  private lipTiles: Phaser.GameObjects.Image[] = [];
+  private foamChunks: Phaser.GameObjects.Image[] = [];
+  private sparkles: Phaser.GameObjects.Image[] = [];
   private clouds: Phaser.GameObjects.Image[] = [];
   private mountains: Phaser.GameObjects.Image[] = [];
   private palms: Phaser.GameObjects.Image[] = [];
-  private gulls: Phaser.GameObjects.Image[] = [];
-  private foam: Phaser.GameObjects.Image[] = [];
-  private sparkles: Phaser.GameObjects.Image[] = [];
-  private pier: Phaser.GameObjects.Image[] = [];
+  private ambientGulls: Phaser.GameObjects.Image[] = [];
+  private whitewater!: Phaser.GameObjects.Image;
+  private curl!: Phaser.GameObjects.Image;
+  private sun!: Phaser.GameObjects.Image;
+  private rider!: Phaser.GameObjects.Image;
+  private looseBoard!: Phaser.GameObjects.Image;
+  private wipeSplash!: Phaser.GameObjects.Image;
+  private wake!: Phaser.GameObjects.Image;
+  private finFx!: Phaser.GameObjects.Image;
+  private spray!: Phaser.GameObjects.Image;
   private obstacles: RenderedObstacle[] = [];
-  private overrides: Record<string, AtlasOverride> = {};
+  private scoreText!: Phaser.GameObjects.Text;
+  private bestText!: Phaser.GameObjects.Text;
+  private timeText!: Phaser.GameObjects.Text;
+  private waveText!: Phaser.GameObjects.Text;
+  private dangerText!: Phaser.GameObjects.Text;
+  private safeText!: Phaser.GameObjects.Text;
+  private pierMini!: Phaser.GameObjects.Image;
+  private pierBanner!: Phaser.GameObjects.Image;
+  private popup!: Phaser.GameObjects.Image;
+  private stamp!: Phaser.GameObjects.Image;
+  private muteButton!: Phaser.GameObjects.Image;
+  private pauseButton!: Phaser.GameObjects.Image;
+  private helpPanel!: Phaser.GameObjects.Container;
   private inputState: SimulationInput = { ...IDLE_INPUT };
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private pointerSide: "left" | "right" | null = null;
@@ -111,11 +136,12 @@ export class PlayScene extends Phaser.Scene {
   private frame = 0;
   private lastManeuverCount = 0;
   private previousPhase: SimulationState["phase"] = "riding";
-  private currentRiderKey = "";
+  private currentRiderFrame = "";
   private riderAngle = 0;
-  private riderDirection: 1 | -1 = 1;
   private finished = false;
   private wasActive = false;
+  private paused = false;
+  private warnedPierId = "";
 
   constructor() {
     super("play");
@@ -123,54 +149,18 @@ export class PlayScene extends Phaser.Scene {
 
   create(): void {
     this.bridgeRef = this.registry.get("bridge") as PhaserBridgeRef;
-    this.overrides = this.registry.get("sprite-overrides") as Record<string, AtlasOverride>;
     this.simulation = this.bridgeRef.current.initialSimulation;
     this.previousSimulation = this.simulation;
     this.heat = this.bridgeRef.current.initialHeat;
-
-    this.world = this.add.graphics().setDepth(0);
-    this.wave = this.add.graphics().setDepth(2);
-    this.sun = this.add.image(376, 47, "sun").setScale(5).setDepth(1);
-    this.clouds = [
-      this.add.image(80, 42, "cloud"),
-      this.add.image(245, 65, "cloud"),
-      this.add.image(438, 32, "cloud"),
-    ];
-    this.mountains = [
-      this.add.image(64, 106, "mountain"),
-      this.add.image(218, 105, "mountain"),
-      this.add.image(385, 107, "mountain"),
-    ];
-    this.palms = [
-      this.add.image(25, 105, "palm"),
-      this.add.image(49, 108, "palm"),
-      this.add.image(432, 108, "palm"),
-    ];
-    this.gulls = [
-      this.add.image(95, 62, "seagull-0"),
-      this.add.image(145, 45, "seagull-1"),
-      this.add.image(330, 76, "seagull-0"),
-    ];
-    this.foam = [
-      this.add.image(0, 0, "foam-chunk"),
-      this.add.image(0, 0, "foam-chunk"),
-      this.add.image(0, 0, "foam-chunk"),
-      this.add.image(0, 0, "foam-chunk"),
-    ];
-    this.sparkles = Array.from({ length: 8 }, () => this.add.image(0, 0, "sparkle"));
-    this.pier = [
-      this.add.image(430, 169, "pier-post"),
-      this.add.image(457, 169, "pier-post"),
-      this.add.image(444, 143, "pier-brace"),
-    ];
+    this.sky = this.add.graphics().setDepth(0);
+    this.drawSkyGradient();
+    this.createCoast();
+    this.waveBackdrop = this.add.graphics().setDepth(2);
+    this.waveBackdrop.fillStyle(PALETTE.trough).fillRect(0, 245, GAME_WIDTH, GAME_HEIGHT - 245);
+    this.createWave();
+    this.createRider();
     this.obstacles = this.createObstacleSprites();
-    this.wake = this.add.image(182, 214, "wake-streak").setOrigin(1, 0.5).setDepth(4);
-    this.spray = this.add.image(205, 190, "spray-burst").setDepth(4);
-    this.board = this.add.image(0, 0, "surfboard").setScale(1.8);
-    this.rider = this.add.image(0, -4, "surfer-idle-0").setOrigin(0.5, 1).setScale(1.8);
-    this.riderRig = this.add.container(205, 190, [this.board, this.rider]).setDepth(6);
-    this.looseBoard = this.add.image(220, 202, "surfboard").setScale(1.8).setDepth(6);
-    this.configureScenery();
+    this.createHud();
     this.configureInput();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, (): void => this.removeInput());
     this.renderWorld(0);
@@ -182,7 +172,7 @@ export class PlayScene extends Phaser.Scene {
     if (bridge.active && !this.wasActive) this.startActiveRide();
     this.wasActive = bridge.active;
 
-    if (!bridge.active || this.finished) {
+    if (!bridge.active || this.finished || this.paused) {
       this.renderWorld(0);
       return;
     }
@@ -195,14 +185,174 @@ export class PlayScene extends Phaser.Scene {
     this.renderWorld(this.accumulator / FIXED_TIMESTEP_SECONDS);
   }
 
-  private configureScenery(): void {
-    for (const cloud of this.clouds) cloud.setScale(2.5).setAlpha(0.78).setDepth(1);
-    for (const mountain of this.mountains) mountain.setScale(5, 3).setAlpha(0.76).setDepth(1);
-    for (const palm of this.palms) palm.setScale(2.7).setAlpha(0.85).setDepth(1);
-    for (const gull of this.gulls) gull.setScale(1.3).setDepth(2);
-    for (const chunk of this.foam) chunk.setScale(2.2).setDepth(3);
-    for (const sparkle of this.sparkles) sparkle.setScale(0.7).setDepth(3);
-    for (const item of this.pier) item.setScale(3).setDepth(5);
+  private drawSkyGradient(): void {
+    this.sky.clear();
+    this.sky.fillGradientStyle(PALETTE.lavender, PALETTE.lavender, PALETTE.coral, PALETTE.peach, 1);
+    this.sky.fillRect(0, 0, GAME_WIDTH, 300);
+    this.sky.fillStyle(PALETTE.peach).fillRect(0, 300, GAME_WIDTH, GAME_HEIGHT - 300);
+  }
+
+  private createCoast(): void {
+    this.sun = this.add.image(760, 142, "water", "sun-0").setScale(0.75).setDepth(1);
+    this.clouds = [
+      this.add.image(115, 105, "water", "cloud-0"),
+      this.add.image(430, 128, "water", "cloud-1"),
+      this.add.image(755, 82, "water", "cloud-2"),
+    ];
+    this.mountains = [
+      this.add.image(180, 245, "water", "mountain-0"),
+      this.add.image(500, 250, "water", "mountain-1"),
+      this.add.image(830, 245, "water", "mountain-0"),
+    ];
+    this.palms = [
+      this.add.image(145, 265, "water", "palms-0"),
+      this.add.image(725, 270, "water", "palms-1"),
+    ];
+    this.ambientGulls = [
+      this.add.image(175, 145, "obstacles", "gull-0"),
+      this.add.image(310, 115, "obstacles", "gull-3"),
+      this.add.image(650, 155, "obstacles", "gull-6"),
+    ];
+    for (const cloud of this.clouds) cloud.setScale(0.85).setAlpha(0.82).setDepth(1);
+    for (const mountain of this.mountains) mountain.setScale(1.35, 0.9).setAlpha(0.82).setDepth(1);
+    for (const palm of this.palms) palm.setScale(0.9).setAlpha(0.94).setDepth(1);
+    for (const gull of this.ambientGulls) gull.setScale(0.28).setDepth(2);
+  }
+
+  private createWave(): void {
+    this.waterTiles = Array.from({ length: 8 }, (_, index) =>
+      this.add.image(index * 140, 475, "water", `water-tile-${index % 5}`).setOrigin(0, 0.5).setScale(1.08, 1.4).setDepth(2),
+    );
+    this.faceTiles = Array.from({ length: 10 }, (_, index) =>
+      this.add.image(125 + index * 96, 455, "water", `wave-tile-${1 + index % 3}`).setOrigin(0.5, 1).setDepth(4),
+    );
+    this.shoulderTiles = [
+      this.add.image(755, 440, "water", "shoulder-tile-0"),
+      this.add.image(885, 442, "water", "shoulder-tile-1"),
+      this.add.image(940, 456, "water", "shoulder-tile-2"),
+    ];
+    this.foamTiles = Array.from({ length: 7 }, (_, index) =>
+      this.add.image(35 + index * 92, 360 + index % 2 * 70, "water", `foam-tile-${index % 6}`).setDepth(5),
+    );
+    this.lipTiles = Array.from({ length: 7 }, (_, index) =>
+      this.add.image(250 + index * 108, 260 + index * 13, "water", `foam-line-${index % 2}`).setDepth(7),
+    );
+    this.foamChunks = Array.from({ length: 6 }, (_, index) =>
+      this.add.image(0, 0, "obstacles", `foam-${index}`).setDepth(8),
+    );
+    this.sparkles = Array.from({ length: 12 }, (_, index) =>
+      this.add.image(0, 0, "water", `sparkle-${index}`).setDepth(8),
+    );
+    this.whitewater = this.add.image(230, 365, "water", "wave-tile-0").setOrigin(1, 0.5).setDepth(6);
+    this.curl = this.add.image(400, 348, "water", "wave-tile-4").setOrigin(0.5, 0.6).setDepth(9).setVisible(false);
+    for (const tile of this.faceTiles) tile.setScale(1.05, 1.08);
+    for (const tile of this.shoulderTiles) tile.setScale(0.8).setDepth(4);
+    for (const tile of this.foamTiles) tile.setScale(0.78).setAlpha(0.94);
+    for (const tile of this.lipTiles) tile.setScale(0.88, 0.65);
+  }
+
+  private createRider(): void {
+    this.wake = this.add.image(390, 390, "water", "wake-0").setOrigin(1, 0.5).setDepth(10);
+    this.finFx = this.add.image(405, 390, "surfer", "fx-0").setOrigin(0.8, 0.5).setDepth(10);
+    this.spray = this.add.image(395, 380, "water", "spray-0").setOrigin(0.8, 0.8).setDepth(11).setVisible(false);
+    this.rider = this.add.image(410, 360, "surfer", "idle-0").setOrigin(0.5, 1).setScale(0.56).setDepth(12);
+    this.looseBoard = this.add.image(0, 0, "surfer", "board-loose-0").setScale(0.52).setDepth(13).setVisible(false);
+    this.wipeSplash = this.add.image(0, 0, "surfer", "splash-board-0").setScale(0.58).setDepth(11).setVisible(false);
+  }
+
+  private createHud(): void {
+    const bridge = this.bridgeRef.current;
+    const panel = (x: number, y: number, width: number, height: number): Phaser.GameObjects.NineSlice =>
+      this.add.nineslice(x, y, "ui", "plate-dark", width, height, 10, 10, 10, 10).setOrigin(0).setDepth(30);
+    const label = (x: number, y: number, value: string, size = 11): Phaser.GameObjects.Text =>
+      this.add.text(x, y, value, {
+        fontFamily: bridge.fontFamily,
+        fontSize: `${size}px`,
+        color: "#F8FEFF",
+        stroke: "#0A1D2B",
+        strokeThickness: 3,
+      }).setDepth(33);
+
+    panel(12, 10, 184, 73);
+    panel(12, 87, 184, 33);
+    panel(210, 10, 545, 49);
+    panel(210, 64, 545, 56);
+    panel(772, 10, 176, 73);
+    label(28, 20, "SCORE", 12);
+    label(28, 94, "BEST", 10);
+    label(788, 20, "TIME", 12);
+    this.scoreText = label(28, 43, "000000", 21);
+    this.bestText = label(184, 94, "000000", 10).setOrigin(1, 0);
+    this.timeText = label(788, 43, "01:30", 18);
+    this.waveText = label(226, 22, "WAVE 1 / 3", 11);
+    this.dangerText = label(226, 75, "DANGER / FOAM GAP", 9);
+    this.safeText = label(704, 94, "SAFE", 9).setOrigin(1, 0);
+    this.hudBars = this.add.graphics().setDepth(32);
+    this.pierMini = this.add.image(848, 104, "ui", "panel-pier-mini-0").setScale(0.56).setDepth(34).setVisible(false);
+    this.pierBanner = this.add.image(GAME_WIDTH + 310, 155, "ui", "banner-pier-0").setScale(0.72).setDepth(36).setVisible(false);
+    this.popup = this.add.image(GAME_WIDTH / 2, 150, "ui", "popup-8").setScale(0.65).setDepth(37).setVisible(false);
+    this.stamp = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, "ui", "stamp-1").setScale(0.88).setDepth(38).setVisible(false);
+
+    this.muteButton = this.add.image(800, 111, "ui", bridge.muted ? "btn-mute-0" : "btn-sound-0")
+      .setOrigin(0, 0).setScale(0.42).setDepth(35).setInteractive({ useHandCursor: true });
+    const helpButton = this.add.image(844, 111, "ui", "btn-help-0")
+      .setOrigin(0, 0).setScale(0.42).setDepth(35).setInteractive({ useHandCursor: true });
+    this.pauseButton = this.add.image(888, 111, "ui", "btn-pause-0")
+      .setOrigin(0, 0).setScale(0.42).setDepth(35).setInteractive({ useHandCursor: true });
+    this.muteButton.on("pointerdown", (): void => {
+      bridge.onToggleMute();
+      this.muteButton.setFrame(this.bridgeRef.current.muted ? "btn-mute-0" : "btn-sound-0");
+    });
+    this.pauseButton.on("pointerdown", (): void => {
+      this.paused = !this.paused;
+      this.pauseButton.setFrame(this.paused ? "btn-play-0" : "btn-pause-0");
+    });
+    this.helpPanel = this.createHelpPanel();
+    helpButton.on("pointerdown", (): void => {
+      this.helpPanel.setVisible(!this.helpPanel.visible);
+    });
+    this.createTouchControls();
+  }
+
+  private createHelpPanel(): Phaser.GameObjects.Container {
+    const bridge = this.bridgeRef.current;
+    const plate = this.add.nineslice(0, 0, "ui", "plate-blue", 420, 175, 10, 10, 10, 10).setOrigin(0);
+    const title = this.add.text(22, 18, "RIDE THE LINE", {
+      fontFamily: bridge.fontFamily,
+      fontSize: "13px",
+      color: "#F8FEFF",
+      stroke: "#0A1D2B",
+      strokeThickness: 3,
+    });
+    const copy = this.add.text(22, 57, "UP / DOWN   FIND SPEED\nSPACE       PUMP / AIR\nX           STICK TRICK", {
+      fontFamily: bridge.fontFamily,
+      fontSize: "9px",
+      color: "#B8F1FF",
+      lineSpacing: 11,
+    });
+    const keys = [
+      this.add.image(287, 62, "ui", "key-0"),
+      this.add.image(335, 62, "ui", "key-1"),
+      this.add.image(307, 122, "ui", "key-space-0"),
+    ];
+    for (const key of keys) key.setScale(0.34);
+    return this.add.container(270, 180, [plate, title, copy, ...keys]).setDepth(45).setVisible(false);
+  }
+
+  private createTouchControls(): void {
+    if (!window.matchMedia("(pointer: coarse)").matches) return;
+    const up = this.add.image(65, 455, "ui", "circle-btn-0").setScale(0.55).setDepth(40).setInteractive();
+    const down = this.add.image(135, 468, "ui", "circle-btn-1").setScale(0.55).setDepth(40).setInteractive();
+    const jump = this.add.image(815, 465, "ui", "circle-btn-3").setScale(0.55).setDepth(40).setInteractive();
+    const trick = this.add.image(895, 458, "ui", "circle-btn-4").setScale(0.5).setDepth(40).setInteractive();
+    up.on("pointerdown", (): void => { this.inputState.vertical = 1; });
+    down.on("pointerdown", (): void => { this.inputState.vertical = -1; });
+    up.on("pointerup", (): void => { this.inputState.vertical = 0; });
+    down.on("pointerup", (): void => { this.inputState.vertical = 0; });
+    jump.on("pointerdown", (): void => this.onActionDown());
+    trick.on("pointerdown", (): void => this.onActionDown());
+    jump.on("pointerup", (): void => this.onActionUp());
+    trick.on("pointerup", (): void => this.onActionUp());
   }
 
   private configureInput(): void {
@@ -211,6 +361,8 @@ export class PlayScene extends Phaser.Scene {
       this.cursors = keyboard.createCursorKeys();
       keyboard.on("keydown-SPACE", this.onActionDown, this);
       keyboard.on("keyup-SPACE", this.onActionUp, this);
+      keyboard.on("keydown-X", this.onActionDown, this);
+      keyboard.on("keyup-X", this.onActionUp, this);
     }
     this.input.on("pointerdown", this.onPointerDown, this);
     this.input.on("pointermove", this.onPointerMove, this);
@@ -221,6 +373,8 @@ export class PlayScene extends Phaser.Scene {
   private removeInput(): void {
     this.input.keyboard?.off("keydown-SPACE", this.onActionDown, this);
     this.input.keyboard?.off("keyup-SPACE", this.onActionUp, this);
+    this.input.keyboard?.off("keydown-X", this.onActionDown, this);
+    this.input.keyboard?.off("keyup-X", this.onActionUp, this);
     this.input.off("pointerdown", this.onPointerDown, this);
     this.input.off("pointermove", this.onPointerMove, this);
     this.input.off("pointerup", this.onPointerUp, this);
@@ -228,7 +382,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private onActionDown(): void {
-    if (!this.bridgeRef.current.active || this.inputState.action) return;
+    if (!this.bridgeRef.current.active || this.inputState.action || this.paused) return;
     this.inputState.action = true;
     this.inputState.actionPressed = true;
   }
@@ -240,7 +394,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
-    if (!this.bridgeRef.current.active) return;
+    if (!this.bridgeRef.current.active || pointer.y < 160 || this.paused) return;
     this.pointerSide = pointer.x < GAME_WIDTH / 2 ? "left" : "right";
     this.pointerY = pointer.y;
     if (this.pointerSide === "right") this.onActionDown();
@@ -249,7 +403,7 @@ export class PlayScene extends Phaser.Scene {
   private onPointerMove(pointer: Phaser.Input.Pointer): void {
     if (!pointer.isDown || this.pointerSide !== "left") return;
     const delta = this.pointerY - pointer.y;
-    this.inputState.vertical = delta > 2 ? 1 : delta < -2 ? -1 : 0;
+    this.inputState.vertical = delta > 4 ? 1 : delta < -4 ? -1 : 0;
     this.pointerY = pointer.y;
   }
 
@@ -264,31 +418,38 @@ export class PlayScene extends Phaser.Scene {
     this.simulation = bridge.initialSimulation;
     this.previousSimulation = this.simulation;
     this.heat = bridge.initialHeat;
-    this.inputState.vertical = 0;
-    this.inputState.action = false;
-    this.inputState.actionPressed = false;
-    this.inputState.actionReleased = false;
+    this.inputState = { ...IDLE_INPUT };
     this.accumulator = 0;
     this.frame = 0;
-    this.lastManeuverCount = this.simulation.stats.maneuvers.length;
+    this.lastManeuverCount = 0;
     this.previousPhase = this.simulation.phase;
     this.finished = false;
+    this.paused = false;
+    this.warnedPierId = "";
+    this.showStartSequence();
+  }
+
+  private showStartSequence(): void {
+    const frames = ["stamp-1", "stamp-2", "stamp-0"];
+    frames.forEach((frame, index) => {
+      this.time.delayedCall(index * 380, (): void => {
+        this.stamp.setFrame(frame).setScale(0.72).setAlpha(1).setVisible(true);
+        this.tweens.killTweensOf(this.stamp);
+        this.tweens.add({ targets: this.stamp, scale: 0.92, duration: 160, yoyo: true });
+      });
+    });
+    this.time.delayedCall(1_100, (): void => {
+      this.stamp.setVisible(false);
+    });
   }
 
   private stepEngine(): void {
     const bridge = this.bridgeRef.current;
     if (this.pointerSide !== "left") {
-      this.inputState.vertical = this.cursors?.up.isDown
-        ? 1
-        : this.cursors?.down.isDown ? -1 : 0;
+      this.inputState.vertical = this.cursors?.up.isDown ? 1 : this.cursors?.down.isDown ? -1 : 0;
     }
     this.previousSimulation = this.simulation;
-    this.simulation = stepSimulation(
-      this.simulation,
-      this.inputState,
-      bridge.definition,
-      bridge.wave,
-    );
+    this.simulation = stepSimulation(this.simulation, this.inputState, bridge.definition, bridge.wave);
     this.inputState.actionPressed = false;
     this.inputState.actionReleased = false;
 
@@ -298,7 +459,6 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     this.heat = tickHeat(this.heat, FIXED_TIMESTEP_SECONDS);
-
     if (this.simulation.pumping && this.frame % 12 === 0) bridge.audio.pump();
     if (this.simulation.stats.maneuvers.length > this.lastManeuverCount) {
       const maneuver = this.simulation.stats.maneuvers.at(-1);
@@ -310,11 +470,9 @@ export class PlayScene extends Phaser.Scene {
     }
     if (this.previousPhase !== "wipeout" && this.simulation.phase === "wipeout") {
       bridge.audio.wipeout();
-      this.showPopup("WIPEOUT", PLAY_PALETTE.wipeout);
+      this.showPopup("popup-4");
     }
-    if (this.previousPhase === "wipeout" && this.simulation.phase === "complete") {
-      bridge.audio.gasp();
-    }
+    if (this.previousPhase === "wipeout" && this.simulation.phase === "complete") bridge.audio.gasp();
     this.previousPhase = this.simulation.phase;
     this.frame += 1;
 
@@ -334,9 +492,14 @@ export class PlayScene extends Phaser.Scene {
     const score = judgeWave(this.simulation.stats).score;
     this.heat = completeWave(this.heat, score, this.simulation.stats.wipeout, this.simulation.stats);
     const bridge = this.bridgeRef.current;
-    bridge.onFrameCapture(this.game.canvas.toDataURL("image/png"));
-    bridge.onSnapshot({ simulation: this.simulation, heat: this.heat, liveScore: score });
-    bridge.onWaveComplete(this.heat, this.simulation, score);
+    const gameOver = this.heat.status === "failed";
+    this.stamp.setFrame(gameOver ? "stamp-gameover-0" : "stamp-complete-0").setVisible(true);
+    const delay = bridge.reducedMotion ? 0 : 650;
+    this.time.delayedCall(delay, (): void => {
+      bridge.onFrameCapture(this.game.canvas.toDataURL("image/png"));
+      bridge.onSnapshot({ simulation: this.simulation, heat: this.heat, liveScore: score });
+      bridge.onWaveComplete(this.heat, this.simulation, score);
+    });
   }
 
   private renderWorld(interpolation: number): void {
@@ -347,551 +510,342 @@ export class PlayScene extends Phaser.Scene {
     const motionElapsed = bridge.reducedMotion ? 0 : elapsed;
     const facePosition = active
       ? Phaser.Math.Linear(this.previousSimulation.facePosition, state.facePosition, interpolation)
-      : 0.68 + Math.sin(elapsed * 1.8) * 0.025;
+      : 0.48 + Math.sin(elapsed * 1.4) * 0.08;
     const sectionDistance = active
       ? Phaser.Math.Linear(this.previousSimulation.sectionDistance, state.sectionDistance, interpolation)
-      : 0.82;
-    const riderX = 205;
-    const faceTop = 104 - bridge.definition.index * 3;
-    const riderY = state.inBarrel ? faceTop + 101 : 246 - facePosition * (225 - faceTop);
-    const airProgress = state.phase === "airborne"
-      ? Phaser.Math.Clamp(state.phaseElapsed / 0.31, 0, 1)
-      : 0;
-    const airLift = state.phase === "airborne" ? Math.sin(airProgress * Math.PI) * 44 : 0;
-    const sectionX = riderX - sectionDistance * 112;
+      : 0.72;
+    const riderX = 410;
+    const baseY = 448 - facePosition * 225;
+    const airProgress = state.phase === "airborne" ? Phaser.Math.Clamp(state.phaseElapsed / 0.31, 0, 1) : 0;
+    const airLift = state.phase === "airborne" ? Math.sin(airProgress * Math.PI) * 92 : 0;
+    const sectionX = riderX - sectionDistance * 230;
     const throwing = this.isThrowing(state.elapsed) || (!active && bridge.definition.index >= 4);
-    const foamPressure = Phaser.Math.Clamp((38 - state.speed) / 38, 0, 1);
-    const launchZone = state.phase === "airborne" || (facePosition >= 0.82 && state.speed >= 55);
+    const foamPressure = Phaser.Math.Clamp((40 - state.speed) / 40, 0, 1);
 
-    this.drawSky(motionElapsed);
-    this.drawWave(faceTop, sectionX, throwing, motionElapsed, foamPressure, launchZone);
-    this.positionScenery(motionElapsed, active, sectionX, foamPressure);
+    this.positionCoast(motionElapsed);
+    this.positionWave(sectionX, motionElapsed, throwing, foamPressure);
     this.positionObstacles(elapsed, active);
-    this.positionRider(facePosition, riderX, riderY - airLift, elapsed);
-    this.positionEffects(riderX, riderY - airLift, sectionX, motionElapsed, throwing);
+    this.positionRider(facePosition, riderX, baseY - airLift, elapsed);
+    this.positionEffects(riderX, baseY - airLift, sectionX, motionElapsed, throwing);
+    this.updateHud(active);
   }
 
-  private drawSky(elapsed: number): void {
-    const graphics = this.world;
-    graphics.clear();
-    graphics.fillStyle(C.lavender).fillRect(0, 0, GAME_WIDTH, 36);
-    graphics.fillStyle(C.pink).fillRect(0, 36, GAME_WIDTH, 34);
-    graphics.fillStyle(C.coral).fillRect(0, 70, GAME_WIDTH, 28);
-    graphics.fillStyle(C.peach).fillRect(0, 98, GAME_WIDTH, 30);
-    graphics.fillStyle(C.sun).fillRect(0, 124, GAME_WIDTH, 9);
-
-    const coastShift = Math.round((elapsed * 2) % 24);
-    graphics.fillStyle(C.lavender, 0.85).beginPath().moveTo(0, 111);
-    for (let x = -24; x <= GAME_WIDTH + 24; x += 24) {
-      const step = ((x / 24 + coastShift / 8) % 4 + 4) % 4;
-      graphics.lineTo(x - coastShift, 105 + step * 3);
-      graphics.lineTo(x + 12 - coastShift, 105 + step * 3);
-    }
-    graphics.lineTo(GAME_WIDTH, 132).lineTo(0, 132).closePath().fillPath();
-    graphics.fillStyle(C.navy, 0.75).fillRect(0, 122, GAME_WIDTH, 6);
-  }
-
-  private drawWave(
-    faceTop: number,
-    sectionX: number,
-    throwing: boolean,
-    elapsed: number,
-    foamPressure: number,
-    launchZone: boolean,
-  ): void {
-    const graphics = this.wave;
-    graphics.clear();
-    graphics.fillStyle(C.trough).fillRect(0, 126, GAME_WIDTH, GAME_HEIGHT - 126);
-    this.fillFaceBand(C.pocket, faceTop, 54);
-    this.fillFaceBand(C.face, faceTop, 36);
-    this.fillFaceBand(C.sunlit, faceTop, 19);
-    this.fillFaceBand(C.glow, faceTop, 7);
-    graphics.fillStyle(C.trough).fillRect(0, 236, GAME_WIDTH, GAME_HEIGHT - 236);
-
-    this.strokeCrest(C.sunlit, 10, faceTop, 2);
-    this.strokeCrest(C.glow, 6, faceTop, 2);
-    this.strokeCrest(C.foam, 2, faceTop, 2);
-    this.strokeCrest(C.foamShadow, 2, faceTop, 16);
-
-    if (launchZone) this.drawLaunchZone(faceTop, elapsed);
-
-    if (throwing) this.drawBarrel(faceTop, elapsed);
-    this.drawWhitewater(sectionX, faceTop, elapsed, foamPressure);
-  }
-
-  private fillFaceBand(fill: number, faceTop: number, offset: number): void {
-    const graphics = this.wave;
-    graphics.fillStyle(fill).beginPath();
-    graphics.moveTo(0, faceTop + 54 + offset);
-    graphics.lineTo(92, faceTop + 38 + offset);
-    graphics.lineTo(116, faceTop + 18 + offset);
-    graphics.lineTo(137, faceTop + 4 + offset);
-    graphics.lineTo(158, faceTop + offset);
-    graphics.lineTo(184, faceTop + 3 + offset);
-    graphics.lineTo(208, faceTop + 17 + offset);
-    graphics.lineTo(250, faceTop + 25 + offset);
-    graphics.lineTo(325, faceTop + 37 + offset);
-    graphics.lineTo(405, faceTop + 39 + offset);
-    graphics.lineTo(GAME_WIDTH, faceTop + 44 + offset);
-    graphics.lineTo(GAME_WIDTH, GAME_HEIGHT).lineTo(0, GAME_HEIGHT);
-    graphics.closePath().fillPath();
-  }
-
-  private strokeCrest(fill: number, width: number, faceTop: number, offset: number): void {
-    const graphics = this.wave;
-    graphics.lineStyle(width, fill).beginPath();
-    graphics.moveTo(0, faceTop + 54 + offset);
-    graphics.lineTo(92, faceTop + 38 + offset);
-    graphics.lineTo(116, faceTop + 18 + offset);
-    graphics.lineTo(137, faceTop + 4 + offset);
-    graphics.lineTo(158, faceTop + offset);
-    graphics.lineTo(184, faceTop + 3 + offset);
-    graphics.lineTo(208, faceTop + 17 + offset);
-    graphics.lineTo(250, faceTop + 25 + offset);
-    graphics.lineTo(325, faceTop + 37 + offset);
-    graphics.lineTo(405, faceTop + 39 + offset);
-    graphics.lineTo(GAME_WIDTH, faceTop + 44 + offset);
-    graphics.strokePath();
-  }
-
-  private drawBarrel(faceTop: number, elapsed: number): void {
-    const graphics = this.wave;
-    graphics.fillStyle(C.shadow, 0.88).beginPath();
-    graphics.moveTo(150, faceTop + 12);
-    graphics.lineTo(166, faceTop + 4).lineTo(185, faceTop).lineTo(207, faceTop + 4);
-    graphics.lineTo(228, faceTop + 14).lineTo(245, faceTop + 32).lineTo(254, faceTop + 58);
-    graphics.lineTo(258, faceTop + 83).lineTo(252, faceTop + 102).lineTo(238, faceTop + 116);
-    graphics.lineTo(216, faceTop + 125).lineTo(188, faceTop + 128);
-    graphics.lineTo(151, faceTop + 124).closePath().fillPath();
-    graphics.fillStyle(C.trough, 0.94).beginPath();
-    graphics.moveTo(165, faceTop + 21);
-    graphics.lineTo(194, faceTop + 13).lineTo(221, faceTop + 25).lineTo(239, faceTop + 59);
-    graphics.lineTo(239, faceTop + 80).lineTo(222, faceTop + 99).lineTo(190, faceTop + 107);
-    graphics.lineTo(164, faceTop + 107).closePath().fillPath();
-    graphics.lineStyle(8, C.sunlit).beginPath();
-    graphics.moveTo(151, faceTop + 12).lineTo(178, faceTop + 2).lineTo(207, faceTop + 4).lineTo(236, faceTop + 21).lineTo(254, faceTop + 61).strokePath();
-    graphics.lineStyle(3, C.foam).beginPath();
-    graphics.moveTo(149, faceTop + 10).lineTo(178, faceTop).lineTo(209, faceTop + 2).lineTo(240, faceTop + 20).lineTo(257, faceTop + 63).strokePath();
-    graphics.lineStyle(2, C.glow, 0.8).beginPath();
-    graphics.moveTo(174, faceTop + 91).lineTo(205, faceTop + 82).lineTo(239, faceTop + 87 + Math.sin(elapsed * 4) * 2).strokePath();
-    graphics.lineStyle(1, C.mint, 0.65);
-    for (let index = 0; index < 4; index += 1) {
-      graphics.beginPath().moveTo(174, faceTop + 44 + index * 12).lineTo(218 + index * 5, faceTop + 42 + index * 11).strokePath();
-    }
-    for (let index = 0; index < 7; index += 1) {
-      const fall = (index * 19 + elapsed * 34) % 58;
-      graphics.fillStyle(index % 2 === 0 ? C.foam : C.foamShadow)
-        .fillCircle(249 + (index % 3) * 4, faceTop + 23 + fall, index % 3 === 0 ? 2 : 1);
-    }
-  }
-
-  private drawLaunchZone(faceTop: number, elapsed: number): void {
-    const graphics = this.wave;
-    graphics.lineStyle(7, C.foam).beginPath();
-    graphics.moveTo(196, faceTop + 10).lineTo(219, faceTop + 18).lineTo(250, faceTop + 27).strokePath();
-    graphics.lineStyle(3, C.yellow).beginPath();
-    graphics.moveTo(203, faceTop + 9).lineTo(224, faceTop + 17).lineTo(246, faceTop + 24).strokePath();
-    for (let index = 0; index < 6; index += 1) {
-      const sprayY = faceTop + 4 - ((index * 11 + elapsed * 22) % 19);
-      graphics.fillStyle(index % 2 === 0 ? C.foam : C.glow)
-        .fillRect(207 + index * 8, sprayY, index % 3 === 0 ? 3 : 2, index % 2 === 0 ? 3 : 2);
-    }
-  }
-
-  private drawWhitewater(
-    sectionX: number,
-    faceTop: number,
-    elapsed: number,
-    pressure: number,
-  ): void {
-    const graphics = this.wave;
-    const edge = Math.round(sectionX);
-    const lean = Math.round(8 + pressure * 15);
-    const churn = Math.floor(elapsed * (16 + pressure * 18));
-    graphics.fillStyle(C.foamShadow).beginPath();
-    graphics.moveTo(0, faceTop + 7);
-    for (let x = 0; x < edge; x += 12) {
-      graphics.lineTo(x, faceTop + 7 - Math.abs(Math.sin(x * 0.17 + elapsed * 5)) * 6);
-    }
-    graphics.lineTo(edge + lean, faceTop + 7);
-    graphics.lineTo(edge + lean + 5, faceTop + 30).lineTo(edge + 7, faceTop + 58).lineTo(edge, faceTop + 84);
-    graphics.lineTo(edge - 5, faceTop + 112).lineTo(edge + 4, faceTop + 140).lineTo(edge - 3, GAME_HEIGHT);
-    graphics.lineTo(0, GAME_HEIGHT).closePath().fillPath();
-
-    for (let index = 0; index < 30; index += 1) {
-      if (pressure < 0.4 && index % 4 === 0) continue;
-      const width = 3 + (index % 4) * 2;
-      const xRange = Math.max(24, edge - 8);
-      const x = 2 + ((index * 37 + churn * (1 + index % 3)) % xRange);
-      const y = faceTop + 18 + ((index * 29 + churn * 2) % Math.max(30, GAME_HEIGHT - faceTop - 24));
-      const value = index % 4;
-      const fill = value === 0 ? C.foam : value === 1 ? C.foamCool : value === 2 ? C.foamShadow : C.foamBlue;
-      graphics.fillStyle(fill).fillRect(x, y, width, value === 3 ? 2 : 3);
-    }
-    for (let index = 0; index < 9; index += 1) {
-      const x = 7 + ((index * 31 + churn * (1 + index % 2)) % Math.max(28, edge - 12));
-      const y = faceTop + 27 + ((index * 41 + churn) % Math.max(34, GAME_HEIGHT - faceTop - 42));
-      graphics.fillStyle(index % 3 === 0 ? C.foam : C.foamCool)
-        .fillCircle(x, y, 4 + index % 4);
-      graphics.fillStyle(index % 2 === 0 ? C.foamBlue : C.foamShadow)
-        .fillRect(x - 8, y + 5, 13 + index % 3 * 5, 2);
-    }
-
-    graphics.lineStyle(5, C.foam).beginPath();
-    graphics.moveTo(edge + lean, faceTop + 7);
-    graphics.lineTo(edge + lean + 5, faceTop + 30).lineTo(edge + 7, faceTop + 58).lineTo(edge, faceTop + 84);
-    graphics.lineTo(edge - 5, faceTop + 112).lineTo(edge + 4, faceTop + 140).lineTo(edge - 3, GAME_HEIGHT);
-    graphics.strokePath();
-    graphics.lineStyle(2, C.foamBlue).beginPath();
-    graphics.moveTo(edge + lean - 7, faceTop + 16);
-    graphics.lineTo(edge + lean - 1, faceTop + 41).lineTo(edge - 4, faceTop + 67).lineTo(edge - 7, faceTop + 89);
-    graphics.lineTo(edge - 12, faceTop + 116).lineTo(edge - 4, faceTop + 145).lineTo(edge - 10, GAME_HEIGHT);
-    graphics.strokePath();
-
-    for (let index = 0; index < 8; index += 1) {
-      const y = faceTop + 30 + index * 25;
-      const bulge = Math.sin(index * 2.3 + elapsed * (4 + pressure * 4)) * 5;
-      graphics.fillStyle(index % 3 === 0 ? C.foam : C.foamCool)
-        .fillCircle(edge + bulge, y, 4 + index % 3);
-    }
-
-    const crownCount = 8 + Math.round(pressure * 5);
-    for (let index = 0; index < crownCount; index += 1) {
-      const x = edge + lean - index * 9;
-      const y = faceTop + 8 - Math.abs(Math.sin(index * 1.7 + elapsed * (5 + pressure * 5))) * (7 + pressure * 6);
-      graphics.fillStyle(index % 3 === 0 ? C.foamShadow : C.foam)
-        .fillCircle(x, y, 2 + index % 3);
-    }
-  }
-
-  private positionScenery(
-    elapsed: number,
-    active: boolean,
-    sectionX: number,
-    foamPressure: number,
-  ): void {
-    this.sun.setPosition(376 - (elapsed * 0.35) % 20, 47);
+  private positionCoast(elapsed: number): void {
+    this.sun.x = 760 - elapsed * 0.3 % 30;
     for (let index = 0; index < this.clouds.length; index += 1) {
-      const cloud = this.clouds[index];
-      cloud.x = Phaser.Math.Wrap(75 + index * 175 - elapsed * (2 + index), -45, 525);
+      this.clouds[index].x = Phaser.Math.Wrap(115 + index * 320 - elapsed * (2 + index), -120, 1_080);
     }
     for (let index = 0; index < this.mountains.length; index += 1) {
-      this.mountains[index].x = Phaser.Math.Wrap(62 + index * 162 - elapsed * 1.1, -75, 555);
+      this.mountains[index].x = Phaser.Math.Wrap(180 + index * 330 - elapsed * 1.1, -150, 1_110);
     }
     for (let index = 0; index < this.palms.length; index += 1) {
-      this.palms[index].x = Phaser.Math.Wrap(24 + index * 205 - elapsed * 2.2, -20, 510);
+      this.palms[index].x = Phaser.Math.Wrap(145 + index * 580 - elapsed * 2.1, -200, 1_160);
     }
-    for (let index = 0; index < this.gulls.length; index += 1) {
-      const gull = this.gulls[index];
-      gull.x = Phaser.Math.Wrap(90 + index * 130 - elapsed * (5 + index), -20, 510);
-      if (Math.floor(elapsed * 5 + index) % 2 === 0) this.applyTexture(gull, "seagull-0");
-      else this.applyTexture(gull, "seagull-1");
+    for (let index = 0; index < this.ambientGulls.length; index += 1) {
+      const gull = this.ambientGulls[index];
+      gull.x = Phaser.Math.Wrap(175 + index * 245 - elapsed * (10 + index * 2), -80, 1_040);
+      gull.setFrame(`gull-${Math.floor(elapsed * 9 + index * 3) % 9}`);
     }
+  }
 
-    const pierProgress = active
-      ? Phaser.Math.Clamp(this.simulation.elapsed / this.bridgeRef.current.wave.duration, 0, 1)
-      : 0.86;
-    const pierX = active ? 590 - pierProgress * 170 : 392;
-    const pierScale = active ? 3 : 2;
-    this.pier[0].setPosition(pierX, 151).setScale(pierScale).setVisible(!active && pierProgress > 0.58);
-    this.pier[1].setPosition(pierX + 30, 151).setScale(pierScale).setVisible(!active && pierProgress > 0.58);
-    this.pier[2].setPosition(pierX + 15, 132).setScale(pierScale).setVisible(!active && pierProgress > 0.58);
-
-    for (let index = 0; index < this.foam.length; index += 1) {
-      const drift = (elapsed * (5 + foamPressure * 8) + index * 19) % 58;
-      this.foam[index]
-        .setPosition(sectionX + 9 + drift, 137 + index * 28 + Math.sin(elapsed * 5 + index) * 5)
-        .setScale(1.2 + foamPressure * 0.7)
-        .setAlpha(0.72 + foamPressure * 0.22);
+  private positionWave(sectionX: number, elapsed: number, throwing: boolean, pressure: number): void {
+    const scale = 0.82 + this.bridgeRef.current.wave.height * 0.18;
+    for (let index = 0; index < this.waterTiles.length; index += 1) {
+      this.waterTiles[index].x = Phaser.Math.Wrap(index * 140 - elapsed * 13, -140, 980);
+    }
+    for (let index = 0; index < this.faceTiles.length; index += 1) {
+      const tile = this.faceTiles[index];
+      tile.setPosition(125 + index * 96, 458 + index * 1.5).setScale(scale * 1.08, scale * 1.05);
+    }
+    this.whitewater.setPosition(sectionX + 18, 360).setScale(scale * (1 + pressure * 0.12), scale * 1.08);
+    this.curl.setPosition(390, 344).setScale(scale * 0.9).setVisible(throwing);
+    for (let index = 0; index < this.foamTiles.length; index += 1) {
+      const tile = this.foamTiles[index];
+      tile.setPosition(sectionX - 80 - index % 3 * 75, 300 + Math.floor(index / 3) * 82);
+      tile.setFrame(`foam-tile-${(index + Math.floor(elapsed * 5)) % 6}`);
+    }
+    for (let index = 0; index < this.lipTiles.length; index += 1) {
+      const tile = this.lipTiles[index];
+      tile.setPosition(225 + index * 112, 251 + index * 11 + Math.sin(elapsed * 4 + index) * 2);
+    }
+    for (let index = 0; index < this.foamChunks.length; index += 1) {
+      const chunk = this.foamChunks[index];
+      chunk.setPosition(sectionX + 25 + (elapsed * (12 + pressure * 15) + index * 38) % 145, 286 + index * 31);
+      chunk.setScale(0.32 + pressure * 0.12).setAlpha(0.78 + pressure * 0.2);
+    }
+    for (let index = 0; index < this.sparkles.length; index += 1) {
+      const sparkle = this.sparkles[index];
+      sparkle.setPosition(275 + (index * 73 - elapsed * (16 + index)) % 660, 305 + index % 4 * 42);
+      sparkle.setScale(0.38).setVisible(!this.bridgeRef.current.reducedMotion || index < 4);
     }
   }
 
   private createObstacleSprites(): RenderedObstacle[] {
     return this.bridgeRef.current.wave.obstacles.map((obstacle) => {
       if (obstacle.kind === "pier") {
-        const bodies = obstacle.posts.flatMap(() => [
-          this.add.image(0, 0, "pier-post"),
-          this.add.image(0, 0, "pier-splash"),
-          this.add.image(0, 0, "gull-shadow"),
-          this.add.image(0, 0, "pier-reflection"),
-        ]);
-        if (obstacle.pattern === "cross-brace") bodies.push(this.add.image(0, 0, "pier-brace"));
+        const bodies = obstacle.pattern === "double-post-gap"
+          ? [
+              this.add.image(0, 0, "obstacles", "post-pair-0"),
+              this.add.image(0, 0, "obstacles", "post-base-0"),
+              this.add.image(0, 0, "obstacles", "post-shadow-1"),
+            ]
+          : obstacle.posts.flatMap((_, index) => [
+              this.add.image(0, 0, "obstacles", `post-${index % 4}`),
+              this.add.image(0, 0, "obstacles", `post-base-${index % 4}`),
+              this.add.image(0, 0, "obstacles", `post-shadow-${1 + index % 3}`),
+            ]);
+        if (obstacle.pattern === "cross-brace") bodies.push(this.add.image(0, 0, "obstacles", "post-brace-0"));
         return {
           obstacle,
-          bodies: bodies.map((image) => image.setDepth(5).setVisible(false)),
-          cues: [this.add.image(0, 0, "pier-silhouette").setDepth(2).setVisible(false)],
+          bodies: bodies.map((image) => image.setDepth(13).setVisible(false)),
+          cues: [this.add.image(0, 0, "obstacles", "marker-alert-0").setDepth(14).setVisible(false)],
         };
       }
 
-      const key = obstacle.kind === "debris"
-        ? `debris-${obstacle.variant}`
-        : obstacle.kind === "seagull" ? "seagull-0" : obstacle.kind === "bodyboarder" ? "bodyboarder-0" : obstacle.kind === "swimmer" ? "swimmer-0" : obstacle.kind;
+      const frame = obstacle.kind === "debris"
+        ? DEBRIS_FRAMES[obstacle.variant]
+        : obstacle.kind === "seagull" ? "gull-0"
+        : obstacle.kind === "bodyboarder" ? "bodyboard-0"
+        : `${obstacle.kind}-0`;
       const bodies = obstacle.kind === "fish"
-        ? [this.add.image(0, 0, "splash-marker"), this.add.image(0, 0, "fish"), this.add.image(0, 0, "splash-marker")]
-        : [this.add.image(0, 0, key)];
-      const cues = obstacle.kind === "seagull" ? [this.add.image(0, 0, "gull-shadow")] : [];
+        ? [
+            this.add.image(0, 0, "obstacles", "marker-0"),
+            this.add.image(0, 0, "obstacles", "fish-arc-0"),
+            this.add.image(0, 0, "obstacles", "fish-splash-0"),
+          ]
+        : [this.add.image(0, 0, "obstacles", frame)];
       return {
         obstacle,
-        bodies: bodies.map((image) => image.setDepth(5).setVisible(false)),
-        cues: cues.map((image) => image.setDepth(4).setVisible(false)),
+        bodies: bodies.map((image) => image.setDepth(13).setVisible(false)),
+        cues: [this.add.image(0, 0, "obstacles", "marker-alert-0").setDepth(14).setVisible(false)],
       };
     });
   }
 
   private positionObstacles(elapsed: number, active: boolean): void {
     for (const rendered of this.obstacles) {
-      [...rendered.bodies, ...rendered.cues].forEach((image) => image.setVisible(false));
+      for (const image of rendered.bodies) image.setVisible(false);
+      for (const image of rendered.cues) image.setVisible(false);
       const obstacle = rendered.obstacle;
-      if (!active || elapsed < obstacle.cueAt || elapsed > obstacle.endAt + 0.75) continue;
-      const x = 205 + (obstacle.hitAt - elapsed) * 66;
+      if (!active || elapsed < obstacle.cueAt || elapsed > obstacle.endAt + 0.8) continue;
+      const x = 410 + (obstacle.hitAt - elapsed) * 128;
+      const imminent = elapsed >= obstacle.hitAt - 0.7;
+      if (imminent) rendered.cues[0].setPosition(x, 250).setScale(0.4).setVisible(true);
 
       if (obstacle.kind === "pier") {
         this.positionPier(rendered, obstacle, x, elapsed);
         continue;
       }
       if (obstacle.kind === "seagull") {
-        if (elapsed < obstacle.hitAt - 1) {
-          rendered.cues[0].setPosition(x, 224).setScale(1.8).setAlpha(0.52).setVisible(true);
-          continue;
-        }
-        const gull = rendered.bodies[0];
-        this.applyTexture(gull, Math.floor(elapsed * 8) % 2 === 0 ? "seagull-0" : "seagull-1");
-        gull.setPosition(x, 117).setScale(3.2).setVisible(true);
-        rendered.cues[0].setPosition(x + 9, 224).setScale(2).setAlpha(0.4).setVisible(true);
+        rendered.bodies[0].setFrame(`gull-${Math.floor(elapsed * 10) % 9}`).setPosition(x, 255).setScale(0.5).setVisible(true);
         continue;
       }
       if (obstacle.kind === "fish") {
         if (elapsed < obstacle.hitAt) {
-          rendered.bodies[0].setPosition(x, 210).setScale(1.7).setVisible(true);
+          rendered.bodies[0].setFrame(`marker-${Math.floor(elapsed * 9) % 3}`).setPosition(x, 440).setScale(0.45).setVisible(true);
           continue;
         }
         if (elapsed <= obstacle.endAt) {
           const progress = (elapsed - obstacle.hitAt) / (obstacle.endAt - obstacle.hitAt);
-          rendered.bodies[1].setPosition(x, 207 - Math.sin(progress * Math.PI) * 48).setAngle(-35 + progress * 70).setScale(1.8).setVisible(true);
+          rendered.bodies[1].setFrame(`fish-arc-${Math.min(2, Math.floor(progress * 3))}`)
+            .setPosition(x, 430 - Math.sin(progress * Math.PI) * 105).setScale(0.52).setVisible(true);
           continue;
         }
-        rendered.bodies[2].setPosition(x, 210).setScale(2).setVisible(true);
+        rendered.bodies[2].setFrame(`fish-splash-${Math.floor(elapsed * 9) % 3}`).setPosition(x, 440).setScale(0.55).setVisible(true);
         continue;
       }
       if (obstacle.kind === "debris") {
-        rendered.bodies[0].setPosition(x, 223 + Math.sin(elapsed * 5) * 2).setScale(1.8).setVisible(true);
+        rendered.bodies[0].setPosition(x, 438 + Math.sin(elapsed * 5) * 4).setScale(0.5).setVisible(true);
         continue;
       }
       if (obstacle.kind === "swimmer" || obstacle.kind === "bodyboarder") {
-        const image = rendered.bodies[0];
-        this.applyTexture(image, `${obstacle.kind}-${Math.floor(elapsed * 5) % 2}`);
-        image.setPosition(x, 183 + Math.sin(elapsed * 4) * 2).setScale(1.7).setVisible(true);
+        const prefix = obstacle.kind === "bodyboarder" ? "bodyboard" : "swimmer";
+        rendered.bodies[0].setFrame(`${prefix}-${Math.floor(elapsed * 8) % 3}`).setPosition(x, 405).setScale(0.48).setVisible(true);
         continue;
       }
-      rendered.bodies[0].setPosition(x, 211 + Math.sin(elapsed * 3) * 3).setScale(1.8).setVisible(true);
+      rendered.bodies[0].setFrame(`buoy-${Math.floor(elapsed * 7) % 4}`).setPosition(x, 417 + Math.sin(elapsed * 3) * 5).setScale(0.5).setVisible(true);
+    }
+
+    const warning = getPierWarning(this.bridgeRef.current.wave.obstacles, elapsed);
+    this.pierMini.setVisible(Boolean(warning));
+    if (warning && warning.id !== this.warnedPierId) {
+      this.warnedPierId = warning.id;
+      this.showPierBanner();
     }
   }
 
   private positionPier(rendered: RenderedObstacle, obstacle: PierObstacle, x: number, elapsed: number): void {
-    if (elapsed < obstacle.hitAt - 2) {
-      rendered.cues[0].setPosition(Math.min(450, x), 119).setScale(1.8).setAlpha(0.7).setVisible(true);
+    if (obstacle.pattern === "double-post-gap") {
+      rendered.bodies[0].setFrame(`post-pair-${Math.floor(elapsed * 4) % 2}`).setPosition(x, 390).setScale(0.76).setVisible(true);
+      rendered.bodies[1].setFrame(`post-base-${Math.floor(elapsed * 8) % 4}`).setPosition(x, 454).setScale(0.62).setVisible(true);
+      rendered.bodies[2].setPosition(x, 482).setScale(0.68).setAlpha(0.55).setVisible(true);
       return;
     }
-    const laneY = { upper: 126, mid: 170, low: 214 } as const;
+    const laneY = { upper: 330, mid: 395, low: 458 } as const;
     obstacle.posts.forEach((post, index) => {
-      const offset = index * 4;
+      const offset = index * 3;
       const y = laneY[post.lane];
-      rendered.bodies[offset].setPosition(x, y).setScale(2.3).setVisible(true);
-      rendered.bodies[offset + 1].setPosition(x, y + 15).setScale(1.6).setVisible(true);
-      rendered.bodies[offset + 2].setPosition(x - 3, y + 13).setScale(1.5, 0.7).setAlpha(0.42).setVisible(true);
-      rendered.bodies[offset + 3].setPosition(x, y + 29).setScale(1.8).setAlpha(0.5).setVisible(true);
+      rendered.bodies[offset].setPosition(x, y).setOrigin(0.5, 1).setScale(0.72).setVisible(true);
+      rendered.bodies[offset + 1].setFrame(`post-base-${Math.floor(elapsed * 8 + index) % 4}`).setPosition(x, y).setScale(0.58).setVisible(true);
+      rendered.bodies[offset + 2].setPosition(x, y + 42).setScale(0.62).setAlpha(0.55).setVisible(true);
     });
-    if (obstacle.pattern !== "cross-brace") return;
-    rendered.bodies.at(-1)?.setPosition(x, 181).setScale(2.2).setVisible(true);
+    if (obstacle.pattern === "cross-brace") rendered.bodies.at(-1)?.setPosition(x, 382).setScale(0.7).setVisible(true);
   }
 
-  private positionRider(
-    facePosition: number,
-    riderX: number,
-    riderY: number,
-    elapsed: number,
-  ): void {
-    const key = this.getRiderKey(elapsed, facePosition);
-    if (key !== this.currentRiderKey) {
-      this.applyTexture(this.rider, key);
-      this.currentRiderKey = key;
+  private positionRider(facePosition: number, riderX: number, riderY: number, elapsed: number): void {
+    const frame = this.getRiderFrame(elapsed, facePosition);
+    if (frame !== this.currentRiderFrame) {
+      this.rider.setFrame(frame);
+      this.currentRiderFrame = frame;
     }
     const wipeout = this.simulation.stats.wipeout;
-    this.riderDirection = this.isCutback(elapsed) ? -1 : 1;
     this.riderAngle = this.getRiderAngle(facePosition, elapsed);
-    const joinedAirFrame = key.includes("air-") || key.startsWith("surfer-landing");
-    this.riderRig
-      .setPosition(riderX, riderY)
+    this.rider.setPosition(riderX, riderY)
       .setAngle(wipeout ? this.simulation.phaseElapsed * 240 : this.riderAngle)
-      .setScale(this.riderDirection, 1);
-    this.rider.setY(joinedAirFrame ? 4 : -4);
-    this.rider.setScale(1.8, this.simulation.inBarrel ? 1.5 : 1.8);
-    this.board.setVisible(!wipeout && !joinedAirFrame);
-    this.looseBoard
-      .setVisible(wipeout)
-      .setPosition(riderX + 35 + this.simulation.phaseElapsed * 10, riderY + 14)
-      .setAngle(-18 - this.simulation.phaseElapsed * 95);
+      .setFlipX(frame.startsWith("cutback-rebound"))
+      .setDepth(this.simulation.inBarrel ? 8 : 12)
+      .setVisible(true);
+    this.looseBoard.setVisible(wipeout)
+      .setPosition(riderX + 75 + this.simulation.phaseElapsed * 25, riderY + 25)
+      .setAngle(-18 - this.simulation.phaseElapsed * 100);
+    this.wipeSplash.setVisible(wipeout)
+      .setFrame(this.simulation.phaseElapsed > 1.1 ? "splash-board2-0" : "splash-board-0")
+      .setPosition(riderX + 15, riderY + 25);
+  }
+
+  private getRiderFrame(elapsed: number, facePosition: number): string {
+    const state = this.simulation;
+    if (state.stats.wipeout) return frameAt(RIDER_FRAMES.wipeout, state.phaseElapsed, 9);
+    if (state.phase === "airborne") {
+      if (state.phaseElapsed < 0.09) return frameAt(RIDER_FRAMES.takeoff, state.phaseElapsed, 11);
+      return this.inputState.action ? frameAt(RIDER_FRAMES.grab, state.phaseElapsed, 10) : frameAt(RIDER_FRAMES.air, state.phaseElapsed, 10);
+    }
+    if (state.inBarrel) return frameAt(RIDER_FRAMES.barrel, elapsed, 9);
+    const maneuver = state.stats.maneuvers.at(-1);
+    const age = maneuver ? state.elapsed - maneuver.at : 99;
+    if (maneuver?.type === "air" && age < 0.45) return frameAt(RIDER_FRAMES.landing, age, 10);
+    if (maneuver?.type === "snap" && age < 0.55) {
+      if (state.stats.maneuvers.at(-2)?.type === "snap") {
+        return age < 0.28 ? frameAt(RIDER_FRAMES.cutbackInit, age, 10) : frameAt(RIDER_FRAMES.cutback, age - 0.28, 10);
+      }
+      return frameAt(RIDER_FRAMES.topTurn, age, 10);
+    }
+    if (maneuver?.type === "bottom-turn" && age < 0.55) return frameAt(RIDER_FRAMES.bottomTurn, age, 10);
+    if (state.speed < 12) return frameAt(RIDER_FRAMES.wobble, elapsed, 8);
+    if (state.pumping) return frameAt(RIDER_FRAMES.pump, elapsed, 10);
+    if (facePosition < 0.3) return frameAt(RIDER_FRAMES.low, elapsed, 8);
+    return frameAt(RIDER_FRAMES.idle, elapsed, 8);
   }
 
   private getRiderAngle(facePosition: number, elapsed: number): number {
     const state = this.simulation;
-    if (state.phase === "airborne") {
-      const progress = Phaser.Math.Clamp(state.phaseElapsed / 0.31, 0, 1);
-      return -19 + progress * 34;
-    }
+    if (state.phase === "airborne") return -20 + Phaser.Math.Clamp(state.phaseElapsed / 0.31, 0, 1) * 36;
     if (state.inBarrel) return -5;
-
     const maneuver = state.stats.maneuvers.at(-1);
     const age = maneuver ? elapsed - maneuver.at : 99;
-    if (maneuver?.type === "bottom-turn" && age < 0.55) return -20 + age * 18;
-    if (maneuver?.type === "snap" && age < 0.55) return this.isCutback(elapsed) ? -14 : 18 - age * 14;
-    return (facePosition - 0.45) * 20;
+    if (maneuver?.type === "bottom-turn" && age < 0.55) return -22 + age * 22;
+    if (maneuver?.type === "snap" && age < 0.55) return 20 - age * 28;
+    return (facePosition - 0.48) * 23;
   }
 
-  private isCutback(elapsed: number): boolean {
-    const maneuvers = this.simulation.stats.maneuvers;
-    const maneuver = maneuvers.at(-1);
-    if (maneuver?.type !== "snap" || elapsed - maneuver.at >= 0.55) return false;
-    return maneuvers.at(-2)?.type === "snap";
-  }
-
-  private getRiderKey(elapsed: number, facePosition: number): string {
-    const state = this.simulation;
-    if (state.stats.wipeout) return RIDER_FRAMES.wipeout[Math.floor(state.phaseElapsed * 5) % 4];
-    if (state.phase === "airborne") {
-      if (state.phaseElapsed < 0.09) return RIDER_FRAMES.takeoff[this.frame % 2];
-      return this.inputState.action
-        ? RIDER_FRAMES.grab[this.frame % 2]
-        : RIDER_FRAMES.air[this.frame % 2];
-    }
-    if (state.inBarrel) return RIDER_FRAMES.barrel[Math.floor(elapsed * 6) % 2];
-
-    const maneuver = state.stats.maneuvers.at(-1);
-    const age = maneuver ? state.elapsed - maneuver.at : 99;
-    if (maneuver?.type === "air" && age < 0.45) return RIDER_FRAMES.landing[Math.floor(age * 8) % 2];
-    if (maneuver?.type === "snap" && age < 0.55) {
-      const previous = state.stats.maneuvers.at(-2);
-      if (previous?.type === "snap") {
-        if (age < 0.28) return RIDER_FRAMES.cutbackInit[Math.min(1, Math.floor(age * 7))];
-        return RIDER_FRAMES.cutback[Math.min(1, Math.floor((age - 0.28) * 7))];
-      }
-      return RIDER_FRAMES.topTurn[Math.min(2, Math.floor(age * 6))];
-    }
-    if (maneuver?.type === "bottom-turn" && age < 0.55) {
-      return RIDER_FRAMES.bottomTurn[Math.min(2, Math.floor(age * 6))];
-    }
-    if (state.speed < 12) return RIDER_FRAMES.wobble[Math.floor(elapsed * 5) % 2];
-    if (state.pumping) return RIDER_FRAMES.pump[Math.floor(elapsed * 8) % 4];
-    if (facePosition < 0.3) return RIDER_FRAMES.low[Math.floor(elapsed * 4) % 2];
-    return RIDER_FRAMES.idle[Math.floor(elapsed * 3) % 2];
-  }
-
-  private positionEffects(
-    riderX: number,
-    riderY: number,
-    sectionX: number,
-    elapsed: number,
-    throwing: boolean,
-  ): void {
-    const speedAlpha = Phaser.Math.Clamp((this.simulation.speed - 25) / 45, 0, 1);
-    const angle = Phaser.Math.DegToRad(this.riderAngle);
-    const tailDistance = 19 * this.riderDirection;
-    const tailX = riderX - Math.cos(angle) * tailDistance;
-    const tailY = riderY - Math.sin(angle) * tailDistance + 2;
+  private positionEffects(riderX: number, riderY: number, sectionX: number, elapsed: number, throwing: boolean): void {
     const wipeout = this.simulation.phase === "wipeout";
-    this.wake
-      .setPosition(tailX, tailY)
-      .setAngle(this.riderAngle)
-      .setScale((1.5 + speedAlpha) * this.riderDirection, 1.5 + speedAlpha)
-      .setAlpha(wipeout ? 0 : 0.4 + speedAlpha * 0.6);
-    const launch = this.simulation.phase === "airborne" && this.simulation.phaseElapsed < 0.16;
+    const speedScale = Phaser.Math.Clamp((this.simulation.speed - 20) / 55, 0, 1);
+    const tailX = riderX - 35;
+    const tailY = riderY + 5;
+    this.wake.setFrame(`wake-${Math.floor(elapsed * 10) % 6}`).setPosition(tailX, tailY)
+      .setAngle(this.riderAngle).setScale(0.35 + speedScale * 0.2).setVisible(!wipeout);
+    this.finFx.setFrame(`fx-${Math.floor(elapsed * 10) % 3}`).setPosition(tailX + 12, tailY)
+      .setAngle(this.riderAngle).setScale(0.34).setVisible(!wipeout);
     const recent = this.simulation.stats.maneuvers.at(-1);
     const maneuverSpray = recent ? this.simulation.elapsed - recent.at < 0.4 : false;
-    this.spray
-      .setPosition(tailX, tailY - 3)
-      .setAngle(this.riderAngle)
-      .setScale((launch ? 2.8 : 2) * this.riderDirection, launch ? 2.8 : 2)
-      .setVisible(!wipeout && (launch || maneuverSpray || throwing));
-
-    for (let index = 0; index < this.sparkles.length; index += 1) {
-      const sparkle = this.sparkles[index];
-      sparkle.x = Phaser.Math.Wrap(index * 71 - elapsed * (12 + index), 0, GAME_WIDTH);
-      sparkle.y = 150 + (index % 4) * 27;
-      sparkle
-        .setAlpha(0.35 + (index % 3) * 0.2)
-        .setVisible(!this.bridgeRef.current.reducedMotion || index < 3);
-    }
-    if (sectionX > riderX - 24 && !this.bridgeRef.current.reducedMotion) {
-      this.cameras.main.shake(55, 0.0025);
-    }
+    const launch = this.simulation.phase === "airborne" && this.simulation.phaseElapsed < 0.16;
+    const sprayFrame = launch ? `spray-arc-${Math.floor(elapsed * 10) % 3}` : `spray-${Math.floor(elapsed * 10) % 2}`;
+    this.spray.setFrame(sprayFrame).setPosition(tailX, tailY).setAngle(this.riderAngle)
+      .setScale(launch ? 0.55 : 0.4).setVisible(!wipeout && (launch || maneuverSpray || throwing));
+    if (sectionX > riderX - 45 && !this.bridgeRef.current.reducedMotion) this.cameras.main.shake(55, 0.002);
   }
 
-  private applyTexture(image: Phaser.GameObjects.Image, key: string): void {
-    const override = this.overrides[key];
-    if (override && this.textures.exists(override.atlas)) {
-      image.setTexture(override.atlas, override.frame);
-      return;
-    }
-    image.setTexture(key);
-  }
-
-  private isThrowing(elapsed: number): boolean {
-    const windows = this.bridgeRef.current.wave.throwWindows;
-    for (let index = 0; index < windows.length; index += 1) {
-      if (elapsed >= windows[index].start && elapsed <= windows[index].end) return true;
-    }
-    return false;
+  private updateHud(active: boolean): void {
+    const bridge = this.bridgeRef.current;
+    const arcadeScore = this.heat.arcadeScore + (active && !this.finished ? getArcadeScore(this.simulation.stats) : 0);
+    const best = bridge.currentBestArcadeScore ?? 0;
+    const waveProgress = Phaser.Math.Clamp(this.simulation.elapsed / bridge.wave.duration, 0, 1);
+    const gap = Phaser.Math.Clamp(this.simulation.sectionDistance / 0.82, 0, 1);
+    const gapColour = gap < 0.25 ? PALETTE.hotCoral : gap < 0.48 ? PALETTE.yellow : PALETTE.mint;
+    this.scoreText.setText(String(Math.min(999_999, arcadeScore)).padStart(6, "0"));
+    this.bestText.setText(String(Math.min(999_999, best)).padStart(6, "0"));
+    this.timeText.setText(this.heat.practice ? "--:--" : formatTimer(this.heat.secondsRemaining));
+    this.waveText.setText(`WAVE ${Math.min(bridge.definition.maxWaves, this.heat.currentWaveIndex + 1)} / ${bridge.definition.maxWaves}`);
+    this.safeText.setText(gap < 0.25 ? "DANGER" : gap < 0.48 ? "WATCH" : "SAFE").setColor(gap < 0.25 ? "#FF5C6C" : gap < 0.48 ? "#FFD447" : "#75E3E1");
+    this.muteButton.setFrame(bridge.muted ? "btn-mute-0" : "btn-sound-0");
+    this.hudBars.clear();
+    this.hudBars.fillStyle(PALETTE.shadow).fillRect(385, 28, 345, 16).fillRect(385, 91, 300, 14);
+    this.hudBars.fillStyle(PALETTE.coral).fillRect(388, 31, 339 * waveProgress, 10);
+    this.hudBars.fillStyle(gapColour).fillRect(388, 94, 294 * gap, 8);
   }
 
   private showManeuverPopup(maneuver: ManeuverEvent): void {
-    const points = Math.round(maneuver.awardedPoints * 100);
+    const frame = maneuver.type === "air" ? "popup-0"
+      : maneuver.type === "barrel" ? "popup-1"
+      : maneuver.type === "snap" ? "popup-2"
+      : "popup-8";
+    this.showPopup(frame);
+    if (maneuver.type === "air") this.time.delayedCall(350, (): void => this.showPopup("popup-3"));
+    const combo = Math.min(4, Math.floor(maneuver.flowMultiplier));
+    if (combo >= 2) this.time.delayedCall(700, (): void => this.showPopup(`popup-${combo + 3}`));
     if (maneuver.type === "air") {
-      this.showPopup(`AIR +${points}`, PLAY_PALETTE.cyan);
-      this.time.delayedCall(280, (): void => this.showPopup("CLEAN LANDING", PLAY_PALETTE.green));
-      return;
+      const tier = judgeWave(this.simulation.stats).score >= 8 ? "popup-9" : "popup-8";
+      this.time.delayedCall(1_050, (): void => this.showPopup(tier));
     }
-    if (maneuver.type === "snap") {
-      this.showPopup("CUTBACK", PLAY_PALETTE.cyan);
-      return;
-    }
-    this.showPopup(
-      maneuver.type === "barrel" ? "BARREL" : `TURN +${points}`,
-      PLAY_PALETTE.yellow,
-    );
   }
 
-  private showPopup(label: string, backgroundColor: string): void {
-    const bridge = this.bridgeRef.current;
-    const popup = this.add.text(GAME_WIDTH / 2, 70, label, {
-      fontFamily: bridge.fontFamily,
-      fontSize: "10px",
-      color: PLAY_PALETTE.foam,
-      backgroundColor,
-      stroke: PLAY_PALETTE.shadow,
-      strokeThickness: 3,
-      shadow: {
-        offsetX: 2,
-        offsetY: 2,
-        color: PLAY_PALETTE.shadow,
-        blur: 0,
-        stroke: true,
-        fill: true,
-      },
-      padding: { x: 8, y: 6 },
-    }).setOrigin(0.5).setDepth(20).setScale(0.6).setLetterSpacing(1);
-    if (bridge.reducedMotion) {
-      this.time.delayedCall(700, (): void => popup.destroy());
+  private showPopup(frame: string): void {
+    this.tweens.killTweensOf(this.popup);
+    this.popup.setFrame(frame).setPosition(GAME_WIDTH / 2, 155).setScale(0.55).setAlpha(1).setVisible(true);
+    if (this.bridgeRef.current.reducedMotion) {
+      this.time.delayedCall(700, (): void => {
+        this.popup.setVisible(false);
+      });
       return;
     }
     this.tweens.add({
-      targets: popup,
-      scale: 1,
-      y: 60,
-      duration: 130,
-      ease: "Cubic.Out",
+      targets: this.popup,
+      y: 175,
+      scale: 0.72,
+      duration: 150,
       yoyo: true,
-      hold: 500,
-      onComplete: (): void => popup.destroy(),
+      hold: 520,
+      onComplete: (): void => {
+        this.popup.setVisible(false);
+      },
     });
+  }
+
+  private showPierBanner(): void {
+    this.tweens.killTweensOf(this.pierBanner);
+    this.pierBanner.setPosition(GAME_WIDTH + 260, 165).setVisible(true);
+    if (this.bridgeRef.current.reducedMotion) {
+      this.pierBanner.setX(GAME_WIDTH / 2);
+      this.time.delayedCall(1_100, (): void => {
+        this.pierBanner.setVisible(false);
+      });
+      return;
+    }
+    this.tweens.add({
+      targets: this.pierBanner,
+      x: GAME_WIDTH / 2,
+      duration: 260,
+      ease: "Back.Out",
+      yoyo: true,
+      hold: 900,
+      onComplete: (): void => {
+        this.pierBanner.setVisible(false);
+      },
+    });
+  }
+
+  private isThrowing(elapsed: number): boolean {
+    return this.bridgeRef.current.wave.throwWindows.some(({ start, end }) => elapsed >= start && elapsed <= end);
   }
 }

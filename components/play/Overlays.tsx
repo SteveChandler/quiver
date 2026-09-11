@@ -1,12 +1,43 @@
 "use client";
 
-import { useState, type ReactElement } from "react";
+import { useState, type CSSProperties, type ReactElement } from "react";
 import Link from "next/link";
-import { Check, Copy, LockKeyhole, Share2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { BREAKS, type BreakDefinition, type Challenge, type HeatState } from "@/lib/play";
 import { LeadCapture } from "./LeadCapture";
+
+const UI_ATLAS = { width: 1972, height: 539 } as const;
+const UI_FRAMES = {
+  "popup-4": { x: 596, y: 144, width: 269, height: 103 },
+  "key-0": { x: 429, y: 2, width: 100, height: 133 },
+  "key-1": { x: 531, y: 2, width: 101, height: 133 },
+  "key-space-0": { x: 634, y: 2, width: 214, height: 132 },
+  "key-3": { x: 117, y: 2, width: 103, height: 135 },
+  "circle-btn-0": { x: 1601, y: 2, width: 106, height: 108 },
+  "circle-btn-1": { x: 1491, y: 2, width: 108, height: 113 },
+  "circle-btn-3": { x: 1373, y: 2, width: 116, height: 115 },
+  "circle-btn-4": { x: 2, y: 2, width: 113, height: 140 },
+  "stamp-complete-0": { x: 1593, y: 252, width: 260, height: 92 },
+  "stamp-gameover-0": { x: 2, y: 144, width: 301, height: 106 },
+} as const;
+
+type UiFrame = keyof typeof UI_FRAMES;
+
+function atlasStyle(frame: UiFrame): CSSProperties {
+  const value = UI_FRAMES[frame];
+  return {
+    aspectRatio: `${value.width} / ${value.height}`,
+    backgroundImage: "url(/play/sprites/ui.png)",
+    backgroundPosition: `${value.x / (UI_ATLAS.width - value.width) * 100}% ${value.y / (UI_ATLAS.height - value.height) * 100}%`,
+    backgroundSize: `${UI_ATLAS.width / value.width * 100}% ${UI_ATLAS.height / value.height * 100}%`,
+    imageRendering: "pixelated",
+  };
+}
+
+function AtlasFrame({ frame, className, label }: { frame: UiFrame; className: string; label: string }): ReactElement {
+  return <span className={`block bg-no-repeat ${className}`} style={atlasStyle(frame)} role="img" aria-label={label} />;
+}
 
 interface StartScreenProps {
   selectedBreakIndex: number;
@@ -97,7 +128,7 @@ export function StartScreen({
                     {definition.sizeCopy} · cut {definition.threshold.toFixed(2)}
                   </span>
                 </span>
-                {locked ? <LockKeyhole aria-label="Locked" /> : null}
+                {locked ? <span className="text-[6px]">Locked</span> : null}
               </Button>
             );
           })}
@@ -132,6 +163,18 @@ export function ControlPrimer({ onContinue }: ControlPrimerProps): ReactElement 
       <section className="m-auto w-full max-w-lg border-4 border-[#29C7F6] bg-[#127CC1] p-5 text-[#F8FEFF] shadow-[4px_4px_0_#0A1D2B]">
         <p className="text-[8px] uppercase text-[#75E3E1]">Read the wave</p>
         <h2 className="mt-3 text-xl uppercase">Three things.</h2>
+        <div className="mt-4 flex items-end justify-center gap-2" aria-hidden="true">
+          <AtlasFrame frame="key-0" label="Up" className="w-12" />
+          <AtlasFrame frame="key-1" label="Down" className="w-12" />
+          <AtlasFrame frame="key-space-0" label="Space" className="w-24" />
+          <AtlasFrame frame="key-3" label="Trick" className="w-12" />
+        </div>
+        <div className="mt-3 flex items-center justify-center gap-2 sm:hidden" aria-hidden="true">
+          <AtlasFrame frame="circle-btn-0" label="Up" className="w-12" />
+          <AtlasFrame frame="circle-btn-1" label="Down" className="w-12" />
+          <AtlasFrame frame="circle-btn-3" label="Jump" className="w-12" />
+          <AtlasFrame frame="circle-btn-4" label="Trick" className="w-12" />
+        </div>
         <ol className="mt-4 grid gap-3 text-[8px] leading-5 text-[#E6F9FF]">
           <li><strong>1. Find speed.</strong> Drag the left half up/down, or use ↑ ↓. Low is fast.</li>
           <li><strong>2. Pump.</strong> Hold the right half, or Space. Release high for a snap; release at the lip with speed for an air.</li>
@@ -161,6 +204,7 @@ export function JudgeCard({ score, wipedOut, practice, isHeatOver, incomingWaveN
         className="m-auto w-full max-w-sm border-4 border-[#29C7F6] bg-[#127CC1] p-6 text-center text-[#F8FEFF] shadow-[4px_4px_0_#0A1D2B] motion-safe:animate-[outside-card-flip_500ms_cubic-bezier(0.16,1,0.3,1)]"
         aria-live="assertive"
       >
+        <AtlasFrame frame="stamp-complete-0" label="Wave complete" className="mx-auto w-48 max-w-full" />
         <p className="text-[8px] uppercase text-[#75E3E1]">{practice ? "Practice wave" : "The cards are up"}</p>
         <p className="mt-3 text-5xl tabular-nums text-[#FFF0B0]">{score.toFixed(2)}</p>
         <p className="mt-3 text-[8px] leading-5 text-[#E6F9FF]">
@@ -188,7 +232,6 @@ interface ShareButtonProps {
 
 function ShareButton({ definition, heatTotal, challengeCode, label = "Send challenge" }: ShareButtonProps): ReactElement {
   const [copied, setCopied] = useState(false);
-  const canShare = typeof navigator !== "undefined" && "share" in navigator;
 
   const share = async (): Promise<void> => {
     const challengeUrl = new URL("/play", document.baseURI);
@@ -219,7 +262,6 @@ function ShareButton({ definition, heatTotal, challengeCode, label = "Send chall
 
   return (
     <Button type="button" onClick={() => void share()} className="w-full rounded-none border-2 border-[#FFD447] bg-[#0B5FA5] text-[8px] uppercase text-[#F8FEFF] hover:bg-[#127CC1]">
-      {copied ? <Check /> : canShare ? <Share2 /> : <Copy />}
       {copied ? "Challenge copied" : label}
     </Button>
   );
@@ -249,7 +291,7 @@ export function WipeoutScreen({
   return (
     <div className="absolute inset-0 z-20 flex items-end p-4 sm:p-6">
       <section className="mx-auto w-full max-w-xl border-4 border-[#FFD447] bg-[#D93B72]/95 p-5 text-center text-[#F8FEFF] shadow-[5px_5px_0_#0A1D2B]">
-        <h2 className="text-3xl uppercase text-[#FFF0B0]">Wipeout</h2>
+        <AtlasFrame frame="popup-4" label="Wipeout" className="mx-auto w-64 max-w-full" />
         <p className="mt-3 text-[10px] uppercase">{reason}</p>
         <div className="mt-5 grid gap-2 sm:grid-cols-3">
           <Button type="button" onClick={onRetry} className="rounded-none border-2 border-[#FFD447] bg-[#0B5FA5] text-[8px] uppercase text-[#F8FEFF] hover:bg-[#127CC1]">Try again</Button>
@@ -304,6 +346,11 @@ export function HeatResult({
             />
           ) : null}
           <div className="mt-3 border-4 border-[#29C7F6] bg-[#127CC1] p-4 text-[#F8FEFF] sm:p-5">
+          <AtlasFrame
+            frame={passed || heat.practice ? "stamp-complete-0" : "stamp-gameover-0"}
+            label={passed || heat.practice ? "Wave complete" : "Game over"}
+            className="mx-auto mb-4 w-56 max-w-full"
+          />
           <p className={`w-fit border-2 px-3 py-2 text-[8px] uppercase ${passed ? "border-[#75E3E1] bg-[#43D87D] text-[#0A1D2B]" : "border-[#FFD447] bg-[#D93B72] text-[#F8FEFF]"}`}>
             {heat.practice ? "Practice complete" : passed ? "Through the heat" : "Outside the cut"}
           </p>
@@ -317,6 +364,7 @@ export function HeatResult({
           <div className="mt-4 flex gap-3 text-[8px] tabular-nums text-[#E6F9FF]">
             {heat.waveScores.map((score, index) => <span key={index}>W{index + 1} {score.toFixed(2)}</span>)}
           </div>
+          <p className="mt-3 text-[8px] uppercase text-[#FFD447]">Arcade {String(heat.arcadeScore).padStart(6, "0")}</p>
           <dl className="mt-4 grid grid-cols-2 gap-2 border-y-2 border-[#29C7F6] py-3 text-[7px] uppercase sm:grid-cols-4">
             <div><dt className="text-[#B8F1FF]">Best</dt><dd className="mt-1 text-[#F8FEFF]">{bestScore.toFixed(2)}</dd></div>
             <div><dt className="text-[#B8F1FF]">Tricks landed</dt><dd className="mt-1 text-[#F8FEFF]">{heat.stats.tricksLanded}</dd></div>

@@ -19,6 +19,7 @@ export function createGameConfig(
       antialias: false,
       pixelArt: true,
       roundPixels: true,
+      preserveDrawingBuffer: true,
     },
     scale: {
       mode: Phaser.Scale.FIT,
