@@ -12,45 +12,65 @@ interface StartScreenProps {
   selectedBreakIndex: number;
   unlockedBreakIndex: number;
   challenge: Challenge | null;
+  challengeCode: string;
   onSelectBreak(index: number): void;
   onStart(): void;
+  onPractice(): void;
 }
 
 export function StartScreen({
   selectedBreakIndex,
   unlockedBreakIndex,
   challenge,
+  challengeCode,
   onSelectBreak,
   onStart,
+  onPractice,
 }: StartScreenProps): ReactElement {
   const definitions = challenge ? [BREAKS[challenge.breakIndex]] : BREAKS;
+  const [copied, setCopied] = useState(false);
+
+  const shareSet = async (): Promise<void> => {
+    const challengeUrl = new URL("/play", document.baseURI);
+    challengeUrl.searchParams.set("c", challengeCode);
+    const text = `Today's ONE MORE WAVE set at ${BREAKS[selectedBreakIndex].name}. Same waves. Ride it: ${challengeUrl}`;
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: "ONE MORE WAVE by Quiver", text, url: challengeUrl.toString() });
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      }
+    }
+    await navigator.clipboard?.writeText(text);
+    setCopied(true);
+  };
 
   return (
-    <div className="absolute inset-0 z-20 flex overflow-y-auto bg-[#0D1020]/55 p-4 backdrop-blur-[2px] sm:p-8">
-      <section className="m-auto w-full max-w-3xl bg-[#F4EBD8] p-5 text-[#11100D] shadow-lg sm:p-8">
-        <div className="grid gap-6 lg:grid-cols-[1fr_260px] lg:items-end">
-          <div>
-            <p className="label-black w-fit">Today&apos;s set</p>
-            <h2 className="zine-display mt-4 text-5xl uppercase leading-[0.86] sm:text-7xl">
-              Outside
-            </h2>
-            <p className="mt-4 max-w-lg font-heading text-lg font-bold">
-              Sets are coming. Get to the peak.
-            </p>
+    <div className="absolute inset-0 z-20 flex overflow-y-auto bg-[#0A1D2B]/20 p-3 sm:p-5">
+      <section className="my-auto w-full text-[#F8FEFF]">
+        <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-2 border-[#29C7F6] bg-[#0B5FA5]/95 px-3 py-2 text-[8px] uppercase shadow-[3px_3px_0_#0A1D2B] sm:text-[10px]">
+          <Link href="/" className="justify-self-start text-[#B8F1FF] hover:text-[#F8FEFF]">Quiver</Link>
+          <span className="text-center text-[#F8FEFF]">One More Wave</span>
+          <span className="justify-self-end text-[#75E3E1]">Play</span>
+        </header>
+
+        <div className="mx-auto mt-3 max-w-4xl text-center">
+          <p className="inline-block border-2 border-[#29C7F6] bg-[#127CC1] px-3 py-2 text-[8px] uppercase text-[#B8F1FF] shadow-[2px_2px_0_#0A1D2B]">Today&apos;s set</p>
+          <h2 className="mx-auto mt-3 max-w-3xl text-3xl uppercase leading-[1.15] text-[#F8FEFF] [text-shadow:3px_3px_0_#0A1D2B] sm:text-5xl lg:text-6xl">
+            One More Wave
+          </h2>
+          <p className="mx-auto mt-3 w-fit bg-[#0A1D2B]/75 px-3 py-2 font-sans text-sm font-bold text-[#FFF0B0] sm:text-base">
+            Ride the line. Beat the pier. Get the real one.
+          </p>
             {challenge ? (
-              <p className="mt-3 border-l-4 border-[#B91C1C] pl-3 font-mono text-xs font-bold uppercase tracking-[0.08em]">
+              <p className="mx-auto mt-3 w-fit border-2 border-[#FFD447] bg-[#FF5C6C] px-3 py-2 text-[8px] uppercase">
                 Challenge set · beat {challenge.initials ?? "your mate"}&apos;s {challenge.heatTotal.toFixed(2)}
               </p>
             ) : null}
-          </div>
-          <div className="stamp-circle justify-self-center lg:justify-self-end">
-            Same set
-            <span className="lg">3 waves</span>
-            no excuses
-          </div>
         </div>
 
-        <div className="mt-7 grid gap-2 sm:grid-cols-2 lg:grid-cols-3" aria-label="Choose a surf break">
+        <div className="mx-auto mt-4 flex max-w-4xl gap-2 overflow-x-auto pb-2" aria-label="Choose a surf break">
           {definitions.map((definition) => {
             const locked = challenge
               ? definition.index !== challenge.breakIndex
@@ -64,15 +84,15 @@ export function StartScreen({
                 disabled={locked}
                 aria-pressed={selected}
                 onClick={() => onSelectBreak(definition.index)}
-                className={`h-auto min-h-20 justify-between rounded-none border-2 px-4 py-3 text-left ${
+                className={`h-auto min-h-16 min-w-40 flex-1 justify-between rounded-none border-2 px-3 py-2 text-left shadow-[2px_2px_0_#0A1D2B] ${
                   selected
-                    ? "border-[#11100D] bg-[#11100D] text-[#F4EBD8] hover:bg-[#11100D]/90 hover:text-[#F4EBD8]"
-                    : "border-[#11100D] bg-[#F5EEDC] text-[#11100D] hover:bg-[#E5D4B3]"
+                    ? "border-[#FFD447] bg-[#0B5FA5] text-[#F8FEFF] hover:bg-[#127CC1]"
+                    : "border-[#29C7F6] bg-[#127CC1] text-[#F8FEFF] hover:bg-[#0B5FA5]"
                 }`}
               >
                 <span>
-                  <span className="block font-heading font-black uppercase">{definition.name}</span>
-                  <span className="mt-1 block whitespace-normal font-mono text-[10px] uppercase opacity-70">
+                  <span className="block text-[8px] uppercase">{definition.name}</span>
+                  <span className="mt-2 block whitespace-normal font-sans text-[10px] font-bold uppercase text-[#B8F1FF]">
                     {definition.sizeCopy} · cut {definition.threshold.toFixed(2)}
                   </span>
                 </span>
@@ -82,19 +102,19 @@ export function StartScreen({
           })}
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="mx-auto mt-3 grid max-w-3xl gap-2 sm:grid-cols-3">
           <Button
             type="button"
             size="lg"
             onClick={onStart}
-            className="rounded-none border-2 border-[#11100D] font-heading text-base font-black uppercase shadow-md"
+            className="h-12 rounded-none border-2 border-[#75E3E1] bg-[#0B5FA5] px-3 text-[9px] uppercase text-[#F8FEFF] shadow-[3px_3px_0_#0A1D2B] hover:bg-[#127CC1]"
           >
-            Paddle out at {BREAKS[selectedBreakIndex].name}
+            Start run
           </Button>
-          <Link href="/" className="font-mono text-xs font-bold uppercase tracking-[0.12em] underline-offset-4 hover:underline">
-            Made by Quiver
-          </Link>
+          <Button type="button" size="lg" onClick={onPractice} className="h-12 rounded-none border-2 border-[#29C7F6] bg-[#127CC1] px-3 text-[9px] uppercase text-[#F8FEFF] shadow-[3px_3px_0_#0A1D2B] hover:bg-[#0B5FA5]">Practice</Button>
+          <Button type="button" size="lg" onClick={() => void shareSet()} className="h-12 rounded-none border-2 border-[#FFD447] bg-[#FF8D73] px-3 text-[8px] uppercase text-[#0A1D2B] shadow-[3px_3px_0_#0A1D2B] hover:bg-[#FFBE8A]">{copied ? "Set copied" : "Challenge a friend"}</Button>
         </div>
+        <p className="mt-3 text-center font-sans text-xs font-bold text-[#F8FEFF]">{BREAKS[selectedBreakIndex].name} · {BREAKS[selectedBreakIndex].sizeCopy}</p>
       </section>
     </div>
   );
@@ -106,16 +126,16 @@ interface ControlPrimerProps {
 
 export function ControlPrimer({ onContinue }: ControlPrimerProps): ReactElement {
   return (
-    <div className="absolute inset-0 z-20 flex bg-[#0D1020]/70 p-4">
-      <section className="notebook m-auto w-full max-w-lg text-[#11100D]">
-        <p className="typewriter">Read the wave</p>
-        <h2 className="font-heading text-3xl font-black uppercase">Three things.</h2>
-        <ol className="mt-4 grid gap-3 text-sm leading-6">
+    <div className="absolute inset-0 z-20 flex bg-[#0A1D2B]/70 p-4">
+      <section className="m-auto w-full max-w-lg border-4 border-[#29C7F6] bg-[#127CC1] p-5 text-[#F8FEFF] shadow-[4px_4px_0_#0A1D2B]">
+        <p className="text-[8px] uppercase text-[#75E3E1]">Read the wave</p>
+        <h2 className="mt-3 text-xl uppercase">Three things.</h2>
+        <ol className="mt-4 grid gap-3 font-sans text-sm font-bold leading-6 text-[#E6F9FF]">
           <li><strong>1. Find speed.</strong> Drag the left half up/down, or use ↑ ↓. Low is fast.</li>
           <li><strong>2. Pump.</strong> Hold the right half, or Space. Release high for a snap; release at the lip with speed for an air.</li>
           <li><strong>3. Stick the air.</strong> Tap the action side again in the landing window. When the lip throws, stay low for the tube.</li>
         </ol>
-        <Button type="button" onClick={onContinue} className="mt-6 w-full rounded-none font-heading font-black uppercase">
+        <Button type="button" onClick={onContinue} className="mt-6 w-full rounded-none border-2 border-[#FFD447] bg-[#0B5FA5] text-[9px] uppercase text-[#F8FEFF] hover:bg-[#127CC1]">
           I&apos;m out there
         </Button>
       </section>
@@ -126,29 +146,30 @@ export function ControlPrimer({ onContinue }: ControlPrimerProps): ReactElement 
 interface JudgeCardProps {
   score: number;
   wipedOut: boolean;
+  practice: boolean;
   isHeatOver: boolean;
   incomingWaveNumber: number | null;
   onContinue(): void;
 }
 
-export function JudgeCard({ score, wipedOut, isHeatOver, incomingWaveNumber, onContinue }: JudgeCardProps): ReactElement {
+export function JudgeCard({ score, wipedOut, practice, isHeatOver, incomingWaveNumber, onContinue }: JudgeCardProps): ReactElement {
   return (
-    <div className="absolute inset-0 z-20 flex bg-[#0D1020]/55 p-4">
+    <div className="absolute inset-0 z-20 flex bg-[#0A1D2B]/45 p-4">
       <section
-        className="m-auto w-full max-w-sm border-4 border-[#11100D] bg-[#F4EBD8] p-6 text-center text-[#11100D] shadow-lg motion-safe:animate-[outside-card-flip_500ms_cubic-bezier(0.16,1,0.3,1)]"
+        className="m-auto w-full max-w-sm border-4 border-[#29C7F6] bg-[#127CC1] p-6 text-center text-[#F8FEFF] shadow-[4px_4px_0_#0A1D2B] motion-safe:animate-[outside-card-flip_500ms_cubic-bezier(0.16,1,0.3,1)]"
         aria-live="assertive"
       >
-        <p className="font-mono text-xs font-bold uppercase tracking-[0.18em]">The cards are up</p>
-        <p className="mt-3 font-heading text-7xl font-black tabular-nums">{score.toFixed(2)}</p>
-        <p className="mt-3 font-heading font-bold">
+        <p className="text-[8px] uppercase text-[#75E3E1]">{practice ? "Practice wave" : "The cards are up"}</p>
+        <p className="mt-3 text-5xl tabular-nums text-[#FFF0B0]">{score.toFixed(2)}</p>
+        <p className="mt-3 font-sans text-sm font-bold text-[#E6F9FF]">
           {wipedOut ? "The ocean does not care. Twenty percent gone." : score >= 7 ? "That wave had teeth." : "Bank it. Keep moving."}
         </p>
         {incomingWaveNumber !== null ? (
-          <p className="mt-3 font-mono text-xs font-bold uppercase tracking-[0.14em]" aria-live="polite">
+          <p className="mt-3 text-[8px] uppercase text-[#B8F1FF]" aria-live="polite">
             Wave {incomingWaveNumber} incoming
           </p>
         ) : null}
-        <Button type="button" onClick={onContinue} className="mt-5 w-full rounded-none font-heading font-black uppercase">
+        <Button type="button" onClick={onContinue} className="mt-5 w-full rounded-none border-2 border-[#FFD447] bg-[#0B5FA5] text-[9px] uppercase text-[#F8FEFF] hover:bg-[#127CC1]">
           {isHeatOver ? "See the result" : "Next wave"}
         </Button>
       </section>
@@ -170,10 +191,10 @@ function ShareButton({ definition, heatTotal, challengeCode }: ShareButtonProps)
     const challengeUrl = new URL("/play", document.baseURI);
     challengeUrl.searchParams.set("c", challengeCode);
     const url = challengeUrl.toString();
-    const text = `I scored a ${heatTotal.toFixed(2)} heat at ${definition.name} in OUTSIDE. Same set, same waves. Beat it: ${url}`;
+    const text = `I scored a ${heatTotal.toFixed(2)} heat at ${definition.name} in ONE MORE WAVE. Same set, same waves. Beat it: ${url}`;
     if (typeof navigator.share === "function") {
       try {
-        await navigator.share({ title: "OUTSIDE by Quiver", text, url });
+        await navigator.share({ title: "ONE MORE WAVE by Quiver", text, url });
         return;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -194,7 +215,7 @@ function ShareButton({ definition, heatTotal, challengeCode }: ShareButtonProps)
   };
 
   return (
-    <Button type="button" onClick={() => void share()} className="w-full rounded-none font-heading font-black uppercase">
+    <Button type="button" onClick={() => void share()} className="w-full rounded-none border-2 border-[#FFD447] bg-[#0B5FA5] text-[8px] uppercase text-[#F8FEFF] hover:bg-[#127CC1]">
       {copied ? <Check /> : canShare ? <Share2 /> : <Copy />}
       {copied ? "Challenge copied" : "Send this heat to a friend"}
     </Button>
@@ -226,52 +247,57 @@ export function HeatResult({
   const beatChallenge = challenge ? heat.heatTotal > challenge.heatTotal : false;
 
   return (
-    <div className="absolute inset-0 z-20 overflow-y-auto bg-[#0D1020]/72 p-4 sm:p-8">
+    <div className="absolute inset-0 z-20 overflow-y-auto bg-[#0A1D2B]/65 p-4 sm:p-8">
       <div className="mx-auto w-full max-w-xl py-4">
-        <section className="border-4 border-[#11100D] bg-[#F4EBD8] p-5 text-[#11100D] shadow-lg sm:p-7">
-          <p className={`label-black w-fit ${passed ? "" : "!bg-[#B91C1C]"}`}>
-            {passed ? "Through the heat" : "Outside the cut"}
+        <section className="border-4 border-[#29C7F6] bg-[#127CC1] p-5 text-[#F8FEFF] shadow-[4px_4px_0_#0A1D2B] sm:p-7">
+          <p className={`w-fit border-2 px-3 py-2 text-[8px] uppercase ${passed ? "border-[#75E3E1] bg-[#43D87D] text-[#0A1D2B]" : "border-[#FFD447] bg-[#D93B72] text-[#F8FEFF]"}`}>
+            {heat.practice ? "Practice complete" : passed ? "Through the heat" : "Outside the cut"}
           </p>
           <div className="mt-4 flex items-end justify-between gap-4">
             <div>
-              <h2 className="font-heading text-3xl font-black uppercase">{definition.name}</h2>
-              <p className="mt-1 font-mono text-xs uppercase tracking-[0.12em]">Best {definition.maxWaves === 1 ? "wave" : "two waves"}</p>
+              <h2 className="text-xl uppercase">{definition.name}</h2>
+              <p className="mt-2 text-[7px] uppercase text-[#B8F1FF]">Best {definition.maxWaves === 1 ? "wave" : "two waves"}</p>
             </div>
-            <p className="font-heading text-5xl font-black tabular-nums">{heat.heatTotal.toFixed(2)}</p>
+            <p className="text-4xl tabular-nums text-[#FFF0B0]">{heat.heatTotal.toFixed(2)}</p>
           </div>
-          <div className="mt-4 flex gap-2 font-mono text-sm font-bold tabular-nums">
+          <div className="mt-4 flex gap-3 text-[8px] tabular-nums text-[#E6F9FF]">
             {heat.waveScores.map((score, index) => <span key={index}>W{index + 1} {score.toFixed(2)}</span>)}
           </div>
-          <p className="mt-4 font-heading text-lg font-bold">
-            {passed
+          <p className="mt-4 font-sans text-sm font-bold text-[#E6F9FF]">
+            {heat.practice
+              ? "Nothing saved. Take that line into a scored run."
+              : passed
               ? `Made the ${definition.threshold.toFixed(2)} cut.`
               : `Didn't make the heat. Needed ${definition.threshold.toFixed(2)}.`}
           </p>
+          <p className="mt-3 font-sans text-xs font-bold text-[#B8F1FF]">
+            Now go get a real one. Quiver helps you find the next surf window.
+          </p>
           {challenge ? (
-            <p className="mt-2 border-l-4 border-[#F2C94C] pl-3 font-mono text-xs font-bold uppercase tracking-[0.08em]">
+            <p className="mt-3 border-l-4 border-[#FFD447] pl-3 font-sans text-xs font-bold">
               {beatChallenge
                 ? `You beat ${challenge.initials ?? "the challenger"}'s ${challenge.heatTotal.toFixed(2)}.`
                 : `${challenge.initials ?? "The challenger"} keeps it by ${(challenge.heatTotal - heat.heatTotal).toFixed(2)}.`}
             </p>
           ) : null}
 
-          <label className="mt-5 grid gap-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em]">
+          <label className="mt-5 grid gap-2 text-[7px] uppercase text-[#B8F1FF]">
             Initials for your challenge (optional)
             <input
               value={initials}
               maxLength={3}
               onChange={(event) => onInitialsChange(event.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase())}
-              className="h-11 w-24 border-2 border-[#11100D] bg-[#F5EEDC] px-3 text-base uppercase"
+              className="h-11 w-24 border-2 border-[#29C7F6] bg-[#B8F1FF] px-3 font-sans text-base font-black uppercase text-[#0A1D2B]"
               aria-label="Challenge initials"
             />
           </label>
 
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            <Button type="button" variant="outline" onClick={onRetry} className="rounded-none border-2 border-[#11100D] bg-[#F5EEDC] font-heading font-black uppercase text-[#11100D]">
+            <Button type="button" variant="outline" onClick={onRetry} className="rounded-none border-2 border-[#29C7F6] bg-[#B8F1FF] text-[8px] uppercase text-[#0A1D2B] hover:bg-[#75E3E1]">
               Retry this set
             </Button>
             {passed && !challenge && definition.index < BREAKS.length - 1 ? (
-              <Button type="button" onClick={onNext} className="rounded-none font-heading font-black uppercase">
+              <Button type="button" onClick={onNext} className="rounded-none border-2 border-[#75E3E1] bg-[#0B5FA5] text-[8px] uppercase text-[#F8FEFF] hover:bg-[#127CC1]">
                 Next: {BREAKS[definition.index + 1].name}
               </Button>
             ) : null}
@@ -279,7 +305,10 @@ export function HeatResult({
           <div className="mt-2">
             <ShareButton definition={definition} heatTotal={heat.heatTotal} challengeCode={challengeCode} />
           </div>
-          <Link href="/" className="mt-5 block text-center font-mono text-xs font-bold uppercase tracking-[0.12em] underline-offset-4 hover:underline">
+          <Button asChild className="mt-2 w-full rounded-none border-2 border-[#75E3E1] bg-[#43D87D] text-[8px] uppercase text-[#0A1D2B] hover:bg-[#75E3E1]">
+            <Link href={definition.beachPath}>Find a real session</Link>
+          </Button>
+          <Link href="/" className="mt-5 block text-center text-[7px] uppercase text-[#B8F1FF] underline-offset-4 hover:underline">
             Made by Quiver
           </Link>
         </section>

@@ -46,26 +46,26 @@ export function LeadCapture({ breakSlug, breakName, heatTotal, challengeCode, se
   }
 
   return (
-    <section className="torn torn-tb mt-5 border-2 border-[#11100D] bg-[#F4EBD8] p-5 text-left text-[#11100D] shadow">
-      <h3 className="font-heading text-xl font-black uppercase">{breakName} is real.</h3>
-      <p className="mt-2 text-sm leading-6 text-[#11100D]/75">Quiver tells you the morning it is actually working. Get this week&apos;s {breakName} forecast and the app.</p>
-      {status === "success" ? <p className="mt-4 border-l-4 border-[#B91C1C] pl-3 font-heading text-lg font-black" role="status">Forecast on its way. Now go beat your score.</p> : null}
+    <section className="mt-5 border-4 border-[#29C7F6] bg-[#0B5FA5] p-5 text-left text-[#F8FEFF] shadow-[4px_4px_0_#0A1D2B]">
+      <h3 className="text-base uppercase">{breakName} is real.</h3>
+      <p className="mt-3 font-sans text-sm font-bold leading-6 text-[#E6F9FF]">Quiver tells you the morning it is actually working. Get this week&apos;s {breakName} forecast and the app.</p>
+      {status === "success" ? <p className="mt-4 border-l-4 border-[#43D87D] pl-3 font-sans text-sm font-black" role="status">Forecast on its way. Now go beat your score.</p> : null}
       <form className="mt-4 grid gap-3" aria-label={`${breakName} forecast signup`} onSubmit={handleSubmit} noValidate>
-        <label className="grid gap-1 font-mono text-xs font-bold uppercase tracking-[0.1em]">
+        <label className="grid gap-2 text-[7px] uppercase text-[#B8F1FF]">
           Email
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@outside.surf" autoComplete="email" className="h-11 border-2 border-[#11100D] bg-[#F5EEDC] px-3 font-sans text-sm" />
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" className="h-11 border-2 border-[#29C7F6] bg-[#B8F1FF] px-3 font-sans text-sm font-bold text-[#0A1D2B]" />
         </label>
-        {smsEnabled ? <label className="grid gap-1 font-mono text-xs font-bold uppercase tracking-[0.1em]">
+        {smsEnabled ? <label className="grid gap-2 text-[7px] uppercase text-[#B8F1FF]">
           Mobile number <span className="font-sans text-[10px] font-normal normal-case tracking-normal">(optional)</span>
-          <input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="(831) 555-0123" autoComplete="tel" className="h-11 border-2 border-[#11100D] bg-[#F5EEDC] px-3 font-sans text-sm" />
+          <input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="(831) 555-0123" autoComplete="tel" className="h-11 border-2 border-[#29C7F6] bg-[#B8F1FF] px-3 font-sans text-sm font-bold text-[#0A1D2B]" />
         </label> : null}
-        <label className="flex items-start gap-2 text-xs leading-5">
+        <label className="flex items-start gap-2 font-sans text-xs font-bold leading-5 text-[#E6F9FF]">
           <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1" />
           <span>Send me the forecast for this break and Quiver updates. Unsubscribe any time.</span>
         </label>
-        {status === "validation-error" ? <p className="text-sm font-bold text-[#B91C1C]" role="alert">Add an email or mobile number and check consent to try again.</p> : null}
-        {status === "server-error" ? <p className="text-sm font-bold text-[#B91C1C]" role="alert">Couldn&apos;t save that. Try again in a moment.</p> : null}
-        <Button type="submit" disabled={pending} className="rounded-none font-heading uppercase">{pending ? "Sending..." : "Get the real forecast"}</Button>
+        {status === "validation-error" ? <p className="font-sans text-sm font-bold text-[#FFD447]" role="alert">Add an email or mobile number and check consent to try again.</p> : null}
+        {status === "server-error" ? <p className="font-sans text-sm font-bold text-[#FFD447]" role="alert">Couldn&apos;t save that. Try again in a moment.</p> : null}
+        <Button type="submit" disabled={pending} className="rounded-none border-2 border-[#FFD447] bg-[#127CC1] text-[8px] uppercase text-[#F8FEFF] hover:bg-[#0B5FA5]">{pending ? "Sending..." : "Get the real forecast"}</Button>
       </form>
     </section>
   );

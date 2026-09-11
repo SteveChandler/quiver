@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {
   useCallback,
   useEffect,
@@ -27,9 +28,14 @@ import {
   type WaveDefinition,
 } from "@/lib/play";
 import { OutsideAudio } from "./audio";
-import { CanvasHost, type GameSnapshot } from "./CanvasHost";
+import type { GameSnapshot } from "./game-types";
 import { HUD } from "./HUD";
 import { ControlPrimer, HeatResult, JudgeCard, StartScreen } from "./Overlays";
+
+const PhaserHost = dynamic(() => import("./phaser/PhaserHost"), {
+  ssr: false,
+  loading: () => <div className="min-h-[650px] bg-[#FFBE8A]" aria-label="Loading surf" />,
+});
 
 type GameMode = "start" | "primer" | "riding" | "judge" | "result";
 
@@ -97,6 +103,7 @@ export function OutsideGame({
   });
   const latestManeuverCountRef = useRef(0);
   const previousPhaseRef = useRef(initialSimulation.phase);
+  const pendingPracticeRef = useRef(false);
   const audioRef = useRef<OutsideAudio | null>(null);
   if (!audioRef.current) audioRef.current = new OutsideAudio(false);
   const audio = audioRef.current;
@@ -124,9 +131,10 @@ export function OutsideGame({
     breakIndex: number,
     seed: number,
     running = false,
+    practice = false,
   ): void => {
     const nextWaves = generateWaveSet(seed, breakIndex);
-    const readyHeat = createHeatState(breakIndex, seed);
+    const readyHeat = createHeatState(breakIndex, seed, practice);
     const nextHeat = running ? startHeat(readyHeat) : readyHeat;
     const nextSimulation = createSimulationState(nextWaves[0]);
     setSelectedBreakIndex(breakIndex);
@@ -144,30 +152,31 @@ export function OutsideGame({
     prepareRun(breakIndex, todaySeed);
   };
 
-  const beginRide = (): void => {
-    const runningHeat = startHeat(heat);
-    setHeat(runningHeat);
-    setSnapshot((current) => ({ ...current, heat: runningHeat }));
+  const beginRide = (practice: boolean): void => {
+    prepareRun(selectedBreakIndex, activeSeed, true, practice);
     setAnnouncerLine(
-      definition.maxWaves === 1
+      practice
+        ? "Practice set. No clock. Find the line."
+        : definition.maxWaves === 1
         ? "One wave. The fifty-year swell. Do not blink."
         : "Three waves. Best two count.",
     );
     setMode("riding");
   };
 
-  const start = async (): Promise<void> => {
+  const start = async (practice: boolean): Promise<void> => {
+    pendingPracticeRef.current = practice;
     await audio.ensureStarted().catch(() => undefined);
     if (!progress.controlsSeen) {
       setMode("primer");
       return;
     }
-    beginRide();
+    beginRide(practice);
   };
 
   const dismissPrimer = (): void => {
     saveProgress({ ...progress, controlsSeen: true });
-    beginRide();
+    beginRide(pendingPracticeRef.current);
   };
 
   const handleSnapshot = useCallback((next: GameSnapshot): void => {
@@ -184,6 +193,7 @@ export function OutsideGame({
   }, []);
 
   const persistResult = useCallback((finishedHeat: HeatState): void => {
+    if (finishedHeat.practice) return;
     setProgress((current) => {
       const next: PlayProgress = {
         ...current,
@@ -237,14 +247,14 @@ export function OutsideGame({
   }, [continueAfterJudge, mode]);
 
   const retry = (): void => {
-    prepareRun(selectedBreakIndex, activeSeed, true);
+    prepareRun(selectedBreakIndex, activeSeed, true, heat.practice);
     setAnnouncerLine("Same set. Make the adjustment.");
     setMode("riding");
   };
 
   const nextBreak = (): void => {
     const nextIndex = Math.min(BREAKS.length - 1, selectedBreakIndex + 1);
-    prepareRun(nextIndex, todaySeed);
+    prepareRun(nextIndex, todaySeed, false, false);
     setMode("start");
   };
 
@@ -263,7 +273,7 @@ export function OutsideGame({
   const activeWave = waves[Math.min(heat.currentWaveIndex, waves.length - 1)];
 
   return (
-    <section className="relative isolate overflow-hidden border-4 border-[#11100D] bg-[#0D1020] shadow-lg">
+    <section className="relative isolate overflow-hidden border-4 border-[#0A1D2B] bg-[#FFBE8A] font-[var(--font-play-pixel)] shadow-[5px_5px_0_#0A1D2B]">
       <style>{`
         @keyframes outside-card-flip {
           from { opacity: 0; transform: perspective(700px) rotateY(-78deg) scale(.92); }
@@ -273,7 +283,7 @@ export function OutsideGame({
           [class*="outside-card-flip"] { animation: none !important; }
         }
       `}</style>
-      <CanvasHost
+      <PhaserHost
         key={`${selectedBreakIndex}-${activeSeed}-${heat.currentWaveIndex}`}
         definition={definition}
         wave={activeWave}
@@ -290,6 +300,8 @@ export function OutsideGame({
         <HUD
           definition={definition}
           snapshot={snapshot}
+          waveDuration={activeWave.duration}
+          bestScore={progress.bestHeatTotals[definition.beachSlug] ?? 0}
           ghostTotal={challenge?.breakIndex === selectedBreakIndex ? challenge.heatTotal : undefined}
           muted={progress.muted}
           announcerLine={announcerLine}
@@ -302,8 +314,14 @@ export function OutsideGame({
           selectedBreakIndex={selectedBreakIndex}
           unlockedBreakIndex={progress.unlockedBreakIndex}
           challenge={challenge}
+          challengeCode={encodeChallenge({
+            breakIndex: selectedBreakIndex,
+            seed: activeSeed,
+            heatTotal: 0,
+          })}
           onSelectBreak={selectBreak}
-          onStart={() => void start()}
+          onStart={() => void start(false)}
+          onPractice={() => void start(true)}
         />
       ) : null}
       {mode === "primer" ? <ControlPrimer onContinue={dismissPrimer} /> : null}
@@ -311,6 +329,7 @@ export function OutsideGame({
         <JudgeCard
           score={judgeResult.score}
           wipedOut={judgeResult.wipedOut}
+          practice={heat.practice}
           isHeatOver={heat.status === "passed" || heat.status === "failed"}
           incomingWaveNumber={heat.status === "running" ? heat.currentWaveIndex + 1 : null}
           onContinue={continueAfterJudge}

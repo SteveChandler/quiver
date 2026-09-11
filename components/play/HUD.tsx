@@ -4,12 +4,14 @@ import { Volume2, VolumeX } from "lucide-react";
 import type { ReactElement } from "react";
 
 import { Button } from "@/components/ui/button";
-import { getNeedsScore, getProjectedHeatTotal, type BreakDefinition } from "@/lib/play";
-import type { GameSnapshot } from "./CanvasHost";
+import { getNeedsScore, type BreakDefinition } from "@/lib/play";
+import type { GameSnapshot } from "./game-types";
 
 interface HUDProps {
   definition: BreakDefinition;
   snapshot: GameSnapshot;
+  waveDuration: number;
+  bestScore: number;
   ghostTotal?: number;
   muted: boolean;
   announcerLine: string;
@@ -24,38 +26,61 @@ function formatTimer(seconds: number): string {
 export function HUD({
   definition,
   snapshot,
+  waveDuration,
+  bestScore,
   ghostTotal,
   muted,
   announcerLine,
   onToggleMute,
 }: HUDProps): ReactElement {
   const needs = getNeedsScore(snapshot.heat, snapshot.liveScore);
-  const totalWithCurrent = getProjectedHeatTotal(snapshot.heat, snapshot.liveScore);
+  const gap = Math.max(0, Math.min(1, snapshot.simulation.sectionDistance / 0.82));
+  const waveProgress = Math.max(0, Math.min(1, snapshot.simulation.elapsed / waveDuration));
+  const dangerColour = gap < 0.25 ? "#FF5C6C" : gap < 0.48 ? "#FFD447" : "#75E3E1";
+  const contextualAlert = snapshot.simulation.phase === "wipeout"
+    ? "WIPEOUT · CAUGHT BY THE FOAM"
+    : gap < 0.25
+    ? "FOAM GAP!"
+    : waveProgress > 0.72 ? "PIER AHEAD" : needs !== null ? `NEEDS ${needs.toFixed(2)}` : announcerLine;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-3 text-[#F5EEDC] sm:p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="bg-[#11100D]/85 px-3 py-2 shadow-md backdrop-blur-sm">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#F5EEDC]/70">
-            Heat · {definition.name}
-          </p>
-          <p className="font-mono text-2xl font-black tabular-nums">
-            {formatTimer(snapshot.heat.secondsRemaining)}
-          </p>
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-2 text-[#F8FEFF] sm:p-3">
+      <div className="grid grid-cols-[minmax(92px,1fr)_minmax(130px,2fr)_minmax(82px,1fr)] items-start gap-2">
+        <div className="border-2 border-[#29C7F6] bg-[#0B5FA5] px-2 py-2 shadow-[2px_2px_0_#0A1D2B] sm:px-3">
+          <p className="text-[7px] uppercase text-[#B8F1FF] sm:text-[9px]">Score</p>
+          <p className="mt-1 text-sm tabular-nums sm:text-xl">{snapshot.liveScore.toFixed(2)}</p>
+          <p className="mt-1 text-[6px] uppercase text-[#B8F1FF] sm:text-[8px]">Best {bestScore.toFixed(2)}</p>
         </div>
 
-        <div className="flex items-start gap-2">
-          <div className="bg-[#F4EBD8]/95 px-3 py-2 text-right text-[#11100D] shadow-md">
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em]">Current</p>
-            <p className="font-mono text-2xl font-black tabular-nums">
-              {snapshot.liveScore.toFixed(2)}
+        <div className="border-2 border-[#29C7F6] bg-[#0B5FA5] px-2 py-2 shadow-[2px_2px_0_#0A1D2B] sm:px-3">
+          <div className="flex items-center justify-between gap-2 text-[7px] uppercase sm:text-[9px]">
+            <span>Wave {Math.min(definition.maxWaves, snapshot.heat.currentWaveIndex + 1)} / {definition.maxWaves}</span>
+            <span className="text-[#B8F1FF]">{snapshot.heat.practice ? "Practice" : definition.name}</span>
+          </div>
+          <div className="mt-2 h-2 border border-[#B8F1FF] bg-[#12324A]" aria-label={`Wave ${Math.round(waveProgress * 100)} percent complete`}>
+            <div className="h-full bg-[#FF8D73]" style={{ width: `${waveProgress * 100}%` }} />
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-[6px] uppercase text-[#B8F1FF] sm:text-[8px]">Foam gap</span>
+            <div className="relative h-2 flex-1 border border-[#B8F1FF] bg-[#12324A]" aria-label={`Foam gap ${Math.round(gap * 100)} percent`}>
+              <div className="h-full" style={{ width: `${gap * 100}%`, backgroundColor: dangerColour }} />
+              {ghostTotal !== undefined ? <span className="absolute inset-y-[-2px] right-1 w-0.5 bg-[#FFD447]" aria-label={`Challenger scored ${ghostTotal.toFixed(2)}`} /> : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-start justify-end gap-1">
+          <div className="border-2 border-[#29C7F6] bg-[#0B5FA5] px-2 py-2 text-right shadow-[2px_2px_0_#0A1D2B]">
+            <p className="text-[7px] uppercase text-[#B8F1FF] sm:text-[9px]">Time</p>
+            <p className="mt-1 text-xs tabular-nums sm:text-base">
+              {snapshot.heat.practice ? "--:--" : formatTimer(snapshot.heat.secondsRemaining)}
             </p>
           </div>
           <Button
             type="button"
             size="icon"
             variant="secondary"
-            className="pointer-events-auto rounded-none bg-[#F4EBD8] text-[#11100D] hover:bg-[#E5D4B3]"
+            className="pointer-events-auto size-9 rounded-none border-2 border-[#29C7F6] bg-[#0B5FA5] p-2 text-[#F8FEFF] shadow-[2px_2px_0_#0A1D2B] hover:bg-[#127CC1]"
             aria-label={muted ? "Unmute game audio" : "Mute game audio"}
             onClick={onToggleMute}
           >
@@ -64,41 +89,15 @@ export function HUD({
         </div>
       </div>
 
-      <div className="mt-3 max-w-sm bg-[#11100D]/82 p-3 shadow-md backdrop-blur-sm">
-        <div className="flex items-end justify-between gap-3 font-mono text-xs uppercase tracking-[0.1em]">
-          <span>Heat {snapshot.heat.heatTotal.toFixed(2)}</span>
-          <span>Cut {definition.threshold.toFixed(2)}</span>
-        </div>
-        <div className="relative mt-2 h-2 overflow-hidden bg-[#F5EEDC]/20">
-          <div
-            className="h-full bg-[#F78E42] transition-transform"
-            style={{ transform: `scaleX(${totalWithCurrent / 20})`, transformOrigin: "left" }}
-          />
-          {ghostTotal !== undefined ? (
-            <span
-              className="absolute inset-y-0 w-0.5 bg-[#F2C94C]"
-              style={{ left: `${Math.min(100, ghostTotal * 5)}%` }}
-              aria-label={`Challenger scored ${ghostTotal.toFixed(2)}`}
-            />
-          ) : null}
-        </div>
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[11px] tabular-nums text-[#F5EEDC]/80">
-          {Array.from({ length: definition.maxWaves }, (_, index) => (
-            <span key={index}>W{index + 1} {snapshot.heat.waveScores[index]?.toFixed(2) ?? "—"}</span>
-          ))}
-        </div>
-        {needs !== null ? (
-          <p className="mt-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#F2C94C]">
-            Needs {needs.toFixed(2)}
-          </p>
-        ) : null}
-      </div>
-
       <p
-        className="mt-3 w-fit max-w-[85%] bg-[#F4EBD8]/95 px-3 py-2 font-heading text-sm font-bold text-[#11100D] shadow"
+        className={`mx-auto mt-2 w-fit max-w-[85%] border-2 px-3 py-2 text-center text-[7px] uppercase shadow-[2px_2px_0_#0A1D2B] sm:text-[9px] ${
+          contextualAlert === "PIER AHEAD" || contextualAlert === "FOAM GAP!" || contextualAlert.startsWith("WIPEOUT")
+            ? "border-[#FFD447] bg-[#FF5C6C] text-[#F8FEFF]"
+            : "border-[#29C7F6] bg-[#127CC1] text-[#F8FEFF]"
+        }`}
         aria-live="polite"
       >
-        {announcerLine}
+        {contextualAlert}
       </p>
     </div>
   );

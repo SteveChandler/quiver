@@ -7,15 +7,15 @@ import { dailySeed } from "@/lib/play";
 import { buildPageMetadata } from "@/lib/seo/meta";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "OUTSIDE — A Surf Game by Quiver",
+  title: "ONE MORE WAVE — A Surf Game by Quiver",
   description:
-    "Sets are coming. Get to the peak in OUTSIDE, Quiver's daily browser surf game. Same set, same waves — send your heat to a friend.",
+    "Ride the line, beat the pier, and challenge a friend in ONE MORE WAVE, Quiver's daily browser surf game.",
   path: "/play",
   keywords: [
     "surf game",
     "browser surf game",
     "daily surf game",
-    "Quiver OUTSIDE",
+    "Quiver ONE MORE WAVE",
   ],
 });
 
@@ -29,14 +29,14 @@ export default async function PlayPage({ searchParams }: PlayPageProps): Promise
 
   return (
     <ZineSurface
-      sectionLabel="OUTSIDE"
+      sectionLabel="ONE MORE WAVE"
       editionLabel="Daily heat"
-      className="min-h-screen bg-[#0D1020]"
+      className="min-h-screen bg-[#0B5FA5]"
       stageClassName="min-h-screen pt-20"
-      paperClassName="overflow-hidden !p-2 sm:!p-4"
+      paperClassName="overflow-hidden !bg-[#B8F1FF] !p-1 sm:!p-3"
       data-testid="outside-game-page"
     >
-      <h1 className="sr-only">OUTSIDE — Sets are coming. Get to the peak.</h1>
+      <h1 className="sr-only">ONE MORE WAVE — Ride the line. Beat the pier. Get the real one.</h1>
       <OutsideGame challengeCode={challengeCode} todaySeed={dailySeed()} />
     </ZineSurface>
   );

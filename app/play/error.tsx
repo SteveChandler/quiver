@@ -21,12 +21,12 @@ export default function PlayError({ error, reset }: PlayErrorProps): ReactElemen
   }, [error]);
 
   return (
-    <ZineSurface sectionLabel="OUTSIDE" className="min-h-screen bg-[#0D1020]" stageClassName="min-h-screen pt-20">
-      <section className="m-auto max-w-lg border-4 border-[#11100D] bg-[#F4EBD8] p-7 text-center text-[#11100D]">
-        <p className="label-black mx-auto w-fit !bg-[#B91C1C]">Set went quiet</p>
-        <h1 className="mt-4 font-heading text-3xl font-black uppercase">The ocean took that one.</h1>
-        <p className="mt-3 text-sm text-[#11100D]/70">Paddle back out and load the same heat again.</p>
-        <Button type="button" onClick={reset} className="mt-5 rounded-none font-heading font-black uppercase">
+    <ZineSurface sectionLabel="ONE MORE WAVE" className="min-h-screen bg-[#0B5FA5]" stageClassName="min-h-screen pt-20" paperClassName="!bg-[#B8F1FF]">
+      <section className="m-auto max-w-lg border-4 border-[#0A1D2B] bg-[#127CC1] p-7 text-center text-[#F8FEFF] shadow-[5px_5px_0_#0A1D2B]">
+        <p className="mx-auto w-fit bg-[#D93B72] px-3 py-2 font-[var(--font-play-pixel)] text-xs uppercase">Set went quiet</p>
+        <h1 className="mt-4 font-[var(--font-play-pixel)] text-2xl uppercase">The ocean took that one.</h1>
+        <p className="mt-3 text-sm text-[#B8F1FF]">Paddle back out and load the same heat again.</p>
+        <Button type="button" onClick={reset} className="mt-5 rounded-none border-2 border-[#29C7F6] bg-[#0B5FA5] font-[var(--font-play-pixel)] text-xs uppercase text-[#F8FEFF] hover:bg-[#127CC1]">
           Try again
         </Button>
       </section>
