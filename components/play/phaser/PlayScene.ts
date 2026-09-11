@@ -322,7 +322,7 @@ export class PlayScene extends Phaser.Scene {
     if (this.finished) return;
     this.finished = true;
     const score = judgeWave(this.simulation.stats).score;
-    this.heat = completeWave(this.heat, score, this.simulation.stats.wipeout);
+    this.heat = completeWave(this.heat, score, this.simulation.stats.wipeout, this.simulation.stats);
     const bridge = this.bridgeRef.current;
     bridge.onSnapshot({ simulation: this.simulation, heat: this.heat, liveScore: score });
     bridge.onWaveComplete(this.heat, this.simulation, score);

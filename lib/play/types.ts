@@ -38,7 +38,56 @@ export interface WaveDefinition {
   sectionStart: number;
   textureSeed: number;
   throwWindows: ThrowWindow[];
+  obstacles: Obstacle[];
 }
+
+export type ObstacleLane = "upper" | "mid" | "low";
+export type DebrisVariant = "plank" | "crate" | "barrel" | "tire" | "cooler" | "driftwood";
+export type PierPattern = "single-post" | "double-post-gap" | "cross-brace";
+export type WipeoutReason = "Caught by the foam" | "Hit the pier" | "Bad landing" | "Hit a swimmer" | "Clipped by debris" | "Took a gull to the face";
+
+interface ObstacleBase {
+  id: string;
+  cueAt: number;
+  hitAt: number;
+  endAt: number;
+  lane: ObstacleLane;
+}
+
+export interface SeagullObstacle extends ObstacleBase {
+  kind: "seagull";
+}
+
+export interface FishObstacle extends ObstacleBase {
+  kind: "fish";
+}
+
+export interface DebrisObstacle extends ObstacleBase {
+  kind: "debris";
+  variant: DebrisVariant;
+}
+
+export interface HumanObstacle extends ObstacleBase {
+  kind: "swimmer" | "bodyboarder";
+}
+
+export interface BuoyObstacle extends ObstacleBase {
+  kind: "buoy";
+}
+
+export interface PierPost {
+  lane: ObstacleLane;
+  width: number;
+}
+
+export interface PierObstacle extends ObstacleBase {
+  kind: "pier";
+  pattern: PierPattern;
+  posts: PierPost[];
+  gaps: ObstacleLane[];
+}
+
+export type Obstacle = SeagullObstacle | FishObstacle | DebrisObstacle | HumanObstacle | BuoyObstacle | PierObstacle;
 
 export interface ManeuverEvent {
   type: ManeuverType;
@@ -57,6 +106,8 @@ export interface RideStats {
   difficultyPoints: number;
   barrelSeconds: number;
   wipeout: boolean;
+  rideSeconds: number;
+  closestPierPass: number | null;
 }
 
 export type SimulationPhase = "riding" | "airborne" | "wipeout" | "complete";
@@ -75,6 +126,7 @@ export interface SimulationState {
   airLandingStart: number | null;
   airLandingEnd: number | null;
   landedAir: boolean;
+  wipeoutReason: WipeoutReason | null;
   stats: RideStats;
 }
 
@@ -96,6 +148,13 @@ export interface HeatState {
   waveScores: number[];
   currentWaveIndex: number;
   heatTotal: number;
+  stats: HeatStats;
+}
+
+export interface HeatStats {
+  tricksLanded: number;
+  longestRideSeconds: number;
+  closestPierPass: number | null;
 }
 
 export interface Challenge {

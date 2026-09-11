@@ -1,4 +1,5 @@
 import { judgeWave } from "./judge";
+import { getObstacleCollision, getPierClearance } from "./obstacles";
 import type {
   BreakDefinition,
   ManeuverType,
@@ -6,6 +7,7 @@ import type {
   SimulationInput,
   SimulationState,
   WaveDefinition,
+  WipeoutReason,
 } from "./types";
 
 export const FIXED_TIMESTEP_SECONDS = 1 / 60;
@@ -38,6 +40,8 @@ export function createRideStats(): RideStats {
     difficultyPoints: 0,
     barrelSeconds: 0,
     wipeout: false,
+    rideSeconds: 0,
+    closestPierPass: null,
   };
 }
 
@@ -56,6 +60,7 @@ export function createSimulationState(wave: WaveDefinition): SimulationState {
     airLandingStart: null,
     airLandingEnd: null,
     landedAir: false,
+    wipeoutReason: null,
     stats: createRideStats(),
   };
 }
@@ -89,13 +94,14 @@ export function performManeuver(
   };
 }
 
-function startWipeout(state: SimulationState): SimulationState {
+function startWipeout(state: SimulationState, wipeoutReason: WipeoutReason): SimulationState {
   return {
     ...state,
     phase: "wipeout",
     phaseElapsed: 0,
     pumping: false,
     inBarrel: false,
+    wipeoutReason,
     stats: { ...state.stats, wipeout: true },
   };
 }
@@ -154,8 +160,27 @@ function stepAirborne(
       stats: performManeuver(state.stats, "air", state.elapsed),
     };
   }
-  if (phaseElapsed > landingEnd) return startWipeout({ ...state, phaseElapsed });
+  if (phaseElapsed > landingEnd) return startWipeout({ ...state, phaseElapsed }, "Bad landing");
   return { ...state, phaseElapsed };
+}
+
+function applyObstacleCollisions(state: SimulationState, wave: WaveDefinition): SimulationState {
+  let next = state;
+  for (const obstacle of wave.obstacles) {
+    if (obstacle.kind === "pier" && state.elapsed >= obstacle.hitAt && state.elapsed <= obstacle.endAt) {
+      const clearance = getPierClearance(obstacle, state.facePosition);
+      next = {
+        ...next,
+        stats: {
+          ...next.stats,
+          closestPierPass: Math.min(next.stats.closestPierPass ?? Number.POSITIVE_INFINITY, clearance),
+        },
+      };
+    }
+    const reason = getObstacleCollision(obstacle, next);
+    if (reason) return startWipeout(next, reason);
+  }
+  return next;
 }
 
 export function stepSimulation(
@@ -174,8 +199,8 @@ export function stepSimulation(
     return { ...state, phase: "complete", elapsed, phaseElapsed };
   }
   if (state.phase === "airborne") {
-    const next = stepAirborne({ ...state, elapsed }, input, timestep);
-    return next.phase === "wipeout" ? next : { ...next, elapsed };
+    const next = stepAirborne({ ...state, elapsed, stats: { ...state.stats, rideSeconds: elapsed } }, input, timestep);
+    return next.phase === "wipeout" ? next : applyObstacleCollisions(next, wave);
   }
 
   const facePosition = clamp(state.facePosition + input.vertical * timestep * 0.82, 0, 1);
@@ -192,7 +217,7 @@ export function stepSimulation(
   const throwing = isThrowing(wave, elapsed);
   let inBarrel = state.inBarrel;
   let barrelStartAt = state.barrelStartAt;
-  let stats = { ...state.stats, peakSpeed: Math.max(state.stats.peakSpeed, speed) };
+  let stats = { ...state.stats, peakSpeed: Math.max(state.stats.peakSpeed, speed), rideSeconds: elapsed };
   if (!inBarrel && throwing && facePosition <= 0.29) {
     inBarrel = true;
     barrelStartAt = elapsed;
@@ -230,7 +255,9 @@ export function stepSimulation(
   };
 
   if (input.actionReleased) next = handleRelease(next);
-  if (sectionDistance <= 0) return startWipeout(next);
+  if (sectionDistance <= 0) return startWipeout(next, "Caught by the foam");
+  next = applyObstacleCollisions(next, wave);
+  if (next.phase === "wipeout") return next;
   if (elapsed >= wave.duration) return { ...next, phase: "complete" };
   return next;
 }

@@ -1,4 +1,5 @@
 import { getBreak } from "./breaks";
+import { generateObstacleSchedule } from "./obstacles";
 import { mulberry32, randomBetween } from "./rng";
 import type { ThrowCadence, ThrowWindow, WaveDefinition } from "./types";
 
@@ -41,6 +42,7 @@ export function generateWaveSet(seed: number, breakIndex: number): WaveDefinitio
       sectionStart: randomBetween(random, 0.82, 1),
       textureSeed: Math.floor(random() * 1_000_000),
       throwWindows: makeThrowWindows(definition.throwCadence, duration, random),
+      obstacles: generateObstacleSchedule(seed, breakIndex, index, duration),
     };
   });
 }

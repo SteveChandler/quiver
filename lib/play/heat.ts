@@ -1,5 +1,5 @@
 import { getBreak } from "./breaks";
-import type { HeatState } from "./types";
+import type { HeatState, RideStats } from "./types";
 
 function roundScore(score: number): number {
   return Number(score.toFixed(2));
@@ -29,6 +29,7 @@ export function createHeatState(
     waveScores: [],
     currentWaveIndex: 0,
     heatTotal: 0,
+    stats: { tricksLanded: 0, longestRideSeconds: 0, closestPierPass: null },
   };
 }
 
@@ -54,6 +55,7 @@ export function completeWave(
   state: HeatState,
   score: number,
   wipedOut: boolean,
+  rideStats?: RideStats,
 ): HeatState {
   if (state.status !== "running") return state;
 
@@ -71,6 +73,13 @@ export function completeWave(
     heatTotal,
     secondsRemaining,
     currentWaveIndex: state.currentWaveIndex + 1,
+    stats: rideStats ? {
+      tricksLanded: state.stats.tricksLanded + rideStats.maneuvers.length,
+      longestRideSeconds: Math.max(state.stats.longestRideSeconds, rideStats.rideSeconds),
+      closestPierPass: rideStats.closestPierPass === null
+        ? state.stats.closestPierPass
+        : Math.min(state.stats.closestPierPass ?? Number.POSITIVE_INFINITY, rideStats.closestPierPass),
+    } : state.stats,
     status: finished
       ? heatTotal >= definition.threshold ? "passed" : "failed"
       : "running",

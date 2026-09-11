@@ -2,6 +2,7 @@ export * from "./breaks";
 export * from "./challenge";
 export * from "./heat";
 export * from "./judge";
+export * from "./obstacles";
 export * from "./progress";
 export * from "./rng";
 export * from "./simulation";
