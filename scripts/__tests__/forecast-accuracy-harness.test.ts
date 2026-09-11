@@ -1,3 +1,4 @@
+import { toFaceHeightFeetDecomposedWithDebug, METERS_TO_FEET, type DecomposedFaceHeightParams } from "../../lib/utils/wave-formatters";
 import {
   applyProposedInput,
   buildForecastAccuracyHarnessReport,
@@ -25,6 +26,21 @@ type BuildHarnessReportOptions = Parameters<
   typeof buildForecastAccuracyHarnessReport
 >[0];
 type PredictionRow = BuildHarnessReportOptions["buoyRows"][number];
+
+function capturedRow(params: DecomposedFaceHeightParams): PredictionRow {
+  const result = toFaceHeightFeetDecomposedWithDebug(params);
+  expect(result.debug.replayInput).toEqual(expect.objectContaining({ source: result.debug.source }));
+  const m = Math.round(Number.parseFloat(result.value!) / METERS_TO_FEET * 1000) / 1000;
+  return {
+    beach_id: "beach-1", predicted_at: "2026-09-11T12:00:00Z",
+    display_source: "face-Hs-transformer-v1",
+    raw_display_height_m: m, offset_corrected_display_height_m: m,
+    display_replay_context: {
+      version: 1, generatedAt: "2026-09-11T00:00:00Z", forecastAt: "2026-09-11T12:00:00Z",
+      base: { input: result.debug.replayInput, supported: true }, handoff: null, unsupportedReason: null,
+    },
+  } as PredictionRow;
+}
 
 function sessionObservation(userId: string | null): SessionObservationRow {
   return {
@@ -592,87 +608,49 @@ describe("forecast-accuracy-harness", () => {
     ).toThrow("Duplicate proposed beach config slug(s): slug-1.");
   });
 
-  it("can compute a proposed display height from logged partition inputs and factor overrides", () => {
-    const proposedM = computeProposedDisplayHeightM(
-      {
-        beach_id: "beach-1",
-        predicted_at: "2026-06-18T12:00:00Z",
-        observed_m: 1,
-        forecast_horizon_hours: 12,
-        raw_display_height_m: 1,
-        offset_corrected_display_height_m: 1,
-        wave_height_om: 1,
-        v5_shadow_height_m: null,
-        noaa_swell_1_height_m: 1,
-        noaa_swell_1_period_s: 14,
-        noaa_swell_1_direction_deg: 220,
-        noaa_swell_2_height_m: null,
-        noaa_swell_2_period_s: null,
-        noaa_swell_2_direction_deg: null,
-        noaa_wind_wave_height_m: null,
-        noaa_wind_wave_period_s: null,
-        noaa_wind_wave_direction_deg: null,
-        wave_period_s: 14,
-        wave_direction_deg: 220,
-        wave_period_om: null,
-        wave_direction_om: null,
-      },
-      {
-        terrain_enabled: false,
-        swell_access_factors: null,
-        shoaling_factors: null,
-        swell_window_center_deg: 220,
-        swell_window_halfwidth_deg: 45,
-        deepwater_decay_factor: null,
-      }
-    );
-
-    expect(proposedM).toBeGreaterThan(1);
+  it("computes a proposal from captured partitions instead of current beach defaults", () => {
+    const row = capturedRow({ modelSwellM: 1, periodS: 14, swellDirectionDeg: 220,
+      beach: { terrain_enabled: true, swell_access_factors: Array(72).fill(0.25), deepwater_decay_factor: 1 },
+      components: [{ heightFt: METERS_TO_FEET, periodS: 14, directionDeg: 220 }],
+    });
+    expect(computeProposedDisplayHeightM(row, { swell_access_factors: Array(72).fill(1) }))
+      .toBeGreaterThan(row.raw_display_height_m!);
+    expect(computeProposedDisplayHeightM(row, {})).toBe(row.raw_display_height_m);
   });
 
-  it("replays CDIP-tagged proposed shoaling from the logged raw input", () => {
-    const proposedM = computeProposedDisplayHeightM(
-      {
-        beach_id: "beach-1",
-        predicted_at: "2026-06-18T12:00:00Z",
-        observed_m: 1,
-        forecast_horizon_hours: 12,
-        raw_display_height_m: 1,
-        offset_corrected_display_height_m: 1,
-        wave_height_om: 0.25,
-        v5_shadow_height_m: null,
-        display_wave_source: "cdip_sig",
-        display_raw_input_height_m: 1,
-        noaa_swell_1_height_m: 0.2,
-        noaa_swell_1_period_s: 14,
-        noaa_swell_1_direction_deg: 220,
-        noaa_swell_2_height_m: null,
-        noaa_swell_2_period_s: null,
-        noaa_swell_2_direction_deg: null,
-        noaa_wind_wave_height_m: null,
-        noaa_wind_wave_period_s: null,
-        noaa_wind_wave_direction_deg: null,
-        wave_period_s: 14,
-        wave_direction_deg: 220,
-        wave_period_om: null,
-        wave_direction_om: null,
-      },
-      {
-        terrain_enabled: false,
-        swell_access_factors: null,
-        shoaling_factors: {
-          version: 1,
-          type: "period_lookup",
-          buckets: [{ tp_min_s: 12, tp_max_s: 16, factor: 2 }],
-        },
-        swell_window_center_deg: null,
-        swell_window_halfwidth_deg: null,
-        deepwater_decay_factor: null,
-      }
-    );
+  it.each([[0, 0.152], [20, 4.572]])("matches live display limits for a %sm raw input", (rawM, expectedM) => {
+    const row = capturedRow({ modelHsM: rawM, components: [], periodS: 14, beach: { terrain_enabled: false } });
+    expect(computeProposedDisplayHeightM(row, {})).toBe(expectedM);
+  });
 
-    expect(proposedM).toBeGreaterThan(1.9);
-    expect(proposedM).toBeLessThan(2.1);
+  it("replays captured CDIP scalar input with proposed shoaling", () => {
+    const row = capturedRow({ cdipSigFt: METERS_TO_FEET, components: [], periodS: 14 });
+    expect(computeProposedDisplayHeightM(row, { shoaling_factors: {
+      version: 1, type: "period_lookup", buckets: [{ tp_min_s: 12, tp_max_s: 16, factor: 2 }],
+    } })).toBeCloseTo(2, 1);
+  });
+
+  it("refuses legacy, mismatched-run, malformed, and non-identity contexts", () => {
+    const row = capturedRow({ modelHsM: 1, components: [], periodS: 14 });
+    expect(computeProposedDisplayHeightM({ ...row, display_replay_context: null }, {})).toBeNull();
+    expect(computeProposedDisplayHeightM({ ...row, predicted_at: "2026-09-12T12:00:00Z" }, {})).toBeNull();
+    expect(computeProposedDisplayHeightM({ ...row, display_replay_context: { version: 999 } }, {})).toBeNull();
+    expect(computeProposedDisplayHeightM({ ...row, raw_display_height_m: 99 }, {})).toBeNull();
+    expect(computeProposedDisplayHeightM({ ...row, raw_display_height_m: NaN }, {})).toBeNull();
+    expect(computeProposedDisplayHeightM({ ...row, offset_corrected_display_height_m: Infinity }, {})).toBeNull();
+    expect(computeProposedDisplayHeightM({ ...row, offset_corrected_display_height_m: 99 }, {})).toBeNull();
+  });
+
+  it("retains immutable context when replaying a linked session snapshot", () => {
+    const snapshot = capturedRow({ modelHsM: 1, components: [], periodS: 12 });
+    const rows = buildSessionTruthPredictionRows([{
+      ...sessionObservation("user-1"),
+      matched_prediction_at: snapshot.predicted_at,
+      snapshot_display_height_m: snapshot.raw_display_height_m,
+    }], new Map([["prediction-1", snapshot]]));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].display_replay_context).toEqual(snapshot.display_replay_context);
+    expect(computeProposedDisplayHeightM(rows[0], {})).toBe(snapshot.raw_display_height_m);
   });
 
   it("maps session wave observations onto the canonical accuracy row shape", () => {
@@ -1403,7 +1381,7 @@ describe("forecast-accuracy-harness", () => {
         proposedJsonSha256: "test-proposed-sha256",
       })
     ).toMatchObject({
-      report_schema_version: 1,
+      report_schema_version: 2,
       range: {
         start: "2026-06-01T00:00:00.000Z",
         end: "2026-06-18T00:00:00.000Z",
@@ -1442,8 +1420,8 @@ describe("forecast-accuracy-harness", () => {
         matched_0_72h_rows: 1,
         matched_0_72h_rows_with_horizon_bucket_provenance: 1,
         matched_0_72h_rows_without_horizon_bucket_provenance: 0,
-        matched_0_72h_rows_with_replay_provenance: 1,
-        matched_0_72h_rows_without_replay_provenance: 0,
+        matched_0_72h_rows_with_replay_provenance: 0,
+        matched_0_72h_rows_without_replay_provenance: 1,
         proposed_rows_compared: 1,
       },
       proposed_deltas: [
@@ -1594,7 +1572,7 @@ describe("forecast-accuracy-harness", () => {
     expect(report.proposed_gate_verdict).toBeNull();
   });
 
-  it("counts invalid replay provenance as missing replay provenance", () => {
+  it("counts legacy source tags as missing generation context", () => {
     const options = parseCliArgs([
       "--start",
       "2026-06-01T00:00:00Z",
@@ -1693,8 +1671,8 @@ describe("forecast-accuracy-harness", () => {
 
     expect(report.row_counts).toMatchObject({
       matched_0_72h_rows: 3,
-      matched_0_72h_rows_with_replay_provenance: 1,
-      matched_0_72h_rows_without_replay_provenance: 2,
+      matched_0_72h_rows_with_replay_provenance: 0,
+      matched_0_72h_rows_without_replay_provenance: 3,
     });
   });
 });
