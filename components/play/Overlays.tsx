@@ -47,20 +47,20 @@ export function StartScreen({
   };
 
   return (
-    <div className="absolute inset-0 z-20 flex overflow-y-auto bg-[#0A1D2B]/20 p-3 sm:p-5">
-      <section className="my-auto w-full text-[#F8FEFF]">
+    <div className="absolute inset-0 z-20 overflow-y-auto bg-[#0B5FA5]/10 p-2 sm:p-4">
+      <section className="flex min-h-full w-full flex-col text-[#F8FEFF] [font-family:var(--font-play-pixel)]">
         <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-2 border-[#29C7F6] bg-[#0B5FA5]/95 px-3 py-2 text-[8px] uppercase shadow-[3px_3px_0_#0A1D2B] sm:text-[10px]">
           <Link href="/" className="justify-self-start text-[#B8F1FF] hover:text-[#F8FEFF]">Quiver</Link>
           <span className="text-center text-[#F8FEFF]">One More Wave</span>
           <span className="justify-self-end text-[#75E3E1]">Play</span>
         </header>
 
-        <div className="mx-auto mt-3 max-w-4xl text-center">
+        <div className="mx-auto mt-2 max-w-4xl text-center sm:mt-3">
           <p className="inline-block border-2 border-[#29C7F6] bg-[#127CC1] px-3 py-2 text-[8px] uppercase text-[#B8F1FF] shadow-[2px_2px_0_#0A1D2B]">Today&apos;s set</p>
-          <h2 className="mx-auto mt-3 max-w-3xl text-3xl uppercase leading-[1.15] text-[#F8FEFF] [text-shadow:3px_3px_0_#0A1D2B] sm:text-5xl lg:text-6xl">
+          <h2 className="mx-auto mt-2 max-w-5xl text-2xl uppercase leading-[1.25] text-[#F8FEFF] [text-shadow:3px_3px_0_#0A1D2B] sm:mt-3 sm:whitespace-nowrap sm:text-4xl lg:text-5xl">
             One More Wave
           </h2>
-          <p className="mx-auto mt-3 w-fit bg-[#0A1D2B]/75 px-3 py-2 font-sans text-sm font-bold text-[#FFF0B0] sm:text-base">
+          <p className="mx-auto mt-2 w-fit bg-[#0B5FA5] px-3 py-2 text-[7px] uppercase leading-4 text-[#FFF0B0] shadow-[2px_2px_0_#0A1D2B] sm:mt-3 sm:text-[9px]">
             Ride the line. Beat the pier. Get the real one.
           </p>
             {challenge ? (
@@ -70,7 +70,8 @@ export function StartScreen({
             ) : null}
         </div>
 
-        <div className="mx-auto mt-4 flex max-w-4xl gap-2 overflow-x-auto pb-2" aria-label="Choose a surf break">
+        <div className="mt-auto pt-16 sm:pt-24">
+        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-1.5 bg-[#0B5FA5]/80 p-2 sm:grid-cols-3 sm:gap-2 lg:grid-cols-6" aria-label="Choose a surf break">
           {definitions.map((definition) => {
             const locked = challenge
               ? definition.index !== challenge.breakIndex
@@ -84,15 +85,15 @@ export function StartScreen({
                 disabled={locked}
                 aria-pressed={selected}
                 onClick={() => onSelectBreak(definition.index)}
-                className={`h-auto min-h-16 min-w-40 flex-1 justify-between rounded-none border-2 px-3 py-2 text-left shadow-[2px_2px_0_#0A1D2B] ${
+                className={`h-auto min-h-14 min-w-0 justify-between rounded-none border-2 px-2 py-2 text-left shadow-[2px_2px_0_#0A1D2B] sm:min-h-16 sm:px-3 ${
                   selected
                     ? "border-[#FFD447] bg-[#0B5FA5] text-[#F8FEFF] hover:bg-[#127CC1]"
                     : "border-[#29C7F6] bg-[#127CC1] text-[#F8FEFF] hover:bg-[#0B5FA5]"
                 }`}
               >
                 <span>
-                  <span className="block text-[8px] uppercase">{definition.name}</span>
-                  <span className="mt-2 block whitespace-normal font-sans text-[10px] font-bold uppercase text-[#B8F1FF]">
+                  <span className="block whitespace-normal text-[7px] uppercase leading-3 sm:text-[8px]">{definition.name}</span>
+                  <span className="mt-1 block whitespace-normal text-[6px] uppercase leading-3 text-[#B8F1FF] sm:mt-2">
                     {definition.sizeCopy} · cut {definition.threshold.toFixed(2)}
                   </span>
                 </span>
@@ -102,19 +103,20 @@ export function StartScreen({
           })}
         </div>
 
-        <div className="mx-auto mt-3 grid max-w-3xl gap-2 sm:grid-cols-3">
+        <div className="mx-auto mt-2 grid max-w-3xl gap-2 sm:mt-3 sm:grid-cols-3">
           <Button
             type="button"
             size="lg"
             onClick={onStart}
-            className="h-12 rounded-none border-2 border-[#75E3E1] bg-[#0B5FA5] px-3 text-[9px] uppercase text-[#F8FEFF] shadow-[3px_3px_0_#0A1D2B] hover:bg-[#127CC1]"
+            className="h-12 rounded-none border-2 border-[#FFD447] bg-[#0B5FA5] px-3 text-[9px] uppercase text-[#F8FEFF] shadow-[3px_3px_0_#0A1D2B] hover:bg-[#127CC1]"
           >
             Start run
           </Button>
-          <Button type="button" size="lg" onClick={onPractice} className="h-12 rounded-none border-2 border-[#29C7F6] bg-[#127CC1] px-3 text-[9px] uppercase text-[#F8FEFF] shadow-[3px_3px_0_#0A1D2B] hover:bg-[#0B5FA5]">Practice</Button>
-          <Button type="button" size="lg" onClick={() => void shareSet()} className="h-12 rounded-none border-2 border-[#FFD447] bg-[#FF8D73] px-3 text-[8px] uppercase text-[#0A1D2B] shadow-[3px_3px_0_#0A1D2B] hover:bg-[#FFBE8A]">{copied ? "Set copied" : "Challenge a friend"}</Button>
+          <Button type="button" size="lg" variant="outline" onClick={onPractice} className="h-12 rounded-none border-2 border-[#29C7F6] bg-[#127CC1] px-3 text-[9px] uppercase text-[#F8FEFF] shadow-[2px_2px_0_#0A1D2B] hover:bg-[#0B5FA5]">Practice</Button>
+          <Button type="button" size="lg" variant="outline" onClick={() => void shareSet()} className="h-12 rounded-none border-2 border-[#0B5FA5] bg-[#B8F1FF] px-3 text-[7px] uppercase text-[#0A1D2B] shadow-[1px_1px_0_#0A1D2B] hover:bg-[#75E3E1]">{copied ? "Set copied" : "Challenge a friend"}</Button>
         </div>
-        <p className="mt-3 text-center font-sans text-xs font-bold text-[#F8FEFF]">{BREAKS[selectedBreakIndex].name} · {BREAKS[selectedBreakIndex].sizeCopy}</p>
+        <p className="mt-2 text-center text-[7px] uppercase leading-4 text-[#F8FEFF]">{BREAKS[selectedBreakIndex].name} · {BREAKS[selectedBreakIndex].sizeCopy}</p>
+        </div>
       </section>
     </div>
   );
@@ -130,7 +132,7 @@ export function ControlPrimer({ onContinue }: ControlPrimerProps): ReactElement 
       <section className="m-auto w-full max-w-lg border-4 border-[#29C7F6] bg-[#127CC1] p-5 text-[#F8FEFF] shadow-[4px_4px_0_#0A1D2B]">
         <p className="text-[8px] uppercase text-[#75E3E1]">Read the wave</p>
         <h2 className="mt-3 text-xl uppercase">Three things.</h2>
-        <ol className="mt-4 grid gap-3 font-sans text-sm font-bold leading-6 text-[#E6F9FF]">
+        <ol className="mt-4 grid gap-3 text-[8px] leading-5 text-[#E6F9FF]">
           <li><strong>1. Find speed.</strong> Drag the left half up/down, or use ↑ ↓. Low is fast.</li>
           <li><strong>2. Pump.</strong> Hold the right half, or Space. Release high for a snap; release at the lip with speed for an air.</li>
           <li><strong>3. Stick the air.</strong> Tap the action side again in the landing window. When the lip throws, stay low for the tube.</li>
@@ -161,7 +163,7 @@ export function JudgeCard({ score, wipedOut, practice, isHeatOver, incomingWaveN
       >
         <p className="text-[8px] uppercase text-[#75E3E1]">{practice ? "Practice wave" : "The cards are up"}</p>
         <p className="mt-3 text-5xl tabular-nums text-[#FFF0B0]">{score.toFixed(2)}</p>
-        <p className="mt-3 font-sans text-sm font-bold text-[#E6F9FF]">
+        <p className="mt-3 text-[8px] leading-5 text-[#E6F9FF]">
           {wipedOut ? "The ocean does not care. Twenty percent gone." : score >= 7 ? "That wave had teeth." : "Bank it. Keep moving."}
         </p>
         {incomingWaveNumber !== null ? (
@@ -263,18 +265,18 @@ export function HeatResult({
           <div className="mt-4 flex gap-3 text-[8px] tabular-nums text-[#E6F9FF]">
             {heat.waveScores.map((score, index) => <span key={index}>W{index + 1} {score.toFixed(2)}</span>)}
           </div>
-          <p className="mt-4 font-sans text-sm font-bold text-[#E6F9FF]">
+          <p className="mt-4 text-[8px] leading-5 text-[#E6F9FF]">
             {heat.practice
               ? "Nothing saved. Take that line into a scored run."
               : passed
               ? `Made the ${definition.threshold.toFixed(2)} cut.`
               : `Didn't make the heat. Needed ${definition.threshold.toFixed(2)}.`}
           </p>
-          <p className="mt-3 font-sans text-xs font-bold text-[#B8F1FF]">
+          <p className="mt-3 text-[7px] leading-4 text-[#B8F1FF]">
             Now go get a real one. Quiver helps you find the next surf window.
           </p>
           {challenge ? (
-            <p className="mt-3 border-l-4 border-[#FFD447] pl-3 font-sans text-xs font-bold">
+            <p className="mt-3 border-l-4 border-[#FFD447] pl-3 text-[7px] leading-4">
               {beatChallenge
                 ? `You beat ${challenge.initials ?? "the challenger"}'s ${challenge.heatTotal.toFixed(2)}.`
                 : `${challenge.initials ?? "The challenger"} keeps it by ${(challenge.heatTotal - heat.heatTotal).toFixed(2)}.`}
@@ -287,7 +289,7 @@ export function HeatResult({
               value={initials}
               maxLength={3}
               onChange={(event) => onInitialsChange(event.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase())}
-              className="h-11 w-24 border-2 border-[#29C7F6] bg-[#B8F1FF] px-3 font-sans text-base font-black uppercase text-[#0A1D2B]"
+              className="h-11 w-24 border-2 border-[#29C7F6] bg-[#B8F1FF] px-3 text-sm uppercase text-[#0A1D2B]"
               aria-label="Challenge initials"
             />
           </label>

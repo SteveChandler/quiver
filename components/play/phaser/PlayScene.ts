@@ -77,7 +77,10 @@ export class PlayScene extends Phaser.Scene {
   private previousSimulation!: SimulationState;
   private heat!: HeatState;
   private world!: Phaser.GameObjects.Graphics;
+  private wave!: Phaser.GameObjects.Graphics;
+  private riderRig!: Phaser.GameObjects.Container;
   private rider!: Phaser.GameObjects.Image;
+  private board!: Phaser.GameObjects.Image;
   private looseBoard!: Phaser.GameObjects.Image;
   private wake!: Phaser.GameObjects.Image;
   private spray!: Phaser.GameObjects.Image;
@@ -100,6 +103,8 @@ export class PlayScene extends Phaser.Scene {
   private lastManeuverCount = 0;
   private previousPhase: SimulationState["phase"] = "riding";
   private currentRiderKey = "";
+  private riderAngle = 0;
+  private riderDirection: 1 | -1 = 1;
   private finished = false;
   private wasActive = false;
 
@@ -115,6 +120,7 @@ export class PlayScene extends Phaser.Scene {
     this.heat = this.bridgeRef.current.initialHeat;
 
     this.world = this.add.graphics().setDepth(0);
+    this.wave = this.add.graphics().setDepth(2);
     this.sun = this.add.image(376, 47, "sun").setScale(5).setDepth(1);
     this.clouds = [
       this.add.image(80, 42, "cloud"),
@@ -150,8 +156,10 @@ export class PlayScene extends Phaser.Scene {
     ];
     this.wake = this.add.image(182, 214, "wake-streak").setOrigin(1, 0.5).setDepth(4);
     this.spray = this.add.image(205, 190, "spray-burst").setDepth(4);
-    this.looseBoard = this.add.image(220, 202, "surfboard").setScale(1.8).setDepth(5);
-    this.rider = this.add.image(205, 190, "surfer-idle-0").setScale(1.8).setDepth(6);
+    this.board = this.add.image(0, 0, "surfboard").setScale(1.8);
+    this.rider = this.add.image(0, -4, "surfer-idle-0").setOrigin(0.5, 1).setScale(1.8);
+    this.riderRig = this.add.container(205, 190, [this.board, this.rider]).setDepth(6);
+    this.looseBoard = this.add.image(220, 202, "surfboard").setScale(1.8).setDepth(6);
     this.configureScenery();
     this.configureInput();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, (): void => this.removeInput());
@@ -179,8 +187,8 @@ export class PlayScene extends Phaser.Scene {
 
   private configureScenery(): void {
     for (const cloud of this.clouds) cloud.setScale(2.5).setAlpha(0.78).setDepth(1);
-    for (const mountain of this.mountains) mountain.setScale(8, 5).setAlpha(0.7).setDepth(1);
-    for (const palm of this.palms) palm.setScale(3.5).setAlpha(0.72).setDepth(1);
+    for (const mountain of this.mountains) mountain.setScale(5, 3).setAlpha(0.76).setDepth(1);
+    for (const palm of this.palms) palm.setScale(2.7).setAlpha(0.85).setDepth(1);
     for (const gull of this.gulls) gull.setScale(1.3).setDepth(2);
     for (const chunk of this.foam) chunk.setScale(2.2).setDepth(3);
     for (const sparkle of this.sparkles) sparkle.setScale(0.7).setDepth(3);
@@ -328,23 +336,25 @@ export class PlayScene extends Phaser.Scene {
     const motionElapsed = bridge.reducedMotion ? 0 : elapsed;
     const facePosition = active
       ? Phaser.Math.Linear(this.previousSimulation.facePosition, state.facePosition, interpolation)
-      : 0.43 + Math.sin(elapsed * 1.8) * 0.025;
+      : 0.68 + Math.sin(elapsed * 1.8) * 0.025;
     const sectionDistance = active
       ? Phaser.Math.Linear(this.previousSimulation.sectionDistance, state.sectionDistance, interpolation)
       : 0.82;
     const riderX = 205;
     const faceTop = 104 - bridge.definition.index * 3;
-    const riderY = 233 - facePosition * (225 - faceTop);
+    const riderY = state.inBarrel ? faceTop + 101 : 246 - facePosition * (225 - faceTop);
     const airProgress = state.phase === "airborne"
       ? Phaser.Math.Clamp(state.phaseElapsed / 0.31, 0, 1)
       : 0;
     const airLift = state.phase === "airborne" ? Math.sin(airProgress * Math.PI) * 44 : 0;
     const sectionX = riderX - sectionDistance * 112;
     const throwing = this.isThrowing(state.elapsed) || (!active && bridge.definition.index >= 4);
+    const foamPressure = Phaser.Math.Clamp((38 - state.speed) / 38, 0, 1);
+    const launchZone = state.phase === "airborne" || (facePosition >= 0.82 && state.speed >= 55);
 
     this.drawSky(motionElapsed);
-    this.drawWave(faceTop, sectionX, throwing, motionElapsed);
-    this.positionScenery(motionElapsed, active, sectionX);
+    this.drawWave(faceTop, sectionX, throwing, motionElapsed, foamPressure, launchZone);
+    this.positionScenery(motionElapsed, active, sectionX, foamPressure);
     this.positionRider(facePosition, riderX, riderY - airLift, elapsed);
     this.positionEffects(riderX, riderY - airLift, sectionX, motionElapsed, throwing);
   }
@@ -358,82 +368,196 @@ export class PlayScene extends Phaser.Scene {
     graphics.fillStyle(C.peach).fillRect(0, 98, GAME_WIDTH, 30);
     graphics.fillStyle(C.sun).fillRect(0, 124, GAME_WIDTH, 9);
 
-    graphics.fillStyle(C.navy, 0.65);
-    graphics.beginPath().moveTo(0, 111);
-    for (let x = -20; x <= GAME_WIDTH + 30; x += 24) {
-      graphics.lineTo(x, 105 + Math.round(Math.sin((x + elapsed * 3) * 0.035) * 6));
+    const coastShift = Math.round((elapsed * 2) % 24);
+    graphics.fillStyle(C.lavender, 0.85).beginPath().moveTo(0, 111);
+    for (let x = -24; x <= GAME_WIDTH + 24; x += 24) {
+      const step = ((x / 24 + coastShift / 8) % 4 + 4) % 4;
+      graphics.lineTo(x - coastShift, 105 + step * 3);
+      graphics.lineTo(x + 12 - coastShift, 105 + step * 3);
     }
     graphics.lineTo(GAME_WIDTH, 132).lineTo(0, 132).closePath().fillPath();
+    graphics.fillStyle(C.navy, 0.75).fillRect(0, 122, GAME_WIDTH, 6);
   }
 
-  private drawWave(faceTop: number, sectionX: number, throwing: boolean, elapsed: number): void {
-    const graphics = this.world;
+  private drawWave(
+    faceTop: number,
+    sectionX: number,
+    throwing: boolean,
+    elapsed: number,
+    foamPressure: number,
+    launchZone: boolean,
+  ): void {
+    const graphics = this.wave;
+    graphics.clear();
     graphics.fillStyle(C.trough).fillRect(0, 126, GAME_WIDTH, GAME_HEIGHT - 126);
-    this.fillFaceBand(C.glow, 130, faceTop + 7);
-    this.fillFaceBand(C.sunlit, 150, faceTop + 20);
-    this.fillFaceBand(C.face, 174, faceTop + 38);
-    this.fillFaceBand(C.pocket, 205, faceTop + 58);
+    this.fillFaceBand(C.pocket, faceTop, 54);
+    this.fillFaceBand(C.face, faceTop, 36);
+    this.fillFaceBand(C.sunlit, faceTop, 19);
+    this.fillFaceBand(C.glow, faceTop, 7);
     graphics.fillStyle(C.trough).fillRect(0, 236, GAME_WIDTH, GAME_HEIGHT - 236);
 
-    graphics.lineStyle(4, C.foam).beginPath();
-    graphics.moveTo(145, faceTop + 2).lineTo(190, faceTop + 9).lineTo(265, 113).lineTo(360, 119).lineTo(480, 126).strokePath();
-    graphics.lineStyle(2, C.foamShadow).beginPath();
-    graphics.moveTo(160, faceTop + 17).lineTo(245, 132).lineTo(382, 147).lineTo(480, 151).strokePath();
+    this.strokeCrest(C.sunlit, 10, faceTop, 2);
+    this.strokeCrest(C.glow, 6, faceTop, 2);
+    this.strokeCrest(C.foam, 2, faceTop, 2);
+    this.strokeCrest(C.foamShadow, 2, faceTop, 16);
+
+    if (launchZone) this.drawLaunchZone(faceTop, elapsed);
 
     if (throwing) this.drawBarrel(faceTop, elapsed);
-    this.drawWhitewater(sectionX, faceTop, elapsed);
+    this.drawWhitewater(sectionX, faceTop, elapsed, foamPressure);
   }
 
-  private fillFaceBand(fill: number, shoulderY: number, lipY: number): void {
-    const graphics = this.world;
+  private fillFaceBand(fill: number, faceTop: number, offset: number): void {
+    const graphics = this.wave;
     graphics.fillStyle(fill).beginPath();
-    graphics.moveTo(142, lipY).lineTo(182, lipY + 8).lineTo(265, shoulderY - 9);
-    graphics.lineTo(370, shoulderY - 3).lineTo(GAME_WIDTH, shoulderY);
-    graphics.lineTo(GAME_WIDTH, GAME_HEIGHT).lineTo(0, GAME_HEIGHT).lineTo(0, shoulderY + 58);
+    graphics.moveTo(0, faceTop + 54 + offset);
+    graphics.lineTo(92, faceTop + 38 + offset);
+    graphics.lineTo(116, faceTop + 18 + offset);
+    graphics.lineTo(137, faceTop + 4 + offset);
+    graphics.lineTo(158, faceTop + offset);
+    graphics.lineTo(184, faceTop + 3 + offset);
+    graphics.lineTo(208, faceTop + 17 + offset);
+    graphics.lineTo(250, faceTop + 25 + offset);
+    graphics.lineTo(325, faceTop + 37 + offset);
+    graphics.lineTo(405, faceTop + 39 + offset);
+    graphics.lineTo(GAME_WIDTH, faceTop + 44 + offset);
+    graphics.lineTo(GAME_WIDTH, GAME_HEIGHT).lineTo(0, GAME_HEIGHT);
     graphics.closePath().fillPath();
   }
 
+  private strokeCrest(fill: number, width: number, faceTop: number, offset: number): void {
+    const graphics = this.wave;
+    graphics.lineStyle(width, fill).beginPath();
+    graphics.moveTo(0, faceTop + 54 + offset);
+    graphics.lineTo(92, faceTop + 38 + offset);
+    graphics.lineTo(116, faceTop + 18 + offset);
+    graphics.lineTo(137, faceTop + 4 + offset);
+    graphics.lineTo(158, faceTop + offset);
+    graphics.lineTo(184, faceTop + 3 + offset);
+    graphics.lineTo(208, faceTop + 17 + offset);
+    graphics.lineTo(250, faceTop + 25 + offset);
+    graphics.lineTo(325, faceTop + 37 + offset);
+    graphics.lineTo(405, faceTop + 39 + offset);
+    graphics.lineTo(GAME_WIDTH, faceTop + 44 + offset);
+    graphics.strokePath();
+  }
+
   private drawBarrel(faceTop: number, elapsed: number): void {
-    const graphics = this.world;
-    graphics.fillStyle(C.shadow, 0.88).fillEllipse(199, 168, 104, 94);
-    graphics.fillStyle(C.trough, 0.9).fillEllipse(206, 170, 77, 67);
-    graphics.lineStyle(8, C.sunlit).beginPath().arc(197, 168, 50, 3.65, 6.25).strokePath();
-    graphics.lineStyle(3, C.foam).beginPath().arc(197, 168, 55, 3.6, 6.2).strokePath();
+    const graphics = this.wave;
+    graphics.fillStyle(C.shadow, 0.88).beginPath();
+    graphics.moveTo(150, faceTop + 12);
+    graphics.lineTo(166, faceTop + 4).lineTo(185, faceTop).lineTo(207, faceTop + 4);
+    graphics.lineTo(228, faceTop + 14).lineTo(245, faceTop + 32).lineTo(254, faceTop + 58);
+    graphics.lineTo(258, faceTop + 83).lineTo(252, faceTop + 102).lineTo(238, faceTop + 116);
+    graphics.lineTo(216, faceTop + 125).lineTo(188, faceTop + 128);
+    graphics.lineTo(151, faceTop + 124).closePath().fillPath();
+    graphics.fillStyle(C.trough, 0.94).beginPath();
+    graphics.moveTo(165, faceTop + 21);
+    graphics.lineTo(194, faceTop + 13).lineTo(221, faceTop + 25).lineTo(239, faceTop + 59);
+    graphics.lineTo(239, faceTop + 80).lineTo(222, faceTop + 99).lineTo(190, faceTop + 107);
+    graphics.lineTo(164, faceTop + 107).closePath().fillPath();
+    graphics.lineStyle(8, C.sunlit).beginPath();
+    graphics.moveTo(151, faceTop + 12).lineTo(178, faceTop + 2).lineTo(207, faceTop + 4).lineTo(236, faceTop + 21).lineTo(254, faceTop + 61).strokePath();
+    graphics.lineStyle(3, C.foam).beginPath();
+    graphics.moveTo(149, faceTop + 10).lineTo(178, faceTop).lineTo(209, faceTop + 2).lineTo(240, faceTop + 20).lineTo(257, faceTop + 63).strokePath();
     graphics.lineStyle(2, C.glow, 0.8).beginPath();
-    graphics.moveTo(184, 185).lineTo(235, 180 + Math.sin(elapsed * 4) * 2).strokePath();
+    graphics.moveTo(174, faceTop + 91).lineTo(205, faceTop + 82).lineTo(239, faceTop + 87 + Math.sin(elapsed * 4) * 2).strokePath();
     graphics.lineStyle(1, C.mint, 0.65);
     for (let index = 0; index < 4; index += 1) {
-      graphics.beginPath().moveTo(180, 151 + index * 9).lineTo(223 + index * 5, 149 + index * 8).strokePath();
+      graphics.beginPath().moveTo(174, faceTop + 44 + index * 12).lineTo(218 + index * 5, faceTop + 42 + index * 11).strokePath();
     }
-    graphics.fillStyle(C.foam).fillCircle(151, faceTop + 4, 4);
+    for (let index = 0; index < 7; index += 1) {
+      const fall = (index * 19 + elapsed * 34) % 58;
+      graphics.fillStyle(index % 2 === 0 ? C.foam : C.foamShadow)
+        .fillCircle(249 + (index % 3) * 4, faceTop + 23 + fall, index % 3 === 0 ? 2 : 1);
+    }
   }
 
-  private drawWhitewater(sectionX: number, faceTop: number, elapsed: number): void {
-    const graphics = this.world;
+  private drawLaunchZone(faceTop: number, elapsed: number): void {
+    const graphics = this.wave;
+    graphics.lineStyle(7, C.foam).beginPath();
+    graphics.moveTo(196, faceTop + 10).lineTo(219, faceTop + 18).lineTo(250, faceTop + 27).strokePath();
+    graphics.lineStyle(3, C.yellow).beginPath();
+    graphics.moveTo(203, faceTop + 9).lineTo(224, faceTop + 17).lineTo(246, faceTop + 24).strokePath();
+    for (let index = 0; index < 6; index += 1) {
+      const sprayY = faceTop + 4 - ((index * 11 + elapsed * 22) % 19);
+      graphics.fillStyle(index % 2 === 0 ? C.foam : C.glow)
+        .fillRect(207 + index * 8, sprayY, index % 3 === 0 ? 3 : 2, index % 2 === 0 ? 3 : 2);
+    }
+  }
+
+  private drawWhitewater(
+    sectionX: number,
+    faceTop: number,
+    elapsed: number,
+    pressure: number,
+  ): void {
+    const graphics = this.wave;
     const edge = Math.round(sectionX);
-    graphics.fillStyle(C.foamCool).beginPath().moveTo(0, faceTop + 12);
+    const lean = Math.round(8 + pressure * 15);
+    const churn = Math.floor(elapsed * (16 + pressure * 18));
+    graphics.fillStyle(C.foamShadow).beginPath();
+    graphics.moveTo(0, faceTop + 7);
     for (let x = 0; x < edge; x += 12) {
-      graphics.lineTo(x, faceTop + 9 + Math.round(Math.sin(x * 0.31 + elapsed * 5) * 5));
+      graphics.lineTo(x, faceTop + 7 - Math.abs(Math.sin(x * 0.17 + elapsed * 5)) * 6);
     }
-    graphics.lineTo(edge, faceTop + 14);
-    for (let y = faceTop + 14; y < GAME_HEIGHT; y += 13) {
-      graphics.lineTo(edge + Math.round(Math.sin(y * 0.28 + elapsed * 7) * 5), y);
-    }
-    graphics.lineTo(edge + 4, GAME_HEIGHT).lineTo(0, GAME_HEIGHT).closePath().fillPath();
+    graphics.lineTo(edge + lean, faceTop + 7);
+    graphics.lineTo(edge + lean + 5, faceTop + 30).lineTo(edge + 7, faceTop + 58).lineTo(edge, faceTop + 84);
+    graphics.lineTo(edge - 5, faceTop + 112).lineTo(edge + 4, faceTop + 140).lineTo(edge - 3, GAME_HEIGHT);
+    graphics.lineTo(0, GAME_HEIGHT).closePath().fillPath();
 
-    graphics.lineStyle(5, C.foam).beginPath().moveTo(edge, faceTop + 13);
-    for (let y = faceTop + 16; y <= GAME_HEIGHT; y += 10) {
-      graphics.lineTo(edge + Math.round(Math.sin(y * 0.24 + elapsed * 8) * 4), y);
+    for (let index = 0; index < 30; index += 1) {
+      if (pressure < 0.4 && index % 4 === 0) continue;
+      const width = 3 + (index % 4) * 2;
+      const xRange = Math.max(24, edge - 8);
+      const x = 2 + ((index * 37 + churn * (1 + index % 3)) % xRange);
+      const y = faceTop + 18 + ((index * 29 + churn * 2) % Math.max(30, GAME_HEIGHT - faceTop - 24));
+      const value = index % 4;
+      const fill = value === 0 ? C.foam : value === 1 ? C.foamCool : value === 2 ? C.foamShadow : C.foamBlue;
+      graphics.fillStyle(fill).fillRect(x, y, width, value === 3 ? 2 : 3);
     }
-    graphics.strokePath();
-    graphics.lineStyle(2, C.foamBlue).beginPath().moveTo(edge - 5, faceTop + 15);
-    for (let y = faceTop + 18; y <= GAME_HEIGHT; y += 12) {
-      graphics.lineTo(edge - 5 + Math.round(Math.sin(y * 0.22 + elapsed * 6) * 3), y);
+    for (let index = 0; index < 9; index += 1) {
+      const x = 7 + ((index * 31 + churn * (1 + index % 2)) % Math.max(28, edge - 12));
+      const y = faceTop + 27 + ((index * 41 + churn) % Math.max(34, GAME_HEIGHT - faceTop - 42));
+      graphics.fillStyle(index % 3 === 0 ? C.foam : C.foamCool)
+        .fillCircle(x, y, 4 + index % 4);
+      graphics.fillStyle(index % 2 === 0 ? C.foamBlue : C.foamShadow)
+        .fillRect(x - 8, y + 5, 13 + index % 3 * 5, 2);
     }
+
+    graphics.lineStyle(5, C.foam).beginPath();
+    graphics.moveTo(edge + lean, faceTop + 7);
+    graphics.lineTo(edge + lean + 5, faceTop + 30).lineTo(edge + 7, faceTop + 58).lineTo(edge, faceTop + 84);
+    graphics.lineTo(edge - 5, faceTop + 112).lineTo(edge + 4, faceTop + 140).lineTo(edge - 3, GAME_HEIGHT);
     graphics.strokePath();
+    graphics.lineStyle(2, C.foamBlue).beginPath();
+    graphics.moveTo(edge + lean - 7, faceTop + 16);
+    graphics.lineTo(edge + lean - 1, faceTop + 41).lineTo(edge - 4, faceTop + 67).lineTo(edge - 7, faceTop + 89);
+    graphics.lineTo(edge - 12, faceTop + 116).lineTo(edge - 4, faceTop + 145).lineTo(edge - 10, GAME_HEIGHT);
+    graphics.strokePath();
+
+    for (let index = 0; index < 8; index += 1) {
+      const y = faceTop + 30 + index * 25;
+      const bulge = Math.sin(index * 2.3 + elapsed * (4 + pressure * 4)) * 5;
+      graphics.fillStyle(index % 3 === 0 ? C.foam : C.foamCool)
+        .fillCircle(edge + bulge, y, 4 + index % 3);
+    }
+
+    const crownCount = 8 + Math.round(pressure * 5);
+    for (let index = 0; index < crownCount; index += 1) {
+      const x = edge + lean - index * 9;
+      const y = faceTop + 8 - Math.abs(Math.sin(index * 1.7 + elapsed * (5 + pressure * 5))) * (7 + pressure * 6);
+      graphics.fillStyle(index % 3 === 0 ? C.foamShadow : C.foam)
+        .fillCircle(x, y, 2 + index % 3);
+    }
   }
 
-  private positionScenery(elapsed: number, active: boolean, sectionX: number): void {
+  private positionScenery(
+    elapsed: number,
+    active: boolean,
+    sectionX: number,
+    foamPressure: number,
+  ): void {
     this.sun.setPosition(376 - (elapsed * 0.35) % 20, 47);
     for (let index = 0; index < this.clouds.length; index += 1) {
       const cloud = this.clouds[index];
@@ -455,13 +579,18 @@ export class PlayScene extends Phaser.Scene {
     const pierProgress = active
       ? Phaser.Math.Clamp(this.simulation.elapsed / this.bridgeRef.current.wave.duration, 0, 1)
       : 0.86;
-    const pierX = 590 - pierProgress * 170;
-    this.pier[0].setPosition(pierX, 187).setVisible(pierProgress > 0.58);
-    this.pier[1].setPosition(pierX + 38, 187).setVisible(pierProgress > 0.58);
-    this.pier[2].setPosition(pierX + 19, 157).setVisible(pierProgress > 0.58);
+    const pierX = active ? 590 - pierProgress * 170 : 392;
+    const pierScale = active ? 3 : 2;
+    this.pier[0].setPosition(pierX, active ? 187 : 151).setScale(pierScale).setVisible(pierProgress > 0.58);
+    this.pier[1].setPosition(pierX + 30, active ? 187 : 151).setScale(pierScale).setVisible(pierProgress > 0.58);
+    this.pier[2].setPosition(pierX + 15, active ? 157 : 132).setScale(pierScale).setVisible(pierProgress > 0.58);
 
     for (let index = 0; index < this.foam.length; index += 1) {
-      this.foam[index].setPosition(sectionX - 20 + (index % 2) * 20, 147 + index * 34);
+      const drift = (elapsed * (5 + foamPressure * 8) + index * 19) % 58;
+      this.foam[index]
+        .setPosition(sectionX + 9 + drift, 137 + index * 28 + Math.sin(elapsed * 5 + index) * 5)
+        .setScale(1.2 + foamPressure * 0.7)
+        .setAlpha(0.72 + foamPressure * 0.22);
     }
   }
 
@@ -476,16 +605,41 @@ export class PlayScene extends Phaser.Scene {
       this.applyTexture(this.rider, key);
       this.currentRiderKey = key;
     }
-    this.rider.setPosition(riderX, riderY);
     const wipeout = this.simulation.phase === "wipeout";
-    const airborne = this.simulation.phase === "airborne";
-    this.rider.setAngle(wipeout
-      ? this.simulation.phaseElapsed * 240
-      : airborne ? this.simulation.phaseElapsed * 190 : (0.45 - facePosition) * 16);
+    this.riderDirection = this.isCutback(elapsed) ? -1 : 1;
+    this.riderAngle = this.getRiderAngle(facePosition, elapsed);
+    this.riderRig
+      .setPosition(riderX, riderY)
+      .setAngle(wipeout ? this.simulation.phaseElapsed * 240 : this.riderAngle)
+      .setScale(this.riderDirection, 1);
+    this.rider.setScale(1.8, this.simulation.inBarrel ? 1.5 : 1.8);
+    this.board.setVisible(!wipeout);
     this.looseBoard
       .setVisible(wipeout)
       .setPosition(riderX + 35 + this.simulation.phaseElapsed * 10, riderY + 14)
       .setAngle(-18 - this.simulation.phaseElapsed * 95);
+  }
+
+  private getRiderAngle(facePosition: number, elapsed: number): number {
+    const state = this.simulation;
+    if (state.phase === "airborne") {
+      const progress = Phaser.Math.Clamp(state.phaseElapsed / 0.31, 0, 1);
+      return -19 + progress * 34;
+    }
+    if (state.inBarrel) return -5;
+
+    const maneuver = state.stats.maneuvers.at(-1);
+    const age = maneuver ? elapsed - maneuver.at : 99;
+    if (maneuver?.type === "bottom-turn" && age < 0.55) return -20 + age * 18;
+    if (maneuver?.type === "snap" && age < 0.55) return this.isCutback(elapsed) ? -14 : 18 - age * 14;
+    return (facePosition - 0.45) * 20;
+  }
+
+  private isCutback(elapsed: number): boolean {
+    const maneuvers = this.simulation.stats.maneuvers;
+    const maneuver = maneuvers.at(-1);
+    if (maneuver?.type !== "snap" || elapsed - maneuver.at >= 0.55) return false;
+    return maneuvers.at(-2)?.type === "snap";
   }
 
   private getRiderKey(elapsed: number, facePosition: number): string {
@@ -527,11 +681,24 @@ export class PlayScene extends Phaser.Scene {
     throwing: boolean,
   ): void {
     const speedAlpha = Phaser.Math.Clamp((this.simulation.speed - 25) / 45, 0, 1);
-    this.wake.setPosition(riderX - 15, riderY + 14).setScale(1.5 + speedAlpha).setAlpha(0.4 + speedAlpha * 0.6);
+    const angle = Phaser.Math.DegToRad(this.riderAngle);
+    const tailDistance = 19 * this.riderDirection;
+    const tailX = riderX - Math.cos(angle) * tailDistance;
+    const tailY = riderY - Math.sin(angle) * tailDistance + 2;
+    const wipeout = this.simulation.phase === "wipeout";
+    this.wake
+      .setPosition(tailX, tailY)
+      .setAngle(this.riderAngle)
+      .setScale((1.5 + speedAlpha) * this.riderDirection, 1.5 + speedAlpha)
+      .setAlpha(wipeout ? 0 : 0.4 + speedAlpha * 0.6);
     const launch = this.simulation.phase === "airborne" && this.simulation.phaseElapsed < 0.16;
     const recent = this.simulation.stats.maneuvers.at(-1);
     const maneuverSpray = recent ? this.simulation.elapsed - recent.at < 0.4 : false;
-    this.spray.setPosition(riderX - 10, riderY + 8).setScale(launch ? 2.8 : 2).setVisible(launch || maneuverSpray || throwing);
+    this.spray
+      .setPosition(tailX, tailY - 3)
+      .setAngle(this.riderAngle)
+      .setScale((launch ? 2.8 : 2) * this.riderDirection, launch ? 2.8 : 2)
+      .setVisible(!wipeout && (launch || maneuverSpray || throwing));
 
     for (let index = 0; index < this.sparkles.length; index += 1) {
       const sparkle = this.sparkles[index];
@@ -589,8 +756,16 @@ export class PlayScene extends Phaser.Scene {
       backgroundColor,
       stroke: PLAY_PALETTE.shadow,
       strokeThickness: 3,
+      shadow: {
+        offsetX: 2,
+        offsetY: 2,
+        color: PLAY_PALETTE.shadow,
+        blur: 0,
+        stroke: true,
+        fill: true,
+      },
       padding: { x: 8, y: 6 },
-    }).setOrigin(0.5).setDepth(20).setScale(0.6);
+    }).setOrigin(0.5).setDepth(20).setScale(0.6).setLetterSpacing(1);
     if (bridge.reducedMotion) {
       this.time.delayedCall(700, (): void => popup.destroy());
       return;
@@ -600,7 +775,7 @@ export class PlayScene extends Phaser.Scene {
       scale: 1,
       y: 60,
       duration: 130,
-      ease: "Back.Out",
+      ease: "Cubic.Out",
       yoyo: true,
       hold: 500,
       onComplete: (): void => popup.destroy(),

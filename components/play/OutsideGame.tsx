@@ -273,8 +273,10 @@ export function OutsideGame({
   const activeWave = waves[Math.min(heat.currentWaveIndex, waves.length - 1)];
 
   return (
-    <section className="relative isolate overflow-hidden border-4 border-[#0A1D2B] bg-[#FFBE8A] font-[var(--font-play-pixel)] shadow-[5px_5px_0_#0A1D2B]">
+    <section className="one-more-wave relative isolate overflow-hidden border-4 border-[#0A1D2B] bg-[#FFBE8A] tracking-[0.04em] shadow-[5px_5px_0_#0A1D2B] [font-family:var(--font-play-pixel)] [text-shadow:1px_1px_0_#0A1D2B]">
       <style>{`
+        .one-more-wave, .one-more-wave * { font-family: var(--font-play-pixel) !important; }
+        .one-more-wave h1, .one-more-wave h2, .one-more-wave h3 { font-family: var(--font-play-pixel) !important; }
         @keyframes outside-card-flip {
           from { opacity: 0; transform: perspective(700px) rotateY(-78deg) scale(.92); }
           to { opacity: 1; transform: perspective(700px) rotateY(0) scale(1); }

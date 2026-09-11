@@ -17,9 +17,7 @@ export default function PhaserHost(props: PhaserHostProps): ReactElement {
     const parent = parentRef.current;
     if (!parent) return;
 
-    const fontFamily = getComputedStyle(parent)
-      .getPropertyValue("--font-play-pixel")
-      .trim() || "monospace";
+    const fontFamily = getComputedStyle(parent).fontFamily || "monospace";
     bridgeRef.current.fontFamily = fontFamily;
     const game = new Phaser.Game(createGameConfig(parent, bridgeRef as PhaserBridgeRef));
     const resizeObserver = new ResizeObserver((): void => {
@@ -51,7 +49,7 @@ export default function PhaserHost(props: PhaserHostProps): ReactElement {
   return (
     <div
       ref={parentRef}
-      className={`${props.active ? "aspect-video" : "min-h-[calc(100svh-112px)] sm:aspect-video sm:min-h-0"} w-full touch-none overflow-hidden bg-[#FFBE8A] [font-family:var(--font-play-pixel)]`}
+      className={`${props.active ? "aspect-video" : "min-h-[calc(100svh-112px)] max-sm:[&>canvas]:-translate-y-20 sm:aspect-video sm:min-h-0"} w-full touch-none overflow-hidden bg-[#FFBE8A] [font-family:var(--font-play-pixel)]`}
       data-testid="phaser-game"
     />
   );

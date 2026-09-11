@@ -11,7 +11,7 @@ export default function Loading(): ReactElement {
       paperClassName="!p-2 sm:!p-4"
     >
       <div className="flex min-h-[600px] items-center justify-center border-4 border-[#0A1D2B] bg-[#127CC1] text-[#F8FEFF] shadow-[4px_4px_0_#0A1D2B]">
-        <p className="font-[var(--font-play-pixel)] text-lg uppercase tracking-[0.08em]">
+        <p className="text-lg uppercase tracking-[0.08em] [font-family:var(--font-play-pixel)] [text-shadow:1px_1px_0_#0A1D2B]">
           Set on the horizon…
         </p>
       </div>

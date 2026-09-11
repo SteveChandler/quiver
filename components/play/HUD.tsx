@@ -44,7 +44,7 @@ export function HUD({
     : waveProgress > 0.72 ? "PIER AHEAD" : needs !== null ? `NEEDS ${needs.toFixed(2)}` : announcerLine;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-2 text-[#F8FEFF] sm:p-3">
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-2 text-[#F8FEFF] [font-family:var(--font-play-pixel)] [text-shadow:1px_1px_0_#0A1D2B] sm:p-3">
       <div className="grid grid-cols-[minmax(92px,1fr)_minmax(130px,2fr)_minmax(82px,1fr)] items-start gap-2">
         <div className="border-2 border-[#29C7F6] bg-[#0B5FA5] px-2 py-2 shadow-[2px_2px_0_#0A1D2B] sm:px-3">
           <p className="text-[7px] uppercase text-[#B8F1FF] sm:text-[9px]">Score</p>
