@@ -255,7 +255,9 @@
         "stamp-1",
         "stamp-2",
         "stamp-complete-0",
-        "stamp-gameover-0"
+        "stamp-gameover-0",
+        "plate-dark",
+        "plate-blue"
       ]
     }
   ]

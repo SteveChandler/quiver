@@ -8,7 +8,14 @@ const SHEETS = [
   { key: "surfer", file: "sheet-1.png", groups: "groups-surfer.json", stripLabels: true },
   { key: "obstacles", file: "sheet-3.png", groups: "groups-obstacles.json", stripLabels: true },
   { key: "water", file: "sheet-4.png", groups: "groups-water.json", stripLabels: false },
-  { key: "ui", file: "sheet-5.png", groups: "groups-ui.json", stripLabels: false },
+  {
+    key: "ui", file: "sheet-5.png", groups: "groups-ui.json", stripLabels: false,
+    // plain plate corners (no baked text) for nine-slicing live HUD panels
+    derived: [
+      { name: "plate-dark", from: "panel-best-0", w: 36, h: 30, insetX: 0, insetY: 0 },
+      { name: "plate-blue", from: "bar-danger-0", w: 36, h: 30, insetX: 0, insetY: 0 },
+    ],
+  },
 ];
 const REFERENCE_DIR = ".planning/play/reference";
 const OUT_DIR = "public/play/sprites";
@@ -87,6 +94,7 @@ for (const sheet of SHEETS) {
   const base = baseBoxes(mask, W, H);
   if (sheet.stripLabels) stripLabelPlates(data, mask, W, H);
   const frames = sliceGroups(mask, W, base, groups);
+  for (const d of sheet.derived ?? []) { const src = frames.find((f) => f.name === d.from); if (!src) continue; frames.push({ name: d.name, x: src.x + src.w - d.w - d.insetX, y: src.y + src.h - d.h - d.insetY, w: d.w, h: d.h }); }
   const size = shelfPack(frames);
   const composites = [];
   for (const f of frames) {
