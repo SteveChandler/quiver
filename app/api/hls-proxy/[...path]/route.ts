@@ -32,6 +32,7 @@ const ALLOWED_HOSTS: Record<string, Record<string, string>> = {
     Referer: "https://www.surfline.com/",
   },
   "live.hdontap.com": {},
+  "watch.hdrelay.io": {},
 };
 
 /**
@@ -91,7 +92,8 @@ async function hlsProxyHandler(
 
   // Security: strict hostname whitelist
   const hostConfig = ALLOWED_HOSTS[hostname];
-  if (!Object.hasOwn(ALLOWED_HOSTS, hostname)) {
+  if (!Object.hasOwn(ALLOWED_HOSTS, hostname) ||
+      (hostname === "watch.hdrelay.io" && !resourcePath.startsWith("/live/"))) {
     console.warn("[hls-proxy] Blocked disallowed host:", hostname);
     return NextResponse.json(
       { error: "Host not allowed" },
@@ -120,6 +122,7 @@ async function hlsProxyHandler(
             : {}),
         },
         signal: controller.signal,
+        ...(hostname === "watch.hdrelay.io" ? { redirect: "error" as const } : {}),
         cache: "no-store",
       });
 
@@ -171,7 +174,15 @@ async function hlsProxyHandler(
             return new NextResponse("Live playlist unavailable", { status: 502, headers: { "Cache-Control": "no-store" } });
           }
         }
-        const rewritten = rewriteManifestUrls(text);
+        // HDRelay's low-latency playlist is rejected by AVPlayer. Keep complete
+        // fMP4 segments and omit partial-segment delivery for this provider.
+        const compatible = hostname === "watch.hdrelay.io"
+          ? text.split(/\r?\n/)
+              .filter(line => !/^#EXT-X-(?:PART|PRELOAD-HINT|SERVER-CONTROL|RENDITION-REPORT|SKIP)(?::|-)/.test(line))
+              .map(line => line.startsWith("#EXT-X-VERSION:") ? "#EXT-X-VERSION:6" : line)
+              .join("\n")
+          : text;
+        const rewritten = rewriteManifestUrls(compatible);
         const encoded = new TextEncoder().encode(rewritten);
         responseBody = encoded.buffer as ArrayBuffer;
       }

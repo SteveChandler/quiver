@@ -8,6 +8,13 @@ import type { HourlySwellTimeline } from "@/app/api/forecasts/bulk/route";
 import type { MapSpotConditions } from "@/components/map/interactive-map";
 import type { Beach } from "@/types/database";
 
+jest.mock("@/hooks/use-custom-spots", () => ({
+  useCustomSpots: () => ({ customSpots: [
+    { id: "649d7735-dacf-41f1-a4f5-f37373a649c8", name: "Public reef", lat: 21.2, lon: -157.8, visibility: "public" },
+    { id: "private-spot", name: "Private reef", lat: 21.2, lon: -157.8, visibility: "private" },
+  ] }),
+}));
+
 let mockSearchParams = new URLSearchParams();
 let mockInteractiveMapProps: Record<string, unknown> = {};
 
@@ -37,6 +44,25 @@ function hourlyTimeline(): HourlySwellTimeline {
 }
 
 describe("embed map bridge", () => {
+  it('supplies public custom markers and sends their native detail selection', async () => {
+    const postMessage = jest.fn();
+    window.ReactNativeWebView = { postMessage };
+    const { EmbedMapClient } = await import('@/app/embed/map/embed-map-client');
+    render(React.createElement(EmbedMapClient));
+    expect(mockInteractiveMapProps.customSpots).toEqual([
+      expect.objectContaining({ id: '649d7735-dacf-41f1-a4f5-f37373a649c8', visibility: 'public' }),
+    ]);
+    (mockInteractiveMapProps.onCustomSpotClick as (spot: { id: string }) => void)({ id: '649d7735-dacf-41f1-a4f5-f37373a649c8' });
+    expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ type: 'customSpotSelected', payload: { spotId: '649d7735-dacf-41f1-a4f5-f37373a649c8' } }));
+  });
+
+  it('passes the native forecast range start to the existing hourly map', async () => {
+    mockSearchParams = new URLSearchParams('timeline=hourly&timelineStart=2026-09-10T11%3A00%3A00-10%3A00');
+    const { EmbedMapClient } = await import('@/app/embed/map/embed-map-client');
+    render(React.createElement(EmbedMapClient));
+    expect(mockInteractiveMapProps.swellTimelineStart).toBe('2026-09-10T21:00:00.000Z');
+  });
+
   it.each([
     ["skill=advanced", "advanced"],
     ["", undefined],
@@ -566,6 +592,25 @@ describe("embed map bridge", () => {
     });
   });
 
+  it("smoothly traverses the existing hourly map field when native requests it", async () => {
+    mockSearchParams = new URLSearchParams("timeline=hourly");
+    Object.defineProperty(window, "ReactNativeWebView", { configurable: true, value: { postMessage: jest.fn() } });
+    const frames: FrameRequestCallback[] = [];
+    const raf = jest.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => { frames.push(callback); return frames.length; });
+    const clock = jest.spyOn(performance, 'now').mockReturnValue(1000);
+    try {
+      const { EmbedMapClient } = await import("@/app/embed/map/embed-map-client");
+      render(React.createElement(EmbedMapClient));
+      const timeline = hourlyTimeline();
+      act(() => { (mockInteractiveMapProps.onHourlyTimelineLoaded as (data: HourlySwellTimeline) => void)(timeline); });
+      act(() => { window.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ type: 'setForecastTime', payload: { index: 2, forecastAt: timeline.timestamps[2], smooth: true } }) })); });
+      act(() => { frames.pop()?.(1080); });
+      expect(mockInteractiveMapProps.swellTimelineIndex).toBe(1);
+      act(() => { frames.pop()?.(1160); });
+      expect(mockInteractiveMapProps.swellTimelineIndex).toBe(2);
+    } finally { raf.mockRestore(); clock.mockRestore(); }
+  });
+
   it("restores an absolute forecast time after the hourly window advances", async () => {
     mockSearchParams = new URLSearchParams("timeline=hourly");
     const postMessage = jest.fn();
@@ -607,7 +652,7 @@ describe("embed map bridge", () => {
     }))).toEqual({ type: "setForecastTime", payload: { index: 4 } });
   });
 
-  it("re-emits an hourly step once when its server timestamp arrives", async () => {
+  it("waits for hourly data instead of declaring it unavailable during startup", async () => {
     mockSearchParams = new URLSearchParams(
       "timeline=hourly&timeIndex=42&timezone=America/New_York",
     );
@@ -620,11 +665,7 @@ describe("embed map bridge", () => {
 
     render(React.createElement(EmbedMapClient));
 
-    await waitFor(() => {
-      expect(postMessage).toHaveBeenCalledWith(
-        '{"type":"forecastTimeChanged","payload":{"index":42}}',
-      );
-    });
+    expect(postMessage.mock.calls.map(([message]) => JSON.parse(message).type)).not.toContain('forecastTimeChanged');
 
     const onHourlyTimelineLoaded = mockInteractiveMapProps.onHourlyTimelineLoaded as
       | ((timeline: HourlySwellTimeline | null) => void)

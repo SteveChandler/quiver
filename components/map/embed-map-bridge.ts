@@ -25,7 +25,7 @@ export type EmbedMapCommand =
   | { type: "setActive"; payload: { active: boolean } }
   | { type: "setViewport"; payload: EmbedMapViewport }
   | { type: "setLayer"; payload: { layerId: EmbedMapSwellLayerId } }
-  | { type: "setForecastTime"; payload: { index: number; forecastAt?: string } }
+  | { type: "setForecastTime"; payload: { index: number; forecastAt?: string; smooth?: boolean } }
   | { type: "setSelectedSpot"; payload: { beachId: string; lat?: number; lon?: number } }
   | { type: "focusSelectedSpot"; payload: { beachId: string } }
   | { type: "startPlacement"; payload?: EmbedMapCoordinate }
@@ -38,6 +38,7 @@ export type EmbedMapCommand =
   | { type: "auth_token"; payload: { accessToken: string | null } };
 
 export type EmbedMapEvent =
+  | { type: "customSpotSelected"; payload: { spotId: string } }
   | { type: "ready"; payload: { viewport: EmbedMapViewport } }
   | { type: "presentationReady"; payload: Record<string, never> }
   | { type: "loadFailed"; payload: { reason: string } }
@@ -169,6 +170,7 @@ export function parseEmbedMapCommand(
             type: "setForecastTime",
             payload: {
               index: clampForecastTimeIndex(index, maxForecastTimeIndex),
+              ...(typeof payload.smooth === "boolean" ? { smooth: payload.smooth } : {}),
               ...(typeof payload.forecastAt === "string" && Number.isFinite(Date.parse(payload.forecastAt))
                 ? { forecastAt: new Date(payload.forecastAt).toISOString() }
                 : {}),

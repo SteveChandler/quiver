@@ -21,11 +21,8 @@ export interface ParticleSeed {
 // Windy-like spacing: sparse + evenly distributed (jittered grid) so water shows
 // between dashes. Lower than the earlier dense random blanket (4000/1400).
 export const PARTICLE_COUNT_DESKTOP = 650;
-// Mobile (incl. the native iOS WebView) reads at a narrow viewport. 300 looked far
-// too sparse on an actual phone — most of the field is open water + land, so the
-// coastal band ends up nearly empty. 520 restores a clearly-alive density while
-// staying well under the old dense-blanket counts.
-export const PARTICLE_COUNT_MOBILE = 520;
+// Leave room between crests on compact native map cards.
+export const PARTICLE_COUNT_MOBILE = 280;
 
 /** Below this CSS width we treat the device as small and cut particle count. */
 const SMALL_SCREEN_PX = 640;
@@ -502,14 +499,17 @@ export function createSwellParticleLayer(
   let mapRef: mapboxgl.Map | null = null;
 
   // Particle state in Mercator unit space [0..1].
-  const px = new Float32Array(count);
-  const py = new Float32Array(count);
+  // Close-up Mercator steps are smaller than Float32 precision; accumulate in doubles.
+  const px = new Float64Array(count);
+  const py = new Float64Array(count);
   const page = new Float32Array(count);
   const life = new Float32Array(count);
   const vxState = new Float32Array(count);
   const vyState = new Float32Array(count);
   // 2 floats per vertex plus one alpha. Dash and streak are both single segments.
-  const vertexPos = new Float32Array(count * verticesPerParticle * 2);
+  const vertexPos = new Float64Array(count * verticesPerParticle * 2);
+  const relativeVertexPos = new Float32Array(vertexPos.length);
+  const relativeMatrix = new Float32Array(16);
   const vertexAlpha = new Float32Array(count * verticesPerParticle);
   const flowSample: FlowSample = { vx: 0, vy: 0, speed: 0, alpha: 0 };
 
@@ -899,7 +899,18 @@ export function createSwellParticleLayer(
         gl.uniform1i(gl.getUniformLocation(program, "u_waterMask"), 0);
         gl.uniform2f(gl.getUniformLocation(program, "u_viewport"), gl.drawingBufferWidth, gl.drawingBufferHeight);
       }
-      gl.uniformMatrix4fv(uMatrixLoc, false, matrix);
+      // Preserve subpixel crest widths at beach zoom before converting to GPU floats.
+      const originX = particleBox ? (particleBox.minX + particleBox.maxX) / 2 : 0;
+      const originY = particleBox ? (particleBox.minY + particleBox.maxY) / 2 : 0;
+      for (let i = 0; i < vertexPos.length; i += 2) {
+        relativeVertexPos[i] = vertexPos[i] - originX;
+        relativeVertexPos[i + 1] = vertexPos[i + 1] - originY;
+      }
+      relativeMatrix.set(matrix);
+      for (let row = 0; row < 4; row += 1) {
+        relativeMatrix[12 + row] = matrix[row] * originX + matrix[4 + row] * originY + matrix[12 + row];
+      }
+      gl.uniformMatrix4fv(uMatrixLoc, false, relativeMatrix);
       const [r, g, b] = hexToRgb(options.getColorHex());
       gl.uniform3f(uColorLoc, r, g, b);
       // Near-opaque so the dark dashes read crisply on the light basemap; the static
@@ -916,7 +927,7 @@ export function createSwellParticleLayer(
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
       gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, vertexPos, gl.DYNAMIC_DRAW);
+      gl.bufferData(gl.ARRAY_BUFFER, relativeVertexPos, gl.DYNAMIC_DRAW);
       gl.enableVertexAttribArray(aPosLoc);
       gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, false, 0, 0);
 

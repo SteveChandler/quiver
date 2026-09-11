@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useCustomSpots, type CustomSpot } from "@/hooks/use-custom-spots";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type mapboxgl from "mapbox-gl";
@@ -20,6 +21,7 @@ import {
 import {
   embedMapTimelineTimezone,
   forecastAtForEmbedTimelineIndex,
+  embedTimelineStart,
   LEGACY_EMBED_TIMELINE_STEPS,
   hourlyEmbedTimelineLabels,
   hourlyEmbedTimelineTimestamps,
@@ -228,9 +230,14 @@ export function EmbedMapClient() {
   // morphs through the day. The map interpolates between hourly steps.
   const [isPlaying, setIsPlaying] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const { customSpots } = useCustomSpots(isActive);
+  const publicCustomSpots = useMemo(() => customSpots.filter(spot => spot.visibility === "public"), [customSpots]);
+
   // "None" hides the swell field so users can read just the map + spots.
   const [fieldHidden, setFieldHidden] = useState(false);
   const timelineIndexRef = useRef(timelineIndex);
+  const scrubFrameRef = useRef<number | null>(null);
+  useEffect(() => () => { if (scrubFrameRef.current != null) cancelAnimationFrame(scrubFrameRef.current); }, []);
   useEffect(() => {
     timelineIndexRef.current = timelineIndex;
   }, [timelineIndex]);
@@ -264,6 +271,9 @@ export function EmbedMapClient() {
     window.ReactNativeWebView.postMessage(serializeEmbedMapEvent(event));
     return true;
   }, []);
+  const handleCustomSpotSelect = useCallback((spot: CustomSpot): void => {
+    postEvent({ type: "customSpotSelected", payload: { spotId: spot.id } });
+  }, [postEvent]);
   const getAccessToken = useCallback((): string | null => accessTokenRef.current, []);
   const getAuthGeneration = useCallback((): number => authGenerationRef.current, []);
   const handleAuthTokenExpired = useCallback((): void => {
@@ -277,7 +287,7 @@ export function EmbedMapClient() {
   const lastEmittedForecastTimeRef = useRef<string | null>(null);
   const pendingForecastAtRef = useRef<string | null>(null);
   useEffect(() => {
-    if (pendingForecastAtRef.current) return;
+    if (pendingForecastAtRef.current || (isHourlyTimeline && hourlyTimeline == null)) return;
     const forecastAt = isHourlyTimeline
       ? forecastAtForEmbedTimelineIndex(hourlyTimestamps, roundedStep)
       : undefined;
@@ -288,7 +298,7 @@ export function EmbedMapClient() {
       type: "forecastTimeChanged",
       payload: { index: roundedStep, ...(forecastAt ? { forecastAt } : {}) },
     });
-  }, [hourlyTimestamps, isHourlyTimeline, postEvent, roundedStep]);
+  }, [hourlyTimeline, hourlyTimestamps, isHourlyTimeline, postEvent, roundedStep]);
 
   const handleHourlyTimelineLoaded = useCallback((timeline: HourlySwellTimeline | null): void => {
     setHourlyTimeline(timeline);
@@ -388,7 +398,23 @@ export function EmbedMapClient() {
           const forecastAt = isHourlyTimeline && command.payload.index > 0 ? command.payload.forecastAt : undefined;
           const restored = forecastAt ? restoredForecastIndex(hourlyTimestamps, forecastAt, maxTimelineIndex) : null;
           pendingForecastAtRef.current = forecastAt && restored === null ? forecastAt : null;
-          setTimelineIndex(restored ?? clampTimelineStep(command.payload.index, maxTimelineIndex));
+          const target = restored ?? clampTimelineStep(command.payload.index, maxTimelineIndex);
+          if (scrubFrameRef.current != null) cancelAnimationFrame(scrubFrameRef.current);
+          if (command.payload.smooth && restored != null && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            const from = timelineIndexRef.current;
+            const started = performance.now();
+            const tick = (now: number): void => {
+              const progress = Math.min(1, (now - started) / 160);
+              const value = from + (target - from) * progress;
+              timelineIndexRef.current = value;
+              setTimelineIndex(value);
+              scrubFrameRef.current = progress < 1 ? requestAnimationFrame(tick) : null;
+            };
+            scrubFrameRef.current = requestAnimationFrame(tick);
+          } else {
+            timelineIndexRef.current = target;
+            setTimelineIndex(target);
+          }
           return;
         }
         case "setSelectedSpot": {
@@ -597,6 +623,8 @@ export function EmbedMapClient() {
         disableBeachClustering
         markerDisplay="points"
         onBoundsChange={handleBoundsChange}
+        customSpots={publicCustomSpots}
+        onCustomSpotClick={handleCustomSpotSelect}
         onLocationClick={handleBeachSelect}
         onMapLoadFailure={handleMapLoadFailure}
         onMapReady={handleMapReady}
@@ -615,6 +643,7 @@ export function EmbedMapClient() {
         swellLayerId={layerId as SwellLayerId}
         swellTimelineIndex={timelineIndex}
         swellTimelineMode={isHourlyTimeline ? "hourly" : undefined}
+        swellTimelineStart={isHourlyTimeline ? embedTimelineStart(searchParams.get("timelineStart")) : undefined}
         swellTimelineSteps={timelineSteps}
       />
       {!isPlacementActive && (

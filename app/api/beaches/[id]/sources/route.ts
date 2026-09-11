@@ -4,7 +4,7 @@ import {
   createSuccessResponse,
   handleApiError,
 } from "@/lib/middleware/api-wrappers";
-import { buildCamEmbed, getViewableUrl } from "@/lib/media/cam-embed";
+import { buildCamEmbed, getViewableUrl, toProxiedHlsUrl } from "@/lib/media/cam-embed";
 
 interface BeachLookupRow {
   id: string;
@@ -128,6 +128,11 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       if (!hlsAvailable) {
         cameraUrl = null;
       }
+    }
+
+    const proxiedCamera = cameraUrl ? toProxiedHlsUrl(cameraUrl) : null;
+    if (proxiedCamera?.startsWith("/api/hls-proxy/watch.hdrelay.io/")) {
+      cameraUrl = new URL(proxiedCamera, request.url).href;
     }
 
     // Diorama: match to condition_key if provided, fallback chain: exact -> medium_day -> any

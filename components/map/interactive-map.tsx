@@ -138,7 +138,7 @@ const COMBINED_PARTICLE_COUNT = 340;
 // down, but keep enough strokes visible on the light-blue basemap.
 const WIND_PARTICLE_SCALE = 0.4; // keep wind sparser than swell even at the higher base count
 const PARTICLE_MOTION_SCALE: Record<FlowComponentId, number> = {
-  s1: 0.42,
+  s1: 1,
   s2: 1,
   wind: 0.25, // calm, slow wind drift (-75% movement)
 };
@@ -414,6 +414,7 @@ interface InteractiveMapProps {
   onAuthTokenExpired?: () => void;
   beaches?: Beach[]; // Filtered beaches to display on map (if provided, skips API fetch)
   customSpots?: CustomSpot[];
+  onCustomSpotClick?: (spot: CustomSpot) => void;
   autoNavigateOnMarkerClick?: boolean; // Whether marker clicks auto-navigate to beach page (default: true)
   displayMode?: MapDisplayMode; // What data to show in markers: 'wave-height' (default) or 'water-temp'
   markerDisplay?: MapMarkerDisplay; // Full forecast markers (default) or compact point markers.
@@ -428,6 +429,7 @@ interface InteractiveMapProps {
   swellTimelineIndex?: number;
   onSwellTimelineChange?: (index: number) => void;
   swellTimelineMode?: "legacy" | "hourly" | "expandable-hourly";
+  swellTimelineStart?: string;
   onHourlyTimelineLoaded?: (timeline: HourlySwellTimeline | null) => void;
   viewTimezone?: string;
   timelineFocusBeachId?: string | null;
@@ -579,6 +581,7 @@ export function InteractiveMap({
   onAuthTokenExpired,
   beaches,
   customSpots = EMPTY_CUSTOM_SPOTS,
+  onCustomSpotClick,
   autoNavigateOnMarkerClick = true,
   displayMode = "wave-height",
   markerDisplay = "forecast",
@@ -592,6 +595,7 @@ export function InteractiveMap({
   swellTimelineIndex = 0,
   onSwellTimelineChange,
   swellTimelineMode = "legacy",
+  swellTimelineStart,
   onHourlyTimelineLoaded,
   viewTimezone,
   timelineFocusBeachId,
@@ -1662,7 +1666,7 @@ export function InteractiveMap({
           .sort()
           .join(",");
       const locationKey = beaches === undefined ? `${latitude.toFixed(3)}-${longitude.toFixed(3)}` : "provided";
-      const populateKey = `${locationKey}-${beachesKey}-${swellTimelineMode ?? "legacy"}-${skillLevel ?? "no-skill"}-${authGeneration}`;
+      const populateKey = `${locationKey}-${beachesKey}-${swellTimelineMode ?? "legacy"}-${swellTimelineStart ?? "now"}-${skillLevel ?? "no-skill"}-${authGeneration}`;
 
       if (lastPopulateKeyRef.current === populateKey) {
         return;
@@ -1705,6 +1709,7 @@ export function InteractiveMap({
               getAccessToken,
               onAuthTokenExpired,
               timelineHours: FULL_FORECAST_TIMELINE_HOURS,
+              timelineStart: swellTimelineStart,
               timelineFocusBeachId,
               timelineOnly: true,
               signal: abortController.signal,
@@ -1891,6 +1896,7 @@ export function InteractiveMap({
       onAuthTokenExpired,
       skillLevel,
       swellTimelineMode,
+      swellTimelineStart,
       timelineFocusBeachId,
     ]
   );
@@ -3198,6 +3204,11 @@ export function InteractiveMap({
             event.preventDefault();
             event.stopPropagation();
 
+            if (onCustomSpotClick) {
+              onCustomSpotClick(spot);
+              return;
+            }
+
             if (!userRef.current) {
               trackSignupCtaClick({
                 source: `custom-spot-${spot.id}`,
@@ -3247,6 +3258,7 @@ export function InteractiveMap({
   }, [
     clusters,
     customSpots,
+    onCustomSpotClick,
     isMapReady,
     conditionScoreMap,
     recommendationLabelMap,
