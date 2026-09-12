@@ -12,12 +12,18 @@ export async function GET(request: Request): Promise<Response> {
   const mode = new URL(request.url).searchParams.get("mode") ?? "live";
   if (mode !== "live" && mode !== "dry-run") return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
   if (mode === "dry-run") return NextResponse.json({ mode, due: await lifecycleRpc("pro_offer_fulfillment_queue"), unresolved: await lifecycleRpc("pro_offer_reconciliation_queue"), granted: 0 }, { headers: { "Cache-Control": "no-store" } });
-  if (process.env.PRO_OFFERS_ENABLED !== "true") return NextResponse.json({ status: "disabled" });
-  const db = await createSupabaseServiceRoleClient();
-  const { data: run, error } = await db.from("cron_runs").insert({ route: "/api/cron/pro-offer-reconcile", job: "pro-offer-reconcile", status: "started" }).select("id").single();
-  if (error || !run) return NextResponse.json({ error: "Run ledger unavailable" }, { status: 503 });
   const slug = "pro-offer-reconcile";
   const checkIn = startCronCheckIn({ slug, schedule: "*/15 * * * *", checkinMarginMinutes: 15, maxRuntimeMinutes: 3 });
+  if (process.env.PRO_OFFERS_ENABLED !== "true") {
+    await completeCronCheckIn(checkIn, slug, "ok");
+    return NextResponse.json({ status: "disabled" });
+  }
+  const db = await createSupabaseServiceRoleClient();
+  const { data: run, error } = await db.from("cron_runs").insert({ route: "/api/cron/pro-offer-reconcile", job: "pro-offer-reconcile", status: "started" }).select("id").single();
+  if (error || !run) {
+    await completeCronCheckIn(checkIn, slug, "error");
+    return NextResponse.json({ error: "Run ledger unavailable" }, { status: 503 });
+  }
   let ok = false;
   try {
     const result = await runProOfferAutomation();
