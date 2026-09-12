@@ -130,6 +130,24 @@ describe("Middleware", () => {
     expect(matcher.test("/profile/jane.doe/settings")).toBe(true);
     expect(matcher.test("/mexico/baja-california/rosarito")).toBe(true);
     expect(matcher.test("/vs/surfline/free")).toBe(true);
+    expect(matcher.test("/surf-game")).toBe(true);
+    expect(matcher.test("/surf-game/assets/index-abc123.js")).toBe(false);
+  });
+
+  test("serves the static surf game at /surf-game via rewrite", async () => {
+    for (const pathname of ["/surf-game", "/surf-game/"]) {
+      mockRewrite.mockClear();
+      const request: any = {
+        nextUrl: { pathname, clone: () => ({ pathname }) },
+        url: `http://localhost${pathname}`,
+        method: "GET",
+        headers: new Headers(),
+        cookies: { get: () => undefined, getAll: () => [] },
+      };
+      await middleware(request);
+      expect(mockRewrite).toHaveBeenCalledTimes(1);
+      expect(String(mockRewrite.mock.calls[0][0])).toBe("http://localhost/surf-game/index.html");
+    }
   });
 
   test("does not treat a dotted parent segment as a static asset", async () => {

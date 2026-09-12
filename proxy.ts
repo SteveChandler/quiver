@@ -142,6 +142,13 @@ export async function proxy(request: NextRequest) {
     );
   }
 
+  // `/surf-game` is the static EL NIÑO SWELL build in public/surf-game/. Without an extension the
+  // path would fall into app/[intent] and soft-404, and (as above) a next.config rewrite does not
+  // preempt that dynamic route, so the proxy serves the built index.html directly.
+  if (pathname === "/surf-game" || pathname === "/surf-game/") {
+    return NextResponse.rewrite(new URL("/surf-game/index.html", request.url));
+  }
+
   // Deferred rewrite target for city URLs — set below, applied in createSecureResponse()
   let rewriteTarget: URL | undefined;
 
