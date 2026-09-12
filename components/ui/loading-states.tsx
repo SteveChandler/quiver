@@ -9,8 +9,7 @@ import {
 } from "@/components/ui/loading-spinner";
 import { CardSkeleton } from "@/components/skeletons/card-skeleton";
 
-export { LoadingSpinner, CenteredLoadingSpinner, InlineLoadingSpinner };
-export { CardSkeleton };
+export {  CenteredLoadingSpinner,  };
 
 // Common loading patterns
 export function FullPageLoader({ text = "Checking the lineup..." }: { text?: string }) {
@@ -39,12 +38,12 @@ export function AuthLoader({
   );
 }
 
-export function InlineLoader({ text }: { text?: string }) {
+function InlineLoader({ text }: { text?: string }) {
   return <LoadingSpinner size="sm" text={text} />;
 }
 
 // Generic list item skeleton with consistent styling
-export function ListItemSkeleton({ count = 1 }: { count?: number }) {
+function ListItemSkeleton({ count = 1 }: { count?: number }) {
   return (
     <div className="space-y-3">
       {Array(count)
@@ -63,7 +62,7 @@ export function ListItemSkeleton({ count = 1 }: { count?: number }) {
 }
 
 // Form skeleton for loading forms
-export function FormSkeleton({ fields = 3 }: { fields?: number }) {
+function FormSkeleton({ fields = 3 }: { fields?: number }) {
   return (
     <div className="space-y-4">
       {Array(fields)
@@ -91,7 +90,7 @@ interface WithLoadingProps {
   errorComponent?: React.ReactNode;
 }
 
-export function WithLoading({
+function WithLoading({
   loading,
   error,
   children,
@@ -116,7 +115,7 @@ export function WithLoading({
 }
 
 // Conditional loading wrapper
-export function ConditionalLoader({
+function ConditionalLoader({
   condition,
   children,
   fallback = <CenteredLoadingSpinner />,

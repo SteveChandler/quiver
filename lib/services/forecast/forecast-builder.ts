@@ -141,7 +141,7 @@ export function shouldApplyNowcastAnchor(args: {
 }
 
 /** Per-beach tally of how many forecast slots kept the calibrated shoaling path. */
-export interface CalibrationCoverage {
+interface CalibrationCoverage {
   beachId: string;
   calibrated: boolean;
   nowcastEligibleSlots: number;
@@ -222,7 +222,7 @@ export function resolveCdipNowcastPoint(args: {
 /**
  * Interface for injected dependencies (services)
  */
-export interface DataSourceServices {
+interface DataSourceServices {
   getWaveDirectionText: (degrees: number) => string;
   getTideStatusAtTime: (tides: COOPSTideData[], time: Date) => TideStatus;
   getTideHeightAtTime: (tides: COOPSTideData[], time: Date) => number | null;
@@ -361,7 +361,6 @@ async function createDefaultTrustedForecastProjectionStore(): Promise<TrustedFor
   }
 }
 
-export { TrustedForecastLayerError } from "@/lib/errors/forecast-errors";
 
 function hasServiceRoleConfig(): boolean {
   return (
@@ -404,7 +403,7 @@ function readBeachOffsetConfig(beach: Beach): {
  * Returns an empty Map on any failure — the helper short-circuits to identity
  * when no offset row is provided, so the caller is safe to fall through.
  */
-export async function loadHeightOffsetsForBeaches(
+async function loadHeightOffsetsForBeaches(
   beachIds: string[]
 ): Promise<Map<string, BeachHeightOffsetRow>> {
   const out = new Map<string, BeachHeightOffsetRow>();

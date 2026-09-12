@@ -170,8 +170,9 @@ describe("regional forecast score gate", () => {
     });
   });
 
-  it("prebuilds every configured regional path with a 15-minute refresh", () => {
-    expect(generateStaticParams()).toEqual([{ beachId: "san-diego" }]);
+  it("generates regional pages on demand with a 15-minute refresh", () => {
+    expect(generateStaticParams()).toEqual([]);
+    expect(getCachedRegionalForecastPageData).not.toHaveBeenCalled();
     expect(revalidate).toBe(900);
   });
 

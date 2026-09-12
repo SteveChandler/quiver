@@ -29,7 +29,7 @@ const UTM_PARAMS = [
   "utm_term",
 ] as const;
 
-export type UTMParam = (typeof UTM_PARAMS)[number];
+type UTMParam = (typeof UTM_PARAMS)[number];
 
 export interface AttributionData {
   utm_source: string | null;

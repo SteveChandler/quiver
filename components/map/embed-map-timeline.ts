@@ -9,13 +9,13 @@ export const LEGACY_EMBED_TIMELINE_STEPS = [
   "+21h",
 ] as const;
 
-export const HOURLY_EMBED_TIMELINE_HORIZON_HOURS = 14 * 24 - 1;
+const HOURLY_EMBED_TIMELINE_HORIZON_HOURS = 14 * 24 - 1;
 export const HOURLY_EMBED_TIMELINE_STEPS = Array.from(
   { length: HOURLY_EMBED_TIMELINE_HORIZON_HOURS + 1 },
   (_, hourOffset) => hourOffset,
 ) as number[];
 
-export const MAX_HOURLY_EMBED_TIMELINE_INDEX = HOURLY_EMBED_TIMELINE_STEPS.length - 1;
+const MAX_HOURLY_EMBED_TIMELINE_INDEX = HOURLY_EMBED_TIMELINE_STEPS.length - 1;
 const HOUR_MS = 60 * 60 * 1000;
 
 function validForecastAt(value: unknown): value is string {

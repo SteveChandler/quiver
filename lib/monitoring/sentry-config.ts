@@ -62,7 +62,7 @@ type SentryTraceRequest = {
   method?: string;
 };
 
-export type SentryTraceSamplingContext = {
+type SentryTraceSamplingContext = {
   name?: string;
   attributes?: Record<string, unknown>;
   location?: SentryTraceLocation;
@@ -70,7 +70,7 @@ export type SentryTraceSamplingContext = {
   inheritOrSampleWith?: (fallbackSampleRate: number) => number;
 };
 
-export type QuiverSentryEnvironment =
+type QuiverSentryEnvironment =
   | "production"
   | "vercel-production"
   | "preview"

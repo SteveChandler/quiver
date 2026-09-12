@@ -5,7 +5,7 @@
  * with download fallback when share APIs are unavailable.
  */
 
-export interface ShareImageOptions {
+interface ShareImageOptions {
   /** Optional title for the share dialog */
   title?: string;
   /** Optional text/description for the share */
@@ -16,7 +16,7 @@ export interface ShareImageOptions {
   onLoadingChange?: (isLoading: boolean) => void;
 }
 
-export interface ShareImageResult {
+interface ShareImageResult {
   success: boolean;
   method: "web-share" | "download";
   error?: string;

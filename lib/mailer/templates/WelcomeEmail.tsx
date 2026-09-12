@@ -23,7 +23,7 @@ import {
   STICKER_ROTATIONS,
 } from "@/lib/mailer/theme";
 
-export interface WelcomeEmailProps {
+interface WelcomeEmailProps {
   headline: string;
   bodyParagraphs: readonly string[];
   ctaHref: string;

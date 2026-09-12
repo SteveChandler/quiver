@@ -135,7 +135,7 @@ export interface WithRateLimitOptions {
 /**
  * Options for withBotBlocking wrapper
  */
-export interface WithBotBlockingOptions {
+interface WithBotBlockingOptions {
   /** Custom error message for blocked bots */
   errorMessage?: string;
 }

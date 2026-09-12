@@ -31,7 +31,7 @@ const VERDICT_COLOR: Record<CanonicalDecisionVerdict, string> = {
   no: "#5C5A57",
 };
 
-export interface HomeCallPlateProps {
+interface HomeCallPlateProps {
   beachName: string;
   heroPhotoUrl: string;
   verdict: CanonicalDecisionVerdict | null;

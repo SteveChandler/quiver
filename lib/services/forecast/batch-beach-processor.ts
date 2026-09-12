@@ -150,7 +150,7 @@ export class DeadlineTracker {
 /**
  * Options for processing beaches in batches
  */
-export interface ProcessBeachesOptions {
+interface ProcessBeachesOptions {
   beaches: Beach[];
   config: BatchProcessConfig;
   deadlineTracker: DeadlineTracker;

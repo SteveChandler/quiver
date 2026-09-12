@@ -1,0 +1,1 @@
+global.emailContractFetch = global.fetch;

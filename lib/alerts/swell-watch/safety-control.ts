@@ -31,13 +31,13 @@ type SwellWatchSafetyReasonCode =
   | "recipient_not_eligible"
   | "recipient_deduplicated";
 
-export interface SwellWatchControlRecord {
+interface SwellWatchControlRecord {
   state: SwellWatchControlState;
   epoch: number;
   reasonCode: string;
 }
 
-export interface SwellWatchAuthorityRecord {
+interface SwellWatchAuthorityRecord {
   policyHash: string;
   approvalEvidenceHash: string;
   productionScope: string;
@@ -50,7 +50,7 @@ export interface SwellWatchAuthorityRecord {
   approvalId?: string;
 }
 
-export interface SwellWatchControlTransition {
+interface SwellWatchControlTransition {
   operation: "hold" | "reset_shadow" | "arm";
   expectedEpoch: number;
   reasonCode: string;
@@ -59,7 +59,7 @@ export interface SwellWatchControlTransition {
   systemActor?: "swell_watch_provider_monitor";
 }
 
-export interface SwellWatchSafetyStore {
+interface SwellWatchSafetyStore {
   getControl: () => Promise<SwellWatchControlRecord | null>;
   getAuthority: () => Promise<SwellWatchAuthorityRecord | null>;
   transition: (
@@ -100,7 +100,7 @@ function policyAuthorityReason(reason: string): SwellWatchSafetyReasonCode {
   return "authority_invalid";
 }
 
-export async function resolveSwellWatchControl(input: {
+async function resolveSwellWatchControl(input: {
   policy: unknown;
   store: SwellWatchSafetyStore;
   staticEnabled?: boolean;
@@ -188,7 +188,7 @@ export function evaluateSwellWatchSafety(input: {
   ] };
 }
 
-export async function evaluateSwellWatchHolds(input: {
+async function evaluateSwellWatchHolds(input: {
   policy: unknown;
   store: SwellWatchSafetyStore;
   expectedEpoch: number;
@@ -216,7 +216,7 @@ export async function evaluateSwellWatchHolds(input: {
   return { held: true, reasonCode };
 }
 
-export async function validateSwellWatchRelease(input: {
+async function validateSwellWatchRelease(input: {
   policy: unknown;
   store: SwellWatchSafetyStore;
   staticEnabled?: boolean;
@@ -285,7 +285,7 @@ function parseAuthority(value: unknown): SwellWatchAuthorityRecord | null {
   };
 }
 
-export function createSupabaseSwellWatchSafetyStore(client: RpcClient): SwellWatchSafetyStore {
+function createSupabaseSwellWatchSafetyStore(client: RpcClient): SwellWatchSafetyStore {
   return {
     async getControl() {
       const result = await client.rpc("swell_watch_get_automation_control" as never);
@@ -314,7 +314,7 @@ export function createSupabaseSwellWatchSafetyStore(client: RpcClient): SwellWat
   };
 }
 
-export async function executeSwellWatchControlCommand(
+async function executeSwellWatchControlCommand(
   command: SwellWatchControlTransition,
   store: SwellWatchSafetyStore,
 ): Promise<SwellWatchControlRecord> {

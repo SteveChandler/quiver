@@ -184,7 +184,7 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
 export const SOCAL_PRIMARY_STATIONS = ["100", "67", "191"];
 
 // Station coverage areas (approximate radius in km)
-export const STATION_COVERAGE_RADIUS = {
+const STATION_COVERAGE_RADIUS = {
   "100": 100, // Covers most of San Diego County
   "67": 75, // Covers LA/Orange County
   "191": 50, // Covers Point Loma / South San Diego

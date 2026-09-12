@@ -28,7 +28,7 @@ export const CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS = [
 export const WATER_QUALITY_HOLD_PREFETCH_BUFFER =
   CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS.length;
 
-export const WATER_QUALITY_STATUSES = [
+const WATER_QUALITY_STATUSES = [
   "good",
   "advisory",
   "closure",
@@ -135,7 +135,7 @@ export interface WaterQualityHoldResolution {
   epoch: string;
 }
 
-export interface ResolveWaterQualityHoldsOptions {
+interface ResolveWaterQualityHoldsOptions {
   client?: WaterQualityHoldClient;
   now?: Date;
 }

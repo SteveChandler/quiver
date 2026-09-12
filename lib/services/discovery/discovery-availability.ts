@@ -10,7 +10,7 @@ import type { RecommendationAvailability } from '@/lib/recommendations/major-eve
  */
 
 /** Structural shape shared by every discovery result these routes serialize. */
-export interface DiscoveryAvailabilityShape {
+interface DiscoveryAvailabilityShape {
   recommendations: unknown[];
   includedRecommendations?: unknown[] | null;
   recommendationsV2?: {
@@ -22,7 +22,7 @@ export interface DiscoveryAvailabilityShape {
 }
 
 /** Availability for a discovery that succeeded but produced nothing to rank. */
-export const NO_CANDIDATES_AVAILABILITY: RecommendationAvailability = {
+const NO_CANDIDATES_AVAILABILITY: RecommendationAvailability = {
   state: 'available',
   holdEpoch: 'no-candidates',
 };

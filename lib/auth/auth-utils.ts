@@ -272,7 +272,7 @@ export const TYPO_DOMAINS: Readonly<Record<string, string>> = {
   "protonmail.con": "protonmail.com",
 } as const;
 
-export interface EmailDomainValidation {
+interface EmailDomainValidation {
   valid: boolean;
   /** Human-readable suggestion, e.g. "Did you mean gmail.com?" */
   suggestion?: string;

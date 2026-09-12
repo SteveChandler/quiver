@@ -396,7 +396,7 @@ export function formatWaveHeightRangeString(low: number, high: number): string {
 /**
  * Wave height source selection input parameters
  */
-export interface WaveHeightSourceParams {
+interface WaveHeightSourceParams {
   /** Explicit nowcast/guardrail observation anchor in meters. Wins over forecast sources. */
   nowcastAnchorM?: number | null;
   cdipSigFt?: number | null;
@@ -410,7 +410,7 @@ export interface WaveHeightSourceParams {
 /**
  * Raw wave height source selection result
  */
-export interface WaveHeightSource {
+interface WaveHeightSource {
   /** Raw height in feet */
   heightFt: number;
   /**
@@ -547,7 +547,7 @@ function isCdipCorroboratedByModelHs(
 /**
  * Parameters for face height transformation
  */
-export interface FaceHeightParams extends WaveHeightSourceParams {
+interface FaceHeightParams extends WaveHeightSourceParams {
   /** Beach terrain configuration for direction factor */
   beach?: BeachTerrainConfig | null;
   /** Wave period in seconds for period amplification */

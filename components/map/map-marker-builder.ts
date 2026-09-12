@@ -14,7 +14,7 @@ import type {
 export type MapDisplayMode = "wave-height" | "water-temp";
 export type MapMarkerDisplay = "forecast" | "points";
 
-export interface ConditionMarkerCall {
+interface ConditionMarkerCall {
   label:
     | Exclude<RecommendationLabel, null>
     | "Water quality advisory"
@@ -30,7 +30,7 @@ export interface MarkerPreviewData {
   waterQualityHold?: WaterQualityHoldKind | null;
 }
 
-export const CONDITION_MARKER_CALLS: ReadonlyArray<{
+const CONDITION_MARKER_CALLS: ReadonlyArray<{
   recommendationLabel: RecommendationLabel;
   label: ConditionMarkerCall["label"];
 }> = [

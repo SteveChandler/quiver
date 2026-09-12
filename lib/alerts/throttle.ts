@@ -13,7 +13,7 @@ export type AttemptStatus =
   | "failed_provider"
   | "failed_internal";
 
-export type ThrottleDecision =
+type ThrottleDecision =
   | { ok: true }
   | { ok: false; status: AttemptStatus; reason: string };
 

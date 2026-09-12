@@ -12,7 +12,7 @@ export interface MercatorBox {
   maxY: number;
 }
 
-export interface ParticleSeed {
+interface ParticleSeed {
   x: number;
   y: number;
   age: number;
@@ -369,7 +369,7 @@ export function sampleFlowField(
   return blendFlowCells(c00, c10, c01, c11, tx, ty, lon, lat);
 }
 
-export interface SwellParticleLayerOptions {
+interface SwellParticleLayerOptions {
   id: string;
   /** Returns the current flow field (re-read each frame so timeline scrubs apply). */
   getField: () => FlowField;
@@ -414,7 +414,7 @@ export interface SwellParticleLayerOptions {
   };
 }
 
-export interface SwellParticleLayer extends mapboxgl.CustomLayerInterface {
+interface SwellParticleLayer extends mapboxgl.CustomLayerInterface {
   getActiveParticleCount: () => number;
 }
 

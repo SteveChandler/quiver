@@ -8,12 +8,12 @@
 
 import React from "react";
 
-export interface TextSegment {
+interface TextSegment {
   type: "text";
   text: string;
 }
 
-export interface LinkSegment {
+interface LinkSegment {
   type: "link";
   text: string;
   href: string;

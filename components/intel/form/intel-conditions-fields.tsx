@@ -28,7 +28,7 @@ export type WindDirection =
 
 export type ForecastAccuracy = "accurate" | "somewhat" | "inaccurate";
 
-export interface IntelConditionsFieldsProps {
+interface IntelConditionsFieldsProps {
   waveHeight: number | null;
   onWaveHeightChange: (value: number | null) => void;
   waterTemp: number | null;

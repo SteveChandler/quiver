@@ -268,3 +268,11 @@ describe("RevenueCat entitlement webhook updates", () => {
     });
   });
 });
+
+it("preserves a finite active offer when an older product expires", () => {
+  const expiresAt = new Date(Date.now() + 86400000).toISOString();
+  expect(mergeEntitlementUpdate({ currentRow: { is_pro: true, is_trialing: false, product_id: "rc_promo_pro", expires_at: expiresAt },
+    update: { is_pro: false, previous_product_id: "old_monthly" } })).toBeNull();
+  expect(mergeEntitlementUpdate({ currentRow: { is_pro: true, is_trialing: false, product_id: "rc_promo_pro", expires_at: expiresAt },
+    update: { is_pro: false, previous_product_id: "rc_promo_pro" } })).toEqual({ is_pro: false, previous_product_id: "rc_promo_pro" });
+});

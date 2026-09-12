@@ -1,4 +1,4 @@
-export interface QuiverStickerAsset {
+interface QuiverStickerAsset {
   slug: string;
   src: string;
   alt: string;

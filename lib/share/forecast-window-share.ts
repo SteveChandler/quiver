@@ -8,7 +8,7 @@ import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-constants";
 
 type ConditionSegment = string | number | null | undefined;
 
-export interface ForecastWindowShareMetadataInput {
+interface ForecastWindowShareMetadataInput {
   slug: string;
   window: string | string[] | null | undefined;
   beachName?: string | null;
@@ -115,7 +115,7 @@ function isValidTimeZone(value: unknown): value is string {
   }
 }
 
-export function formatForecastWindowLabel(
+function formatForecastWindowLabel(
   forecastAt: string,
   timezone: string | null | undefined = DEFAULT_TIMEZONE,
 ): string {

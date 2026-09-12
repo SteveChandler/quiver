@@ -22,3 +22,9 @@ describe("credential redaction", () => {
     }
   );
 });
+
+it("removes offer claim tokens from structured and serialized request bodies", () => {
+  const token = "a".repeat(43);
+  expect(JSON.stringify(redactSecrets({ request: { data: { offerToken: token } } }))).not.toContain(token);
+  expect(JSON.stringify(redactSecrets({ request: { data: JSON.stringify({ offerToken: token }) } }))).not.toContain(token);
+});

@@ -5,7 +5,7 @@ import { AlertCircle, Home, RefreshCw, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
-export interface ErrorFallbackProps {
+interface ErrorFallbackProps {
   error: Error;
   resetError: () => void;
   showDetails?: boolean;

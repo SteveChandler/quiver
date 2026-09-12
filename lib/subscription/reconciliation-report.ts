@@ -11,7 +11,7 @@ import {
  * rather than being promoted into production revenue reporting.
  */
 
-export const ENTITLEMENT_SEGMENTS = [
+const ENTITLEMENT_SEGMENTS = [
   "production-paid",
   "promo-lifetime",
   "billing-issue",
@@ -22,7 +22,7 @@ export const ENTITLEMENT_SEGMENTS = [
   "unknown",
 ] as const;
 
-export type EntitlementSegment = (typeof ENTITLEMENT_SEGMENTS)[number];
+type EntitlementSegment = (typeof ENTITLEMENT_SEGMENTS)[number];
 
 export interface ReconciliationEntitlementRow {
   user_id: string;
@@ -47,7 +47,7 @@ export interface FailedWebhookQueueRow {
   last_retried_at?: string | null;
 }
 
-export interface EntitlementReconciliationReport {
+interface EntitlementReconciliationReport {
   generated_at: string;
   read_only: true;
   entitlements: {
@@ -61,9 +61,9 @@ export interface EntitlementReconciliationReport {
   };
 }
 
-export const RECONCILIATION_PAGE_SIZE = 1000;
+const RECONCILIATION_PAGE_SIZE = 1000;
 
-export interface ReadPageResult<T> {
+interface ReadPageResult<T> {
   data: T[] | null;
   error: { message: string } | null;
 }

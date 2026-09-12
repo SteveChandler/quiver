@@ -24,11 +24,11 @@ import { getVisitorId } from "@/lib/utils/visitor-id";
 import { captureClientPostHogEvent } from "@/lib/posthog-client";
 import { enrichWithWebAnalyticsContext } from "@/lib/analytics/web-context";
 
-export type SignupProvider = "password" | "apple" | "google";
-export type SignupRedirectState = "inline" | "pending" | "completed";
+type SignupProvider = "password" | "apple" | "google";
+type SignupRedirectState = "inline" | "pending" | "completed";
 export const SIGNUP_FLOW_TTL_MS = 15 * 60 * 1000;
 
-export interface SignupFlowContext {
+interface SignupFlowContext {
   flow_id: string;
   provider: SignupProvider;
   source?: string;

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { WifiOff, RefreshCw, Database } from 'lucide-react';
 
-export interface NetworkErrorFallbackProps {
+interface NetworkErrorFallbackProps {
   error: Error;
   resetError: () => void;
   retryCount?: number;

@@ -32,7 +32,7 @@ export interface ForecastIndexabilityBeach {
   timezone?: string | null;
 }
 
-export interface SubPageDataAvailability {
+interface SubPageDataAvailability {
   /** The sub-page's own dataset resolved to a real value this render. */
   hasSubPageData: boolean;
 }

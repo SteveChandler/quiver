@@ -51,7 +51,7 @@ function normalizeBoundedIsoInstant(value: unknown): string | null {
 }
 
 export const BFR_HOLDOUT_EXPERIMENT_KEY = "bfr-follow-holdout-v1" as const;
-export const BFR_HOLDOUT_ASSIGNMENT_VERSION = 1 as const;
+const BFR_HOLDOUT_ASSIGNMENT_VERSION = 1 as const;
 
 function fnv1a32(value: string): number {
   let hash = 0x811c9dc5;

@@ -33,16 +33,16 @@ export interface EvaluateMajorEventHoldCandidatesInput {
   waterQualityExemptBeachIds?: readonly string[];
 }
 
-export type ResolveMajorEventHolds = (
+type ResolveMajorEventHolds = (
   candidates: readonly unknown[],
   options: { asOf?: Date },
 ) => Promise<MajorEventHoldResolution>;
 
-export type ResolveWaterQualityHolds = (
+type ResolveWaterQualityHolds = (
   candidates: readonly MajorEventHoldCandidate[],
 ) => Promise<WaterQualityHoldResolution>;
 
-export interface MajorEventHoldServiceDependencies {
+interface MajorEventHoldServiceDependencies {
   resolveHolds?: ResolveMajorEventHolds;
   resolveWaterQualityHolds?: ResolveWaterQualityHolds;
   audit?: MajorEventHoldAuditSink;
@@ -154,7 +154,7 @@ function combineEvaluations(
   return majorEventEvaluation;
 }
 
-export function serializeRecommendationAvailability(
+function serializeRecommendationAvailability(
   evaluation: MajorEventHoldCandidateDecision["evaluation"],
   resolutionAsOf: string,
 ): RecommendationAvailability {

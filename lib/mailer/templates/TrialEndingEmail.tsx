@@ -24,7 +24,7 @@ import {
   TEXT,
 } from "@/lib/mailer/theme";
 
-export interface TrialEndingEmailProps {
+interface TrialEndingEmailProps {
   displayName: string | null;
   /** Human-readable trial end date, e.g. "Friday, September 5". */
   trialEndsOn: string;

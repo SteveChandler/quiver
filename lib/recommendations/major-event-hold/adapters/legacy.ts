@@ -28,7 +28,7 @@ interface CivilTime {
   millisecondsSinceMidnight: number;
 }
 
-export interface DailyIntelCandidateSource {
+interface DailyIntelCandidateSource {
   id: string;
   beach_id: string;
   forecast_date: string;
@@ -36,7 +36,7 @@ export interface DailyIntelCandidateSource {
   best_window_end: string | null;
 }
 
-export interface DailyIntelResponseLike extends DailyIntelCandidateSource {
+interface DailyIntelResponseLike extends DailyIntelCandidateSource {
   conditions_score: number | null;
   confidence: string | null;
   recommendation: string | null;
@@ -57,7 +57,7 @@ type DailyIntelPositiveField =
   | "best_window_wave_height_label"
   | "raw_intel_data";
 
-export type SanitizedDailyIntelResponse<TIntel extends DailyIntelResponseLike> =
+type SanitizedDailyIntelResponse<TIntel extends DailyIntelResponseLike> =
   Omit<TIntel, DailyIntelPositiveField> & {
     conditions_score: TIntel["conditions_score"] | null;
     confidence: TIntel["confidence"] | null;
@@ -78,11 +78,11 @@ export type SanitizedLegacyV1RecommendationsResponse =
     recommendationAvailability: RecommendationAvailability;
   };
 
-export interface CoachPicksResponseLike<TPick = unknown> {
+interface CoachPicksResponseLike<TPick = unknown> {
   picks: readonly TPick[];
 }
 
-export type SanitizedCoachPicksResponse<
+type SanitizedCoachPicksResponse<
   TResponse extends CoachPicksResponseLike,
 > = Omit<TResponse, "picks"> & {
   picks: Array<TResponse["picks"][number]>;

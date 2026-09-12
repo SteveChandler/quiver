@@ -18,7 +18,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 /**
  * Options for the useMagicHour hook.
  */
-export interface UseMagicHourOptions {
+interface UseMagicHourOptions {
   /**
    * Target date for Magic Hour calculation.
    * Defaults to current date/time if not provided.
@@ -42,7 +42,7 @@ export interface UseMagicHourOptions {
 /**
  * Return type for the useMagicHour hook.
  */
-export interface UseMagicHourReturn {
+interface UseMagicHourReturn {
   /**
    * The Magic Hour result, or null if not yet calculated or no optimal window found.
    */
@@ -293,4 +293,3 @@ export function useMagicHour(
 }
 
 // Re-export types from magic-hour-finder for convenience
-export type { MagicHourResult, BeachMetadata, WeightConfig };

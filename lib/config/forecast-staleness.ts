@@ -49,7 +49,7 @@ export const CDIP_OUTLIER_THRESHOLD = 1.8;
  */
 export const MAX_TRUSTED_CDIP_FT = 10;
 
-export type DataSource = keyof typeof STALENESS_THRESHOLDS;
+type DataSource = keyof typeof STALENESS_THRESHOLDS;
 
 /**
  * Get the staleness threshold in hours for a given data source

@@ -4,13 +4,13 @@ import {
   ANDROID_BETA_GROUP_URL,
   ANDROID_BETA_PLAY_URL,
 } from "@/lib/constants/app-store";
-import { MAIL_FROM, MAIL_REPLY_TO, resend } from "@/lib/mailer/client";
+import { MAIL_FROM, MAIL_REPLY_TO, sendEmail } from "@/lib/mailer/client";
 import { AndroidBetaInstructionsEmail } from "@/lib/mailer/templates/AndroidBetaInstructionsEmail";
 
-export const ANDROID_BETA_INSTRUCTIONS_SUBJECT =
+const ANDROID_BETA_INSTRUCTIONS_SUBJECT =
   "Your Quiver Android beta steps";
 
-export interface SendAndroidBetaInstructionsEmailResult {
+interface SendAndroidBetaInstructionsEmailResult {
   success: boolean;
   messageId?: string;
   error?: unknown;
@@ -20,7 +20,8 @@ export async function sendAndroidBetaInstructionsEmail(
   email: string,
 ): Promise<SendAndroidBetaInstructionsEmailResult> {
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendEmail({
+      purpose: "requested",
       from: MAIL_FROM,
       replyTo: MAIL_REPLY_TO,
       to: email,

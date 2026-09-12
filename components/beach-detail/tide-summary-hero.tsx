@@ -9,7 +9,7 @@
 import type { TideMetaData } from "@/lib/seo/tide-meta-data";
 import { TrendingUp, TrendingDown, Waves, ArrowDown } from "lucide-react";
 
-export interface TideSummaryHeroProps {
+interface TideSummaryHeroProps {
   beachName: string;
   tideData: TideMetaData;
 }

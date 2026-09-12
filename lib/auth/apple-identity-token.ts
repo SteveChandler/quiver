@@ -12,7 +12,7 @@ export interface VerifiedAppleIdentity {
   expiresAt: Date;
 }
 
-export type AppleIdentityTokenErrorCode =
+type AppleIdentityTokenErrorCode =
   | "configuration_error"
   | "invalid_apple_challenge";
 

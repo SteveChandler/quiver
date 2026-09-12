@@ -4,11 +4,11 @@ import {
 } from "@/lib/subscription/revenuecat-products";
 
 export const INSTALL_TO_PAID_SCHEMA_VERSION = "install_to_paid.v1" as const;
-export const HOUR_MS = 3_600_000;
-export const UUID_PATTERN =
+const HOUR_MS = 3_600_000;
+const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export const INSTALL_TO_PAID_STAGES = [
+const INSTALL_TO_PAID_STAGES = [
   { key: "native_install", source: "posthog", qualifies: ["native_app_first_open"] },
   { key: "signup", source: "supabase", qualifies: ["profiles.created_at"] },
   {
@@ -59,7 +59,7 @@ export const MEANINGFUL_ACTIVITY_EVENTS = new Set<string>([
   "session_log_start",
 ]);
 
-export const EXCLUDED_PROFILE_IDS = new Set<string>([
+const EXCLUDED_PROFILE_IDS = new Set<string>([
   "73040cff-afe9-4fa0-a874-2016203fc015",
   "c15c2ab3-275c-49d1-ac4f-dcc493db0653",
 ]);
@@ -74,7 +74,7 @@ export const UNKNOWN_JOIN_REASONS = [
 
 export type UnknownJoinReason = (typeof UNKNOWN_JOIN_REASONS)[number];
 
-export const INSTALL_TO_PAID_V1_CONTRACT = {
+const INSTALL_TO_PAID_V1_CONTRACT = {
   schemaVersion: INSTALL_TO_PAID_SCHEMA_VERSION,
   reportKind: "install_cohort_milestone_report",
   grain: "native_install_id",
@@ -103,7 +103,7 @@ export const INSTALL_TO_PAID_V1_CONTRACT = {
 
 export type JoinStatus = "exact" | "unknown" | "excluded";
 export type MaturityStatus = "immature" | "partially_mature" | "mature";
-export type MilestoneStatus = "true" | "false" | "unknown" | "immature";
+type MilestoneStatus = "true" | "false" | "unknown" | "immature";
 
 export interface InstallBehaviorEvent {
   event: string;
@@ -282,7 +282,7 @@ function replayEntitlementAt(
   return state;
 }
 
-export function isPaidEntitlementAt(
+function isPaidEntitlementAt(
   events: RevenueCatLedgerEvent[],
   target: string,
 ): boolean | null {

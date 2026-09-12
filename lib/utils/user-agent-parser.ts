@@ -1,4 +1,4 @@
-export interface DeviceInfo {
+interface DeviceInfo {
   device_type: "mobile" | "desktop" | "tablet";
   os: string;
   browser: string;

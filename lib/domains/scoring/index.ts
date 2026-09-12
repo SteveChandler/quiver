@@ -10,13 +10,12 @@ export type {
   ScorerResult,
   ScorerPlugin,
   CompositeScore,
-  MatchQuality,
-  ScoringEngineConfig,
-  ScoringDecisionEffect,
-  ScoringEffectSeverity,
+
+
+
+
 } from './types';
 
-export { SCORER_WEIGHTS, DEFAULT_SCORING_CONFIG, createSkipResult, createNeutralResult } from './types';
 
 // Engine
 export { ScoringEngine, createScoringEngine, scoreWithPlugins } from './scoring-engine';
@@ -44,11 +43,6 @@ export type {
 export { getConditionCharacter } from './condition-character';
 
 // Discovery adapter (backwards compatibility with surf-discovery-service)
-export type {
-  DiscoveryScoringOptions,
-  SkillCeilingResult,
-  BeachSkillMatchResult,
-} from './discovery-adapter';
 export {
   createDiscoveryScoringEngine,
   beachToSpotProfile,
@@ -56,8 +50,8 @@ export {
   compositeToDetailedScore,
   scoreBeachWithEngine,
   // Wave size scoring configuration and helper functions
-  WAVE_SIZE_SCORING_CONFIG,
-  SKILL_WAVE_RANGES,
-  checkSkillCeiling,
-  calculateBeachSkillMatchBonus,
+
+
+
+
 } from './discovery-adapter';

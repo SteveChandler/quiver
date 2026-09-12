@@ -69,7 +69,7 @@ import {
   type CanonicalSessionDecision,
 } from '@/lib/recommendations/canonical-decision';
 
-export const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
+const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
 const WEEK_SCOUT_RESPONSE_RANK_LIMIT = 8;
 
 export type WeekScoutBucket = 'morning' | 'midday' | 'evening';
@@ -188,7 +188,7 @@ export interface WeekScoutResponse {
   days: WeekScoutDayResponse[];
 }
 
-export interface WeekScoutCoverageBucket {
+interface WeekScoutCoverageBucket {
   bucket: WeekScoutBucket;
   eligible: number;
   evaluated: number;
@@ -199,7 +199,7 @@ export interface WeekScoutCoverageBucket {
   held: number | null;
 }
 
-export interface WeekScoutCoverageDay {
+interface WeekScoutCoverageDay {
   localDate: string;
   eligible: number;
   evaluated: number;

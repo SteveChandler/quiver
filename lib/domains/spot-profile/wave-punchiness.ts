@@ -37,7 +37,7 @@ const SKILL_SHIFT: Record<string, number> = {
   expert: 0.4,
 };
 
-export interface WavePunchinessInputs {
+interface WavePunchinessInputs {
   persona?: string | null;
   break_type?: string | null;
   skill_level?: string | null;
@@ -76,9 +76,9 @@ export function deriveWavePunchiness(
  * to trust — the resolver falls back to the structural derivation instead. This
  * keeps the aggressive board-fit mismatch penalty off low-signal spots.
  */
-export const AI_PUNCHINESS_CONFIDENCE_THRESHOLD = 0.55;
+const AI_PUNCHINESS_CONFIDENCE_THRESHOLD = 0.55;
 
-export interface WavePunchinessResolution {
+interface WavePunchinessResolution {
   /** Hand-tuned manual override (beaches.wave_punchiness). */
   override?: number | null;
   /** LLM score distilled from the spot's freetext (beaches.wave_punchiness_ai). */

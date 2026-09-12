@@ -10,7 +10,7 @@ import { MONITORING_CONFIG, HealthStatus, DataSourceType } from './forecast-moni
 
 type HealthSourceKey = 'enhanced' | 'marine' | 'tide' | 'sun' | 'ioos';
 
-export interface ForecastSourceHealthMetrics {
+interface ForecastSourceHealthMetrics {
   source: HealthSourceKey;
   /**
    * Whether the underlying query for this source succeeded.
@@ -41,7 +41,7 @@ interface IOOSStationHealthRow {
   nearest_beach_id: string | null;
 }
 
-export interface ForecastHealthMetrics {
+interface ForecastHealthMetrics {
   totalBeaches: number;
   /**
    * Whether enhanced (primary) latest-per-beach metrics were successfully computed.

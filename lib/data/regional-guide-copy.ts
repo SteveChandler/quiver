@@ -17,7 +17,7 @@
  * @module lib/data/regional-guide-copy
  */
 
-export const REGIONAL_GUIDE_COPY: Record<string, string> = {
+const REGIONAL_GUIDE_COPY: Record<string, string> = {
   // California
   "southern-california":
     "Dawn patrol points, summer south swells, and the grind of Lowers on a Tuesday.",

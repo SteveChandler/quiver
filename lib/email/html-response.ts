@@ -9,7 +9,7 @@ import { NextResponse } from 'next/server';
 import { escapeHtml } from '@/lib/utils/html';
 import { EMAIL_COLORS, EMAIL_FONT_FAMILY } from './email-constants';
 
-export interface EmailActionPageOptions {
+interface EmailActionPageOptions {
   title: string;
   message: string;
   isError?: boolean;

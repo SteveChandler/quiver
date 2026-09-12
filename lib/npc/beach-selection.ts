@@ -8,8 +8,8 @@
 
 import { selectBeach } from "@/lib/recommendations/selection";
 
-export const DEFAULT_TRAFFIC_FLOOR = 1;
-export const DEFAULT_MAX_BEACH_SHARE = 0.12;
+const DEFAULT_TRAFFIC_FLOOR = 1;
+const DEFAULT_MAX_BEACH_SHARE = 0.12;
 
 export interface BeachTrafficWeight {
   beachId: string;
@@ -39,7 +39,7 @@ export interface NPCBeachConfig {
   excludedIds?: ReadonlySet<string>;
 }
 
-export function createBeachSelectionRun(
+function createBeachSelectionRun(
   targetPosts: number,
   maxBeachShare: number = DEFAULT_MAX_BEACH_SHARE,
 ): BeachSelectionRun {
@@ -51,7 +51,7 @@ export function createBeachSelectionRun(
   };
 }
 
-export function recordBeachSelection(
+function recordBeachSelection(
   run: BeachSelectionRun | undefined,
   beachId: string,
 ): void {

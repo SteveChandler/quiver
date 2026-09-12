@@ -40,7 +40,7 @@ export const ANIMATION_VARIANTS = {
 
 // MAP_MOTION - Priority 1: Geographic Expansion & Beach Discovery
 // Addresses 85% San Diego isolation problem with engaging map interactions
-export const MAP_MOTION = {
+const MAP_MOTION = {
   beachMarker: {
     initial: { scale: 1, boxShadow: "0 0 0 rgba(0,119,182,0)" },
     hover: { 

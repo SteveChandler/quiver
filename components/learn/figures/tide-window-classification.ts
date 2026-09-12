@@ -1,7 +1,7 @@
 export const TIDE_CYCLE_HOURS = 12 + 25 / 60;
 
 export type TideRangeKind = "neap" | "average" | "spring";
-export type TideStage = "low" | "rising" | "high" | "falling";
+type TideStage = "low" | "rising" | "high" | "falling";
 
 interface TideWindowClassification {
   hoursSinceLow: number;

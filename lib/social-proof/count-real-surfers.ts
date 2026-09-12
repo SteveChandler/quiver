@@ -3,7 +3,7 @@ import type { Database } from "@/types/database.generated";
 
 type SocialProofSupabase = Pick<SupabaseClient<Database>, "from">;
 
-export interface SocialProofCounts {
+interface SocialProofCounts {
   totalSurfers: number;
   joinedLast7d: number;
 }

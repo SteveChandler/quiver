@@ -1,4 +1,4 @@
-export const FORECAST_BENCHMARK_QUERY_CLASSES = [
+const FORECAST_BENCHMARK_QUERY_CLASSES = [
   "spot-surf-forecast",
   "spot-surf-report",
   "spot-tomorrow",
@@ -11,7 +11,7 @@ export const FORECAST_BENCHMARK_QUERY_CLASSES = [
   "where-should-i-surf-region-tomorrow",
 ] as const;
 
-export type ForecastBenchmarkQueryClass =
+type ForecastBenchmarkQueryClass =
   (typeof FORECAST_BENCHMARK_QUERY_CLASSES)[number];
 
 const SPOT_QUERY_CLASSES = [
@@ -34,7 +34,7 @@ export interface ForecastBenchmarkSpot {
   canonicalPath: string;
 }
 
-export interface ForecastBenchmarkQuery {
+interface ForecastBenchmarkQuery {
   queryId: string;
   queryClass: ForecastBenchmarkQueryClass;
   query: string;
@@ -52,12 +52,12 @@ export interface ForecastRetrievalEvidence {
   current: boolean;
 }
 
-export interface ForecastBenchmarkCompetitor {
+interface ForecastBenchmarkCompetitor {
   name: string;
   domains: string[];
 }
 
-export interface ForecastCompetitiveSourceResult {
+interface ForecastCompetitiveSourceResult {
   name: string;
   domains: string[];
   selectedShare: number | null;
@@ -65,7 +65,7 @@ export interface ForecastCompetitiveSourceResult {
   citationShare: number | null;
 }
 
-export interface ForecastCompetitiveBenchmark {
+interface ForecastCompetitiveBenchmark {
   status: ForecastRetrievalBenchmark["status"];
   provider: string | null;
   competitors: ForecastCompetitiveSourceResult[];
@@ -88,14 +88,14 @@ export interface ForecastRetrievalBenchmark {
   reason: string | null;
 }
 
-export const DEFAULT_FORECAST_BENCHMARK_COMPETITORS: ForecastBenchmarkCompetitor[] = [
+const DEFAULT_FORECAST_BENCHMARK_COMPETITORS: ForecastBenchmarkCompetitor[] = [
   { name: "Surfline", domains: ["surfline.com"] },
   { name: "Surf Captain", domains: ["surfcaptain.com"] },
 ];
 
 export const DEFAULT_QUIVER_BENCHMARK_ORIGIN = "https://www.quiversurf.app";
 
-export interface ForecastAnswerContractFacts {
+interface ForecastAnswerContractFacts {
   answerLayer: boolean;
   forecastDate: boolean;
   surfFacts: boolean;

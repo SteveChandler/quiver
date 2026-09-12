@@ -10,14 +10,14 @@ export type GarminNormalizedActivity = {
   startLon?: number;
 };
 
-export type GarminActivityTier = "silent" | "confirm" | "ignore";
+type GarminActivityTier = "silent" | "confirm" | "ignore";
 
-export type GarminNearbyBeach = {
+type GarminNearbyBeach = {
   id: string;
   distance_meters: number;
 };
 
-export type GarminSessionSkeleton = {
+type GarminSessionSkeleton = {
   startedAt: string;
   durationSeconds: number;
   beachId: string;

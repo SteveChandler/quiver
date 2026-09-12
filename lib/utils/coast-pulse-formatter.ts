@@ -233,7 +233,7 @@ export function formatWaterTemp(
   return `Water ${Math.round(tempF)}°F (${comfort})`;
 }
 
-export interface TideData {
+interface TideData {
   nextTideName: string; // "High Tide" or "Low Tide"
   nextTideHeight: number;
   hoursUntil: number;
@@ -305,7 +305,7 @@ export function formatTideMessage(data: TideData): string {
   return `${nextTideName} in ${timeStr} @ ${nextTideHeight.toFixed(1)}ft.`;
 }
 
-export interface BuoyData {
+interface BuoyData {
   heightFt: number;
   periodS: number;
   direction: string | null;

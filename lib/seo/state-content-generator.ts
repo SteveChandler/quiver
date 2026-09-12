@@ -15,7 +15,7 @@ import { linkFirstMentions } from "@/lib/seo/rich-content";
 import { slugifyAscii } from "@/lib/utils/text-utils";
 import type { RichFAQItem } from "@/lib/seo/city-content-generator";
 
-export interface StateContentInput {
+interface StateContentInput {
   stateName: string;
   stateSlug: string;
   beaches: Beach[];

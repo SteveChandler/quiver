@@ -1,6 +1,6 @@
 import { findLicensedCamOverride } from "@/lib/media/licensed-cam-overrides";
 
-export type CamEmbedIntent =
+type CamEmbedIntent =
   | { kind: "none" }
   | { kind: "iframe"; src: string; title?: string; allow?: string }
   | { kind: "video"; src: string }

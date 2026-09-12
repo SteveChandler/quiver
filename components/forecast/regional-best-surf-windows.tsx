@@ -1,7 +1,7 @@
 import { BestSurfWindows } from "@/components/session-intelligence";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
 
-export interface RegionalBestSurfWindowsProps {
+interface RegionalBestSurfWindowsProps {
   regionName: string;
   recommendations?: SurfWindowRecommendation[];
   variant?: "default" | "zine";

@@ -18,7 +18,7 @@ const BOARD_IMPLIED_SKILL: Record<BoardClass, SkillLevel> = {
 
 export type SkillSource = 'profile' | 'board_prior' | 'default';
 
-export interface ResolvedVerdictSkill {
+interface ResolvedVerdictSkill {
   skill: SkillLevel;
   source: SkillSource;
 }

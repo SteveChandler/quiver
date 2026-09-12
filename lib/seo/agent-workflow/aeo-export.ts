@@ -175,7 +175,7 @@ export interface AeoQuerySet {
   segments: Record<string, string[]>;
 }
 
-export interface AeoReportValidation {
+interface AeoReportValidation {
   ok: boolean;
   problems: string[];
 }
@@ -195,7 +195,7 @@ export interface AeoReportValidation {
  * other queries, and the surfaced list is precisely where an inflated run
  * shows up, so it has to be a structured list rather than a paragraph.
  */
-export function extractAeoSectionQueries(
+function extractAeoSectionQueries(
   markdown: string,
   heading: string,
   queries: string[],

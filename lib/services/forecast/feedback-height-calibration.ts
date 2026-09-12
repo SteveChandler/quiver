@@ -16,14 +16,14 @@ export type FeedbackHeightCalibrationCandidate = {
   expires_at: string;
 };
 
-export type FeedbackHeightCalibrationResult = {
+type FeedbackHeightCalibrationResult = {
   heightFt: number;
   applied: boolean;
   candidateId: string | null;
   offsetFt: number | null;
 };
 
-export function isFeedbackHeightCalibrationEnabled(): boolean {
+function isFeedbackHeightCalibrationEnabled(): boolean {
   return process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED === "true";
 }
 

@@ -33,7 +33,7 @@ export interface BeginnerSeasonData {
   description: string;
 }
 
-export interface BeginnerSeasonalResult {
+interface BeginnerSeasonalResult {
   seasons: BeginnerSeasonData[];
   dataSource: "state-profile" | "regional" | "generic";
 }
