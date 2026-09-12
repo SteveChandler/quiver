@@ -36,3 +36,5 @@ GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO service_role;
 
 CREATE TABLE cron_runs(id uuid DEFAULT gen_random_uuid(),route text,job text,status text,started_at timestamptz DEFAULT now(),finished_at timestamptz,produced integer,summary jsonb);
 GRANT ALL ON cron_runs TO service_role;
+
+ALTER TABLE profiles ADD COLUMN deleted_at timestamptz;

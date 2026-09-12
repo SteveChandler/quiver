@@ -1,4 +1,4 @@
-import { refreshLifecycleEligibility } from "@/lib/subscription/offer-automation";
+import { refreshLifecycleEligibility, refreshLifecycleUserEligibility } from "@/lib/subscription/offer-automation";
 import { ensureGmailRepliesFresh } from "@/lib/email/gmail-replies";
 import { z } from "zod";
 import * as Sentry from "@sentry/nextjs";
@@ -13,6 +13,13 @@ async function dispatchLifecycleUser(userId: string): Promise<string> {
   if (!lifecycleEnabled()) return "disabled";
   const replyTo = z.email().parse(process.env.EMAIL_REPLY_MAILBOX);
   if (process.env.EMAIL_REPLY_INGESTION_VERIFIED !== "true") throw new Error("Reply ingestion is not verified");
+  const candidate = lifecycleDecisionSchema.parse(await lifecycleRpc("evaluate_email_lifecycle", { p_user_id: userId }));
+  if (candidate.status !== "due") return candidate.reason;
+  if (candidate.source?.audience === "free" && candidate.source.offer_id &&
+    (candidate.job === "offer_ready" || candidate.job === "activation" || candidate.job === "progress")) {
+    // A cached free snapshot must not sell an offer to a newly paid customer.
+    await refreshLifecycleUserEligibility(userId);
+  }
   const claim = z.object({ allowed: z.boolean(), reason: z.string().optional(), attempt_id: z.uuid().optional(), decision: lifecycleDecisionSchema.optional() }).parse(
     await lifecycleRpc("claim_email_lifecycle", { p_user_id: userId, p_version: LIFECYCLE_VERSION, p_content_hash: LIFECYCLE_CONTENT_HASH }));
   if (!claim.allowed) return claim.reason ?? "held";
@@ -66,10 +73,10 @@ export async function runEmailLifecycle(dryRun: boolean): Promise<Record<string,
       counts[reason] = (counts[reason] ?? 0) + 1;
       if (reason === "unknown") { failed = true; break; }
     }
-    const health = z.object({ due_unsent: z.number().int().nonnegative(), enrollment_pending: z.number().int().nonnegative() }).parse(await lifecycleRpc("email_automation_health"));
-    if (health.due_unsent + health.enrollment_pending > 0) {
+    const health = z.object({ due_unsent: z.number().int().nonnegative(), enrollment_pending: z.number().int().nonnegative(), approval_unavailable: z.number().int().nonnegative().default(0) }).parse(await lifecycleRpc("email_automation_health"));
+    if (health.due_unsent + health.enrollment_pending + health.approval_unavailable > 0) {
       failed = true;
-      Sentry.captureMessage("Email automation has a waiting backlog", { level: "warning", tags: { component: "email-lifecycle" }, extra: health, fingerprint: ["email-automation-backlog"] });
+      Sentry.captureMessage("Email automation needs attention", { level: "warning", tags: { component: "email-lifecycle" }, extra: health, fingerprint: ["email-automation-backlog"] });
     }
     return { status: failed ? "attention" : "ok", candidates: users.length, accepted: counts.accepted ?? 0, reasons: counts, reconciliation };
   } catch (error) {

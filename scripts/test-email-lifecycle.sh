@@ -38,4 +38,6 @@ assert sum('"status": "reserved"' in s for s in texts)==1, texts
 assert sum('"status": "busy"' in s for s in texts)==1, texts
 PYTEST
 psql_local -f "$repo_dir/supabase/migrations/20260912040000_automated_lifecycle_offers.sql" -f "$repo_dir/__tests__/integration/email-automation.sql"
+psql_local -f "$repo_dir/supabase/migrations/20260912050000_lifecycle_audience_copy.sql" -f "$repo_dir/__tests__/integration/email-lifecycle-audience.sql"
+psql_local -f "$repo_dir/supabase/migrations/20260912214631_lifecycle_full_audience.sql" -f "$repo_dir/__tests__/integration/email-full-audience.sql"
 printf 'PASS: disposable PostgreSQL lifecycle and concurrent claims. Evidence: %s\n' "$test_dir"
