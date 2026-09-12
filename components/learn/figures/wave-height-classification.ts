@@ -1,4 +1,4 @@
-export interface WaveHeightClassification {
+interface WaveHeightClassification {
   significantHeightFt: number;
   faceHeightMinFt: number;
   faceHeightMaxFt: number;

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { INTEL_UI_TEXT } from "@/lib/constants/intel";
 
-export interface IntelFormActionsProps {
+interface IntelFormActionsProps {
   onCancel: () => void;
   canSubmit: boolean;
   isUploading: boolean;

@@ -1,4 +1,4 @@
-export const WATCHED_CALL_REPLACEMENT_MARGIN = 10;
+const WATCHED_CALL_REPLACEMENT_MARGIN = 10;
 
 export interface StableWatchedWindow {
   id: string;
@@ -29,7 +29,7 @@ export interface WatchedCallIdentity {
   };
 }
 
-export interface StabilityRecord {
+interface StabilityRecord {
   version: 1;
   localDate: string;
   acceptedAt: string;
@@ -39,7 +39,7 @@ export interface StabilityRecord {
   recommendation: StableWatchedWindow;
 }
 
-export interface StabilityResult {
+interface StabilityResult {
   evaluatedAt: string;
   baseline: StableWatchedWindow | null;
   incumbent: StableWatchedWindow | null;
@@ -175,7 +175,7 @@ export function resolveWeekScoutStability(args: {
   return canonical({ ...common, incumbent, winner, status: "replaced", reason: "challenger_margin", scoreDelta, recommendation: winner, showChangeNotice: true });
 }
 
-export interface NearbyComparison {
+interface NearbyComparison {
   watchedRecommendation: WatchedCallIdentity["recommendation"];
   nearbyRecommendation: WatchedCallIdentity["recommendation"];
   refreshedWatchedViability: boolean;
@@ -191,7 +191,7 @@ export function resolveWatchedCallNearbyComparison(args: Omit<NearbyComparison, 
   return comparison;
 }
 
-export type WatchedCallUpdate = {
+type WatchedCallUpdate = {
   type: "still_on" | "call_changed" | "better_nearby";
   cause: string;
   priorIdentity: WatchedCallIdentity;

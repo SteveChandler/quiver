@@ -17,7 +17,7 @@
  *   log.info('Starting');  // [MyService] Starting
  */
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const LOG_LEVELS: Record<LogLevel, number> = {
   debug: 0,
@@ -100,7 +100,7 @@ function createLogFn(
   };
 }
 
-export interface Logger {
+interface Logger {
   debug: (...args: unknown[]) => void;
   info: (...args: unknown[]) => void;
   warn: (...args: unknown[]) => void;

@@ -1,6 +1,6 @@
 import { circularAngleDiff } from "@/lib/services/magic-hour/direction-utils";
 
-export interface WindQualityLabel {
+interface WindQualityLabel {
   label: "offshore" | "cross-offshore" | "cross-shore" | "onshore";
   color: "green" | "yellow" | "red";
   verdict: string;

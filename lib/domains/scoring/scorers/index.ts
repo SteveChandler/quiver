@@ -17,5 +17,4 @@ export {
   LOW_TIDE_HEAVY_SWELL_WARNING,
   setupRiskScorer,
 } from './setup-risk-scorer';
-export { getDirectionalRelevance } from './directional-relevance';
-export type { DominantKind } from './directional-relevance';
+;

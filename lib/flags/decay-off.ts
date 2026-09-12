@@ -1,6 +1,6 @@
 import type { Beach } from "@/types/database";
 
-export function isDecayOffEnabled(): boolean {
+function isDecayOffEnabled(): boolean {
   return process.env.DECAY_OFF_ENABLED === "true";
 }
 

@@ -22,7 +22,7 @@ import {
   TEXT,
 } from "@/lib/mailer/theme";
 
-export interface FounderStoryEmailProps {
+interface FounderStoryEmailProps {
   displayName: string | null;
   ctaUrl: string;
 }

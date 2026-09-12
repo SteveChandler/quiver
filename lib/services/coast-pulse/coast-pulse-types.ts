@@ -2,11 +2,7 @@
  * Type definitions for Coast Pulse data
  */
 
-// Re-export the shared summary types used by both the main API and summary endpoint
-export type {
-  CoastPulseSummary,
-  CoastPulseSummaryItem,
-} from "@/lib/utils/coast-pulse-summary";
+import type { CoastPulseSummary } from "@/lib/utils/coast-pulse-summary";
 
 export interface CoastPulseSource {
   name: string;
@@ -35,7 +31,7 @@ export interface CoastPulseItem {
 
 export interface CoastPulseResponse {
   items: CoastPulseItem[];
-  summary: import("@/lib/utils/coast-pulse-summary").CoastPulseSummary;
+  summary: CoastPulseSummary;
   hasMore: boolean;
   nextCursor: string | null;
   nearbyBeachIds: string[];

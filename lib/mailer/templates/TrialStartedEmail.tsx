@@ -26,7 +26,7 @@ import {
   TEXT,
 } from "@/lib/mailer/theme";
 
-export interface TrialStartedEmailProps {
+interface TrialStartedEmailProps {
   displayName: string | null;
   beachName: string | null;
   ctaUrl: string;

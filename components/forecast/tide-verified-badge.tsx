@@ -110,7 +110,7 @@ export function TideVerifiedBadge({
 /**
  * Compact icon-only version for tight spaces
  */
-export function TideVerifiedBadgeIcon({
+function TideVerifiedBadgeIcon({
   status,
   tooltip,
   className,
@@ -151,7 +151,7 @@ export function TideVerifiedBadgeIcon({
 /**
  * Large badge with confidence meter for detailed views
  */
-export function TideVerifiedBadgeLarge({
+function TideVerifiedBadgeLarge({
   status,
   tooltip,
   confidenceScore = 0,
@@ -213,5 +213,3 @@ export function TideVerifiedBadgeLarge({
     </TooltipProvider>
   );
 }
-
-export default TideVerifiedBadge;

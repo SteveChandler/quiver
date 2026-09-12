@@ -32,7 +32,7 @@ export interface SwellAnalyzerData {
   swellMatch: ConditionEvaluation | null;
 }
 
-export async function getSwellAnalyzerBeach(slug: string): Promise<{
+async function getSwellAnalyzerBeach(slug: string): Promise<{
   success: boolean;
   data?: SwellAnalyzerBeach;
   error?: string;

@@ -43,7 +43,7 @@ function formatDateStringUTC(dateString: string): string {
 /**
  * Props for the BestDaysSection component
  */
-export interface BestDaysSectionProps {
+interface BestDaysSectionProps {
   /** Array of day summaries from RegionalForecastSummary */
   days: DaySummary[];
   /** The best day for surfing in the region */

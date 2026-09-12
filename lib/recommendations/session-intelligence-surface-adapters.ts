@@ -33,7 +33,7 @@ function recommendationWindowIdentity(
     : recommendation.beach.id;
 }
 
-export interface BuildSpotSurfWindowRecommendationsInput
+interface BuildSpotSurfWindowRecommendationsInput
   extends Pick<
     BuildSurfWindowRecommendationsOptions,
     "now" | "baseUrl" | "userPrefs" | "userSkill" | "boardTypes" | "sourceHints"
@@ -43,7 +43,7 @@ export interface BuildSpotSurfWindowRecommendationsInput
   maxRecommendations?: number;
 }
 
-export interface BuildRegionalSurfWindowRecommendationsInput
+interface BuildRegionalSurfWindowRecommendationsInput
   extends Pick<
     BuildSurfWindowRecommendationsOptions,
     "now" | "baseUrl" | "userPrefs" | "userSkill" | "boardTypes" | "sourceHints"
@@ -52,7 +52,7 @@ export interface BuildRegionalSurfWindowRecommendationsInput
   maxRecommendations?: number;
 }
 
-export interface BuildHomepageSurfWindowRecommendationsInput {
+interface BuildHomepageSurfWindowRecommendationsInput {
   recommendations: SurfDiscoveryRecommendation[];
   now?: Date;
   baseUrl?: string;

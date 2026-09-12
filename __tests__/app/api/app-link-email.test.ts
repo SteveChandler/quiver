@@ -19,7 +19,7 @@ const send = jest.fn<
 >(() => Promise.resolve({ data: { id: "email_1" }, error: null }));
 
 jest.mock("@/lib/mailer/client", () => ({
-  resend: { emails: { send: (arg: unknown) => send(arg) } },
+  sendEmail: (arg: unknown) => send(arg),
   MAIL_FROM: "Quiver <invites@send.quiversurf.app>",
   MAIL_REPLY_TO: "Quiver <invites@send.quiversurf.app>",
   getBaseUrl: () => "https://www.quiversurf.app",
@@ -70,7 +70,7 @@ describe("POST /api/app-link-email", () => {
     );
     expect(res.status).toBe(200);
     expect(send).toHaveBeenCalledWith(
-      expect.objectContaining({ subject: "Open Quiver on your phone" }),
+      expect.objectContaining({ purpose: "requested", subject: "Open Quiver on your phone" }),
     );
     const arg = send.mock.calls[0]?.[0] as { react: unknown };
     expect(JSON.stringify(arg.react)).toContain(

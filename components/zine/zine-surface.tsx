@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { RoughEdgeFilter } from "@/components/beach-detail/zine/atoms";
 import { cn } from "@/lib/utils";
 
-export interface ZineSurfaceProps {
+interface ZineSurfaceProps {
   sectionLabel: string;
   editionLabel?: string;
   children: ReactNode;

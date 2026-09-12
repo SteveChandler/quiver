@@ -33,7 +33,7 @@ import { WATER_QUALITY_HOLD_PREFETCH_BUFFER } from "@/lib/recommendations/major-
 import type { BeachPhotoSelect, Beach } from "@/types/database";
 import type { Coordinates } from "@/lib/types/coordinates";
 
-export interface FeaturedBeachesOptions {
+interface FeaturedBeachesOptions {
   coordinates?: Coordinates | null;
   radiusMiles?: number;
 }
@@ -343,7 +343,7 @@ function filterByProximity(
  *
  * @returns Promise resolving to array of enriched beach objects (up to FEATURED_BEACHES_LIMIT)
  */
-export interface FeaturedBeachesResult {
+interface FeaturedBeachesResult {
   beaches: EnrichedBeach[];
   isNearby: boolean;
 }

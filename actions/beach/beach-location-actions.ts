@@ -18,7 +18,7 @@ export async function getNearbyBeaches(
 // causes Next.js to error in production builds. Import from
 // "@/lib/utils/distance-utils" directly where needed.
 
-export interface CityWithBeachCount {
+interface CityWithBeachCount {
   city: string;
   state: string;
   country: string | null;
@@ -82,7 +82,7 @@ async function getAllCitiesWithBeaches(minBeaches: number = 1) {
   }
 }
 
-export interface CityWithSkillCategories {
+interface CityWithSkillCategories {
   city: string;
   state: string;
   country: string | null;
@@ -280,7 +280,7 @@ async function getAllCitiesWithBeachSkillsFallback(minBeaches: number = 1) {
 // City Lookup Functions (for redirect handling)
 // ============================================================================
 
-export interface CityLookupResult {
+interface CityLookupResult {
   slug: string;
   cityName: string;
   stateSlug: string;

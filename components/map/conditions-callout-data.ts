@@ -2,7 +2,7 @@ import { mapSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
 import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
 import type { Beach } from "@/types/database";
 
-export const CONDITIONS_CALLOUT_COLORS = {
+const CONDITIONS_CALLOUT_COLORS = {
   s1: "#F78E42", // Charming Orange (brand)
   s2: "#7AC74F", // green — kept for clear hue separation from S1
   wind: "#00D4AA", // Pacific Teal (brand-sanctioned; never cyan)
@@ -42,7 +42,7 @@ export function resolveCalloutComponents(p: SwellPartition): CalloutComponent[] 
   return out;
 }
 
-export interface CalloutBounds {
+interface CalloutBounds {
   west: number;
   south: number;
   east: number;

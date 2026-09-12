@@ -77,7 +77,7 @@ function friendlyPathName(path: string): string {
 /**
  * Props for the UnifiedAuthModal component
  */
-export interface UnifiedAuthModalProps {
+interface UnifiedAuthModalProps {
   /** Control modal open state */
   isOpen: boolean;
   /** Callback when modal is closed */

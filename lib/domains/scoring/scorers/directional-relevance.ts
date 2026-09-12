@@ -29,7 +29,7 @@ const FULL_CREDIT_PERIOD_S = 10;
 const SHORT_PERIOD_CUTOFF_S = 6;
 const MID_PERIOD_BOUNDARY_S = 8;
 
-export type DominantKind = 'swell' | 'windWave';
+type DominantKind = 'swell' | 'windWave';
 
 export function getDirectionalRelevance(
   periodS: number | null | undefined,

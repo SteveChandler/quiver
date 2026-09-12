@@ -2,7 +2,7 @@ import type { ForecastProvider } from "@/lib/services/noaa-wavewatch/types";
 
 const FORECAST_PROVIDERS = new Set<ForecastProvider>(["noaa", "open_meteo"]);
 
-export interface SwellPartitionInput {
+interface SwellPartitionInput {
   provider: string;
   evaluationId: string;
   forecastAt: string;

@@ -1,4 +1,4 @@
-export interface BeachEmailLinkParams {
+interface BeachEmailLinkParams {
   origin: string;
   beachSlug: string;
   emailType: string;
@@ -19,13 +19,13 @@ interface EmailAttributionParams {
   utmSource?: string;
 }
 
-export interface AppEmailLinkParams extends EmailAttributionParams {
+interface AppEmailLinkParams extends EmailAttributionParams {
   origin: string;
   path?: `/${string}`;
   params?: Record<string, string | undefined>;
 }
 
-export interface SessionEmailLinkParams extends EmailAttributionParams {
+interface SessionEmailLinkParams extends EmailAttributionParams {
   origin: string;
   token?: string;
   beachId?: string;

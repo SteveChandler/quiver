@@ -42,7 +42,7 @@ export interface PersonalBests {
   longestStreak: number;
 }
 
-export interface BeachImpact {
+interface BeachImpact {
   name: string;
   slug: string;
   accuracy: number;

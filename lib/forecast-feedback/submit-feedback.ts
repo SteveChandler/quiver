@@ -13,18 +13,18 @@ type ExistingFeedbackContext = {
   correlation_id: string | null;
 };
 
-export interface ForecastFeedbackContext {
+interface ForecastFeedbackContext {
   user: { id: string };
   supabase: SupabaseServerClient;
 }
 
-export interface SubmitForecastFeedbackOptions {
+interface SubmitForecastFeedbackOptions {
   ingestPath?: string;
   clientSource?: string;
   requireForecast?: boolean;
 }
 
-export type SubmitForecastFeedbackResult =
+type SubmitForecastFeedbackResult =
   | {
       success: true;
       data: {

@@ -39,7 +39,7 @@ interface StorageConfig {
 /**
  * Result of store operation
  */
-export interface StoreResult {
+interface StoreResult {
   success: boolean;
   data?: any;
   error?: string;

@@ -35,7 +35,7 @@ export interface TideExtreme {
 /**
  * Configuration for the detector
  */
-export interface TideExtremaDetectorConfig {
+interface TideExtremaDetectorConfig {
   /** Decimal precision for height rounding (default: 1) */
   precision?: number;
 }

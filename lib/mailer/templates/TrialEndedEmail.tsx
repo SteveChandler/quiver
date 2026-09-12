@@ -23,7 +23,7 @@ import {
   TEXT,
 } from "@/lib/mailer/theme";
 
-export interface TrialEndedEmailProps {
+interface TrialEndedEmailProps {
   displayName: string | null;
   beachName: string | null;
   unsubscribeUrl: string;

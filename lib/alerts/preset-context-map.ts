@@ -14,7 +14,7 @@ export type AlertPageContext =
   | "least-crowded"
   | "city-surf-report";
 
-export interface ContextualPresetConfig {
+interface ContextualPresetConfig {
   /** Preset type keys (references PresetType without importing to avoid circular deps) */
   presets: string[];
   headline: (name: string) => string;

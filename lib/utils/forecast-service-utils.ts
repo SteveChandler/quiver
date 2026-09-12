@@ -89,7 +89,7 @@ export function getStalenessDetails(
 
 type ForecastMetadataClient = Pick<SupabaseClient<Database>, "from">;
 
-export type LatestForecastMetadata =
+type LatestForecastMetadata =
   | {
       cached: false;
       stale: false;
@@ -196,7 +196,7 @@ export async function readLatestForecastMetadata(
   };
 }
 
-export interface ForecastCacheMetadata {
+interface ForecastCacheMetadata {
   cached: boolean;
   stale: boolean;
   missing: boolean;
@@ -209,7 +209,7 @@ export interface ForecastCacheMetadata {
   freshnessUnknown?: boolean;
 }
 
-export interface ForecastCacheOptions {
+interface ForecastCacheOptions {
   /**
    * Return stale cached rows for display-only surfaces.
    * Keep false for alerts, emails, pushes, and automation.
@@ -388,7 +388,7 @@ export async function getFreshForecastFromCache(
 /**
  * Result type for batch forecast cache operations
  */
-export interface BatchForecastCacheResult {
+interface BatchForecastCacheResult {
   beachId: string;
   forecasts: EnhancedForecastEntity[];
   metadata: ForecastCacheMetadata;

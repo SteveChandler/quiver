@@ -8,7 +8,7 @@ import type { Database } from '@/types/database';
 import { describeTimeOfDay } from './posting-windows';
 import { parseWaterTemp } from './forecast-formatter';
 
-export interface SurfConditions {
+interface SurfConditions {
   waveHeight: number | null;
   wavePeriod: number | null;
   windSpeed: number | null;

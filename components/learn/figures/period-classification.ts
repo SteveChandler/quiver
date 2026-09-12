@@ -1,4 +1,4 @@
-export interface PeriodClassification {
+interface PeriodClassification {
   classification: "wind" | "ground";
   label: "WIND SWELL" | "GROUNDSWELL";
   distance: string;

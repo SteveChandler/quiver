@@ -74,7 +74,7 @@ function throwRpcError(error: RpcResult["error"]): never {
   );
 }
 
-export interface CommunityPhotoUploadReservation {
+interface CommunityPhotoUploadReservation {
   photoId: string;
   storagePath: string;
   replay: boolean;
@@ -238,7 +238,7 @@ export async function completeCommunityPhotoUpload({
   return { photo, replay: reservation.replay };
 }
 
-export async function uploadCommunityPhoto({
+async function uploadCommunityPhoto({
   uploaderId,
   image,
   ...fields

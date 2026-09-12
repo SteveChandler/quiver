@@ -11,7 +11,7 @@ export interface ConditionsCard {
   ariaLabel?: string;
 }
 
-export interface BuildConditionsCardsOptions {
+interface BuildConditionsCardsOptions {
   showFrequency?: boolean;
 }
 

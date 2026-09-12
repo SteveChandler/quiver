@@ -7,7 +7,7 @@ const SHORT_PERIOD_MAX_S = 10;
 const ONSHORE_WIND_MIN_MPH = 8;
 const POOR_WIND_QUALITY_MAX = 35;
 
-export interface WindChopCeiling {
+interface WindChopCeiling {
   readonly ceiling: number;
   readonly reason: string;
 }

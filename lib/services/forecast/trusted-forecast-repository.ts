@@ -34,16 +34,16 @@ import type {
 } from "./trusted-forecast-adjustment";
 
 /** Explicit projection. `select("*")` would drag private columns we never read. */
-export const TRUSTED_FORECAST_ISSUE_COLUMNS: readonly string[] = Object.freeze([
+const TRUSTED_FORECAST_ISSUE_COLUMNS: readonly string[] = Object.freeze([
   "issue_id",
   ...TRUSTED_FORECAST_ISSUE_INPUT_FIELDS,
 ]);
 
-export const TRUSTED_FORECAST_DECISION_COLUMNS: readonly string[] = Object.freeze(
+const TRUSTED_FORECAST_DECISION_COLUMNS: readonly string[] = Object.freeze(
   ["decision_id", "beach_id", "local_date", "applied_delta_ft", "status"],
 );
 
-export const TRUSTED_FORECAST_APPLICATION_COLUMNS: readonly string[] =
+const TRUSTED_FORECAST_APPLICATION_COLUMNS: readonly string[] =
   Object.freeze(["beach_id", "forecast_at", "applied_delta_ft"]);
 
 const ISSUE_PAGE_SIZE = 500;
@@ -53,7 +53,7 @@ const KNOWN_SOURCE_KEYS: ReadonlySet<string> = new Set(
   TRUSTED_FORECAST_SOURCE_KEYS,
 );
 
-export type TrustedForecastRepositoryErrorCode =
+type TrustedForecastRepositoryErrorCode =
   | "beach_read_failed"
   | "beach_row_invalid"
   | "issue_read_failed"

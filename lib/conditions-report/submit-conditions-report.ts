@@ -18,7 +18,7 @@ export interface SubmitConditionsReportInput extends ConditionsReportInput {
   photoStoragePath?: string;
 }
 
-export interface SubmitConditionsReportData {
+interface SubmitConditionsReportData {
   intelPostId: string;
   sessionId: string | null;
   expiresAt: string;

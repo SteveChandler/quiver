@@ -1,7 +1,7 @@
 import type { MatchedRegionalEvent } from "./event-matcher";
 import type { SwellWatchAudienceReason } from "./audience";
 
-export interface RegionalBeachCandidate {
+interface RegionalBeachCandidate {
   beachId: string;
   regionalEvent: MatchedRegionalEvent;
 }
@@ -14,7 +14,7 @@ interface RegionalSwellConsolidation {
   aliases: string[];
 }
 
-export interface SwellWatchRecipientCandidate {
+interface SwellWatchRecipientCandidate {
   recipientUserId: string;
   regionalEventId: string;
   beachId: string;

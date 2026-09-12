@@ -14,7 +14,7 @@ interface PushContent {
   data: { type: string; beach_id: string; forecast_at?: string };
 }
 
-export type PushDecisionVerdict = "go" | "maybe" | "no";
+type PushDecisionVerdict = "go" | "maybe" | "no";
 
 /**
  * Map a normalized window quality (best_score, 0..1) to a punchy, honest,

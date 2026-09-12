@@ -12,7 +12,7 @@ const MAX_PREVIEW_MARKERS = 24;
 const MAX_MERCATOR_LATITUDE = 85.05112878;
 const MAPBOX_TILE_SIZE = 512;
 
-export interface MapPreviewOffset {
+interface MapPreviewOffset {
   x: number;
   y: number;
 }

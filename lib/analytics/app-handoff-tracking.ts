@@ -11,10 +11,10 @@ import {
 } from "@/lib/analytics/event-taxonomy";
 
 export const APP_HANDOFF_VIEW_EVENT = "app_handoff_view";
-export const APP_HANDOFF_QR_RENDERED_EVENT = "app_handoff_qr_rendered";
-export const APP_HANDOFF_EMAIL_SUBMIT_EVENT = "app_handoff_email_submit";
-export const APP_HANDOFF_EMAIL_SENT_EVENT = "app_handoff_email_sent";
-export const APP_HANDOFF_EMAIL_FAILED_EVENT = "app_handoff_email_failed";
+const APP_HANDOFF_QR_RENDERED_EVENT = "app_handoff_qr_rendered";
+const APP_HANDOFF_EMAIL_SUBMIT_EVENT = "app_handoff_email_submit";
+const APP_HANDOFF_EMAIL_SENT_EVENT = "app_handoff_email_sent";
+const APP_HANDOFF_EMAIL_FAILED_EVENT = "app_handoff_email_failed";
 export const APP_HANDOFF_LINK_OPENED_EVENT = "app_handoff_link_opened";
 
 type AppHandoffEvent =

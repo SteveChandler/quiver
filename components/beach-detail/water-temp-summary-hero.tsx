@@ -3,7 +3,7 @@ import { ArrowUpRight, Thermometer } from "lucide-react";
 
 import type { WaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 
-export interface WaterTempSummaryHeroProps {
+interface WaterTempSummaryHeroProps {
   beachName: string;
   seasonalTrendsHref: string;
   seasonalTrendsLocation: string;

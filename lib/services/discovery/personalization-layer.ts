@@ -67,7 +67,7 @@ export interface PersonalizationContext {
  * Values are bounded so personalization can break close calls without
  * overriding the base surf setup.
  */
-export interface PersonalizationBonusResult {
+interface PersonalizationBonusResult {
   /** Total bonus to add to the beach score (affinityBonus + personalizationBonus) */
   total: number;
   /** Affinity bonus component, based on user_beach_affinity.affinity_score */

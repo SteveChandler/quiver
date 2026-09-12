@@ -149,7 +149,7 @@ interface PriceCountUpProps {
  * Animates a price counting up from $0 on scroll entry.
  * Uses requestAnimationFrame for smooth 60fps counting.
  */
-export function PriceCountUp({
+function PriceCountUp({
   target,
   prefix = "$",
   className = "",
@@ -223,7 +223,7 @@ interface HeroPulseProps {
  * Adds a subtle pulsing ring animation behind its children.
  * Used behind the "$0" price card for emphasis.
  */
-export function HeroPulse({ children, className = "" }: HeroPulseProps) {
+function HeroPulse({ children, className = "" }: HeroPulseProps) {
   return (
     <div className={`vs-hero-pulse h-full ${className}`}>
       <div className="vs-hero-pulse__ring" aria-hidden="true" />

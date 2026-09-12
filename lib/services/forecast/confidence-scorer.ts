@@ -13,7 +13,7 @@
 /**
  * Parameters for confidence calculation
  */
-export interface ConfidenceParams {
+interface ConfidenceParams {
   /** Whether wave data is available */
   hasWaveData: boolean;
   /** Whether tide data is available */
@@ -132,7 +132,7 @@ export function decimalToConfidence(decimal: number): number {
  * Parameters for deriving confidence from a forecast row.
  * Matches the shape of enhanced_forecasts table rows.
  */
-export interface ForecastRowParams {
+interface ForecastRowParams {
   /** Data source identifier (e.g., 'CDIP', 'NOAA_NWS') */
   data_source: string | null;
   /** ISO 8601 UTC timestamptz (preferred over forecast_date + forecast_time) */

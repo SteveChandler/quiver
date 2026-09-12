@@ -171,7 +171,7 @@ export function scoreForecastWindow(
  * @param beach - Beach metadata
  * @returns Score from 0-100
  */
-export interface WindowConditionScoreDetails {
+interface WindowConditionScoreDetails {
   score: number;
   boardClass: BoardClass | null;
   rideabilityBand: RideabilityBand | null;

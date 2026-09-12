@@ -105,7 +105,7 @@ export function isPrivateIP(ip: string): boolean {
  * await validateHostname('api.openverse.org') // { isValid: true, ips: ['1.2.3.4'] }
  * await validateHostname('localhost') // { isValid: false, ips: ['127.0.0.1'], reason: 'Private IP detected' }
  */
-export async function validateHostname(hostname: string): Promise<{
+async function validateHostname(hostname: string): Promise<{
   isValid: boolean;
   ips?: string[];
   reason?: string;

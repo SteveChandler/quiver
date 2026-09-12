@@ -16,7 +16,7 @@ const DEFAULT_MAX_CACHE_SIZE = 50;
 /**
  * Configuration options for TideCache
  */
-export interface TideCacheOptions {
+interface TideCacheOptions {
   /** Cache timeout in milliseconds (default: 30 minutes) */
   timeoutMs?: number;
   /** Maximum number of entries (default: 50) */

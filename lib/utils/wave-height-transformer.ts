@@ -207,7 +207,7 @@ export const SET_WAVE_VARIANCE = 1.5;
 /**
  * Wave height range representing average to set waves
  */
-export interface WaveHeightRange {
+interface WaveHeightRange {
   /** Average wave face height */
   low: number;
   /** Set wave face height (low × 1.5) */
@@ -426,7 +426,7 @@ export function transformToFaceHeight(params: TransformParams): number {
  * falls outside the bucket table, the source fell back to model swell,
  * or the raw height is invalid.
  */
-export interface FaceHeightWithMetadata {
+interface FaceHeightWithMetadata {
   faceHeightFt: number;
   isCalibrated: boolean;
   provenance: WaveHeightTransformProvenance;
@@ -600,8 +600,8 @@ export const SHORT_PERIOD_CUTOFF_S = 8;
 export const WIND_WAVE_FACE_HEIGHT_CUTOFF_S = 9;
 
 const LONG_PERIOD_SOUTH_SWELL_FLOOR_MIN_PERIOD_S = 15;
-export const CALIBRATION_BUCKET_QUARANTINE_MIN_PERIOD_S = 15;
-export const CALIBRATION_BUCKET_QUARANTINE_MAX_FACTOR = 0.8;
+const CALIBRATION_BUCKET_QUARANTINE_MIN_PERIOD_S = 15;
+const CALIBRATION_BUCKET_QUARANTINE_MAX_FACTOR = 0.8;
 const LONG_PERIOD_SOUTH_SWELL_FLOOR_MIN_ACCESS = 0.02;
 const SOUTH_SWELL_FLOOR_MIN_DIRECTION_DEG = 160;
 const SOUTH_SWELL_FLOOR_MAX_DIRECTION_DEG = 230;
@@ -893,7 +893,7 @@ export interface SwellComponentInput {
  * actually applied. Mirrors `transformToFaceHeightWithMetadata` so downstream
  * consumers can treat the two metadata flags identically.
  */
-export interface DecomposedFaceHeightResult {
+interface DecomposedFaceHeightResult {
   faceHeightFt: number;
   isCalibrated: boolean;
   provenance: WaveHeightTransformProvenance;

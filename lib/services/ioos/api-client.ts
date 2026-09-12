@@ -14,7 +14,7 @@ import { IOOSServiceConfig } from "@/types/ioos";
 /**
  * ERDDAP table response format
  */
-export interface ERDDAPTableResponse {
+interface ERDDAPTableResponse {
   table: {
     columnNames: string[];
     rows: (string | number | null)[][];
@@ -24,7 +24,7 @@ export interface ERDDAPTableResponse {
 /**
  * ERDDAP info response format (for variable discovery)
  */
-export interface ERDDAPInfoResponse {
+interface ERDDAPInfoResponse {
   table: {
     columnNames: string[];
     rows: (string | null)[][];

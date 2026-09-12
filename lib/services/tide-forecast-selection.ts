@@ -41,7 +41,7 @@ function compareHigher(left: number, right: number): number {
 }
 
 /** Returns positive when candidate should replace incumbent. */
-export function compareTideForecastRows(
+function compareTideForecastRows(
   candidate: TideForecastSelectionRow,
   incumbent: TideForecastSelectionRow,
 ): number {

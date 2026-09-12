@@ -71,7 +71,7 @@ export function buildKeywordBankDashboard(
   return next;
 }
 
-export function buildLearnEntries(): SeoDashboardEntry[] {
+function buildLearnEntries(): SeoDashboardEntry[] {
   return learnArticles.map((article) => {
     const canonicalPath = `/learn/${article.slug}`;
     const primaryKeyword = article.keywords[0] ?? article.title;
@@ -92,7 +92,7 @@ export function buildLearnEntries(): SeoDashboardEntry[] {
   });
 }
 
-export function buildFunnelEntries(): SeoDashboardEntry[] {
+function buildFunnelEntries(): SeoDashboardEntry[] {
   return INDEXABLE_SEO_FUNNEL_PAGES.map((page) => {
     const canonicalPath = normalizeSeoPath(page.path);
     const primaryKeyword = inferPrimaryKeyword(page.h1 || page.title);

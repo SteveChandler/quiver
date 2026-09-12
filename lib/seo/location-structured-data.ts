@@ -1,4 +1,4 @@
-export type LocationPlaceBeachItem = {
+type LocationPlaceBeachItem = {
   name: string;
   url: string;
 };
@@ -9,7 +9,7 @@ export type LocationPlaceBeachItem = {
  * database column convention (`center_lat`, `center_lng` legacy columns are
  * read and mapped to `lat`/`lon` before being passed here).
  */
-export type LocationPlaceBeachGeo = {
+type LocationPlaceBeachGeo = {
   name: string;
   url: string;
   /** Latitude from database `center_lat` column */
@@ -18,7 +18,7 @@ export type LocationPlaceBeachGeo = {
   lon?: number | null;
 };
 
-export type BuildLocationPlaceStructuredDataInput = {
+type BuildLocationPlaceStructuredDataInput = {
   city: string;
   state: string;
   topBeaches: LocationPlaceBeachItem[];

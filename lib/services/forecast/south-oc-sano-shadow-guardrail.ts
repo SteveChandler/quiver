@@ -46,7 +46,7 @@ export const SOUTH_OC_SANO_SHADOW_ZONE_SLUGS = [
   "trails",
 ] as const;
 
-export const TRESTLES_CLUSTER_SLUGS = [
+const TRESTLES_CLUSTER_SLUGS = [
   "cottons",
   "upper-trestles",
   "lower-trestles",

@@ -21,11 +21,11 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
  * When authenticated is true, user is guaranteed to exist.
  * When authenticated is false, error is guaranteed to exist.
  */
-export type AuthResult =
+type AuthResult =
   | { authenticated: true; user: User }
   | { authenticated: false; error: string };
 
-export interface SupabaseCookieOptions {
+interface SupabaseCookieOptions {
   getAll(): { name: string; value: string }[];
   setAll(cookies: { name: string; value: string; options: any }[]): void;
 }

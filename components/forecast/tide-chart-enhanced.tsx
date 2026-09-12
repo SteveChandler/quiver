@@ -94,7 +94,7 @@ function forecastsToTidePoints(
     .map((p) => p as TidePoint) as TidePoint[];
 }
 
-export interface TideChartEnhancedProps extends TideChartProps {
+interface TideChartEnhancedProps extends TideChartProps {
   /** Diagnostics data for transparency panel */
   diagnostics?: TideDiagnostics;
   /** Show the diagnostics panel */
@@ -355,7 +355,7 @@ export function TideChartEnhanced({
 /**
  * Minimal version that just adds the diagnostics header
  */
-export function TideChartWithDiagnosticsHeader({
+function TideChartWithDiagnosticsHeader({
   diagnostics,
   ...chartProps
 }: Omit<

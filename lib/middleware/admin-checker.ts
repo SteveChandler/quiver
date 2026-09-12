@@ -15,7 +15,7 @@
 import type { User } from "@supabase/supabase-js";
 import { ADMIN_USER_IDS } from "@/lib/auth/admin";
 
-export interface AdminCheckResult {
+interface AdminCheckResult {
   isAdmin: boolean;
   userId: string;
   reason?: string;

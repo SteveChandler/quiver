@@ -1,4 +1,4 @@
-export interface RosterAuditClient {
+interface RosterAuditClient {
   rpc(
     name: string,
     args: Record<string, unknown>,

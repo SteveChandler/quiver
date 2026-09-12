@@ -201,7 +201,7 @@ export const getUserStorageUsageAction = makeAuthenticatedAction(
 /**
  * Get detailed storage statistics via database function
  */
-export const getStorageStatsAction = makeAuthenticatedAction(
+const getStorageStatsAction = makeAuthenticatedAction(
   async (user, supabase) => {
     const { data, error } = await supabase.rpc("get_user_storage_stats", {
       p_user_id: user.id,

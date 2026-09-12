@@ -15,7 +15,7 @@ export interface EditorialIntegrityBeach {
   hazards?: string[] | null;
 }
 
-export interface EditorialIntegrityResult {
+interface EditorialIntegrityResult {
   quarantined: boolean;
   reasons: string[];
 }

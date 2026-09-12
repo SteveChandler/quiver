@@ -945,16 +945,19 @@ describe("InteractiveMap", () => {
   });
 
   it("does not carry a prior hourly frame into a missing absolute timestamp", async () => {
-    const interactiveMapModule = await import("@/components/map/interactive-map");
-    const resolve = (interactiveMapModule as Record<string, unknown>).partitionAtAbsoluteTimelineIndex;
-    const firstFrame = { swell1Height: 2 };
+    const { partitionAtAbsoluteTimelineIndex: resolve } = await import("@/components/map/interactive-map");
+    const firstFrame = {
+      s1Dir: 270, s1PeriodS: 12, s1HeightFt: 2,
+      s2Dir: null, s2PeriodS: null, s2HeightFt: null,
+      windDir: null, windMph: null,
+    };
     const timeline = {
       timestamps: [
         "2026-07-10T20:00:00.000Z",
         "2026-07-10T21:00:00.000Z",
         "2026-07-10T22:00:00.000Z",
       ],
-      partitionsByBeach: { "beach-1": [firstFrame, null, { swell1Height: 4 }] },
+      partitionsByBeach: { "beach-1": [firstFrame, null, { ...firstFrame, s1HeightFt: 4 }] },
       hasMore: false,
       nextStart: null,
     };
@@ -963,6 +966,7 @@ describe("InteractiveMap", () => {
       : firstFrame;
 
     expect(partition).toBeUndefined();
+    expect(resolve(timeline, "beach-1", 0)).toEqual(firstFrame);
 
     const malformedTimestampPartition = typeof resolve === "function"
       ? resolve(

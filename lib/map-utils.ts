@@ -487,7 +487,7 @@ export function getStaticMapImageUrlWithWaveHeight(
   });
 }
 
-export interface StaticMapPin {
+interface StaticMapPin {
   latitude: number;
   longitude: number;
   /** Mapbox pin label — rank numbers 0-99 or a single letter */

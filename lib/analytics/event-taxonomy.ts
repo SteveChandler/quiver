@@ -72,21 +72,21 @@ export const BFR_EXACT_CALL_HANDOFF_EVENTS = {
   resolved: 'watched_call_context_resolved',
 } as const;
 
-export type BfrIntentState = (typeof BFR_INTENT_STATES)[number];
-export type BfrIntentReason = (typeof BFR_INTENT_REASONS)[number];
-export type BfrWebAudienceClass =
+type BfrIntentState = (typeof BFR_INTENT_STATES)[number];
+type BfrIntentReason = (typeof BFR_INTENT_REASONS)[number];
+type BfrWebAudienceClass =
   (typeof BFR_WEB_AUDIENCE_CLASSES)[number];
-export type BfrWebExperimentArm =
+type BfrWebExperimentArm =
   (typeof BFR_WEB_EXPERIMENT_ARMS)[number];
 export type BfrWebEventType = (typeof BFR_WEB_EVENT_TYPES)[number];
 export type BfrTopic = (typeof BFR_TOPICS)[number];
 export type BfrPageType = (typeof BFR_PAGE_TYPES)[number];
-export type BfrFallbackClassification =
+type BfrFallbackClassification =
   (typeof BFR_FALLBACK_CLASSIFICATIONS)[number];
-export type BfrHandoffResolutionReason =
+type BfrHandoffResolutionReason =
   (typeof BFR_HANDOFF_RESOLUTION_REASONS)[number];
 export type BfrHandoffContext = (typeof BFR_HANDOFF_CONTEXTS)[number];
-export type BfrHandoffResolutionMetadata =
+type BfrHandoffResolutionMetadata =
   | { fallback_classification: 'exact'; reason?: never }
   | { fallback_classification: 'replaced'; reason: 'window_replaced' }
   | {
@@ -371,7 +371,7 @@ function hasOnlyKeys(
   return Object.keys(value).every((key) => allowedKeys.has(key));
 }
 
-export function hasValidBfrHandoffResolutionPair(
+function hasValidBfrHandoffResolutionPair(
   metadata: Record<string, unknown>,
 ): metadata is Record<string, unknown> & BfrHandoffResolutionMetadata {
   const classification = metadata.fallback_classification;

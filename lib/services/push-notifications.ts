@@ -17,7 +17,7 @@ interface PushResult {
   errors?: string[];
 }
 
-export type PushMessage = SharedPushMessage;
+type PushMessage = SharedPushMessage;
 
 let firebaseSkipWarned = false;
 

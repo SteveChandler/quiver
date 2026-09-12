@@ -185,7 +185,7 @@ interface DeviceRow {
   delivery_claim_version?: number;
 }
 
-export interface ProcessOptions {
+interface ProcessOptions {
   batchSize?: number;
   /** Override "now" for deterministic testing. */
   now?: Date;
@@ -195,11 +195,11 @@ export interface ProcessOptions {
   resolveMajorEventHold?: NotificationMajorEventHoldResolver;
 }
 
-export type NotificationMajorEventHoldResolver = (
+type NotificationMajorEventHoldResolver = (
   input: ResolveNotificationMajorEventHoldInput,
 ) => Promise<NotificationMajorEventHoldResult>;
 
-export interface ProcessSummary {
+interface ProcessSummary {
   fetched: number;
   /** Events finalized this tick, including decisive all-skip cancellations. */
   processed: number;
@@ -273,7 +273,7 @@ interface SurfAlertSlot {
   priority: 1 | 2 | 3;
 }
 
-export function getSurfAlertSlot(
+function getSurfAlertSlot(
   event: SurfAlertCandidate,
 ): SurfAlertSlot | null {
   if (!isKnownNotificationType(event.type)) return null;

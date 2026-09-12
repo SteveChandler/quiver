@@ -67,7 +67,7 @@ export interface NOAAGridData {
  */
 export type ForecastProvider = "noaa" | "open_meteo";
 
-export interface SwellFieldSource {
+interface SwellFieldSource {
   kind: "provider_field" | "derived" | "missing";
   field: string | null;
   sample?: {

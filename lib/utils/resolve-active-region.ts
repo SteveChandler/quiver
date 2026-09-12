@@ -25,7 +25,7 @@ import { getClosestRegion } from "@/lib/utils/forecast-hub-utils";
 
 const DEFAULT_REGION_SLUG = "southern-california";
 
-export interface ResolveActiveRegionOptions {
+interface ResolveActiveRegionOptions {
   /** Parsed `searchParams` from the server page (e.g. `{ region: "hawaii" }`). */
   searchParams?: { region?: string | string[] | undefined };
   /**

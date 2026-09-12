@@ -7,7 +7,7 @@ import type {
   SurfWindowSourceFlags,
 } from "@/types/session-intelligence";
 
-export interface SourceConfidenceBadgeProps {
+interface SourceConfidenceBadgeProps {
   confidence: SurfWindowConfidence;
   sources: SurfWindowSourceFlags;
   className?: string;

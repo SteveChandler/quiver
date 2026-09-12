@@ -22,7 +22,7 @@ import { getScoreCall } from "./score-band-call";
 /**
  * Props for the AnimatedScoreGauge component
  */
-export interface AnimatedScoreGaugeProps {
+interface AnimatedScoreGaugeProps {
   /** Score value from 0-100 */
   score: number;
   /** Size variant */

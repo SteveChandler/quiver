@@ -24,7 +24,7 @@ import {
   TEXT,
 } from "@/lib/mailer/theme";
 
-export interface AndroidBetaInstructionsEmailProps {
+interface AndroidBetaInstructionsEmailProps {
   groupUrl: string;
   playUrl: string | null;
 }

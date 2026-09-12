@@ -13,7 +13,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 // Re-export from forecast-service-utils for convenience
 export { getFreshForecastFromCache, fetchBeachForecasts } from "./forecast-service-utils";
 
-export type ForecastUpdateOptions = {
+type ForecastUpdateOptions = {
   /**
    * Absolute unix timestamp (ms) after which the updater should stop starting new work.
    * Used by Vercel cron to avoid runtime hard timeouts.

@@ -43,7 +43,7 @@ import {
 } from "@/app/vs/surfline/animations";
 
 // ISR: Revalidate every 24 hours (static comparison content)
-export const revalidate = 86400;
+const revalidate = 86400;
 
 // ---------------------------------------------------------------------------
 // Metadata

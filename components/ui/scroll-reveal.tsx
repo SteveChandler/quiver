@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 /**
  * Animation variant types
  */
-export type ScrollRevealVariant =
+type ScrollRevealVariant =
   | "fadeUp"
   | "fadeIn"
   | "slideLeft"
@@ -27,7 +27,7 @@ export type ScrollRevealVariant =
 /**
  * Props for the ScrollReveal component
  */
-export interface ScrollRevealProps {
+interface ScrollRevealProps {
   /** Child elements to animate */
   children: React.ReactNode;
   /** Animation variant (default: "fadeUp") */
@@ -222,7 +222,7 @@ export function ScrollReveal({
  * Utility hook to check if an element is in view
  * Useful for custom animation implementations
  */
-export function useInView(
+function useInView(
   threshold = 0.2,
   once = true
 ): [React.RefObject<HTMLDivElement | null>, boolean] {

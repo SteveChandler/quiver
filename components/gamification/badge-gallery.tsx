@@ -15,7 +15,7 @@ import { BadgeIcon } from "./badge-icon";
 import { cn } from "@/lib/utils";
 import { Trophy, Lock, Calendar, BookOpen } from "lucide-react";
 
-export interface BadgeData {
+interface BadgeData {
   badge_slug: string;
   name: string;
   description: string;
