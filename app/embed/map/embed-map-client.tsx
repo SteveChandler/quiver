@@ -127,7 +127,7 @@ function renderHealthStatus(fps: number): "ok" | "degraded" {
   return fps >= DEGRADED_FPS_THRESHOLD ? "ok" : "degraded";
 }
 
-export function focusEmbedBeachMarker(beachId: string): boolean {
+function focusEmbedBeachMarker(beachId: string): boolean {
   const markers = document.querySelectorAll<HTMLElement>('[data-testid="beach-marker"]');
   const marker = Array.from(markers).find(
     (candidate) => candidate.getAttribute("data-beach-id") === beachId,

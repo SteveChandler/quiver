@@ -20,7 +20,7 @@ const roundCoordinate = (value: number | null | undefined): string => {
   return value.toFixed(DEFAULT_COORDINATE_PRECISION);
 };
 
-export interface IntelDedupeParams {
+interface IntelDedupeParams {
   userId: string;
   tag: string;
   beachId?: string | null;

@@ -1,7 +1,7 @@
 import { createServiceRoleClient } from "@/lib/supabase";
 import type { ExperimentArm, ExperimentKey } from "./assignment-hash";
 
-export interface ExperimentAssignmentRow {
+interface ExperimentAssignmentRow {
   experiment_key: ExperimentKey;
   user_id: string;
   arm: ExperimentArm;
@@ -13,7 +13,7 @@ export interface ExperimentAssignmentRow {
   created_at: string;
 }
 
-export interface ExperimentEligibilityLinkResult {
+interface ExperimentEligibilityLinkResult {
   rowsLinked: number;
   alreadyLinked: boolean;
   existingBuild: string | null;
@@ -49,7 +49,7 @@ export async function linkExperimentEligibility(
   };
 }
 
-export async function allocateExperimentBatch(
+async function allocateExperimentBatch(
   experimentKey: ExperimentKey,
   userIds: string[],
   indexAt?: string

@@ -10,12 +10,12 @@
 /**
  * Preferred wave size from onboarding.
  */
-export type WaveSizePreference = 'small' | 'medium' | 'large' | 'any';
+type WaveSizePreference = 'small' | 'medium' | 'large' | 'any';
 
 /**
  * Maps wave size preference to approximate height range (feet).
  */
-export const WAVE_SIZE_RANGES: Record<
+const WAVE_SIZE_RANGES: Record<
   WaveSizePreference,
   { minFt: number; maxFt: number }
 > = {
@@ -115,7 +115,7 @@ export interface UserPreferences {
 /**
  * Result of matching user preferences against conditions.
  */
-export interface PreferenceMatch {
+interface PreferenceMatch {
   /** Does condition match onboarding wave size preference */
   readonly matchesOnboardingWaveSize: boolean;
 
@@ -144,7 +144,7 @@ export interface PreferenceMatch {
 /**
  * Default values for user preferences.
  */
-export const USER_PREFERENCES_DEFAULTS = {
+const USER_PREFERENCES_DEFAULTS = {
   onboarding: {
     waveSize: null,
     breakType: null,

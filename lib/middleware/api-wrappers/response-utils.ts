@@ -22,6 +22,6 @@ export {
   createPaginationMeta,
   parsePaginationParams,
   DEFAULT_SECURITY_HEADERS,
-  validateCronAuth,
+
   validateCronRequest,
 } from "@/lib/api-utils";

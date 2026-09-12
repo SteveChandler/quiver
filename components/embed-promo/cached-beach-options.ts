@@ -4,7 +4,7 @@ import { unstable_cache } from "next/cache";
 
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 
-export interface CachedBeachOption {
+interface CachedBeachOption {
   name: string;
   slug: string;
   city: string | null;

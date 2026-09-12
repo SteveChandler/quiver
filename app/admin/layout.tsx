@@ -38,6 +38,7 @@ export const metadata: Metadata = {
 
 // Navigation items for admin sidebar
 const navItems = [
+  { title: "Email lifecycle", href: "/admin/email", icon: FileText },
   {
     title: "Overview",
     href: "/admin",

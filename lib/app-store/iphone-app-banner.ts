@@ -1,7 +1,7 @@
 export const IPHONE_APP_BANNER_SOURCE = "iphone-app-banner";
 export const IPHONE_APP_BANNER_DISMISSAL_STORAGE_KEY =
   "quiver_iphone_app_banner_dismissed_at";
-export const IPHONE_APP_BANNER_DISMISSAL_DAYS = 14;
+const IPHONE_APP_BANNER_DISMISSAL_DAYS = 14;
 
 export type IphoneAppBannerBrowser =
   | "safari"
@@ -22,7 +22,7 @@ export type IphoneAppBannerSuppressionReason =
   | "dismissed"
   | "safari_native_banner";
 
-export interface IphoneAppBannerDecisionInput {
+interface IphoneAppBannerDecisionInput {
   userAgent: string;
   pathname: string;
   isStandalone: boolean;

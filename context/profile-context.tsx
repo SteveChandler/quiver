@@ -32,7 +32,7 @@ import {
  * - hooks/use-cached-profile.ts (localStorage caching)
  */
 
-export interface ProfileContextValue {
+interface ProfileContextValue {
   profile: Profile | null;
   homeBeach: Beach | null;
   isLoading: boolean;

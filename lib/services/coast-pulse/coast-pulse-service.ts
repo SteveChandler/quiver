@@ -62,7 +62,6 @@ import type {
 } from "./coast-pulse-types";
 
 // Re-export types for convenience
-export type { CoastPulseItem, CoastPulseResponse, CoastPulseParams } from "./coast-pulse-types";
 
 // Database row types
 type BuoyRow = Database["public"]["Tables"]["buoys"]["Row"];

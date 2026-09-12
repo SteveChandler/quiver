@@ -83,12 +83,12 @@ const signupMetadataSchema = z
   })
   .strict();
 
-export type SignupContextV2 = z.infer<typeof signupContextV2Schema>;
+type SignupContextV2 = z.infer<typeof signupContextV2Schema>;
 export type WebSignupContext = z.infer<typeof webSignupContextSchema>;
 export type SignupMetadata = z.infer<typeof signupMetadataSchema>;
 export type WebSignupMethod = WebSignupContext["method"];
 
-export interface WebSignupAttribution {
+interface WebSignupAttribution {
   utm_source?: string | null;
   utm_medium?: string | null;
   utm_campaign?: string | null;
@@ -96,7 +96,7 @@ export interface WebSignupAttribution {
   utm_term?: string | null;
 }
 
-export interface WebSignupLocation {
+interface WebSignupLocation {
   city: string | null;
   region: string | null;
   country: string | null;
@@ -104,7 +104,7 @@ export interface WebSignupLocation {
   longitude: number | null;
 }
 
-export interface BuildWebSignupMetadataInput {
+interface BuildWebSignupMetadataInput {
   method: WebSignupMethod;
   entrypoint: string;
   pathname: string;

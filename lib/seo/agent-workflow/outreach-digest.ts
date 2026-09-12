@@ -28,7 +28,7 @@ const ROTATION_BY_WEEK: OutreachRotationCategory[] = [
   "publications",
 ];
 
-export interface OutreachTrackerRow {
+interface OutreachTrackerRow {
   category: OutreachRotationCategory | "other";
   target: string;
   website?: string;
@@ -39,7 +39,7 @@ export interface OutreachTrackerRow {
   status: string;
 }
 
-export interface OutreachTrackerParse {
+interface OutreachTrackerParse {
   rows: OutreachTrackerRow[];
   statusCounts: Record<string, number>;
   totalRows: number;
@@ -150,7 +150,7 @@ export function buildOutreachDigest(
   };
 }
 
-export function buildDraftCandidate(
+function buildDraftCandidate(
   row: OutreachTrackerRow,
   category: OutreachRotationCategory,
 ): OutreachDraftCandidate {

@@ -31,7 +31,7 @@ interface BreakBehaviorProfileRow {
   is_system_account: boolean | null;
 }
 
-export interface BreakBehaviorAggregate {
+interface BreakBehaviorAggregate {
   plannedSessions: number;
   completedSessions: number;
   uniqueUsers: number;
@@ -59,7 +59,7 @@ export interface BreakBehaviorScoreResult {
   reasons: string[];
 }
 
-export interface AppliedBreakBehaviorScore {
+interface AppliedBreakBehaviorScore {
   score: number;
   appliedBehaviorScore: number;
   suppressed: boolean;

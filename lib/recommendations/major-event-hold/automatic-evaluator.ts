@@ -21,7 +21,7 @@ const officialRiskCandidateRowSchema = z
   })
   .strict();
 
-export interface EvaluateOfficialRipCurrentHoldsInput {
+interface EvaluateOfficialRipCurrentHoldsInput {
   rows: unknown;
   now: Date;
 }
@@ -45,7 +45,7 @@ export interface OfficialRipCurrentHoldProposal {
   requestId: string;
 }
 
-export interface OfficialRipCurrentHoldDiagnostics {
+interface OfficialRipCurrentHoldDiagnostics {
   proposals: OfficialRipCurrentHoldProposal[];
   invalidMetadataCount: number;
 }

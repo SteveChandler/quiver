@@ -44,7 +44,7 @@ export interface IntentForecastHoldInput<
   isTomorrow: boolean;
 }
 
-export interface SanitizedIntentForecastResponse<
+interface SanitizedIntentForecastResponse<
   TTopPick extends IntentForecastTopPickIdentity,
 > {
   bestWindow: IntentForecastBestWindow | null;

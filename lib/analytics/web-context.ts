@@ -2,27 +2,27 @@ import { getAttributionFromCookies } from "@/lib/attribution";
 import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
 
 export type FirstTouchPlatform = "ios" | "android" | "desktop";
-export type CamFamily = "cams-directory" | "surf-cams-seo";
-export type SeoPageType =
+type CamFamily = "cams-directory" | "surf-cams-seo";
+type SeoPageType =
   | "city_water_temp"
   | "beach_water_temp"
   | "best_time"
   | "surf_report"
   | "other";
-export type SeoQueryIntent =
+type SeoQueryIntent =
   | "water_temp"
   | "best_time"
   | "surf_report"
   | "app_store"
   | "other";
 
-export interface SeoPageContext {
+interface SeoPageContext {
   page_type: SeoPageType;
   query_intent: SeoQueryIntent;
   seo_landing_page: boolean;
 }
 
-export interface WebAnalyticsContext {
+interface WebAnalyticsContext {
   pathname: string;
   page: string;
   surface: string;

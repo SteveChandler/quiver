@@ -43,7 +43,7 @@ type BeachRow = {
   name: string | null;
 };
 
-export interface AlertResult {
+interface AlertResult {
   beachesWithChanges: number;
   notificationsSent: number;
   notificationsSkipped: number;

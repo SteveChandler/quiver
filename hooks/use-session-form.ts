@@ -62,7 +62,7 @@ export type SessionFormMode = "log";
 /**
  * Parameters for configuring the session form hook
  */
-export type SessionFormHookParams = {
+type SessionFormHookParams = {
   /**
    * Initial form mode. Session creation is log-only.
    */

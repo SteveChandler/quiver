@@ -41,9 +41,9 @@ const mutationSchema = z
   })
   .strict();
 
-export type CommunityPhotoUploadFields = z.output<typeof uploadFieldsSchema>;
-export type CommunityPhotoVoteInput = z.output<typeof voteSchema>;
-export type CommunityPhotoReportInput = z.output<typeof reportSchema>;
+type CommunityPhotoUploadFields = z.output<typeof uploadFieldsSchema>;
+type CommunityPhotoVoteInput = z.output<typeof voteSchema>;
+type CommunityPhotoReportInput = z.output<typeof reportSchema>;
 
 export function getCommunityPhotoFeatureFlags(
   userId: string | null = null,

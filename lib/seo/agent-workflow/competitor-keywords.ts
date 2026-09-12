@@ -6,7 +6,7 @@ export function filterRelevantCompetitorKeywordRows(
   return rows.filter((row) => isRelevantCompetitorKeyword(row.keyword));
 }
 
-export function isRelevantCompetitorKeyword(keyword: string): boolean {
+function isRelevantCompetitorKeyword(keyword: string): boolean {
   return !isLowFitCompetitorKeyword(keyword) && isActionableCompetitorKeyword(keyword);
 }
 
@@ -14,7 +14,7 @@ export function isLowFitCompetitorKeyword(keyword: string): boolean {
   return /(history|origin|invented|tom blake|free surfers|freesurf|surfer best|surf fishing|fishing|boating|boat|ho stevie|george greenough|dylan graves)/i.test(keyword);
 }
 
-export function isActionableCompetitorKeyword(keyword: string): boolean {
+function isActionableCompetitorKeyword(keyword: string): boolean {
   if (/(surfline|lazy surfer|swellify|swell scope|swellscope|duune|surf radar|magicseaweed|msw)/i.test(keyword)) {
     return false;
   }

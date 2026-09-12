@@ -68,7 +68,7 @@ export function getScoreColorClass(tier: ConditionTier): string {
 /**
  * Condition badge configuration
  */
-export interface ConditionBadgeConfig {
+interface ConditionBadgeConfig {
   label: string;
   className: string;
 }
@@ -108,7 +108,7 @@ export function getConditionBadge(tier: ConditionTier): ConditionBadgeConfig | n
 /**
  * Headline text parts for recommendation display
  */
-export interface HeadlineText {
+interface HeadlineText {
   prefix: string;
   beachPart: string;
   connector: string;

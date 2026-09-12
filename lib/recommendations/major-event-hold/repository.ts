@@ -209,11 +209,11 @@ type ResolverRpc = (
   arguments_: ResolverRpcArguments,
 ) => PromiseLike<ResolverRpcResponse>;
 
-export interface MajorEventHoldRpcClient {
+interface MajorEventHoldRpcClient {
   rpc: unknown;
 }
 
-export interface ResolveMajorEventHoldsOptions {
+interface ResolveMajorEventHoldsOptions {
   client?: MajorEventHoldRpcClient;
   asOf?: Date;
 }

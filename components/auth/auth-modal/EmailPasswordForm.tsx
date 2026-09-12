@@ -13,7 +13,7 @@ import { Loader2 } from "lucide-react";
  * checkbox is shown here. The submit button is enabled as soon as loading
  * completes.
  */
-export interface EmailPasswordFormProps {
+interface EmailPasswordFormProps {
   mode: "login" | "signup" | "auto";
   email: string;
   password: string;

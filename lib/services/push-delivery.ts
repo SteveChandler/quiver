@@ -11,7 +11,7 @@ export interface PushMessage {
   apns?: messaging.ApnsConfig;
 }
 
-export interface PushDispatchResult {
+interface PushDispatchResult {
   success: number;
   failed: number;
   invalidTokens: string[];
@@ -42,7 +42,7 @@ const FCM_INVALID_TOKEN_ERROR_CODES = new Set([
 
 const EXPO_INVALID_TOKEN_ERRORS = new Set(["DeviceNotRegistered"]);
 
-export function isExpoPushToken(token: string): boolean {
+function isExpoPushToken(token: string): boolean {
   return /^(Exponent|Expo)PushToken\[[^\]]+\]$/.test(token);
 }
 

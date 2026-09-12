@@ -14,7 +14,7 @@ export interface SurfWindowTrackingContext {
   canonicalWebUrl?: string | null;
 }
 
-export type AppDeepLinkType = "universal_link" | "app_path" | "app_store";
+type AppDeepLinkType = "universal_link" | "app_path" | "app_store";
 
 export function buildSurfWindowTrackingContext(
   recommendation: SurfWindowRecommendation,

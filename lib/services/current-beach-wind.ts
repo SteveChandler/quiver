@@ -1,6 +1,6 @@
 import type { SupabaseServerClient } from "@/types/supabase";
 
-export interface CurrentBeachWind {
+interface CurrentBeachWind {
   observedAt: string;
   windSpeedMph: number;
   windDirection: string | null;

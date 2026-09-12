@@ -14,7 +14,7 @@ const CARDINAL_DIRECTIONS = [
   { degrees: 315, label: 'NW', name: 'Northwest', position: 'top-0 left-0 -translate-x-1/2 -translate-y-1/2' },
 ] as const;
 
-export interface WindDirectionCompassProps {
+interface WindDirectionCompassProps {
   /**
    * Array of selected wind directions in degrees (0-360)
    * e.g., [0, 90, 180] for North, East, South

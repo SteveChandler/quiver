@@ -23,7 +23,7 @@ type NearbyBeachRow = {
   country?: string | null;
 };
 
-export type NearbyBeach = {
+type NearbyBeach = {
   id: string;
   name: string;
   lat: number | null;

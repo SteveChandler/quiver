@@ -1,7 +1,7 @@
-export const LAUNCH_CAMPAIGN_ID = "go_live_2026_05";
-export const LAUNCH_CONTENT_GROUP = "launch_blog";
+const LAUNCH_CAMPAIGN_ID = "go_live_2026_05";
+const LAUNCH_CONTENT_GROUP = "launch_blog";
 
-export type LaunchDestinationType =
+type LaunchDestinationType =
   | "app_store"
   | "beach"
   | "blog_post"
@@ -13,7 +13,7 @@ export type LaunchDestinationType =
   | "site"
   | "external";
 
-export interface LaunchPageMetadata {
+interface LaunchPageMetadata {
   launch_campaign: string;
   launch_surface: string;
   launch_content_group?: string;
@@ -22,7 +22,7 @@ export interface LaunchPageMetadata {
   purchase_path_status?: "ios_app_store_android_waitlist";
 }
 
-export interface LaunchBlogLinkMetadata {
+interface LaunchBlogLinkMetadata {
   cta: "other";
   location: string;
   cta_family: "launch_blog_cross_link";

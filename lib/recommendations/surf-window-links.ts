@@ -2,7 +2,7 @@ import type { Beach } from "@/types/database";
 import { buildBeachUrl, getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import type { SurfWindowLinks } from "@/types/session-intelligence";
 
-export interface BuildSurfWindowLinksInput {
+interface BuildSurfWindowLinksInput {
   beach: Beach;
   windowId: string;
   forecastAt?: string;

@@ -19,21 +19,21 @@ import {
 } from "./trusted-forecast-policy";
 
 /** D-16: raw elapsed-hour eligibility window, inclusive at both ends. */
-export const TRUSTED_FORECAST_MIN_HORIZON_HOURS = 0;
-export const TRUSTED_FORECAST_MAX_HORIZON_HOURS = 168;
+const TRUSTED_FORECAST_MIN_HORIZON_HOURS = 0;
+const TRUSTED_FORECAST_MAX_HORIZON_HOURS = 168;
 
 /** D-11: independent nearest-edge separation strictly above this blocks. */
-export const TRUSTED_FORECAST_CONFLICT_THRESHOLD_FT = 1.0;
+const TRUSTED_FORECAST_CONFLICT_THRESHOLD_FT = 1.0;
 
 /** D-15: no-op below this magnitude. */
-export const TRUSTED_FORECAST_MIN_ADJUSTMENT_GAP_FT = 0.5;
+const TRUSTED_FORECAST_MIN_ADJUSTMENT_GAP_FT = 0.5;
 /** D-15: at or above this magnitude the full half-foot band applies. */
-export const TRUSTED_FORECAST_FULL_BAND_GAP_FT = 0.75;
+const TRUSTED_FORECAST_FULL_BAND_GAP_FT = 0.75;
 /** D-15: hard cap in both directions. */
-export const TRUSTED_FORECAST_MAX_ADJUSTMENT_FT = 0.5;
+const TRUSTED_FORECAST_MAX_ADJUSTMENT_FT = 0.5;
 
 /** Separate immutable snapshot variant for a value served after trust adjustment. */
-export const TRUSTED_FORECAST_ADJUSTED_DISPLAY_SOURCE =
+const TRUSTED_FORECAST_ADJUSTED_DISPLAY_SOURCE =
   "trusted-forecast-adjusted-v1";
 
 export const TRUSTED_FORECAST_ALERT_RANGE_SEPARATION =
@@ -141,7 +141,7 @@ export interface TrustedForecastEngineResult {
   readonly reusedDecisions: readonly ReusedTrustedForecastDecision[];
 }
 
-export interface BuildTrustedForecastDecisionsArgs {
+interface BuildTrustedForecastDecisionsArgs {
   readonly coverage: TrustedForecastCoverageEntry;
   readonly issues: readonly TrustedForecastIssue[];
   readonly slots: readonly TrustedForecastSlot[];
@@ -236,7 +236,7 @@ function localHourInTimeZone(instant: Date, timeZone: string): number {
  * convention 21-01 stamps on `valid_start_at`/`valid_end_at`: day is
  * 06:00-18:00 local, night is 18:00-06:00.
  */
-export function slotDayPart(
+function slotDayPart(
   instant: Date,
   timeZone: string,
 ): Exclude<TrustedForecastDayPart, "all_day"> {
@@ -260,7 +260,7 @@ export function slotDayPart(
  * maxima are both still taken across the whole local day, which is the rule the
  * critic accepted; only its pairing with unrestricted application was rejected.
  */
-export function slotIsInPrimaryDayPart(
+function slotIsInPrimaryDayPart(
   slot: TrustedForecastSlot,
   primaryDayPart: TrustedForecastDayPart,
   timeZone: string,

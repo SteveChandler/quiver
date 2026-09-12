@@ -36,7 +36,7 @@ interface CardFormLayoutProps {
  *   <FormField ... />
  * </CardFormLayout>
  */
-export function CardFormLayout({
+function CardFormLayout({
   title,
   description,
   form,

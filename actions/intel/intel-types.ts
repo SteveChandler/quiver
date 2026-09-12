@@ -4,7 +4,6 @@ import type { XPAction } from "@/lib/gamification";
 import type { withAuthenticatedAction } from "@/lib/server-action-utils";
 import { FEET_TO_METERS } from "@/lib/utils/unit-conversions";
 
-export { FEET_TO_METERS };
 
 // Result types for intel actions
 export interface IntelPostsData {
@@ -40,7 +39,7 @@ export interface VoteData {
   confirmed_count: number;
 }
 
-export interface SupabaseErrorLike {
+interface SupabaseErrorLike {
   code?: string;
   message?: string;
   details?: string;
@@ -92,11 +91,11 @@ export const GLOBAL_INTEL_FALLBACK = {
   radius: 400,
 };
 
-export const MPH_TO_METERS_PER_SECOND = 0.44704;
+const MPH_TO_METERS_PER_SECOND = 0.44704;
 
-export const INTEL_FALLBACK_ERROR_CODES = new Set(["0A000", "42P01", "42501", "42703"]);
+const INTEL_FALLBACK_ERROR_CODES = new Set(["0A000", "42P01", "42501", "42703"]);
 
-export const WIND_DIRECTION_DEGREES: Record<string, number> = {
+const WIND_DIRECTION_DEGREES: Record<string, number> = {
   N: 0,
   NE: 45,
   E: 90,

@@ -8,13 +8,13 @@ export interface SurfWindowSourceSupportHints {
   hasBuoy?: boolean;
 }
 
-export interface BuildSurfWindowSourceFlagsInput {
+interface BuildSurfWindowSourceFlagsInput {
   forecast: EnhancedForecastEntity | null;
   beach?: Beach | null;
   hints?: SurfWindowSourceSupportHints;
 }
 
-export interface BuildSurfWindowDataNotesInput extends BuildSurfWindowSourceFlagsInput {
+interface BuildSurfWindowDataNotesInput extends BuildSurfWindowSourceFlagsInput {
   confidenceScore?: number;
 }
 

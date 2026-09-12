@@ -10,7 +10,7 @@ import {
   type FirstTouchPlatform,
 } from "@/lib/analytics/web-context";
 
-export interface PostSessionShareProps {
+interface PostSessionShareProps {
   /** Beach name to display */
   beachName: string;
   /** Overall session rating (1–5) */

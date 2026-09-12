@@ -15,9 +15,9 @@ export type AuthoritativeWindow = PersonalizedForecastWindow & {
   displayWindowEnd: Date;
 };
 
-export type WindowDaypart = 'morning' | 'midday' | 'evening';
+type WindowDaypart = 'morning' | 'midday' | 'evening';
 
-export interface BeachDayWindowAuthority {
+interface BeachDayWindowAuthority {
   bestDayWindow: AuthoritativeWindow | null;
   dayparts: Record<WindowDaypart, AuthoritativeWindow | null>;
 }

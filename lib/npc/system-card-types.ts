@@ -9,13 +9,13 @@ export const SYSTEM_CARD_CLASSES = [
 
 export type SystemCardClass = (typeof SYSTEM_CARD_CLASSES)[number];
 
-export const PROMPT_CARD_CLASSES = new Set<SystemCardClass>([
+const PROMPT_CARD_CLASSES = new Set<SystemCardClass>([
   "prompt",
   "correction_request",
   "forecast_vs_observation",
 ]);
 
-export function isPromptCardClass(contentClass: SystemCardClass): boolean {
+function isPromptCardClass(contentClass: SystemCardClass): boolean {
   return PROMPT_CARD_CLASSES.has(contentClass);
 }
 

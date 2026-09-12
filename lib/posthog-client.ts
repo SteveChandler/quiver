@@ -75,7 +75,7 @@ function getBaseProperties(): PostHogProperties {
   };
 }
 
-export function isPostHogEnabled(): boolean {
+function isPostHogEnabled(): boolean {
   return Boolean(getPostHogToken());
 }
 

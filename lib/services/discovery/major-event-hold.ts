@@ -38,7 +38,7 @@ function candidateForRecommendation(
   };
 }
 
-export function buildSurfDiscoveryMajorEventHoldCandidates(
+function buildSurfDiscoveryMajorEventHoldCandidates(
   response: Pick<
     SurfDiscoveryResponse,
     "recommendations" | "includedRecommendations"

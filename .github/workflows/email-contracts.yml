@@ -1,0 +1,48 @@
+name: Email and offer contracts
+on:
+  pull_request:
+    paths:
+      - 'app/api/offers/**'
+      - 'app/api/email/**'
+      - 'app/api/cron/email-*/**'
+      - 'app/api/cron/pro-offer-*/**'
+      - 'lib/email/**'
+      - 'lib/mailer/**'
+      - 'app/offers/**'
+      - 'lib/subscription/offer-*.ts'
+      - 'supabase/migrations/**'
+      - 'contracts/**'
+      - 'scripts/test-email-system-http.sh'
+      - 'jest.email-system.config.js'
+      - '.github/workflows/email-contracts.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: email-contracts-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: local-placeholder
+      SUPABASE_SERVICE_ROLE_KEY: local-placeholder
+      NEXT_PUBLIC_SITE_URL: http://localhost:3119
+      EMAIL_LIFECYCLE_ENABLED: 'false'
+      PRO_OFFERS_ENABLED: 'false'
+      EMAIL_GMAIL_REPLY_SYNC_ENABLED: 'false'
+      SENTRY_DSN: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+      - run: corepack enable
+      - run: yarn install --frozen-lockfile
+      - name: Database, transport and provider contracts (isolated containers)
+        run: bash scripts/test-email-system-http.sh
+      - name: Auth and wire contracts
+        run: yarn test:unit --runInBand --runTestsByPath __tests__/app/api/offers/auth-contract.test.ts __tests__/lib/subscription/offer-contract.test.ts __tests__/lib/subscription/offer-provider.test.ts

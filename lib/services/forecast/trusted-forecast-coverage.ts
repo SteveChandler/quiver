@@ -30,7 +30,7 @@ import {
   type TrustedForecastScopeType,
 } from "./trusted-forecast-policy";
 
-export const TRUSTED_FORECAST_COVERAGE_VERSION = "trusted-forecast-coverage-v1";
+const TRUSTED_FORECAST_COVERAGE_VERSION = "trusted-forecast-coverage-v1";
 
 /**
  * The IANA zone each Seaside source stamps on `valid_local_date`, mirroring
@@ -301,7 +301,7 @@ export const TRUSTED_FORECAST_COVERAGE_DEFINITIONS: readonly TrustedForecastCove
   ]);
 
 /** A live vocabulary combination that is deliberately not covered yet. */
-export interface UncoveredTrustedForecastVocabulary {
+interface UncoveredTrustedForecastVocabulary {
   readonly scopeType: TrustedForecastScopeType;
   readonly regionKey: string;
   readonly exposure: string;
@@ -436,7 +436,7 @@ export const TRUSTED_FORECAST_UNCOVERED_VOCABULARY: readonly UncoveredTrustedFor
     ),
   ]);
 
-export type TrustedForecastCoverageErrorCode =
+type TrustedForecastCoverageErrorCode =
   | "unresolved_beach_slug"
   | "duplicate_beach_slug"
   | "timezone_disagreement";
@@ -544,7 +544,7 @@ export function trustedForecastCoverageBeachSlugs(
   return [...new Set(definitions.map((definition) => definition.beachSlug))];
 }
 
-export interface CoverageTimezonePartition {
+interface CoverageTimezonePartition {
   readonly matched: readonly TrustedForecastIssue[];
   /** Rows whose source stamped `valid_local_date` in a different zone. */
   readonly mismatchedCount: number;

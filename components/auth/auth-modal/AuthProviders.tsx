@@ -10,7 +10,7 @@ import { Loader2, LogIn, Mail } from "lucide-react";
  * always enabled and consent is communicated via text below the OAuth buttons,
  * reducing friction at the critical conversion moment.
  */
-export interface AuthProvidersProps {
+interface AuthProvidersProps {
   mode: "login" | "signup" | "auto";
   enableOAuth: boolean;
   enablePassword: boolean;

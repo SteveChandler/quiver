@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 /**
  * Props for the AnimatedCounter component
  */
-export interface AnimatedCounterProps {
+interface AnimatedCounterProps {
   /** Target value to count to */
   value: number;
   /** Duration of animation in milliseconds (default: 800) */

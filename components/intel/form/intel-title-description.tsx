@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { INTEL_CONFIG, INTEL_UI_TEXT } from "@/lib/constants/intel";
 import type { UseFormRegister, FieldErrors } from "react-hook-form";
 
-export interface IntelTitleDescriptionProps {
+interface IntelTitleDescriptionProps {
   register: UseFormRegister<any>;
   errors: FieldErrors;
   titleValue: string;

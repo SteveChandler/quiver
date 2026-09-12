@@ -9,7 +9,7 @@ interface SwellWatchAudienceMember {
   reason: SwellWatchAudienceReason;
 }
 
-export interface SwellWatchAudienceRows {
+interface SwellWatchAudienceRows {
   profiles: Array<{
     id: string;
     homeBeachId: string | null;
@@ -86,7 +86,7 @@ async function loadCompletePages<T>(
   }
 }
 
-export function selectSwellWatchAudience(
+function selectSwellWatchAudience(
   beachIds: readonly string[],
   rows: SwellWatchAudienceRows,
 ): SwellWatchAudienceMember[] {

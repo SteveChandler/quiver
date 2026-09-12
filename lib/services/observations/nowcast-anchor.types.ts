@@ -36,7 +36,7 @@ export interface LatestObservation {
 }
 
 /** Feature flag value carried in `beaches.features` text[] column. */
-export const NOWCAST_ANCHOR_FEATURE_FLAG = "observation_anchor" as const;
+const NOWCAST_ANCHOR_FEATURE_FLAG = "observation_anchor" as const;
 
 /**
  * Gate 1 of the nowcast-anchor feature: the beach must opt in via its

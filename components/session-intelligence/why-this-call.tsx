@@ -22,7 +22,7 @@ import {
   buildSurfWindowTrackingMetadata,
 } from "./tracking";
 
-export interface WhyThisCallProps {
+interface WhyThisCallProps {
   recommendation: SurfWindowRecommendation;
   surface?: string;
   className?: string;

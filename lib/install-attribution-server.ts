@@ -9,7 +9,7 @@ import {
 import { ANDROID_PLAY_STORE_LISTING_URL } from "@/lib/constants/app-store";
 import type { HandoffContext } from "@/types/exact-handoff";
 
-export interface InstallHandoffAttribution {
+interface InstallHandoffAttribution {
   handoffId: string;
   handoffContext: HandoffContext;
 }

@@ -313,5 +313,3 @@ export function TideHourlyTableCompact({
     </div>
   );
 }
-
-export default TideHourlyTable;

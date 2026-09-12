@@ -26,7 +26,7 @@ export type MilestoneKey =
 /**
  * Shape of a single milestone definition
  */
-export interface MilestoneDefinition {
+interface MilestoneDefinition {
   /** Human-readable trigger description (for documentation, not runtime) */
   trigger: string;
   /** Notification title */

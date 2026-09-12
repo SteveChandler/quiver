@@ -67,4 +67,4 @@ const basicProfileSchema = profileFormSchema.pick({
   location: true,
 });
 
-export type BasicProfileFormValues = z.infer<typeof basicProfileSchema>;
+type BasicProfileFormValues = z.infer<typeof basicProfileSchema>;

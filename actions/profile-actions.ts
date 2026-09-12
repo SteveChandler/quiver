@@ -61,7 +61,7 @@ type ProfileSuccessResult = { success: true; data: PublicProfile };
 type ProfileErrorResult = { success: false; error: string; isConnectionError?: boolean };
 type ProfileResult = ProfileSuccessResult | ProfileErrorResult;
 
-export async function getProfile(userId: string): Promise<ProfileResult> {
+async function getProfile(userId: string): Promise<ProfileResult> {
   if (!userId) {
     return { success: false, error: "No user ID provided" };
   }
@@ -375,7 +375,7 @@ export async function updateProfile(
 
 
 
-export async function getUserStats(userId: string) {
+async function getUserStats(userId: string) {
   if (!userId) {
     return { success: false, error: "No user ID provided" };
   }

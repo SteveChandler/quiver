@@ -68,7 +68,7 @@ const windConditions = [
   { value: "variable", label: "Variable/Changing", speed: 8 },
 ];
 
-export function ForecastFeedbackForm({
+function ForecastFeedbackForm({
   session,
   forecast,
   onSubmit,

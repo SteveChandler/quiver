@@ -21,7 +21,7 @@ import type {
   ConditionCharacterCategory,
 } from "@/lib/scoring/types";
 
-export interface PersonalizedBadgeProps {
+interface PersonalizedBadgeProps {
   /** Whether the recommendation is personalized */
   personalized: boolean;
 

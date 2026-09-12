@@ -4,7 +4,7 @@ import type { CustomSpot } from "@/hooks/use-custom-spots";
 
 const CUSTOM_SPOT_RING_COLOR = "#F78E42";
 
-export interface CustomSpotMarkerData {
+interface CustomSpotMarkerData {
   recommendationLabel?: RecommendationLabel;
   conditionScore?: number;
   waveLabel?: string | null;

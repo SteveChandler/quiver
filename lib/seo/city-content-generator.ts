@@ -18,7 +18,7 @@ import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import type { RichFAQItem } from "@/components/seo/faq-schema";
 export type { RichFAQItem } from "@/components/seo/faq-schema";
 
-export interface EditorialBeachSummary {
+interface EditorialBeachSummary {
   beachName: string;
   beginnerNotes?: string | null;
   bestTides?: string | null;
@@ -26,7 +26,7 @@ export interface EditorialBeachSummary {
   crowdNotes?: string | null;
 }
 
-export interface CityContentInput {
+interface CityContentInput {
   cityName: string;
   stateName: string;
   stateSlug: string;

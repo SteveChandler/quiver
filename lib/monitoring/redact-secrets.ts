@@ -1,4 +1,4 @@
-const CREDENTIAL_MARKER = /access[_-]?token|refresh[_-]?token|provider[_-]?token|authorization|\bbearer\s|\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|[?&](?:token|code|key)=/i;
+const CREDENTIAL_MARKER = /access[_-]?token|refresh[_-]?token|provider[_-]?token|offer[_-]?token|authorization|\bbearer\s|\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|[?&](?:token|code|key)=/i;
 const SECRET_KEY = /^(?:.*token|authorization|cookie|set-cookie|password|secret|api[_-]?key)$/i;
 
 /** Scrub whole credential-bearing strings: SDK exceptions can embed serialized sessions. */

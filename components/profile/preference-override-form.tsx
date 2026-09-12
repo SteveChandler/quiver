@@ -58,7 +58,7 @@ const TIDE_OPTIONS = [
   { value: 'low', label: 'Low' },
 ] as const;
 
-export interface PreferenceOverrideFormProps {
+interface PreferenceOverrideFormProps {
   /**
    * Current learned preferences (provides defaults)
    */

@@ -10,7 +10,7 @@ import {
   type WQStatus,
 } from "@/lib/constants/water-quality";
 
-export interface BeachWaterQualityData extends CountyStatusMetadata {
+interface BeachWaterQualityData extends CountyStatusMetadata {
   beachId: string;
   beachName: string;
   beachSlug: string;

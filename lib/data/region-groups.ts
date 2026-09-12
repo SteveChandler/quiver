@@ -7,7 +7,7 @@
  * @module lib/data/region-groups
  */
 
-export interface RegionGroup {
+interface RegionGroup {
   label: string;
   slugs: string[];
 }

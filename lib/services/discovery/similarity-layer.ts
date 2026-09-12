@@ -33,7 +33,7 @@ interface BatchRpcRow {
   result: Record<string, unknown> | null;
 }
 
-export interface ApplySimilarityLayerArgs {
+interface ApplySimilarityLayerArgs {
   recommendations: SurfDiscoveryRecommendation[];
   userId: string | null;
   isPro: boolean;
@@ -43,7 +43,7 @@ export interface ApplySimilarityLayerArgs {
   supabase: Pick<SupabaseClient, "rpc">;
 }
 
-export interface ApplySimilarityLayerResult {
+interface ApplySimilarityLayerResult {
   /** Same array length and shape as input, with `similarity` stamped. */
   recommendations: SurfDiscoveryRecommendation[];
 }

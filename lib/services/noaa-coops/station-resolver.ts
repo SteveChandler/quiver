@@ -14,7 +14,7 @@ const DEFAULT_STATION_ID = "9410230";
 /**
  * Options for station resolution logging
  */
-export interface StationResolverOptions {
+interface StationResolverOptions {
   verbose?: boolean;
   logger?: {
     debug: (message: string, ...args: unknown[]) => void;

@@ -3,7 +3,7 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { verifyEmailActionToken } from '@/lib/email/verify-email-action';
 
-export interface LogSessionResult {
+interface LogSessionResult {
   success: boolean;
   error?: string;
 }

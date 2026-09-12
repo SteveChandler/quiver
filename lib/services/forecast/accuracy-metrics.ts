@@ -7,7 +7,7 @@ export const FORECAST_ACCURACY_HORIZON_BUCKETS = [
 export type ForecastAccuracyHorizonBucket =
   (typeof FORECAST_ACCURACY_HORIZON_BUCKETS)[number]["id"];
 
-export const FORECAST_ACCURACY_BASELINES = [
+const FORECAST_ACCURACY_BASELINES = [
   {
     id: "current_display",
     label: "Current display",
@@ -148,7 +148,7 @@ export function getForecastAccuracyRowHorizonBucket(row: {
   return getForecastAccuracyHorizonBucket(row.forecast_horizon_hours);
 }
 
-export function getForecastAccuracyBaselineLabel(
+function getForecastAccuracyBaselineLabel(
   baseline: ForecastAccuracyBaseline
 ): string {
   const definition = FORECAST_ACCURACY_BASELINES.find(

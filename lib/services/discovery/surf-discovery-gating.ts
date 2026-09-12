@@ -86,7 +86,7 @@ function isConservativePersonalReason(reason: string): boolean {
   return !IMPLICIT_ONLY_REASON_PATTERNS.some((pattern) => pattern.test(reason));
 }
 
-export function buildPersonalExplanation(
+function buildPersonalExplanation(
   rec: SurfDiscoveryRecommendation
 ): string {
   const reasonParts = rec.reasons.filter(isConservativePersonalReason);
@@ -118,7 +118,7 @@ export function buildPersonalExplanation(
   return parts.slice(0, 3).join(". ");
 }
 
-export function buildLockedBestSpotTeaser(
+function buildLockedBestSpotTeaser(
   rec: SurfDiscoveryRecommendation | undefined
 ): LockedBestSpotTeaser | null {
   if (!rec) return null;

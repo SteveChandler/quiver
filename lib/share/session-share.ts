@@ -3,7 +3,7 @@ import { buildSessionShareUrl } from "@/lib/share/build-share-card-url";
 import { remoteImageUrlOrUndefined } from "@/lib/share/remote-image-url";
 import type { SessionWithDetails } from "@/types/database";
 
-export interface SessionShareSheetData {
+interface SessionShareSheetData {
   imageUrl: string;
   filename: string;
   title: string;

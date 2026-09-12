@@ -1,6 +1,6 @@
 import type { SessionLogMetadata } from "@/types/implicit-preferences";
 
-export const SESSION_LOG_TELEMETRY_SCHEMA_VERSION = 1;
+const SESSION_LOG_TELEMETRY_SCHEMA_VERSION = 1;
 
 export function createSessionLogFlowId(): string {
   if (typeof globalThis.crypto?.randomUUID === "function") {

@@ -159,12 +159,12 @@ const DEFAULT_OVERALL_TIMEOUT_MS = 12000; // Increased from 8s for more beaches
 const MAX_INCLUDED_BEACH_IDS = 12;
 const MAX_PUBLIC_CUSTOM_SPOTS = 5;
 
-export type SurfDiscoveryOperationalErrorCode =
+type SurfDiscoveryOperationalErrorCode =
   | 'forecast_unavailable'
   | 'timeout'
   | 'internal_error';
 
-export class SurfDiscoveryOperationalError extends Error {
+class SurfDiscoveryOperationalError extends Error {
   readonly retryable = true;
 
   constructor(

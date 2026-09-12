@@ -14,7 +14,7 @@ import { slugifyAscii } from "@/lib/utils/text-utils";
 // Hawaii island-specific city helpers (Waimea-only to start)
 // ============================================================================
 
-export type HiIslandSlug = "kauai" | "big-island";
+type HiIslandSlug = "kauai" | "big-island";
 
 const HI_AMBIGUOUS_CITY_SLUGS = new Set(["waimea"]);
 
@@ -538,7 +538,7 @@ export const COASTAL_STATE_SUFFIXES = [
   "ca", "fl", "hi", "nc", "sc", "nj", "ny", "or", "wa", "tx", "ma", "me", "ri", "pr"
 ] as const;
 
-export type CoastalStateSuffix = typeof COASTAL_STATE_SUFFIXES[number];
+type CoastalStateSuffix = typeof COASTAL_STATE_SUFFIXES[number];
 
 // ============================================================================
 // Country Validation

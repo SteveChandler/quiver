@@ -8,7 +8,7 @@ import {
   clearFormState,
 } from './utils/state-persistence';
 
-export interface FormErrorBoundaryProps {
+interface FormErrorBoundaryProps {
   /**
    * Callback fired when form error occurs
    * Receives error and current form state

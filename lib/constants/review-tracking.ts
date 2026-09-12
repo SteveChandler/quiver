@@ -18,7 +18,7 @@ export type ReviewTrackingSource = typeof REVIEW_TRACKING_SOURCES[keyof typeof R
 /**
  * Timeout durations for review-related flows
  */
-export const REVIEW_TIMEOUTS = {
+const REVIEW_TIMEOUTS = {
   /** Celebration screen duration before redirect (5 seconds) */
   CELEBRATION_DURATION: 5000,
 } as const;

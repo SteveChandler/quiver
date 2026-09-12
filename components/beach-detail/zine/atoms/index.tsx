@@ -123,7 +123,7 @@ export function DoodleTide({ size = 30, color = "#11100D" }: { size?: number; co
   );
 }
 
-export function DoodleClock({ size = 22, color = "#11100D" }: { size?: number; color?: string }) {
+function DoodleClock({ size = 22, color = "#11100D" }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" fill="none" filter="url(#zine-rough-edge)" />

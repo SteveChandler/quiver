@@ -224,7 +224,7 @@ export function createRateLimiter(
 /**
  * Generic singleton wrapper interface for rate limiters
  */
-export interface RateLimiterSingleton {
+interface RateLimiterSingleton {
   canMakeRequest(): boolean;
   recordRequest(endpoint?: string): void;
   getTimeUntilReset(): number;

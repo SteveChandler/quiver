@@ -34,9 +34,9 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
 import { unstable_cache } from "next/cache";
 
-export const REGIONAL_FORECAST_REVALIDATE_SECONDS = 900;
+const REGIONAL_FORECAST_REVALIDATE_SECONDS = 900;
 
-export interface RegionalForecastPageData {
+interface RegionalForecastPageData {
   beaches: Beach[];
   summary: RegionalForecastSummary;
 }
@@ -71,7 +71,7 @@ interface SerializedRegionalForecastPageData {
  *
  * @param beaches - Optional pre-fetched beach array. If not provided, will fetch beaches internally.
  */
-export interface GetRegionalSummariesOptions {
+interface GetRegionalSummariesOptions {
   now?: Date;
   baseUrl?: string;
   includeBestSurfWindows?: boolean;
@@ -500,7 +500,7 @@ export function getBestRegionToday(
   return null;
 }
 
-export interface BestRegionResult {
+interface BestRegionResult {
   region: ForecastRegion;
   summary: RegionalForecastSummary;
   isLocationPersonalized: boolean;

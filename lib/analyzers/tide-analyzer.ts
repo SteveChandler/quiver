@@ -25,7 +25,7 @@ import { resolveTideHeight } from "@/lib/monitoring/fallback-helpers";
 /**
  * Type for tide direction
  */
-export type TideDirection = "rising" | "falling" | "slack";
+type TideDirection = "rising" | "falling" | "slack";
 
 /**
  * Normalize tide status string to a valid TideDirection

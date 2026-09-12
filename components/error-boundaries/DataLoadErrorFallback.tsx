@@ -4,7 +4,7 @@ import React from 'react';
 import { Database, RefreshCw, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-export interface DataLoadErrorFallbackProps {
+interface DataLoadErrorFallbackProps {
   error: Error;
   resetError: () => void;
   dataType?: string;

@@ -1,12 +1,12 @@
 import type { CompetitorDelta, StoreListingSnapshot, StoreSnapshotInput } from "./types";
 
-export interface StoreTarget {
+interface StoreTarget {
   app: string;
   platform: StoreListingSnapshot["platform"];
   url: string;
 }
 
-export interface AppStoreLookupResult {
+interface AppStoreLookupResult {
   trackName?: string;
   version?: string;
   currentVersionReleaseDate?: string;

@@ -24,7 +24,7 @@ import { formatSwellPeriod } from "@/lib/formatters/surf-data";
 // Types
 // ============================================================================
 
-export interface SwellEventCardProps {
+interface SwellEventCardProps {
   /** The swell event to display */
   event: SwellEvent;
   /** Compact mode for use in lists */
@@ -35,7 +35,7 @@ export interface SwellEventCardProps {
   className?: string;
 }
 
-export interface SwellEventListProps {
+interface SwellEventListProps {
   /** Array of swell events to display */
   events: SwellEvent[];
   /** Section title */
@@ -332,7 +332,7 @@ function SwellTimeline({
  * Displays a single swell event with visual intensity, direction, timeline,
  * and key metrics. Features mini wave chart and animated timeline.
  */
-export function SwellEventCard({
+function SwellEventCard({
   event,
   compact = false,
   variant = "default",

@@ -17,7 +17,7 @@ export interface ForecastAuthorityAuditBeach extends EditorialIntegrityBeach {
   timezone?: string | null;
 }
 
-export interface ForecastAuthorityAuditFailure {
+interface ForecastAuthorityAuditFailure {
   id: string;
   name: string | null;
   canonicalPath: string;
@@ -27,7 +27,7 @@ export interface ForecastAuthorityAuditFailure {
   metadataMissing: boolean;
 }
 
-export interface ForecastAuthorityAuditReport {
+interface ForecastAuthorityAuditReport {
   generatedAt: string;
   forecastQuerySucceeded: boolean;
   eligibleSpots: Array<{
@@ -85,7 +85,7 @@ function hasValidCoordinates(beach: ForecastAuthorityAuditBeach): boolean {
   return Number.isFinite(beach.lat) && Number.isFinite(beach.lon);
 }
 
-export function buildAuditCanonicalPath(beach: ForecastAuthorityAuditBeach): string {
+function buildAuditCanonicalPath(beach: ForecastAuthorityAuditBeach): string {
   if (!beach.slug || !beach.city || !beach.state || !beach.country) {
     return `/beach/${beach.slug || beach.id}`;
   }
@@ -93,7 +93,7 @@ export function buildAuditCanonicalPath(beach: ForecastAuthorityAuditBeach): str
   return buildBeachUrl(beach);
 }
 
-export function isAuditCanonicalIdentityValid(
+function isAuditCanonicalIdentityValid(
   beach: ForecastAuthorityAuditBeach,
   canonicalPath = buildAuditCanonicalPath(beach),
 ): boolean {

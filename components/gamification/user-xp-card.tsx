@@ -190,7 +190,7 @@ export function UserXPCard({
 }
 
 // Compact version for smaller spaces
-export function UserXPBadge({
+function UserXPBadge({
   xpData,
   className,
 }: {

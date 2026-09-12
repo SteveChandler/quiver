@@ -17,7 +17,7 @@ import type { Beach } from "@/types/database";
 import type { BeachWithThresholds, ConditionCharacter, MultiWindowResult, RelativeContext } from "@/lib/scoring/types";
 import type { BoardPickResult, BoardForPick } from "@/lib/scoring/board-pick";
 
-export interface ConditionIntelligenceResult {
+interface ConditionIntelligenceResult {
   windows: MultiWindowResult["windows"];
   bestWindow: MultiWindowResult["bestWindow"];
   boardPick: BoardPickResult | null;

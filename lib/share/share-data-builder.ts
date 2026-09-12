@@ -17,7 +17,7 @@ import { buildSurfCallShareUrl } from "./build-share-card-url";
 /**
  * Share data for the Share button
  */
-export interface ShareData {
+interface ShareData {
   /** URL to the OG image */
   imageUrl: string;
   /** Beach name */
@@ -31,7 +31,7 @@ export interface ShareData {
 /**
  * Input parameters for building share data
  */
-export interface BuildShareDataInput {
+interface BuildShareDataInput {
   /** The surf discovery recommendation to share */
   recommendation: SurfDiscoveryRecommendation;
   /** Canonical authority that selected this exact recommendation */

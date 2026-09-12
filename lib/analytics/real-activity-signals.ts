@@ -1,14 +1,14 @@
 import type { SupabaseServiceClient } from "@/types/supabase";
 
-export const REAL_ACTIVITY_SIGNAL_THRESHOLD = 5;
+const REAL_ACTIVITY_SIGNAL_THRESHOLD = 5;
 
-export interface RealActivitySignals {
+interface RealActivitySignals {
   watchers: number;
   recentChecks: number;
   loggedSessions: number;
 }
 
-export interface VisibleRealActivitySignals {
+interface VisibleRealActivitySignals {
   watchers: number | null;
   recentChecks: number | null;
   loggedSessions: number | null;

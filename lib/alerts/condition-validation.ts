@@ -1,6 +1,6 @@
 import type { AlertConditions } from "./types";
 
-export interface AlertConditionValidationResult {
+interface AlertConditionValidationResult {
   ok: boolean;
   conditions?: AlertConditions;
   message?: string;
