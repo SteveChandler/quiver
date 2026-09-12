@@ -12,6 +12,7 @@ export const lifecycleDecisionSchema = z.object({
   campaign_version: z.number().optional(), content_hash: z.string().optional(),
   due_at: z.string().optional(), next_eligible_at: z.string().optional(), expires_at: z.string().optional(),
   source: z.object({
+    audience: z.enum(["free", "entitled", "trial"]).optional(),
     email: z.email(), name: z.string().nullable(), home_beach_id: z.uuid().nullable(),
     offer_id: z.uuid().nullable().optional(), offer_months: z.union([z.literal(1), z.literal(3)]).nullable().optional(),
     sessions: z.number().int().nonnegative(), last_completion: z.string().nullable(), trial_end: z.string().nullable(),
