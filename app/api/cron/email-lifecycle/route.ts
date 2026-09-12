@@ -13,9 +13,12 @@ export async function GET(request: Request): Promise<Response> {
   const mode = new URL(request.url).searchParams.get("mode");
   if (mode && mode !== "dry-run" && mode !== "live") return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
   const dryRun = mode === "dry-run";
-  if (!dryRun && !lifecycleEnabled()) return NextResponse.json({ status: "disabled" });
   const slug = "email-lifecycle";
   const checkIn = dryRun ? "" : startCronCheckIn({ slug, schedule: "*/15 * * * *", checkinMarginMinutes: 15, maxRuntimeMinutes: 3 });
+  if (!dryRun && !lifecycleEnabled()) {
+    await completeCronCheckIn(checkIn, slug, "ok");
+    return NextResponse.json({ status: "disabled" });
+  }
   let status: "ok" | "error" = "error";
   try {
     const result = await runEmailLifecycle(dryRun);
