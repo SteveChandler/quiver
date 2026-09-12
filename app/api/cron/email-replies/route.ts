@@ -8,12 +8,18 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 export async function GET(request: Request): Promise<Response> {
   if (!validateCronRequest(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (process.env.EMAIL_GMAIL_REPLY_SYNC_ENABLED !== "true") return NextResponse.json({ status: "disabled" });
-  const db = await createSupabaseServiceRoleClient();
-  const { data: run, error } = await db.from("cron_runs").insert({ route: "/api/cron/email-replies", job: "email-replies", status: "started" }).select("id").single();
-  if (error || !run) return NextResponse.json({ error: "Run ledger unavailable" }, { status: 503 });
   const slug = "email-replies";
   const checkIn = startCronCheckIn({ slug, schedule: "* * * * *", checkinMarginMinutes: 2, maxRuntimeMinutes: 1 });
+  if (process.env.EMAIL_GMAIL_REPLY_SYNC_ENABLED !== "true") {
+    await completeCronCheckIn(checkIn, slug, "ok");
+    return NextResponse.json({ status: "disabled" });
+  }
+  const db = await createSupabaseServiceRoleClient();
+  const { data: run, error } = await db.from("cron_runs").insert({ route: "/api/cron/email-replies", job: "email-replies", status: "started" }).select("id").single();
+  if (error || !run) {
+    await completeCronCheckIn(checkIn, slug, "error");
+    return NextResponse.json({ error: "Run ledger unavailable" }, { status: 503 });
+  }
   let ok = false;
   try {
     const result = await syncGmailReplies(); ok = true;
