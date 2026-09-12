@@ -40,6 +40,7 @@ describe("mailer client", () => {
       "https://www.quiversurf.app/api/alerts/unsubscribe-email?user_id=user-1&token=signed";
 
     await sendEmail({
+      purpose: "requested",
       from: "Quiver <test@quiversurf.app>",
       to: "surfer@example.com",
       subject: "Conditions are lining up",
@@ -72,6 +73,7 @@ describe("mailer client", () => {
 
     await expect(
       sendEmail({
+        purpose: "requested",
         from: "Quiver <test@quiversurf.app>",
         to: "surfer@example.com",
         subject: "Weekly recap",
@@ -92,6 +94,7 @@ describe("mailer client", () => {
     };
 
     const result = await sendEmail({
+      purpose: "requested",
       from: "Quiver <test@quiversurf.app>",
       to: "surfer@example.com",
       subject: "Suppressed send",

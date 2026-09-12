@@ -38,7 +38,6 @@ interface BeachReviewFormProps {
   trackingSource?: ReviewTrackingSource;
 }
 
-export { REVIEW_TRACKING_SOURCES };
 
 interface ReviewFormData {
   overall_rating: number;

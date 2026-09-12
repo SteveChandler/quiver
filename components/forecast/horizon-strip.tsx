@@ -17,7 +17,7 @@ import {
 } from "@/lib/analytics/signup-conversion-tracking";
 import { formatSwellPeriod } from "@/lib/formatters/surf-data";
 
-export interface HorizonStripProps {
+interface HorizonStripProps {
   /** Array of day summaries to display */
   days: DaySummary[];
   /** Currently selected date (ISO format: YYYY-MM-DD) */

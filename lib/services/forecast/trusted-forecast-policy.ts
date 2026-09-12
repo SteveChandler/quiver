@@ -80,11 +80,11 @@ export const TRUSTED_FORECAST_ISSUE_INPUT_FIELDS = [
   "ingest_run_id",
   "fetched_at",
 ] as const;
-export type TrustedForecastIssueInputField =
+type TrustedForecastIssueInputField =
   (typeof TRUSTED_FORECAST_ISSUE_INPUT_FIELDS)[number];
 
 /** The wire/database row shape, before camelCase mapping. */
-export type TrustedForecastIssueInput = {
+type TrustedForecastIssueInput = {
   readonly provider_lineage: string;
   readonly source_key: string;
   readonly issued_at: string;
@@ -468,7 +468,7 @@ export function coverageEntryForBeach(
 }
 
 /** WaveCast owns precedence tiers 1 and 2 (D-09) and never appears in tier 3. */
-export const WAVECAST_LINEAGE = "wavecast";
+const WAVECAST_LINEAGE = "wavecast";
 
 /**
  * Maximum issue age at the build anchor, in hours, keyed by Seaside
@@ -532,7 +532,7 @@ export function freshnessMaxAgeHoursForSource(sourceKey: string): number {
   );
 }
 
-export type TrustedForecastExclusionReason =
+type TrustedForecastExclusionReason =
   | "not_authority_eligible"
   | "regional_evidence_only"
   | "non_authority_evidence_class"
@@ -548,7 +548,7 @@ export type TrustedForecastExclusionReason =
   | "unstored_issue"
   | "lineage_dedupe";
 
-export interface TrustedForecastExcludedIssue {
+interface TrustedForecastExcludedIssue {
   readonly issue: TrustedForecastIssue;
   readonly reason: TrustedForecastExclusionReason;
 }
@@ -558,7 +558,7 @@ export type TrustedForecastPrecedenceTier =
   | "regional_wavecast"
   | "regional_authority";
 
-export interface TrustedForecastAuthoritySelection {
+interface TrustedForecastAuthoritySelection {
   readonly primary: TrustedForecastIssue | null;
   readonly primaryTier: TrustedForecastPrecedenceTier | null;
   /** One row per other approved lineage, already deduped (D-05, D-06). */
@@ -591,7 +591,7 @@ function coversScope(
   return keys.includes(issue.regionKey);
 }
 
-export function issueAgeHours(issue: TrustedForecastIssue, anchor: Date): number {
+function issueAgeHours(issue: TrustedForecastIssue, anchor: Date): number {
   return (anchor.getTime() - issue.issuedAt.getTime()) / 3_600_000;
 }
 
@@ -760,7 +760,7 @@ function compareIssuanceRecency(
   return compareStableIdentity(left, right);
 }
 
-export interface SelectTrustedForecastAuthorityArgs {
+interface SelectTrustedForecastAuthorityArgs {
   readonly entry: TrustedForecastCoverageEntry;
   readonly localDate: string;
   readonly issues: readonly TrustedForecastIssue[];

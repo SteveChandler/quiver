@@ -25,7 +25,7 @@ interface BaseFieldProps {
 /**
  * Experience Level Field - Dropdown with emoji + label + description
  */
-export interface ExperienceLevelFieldProps extends BaseFieldProps {
+interface ExperienceLevelFieldProps extends BaseFieldProps {
   label?: string;
   description?: string;
 }
@@ -77,7 +77,7 @@ export function ExperienceLevelField({
 /**
  * Surf Styles Field - Multi-select with emoji buttons
  */
-export interface SurfStylesFieldProps extends BaseFieldProps {
+interface SurfStylesFieldProps extends BaseFieldProps {
   label?: string;
   description?: string;
 }

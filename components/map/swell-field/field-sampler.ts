@@ -7,7 +7,7 @@ import {
 
 export { interpolateSwellPartition };
 
-export interface Vec2 {
+interface Vec2 {
   x: number;
   y: number;
 }
@@ -75,7 +75,7 @@ export function resolveWindParticleCount(
 }
 
 /** Minimal style-layer shape we need to sniff water layers (id only). */
-export interface StyleLayerLike {
+interface StyleLayerLike {
   id: string;
 }
 
@@ -122,7 +122,7 @@ export interface WaterMaskMap {
   ): unknown[];
 }
 
-export interface WaterMaskOptions {
+interface WaterMaskOptions {
   /** Current map canvas size in CSS pixels. */
   width: number;
   height: number;
@@ -227,7 +227,7 @@ export function maskFieldToWater(
   return tilesLoaded && !queryFailed;
 }
 
-export interface GeoBounds {
+interface GeoBounds {
   west: number;
   south: number;
   east: number;
@@ -235,7 +235,7 @@ export interface GeoBounds {
 }
 
 /** One point of the data footprint used to derive the coastal camera corridor. */
-export interface LatLonPoint {
+interface LatLonPoint {
   lat: number | null | undefined;
   lon: number | null | undefined;
 }

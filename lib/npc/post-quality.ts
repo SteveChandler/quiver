@@ -1,14 +1,14 @@
 import type { Database } from "@/types/database";
 
-export type NPCPostTag = Database["public"]["Enums"]["intel_post_tag"];
+type NPCPostTag = Database["public"]["Enums"]["intel_post_tag"];
 
-export interface NPCPostCopy {
+interface NPCPostCopy {
   title: string;
   description: string;
   tag: NPCPostTag;
 }
 
-export interface RecentPostCopy {
+interface RecentPostCopy {
   title: string | null;
   description: string | null;
 }
@@ -40,7 +40,7 @@ const REGION_FLAVOR: Record<string, string> = {
   "south-jersey": "the Jersey shore jetties gave the session its shape",
 };
 
-export function buildPostCopy(args: {
+function buildPostCopy(args: {
   beachName: string;
   content: string;
   contentType: "intel" | "session_note" | "review";
@@ -58,7 +58,7 @@ export function buildPostCopy(args: {
   };
 }
 
-export function buildFallbackPostCopy(args: {
+function buildFallbackPostCopy(args: {
   beachName: string;
   personalityType: string;
   homeRegion: string;
@@ -85,7 +85,7 @@ export function buildFallbackPostCopy(args: {
   });
 }
 
-export function isTitlePrefixOfDescription(
+function isTitlePrefixOfDescription(
   title: string,
   description: string,
 ): boolean {
@@ -97,7 +97,7 @@ export function isTitlePrefixOfDescription(
   );
 }
 
-export function isNearDuplicate(
+function isNearDuplicate(
   candidate: RecentPostCopy,
   recent: RecentPostCopy,
   threshold = 0.82,

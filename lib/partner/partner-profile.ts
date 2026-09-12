@@ -1,6 +1,6 @@
 import type { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export interface ResolvedPartner {
+interface ResolvedPartner {
   id: string;
   name: string | null;
 }

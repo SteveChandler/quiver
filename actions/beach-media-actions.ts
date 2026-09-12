@@ -7,7 +7,7 @@ import type {
   ResolvedSpotPhoto,
 } from "@/lib/community-photos";
 
-export interface BestBeachPhoto {
+interface BestBeachPhoto {
   id: string;
   created_at: string;
   public_url: string;

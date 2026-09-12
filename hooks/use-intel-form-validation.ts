@@ -56,7 +56,7 @@ export const intelPostSchema = z.object({
 
 export type IntelPostFormData = z.infer<typeof intelPostSchema>;
 
-export interface ConditionsSummaryInput {
+interface ConditionsSummaryInput {
   wave_types?: string[];
   crowd_level?: number | null;
   wind_direction?: WindDirection | string | null;
@@ -64,12 +64,12 @@ export interface ConditionsSummaryInput {
   water_temp?: number | null;
 }
 
-export interface ValidationResult {
+interface ValidationResult {
   isValid: boolean;
   missingFields: string[];
 }
 
-export interface UseIntelFormValidationOptions {
+interface UseIntelFormValidationOptions {
   variant?: 'intel' | 'check-in';
 }
 

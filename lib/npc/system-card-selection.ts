@@ -13,12 +13,12 @@ export interface SystemCardSelectionRecord {
   createdAt: string;
 }
 
-export interface PlannedSystemCard {
+interface PlannedSystemCard {
   candidate: SystemCardCandidate;
   contentClass: SystemCardClass;
 }
 
-export interface SelectSystemCardCandidatesOptions {
+interface SelectSystemCardCandidatesOptions {
   candidates: readonly SystemCardCandidate[];
   contentClasses: readonly SystemCardClass[];
   history: readonly SystemCardSelectionRecord[];
@@ -83,7 +83,7 @@ export async function selectSystemCardCandidates(
   return selected;
 }
 
-export function allocationTierForSlot(
+function allocationTierForSlot(
   sequence: number,
 ): "proven" | "adjacent" | "exploration" {
   const slot = ((sequence % 10) + 10) % 10;

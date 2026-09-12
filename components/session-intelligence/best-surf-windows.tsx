@@ -66,7 +66,7 @@ function exactHandoffContext(
   }
 }
 
-export interface BestSurfWindowsProps {
+interface BestSurfWindowsProps {
   recommendations: SurfWindowRecommendation[];
   title?: string;
   subtitle?: string;

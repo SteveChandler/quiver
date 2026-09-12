@@ -1,5 +1,5 @@
-export type TideDirection = "rising" | "falling" | "slack";
-export type TidePreference = "rising" | "falling" | "slack" | "either";
+type TideDirection = "rising" | "falling" | "slack";
+type TidePreference = "rising" | "falling" | "slack" | "either";
 
 /**
  * Returns a multiplier (0.0-1.0) based on how well the current tide direction

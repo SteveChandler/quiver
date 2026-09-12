@@ -43,23 +43,23 @@
 
 export type {
   RouteHandler,
-  RouteContext,
-  ResolvedParams,
+
+
   AuthenticatedContext,
   AuthenticatedHandler,
   OptionalAuthContext,
-  OptionalAuthHandler,
-  WithAuthOptions,
-  WithErrorHandlerOptions,
-  CreateApiHandlerOptions,
-  WithRateLimitOptions,
-  WithBotBlockingOptions,
-  ProtectionOptions,
+
+
+
+
+
+
+
   AdminAuthenticatedContext,
-  AdminAuthenticatedHandler,
-  BearerAuthContext,
-  BearerAuthHandler,
-  WithAdminAuthOptions,
+
+
+
+
 } from "./types";
 
 // =============================================================================
@@ -81,14 +81,13 @@ export { validateUuidParam, validateRequiredParams } from "./validation-helpers"
 // =============================================================================
 
 export { requireOwnership } from "./ownership-helpers";
-export type { OwnershipResult } from "./ownership-helpers";
 
 // =============================================================================
 // RATE LIMITING
 // =============================================================================
 
 export {
-  getClientIdentifier,
+
   withRateLimit,
   withBotBlockingAndRateLimit,
 } from "./rate-limit-wrapper";
@@ -126,7 +125,7 @@ export {
   createPaginationMeta,
   parsePaginationParams,
   DEFAULT_SECURITY_HEADERS,
-  validateCronAuth,
+
   validateCronRequest,
 } from "./response-utils";
 
@@ -135,7 +134,5 @@ export {
 // =============================================================================
 
 // Re-export bot blocking for convenience
-export { withBotBlocking } from "@/lib/middleware/bot-blocker";
 
 // Re-export rate limit types for convenience
-export type { RateLimitKey } from "@/lib/api/rate-limit-config";

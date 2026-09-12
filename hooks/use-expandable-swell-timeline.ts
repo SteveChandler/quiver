@@ -15,7 +15,7 @@ const PLAYBACK_TICK_MS = 500;
 const REDUCED_MOTION_PLAYBACK_TICK_MS = 1000;
 const HOUR_MS = 60 * 60 * 1000;
 
-export interface ExpandableTimelineState {
+interface ExpandableTimelineState {
   timestamps: string[];
   partitionsByBeach: Record<string, Array<SwellPartition | null>>;
   index: number;
@@ -25,7 +25,7 @@ export interface ExpandableTimelineState {
   error: string | null;
 }
 
-export interface UseExpandableSwellTimelineArgs {
+interface UseExpandableSwellTimelineArgs {
   scopeKey: string;
   initial: HourlySwellTimeline | null;
   timezone: string;
@@ -35,7 +35,7 @@ export interface UseExpandableSwellTimelineArgs {
   isFramePlayable?: (timeline: HourlySwellTimeline, index: number) => boolean;
 }
 
-export interface UseExpandableSwellTimelineResult extends ExpandableTimelineState {
+interface UseExpandableSwellTimelineResult extends ExpandableTimelineState {
   timezone: string;
   bubbleLabel: string;
   daySegments: TimelineDaySegment[];

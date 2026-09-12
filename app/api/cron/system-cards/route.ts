@@ -20,7 +20,7 @@ import {
   type SystemCardCandidate,
 } from "@/lib/npc/system-cards";
 import { planSystemCardClasses } from "@/lib/npc/system-card-types";
-import { selectSystemCardCandidates } from "@/lib/npc/system-card-selection";
+import { selectSystemCardCandidates, type SystemCardSelectionRecord } from "@/lib/npc/system-card-selection";
 import { fetchBeachTrafficWeights } from "@/lib/npc/traffic-weights";
 import { isSystemCardBlocked, type SystemCardDedupeRecord } from "@/lib/npc/post-quality";
 import { insertSystemFeedPost } from "@/lib/npc/system-feed-posts";
@@ -291,5 +291,4 @@ function isSystemCardClass(value: unknown): value is SystemCardClass {
   return value === "forecast_summary" || value === "wind_read" || value === "water_temperature" || value === "prompt" || value === "correction_request" || value === "forecast_vs_observation";
 }
 
-type SystemCardSelectionRecord = import("@/lib/npc/system-card-selection").SystemCardSelectionRecord;
 type SystemCardClass = import("@/lib/npc/system-card-types").SystemCardClass;

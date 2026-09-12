@@ -23,7 +23,7 @@ function getBaseUrl(): string {
 /**
  * Parameters for wave share card
  */
-export interface WaveShareParams {
+interface WaveShareParams {
   /** Wave size (e.g., "3-5ft") */
   size: string;
   /** Wave description (e.g., "Clean and glassy") */
@@ -33,7 +33,7 @@ export interface WaveShareParams {
 /**
  * Parameters for session share card
  */
-export interface SessionShareParams {
+interface SessionShareParams {
   /** Beach name */
   beach: string;
   /** Session rating (e.g., "Epic", "Good", "Fair") */
@@ -80,7 +80,7 @@ function buildWaveShareUrl(params: WaveShareParams): string {
 /**
  * Parameters for surf call share card
  */
-export interface SurfCallShareParams {
+interface SurfCallShareParams {
   /** Beach name */
   beach: string;
   /** Verdict (YES, MAYBE, NO) */
@@ -215,7 +215,7 @@ export function buildSessionShareUrl(params: SessionShareParams): string {
 /**
  * Parameters for monthly progression recap share card
  */
-export interface ProgressionShareParams {
+interface ProgressionShareParams {
   /** Total sessions in the period */
   sessions: number;
   /** Total hours surfed */
@@ -237,7 +237,7 @@ export interface ProgressionShareParams {
 /**
  * Parameters for streak milestone share card
  */
-export interface StreakShareParams {
+interface StreakShareParams {
   /** Number of consecutive days */
   streak: number;
   /** User's display name */

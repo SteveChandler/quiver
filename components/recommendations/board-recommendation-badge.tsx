@@ -4,7 +4,7 @@ import React, { memo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export interface BoardRecommendationBadgeProps {
+interface BoardRecommendationBadgeProps {
   /** The name of the recommended board */
   boardName: string;
   /** Optional board type for additional context */

@@ -102,11 +102,11 @@ const INTERNATIONAL_GUIDES: IntentGuideDefinition[] = [
   },
 ];
 
-export type RelatedGuideLink = IntentGuideDefinition & {
+type RelatedGuideLink = IntentGuideDefinition & {
   href: string;
 };
 
-export type RelatedGuideLinks = {
+type RelatedGuideLinks = {
   heading: string;
   primaryLink: RelatedGuideLink;
   guides: RelatedGuideLink[];

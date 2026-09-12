@@ -138,7 +138,7 @@ export function LocationMap({
  *
  * Loading skeleton for the location map
  */
-export function LocationMapSkeleton({
+function LocationMapSkeleton({
   className = "h-[500px] w-full rounded-lg overflow-hidden border border-gray-200",
 }: {
   className?: string;
@@ -160,7 +160,7 @@ export function LocationMapSkeleton({
  *
  * Error state for the location map
  */
-export function LocationMapError({
+function LocationMapError({
   error,
   className = "h-[500px] w-full rounded-lg overflow-hidden border border-gray-200",
 }: {

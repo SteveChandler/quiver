@@ -24,7 +24,7 @@ export interface AppleOrphanDetectionDatabase {
   detect(input: DetectionDatabaseInput): Promise<Record<string, unknown>>;
 }
 
-export type AppleOrphanDetectionResult =
+type AppleOrphanDetectionResult =
   | { status: "flagged" }
   | { status: "no_match" }
   | { status: "recent_auth_required" }

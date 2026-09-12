@@ -24,7 +24,7 @@ const WARN_PREFIX = "[apply-beach-height-offset]";
 // Parser
 // ---------------------------------------------------------------------------
 
-export interface ParsedDisplayHeight {
+interface ParsedDisplayHeight {
   /** Numeric face-feet midpoint. `null` if unparseable; `0` for "Flat". */
   numericFt: number | null;
   /** Original range spread (e.g. "3-4ft" → 1). `null` for single-value or flat. */
@@ -88,7 +88,7 @@ export function parseDisplayHeightFt(
 // Formatter
 // ---------------------------------------------------------------------------
 
-export interface FormatDisplayHeightOpts {
+interface FormatDisplayHeightOpts {
   /** Corrected midpoint in feet. */
   numericFt: number;
   /** Original range spread; `null` for single-value form. */
@@ -128,7 +128,7 @@ export function formatDisplayHeightFt(opts: FormatDisplayHeightOpts): string {
 // Helper
 // ---------------------------------------------------------------------------
 
-export interface ApplyBeachHeightOffsetArgs {
+interface ApplyBeachHeightOffsetArgs {
   /** Pre-correction face-feet height (from parser). */
   heightFt: number;
   /** Rolling-median offset in METERS. `offset_m = display_m - observed_m`. */

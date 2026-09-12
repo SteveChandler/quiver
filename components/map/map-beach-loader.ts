@@ -29,7 +29,7 @@ const VALID_RECOMMENDATION_LABELS = new Set<Exclude<RecommendationLabel, null>>(
  * Dependencies for fetchNearbyBeaches — injected so the module
  * can be tested without real API calls.
  */
-export interface BeachLoaderDeps {
+interface BeachLoaderDeps {
   /** Cached fetch function for the nearby beaches API */
   fetchNearbyBeaches: (
     lat: number,
@@ -70,7 +70,7 @@ export interface BeachLoaderResult {
   forecastStatus: ForecastLoadStatus;
 }
 
-export interface BeachLoaderOptions {
+interface BeachLoaderOptions {
   skillLevel?: string;
   includeWaterQuality?: boolean;
   getAccessToken?: () => string | null;

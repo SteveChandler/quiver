@@ -157,4 +157,3 @@ function IntentCardCurrent({ intent }: { intent: IntentDefinitionType }) {
 }
 
 // Re-export types for consumers
-export type { IntentGuidesGridProps, LocationType };

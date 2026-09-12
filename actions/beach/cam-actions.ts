@@ -12,7 +12,7 @@ import {
 } from "@/lib/community-photos";
 import { unstable_cache } from "next/cache";
 
-export interface CamBeach {
+interface CamBeach {
   id: string;
   name: string;
   slug: string;

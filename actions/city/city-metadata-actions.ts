@@ -8,7 +8,7 @@ import { rankBeaches } from "@/lib/recommendations/selection";
 
 // CityMetadata and BeachEditorialItem are defined in @/types/location; re-export for backward compatibility
 import type { CityMetadata, BeachEditorialItem } from "@/types/location";
-export type { CityMetadata, BeachEditorialItem } from "@/types/location";
+export type { CityMetadata,  } from "@/types/location";
 
 /**
  * Result from find_cities_by_pattern RPC function.

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { motion, useReducedMotion, type Transition } from "framer-motion";
 
-export interface SessionCelebrationProps {
+interface SessionCelebrationProps {
   /** Total session count for this user — shown as "Session #N in the books." */
   sessionNumber: number;
   beachName: string;

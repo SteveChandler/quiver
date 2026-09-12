@@ -10,9 +10,9 @@
  * from the native color bands.
  */
 
-export const PARADISE_GOLD = "#FDB84B";
-export const PACIFIC_TEAL = "#00D4AA";
-export const MUTED_SLATE = "#6B7280";
+const PARADISE_GOLD = "#FDB84B";
+const PACIFIC_TEAL = "#00D4AA";
+const MUTED_SLATE = "#6B7280";
 
 /**
  * Map a 0–10 match score to the band color used for the accompanying label

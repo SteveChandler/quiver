@@ -70,7 +70,7 @@ export interface ForecastConditionDrivers {
   tide: string | null;
 }
 
-export type ForecastContextSource =
+type ForecastContextSource =
   | "notification"
   | "home"
   | "beach-detail"
@@ -501,7 +501,7 @@ export function buildForecastRecommendationContext({
   return null;
 }
 
-export function logForecastRecommendationContext(args: {
+function logForecastRecommendationContext(args: {
   source: ForecastContextSource;
   beachId?: string | null;
   beachName?: string | null;
@@ -529,7 +529,7 @@ export function logForecastRecommendationContext(args: {
   });
 }
 
-export function logForecastDisplayContext(args: {
+function logForecastDisplayContext(args: {
   component: ForecastContextSource;
   beachId?: string | null;
   beachName?: string | null;

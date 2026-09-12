@@ -38,7 +38,7 @@ export interface TimeWindow {
   isCalibrated?: boolean;
 }
 
-export interface TodaysWindowsProps {
+interface TodaysWindowsProps {
   windows: TimeWindow[];
   preferredTime: string | null;
   forecastUrl?: string;

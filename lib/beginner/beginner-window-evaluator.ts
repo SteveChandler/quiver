@@ -1,8 +1,8 @@
-export type BeginnerTideStage = "low" | "rising" | "mid" | "falling" | "high";
+type BeginnerTideStage = "low" | "rising" | "mid" | "falling" | "high";
 
 export type BeginnerWindowRating = "ideal" | "acceptable" | "poor" | "unknown";
 
-export interface BeginnerWindowRange {
+interface BeginnerWindowRange {
   min: number;
   max: number;
 }
@@ -23,7 +23,7 @@ export interface BeginnerWindowProfile {
   maxBeginnerWindMph: number;
 }
 
-export interface BeginnerBeachMetadata {
+interface BeginnerBeachMetadata {
   skill_level?: string | null;
   break_type?: string | null;
   features?: string[] | null;
@@ -32,7 +32,7 @@ export interface BeginnerBeachMetadata {
   preferred_tide_ft_max?: number | null;
 }
 
-export interface BeginnerWindowInput {
+interface BeginnerWindowInput {
   beach: BeginnerBeachMetadata;
   waveHeightFtMax: number | null;
   windSpeedMph?: number | null;
@@ -64,7 +64,7 @@ export interface BeginnerWindowEvaluation {
 
 const KNOTS_TO_MPH = 1.15078;
 
-export const DEFAULT_SANDY_BEGINNER_WINDOW_PROFILE: BeginnerWindowProfile = {
+const DEFAULT_SANDY_BEGINNER_WINDOW_PROFILE: BeginnerWindowProfile = {
   idealWaveHeightFt: { min: 1, max: 2 },
   acceptableWaveHeightFt: { min: 0.5, max: 3 },
   preferredTideStages: ["low", "rising", "mid"],

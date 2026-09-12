@@ -23,7 +23,7 @@ import type {
 const log = createContextLogger("NOAAWaveWatch:DataProcessors");
 const OM_PARTITION_SCHEMA_VERSION = 1;
 
-export interface ProcessNOAAGridDataOptions {
+interface ProcessNOAAGridDataOptions {
   baseTime?: Date;
 }
 

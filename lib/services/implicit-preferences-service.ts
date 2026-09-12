@@ -20,7 +20,7 @@ import type { UserImplicitPreferences, ValidBreakType } from "@/types/implicit-p
 /**
  * Forecast data for matching
  */
-export interface ForecastData {
+interface ForecastData {
   wave_height_ft: number | null;
   wave_period_s: number;
   wind_speed_mph: number;
@@ -29,7 +29,7 @@ export interface ForecastData {
 /**
  * Implicit bonus calculation result
  */
-export interface ImplicitBonusResult {
+interface ImplicitBonusResult {
   total: number;
   breakdown: {
     waveRange: number;

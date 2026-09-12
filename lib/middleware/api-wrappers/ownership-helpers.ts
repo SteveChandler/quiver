@@ -12,7 +12,7 @@ import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 /**
  * Result of ownership check
  */
-export type OwnershipResult =
+type OwnershipResult =
   | { ok: true }
   | { error: NextResponse };
 

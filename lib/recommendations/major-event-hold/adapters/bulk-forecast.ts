@@ -50,17 +50,17 @@ export interface ScoredForecastGoldenWindowBinding {
   candidate: MajorEventHoldCandidate;
 }
 
-export interface ScoredForecastSlotLike {
+interface ScoredForecastSlotLike {
   forecastAt: string;
   compositeScore: number;
 }
 
-export interface ScoredForecastGoldenWindowLike {
+interface ScoredForecastGoldenWindowLike {
   startTime: string;
   endTime: string;
 }
 
-export interface ScoredForecastResponseLike {
+interface ScoredForecastResponseLike {
   timeSlots: readonly ScoredForecastSlotLike[];
   goldenWindows: readonly ScoredForecastGoldenWindowLike[];
 }
@@ -72,7 +72,7 @@ type SanitizedScoredForecastSlot<TSlot extends ScoredForecastSlotLike> = Omit<
   compositeScore: number | null;
 };
 
-export type SanitizedScoredForecastResponse<
+type SanitizedScoredForecastResponse<
   TResponse extends ScoredForecastResponseLike,
 > = Omit<TResponse, "timeSlots" | "goldenWindows"> & {
   timeSlots: Array<SanitizedScoredForecastSlot<TResponse["timeSlots"][number]>>;

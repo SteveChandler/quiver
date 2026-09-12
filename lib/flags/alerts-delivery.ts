@@ -1,4 +1,4 @@
-export const ALERTS_DELIVERY_ENABLED_FLAG = "ALERTS_DELIVERY_ENABLED";
+const ALERTS_DELIVERY_ENABLED_FLAG = "ALERTS_DELIVERY_ENABLED";
 
 /**
  * Legacy similarity-alert send switch, also consulted by the condition-alert

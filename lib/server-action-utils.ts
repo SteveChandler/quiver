@@ -161,7 +161,7 @@ export function withValidation<TInput, TOutput>(
 /**
  * Options for createServerAction
  */
-export interface CreateServerActionOptions<TInput, TOutput> {
+interface CreateServerActionOptions<TInput, TOutput> {
   /** Zod schema for input validation */
   schema?: z.ZodType<TInput>;
   /** Require authentication */

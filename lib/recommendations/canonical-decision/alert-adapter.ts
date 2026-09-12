@@ -8,7 +8,7 @@ import type {
   CanonicalSessionDecision,
 } from "./types";
 
-export type BuildCanonicalDecisionFromAlertMatchesInput = Omit<
+type BuildCanonicalDecisionFromAlertMatchesInput = Omit<
   BuildCanonicalSessionDecisionInput,
   "candidates"
 > & {

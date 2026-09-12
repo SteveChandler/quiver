@@ -1,11 +1,11 @@
-export type TidePoint = {
+type TidePoint = {
   ts: string;
   tide_height_m: number;
   tide_phase: string | null;
   source: string;
 };
 
-export type TideForecastRow = {
+type TideForecastRow = {
   beach_id: string;
   ts: string;
   created_at: string;

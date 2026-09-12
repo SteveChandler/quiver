@@ -21,7 +21,7 @@ const log = createContextLogger("SpotDataActions");
 /**
  * Featured photo data structure
  */
-export type SpotFeaturedPhoto = ResolvedSpotPhoto;
+type SpotFeaturedPhoto = ResolvedSpotPhoto;
 
 interface CuratedSpotPhotoRow {
   id: string;
@@ -78,7 +78,7 @@ async function getBeachBySlugSafe(slug: string): Promise<Beach | null> {
 /**
  * Return type for getSpotDataBySlug including DB location status
  */
-export interface SpotDataResult {
+interface SpotDataResult {
   data: SpotPageData | null;
   /** True when DB record has both city AND state (determines redirect/canonical logic) */
   dbHasLocation: boolean;

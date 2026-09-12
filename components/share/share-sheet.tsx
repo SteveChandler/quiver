@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 
-export interface ShareSheetProps {
+interface ShareSheetProps {
   /** Whether the sheet is open */
   open: boolean;
   /** Callback when open state changes */

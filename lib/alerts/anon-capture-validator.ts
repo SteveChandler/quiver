@@ -4,7 +4,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SAFE_PATH_RE = /^\/[a-z0-9\-/]+$/;
 
-export type ValidatedCapture = {
+type ValidatedCapture = {
   email: string;
   beach_id: string;
   preset_type: AllowedPreset;
@@ -12,7 +12,7 @@ export type ValidatedCapture = {
   website: string;
 };
 
-export type ValidationResult =
+type ValidationResult =
   | { ok: true; value: ValidatedCapture }
   | { ok: false; error: string };
 

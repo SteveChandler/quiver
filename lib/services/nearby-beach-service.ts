@@ -13,8 +13,8 @@ export type MapBeach = Beach & {
   waterQualityEvidence?: WaterQualityEvidence;
 };
 
-export const MAX_NEARBY_RADIUS_MILES = 50;
-export const MAX_NEARBY_LIMIT = 50;
+const MAX_NEARBY_RADIUS_MILES = 50;
+const MAX_NEARBY_LIMIT = 50;
 const WATER_QUALITY_HOLD_OVERFETCH = 5;
 const MAX_FALLBACK_CANDIDATES = 200;
 const NEARBY_BEACH_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -27,12 +27,12 @@ interface NearbyBeachCacheEntry {
 
 const nearbyBeachCache = new Map<string, NearbyBeachCacheEntry>();
 
-export interface NearbyBeachQuery {
+interface NearbyBeachQuery {
   radiusMiles: number;
   limit: number;
 }
 
-export interface NearbyBeachResult {
+interface NearbyBeachResult {
   success: boolean;
   data?: MapBeach[];
   error?: string;

@@ -2,7 +2,7 @@ import { isCurrentWaterQualitySample } from "@/lib/constants/water-quality";
 import type { CalloutComponent } from "@/components/map/conditions-callout-data";
 import type { WaterQualityHoldKind, MapBeach } from "@/lib/services/nearby-beach-service";
 
-export interface ConditionsCalloutOptions {
+interface ConditionsCalloutOptions {
   beachName: string;
   tempLabel: string | null;
   components: CalloutComponent[];

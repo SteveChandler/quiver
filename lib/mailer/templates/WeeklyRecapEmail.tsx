@@ -54,7 +54,7 @@ export interface BestDaySlot {
   time: string; // e.g., "6am"
 }
 
-export interface WeeklyRecapEmailProps {
+interface WeeklyRecapEmailProps {
   userName: string | null;
   startDate: string; // e.g., "Jan 20"
   endDate: string; // e.g., "Jan 26"

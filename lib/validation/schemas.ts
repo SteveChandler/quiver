@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 export const uuidSchema = z.string().uuid('Invalid UUID format');
 const emailSchema = z.string().email('Invalid email address');
-export const urlSchema = z.string().url('Invalid URL').optional();
+const urlSchema = z.string().url('Invalid URL').optional();
 
 // ============================================================================
 // Boards
@@ -40,7 +40,7 @@ export const BoardCreateSchema = z.object({
     .optional(),
 });
 
-export type BoardCreateInput = z.infer<typeof BoardCreateSchema>;
+type BoardCreateInput = z.infer<typeof BoardCreateSchema>;
 
 // ============================================================================
 // Comments
@@ -54,13 +54,13 @@ export const CommentSchema = z.object({
   session_id: uuidSchema,
 });
 
-export type CommentInput = z.infer<typeof CommentSchema>;
+type CommentInput = z.infer<typeof CommentSchema>;
 
 // ============================================================================
 // Session Planning
 // ============================================================================
 
-export const SessionPlanSchema = z.object({
+const SessionPlanSchema = z.object({
   beach_id: uuidSchema.optional(),
   beach_name: z.string()
     .min(1, 'Beach name is required')
@@ -80,7 +80,7 @@ export const SessionPlanSchema = z.object({
   { message: 'Beach is required', path: ['beach_name'] }
 );
 
-export type SessionPlanInput = z.infer<typeof SessionPlanSchema>;
+type SessionPlanInput = z.infer<typeof SessionPlanSchema>;
 
 // ============================================================================
 // Intel Posts
@@ -129,7 +129,7 @@ export const IntelPostCreateSchema = z.object({
   forecast_accuracy: z.enum(['accurate', 'somewhat', 'inaccurate']).optional(),
 });
 
-export type IntelPostCreateInput = z.infer<typeof IntelPostCreateSchema>;
+type IntelPostCreateInput = z.infer<typeof IntelPostCreateSchema>;
 
 export const AppLinkEmailSchema = z.object({
   email: z.string().email("Enter a valid email address.").max(254),
@@ -139,7 +139,7 @@ export const AppLinkEmailSchema = z.object({
   placement: z.string().max(64).optional(),
 });
 
-export type AppLinkEmailInput = z.infer<typeof AppLinkEmailSchema>;
+type AppLinkEmailInput = z.infer<typeof AppLinkEmailSchema>;
 
 const normalizedEmailSchema = z
   .string()
@@ -160,7 +160,7 @@ export const AndroidBetaLeadSchema = z.object({
   sessionId: z.string().uuid().optional(),
 });
 
-export type AndroidBetaLeadInput = z.infer<typeof AndroidBetaLeadSchema>;
+type AndroidBetaLeadInput = z.infer<typeof AndroidBetaLeadSchema>;
 
 export const IntelReportSchema = z.object({
   reason: z.string()
@@ -169,7 +169,7 @@ export const IntelReportSchema = z.object({
     .optional(),
 });
 
-export type IntelReportInput = z.infer<typeof IntelReportSchema>;
+type IntelReportInput = z.infer<typeof IntelReportSchema>;
 
 // ============================================================================
 // Intel Voting
@@ -181,14 +181,14 @@ export const IntelVoteSchema = z.object({
   }),
 });
 
-export type IntelVoteInput = z.infer<typeof IntelVoteSchema>;
+type IntelVoteInput = z.infer<typeof IntelVoteSchema>;
 
 // ============================================================================
 // Intel Reporting V2 (structured reasons)
 // ============================================================================
 
 export const INTEL_REPORT_REASONS = ['spam', 'harassment', 'dangerous', 'false_info', 'other'] as const;
-export type IntelReportReason = typeof INTEL_REPORT_REASONS[number];
+type IntelReportReason = typeof INTEL_REPORT_REASONS[number];
 
 export const IntelReportSchemaV2 = z.object({
   reason: z.enum(INTEL_REPORT_REASONS, {
@@ -200,13 +200,13 @@ export const IntelReportSchemaV2 = z.object({
     .optional(),
 });
 
-export type IntelReportV2Input = z.infer<typeof IntelReportSchemaV2>;
+type IntelReportV2Input = z.infer<typeof IntelReportSchemaV2>;
 
 // ============================================================================
 // Beach Search
 // ============================================================================
 
-export const BeachSearchSchema = z.object({
+const BeachSearchSchema = z.object({
   query: z.string()
     .min(1, 'Search query cannot be empty')
     .max(200, 'Search query too long')
@@ -222,13 +222,13 @@ export const BeachSearchSchema = z.object({
     .optional(),
 });
 
-export type BeachSearchInput = z.infer<typeof BeachSearchSchema>;
+type BeachSearchInput = z.infer<typeof BeachSearchSchema>;
 
 // ============================================================================
 // Profile Updates
 // ============================================================================
 
-export const ProfileUpdateSchema = z.object({
+const ProfileUpdateSchema = z.object({
   full_name: z.string()
     .max(100, 'Name cannot exceed 100 characters')
     .optional(),
@@ -237,13 +237,13 @@ export const ProfileUpdateSchema = z.object({
     .optional(),
 });
 
-export type ProfileUpdateInput = z.infer<typeof ProfileUpdateSchema>;
+type ProfileUpdateInput = z.infer<typeof ProfileUpdateSchema>;
 
 // ============================================================================
 // Generic Pagination
 // ============================================================================
 
-export const PaginationSchema = z.object({
+const PaginationSchema = z.object({
   page: z.number()
     .int('Page must be an integer')
     .min(1, 'Page must be at least 1')
@@ -255,13 +255,13 @@ export const PaginationSchema = z.object({
     .default(20),
 });
 
-export type PaginationInput = z.infer<typeof PaginationSchema>;
+type PaginationInput = z.infer<typeof PaginationSchema>;
 
 // ============================================================================
 // Device Registration (for push notifications)
 // ============================================================================
 
-export const DeviceRegistrationSchema = z.object({
+const DeviceRegistrationSchema = z.object({
   fcm_token: z.string()
     .min(1, 'FCM token is required')
     .max(500, 'FCM token too long'),
@@ -275,7 +275,7 @@ export const DeviceRegistrationSchema = z.object({
     .optional(),
 });
 
-export type DeviceRegistrationInput = z.infer<typeof DeviceRegistrationSchema>;
+type DeviceRegistrationInput = z.infer<typeof DeviceRegistrationSchema>;
 
 // ============================================================================
 // Session Wizard URL Parameters
@@ -456,4 +456,4 @@ export const SessionWizardPrefillSchema = z.object({
     }
   );
 
-export type SessionWizardPrefillInput = z.infer<typeof SessionWizardPrefillSchema>;
+type SessionWizardPrefillInput = z.infer<typeof SessionWizardPrefillSchema>;

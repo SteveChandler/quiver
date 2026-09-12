@@ -5,7 +5,7 @@ import { Sparkles } from "lucide-react";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 
-export interface FirstSessionCtaProps {
+interface FirstSessionCtaProps {
   /** Callback when user clicks the "I Just Surfed" CTA */
   onLogSession: () => void;
 }
@@ -31,7 +31,7 @@ export function buildQuickLogUrl(homeBeach?: { id: string; name: string }) {
  * It encourages the user to log their first session with a clear CTA and
  * a friction-reducing message about how quick the process is.
  */
-export function FirstSessionCta({ onLogSession }: FirstSessionCtaProps) {
+function FirstSessionCta({ onLogSession }: FirstSessionCtaProps) {
   const reducedMotion = useReducedMotion();
 
   return (

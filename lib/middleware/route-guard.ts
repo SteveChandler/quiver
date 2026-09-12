@@ -14,7 +14,7 @@
 
 export type RouteType = "public" | "protected" | "admin" | "skip";
 
-export interface RouteClassification {
+interface RouteClassification {
   type: RouteType;
   requiresAuth: boolean;
   requiresAdmin: boolean;

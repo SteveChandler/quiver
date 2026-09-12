@@ -44,7 +44,7 @@ const enforceFields = {
   enforcement: enforcementSchema,
 };
 
-export const officialEvidenceReferenceSchema = z.string().regex(
+const officialEvidenceReferenceSchema = z.string().regex(
   /^official:(?:rip_current_risks|nws_alert):.+$/,
 );
 const officialEvidenceReferencesSchema = z

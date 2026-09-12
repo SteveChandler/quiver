@@ -173,6 +173,12 @@ export function mergeEntitlementUpdate({
     return null;
   }
 
+  if (currentRow?.is_pro && isPromotionalProductId(currentRow.product_id)
+    && currentRow.expires_at && Date.parse(currentRow.expires_at) > Date.now()
+    && update.is_pro === false && update.previous_product_id !== currentRow.product_id) {
+    return null;
+  }
+
   return update;
 }
 

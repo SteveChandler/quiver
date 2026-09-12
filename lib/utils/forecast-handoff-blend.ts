@@ -1,11 +1,11 @@
 import type { ForecastReplaySlot, ForecastReplayHandoff } from './forecast-display-replay';
 import type { WaveHeightSourceTag } from "./wave-height-source";
 
-export const HANDOFF_BLEND_RATIO_MIN = 0.5;
-export const HANDOFF_BLEND_RATIO_MAX = 2.0;
-export const DEFAULT_HANDOFF_BLEND_TAPER_HOURS = 48;
+const HANDOFF_BLEND_RATIO_MIN = 0.5;
+const HANDOFF_BLEND_RATIO_MAX = 2.0;
+const DEFAULT_HANDOFF_BLEND_TAPER_HOURS = 48;
 
-export interface ForecastHandoffBlendSlot {
+interface ForecastHandoffBlendSlot {
   replay?: ForecastReplaySlot;
   forecastAt: string;
   waveHeight: string | null;
@@ -45,12 +45,12 @@ export interface ForecastHandoffBlendMetadata
   blendedFaceFt: number;
 }
 
-export interface ForecastHandoffBlendAdjustment {
+interface ForecastHandoffBlendAdjustment {
   waveHeight: string;
   metadata: ForecastHandoffBlendMetadata;
 }
 
-export interface ForecastHandoffBlendStep {
+interface ForecastHandoffBlendStep {
   metric: ForecastHandoffDiscontinuityMetric | null;
   adjustment: ForecastHandoffBlendAdjustment | null;
 }
@@ -62,7 +62,7 @@ export function createForecastHandoffBlendState(): ForecastHandoffBlendState {
   };
 }
 
-export function clampHandoffBlendRatio(ratio: number): number {
+function clampHandoffBlendRatio(ratio: number): number {
   return Math.min(
     HANDOFF_BLEND_RATIO_MAX,
     Math.max(HANDOFF_BLEND_RATIO_MIN, ratio),

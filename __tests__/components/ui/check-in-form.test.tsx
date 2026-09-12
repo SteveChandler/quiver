@@ -1,35 +1,34 @@
-import { describe, it, expect, beforeEach, vi } from "../../setup/vitest-shim";
 import { render, waitFor } from "@testing-library/react";
 
-const submitCheckInMock = vi.fn();
+const mockSubmitCheckIn = jest.fn();
 
-vi.mock("@/actions/check-in-actions", () => ({
-  submitCheckIn: (...args: any[]) => submitCheckInMock(...args),
+jest.mock("@/actions/check-in-actions", () => ({
+  submitCheckIn: (...args: any[]) => mockSubmitCheckIn(...args),
 }));
 
-const latestProps: { current: any } = { current: null };
-vi.mock("@/components/intel/intel-post-form", () => {
+const mockLatestProps: { current: any } = { current: null };
+jest.mock("@/components/intel/intel-post-form", () => {
   const React = require("react");
   return {
     __esModule: true,
-    IntelPostForm: vi.fn((props: any) => {
-      latestProps.current = props;
+    IntelPostForm: jest.fn((props: any) => {
+      mockLatestProps.current = props;
       return React.createElement("div", { "data-testid": "intel-post-form" });
     }),
   };
 });
 
-const { CheckInDialog } = require("@/components/ui/check-in-form");
+import { CheckInDialog } from "@/components/ui/check-in-form";
 
 describe("CheckInDialog", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    submitCheckInMock.mockReset();
-    latestProps.current = null;
+    jest.clearAllMocks();
+    mockSubmitCheckIn.mockReset();
+    mockLatestProps.current = null;
   });
 
   it("invokes submitCheckIn via beforeSubmit", async () => {
-    submitCheckInMock.mockImplementation(() =>
+    mockSubmitCheckIn.mockImplementation(() =>
       Promise.resolve({ success: true })
     );
 
@@ -38,12 +37,12 @@ describe("CheckInDialog", () => {
         isOpen
         beachId="beach-123"
         beachName="Ocean"
-        onClose={vi.fn()}
+        onClose={jest.fn()}
       />
     );
 
-    await waitFor(() => expect(latestProps.current).toBeTruthy());
-    const props = latestProps.current;
+    await waitFor(() => expect(mockLatestProps.current).toBeTruthy());
+    const props = mockLatestProps.current;
     await props.beforeSubmit?.({
       values: {
         wave_height: 3,
@@ -58,7 +57,7 @@ describe("CheckInDialog", () => {
       beachId: "beach-123",
     });
 
-    expect(submitCheckInMock).toHaveBeenCalledWith("beach-123", {
+    expect(mockSubmitCheckIn).toHaveBeenCalledWith("beach-123", {
       wave_height: 3,
       wind_speed: 10,
       wind_direction: "NW",
@@ -70,23 +69,23 @@ describe("CheckInDialog", () => {
   });
 
   it("propagates onSuccess after IntelPostForm success", async () => {
-    submitCheckInMock.mockImplementation(() =>
+    mockSubmitCheckIn.mockImplementation(() =>
       Promise.resolve({ success: true })
     );
-    const onSuccess = vi.fn();
+    const onSuccess = jest.fn();
 
     render(
       <CheckInDialog
         isOpen
         beachId="beach-123"
         beachName="Ocean"
-        onClose={vi.fn()}
+        onClose={jest.fn()}
         onSuccess={onSuccess}
       />
     );
 
-    await waitFor(() => expect(latestProps.current).toBeTruthy());
-    const props = latestProps.current;
+    await waitFor(() => expect(mockLatestProps.current).toBeTruthy());
+    const props = mockLatestProps.current;
     await props.beforeSubmit?.({
       values: { forecast_accuracy: "accurate" },
       location: { lat: 0, lon: 0 },
@@ -97,7 +96,7 @@ describe("CheckInDialog", () => {
   });
 
   it("throws when submitCheckIn fails", async () => {
-    submitCheckInMock.mockImplementation(() =>
+    mockSubmitCheckIn.mockImplementation(() =>
       Promise.resolve({ success: false, error: "fail" })
     );
 
@@ -106,12 +105,12 @@ describe("CheckInDialog", () => {
         isOpen
         beachId="beach-123"
         beachName="Ocean"
-        onClose={vi.fn()}
+        onClose={jest.fn()}
       />
     );
 
-    await waitFor(() => expect(latestProps.current).toBeTruthy());
-    const props = latestProps.current;
+    await waitFor(() => expect(mockLatestProps.current).toBeTruthy());
+    const props = mockLatestProps.current;
     await expect(
       props.beforeSubmit?.({
         values: { forecast_accuracy: "accurate" },
@@ -121,10 +120,10 @@ describe("CheckInDialog", () => {
   });
 
   it("calls onClose when IntelPostForm invokes onClose", async () => {
-    submitCheckInMock.mockImplementation(() =>
+    mockSubmitCheckIn.mockImplementation(() =>
       Promise.resolve({ success: true })
     );
-    const onClose = vi.fn();
+    const onClose = jest.fn();
 
     render(
       <CheckInDialog
@@ -135,8 +134,8 @@ describe("CheckInDialog", () => {
       />
     );
 
-    await waitFor(() => expect(latestProps.current).toBeTruthy());
-    latestProps.current.onClose?.();
+    await waitFor(() => expect(mockLatestProps.current).toBeTruthy());
+    mockLatestProps.current.onClose?.();
 
     expect(onClose).toHaveBeenCalled();
   });

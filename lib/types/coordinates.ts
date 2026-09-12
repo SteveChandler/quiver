@@ -26,7 +26,7 @@ export interface Coordinates {
  * Verbose coordinate type for explicit contexts
  * Useful when interfacing with external APIs or verbose data structures
  */
-export interface CoordinatesVerbose {
+interface CoordinatesVerbose {
   latitude: number;
   longitude: number;
 }
@@ -40,13 +40,13 @@ export interface CoordinatesVerbose {
  * const mapboxCoords: MapboxCoordinates = [-117.25, 32.75]; // [lon, lat]
  * ```
  */
-export type MapboxCoordinates = [longitude: number, latitude: number];
+type MapboxCoordinates = [longitude: number, latitude: number];
 
 /**
  * Database coordinate type (PostGIS legacy)
  * Uses 'center_lng' naming from existing database schema
  */
-export interface DatabaseCoordinates {
+interface DatabaseCoordinates {
   center_lat: number;
   center_lng: number; // Legacy naming from PostGIS functions
 }
@@ -57,7 +57,7 @@ export interface DatabaseCoordinates {
  * This exists to support gradual migration away from `lng`/mixed naming.
  * Prefer producing canonical `{ lat, lon }` as early as possible.
  */
-export type CoordinatesInput = {
+type CoordinatesInput = {
   // Canonical
   lat?: unknown;
   lon?: unknown;
@@ -72,7 +72,7 @@ export type CoordinatesInput = {
   center_lon?: unknown;
 };
 
-export type NormalizeCoordinatesOptions = {
+type NormalizeCoordinatesOptions = {
   /** Included in warning messages to help trace call sites. */
   context?: string;
   /**
@@ -298,23 +298,7 @@ function isLegacyLngLatFormat(obj: unknown): obj is { lat: number; lng: number }
  * };
  * ```
  */
-export type {
-  Latitude,
-  Longitude,
-  BrandedCoordinates,
-} from './branded-coordinates';
 
-export {
-  latitude,
-  longitude,
-  brandedCoordinates,
-  safeLat,
-  safeLon,
-  safeCoordinates,
-  toBranded,
-  fromBranded,
-  isBrandedCoordinates,
-} from './branded-coordinates';
 
 /**
  * Coordinates with optional branded types
@@ -333,4 +317,4 @@ export {
  * };
  * ```
  */
-export type StrictCoordinates = import('./branded-coordinates').BrandedCoordinates;
+type StrictCoordinates = import('./branded-coordinates').BrandedCoordinates;

@@ -23,7 +23,7 @@ type IdentityPost = {
   user?: IdentityProfile | null;
 };
 
-export type SystemAuthoredRecord = IdentityProfile & IdentityPost;
+type SystemAuthoredRecord = IdentityProfile & IdentityPost;
 
 type IdentityClient = Pick<SupabaseClient<Database>, "from">;
 

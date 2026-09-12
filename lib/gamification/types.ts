@@ -124,7 +124,7 @@ export interface CreditAuthorResult {
 /**
  * Related entity types for XP events
  */
-export type RelatedEntityType =
+type RelatedEntityType =
   | "session"
   | "board"
   | "intel_post"

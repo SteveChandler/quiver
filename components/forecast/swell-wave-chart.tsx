@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 /**
  * Props for the SwellWaveChart component
  */
-export interface SwellWaveChartProps {
+interface SwellWaveChartProps {
   /** Wave height in feet (affects amplitude) */
   height: number;
   /** Wave period in seconds (affects frequency) */
@@ -277,7 +277,7 @@ export function SwellWaveChart({
 /**
  * Compact swell indicator for use in cards
  */
-export function SwellIndicator({
+function SwellIndicator({
   size,
   className,
 }: {

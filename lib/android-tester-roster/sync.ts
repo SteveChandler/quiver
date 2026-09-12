@@ -44,7 +44,7 @@ interface SyncIdentityRow {
   auth_tag: string | null;
 }
 
-export function loadGoogleDirectoryConfig(): GoogleDirectoryConfig {
+function loadGoogleDirectoryConfig(): GoogleDirectoryConfig {
   return {
     groupKey: process.env.ANDROID_TESTER_ROSTER_GOOGLE_GROUP_KEY ?? "",
     delegatedSubject:

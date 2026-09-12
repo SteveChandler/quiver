@@ -13,7 +13,7 @@ import { TrialStartedEmail } from "@/lib/mailer/templates/TrialStartedEmail";
  * (stages 4, 6, 7). Read that before changing a subject or a CTA.
  */
 
-export type TrialEmailStage = "trial_started" | "trial_ending" | "trial_ended";
+type TrialEmailStage = "trial_started" | "trial_ending" | "trial_ended";
 
 export interface GeneratedTrialEmail {
   subject: string;
@@ -124,7 +124,7 @@ export function generateTrialStartedEmail(
   return { subject, react, text };
 }
 
-export interface TrialEndingInput extends CommonInput {
+interface TrialEndingInput extends CommonInput {
   trialEndsOn: string;
   chargeOn: string;
   price: string;

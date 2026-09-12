@@ -34,9 +34,9 @@ import type { DisplayPredictionRow } from "./log-display-prediction";
 export const TRUSTED_FORECAST_BUILD_SCHEMA_VERSION =
   "trusted-forecast-build-v2";
 
-export const PERSIST_TRUSTED_FORECAST_BUILD_RPC =
+const PERSIST_TRUSTED_FORECAST_BUILD_RPC =
   "persist_trusted_forecast_build";
-export const GET_TRUSTED_FORECAST_BUILD_RECEIPT_RPC =
+const GET_TRUSTED_FORECAST_BUILD_RECEIPT_RPC =
   "get_trusted_forecast_build_receipt";
 
 /** Max `buildKey` length accepted by the RPC's own contract check. */
@@ -65,7 +65,7 @@ const DEFINITE_REJECTION_CODES: ReadonlySet<string> = new Set([
 
 const UNIQUENESS_CODE = "23505";
 
-export interface TrustedForecastBuildReceipt {
+interface TrustedForecastBuildReceipt {
   readonly buildKey: string;
   readonly payloadSha256: string;
   readonly schemaVersion: string;
@@ -146,7 +146,7 @@ export interface TrustedForecastBuildPayload {
   readonly expectedSnapshotCount: number;
 }
 
-export type TrustedForecastPersistenceErrorCode =
+type TrustedForecastPersistenceErrorCode =
   | "ambiguous_commit_unresolved"
   | "receipt_mismatch"
   | "receipt_unreadable"
@@ -210,7 +210,7 @@ export function createTrustedForecastPersistenceStore(
   };
 }
 
-export type TrustedForecastPersistenceOutcome =
+type TrustedForecastPersistenceOutcome =
   | {
       readonly kind: "receipt";
       readonly receipt: TrustedForecastBuildReceipt;

@@ -1424,6 +1424,8 @@ export async function GET(request: Request): Promise<NextResponse> {
                     const sendResult = !forecastDeliveryEnabled
                       ? { data: null, error: null }
                       : await sendEmail({
+                          purpose: "condition_alert",
+                          alertContact: { userId: payload.user_id, episode: emailSurvivors.map(item => item.id).sort().join(":") },
                           from: MAIL_FROM,
                           replyTo: MAIL_REPLY_TO,
                           to: profile.email,

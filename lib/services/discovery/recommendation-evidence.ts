@@ -17,7 +17,7 @@ export interface RecommendationEvidenceInput {
   boardLinkedPositiveCount?: number;
 }
 
-export interface RecommendationEvidence {
+interface RecommendationEvidence {
   reasonType: string;
   proofSummary: string;
   evidenceFacts: Array<Record<string, unknown>>;

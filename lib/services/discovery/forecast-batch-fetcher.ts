@@ -21,7 +21,7 @@ export const DEFAULT_FORECAST_WINDOW_HOURS = 48;
 /**
  * Options for batch forecast fetching
  */
-export interface ForecastBatchOptions {
+interface ForecastBatchOptions {
   /** Maximum concurrent requests (unused - batch fetch is single operation) */
   maxConcurrent?: number;
   /** Timeout per request in ms (unused - batch fetch handles internally) */
@@ -39,7 +39,7 @@ export interface ForecastBatchOptions {
 /**
  * Result of batch forecast fetching
  */
-export interface ForecastBatchResult {
+interface ForecastBatchResult {
   /** Beaches with successful fresh forecasts */
   successful: Array<{ beach: Beach; forecasts: EnhancedForecastEntity[] }>;
   /** Beaches that failed to get forecasts (with reason and stale flag) */

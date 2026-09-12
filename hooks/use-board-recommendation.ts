@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 /**
  * Board recommendation data returned from the hook
  */
-export interface BoardRecommendation {
+interface BoardRecommendation {
   boardName: string;
   boardType: string;
   boardId: string;
@@ -14,7 +14,7 @@ export interface BoardRecommendation {
 /**
  * Options for the useBoardRecommendation hook
  */
-export interface UseBoardRecommendationOptions {
+interface UseBoardRecommendationOptions {
   /** Current wave height in feet (required for recommendation) */
   waveHeight: number | null;
   /** Current wind speed in mph (required for recommendation) */
@@ -28,7 +28,7 @@ export interface UseBoardRecommendationOptions {
 /**
  * Board recommendation hook state
  */
-export interface UseBoardRecommendationResult {
+interface UseBoardRecommendationResult {
   /** The recommended board, or null if no confident recommendation */
   recommendation: BoardRecommendation | null;
   /** Whether the hook is currently loading */

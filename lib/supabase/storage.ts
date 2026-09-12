@@ -8,7 +8,7 @@ import {
 
 const STORAGE_BUCKET = "session-media";
 
-export interface UploadResult {
+interface UploadResult {
   success: boolean;
   url?: string;
   path?: string;

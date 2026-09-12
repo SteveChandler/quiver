@@ -18,7 +18,7 @@ const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
 /** Maximum URLs per IndexNow request (protocol limit is 10,000). */
 const BATCH_SIZE = 10_000;
 
-export interface IndexNowResult {
+interface IndexNowResult {
   success: boolean;
   statusCode: number;
   /** URLs the API confirmed (HTTP 200 — key verified against keyLocation). */
@@ -27,7 +27,7 @@ export interface IndexNowResult {
   pending: number;
 }
 
-export interface IndexNowBatchResult {
+interface IndexNowBatchResult {
   totalSubmitted: number;
   totalPending: number;
   batches: IndexNowResult[];

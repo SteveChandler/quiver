@@ -5,7 +5,7 @@ import { trackFallback, FallbackEvent } from './fallback-tracker';
  * otherwise tracks the fallback and returns `fallbackValue`.
  * Replaces the comma-operator pattern: `value ?? (trackFallback(...), default)`
  */
-export function withFallbackTracking<T extends string | number | null>(
+function withFallbackTracking<T extends string | number | null>(
   value: T | null | undefined,
   fallbackValue: T,
   tracking: Omit<FallbackEvent, 'fallbackValue' | 'severity'> & { severity?: FallbackEvent['severity'] }
