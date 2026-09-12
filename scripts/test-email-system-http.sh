@@ -16,7 +16,7 @@ for attempt in {1..30}; do
  if docker exec "$task_name-db" pg_isready -U postgres >/dev/null 2>&1; then break; fi
  sleep 1
 done
-for migration in __tests__/fixtures/email-lifecycle.sql supabase/migrations/20260903180000_email_contact_policy.sql supabase/migrations/20260912010000_startup_email_lifecycle.sql supabase/migrations/20260622090000_create_earned_pro_grants.sql supabase/migrations/20260912020000_gmail_reply_ingestion.sql supabase/migrations/20260912030000_pro_offer_fulfillment.sql supabase/migrations/20260912040000_automated_lifecycle_offers.sql contracts/email-system/setup.sql; do
+for migration in __tests__/fixtures/email-lifecycle.sql supabase/migrations/20260903180000_email_contact_policy.sql supabase/migrations/20260912010000_startup_email_lifecycle.sql supabase/migrations/20260622090000_create_earned_pro_grants.sql supabase/migrations/20260912020000_gmail_reply_ingestion.sql supabase/migrations/20260912030000_pro_offer_fulfillment.sql supabase/migrations/20260912040000_automated_lifecycle_offers.sql supabase/migrations/20260912050000_lifecycle_audience_copy.sql supabase/migrations/20260912214631_lifecycle_full_audience.sql contracts/email-system/setup.sql; do
  docker exec -i "$task_name-db" psql -U postgres -v ON_ERROR_STOP=1 < "$repo_dir/$migration" >/dev/null
 done
 fixture_secret='local-email-contract-only-jwt-secret-32-characters'
