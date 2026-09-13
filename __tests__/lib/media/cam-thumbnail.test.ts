@@ -259,7 +259,7 @@ describe("getDisplayCamThumbnailUrls", () => {
         fallbackImageUrl: "https://photos.example/beach.jpg",
       }),
     ).toEqual([
-      "https://photos.example/beach.jpg",
+      "/api/image-proxy?url=https%3A%2F%2Fphotos.example%2Fbeach.jpg",
       CAM_CARD_FALLBACK_IMAGE_URL,
     ]);
   });
