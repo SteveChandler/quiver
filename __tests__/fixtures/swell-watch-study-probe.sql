@@ -403,16 +403,19 @@ DECLARE base timestamptz; ids uuid[]:='{}'; r record; c record; pending jsonb; d
 BEGIN
   BEGIN
     base:=to_timestamp(floor(extract(epoch FROM clock_timestamp())/21600)*21600);
-    FOR slot IN 0..4 LOOP
+    -- Own every issuance in this fixture's 48-hour window. Five slots left the
+    -- earlier supersession probe's yesterday-noon receipt pending after 18 UTC.
+    -- Eight fresh revisions isolate the queue without changing production rules.
+    FOR slot IN 0..7 LOOP
       SELECT * INTO r FROM public.record_swell_watch_provider_run_receipt(public.study_receipt(base-slot*interval '6 hours',3+slot));
       ids:=array_append(ids,r.revision_set_id);
     END LOOP;
     SET LOCAL ROLE service_role;
     pending:=public.read_swell_watch_study_pending_runs(repeat('a',64));
     RESET ROLE;
-    PERFORM public.study_assert(pending=jsonb_build_array(jsonb_build_object('revision_set_id',ids[5]),jsonb_build_object('revision_set_id',ids[4]),jsonb_build_object('revision_set_id',ids[3])),
+    PERFORM public.study_assert(pending=jsonb_build_array(jsonb_build_object('revision_set_id',ids[8]),jsonb_build_object('revision_set_id',ids[7]),jsonb_build_object('revision_set_id',ids[6])),
       'pending oldest first max three includes raw receipts');
-    SELECT * INTO c FROM public.complete_swell_watch_study_run(ids[5],repeat('a',64),public.study_cohort(),public.study_inputs());
+    SELECT * INTO c FROM public.complete_swell_watch_study_run(ids[8],repeat('a',64),public.study_cohort(),public.study_inputs());
     PERFORM public.study_assert(public.read_swell_watch_study_pending_runs(repeat('a',64))=pending,'accepted without result remains pending');
     SELECT * INTO demand FROM public.record_swell_watch_shadow_demand(c.provider_batch_id,repeat('a',64),'[]');
     output:=jsonb_build_object('providerBatchId',c.provider_batch_id,'policyHash',repeat('a',64),'status','evaluated','reason',NULL,
@@ -422,14 +425,14 @@ BEGIN
       'scopeOutcomes',(SELECT jsonb_agg(jsonb_build_object('sourcePointId',s->>'sourcePointId','status','derived','reason',NULL)) FROM jsonb_array_elements(public.study_cohort()) s),
       'recordedDemand',jsonb_build_object('observedAt',demand.observed_at,'recipientEventPairs24Hours',demand.recorded_pairs_24h));
     PERFORM public.record_swell_watch_study_evaluation(c.provider_batch_id,repeat('a',64),output,public.study_inputs());
-    PERFORM public.study_assert(NOT public.read_swell_watch_study_pending_runs(repeat('a',64)) @> jsonb_build_array(jsonb_build_object('revision_set_id',ids[5])),'successful result not pending');
-    PERFORM public.attest_swell_watch_provider_run(gen_random_uuid(),ids[4],'rejected','fixture',repeat('b',64),'fixture');
+    PERFORM public.study_assert(NOT public.read_swell_watch_study_pending_runs(repeat('a',64)) @> jsonb_build_array(jsonb_build_object('revision_set_id',ids[8])),'successful result not pending');
+    PERFORM public.attest_swell_watch_provider_run(gen_random_uuid(),ids[7],'rejected','fixture',repeat('b',64),'fixture');
     accepted:=gen_random_uuid();
-    PERFORM public.attest_swell_watch_provider_run(accepted,ids[3],'accepted','fixture',repeat('b',64),'fixture');
-    PERFORM public.attest_swell_watch_provider_run(gen_random_uuid(),ids[3],'revoked','fixture',repeat('b',64),'fixture',accepted);
-    SELECT revision_set_id INTO replacement FROM public.record_swell_watch_provider_run_receipt(public.study_receipt(base-interval '6 hours',9));
+    PERFORM public.attest_swell_watch_provider_run(accepted,ids[6],'accepted','fixture',repeat('b',64),'fixture');
+    PERFORM public.attest_swell_watch_provider_run(gen_random_uuid(),ids[6],'revoked','fixture',repeat('b',64),'fixture',accepted);
+    SELECT revision_set_id INTO replacement FROM public.record_swell_watch_provider_run_receipt(public.study_receipt(base-interval '24 hours',99));
     pending:=public.read_swell_watch_study_pending_runs(repeat('a',64));
-    PERFORM public.study_assert(pending=jsonb_build_array(jsonb_build_object('revision_set_id',replacement),jsonb_build_object('revision_set_id',ids[1])),
+    PERFORM public.study_assert(pending=jsonb_build_array(jsonb_build_object('revision_set_id',replacement),jsonb_build_object('revision_set_id',ids[4]),jsonb_build_object('revision_set_id',ids[3])),
       'pending excludes rejected revoked and superseded revisions');
     INSERT INTO public.swell_watch_evaluation_policies(epoch,state,policy_hash,policy_values,reviewer,evidence_hash,not_before,expires_at)
       SELECT 2,state,policy_hash,jsonb_set(policy_values,'{staleness,maximum_forecast_age_hours}','6'),reviewer,evidence_hash,not_before,expires_at
