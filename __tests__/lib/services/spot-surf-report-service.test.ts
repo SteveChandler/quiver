@@ -19,12 +19,8 @@ jest.mock("@/lib/utils/timezone-utils.server", () => ({
   getTimezoneFromCoords: jest.fn(() => "America/Los_Angeles"),
 }));
 
-let formatDateCallCount = 0;
 jest.mock("@/lib/utils/date-time", () => ({
-  formatDateInTimezone: jest.fn(() => {
-    formatDateCallCount += 1;
-    return formatDateCallCount % 2 === 1 ? "2024-01-15" : "2024-01-16";
-  }),
+  formatDateInTimezone: jest.fn(() => "2024-01-15"),
 }));
 
 const mockCacheInputs: unknown[][] = [];
@@ -41,6 +37,8 @@ const mockUnstableCache = jest.fn(
 jest.mock("next/cache", () => ({ unstable_cache: mockUnstableCache }));
 
 const mockSelectBestWindow = jest.fn();
+const mockForecastGte = jest.fn();
+const mockForecastLt = jest.fn();
 jest.mock("@/lib/services/discovery/window-selector", () => ({
   selectBestWindow: (...args: unknown[]) => mockSelectBestWindow(...args),
 }));
@@ -100,8 +98,8 @@ describe("spot surf report service", () => {
       from: jest.fn(() => ({
         select: jest.fn(() => ({
           eq: jest.fn(() => ({
-            gte: jest.fn(() => ({
-              lt: jest.fn(() => ({
+            gte: mockForecastGte.mockImplementation(() => ({
+              lt: mockForecastLt.mockImplementation(() => ({
                 order: jest.fn(() => ({
                   limit: jest.fn().mockResolvedValue({ data: rows, error: null }),
                 })),
@@ -116,7 +114,8 @@ describe("spot surf report service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCacheInputs.length = 0;
-    formatDateCallCount = 0;
+    const { formatDateInTimezone } = require("@/lib/utils/date-time");
+    formatDateInTimezone.mockReturnValue("2024-01-15");
     const { getBatchSunTimes } = require("@/lib/services/discovery");
     (getBatchSunTimes as jest.Mock).mockResolvedValue(new Map([
       [beachId, { sunrises: [], sunsets: [new Date("2024-01-16T01:00:00Z")] }],
@@ -318,10 +317,21 @@ describe("spot surf report service", () => {
     expect(result?.forecastContext).toBeNull();
   });
 
-  it("keeps today's physical hourly rows when the recommendation falls tomorrow", async () => {
+  it("moves hourly facts to the headline day when today's windows are exhausted", async () => {
+    const tomorrowForecast = {
+      ...forecast,
+      forecast_at: "2024-01-16T18:00:00Z",
+      forecast_date: "2024-01-16",
+      forecast_time: "18:00",
+      wind_direction: "W",
+      wind_speed: "5 mph",
+      tide_height: "4.1 ft",
+      tide_status: "Rising",
+      confidence_score: 88,
+    };
     setupDatabase([
-      forecast,
-      { ...forecast, forecast_at: "2024-01-16T14:00Z", forecast_date: "2024-01-16" },
+      { ...forecast, wind_direction: "SE", tide_height: "3.6 ft", confidence_score: 99 },
+      tomorrowForecast,
     ]);
     mockSelectBestWindow
       .mockReturnValueOnce(null)
@@ -330,6 +340,8 @@ describe("spot surf report service", () => {
         end: new Date("2024-01-16T21:00:00Z"),
         score: 75,
         waveHeight: "4",
+        confidence: 88,
+        peakTime: new Date(tomorrowForecast.forecast_at),
       });
     const { getSpotSurfReportPublic } = await import(
       "@/lib/services/spot-surf-report-service"
@@ -338,10 +350,50 @@ describe("spot surf report service", () => {
     const result = await getSpotSurfReportPublic(beach);
 
     expect(result?.isTomorrow).toBe(true);
-    expect(result?.hourlyForecastDay).toBe("today");
+    expect(result?.hourlyForecastDay).toBe("tomorrow");
     expect(result?.hourlyForecasts).toEqual([
-      expect.objectContaining({ forecast_at: "2024-01-15T14:00Z" }),
+      expect.objectContaining({
+        forecast_at: tomorrowForecast.forecast_at,
+        wind_direction: "W",
+        tide_height: "4.1 ft",
+        confidence_score: 88,
+        wave_height: "6 ft",
+      }),
     ]);
+    expect(result?.forecastContext).toMatchObject({
+      localDate: "2024-01-16",
+      selectedRowTime: "2024-01-16T18:00:00.000Z",
+      windDirection: "W",
+      waveHeight: "6 ft",
+    });
+    expect(result?.report).toMatchObject({ tideHeight: "4.1ft", forecastConfidence: 88 });
+  });
+
+  it.each([false, true])("keeps tomorrow's hourly rows without a window (today present: %s)", async (includeToday) => {
+    setupDatabase([
+      ...(includeToday ? [forecast] : []),
+      { ...forecast, forecast_at: "2024-01-16T18:00:00Z", forecast_date: "2024-01-16", forecast_time: "18:00" },
+    ]);
+    mockSelectBestWindow.mockReturnValue(null);
+    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
+    const result = await getSpotSurfReportPublic(beach);
+    expect(result?.isTomorrow).toBe(true);
+    expect(result?.hourlyForecastDay).toBe("tomorrow");
+    expect(result?.hourlyForecasts?.map(row => row.forecast_at)).toEqual(["2024-01-16T18:00:00Z"]);
+  });
+
+  it.each([
+    ["2026-09-03", "2026-09-03T07:00:00.000Z", "2026-09-05T07:00:00.000Z"],
+    ["2026-03-07", "2026-03-07T08:00:00.000Z", "2026-03-09T07:00:00.000Z"],
+    ["2026-10-31", "2026-10-31T07:00:00.000Z", "2026-11-02T08:00:00.000Z"],
+  ])("queries two complete local days starting %s", async (today, start, end) => {
+    const { formatDateInTimezone } = require("@/lib/utils/date-time");
+    formatDateInTimezone.mockReturnValue(today);
+    setupDatabase([]);
+    const { getSpotSurfReportPublic } = await import("@/lib/services/spot-surf-report-service");
+    await getSpotSurfReportPublic(beach);
+    expect(mockForecastGte).toHaveBeenCalledWith("forecast_at", start);
+    expect(mockForecastLt).toHaveBeenCalledWith("forecast_at", end);
   });
 
   it("returns a safe available NO when there is no positive surf window", async () => {
@@ -354,6 +406,9 @@ describe("spot surf report service", () => {
     const result = await getSpotSurfReportPublic(beach);
 
     expect(result?.report.verdict).toBe("NO");
+    expect(result?.isTomorrow).toBe(false);
+    expect(result?.hourlyForecastDay).toBe("today");
+    expect(result?.hourlyForecasts?.map(row => row.forecast_at)).toEqual([forecast.forecast_at]);
     expect(result?.report.recommendationAvailability).toEqual({
       state: "available",
       holdEpoch: "no-positive-surf-call",

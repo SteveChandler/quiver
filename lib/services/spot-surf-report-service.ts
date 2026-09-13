@@ -1,6 +1,7 @@
 import "server-only";
 
 import { unstable_cache } from 'next/cache';
+import { fromZonedTime } from 'date-fns-tz';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { computeSurfCall, computeSurfCallTiers, type SurfCallResult } from '@/lib/utils/surf-call-logic';
@@ -331,8 +332,9 @@ const getCachedSurfReport = unstable_cache(
     // 2. Determine "today" and "tomorrow" in beach timezone
     const now = new Date();
     const todayStr = formatDateInTimezone(now, beachTz);
-    const tomorrow = new Date(now.getTime() + 86_400_000);
-    const tomorrowStr = formatDateInTimezone(tomorrow, beachTz);
+    // Advance calendar dates, not elapsed hours (DST days may be 23 or 25 hours).
+    const todayCalendarMs = Date.parse(`${todayStr}T12:00:00Z`);
+    const tomorrowStr = new Date(todayCalendarMs + 86_400_000).toISOString().slice(0, 10);
 
     // 2.5. Fetch sun times for sunset capping
     const sunTimesCache = await getBatchSunTimes([beachId], [todayStr, tomorrowStr]);
@@ -344,8 +346,8 @@ const getCachedSurfReport = unstable_cache(
       .from('enhanced_forecasts')
       .select('*')
       .eq('beach_id', beachId)
-      .gte('forecast_at', `${todayStr}T00:00:00Z`)
-      .lt('forecast_at', `${dayAfterTomorrow}T00:00:00Z`)
+      .gte('forecast_at', fromZonedTime(`${todayStr}T00:00:00`, beachTz).toISOString())
+      .lt('forecast_at', fromZonedTime(`${dayAfterTomorrow}T00:00:00`, beachTz).toISOString())
       .order('forecast_at', { ascending: true })
       .limit(48);
 
@@ -382,9 +384,6 @@ const getCachedSurfReport = unstable_cache(
     // 4. Filter to today first; fall back to tomorrow if no viable window today
     const todayForecasts = forecasts.filter(f => extractForecastDate(f.forecast_at, beachTz) === todayStr);
     const tomorrowForecasts = forecasts.filter(f => extractForecastDate(f.forecast_at, beachTz) === tomorrowStr);
-    const hasTodayForecasts = todayForecasts.length > 0;
-    const publicHourlyForecasts = hasTodayForecasts ? todayForecasts : tomorrowForecasts;
-    const hourlyForecastDay: PublicForecastDay = hasTodayForecasts ? 'today' : 'tomorrow';
     // Try today's forecasts first
     if (todayForecasts.length > 0) {
       const headline = resolveTodayHeadline({
@@ -409,8 +408,8 @@ const getCachedSurfReport = unstable_cache(
           report: buildReport(headline.window, todayForecasts, beach, { isTomorrow: false }),
           isTomorrow: false,
           forecastContext,
-          hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
-          hourlyForecastDay,
+          hourlyForecasts: todayForecasts.map(toPublicForecastHour),
+          hourlyForecastDay: 'today',
         };
       }
     }
@@ -439,8 +438,8 @@ const getCachedSurfReport = unstable_cache(
           report: buildReport(headline.window, tomorrowForecasts, beach, { isTomorrow: true }),
           isTomorrow: true,
           forecastContext,
-          hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
-          hourlyForecastDay,
+          hourlyForecasts: tomorrowForecasts.map(toPublicForecastHour),
+          hourlyForecastDay: 'tomorrow',
         };
       }
       return {
@@ -452,8 +451,8 @@ const getCachedSurfReport = unstable_cache(
           window: null,
           timezone: beachTz,
         }),
-        hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
-        hourlyForecastDay,
+        hourlyForecasts: tomorrowForecasts.map(toPublicForecastHour),
+        hourlyForecastDay: 'tomorrow',
       };
     }
 
@@ -468,8 +467,8 @@ const getCachedSurfReport = unstable_cache(
           window: null,
           timezone: beachTz,
         }),
-        hourlyForecasts: publicHourlyForecasts.map(toPublicForecastHour),
-        hourlyForecastDay,
+        hourlyForecasts: todayForecasts.map(toPublicForecastHour),
+        hourlyForecastDay: 'today',
       };
     }
 

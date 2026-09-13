@@ -73,14 +73,14 @@ describe("PublicForecastHourly", () => {
     global.fetch = jest.fn();
   });
 
-  function renderHourly() {
+  function renderHourly(forecastDay: "today" | "tomorrow" = "today") {
     return render(
       <AuthenticatedForecastDecisionProvider beachId="beach-1">
         <PublicForecastHourly
           beachName="Del Mar"
           forecastHours={forecastHours}
           context={context}
-          forecastDay="today"
+          forecastDay={forecastDay}
           returnTo="/ca/san-diego/del-mar"
         />
       </AuthenticatedForecastDecisionProvider>,
@@ -98,6 +98,15 @@ describe("PublicForecastHourly", () => {
       expect(row).not.toHaveClass("bg-[#F7E7BE]");
     }
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("labels the table and accessible caption for the selected tomorrow forecast", () => {
+    renderHourly("tomorrow");
+
+    expect(screen.getByText("Tomorrow by time")).toBeInTheDocument();
+    expect(screen.queryByText("Today by time")).not.toBeInTheDocument();
+    expect(screen.getByRole("table", { name: /Del Mar tomorrow hourly surf forecast/i })).toBeInTheDocument();
+    expect(screen.getAllByTestId("public-forecast-hour")).toHaveLength(2);
   });
 
   it("marks matching rows after fetching the authenticated decision", async () => {
