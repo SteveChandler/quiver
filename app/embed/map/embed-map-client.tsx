@@ -299,7 +299,10 @@ export function EmbedMapClient() {
   );
 
   const handleBoundsChange = useCallback(
-    (bounds: { west: number; south: number; east: number; north: number }): void => {
+    (
+      bounds: { west: number; south: number; east: number; north: number },
+      metadata: { interactionSource: "initial" | "programmatic" | "user" },
+    ): void => {
       const viewport = viewportFromBounds(bounds);
       currentViewportRef.current = {
         ...viewport,
@@ -311,7 +314,13 @@ export function EmbedMapClient() {
         return;
       }
 
-      postEvent({ type: "viewportChanged", payload: currentViewportRef.current });
+      postEvent({
+        type: "viewportChanged",
+        payload: {
+          ...currentViewportRef.current,
+          interactionSource: metadata.interactionSource,
+        },
+      });
     },
     [postEvent, postReady],
   );

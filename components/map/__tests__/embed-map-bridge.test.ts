@@ -332,12 +332,57 @@ describe("embed map bridge", () => {
     ).toBe('{"type":"forecastTimeChanged","payload":{"index":2}}');
     expect(
       serializeEmbedMapEvent({
+        type: "viewportChanged",
+        payload: {
+          center: { lat: 32.87, lon: -117.25 },
+          interactionSource: "user",
+        },
+      }),
+    ).toBe(
+      '{"type":"viewportChanged","payload":{"center":{"lat":32.87,"lon":-117.25},"interactionSource":"user"}}',
+    );
+    expect(
+      serializeEmbedMapEvent({
         type: "forecastTimeChanged",
         payload: { index: 42, forecastAt: "2026-07-12T14:00:00.000Z" },
       }),
     ).toBe(
       '{"type":"forecastTimeChanged","payload":{"index":42,"forecastAt":"2026-07-12T14:00:00.000Z"}}',
     );
+  });
+
+  it("posts map bounds provenance from the live embed callback", async () => {
+    const postMessage = jest.fn();
+    Object.defineProperty(window, "ReactNativeWebView", {
+      configurable: true,
+      value: { postMessage },
+    });
+    const { EmbedMapClient } = await import("@/app/embed/map/embed-map-client");
+    const view = render(React.createElement(EmbedMapClient));
+    const onMapReady = mockInteractiveMapProps.onMapReady as () => void;
+    const onBoundsChange = mockInteractiveMapProps.onBoundsChange as (
+      bounds: { west: number; south: number; east: number; north: number },
+      metadata: { interactionSource: "initial" | "programmatic" | "user" },
+    ) => void;
+
+    act(() => onMapReady());
+    postMessage.mockClear();
+    act(() => onBoundsChange(
+      { west: -117.5, south: 32.6, east: -117.4, north: 32.7 },
+      { interactionSource: "user" },
+    ));
+
+    expect(postMessage).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(postMessage.mock.calls[0][0])).toEqual({
+      type: "viewportChanged",
+      payload: {
+        center: { lat: 32.65, lon: -117.45 },
+        bounds: { west: -117.5, south: 32.6, east: -117.4, north: 32.7 },
+        zoom: 11.5,
+        interactionSource: "user",
+      },
+    });
+    view.unmount();
   });
 
   it("posts an enriched spotSelected payload from the map's displayed conditions", async () => {
