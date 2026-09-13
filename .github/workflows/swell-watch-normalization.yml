@@ -30,10 +30,11 @@ jobs:
         run: |
           mkdir -p /tmp/swell-normalization-artifact
           git rev-parse HEAD > /tmp/swell-normalization-artifact/commit.txt
-          git archive --format=tar.gz -o /tmp/swell-normalization-artifact/source.tar.gz HEAD lib/alerts/swell-watch lib/utils types supabase/migrations scripts/test-swell-watch-study-postgres.sh __tests__/fixtures __tests__/lib/alerts/swell-watch docs/MIGRATION_SAFETY.md docs/SUPABASE_GUIDE.md lib/ARCHITECTURE.md supabase/ARCHITECTURE.md docs/TEST_ARCHITECTURE.md package.json tsconfig.json
+          git archive --format=tar.gz -o /tmp/swell-normalization-artifact/source.tar.gz HEAD lib types supabase scripts __tests__/fixtures __tests__/lib/alerts/swell-watch docs package.json tsconfig.json
       - name: Generate a migration filename with the official CLI
         if: github.event_name == 'push'
         run: |
+          npx --yes supabase@2.81.3 migration new --help
           npx --yes supabase@2.81.3 migration new normalize_swell_watch_provider_direction
           find supabase/migrations -name '*normalize_swell_watch_provider_direction.sql' -printf '%f\n' > /tmp/swell-normalization-artifact/migration-name.txt
       - name: Test the real parser and PostgreSQL boundaries
