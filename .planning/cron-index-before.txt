@@ -1,0 +1,19 @@
+BEGIN
+SET
+                                                         QUERY PLAN                                                          
+-----------------------------------------------------------------------------------------------------------------------------
+ Gather  (cost=1000.00..26271.01 rows=1 width=16) (actual time=1355.867..1500.130 rows=0 loops=1)
+   Workers Planned: 1
+   Workers Launched: 1
+   Buffers: shared hit=2197 read=20779
+   ->  Parallel Seq Scan on cron_runs  (cost=0.00..25270.91 rows=1 width=16) (actual time=1307.461..1307.461 rows=0 loops=2)
+         Filter: ((status = 'started'::text) AND (started_at < (now() - '00:15:00'::interval)))
+         Rows Removed by Filter: 104674
+         Buffers: shared hit=2197 read=20779
+ Planning:
+   Buffers: shared hit=125
+ Planning Time: 1.466 ms
+ Execution Time: 1500.264 ms
+(12 rows)
+
+COMMIT

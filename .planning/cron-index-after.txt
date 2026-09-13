@@ -1,0 +1,25 @@
+BEGIN
+SET
+             relname              |                                                         definition                                                          | indisvalid | indisready | index_size 
+----------------------------------+-----------------------------------------------------------------------------------------------------------------------------+------------+------------+------------
+ idx_cron_runs_started_at_started | CREATE INDEX idx_cron_runs_started_at_started ON public.cron_runs USING btree (started_at) WHERE (status = 'started'::text) | t          | t          | 8192 bytes
+(1 row)
+
+    version     |          name           
+----------------+-------------------------
+ 20260903180000 | email_contact_policy
+ 20260903200100 | index_started_cron_runs
+(2 rows)
+
+                                                                 QUERY PLAN                                                                  
+---------------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using idx_cron_runs_started_at_started on cron_runs  (cost=0.13..2.35 rows=1 width=16) (actual time=0.007..0.007 rows=0 loops=1)
+   Index Cond: (started_at < (now() - '00:15:00'::interval))
+   Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=13 read=1
+ Planning Time: 3.278 ms
+ Execution Time: 0.030 ms
+(7 rows)
+
+COMMIT
