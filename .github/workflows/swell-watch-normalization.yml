@@ -1,7 +1,5 @@
 name: Swell Watch Direction Normalization
 on:
-  push:
-    branches: [fix/swell-watch-direction-normalization-20260913]
   pull_request:
     branches: [prod, main]
     paths:
@@ -13,12 +11,12 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: swell-watch-normalization-${{ github.ref }}
+  group: swell-watch-normalization-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 jobs:
   integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,24 +24,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Prepare a source-only isolated workspace
+          cache: yarn
+      - run: corepack enable
+      - run: yarn install --frozen-lockfile
+      - name: Test actual parser, PostgreSQL, evaluator, and rollback
+        env:
+          SWELL_WATCH_NORMALIZATION_PROVIDER_PROBE: ${{ github.head_ref == 'fix/swell-watch-direction-normalization-20260913' && 'true' || 'false' }}
         run: |
           mkdir -p /tmp/swell-normalization-artifact
-          git rev-parse HEAD > /tmp/swell-normalization-artifact/commit.txt
-          git archive --format=tar.gz -o /tmp/swell-normalization-artifact/source.tar.gz HEAD lib types supabase scripts __tests__/fixtures __tests__/lib/alerts/swell-watch docs package.json tsconfig.json
-      - name: Generate a migration filename with the official CLI
-        if: github.event_name == 'push'
-        run: |
-          npx --yes supabase@2.81.3 migration new --help
-          npx --yes supabase@2.81.3 migration new normalize_swell_watch_provider_direction
-          find supabase/migrations -name '*normalize_swell_watch_provider_direction.sql' -printf '%f\n' > /tmp/swell-normalization-artifact/migration-name.txt
-      - name: Test the real parser and PostgreSQL boundaries
-        run: |
-          if [ -f scripts/test-swell-watch-normalization.sh ]; then
-            bash scripts/test-swell-watch-normalization.sh
-          else
-            echo 'Workspace preparation only. No implementation or integration success claimed.'
-          fi
+          set -o pipefail
+          bash scripts/test-swell-watch-study-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/integration.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -32,9 +32,12 @@ for migration in \
   20260906140000_add_swell_watch_collection_lease \
   20260906150000_separate_swell_watch_evaluation_policy \
   20260906160000_record_swell_watch_shadow_demand \
-  20260910180000_automate_swell_watch_study; do
+  20260910180000_automate_swell_watch_study \
+  20260913171725_normalize_swell_watch_provider_direction; do
   run_file "$study_root/supabase/migrations/$migration.sql" >/dev/null
 done
+query 'CREATE DATABASE study_normalization TEMPLATE postgres'
+node --import tsx "$study_root/scripts/test-swell-watch-normalization.mjs" "$study_container"
 query 'CREATE DATABASE study_activation TEMPLATE postgres'
 study_database=study_activation
 run_file "$study_root/__tests__/fixtures/swell-watch-study-activation.sql" >/dev/null
