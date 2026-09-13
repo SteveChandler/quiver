@@ -12,12 +12,23 @@
  * ordering runs on an unclamped internal `rankingScore` that never ships.
  */
 import {
+  buildDiscoveryDisplayScore,
+  computeWindowSlotScores,
   composeRankingScore,
   toDisplayConditionScore,
 } from '@/lib/services/discovery/surf-discovery-orchestrator';
 import { compareDiscoveryRecommendations } from '@/lib/services/discovery/distance-friction';
 import { stripInternalRankingScore } from '@/app/api/surf/discover/route';
 import type { SurfDiscoveryRecommendation, SurfDiscoveryResponse } from '@/types/personalization';
+
+import snapshot from '@/__tests__/fixtures/grandview-crossing-swells-20260911.json';
+import { scoreNativeForecastSlot } from '@/lib/scoring/native-condition-score';
+import { scoreWindowConditionScore } from '@/lib/services/discovery/window-selector/window-scorer';
+import { createDiscoveryScoringEngine } from '@/lib/domains/scoring';
+import { getRecommendationLabel } from '@/lib/services/discovery/response-formatter';
+import type { BoardClass } from '@/lib/domains/rideability';
+import type { Beach } from '@/types/database';
+import type { EnhancedForecastEntity } from '@/types/forecast';
 
 type Rankable = Pick<
   SurfDiscoveryRecommendation,
@@ -215,5 +226,31 @@ describe('API mapping', () => {
 
     expect(out.includedRecommendations).toBeUndefined();
     expect(out.recommendations).toHaveLength(1);
+  });
+});
+
+describe('Grandview crossing-swells regression', () => {
+  it.each<[BoardClass[]]>([[[]], [['mid-length']]])('keeps displayed, window, and hourly ratings within the same ceiling with boards %j', (boardClasses) => {
+    const beach = snapshot.beach as unknown as Beach;
+    const forecast = snapshot.forecast as EnhancedForecastEntity;
+    expect(beach).not.toHaveProperty('bottom_type');
+    expect(scoreNativeForecastSlot(forecast, 'intermediate')).toBeGreaterThanOrEqual(80);
+    const windowScore = scoreWindowConditionScore(forecast, beach, 'intermediate', null, boardClasses);
+    expect(windowScore).toBe(65);
+    const display = buildDiscoveryDisplayScore({
+      beach, forecast, userSkillLevel: 'intermediate', boardClasses,
+      affinityBonus: 0, distancePenalty: 0, personalizationBonus: 0, boardStyleFitPoints: 0,
+    });
+    expect(display.total).toBe(windowScore);
+    expect(getRecommendationLabel(display.total)).toBe('Maybe');
+    const cleanForecast = { ...forecast, swell_2_direction: forecast.swell_1_direction };
+    const cleanDisplay = buildDiscoveryDisplayScore({
+      beach, forecast: cleanForecast, userSkillLevel: 'intermediate', boardClasses,
+      affinityBonus: 0, distancePenalty: 0, personalizationBonus: 0, boardStyleFitPoints: 0,
+    });
+    expect(cleanDisplay.total).toBeGreaterThanOrEqual(80);
+    expect(getRecommendationLabel(cleanDisplay.total)).toBe('Worth it');
+    expect(computeWindowSlotScores({ beach, window: snapshot.window } as unknown as SurfDiscoveryRecommendation,
+      [forecast], createDiscoveryScoringEngine(), 'intermediate', boardClasses)).toEqual([windowScore]);
   });
 });

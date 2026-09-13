@@ -51,11 +51,8 @@ jest.mock("@/lib/services/observations/nowcast-anchor", () => ({
   })),
 }));
 
-jest.mock("@/lib/scoring/native-condition-score", () => ({
-  scoreNativeForecastSlot: jest
-    .fn()
-    .mockReturnValueOnce(80)
-    .mockReturnValueOnce(75),
+jest.mock("@/lib/services/discovery/window-selector/window-scorer", () => ({
+  scoreWindowConditionScore: jest.fn(() => 75),
 }));
 
 jest.mock("@/lib/domains/wave-frequency/calculator", () => ({
@@ -170,6 +167,49 @@ describe("major-event hold route integration", () => {
       user: null,
       supabase: scoredSupabase(),
     };
+  });
+
+  it.each(["", "?range=14day"])("bounds the scored forecast query for %s", async query => {
+    const now = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+    mockEvaluateMajorEventHoldCandidates.mockResolvedValueOnce([]);
+    try {
+      const { GET } = await import("@/app/api/forecasts/scored/[beachId]/route");
+      const response = await GET(new NextRequest(`http://localhost/api/forecasts/scored/${BEACH_ID}${query}`));
+      expect(response.status).toBe(200);
+      const chain = mockAuthContext.supabase.from('enhanced_forecasts');
+      expect(chain.gte).toHaveBeenCalledWith('forecast_at', new Date(now - (query ? 8 : 0) * 3_600_000).toISOString());
+      expect(chain.lt).toHaveBeenCalledWith('forecast_at', new Date(now + (query ? 14 : 1) * 24 * 3_600_000).toISOString());
+      expect(chain.limit).toHaveBeenCalledWith(query ? 344 : 8);
+    } finally { clock.mockRestore(); }
+  });
+
+  it('scores with the authenticated surfer saved boards, not caller-supplied identity', async () => {
+    mockAuthContext.user = { id: 'signed-in-surfer' };
+    const originalFrom = mockAuthContext.supabase.from;
+    const boardEq = jest.fn(async () => ({ data: [
+      { id: 'board-1', name: 'Log', board_type: 'longboard', volume: 65, session_count: 4 },
+      { id: 'board-2', name: 'Fish', board_type: 'fish', volume: 32, session_count: 2 },
+    ], error: null }));
+    mockAuthContext.supabase.from = jest.fn(table => table === 'boards'
+      ? { select: () => ({ eq: boardEq }) } : originalFrom(table));
+    mockEvaluateMajorEventHoldCandidates.mockResolvedValueOnce([]);
+    const { GET } = await import("@/app/api/forecasts/scored/[beachId]/route");
+    const { scoreWindowConditionScore } = await import('@/lib/services/discovery/window-selector/window-scorer');
+    const response = await GET(new NextRequest(`http://localhost/api/forecasts/scored/${BEACH_ID}?range=14day&userId=someone-else`));
+    expect(response.status).toBe(200);
+    expect(boardEq).toHaveBeenCalledWith('user_id', 'signed-in-surfer');
+    expect(scoreWindowConditionScore).toHaveBeenCalledWith(
+      expect.objectContaining({ forecast_at: SLOT_ONE }),
+      expect.objectContaining({ id: BEACH_ID }), null, null, ['longboard', 'fish'],
+    );
+  });
+
+  it('rejects an unbounded range before reading the database', async () => {
+    const { GET } = await import("@/app/api/forecasts/scored/[beachId]/route");
+    const response = await GET(new NextRequest(`http://localhost/api/forecasts/scored/${BEACH_ID}?range=999day`));
+    expect(response.status).toBe(400);
+    expect(mockAuthContext.supabase.from).not.toHaveBeenCalled();
   });
 
   it("binds scored slots and golden windows exactly and supports anonymous unknown", async () => {

@@ -463,6 +463,13 @@ async function surfCallHandler(
   const scopedCanonicalResult: CanonicalSurfCallResponse = forecastAt
     ? {
         ...canonicalResult,
+        // A refined window peak is not the identity of its supporting forecast row.
+        forecastContext: canonicalResult.forecastContext && sessionDecision.selection
+          ? {
+              ...canonicalResult.forecastContext,
+              selectedRowTime: sessionDecision.selection.forecastRef.forecastAt,
+            }
+          : canonicalResult.forecastContext,
         forecastAlignment: await readForecastAlignment(
           supabase,
           beachId,

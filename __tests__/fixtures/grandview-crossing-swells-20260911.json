@@ -1,0 +1,71 @@
+{
+  "capturedAt": "2026-09-11T17:30:00Z",
+  "beach": {
+    "id": "f29ddb0a-6d46-4589-a4a4-da406ddd3d5c",
+    "name": "Grandview Beach",
+    "lat": 33.0806,
+    "lon": -117.311509,
+    "break_type": "beach",
+    "aspect_deg": 270,
+    "skill_level": "beginner-intermediate",
+    "swell_window_min_deg": 135,
+    "swell_window_max_deg": 10,
+    "wind_offshore_deg": 45,
+    "wind_offshore_tol_deg": 30,
+    "wind_onshore_bad_kt": 8,
+    "wind_cross_shore_ok_kt": 10,
+    "preferred_tide_ft_min": 2,
+    "preferred_tide_ft_max": 4,
+    "preferred_tide_direction": "falling",
+    "tide_direction_sensitivity": null,
+    "timezone": "America/Los_Angeles"
+  },
+  "forecast": {
+    "id": "48d04b67-2ef1-41c7-928a-6f10fbc4a7c2",
+    "beach_id": "f29ddb0a-6d46-4589-a4a4-da406ddd3d5c",
+    "forecast_at": "2026-09-11T15:00:00+00:00",
+    "wave_height": "3.2 ft",
+    "wave_period": "17s",
+    "wave_direction": "WSW",
+    "swell_1_height": "2.5 ft",
+    "swell_1_period": "18s",
+    "swell_1_direction": "WSW",
+    "swell_2_height": "1.4 ft",
+    "swell_2_period": "14s",
+    "swell_2_direction": "S",
+    "wind_wave_height": "0.6 ft",
+    "wind_wave_period": "10s",
+    "wind_wave_direction": "WSW",
+    "wind_speed": "3 mph",
+    "wind_direction": "S",
+    "wind_direction_deg": 188,
+    "tide_height": "3.7 ft",
+    "tide_status": "Rising",
+    "confidence_score": 100,
+    "data_source": "CDIP"
+  },
+  "window": {
+    "confidence": 100,
+    "dataSource": "CDIP",
+    "end": "2026-09-11T18:00:00.000Z",
+    "peakTime": "2026-09-11T17:30:00.000Z",
+    "score": 94,
+    "start": "2026-09-11T15:00:00.000Z",
+    "tide": "Rising",
+    "timezone": "America/Los_Angeles",
+    "usedTideBoundaries": false,
+    "waveHeight": "3.2 ft",
+    "wavePeriod": "17s",
+    "wind": "3 mph S"
+  },
+  "rawScore": 94,
+  "effects": [
+    {
+      "code": "crossing_swells",
+      "message": "Crossing swells creating choppy conditions",
+      "severity": "material",
+      "verdictCeiling": 65
+    }
+  ],
+  "canonicalScore": 65
+}

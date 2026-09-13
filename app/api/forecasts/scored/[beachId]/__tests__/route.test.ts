@@ -7,6 +7,9 @@
 
 import { scoreForecastSlots, identifyGoldenWindows } from "../route";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import fixture from '@/__tests__/fixtures/grandview-crossing-swells-20260911.json';
+import { buildDiscoveryDisplayScore } from '@/lib/services/discovery/surf-discovery-orchestrator';
+import type { BoardClass } from '@/lib/domains/rideability';
 import type { Beach } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -333,4 +336,19 @@ describe("identifyGoldenWindows", () => {
     const slots = [makeSlot(add3h(BASE, 0), 59)];
     expect(identifyGoldenWindows(slots)).toHaveLength(0);
   });
+});
+
+describe('timeline and discovery rating contract', () => {
+  it.each([[], ['longboard'], ['shortboard', 'fish']] as BoardClass[][])(
+    'shares beach effect ceilings and board context for %j', (...boardClasses: BoardClass[]) => {
+      const forecast = fixture.forecast as EnhancedForecastEntity;
+      const beach = fixture.beach as unknown as Beach;
+      const [slot] = scoreForecastSlots([forecast], beach, null, boardClasses);
+      const discovery = buildDiscoveryDisplayScore({ beach, forecast, userSkillLevel: null,
+        boardClasses, affinityBonus: 0, distancePenalty: 0, personalizationBonus: 0, boardStyleFitPoints: 0 });
+      expect(slot.compositeScore).toBe(discovery.displayConditionScore);
+      expect(slot.compositeScore).toBeLessThanOrEqual(65);
+      expect(slot.compositeScore).toBeGreaterThan(0);
+    },
+  );
 });
