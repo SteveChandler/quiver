@@ -1,0 +1,81 @@
+yarn run v1.22.17
+$ NODE_OPTIONS="${NODE_OPTIONS:-} --disable-warning=DEP0040" jest --runInBand --silent __tests__/lib/supabase/auth-session-recovery.test.ts
+FAIL __tests__/lib/supabase/auth-session-recovery.test.ts
+  ● SDK session recovery › rejects malformed stored sessions without logging their contents: "{\"access_token\":\"synthetic-access\",\"refresh_token\":\"synthetic-refresh\",\"expires_at\":1788467154,\"expires_in\":3600,\"token_type\":\"bearer\",\"user\":{\"id\":\"synthetic-user\"}}"
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "test-session"
+
+    Number of calls: 0
+
+      41 |         const { client, storage, fetch } = createClient(stored);
+      42 |         await client.initialize();
+    > 43 |         expect(storage.removeItem).toHaveBeenCalledWith("test-session");
+         |                                    ^
+      44 |         expect(log).not.toHaveBeenCalled();
+      45 |         expect(fetch).not.toHaveBeenCalled();
+      46 |       } finally {
+
+      at toHaveBeenCalledWith (__tests__/lib/supabase/auth-session-recovery.test.ts:43:36)
+
+  ● SDK session recovery › rejects malformed stored sessions without logging their contents: malformed synthetic-session
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "test-session"
+
+    Number of calls: 0
+
+      41 |         const { client, storage, fetch } = createClient(stored);
+      42 |         await client.initialize();
+    > 43 |         expect(storage.removeItem).toHaveBeenCalledWith("test-session");
+         |                                    ^
+      44 |         expect(log).not.toHaveBeenCalled();
+      45 |         expect(fetch).not.toHaveBeenCalled();
+      46 |       } finally {
+
+      at toHaveBeenCalledWith (__tests__/lib/supabase/auth-session-recovery.test.ts:43:36)
+
+  ● SDK session recovery › rejects malformed stored sessions without logging their contents: 42
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "test-session"
+
+    Number of calls: 0
+
+      41 |         const { client, storage, fetch } = createClient(stored);
+      42 |         await client.initialize();
+    > 43 |         expect(storage.removeItem).toHaveBeenCalledWith("test-session");
+         |                                    ^
+      44 |         expect(log).not.toHaveBeenCalled();
+      45 |         expect(fetch).not.toHaveBeenCalled();
+      46 |       } finally {
+
+      at toHaveBeenCalledWith (__tests__/lib/supabase/auth-session-recovery.test.ts:43:36)
+
+  ● SDK session recovery › rejects malformed stored sessions without logging their contents: true
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "test-session"
+
+    Number of calls: 0
+
+      41 |         const { client, storage, fetch } = createClient(stored);
+      42 |         await client.initialize();
+    > 43 |         expect(storage.removeItem).toHaveBeenCalledWith("test-session");
+         |                                    ^
+      44 |         expect(log).not.toHaveBeenCalled();
+      45 |         expect(fetch).not.toHaveBeenCalled();
+      46 |       } finally {
+
+      at toHaveBeenCalledWith (__tests__/lib/supabase/auth-session-recovery.test.ts:43:36)
+
+Test Suites: 1 failed, 1 total
+Tests:       4 failed, 2 passed, 6 total
+Snapshots:   0 total
+Time:        1.091 s
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.

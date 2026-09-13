@@ -1,0 +1,14 @@
+yarn run v1.22.17
+$ NODE_OPTIONS="${NODE_OPTIONS:-} --disable-warning=DEP0040" jest --runInBand --silent __tests__/lib/supabase/auth-session-recovery.test.ts __tests__/lib/monitoring/redact-secrets.test.ts __tests__/lib/monitoring/sentry-redaction.test.ts __tests__/lib/middleware/api-wrappers.test.ts __tests__/lib/monitoring/sentry-config.test.ts __tests__/lib/api-utils.test.ts
+PASS __tests__/lib/supabase/auth-session-recovery.test.ts
+PASS __tests__/lib/middleware/api-wrappers.test.ts
+PASS __tests__/lib/monitoring/sentry-redaction.test.ts
+PASS __tests__/lib/monitoring/redact-secrets.test.ts
+PASS __tests__/lib/monitoring/sentry-config.test.ts
+PASS __tests__/lib/api-utils.test.ts
+
+Test Suites: 6 passed, 6 total
+Tests:       72 passed, 72 total
+Snapshots:   0 total
+Time:        4.654 s
+Done in 14.25s.
