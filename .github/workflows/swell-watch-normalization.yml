@@ -1,0 +1,54 @@
+name: Swell Watch Direction Normalization
+on:
+  pull_request:
+    branches: [prod, main]
+    paths:
+      - "lib/alerts/swell-watch/**"
+      - "supabase/migrations/*swell_watch*"
+      - "scripts/*swell-watch*"
+      - "__tests__/lib/alerts/swell-watch/**"
+      - ".github/workflows/swell-watch-normalization.yml"
+permissions:
+  contents: read
+concurrency:
+  group: swell-watch-normalization-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: yarn
+      - run: corepack enable
+      - run: yarn install --frozen-lockfile
+      - name: Resolve Next's actual server-only marker for standalone Node
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const marker = require.resolve('next/dist/compiled/server-only/package.json');
+          const pkg = JSON.parse(fs.readFileSync(marker, 'utf8'));
+          if (pkg.exports['.']['react-server'] !== './empty.js') throw new Error('Unexpected Next server marker contract');
+          if (!fs.existsSync('node_modules/server-only')) fs.symlinkSync(path.dirname(marker), 'node_modules/server-only', 'dir');
+          NODE
+      - name: Test actual parser, PostgreSQL, evaluator, and rollback
+        env:
+          NODE_OPTIONS: "--conditions=react-server"
+          SWELL_WATCH_NORMALIZATION_PROVIDER_PROBE: ${{ github.head_ref == 'fix/swell-watch-direction-normalization-20260913' && 'true' || 'false' }}
+        run: |
+          mkdir -p /tmp/swell-normalization-artifact
+          set -o pipefail
+          bash scripts/test-swell-watch-study-postgres.sh 2>&1 | tee /tmp/swell-normalization-artifact/integration.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: swell-watch-normalization-${{ github.run_id }}
+          path: /tmp/swell-normalization-artifact/
+          retention-days: 7
+          if-no-files-found: error

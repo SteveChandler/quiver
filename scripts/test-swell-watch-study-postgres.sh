@@ -35,6 +35,13 @@ for migration in \
   20260910180000_automate_swell_watch_study; do
   run_file "$study_root/supabase/migrations/$migration.sql" >/dev/null
 done
+normalization_migrations=("$study_root"/supabase/migrations/*_normalize_swell_watch_provider_direction.sql)
+if [ "${#normalization_migrations[@]}" -ne 1 ] || [ ! -f "${normalization_migrations[0]}" ]; then
+  echo 'Exactly one tracked normalization migration required' >&2; exit 1
+fi
+run_file "${normalization_migrations[0]}" >/dev/null
+query 'CREATE DATABASE study_normalization TEMPLATE postgres'
+node --import tsx "$study_root/scripts/test-swell-watch-normalization.mjs" "$study_container"
 query 'CREATE DATABASE study_activation TEMPLATE postgres'
 study_database=study_activation
 run_file "$study_root/__tests__/fixtures/swell-watch-study-activation.sql" >/dev/null
