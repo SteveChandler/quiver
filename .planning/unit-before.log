@@ -1,0 +1,133 @@
+yarn run v1.22.17
+$ NODE_OPTIONS="${NODE_OPTIONS:-} --disable-warning=DEP0040" jest --runInBand __tests__/components/landing/autoplay-video.test.tsx
+⚠️  Environment Configuration Warnings:
+   • SUPABASE_SERVICE_ROLE_KEY not set - admin operations will fail
+   • NEXT_PUBLIC_SITE_URL not set - OAuth redirects may not work correctly
+  console.error
+    An update to AutoplayVideo inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      392 |     }
+      393 |     // Still print so developers see the output when debugging
+    > 394 |     _originalError.apply(console, args);
+          |                    ^
+      395 |   };
+      396 |
+      397 |   console.warn = (...args) => {
+
+      at console.apply (jest.setup.js:394:20)
+      at ../../node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (../../node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (../../node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at dispatchSetState (../../node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at setHasStarted (components/landing-page/field-guide/autoplay-video.tsx:41:36)
+
+  console.error
+    An update to AutoplayVideo inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      392 |     }
+      393 |     // Still print so developers see the output when debugging
+    > 394 |     _originalError.apply(console, args);
+          |                    ^
+      395 |   };
+      396 |
+      397 |   console.warn = (...args) => {
+
+      at console.apply (jest.setup.js:394:20)
+      at ../../node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (../../node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (../../node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at dispatchSetState (../../node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at setHasStarted (components/landing-page/field-guide/autoplay-video.tsx:41:36)
+
+FAIL __tests__/components/landing/autoplay-video.test.tsx
+  AutoplayVideo media loading
+    ✕ waits until visible before attaching media and playing (28 ms)
+    ✕ requires explicit playback for reduced motion (3 ms)
+    ✕ requires explicit playback for reduced data (3 ms)
+
+  ● AutoplayVideo media loading › waits until visible before attaching media and playing
+
+    expect(element).not.toHaveAttribute("src") // element.hasAttribute("src")
+
+    Expected the element not to have attribute:
+      src
+    Received:
+      src="/demo.mp4"
+
+      24 |   it("waits until visible before attaching media and playing", async () => {
+      25 |     const { rerender } = render(<AutoplayVideo src="/demo.mp4" ariaLabel="Demo" />);
+    > 26 |     expect(screen.getByLabelText("Demo")).not.toHaveAttribute("src");
+         |                                               ^
+      27 |     expect(play).not.toHaveBeenCalled();
+      28 |     mockInView = true;
+      29 |     rerender(<AutoplayVideo src="/demo.mp4" ariaLabel="Demo" />);
+
+      at Object.toHaveAttribute (__tests__/components/landing/autoplay-video.test.tsx:26:47)
+
+  ● AutoplayVideo media loading › requires explicit playback for reduced motion
+
+    expect(element).not.toHaveAttribute("src") // element.hasAttribute("src")
+
+    Expected the element not to have attribute:
+      src
+    Received:
+      src="/demo.mp4"
+
+      40 |     });
+      41 |     render(<AutoplayVideo src="/demo.mp4" ariaLabel="Demo" />);
+    > 42 |     expect(screen.getByLabelText("Demo")).not.toHaveAttribute("src");
+         |                                               ^
+      43 |     expect(play).not.toHaveBeenCalled();
+      44 |     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Play video" })));
+      45 |     expect(screen.getByLabelText("Demo")).toHaveAttribute("src", "/demo.mp4");
+
+      at toHaveAttribute (__tests__/components/landing/autoplay-video.test.tsx:42:47)
+
+  ● AutoplayVideo media loading › requires explicit playback for reduced data
+
+    expect(element).not.toHaveAttribute("src") // element.hasAttribute("src")
+
+    Expected the element not to have attribute:
+      src
+    Received:
+      src="/demo.mp4"
+
+      40 |     });
+      41 |     render(<AutoplayVideo src="/demo.mp4" ariaLabel="Demo" />);
+    > 42 |     expect(screen.getByLabelText("Demo")).not.toHaveAttribute("src");
+         |                                               ^
+      43 |     expect(play).not.toHaveBeenCalled();
+      44 |     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Play video" })));
+      45 |     expect(screen.getByLabelText("Demo")).toHaveAttribute("src", "/demo.mp4");
+
+      at toHaveAttribute (__tests__/components/landing/autoplay-video.test.tsx:42:47)
+
+Test Suites: 1 failed, 1 total
+Tests:       3 failed, 3 total
+Snapshots:   0 total
+Time:        0.541 s
+Ran all test suites matching /__tests__\/components\/landing\/autoplay-video.test.tsx/i.
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.

@@ -1,0 +1,416 @@
+yarn run v1.22.17
+$ /Users/stevenchandler/Desktop/dev/quiver/.worktrees/perf-pages-20260903/node_modules/.bin/next dev --webpack -p 3113
+▲ Next.js 16.2.11 (webpack)
+- Local:         http://localhost:3113
+- Network:       http://192.168.3.107:3113
+✓ Ready in 1252ms
+⚠️  Environment Configuration Warnings:
+   • SUPABASE_SERVICE_ROLE_KEY not set - admin operations will fail
+   • NEXT_PUBLIC_SITE_URL not set - OAuth redirects may not work correctly
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/stevenchandler/Desktop/dev/quiver/yarn.lock as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /Users/stevenchandler/Desktop/dev/quiver/.worktrees/perf-pages-20260903/yarn.lock
+
+ ○ (pwa) PWA support is disabled.
+- Experiments (use with caution):
+  ✓ externalDir
+  · optimizePackageImports
+  · serverActions
+
+○ Compiling proxy ...
+○ Compiling / ...
+
+warn - The class `duration-[600ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;600ms&rsqb;` to silence this warning.
+
+warn - The class `ease-[cubic-bezier(0.25,1,0.5,1)]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `ease-&lsqb;cubic-bezier(0.25,1,0.5,1)&rsqb;` to silence this warning.
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+ GET / 200 in 9.8s (next.js: 9.0s, proxy.ts: 217ms, application-code: 548ms)
+ GET / 200 in 189ms (next.js: 9ms, proxy.ts: 13ms, application-code: 167ms)
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+ GET / 200 in 135ms (next.js: 4ms, proxy.ts: 29ms, application-code: 102ms)
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+[browser] You have Reduced Motion enabled on your device. Animations may not appear as expected.. For more information and steps for solving, visit https://motion.dev/troubleshooting/reduced-motion-disabled (components/landing-page/field-guide/autoplay-video.tsx:29:48)
+[browser] Uncaught Error: Hydration failed because the server rendered HTML didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <AuthAwareLandingWrapper appFirst={true}>
+      <Navbar>
+      <main role="main">
+        <QuiverFieldGuideLanding platform="desktop" appFirst={true}>
+          <div data-testid="quiver-fie..." className="bg-[#0D1020]">
+            <FieldGuideHero platform="desktop">
+              <ZineSurface sectionLabel="Cover" data-testid="field-guid..." className="bg-[#0D102..." ...>
+                <div id={undefined} className="zine-page ..." data-testid="field-guid...">
+                  <RoughEdgeFilter>
+                  <div className="zine-stage...">
+                    <div className="zine-paper...">
+                      <div className="relative g...">
+                        <div>
+                        <div className="relative m...">
+                          <QuiverSticker>
+                          <FieldGuideHeroVideo>
+                            <div id="demo" className="halftone-p..." data-testid="field-guid...">
+                              <img>
+                              <ImagePreload>
+                              <AutoplayVideo src="/videos/qu..." ariaLabel="Quiver app..." className="absolute i..." ...>
+                                <video>
++                               <button
++                                 type="button"
++                                 onClick={function onClick}
++                                 className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border-2..."
++                               >
+-                               <div
+-                                 className="absolute bottom-1.5 right-1.5 z-10 border border-[#11100D] bg-[#F4EBD8]/8..."
+-                               >
+                              ...
+                      ...
+            ...
+      ...
+
+    at <unknown> (https://react.dev/link/hydration-mismatch)
+    at button (<anonymous>)
+    at AutoplayVideo (components/landing-page/field-guide/autoplay-video.tsx:82:9)
+    at FieldGuideHeroVideo (components/landing-page/field-guide/field-guide-hero-video.tsx:24:7)
+    at FieldGuideHero (components/landing-page/field-guide/field-guide-hero.tsx:59:11)
+    at QuiverFieldGuideLanding (components/landing-page/field-guide/quiver-field-guide-landing.tsx:26:7)
+    at AuthAwareLandingWrapper (components/landing-page/auth-aware-landing-wrapper.tsx:162:9)
+    at Home (app/page.tsx:74:9)
+  80 |       />
+  81 |       {(prefersReducedMotion === true || saveData === true) && !hasStarted ? (
+> 82 |         <button
+     |         ^
+  83 |           type="button"
+  84 |           onClick={() => requestedPlay ? playVideo() : setRequestedPlay(true)}
+  85 |           className={playButtonClassName}
+ GET / 200 in 222ms (next.js: 6ms, proxy.ts: 16ms, application-code: 200ms)
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+ GET / 200 in 106ms (next.js: 4ms, proxy.ts: 9ms, application-code: 92ms)
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+[browser] Can't perform a React state update on a component that hasn't mounted yet. This indicates that you have a side-effect in your render function that asynchronously tries to update the component. Move this work to useEffect instead. 
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+ GET / 200 in 75ms (next.js: 3ms, proxy.ts: 3ms, application-code: 69ms)
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+[browser] Can't perform a React state update on a component that hasn't mounted yet. This indicates that you have a side-effect in your render function that asynchronously tries to update the component. Move this work to useEffect instead. 
+ GET / 200 in 55ms (next.js: 7ms, proxy.ts: 11ms, application-code: 37ms)
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+ GET / 200 in 168ms (next.js: 2ms, proxy.ts: 6ms, application-code: 159ms)
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+[browser] Can't perform a React state update on a component that hasn't mounted yet. This indicates that you have a side-effect in your render function that asynchronously tries to update the component. Move this work to useEffect instead. 
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+ GET / 200 in 92ms (next.js: 3ms, proxy.ts: 6ms, application-code: 83ms)
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+[browser] Can't perform a React state update on a component that hasn't mounted yet. This indicates that you have a side-effect in your render function that asynchronously tries to update the component. Move this work to useEffect instead. 
+ GET / 200 in 69ms (next.js: 6ms, proxy.ts: 10ms, application-code: 54ms)
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+ GET / 200 in 289ms (next.js: 8ms, proxy.ts: 13ms, application-code: 268ms)
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js

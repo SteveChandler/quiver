@@ -1,0 +1,249 @@
+yarn run v1.22.17
+$ /Users/stevenchandler/Desktop/dev/quiver/.worktrees/perf-pages-20260903/node_modules/.bin/next dev --webpack -p 3113
+▲ Next.js 16.2.11 (webpack)
+- Local:         http://localhost:3113
+- Network:       http://192.168.3.107:3113
+✓ Ready in 295ms
+⚠️  Environment Configuration Warnings:
+   • SUPABASE_SERVICE_ROLE_KEY not set - admin operations will fail
+   • NEXT_PUBLIC_SITE_URL not set - OAuth redirects may not work correctly
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/stevenchandler/Desktop/dev/quiver/yarn.lock as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /Users/stevenchandler/Desktop/dev/quiver/.worktrees/perf-pages-20260903/yarn.lock
+
+ ○ (pwa) PWA support is disabled.
+- Experiments (use with caution):
+  ✓ externalDir
+  · optimizePackageImports
+  · serverActions
+
+ GET /api/health 200 in 2.3s (next.js: 2.3s, application-code: 13ms)
+○ Compiling / ...
+
+warn - The class `duration-[600ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;600ms&rsqb;` to silence this warning.
+
+warn - The class `ease-[cubic-bezier(0.25,1,0.5,1)]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `ease-&lsqb;cubic-bezier(0.25,1,0.5,1)&rsqb;` to silence this warning.
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+Database error fetching beach photos: {
+  code: 'PGRST301',
+  details: null,
+  hint: null,
+  message: 'JWSError (CompactDecodeError Invalid number of parts: Expected 3 parts; got 1)'
+}
+Database error fetching beaches: {
+  code: 'PGRST301',
+  details: null,
+  hint: null,
+  message: 'JWSError (CompactDecodeError Invalid number of parts: Expected 3 parts; got 1)'
+}
+Database error fetching beach photos: {
+  code: 'PGRST301',
+  details: null,
+  hint: null,
+  message: 'JWSError (CompactDecodeError Invalid number of parts: Expected 3 parts; got 1)'
+}
+Database error fetching beaches: {
+  code: 'PGRST301',
+  details: null,
+  hint: null,
+  message: 'JWSError (CompactDecodeError Invalid number of parts: Expected 3 parts; got 1)'
+}
+ GET / 200 in 2.9s (next.js: 8ms, proxy.ts: 1313ms, application-code: 1602ms)
+ GET / 200 in 20.2s (next.js: 17.6s, proxy.ts: 102ms, application-code: 2.5s)
+Database error fetching beach photos: {
+  code: 'PGRST301',
+  details: null,
+  hint: null,
+  message: 'JWSError (CompactDecodeError Invalid number of parts: Expected 3 parts; got 1)'
+}
+Database error fetching beaches: {
+  code: 'PGRST301',
+  details: null,
+  hint: null,
+  message: 'JWSError (CompactDecodeError Invalid number of parts: Expected 3 parts; got 1)'
+}
+ GET / 200 in 313ms (next.js: 8ms, proxy.ts: 16ms, application-code: 290ms)
+[browser] Image with src "/images/whats-new/home-poster.jpg" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
+Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+[createServiceRoleClient] Supabase service role configuration missing. Check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.
+[createServiceRoleClient] Supabase service role configuration missing. Check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.
+[createServiceRoleClient] Supabase service role configuration missing. Check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.
+API Error: Supabase service role configuration missing. Check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.
+Stack trace: Error: Supabase service role configuration missing. Check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.
+    at createServiceRoleClient (webpack-internal:///(rsc)/./lib/supabase.ts:196:23)
+    at POST.optional (webpack-internal:///(rsc)/./app/api/events/route.ts:293:101)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async eval (webpack-internal:///(rsc)/./lib/middleware/api-wrappers/auth-wrapper.ts:143:20)
+    at async AppRouteRouteModule.do (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:40255)
+    at async AppRouteRouteModule.handle (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:47535)
+    at async responseGenerator (webpack-internal:///(rsc)/../../node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fevents%2Froute&page=%2Fapi%2Fevents%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Fevents%2Froute.ts&appDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:254:38)
+    at async AppRouteRouteModule.handleResponse (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:229068)
+    at async handleResponse (webpack-internal:///(rsc)/../../node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fevents%2Froute&page=%2Fapi%2Fevents%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Fevents%2Froute.ts&appDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:317:32)
+    at async Module.handler (webpack-internal:///(rsc)/../../node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fevents%2Froute&page=%2Fapi%2Fevents%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Fevents%2Froute.ts&appDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:369:13)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:1462:9)
+    at async DevServer.renderPageComponent (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:1514:24)
+    at async DevServer.renderToResponseImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:1564:32)
+    at async DevServer.pipeImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:1044:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/next-server.js:338:17)
+    at async DevServer.handleRequestImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:935:17)
+    at async /Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/dev/next-dev-server.js:394:20
+    at async Span.traceAsyncFn (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/trace/trace.js:164:20)
+    at async DevServer.handleRequest (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/dev/next-dev-server.js:390:24)
+    at async invokeRender (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/lib/router-server.js:266:21)
+    at async handleRequest (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/lib/router-server.js:465:24)
+    at async requestHandlerImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/lib/router-server.js:514:13)
+    at async Server.requestListener (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/lib/start-server.js:225:13)
+API Error: Supabase service role configuration missing. Check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.
+Stack trace: Error: Supabase service role configuration missing. Check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.
+    at createServiceRoleClient (webpack-internal:///(rsc)/./lib/supabase.ts:196:23)
+    at POST.optional (webpack-internal:///(rsc)/./app/api/events/route.ts:293:101)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async eval (webpack-internal:///(rsc)/./lib/middleware/api-wrappers/auth-wrapper.ts:143:20)
+    at async AppRouteRouteModule.do (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:40255)
+    at async AppRouteRouteModule.handle (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:47535)
+    at async responseGenerator (webpack-internal:///(rsc)/../../node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fevents%2Froute&page=%2Fapi%2Fevents%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Fevents%2Froute.ts&appDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:254:38)
+    at async AppRouteRouteModule.handleResponse (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:229068)
+    at async handleResponse (webpack-internal:///(rsc)/../../node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fevents%2Froute&page=%2Fapi%2Fevents%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Fevents%2Froute.ts&appDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:317:32)
+    at async Module.handler (webpack-internal:///(rsc)/../../node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fevents%2Froute&page=%2Fapi%2Fevents%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Fevents%2Froute.ts&appDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:369:13)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:1462:9)
+    at async DevServer.renderPageComponent (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:1514:24)
+    at async DevServer.renderToResponseImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:1564:32)
+    at async DevServer.pipeImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:1044:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/next-server.js:338:17)
+    at async DevServer.handleRequestImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:935:17)
+    at async /Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/dev/next-dev-server.js:394:20
+    at async Span.traceAsyncFn (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/trace/trace.js:164:20)
+    at async DevServer.handleRequest (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/dev/next-dev-server.js:390:24)
+    at async invokeRender (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/lib/router-server.js:266:21)
+    at async handleRequest (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/lib/router-server.js:465:24)
+    at async requestHandlerImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/lib/router-server.js:514:13)
+    at async Server.requestListener (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/lib/start-server.js:225:13)
+API Error: Supabase service role configuration missing. Check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.
+Stack trace: Error: Supabase service role configuration missing. Check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.
+    at createServiceRoleClient (webpack-internal:///(rsc)/./lib/supabase.ts:196:23)
+    at POST.optional (webpack-internal:///(rsc)/./app/api/events/route.ts:293:101)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async eval (webpack-internal:///(rsc)/./lib/middleware/api-wrappers/auth-wrapper.ts:143:20)
+    at async AppRouteRouteModule.do (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:40255)
+    at async AppRouteRouteModule.handle (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:47535)
+    at async responseGenerator (webpack-internal:///(rsc)/../../node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fevents%2Froute&page=%2Fapi%2Fevents%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Fevents%2Froute.ts&appDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:254:38)
+    at async AppRouteRouteModule.handleResponse (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:229068)
+    at async handleResponse (webpack-internal:///(rsc)/../../node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fevents%2Froute&page=%2Fapi%2Fevents%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Fevents%2Froute.ts&appDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:317:32)
+    at async Module.handler (webpack-internal:///(rsc)/../../node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fevents%2Froute&page=%2Fapi%2Fevents%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Fevents%2Froute.ts&appDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fstevenchandler%2FDesktop%2Fdev%2Fquiver%2F.worktrees%2Fperf-pages-20260903&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:369:13)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:1462:9)
+    at async DevServer.renderPageComponent (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:1514:24)
+    at async DevServer.renderToResponseImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:1564:32)
+    at async DevServer.pipeImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:1044:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/next-server.js:338:17)
+    at async DevServer.handleRequestImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/base-server.js:935:17)
+    at async /Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/dev/next-dev-server.js:394:20
+    at async Span.traceAsyncFn (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/trace/trace.js:164:20)
+    at async DevServer.handleRequest (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/dev/next-dev-server.js:390:24)
+    at async invokeRender (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/lib/router-server.js:266:21)
+    at async handleRequest (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/lib/router-server.js:465:24)
+    at async requestHandlerImpl (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/lib/router-server.js:514:13)
+    at async Server.requestListener (/Users/stevenchandler/Desktop/dev/quiver/node_modules/next/dist/server/lib/start-server.js:225:13)
+ POST /api/events 500 in 18.4s (next.js: 18.2s, application-code: 129ms)
+ POST /api/events 500 in 18.0s (next.js: 17.8s, application-code: 130ms)
+ POST /api/events 500 in 18.5s (next.js: 18.3s, application-code: 130ms)
+[browser] [useTrackEvent] Failed to track page_view: HTTP 500 (hooks/use-track-event.ts:106:21)
+Database error fetching beach photos: {
+  code: 'PGRST301',
+  details: null,
+  hint: null,
+  message: 'JWSError (CompactDecodeError Invalid number of parts: Expected 3 parts; got 1)'
+}
+Database error fetching beaches: {
+  code: 'PGRST301',
+  details: null,
+  hint: null,
+  message: 'JWSError (CompactDecodeError Invalid number of parts: Expected 3 parts; got 1)'
+}
+ GET / 200 in 3.3s (next.js: 15ms, proxy.ts: 2.9s, application-code: 364ms)
+ GET / 200 in 3.8s (next.js: 141ms, proxy.ts: 495ms, application-code: 3.2s)
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+ GET / 200 in 106ms (next.js: 16ms, proxy.ts: 21ms, application-code: 69ms)
+Database error fetching beach photos: {
+  code: 'PGRST301',
+  details: null,
+  hint: null,
+  message: 'JWSError (CompactDecodeError Invalid number of parts: Expected 3 parts; got 1)'
+}
+Database error fetching beaches: {
+  code: 'PGRST301',
+  details: null,
+  hint: null,
+  message: 'JWSError (CompactDecodeError Invalid number of parts: Expected 3 parts; got 1)'
+}
+ GET / 200 in 662ms (next.js: 44ms, proxy.ts: 23ms, application-code: 595ms)
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+ GET / 200 in 384ms (next.js: 14ms, proxy.ts: 147ms, application-code: 224ms)
+ GET / 200 in 601ms (next.js: 7ms, proxy.ts: 37ms, application-code: 557ms)
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js
+⚠ ../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/@sentry/node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/@sentry/nextjs/build/cjs/index.server.js

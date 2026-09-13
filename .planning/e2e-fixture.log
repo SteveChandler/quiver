@@ -1,0 +1,81 @@
+yarn run v1.22.17
+$ playwright test e2e/guest-landing-media-budget.spec.ts --config=perf-pages.playwright.config.ts --project=guest --workers=1
+[Global Setup] Skipping authentication setup
+
+Running 4 tests using 1 worker
+
+(node:30663) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:30663) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [guest] › e2e/guest-landing-media-budget.spec.ts:79:9 › Guest landing media budget — desktop › keeps landing media within the documented request budget @smoke (18.2s)
+  ✘  2 [guest] › e2e/guest-landing-media-budget.spec.ts:79:9 › Guest landing media budget — mobile › keeps landing media within the documented request budget @smoke (6.2s)
+(node:32938) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:32938) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  3 [guest] › e2e/guest-landing-media-budget.spec.ts:145:7 › Guest landing hero media safety gates › does not request autoplay video with reduced motion (3.8s)
+  ✓  4 [guest] › e2e/guest-landing-media-budget.spec.ts:165:7 › Guest landing hero media safety gates › does not request autoplay video when Save-Data is enabled (2.8s)
+
+[Global Teardown] ============================================
+[Global Teardown] Cleaning up test data...
+[Global Teardown] ============================================
+
+[Global Teardown] Skipping test data cleanup (SKIP_E2E_CLEANUP=true)
+
+
+  1) [guest] › e2e/guest-landing-media-budget.spec.ts:79:9 › Guest landing media budget — mobile › keeps landing media within the documented request budget @smoke 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      92 |         media.getByRole("button", { name: "Play demo" }),
+      93 |       ).toHaveCount(0);
+    > 94 |       await expect
+         |       ^
+      95 |         .poll(() =>
+      96 |           [HERO_POSTER_PATH, HERO_VIDEO_PATH].every(
+      97 |             (assetPath) => mediaRequests.includes(assetPath),
+        at /Users/stevenchandler/Desktop/dev/quiver/.worktrees/perf-pages-20260903/e2e/guest-landing-media-budget.spec.ts:94:7
+
+    Error: 
+    ❌ Landing media budget mobile has errors!
+
+    📸 Screenshot: test-results/error-detected-1788463656858.png
+    🔗 URL: http://localhost:3113/
+
+    🔴 Console Errors:
+       - Uncaught: Invalid or unexpected token
+
+       at utils/error-detection.ts:244
+
+      242 |     ].join('\n');
+      243 |
+    > 244 |     throw new Error(errorMessage);
+          |           ^
+      245 |   }
+      246 | }
+      247 |
+        at assertNoErrors (/Users/stevenchandler/Desktop/dev/quiver/.worktrees/perf-pages-20260903/e2e/utils/error-detection.ts:244:11)
+        at /Users/stevenchandler/Desktop/dev/quiver/.worktrees/perf-pages-20260903/e2e/guest-landing-media-budget.spec.ts:74:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/guest-landing-media-budget-ad3a5-mented-request-budget-smoke-guest/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/guest-landing-media-budget-ad3a5-mented-request-budget-smoke-guest/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/guest-landing-media-budget-ad3a5-mented-request-budget-smoke-guest/error-context.md
+
+  1 failed
+    [guest] › e2e/guest-landing-media-budget.spec.ts:79:9 › Guest landing media budget — mobile › keeps landing media within the documented request budget @smoke 
+  3 passed (35.1s)
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.

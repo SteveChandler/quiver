@@ -130,6 +130,7 @@ export interface WaterMaskOptions {
  *    so a cell isn't blanked just because it's projected off the edge.
  *  - A throw from project/query is treated as water (skip zeroing) so a transient
  *    failure can never blank the whole field.
+ * Returns false when a deferred or untrusted pass needs a retry.
  * No-ops when there are no water layer ids (nothing to query against → err toward
  * leaving the field intact rather than zeroing everything).
  */
@@ -137,15 +138,16 @@ export function maskFieldToWater(
   field: FlowField,
   map: WaterMaskMap,
   options: WaterMaskOptions
-): void {
-  if (options.waterLayerIds.length === 0) return;
+): boolean {
+  if (options.waterLayerIds.length === 0) return true;
   // An empty rendered-feature query is indistinguishable from land until the
   // basemap tiles are ready. Since masking mutates the field, querying early can
   // permanently blank every in-viewport swell cell for this map session.
-  if (typeof map.areTilesLoaded === "function" && !map.areTilesLoaded()) return;
+  if (typeof map.areTilesLoaded === "function" && !map.areTilesLoaded()) return false;
   const pendingLandCells: FlowField["cells"] = [];
   let queriedCellCount = 0;
   let waterHitCount = 0;
+  let queryFailed = false;
   for (const cell of field.cells) {
     if (cell.speed === 0 && cell.alpha === 0) continue; // already dead
     const cacheKey = `${cell.lon}:${cell.lat}`;
@@ -183,7 +185,8 @@ export function maskFieldToWater(
         options.waterMaskCache?.set(cacheKey, true);
       }
     } catch {
-      // Transient projection/query failure → treat as water, leave the cell.
+      // Transient projection/query failure → leave the cell and retry.
+      queryFailed = true;
     }
   }
   // Some Mapbox styles temporarily expose layer ids before their rendered
@@ -192,7 +195,9 @@ export function maskFieldToWater(
   const minimumTrustedWaterHits = queriedCellCount >= 12
     ? Math.max(2, Math.ceil(queriedCellCount * 0.1))
     : 1;
-  if (waterHitCount < minimumTrustedWaterHits) return;
+  if (waterHitCount < minimumTrustedWaterHits) {
+    return pendingLandCells.length === 0 && !queryFailed;
+  }
   for (const cell of pendingLandCells) {
     options.waterMaskCache?.set(`${cell.lon}:${cell.lat}`, false);
     cell.speed = 0;
@@ -200,6 +205,7 @@ export function maskFieldToWater(
     cell.vx = 0;
     cell.vy = 0;
   }
+  return !queryFailed;
 }
 
 export interface GeoBounds {

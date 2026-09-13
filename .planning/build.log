@@ -1,0 +1,20 @@
+yarn run v1.22.17
+$ /Users/stevenchandler/Desktop/dev/quiver/.worktrees/perf-pages-20260903/node_modules/.bin/next build --webpack
+⚠️  Environment Configuration Warnings:
+   • SUPABASE_SERVICE_ROLE_KEY not set - admin operations will fail
+   • NEXT_PUBLIC_SITE_URL not set - OAuth redirects may not work correctly
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/stevenchandler/Desktop/dev/quiver/yarn.lock as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /Users/stevenchandler/Desktop/dev/quiver/.worktrees/perf-pages-20260903/yarn.lock
+
+▲ Next.js 16.2.11 (webpack)
+- Experiments (use with caution):
+  ✓ externalDir
+  · optimizePackageImports
+  · serverActions
+
+  Creating an optimized production build ...
+ ○ (pwa) PWA support is disabled.
