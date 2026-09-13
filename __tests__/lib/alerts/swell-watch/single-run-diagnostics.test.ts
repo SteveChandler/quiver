@@ -23,7 +23,7 @@ async function rejected(raw: string, sourcePointId = source) {
   return diagnostic!;
 }
 
-it.each([["swell_wave_direction", 360, "s1"], ["secondary_swell_wave_period", 0, "s2"],
+it.each([["swell_wave_direction", 360.1, "s1"], ["secondary_swell_wave_period", 0, "s2"],
   ["swell_wave_height", -1, "s1"]])("identifies %s without relaxing its predicate", async (field, value, sourceSlot) => {
   const body = fixture(); body.hourly[field][146] = value;
   const raw = JSON.stringify(body);
@@ -42,9 +42,9 @@ it.each(["private-secret", { payload: "private-secret" }, ["private-secret"], nu
   expect(Object.isFrozen(diagnostic.values.direction)).toBe(true);
 });
 
-it("records the exact numeric endpoint but does not canonicalize it", async () => {
-  const body = fixture(); body.hourly.swell_wave_direction[146] = 360;
-  expect((await rejected(JSON.stringify(body))).values.direction).toEqual({ type: "number", number: 360 });
+it("records the exact invalid numeric value but does not canonicalize it", async () => {
+  const body = fixture(); body.hourly.swell_wave_direction[146] = 360.1;
+  expect((await rejected(JSON.stringify(body))).values.direction).toEqual({ type: "number", number: 360.1 });
 });
 
 it("does not trust diagnostics attached to arbitrary upstream errors", () => {
@@ -53,7 +53,7 @@ it("does not trust diagnostics attached to arbitrary upstream errors", () => {
 });
 
 it("does not expose an unvalidated source identifier", async () => {
-  const body = fixture(); body.hourly.swell_wave_direction[0] = 360;
+  const body = fixture(); body.hourly.swell_wave_direction[0] = 360.1;
   expect((await rejected(JSON.stringify(body), "private-secret")).sourcePointId).toBeNull();
 });
 

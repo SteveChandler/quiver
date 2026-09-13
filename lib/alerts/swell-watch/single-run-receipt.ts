@@ -16,6 +16,17 @@ type PartitionValues = {
   unavailableReason?: "provider_zero_tuple";
 };
 
+// Additive, versioned field provenance; raw/semantic response bytes stay unchanged.
+type DirectionNormalizationProvenance = {
+  directionNormalization?: { rule: "north_360_to_0.v1"; rawDegrees: 360; canonicalDegrees: 0 };
+};
+
+function directionProvenance(rawDirection: unknown): DirectionNormalizationProvenance {
+  return rawDirection === 360
+    ? { directionNormalization: { rule: "north_360_to_0.v1", rawDegrees: 360, canonicalDegrees: 0 } }
+    : {};
+}
+
 interface OpenMeteoSingleRunInput {
   latitude: number;
   longitude: number;
@@ -62,8 +73,8 @@ export interface PrototypeSingleRunReceipt {
     forecastAtUtc: string;
     timeProvenance: { field: "time"; timezone: "UTC" };
     components: [
-      PartitionValues & { sourceSlot: "s1"; rawFieldProvenance: { height: "swell_wave_height"; period: "swell_wave_period"; direction: "swell_wave_direction" } },
-      PartitionValues & { sourceSlot: "s2"; rawFieldProvenance: { height: "secondary_swell_wave_height"; period: "secondary_swell_wave_period"; direction: "secondary_swell_wave_direction" } },
+      PartitionValues & { sourceSlot: "s1"; rawFieldProvenance: DirectionNormalizationProvenance & { height: "swell_wave_height"; period: "swell_wave_period"; direction: "swell_wave_direction" } },
+      PartitionValues & { sourceSlot: "s2"; rawFieldProvenance: DirectionNormalizationProvenance & { height: "secondary_swell_wave_height"; period: "secondary_swell_wave_period"; direction: "secondary_swell_wave_direction" } },
     ];
   }>;
 }
@@ -123,19 +134,19 @@ function tuple(height: unknown, period: unknown, direction: unknown,
   if (height === 0 && period === 0 && direction === 0) {
     return { heightM: 0, periodS: 0, directionDeg: 0, unavailableReason: "provider_zero_tuple" };
   }
-  if (typeof height !== "number" || !Number.isFinite(height) || height < 0 || typeof period !== "number" || !Number.isFinite(period) || period <= 0 || typeof direction !== "number" || !Number.isFinite(direction) || direction < 0 || direction >= 360) {
+  if (typeof height !== "number" || !Number.isFinite(height) || height < 0 || typeof period !== "number" || !Number.isFinite(period) || period <= 0 || typeof direction !== "number" || !Number.isFinite(direction) || direction < 0 || direction > 360) {
     const prefix = context.sourceSlot === "s1" ? "swell_wave_" : "secondary_swell_wave_";
     const invalidFields = [
       ...(typeof height !== "number" || !Number.isFinite(height) || height < 0 ? [`${prefix}height`] : []),
       ...(typeof period !== "number" || !Number.isFinite(period) || period <= 0 ? [`${prefix}period`] : []),
-      ...(typeof direction !== "number" || !Number.isFinite(direction) || direction < 0 || direction >= 360 ? [`${prefix}direction`] : []),
+      ...(typeof direction !== "number" || !Number.isFinite(direction) || direction < 0 || direction > 360 ? [`${prefix}direction`] : []),
     ];
     const error = new Error("Single Runs tuple is invalid");
     tupleDiagnostics.set(error, Object.freeze({ ...context, invalidFields: Object.freeze(invalidFields),
       values: Object.freeze({ height: diagnosticValue(height), period: diagnosticValue(period), direction: diagnosticValue(direction) }) }));
     throw error;
   }
-  return { heightM: height, periodS: period, directionDeg: direction };
+  return { heightM: height, periodS: period, directionDeg: direction === 360 ? 0 : direction };
 }
 
 function parseHourly(value: unknown, runUtc: string, forecastDays: number, rawResponseSha256: string, sourcePointId?: string): PrototypeSingleRunReceipt["observations"] {
@@ -155,8 +166,8 @@ function parseHourly(value: unknown, runUtc: string, forecastDays: number, rawRe
     const s1 = tuple(arrays[0][index], arrays[1][index], arrays[2][index], { ...context, sourceSlot: "s1" });
     const s2 = tuple(arrays[3][index], arrays[4][index], arrays[5][index], { ...context, sourceSlot: "s2" });
     return { providerForecastAt: forecastAtUtc, forecastAtUtc: `${forecastAtUtc}Z`, timeProvenance: { field: "time", timezone: "UTC" }, components: [
-      { sourceSlot: "s1", ...s1, rawFieldProvenance: { height: "swell_wave_height", period: "swell_wave_period", direction: "swell_wave_direction" } },
-      { sourceSlot: "s2", ...s2, rawFieldProvenance: { height: "secondary_swell_wave_height", period: "secondary_swell_wave_period", direction: "secondary_swell_wave_direction" } },
+      { sourceSlot: "s1", ...s1, rawFieldProvenance: { ...directionProvenance(arrays[2][index]), height: "swell_wave_height", period: "swell_wave_period", direction: "swell_wave_direction" } },
+      { sourceSlot: "s2", ...s2, rawFieldProvenance: { ...directionProvenance(arrays[5][index]), height: "secondary_swell_wave_height", period: "secondary_swell_wave_period", direction: "secondary_swell_wave_direction" } },
     ] };
   });
 }
