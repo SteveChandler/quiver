@@ -1,0 +1,55 @@
+CREATE ROLE
+CREATE ROLE
+CREATE ROLE
+CREATE DOMAIN
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+CREATE VIEW
+INSERT 0 2
+PASS: legacy inventory excludes future rows and does not fabricate strict counts
+DELETE 2
+BEGIN
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE FUNCTION
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE VIEW
+REVOKE
+GRANT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+GRANT
+GRANT
+GRANT
+COMMENT
+COMMIT
+BEGIN
+DO
+ROLLBACK
+BEGIN
+SET
+ beach_id | valid_date_utc | station_id | source | horizon_hours | limitations | sampled_rows | operationally_matched_rows | availability_recorded_rows | strict_eligible_rows | strict_status 
+----------+----------------+------------+--------+---------------+-------------+--------------+----------------------------+----------------------------+----------------------+---------------
+(0 rows)
+
+ROLLBACK
