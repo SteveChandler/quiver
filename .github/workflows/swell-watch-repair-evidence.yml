@@ -20,6 +20,9 @@ concurrency:
 
 jobs:
   provider-evidence:
+    # This fixed historical counterexample is an incident probe, not a permanent
+    # network dependency for future Swell Watch pull requests.
+    if: github.head_ref == 'fix/swell-watch-study-repair-20260913'
     name: Read-only provider evidence (not qualification)
     runs-on: ubuntu-latest
     timeout-minutes: 3
