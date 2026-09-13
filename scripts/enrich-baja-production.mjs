@@ -27,6 +27,14 @@ const SURFLINE_BROWSER_VALIDATION_PATH = path.join(
   RESEARCH_ROOT,
   "surfline-browser-coordinate-validation.json"
 );
+const SWELL_LAND_AUDIT_PATH = path.join(
+  RESEARCH_ROOT,
+  "swell-window-land-configuration-audit.json"
+);
+const SWELL_BATHYMETRY_AUDIT_PATH = path.join(
+  RESEARCH_ROOT,
+  "swell-window-bathymetry-audit.json"
+);
 const OUTPUT_PATH = path.join(OUTPUT_ROOT, "baja-surf-spots-production-v2.json");
 const SKILL_TIDE_REPORT_PATH = path.join(
   OUTPUT_ROOT,
@@ -49,6 +57,8 @@ const OPEN_METEO_VARIABLES = [
   "swell_wave_direction",
   "swell_wave_period",
 ];
+const DATASET_GENERATED_ON =
+  process.env.BAJA_DATASET_GENERATED_ON ?? "2026-08-28T02:16:48.603Z";
 const COMMONS_TARGET_QUERIES = {
   "bcn-baja-malibu": ["Baja Malibu beach"],
   "bcn-rosarito": ["Rosarito Beach Baja California"],
@@ -1218,8 +1228,165 @@ function deriveCoordinateReview(
   };
 }
 
-function deriveSwellWindow(spot, surfTripsEvidence) {
+function swellLandAuditFor(spotId, swellLandAudit) {
+  const conflict = swellLandAudit.conflict_resolutions?.[spotId];
+  if (conflict) return conflict;
+
+  const corrected =
+    swellLandAudit.low_confidence_cross_reference
+      ?.corrected_with_independent_evidence?.[spotId];
+  if (corrected) {
+    return {
+      ...corrected,
+      status: "corrected_with_independent_evidence",
+    };
+  }
+
+  const lowConfidence = swellLandAudit.low_confidence_cross_reference;
+  if (lowConfidence?.geometry_consistent_but_still_low_confidence_ids?.includes(spotId)) {
+    return {
+      status: "geometry_consistent_but_still_low_confidence",
+      note: swellLandAudit.methodology.map_limit,
+    };
+  }
+  if (lowConfidence?.geometry_indeterminate_due_to_vicinity_pin_ids?.includes(spotId)) {
+    return {
+      status: "geometry_indeterminate_due_to_vicinity_pin",
+      note: "The catalog pin is too approximate or displaced to use local shoreline geometry as corroboration.",
+    };
+  }
+  return null;
+}
+
+function validateSwellLandAudit(swellLandAudit, source) {
+  const lowConfidence = swellLandAudit.low_confidence_cross_reference;
+  const correctedIds = Object.keys(
+    lowConfidence?.corrected_with_independent_evidence ?? {}
+  );
+  const auditedIds = [
+    ...correctedIds,
+    ...(lowConfidence?.geometry_consistent_but_still_low_confidence_ids ?? []),
+    ...(lowConfidence?.geometry_indeterminate_due_to_vicinity_pin_ids ?? []),
+  ];
+  if (
+    auditedIds.length !== lowConfidence?.baseline_count ||
+    new Set(auditedIds).size !== auditedIds.length
+  ) {
+    throw new Error("Swell land audit must partition every baseline low-confidence spot exactly once");
+  }
+
+  const sourceIds = new Set(source.spots.map((spot) => spot.id));
+  const reviewEntries = [
+    ...Object.entries(swellLandAudit.conflict_resolutions ?? {}),
+    ...Object.entries(
+      lowConfidence?.corrected_with_independent_evidence ?? {}
+    ),
+  ];
+  for (const [spotId, review] of reviewEntries) {
+    if (!sourceIds.has(spotId)) {
+      throw new Error(`Swell land audit references unknown spot ${spotId}`);
+    }
+    for (const value of [review.window?.min_deg, review.window?.max_deg]) {
+      if (!Number.isFinite(value) || value < 0 || value >= 360) {
+        throw new Error(`Swell land audit has invalid window for ${spotId}`);
+      }
+    }
+  }
+}
+
+function swellBathymetryAuditFor(spotId, swellBathymetryAudit) {
+  return swellBathymetryAudit.reviews?.[spotId] ?? null;
+}
+
+function validateSwellBathymetryAudit(
+  swellBathymetryAudit,
+  swellLandAudit,
+  source
+) {
+  const lowConfidence = swellLandAudit.low_confidence_cross_reference;
+  const expectedIds = source.spots
+    .filter((spot) => spot.resolution.identity.entity_type === "surf_spot")
+    .map((spot) => spot.id);
+  const baselineLowIds = [
+    ...(lowConfidence?.geometry_consistent_but_still_low_confidence_ids ?? []),
+    ...(lowConfidence?.geometry_indeterminate_due_to_vicinity_pin_ids ?? []),
+  ];
+  const reviewIds = Object.keys(swellBathymetryAudit.reviews ?? {});
+  if (
+    reviewIds.length !== expectedIds.length ||
+    new Set(reviewIds).size !== reviewIds.length ||
+    expectedIds.some((spotId) => !reviewIds.includes(spotId))
+  ) {
+    throw new Error(
+      "Swell bathymetry audit must cover every rankable Baja spot exactly once"
+    );
+  }
+  if (baselineLowIds.some((spotId) => !reviewIds.includes(spotId))) {
+    throw new Error("Swell bathymetry audit dropped a baseline low-confidence spot");
+  }
+  const sourceIds = new Set(source.spots.map((spot) => spot.id));
+  for (const [spotId, review] of Object.entries(
+    swellBathymetryAudit.reviews ?? {}
+  )) {
+    if (!sourceIds.has(spotId)) {
+      throw new Error(`Swell bathymetry audit references unknown spot ${spotId}`);
+    }
+    if (!["medium", "high"].includes(review.confidence)) {
+      throw new Error(`Swell bathymetry audit has invalid confidence for ${spotId}`);
+    }
+    for (const value of [review.window?.min_deg, review.window?.max_deg]) {
+      if (!Number.isFinite(value) || value < 0 || value >= 360) {
+        throw new Error(`Swell bathymetry audit has invalid window for ${spotId}`);
+      }
+    }
+    if (
+      !review.evidence_urls?.includes(
+        "https://www.gmrt.org/services/gridserverinfo.php"
+      ) ||
+      !review.evidence_urls?.includes(
+        "https://coastwatch.pfeg.noaa.gov/erddap/griddap/ETOPO_2022_v1_15s.html"
+      )
+    ) {
+      throw new Error(`Swell bathymetry audit lacks grid provenance for ${spotId}`);
+    }
+  }
+}
+
+function deriveSwellWindow(
+  spot,
+  surfTripsEvidence,
+  swellLandAudit,
+  swellBathymetryAudit
+) {
   if (spot.resolution.identity.entity_type !== "surf_spot") return null;
+  const bathymetryAudit = swellBathymetryAuditFor(
+    spot.id,
+    swellBathymetryAudit
+  );
+  if (bathymetryAudit) {
+    return {
+      ...bathymetryAudit.window,
+      method: "published_direction_plus_bathymetry_review",
+      confidence: bathymetryAudit.confidence,
+      evidence_url: bathymetryAudit.evidence_urls?.[0] ?? null,
+      evidence_urls: bathymetryAudit.evidence_urls ?? [],
+      source_text: bathymetryAudit.note,
+      bathymetry_status: bathymetryAudit.status,
+    };
+  }
+  const landAudit = swellLandAuditFor(spot.id, swellLandAudit);
+  if (landAudit?.window) {
+    return {
+      ...landAudit.window,
+      method: "multi_source_land_configuration_review",
+      confidence: landAudit.confidence,
+      evidence_url: landAudit.evidence_urls?.[0] ?? null,
+      evidence_urls: landAudit.evidence_urls ?? [],
+      source_text: landAudit.note,
+      land_configuration_status: landAudit.status,
+      map_finding: landAudit.map_finding,
+    };
+  }
   const manualEvidence = MANUAL_EDITORIAL_EVIDENCE[spot.id];
   if (manualEvidence?.swell_window) {
     return {
@@ -1284,6 +1451,11 @@ function deriveSwellWindow(spot, surfTripsEvidence) {
     source_text:
       "Editorial fallback centered on the source-reported ideal direction. Use as a starting profile and calibrate with observed sessions.",
   };
+}
+
+function normalizeDegrees(value) {
+  if (value == null) return null;
+  return ((Number(value) % 360) + 360) % 360;
 }
 
 const SKILL_RANK = {
@@ -2013,7 +2185,9 @@ function buildProductionDataset(
   surfTrips,
   waveWise,
   surfline,
-  openMeteo
+  openMeteo,
+  swellLandAudit,
+  swellBathymetryAudit
 ) {
   const spots = source.spots.map((spot) => {
     const identity = spot.resolution.identity;
@@ -2029,7 +2203,17 @@ function buildProductionDataset(
       surflineEvidence
     );
     const coordinate = coordinateReview.coordinate;
-    const swellWindow = deriveSwellWindow(spot, surfTripsEvidence);
+    const swellWindow = deriveSwellWindow(
+      spot,
+      surfTripsEvidence,
+      swellLandAudit,
+      swellBathymetryAudit
+    );
+    const swellLandReview = swellLandAuditFor(spot.id, swellLandAudit);
+    const swellBathymetryReview = swellBathymetryAuditFor(
+      spot.id,
+      swellBathymetryAudit
+    );
     const skillReview = deriveSkillSuitability(
       spot,
       surfTripsEvidence,
@@ -2065,6 +2249,7 @@ function buildProductionDataset(
       surflineEvidence?.tide_chart_url,
       surflineEvidence?.guide?.guide_url,
       swellWindow?.evidence_url,
+      ...(swellWindow?.evidence_urls ?? []),
       ...(skillReview?.evidence ?? []).map((evidence) => evidence.url),
       ...(tideReview?.evidence ?? []).map((evidence) => evidence.url),
       mapUrl,
@@ -2196,9 +2381,42 @@ function buildProductionDataset(
       wind_onshore_bad_kt: null,
       max_wind_onshore_mph: null,
       max_wind_any_mph: null,
-      swell_window_min_deg: swellWindow?.min_deg ?? null,
-      swell_window_max_deg: swellWindow?.max_deg ?? null,
+      swell_window_min_deg: normalizeDegrees(swellWindow?.min_deg),
+      swell_window_max_deg: normalizeDegrees(swellWindow?.max_deg),
       swell_window_evidence: swellWindow,
+      swell_land_configuration_review: swellLandReview
+        ? {
+            ...swellLandReview,
+            status: swellBathymetryReview
+              ? swellLandReview.status ===
+                "geometry_indeterminate_due_to_vicinity_pin"
+                ? "vicinity_coordinate_bathymetry_followup_completed"
+                : "geometry_consistent_bathymetry_followup_completed"
+              : swellLandReview.status,
+            note: swellBathymetryReview
+              ? "The land-configuration screening was followed by a source-plus-bathymetry audit; the swell window is no longer awaiting session calibration."
+              : swellLandReview.note,
+            map_url: `https://www.google.com/maps/@${coordinate.latitude},${coordinate.longitude},14z/data=!3m1!1e3`,
+            audit_dataset_id: swellLandAudit.dataset_id,
+            reviewed_on: swellLandAudit.reviewed_on,
+          }
+        : null,
+      swell_bathymetry_review: swellBathymetryReview
+        ? {
+            status: swellBathymetryReview.status,
+            confidence: swellBathymetryReview.confidence,
+            published_prior: swellBathymetryReview.published_prior,
+            analysis_coordinate: swellBathymetryReview.analysis_coordinate,
+            coordinate_basis: swellBathymetryReview.coordinate_basis,
+            analysis_ocean_cell: swellBathymetryReview.analysis_ocean_cell,
+            sampled_bearings_deg: swellBathymetryReview.sampled_bearings_deg,
+            model_agreement: swellBathymetryReview.model_agreement,
+            note: swellBathymetryReview.note,
+            evidence_urls: swellBathymetryReview.evidence_urls,
+            audit_dataset_id: swellBathymetryAudit.dataset_id,
+            reviewed_on: swellBathymetryAudit.reviewed_on,
+          }
+        : null,
       preferred_tide_ft_min: tideReview?.preferred_tide_ft_min ?? null,
       preferred_tide_ft_max: tideReview?.preferred_tide_ft_max ?? null,
       preferred_tide_direction:
@@ -2221,12 +2439,16 @@ function buildProductionDataset(
         : null,
       preference_model: {
         version: "baja-production-enrichment-v2",
-        usage: "editorial_swell_windows_with_session_calibration_pending",
+        usage: "source_and_bathymetry_validated_editorial_swell_windows",
         source_break_categories: spot.break_categories,
         source_quality_rating_5: spot.research_profile.source_quality_rating_5,
         source_reliability: spot.research_profile.reliability,
         source_exposure: spot.research_profile.exposure,
-        soft_swell_direction_prior: spot.resolution.swell.soft_direction_prior,
+        soft_swell_direction_prior: {
+          ...spot.resolution.swell.soft_direction_prior,
+          confidence: swellWindow?.confidence ?? null,
+          validation_method: swellWindow?.method ?? null,
+        },
         reported_tide_guidance: spot.research_profile.tide,
         skill_candidate: spot.resolution.skill,
         skill_editorial_review: skillReview,
@@ -2284,7 +2506,7 @@ function buildProductionDataset(
   return {
     schema_version: "2.0.0",
     dataset_id: "baja-surf-spots-production-enrichment-v2-2026-08-27",
-    generated_on: new Date().toISOString(),
+    generated_on: DATASET_GENERATED_ON,
     source_dataset_id: source.dataset_id,
     source_path: SOURCE_PATH,
     source_inputs: [
@@ -2303,6 +2525,16 @@ function buildProductionDataset(
         dataset_id: mediaCoverage.report_id,
         role: "media coverage audit baseline",
       },
+      {
+        path: SWELL_LAND_AUDIT_PATH,
+        dataset_id: swellLandAudit.dataset_id,
+        role: "spot swell-window source conflict and land-configuration audit",
+      },
+      {
+        path: SWELL_BATHYMETRY_AUDIT_PATH,
+        dataset_id: swellBathymetryAudit.dataset_id,
+        role: "reproducible GMRT and ETOPO swell-window bathymetry audit",
+      },
     ],
     intended_use:
       "Reviewed catalog import package. Recommendation and SEO gates remain closed until each record clears its readiness blockers.",
@@ -2316,7 +2548,7 @@ function buildProductionDataset(
       wind_direction:
         "Half-degree source bearings are rounded to the nearest integer for the beaches.smallint contract; original values are retained.",
       swell_tide_thresholds:
-        "Every rankable surf spot receives an editorial swell window. Exact secondary degree ranges are preferred; existing multi-source windows come next; remaining spots use a disclosed ±22.5° window around the reported ideal direction.",
+        "Every rankable surf spot receives a source-backed editorial swell window. Multi-source land-configuration resolutions are preferred; remaining source-reported direction priors are retained only after GMRT and ETOPO bathymetry review, with Punta Arenas narrowed for East Cape land shadow.",
       media:
         "Exact-location Commons photos are manually approved. Operator-approved generated fallbacks use the accepted beach_photos source value user and retain explicit AI disclosure.",
     },
@@ -2350,6 +2582,22 @@ function buildProductionDataset(
         url: "https://wavewise.io/surf-spots/mexico/baja-norte",
         scope:
           "Spot-specific skill levels and published lineup/tide guidance. WaveWise discloses that some inputs originate from meta-surf-forecast; cached records retain that provenance limitation.",
+      },
+      {
+        type: "bathymetry_grid",
+        title: "Global Multi-resolution Topography Synthesis",
+        publisher: "GMRT / Lamont-Doherty Earth Observatory",
+        url: "https://www.gmrt.org/services/gridserverinfo.php",
+        scope:
+          "Computed 500 m directional profiles for offshore exposure, land shadow, and broad shelf or canyon continuity.",
+      },
+      {
+        type: "bathymetry_grid",
+        title: "ETOPO 2022 15 Arc-Second Global Relief Model",
+        publisher: "NOAA National Centers for Environmental Information",
+        url: "https://coastwatch.pfeg.noaa.gov/erddap/griddap/ETOPO_2022_v1_15s.html",
+        scope:
+          "Independent 15 arc-second cross-check of the GMRT directional profiles.",
       },
       {
         type: "spot_guide_dataset",
@@ -2503,6 +2751,17 @@ async function validate(dataset, source) {
         spot.swell_window_max_deg == null
       ) {
         errors.push(`${spot.source_spot_id}: missing swell window`);
+      }
+      if (spot.swell_window_evidence?.confidence === "low") {
+        errors.push(`${spot.source_spot_id}: swell window remains low confidence`);
+      }
+      if (
+        spot.swell_window_min_deg < 0 ||
+        spot.swell_window_min_deg >= 360 ||
+        spot.swell_window_max_deg < 0 ||
+        spot.swell_window_max_deg >= 360
+      ) {
+        errors.push(`${spot.source_spot_id}: swell window must use [0, 360) degrees`);
       }
       if (!spot.access_tips?.trim()) {
         errors.push(`${spot.source_spot_id}: missing access guidance`);
@@ -2716,6 +2975,10 @@ async function main() {
     attribution: null,
     results: {},
   });
+  const swellLandAudit = await readJson(SWELL_LAND_AUDIT_PATH);
+  const swellBathymetryAudit = await readJson(SWELL_BATHYMETRY_AUDIT_PATH);
+  validateSwellLandAudit(swellLandAudit, source);
+  validateSwellBathymetryAudit(swellBathymetryAudit, swellLandAudit, source);
   if (mediaRegistry.spots?.length !== source.spots.length) {
     throw new Error("Media registry spot count does not match the source dataset");
   }
@@ -2731,7 +2994,9 @@ async function main() {
     surfTrips,
     waveWise,
     surfline,
-    openMeteo
+    openMeteo,
+    swellLandAudit,
+    swellBathymetryAudit
   );
   await validate(dataset, source);
   await writeJson(OUTPUT_PATH, dataset);

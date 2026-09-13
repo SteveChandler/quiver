@@ -1,0 +1,4205 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_id": "catalog-surfspots-direction-evidence-2026-08-28",
+  "checked_on": "2026-08-28",
+  "provider": "SurfSpots.co public spot pages",
+  "sitemap_url": "https://www.surfspots.co/sitemap.xml",
+  "target_count": 67,
+  "matched_count": 33,
+  "results": {
+    "36a2d39e-64f1-4c7e-9618-ac8cc695af62": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/7th-avenue",
+          "name_score": 0.857,
+          "distance_km": 3799.82,
+          "coordinate": {
+            "latitude": 30.29619343,
+            "longitude": -81.38904154
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/8th-ave-n",
+          "name_score": 0.8,
+          "distance_km": 3899.49,
+          "coordinate": {
+            "latitude": 33.77021136,
+            "longitude": -78.77030969
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/2nd-avenue-pier",
+          "name_score": 0.667,
+          "distance_km": 3892.3,
+          "coordinate": {
+            "latitude": 33.68349661,
+            "longitude": -78.8856554
+          },
+          "ideal_direction_text": [
+            "South"
+          ],
+          "ideal_direction_deg": [
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/south-haven",
+          "name_score": 0.636,
+          "distance_km": 3089.28,
+          "coordinate": {
+            "latitude": 42.40013628,
+            "longitude": -86.2852478
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/north-haven",
+          "name_score": 0.636,
+          "distance_km": 12995.32,
+          "coordinate": {
+            "latitude": -34.78582277,
+            "longitude": 138.47770929
+          },
+          "ideal_direction_text": [
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/the-wave",
+          "name_score": 0.632,
+          "distance_km": 8547.69,
+          "coordinate": {
+            "latitude": 51.544961,
+            "longitude": -2.605266
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "486dc095-4b21-4edb-838c-97f68b40d1df": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/t-street",
+          "name_score": 0.875,
+          "distance_km": 182.13,
+          "coordinate": {
+            "latitude": 33.41524257,
+            "longitude": -117.61851043
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/d-street",
+          "name_score": 0.875,
+          "distance_km": 230.02,
+          "coordinate": {
+            "latitude": 33.04549432,
+            "longitude": -117.29830027
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest",
+            "South",
+            "SouthEast"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225,
+            180,
+            135
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/tay-street",
+          "name_score": 0.778,
+          "distance_km": 10404.87,
+          "coordinate": {
+            "latitude": -37.6470972,
+            "longitude": 176.19967461
+          },
+          "ideal_direction_text": [
+            "North",
+            "SouthEast",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            135,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/law-street",
+          "name_score": 0.778,
+          "distance_km": 249.9,
+          "coordinate": {
+            "latitude": 32.80132594,
+            "longitude": -117.26113558
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/8th-street",
+          "name_score": 0.778,
+          "distance_km": 11284.22,
+          "coordinate": {
+            "latitude": 6.29034225,
+            "longitude": -10.78841329
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/1st-street-jetty",
+          "name_score": 0.778,
+          "distance_km": 3896.71,
+          "coordinate": {
+            "latitude": 36.83041288,
+            "longitude": -75.96777141
+          },
+          "ideal_direction_text": [
+            "South"
+          ],
+          "ideal_direction_deg": [
+            180
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "8a2b0951-38b4-4d7e-b5d5-6e076b58a5f0": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/domes",
+      "source_coordinate": {
+        "latitude": 18.36526828,
+        "longitude": -67.26967335
+      },
+      "distance_km": 0.13,
+      "ideal_direction_text": [
+        "North",
+        "NorthWest"
+      ],
+      "ideal_direction_deg": [
+        0,
+        315
+      ],
+      "name_score": 1.5,
+      "checked_on": "2026-08-28"
+    },
+    "f1899def-896d-48ea-adf3-f7de468966eb": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/ghost-tree",
+      "source_coordinate": {
+        "latitude": 36.56187617,
+        "longitude": -121.95154667
+      },
+      "distance_km": 1.4,
+      "ideal_direction_text": [
+        "NorthWest"
+      ],
+      "ideal_direction_deg": [
+        315
+      ],
+      "name_score": 1.5,
+      "checked_on": "2026-08-28"
+    },
+    "4b9682e4-87f9-4058-81aa-ea0630e7be47": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/inches",
+      "source_coordinate": {
+        "latitude": 17.97020154,
+        "longitude": -65.96124887
+      },
+      "distance_km": 0.27,
+      "ideal_direction_text": [
+        "SouthEast",
+        "East"
+      ],
+      "ideal_direction_deg": [
+        135,
+        90
+      ],
+      "name_score": 1.5,
+      "checked_on": "2026-08-28"
+    },
+    "fea10ecf-6b55-4cc9-b29b-f215f923759d": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/playa-del-ingles",
+          "name_score": 0.562,
+          "distance_km": 5660.23,
+          "coordinate": {
+            "latitude": 27.75260938,
+            "longitude": -15.56714952
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/devils-island",
+          "name_score": 0.552,
+          "distance_km": 11454.0,
+          "coordinate": {
+            "latitude": -14.05116422,
+            "longitude": -171.69034481
+          },
+          "ideal_direction_text": [
+            "Don't know"
+          ],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sal-del-diablo",
+          "name_score": 0.533,
+          "distance_km": 2189.1,
+          "coordinate": {
+            "latitude": 17.95310148,
+            "longitude": -66.82989299
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South",
+            "SouthEast"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180,
+            135
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/killers",
+          "name_score": 0.522,
+          "distance_km": 12999.07,
+          "coordinate": {
+            "latitude": -34.17911001,
+            "longitude": 24.84613895
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/devils-horn",
+          "name_score": 0.519,
+          "distance_km": 12980.35,
+          "coordinate": {
+            "latitude": -34.19126899,
+            "longitude": 24.61036205
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/villa-gesell",
+          "name_score": 0.5,
+          "distance_km": 8373.22,
+          "coordinate": {
+            "latitude": -37.25599638,
+            "longitude": -56.96250888
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "f2cc331f-6569-40d9-a98b-9f50fb3da67f": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/south-pacific",
+          "name_score": 0.667,
+          "distance_km": 11887.03,
+          "coordinate": {
+            "latitude": -33.44113765,
+            "longitude": 151.44297659
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "SouthEast",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            135,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/pacitan",
+          "name_score": 0.667,
+          "distance_km": 13738.73,
+          "coordinate": {
+            "latitude": -8.23098603,
+            "longitude": 111.10151768
+          },
+          "ideal_direction_text": [
+            "North"
+          ],
+          "ideal_direction_deg": [
+            0
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/pracinha",
+          "name_score": 0.625,
+          "distance_km": 10514.59,
+          "coordinate": {
+            "latitude": -26.90188368,
+            "longitude": -48.64161372
+          },
+          "ideal_direction_text": [
+            "South",
+            "SouthEast",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            180,
+            135,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/racca-point",
+          "name_score": 0.615,
+          "distance_km": 10158.83,
+          "coordinate": {
+            "latitude": 39.20545519,
+            "longitude": 9.31271553
+          },
+          "ideal_direction_text": [
+            "South",
+            "SouthEast",
+            "East"
+          ],
+          "ideal_direction_deg": [
+            180,
+            135,
+            90
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/panic-point",
+          "name_score": 0.615,
+          "distance_km": 6306.74,
+          "coordinate": {
+            "latitude": -4.26368998,
+            "longitude": -81.24681473
+          },
+          "ideal_direction_text": [
+            "North"
+          ],
+          "ideal_direction_deg": [
+            0
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/yacila",
+          "name_score": 0.571,
+          "distance_km": 6387.4,
+          "coordinate": {
+            "latitude": -5.12968695,
+            "longitude": -81.16963685
+          },
+          "ideal_direction_text": [
+            "North"
+          ],
+          "ideal_direction_deg": [
+            0
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "f84767c3-4c79-42ed-9e77-2351ab80d20e": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/lang-co-beach",
+          "name_score": 0.733,
+          "distance_km": 13724.11,
+          "coordinate": {
+            "latitude": 16.22963777,
+            "longitude": 108.08950961
+          },
+          "ideal_direction_text": [
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/lahinch-beach",
+          "name_score": 0.733,
+          "distance_km": 4948.74,
+          "coordinate": {
+            "latitude": 52.93606916,
+            "longitude": -9.35769081
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/doran-beach",
+          "name_score": 0.714,
+          "distance_km": 4172.11,
+          "coordinate": {
+            "latitude": 38.31138316,
+            "longitude": -123.04481506
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/long-beach-6",
+          "name_score": 0.69,
+          "distance_km": 3943.73,
+          "coordinate": {
+            "latitude": 33.74362982,
+            "longitude": -118.11828375
+          },
+          "ideal_direction_text": [
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/long-beach-5",
+          "name_score": 0.69,
+          "distance_km": 4122.46,
+          "coordinate": {
+            "latitude": 49.07091393,
+            "longitude": -125.76521873
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/long-beach-4",
+          "name_score": 0.69,
+          "distance_km": 380.74,
+          "coordinate": {
+            "latitude": 42.6294121,
+            "longitude": -70.61771393
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "c9659503-c562-4379-9177-fff60acdfb7f": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/anahola-bay",
+      "source_coordinate": {
+        "latitude": 22.14761207,
+        "longitude": -159.30501938
+      },
+      "distance_km": 0.36,
+      "ideal_direction_text": [
+        "NorthEast"
+      ],
+      "ideal_direction_deg": [
+        45
+      ],
+      "name_score": 1.028,
+      "checked_on": "2026-08-28"
+    },
+    "34af0af5-b61c-4b86-9d9d-bf328f538a12": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/sunset-cliffs-osprey",
+          "name_score": 1.038,
+          "distance_km": 0.69,
+          "coordinate": {
+            "latitude": 32.71931303,
+            "longitude": -117.25774527
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sunset-point",
+          "name_score": 0.882,
+          "distance_km": 11935.72,
+          "coordinate": {
+            "latitude": 5.05006667,
+            "longitude": -2.89945
+          },
+          "ideal_direction_text": [
+            "West",
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            270,
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sunset",
+          "name_score": 0.882,
+          "distance_km": 14676.11,
+          "coordinate": {
+            "latitude": -6.96124216,
+            "longitude": 106.47235215
+          },
+          "ideal_direction_text": [
+            "North"
+          ],
+          "ideal_direction_deg": [
+            0
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/cliffs",
+          "name_score": 0.882,
+          "distance_km": 3478.78,
+          "coordinate": {
+            "latitude": 32.73164234,
+            "longitude": -79.86920536
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/suicide-cliffs",
+          "name_score": 0.741,
+          "distance_km": 10532.75,
+          "coordinate": {
+            "latitude": 26.07921881,
+            "longitude": 127.68602371
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sea-cliff",
+          "name_score": 0.727,
+          "distance_km": 16243.94,
+          "coordinate": {
+            "latitude": -6.73938374,
+            "longitude": 39.28633904
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "ec73bb77-4be5-4126-8986-348929c1e7e9": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/big-eds",
+          "name_score": 0.85,
+          "distance_km": 4081.99,
+          "coordinate": {
+            "latitude": 20.90018206,
+            "longitude": -156.47678018
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/big-rock",
+          "name_score": 0.795,
+          "distance_km": 8.02,
+          "coordinate": {
+            "latitude": 32.82505859,
+            "longitude": -117.28152037
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/big-left",
+          "name_score": 0.795,
+          "distance_km": 12806.33,
+          "coordinate": {
+            "latitude": -38.48510568,
+            "longitude": 145.01008987
+          },
+          "ideal_direction_text": [
+            "SouthEast"
+          ],
+          "ideal_direction_deg": [
+            135
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/baubigny",
+          "name_score": 0.795,
+          "distance_km": 8879.68,
+          "coordinate": {
+            "latitude": 49.4293145,
+            "longitude": -1.82373047
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/bings-point",
+          "name_score": 0.75,
+          "distance_km": 9599.01,
+          "coordinate": {
+            "latitude": 23.22401426,
+            "longitude": -16.11881018
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/big-river",
+          "name_score": 0.75,
+          "distance_km": 10383.34,
+          "coordinate": {
+            "latitude": -38.71150044,
+            "longitude": 177.94710159
+          },
+          "ideal_direction_text": [
+            "South",
+            "SouthEast"
+          ],
+          "ideal_direction_deg": [
+            180,
+            135
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "dbbafa09-3143-4f73-82e8-90a69a4121f5": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/big-rock",
+      "source_coordinate": {
+        "latitude": 32.82505859,
+        "longitude": -117.28152037
+      },
+      "distance_km": 0.45,
+      "ideal_direction_text": [
+        "NorthWest",
+        "West"
+      ],
+      "ideal_direction_deg": [
+        315,
+        270
+      ],
+      "name_score": 1.5,
+      "checked_on": "2026-08-28"
+    },
+    "88424465-0b1d-4f93-aa17-93dd1c4d03f3": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/tres-palmas",
+      "source_coordinate": {
+        "latitude": 18.34491249,
+        "longitude": -67.26192713
+      },
+      "distance_km": 0.47,
+      "ideal_direction_text": [
+        "NorthWest",
+        "West"
+      ],
+      "ideal_direction_deg": [
+        315,
+        270
+      ],
+      "name_score": 1.5,
+      "checked_on": "2026-08-28"
+    },
+    "fad234b3-4c14-4c02-a0fe-db1ba6e67bbe": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/little-cove",
+          "name_score": 0.818,
+          "distance_km": 15605.69,
+          "coordinate": {
+            "latitude": -26.38337357,
+            "longitude": 153.09583426
+          },
+          "ideal_direction_text": [
+            "Don't know"
+          ],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/cove",
+          "name_score": 0.783,
+          "distance_km": 15626.31,
+          "coordinate": {
+            "latitude": -26.78517779,
+            "longitude": 153.14224184
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "West",
+            "SouthWest",
+            "South",
+            "SouthEast",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            270,
+            225,
+            180,
+            135,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/turtle-eco-beach",
+          "name_score": 0.741,
+          "distance_km": 14078.34,
+          "coordinate": {
+            "latitude": 5.93709267,
+            "longitude": 80.50859322
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/barley-cove",
+          "name_score": 0.727,
+          "distance_km": 4758.19,
+          "coordinate": {
+            "latitude": 51.46866272,
+            "longitude": -9.77525175
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/turtles-6",
+          "name_score": 0.7,
+          "distance_km": 9888.27,
+          "coordinate": {
+            "latitude": -5.22445781,
+            "longitude": 12.13751949
+          },
+          "ideal_direction_text": [
+            "Don't know"
+          ],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/turtles-5",
+          "name_score": 0.7,
+          "distance_km": 16259.96,
+          "coordinate": {
+            "latitude": -7.33586512,
+            "longitude": 106.39755607
+          },
+          "ideal_direction_text": [
+            "West",
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            270,
+            225,
+            180
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "92e18cf0-97c3-4c68-9cdf-800eb9ac4313": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/a-bay",
+          "name_score": 0.917,
+          "distance_km": 11290.74,
+          "coordinate": {
+            "latitude": -26.38756403,
+            "longitude": 153.11654091
+          },
+          "ideal_direction_text": [
+            "SouthEast",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            135,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/death-bay",
+          "name_score": 0.737,
+          "distance_km": 8437.46,
+          "coordinate": {
+            "latitude": 50.57228109,
+            "longitude": -4.92434531
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/bonza-bay",
+          "name_score": 0.737,
+          "distance_km": 17341.33,
+          "coordinate": {
+            "latitude": -32.97544004,
+            "longitude": 27.96747923
+          },
+          "ideal_direction_text": [
+            "West"
+          ],
+          "ideal_direction_deg": [
+            270
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/gas-bay",
+          "name_score": 0.706,
+          "distance_km": 14867.78,
+          "coordinate": {
+            "latitude": -34.00457359,
+            "longitude": 114.99458313
+          },
+          "ideal_direction_text": [
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/boiler-bay",
+          "name_score": 0.7,
+          "distance_km": 729.77,
+          "coordinate": {
+            "latitude": 44.83076521,
+            "longitude": -124.06259537
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/tortuga-bay",
+          "name_score": 0.667,
+          "distance_km": 5483.89,
+          "coordinate": {
+            "latitude": -0.76335556,
+            "longitude": -90.33285141
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "24dd2e18-f3a6-466e-b082-cd974df852c4": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/nanakuli-tracks",
+      "source_coordinate": {
+        "latitude": 21.36149272,
+        "longitude": -158.13274384
+      },
+      "distance_km": 0.85,
+      "ideal_direction_text": [
+        "NorthWest",
+        "West"
+      ],
+      "ideal_direction_deg": [
+        315,
+        270
+      ],
+      "name_score": 0.821,
+      "checked_on": "2026-08-28"
+    },
+    "8809c326-c194-4b6a-aba0-dd25102294a5": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/kewalos",
+          "name_score": 0.737,
+          "distance_km": 0.18,
+          "coordinate": {
+            "latitude": 21.29011281,
+            "longitude": -157.85930109
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/kepala-arus",
+          "name_score": 0.609,
+          "distance_km": 7536.91,
+          "coordinate": {
+            "latitude": -7.125328,
+            "longitude": 139.381565
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/kerlouan",
+          "name_score": 0.6,
+          "distance_km": 11802.65,
+          "coordinate": {
+            "latitude": 48.65545128,
+            "longitude": -4.40287828
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "West"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            270
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/skeleton-bay",
+          "name_score": 0.583,
+          "distance_km": 19198.6,
+          "coordinate": {
+            "latitude": -22.93831773,
+            "longitude": 14.4171524
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/ras-al-basit",
+          "name_score": 0.583,
+          "distance_km": 13499.86,
+          "coordinate": {
+            "latitude": 35.8532853,
+            "longitude": 35.82738924
+          },
+          "ideal_direction_text": [
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sebastian-inlet",
+          "name_score": 0.571,
+          "distance_km": 7734.79,
+          "coordinate": {
+            "latitude": 27.86296201,
+            "longitude": -80.44650793
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "a57ae4c8-7a27-4d3f-91d5-6229350fb888": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/ocean-beach",
+          "name_score": 0.783,
+          "distance_km": 10431.59,
+          "coordinate": {
+            "latitude": -35.83695045,
+            "longitude": 174.57359076
+          },
+          "ideal_direction_text": [
+            "SouthEast",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            135,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/dover-beach",
+          "name_score": 0.783,
+          "distance_km": 6269.14,
+          "coordinate": {
+            "latitude": 13.06622669,
+            "longitude": -59.5692873
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/doran-beach",
+          "name_score": 0.783,
+          "distance_km": 722.12,
+          "coordinate": {
+            "latitude": 38.31138316,
+            "longitude": -123.04481506
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/dewey-beach",
+          "name_score": 0.783,
+          "distance_km": 3840.1,
+          "coordinate": {
+            "latitude": 38.6979034,
+            "longitude": -75.0715971
+          },
+          "ideal_direction_text": [
+            "SouthEast",
+            "East"
+          ],
+          "ideal_direction_deg": [
+            135,
+            90
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/shelly-beach",
+          "name_score": 0.75,
+          "distance_km": 11614.7,
+          "coordinate": {
+            "latitude": -28.86249023,
+            "longitude": 153.59955311
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/holden-beach",
+          "name_score": 0.75,
+          "distance_km": 3621.13,
+          "coordinate": {
+            "latitude": 33.90832023,
+            "longitude": -78.32187653
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South",
+            "SouthEast"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180,
+            135
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "32c84ce9-ba42-464c-afad-58e4c8664d1e": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/off-the-wall",
+          "name_score": 1.5,
+          "distance_km": 12355.67,
+          "coordinate": {
+            "latitude": -38.16526772,
+            "longitude": -57.62887001
+          },
+          "ideal_direction_text": [
+            "South",
+            "SouthEast"
+          ],
+          "ideal_direction_deg": [
+            180,
+            135
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/off-the-wall-2",
+          "name_score": 1.173,
+          "distance_km": 18610.98,
+          "coordinate": {
+            "latitude": -33.89833694,
+            "longitude": 18.40409088
+          },
+          "ideal_direction_text": [
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/the-wall-7",
+          "name_score": 0.727,
+          "distance_km": 8173.87,
+          "coordinate": {
+            "latitude": 42.97382039,
+            "longitude": -70.76444149
+          },
+          "ideal_direction_text": [
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/the-wall-6",
+          "name_score": 0.727,
+          "distance_km": 11654.07,
+          "coordinate": {
+            "latitude": 51.3316708,
+            "longitude": 1.42296553
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/the-wall-2",
+          "name_score": 0.727,
+          "distance_km": 10983.82,
+          "coordinate": {
+            "latitude": -33.30366767,
+            "longitude": 115.64642429
+          },
+          "ideal_direction_text": [
+            "Don't know"
+          ],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/south-wall",
+          "name_score": 0.727,
+          "distance_km": 7645.01,
+          "coordinate": {
+            "latitude": -28.87816175,
+            "longitude": 153.58612061
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            45
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "dc3e8490-9560-4713-8b87-dcc1a6a89c53": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/velzy-land",
+      "source_coordinate": {
+        "latitude": 21.6842888,
+        "longitude": -158.03233266
+      },
+      "distance_km": 3.25,
+      "ideal_direction_text": [
+        "North",
+        "NorthWest",
+        "NorthEast"
+      ],
+      "ideal_direction_deg": [
+        0,
+        315,
+        45
+      ],
+      "name_score": 0.947,
+      "checked_on": "2026-08-28"
+    },
+    "208cd792-7e94-419f-802c-09c9634ec6a9": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/fort-point",
+      "source_coordinate": {
+        "latitude": 37.81066549,
+        "longitude": -122.47635841
+      },
+      "distance_km": 0.16,
+      "ideal_direction_text": [
+        "NorthWest"
+      ],
+      "ideal_direction_deg": [
+        315
+      ],
+      "name_score": 0.821,
+      "checked_on": "2026-08-28"
+    },
+    "b8e6da01-3696-4d18-b00f-e71081e7a8dc": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/op",
+          "name_score": 0.917,
+          "distance_km": 7366.65,
+          "coordinate": {
+            "latitude": -39.45577005,
+            "longitude": 173.84418011
+          },
+          "ideal_direction_text": [
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/pickops-point",
+          "name_score": 0.727,
+          "distance_km": 6125.37,
+          "coordinate": {
+            "latitude": 13.34051799,
+            "longitude": 144.77302551
+          },
+          "ideal_direction_text": [
+            "East"
+          ],
+          "ideal_direction_deg": [
+            90
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/topsy",
+          "name_score": 0.667,
+          "distance_km": 13930.89,
+          "coordinate": {
+            "latitude": 32.09191898,
+            "longitude": 34.76962566
+          },
+          "ideal_direction_text": [
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/polis",
+          "name_score": 0.667,
+          "distance_km": 13659.06,
+          "coordinate": {
+            "latitude": 35.04644084,
+            "longitude": 32.43146896
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/poipu",
+          "name_score": 0.667,
+          "distance_km": 180.61,
+          "coordinate": {
+            "latitude": 21.87492053,
+            "longitude": -159.45945024
+          },
+          "ideal_direction_text": [
+            "South",
+            "SouthEast"
+          ],
+          "ideal_direction_deg": [
+            180,
+            135
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/pogos",
+          "name_score": 0.667,
+          "distance_km": 8059.59,
+          "coordinate": {
+            "latitude": -32.94756571,
+            "longitude": 151.75909638
+          },
+          "ideal_direction_text": [
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            45
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "b97ebd24-dcf6-49ce-a503-f678b4de0019": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/threes",
+      "source_coordinate": {
+        "latitude": 21.27317883,
+        "longitude": -157.83731461
+      },
+      "distance_km": 0.65,
+      "ideal_direction_text": [
+        "South"
+      ],
+      "ideal_direction_deg": [
+        180
+      ],
+      "name_score": 1.5,
+      "checked_on": "2026-08-28"
+    },
+    "3bee4922-90ff-442c-b173-05c5ffa0e127": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/puaena-point",
+      "source_coordinate": {
+        "latitude": 21.60153236,
+        "longitude": -158.10511172
+      },
+      "distance_km": 0.41,
+      "ideal_direction_text": [
+        "North",
+        "NorthWest"
+      ],
+      "ideal_direction_deg": [
+        0,
+        315
+      ],
+      "name_score": 0.923,
+      "checked_on": "2026-08-28"
+    },
+    "a30b9870-aace-48ef-a3e6-e275ad9c28c1": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/oceanside-pier",
+          "name_score": 0.97,
+          "distance_km": 1.37,
+          "coordinate": {
+            "latitude": 33.19334146,
+            "longitude": -117.38767147
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/newcastle-harbour",
+          "name_score": 0.667,
+          "distance_km": 11998.85,
+          "coordinate": {
+            "latitude": -32.91649976,
+            "longitude": 151.80057406
+          },
+          "ideal_direction_text": [
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/seaside-park",
+          "name_score": 0.643,
+          "distance_km": 3901.02,
+          "coordinate": {
+            "latitude": 39.91296011,
+            "longitude": -74.07632589
+          },
+          "ideal_direction_text": [
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/ocean-shores",
+          "name_score": 0.643,
+          "distance_km": 1634.44,
+          "coordinate": {
+            "latitude": 46.97299067,
+            "longitude": -124.17434692
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/stone-harbor-110",
+          "name_score": 0.625,
+          "distance_km": 3847.84,
+          "coordinate": {
+            "latitude": 39.04288619,
+            "longitude": -74.76329327
+          },
+          "ideal_direction_text": [
+            "North"
+          ],
+          "ideal_direction_deg": [
+            0
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/wu-shi-harbor",
+          "name_score": 0.621,
+          "distance_km": 11018.2,
+          "coordinate": {
+            "latitude": 24.87243049,
+            "longitude": 121.84231639
+          },
+          "ideal_direction_text": [
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            45
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "55c7c5dd-1979-410a-bf39-ce3c52e29166": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/packery-channel",
+      "source_coordinate": {
+        "latitude": 27.61609049,
+        "longitude": -97.20016479
+      },
+      "distance_km": 0.0,
+      "ideal_direction_text": [
+        "NorthWest",
+        "SouthWest",
+        "South",
+        "SouthEast",
+        "East",
+        "NorthEast"
+      ],
+      "ideal_direction_deg": [
+        315,
+        225,
+        180,
+        135,
+        90,
+        45
+      ],
+      "name_score": 1.039,
+      "checked_on": "2026-08-28"
+    },
+    "17628f35-9ed1-4257-aad6-070c4bd73bb8": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/tourmaline",
+      "source_coordinate": {
+        "latitude": 32.80459948,
+        "longitude": -117.26380706
+      },
+      "distance_km": 0.15,
+      "ideal_direction_text": [
+        "NorthWest",
+        "West",
+        "SouthWest"
+      ],
+      "ideal_direction_deg": [
+        315,
+        270,
+        225
+      ],
+      "name_score": 1.019,
+      "checked_on": "2026-08-28"
+    },
+    "486929f4-c8f8-4ae8-9b10-5ba1b7be7bcf": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/backwash",
+          "name_score": 0.706,
+          "distance_km": 8096.05,
+          "coordinate": {
+            "latitude": 8.3914598,
+            "longitude": -83.27911377
+          },
+          "ideal_direction_text": [
+            "South"
+          ],
+          "ideal_direction_deg": [
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/black-sands",
+          "name_score": 0.7,
+          "distance_km": 7175.55,
+          "coordinate": {
+            "latitude": -2.61706944,
+            "longitude": 140.73745
+          },
+          "ideal_direction_text": [
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/daves-backyard",
+          "name_score": 0.696,
+          "distance_km": 41.59,
+          "coordinate": {
+            "latitude": 21.30646769,
+            "longitude": -158.02017689
+          },
+          "ideal_direction_text": [
+            "West",
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            270,
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/boneyards",
+          "name_score": 0.667,
+          "distance_km": 11522.76,
+          "coordinate": {
+            "latitude": 51.13175398,
+            "longitude": -4.24175262
+          },
+          "ideal_direction_text": [
+            "West"
+          ],
+          "ideal_direction_deg": [
+            270
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/blacks",
+          "name_score": 0.667,
+          "distance_km": 7208.61,
+          "coordinate": {
+            "latitude": -39.07677595,
+            "longitude": 177.79998779
+          },
+          "ideal_direction_text": [
+            "NorthWest"
+          ],
+          "ideal_direction_deg": [
+            315
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/blackhead",
+          "name_score": 0.667,
+          "distance_km": 8163.31,
+          "coordinate": {
+            "latitude": -45.93049807,
+            "longitude": 170.42455673
+          },
+          "ideal_direction_text": [
+            "North",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            0,
+            180
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "7db87d82-4e66-4a48-9c8b-d5f95a282a4c": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/luquillo-la-selva",
+      "source_coordinate": {
+        "latitude": 18.36894408,
+        "longitude": -65.69341421
+      },
+      "distance_km": 0.96,
+      "ideal_direction_text": [
+        "North",
+        "NorthWest",
+        "NorthEast"
+      ],
+      "ideal_direction_deg": [
+        0,
+        315,
+        45
+      ],
+      "name_score": 0.89,
+      "checked_on": "2026-08-28"
+    },
+    "5c879b55-26e6-4755-92f3-0291f4634f24": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/marias",
+      "source_coordinate": {
+        "latitude": 18.35742767,
+        "longitude": -67.26937294
+      },
+      "distance_km": 0.11,
+      "ideal_direction_text": [
+        "North",
+        "NorthWest",
+        "West"
+      ],
+      "ideal_direction_deg": [
+        0,
+        315,
+        270
+      ],
+      "name_score": 1.5,
+      "checked_on": "2026-08-28"
+    },
+    "9b292a48-7a88-4d79-926f-16601515d7a0": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/marine-street-shorebreak",
+      "source_coordinate": {
+        "latitude": 32.83685042,
+        "longitude": -117.28087664
+      },
+      "distance_km": 0.57,
+      "ideal_direction_text": [
+        "NorthWest",
+        "West",
+        "SouthWest"
+      ],
+      "ideal_direction_deg": [
+        315,
+        270,
+        225
+      ],
+      "name_score": 0.791,
+      "checked_on": "2026-08-28"
+    },
+    "60b6bb17-dc08-4f18-8241-33729bcbc742": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/ocean-shores",
+      "source_coordinate": {
+        "latitude": 46.97299067,
+        "longitude": -124.17434692
+      },
+      "distance_km": 1.32,
+      "ideal_direction_text": [
+        "SouthWest",
+        "South"
+      ],
+      "ideal_direction_deg": [
+        225,
+        180
+      ],
+      "name_score": 1.5,
+      "checked_on": "2026-08-28"
+    },
+    "c3b42f85-e650-445f-89b1-1debe661652e": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/sunset-cliffs-osprey",
+          "name_score": 0.712,
+          "distance_km": 1.88,
+          "coordinate": {
+            "latitude": 32.71931303,
+            "longitude": -117.25774527
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/opotere",
+          "name_score": 0.615,
+          "distance_km": 10406.45,
+          "coordinate": {
+            "latitude": -37.10480454,
+            "longitude": 175.88675201
+          },
+          "ideal_direction_text": [
+            "SouthEast",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            135,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/more",
+          "name_score": 0.6,
+          "distance_km": 470.5,
+          "coordinate": {
+            "latitude": 29.11016339,
+            "longitude": -114.71310172
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/bore",
+          "name_score": 0.6,
+          "distance_km": 8552.1,
+          "coordinate": {
+            "latitude": 58.79942747,
+            "longitude": 5.5492115
+          },
+          "ideal_direction_text": [
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/osbourne",
+          "name_score": 0.571,
+          "distance_km": 4764.63,
+          "coordinate": {
+            "latitude": 44.61064668,
+            "longitude": -63.42044055
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/forestry",
+          "name_score": 0.571,
+          "distance_km": 10426.97,
+          "coordinate": {
+            "latitude": -36.17411907,
+            "longitude": 174.65643883
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "cc7c0837-257c-42c3-9d98-634911e73a6a": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/crystals",
+          "name_score": 1.183,
+          "distance_km": 15105.17,
+          "coordinate": {
+            "latitude": -32.26799384,
+            "longitude": 115.69128927
+          },
+          "ideal_direction_text": [
+            "NorthWest"
+          ],
+          "ideal_direction_deg": [
+            315
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/crystals-2",
+          "name_score": 1.074,
+          "distance_km": 3882.33,
+          "coordinate": {
+            "latitude": 39.36283788,
+            "longitude": -74.40799713
+          },
+          "ideal_direction_text": [
+            "North",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/crystal-plage",
+          "name_score": 0.95,
+          "distance_km": 12227.37,
+          "coordinate": {
+            "latitude": 6.13462374,
+            "longitude": 1.28113031
+          },
+          "ideal_direction_text": [
+            "South"
+          ],
+          "ideal_direction_deg": [
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/crystal-pier-2",
+          "name_score": 0.917,
+          "distance_km": 5.34,
+          "coordinate": {
+            "latitude": 32.83055803,
+            "longitude": -117.21862793
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/crystal-beach-break",
+          "name_score": 0.788,
+          "distance_km": 11935.81,
+          "coordinate": {
+            "latitude": 15.01476421,
+            "longitude": 120.06382942
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/royal",
+          "name_score": 0.667,
+          "distance_km": 9965.64,
+          "coordinate": {
+            "latitude": 43.87572364,
+            "longitude": 10.23646832
+          },
+          "ideal_direction_text": [
+            "NorthWest"
+          ],
+          "ideal_direction_deg": [
+            315
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "04ab6e6a-477f-49ab-b435-6b201134bcbf": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/ocean-shores",
+      "source_coordinate": {
+        "latitude": 46.97299067,
+        "longitude": -124.17434692
+      },
+      "distance_km": 1.55,
+      "ideal_direction_text": [
+        "SouthWest",
+        "South"
+      ],
+      "ideal_direction_deg": [
+        225,
+        180
+      ],
+      "name_score": 1.5,
+      "checked_on": "2026-08-28"
+    },
+    "64cb1fb1-e5aa-4306-a6eb-87b9afd14e99": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/point-judith-lighthouse",
+      "source_coordinate": {
+        "latitude": 41.35935233,
+        "longitude": -71.48537636
+      },
+      "distance_km": 0.41,
+      "ideal_direction_text": [
+        "SouthWest",
+        "South",
+        "SouthEast",
+        "East"
+      ],
+      "ideal_direction_deg": [
+        225,
+        180,
+        135,
+        90
+      ],
+      "name_score": 0.936,
+      "checked_on": "2026-08-28"
+    },
+    "294712f3-3c06-44bd-9bc6-17275675fe9a": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/threes",
+          "name_score": 0.727,
+          "distance_km": 4206.69,
+          "coordinate": {
+            "latitude": 21.27317883,
+            "longitude": -157.83731461
+          },
+          "ideal_direction_text": [
+            "South"
+          ],
+          "ideal_direction_deg": [
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/frenchies",
+          "name_score": 0.714,
+          "distance_km": 13199.07,
+          "coordinate": {
+            "latitude": -35.52789553,
+            "longitude": 138.6981225
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/veneros",
+          "name_score": 0.667,
+          "distance_km": 1711.07,
+          "coordinate": {
+            "latitude": 20.78869594,
+            "longitude": -105.50668716
+          },
+          "ideal_direction_text": [
+            "West",
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            270,
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/trevone",
+          "name_score": 0.667,
+          "distance_km": 8654.68,
+          "coordinate": {
+            "latitude": 50.5435448,
+            "longitude": -4.9792099
+          },
+          "ideal_direction_text": [
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/serenas",
+          "name_score": 0.667,
+          "distance_km": 337.55,
+          "coordinate": {
+            "latitude": 34.41347354,
+            "longitude": -119.56911944
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/reef",
+          "name_score": 0.667,
+          "distance_km": 9129.52,
+          "coordinate": {
+            "latitude": 38.98256421,
+            "longitude": -9.42270756
+          },
+          "ideal_direction_text": [
+            "NorthWest"
+          ],
+          "ideal_direction_deg": [
+            315
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "49739de1-95fb-4e26-b890-56fafd8d2622": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/rockaway-beach",
+          "name_score": 1.5,
+          "distance_km": 2.5,
+          "coordinate": {
+            "latitude": 37.60977795,
+            "longitude": -122.49738693
+          },
+          "ideal_direction_text": [
+            "Don't know"
+          ],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/roka-beach",
+          "name_score": 0.833,
+          "distance_km": 7250.61,
+          "coordinate": {
+            "latitude": -11.8713827,
+            "longitude": -77.15698242
+          },
+          "ideal_direction_text": [
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/castaways-beach",
+          "name_score": 0.759,
+          "distance_km": 11303.45,
+          "coordinate": {
+            "latitude": -26.43130492,
+            "longitude": 153.10830116
+          },
+          "ideal_direction_text": [
+            "South",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            180,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/kata-beach",
+          "name_score": 0.75,
+          "distance_km": 13425.61,
+          "coordinate": {
+            "latitude": 7.81704134,
+            "longitude": 98.29862595
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/kasa-beach",
+          "name_score": 0.75,
+          "distance_km": 16163.33,
+          "coordinate": {
+            "latitude": -7.01584236,
+            "longitude": 39.55158722
+          },
+          "ideal_direction_text": [
+            "SouthEast",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            135,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/tobay-beach",
+          "name_score": 0.72,
+          "distance_km": 4194.06,
+          "coordinate": {
+            "latitude": 40.60859423,
+            "longitude": -73.429479
+          },
+          "ideal_direction_text": [
+            "South",
+            "SouthEast",
+            "Don't know"
+          ],
+          "ideal_direction_deg": [
+            180,
+            135
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "f11ccd59-b778-4ea1-a8ff-88bffb447cd8": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/sandy-beach",
+          "name_score": 1.009,
+          "distance_km": 6985.09,
+          "coordinate": {
+            "latitude": 57.07503522,
+            "longitude": -135.37293434
+          },
+          "ideal_direction_text": [
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sandy-beach-3",
+          "name_score": 0.774,
+          "distance_km": 9317.74,
+          "coordinate": {
+            "latitude": 21.28725504,
+            "longitude": -157.66924739
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sandy-beach-sao-vincente",
+          "name_score": 0.762,
+          "distance_km": 4484.39,
+          "coordinate": {
+            "latitude": 16.86336239,
+            "longitude": -24.87905502
+          },
+          "ideal_direction_text": [
+            "South"
+          ],
+          "ideal_direction_deg": [
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sandy-beach-chekka",
+          "name_score": 0.722,
+          "distance_km": 9996.89,
+          "coordinate": {
+            "latitude": 34.31062668,
+            "longitude": 35.71495414
+          },
+          "ideal_direction_text": [
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sandy-point",
+          "name_score": 0.685,
+          "distance_km": 16077.1,
+          "coordinate": {
+            "latitude": -38.83195215,
+            "longitude": 146.11970901
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/surfyybeach-front",
+          "name_score": 0.629,
+          "distance_km": 13525.4,
+          "coordinate": {
+            "latitude": 38.02872233,
+            "longitude": 128.71868894
+          },
+          "ideal_direction_text": [
+            "North",
+            "SouthEast",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            135,
+            90,
+            45
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "a1566585-0143-4a1d-983f-c7fd195c5e55": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/scarborough-beach",
+          "name_score": 1.5,
+          "distance_km": 12451.38,
+          "coordinate": {
+            "latitude": -34.20051575,
+            "longitude": 18.37077141
+          },
+          "ideal_direction_text": [
+            "West"
+          ],
+          "ideal_direction_deg": [
+            270
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/scarborough-point",
+          "name_score": 1.036,
+          "distance_km": 12451.44,
+          "coordinate": {
+            "latitude": -34.20163381,
+            "longitude": 18.37053537
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/putsborough-beach",
+          "name_score": 0.824,
+          "distance_km": 4878.9,
+          "coordinate": {
+            "latitude": 51.14397892,
+            "longitude": -4.2209816
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/scarborough-3",
+          "name_score": 0.8,
+          "distance_km": 18608.25,
+          "coordinate": {
+            "latitude": -31.89109515,
+            "longitude": 115.75511813
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/scaborough",
+          "name_score": 0.741,
+          "distance_km": 16336.01,
+          "coordinate": {
+            "latitude": -34.27342483,
+            "longitude": 150.96068859
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/brou-beach",
+          "name_score": 0.741,
+          "distance_km": 16496.71,
+          "coordinate": {
+            "latitude": -36.10577444,
+            "longitude": 150.13737917
+          },
+          "ideal_direction_text": [
+            "South",
+            "SouthEast",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            180,
+            135,
+            90,
+            45
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "acfad2b2-7d0c-4c42-9fba-e78fa73e4ae3": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/crashboats",
+      "source_coordinate": {
+        "latitude": 18.4572772,
+        "longitude": -67.1642679
+      },
+      "distance_km": 0.14,
+      "ideal_direction_text": [
+        "North",
+        "NorthWest",
+        "West"
+      ],
+      "ideal_direction_deg": [
+        0,
+        315,
+        270
+      ],
+      "name_score": 0.9,
+      "checked_on": "2026-08-28"
+    },
+    "5e8d07ff-786c-4b7e-ab19-53d2b3774e23": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/shipwrecks",
+          "name_score": 1.5,
+          "distance_km": 1301.37,
+          "coordinate": {
+            "latitude": 23.11945278,
+            "longitude": -109.52806667
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South",
+            "SouthEast"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180,
+            135
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/shipwreck",
+          "name_score": 1.197,
+          "distance_km": 15097.99,
+          "coordinate": {
+            "latitude": 10.54148726,
+            "longitude": 72.61934352
+          },
+          "ideal_direction_text": [
+            "South",
+            "SouthEast"
+          ],
+          "ideal_direction_deg": [
+            180,
+            135
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/shipwrecks-4",
+          "name_score": 1.159,
+          "distance_km": 11911.21,
+          "coordinate": {
+            "latitude": 34.58997593,
+            "longitude": 32.93658257
+          },
+          "ideal_direction_text": [
+            "SouthEast",
+            "East"
+          ],
+          "ideal_direction_deg": [
+            135,
+            90
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/shipwrecks-3",
+          "name_score": 1.159,
+          "distance_km": 13999.52,
+          "coordinate": {
+            "latitude": -8.66569598,
+            "longitude": 115.44314504
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/shipwrecks-bay",
+          "name_score": 1.083,
+          "distance_km": 10468.23,
+          "coordinate": {
+            "latitude": -35.17763188,
+            "longitude": 173.11929703
+          },
+          "ideal_direction_text": [
+            "West",
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            270,
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/ship-wrecks",
+          "name_score": 0.952,
+          "distance_km": 1301.37,
+          "coordinate": {
+            "latitude": 23.11945278,
+            "longitude": -109.52806667
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South",
+            "SouthEast"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180,
+            135
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "99e50d6b-a1cf-458b-8fff-c199cd55b23c": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/cocoa-beach-pier",
+      "source_coordinate": {
+        "latitude": 28.36763189,
+        "longitude": -80.60127139
+      },
+      "distance_km": 0.15,
+      "ideal_direction_text": [
+        "East"
+      ],
+      "ideal_direction_deg": [
+        90
+      ],
+      "name_score": 1.5,
+      "checked_on": "2026-08-28"
+    },
+    "6c111c72-1773-490b-ae9e-fe6d81827989": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/luquillo-la-pared",
+      "source_coordinate": {
+        "latitude": 18.37637182,
+        "longitude": -65.71367025
+      },
+      "distance_km": 0.09,
+      "ideal_direction_text": [
+        "North",
+        "NorthWest",
+        "NorthEast"
+      ],
+      "ideal_direction_deg": [
+        0,
+        315,
+        45
+      ],
+      "name_score": 0.89,
+      "checked_on": "2026-08-28"
+    },
+    "bd7a7984-d69a-4969-85b1-b97ea78d8fb7": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/state-park",
+          "name_score": 0.895,
+          "distance_km": 1251.05,
+          "coordinate": {
+            "latitude": 33.40067096,
+            "longitude": -117.60400772
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/st-andrews-state-park",
+          "name_score": 0.714,
+          "distance_km": 3702.13,
+          "coordinate": {
+            "latitude": 30.12545623,
+            "longitude": -85.73498726
+          },
+          "ideal_direction_text": [
+            "West",
+            "South",
+            "East"
+          ],
+          "ideal_direction_deg": [
+            270,
+            180,
+            90
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sunset-point",
+          "name_score": 0.694,
+          "distance_km": 12068.21,
+          "coordinate": {
+            "latitude": 5.05006667,
+            "longitude": -2.89945
+          },
+          "ideal_direction_text": [
+            "West",
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            270,
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sunset",
+          "name_score": 0.694,
+          "distance_km": 13635.01,
+          "coordinate": {
+            "latitude": -6.96124216,
+            "longitude": 106.47235215
+          },
+          "ideal_direction_text": [
+            "North"
+          ],
+          "ideal_direction_deg": [
+            0
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/seaside-park",
+          "name_score": 0.606,
+          "distance_km": 4134.21,
+          "coordinate": {
+            "latitude": 39.91296011,
+            "longitude": -74.07632589
+          },
+          "ideal_direction_text": [
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/polihale-state-park",
+          "name_score": 0.6,
+          "distance_km": 4021.19,
+          "coordinate": {
+            "latitude": 22.07561843,
+            "longitude": -159.76944923
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            270,
+            225
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "f298d080-177b-4407-9e3a-be51bae58605": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/indicators-2",
+      "source_coordinate": {
+        "latitude": 18.36300269,
+        "longitude": -67.27156162
+      },
+      "distance_km": 0.59,
+      "ideal_direction_text": [
+        "North",
+        "NorthWest",
+        "West"
+      ],
+      "ideal_direction_deg": [
+        0,
+        315,
+        270
+      ],
+      "name_score": 1.159,
+      "checked_on": "2026-08-28"
+    },
+    "77d286c5-87e9-4678-82d3-81d0125285fa": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/k-38",
+      "source_coordinate": {
+        "latitude": 32.25893881,
+        "longitude": -116.98634863
+      },
+      "distance_km": 0.63,
+      "ideal_direction_text": [
+        "NorthWest",
+        "West",
+        "SouthWest",
+        "South"
+      ],
+      "ideal_direction_deg": [
+        315,
+        270,
+        225,
+        180
+      ],
+      "name_score": 1.5,
+      "checked_on": "2026-08-28"
+    },
+    "ec7b1ab4-5f43-4af3-b45f-325d29b8d5e6": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/teresa",
+          "name_score": 1.173,
+          "distance_km": 9876.63,
+          "coordinate": {
+            "latitude": -28.52498223,
+            "longitude": -48.7624526
+          },
+          "ideal_direction_text": [
+            "SouthEast",
+            "East"
+          ],
+          "ideal_direction_deg": [
+            135,
+            90
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/serenas",
+          "name_score": 0.714,
+          "distance_km": 337.78,
+          "coordinate": {
+            "latitude": 34.41347354,
+            "longitude": -119.56911944
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/express-point",
+          "name_score": 0.714,
+          "distance_km": 12779.76,
+          "coordinate": {
+            "latitude": -38.5099601,
+            "longitude": 145.26114464
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/trestles",
+          "name_score": 0.667,
+          "distance_km": 3846.1,
+          "coordinate": {
+            "latitude": 38.93931684,
+            "longitude": -74.8621273
+          },
+          "ideal_direction_text": [
+            "North",
+            "South",
+            "SouthEast",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            180,
+            135,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/tres-palmas",
+          "name_score": 0.667,
+          "distance_km": 5184.56,
+          "coordinate": {
+            "latitude": 18.34491249,
+            "longitude": -67.26192713
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/tres-marias",
+          "name_score": 0.667,
+          "distance_km": 9886.53,
+          "coordinate": {
+            "latitude": -32.19261071,
+            "longitude": -52.08506584
+          },
+          "ideal_direction_text": [
+            "South"
+          ],
+          "ideal_direction_deg": [
+            180
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "f3e1216f-2a17-47be-8c2e-67d8588ab065": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/the-hook-2",
+      "source_coordinate": {
+        "latitude": 36.95986921,
+        "longitude": -121.9647646
+      },
+      "distance_km": 0.43,
+      "ideal_direction_text": [
+        "SouthWest",
+        "South"
+      ],
+      "ideal_direction_deg": [
+        225,
+        180
+      ],
+      "name_score": 1.139,
+      "checked_on": "2026-08-28"
+    },
+    "965196e2-81c3-4c1a-8c2f-e5c9c0f8e3fd": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/las-gaviotas",
+      "source_coordinate": {
+        "latitude": 32.252447,
+        "longitude": -116.96233749
+      },
+      "distance_km": 0.89,
+      "ideal_direction_text": [
+        "South"
+      ],
+      "ideal_direction_deg": [
+        180
+      ],
+      "name_score": 1.5,
+      "checked_on": "2026-08-28"
+    },
+    "2b401051-cdbf-41a9-ac30-e636c33a42ef": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/florence-south-jetty",
+      "source_coordinate": {
+        "latitude": 44.01306469,
+        "longitude": -124.14001465
+      },
+      "distance_km": 4.82,
+      "ideal_direction_text": [
+        "NorthWest",
+        "West",
+        "SouthWest"
+      ],
+      "ideal_direction_deg": [
+        315,
+        270,
+        225
+      ],
+      "name_score": 1.5,
+      "checked_on": "2026-08-28"
+    },
+    "2f3e2136-b094-49d7-b90f-948160cbb854": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/horse-trails",
+          "name_score": 0.917,
+          "distance_km": 15972.39,
+          "coordinate": {
+            "latitude": -33.78382452,
+            "longitude": 18.44939232
+          },
+          "ideal_direction_text": [
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/tailors-point",
+          "name_score": 0.769,
+          "distance_km": 18451.3,
+          "coordinate": {
+            "latitude": -19.98871531,
+            "longitude": 57.58932352
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/trigs",
+          "name_score": 0.727,
+          "distance_km": 8810.2,
+          "coordinate": {
+            "latitude": 47.80988517,
+            "longitude": -4.38745424
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/tills",
+          "name_score": 0.727,
+          "distance_km": 12128.78,
+          "coordinate": {
+            "latitude": 5.41487588,
+            "longitude": -0.46722819
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South",
+            "SouthEast"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180,
+            135
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/rauls",
+          "name_score": 0.727,
+          "distance_km": 138.25,
+          "coordinate": {
+            "latitude": 32.24779618,
+            "longitude": -116.94882654
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            315,
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/jails",
+          "name_score": 0.727,
+          "distance_km": 15663.75,
+          "coordinate": {
+            "latitude": 4.3076515,
+            "longitude": 73.5767591
+          },
+          "ideal_direction_text": [
+            "West",
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            270,
+            225,
+            180
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "6e083f22-4c11-46c5-9110-ac7500f6cba5": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/fornos",
+          "name_score": 0.714,
+          "distance_km": 8929.2,
+          "coordinate": {
+            "latitude": 43.7131928,
+            "longitude": -7.85318613
+          },
+          "ideal_direction_text": [
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/alfonsita",
+          "name_score": 0.706,
+          "distance_km": 13105.75,
+          "coordinate": {
+            "latitude": 0.19355213,
+            "longitude": 6.70294762
+          },
+          "ideal_direction_text": [
+            "Don't know"
+          ],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/alfonsina",
+          "name_score": 0.706,
+          "distance_km": 9943.11,
+          "coordinate": {
+            "latitude": -37.99386292,
+            "longitude": -57.54263163
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/salmons-point",
+          "name_score": 0.667,
+          "distance_km": 14625.1,
+          "coordinate": {
+            "latitude": -33.89043873,
+            "longitude": 121.6434145
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/albinos",
+          "name_score": 0.667,
+          "distance_km": 15226.96,
+          "coordinate": {
+            "latitude": -34.22256171,
+            "longitude": 115.01063481
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/okaloosa-pier",
+          "name_score": 0.625,
+          "distance_km": 2885.6,
+          "coordinate": {
+            "latitude": 30.39049766,
+            "longitude": -86.59342289
+          },
+          "ideal_direction_text": [
+            "SouthEast",
+            "East"
+          ],
+          "ideal_direction_deg": [
+            135,
+            90
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "8ee452f0-4043-4fe0-a049-207afbd95523": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/diamond-head",
+          "name_score": 1.5,
+          "distance_km": 7896.11,
+          "coordinate": {
+            "latitude": -31.71663187,
+            "longitude": 152.79637098
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/diamond-beach",
+          "name_score": 0.8,
+          "distance_km": 7955.02,
+          "coordinate": {
+            "latitude": 38.96726714,
+            "longitude": -74.83277321
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/indian-head",
+          "name_score": 0.783,
+          "distance_km": 4110.81,
+          "coordinate": {
+            "latitude": 45.94371957,
+            "longitude": -123.99131298
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/diamonds-3",
+          "name_score": 0.727,
+          "distance_km": 8159.8,
+          "coordinate": {
+            "latitude": -33.86250474,
+            "longitude": 151.28324032
+          },
+          "ideal_direction_text": [
+            "South",
+            "SouthEast",
+            "East"
+          ],
+          "ideal_direction_deg": [
+            180,
+            135,
+            90
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/diamonds-2",
+          "name_score": 0.727,
+          "distance_km": 17870.8,
+          "coordinate": {
+            "latitude": -13.18602938,
+            "longitude": 40.5605042
+          },
+          "ideal_direction_text": [
+            "East"
+          ],
+          "ideal_direction_deg": [
+            90
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/diamond-street",
+          "name_score": 0.692,
+          "distance_km": 4187.4,
+          "coordinate": {
+            "latitude": 32.79878278,
+            "longitude": -117.25991249
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            225,
+            180
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "eadd2bf6-759a-46e4-a8af-8df1feb635cb": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/banyaks",
+          "name_score": 0.857,
+          "distance_km": 11670.59,
+          "coordinate": {
+            "latitude": 2.19672724,
+            "longitude": 97.29492188
+          },
+          "ideal_direction_text": [
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/banana-point",
+          "name_score": 0.769,
+          "distance_km": 13379.33,
+          "coordinate": {
+            "latitude": 30.50211911,
+            "longitude": -9.68481302
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "West"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            270
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/braymains",
+          "name_score": 0.75,
+          "distance_km": 8177.85,
+          "coordinate": {
+            "latitude": -34.05301498,
+            "longitude": 151.15711212
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/banyons-2",
+          "name_score": 0.75,
+          "distance_km": 0.02,
+          "coordinate": {
+            "latitude": 19.60661653,
+            "longitude": -155.97711146
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/trayhans",
+          "name_score": 0.667,
+          "distance_km": 8202.12,
+          "coordinate": {
+            "latitude": 43.7498932,
+            "longitude": -69.98479843
+          },
+          "ideal_direction_text": [
+            "SouthEast",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            135,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/obyan",
+          "name_score": 0.667,
+          "distance_km": 6177.86,
+          "coordinate": {
+            "latitude": 15.10486821,
+            "longitude": 145.73889971
+          },
+          "ideal_direction_text": [
+            "South"
+          ],
+          "ideal_direction_deg": [
+            180
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "5c7c2a2e-3c7f-4a8c-8e8a-5cf2e9a0b101": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/morro-negro",
+          "name_score": 0.762,
+          "distance_km": 9555.41,
+          "coordinate": {
+            "latitude": 29.11428155,
+            "longitude": -13.66203547
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/morro-branco",
+          "name_score": 0.727,
+          "distance_km": 9621.05,
+          "coordinate": {
+            "latitude": -4.150763,
+            "longitude": -38.10972691
+          },
+          "ideal_direction_text": [
+            "North",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/otter-rock",
+          "name_score": 0.7,
+          "distance_km": 1080.7,
+          "coordinate": {
+            "latitude": 44.7759253,
+            "longitude": -124.07353878
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "West"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            270
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/mouse-rock",
+          "name_score": 0.7,
+          "distance_km": 9.11,
+          "coordinate": {
+            "latitude": 35.44486867,
+            "longitude": -120.90669751
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/moses-rock",
+          "name_score": 0.7,
+          "distance_km": 14966.89,
+          "coordinate": {
+            "latitude": -33.7569573,
+            "longitude": 114.98956203
+          },
+          "ideal_direction_text": [
+            "West"
+          ],
+          "ideal_direction_deg": [
+            270
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/pororoca",
+          "name_score": 0.667,
+          "distance_km": 8175.11,
+          "coordinate": {
+            "latitude": 1.242601,
+            "longitude": -50.291972
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "615ff20a-922f-4487-88d8-fa7d830ebacf": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/coos-bay-bastendorf-beach",
+      "source_coordinate": {
+        "latitude": 43.34602885,
+        "longitude": -124.35038567
+      },
+      "distance_km": 0.4,
+      "ideal_direction_text": [
+        "NorthWest",
+        "West"
+      ],
+      "ideal_direction_deg": [
+        315,
+        270
+      ],
+      "name_score": 0.762,
+      "checked_on": "2026-08-28"
+    },
+    "872fdb8c-6e6b-459e-813c-e8fc6a9561bd": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/nags-head",
+      "source_coordinate": {
+        "latitude": 35.9511909,
+        "longitude": -75.61941147
+      },
+      "distance_km": 2.97,
+      "ideal_direction_text": [
+        "South",
+        "SouthEast",
+        "NorthEast"
+      ],
+      "ideal_direction_deg": [
+        180,
+        135,
+        45
+      ],
+      "name_score": 1.0,
+      "checked_on": "2026-08-28"
+    },
+    "d920e1b9-9e23-4ba8-9f8e-776571435f6f": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/pea-break",
+          "name_score": 0.778,
+          "distance_km": 15206.42,
+          "coordinate": {
+            "latitude": -33.69663705,
+            "longitude": 114.99007702
+          },
+          "ideal_direction_text": [
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/new-pier",
+          "name_score": 0.75,
+          "distance_km": 16997.28,
+          "coordinate": {
+            "latitude": -29.85970144,
+            "longitude": 31.04187012
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            225,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/dj-break",
+          "name_score": 0.706,
+          "distance_km": 15118.57,
+          "coordinate": {
+            "latitude": -32.60780312,
+            "longitude": 115.62852591
+          },
+          "ideal_direction_text": [
+            "West",
+            "South",
+            "SouthEast",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            270,
+            180,
+            135,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/new-orleans",
+          "name_score": 0.7,
+          "distance_km": 9811.92,
+          "coordinate": {
+            "latitude": -9.52628982,
+            "longitude": -35.58302164
+          },
+          "ideal_direction_text": [
+            "NorthWest"
+          ],
+          "ideal_direction_deg": [
+            315
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/casino-break",
+          "name_score": 0.667,
+          "distance_km": 9015.49,
+          "coordinate": {
+            "latitude": 51.34969966,
+            "longitude": 3.27843189
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/blakes-break",
+          "name_score": 0.667,
+          "distance_km": 5623.35,
+          "coordinate": {
+            "latitude": 18.08972808,
+            "longitude": -63.00933838
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "2c2dea98-280b-488c-9d46-ffed8226447b": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/short-sands-2",
+          "name_score": 1.167,
+          "distance_km": 5.77,
+          "coordinate": {
+            "latitude": 45.75991857,
+            "longitude": -123.96663666
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sands",
+          "name_score": 0.875,
+          "distance_km": 4036.93,
+          "coordinate": {
+            "latitude": 40.37097228,
+            "longitude": -73.97362947
+          },
+          "ideal_direction_text": [
+            "North",
+            "South",
+            "SouthEast",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            180,
+            135,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sand-point",
+          "name_score": 0.783,
+          "distance_km": 263.77,
+          "coordinate": {
+            "latitude": 48.12783746,
+            "longitude": -124.71449018
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sango-sands",
+          "name_score": 0.727,
+          "distance_km": 7145.04,
+          "coordinate": {
+            "latitude": 58.56753622,
+            "longitude": -4.73448515
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "West",
+            "SouthWest",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            270,
+            225,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/silver-sands",
+          "name_score": 0.696,
+          "distance_km": 6999.58,
+          "coordinate": {
+            "latitude": 13.04637933,
+            "longitude": -59.51863647
+          },
+          "ideal_direction_text": [
+            "South",
+            "SouthEast",
+            "East"
+          ],
+          "ideal_direction_deg": [
+            180,
+            135,
+            90
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/shark-island",
+          "name_score": 0.696,
+          "distance_km": 12285.82,
+          "coordinate": {
+            "latitude": -34.05978817,
+            "longitude": 151.16012692
+          },
+          "ideal_direction_text": [
+            "SouthEast",
+            "East"
+          ],
+          "ideal_direction_deg": [
+            135,
+            90
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "94f1010b-c71f-4025-bda1-c26ed9467c85": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/coronado-silver-strand-state-beach",
+      "source_coordinate": {
+        "latitude": 32.62496327,
+        "longitude": -117.13870187
+      },
+      "distance_km": 2.56,
+      "ideal_direction_text": [
+        "NorthWest",
+        "West",
+        "SouthWest",
+        "South"
+      ],
+      "ideal_direction_deg": [
+        315,
+        270,
+        225,
+        180
+      ],
+      "name_score": 1.097,
+      "checked_on": "2026-08-28"
+    },
+    "6d3a734b-b051-490d-87e4-df83c3f49c42": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/short-sands-2",
+          "name_score": 1.167,
+          "distance_km": 0.0,
+          "coordinate": {
+            "latitude": 45.75991857,
+            "longitude": -123.96663666
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sands",
+          "name_score": 0.875,
+          "distance_km": 4038.18,
+          "coordinate": {
+            "latitude": 40.37097228,
+            "longitude": -73.97362947
+          },
+          "ideal_direction_text": [
+            "North",
+            "South",
+            "SouthEast",
+            "East",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            180,
+            135,
+            90,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sand-point",
+          "name_score": 0.783,
+          "distance_km": 269.35,
+          "coordinate": {
+            "latitude": 48.12783746,
+            "longitude": -124.71449018
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sango-sands",
+          "name_score": 0.727,
+          "distance_km": 7150.15,
+          "coordinate": {
+            "latitude": 58.56753622,
+            "longitude": -4.73448515
+          },
+          "ideal_direction_text": [
+            "North",
+            "NorthWest",
+            "West",
+            "SouthWest",
+            "NorthEast"
+          ],
+          "ideal_direction_deg": [
+            0,
+            315,
+            270,
+            225,
+            45
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/silver-sands",
+          "name_score": 0.696,
+          "distance_km": 6998.91,
+          "coordinate": {
+            "latitude": 13.04637933,
+            "longitude": -59.51863647
+          },
+          "ideal_direction_text": [
+            "South",
+            "SouthEast",
+            "East"
+          ],
+          "ideal_direction_deg": [
+            180,
+            135,
+            90
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/shark-island",
+          "name_score": 0.696,
+          "distance_km": 12282.86,
+          "coordinate": {
+            "latitude": -34.05978817,
+            "longitude": 151.16012692
+          },
+          "ideal_direction_text": [
+            "SouthEast",
+            "East"
+          ],
+          "ideal_direction_deg": [
+            135,
+            90
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "bfd3e168-f268-4692-901c-4b80b9b58dcb": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/the-point-2",
+          "name_score": 0.69,
+          "distance_km": 11331.68,
+          "coordinate": {
+            "latitude": -34.02503652,
+            "longitude": 24.93099332
+          },
+          "ideal_direction_text": [
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/sandy-point",
+          "name_score": 0.685,
+          "distance_km": 16077.05,
+          "coordinate": {
+            "latitude": -38.83195215,
+            "longitude": 146.11970901
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/the-point-isle-of-man",
+          "name_score": 0.667,
+          "distance_km": 6650.27,
+          "coordinate": {
+            "latitude": 53.99485397,
+            "longitude": -3.64746094
+          },
+          "ideal_direction_text": [
+            "SouthWest",
+            "South"
+          ],
+          "ideal_direction_deg": [
+            225,
+            180
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/the-point-11",
+          "name_score": 0.667,
+          "distance_km": 5364.94,
+          "coordinate": {
+            "latitude": 24.07436492,
+            "longitude": -15.58335543
+          },
+          "ideal_direction_text": [
+            "Don't know"
+          ],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/the-springs-fraser-island",
+          "name_score": 0.651,
+          "distance_km": 15916.12,
+          "coordinate": {
+            "latitude": -24.23283801,
+            "longitude": 151.93615437
+          },
+          "ideal_direction_text": [
+            "SouthEast"
+          ],
+          "ideal_direction_deg": [
+            135
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/one-palm-point-panaitan-island",
+          "name_score": 0.625,
+          "distance_km": 18475.97,
+          "coordinate": {
+            "latitude": -6.6554004,
+            "longitude": 105.17263412
+          },
+          "ideal_direction_text": [
+            "South",
+            "SouthEast"
+          ],
+          "ideal_direction_deg": [
+            180,
+            135
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "91df193c-f2c8-4e6c-984e-b859bd741061": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/tourmaline",
+      "source_coordinate": {
+        "latitude": 32.80459948,
+        "longitude": -117.26380706
+      },
+      "distance_km": 0.49,
+      "ideal_direction_text": [
+        "NorthWest",
+        "West",
+        "SouthWest"
+      ],
+      "ideal_direction_deg": [
+        315,
+        270,
+        225
+      ],
+      "name_score": 0.917,
+      "checked_on": "2026-08-28"
+    },
+    "2795319c-e680-45d0-a8af-f4c55631986e": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/wilderness-2",
+      "source_coordinate": {
+        "latitude": 18.4761951,
+        "longitude": -67.16924071
+      },
+      "distance_km": 0.88,
+      "ideal_direction_text": [
+        "North",
+        "NorthWest",
+        "SouthWest"
+      ],
+      "ideal_direction_deg": [
+        0,
+        315,
+        225
+      ],
+      "name_score": 1.159,
+      "checked_on": "2026-08-28"
+    },
+    "22d65140-1c40-4bbe-8790-5068fa6e5f22": {
+      "status": "no_coordinate_name_direction_match",
+      "attempts": [
+        {
+          "url": "https://www.surfspots.co/spot/villa",
+          "name_score": 0.607,
+          "distance_km": 9337.26,
+          "coordinate": {
+            "latitude": -12.22014565,
+            "longitude": -77.00227261
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/vanimo-village-reef",
+          "name_score": 0.571,
+          "distance_km": 7295.29,
+          "coordinate": {
+            "latitude": -2.65996699,
+            "longitude": 141.27937317
+          },
+          "ideal_direction_text": [],
+          "ideal_direction_deg": []
+        },
+        {
+          "url": "https://www.surfspots.co/spot/oleron-grand-village",
+          "name_score": 0.558,
+          "distance_km": 12266.72,
+          "coordinate": {
+            "latitude": 45.84960827,
+            "longitude": -1.2580204
+          },
+          "ideal_direction_text": [
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/lago",
+          "name_score": 0.546,
+          "distance_km": 13233.5,
+          "coordinate": {
+            "latitude": 29.13699279,
+            "longitude": -13.45563143
+          },
+          "ideal_direction_text": [
+            "North"
+          ],
+          "ideal_direction_deg": [
+            0
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/big-lagoon",
+          "name_score": 0.545,
+          "distance_km": 3813.39,
+          "coordinate": {
+            "latitude": 41.16004614,
+            "longitude": -124.13572311
+          },
+          "ideal_direction_text": [
+            "NorthWest",
+            "West",
+            "SouthWest"
+          ],
+          "ideal_direction_deg": [
+            315,
+            270,
+            225
+          ]
+        },
+        {
+          "url": "https://www.surfspots.co/spot/blue-lagoon-point",
+          "name_score": 0.529,
+          "distance_km": 8139.14,
+          "coordinate": {
+            "latitude": -33.38138914,
+            "longitude": 151.48882627
+          },
+          "ideal_direction_text": [
+            "South",
+            "SouthEast",
+            "East"
+          ],
+          "ideal_direction_deg": [
+            180,
+            135,
+            90
+          ]
+        }
+      ],
+      "checked_on": "2026-08-28"
+    },
+    "260868de-b952-470b-a764-b95b3e7f6655": {
+      "status": "coordinate_name_and_direction_matched",
+      "source_url": "https://www.surfspots.co/spot/westport",
+      "source_coordinate": {
+        "latitude": 46.90055413,
+        "longitude": -124.1328907
+      },
+      "distance_km": 2.22,
+      "ideal_direction_text": [
+        "NorthWest",
+        "West",
+        "SouthWest"
+      ],
+      "ideal_direction_deg": [
+        315,
+        270,
+        225
+      ],
+      "name_score": 0.977,
+      "checked_on": "2026-08-28"
+    }
+  }
+}

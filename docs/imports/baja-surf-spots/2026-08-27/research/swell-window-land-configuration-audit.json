@@ -1,0 +1,163 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_id": "baja-swell-window-land-configuration-audit-2026-08-28",
+  "reviewed_on": "2026-08-28",
+  "methodology": {
+    "map_source": "Mapbox satellite-streets-v12 static maps, cross-checked in Google Maps satellite view for the five selected-vs-prior conflicts",
+    "map_review_scope": "Coast orientation, open-water approach, headland shelter, bay exposure, and whether a proposed direction points into land.",
+    "map_limit": "Satellite geometry cannot establish the best swell by itself because bathymetry, refraction, period, tide, and local takeoff configuration are not visible.",
+    "confidence_policy": "A geometry-consistent fallback remains low confidence unless an independent spot-specific surf guide or observational source corroborates it."
+  },
+  "conflict_resolutions": {
+    "bcn-baja-malibu": {
+      "status": "resolved_multi_source_and_map",
+      "window": { "min_deg": 202.5, "max_deg": 315 },
+      "confidence": "medium",
+      "map_finding": "The straight west-facing coast is open to SSW through NW energy; north and east directions are landward or nearly alongshore.",
+      "note": "The selected window covers Surfline's SSW, SW, WNW, and NW regimes and Surf-Forecast's SW preference without treating due north as ideal.",
+      "evidence_urls": [
+        "https://www.surfline.com/travel/zones/baja/surf-guide/baja-malibu/5842041f4e65fad6a7708e1b",
+        "https://www.surf-forecast.com/breaks/Baja-Malibu",
+        "https://surftrips.co/mexico/baja-california/baja-malibu"
+      ]
+    },
+    "bcn-marisol-north-point": {
+      "status": "resolved_bad_secondary_source",
+      "window": { "min_deg": 270, "max_deg": 315 },
+      "confidence": "high",
+      "map_finding": "The point sits on a west-facing coast; the imported N-to-E range points alongshore and into land.",
+      "note": "Surf-Forecast and International Surf Properties independently identify WNW. The conflicting SurfTrips page incorrectly places the spot on Lake Michigan and is excluded for swell-window evidence.",
+      "evidence_urls": [
+        "https://www.surf-forecast.com/breaks/Marisol-North-Point",
+        "https://www.internationalsurfproperties.com/listing/marisol-2/"
+      ]
+    },
+    "bcn-la-mision": {
+      "status": "resolved_multi_source_and_map",
+      "window": { "min_deg": 225, "max_deg": 315 },
+      "confidence": "medium",
+      "map_finding": "The open beach and river-mouth coast face west with usable southwest-to-northwest exposure.",
+      "note": "Published spot guidance identifies W and NW; coastal research reports predominantly W waves in winter and SW in summer.",
+      "evidence_urls": [
+        "https://www.surfmarket.org/es/olas/america/norte/mexico/la-mision",
+        "https://www.researchgate.net/publication/401636821_Estudio_del_runup_a_lo_largo_de_una_playa_intermedia_con_una_morfologia_compleja_mediante_observaciones_de_video_con_drones_y_modelacion_numerica"
+      ]
+    },
+    "bcs-punta-santo-domingo": {
+      "status": "resolved_south_facing_break",
+      "window": { "min_deg": 157.5, "max_deg": 225 },
+      "confidence": "medium",
+      "map_finding": "The break is on a curving south-to-southwest-facing bay and point; northwest is substantially shadowed by land configuration.",
+      "note": "Surf-Forecast identifies south as best and DeepSwell describes a south-facing beach and reef. The broader SW-to-NW SurfTrips range is not retained.",
+      "evidence_urls": [
+        "https://www.surf-forecast.com/breaks/Punta-Santo-Domingo",
+        "https://deepswell.com/surf-guide/Mexico/Southern-Baja/Punta-Santo-Domingo/1512"
+      ]
+    },
+    "bcs-monuments": {
+      "status": "resolved_surfline_and_map",
+      "window": { "min_deg": 202.5, "max_deg": 270 },
+      "confidence": "high",
+      "map_finding": "The rocky headland and bay face south-southwest through west; the selected range approaches the exposed water rather than the landward northeast quadrant.",
+      "note": "Surfline and SurfTrips agree on SSW, SW, and W energy, including deepwater-canyon amplification of long-period W and SW swell.",
+      "evidence_urls": [
+        "https://www.surfline.com/surf-report/monuments/5842041f4e65fad6a7708bd8/spot-guide",
+        "https://surftrips.co/mexico/baja-california-sur/monuments"
+      ]
+    }
+  },
+  "low_confidence_cross_reference": {
+    "baseline_count": 67,
+    "corrected_with_independent_evidence": {
+      "bcn-salsipuedes": {
+        "window": { "min_deg": 270, "max_deg": 315 },
+        "confidence": "high",
+        "map_finding": "The wrapping point and bay are exposed to west and northwest; southwest is blocked and loses size around the point.",
+        "note": "Surfline explicitly says W and NW, with more west being better, and says SW does not enter with meaningful size.",
+        "evidence_urls": [
+          "https://www.surfline.com/surf-report/salsipuedes/5842041f4e65fad6a7708bd2/spot-guide",
+          "https://www.savethewaves.org/wp-content/uploads/2020/07/BahiadeTodosSantos_WorldSurfingReserve_Booklet.pdf"
+        ]
+      },
+      "bcs-playa-san-pedro": {
+        "window": { "min_deg": 180, "max_deg": 247.5 },
+        "confidence": "medium",
+        "map_finding": "The open Pacific beach faces southwest; the source fallback's NW-to-NNW range points into the landward side of the shoreline.",
+        "note": "Surf-Forecast's guide-level NW label conflicts with its own directed-swell forecasts and the mapped coast. Repeated directed forecasts identify SSW and SW energy, so the corrected range remains medium rather than high confidence.",
+        "evidence_urls": [
+          "https://www.surf-forecast.com/breaks/Playa-San-Pedro/wavefinder",
+          "https://www.todosurf.com/prevision/playa-san-pedro-spot681.htm"
+        ]
+      }
+    },
+    "geometry_consistent_but_still_low_confidence_ids": [
+      "bcn-marisol",
+      "bcn-popotla",
+      "bcn-primo-tapia",
+      "bcn-rauls",
+      "bcn-cantamar-settlement",
+      "bcn-halfway-house",
+      "bcn-campo-lopez-k-55",
+      "bcn-punta-piedra-rocky-point",
+      "bcn-k-55-1-2",
+      "bcn-alisitos",
+      "bcn-el-paso",
+      "bcn-mirador-viewpoint",
+      "bcn-california-trailer-park",
+      "bcn-ensenada-beaches",
+      "bcn-boca-de-santo-tomas",
+      "bcn-roberts-left",
+      "bcn-punta-san-jacinto-shipwrecks",
+      "bcn-rincon-de-baja",
+      "bcn-camalu",
+      "bcn-playa-san-ramon",
+      "bcn-cabo-san-quintin",
+      "bcn-playa-santa-maria",
+      "bcn-cielito-lindo",
+      "bcn-el-socorro",
+      "bcn-casas",
+      "bcn-punta-canoas",
+      "bcn-punta-blanca-seven-sisters",
+      "bcn-punta-maria",
+      "bcn-el-cardon",
+      "bcn-punta-negra",
+      "bcn-millers-landing",
+      "bcs-bahia-tortugas-turtle-bay",
+      "bcs-asuncion-bay",
+      "bcs-san-hipolito",
+      "bcs-la-bocana-mulege-municipality",
+      "bcs-punta-abreojos",
+      "bcs-la-laguna",
+      "bcs-scorpion-bay-san-juanico",
+      "bcs-punta-san-gregorio",
+      "bcs-las-barrancas",
+      "bcs-san-jorge",
+      "bcs-punta-hughes",
+      "bcs-punta-conejo",
+      "bcs-punta-marquez",
+      "bcs-punta-colorado",
+      "bcs-la-bocana-todos-santos-area",
+      "bcs-punta-arenas",
+      "bcs-la-pastora",
+      "bcs-palm-beach-todos-santos",
+      "bcs-los-frailes",
+      "bcs-frailes-south",
+      "bcs-el-pescadero",
+      "bcs-boca-del-salado",
+      "bcs-punta-gasparino",
+      "bcs-migrino",
+      "bcs-la-punta",
+      "bcs-punta-palmilla",
+      "bcs-bahia-chileno",
+      "bcs-backwash"
+    ],
+    "geometry_indeterminate_due_to_vicinity_pin_ids": [
+      "bcn-rancho-santini",
+      "bcn-san-antonio-del-mar-colonet-area",
+      "bcn-puerto-san-andres",
+      "bcn-playa-elefante-isla-cedros",
+      "bcs-open-doors-isla-natividad",
+      "bcs-rancho-san-carlos"
+    ]
+  }
+}

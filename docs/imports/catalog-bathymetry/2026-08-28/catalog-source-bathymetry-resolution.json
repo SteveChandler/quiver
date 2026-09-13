@@ -1,0 +1,4745 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_id": "catalog-source-bathymetry-resolution-2026-08-28",
+  "reviewed_on": "2026-08-28",
+  "source_catalog": {
+    "path": "supabase/snapshots/catalog.sql",
+    "sha256": "18bf02cc84245470ede224854d96d8e8ac8d1dbc03cd2b02a202f9fd0a7265ea",
+    "row_count": 346,
+    "provenance_limit": "Repository production snapshot committed 2026-08-13; confirm target rows against a fresh read-only production extract before preparing an update migration."
+  },
+  "methodology": {
+    "bathymetry": "GMRT 500 m and NOAA ETOPO 2022 15 arc-second dual-grid screen.",
+    "source_resolution": "Coordinate-and-name matched spot guides, followed by targeted documented research for unresolved aliases and complex spots.",
+    "selection": "A bathymetrically rejected window is not selected. Where both pass, the window matching more normalized source directions wins; ties prefer the narrower window. A documented source-plus-terrain override is allowed for refracting or wrapping breaks that straight offshore rays cannot represent. Any selected window with zero source-direction hits fails closed.",
+    "release_safety": "This artifact is a candidate resolution from the committed catalog snapshot, not authorization to mutate production. Fresh read-only production reconciliation remains mandatory."
+  },
+  "summary": {
+    "reviewed": 128,
+    "source_required": 128,
+    "source_resolved": 128,
+    "production_update_allowed": 126,
+    "disposition_allowed": 2,
+    "identity_or_coordinate_conflicts": 2,
+    "selected_v1": 34,
+    "selected_v2": 89,
+    "selected_source_terrain_override": 3,
+    "source_contradictions": 0,
+    "soft_delete_duplicate": 1,
+    "exclude_non_surf_identity": 1
+  },
+  "resolutions": {
+    "ee7239d5-8e40-4385-b60c-288aff0d4706": {
+      "name": "Pawleys Island Pier",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Pawleys Island Pier",
+        "directions_deg": [
+          45,
+          135,
+          180
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surfline.com/surf-report/the-pier/5842041f4e65fad6a7708a71/spot-guide",
+          "https://www.swell-intel.com/spots/the-pier-pawleys-island--south-carolina-surf-forecast"
+        ],
+        "note": "The exact Surfline guide publishes S-SE as ideal and documents occasional powerful NE swell; the independent Pawleys guide identifies SE as best."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 45.0,
+        "max_deg": 170.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "19313c94-11c9-431e-9f0b-9cc9e89628aa": {
+      "name": "South Litchfield",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "South Litchfield",
+        "directions_deg": [
+          135,
+          180
+        ],
+        "source_scope": "adjacent_spot_direction_plus_exact_terrain",
+        "source_urls": [
+          "https://www.surfline.com/surf-report/the-pier/5842041f4e65fad6a7708a71/spot-guide",
+          "https://des.sc.gov/sites/des/files/docs/HomeAndEnvironment/Docs/beach-Georgetown.pdf"
+        ],
+        "note": "No exact South Litchfield spot guide was found. The adjacent Pawleys guide publishes S-SE, the state beach-monitoring document identifies South Litchfield and its inlet geometry, and both exact-coordinate grids support the same 70-180 exposure."
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 70.0,
+        "max_deg": 180.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "36a2d39e-64f1-4c7e-9618-ac8cc695af62": {
+      "name": "38th Avenue (Santa Cruz)",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "38th Avenue (Santa Cruz)",
+        "directions_deg": [
+          202.5,
+          225,
+          270,
+          315
+        ],
+        "source_scope": "same_break_complex",
+        "source_urls": [
+          "https://www.surfline.com/surf-report/jack-s/5842041f4e65fad6a770880b/spot-guide"
+        ],
+        "note": "Surfline identifies Jack's/38th Avenue as the connected inside section and publishes SSW, SW, W, NW."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 2
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 155.0,
+        "max_deg": 255.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "632e0e1c-a256-4d1f-8c6a-c1cbbc6ff2b6": {
+      "name": "Ditch Plains",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          157.5
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Ditch-Plains"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 120.0,
+        "max_deg": 240.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "0e7a0a9f-3a0b-44a2-b81c-43a6f7b2a203": {
+      "name": "Avila Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          225
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Avila-Beach"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 170.0,
+        "max_deg": 220.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "486dc095-4b21-4edb-838c-97f68b40d1df": {
+      "name": "C Street / Ventura Point",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "C Street / Ventura Point",
+        "directions_deg": [
+          180,
+          225,
+          270,
+          315
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surfline.com/surf-report/c-st-/5842041f4e65fad6a7708828/spot-guide",
+          "https://deepswell.com/surf-guide/US/Ventura/C-Street/1033"
+        ],
+        "note": "Two spot guides publish S, SW, W, NW exposure."
+      },
+      "source_direction_hits": {
+        "v1": 4,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 200.0,
+        "max_deg": 245.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "8a2b0951-38b4-4d7e-b5d5-6e076b58a5f0": {
+      "name": "Domes",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          0,
+          315
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/domes"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 2
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 280.0,
+        "max_deg": 35.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "f1899def-896d-48ea-adf3-f7de468966eb": {
+      "name": "Ghost Tree",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          315
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/ghost-tree"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 0,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 170.0,
+        "max_deg": 330.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "4b9682e4-87f9-4058-81aa-ea0630e7be47": {
+      "name": "Inches",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          135,
+          90
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/inches"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 90.0,
+        "max_deg": 140.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "8160745c-6322-45b0-8bad-81319574008b": {
+      "name": "Hampton Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          67.5
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Hampton-Beach"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 65.0,
+        "max_deg": 145.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "fea10ecf-6b55-4cc9-b29b-f215f923759d": {
+      "name": "Kill Devil Hills",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Kill Devil Hills",
+        "directions_deg": [
+          0,
+          45,
+          135
+        ],
+        "source_scope": "spot_plus_official_regional_climatology",
+        "source_urls": [
+          "https://killersurflinks.com/surf-reports/north-carolina/central-outer-banks/kill-devil-hills/",
+          "https://www.boem.gov/KDH-EA-Final/"
+        ],
+        "note": "Spot reporting identifies SE as inside its ideal window; the official coastal study documents N-NE and S-SE seasonal approach directions."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 350.0,
+        "max_deg": 140.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "f2cc331f-6569-40d9-a98b-9f50fb3da67f": {
+      "name": "Pacifica / Linda Mar",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Pacifica / Linda Mar",
+        "directions_deg": [
+          0,
+          315,
+          270
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surfspots.co/spot/linda-mar",
+          "https://popupsurftrips.com/surf-spots/usa/linda-mar-pacifica"
+        ],
+        "note": "Independent guides publish N, NW, W and a narrower W-NW best window."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 175.0,
+        "max_deg": 30.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "f84767c3-4c79-42ed-9e77-2351ab80d20e": {
+      "name": "Long Branch Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Long Branch Beach",
+        "directions_deg": [
+          90,
+          135
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://cloudflare.surfline.com/surf-report/long-branch/630d04654da1381c5cb8aeb7/spot-guide"
+        ],
+        "note": "Surfline publishes E and SE ideal directions for the Long Branch beach-and-jetty complex."
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 2
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 20.0,
+        "max_deg": 175.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "f5eec6e8-844a-41be-b3bf-4c47e0615545": {
+      "name": "New Smyrna Beach (NSB) Inlet",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          135
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/New-Smyrna-Inlet"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 355.0,
+        "max_deg": 140.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "e8a921b7-c2b5-4259-9e5c-bd06765f7ae4": {
+      "name": "Ocean Beach SF – Middle",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Ocean Beach SF – Middle",
+        "directions_deg": [
+          225,
+          270,
+          315
+        ],
+        "source_scope": "regional_direction_plus_named_section_and_exact_terrain",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Ocean-Beach",
+          "https://deepswell.com/surf-guide/US/San-Francisco-San-Mateo/Ocean-Beach-San-Francisco/1090",
+          "https://www.sftravel.com/article/surfers-guide-to-san-francisco",
+          "https://sfplanning.s3.amazonaws.com/default/files/plans-and-programs/local_coastal_prgm/Draft_SFLC_CRSMP_20160104.pdf"
+        ],
+        "note": "No exact Middle-section direction guide was found. Regional Ocean Beach guides support SW-W-NW, SF Travel identifies Main Peak in the middle of the beach, and the coastal report plus both coordinate grids support the selected exposure. This is not represented as an exact section-guide match."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 185.0,
+        "max_deg": 310.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "eca7e91a-0e5e-40d5-acb4-59c6ff50d861": {
+      "name": "Ocean Beach SF – North",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Ocean Beach SF – North",
+        "directions_deg": [
+          225,
+          270,
+          315
+        ],
+        "source_scope": "regional_direction_plus_named_section_and_exact_terrain",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Ocean-Beach",
+          "https://deepswell.com/surf-guide/US/San-Francisco-San-Mateo/Ocean-Beach-San-Francisco/1090",
+          "https://www.sftravel.com/article/surfers-guide-to-san-francisco",
+          "https://sfplanning.s3.amazonaws.com/default/files/plans-and-programs/local_coastal_prgm/Draft_SFLC_CRSMP_20160104.pdf"
+        ],
+        "note": "No exact North-section direction guide was found. Regional Ocean Beach guides support SW-W-NW, SF Travel identifies the northern Kelly's Cove section, and the coastal report plus both coordinate grids support the selected exposure. This is not represented as an exact section-guide match."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 185.0,
+        "max_deg": 305.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "c9659503-c562-4379-9177-fff60acdfb7f": {
+      "name": "Anahola",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          45
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/anahola-bay"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 0.0,
+        "max_deg": 85.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "34af0af5-b61c-4b86-9d9d-bf328f538a12": {
+      "name": "Sunset Cliffs – Luscombs",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Sunset Cliffs – Luscombs",
+        "directions_deg": [
+          225,
+          270,
+          315
+        ],
+        "source_scope": "named_subbreak_with_regional_guide",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Sunset-Cliffs",
+          "https://surftrips.co/united-states/california/sunset-cliffs",
+          "https://www.govisitsandiego.com/things-to-do/parks-and-nature/sunset-cliffs-natural-park/"
+        ],
+        "note": "Luscombs is documented within the Sunset Cliffs reef system; regional guides publish SW, W, NW."
+      },
+      "source_direction_hits": {
+        "v1": 0,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 180.0,
+        "max_deg": 345.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "ec73bb77-4be5-4126-8986-348929c1e7e9": {
+      "name": "Big Jetty",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Big Jetty",
+        "directions_deg": [
+          270,
+          315
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://visitoceanbeachsandiego.com/surf.html",
+          "https://cloudflare.surfline.com/travel/zones/san-diego/surf-guide/ocean--beach/5842041f4e65fad6a770883f"
+        ],
+        "note": "The local destination guide specifically states Big Jetty works on solid W/NW winter swell."
+      },
+      "source_direction_hits": {
+        "v1": 0,
+        "v2": 2
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 190.0,
+        "max_deg": 340.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "dbbafa09-3143-4f73-82e8-90a69a4121f5": {
+      "name": "Big Rock",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          315,
+          270
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/big-rock"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 2
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 175.0,
+        "max_deg": 335.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "88424465-0b1d-4f93-aa17-93dd1c4d03f3": {
+      "name": "Tres Palmas",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          315,
+          270
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/tres-palmas"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 115.0,
+        "max_deg": 70.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "fad234b3-4c14-4c02-a0fe-db1ba6e67bbe": {
+      "name": "Turtle Cove",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Turtle Cove",
+        "directions_deg": [
+          135
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Turtle-Cove",
+          "https://stormypetrel.surf/spot/turtle-cove-montauk"
+        ],
+        "note": "Independent guides agree on SE as optimal."
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 70.0,
+        "max_deg": 190.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "92e18cf0-97c3-4c68-9cdf-800eb9ac4313": {
+      "name": "Bodega Bay / Doran Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Bodega Bay / Doran Beach",
+        "directions_deg": [
+          247.5
+        ],
+        "source_scope": "spot_climatology",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Doran-Beach/surf-stats"
+        ],
+        "note": "The spot's long-run modeled swell rose identifies WSW as the most common incident direction; bathymetry is required because the bay is highly sheltered."
+      },
+      "source_direction_hits": {
+        "v1": 0,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 240.0,
+        "max_deg": 320.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "d264fbf8-0525-4d31-adb5-9a0742eaeb7e": {
+      "name": "Cape Hatteras Lighthouse",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          90
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Hatteras-Light-House"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 20.0,
+        "max_deg": 190.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "bb286d50-ad8d-4315-b966-5dbc31605a26": {
+      "name": "Makaha",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          270
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Makaha"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 245.0,
+        "max_deg": 25.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "c18f586b-85fb-47d2-8e0a-7786cd1eb341": {
+      "name": "White Plains",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "White Plains",
+        "directions_deg": [
+          135,
+          180,
+          225
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surfspots.co/spot/white-plains-beach",
+          "https://swellarchive.com/surf-spot-statistics/whiteplainsbeach/1049/"
+        ],
+        "note": "The exact SurfSpots guide publishes SE, S, and SW; independent seasonal analysis confirms the south-facing summer swell regime."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 145.0,
+        "max_deg": 245.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "11fc4aab-e5d2-4439-a726-fd4bd31b6acd": {
+      "name": "Laniakea",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          315
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Laniakea-Reef-and-Holtons"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 275.0,
+        "max_deg": 45.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "e12b9c1b-c500-47e0-a31c-3765736fe270": {
+      "name": "Chun’s Reef",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          0
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Chuns-Reef"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 275.0,
+        "max_deg": 45.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "24dd2e18-f3a6-466e-b082-cd974df852c4": {
+      "name": "Tracks",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          315,
+          270
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/nanakuli-tracks"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 185.0,
+        "max_deg": 340.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "8809c326-c194-4b6a-aba0-dd25102294a5": {
+      "name": "Kewalo Basin",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          157.5
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Kewalos"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 155.0,
+        "max_deg": 225.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "943e369c-2180-4152-b457-26dbbbb9c23e": {
+      "name": "Rocky Point",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          315
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Rocky-Point_1"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 285.0,
+        "max_deg": 45.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "a57ae4c8-7a27-4d3f-91d5-6229350fb888": {
+      "name": "Doheny Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          202.5
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Doheney-Beach"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 135.0,
+        "max_deg": 220.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "32c84ce9-ba42-464c-afad-58e4c8664d1e": {
+      "name": "Off the Wall",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          315
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Offthe-Wall-Insanities"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 285.0,
+        "max_deg": 30.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "86710207-89d0-4d3d-a44b-36648d0e9588": {
+      "name": "Makapuʻu",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Makapuʻu",
+        "directions_deg": [
+          45,
+          90,
+          112.5,
+          135
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Makapu",
+          "https://www.surfnerd.com/surf-forecast/makapuu"
+        ],
+        "note": "Exact guides publish ESE optimal and a broader NE-SE working range."
+      },
+      "source_direction_hits": {
+        "v1": 4,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 4,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 20.0,
+        "max_deg": 145.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "99c6a506-e4b7-42e4-be2d-c3afb303c22e": {
+      "name": "Publics",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          157.5
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Publics"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 155.0,
+        "max_deg": 225.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "d9524c9d-8315-4686-9d35-24ceb6db2a82": {
+      "name": "Ocean Beach SF – Sloat",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Ocean Beach SF – Sloat",
+        "directions_deg": [
+          225,
+          270,
+          315
+        ],
+        "source_scope": "regional_direction_plus_named_section_and_exact_terrain",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Ocean-Beach",
+          "https://deepswell.com/surf-guide/US/San-Francisco-San-Mateo/Ocean-Beach-San-Francisco/1090",
+          "https://www.sftravel.com/article/surfers-guide-to-san-francisco",
+          "https://sfplanning.s3.amazonaws.com/default/files/plans-and-programs/local_coastal_prgm/Draft_SFLC_CRSMP_20160104.pdf"
+        ],
+        "note": "No exact Sloat-section direction guide was found. Regional Ocean Beach guides support SW-W-NW, SF Travel identifies the beach south of Sloat as a distinct section, and the coastal report plus both coordinate grids support the selected exposure. This is not represented as an exact section-guide match."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 185.0,
+        "max_deg": 310.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "dc3e8490-9560-4713-8b87-dcc1a6a89c53": {
+      "name": "Velzyland",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          0,
+          315,
+          45
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/velzy-land"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 285.0,
+        "max_deg": 50.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "208cd792-7e94-419f-802c-09c9634ec6a9": {
+      "name": "Fort Point (San Francisco)",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Fort Point (San Francisco)",
+        "directions_deg": [
+          270,
+          315
+        ],
+        "selected_window_override": {
+          "min_deg": 270,
+          "max_deg": 315
+        },
+        "source_scope": "spot_specific_refraction_override",
+        "source_urls": [
+          "https://www.surfline.com/surf-report/fort-point/5842041f4e65fad6a770897a/spot-guide",
+          "https://deepswell.com/surf-guide/US/San-Francisco-San-Mateo/Fort-Point/1089",
+          "https://nauticalcharts.noaa.gov/publications/coast-pilot/files/cp7/CPB7_WEB.pdf"
+        ],
+        "note": "Surfline and DeepSwell independently publish W-NW. Surfline states that the wave wraps nearly 90 degrees into the cove; the NOAA Coast Pilot documents the constricted Golden Gate and shallow south-shore bight. Use 270-315 as a documented refraction window rather than the direct-ray-only 230-275 screen result."
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 1,
+        "override": 2
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "source_terrain_override",
+      "selected_window": {
+        "min_deg": 270,
+        "max_deg": 315
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "b8e6da01-3696-4d18-b00f-e71081e7a8dc": {
+      "name": "Pops",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          157.5
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Populars"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 155.0,
+        "max_deg": 225.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "b97ebd24-dcf6-49ce-a503-f678b4de0019": {
+      "name": "Threes",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          180
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/threes"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 160.0,
+        "max_deg": 225.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "785980ea-6213-48bf-8571-55f3267bd2da": {
+      "name": "Kaisers",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          157.5
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Kaisers"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 165.0,
+        "max_deg": 225.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "3bee4922-90ff-442c-b173-05c5ffa0e127": {
+      "name": "Puaʻena Point",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          0,
+          315
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/puaena-point"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 280.0,
+        "max_deg": 45.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "a30b9870-aace-48ef-a3e6-e275ad9c28c1": {
+      "name": "Oceanside Harbor",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          270
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Oceanside-Harbor"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 160.0,
+        "max_deg": 295.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "13ba376d-efd5-4e4e-af12-85bfeb2c17bc": {
+      "name": "Galveston – 61st Street Pier",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Galveston – 61st Street Pier",
+        "directions_deg": [
+          90,
+          135,
+          180
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Galveston_Sixtyfirst-Street",
+          "https://deepswell.com/surf-guide/US/Texas-Gulf-Coast/61st-Street/1285"
+        ],
+        "note": "Exact guides publish SE optimal and S-SE-E exposure."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 70.0,
+        "max_deg": 190.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "cc0b9ee8-0efc-4f78-9049-48a99e0d2c52": {
+      "name": "Galveston – Pleasure Pier",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Galveston – Pleasure Pier",
+        "directions_deg": [
+          135,
+          180
+        ],
+        "source_scope": "same_pier_historic_identity",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Galveston-Flagship",
+          "https://popupsurftrips.com/surf-spots/usa/galveston-flagship-pier",
+          "https://repository.library.noaa.gov/view/noaa/12692/noaa_12692_DS1.pdf"
+        ],
+        "note": "The Pleasure Pier occupies the former Flagship Hotel pier site. The exact historic break guide publishes SE optimal, a second guide documents strong S/tropical swell, and the NOAA report analyzes wave direction at Pleasure Pier."
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 70.0,
+        "max_deg": 190.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "55c7c5dd-1979-410a-bf39-ce3c52e29166": {
+      "name": "Packery Channel Jetties",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Packery Channel Jetties",
+        "directions_deg": [
+          45,
+          90,
+          135,
+          180
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surfspots.co/spot/packery-channel",
+          "https://packerysurfcam.com/shoreboundangler/",
+          "https://www.weather.gov/media/crp/STWJSpring09.pdf"
+        ],
+        "note": "The exact Packery Channel guide publishes Gulf exposure from NE through S among its working directions, the local jetty report records SE swell, and the NWS identifies Packery Channel as a notable Gulf Coast surf spot."
+      },
+      "source_direction_hits": {
+        "v1": 4,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 4,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 45.0,
+        "max_deg": 180.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "04940f92-f611-448d-acd3-a6456ca8b6de": {
+      "name": "Bob Hall Pier",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Bob Hall Pier",
+        "directions_deg": [
+          90,
+          135
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surfnerd.com/surf-forecast/bob-hall-pier",
+          "https://shaman.surf/surf-forecast/spots/texas/bob-hall-pier/"
+        ],
+        "note": "Independent exact guides publish SE optimal, with E also supported."
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 45.0,
+        "max_deg": 180.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "d85492b8-31ed-4dd8-af53-4284e9456be9": {
+      "name": "Mustang Island State Park",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Mustang Island State Park",
+        "directions_deg": [
+          45,
+          90,
+          135,
+          180
+        ],
+        "source_scope": "named_park_subbreak",
+        "source_urls": [
+          "https://deepswell.com/surf-guide/US/Texas-Gulf-Coast/Fish-Pass/1291",
+          "https://tpwmagazine.com/parks/surf-the-fish-pass-jetties-at-mustang-island-state-park/",
+          "https://tpwd.texas.gov/state-parks/mustang-island"
+        ],
+        "note": "Fish Pass is the documented surf break inside Mustang Island State Park; its exact guide publishes NE-S exposure and the state sources confirm the break and park identity."
+      },
+      "source_direction_hits": {
+        "v1": 4,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 4,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 50.0,
+        "max_deg": 180.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "14907560-8c92-4d2e-997b-9661e97b0751": {
+      "name": "Padre Island National Seashore – South Beach",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Padre Island National Seashore – South Beach",
+        "directions_deg": [
+          90,
+          135,
+          180
+        ],
+        "source_scope": "named_seashore_spot_plus_exact_terrain",
+        "source_urls": [
+          "https://www.swellbyte.com/spot/118",
+          "https://surfreports.co/united-states/texas/padre-island-national-seashore",
+          "https://home.nps.gov/places/south-beach-5-60.htm"
+        ],
+        "note": "The named seashore forecast and guide support E-SE-S, while the NPS page confirms the exact South Beach identity and extent. Both grids independently support the catalog window at its exact coordinate."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 40.0,
+        "max_deg": 180.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "a3f9b33e-6b29-4b41-8024-3f7cf1eb66c8": {
+      "name": "Crystal Beach",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Crystal Beach",
+        "directions_deg": [
+          135,
+          180
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surfline.com/surf-report/crystal-beach/5842041f4e65fad6a7708b91/spot-guide",
+          "https://surftrips.co/united-states/texas/crystal-beach"
+        ],
+        "note": "Surfline and the editor-verified exact guide agree on S-SE."
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 70.0,
+        "max_deg": 190.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "17628f35-9ed1-4257-aad6-070c4bd73bb8": {
+      "name": "Tourmaline Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          315,
+          270,
+          225
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/tourmaline"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 2
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 75.0,
+        "max_deg": 315.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "486929f4-c8f8-4ae8-9b10-5ba1b7be7bcf": {
+      "name": "Backyards",
+      "audit_reasons": [
+        "missing_v2"
+      ],
+      "bathymetry_status": "v1_bathymetrically_plausible",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Backyards",
+        "directions_deg": [
+          270,
+          315,
+          45
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Backyards_1",
+          "https://www.surfnerd.com/surf-forecast/backyards"
+        ],
+        "note": "Spot guides publish W through NE exposure with NW optimal."
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 0
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 300.0,
+        "max_deg": 80.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "7db87d82-4e66-4a48-9c8b-d5f95a282a4c": {
+      "name": "La Selva",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          0,
+          315,
+          45
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/luquillo-la-selva"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 305.0,
+        "max_deg": 65.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "c03fc6d7-913e-4c99-b1f4-610d036b3cbf": {
+      "name": "La Push – Third Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "La Push – Third Beach",
+        "directions_deg": [
+          247.5
+        ],
+        "source_scope": "regional_direction_plus_exact_coordinate_terrain",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/La-Push",
+          "https://www.nps.gov/olym/planyourvisit/third-beach-trail.htm"
+        ],
+        "note": "No exact Third Beach surf guide was found. The regional La Push guide supplies WSW direction context, the NPS source confirms the distinct beach identity, and both exact-coordinate grids support the selected 180-255 window. This is not represented as an exact spot-guide match."
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 180.0,
+        "max_deg": 255.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "5c879b55-26e6-4755-92f3-0291f4634f24": {
+      "name": "María's",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          0,
+          315,
+          270
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/marias"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 190.0,
+        "max_deg": 10.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "9b292a48-7a88-4d79-926f-16601515d7a0": {
+      "name": "Marine Street Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          315,
+          270,
+          225
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/marine-street-shorebreak"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 175.0,
+        "max_deg": 350.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "033b5518-ee98-4014-9d81-114b936778af": {
+      "name": "Mavericks",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          292.5
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Mavericks"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 170.0,
+        "max_deg": 330.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "60b6bb17-dc08-4f18-8241-33729bcbc742": {
+      "name": "Ocean Shores / North Beaches",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Ocean Shores / North Beaches",
+        "directions_deg": [
+          180,
+          225
+        ],
+        "source_scope": "named_area_plus_exact_terrain",
+        "source_urls": [
+          "https://www.surfspots.co/spot/ocean-shores",
+          "https://tourismoceanshores.com/surfing-in-washington-guide/"
+        ],
+        "note": "The exact Ocean Shores guide publishes S-SW, and the local destination guide identifies Ocean Shores and its North Jetty surf area. Both coordinate grids support the broader catalog area's selected window; this is not represented as a guide for every North Beaches sub-break."
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 205.0,
+        "max_deg": 340.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "c3b42f85-e650-445f-89b1-1debe661652e": {
+      "name": "Osprey Point",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Osprey Point",
+        "directions_deg": [
+          247.5,
+          270,
+          315
+        ],
+        "source_scope": "named_location_plus_regional_break",
+        "source_urls": [
+          "https://www.govisitsandiego.com/things-to-do/parks-and-nature/sunset-cliffs-natural-park/",
+          "https://surftrips.co/united-states/california/sunset-cliffs"
+        ],
+        "note": "The city-area guide places Osprey Point inside Sunset Cliffs; the regional surf guide publishes SW, W, NW. Catalog editorial text independently identifies WSW wrapping."
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 200.0,
+        "max_deg": 345.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "cc7c0837-257c-42c3-9d98-634911e73a6a": {
+      "name": "Crystal Pier",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Crystal Pier",
+        "directions_deg": [
+          0,
+          315,
+          270,
+          225
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surfspots.co/spot/crystal-pier-2"
+        ],
+        "note": "The coordinate-specific San Diego Crystal Pier page publishes N, NW, W, SW; it is not the same-name North Carolina pier."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 185.0,
+        "max_deg": 320.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "6a0674ac-3e6d-49f3-9fd4-a4f1857c408a": {
+      "name": "Pipeline",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          292.5
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Pipeline_1"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 250.0,
+        "max_deg": 25.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "cdfb7e59-ce4e-4112-acc5-15fe56a8b6a3": {
+      "name": "Pleasure Point",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Pleasure Point",
+        "directions_deg": [
+          180,
+          202.5,
+          225,
+          270
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surfline.com/surf-report/pleasure-point/5842041f4e65fad6a7708807/spot-guide",
+          "https://deepswell.com/surf-guide/US/Santa-Cruz-County/Pleasure-Point/1061",
+          "https://surfrip.com/surf-spots/1670/pleasure-point",
+          "https://www.pleasurepointsurf.com/about/"
+        ],
+        "note": "Exact Pleasure Point sources support S-SSW-SW-W exposure and identify the multi-peak break complex. This replaces the nearby Sewer Peak guide rejected by the qualifier gate."
+      },
+      "source_direction_hits": {
+        "v1": 4,
+        "v2": 4
+      },
+      "selected_source_direction_hits": 4,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 155.0,
+        "max_deg": 265.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "04ab6e6a-477f-49ab-b435-6b201134bcbf": {
+      "name": "Ocean Shores",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          225,
+          180
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/ocean-shores"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 205.0,
+        "max_deg": 340.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "64cb1fb1-e5aa-4306-a6eb-87b9afd14e99": {
+      "name": "Point Judith",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          225,
+          180,
+          135,
+          90
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/point-judith-lighthouse"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 4,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 70.0,
+        "max_deg": 190.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "a797dcac-2507-4b2b-9d37-1f92dfd6af89": {
+      "name": "Avalon Pier",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          45
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Avalon-Pier"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 340.0,
+        "max_deg": 145.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "294712f3-3c06-44bd-9bc6-17275675fe9a": {
+      "name": "Renes",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          225
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Renes"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 160.0,
+        "max_deg": 290.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "7e7b38b1-767f-4213-9314-538f51ab5084": {
+      "name": "Rockaway Beach – 90th St",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Rockaway Beach – 90th St",
+        "directions_deg": [
+          90,
+          112.5,
+          135,
+          157.5,
+          180
+        ],
+        "source_scope": "named_section_plus_regional_direction",
+        "source_urls": [
+          "https://www.surfline.com/surf-report/90th-st-rockaways/5842041f4e65fad6a7708852/spot-guide",
+          "https://trueswell.net/surf-forecast/rockaway-beach-ny",
+          "https://deepswell.com/surf-guide/US/New-York/Rockaway-Beach/1135",
+          "https://www.nycgovparks.org/sub_things_to_do/facilities/images/pdf/RockawaySurfBeachRules.pdf"
+        ],
+        "note": "Surfline identifies the exact 90th Street section. Regional Rockaway sources support E through S incidence, and the official surf-beach rules confirm the named surf area; both exact-coordinate grids support the selected section window."
+      },
+      "source_direction_hits": {
+        "v1": 5,
+        "v2": 5
+      },
+      "selected_source_direction_hits": 5,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 95.0,
+        "max_deg": 205.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "49739de1-95fb-4e26-b890-56fafd8d2622": {
+      "name": "Rockaway Beach (Pacifica)",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Rockaway Beach (Pacifica)",
+        "directions_deg": [
+          225,
+          315
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surfline.com/travel/united-states/california/san-mateo-county/pacifica-surfing-and-beaches/5380420",
+          "https://www.surfnerd.com/surf-forecast/rockaway-beach",
+          "https://stormypetrel.surf/spot/rockaway-beach-pacifica"
+        ],
+        "note": "Sources disagree on a single optimum (SW versus NW) but agree the Pacific-facing window includes both."
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 2
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 195.0,
+        "max_deg": 350.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "f11ccd59-b778-4ea1-a8ff-88bffb447cd8": {
+      "name": "Sandy Beach Rincón",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Sandy Beach Rincón",
+        "directions_deg": [
+          315,
+          0,
+          45
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://deepswell.com/surf-guide/Caribbean/Puerto-Rico/Sandy-Beach-Puerto-Rico/1693",
+          "https://www.casitarinconpr.com/surf-guide"
+        ],
+        "note": "Independent Rincón guides publish NW through NE."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 280.0,
+        "max_deg": 35.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "dca521c3-ab32-46c6-8045-8aa7477f59a8": {
+      "name": "Capitola Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Capitola Beach",
+        "directions_deg": [
+          180,
+          202.5,
+          220,
+          225,
+          270
+        ],
+        "source_scope": "same_break_beach_and_jetty_complex",
+        "source_urls": [
+          "https://www.surfline.com/surf-report/capitola/5842041f4e65fad6a7708ddf/spot-guide",
+          "https://www.surf-forecast.com/breaks/Capitola-Jetty",
+          "https://www.capitolabeachcompany.com/how-swells-effect-santa-cruz-surfing/"
+        ],
+        "note": "Surfline's exact Capitola guide publishes S-SSW-W, Surf-Forecast identifies the adjacent named jetty with SSW optimal, and the local beach source gives a 190-220 degree southerly window. This is documented as one beach/jetty complex rather than an automatic qualifier match."
+      },
+      "source_direction_hits": {
+        "v1": 4,
+        "v2": 4
+      },
+      "selected_source_direction_hits": 4,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 155.0,
+        "max_deg": 220.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "0e550715-3367-4829-8671-8f38bd5be34f": {
+      "name": "Sandy Hook",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Sandy Hook",
+        "directions_deg": [
+          90,
+          112.5,
+          135,
+          157.5
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surfline.com/surf-report/sandy-hook/5842041f4e65fad6a7708a05/spot-guide",
+          "https://www.surfnerd.com/surf-forecast/sandy-hook"
+        ],
+        "note": "Exact guides publish E-ESE-SE and an E-SSE working range; Surfline separately notes the Cove's larger south-swell behavior."
+      },
+      "source_direction_hits": {
+        "v1": 4,
+        "v2": 4
+      },
+      "selected_source_direction_hits": 4,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 65.0,
+        "max_deg": 155.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "71bdbe5a-67f6-429c-b1e4-80ec390ec4a3": {
+      "name": "County Line",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          270
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/County-Line-Yerba-Buena-Beach"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 230.0,
+        "max_deg": 340.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "307d7cb3-f235-4b32-9b42-8a375ac9f54f": {
+      "name": "Satellite Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          45
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Satellite-Beach"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 10.0,
+        "max_deg": 155.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "a1566585-0143-4a1d-983f-c7fd195c5e55": {
+      "name": "Scarborough Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          135
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Scarborough-Beach_Maine"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 0,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 125.0,
+        "max_deg": 150.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "acfad2b2-7d0c-4c42-9fba-e78fa73e4ae3": {
+      "name": "Crash Boat",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          0,
+          315,
+          270
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/crashboats"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 230.0,
+        "max_deg": 10.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "6f683baf-fd73-4a77-95b2-46f04050b136": {
+      "name": "Seaside Cove (Oregon)",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          315
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Seaside-Cove"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 270.0,
+        "max_deg": 345.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "13a91b0d-3e80-4140-b11e-2c1b12e00687": {
+      "name": "Redondo Breakwall",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          292.5
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Redondo-The-Breakwater"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 0,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 200.0,
+        "max_deg": 310.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "5e8d07ff-786c-4b7e-ab19-53d2b3774e23": {
+      "name": "Shipwrecks",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Shipwrecks",
+        "directions_deg": [
+          180,
+          225
+        ],
+        "source_scope": "coordinate_identified_coronado_shore",
+        "source_urls": [
+          "https://www.govisitsandiego.com/beaches/coronado-island-beaches/coronado-shores-beach-south-beach/",
+          "https://www.surf-forecast.com/breaks/Coronado-Beaches",
+          "https://www.surfline.com/surf-report/coronado-beach/5842041f4e65fad6a77088ce"
+        ],
+        "note": "The coordinates and shipwreck guide identify Coronado Shores/SS Monte Carlo, not East Cape Baja; Coronado sources support S-SW."
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 195.0,
+        "max_deg": 255.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "2609a9ff-d247-4e0b-888f-a793ff7177a5": {
+      "name": "Steamer Lane",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          225
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Steamer-Lane-The-Point"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 140.0,
+        "max_deg": 245.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "1ac4f5f1-94a1-4347-b4ca-6c9d62aee5d3": {
+      "name": "Hapuna Beach (Kohala)",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          315
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Hapuna"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 225.0,
+        "max_deg": 335.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "e6cec9c8-ab43-4ff8-9d79-cb297422b529": {
+      "name": "Ho'okipa",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          22.5
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Hookipa"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 295.0,
+        "max_deg": 45.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "4dd216b1-edc3-46b6-aabb-66beb467bcaf": {
+      "name": "Honolua Bay",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          337.5
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Honolua-Bay"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 340.0,
+        "max_deg": 55.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "99e50d6b-a1cf-458b-8fff-c199cd55b23c": {
+      "name": "Cocoa Beach Pier",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          90
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/cocoa-beach-pier"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 40.0,
+        "max_deg": 170.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "6c111c72-1773-490b-ae9e-fe6d81827989": {
+      "name": "La Pared",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          0,
+          315,
+          45
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/luquillo-la-pared"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 2
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 250.0,
+        "max_deg": 150.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "b57b32b9-0057-46f6-9fa9-cd35d5bd5319": {
+      "name": "Huntington St.",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Huntington St.",
+        "directions_deg": [
+          157.5,
+          180,
+          225,
+          247.5,
+          270,
+          285
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://surftrips.co/united-states/california/huntington-st",
+          "https://www.surfline.com/surf-report/huntington-st-overview/58bdebbc82d034001252e3d2",
+          "https://surfing-waves.com/atlas/north_america/usa/west_coast/california/southern_california/orange_county/spot/huntington_st.html"
+        ],
+        "note": "Exact Huntington Street sources support SSE through WNW. This replaces the Huntington Pier guide rejected by the street-versus-pier qualifier gate."
+      },
+      "source_direction_hits": {
+        "v1": 6,
+        "v2": 6
+      },
+      "selected_source_direction_hits": 6,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 125.0,
+        "max_deg": 280.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "4c29c993-e769-414b-8539-7867c7e04772": {
+      "name": "S‑Turns",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          112.5
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/S-Turns"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 0.0,
+        "max_deg": 170.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "bd7a7984-d69a-4969-85b1-b97ea78d8fb7": {
+      "name": "Sunset Bay State Park",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Sunset Bay State Park",
+        "directions_deg": [
+          255,
+          270
+        ],
+        "source_scope": "catalog_editorial_plus_official_bay_geometry",
+        "source_urls": [
+          "https://www.oregon.gov/deq/wq/Documents/DEQ20-LAB-0036-TR.PDF"
+        ],
+        "note": "The official document confirms headland shelter; the catalog preference model records 255° and large W swell. Dual-grid bathymetry independently supports only the narrowed wrap window."
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 2
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 230.0,
+        "max_deg": 20.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "9e94759c-d531-4e5c-9bc2-d022acea9dcd": {
+      "name": "Imperial Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          225
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Imperial-Beach"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 230.0,
+        "max_deg": 310.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "f298d080-177b-4407-9e3a-be51bae58605": {
+      "name": "Indicators",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          0,
+          315,
+          270
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/indicators-2"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 280.0,
+        "max_deg": 35.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "ffc0dcae-83d7-4b90-ade3-03c14e789088": {
+      "name": "Agate Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          270
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Agate-Beach"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 190.0,
+        "max_deg": 260.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "77d286c5-87e9-4678-82d3-81d0125285fa": {
+      "name": "K-38",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          315,
+          270,
+          225,
+          180
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/k-38"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 4,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 4,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 125.0,
+        "max_deg": 10.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "ec7b1ab4-5f43-4af3-b45f-325d29b8d5e6": {
+      "name": "Teresa's",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Teresa's",
+        "directions_deg": [
+          220,
+          225
+        ],
+        "source_scope": "existing_reviewed_editorial_plus_baja_bathymetry",
+        "source_urls": [
+          "https://www.bajacalifornia.travel/en/actividades/surf-the-waves-of-playas-de-rosarito",
+          "https://www.surfline.com/travel/mexico/estado-de-baja-california/playas-de-rosarito-surfing-and-beaches/6942834",
+          "https://www.surf-forecast.com/breaks/Rosarito"
+        ],
+        "note": "The existing reviewed catalog and full Baja audit converge on the 160°-275° v2 window centered near 220°."
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 2
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 160.0,
+        "max_deg": 275.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "b2b469ea-3d00-44df-88e8-621934c6926f": {
+      "name": "Kalapaki Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          157.5
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Kalapaki-Beach"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 100.0,
+        "max_deg": 175.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "2c622571-c1fa-4c46-afd1-c0769c184570": {
+      "name": "Lahaina Harbor (Breakwall)",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          225
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Lahaina-Harbor-Break-Wall"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 155.0,
+        "max_deg": 235.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "f3e1216f-2a17-47be-8c2e-67d8588ab065": {
+      "name": "The Hook",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          225,
+          180
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/the-hook-2"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 2
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 155.0,
+        "max_deg": 240.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "965196e2-81c3-4c1a-8c2f-e5c9c0f8e3fd": {
+      "name": "Las Gaviotas",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          180
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/las-gaviotas"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 165.0,
+        "max_deg": 295.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "2b401051-cdbf-41a9-ac30-e636c33a42ef": {
+      "name": "Florence South Jetty",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          315,
+          270,
+          225
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/florence-south-jetty"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 0,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 250.0,
+        "max_deg": 300.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "03dc4aef-c5e3-48a6-9563-39e0fe08c9b5": {
+      "name": "Long Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          135
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Long-Beach_4"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 100.0,
+        "max_deg": 255.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "2f3e2136-b094-49d7-b90f-948160cbb854": {
+      "name": "Trails",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Trails",
+        "directions_deg": [
+          157.5,
+          180,
+          225,
+          292.5
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Trails-San-Onofre-State-Beach",
+          "https://www.surfnerd.com/surf-forecast/trails-california"
+        ],
+        "note": "The exact Trails guide is SW optimal; the wider guide window is SSE through WNW."
+      },
+      "source_direction_hits": {
+        "v1": 4,
+        "v2": 4
+      },
+      "selected_source_direction_hits": 4,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 140.0,
+        "max_deg": 295.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "d3740aa5-3c96-4575-a60c-d8200023affe": {
+      "name": "Tybee Island",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Tybee Island",
+        "directions_deg": [
+          45,
+          90,
+          135,
+          180
+        ],
+        "source_scope": "named_island_break_complex",
+        "source_urls": [
+          "https://thesurfatlas.com/surfing-in-the-usa/tybee-island-surf/",
+          "https://wewave.surf/areas/tybee-savannah"
+        ],
+        "note": "Independent Tybee sources describe the island's pier, south-end, and 18th Street surf areas with NE-E-SE-S exposure. The catalog record is intentionally the island break complex rather than one sub-break."
+      },
+      "source_direction_hits": {
+        "v1": 4,
+        "v2": 4
+      },
+      "selected_source_direction_hits": 4,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 35.0,
+        "max_deg": 180.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "da7dc3e8-51c7-46a7-86f6-c3a90f4da036": {
+      "name": "Matunuck",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          135
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Matunuck"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 110.0,
+        "max_deg": 180.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "4ec455fa-dab5-4cfa-884f-1f1d29154c74": {
+      "name": "Westport – The Groins",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Westport – The Groins",
+        "directions_deg": [
+          247.5
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Westport_The-Groins",
+          "https://piermonkey.com/spot/westport-wa"
+        ],
+        "note": "The exact Surf-Forecast guide publishes WSW optimal; the independent Westport breakdown identifies the Groins as a separate sheltered sub-break."
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 255.0,
+        "max_deg": 290.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "51180cd3-b83b-4cf8-99b2-8705c68b87ef": {
+      "name": "Westport – Half Moon Bay (The Cove)",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Westport – Half Moon Bay (The Cove)",
+        "directions_deg": [
+          225,
+          270,
+          315
+        ],
+        "selected_window_override": {
+          "min_deg": 225,
+          "max_deg": 315
+        },
+        "source_scope": "named_subbreak_refraction_override",
+        "source_urls": [
+          "https://www.surfline.com/surf-report/westport/5842041f4e65fad6a77089ad/spot-guide",
+          "https://deepswell.com/surf-guide/US/Washington/Westport/1104",
+          "https://www.experiencewestport.com/surfing"
+        ],
+        "note": "Surfline explicitly identifies Half Moon Bay/The Cove and publishes NW-W-SW for the Westport pair. DeepSwell repeats that range and describes the Cove's sheltered geometry. The local destination source identifies the Cove as a giant-winter-swell observation site, supporting a 225-315 wrap window rather than the generic Groins match."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 2,
+        "override": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "source_terrain_override",
+      "selected_window": {
+        "min_deg": 225,
+        "max_deg": 315
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "cb75834d-79cb-4b65-859b-d0a370bfc75e": {
+      "name": "Westport – The Jetty",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Westport – The Jetty",
+        "directions_deg": [
+          180,
+          225,
+          247.5,
+          270,
+          315
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surfnerd.com/surf-forecast/westport-jetty-corner",
+          "https://www.surf-forecast.com/breaks/Westport_The-Corner",
+          "https://www.saltwaterinnwestport.com/things-to-do/surfing"
+        ],
+        "note": "Exact Jetty/Corner sources publish S-NW, WSW optimal, and SW-W working directions. This replaces the nearby Groins match."
+      },
+      "source_direction_hits": {
+        "v1": 5,
+        "v2": 5
+      },
+      "selected_source_direction_hits": 5,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 175.0,
+        "max_deg": 315.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "6e083f22-4c11-46c5-9110-ac7500f6cba5": {
+      "name": "Alfonsos",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          225
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Alfonsos"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 160.0,
+        "max_deg": 280.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "6cbb1b4f-d25e-40a3-a78a-b138ebdf9e96": {
+      "name": "El Morro Point (K37.5)",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          180
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/El-Morro-Point"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 160.0,
+        "max_deg": 275.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "8ee452f0-4043-4fe0-a049-207afbd95523": {
+      "name": "Diamond Head (Cliffs)",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Diamond Head (Cliffs)",
+        "directions_deg": [
+          135,
+          180,
+          215
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.strikemission.app/blog/651-surfing-diamond-head-cliffs-guide",
+          "https://wewave.surf/spots/diamond-head-cliffs"
+        ],
+        "note": "Independent guides publish SE-SW with S optimal."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 90.0,
+        "max_deg": 270.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "eadd2bf6-759a-46e4-a8af-8df1feb635cb": {
+      "name": "Banyans",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          315
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Banyons"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 220.0,
+        "max_deg": 310.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "abb56ca0-7dad-4026-960f-23412fa5cc8b": {
+      "name": "Mitchell's Cove",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Mitchell's Cove",
+        "directions_deg": [
+          225,
+          270,
+          315
+        ],
+        "selected_window_override": {
+          "min_deg": 225,
+          "max_deg": 315
+        },
+        "source_scope": "spot_specific_headland_wrap_override",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Mitchells-Cove",
+          "https://surftrips.co/united-states/california/mitchell-s-cove"
+        ],
+        "note": "The exact Surf-Forecast guide publishes NW optimal; the editor-verified SurfTrips guide publishes SW, W, and NW. The dual grids show fully open SW-W rays and partially open WNW-NW rays behind the Santa Cruz headland, so 225-315 preserves the observed headland-wrap window that the five-ray pass threshold omitted."
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 2,
+        "override": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "source_terrain_override",
+      "selected_window": {
+        "min_deg": 225,
+        "max_deg": 315
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "1279cf64-8ef0-4bb9-b786-6dd77fc2c201": {
+      "name": "Asbury Park",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          135
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Asbury-Park"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 30.0,
+        "max_deg": 175.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "5c7c2a2e-3c7f-4a8c-8e8a-5cf2e9a0b101": {
+      "name": "Morro Rock / Sandspit (inside bend)",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Morro Rock / Sandspit (inside bend)",
+        "directions_deg": [
+          180,
+          225,
+          270,
+          315
+        ],
+        "source_scope": "same_break_complex",
+        "source_urls": [
+          "https://www.surfspots.co/spot/the-pit"
+        ],
+        "note": "The guide explicitly locates the break at Morro Rock/Sand Spit and publishes S, SW, W, NW."
+      },
+      "source_direction_hits": {
+        "v1": 4,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 195.0,
+        "max_deg": 305.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "615ff20a-922f-4487-88d8-fa7d830ebacf": {
+      "name": "Bastendorff Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          315,
+          270
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/coos-bay-bastendorf-beach"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 2,
+        "v2": 2
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 265.0,
+        "max_deg": 15.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "872fdb8c-6e6b-459e-813c-e8fc6a9561bd": {
+      "name": "Nags Head Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          180,
+          135,
+          45
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/nags-head"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 2
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 0.0,
+        "max_deg": 355.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "9eeb258d-2fb7-4e72-a6a4-4451882dedb6": {
+      "name": "Nauset Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          90
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Nauset-Light-Beach-1"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 0,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 355.0,
+        "max_deg": 160.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "281b7eef-bcc3-4ecd-998f-1faa190ed956": {
+      "name": "La Push – Second Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "La Push – Second Beach",
+        "directions_deg": [
+          247.5
+        ],
+        "source_scope": "regional_direction_plus_exact_coordinate_terrain",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/La-Push",
+          "https://www.nps.gov/olym/planyourvisit/second-beach-trail.htm"
+        ],
+        "note": "No exact Second Beach surf guide was found. The regional La Push guide supplies WSW direction context, the NPS source confirms the distinct beach identity, and both exact-coordinate grids support the selected 215-285 window. This is not represented as an exact spot-guide match."
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 215.0,
+        "max_deg": 285.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "d920e1b9-9e23-4ba8-9f8e-776571435f6f": {
+      "name": "New Break (Nubes)",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "New Break (Nubes)",
+        "directions_deg": [
+          225,
+          270,
+          315
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.surfnerd.com/surf-forecast/new-break",
+          "https://www.govisitsandiego.com/beaches/sunset-cliffs-natural-park-beaches/new-break-nubes/"
+        ],
+        "note": "The exact guide publishes SW-NW with W optimal; the local guide confirms the Nubes identity and wrap geometry."
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 185.0,
+        "max_deg": 345.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "2c2dea98-280b-488c-9d46-ffed8226447b": {
+      "name": "Short Sands (Oswald West)",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Short Sands (Oswald West)",
+        "directions_deg": [
+          180,
+          225,
+          268,
+          280,
+          315
+        ],
+        "source_scope": "identity_conflict_resolved_duplicate",
+        "source_urls": [
+          "https://stormypetrel.surf/spot/short-sands-beach-oswald-west",
+          "https://www.surfingteacher.com/short-sands-surfing-complete-guide",
+          "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=45.8117&lon=-123.9632",
+          "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=45.7599&lon=-123.9666"
+        ],
+        "recommended_disposition": "soft_delete_duplicate",
+        "canonical_record_id": "6d3a734b-b051-490d-87e4-df83c3f49c42",
+        "note": "The audited pin reverse-geocodes to a house on Pacific Road in Arch Cape, while the other Short Sands pin reverse-geocodes to Short Sand Beach Trail at Oswald West. Treat this record as the displaced duplicate and retain the canonical record."
+      },
+      "source_direction_hits": {
+        "v1": 5,
+        "v2": 3
+      },
+      "selected_source_direction_hits": null,
+      "source_contradiction": false,
+      "selected_version": null,
+      "selected_window": null,
+      "confidence": "not_applicable",
+      "identity_or_coordinate_conflict": true,
+      "production_action": "soft_delete_duplicate",
+      "production_update_allowed": false,
+      "disposition_allowed": true,
+      "release_precondition": "Apply the documented identity disposition only after fresh production reconciliation."
+    },
+    "4194e543-a87e-46ee-b317-56c5820c5567": {
+      "name": "El Capitan",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          270
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/El-Capitan"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 115.0,
+        "max_deg": 265.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "94f1010b-c71f-4025-bda1-c26ed9467c85": {
+      "name": "Silver Strand State Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          315,
+          270,
+          225,
+          180
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/coronado-silver-strand-state-beach"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 4,
+        "v2": 2
+      },
+      "selected_source_direction_hits": 2,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 205.0,
+        "max_deg": 280.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "6693188e-80a0-4877-a618-d733ab4809b2": {
+      "name": "Nantasket Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "Surf-Forecast",
+        "directions_deg": [
+          45
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surf-forecast.com/breaks/Nantasket-Beach"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 1,
+        "v2": 1
+      },
+      "selected_source_direction_hits": 1,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 20.0,
+        "max_deg": 110.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "1a7ac53d-f3ac-4f78-a89a-8befb2fa69b7": {
+      "name": "Rockaway Beach – 98th St",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Rockaway Beach – 98th St",
+        "directions_deg": [
+          90,
+          112.5,
+          135,
+          180
+        ],
+        "source_scope": "regional_direction_plus_exact_coordinate_terrain",
+        "source_urls": [
+          "https://trueswell.net/surf-forecast/rockaway-beach-ny",
+          "https://deepswell.com/surf-guide/US/New-York/Rockaway-Beach/1135",
+          "https://www.nycgovparks.org/sub_things_to_do/facilities/images/pdf/RockawaySurfBeachRules.pdf"
+        ],
+        "note": "No exact 98th Street direction guide was found. Regional Rockaway guides support E through S incidence, the official document confirms the Rockaway surf-beach context, and both exact-coordinate grids support the selected window. This is not represented as an exact section-guide match."
+      },
+      "source_direction_hits": {
+        "v1": 4,
+        "v2": 4
+      },
+      "selected_source_direction_hits": 4,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 95.0,
+        "max_deg": 205.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "6d3a734b-b051-490d-87e4-df83c3f49c42": {
+      "name": "Short Sands",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Short Sands",
+        "directions_deg": [
+          180,
+          225,
+          268,
+          280,
+          315
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://stormypetrel.surf/spot/short-sands-beach-oswald-west",
+          "https://www.surfingteacher.com/short-sands-surfing-complete-guide"
+        ],
+        "note": "The catalog coordinate is at the Oswald West cove; sources support S-W-NW exposure with W optimal."
+      },
+      "source_direction_hits": {
+        "v1": 5,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 5,
+      "source_contradiction": false,
+      "selected_version": "v1",
+      "selected_window": {
+        "min_deg": 125.0,
+        "max_deg": 35.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "bfd3e168-f268-4692-901c-4b80b9b58dcb": {
+      "name": "The Point at Sandy",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "The Point at Sandy",
+        "directions_deg": [
+          305,
+          315,
+          0
+        ],
+        "source_scope": "named_subbreak_plus_catalog_editorial",
+        "source_urls": [
+          "https://deepswell.com/surf-guide/Caribbean/Puerto-Rico/Sandy-Beach-Puerto-Rico/1693",
+          "https://www.casitarinconpr.com/surf-guide"
+        ],
+        "note": "The catalog identifies the rocky point at Sandy Beach and records 305° primary; regional spot sources support NW-N."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 280.0,
+        "max_deg": 35.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "91df193c-f2c8-4e6c-984e-b859bd741061": {
+      "name": "Tourmaline Surf Park",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Tourmaline Surf Park",
+        "directions_deg": [
+          225,
+          270,
+          292.5
+        ],
+        "source_scope": "spot",
+        "source_urls": [
+          "https://www.mondo.surf/surf-spot/tourmaline-2/guide/3533",
+          "https://www.govisitsandiego.com/beaches/pacific-beach-beaches/tourmaline-surf-park/",
+          "https://gosurfingsandiego.com/surfing-tourmaline-beach/"
+        ],
+        "note": "Exact Tourmaline Surf Park sources support SW-W-WNW and explicitly equate the Tourmaline Beach and Surf Park identities. This replaces the generic nearby guide rejected by the qualifier gate."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 180.0,
+        "max_deg": 295.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "a83def7f-6b68-402f-a0ef-f78a5bcfbf81": {
+      "name": "Westport (Marina/Groins/Jetty)",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Westport (Marina/Groins/Jetty)",
+        "directions_deg": [
+          225,
+          270,
+          315
+        ],
+        "source_scope": "documented_break_complex_plus_exact_terrain",
+        "source_urls": [
+          "https://www.surfline.com/surf-report/westport/5842041f4e65fad6a77089ad/spot-guide",
+          "https://deepswell.com/surf-guide/US/Washington/Westport/1104",
+          "https://piermonkey.com/spot/westport-wa"
+        ],
+        "note": "This catalog record explicitly represents the marina/Groins/Jetty complex rather than one sub-break. The regional guides publish SW-W-NW and identify the components; the exact-coordinate grids support the selected complex window."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 195.0,
+        "max_deg": 310.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "2795319c-e680-45d0-a8af-f4c55631986e": {
+      "name": "Wilderness",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "both_windows_bathymetrically_plausible_source_resolution_required",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          0,
+          315,
+          225
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/wilderness-2"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 225.0,
+        "max_deg": 20.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    },
+    "22d65140-1c40-4bbe-8790-5068fa6e5f22": {
+      "name": "Waikoloa Village Lagoon",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "manual_targeted_research",
+        "name": "Waikoloa Village Lagoon",
+        "directions_deg": [
+          240,
+          270,
+          315
+        ],
+        "source_scope": "identity_conflict_resolved_non_surf_pin",
+        "source_urls": [
+          "https://files.hawaii.gov/dbedt/erp/EA_EIS_Archive/1985-09-DD-HA-FEIS-Waikoloa-Beach-Resort-Anchialine-Ponds.pdf",
+          "https://files.hawaii.gov/dbedt/erp/EA_EIS_Archive/1990-06-DD-HA-FEIS-Anaehoomalu-Bay-Day-Use-Moorings.pdf",
+          "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=19.922&lon=-155.887"
+        ],
+        "recommended_disposition": "exclude_non_surf_identity",
+        "note": "The catalog pin reverse-geocodes to Waikoloa Beach Drive rather than an ocean break, and official resort documents describe protected lagoon/bay wave climate rather than a validated surf spot. Keep recommendation and SEO eligibility disabled and exclude this record from surf-window updates."
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": null,
+      "source_contradiction": false,
+      "selected_version": null,
+      "selected_window": null,
+      "confidence": "not_applicable",
+      "identity_or_coordinate_conflict": true,
+      "production_action": "exclude_non_surf_identity",
+      "production_update_allowed": false,
+      "disposition_allowed": true,
+      "release_precondition": "Apply the documented identity disposition only after fresh production reconciliation."
+    },
+    "260868de-b952-470b-a764-b95b3e7f6655": {
+      "name": "Westport Beach",
+      "audit_reasons": [
+        "material_v1_v2_divergence"
+      ],
+      "bathymetry_status": "v2_supported_v1_rejected",
+      "source_evidence": {
+        "provider": "SurfSpots.co",
+        "directions_deg": [
+          315,
+          270,
+          225
+        ],
+        "source_scope": "spot_coordinate_name_match",
+        "source_urls": [
+          "https://www.surfspots.co/spot/westport"
+        ]
+      },
+      "source_direction_hits": {
+        "v1": 3,
+        "v2": 3
+      },
+      "selected_source_direction_hits": 3,
+      "source_contradiction": false,
+      "selected_version": "v2",
+      "selected_window": {
+        "min_deg": 190.0,
+        "max_deg": 310.0
+      },
+      "confidence": "medium",
+      "identity_or_coordinate_conflict": false,
+      "production_action": "update_swell_window",
+      "production_update_allowed": true,
+      "disposition_allowed": false,
+      "release_precondition": "Reconcile against a fresh read-only production extract before generating SQL."
+    }
+  }
+}
