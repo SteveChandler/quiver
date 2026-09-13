@@ -1,3 +1,4 @@
+import { redactSecrets } from "@/lib/monitoring/redact-secrets";
 import { NextResponse } from "next/server";
 import {
   generateETag,
@@ -30,12 +31,12 @@ export function handleApiError(
   customMessage?: string,
   includeDetails = false
 ): NextResponse<ApiError> {
-  const errorMessage = error instanceof Error ? error.message : "Unknown error";
-  const finalMessage = customMessage || errorMessage;
+  const errorMessage = redactSecrets(error instanceof Error ? error.message : "Unknown error");
+  const finalMessage = redactSecrets(customMessage || errorMessage);
 
   console.error("API Error:", errorMessage);
   if (error instanceof Error && error.stack) {
-    console.error("Stack trace:", error.stack);
+    console.error("Stack trace:", redactSecrets(error.stack));
   }
 
   return NextResponse.json(

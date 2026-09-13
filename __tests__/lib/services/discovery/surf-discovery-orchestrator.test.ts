@@ -2235,6 +2235,23 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     mockState.userPrefs = null;
   });
 
+  test('starts sun-time reads before preferences finish without duplicating preferences', async () => {
+    const { getUserSurfPreferences } = require('@/lib/services/preference-learning-service');
+    let sunReadStartedBeforePreferences = false;
+    getUserSurfPreferences.mockImplementationOnce(async () => {
+      await Promise.resolve();
+      sunReadStartedBeforePreferences = mockSupabaseFrom.mock.calls.some(
+        ([table]) => table === 'sun_times',
+      );
+      return null;
+    });
+
+    await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    expect(sunReadStartedBeforePreferences).toBe(true);
+    expect(getUserSurfPreferences).toHaveBeenCalledTimes(1);
+  });
+
   test('calls fetchPersonalizationContext with correct arguments', async () => {
     const { fetchPersonalizationContext } = require('@/lib/services/discovery/personalization-layer');
 
