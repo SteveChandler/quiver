@@ -113,7 +113,13 @@ describe("attested component impact ingestion", () => {
           { sourcePointId: id, status: "derived", reason: null },
           { sourcePointId: other, status: "suppressed", reason: "incomplete_partition" },
           { sourcePointId: third, status: "derived", reason: null },
-        ] });
+        ], nativeDerivation: [id, third].map((sourcePointId) => ({
+          version: "swell-watch-native-derivation.v1", sourcePointId, issuanceId: id, revisionSetId: id,
+          sampling: { profile: "ncep-gfswave-native-120h.v1", transportProvider: "open_meteo_single_runs",
+            model: "ncep_gfswave016", issuedAt: value.now,
+            contractRef: "open-meteo/9701689dd81ebef2d478800366c586c8a02c0c19/GfsDomain.forecastHours",
+            retainedFrames: 168, trackingFrames: 136 }, eventWindows: [],
+        })) });
     expect(rpc.mock.calls.map(([name]) => name)).toEqual([
       "read_swell_watch_run_scope", "read_swell_watch_attested_run", "read_swell_watch_attested_run", "read_swell_watch_attested_run",
     ]);

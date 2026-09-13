@@ -1,4 +1,4 @@
-import { ingestAttestedSwellWatchCohort } from "./provider-impact-ingestion";
+import { ingestAttestedSwellWatchCohort, type NativeDerivationEvidence } from "./provider-impact-ingestion";
 import { loadMatchedSwellWatchHistory } from "./persisted-history";
 import { loadSwellWatchAudience } from "./audience";
 import { consolidateRegionalSwellEvents, consolidateSwellWatchRecipients } from "./regional-consolidator";
@@ -21,6 +21,7 @@ interface ShadowEvaluation {
   recordedDemand: { observedAt: string; recipientEventPairs24Hours: number } | null;
   safety: ReturnType<typeof evaluateSwellWatchSafety> | null;
   enqueued: 0;
+  nativeDerivation?: NativeDerivationEvidence[];
 }
 
 /** Local-only until evaluation-policy authority is separated from push authority in SQL.
@@ -39,6 +40,7 @@ export async function evaluateSwellWatchShadow(
     projectedSendsRolling24Hours: null, deliveryHealth: null, recordedDemand: null, safety: null, enqueued: 0,
   };
   const cohort = await ingestAttestedSwellWatchCohort(input, client);
+  if (cohort.nativeDerivation) result.nativeDerivation = cohort.nativeDerivation;
   if (cohort.kind === "suppressed") return { ...result, reason: cohort.reason, scopeOutcomes: cohort.scopeOutcomes };
   const candidates: Array<Awaited<ReturnType<typeof loadMatchedSwellWatchHistory>> & {
     beachId: string; projectedImpact: number;

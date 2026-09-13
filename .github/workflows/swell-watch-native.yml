@@ -1,0 +1,55 @@
+name: Swell Watch Native Timing
+on:
+  pull_request:
+    branches: [prod, main]
+    paths:
+      - "lib/alerts/swell-watch/**"
+      - "__tests__/lib/alerts/swell-watch/**"
+      - "__tests__/fixtures/swell-watch*"
+      - "scripts/*swell-watch*"
+      - ".github/workflows/swell-watch-native.yml"
+permissions:
+  contents: read
+concurrency:
+  group: swell-native-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  native-boundaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: yarn
+      - run: corepack enable
+      - run: yarn install --frozen-lockfile
+      - name: Resolve the actual Next server-only marker
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path');
+          const file=require.resolve('next/dist/compiled/server-only/package.json');
+          const pkg=JSON.parse(fs.readFileSync(file,'utf8'));
+          if(pkg.exports['.']['react-server']!=='./empty.js')throw new Error('Unexpected server marker');
+          if(!fs.existsSync('node_modules/server-only'))fs.symlinkSync(path.dirname(file),'node_modules/server-only','dir');
+          NODE
+      - name: Actual lease, acquisition, PostgREST, nonzero evaluation and result accounting
+        env:
+          NODE_OPTIONS: "--conditions=react-server"
+        run: |
+          mkdir -p /tmp/swell-native-evidence
+          set -o pipefail
+          bash scripts/test-swell-watch-native-postgres.sh 2>&1 | tee /tmp/swell-native-evidence/integration.log
+      - name: Bounded historical source inventory, not qualification evidence
+        if: github.head_ref == 'fix/swell-watch-native-timing-20260913'
+        run: node scripts/swell-watch-source-inventory.mjs | tee /tmp/swell-native-evidence/source-inventory.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: swell-watch-native-${{ github.run_id }}
+          path: /tmp/swell-native-evidence/
+          retention-days: 14
+          if-no-files-found: error

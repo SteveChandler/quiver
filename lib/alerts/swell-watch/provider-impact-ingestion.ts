@@ -103,8 +103,21 @@ type RunClient = ImpactIngestionClient & Parameters<typeof deriveAttestedSwellWa
     args: { p_impacts: Record<string, string | number>[] }) => Promise<RpcResult>;
 };
 type CohortScopeOutcome = { sourcePointId: string; status: "derived" | "suppressed"; reason: string | null };
-type SuppressedCohort = { kind: "suppressed"; reason: string; sourcePointId: string; scopeOutcomes: CohortScopeOutcome[] };
-type IngestedCohort = { kind: "ingested"; runs: IngestedRun[]; scopeOutcomes: CohortScopeOutcome[] };
+export interface NativeDerivationEvidence {
+  version: "swell-watch-native-derivation.v1";
+  sourcePointId: string;
+  issuanceId: string;
+  revisionSetId: string;
+  sampling: NonNullable<DerivedRun["sampling"]>;
+  // Each row: [onsetAfterHour, onsetByHour, peakSampleHour, closureAfterHour,
+  // closureByHour, peakSourceSlot]. Hours are relative to sampling.issuedAt.
+  // Compact arrays keep the full evidence within the study JSON size limit.
+  eventWindows: Array<[number, number, number, number, number, "s1" | "s2"]>;
+}
+type SuppressedCohort = { kind: "suppressed"; reason: string; sourcePointId: string; scopeOutcomes: CohortScopeOutcome[];
+  nativeDerivation?: NativeDerivationEvidence[] };
+type IngestedCohort = { kind: "ingested"; runs: IngestedRun[]; scopeOutcomes: CohortScopeOutcome[];
+  nativeDerivation?: NativeDerivationEvidence[] };
 
 function prepareImpacts(input: RunInput, derived: DerivedRun): Record<string, string | number>[] {
   return derived.events.map((event) => {
@@ -188,7 +201,20 @@ export async function ingestAttestedSwellWatchCohort(
     scopeOutcomes.push({ sourcePointId: scope.sourcePointId, status: "derived", reason: null });
     prepared.push({ input: runInput, derived });
   }
+  const nativeDerivation: NativeDerivationEvidence[] = prepared.flatMap(({ derived }) => {
+    if (!derived.sampling) return [];
+    const issued = Date.parse(derived.source.issuedAt);
+    const hour = (at: string): number => (Date.parse(at) - issued) / 3_600_000;
+    return [{ version: "swell-watch-native-derivation.v1", sourcePointId: derived.source.sourcePointId,
+      issuanceId: derived.source.issuanceId, revisionSetId: derived.source.revisionSetId, sampling: derived.sampling,
+      eventWindows: derived.events.map((event): NativeDerivationEvidence["eventWindows"][number] => {
+        if (!event.nativeTiming) throw new Error("Native event timing evidence missing");
+        return [hour(event.nativeTiming.arrivalAfter), hour(event.nativeTiming.arrivalAtOrBefore), hour(event.peakAt),
+          hour(event.nativeTiming.closureAfter), hour(event.nativeTiming.closureAtOrBefore), event.impact.partition.sourceSlot];
+      }) }];
+  });
+  const evidence = nativeDerivation.length ? { nativeDerivation } : {};
   const suppressed = scopeOutcomes.find((outcome) => outcome.status === "suppressed");
-  if (suppressed) return { kind: "suppressed", reason: suppressed.reason!, sourcePointId: suppressed.sourcePointId, scopeOutcomes };
-  return { kind: "ingested", runs: await persistRuns(prepared, client, "ingest_swell_watch_cohort"), scopeOutcomes };
+  if (suppressed) return { kind: "suppressed", reason: suppressed.reason!, sourcePointId: suppressed.sourcePointId, scopeOutcomes, ...evidence };
+  return { kind: "ingested", runs: await persistRuns(prepared, client, "ingest_swell_watch_cohort"), scopeOutcomes, ...evidence };
 }
