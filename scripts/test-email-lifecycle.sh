@@ -9,6 +9,7 @@ trap '"$pg_bin/pg_ctl" -D "$test_dir/data" -m fast stop >/dev/null 2>&1 || true'
 "$pg_bin/pg_ctl" -D "$test_dir/data" -l "$test_dir/server.log" -o "-k $test_dir -h '' -p 55438" start >/dev/null
 psql_local() { "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h "$test_dir" -p 55438 -U postgres -d postgres "$@"; }
 psql_local -f "$repo_dir/__tests__/fixtures/email-lifecycle.sql" \
+  -f "$repo_dir/supabase/migrations/20260912234500_lifecycle_account_read_permissions.sql" \
   -f "$repo_dir/supabase/migrations/20260903180000_email_contact_policy.sql" \
   -f "$repo_dir/supabase/migrations/20260912010000_startup_email_lifecycle.sql" \
   -f "$repo_dir/__tests__/integration/email-lifecycle.sql" \
@@ -40,4 +41,5 @@ PYTEST
 psql_local -f "$repo_dir/supabase/migrations/20260912040000_automated_lifecycle_offers.sql" -f "$repo_dir/__tests__/integration/email-automation.sql"
 psql_local -f "$repo_dir/supabase/migrations/20260912050000_lifecycle_audience_copy.sql" -f "$repo_dir/__tests__/integration/email-lifecycle-audience.sql"
 psql_local -f "$repo_dir/supabase/migrations/20260912214631_lifecycle_full_audience.sql" -f "$repo_dir/__tests__/integration/email-full-audience.sql"
+psql_local -f "$repo_dir/__tests__/integration/email-account-permissions.sql"
 printf 'PASS: disposable PostgreSQL lifecycle and concurrent claims. Evidence: %s\n' "$test_dir"
