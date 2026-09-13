@@ -94,6 +94,15 @@ const nextConfig = {
       // Next.js owns immutable caching for build assets under /_next/static.
       // Custom headers there trigger a Next 16 build warning and can interfere
       // with development cache invalidation.
+      // The surf game (public/surf-game): hashed bundles are immutable, sprite atlases a day
+      {
+        source: "/surf-game/assets/(.*)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      {
+        source: "/surf-game/sprites/(.*)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=3600" }],
+      },
       // Cache optimization for images
       {
         source: "/images/(.*)",
