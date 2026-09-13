@@ -1,0 +1,52 @@
+name: Swell Watch Direction Normalization
+on:
+  push:
+    branches: [fix/swell-watch-direction-normalization-20260913]
+  pull_request:
+    branches: [prod, main]
+    paths:
+      - "lib/alerts/swell-watch/**"
+      - "supabase/migrations/*swell_watch*"
+      - "scripts/*swell-watch*"
+      - "__tests__/lib/alerts/swell-watch/**"
+      - ".github/workflows/swell-watch-normalization.yml"
+permissions:
+  contents: read
+concurrency:
+  group: swell-watch-normalization-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Prepare a source-only isolated workspace
+        run: |
+          mkdir -p /tmp/swell-normalization-artifact
+          git rev-parse HEAD > /tmp/swell-normalization-artifact/commit.txt
+          git archive --format=tar.gz -o /tmp/swell-normalization-artifact/source.tar.gz HEAD lib/alerts/swell-watch lib/utils types supabase/migrations scripts/test-swell-watch-study-postgres.sh __tests__/fixtures __tests__/lib/alerts/swell-watch docs/MIGRATION_SAFETY.md docs/SUPABASE_GUIDE.md lib/ARCHITECTURE.md supabase/ARCHITECTURE.md docs/TEST_ARCHITECTURE.md package.json tsconfig.json
+      - name: Generate a migration filename with the official CLI
+        if: github.event_name == 'push'
+        run: |
+          npx --yes supabase@2.81.3 migration new normalize_swell_watch_provider_direction
+          find supabase/migrations -name '*normalize_swell_watch_provider_direction.sql' -printf '%f\n' > /tmp/swell-normalization-artifact/migration-name.txt
+      - name: Test the real parser and PostgreSQL boundaries
+        run: |
+          if [ -f scripts/test-swell-watch-normalization.sh ]; then
+            bash scripts/test-swell-watch-normalization.sh
+          else
+            echo 'Workspace preparation only. No implementation or integration success claimed.'
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: swell-watch-normalization-${{ github.run_id }}
+          path: /tmp/swell-normalization-artifact/
+          retention-days: 7
+          if-no-files-found: error
