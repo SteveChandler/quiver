@@ -1,0 +1,42 @@
+name: Swell Watch Repair Evidence
+
+on:
+  pull_request:
+    branches: [prod, main]
+    paths:
+      - "lib/alerts/swell-watch/**"
+      - "app/api/cron/swell-watch-acquire/**"
+      - "__tests__/**/swell-watch*"
+      - "__tests__/lib/alerts/swell-watch/**"
+      - "scripts/swell-watch-provider-probe.mjs"
+      - ".github/workflows/swell-watch-repair-evidence.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: swell-watch-repair-evidence-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  provider-evidence:
+    name: Read-only provider evidence (not qualification)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Replay one public provider response through the actual parser
+        run: node --experimental-strip-types scripts/swell-watch-provider-probe.mjs
+      - name: Retain sanitized evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swell-watch-provider-evidence-${{ github.run_id }}
+          path: swell-watch-provider-probe.json
+          retention-days: 7
+          if-no-files-found: error
