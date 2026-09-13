@@ -457,3 +457,16 @@ export const SessionWizardPrefillSchema = z.object({
   );
 
 type SessionWizardPrefillInput = z.infer<typeof SessionWizardPrefillSchema>;
+
+// ============================================================================
+// Surf game (EL NIÑO SWELL at /surf-game)
+// ============================================================================
+
+/** A heat score submitted to the arcade bracket. Initials are uppercased before validation. */
+export const SurfGameScoreSchema = z.object({
+  score: z.number().int().min(0).max(1_000_000),
+  initials: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{1,3}$/, 'Initials are one to three letters or digits'),
+  break: z.string().trim().min(1).max(32).regex(/^[a-z0-9-]+$/, 'Invalid break'),
+  waves: z.number().int().min(0).max(10).optional(),
+  barrels: z.number().int().min(0).max(100).optional(),
+});
