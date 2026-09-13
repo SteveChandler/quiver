@@ -1,0 +1,67 @@
+name: Swell Native Deadcode Verification
+on:
+  push:
+    branches: [test/swell-watch-native-deadcode-20260913]
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: fixture-key
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 736de27d403b819b61ada5770c3ee92ebd61204c
+          path: candidate
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 0999343ba2fb1c81800920baebae4cf1b18c6777
+          path: baseline
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: yarn
+          cache-dependency-path: candidate/yarn.lock
+      - run: corepack enable
+      - run: yarn install --frozen-lockfile
+        working-directory: candidate
+        env:
+          NODE_ENV: development
+      - name: Run the unchanged repository dead-code command on both trees
+        run: |
+          mkdir -p /tmp/swell-deadcode
+          ln -s "$GITHUB_WORKSPACE/candidate/node_modules" "$GITHUB_WORKSPACE/baseline/node_modules"
+          set +e
+          (cd baseline && yarn deadcode) > /tmp/swell-deadcode/baseline.txt 2>&1
+          baseline_status=$?
+          (cd candidate && yarn deadcode) > /tmp/swell-deadcode/candidate.txt 2>&1
+          candidate_status=$?
+          set -e
+          printf 'baseline_exit=%s\ncandidate_exit=%s\n' "$baseline_status" "$candidate_status" | tee /tmp/swell-deadcode/status.txt
+          python3 <<'PY'
+          from pathlib import Path
+          import os,re,difflib
+          root=Path('/tmp/swell-deadcode')
+          def norm(name):
+              text=(root/(name+'.txt')).read_text()
+              text=re.sub(r'\x1b\[[0-9;]*m','',text)
+              text=text.replace(os.environ['GITHUB_WORKSPACE']+'/'+name,'<repo>')
+              text=re.sub(r'Done in [0-9.]+s\.','Done in <duration>.',text)
+              return text.splitlines(keepends=True)
+          diff=''.join(difflib.unified_diff(norm('baseline'),norm('candidate'),fromfile='baseline',tofile='candidate'))
+          (root/'difference.diff').write_text(diff)
+          print(diff if diff else 'Dead-code reports are identical after path/duration normalization.')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: swell-native-deadcode-${{ github.run_id }}
+          path: /tmp/swell-deadcode/
+          retention-days: 14
+          if-no-files-found: error
