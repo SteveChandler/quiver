@@ -322,6 +322,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             heroForecastSlot={
               <PublicForecastAnswer
                 beach={publicBeach}
+                waterQuality={waterQualityResult}
                 report={publicForecastReport}
                 context={publicForecastContext}
                 isTomorrow={surfCallIsTomorrow}
@@ -335,8 +336,16 @@ export default async function GenericBeachDetailPage(props: PageProps) {
               />
             }
             freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
-            beforeTabsContent={
-              forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
+            afterTabsContent={
+              <div className="pt-2">
+                <PublicForecastHourly
+                  beachName={publicBeach.name}
+                  forecastHours={hourlyForecasts}
+                  context={publicForecastContext}
+                  forecastDay={hourlyForecastDay}
+                  returnTo={returnTo}
+                />
+                {forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
                 <ContentPageAppHandoffCta
                   source={`content-beach-detail-${beachSlug}`}
                   surface="beach_detail"
@@ -347,17 +356,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                   description="Today's call is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
                   ctaLabel="Watch the next window in the app"
                 />
-              ) : null
-            }
-            afterTabsContent={
-              <div className="pt-2">
-                <PublicForecastHourly
-                  beachName={publicBeach.name}
-                  forecastHours={hourlyForecasts}
-                  context={publicForecastContext}
-                  forecastDay={hourlyForecastDay}
-                  returnTo={returnTo}
-                />
+              ) : null}
                 {/* One ask here, not two. The home-break signup this used to stack
                     underneath is the same ask the sticky bar already carries, so
                     it read as the page repeating itself. The install section takes

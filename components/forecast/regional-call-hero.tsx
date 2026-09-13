@@ -73,18 +73,12 @@ function coerceDate(value: Date | string | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function headlineForScore(peakScore: number, regionName: string): string {
-  if (peakScore >= 75) return `${regionName} is lit.`;
-  if (peakScore >= 60) return `${regionName} is on this week.`;
-  if (peakScore >= 45) return `${regionName} — fun-size midweek.`;
-  return `Calm week in ${regionName} — go longboard.`;
+function headlineForScore(_peakScore: number, regionName: string): string {
+  return `${regionName} this week.`;
 }
 
-function pullquoteForScore(peakScore: number): string {
-  if (peakScore >= 75) return "go go go";
-  if (peakScore >= 60) return "worth the paddle";
-  if (peakScore >= 45) return "take a friend";
-  return "flat — longboard it";
+function pullquoteForScore(_peakScore: number): string {
+  return "compare the windows";
 }
 
 function windDescriptor(
@@ -116,7 +110,7 @@ function computeHeadlineAngle(
     (best, d) => (d.score > best.score ? d : best),
     summary.days[0]
   );
-  const dayName = peakDay.dayOfWeek;
+  const dayName = `${peakDay.dayOfWeek}, ${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(peakDay.date))}`;
   const setHeight = formatWaveHeightRange(peakDay.avgWaveHeight);
   const size = getWaveSizeDescription(peakDay.avgWaveHeight);
   const wind = windDescriptor(peakDay.windConditions);

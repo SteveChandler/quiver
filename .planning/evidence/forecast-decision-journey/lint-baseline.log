@@ -1,0 +1,9 @@
+
+/Users/stevenchandler/Desktop/dev/quiver/.worktrees/forecast-decision-baseline/e2e/beach-detail/forecast-tabs.spec.ts
+  262:7  warning  Avoid having conditionals in tests  playwright/no-conditional-in-test
+  277:7  warning  Avoid having conditionals in tests  playwright/no-conditional-in-test
+  568:7  warning  Avoid having conditionals in tests  playwright/no-conditional-in-test
+
+✖ 3 problems (0 errors, 3 warnings)
+
+ESLint found too many warnings (maximum: 0).

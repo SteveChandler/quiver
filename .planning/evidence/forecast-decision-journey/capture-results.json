@@ -1,0 +1,135 @@
+[
+  {
+    "label": "before",
+    "width": 360,
+    "surface": "list",
+    "text": "1\n8:00 AM-12:00 PM\nWORTH IT\nTamarack\n\nCARLSBAD, CA\n\n89\nSCORE\n\n8:00 AM-12:00 PM looks worth it at Tamarack\n\nWAVE\n\n2.9 ft ft at 13s from SSW\n\nWIND\n\n0 mph SW (variable)\n\nTIDE\n\nRising, 4.4 ft ft\n\nBEST FOR\nbeginner\nfoamie\nlongboard\ndawn-patrol\nView spot forecast\nOpen this exact call in Quiver\nWhy this call?",
+    "height": 760.5
+  },
+  {
+    "label": "before",
+    "width": 360,
+    "surface": "detail",
+    "text": "GRANDVIEW BEACH SURF FORECAST FOR TUESDAY, SEPTEMBER 8, 2026\nTOMORROW\n\nHigh rip-current risk\n\nCheck with a lifeguard before entering the water.\n\nNWS Surf Zone Forecast · Valid 2026-09-08 · Source updated Mon, Sep 7 5:40 PM America/Los_Angeles\n\nSURF\n2-3 ft\nBEST WINDOW\n9:15 AM–11:45 AM\nPRIMARY SWELL\n3.7 ft @ 9s SSW\nWIND\n5 mph W cross-shore\nTIDE\n3.8ft rising next high\nCONFIDENCE\n88/100\nSECONDARY SWELL\n0.9 ft @ 7s WNW\n\nValid Tue 11:00 AM America/Los_Angeles · Source updated Mon 5:01 PM · Computed Mon 8:54 PM · CDIP, NOAA NWS, NOAA COOPS, Open-Meteo, NOAA CO-OPS\n\nNEARBY BACKUPS\n\nBEACONS\nPONTO\nMOONLIGHT STATE BEACH",
+    "bounds": {
+      "x": 26,
+      "y": 446.59375,
+      "width": 308,
+      "height": 737
+    }
+  },
+  {
+    "label": "before",
+    "width": 768,
+    "surface": "list",
+    "text": "1\n8:00 AM-12:00 PM\nWORTH IT\nTamarack\n\nCARLSBAD, CA\n\n89\nSCORE\n\n8:00 AM-12:00 PM looks worth it at Tamarack\n\nWAVE\n\n2.9 ft ft at 13s from SSW\n\nWIND\n\n0 mph SW (variable)\n\nTIDE\n\nRising, 4.4 ft ft\n\nBEST FOR\nbeginner\nfoamie\nlongboard\ndawn-patrol\nView spot forecast\nOpen this exact call in Quiver\nWhy this call?",
+    "height": 500.25
+  },
+  {
+    "label": "before",
+    "width": 768,
+    "surface": "detail",
+    "text": "GRANDVIEW BEACH SURF FORECAST FOR TUESDAY, SEPTEMBER 8, 2026\nTOMORROW\n\nHigh rip-current risk\n\nCheck with a lifeguard before entering the water.\n\nNWS Surf Zone Forecast · Valid 2026-09-08 · Source updated Mon, Sep 7 5:40 PM America/Los_Angeles\n\nSURF\n2-3 ft\nBEST WINDOW\n9:15 AM–11:45 AM\nPRIMARY SWELL\n3.7 ft @ 9s SSW\nWIND\n5 mph W cross-shore\nTIDE\n3.8ft rising next high\nCONFIDENCE\n88/100\nSECONDARY SWELL\n0.9 ft @ 7s WNW\n\nValid Tue 11:00 AM America/Los_Angeles · Source updated Mon 5:01 PM · Computed Mon 8:55 PM · CDIP, NOAA NWS, NOAA COOPS, Open-Meteo, NOAA CO-OPS\n\nNEARBY BACKUPS\n\nBEACONS\nPONTO\nMOONLIGHT STATE BEACH",
+    "bounds": {
+      "x": 56,
+      "y": 505.71875,
+      "width": 366.328125,
+      "height": 687
+    }
+  },
+  {
+    "label": "before",
+    "width": 1440,
+    "surface": "list",
+    "text": "1\n8:00 AM-12:00 PM\nWORTH IT\nTamarack\n\nCARLSBAD, CA\n\n89\nSCORE\n\n8:00 AM-12:00 PM looks worth it at Tamarack\n\nWAVE\n\n2.9 ft ft at 13s from SSW\n\nWIND\n\n0 mph SW (variable)\n\nTIDE\n\nRising, 4.4 ft ft\n\nBEST FOR\nbeginner\nfoamie\nlongboard\ndawn-patrol\nView spot forecast\nOpen this exact call in Quiver\nWhy this call?",
+    "height": 461.75
+  },
+  {
+    "label": "before",
+    "width": 1440,
+    "surface": "detail",
+    "text": "GRANDVIEW BEACH SURF FORECAST FOR TUESDAY, SEPTEMBER 8, 2026\nTOMORROW\n\nHigh rip-current risk\n\nCheck with a lifeguard before entering the water.\n\nNWS Surf Zone Forecast · Valid 2026-09-08 · Source updated Mon, Sep 7 5:40 PM America/Los_Angeles\n\nSURF\n2-3 ft\nBEST WINDOW\n9:15 AM–11:45 AM\nPRIMARY SWELL\n3.7 ft @ 9s SSW\nWIND\n5 mph W cross-shore\nTIDE\n3.8ft rising next high\nCONFIDENCE\n88/100\nSECONDARY SWELL\n0.9 ft @ 7s WNW\n\nValid Tue 11:00 AM America/Los_Angeles · Source updated Mon 5:01 PM · Computed Mon 8:55 PM · CDIP, NOAA NWS, NOAA COOPS, Open-Meteo, NOAA CO-OPS\n\nNEARBY BACKUPS\n\nBEACONS\nPONTO\nMOONLIGHT STATE BEACH",
+    "bounds": {
+      "x": 170,
+      "y": 496.875,
+      "width": 625.328125,
+      "height": 550
+    }
+  },
+  {
+    "label": "before",
+    "consoleErrors": [
+      "%c%s%c [water-quality-hold:query-error] background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server   {beachCount: 495, table: water_quality_held_beaches, error: TypeError: fetch failed}",
+      "A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:\n\n- A server/client branch `if (typeof window !== 'undefined')`.\n- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.\n- Date formatting in a user's locale which doesn't match the server.\n- External changing data without sending a snapshot of it along with the HTML.\n- Invalid HTML ta",
+      "%c%s%c [water-quality-hold:query-error] background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server   {beachCount: 495, table: water_quality_held_beaches, error: TypeError: fetch failed}",
+      "A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:\n\n- A server/client branch `if (typeof window !== 'undefined')`.\n- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.\n- Date formatting in a user's locale which doesn't match the server.\n- External changing data without sending a snapshot of it along with the HTML.\n- Invalid HTML ta",
+      "%c%s%c [water-quality-hold:query-error] background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server   {beachCount: 495, table: water_quality_held_beaches, error: TypeError: fetch failed}",
+      "A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:\n\n- A server/client branch `if (typeof window !== 'undefined')`.\n- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.\n- Date formatting in a user's locale which doesn't match the server.\n- External changing data without sending a snapshot of it along with the HTML.\n- Invalid HTML ta"
+    ]
+  },
+  {
+    "label": "after",
+    "width": 360,
+    "surface": "list",
+    "text": "1\nTamarack\n\nThu, Sep 10 · 8:00 AM-12:00 PM\nAmerica/Los_Angeles\n\nRip-current report unavailable\n\nCheck with a lifeguard before entering the water.\n\nSmall wave (2.9ft)\n\nForecast confidence: low.\n\nWorth it\nView this window\nSURF\n2.9 ft at 13s from SSW\nWIND\n0 mph SW (variable)\nTIDE\nRising, 4.4 ft\n\nWhy: Good swell energy\n\nWhy this call?",
+    "height": 564
+  },
+  {
+    "label": "after",
+    "width": 360,
+    "surface": "detail",
+    "text": "GRANDVIEW BEACH SURF FORECAST FOR TUESDAY, SEPTEMBER 8, 2026\n\nTomorrow\n\nHigh rip-current risk\n\nCheck with a lifeguard before entering the water.\n\nNWS Surf Zone Forecast · Valid 2026-09-08 · Source updated Mon, Sep 7 5:40 PM America/Los_Angeles\n\nView hourly conditions\nLatest forecast for Tuesday, September 8, 2026\nSURF\n2-3 ft\nBEST WINDOW\n9:15 AM–11:45 AM\nPRIMARY SWELL\n3.7 ft @ 9s SSW\nWIND\n5 mph W cross-shore\nTIDE\n3.8ft rising next high\nCONFIDENCE\n88/100\nSources & forecast details\n\nNEARBY SPOTS\n\nBEACONS\nPONTO\nMOONLIGHT STATE BEACH",
+    "bounds": {
+      "x": 26,
+      "y": 268.59375,
+      "width": 308,
+      "height": 791
+    }
+  },
+  {
+    "label": "after",
+    "width": 768,
+    "surface": "list",
+    "text": "1\nTamarack\n\nThu, Sep 10 · 8:00 AM-12:00 PM\nAmerica/Los_Angeles\n\nChecking rip currents…\n\nSmall wave (2.9ft)\n\nForecast confidence: low.\n\nWorth it\nView this window\nSURF\n2.9 ft at 13s from SSW\nWIND\n0 mph SW (variable)\nTIDE\nRising, 4.4 ft\n\nWhy: Good swell energy\n\nWhy this call?",
+    "height": 432
+  },
+  {
+    "label": "after",
+    "width": 768,
+    "surface": "detail",
+    "text": "GRANDVIEW BEACH SURF FORECAST FOR TUESDAY, SEPTEMBER 8, 2026\n\nTomorrow\n\nHigh rip-current risk\n\nCheck with a lifeguard before entering the water.\n\nNWS Surf Zone Forecast · Valid 2026-09-08 · Source updated Mon, Sep 7 5:40 PM America/Los_Angeles\n\nView hourly conditions\nLatest forecast for Tuesday, September 8, 2026\nSURF\n2-3 ft\nBEST WINDOW\n9:15 AM–11:45 AM\nPRIMARY SWELL\n3.7 ft @ 9s SSW\nWIND\n5 mph W cross-shore\nTIDE\n3.8ft rising next high\nCONFIDENCE\n88/100\nSources & forecast details\n\nNEARBY SPOTS\n\nBEACONS\nPONTO\nMOONLIGHT STATE BEACH",
+    "bounds": {
+      "x": 56,
+      "y": 261.359375,
+      "width": 656,
+      "height": 637
+    }
+  },
+  {
+    "label": "after",
+    "width": 1440,
+    "surface": "list",
+    "text": "1\nTamarack\n\nThu, Sep 10 · 8:00 AM-12:00 PM\nAmerica/Los_Angeles\n\nRip-current report unavailable\n\nCheck with a lifeguard before entering the water.\n\nSmall wave (2.9ft)\n\nForecast confidence: low.\n\nWorth it\nView this window\nSURF\n2.9 ft at 13s from SSW\nWIND\n0 mph SW (variable)\nTIDE\nRising, 4.4 ft\n\nWhy: Good swell energy\n\nWhy this call?",
+    "height": 468
+  },
+  {
+    "label": "after",
+    "width": 1440,
+    "surface": "detail",
+    "text": "GRANDVIEW BEACH SURF FORECAST FOR TUESDAY, SEPTEMBER 8, 2026\n\nTomorrow\n\nHigh rip-current risk\n\nCheck with a lifeguard before entering the water.\n\nNWS Surf Zone Forecast · Valid 2026-09-08 · Source updated Mon, Sep 7 5:40 PM America/Los_Angeles\n\nView hourly conditions\nLatest forecast for Tuesday, September 8, 2026\nSURF\n2-3 ft\nBEST WINDOW\n9:15 AM–11:45 AM\nPRIMARY SWELL\n3.7 ft @ 9s SSW\nWIND\n5 mph W cross-shore\nTIDE\n3.8ft rising next high\nCONFIDENCE\n88/100\nSources & forecast details\n\nNEARBY SPOTS\n\nBEACONS\nPONTO\nMOONLIGHT STATE BEACH",
+    "bounds": {
+      "x": 170,
+      "y": 294.1875,
+      "width": 1100,
+      "height": 576
+    }
+  },
+  {
+    "label": "after",
+    "consoleErrors": [
+      "%c%s%c [water-quality-hold:query-error] background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server   {beachCount: 495, table: water_quality_held_beaches, error: TypeError: fetch failed}",
+      "%c%s%c [water-quality-hold:query-error] background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server   {beachCount: 495, table: water_quality_held_beaches, error: TypeError: fetch failed}",
+      "%c%s%c [water-quality-hold:query-error] background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server   {beachCount: 495, table: water_quality_held_beaches, error: TypeError: fetch failed}"
+    ]
+  }
+]

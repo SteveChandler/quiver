@@ -1,0 +1,68 @@
+ M .env.example
+ M .planning/ROADMAP.md
+ M __tests__/api/beaches-sources-native-fields.test.ts
+ M __tests__/api/cron/condition-alert-deliver.test.ts
+ M __tests__/api/cron/welcome-email.test.ts
+ M __tests__/app/api/cron/session-prompt-email.test.ts
+ M __tests__/app/api/cron/weekly-recap-email.test.ts
+ M __tests__/app/api/surf-call-route.test.ts
+ M __tests__/app/api/webhooks/resend.test.ts
+ M __tests__/app/generic-beach-detail-resolution.test.ts
+ M __tests__/components/beach-detail/cams-section.test.tsx
+ M __tests__/components/beach-detail/public-forecast-answer.test.tsx
+ M __tests__/lib/email/suppression.test.ts
+ M __tests__/lib/mailer/client.test.ts
+ M __tests__/lib/media/cam-embed.test.ts
+ M __tests__/lib/utils/beach-url-utils.test.ts
+ M __tests__/services/forecast-recommendation-context.test.ts
+ M app/[intent]/[city]/[beachSlug]/page.tsx
+ M app/api/cron/condition-alert-deliver/route.ts
+ M app/api/cron/first-session-nudge/route.ts
+ M app/api/cron/session-prompt-email/route.ts
+ M app/api/cron/trial-invitation-email/route.ts
+ M app/api/cron/trial-lifecycle-email/route.ts
+ M app/api/cron/weekly-recap-email/route.ts
+ M app/api/image-proxy/route.ts
+ M app/api/webhooks/resend/route.ts
+ M components/beach-detail/authenticated-forecast-decision.tsx
+ M components/beach-detail/public-forecast-answer.tsx
+ M docs/ARCHITECTURE.md
+ M docs/seo/outreach-tracker.md
+ M lib/email/suppression.ts
+ M lib/mailer/client.ts
+ M lib/media/cam-embed.ts
+ M lib/services/forecast-recommendation-context.ts
+ M lib/utils/beach-url-utils.ts
+ M scripts/list-new-users-week.ts
+ M scripts/send-check-in.ts
+ M scripts/send-founder-story.ts
+ M scripts/weekly-signup-intel.ts
+?? .planning/evidence/2026-09-03-catalog-gap-beaches/
+?? .planning/evidence/2026-09-03-hawaii-beaches/README.md
+?? .planning/evidence/2026-09-03-hawaii-beaches/haena-kauai.png
+?? .planning/evidence/2026-09-03-hawaii-beaches/kahana-terrain-proposed.json
+?? .planning/evidence/2026-09-03-hawaii-beaches/kona.png
+?? .planning/evidence/2026-09-03-hawaii-beaches/leeward-oahu.png
+?? .planning/evidence/2026-09-03-hawaii-beaches/production-preflight.json
+?? .planning/evidence/2026-09-03-hawaii-beaches/surf-forecast-cameras.csv
+?? .planning/evidence/2026-09-03-hawaii-beaches/surf-forecast-cameras.json
+?? .planning/evidence/2026-09-03-hawaii-beaches/surf-forecast-cameras.md
+?? .planning/evidence/2026-09-03-hawaii-beaches/terrain-proposed.json
+?? .planning/evidence/2026-09-03-hawaii-beaches/windward-oahu.png
+?? .planning/evidence/2026-09-03-webcam-expansion/
+?? __tests__/api/image-proxy.test.ts
+?? __tests__/components/beach-detail/rip-current-warning.test.tsx
+?? __tests__/fixtures/email-contact-policy.sql
+?? __tests__/fixtures/rip-current-live-20260907.json
+?? __tests__/integration/email-contact-policy.sql
+?? __tests__/lib/email/contact-policy.test.ts
+?? components/beach-detail/rip-current-warning.tsx
+?? docs/BEACH_CATALOG_GAPS.md
+?? docs/EMAIL_CONTACT_POLICY.md
+?? docs/EMAIL_CONTACT_POLICY_ROLLOUT.md
+?? docs/EMAIL_CONTACT_POLICY_ROLLOUT_RECEIPT.md
+?? docs/growth/signup-intel/2026-09-07.md
+?? lib/email/contact-policy.ts
+?? scripts/test-email-contact-policy.sh
+?? supabase/migrations/20260903190000_add_verified_provider_cameras.sql
+?? supabase/migrations/20260903200000_add_verified_catalog_gap_beaches.sql

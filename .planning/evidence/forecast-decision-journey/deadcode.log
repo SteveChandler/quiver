@@ -1,0 +1,1528 @@
+yarn run v1.22.17
+$ knip --no-progress
+⚠️  Environment Configuration Warnings:
+   • NEXT_PUBLIC_SITE_URL not set - OAuth redirects may not work correctly
+Unused files (6)
+components/map/map-display.tsx         
+components/map/map-regions.ts          
+components/map/surf-map-prototype.tsx  
+components/ui/check-in-form.tsx        
+hooks/use-personalization-milestones.ts
+lib/utils/personalization-messaging.ts 
+Unused dependencies (1)
+zustand  package.json:220:6
+Unused devDependencies (13)
+@next/swc-darwin-arm64    package.json:224:6
+@types/proj4              package.json:235:6
+ansi-regex                package.json:240:6
+baseline-browser-mapping  package.json:241:6
+copy-webpack-plugin       package.json:242:6
+eslint-config-next        package.json:247:6
+eslint-plugin-jest        package.json:248:6
+eslint-plugin-jsx-a11y    package.json:249:6
+eslint-plugin-playwright  package.json:250:6
+jsqr                      package.json:254:6
+string-width              package.json:264:6
+strip-ansi                package.json:265:6
+typescript-eslint         package.json:270:6
+Unlisted dependencies (33)
+svix                    app/api/webhooks/resend/route.ts:20:26                                 
+server-only             components/embed-promo/cached-beach-options.ts:1:8                     
+server-only             lib/alerts/swell-watch/safety-control.ts:1:8                           
+server-only             lib/analytics/app-handoff-server.ts:1:8                                
+server-only             lib/analytics/session-created.ts:1:8                                   
+server-only             lib/flags/app-first-landing.ts:1:8                                     
+server-only             lib/flags/free-growth-phase.ts:1:8                                     
+@supabase/postgrest-js  lib/gamification/badge-service.ts:10:46                                
+server-only             lib/install-attribution-server.ts:1:8                                  
+server-only             lib/recommendations/canonical-decision/alert-adapter.ts:1:8            
+server-only             lib/recommendations/canonical-decision/discovery-adapter.ts:1:8        
+server-only             lib/recommendations/canonical-decision/engine.ts:1:8                   
+server-only             lib/recommendations/canonical-decision/service.ts:1:8                  
+server-only             lib/recommendations/major-event-hold/cache-invalidation.ts:1:8         
+server-only             lib/recommendations/major-event-hold/config.ts:1:8                     
+server-only             lib/recommendations/major-event-hold/control.ts:1:8                    
+server-only             lib/recommendations/major-event-hold/repository.ts:1:8                 
+server-only             lib/recommendations/major-event-hold/service.ts:1:8                    
+server-only             lib/recommendations/major-event-hold/water-quality.ts:2:8              
+server-only             lib/recommendations/selection/index.ts:1:8                             
+server-only             lib/services/county-beach-advisories/county-client.ts:1:8              
+server-only             lib/services/county-beach-advisories/ingest-service.ts:1:8             
+server-only             lib/services/county-beach-advisories/repository.ts:1:8                 
+server-only             lib/services/discovery/week-scout.ts:1:8                               
+server-only             lib/services/discovery/weekend-scout-candidate-pool.ts:1:8             
+server-only             lib/services/discovery/weekend-scout-snapshots.ts:1:8                  
+server-only             lib/services/discovery/weekend-scout.ts:1:8                            
+server-only             lib/services/forecast/trusted-forecast-current-projection-server.ts:1:8
+server-only             lib/services/forecast/trusted-forecast-persistence-server.ts:1:8       
+server-only             lib/services/forecast/trusted-forecast-repository-server.ts:1:8        
+server-only             lib/services/forecast/trusted-forecast-serving.ts:1:8                  
+server-only             lib/services/spot-surf-report-service.ts:1:8                           
+@supabase/postgrest-js  lib/supabase/query-builders.ts:10:46                                   
+Unlisted binaries (5)
+supabase  package.json
+psql      package.json
+sleep     package.json
+pkill     package.json
+codex     package.json
+Unused exports (563)
+getNearbyBeaches                                      actions/beach-actions.ts:5:3                                      
+getAllIntelPosts                                      actions/intel-actions.ts:7:3                                      
+toMetricWaveHeight                                    actions/intel-actions.ts:10:3                                     
+toMetricWindSpeed                                     actions/intel-actions.ts:11:3                                     
+toMetricWaterTemp                                     actions/intel-actions.ts:12:3                                     
+toWindDirectionDegreesFallback                        actions/intel-actions.ts:13:3                                     
+parseNullableNumber                                   actions/intel-actions.ts:14:3                                     
+shouldFallbackToConditionReports                      actions/intel-actions.ts:15:3                                     
+GLOBAL_INTEL_FALLBACK                                 actions/intel/index.ts:15:3                                       
+FEET_TO_METERS                                        actions/intel/index.ts:16:3                                       
+MPH_TO_METERS_PER_SECOND                              actions/intel/index.ts:17:3                                       
+INTEL_FALLBACK_ERROR_CODES                            actions/intel/index.ts:18:3                                       
+WIND_DIRECTION_DEGREES                                actions/intel/index.ts:19:3                                       
+toMetricWaveHeight                                    actions/intel/index.ts:20:3                                       
+toMetricWindSpeed                                     actions/intel/index.ts:21:3                                       
+toMetricWaterTemp                                     actions/intel/index.ts:22:3                                       
+toWindDirectionDegreesFallback                        actions/intel/index.ts:23:3                                       
+parseNullableNumber                                   actions/intel/index.ts:24:3                                       
+shouldFallbackToConditionReports                      actions/intel/index.ts:25:3                                       
+getAllIntelPosts                                      actions/intel/index.ts:33:3                                       
+FEET_TO_METERS                                        actions/intel/intel-types.ts:7:10                                 
+MPH_TO_METERS_PER_SECOND                              actions/intel/intel-types.ts:95:14                                
+INTEL_FALLBACK_ERROR_CODES                            actions/intel/intel-types.ts:97:14                                
+WIND_DIRECTION_DEGREES                                actions/intel/intel-types.ts:99:14                                
+updatePreferredSessionTime                  function  actions/oracle-actions.ts:85:23                                   
+getProfile                                  function  actions/profile-actions.ts:64:23                                  
+getUserStats                                function  actions/profile-actions.ts:378:23                                 
+getStorageStatsAction                                 actions/session-media-actions.ts:204:14                           
+getSwellAnalyzerBeach                       function  actions/tools/swell-analyzer-actions.ts:35:23                     
+getWindCheckerBeach                         function  actions/tools/wind-checker-actions.ts:27:23                       
+focusEmbedBeachMarker                       function  app/embed/map/embed-map-client.tsx:128:17                         
+PriceCountUp                                function  app/vs/surfline/animations.tsx:152:17                             
+HeroPulse                                   function  app/vs/surfline/animations.tsx:226:17                             
+revalidate                                            app/vs/surfline/free/page-content.tsx:46:14                       
+DoodleClock                                 function  components/beach-detail/zine/atoms/index.tsx:126:17               
+REVIEW_TRACKING_SOURCES                               components/beach/beach-review-form.tsx:41:10                      
+NetworkErrorFallback                                  components/error-boundaries/index.ts:15:10                        
+DataLoadErrorFallback                                 components/error-boundaries/index.ts:18:10                        
+retryWithBackoff                                      components/error-boundaries/index.ts:22:10                        
+categorizeError                                       components/error-boundaries/index.ts:25:10                        
+saveFormState                                         components/error-boundaries/index.ts:29:3                         
+loadFormState                                         components/error-boundaries/index.ts:30:3                         
+clearFormState                                        components/error-boundaries/index.ts:31:3                         
+ForecastFeedbackForm                        function  components/forecast/forecast-feedback-form.tsx:71:17              
+CardSkeleton                                          components/forecast/forecast-skeleton.tsx:20:34                   
+WaveShimmer                                           components/forecast/forecast-skeleton.tsx:20:48                   
+HeroSkeleton                                function  components/forecast/forecast-skeleton.tsx:25:17                   
+CardGridSkeleton                            function  components/forecast/forecast-skeleton.tsx:72:17                   
+TableSkeleton                               function  components/forecast/forecast-skeleton.tsx:96:17                   
+TimelineSkeleton                            function  components/forecast/forecast-skeleton.tsx:167:17                  
+ForecastPageSkeleton                        function  components/forecast/forecast-skeleton.tsx:226:17                  
+ForecastVerificationWidget                            components/forecast/index.ts:12:10                                
+ForecastAccuracyStats                                 components/forecast/index.ts:13:10                                
+BuoyStationLink                                       components/forecast/index.ts:14:10                                
+SwellEventCard                                        components/forecast/index.ts:22:10                                
+RegionalForecastCard                                  components/forecast/index.ts:30:10                                
+RegionalForecastCardGrid                              components/forecast/index.ts:30:32                                
+ScoreBadge                                            components/forecast/index.ts:34:10                                
+AnimatedScoreGauge                                    components/forecast/index.ts:38:10                                
+WaveSparkline                                         components/forecast/index.ts:45:10                                
+createSparklineData                                   components/forecast/index.ts:45:25                                
+SwellWaveChart                                        components/forecast/index.ts:49:10                                
+SwellIndicator                                        components/forecast/index.ts:49:26                                
+HeroSkeleton                                          components/forecast/index.ts:54:3                                 
+CardGridSkeleton                                      components/forecast/index.ts:55:3                                 
+CardSkeleton                                          components/forecast/index.ts:56:3                                 
+TableSkeleton                                         components/forecast/index.ts:57:3                                 
+TimelineSkeleton                                      components/forecast/index.ts:58:3                                 
+WaveShimmer                                           components/forecast/index.ts:59:3                                 
+ForecastPageSkeleton                                  components/forecast/index.ts:60:3                                 
+ForecastSectionContainer                              components/forecast/index.ts:67:10                                
+RegionalForecastCard                        function  components/forecast/regional-forecast-card.tsx:222:17             
+RegionalForecastCardGrid                    function  components/forecast/regional-forecast-card.tsx:344:17             
+SCORE_ACTION_PHRASES                                  components/forecast/score-band-call.ts:3:14                       
+SwellEventCard                              function  components/forecast/swell-event-card.tsx:335:17                   
+SwellIndicator                              function  components/forecast/swell-wave-chart.tsx:280:17                   
+TideChartWithDiagnosticsHeader              function  components/forecast/tide-chart-enhanced.tsx:358:17                
+default                                               components/forecast/tide-hourly-table.tsx:317:16                  
+TideNextExtremeCompact                      function  components/forecast/tide-next-extreme.tsx:198:17                  
+default                                               components/forecast/tide-next-extreme.tsx:308:16                  
+TideVerifiedBadgeIcon                       function  components/forecast/tide-verified-badge.tsx:113:17                
+TideVerifiedBadgeLarge                      function  components/forecast/tide-verified-badge.tsx:154:17                
+default                                               components/forecast/tide-verified-badge.tsx:217:16                
+default                                               components/forecast/tide-warning-banner.tsx:214:16                
+UserXPBadge                                 function  components/gamification/user-xp-card.tsx:193:17                   
+default                                               components/home-screen/bottom-nav.tsx:155:16                      
+FirstSessionCta                             function  components/home-screen/first-session-cta.tsx:34:17                
+TideHeroSection                                       components/intent/index.ts:11:10                                  
+TideFullChart                                         components/intent/index.ts:12:10                                  
+SevenDayTideTable                                     components/intent/index.ts:13:10                                  
+BeachTideCards                                        components/intent/index.ts:14:10                                  
+SessionIntelligenceIntentHandoff                      components/intent/index.ts:17:10                                  
+UtilitySessionHandoff                                 components/intent/index.ts:18:10                                  
+WaterTempHeroSection                                  components/intent/index.ts:22:10                                  
+MonthlyAveragesChart                                  components/intent/index.ts:23:10                                  
+BeachTempComparison                                   components/intent/index.ts:24:10                                  
+SunTimesHeroSection                                   components/intent/index.ts:25:10                                  
+SevenDaySunTimesTable                                 components/intent/index.ts:26:10                                  
+LocationMapSkeleton                         function  components/location/location-map.tsx:141:17                       
+LocationMapError                            function  components/location/location-map.tsx:163:17                       
+CONDITIONS_CALLOUT_COLORS                             components/map/conditions-callout-data.ts:5:14                    
+EMBED_MAP_MAX_FORECAST_TIME_INDEX                     components/map/embed-map-bridge.ts:3:14                           
+HOURLY_EMBED_TIMELINE_HORIZON_HOURS                   components/map/embed-map-timeline.ts:12:14                        
+MAX_HOURLY_EMBED_TIMELINE_INDEX                       components/map/embed-map-timeline.ts:18:14                        
+partitionAtAbsoluteTimelineIndex            function  components/map/interactive-map.tsx:220:17                         
+CONDITION_MARKER_CALLS                                components/map/map-marker-builder.ts:39:14                        
+PersonalizedBadge                                     components/recommendations/index.ts:1:10                          
+RatingInput                                           components/session-forms/shared/index.ts:6:10                     
+FORECAST_ACCURACY_OPTIONS                             components/session-forms/shared/index.ts:10:3                     
+RatingInput                                 function  components/session-forms/shared/RatingInput.tsx:27:17             
+buildHomepageSurfWindowRecommendations                components/session-intelligence/index.ts:13:3                     
+buildRegionalSurfWindowRecommendations                components/session-intelligence/index.ts:14:3                     
+buildSpotSurfWindowRecommendations                    components/session-intelligence/index.ts:15:3                     
+SelectedBeachCardSkeleton                   function  components/skeletons/map-skeleton.tsx:48:17                       
+NearbyBeachScrollSkeleton                   function  components/skeletons/map-skeleton.tsx:79:17                       
+AlertDialogPortal                                     components/ui/alert-dialog.tsx:131:3                              
+AlertDialogOverlay                                    components/ui/alert-dialog.tsx:132:3                              
+default                                               components/ui/animated-wave-icon.tsx:99:16                        
+badgeVariants                                         components/ui/badge.tsx:38:17                                     
+BreadcrumbEllipsis                                    components/ui/breadcrumb.tsx:114:3                                
+CommandDialog                                         components/ui/command.tsx:149:3                                   
+CommandShortcut                                       components/ui/command.tsx:155:3                                   
+DialogPortal                                          components/ui/dialog.tsx:116:3                                    
+DialogOverlay                                         components/ui/dialog.tsx:117:3                                    
+DropdownMenuCheckboxItem                              components/ui/dropdown-menu.tsx:189:3                             
+DropdownMenuRadioItem                                 components/ui/dropdown-menu.tsx:190:3                             
+DropdownMenuShortcut                                  components/ui/dropdown-menu.tsx:193:3                             
+DropdownMenuGroup                                     components/ui/dropdown-menu.tsx:194:3                             
+DropdownMenuPortal                                    components/ui/dropdown-menu.tsx:195:3                             
+DropdownMenuSub                                       components/ui/dropdown-menu.tsx:196:3                             
+DropdownMenuSubContent                                components/ui/dropdown-menu.tsx:197:3                             
+DropdownMenuSubTrigger                                components/ui/dropdown-menu.tsx:198:3                             
+DropdownMenuRadioGroup                                components/ui/dropdown-menu.tsx:199:3                             
+CustomFormField                             function  components/ui/form-fields.tsx:525:17                              
+CardFormLayout                              function  components/ui/form-layout.tsx:39:17                               
+useFormField                                          components/ui/form.tsx:170:3                                      
+LoadingSpinner                                        components/ui/loading-states.tsx:12:10                            
+InlineLoadingSpinner                                  components/ui/loading-states.tsx:12:50                            
+CardSkeleton                                          components/ui/loading-states.tsx:13:10                            
+InlineLoader                                function  components/ui/loading-states.tsx:42:17                            
+ListItemSkeleton                            function  components/ui/loading-states.tsx:47:17                            
+FormSkeleton                                function  components/ui/loading-states.tsx:66:17                            
+WithLoading                                 function  components/ui/loading-states.tsx:94:17                            
+ConditionalLoader                           function  components/ui/loading-states.tsx:119:17                           
+useInView                                   function  components/ui/scroll-reveal.tsx:225:17                            
+SelectGroup                                           components/ui/select.tsx:151:3                                    
+SelectLabel                                           components/ui/select.tsx:155:3                                    
+SelectSeparator                                       components/ui/select.tsx:157:3                                    
+SelectScrollUpButton                                  components/ui/select.tsx:158:3                                    
+SelectScrollDownButton                                components/ui/select.tsx:159:3                                    
+SheetPortal                                           components/ui/sheet.tsx:131:3                                     
+SheetOverlay                                          components/ui/sheet.tsx:132:3                                     
+SheetClose                                            components/ui/sheet.tsx:134:3                                     
+SheetFooter                                           components/ui/sheet.tsx:137:3                                     
+SidebarFooter                                         components/ui/sidebar.tsx:741:3                                   
+SidebarGroupAction                                    components/ui/sidebar.tsx:743:3                                   
+SidebarInput                                          components/ui/sidebar.tsx:747:3                                   
+SidebarMenuAction                                     components/ui/sidebar.tsx:750:3                                   
+SidebarMenuBadge                                      components/ui/sidebar.tsx:751:3                                   
+SidebarMenuSkeleton                                   components/ui/sidebar.tsx:754:3                                   
+SidebarMenuSub                                        components/ui/sidebar.tsx:755:3                                   
+SidebarMenuSubButton                                  components/ui/sidebar.tsx:756:3                                   
+SidebarMenuSubItem                                    components/ui/sidebar.tsx:757:3                                   
+SidebarRail                                           components/ui/sidebar.tsx:759:3                                   
+SidebarSeparator                                      components/ui/sidebar.tsx:760:3                                   
+useSidebar                                            components/ui/sidebar.tsx:762:3                                   
+TableFooter                                           components/ui/table.tsx:112:3                                     
+TableCaption                                          components/ui/table.tsx:116:3                                     
+ToastAction                                           components/ui/toast.tsx:128:3                                     
+useWaveHeightDisplay                        function  components/ui/wave-height-display.tsx:326:17                      
+SWELL_WATCH_MIN_PEAK_FT                               lib/alerts/swell-watch-detector.ts:8:14                           
+SWELL_WATCH_MIN_RISE_FT                               lib/alerts/swell-watch-detector.ts:9:14                           
+SWELL_WATCH_MIN_PERIOD_S                              lib/alerts/swell-watch-detector.ts:10:14                          
+selectSwellWatchAudience                    function  lib/alerts/swell-watch/audience.ts:89:17                          
+resolveSwellWatchControl                    function  lib/alerts/swell-watch/safety-control.ts:103:23                   
+evaluateSwellWatchHolds                     function  lib/alerts/swell-watch/safety-control.ts:191:23                   
+validateSwellWatchRelease                   function  lib/alerts/swell-watch/safety-control.ts:219:23                   
+createSupabaseSwellWatchSafetyStore         function  lib/alerts/swell-watch/safety-control.ts:288:17                   
+executeSwellWatchControlCommand             function  lib/alerts/swell-watch/safety-control.ts:317:23                   
+WATCHED_CALL_REPLACEMENT_MARGIN                       lib/alerts/watched-call-contract.ts:1:14                          
+APP_HANDOFF_QR_RENDERED_EVENT                         lib/analytics/app-handoff-tracking.ts:14:14                       
+APP_HANDOFF_EMAIL_SUBMIT_EVENT                        lib/analytics/app-handoff-tracking.ts:15:14                       
+APP_HANDOFF_EMAIL_SENT_EVENT                          lib/analytics/app-handoff-tracking.ts:16:14                       
+APP_HANDOFF_EMAIL_FAILED_EVENT                        lib/analytics/app-handoff-tracking.ts:17:14                       
+hasValidBfrHandoffResolutionPair            function  lib/analytics/event-taxonomy.ts:374:17                            
+HOUR_MS                                               lib/analytics/install-to-paid-funnel-v1.ts:7:14                   
+UUID_PATTERN                                          lib/analytics/install-to-paid-funnel-v1.ts:8:14                   
+INSTALL_TO_PAID_STAGES                                lib/analytics/install-to-paid-funnel-v1.ts:11:14                  
+EXCLUDED_PROFILE_IDS                                  lib/analytics/install-to-paid-funnel-v1.ts:62:14                  
+INSTALL_TO_PAID_V1_CONTRACT                           lib/analytics/install-to-paid-funnel-v1.ts:77:14                  
+isPaidEntitlementAt                         function  lib/analytics/install-to-paid-funnel-v1.ts:285:17                 
+LAUNCH_CAMPAIGN_ID                                    lib/analytics/launch-campaign.ts:1:14                             
+LAUNCH_CONTENT_GROUP                                  lib/analytics/launch-campaign.ts:2:14                             
+REAL_ACTIVITY_SIGNAL_THRESHOLD                        lib/analytics/real-activity-signals.ts:3:14                       
+SESSION_LOG_TELEMETRY_SCHEMA_VERSION                  lib/analytics/session-log-funnel.ts:3:14                          
+loadGoogleDirectoryConfig                   function  lib/android-tester-roster/sync.ts:47:17                           
+IPHONE_APP_BANNER_DISMISSAL_DAYS                      lib/app-store/iphone-app-banner.ts:4:14                           
+HIGH_INTENT_ACTION_THRESHOLD                          lib/beach-follow/intent.ts:2:14                                   
+EXPLICIT_BEACH_INTENTS                                lib/beach-follow/intent.ts:4:14                                   
+DEFAULT_SANDY_BEGINNER_WINDOW_PROFILE                 lib/beginner/beginner-window-evaluator.ts:67:14                   
+COMMUNITY_PHOTO_MAX_PIXELS                            lib/community-photos/image-processing.ts:7:14                     
+uploadCommunityPhoto                        function  lib/community-photos/repository.ts:241:23                         
+ANDROID_WAITLIST_STORAGE_KEY                          lib/constants/android-waitlist.ts:3:14                            
+MAP_MOTION                                            lib/constants/animations.ts:43:14                                 
+SAFE_HANDOFF_PARAM_KEYS                               lib/constants/app-handoff.ts:13:14                                
+IOS_APP_STORE_REDIRECT_PATH                           lib/constants/app-store.ts:18:14                                  
+normalizeIosAppStoreProviderToken           function  lib/constants/app-store.ts:87:17                                  
+STATION_COVERAGE_RADIUS                               lib/constants/cdip-stations.ts:187:14                             
+OBSERVER                                              lib/constants/coast-pulse.ts:92:14                                
+PRIORITY_BEACH_IDS                                    lib/constants/featured-beaches-config.ts:30:14                    
+INTEL_MAP_CONFIG                                      lib/constants/intel.ts:118:14                                     
+INTEL_FILTERS                                         lib/constants/intel.ts:137:14                                     
+getConfidenceLevel                                    lib/constants/intel.ts:181:14                                     
+isStyleIntent                                         lib/constants/intent-definitions.ts:85:14                         
+REVIEW_TIMEOUTS                                       lib/constants/review-tracking.ts:21:14                            
+parseHomeBeachPushAllowlist                 function  lib/cron/home-beach-push-runner.ts:102:17                         
+REGIONAL_GUIDE_COPY                                   lib/data/regional-guide-copy.ts:20:14                             
+SURF_SPOT_SLUGS                                       lib/data/surf-spots.ts:1496:14                                    
+pickSecondarySwell                          function  lib/domains/conditions/dominant-swell.ts:69:17                    
+pickSecondarySwell                                    lib/domains/conditions/index.ts:48:29                             
+BOARD_TYPE_TO_BOARD_CLASS                             lib/domains/rideability/index.ts:4:3                              
+DEFAULT_BOARD_CLASS                                   lib/domains/rideability/index.ts:5:3                              
+getBoardClassOrDefault                                lib/domains/rideability/index.ts:6:3                              
+resolveVerdictSkill                                   lib/domains/rideability/index.ts:16:29                            
+SCORER_WEIGHTS                                        lib/domains/scoring/index.ts:19:10                                
+DEFAULT_SCORING_CONFIG                                lib/domains/scoring/index.ts:19:26                                
+createSkipResult                                      lib/domains/scoring/index.ts:19:50                                
+createNeutralResult                                   lib/domains/scoring/index.ts:19:68                                
+WAVE_SIZE_SCORING_CONFIG                              lib/domains/scoring/index.ts:59:3                                 
+SKILL_WAVE_RANGES                                     lib/domains/scoring/index.ts:60:3                                 
+checkSkillCeiling                                     lib/domains/scoring/index.ts:61:3                                 
+calculateBeachSkillMatchBonus                         lib/domains/scoring/index.ts:62:3                                 
+getDirectionalRelevance                               lib/domains/scoring/scorers/index.ts:20:10                        
+CARDINAL_TO_DEGREES                                   lib/domains/shared/index.ts:7:10                                  
+deriveWavePunchiness                                  lib/domains/spot-profile/index.ts:23:10                           
+AI_PUNCHINESS_CONFIDENCE_THRESHOLD                    lib/domains/spot-profile/wave-punchiness.ts:79:14                 
+BOARD_TYPE_TO_BOARD_CLASS                             lib/domains/user-preferences/board-class.ts:4:3                   
+WAVE_SIZE_RANGES                                      lib/domains/user-preferences/index.ts:16:10                       
+USER_PREFERENCES_DEFAULTS                             lib/domains/user-preferences/index.ts:16:28                       
+DEFAULT_SKILL_LEVEL                                   lib/domains/user-preferences/index.ts:21:3                        
+SKILL_LEVELS                                          lib/domains/user-preferences/index.ts:22:3                        
+parseBeachSkillRequirement                            lib/domains/user-preferences/index.ts:23:3                        
+BOARD_CLASSES                                         lib/domains/user-preferences/index.ts:32:3                        
+BOARD_TYPE_TO_BOARD_CLASS                             lib/domains/user-preferences/index.ts:33:3                        
+DEFAULT_BOARD_CLASS                                   lib/domains/user-preferences/index.ts:34:3                        
+normalizeBoardClass                                   lib/domains/user-preferences/index.ts:35:3                        
+parseBoardClass                                       lib/domains/user-preferences/index.ts:36:3                        
+getBoardClassOrDefault                                lib/domains/user-preferences/index.ts:37:3                        
+mapBoardTypeToBoardClass                              lib/domains/user-preferences/index.ts:38:3                        
+WAVE_SIZE_RANGES                                      lib/domains/user-preferences/types.ts:18:14                       
+USER_PREFERENCES_DEFAULTS                             lib/domains/user-preferences/types.ts:147:14                      
+BREAK_TYPE_CONFIGS                                    lib/domains/wave-frequency/index.ts:3:3                           
+FREQUENCY_CLAMPS                                      lib/domains/wave-frequency/index.ts:4:3                           
+THRESHOLDS                                            lib/domains/wave-frequency/index.ts:5:3                           
+TIDE_HEIGHT_DEFAULTS                                  lib/domains/wave-frequency/index.ts:6:3                           
+TIDE_HEIGHT_FLOORS                                    lib/domains/wave-frequency/index.ts:7:3                           
+TIDE_HEIGHT_FALLOFF_FT                                lib/domains/wave-frequency/index.ts:8:3                           
+TIDE_DIRECTION_MISMATCH_PENALTY                       lib/domains/wave-frequency/index.ts:9:3                           
+TIDE_DIRECTION_SLACK_PENALTY                          lib/domains/wave-frequency/index.ts:10:3                          
+allocateExperimentBatch                     function  lib/experiments/assignments.ts:52:23                              
+BFR_HOLDOUT_ASSIGNMENT_VERSION                        lib/experiments/bfr-holdout.ts:54:14                              
+ALERTS_DELIVERY_ENABLED_FLAG                          lib/flags/alerts-delivery.ts:1:14                                 
+BEACH_SUBPAGE_INSTALL_CTA_ENABLED                     lib/flags/beach-subpage-install-cta.ts:1:14                       
+isDecayOffEnabled                           function  lib/flags/decay-off.ts:3:17                                       
+XP_ACTION_MAP                                         lib/gamification/index.ts:34:10                                   
+LEVEL_THRESHOLDS                                      lib/gamification/index.ts:34:25                                   
+getBadgeChecks                                        lib/gamification/index.ts:34:43                                   
+calculateLevel                                        lib/gamification/index.ts:38:3                                    
+calculateLevelProgress                                lib/gamification/index.ts:39:3                                    
+getXPForAction                                        lib/gamification/index.ts:43:10                                   
+initializeUserXP                                      lib/gamification/index.ts:43:26                                   
+evaluateBadgeUnlocks                                  lib/gamification/index.ts:47:3                                    
+resetCacheForTests                                    lib/gamification/index.ts:51:10                                   
+invalidateUserCaches                                  lib/gamification/index.ts:51:30                                   
+INVITE_COOKIE_MAX_AGE_SECONDS                         lib/invites/consume.ts:9:14                                       
+ANDROID_BETA_INSTRUCTIONS_SUBJECT                     lib/mailer/android-beta.ts:10:14                                  
+PARADISE_GOLD                                         lib/mailer/colors.ts:13:14                                        
+PACIFIC_TEAL                                          lib/mailer/colors.ts:14:14                                        
+MUTED_SLATE                                           lib/mailer/colors.ts:15:14                                        
+isSessionPhotoMimeType                      function  lib/media/session-photo-policy.ts:20:17                           
+validateCronAuth                                      lib/middleware/api-wrappers.ts:90:3                               
+getClientIdentifier                                   lib/middleware/api-wrappers/index.ts:91:3                         
+validateCronAuth                                      lib/middleware/api-wrappers/index.ts:129:3                        
+withBotBlocking                                       lib/middleware/api-wrappers/index.ts:138:10                       
+getClientIdentifier                         function  lib/middleware/api-wrappers/rate-limit-wrapper.ts:34:17           
+validateCronAuth                                      lib/middleware/api-wrappers/response-utils.ts:25:3                
+officialEvidenceReferenceSchema                       lib/notifications/types/major-swell.ts:47:14                      
+getSurfAlertSlot                            function  lib/notifications/worker.ts:276:17                                
+DEFAULT_TRAFFIC_FLOOR                                 lib/npc/beach-selection.ts:11:14                                  
+DEFAULT_MAX_BEACH_SHARE                               lib/npc/beach-selection.ts:12:14                                  
+createBeachSelectionRun                     function  lib/npc/beach-selection.ts:42:17                                  
+recordBeachSelection                        function  lib/npc/beach-selection.ts:54:17                                  
+buildPostCopy                               function  lib/npc/post-quality.ts:43:17                                     
+buildFallbackPostCopy                       function  lib/npc/post-quality.ts:61:17                                     
+isTitlePrefixOfDescription                  function  lib/npc/post-quality.ts:88:17                                     
+isNearDuplicate                             function  lib/npc/post-quality.ts:100:17                                    
+PERSONA_POSTING_FLAG                                  lib/npc/system-card-config.ts:1:14                                
+SYSTEM_CARDS_FLAG                                     lib/npc/system-card-config.ts:2:14                                
+LEGACY_MORNING_FORECAST_FLAG                          lib/npc/system-card-config.ts:3:14                                
+SYSTEM_CARD_DEDUPE_DAYS                               lib/npc/system-card-config.ts:31:14                               
+SYSTEM_CARD_SEMANTIC_DEDUPE_DAYS                      lib/npc/system-card-config.ts:32:14                               
+allocationTierForSlot                       function  lib/npc/system-card-selection.ts:86:17                            
+PROMPT_CARD_CLASSES                                   lib/npc/system-card-types.ts:12:14                                
+isPromptCardClass                           function  lib/npc/system-card-types.ts:18:17                                
+beachesForPath                              function  lib/npc/traffic-weights.ts:122:17                                 
+degradedMatchScoreResponse                  function  lib/personalization/match-score.ts:355:17                         
+isPostHogEnabled                            function  lib/posthog-client.ts:78:17                                       
+getRecommendationId                         function  lib/recommendations/attribution.ts:32:17                          
+canonicalSessionDecisionSchema                        lib/recommendations/canonical-decision/index.ts:3:3               
+projectCanonicalDiscoverySurface                      lib/recommendations/canonical-decision/index.ts:12:10             
+CANONICAL_SESSION_DECISION_ENGINE_VERSION             lib/recommendations/canonical-decision/index.ts:24:3              
+CANONICAL_SESSION_DECISION_SCHEMA_VERSION             lib/recommendations/canonical-decision/index.ts:25:3              
+RecommendationImpressionModeSchema                    lib/recommendations/impressions.ts:12:14                          
+buildNotificationMajorEventHoldCandidate    function  …/recommendations/major-event-hold/adapters/notification.ts:303:17
+MajorEventHoldCacheInvalidationError        class     lib/recommendations/major-event-hold/cache-invalidation.ts:90:14  
+evaluateMajorEventHoldCandidateBatch        function  lib/recommendations/major-event-hold/evaluator.ts:143:17          
+serializeRecommendationAvailability         function  lib/recommendations/major-event-hold/service.ts:157:17            
+RECOMMENDATION_HOLD_REASON_CODES                      lib/recommendations/major-event-hold/types.ts:67:14               
+isRecommendationHoldReasonCode              function  lib/recommendations/major-event-hold/types.ts:73:17               
+WATER_QUALITY_STATUSES                                lib/recommendations/major-event-hold/water-quality.ts:31:14       
+calculateOptimalWindow                                lib/scorers/session-window-scorer.ts:32:10                        
+formatTimeRange                                       lib/scorers/session-window-scorer.ts:32:34                        
+generateWindowMessage                                 lib/scoring/index.ts:19:3                                         
+generateConditionSummary                              lib/scoring/index.ts:20:3                                         
+formatTimeCompact                                     lib/scoring/index.ts:21:3                                         
+calculateMultipleWindows                              lib/scoring/index.ts:36:10                                        
+calculateRelativeContext                              lib/scoring/index.ts:43:10                                        
+nativeScoreInputsFromForecast               function  lib/scoring/native-condition-score.ts:98:17                       
+validateHostname                            function  lib/security/ip-validation.ts:108:23                              
+extractAeoSectionQueries                    function  lib/seo/agent-workflow/aeo-export.ts:198:17                       
+isRelevantCompetitorKeyword                 function  lib/seo/agent-workflow/competitor-keywords.ts:9:17                
+isActionableCompetitorKeyword               function  lib/seo/agent-workflow/competitor-keywords.ts:17:17               
+DEFAULT_SEO_DASHBOARD_PATH                            lib/seo/agent-workflow/dashboard.ts:16:14                         
+sortDashboard                               function  lib/seo/agent-workflow/dashboard.ts:81:17                         
+canonicalizeGscPath                         function  lib/seo/agent-workflow/gsc-refresh.ts:237:17                      
+buildLearnEntries                           function  lib/seo/agent-workflow/keyword-bank.ts:74:17                      
+buildFunnelEntries                          function  lib/seo/agent-workflow/keyword-bank.ts:95:17                      
+buildDraftCandidate                         function  lib/seo/agent-workflow/outreach-digest.ts:153:17                  
+parseHogqlRows                              function  lib/seo/agent-workflow/posthog-export.ts:54:17                    
+resolveRecommendationsWithDashboard         function  lib/seo/agent-workflow/recommend.ts:74:17                         
+US_STATE_SLUGS                                        lib/seo/city-slug-utils.ts:12:14                                  
+buildAuditCanonicalPath                     function  lib/seo/forecast-authority-audit.ts:88:17                         
+isAuditCanonicalIdentityValid               function  lib/seo/forecast-authority-audit.ts:96:17                         
+FORECAST_BENCHMARK_QUERY_CLASSES                      lib/seo/forecast-authority-benchmark.ts:1:14                      
+DEFAULT_FORECAST_BENCHMARK_COMPETITORS                lib/seo/forecast-authority-benchmark.ts:91:14                     
+getSeoFunnelPageByPath                      function  lib/seo/funnel-pages.ts:2943:17                                   
+GSC_PROTECTION_THRESHOLDS                             lib/seo/gsc-performance-protection.ts:10:14                       
+hasBeachSubstantiveContent                  function  lib/seo/indexability.ts:174:17                                    
+DATA_BACKED_CITY_INTENTS                              lib/seo/indexability.ts:348:14                                    
+isBeachEligibleForIndexing                  function  lib/seo/indexability.ts:387:17                                    
+isBeachDatabaseRecordEligible               function  lib/seo/indexability.ts:405:17                                    
+CDIP_STATIONS                                         lib/services/cdip/index.ts:29:3                                   
+SOCAL_PRIMARY_STATIONS                                lib/services/cdip/index.ts:30:3                                   
+CDIP_API_CONFIG                                       lib/services/cdip/index.ts:31:3                                   
+DATA_QUALITY_THRESHOLDS                               lib/services/cdip/index.ts:32:3                                   
+getStationConfig                                      lib/services/cdip/index.ts:33:3                                   
+USER_AGENT                                            lib/services/cdip/index.ts:34:3                                   
+DEFAULT_MAX_DISTANCE_KM                               lib/services/cdip/index.ts:35:3                                   
+MAX_CONCURRENT_REQUESTS                               lib/services/cdip/index.ts:36:3                                   
+CACHE_TIMEOUT_MS                                      lib/services/cdip/index.ts:37:3                                   
+transformERDDAPToDataResponse                         lib/services/cdip/index.ts:43:3                                   
+calculateDataQualityScore                             lib/services/cdip/index.ts:44:3                                   
+normalizeStationIdForErddap                           lib/services/cdip/index.ts:45:3                                   
+CDIPCache                                             lib/services/cdip/index.ts:47:10                                  
+CDIPApiClient                                         lib/services/cdip/index.ts:48:10                                  
+CANDIDATE_POOL_RADIUS_TIERS_MILES                     lib/services/discovery/candidate-pool-builder.ts:38:14            
+MIN_CANDIDATES                                        lib/services/discovery/candidate-pool-builder.ts:40:14            
+NO_CANDIDATES_AVAILABILITY                            lib/services/discovery/discovery-availability.ts:25:14            
+DISTANCE_FRICTION_HOME_ZONE_MILES                     lib/services/discovery/distance-friction.ts:3:14                  
+DISTANCE_FRICTION_PENALTY_PER_MILE                    lib/services/discovery/distance-friction.ts:4:14                  
+computeHeroWindowScore                                lib/services/discovery/hero-ranking/index.ts:183:10               
+cardinalToDeg                                         lib/services/discovery/hero-ranking/index.ts:186:3                
+deriveSharedSetupSignal                               lib/services/discovery/hero-ranking/index.ts:187:3                
+computeWindowDurationScore                            lib/services/discovery/hero-ranking/index.ts:190:10               
+computeWindowPersistence                              lib/services/discovery/hero-ranking/index.ts:190:38               
+discoverSurfSpots                                     lib/services/discovery/index.ts:11:3                              
+buildCandidatePool                                    lib/services/discovery/index.ts:17:3                              
+CANDIDATE_POOL_LIMIT                                  lib/services/discovery/index.ts:18:3                              
+CANDIDATE_POOL_RADIUS_TIERS_MILES                     lib/services/discovery/index.ts:19:3                              
+MAX_CANDIDATE_RADIUS_MILES                            lib/services/discovery/index.ts:20:3                              
+MIN_CANDIDATES                                        lib/services/discovery/index.ts:21:3                              
+effectiveDistanceMiles                                lib/services/discovery/index.ts:28:3                              
+preferenceFit                                         lib/services/discovery/index.ts:29:3                              
+PREFERENCE_DETOUR_BUDGET_MILES                        lib/services/discovery/index.ts:30:3                              
+calculateDistancePenalty                              lib/services/discovery/index.ts:37:3                              
+compareDiscoveryRecommendations                       lib/services/discovery/index.ts:38:3                              
+DISTANCE_FRICTION_HOME_ZONE_MILES                     lib/services/discovery/index.ts:39:3                              
+DISTANCE_FRICTION_MAX_PENALTY                         lib/services/discovery/index.ts:40:3                              
+DISTANCE_FRICTION_PENALTY_PER_MILE                    lib/services/discovery/index.ts:41:3                              
+DISTANCE_TIE_BREAKER_POINTS                           lib/services/discovery/index.ts:42:3                              
+WORTH_THE_DRIVE_DISTANCE_MILES                        lib/services/discovery/index.ts:43:3                              
+WORTH_THE_DRIVE_REASON                                lib/services/discovery/index.ts:44:3                              
+batchFetchForecasts                                   lib/services/discovery/index.ts:49:3                              
+DEFAULT_FORECAST_WINDOW_HOURS                         lib/services/discovery/index.ts:50:3                              
+scoreForecastWindow                                   lib/services/discovery/index.ts:59:3                              
+scoreWindowConditionDetails                           lib/services/discovery/index.ts:60:3                              
+scoreWindowConditionScore                             lib/services/discovery/index.ts:61:3                              
+enrichWithPhotos                                      lib/services/discovery/index.ts:67:3                              
+generateDiscoverySummary                              lib/services/discovery/index.ts:68:3                              
+getRecommendationLabel                                lib/services/discovery/index.ts:69:3                              
+getRecommendationLabelGated                           lib/services/discovery/index.ts:70:3                              
+buildDiscoveryMessage                                 lib/services/discovery/index.ts:71:3                              
+FALLBACK_IMAGE_BY_NAME                                lib/services/discovery/index.ts:72:3                              
+fetchPersonalizationContext                           lib/services/discovery/index.ts:77:3                              
+calculatePersonalizationBonus                         lib/services/discovery/index.ts:78:3                              
+buildSurfDiscoveryMajorEventHoldCandidates  function  lib/services/discovery/major-event-hold.ts:41:17                  
+buildPersonalExplanation                    function  lib/services/discovery/surf-discovery-gating.ts:89:17             
+buildLockedBestSpotTeaser                   function  lib/services/discovery/surf-discovery-gating.ts:121:17            
+SurfDiscoveryOperationalError               class     lib/services/discovery/surf-discovery-orchestrator.ts:168:14      
+WEEK_SCOUT_SCORER_VERSION                             lib/services/discovery/week-scout.ts:68:14                        
+TIME_DECAY_PER_HOUR                                   lib/services/discovery/window-selector/index.ts:15:3              
+MAX_TIME_DECAY_HOURS                                  lib/services/discovery/window-selector/index.ts:16:3              
+SOON_BONUS_2HR                                        lib/services/discovery/window-selector/index.ts:17:3              
+SOON_BONUS_4HR                                        lib/services/discovery/window-selector/index.ts:18:3              
+UNDERWAY_BONUS                                        lib/services/discovery/window-selector/index.ts:19:3              
+MIN_SCORE_THRESHOLD                                   lib/services/discovery/window-selector/index.ts:21:3              
+MIN_SCORE_THRESHOLD_MORNING                           lib/services/discovery/window-selector/index.ts:22:3              
+MORNING_CUTOFF_HOUR                                   lib/services/discovery/window-selector/index.ts:26:3              
+TODAY_BONUS_POINTS                                    lib/services/discovery/window-selector/index.ts:27:3              
+MORNING_TIME_BONUS                                    lib/services/discovery/window-selector/index.ts:28:3              
+EVENING_CUTOFF_HOUR                                   lib/services/discovery/window-selector/index.ts:29:3              
+getLocalDateFormatter                                 lib/services/discovery/window-selector/index.ts:38:3              
+getLocalTimeLabelFormatter                            lib/services/discovery/window-selector/index.ts:40:3              
+extractTideSchedule                                   lib/services/discovery/window-selector/index.ts:48:10             
+calculateTideDrivenBoundaries                         lib/services/discovery/window-selector/index.ts:48:31             
+findPeakWithinWindow                                  lib/services/discovery/window-selector/index.ts:51:10             
+applySubHourRefinement                                lib/services/discovery/window-selector/index.ts:54:10             
+getScoringEngine                                      lib/services/discovery/window-selector/index.ts:65:10             
+logForecastRecommendationContext            function  lib/services/forecast-recommendation-context.ts:607:17            
+logForecastDisplayContext                   function  lib/services/forecast-recommendation-context.ts:635:17            
+FORECAST_ACCURACY_BASELINES                           lib/services/forecast/accuracy-metrics.ts:10:14                   
+getForecastAccuracyBaselineLabel            function  lib/services/forecast/accuracy-metrics.ts:151:17                  
+__resetCalibrationCacheForTests             function  lib/services/forecast/calibration-v5.ts:382:17                    
+isFeedbackHeightCalibrationEnabled          function  lib/services/forecast/feedback-height-calibration.ts:26:17        
+TrustedForecastLayerError                             lib/services/forecast/forecast-builder.ts:364:10                  
+loadHeightOffsetsForBeaches                 function  lib/services/forecast/forecast-builder.ts:407:23                  
+FORECAST_FEEDBACK_CONTRACT_VERSION                    lib/services/forecast/forecast-feedback.ts:3:14                   
+FORECAST_FEEDBACK_SCHEMA_VERSION                      lib/services/forecast/forecast-feedback.ts:5:14                   
+ObservedFaceHeightFtSchema                            lib/services/forecast/forecast-feedback.ts:33:14                  
+TRESTLES_CLUSTER_SLUGS                                lib/services/forecast/south-oc-sano-shadow-guardrail.ts:49:14     
+TRUSTED_FORECAST_MIN_HORIZON_HOURS                    lib/services/forecast/trusted-forecast-adjustment.ts:22:14        
+TRUSTED_FORECAST_MAX_HORIZON_HOURS                    lib/services/forecast/trusted-forecast-adjustment.ts:23:14        
+TRUSTED_FORECAST_CONFLICT_THRESHOLD_FT                lib/services/forecast/trusted-forecast-adjustment.ts:26:14        
+TRUSTED_FORECAST_MIN_ADJUSTMENT_GAP_FT                lib/services/forecast/trusted-forecast-adjustment.ts:29:14        
+TRUSTED_FORECAST_FULL_BAND_GAP_FT                     lib/services/forecast/trusted-forecast-adjustment.ts:31:14        
+TRUSTED_FORECAST_MAX_ADJUSTMENT_FT                    lib/services/forecast/trusted-forecast-adjustment.ts:33:14        
+TRUSTED_FORECAST_ADJUSTED_DISPLAY_SOURCE              lib/services/forecast/trusted-forecast-adjustment.ts:36:14        
+slotDayPart                                 function  lib/services/forecast/trusted-forecast-adjustment.ts:239:17       
+slotIsInPrimaryDayPart                      function  lib/services/forecast/trusted-forecast-adjustment.ts:263:17       
+TRUSTED_FORECAST_COVERAGE_VERSION                     lib/services/forecast/trusted-forecast-coverage.ts:33:14          
+PERSIST_TRUSTED_FORECAST_BUILD_RPC                    lib/services/forecast/trusted-forecast-persistence.ts:37:14       
+GET_TRUSTED_FORECAST_BUILD_RECEIPT_RPC                lib/services/forecast/trusted-forecast-persistence.ts:39:14       
+WAVECAST_LINEAGE                                      lib/services/forecast/trusted-forecast-policy.ts:471:14           
+issueAgeHours                               function  lib/services/forecast/trusted-forecast-policy.ts:594:17           
+TRUSTED_FORECAST_ISSUE_COLUMNS                        lib/services/forecast/trusted-forecast-repository.ts:37:14        
+TRUSTED_FORECAST_DECISION_COLUMNS                     lib/services/forecast/trusted-forecast-repository.ts:42:14        
+TRUSTED_FORECAST_APPLICATION_COLUMNS                  lib/services/forecast/trusted-forecast-repository.ts:46:14        
+isoZulu                                               lib/services/ioos/index.ts:27:3                                   
+parseObservationArray                                 lib/services/ioos/index.ts:30:3                                   
+parseNetwork                                          lib/services/ioos/index.ts:31:3                                   
+rowToObject                                           lib/services/ioos/index.ts:32:3                                   
+buildObservationUrl                                   lib/services/ioos/index.ts:36:38                                  
+buildStationInfoUrl                                   lib/services/ioos/index.ts:36:59                                  
+buildAllDatasetsUrl                                   lib/services/ioos/index.ts:36:80                                  
+fetchAllDatasets                                      lib/services/ioos/index.ts:39:10                                  
+fetchObservation                                      lib/services/ioos/index.ts:39:28                                  
+fetchStationInfo                                      lib/services/ioos/index.ts:39:46                                  
+isUnrecognizedVariableError                           lib/services/ioos/index.ts:39:64                                  
+ObservationCache                                      lib/services/ioos/index.ts:42:10                                  
+NETWORK_PATTERNS                                      lib/services/ioos/index.ts:45:10                                  
+STATION_ID_PATTERN                                    lib/services/ioos/index.ts:45:28                                  
+STATION_FILTERS                                       lib/services/ioos/index.ts:45:48                                  
+ISM_FILTER_WARNING_THRESHOLD                          lib/services/ioos/index.ts:45:65                                  
+NEARBY_STATIONS_LIMIT                                 lib/services/ioos/index.ts:45:95                                  
+getIOOSService                              function  lib/services/ioos/index.ts:66:17                                  
+DIRECTION_MAP                                         lib/services/magic-hour/index.ts:32:3                             
+DEFAULT_WEIGHTS                                       lib/services/magic-hour/index.ts:33:3                             
+SLACK_TIDE_THRESHOLD_FT                               lib/services/magic-hour/index.ts:34:3                             
+WINDOW_HALF_SIZE_MS                                   lib/services/magic-hour/index.ts:35:3                             
+DAYLIGHT_START_HOUR                                   lib/services/magic-hour/index.ts:36:3                             
+DAYLIGHT_END_HOUR                                     lib/services/magic-hour/index.ts:37:3                             
+DEFAULT_SEARCH_WINDOW_MS                              lib/services/magic-hour/index.ts:38:3                             
+DEFAULT_TIMEZONE                                      lib/services/magic-hour/index.ts:39:3                             
+normalizeAngle                                        lib/services/magic-hour/index.ts:45:3                             
+interpolateAngle                                      lib/services/magic-hour/index.ts:46:3                             
+formatTime                                            lib/services/magic-hour/index.ts:58:3                             
+MAX_NEARBY_RADIUS_MILES                               lib/services/nearby-beach-service.ts:16:14                        
+MAX_NEARBY_LIMIT                                      lib/services/nearby-beach-service.ts:17:14                        
+generateFallbackTideData                    function  lib/services/noaa-coops/fallback-generator.ts:20:17               
+COOPS_STATIONS                                        lib/services/noaa-coops/index.ts:24:10                            
+GEOGRAPHIC_STATIONS                                   lib/services/noaa-coops/index.ts:25:10                            
+parseCOOPSTimestampToUnixSecondsUTC                   lib/services/noaa-coops/index.ts:28:10                            
+generateFallbackTideData                              lib/services/noaa-coops/index.ts:29:10                            
+GFS_WAVE_SHADOW_TABLE                                 lib/services/noaa-wavewatch/gfs-wave-shadow.ts:13:14              
+API_ENDPOINTS                                         lib/services/noaa-wavewatch/index.ts:25:3                         
+WAVE_REGIONS                                          lib/services/noaa-wavewatch/index.ts:26:3                         
+SEASONAL_FACTORS                                      lib/services/noaa-wavewatch/index.ts:27:3                         
+FORECAST_CONFIG                                       lib/services/noaa-wavewatch/index.ts:28:3                         
+COMPASS_DIRECTIONS                                    lib/services/noaa-wavewatch/index.ts:29:3                         
+UNIT_CONVERSIONS                                      lib/services/noaa-wavewatch/index.ts:30:3                         
+HTTP_CONFIG                                           lib/services/noaa-wavewatch/index.ts:31:3                         
+metersToFeet                                          lib/services/noaa-wavewatch/index.ts:36:3                         
+feetToMeters                                          lib/services/noaa-wavewatch/index.ts:37:3                         
+getWaveDirectionText                                  lib/services/noaa-wavewatch/index.ts:38:3                         
+getBaseWaveHeight                                     lib/services/noaa-wavewatch/index.ts:39:3                         
+getSeasonalFactor                                     lib/services/noaa-wavewatch/index.ts:40:3                         
+getPrevailingWaveDirection                            lib/services/noaa-wavewatch/index.ts:41:3                         
+hasValidWaveData                                      lib/services/noaa-wavewatch/index.ts:42:3                         
+getValueAtIndex                                       lib/services/noaa-wavewatch/index.ts:43:3                         
+getValueAtTime                                        lib/services/noaa-wavewatch/index.ts:44:3                         
+getTimestampForIndex                                  lib/services/noaa-wavewatch/index.ts:45:3                         
+getTimestampForForecastSlot                           lib/services/noaa-wavewatch/index.ts:46:3                         
+parseNOAAValidTime                                    lib/services/noaa-wavewatch/index.ts:47:3                         
+generateFallbackData                                  lib/services/noaa-wavewatch/index.ts:50:10                        
+processNOAAGridData                                   lib/services/noaa-wavewatch/index.ts:51:10                        
+processOpenMeteoData                                  lib/services/noaa-wavewatch/index.ts:51:31                        
+feetToMeters                                function  lib/services/noaa-wavewatch/wave-analysis.ts:166:17               
+getTimestampForIndex                        function  lib/services/noaa-wavewatch/wave-analysis.ts:189:17               
+NOWCAST_ANCHOR_FEATURE_FLAG                           lib/services/observations/nowcast-anchor.types.ts:39:14           
+isExpoPushToken                             function  lib/services/push-delivery.ts:45:17                               
+SurfDiscoveryOperationalError                         lib/services/surf-discovery-service.ts:20:3                       
+compareTideForecastRows                     function  lib/services/tide-forecast-selection.ts:44:17                     
+hasSessionDecompositionSignal               function  lib/session-fit.ts:42:17                                          
+formatForecastWindowLabel                   function  lib/share/forecast-window-share.ts:120:17                         
+getEarnProEntitlementId                     function  lib/subscription/grant-promotional-entitlement.ts:78:17           
+ENTITLEMENT_SEGMENTS                                  lib/subscription/reconciliation-report.ts:14:14                   
+RECONCILIATION_PAGE_SIZE                              lib/subscription/reconciliation-report.ts:64:14                   
+withNonDeleted                              function  lib/supabase/query-builders.ts:104:17                             
+MIN_EXPOSURE                                          lib/surf/scoring.ts:15:14                                         
+boardCall                                   function  lib/surf/scoring.ts:290:17                                        
+REFINEMENT_CONFIG                                     lib/surf/scoring.ts:320:14                                        
+latitude                                              lib/types/coordinates.ts:308:3                                    
+longitude                                             lib/types/coordinates.ts:309:3                                    
+brandedCoordinates                                    lib/types/coordinates.ts:310:3                                    
+safeLat                                               lib/types/coordinates.ts:311:3                                    
+safeLon                                               lib/types/coordinates.ts:312:3                                    
+safeCoordinates                                       lib/types/coordinates.ts:313:3                                    
+toBranded                                             lib/types/coordinates.ts:314:3                                    
+fromBranded                                           lib/types/coordinates.ts:315:3                                    
+isBrandedCoordinates                                  lib/types/coordinates.ts:316:3                                    
+prepareMultipleBeachCardData                function  lib/utils/beach-card-utils.ts:98:17                               
+HANDOFF_BLEND_RATIO_MIN                               lib/utils/forecast-handoff-blend.ts:3:14                          
+HANDOFF_BLEND_RATIO_MAX                               lib/utils/forecast-handoff-blend.ts:4:14                          
+DEFAULT_HANDOFF_BLEND_TAPER_HOURS                     lib/utils/forecast-handoff-blend.ts:5:14                          
+clampHandoffBlendRatio                      function  lib/utils/forecast-handoff-blend.ts:61:17                         
+REGIONAL_FORECAST_REVALIDATE_SECONDS                  lib/utils/forecast-hub-utils.ts:37:14                             
+getWaveHeightDescription                              lib/utils/morning-intel-utils.ts:26:3                             
+renderIntelMarkdown                                   lib/utils/morning-intel-utils.ts:28:3                             
+analyzeSwellMatch                                     lib/utils/morning-intel-utils.ts:34:3                             
+isAngleInWindow                                       lib/utils/morning-intel-utils.ts:35:3                             
+calculateOnOffshore                                   lib/utils/morning-intel-utils.ts:41:3                             
+tideAt                                                lib/utils/morning-intel-utils.ts:46:3                             
+displayNumber                               function  lib/utils/nullable-display-utils.ts:20:17                         
+hasValue                                    function  lib/utils/nullable-display-utils.ts:80:17                         
+DEFAULT_TIMEZONE                                      lib/utils/timezone-utils.server.ts:15:10                          
+CALIBRATION_BUCKET_QUARANTINE_MIN_PERIOD_S            lib/utils/wave-height-transformer.ts:603:14                       
+CALIBRATION_BUCKET_QUARANTINE_MAX_FACTOR              lib/utils/wave-height-transformer.ts:604:14                       
+urlSchema                                             lib/validation/schemas.ts:9:14                                    
+SessionPlanSchema                                     lib/validation/schemas.ts:63:14                                   
+BeachSearchSchema                                     lib/validation/schemas.ts:209:14                                  
+ProfileUpdateSchema                                   lib/validation/schemas.ts:231:14                                  
+PaginationSchema                                      lib/validation/schemas.ts:246:14                                  
+DeviceRegistrationSchema                              lib/validation/schemas.ts:264:14                                  
+Unused exported types (878)
+BestBeachPhoto                                           interface  actions/beach-media-actions.ts:10:18                
+CityWithBeachCount                                       interface  actions/beach/beach-location-actions.ts:21:18       
+CityWithSkillCategories                                  interface  actions/beach/beach-location-actions.ts:85:18       
+CityLookupResult                                         interface  actions/beach/beach-location-actions.ts:283:18      
+CamBeach                                                 interface  actions/beach/cam-actions.ts:15:18                  
+BeachEditorialItem                                       type       actions/city/city-metadata-actions.ts:11:29         
+SubmitConditionsReportResult                             type       actions/conditions-report-actions.ts:141:13         
+ForecastMetadata                       ForecastActions…  interface  actions/forecast-actions.ts:20:18                   
+EnhancedForecastWithMetadata           ForecastActions…  interface  actions/forecast-actions.ts:112:18                  
+IntelPostsData                                           type       actions/intel-actions.ts:19:3                       
+ConfirmationData                                         type       actions/intel-actions.ts:20:3                       
+SupabaseErrorLike                                        type       actions/intel-actions.ts:21:3                       
+IntelPostRPCResult                                       type       actions/intel-actions.ts:22:3                       
+IntelDeps                                                type       actions/intel-actions.ts:23:3                       
+TrackXPFn                                                type       actions/intel-actions.ts:24:3                       
+IntelPostsData                                           type       actions/intel/index.ts:6:3                          
+ConfirmationData                                         type       actions/intel/index.ts:7:3                          
+SupabaseErrorLike                                        type       actions/intel/index.ts:8:3                          
+IntelPostRPCResult                                       type       actions/intel/index.ts:9:3                          
+IntelDeps                                                type       actions/intel/index.ts:10:3                         
+TrackXPFn                                                type       actions/intel/index.ts:11:3                         
+SupabaseErrorLike                                        interface  actions/intel/intel-types.ts:43:18                  
+BeachImpact                                              interface  actions/progression-actions.ts:45:18                
+SpotFeaturedPhoto                                        type       actions/spot/spot-data-actions.ts:24:13             
+SpotDataResult                                           interface  actions/spot/spot-data-actions.ts:81:18             
+BeachWaterQualityData                                    interface  actions/tools/water-quality-actions.ts:13:18        
+WindQualityLabel                                         type       actions/tools/wind-checker-actions.ts:8:15          
+SaveHomeBeachResult                                      interface  app/prefs/home-beach/actions.ts:10:18               
+LogSessionResult                                         interface  app/session/log/actions.ts:6:18                     
+AuthProvidersProps                                       interface  components/auth/auth-modal/AuthProviders.tsx:13:18  
+EmailPasswordFormProps                                   interface  …ponents/auth/auth-modal/EmailPasswordForm.tsx:16:18
+AuthProvidersProps                                       type       components/auth/auth-modal/index.ts:2:15            
+EmailPasswordFormProps                                   type       components/auth/auth-modal/index.ts:5:15            
+MagicLinkFormProps                                       type       components/auth/auth-modal/index.ts:8:15            
+VerifyEmailMessageProps                                  type       components/auth/auth-modal/index.ts:11:15           
+MagicLinkFormProps                                       interface  components/auth/auth-modal/MagicLinkForm.tsx:13:18  
+VerifyEmailMessageProps                                  interface  …ponents/auth/auth-modal/VerifyEmailMessage.tsx:8:18
+UnifiedAuthModalProps                                    interface  components/auth/unified-auth-modal.tsx:79:18        
+RelatedGuideLink                                         type       …ponents/beach-detail/related-guides-links.ts:105:13
+RelatedGuideLinks                                        type       …ponents/beach-detail/related-guides-links.ts:109:13
+TideSummaryHeroProps                                     interface  components/beach-detail/tide-summary-hero.tsx:12:18 
+WaterTempSummaryHeroProps                                interface  …nents/beach-detail/water-temp-summary-hero.tsx:6:18
+ZineMapScene                                             interface  …ponents/beach-detail/zine/map-doodle-scene.ts:13:18
+CachedBeachOption                                        interface  components/embed-promo/cached-beach-options.ts:7:18 
+DataErrorBoundaryProps                                   interface  …ponents/error-boundaries/DataErrorBoundary.tsx:9:18
+DataLoadErrorFallbackProps                               interface  …nts/error-boundaries/DataLoadErrorFallback.tsx:7:18
+ErrorBoundaryProps                                       interface  components/error-boundaries/ErrorBoundary.tsx:6:18  
+ErrorFallbackProps                                       interface  components/error-boundaries/ErrorFallback.tsx:8:18  
+FormErrorBoundaryProps                                   interface  …onents/error-boundaries/FormErrorBoundary.tsx:11:18
+ErrorBoundaryProps                                       type       components/error-boundaries/index.ts:3:15           
+DataErrorBoundaryProps                                   type       components/error-boundaries/index.ts:6:15           
+FormErrorBoundaryProps                                   type       components/error-boundaries/index.ts:9:15           
+ErrorFallbackProps                                       type       components/error-boundaries/index.ts:13:15          
+NetworkErrorFallbackProps                                type       components/error-boundaries/index.ts:16:15          
+DataLoadErrorFallbackProps                               type       components/error-boundaries/index.ts:19:15          
+RetryStrategy                                            type       components/error-boundaries/index.ts:23:15          
+ErrorCategory                                            type       components/error-boundaries/index.ts:26:15          
+ErrorLogContext                                          type       components/error-boundaries/index.ts:35:15          
+ErrorBoundaryTier                                        type       components/error-boundaries/index.ts:39:3           
+ErrorBoundaryType                                        type       components/error-boundaries/index.ts:40:3           
+BaseErrorBoundaryProps                                   type       components/error-boundaries/index.ts:41:3           
+ErrorFallbackRender                                      type       components/error-boundaries/index.ts:42:3           
+ErrorHandler                                             type       components/error-boundaries/index.ts:43:3           
+NetworkErrorFallbackProps                                interface  …ents/error-boundaries/NetworkErrorFallback.tsx:6:18
+ErrorBoundaryTier                                        type       components/error-boundaries/types.ts:6:13           
+ErrorBoundaryType                                        type       components/error-boundaries/types.ts:11:13          
+BaseErrorBoundaryProps                                   interface  components/error-boundaries/types.ts:16:18          
+ErrorFallbackRender                                      type       components/error-boundaries/types.ts:26:13          
+ErrorHandler                                             type       components/error-boundaries/types.ts:34:13          
+ErrorLogContext                                          interface  …ponents/error-boundaries/utils/error-logger.ts:1:18
+AnimatedScoreGaugeProps                                  interface  components/forecast/animated-score-gauge.tsx:25:18  
+BeachConditionsGridProps                                 interface  components/forecast/beach-conditions-grid.tsx:38:18 
+BestDaysSectionProps                                     interface  components/forecast/best-days-section.tsx:46:18     
+BestRightNowProps                                        interface  components/forecast/best-right-now.tsx:107:18       
+BuoyStationLinkProps                                     interface  components/forecast/buoy-station-link.tsx:14:18     
+HorizonStripProps                                        interface  components/forecast/horizon-strip.tsx:20:18         
+TideChartProps                                           type       components/forecast/index.ts:9:26                   
+BuoyStationLinkProps                                     type       components/forecast/index.ts:15:15                  
+BestDaysSectionProps                                     type       components/forecast/index.ts:19:15                  
+SwellEventCardProps                                      type       components/forecast/index.ts:23:15                  
+SwellEventListProps                                      type       components/forecast/index.ts:23:36                  
+BeachConditionsGridProps                                 type       components/forecast/index.ts:27:15                  
+RegionalForecastCardProps                                type       components/forecast/index.ts:31:15                  
+ScoreBadgeProps                                          type       components/forecast/index.ts:35:15                  
+AnimatedScoreGaugeProps                                  type       components/forecast/index.ts:39:15                  
+WaveSparklineProps                                       type       components/forecast/index.ts:46:15                  
+SparklineDataPoint                                       type       components/forecast/index.ts:46:35                  
+SwellWaveChartProps                                      type       components/forecast/index.ts:50:15                  
+DaySummary                                               type       components/forecast/index.ts:71:3                   
+SwellEvent                                               type       components/forecast/index.ts:72:3                   
+BeachConditionSummary                                    type       components/forecast/index.ts:73:3                   
+RegionalForecastSummary                                  type       components/forecast/index.ts:74:3                   
+RegionalBestSurfWindowsProps                             interface  …onents/forecast/regional-best-surf-windows.tsx:4:18
+RegionalForecastCardProps                                interface  components/forecast/regional-forecast-card.tsx:36:18
+ScoreBadgeProps                                          interface  components/forecast/score-badge.tsx:18:18           
+ScoreBand                                                type       components/forecast/score-band-call.ts:11:13        
+ScoreCall                                                interface  components/forecast/score-band-call.ts:13:18        
+SwellEventCardProps                                      interface  components/forecast/swell-event-card.tsx:27:18      
+SwellEventListProps                                      interface  components/forecast/swell-event-card.tsx:38:18      
+SwellWaveChartProps                                      interface  components/forecast/swell-wave-chart.tsx:19:18      
+TideChartEnhancedProps                                   interface  components/forecast/tide-chart-enhanced.tsx:97:18   
+SparklineDataPoint                                       interface  components/forecast/wave-sparkline.tsx:19:18        
+WaveSparklineProps                                       interface  components/forecast/wave-sparkline.tsx:31:18        
+BadgeData                                                interface  components/gamification/badge-gallery.tsx:18:18     
+FirstSessionCtaProps                                     interface  components/home-screen/first-session-cta.tsx:8:18   
+SessionIntelligenceModuleProps                           interface  …s/home-screen/session-intelligence-module.tsx:13:18
+IntelTagSelectorProps                                    type       components/intel/form/index.ts:1:33                 
+IntelTitleDescriptionProps                               type       components/intel/form/index.ts:2:38                 
+IntelConditionsFieldsProps                               type       components/intel/form/index.ts:5:8                  
+IntelPhotoSectionProps                                   type       components/intel/form/index.ts:9:34                 
+IntelFormActionsProps                                    type       components/intel/form/index.ts:10:33                
+IntelConditionsFieldsProps                               interface  …onents/intel/form/intel-conditions-fields.tsx:31:18
+IntelFormActionsProps                                    interface  components/intel/form/intel-form-actions.tsx:7:18   
+IntelPhotoSectionProps                                   interface  components/intel/form/intel-photo-section.tsx:12:18 
+IntelTagSelectorProps                                    interface  components/intel/form/intel-tag-selector.tsx:14:18  
+IntelTitleDescriptionProps                               interface  …ponents/intel/form/intel-title-description.tsx:9:18
+IntelPostFormBeforeSubmitContext                         type       components/intel/intel-post-form.tsx:56:13          
+MiniLogTeaserProps                                       interface  components/intent/mini-log-teaser.tsx:38:18         
+SessionIntelligenceIntentIcon                            type       …ts/intent/session-intelligence-intent-link.tsx:9:13
+PeriodClassification                                     interface  …ponents/learn/figures/period-classification.ts:1:18
+TideStage                                                type       …ts/learn/figures/tide-window-classification.ts:4:13
+WaveHeightClassification                                 interface  …ts/learn/figures/wave-height-classification.ts:1:18
+CalloutBounds                                            interface  components/map/conditions-callout-data.ts:45:18     
+ConditionsCalloutOptions                                 interface  components/map/conditions-callout.ts:5:18           
+CustomSpotMarkerData                                     interface  components/map/custom-spot-marker-builder.ts:7:18   
+BeachLoaderDeps                                          interface  components/map/map-beach-loader.ts:29:18            
+BeachLoaderOptions                                       interface  components/map/map-beach-loader.ts:68:18            
+ConditionMarkerCall                                      interface  components/map/map-marker-builder.ts:17:18          
+MapPreviewOffset                                         interface  components/map/map-preload-preview.tsx:15:18        
+Vec2                                                     interface  components/map/swell-field/field-sampler.ts:10:18   
+StyleLayerLike                                           interface  components/map/swell-field/field-sampler.ts:78:18   
+WaterMaskOptions                                         interface  components/map/swell-field/field-sampler.ts:125:18  
+GeoBounds                                                interface  components/map/swell-field/field-sampler.ts:230:18  
+LatLonPoint                                              interface  components/map/swell-field/field-sampler.ts:238:18  
+ParticleSeed                                             interface  …nents/map/swell-field/swell-particle-layer.ts:15:18
+SwellParticleLayerOptions                                interface  …ents/map/swell-field/swell-particle-layer.ts:375:18
+SwellParticleLayer                                       interface  …ents/map/swell-field/swell-particle-layer.ts:420:18
+ActivityFeedProps                                        interface  components/oracle/activity-feed.tsx:13:18           
+HomeBeachCardProps                                       interface  components/oracle/home-beach-card.tsx:9:18          
+NearbySpotsProps                                         interface  components/oracle/nearby-spots.tsx:33:18            
+TodaysWindowsProps                                       interface  components/oracle/todays-windows.tsx:41:18          
+HomeCallPlateProps                                       interface  components/oracle/zine/home-call-plate.tsx:34:18    
+StructuredPhotoAttribution                               interface  components/photos/photo-attribution.tsx:6:18        
+PreferenceOverrideFormProps                              interface  …mponents/profile/preference-override-form.tsx:61:18
+BoardFormFieldValues                                     interface  …mponents/profile/shared/board-form-fields.tsx:14:18
+ExperienceLevelFieldProps                                interface  …mponents/profile/shared/preference-fields.tsx:28:18
+SurfStylesFieldProps                                     interface  …mponents/profile/shared/preference-fields.tsx:80:18
+WindDirectionCompassProps                                interface  components/profile/wind-direction-compass.tsx:17:18 
+BoardRecommendationBadgeProps                            interface  …recommendations/board-recommendation-badge.tsx:7:18
+PersonalizedBadgeProps                                   type       components/recommendations/index.ts:2:15            
+MatchScoreTeaserProps                                    type       components/recommendations/index.ts:4:15            
+MatchScoreTeaserProps                                    interface  …onents/recommendations/match-score-teaser.tsx:15:18
+PersonalizedBadgeProps                                   interface  …ponents/recommendations/PersonalizedBadge.tsx:24:18
+SeoHeroProps                                             interface  components/seo/funnel/SeoHero.tsx:8:18              
+RatingInputProps                                         type       components/session-forms/shared/index.ts:7:15       
+RatingInputProps                                         interface  …mponents/session-forms/shared/RatingInput.tsx:17:18
+AppDeepLinkCTAProps                                      interface  …ts/session-intelligence/app-deep-link-cta.tsx:34:18
+BestSurfWindowsProps                                     interface  …ts/session-intelligence/best-surf-windows.tsx:69:18
+AppDeepLinkCTAProps                                      type       components/session-intelligence/index.ts:2:15       
+BestSurfWindowsProps                                     type       components/session-intelligence/index.ts:4:15       
+SourceConfidenceBadgeProps                               type       components/session-intelligence/index.ts:9:15       
+WhyThisCallProps                                         type       components/session-intelligence/index.ts:11:15      
+SourceConfidenceBadgeProps                               interface  …sion-intelligence/source-confidence-badge.tsx:10:18
+AppDeepLinkType                                          type       components/session-intelligence/tracking.ts:17:13   
+WhyThisCallProps                                         interface  …onents/session-intelligence/why-this-call.tsx:25:18
+PostSessionShareProps                                    interface  components/session/post-session-share.tsx:13:18     
+SessionCelebrationProps                                  interface  components/session/session-celebration.tsx:6:18     
+ShareSheetProps                                          type       components/share/index.ts:1:27                      
+ShareSheetProps                                          interface  components/share/share-sheet.tsx:24:18              
+IntentGuidesGridProps                                    type       components/shared/intent-guides-grid.tsx:160:15     
+LocationType                                             type       components/shared/intent-guides-grid.tsx:160:38     
+AnimatedCounterProps                                     interface  components/ui/animated-counter.tsx:19:18            
+BadgeProps                                               interface  components/ui/badge.tsx:28:18                       
+ButtonProps                                              interface  components/ui/button.tsx:37:18                      
+CalendarProps                                            type       components/ui/calendar.tsx:9:13                     
+OceanBackgroundProps                                     interface  components/ui/ocean-background.tsx:19:18            
+ScrollRevealVariant                                      type       components/ui/scroll-reveal.tsx:19:13               
+ScrollRevealProps                                        interface  components/ui/scroll-reveal.tsx:30:18               
+WaveType                                                 interface  components/ui/wave-type-selector.tsx:9:18           
+ZeroStateAction                                          interface  components/ui/zero-state.tsx:6:18                   
+ZeroStateProps                                           interface  components/ui/zero-state.tsx:13:18                  
+ZineSurfaceProps                                         type       components/zine/index.ts:4:15                       
+ZineSurfaceProps                                         interface  components/zine/zine-surface.tsx:6:18               
+ProfileContextValue                                      interface  context/profile-context.tsx:35:18                   
+BoardRecommendation                                      interface  hooks/use-board-recommendation.ts:8:18              
+UseBoardRecommendationOptions                            interface  hooks/use-board-recommendation.ts:17:18             
+UseBoardRecommendationResult                             interface  hooks/use-board-recommendation.ts:31:18             
+ConditionIntelligenceResult                              interface  hooks/use-condition-intelligence.ts:20:18           
+ExpandableTimelineState                                  interface  hooks/use-expandable-swell-timeline.ts:18:18        
+UseExpandableSwellTimelineArgs                           interface  hooks/use-expandable-swell-timeline.ts:28:18        
+UseExpandableSwellTimelineResult                         interface  hooks/use-expandable-swell-timeline.ts:38:18        
+GeolocationErrorType                                     type       hooks/use-geolocation.ts:28:13                      
+HomeDiscoveryRequestSource                               type       hooks/use-home-discovery-request-metrics.ts:4:13    
+FieldPrefillState                                        type       hooks/use-intel-forecast-prefill.ts:9:13            
+ConditionFieldStates                                     type       hooks/use-intel-forecast-prefill.ts:14:13           
+ConditionFieldKey                                        type       hooks/use-intel-forecast-prefill.ts:21:13           
+PrefillableField                                         type       hooks/use-intel-forecast-prefill.ts:78:13           
+PrefillValue                                             type       hooks/use-intel-forecast-prefill.ts:83:13           
+UseIntelForecastPrefillOptions                           interface  hooks/use-intel-forecast-prefill.ts:85:18           
+UseIntelForecastPrefillResult                            interface  hooks/use-intel-forecast-prefill.ts:96:18           
+ConditionsSummaryInput                                   interface  hooks/use-intel-form-validation.ts:59:18            
+ValidationResult                                         interface  hooks/use-intel-form-validation.ts:67:18            
+UseIntelFormValidationOptions                            interface  hooks/use-intel-form-validation.ts:72:18            
+PhotoUploadResult                                        interface  hooks/use-intel-photo-upload.ts:5:18                
+UseIntelPhotoUploadResult                                interface  hooks/use-intel-photo-upload.ts:12:18               
+UseMagicHourOptions                                      interface  hooks/use-magic-hour.ts:21:18                       
+UseMagicHourReturn                                       interface  hooks/use-magic-hour.ts:45:18                       
+MagicHourResult                                          type       hooks/use-magic-hour.ts:296:15                      
+BeachMetadata                                            type       hooks/use-magic-hour.ts:296:32                      
+WeightConfig                                             type       hooks/use-magic-hour.ts:296:47                      
+PendingAction                                            interface  hooks/use-pending-action.ts:13:18                   
+SessionFormHookParams                                    type       hooks/use-session-form.ts:65:13                     
+NearbyBeach                                              type       hooks/useNearbyBeaches.ts:26:13                     
+ValidatedCapture                                         type       lib/alerts/anon-capture-validator.ts:7:13           
+ValidationResult                                         type       lib/alerts/anon-capture-validator.ts:15:13          
+AutoEnableSimilarityResult                               type       lib/alerts/auto-enable-similarity.ts:4:13           
+AlertConditionValidationResult                           interface  lib/alerts/condition-validation.ts:3:18             
+ContextualPresetConfig                                   interface  lib/alerts/preset-context-map.ts:17:18              
+PushDecisionVerdict                                      type       lib/alerts/push-formatter.ts:17:13                  
+SelectFreshAlertWindowInput                              interface  lib/alerts/revalidate-alert-window.ts:28:18         
+SeedPresetType                                           type       lib/alerts/seed-default-rule.ts:13:13               
+SeedSchedulePresetType                                   type       lib/alerts/seed-default-rule.ts:14:13               
+SeedResult                                               type       lib/alerts/seed-default-rule.ts:26:13               
+SeedDefaultRuleParams                                    interface  lib/alerts/seed-default-rule.ts:38:18               
+PickArgs                                                 interface  lib/alerts/similarity-best-pick.ts:50:18            
+DaylightWindow                                           interface  lib/alerts/sunrise.ts:3:18                          
+SwellWatchAudienceRows                                   interface  lib/alerts/swell-watch/audience.ts:12:18            
+SwellPartitionInput                                      interface  lib/alerts/swell-watch/partition-normalizer.ts:5:18 
+RegionalBeachCandidate                                   interface  lib/alerts/swell-watch/regional-consolidator.ts:4:18
+SwellWatchRecipientCandidate                             interface  …b/alerts/swell-watch/regional-consolidator.ts:17:18
+SwellWatchControlRecord                                  interface  lib/alerts/swell-watch/safety-control.ts:34:18      
+SwellWatchAuthorityRecord                                interface  lib/alerts/swell-watch/safety-control.ts:40:18      
+SwellWatchControlTransition                              interface  lib/alerts/swell-watch/safety-control.ts:53:18      
+SwellWatchSafetyStore                                    interface  lib/alerts/swell-watch/safety-control.ts:62:18      
+ThrottleDecision                                         type       lib/alerts/throttle.ts:16:13                        
+AlertQueueRow                                            interface  lib/alerts/types.ts:137:18                          
+StabilityRecord                                          interface  lib/alerts/watched-call-contract.ts:32:18           
+StabilityResult                                          interface  lib/alerts/watched-call-contract.ts:42:18           
+NearbyComparison                                         interface  lib/alerts/watched-call-contract.ts:178:18          
+WatchedCallUpdate                                        type       lib/alerts/watched-call-contract.ts:194:13          
+SignupContextV2                                          type       lib/analytics/acquisition-context.ts:86:13          
+WebSignupAttribution                                     interface  lib/analytics/acquisition-context.ts:91:18          
+WebSignupLocation                                        interface  lib/analytics/acquisition-context.ts:99:18          
+BuildWebSignupMetadataInput                              interface  lib/analytics/acquisition-context.ts:107:18         
+AndroidWaitlistCtaMetadata                               interface  lib/analytics/android-waitlist-tracking.ts:15:18    
+SignupProvider                         authEvents        type       lib/analytics/auth-events.ts:27:13                  
+SignupRedirectState                    authEvents        type       lib/analytics/auth-events.ts:28:13                  
+SignupFlowContext                      authEvents        interface  lib/analytics/auth-events.ts:31:18                  
+BfrIntentState                                           type       lib/analytics/event-taxonomy.ts:75:13               
+BfrIntentReason                                          type       lib/analytics/event-taxonomy.ts:76:13               
+BfrWebAudienceClass                                      type       lib/analytics/event-taxonomy.ts:77:13               
+BfrWebExperimentArm                                      type       lib/analytics/event-taxonomy.ts:79:13               
+BfrFallbackClassification                                type       lib/analytics/event-taxonomy.ts:84:13               
+BfrHandoffResolutionReason                               type       lib/analytics/event-taxonomy.ts:86:13               
+BfrHandoffResolutionMetadata                             type       lib/analytics/event-taxonomy.ts:89:13               
+MilestoneStatus                                          type       lib/analytics/install-to-paid-funnel-v1.ts:106:13   
+IosAppCtaMetadata                                        interface  lib/analytics/ios-app-cta-tracking.ts:16:18         
+LaunchDestinationType                                    type       lib/analytics/launch-campaign.ts:4:13               
+LaunchPageMetadata                                       interface  lib/analytics/launch-campaign.ts:16:18              
+LaunchBlogLinkMetadata                                   interface  lib/analytics/launch-campaign.ts:25:18              
+RealActivitySignals                                      interface  lib/analytics/real-activity-signals.ts:5:18         
+VisibleRealActivitySignals                               interface  lib/analytics/real-activity-signals.ts:11:18        
+CamFamily                                                type       lib/analytics/web-context.ts:5:13                   
+SeoPageType                                              type       lib/analytics/web-context.ts:6:13                   
+SeoQueryIntent                                           type       lib/analytics/web-context.ts:12:13                  
+SeoPageContext                                           interface  lib/analytics/web-context.ts:19:18                  
+WebAnalyticsContext                                      interface  lib/analytics/web-context.ts:25:18                  
+TideDirection                                            type       lib/analyzers/tide-analyzer.ts:28:13                
+RosterAuditClient                                        interface  lib/android-tester-roster/admin-audit.ts:1:18       
+TesterIdentity                                           interface  lib/android-tester-roster/crypto.ts:10:18           
+RosterReconciliationResult                               interface  lib/android-tester-roster/reconciliation.ts:63:18   
+AndroidWaitlistSourceKind                                type       lib/android-tester-roster/waitlist.ts:3:13          
+BeachSubPageInstallCtaInput                              interface  lib/app-store/beach-subpage-install-cta.ts:5:18     
+IphoneAppBannerDecisionInput                             interface  lib/app-store/iphone-app-banner.ts:25:18            
+UTMParam                                                 type       lib/attribution.ts:32:13                            
+AppleIdentityTokenErrorCode                              type       lib/auth/apple-identity-token.ts:15:13              
+AppleOrphanDetectionResult                               type       lib/auth/apple-orphan-detection.ts:27:13            
+AppleOrphanPrecheckRateLimitResult                       interface  lib/auth/apple-orphan-precheck-rate-limit.ts:10:18  
+AppleOrphanPrecheckResult                                type       lib/auth/apple-orphan-precheck.ts:25:13             
+AppleRecoveryAssessment                                  type       lib/auth/apple-recovery.ts:33:13                    
+AppleRecoveryConfirmation                                type       lib/auth/apple-recovery.ts:54:13                    
+AppleSignInResult                      appleSignIn       interface  lib/auth/apple-sign-in.ts:14:18                     
+EmailDomainValidation                  authUtils         interface  lib/auth/auth-utils.ts:275:18                       
+BuildHandoffContextInput                                 interface  lib/beach-follow/handoff.ts:54:18                   
+BuildHandoffContextOptions                               interface  lib/beach-follow/handoff.ts:62:18                   
+HandoffResolutionAvailability                            interface  lib/beach-follow/handoff.ts:67:18                   
+IntentEvidenceState                                      type       lib/beach-follow/intent.ts:36:13                    
+IntentEvidenceSource                                     type       lib/beach-follow/intent.ts:38:13                    
+IntentQualificationReason                                type       lib/beach-follow/intent.ts:48:13                    
+IntentQualification                                      interface  lib/beach-follow/intent.ts:57:18                    
+BeginnerTideStage                                        type       lib/beginner/beginner-window-evaluator.ts:1:13      
+BeginnerWindowRange                                      interface  lib/beginner/beginner-window-evaluator.ts:5:18      
+BeginnerBeachMetadata                                    interface  lib/beginner/beginner-window-evaluator.ts:26:18     
+BeginnerWindowInput                                      interface  lib/beginner/beginner-window-evaluator.ts:35:18     
+CommunityPhotoUploadFields                               type       lib/community-photos/contracts.ts:44:13             
+CommunityPhotoVoteInput                                  type       lib/community-photos/contracts.ts:45:13             
+CommunityPhotoReportInput                                type       lib/community-photos/contracts.ts:46:13             
+CommunityPhotoUploadReservation                          interface  lib/community-photos/repository.ts:77:18            
+CommunityPhotoMimeType                                   type       lib/community-photos/upload-constraints.ts:11:13    
+SubmitConditionsReportData                               interface  …conditions-report/submit-conditions-report.ts:21:18
+DataSource                                               type       lib/config/forecast-staleness.ts:52:13              
+BlurPlaceholderKey                                       type       lib/constants/blur-placeholders.ts:17:13            
+IntentGroupKey                                           type       lib/constants/intent-definitions.ts:16:13           
+MilestoneDefinition                                      interface  lib/constants/personalization-milestones.ts:29:18   
+SurfIntentDefinition                                     interface  lib/constants/surf-intents.ts:19:18                 
+SurfStyle                                                type       lib/constants/user-preferences.ts:24:13             
+HomeBeachPushRunSummary                                  interface  lib/cron/home-beach-push-runner.ts:73:18            
+WeekendScoutRunSummary                                   interface  lib/cron/weekend-scout-runner.ts:43:18              
+BlogMetric                                               interface  lib/data/blog-posts.ts:3:18                         
+CamRegion                                                interface  lib/data/cam-regions.ts:8:18                        
+RegionGroup                                              interface  lib/data/region-groups.ts:10:18                     
+FeaturedBeachesOptions                                   interface  lib/data/server/featured-beaches.ts:36:18           
+FeaturedBeachesResult                                    interface  lib/data/server/featured-beaches.ts:346:18          
+DominantSource                                           type       lib/domains/conditions/dominant-swell.ts:24:13      
+DominantSwell                                            interface  lib/domains/conditions/dominant-swell.ts:26:18      
+WindState                                                type       lib/domains/conditions/index.ts:10:3                
+TideStatus                                               type       lib/domains/conditions/index.ts:12:3                
+TideState                                                type       lib/domains/conditions/index.ts:13:3                
+TrendDirection                                           type       lib/domains/conditions/index.ts:15:3                
+SwellAnalysis                                            type       lib/domains/conditions/index.ts:17:3                
+DominantSwell                                            type       lib/domains/conditions/index.ts:45:3                
+DominantSource                                           type       lib/domains/conditions/index.ts:46:3                
+TideStatus                                               type       lib/domains/conditions/types.ts:40:13               
+ResolvedVerdictSkill                                     interface  lib/domains/rideability/ability.ts:21:18            
+ResolvedVerdictSkill                                     type       lib/domains/rideability/index.ts:15:15              
+SkillSource                                              type       lib/domains/rideability/index.ts:15:37              
+DiscoveryScoringOptions                                  interface  lib/domains/scoring/discovery-adapter.ts:238:18     
+SkillWaveRanges                                          type       lib/domains/scoring/discovery-adapter.ts:330:15     
+SkillCeilingResult                                       interface  lib/domains/scoring/discovery-adapter.ts:340:18     
+SkillFloorResult                                         interface  lib/domains/scoring/discovery-adapter.ts:384:18     
+BoardFitResult                                           interface  lib/domains/scoring/discovery-adapter.ts:433:18     
+BeachSkillMatchResult                                    interface  lib/domains/scoring/discovery-adapter.ts:491:18     
+MatchQuality                                             type       lib/domains/scoring/index.ts:13:3                   
+ScoringEngineConfig                                      type       lib/domains/scoring/index.ts:14:3                   
+ScoringDecisionEffect                                    type       lib/domains/scoring/index.ts:15:3                   
+ScoringEffectSeverity                                    type       lib/domains/scoring/index.ts:16:3                   
+DiscoveryScoringOptions                                  type       lib/domains/scoring/index.ts:48:3                   
+SkillCeilingResult                                       type       lib/domains/scoring/index.ts:49:3                   
+BeachSkillMatchResult                                    type       lib/domains/scoring/index.ts:50:3                   
+DominantKind                                             type       …ains/scoring/scorers/directional-relevance.ts:32:13
+DominantKind                                             type       lib/domains/scoring/scorers/index.ts:21:15          
+SetupRisk                                                interface  …/domains/scoring/scorers/setup-risk-scorer.ts:20:18
+WindChopCeiling                                          interface  lib/domains/scoring/wind-chop-ceiling.ts:10:18      
+WindThresholds                                           type       lib/domains/spot-profile/index.ts:10:3              
+SkillLevel                                               type       lib/domains/spot-profile/index.ts:12:3              
+WavePunchinessInputs                                     type       lib/domains/spot-profile/index.ts:24:15             
+WavePunchinessInputs                                     interface  lib/domains/spot-profile/wave-punchiness.ts:40:18   
+WavePunchinessResolution                                 interface  lib/domains/spot-profile/wave-punchiness.ts:81:18   
+WaveSizePreference                                       type       lib/domains/user-preferences/index.ts:8:3           
+OnboardingPreferences                                    type       lib/domains/user-preferences/index.ts:9:3           
+LearnedPreferences                                       type       lib/domains/user-preferences/index.ts:10:3          
+BeachAffinity                                            type       lib/domains/user-preferences/index.ts:11:3          
+UserPreferences                                          type       lib/domains/user-preferences/index.ts:12:3          
+PreferenceMatch                                          type       lib/domains/user-preferences/index.ts:13:3          
+SkillWaveRanges                                          type       lib/domains/user-preferences/index.ts:19:27         
+WaveSizePreference                                       type       lib/domains/user-preferences/types.ts:13:13         
+PreferenceMatch                                          interface  lib/domains/user-preferences/types.ts:118:18        
+BreakType                                                type       lib/domains/wave-frequency/index.ts:12:15           
+WaveFrequencyResult                                      type       lib/domains/wave-frequency/index.ts:12:26           
+ConditionLabelData                                       interface  lib/email/email-formatters.ts:6:18                  
+FormattedBestWindow                                      interface  lib/email/email-formatters.ts:11:18                 
+IntelPost                                                interface  lib/email/email-types.ts:9:18                       
+ReengagementCandidate                                    interface  lib/email/email-types.ts:18:18                      
+ConditionsAlertCandidate                                 interface  lib/email/email-types.ts:36:18                      
+EmailActionPageOptions                                   interface  lib/email/html-response.ts:12:18                    
+VerificationResult                                       type       lib/email/verify-email-action.ts:3:13               
+ExperimentAssignmentRow                                  interface  lib/experiments/assignments.ts:4:18                 
+ExperimentEligibilityLinkResult                          interface  lib/experiments/assignments.ts:16:18                
+ForecastFeedbackContext                                  interface  lib/forecast-feedback/submit-feedback.ts:16:18      
+SubmitForecastFeedbackOptions                            interface  lib/forecast-feedback/submit-feedback.ts:21:18      
+SubmitForecastFeedbackResult                             type       lib/forecast-feedback/submit-feedback.ts:27:13      
+BadgeUnlock                                              type       lib/gamification/index.ts:22:3                      
+XPTrackingResult                                         type       lib/gamification/index.ts:23:3                      
+LevelInfo                                                type       lib/gamification/index.ts:24:3                      
+LevelThreshold                                           type       lib/gamification/index.ts:25:3                      
+UserXPStatus                                             type       lib/gamification/index.ts:26:3                      
+UserBadgeStats                                           type       lib/gamification/index.ts:27:3                      
+BadgeCheck                                               type       lib/gamification/index.ts:28:3                      
+CreditAuthorResult                                       type       lib/gamification/index.ts:29:3                      
+RelatedEntityType                                        type       lib/gamification/index.ts:30:3                      
+RelatedEntityType                                        type       lib/gamification/types.ts:127:13                    
+IncrementUserXPResult                                    interface  lib/gamification/xp-service.ts:21:18                
+GarminActivityTier                                       type       lib/garmin/activity-session-mapper.ts:13:13         
+GarminNearbyBeach                                        type       lib/garmin/activity-session-mapper.ts:15:13         
+GarminSessionSkeleton                                    type       lib/garmin/activity-session-mapper.ts:20:13         
+ProfileFormStateConfig                                   interface  lib/hooks/useProfileFormState.ts:6:18               
+ProfileFormState                                         interface  lib/hooks/useProfileFormState.ts:16:18              
+SurfersViewCamPageInput                                  interface  lib/importers/surfers-view-cams.ts:16:18            
+SurfersViewApplyBatches                                  interface  lib/importers/surfers-view-cams.ts:55:18            
+InstallHandoffAttribution                                interface  lib/install-attribution-server.ts:12:18             
+InviteConsumeResult                                      type       lib/invites/consume.ts:27:13                        
+LearnNextPaddleLink                                      interface  lib/learn/learn-cta.ts:3:18                         
+ResolvedLearnAppHandoff                                  interface  lib/learn/learn-cta.ts:8:18                         
+LogLevel                                                 type       lib/logger.ts:20:13                                 
+Logger                                                   interface  lib/logger.ts:103:18                                
+AdminAction                                              type       lib/logging/admin-audit.ts:13:13                    
+AdminEntity                                              type       lib/logging/admin-audit.ts:27:13                    
+AuditLogEntry                                            interface  lib/logging/admin-audit.ts:40:18                    
+SendAndroidBetaInstructionsEmailResu…                    interface  lib/mailer/android-beta.ts:13:18                    
+SendEmailOptions                                         type       lib/mailer/client.ts:49:13                          
+BeachEmailLinkParams                                     interface  lib/mailer/email-links.ts:1:18                      
+AppEmailLinkParams                                       interface  lib/mailer/email-links.ts:22:18                     
+SessionEmailLinkParams                                   interface  lib/mailer/email-links.ts:28:18                     
+AndroidBetaInstructionsEmailProps                        interface  …er/templates/AndroidBetaInstructionsEmail.tsx:27:18
+AppLinkEmailProps                                        interface  lib/mailer/templates/AppLinkEmail.tsx:28:18         
+CheckInEmailProps                                        interface  lib/mailer/templates/CheckInEmail.tsx:27:18         
+ConsolidatedAlertEmailProps                              interface  …b/mailer/templates/ConsolidatedAlertEmail.tsx:39:18
+FormattedEmailWindow                                     interface  …/mailer/templates/ConsolidatedAlertEmail.tsx:273:18
+FirstSessionNudgeEmailProps                              interface  …b/mailer/templates/FirstSessionNudgeEmail.tsx:28:18
+FounderStoryEmailProps                                   interface  lib/mailer/templates/FounderStoryEmail.tsx:25:18    
+PersonalizedNudgeEmailProps                              interface  …b/mailer/templates/PersonalizedNudgeEmail.tsx:31:18
+TrialEndedEmailProps                                     interface  lib/mailer/templates/TrialEndedEmail.tsx:26:18      
+TrialEndingEmailProps                                    interface  lib/mailer/templates/TrialEndingEmail.tsx:27:18     
+TrialInvitationEmailProps                                interface  lib/mailer/templates/TrialInvitationEmail.tsx:29:18 
+TrialStartedEmailProps                                   interface  lib/mailer/templates/TrialStartedEmail.tsx:29:18    
+WeeklyRecapEmailProps                                    interface  lib/mailer/templates/WeeklyRecapEmail.tsx:57:18     
+WelcomeEmailProps                                        interface  lib/mailer/templates/WelcomeEmail.tsx:26:18         
+TrialEndingInput                                         interface  lib/mailer/trial-lifecycle-emails.tsx:127:18        
+GenerateWelcomeEmailInput                                interface  lib/mailer/welcome-email.tsx:11:18                  
+GeneratedWelcomeEmail                                    interface  lib/mailer/welcome-email.tsx:18:18                  
+StaticMapPin                                             interface  lib/map-utils.ts:490:18                             
+CamEmbedIntent                                           type       lib/media/cam-embed.ts:3:13                         
+LicensedCamOverride                                      interface  lib/media/licensed-cam-overrides.ts:3:18            
+SessionPhotoValidationError                              type       lib/media/session-photo-policy.ts:16:13             
+AdminCheckResult                                         interface  lib/middleware/admin-checker.ts:18:18               
+RouteContext                                             type       lib/middleware/api-wrappers.ts:26:8                 
+ResolvedParams                                           type       lib/middleware/api-wrappers.ts:27:8                 
+OptionalAuthHandler                                      type       lib/middleware/api-wrappers.ts:31:8                 
+WithAuthOptions                                          type       lib/middleware/api-wrappers.ts:32:8                 
+WithErrorHandlerOptions                                  type       lib/middleware/api-wrappers.ts:33:8                 
+CreateApiHandlerOptions                                  type       lib/middleware/api-wrappers.ts:34:8                 
+WithRateLimitOptions                                     type       lib/middleware/api-wrappers.ts:35:8                 
+WithBotBlockingOptions                                   type       lib/middleware/api-wrappers.ts:36:8                 
+ProtectionOptions                                        type       lib/middleware/api-wrappers.ts:37:8                 
+OwnershipResult                                          type       lib/middleware/api-wrappers.ts:38:8                 
+RateLimitKey                                             type       lib/middleware/api-wrappers.ts:39:8                 
+AdminAuthenticatedHandler                                type       lib/middleware/api-wrappers.ts:43:8                 
+BearerAuthContext                                        type       lib/middleware/api-wrappers.ts:44:8                 
+BearerAuthHandler                                        type       lib/middleware/api-wrappers.ts:45:8                 
+WithAdminAuthOptions                                     type       lib/middleware/api-wrappers.ts:46:8                 
+RouteContext                                             type       lib/middleware/api-wrappers/index.ts:46:3           
+ResolvedParams                                           type       lib/middleware/api-wrappers/index.ts:47:3           
+OptionalAuthHandler                                      type       lib/middleware/api-wrappers/index.ts:51:3           
+WithAuthOptions                                          type       lib/middleware/api-wrappers/index.ts:52:3           
+WithErrorHandlerOptions                                  type       lib/middleware/api-wrappers/index.ts:53:3           
+CreateApiHandlerOptions                                  type       lib/middleware/api-wrappers/index.ts:54:3           
+WithRateLimitOptions                                     type       lib/middleware/api-wrappers/index.ts:55:3           
+WithBotBlockingOptions                                   type       lib/middleware/api-wrappers/index.ts:56:3           
+ProtectionOptions                                        type       lib/middleware/api-wrappers/index.ts:57:3           
+AdminAuthenticatedHandler                                type       lib/middleware/api-wrappers/index.ts:59:3           
+BearerAuthContext                                        type       lib/middleware/api-wrappers/index.ts:60:3           
+BearerAuthHandler                                        type       lib/middleware/api-wrappers/index.ts:61:3           
+WithAdminAuthOptions                                     type       lib/middleware/api-wrappers/index.ts:62:3           
+OwnershipResult                                          type       lib/middleware/api-wrappers/index.ts:84:15          
+RateLimitKey                                             type       lib/middleware/api-wrappers/index.ts:141:15         
+OwnershipResult                                          type       …/middleware/api-wrappers/ownership-helpers.ts:15:13
+WithBotBlockingOptions                                   interface  lib/middleware/api-wrappers/types.ts:138:18         
+AuthResult                                               type       lib/middleware/auth-validator.ts:24:13              
+SupabaseCookieOptions                                    interface  lib/middleware/auth-validator.ts:28:18              
+RouteClassification                                      interface  lib/middleware/route-guard.ts:17:18                 
+UrlPatternType                                           type       lib/middleware/seo-redirect-handler.ts:145:13       
+BeachLookupResult                                        interface  lib/middleware/seo-redirect-handler.ts:254:18       
+ForecastSourceHealthMetrics                              interface  lib/monitoring/forecast-health-check.ts:13:18       
+ForecastHealthMetrics                                    interface  lib/monitoring/forecast-health-check.ts:44:18       
+SentryTraceSamplingContext                               type       lib/monitoring/sentry-config.ts:65:13               
+QuiverSentryEnvironment                                  type       lib/monitoring/sentry-config.ts:73:13               
+NotificationPresentationCompatibilit…                    type       lib/notifications/build-compatibility.ts:8:13       
+NotificationPresentationCompatibilit…                    interface  lib/notifications/build-compatibility.ts:17:18      
+NotificationEventUpdate                                  type       lib/notifications/db-augment.ts:76:13               
+HomeMorningCallPresentation                              type       …otifications/home-morning-call-presentation.ts:4:13
+NotificationConfidenceLevel                              type       lib/notifications/relevance.ts:1:13                 
+NotificationRelevanceMetadata                            interface  lib/notifications/relevance.ts:3:18                 
+ProcessOptions                                           interface  lib/notifications/worker.ts:188:18                  
+NotificationMajorEventHoldResolver                       type       lib/notifications/worker.ts:198:13                  
+ProcessSummary                                           interface  lib/notifications/worker.ts:202:18                  
+BeachRecord                                              interface  lib/npc/npc-selection.ts:39:18                      
+NPCPostTag                                               type       lib/npc/post-quality.ts:3:13                        
+NPCPostCopy                                              interface  lib/npc/post-quality.ts:5:18                        
+RecentPostCopy                                           interface  lib/npc/post-quality.ts:11:18                       
+ActivityLevel                                            type       lib/npc/posting-windows.ts:15:13                    
+PostingWindow                                            interface  lib/npc/posting-windows.ts:17:18                    
+SystemCardSelectionRecord                                interface  lib/npc/system-card-selection.ts:10:18              
+PlannedSystemCard                                        interface  lib/npc/system-card-selection.ts:16:18              
+SelectSystemCardCandidatesOptions                        interface  lib/npc/system-card-selection.ts:21:18              
+SystemCardObservation                                    interface  lib/npc/system-cards.ts:17:18                       
+SystemCardCopy                                           interface  lib/npc/system-cards.ts:34:18                       
+SystemFeedPostInput                                      interface  lib/npc/system-feed-posts.ts:6:18                   
+SystemFeedPostStatus                                     type       lib/npc/system-feed-posts.ts:19:13                  
+SystemFeedPostResult                                     interface  lib/npc/system-feed-posts.ts:26:18                  
+SurfConditions                                           interface  lib/npc/template-hydration.ts:11:18                 
+TrafficBeach                                             interface  lib/npc/traffic-weights.ts:3:18                     
+TrafficEvent                                             interface  lib/npc/traffic-weights.ts:10:18                    
+TrafficAllocationTier                                    type       lib/npc/traffic-weights.ts:16:13                    
+ComputedTrafficWeight                                    interface  lib/npc/traffic-weights.ts:18:18                    
+ResolvedPartner                                          interface  lib/partner/partner-profile.ts:3:18                 
+UserEntitlementRow                                       interface  lib/personalization/eligibility.ts:24:18            
+ResolvePersonalizationEligibilityInp…                    interface  lib/personalization/eligibility.ts:31:18            
+MatchState                                               type       lib/personalization/match-score.ts:25:13            
+MatchQualityBand                                         type       lib/personalization/match-score.ts:34:13            
+MatchSource                                              type       lib/personalization/match-score.ts:42:13            
+MatchReasonType                                          type       lib/personalization/match-score.ts:48:13            
+MatchReasonFact                                          interface  lib/personalization/match-score.ts:58:18            
+MatchScoreForecastInput                                  interface  lib/personalization/match-score.ts:63:18            
+MatchScoreResponse                                       interface  lib/personalization/match-score.ts:72:18            
+ResolveMatchScoreStateInput                              interface  lib/personalization/match-score.ts:111:18           
+RawMatchScoreState                                       type       lib/personalization/match-state-compat.ts:1:13      
+ProfileWithHomeBeach                                     type       lib/profile/fetchers.ts:4:13                        
+StreakResult                                             interface  lib/progression/streak-calculator.ts:1:18           
+BuildCanonicalDecisionFromAlertMatch…                    type       …endations/canonical-decision/alert-adapter.ts:11:13
+BuildCanonicalDecisionFromSurfDiscov…                    type       …tions/canonical-decision/discovery-adapter.ts:22:13
+BuildCanonicalDecisionFromSurfDiscov…                    type       lib/recommendations/canonical-decision/index.ts:7:15
+BuildCanonicalDecisionFromAlertMatch…                    type       …b/recommendations/canonical-decision/index.ts:17:15
+CanonicalSessionDecisionServiceDepen…                    type       lib/recommendations/canonical-decision/index.ts:19:3
+CanonicalSessionDecisionContext                          type       lib/recommendations/canonical-decision/index.ts:20:3
+ResolveCanonicalSessionDecisionInput                     type       lib/recommendations/canonical-decision/index.ts:21:3
+BuildCanonicalSessionDecisionInput                       type       lib/recommendations/canonical-decision/index.ts:28:3
+CanonicalDecisionBasis                                   type       lib/recommendations/canonical-decision/index.ts:30:3
+CanonicalDecisionBasisV2                                 type       lib/recommendations/canonical-decision/index.ts:31:3
+CanonicalMatchConfidence                                 type       lib/recommendations/canonical-decision/index.ts:32:3
+CanonicalDecisionReasonCode                              type       lib/recommendations/canonical-decision/index.ts:33:3
+CanonicalDecisionScope                                   type       lib/recommendations/canonical-decision/index.ts:34:3
+CanonicalDecisionSelection                               type       lib/recommendations/canonical-decision/index.ts:35:3
+CanonicalDecisionSkill                                   type       lib/recommendations/canonical-decision/index.ts:36:3
+CanonicalDecisionVerdict                                 type       lib/recommendations/canonical-decision/index.ts:37:3
+CanonicalEligibilityState                                type       lib/recommendations/canonical-decision/index.ts:38:3
+CanonicalPersonalMatchEvidence                           type       lib/recommendations/canonical-decision/index.ts:39:3
+ResolveCanonicalSessionDecisionInput                     interface  …recommendations/canonical-decision/service.ts:16:18
+CanonicalSessionDecisionServiceDepen…                    interface  …recommendations/canonical-decision/service.ts:26:18
+CanonicalSessionDecisionContext                          interface  …recommendations/canonical-decision/service.ts:33:18
+ScoredForecastSlotLike                                   interface  …ns/major-event-hold/adapters/bulk-forecast.ts:42:18
+ScoredForecastGoldenWindowLike                           interface  …ns/major-event-hold/adapters/bulk-forecast.ts:47:18
+ScoredForecastResponseLike                               interface  …ns/major-event-hold/adapters/bulk-forecast.ts:52:18
+SanitizedScoredForecastResponse                          type       …ns/major-event-hold/adapters/bulk-forecast.ts:64:13
+SanitizedIntentForecastResponse                          interface  …endations/major-event-hold/adapters/intent.ts:47:18
+DailyIntelCandidateSource                                interface  …endations/major-event-hold/adapters/legacy.ts:31:18
+DailyIntelResponseLike                                   interface  …endations/major-event-hold/adapters/legacy.ts:39:18
+SanitizedDailyIntelResponse                              type       …endations/major-event-hold/adapters/legacy.ts:60:13
+CoachPicksResponseLike                                   interface  …endations/major-event-hold/adapters/legacy.ts:81:18
+SanitizedCoachPicksResponse                              type       …endations/major-event-hold/adapters/legacy.ts:85:13
+NotificationMajorEventHoldDependenci…                    interface  …ons/major-event-hold/adapters/notification.ts:52:18
+MajorEventHoldRegionalForecastSummary                    type       …dations/major-event-hold/adapters/regional.ts:16:13
+SurfCallCandidateIdentity                                interface  …ations/major-event-hold/adapters/surf-call.ts:26:18
+EvaluateOfficialRipCurrentHoldsInput                     interface  …tions/major-event-hold/automatic-evaluator.ts:24:18
+OfficialRipCurrentHoldDiagnostics                        interface  …tions/major-event-hold/automatic-evaluator.ts:48:18
+MajorEventHoldCacheInvalidationOptio…                    interface  …ations/major-event-hold/cache-invalidation.ts:85:18
+ExecuteManualHoldOptions                                 interface  …/recommendations/major-event-hold/control.ts:218:18
+AdminHoldView                                            interface  …/recommendations/major-event-hold/control.ts:225:18
+ExecuteManualHoldResult                                  interface  …/recommendations/major-event-hold/control.ts:249:18
+EvaluateMajorEventHoldInput                              interface  …recommendations/major-event-hold/evaluator.ts:86:18
+MajorEventHoldRpcClient                                  interface  …commendations/major-event-hold/repository.ts:212:18
+ResolveMajorEventHoldsOptions                            interface  …commendations/major-event-hold/repository.ts:216:18
+ResolveMajorEventHolds                                   type       …b/recommendations/major-event-hold/service.ts:36:13
+ResolveWaterQualityHolds                                 type       …b/recommendations/major-event-hold/service.ts:41:13
+MajorEventHoldServiceDependencies                        interface  …b/recommendations/major-event-hold/service.ts:45:18
+MajorEventHoldTriggerType                                type       lib/recommendations/major-event-hold/types.ts:41:13 
+MajorEventHoldAuthorizingActor                           type       lib/recommendations/major-event-hold/types.ts:59:13 
+ResolveWaterQualityHoldsOptions                          interface  …mendations/major-event-hold/water-quality.ts:138:18
+MajorSwellAwarenessShadowResult                          interface  …ons/major-swell-awareness/shadow-evaluator.ts:25:18
+EvaluateMajorSwellAwarenessShadowInp…                    interface  …ons/major-swell-awareness/shadow-evaluator.ts:39:18
+RecommendationSessionContextPayload                      type       lib/recommendations/session-context.ts:35:13        
+SessionIntelligenceSurfacePolicy                         interface  …commendations/session-intelligence-rollout.ts:13:18
+BuildSpotSurfWindowRecommendationsIn…                    interface  …ions/session-intelligence-surface-adapters.ts:36:18
+BuildRegionalSurfWindowRecommendatio…                    interface  …ions/session-intelligence-surface-adapters.ts:46:18
+BuildHomepageSurfWindowRecommendatio…                    interface  …ions/session-intelligence-surface-adapters.ts:55:18
+BuildSurfWindowLinksInput                                interface  lib/recommendations/surf-window-links.ts:5:18       
+BuildSurfWindowSourceFlagsInput                          interface  …b/recommendations/surf-window-source-flags.ts:11:18
+BuildSurfWindowDataNotesInput                            interface  …b/recommendations/surf-window-source-flags.ts:17:18
+BasicProfileFormValues                                   type       lib/schemas/profile-schema.ts:70:13                 
+OptimalWindow                                            type       lib/scorers/session-window-scorer.ts:33:15          
+WindowCalculatorOptions                                  type       lib/scorers/session-window-scorer.ts:33:30          
+ForecastData                                             interface  lib/scorers/session-window-scorer.ts:73:18          
+SessionWindow                                            interface  lib/scorers/session-window-scorer.ts:131:18         
+BoardPickContext                                         type       lib/scoring/board-pick.ts:57:13                     
+ConditionSummaryInput                                    type       lib/scoring/index.ts:23:8                           
+ConditionSubscores                                       type       lib/scoring/index.ts:28:8                           
+MatchQuality                                             type       lib/scoring/index.ts:30:8                           
+OptimalWindow                                            type       lib/scoring/index.ts:31:8                           
+WindowBoundaryReason                                     type       lib/scoring/index.ts:33:8                           
+WindowCalculatorOptions                                  type       lib/scoring/index.ts:34:8                           
+BoardPickContext                                         type       lib/scoring/index.ts:40:8                           
+BoardPickResult                                          type       lib/scoring/index.ts:41:8                           
+DailyScore                                               type       lib/scoring/index.ts:43:41                          
+ConditionCharacter                                       type       lib/scoring/index.ts:44:15                          
+ConditionCharacterCategory                               type       lib/scoring/index.ts:44:40                          
+MultiWindowResult                                        type       lib/scoring/index.ts:44:73                          
+RelativeContext                                          type       lib/scoring/index.ts:44:97                          
+ConditionSummaryInput                                    interface  lib/scoring/message-generator.ts:78:18              
+NativeSkillThresholds                                    interface  lib/scoring/native-condition-score.ts:15:18         
+NativeScoreInputs                                        interface  lib/scoring/native-condition-score.ts:23:18         
+AeoReportValidation                                      interface  lib/seo/agent-workflow/aeo-export.ts:178:18         
+MergedGscPageRow                                         interface  lib/seo/agent-workflow/gsc-refresh.ts:19:18         
+SeoMetadataPageInput                                     interface  lib/seo/agent-workflow/metadata-audit.ts:9:18       
+OutreachTrackerRow                                       interface  lib/seo/agent-workflow/outreach-digest.ts:31:18     
+OutreachTrackerParse                                     interface  lib/seo/agent-workflow/outreach-digest.ts:42:18     
+PostHogWebEventRow                                       interface  lib/seo/agent-workflow/posthog-export.ts:7:18       
+PostHogWebRow                                            interface  lib/seo/agent-workflow/posthog-export.ts:14:18      
+PostHogNativeRow                                         interface  lib/seo/agent-workflow/posthog-export.ts:24:18      
+StoreTarget                                              interface  lib/seo/agent-workflow/store-snapshot.ts:3:18       
+AppStoreLookupResult                                     interface  lib/seo/agent-workflow/store-snapshot.ts:9:18       
+VercelRawResponses                                       interface  lib/seo/agent-workflow/vercel-export.ts:11:18       
+EditorialBeachSummary                                    interface  lib/seo/city-content-generator.ts:21:18             
+CityContentInput                                         interface  lib/seo/city-content-generator.ts:29:18             
+CityStateRecord                                          interface  lib/seo/city-slug-utils.ts:38:18                    
+ParsedCitySlug                                           interface  lib/seo/city-slug-utils.ts:112:18                   
+EditorialIntegrityResult                                 interface  lib/seo/editorial-integrity.ts:18:18                
+ForecastAuthorityAuditFailure                            interface  lib/seo/forecast-authority-audit.ts:20:18           
+ForecastAuthorityAuditReport                             interface  lib/seo/forecast-authority-audit.ts:30:18           
+ForecastBenchmarkQueryClass                              type       lib/seo/forecast-authority-benchmark.ts:14:13       
+ForecastBenchmarkQuery                                   interface  lib/seo/forecast-authority-benchmark.ts:37:18       
+ForecastBenchmarkCompetitor                              interface  lib/seo/forecast-authority-benchmark.ts:55:18       
+ForecastCompetitiveSourceResult                          interface  lib/seo/forecast-authority-benchmark.ts:60:18       
+ForecastCompetitiveBenchmark                             interface  lib/seo/forecast-authority-benchmark.ts:68:18       
+ForecastAnswerContractFacts                              interface  lib/seo/forecast-authority-benchmark.ts:98:18       
+SubPageDataAvailability                                  interface  lib/seo/forecast-indexability.ts:35:18              
+GscProtectedPageFamily                                   type       lib/seo/gsc-performance-protection.ts:16:13         
+GscProtectionDiff                                        interface  lib/seo/gsc-performance-protection.ts:47:18         
+BeachIndexabilityInput                                   interface  lib/seo/indexability.ts:13:18                       
+BeachEditorialRecord                                     interface  lib/seo/indexability.ts:23:18                       
+CityIntentEditorialInput                                 interface  lib/seo/indexability.ts:37:18                       
+EditorialQualityReason                                   type       lib/seo/indexability.ts:57:13                       
+EditorialQualityResult                                   interface  lib/seo/indexability.ts:76:18                       
+IndexabilityContext                                      interface  lib/seo/indexability.ts:82:18                       
+ForecastIndexabilityInput                                interface  lib/seo/indexability.ts:95:18                       
+CityDataIntentAvailability                               interface  lib/seo/indexability.ts:340:18                      
+FAQItem                                                  interface  lib/seo/intent-faq-generator.ts:9:18                
+LocationPlaceBeachItem                                   type       lib/seo/location-structured-data.ts:1:13            
+LocationPlaceBeachGeo                                    type       lib/seo/location-structured-data.ts:12:13           
+BuildLocationPlaceStructuredDataInput                    type       lib/seo/location-structured-data.ts:21:13           
+RegionalSurfData                                         interface  lib/seo/regional-surf-data.ts:8:18                  
+TextSegment                                              interface  lib/seo/rich-content.ts:11:18                       
+LinkSegment                                              interface  lib/seo/rich-content.ts:16:18                       
+StateContentInput                                        interface  lib/seo/state-content-generator.ts:18:18            
+NextTideExtremes                                         interface  lib/seo/tide-meta-data.ts:45:18                     
+CreateServerActionOptions                                interface  lib/server-action-utils.ts:164:18                   
+NormalizedCCCLocation                                    type       lib/services/ccc/index.ts:26:3                      
+CDIPBuoyData                                             type       lib/services/cdip/index.ts:15:3                     
+CDIPDataPoint                                            type       lib/services/cdip/index.ts:16:3                     
+CDIPDataResponse                                         type       lib/services/cdip/index.ts:17:3                     
+CDIPMetaResponse                                         type       lib/services/cdip/index.ts:18:3                     
+CDIPStationConfig                                        type       lib/services/cdip/index.ts:19:3                     
+CDIPCacheEntry                                           type       lib/services/cdip/index.ts:20:3                     
+CDIPSkipReason                                           type       lib/services/cdip/index.ts:21:3                     
+CDIPFetchDiagnostic                                      type       lib/services/cdip/index.ts:22:3                     
+CDIPWaveDataDiagnostic                                   type       lib/services/cdip/index.ts:23:3                     
+CDIPBuoyDataDiagnostic                                   type       lib/services/cdip/index.ts:24:3                     
+CoastPulseItem                                           type       …b/services/coast-pulse/coast-pulse-service.ts:65:15
+CoastPulseResponse                                       type       …b/services/coast-pulse/coast-pulse-service.ts:65:31
+CoastPulseParams                                         type       …b/services/coast-pulse/coast-pulse-service.ts:65:51
+CoastPulseSummary                                        type       lib/services/coast-pulse/coast-pulse-types.ts:7:3   
+CoastPulseSummaryItem                                    type       lib/services/coast-pulse/coast-pulse-types.ts:8:3   
+CurrentBeachWind                                         interface  lib/services/current-beach-wind.ts:3:18             
+BoardStyleFitResult                                      interface  lib/services/discovery/board-style-fit.ts:6:18      
+BreakBehaviorAggregate                                   interface  lib/services/discovery/break-behavior-score.ts:34:18
+AppliedBreakBehaviorScore                                interface  lib/services/discovery/break-behavior-score.ts:62:18
+CandidatePoolOptions                                     interface  …/services/discovery/candidate-pool-builder.ts:49:18
+CandidatePoolResult                                      interface  …/services/discovery/candidate-pool-builder.ts:59:18
+DiscoveryAvailabilityShape                               interface  …/services/discovery/discovery-availability.ts:13:18
+ForecastBatchOptions                                     interface  …/services/discovery/forecast-batch-fetcher.ts:24:18
+ForecastBatchResult                                      interface  …/services/discovery/forecast-batch-fetcher.ts:42:18
+HeroWindowScoreInput                                     type       lib/services/discovery/hero-ranking/index.ts:184:15 
+SharedSetupSignal                                        type       lib/services/discovery/hero-ranking/index.ts:189:15 
+CandidatePoolOptions                                     type       lib/services/discovery/index.ts:22:8                
+CandidatePoolResult                                      type       lib/services/discovery/index.ts:23:8                
+PoolFitBeach                                             type       lib/services/discovery/index.ts:31:8                
+PoolPreferenceProfile                                    type       lib/services/discovery/index.ts:32:8                
+ForecastBatchOptions                                     type       lib/services/discovery/index.ts:51:8                
+ForecastBatchResult                                      type       lib/services/discovery/index.ts:52:8                
+WindowSelectorOptions                                    type       lib/services/discovery/index.ts:62:8                
+PersonalizationContext                                   type       lib/services/discovery/index.ts:79:8                
+PersonalizationBonusResult                               type       lib/services/discovery/index.ts:80:8                
+PersonalizationBonusResult                               interface  …b/services/discovery/personalization-layer.ts:70:18
+RecommendationEvidence                                   interface  …services/discovery/recommendation-evidence.ts:20:18
+RegionalCallOptions                                      interface  lib/services/discovery/regional-call.ts:23:18       
+ApplySimilarityLayerArgs                                 interface  lib/services/discovery/similarity-layer.ts:35:18    
+ApplySimilarityLayerResult                               interface  lib/services/discovery/similarity-layer.ts:45:18    
+SurfDiscoveryOperationalErrorCode                        type       …ces/discovery/surf-discovery-orchestrator.ts:163:13
+WeekScoutCoverageBucket                                  interface  lib/services/discovery/week-scout.ts:183:18         
+WeekScoutCoverageDay                                     interface  lib/services/discovery/week-scout.ts:194:18         
+CandidateWindow                                          type       …b/services/discovery/window-selector/index.ts:11:38
+ScoredForecast                                           type       …b/services/discovery/window-selector/index.ts:11:55
+WindowConditionScoreDetails                              interface  …s/discovery/window-selector/window-scorer.ts:174:18
+EmailLogResult                                           interface  lib/services/email-logging-service.ts:57:18         
+ForecastContextSource                                    type       …b/services/forecast-recommendation-context.ts:68:13
+CDIPBuoyData                                             type       lib/services/forecast/api-types.ts:27:3             
+ParsedDisplayHeight                                      interface  …ervices/forecast/apply-beach-height-offset.ts:27:18
+FormatDisplayHeightOpts                                  interface  …ervices/forecast/apply-beach-height-offset.ts:91:18
+ApplyBeachHeightOffsetArgs                               interface  …rvices/forecast/apply-beach-height-offset.ts:131:18
+ProcessBeachesOptions                                    interface  …b/services/forecast/batch-beach-processor.ts:153:18
+BatchResult                                              interface  …services/forecast/batch-update-coordinator.ts:24:18
+BatchUpdateOptions                                       interface  …services/forecast/batch-update-coordinator.ts:30:18
+DirectionBucket                                          type       lib/services/forecast/calibration-v5.ts:34:13       
+OmBucket                                                 type       lib/services/forecast/calibration-v5.ts:35:13       
+V5ShadowResult                                           type       lib/services/forecast/calibration-v5.ts:165:13      
+ConfidenceParams                                         interface  lib/services/forecast/confidence-scorer.ts:16:18    
+ForecastRowParams                                        interface  lib/services/forecast/confidence-scorer.ts:135:18   
+CustomSpotAnchorAuditStatus                              type       …/services/forecast/custom-spot-anchor-audit.ts:7:13
+CustomSpotAnchorAuditReasonCode                          type       …/services/forecast/custom-spot-anchor-audit.ts:9:13
+CustomSpotAnchorAuditConfig                              type       …services/forecast/custom-spot-anchor-audit.ts:17:13
+CustomSpotAnchorAuditReason                              type       …services/forecast/custom-spot-anchor-audit.ts:54:13
+CustomSpotAnchorAuditBeachMatch                          type       …services/forecast/custom-spot-anchor-audit.ts:60:13
+CustomSpotAnchorAuditForecastSummary                     type       …services/forecast/custom-spot-anchor-audit.ts:67:13
+CustomSpotAnchorAuditEvaluation                          type       …services/forecast/custom-spot-anchor-audit.ts:73:13
+CustomSpotAnchorAuditSummary                             type       …services/forecast/custom-spot-anchor-audit.ts:85:13
+CustomSpotAnchorAuditResult                              type       …services/forecast/custom-spot-anchor-audit.ts:96:13
+FeedbackHeightCalibrationResult                          type       …vices/forecast/feedback-height-calibration.ts:19:13
+CalibrationCoverage                                      interface  lib/services/forecast/forecast-builder.ts:144:18    
+DataSourceServices                                       interface  lib/services/forecast/forecast-builder.ts:225:18    
+SeasideForecastFeedbackPayload                           interface  lib/services/forecast/forecast-feedback.ts:93:18    
+StoreResult                                              interface  lib/services/forecast/storage-service.ts:42:18      
+TodayHeadlineResult                                      interface  lib/services/forecast/today-headline.ts:19:18       
+BuildTrustedForecastDecisionsArgs                        interface  …ices/forecast/trusted-forecast-adjustment.ts:144:18
+UncoveredTrustedForecastVocabulary                       interface  …rvices/forecast/trusted-forecast-coverage.ts:304:18
+TrustedForecastCoverageErrorCode                         type       …rvices/forecast/trusted-forecast-coverage.ts:439:13
+CoverageTimezonePartition                                interface  …rvices/forecast/trusted-forecast-coverage.ts:547:18
+TrustedForecastBuildReceipt                              interface  …ices/forecast/trusted-forecast-persistence.ts:68:18
+TrustedForecastPersistenceErrorCode                      type       …ces/forecast/trusted-forecast-persistence.ts:149:13
+TrustedForecastPersistenceOutcome                        type       …ces/forecast/trusted-forecast-persistence.ts:213:13
+TrustedForecastIssueInputField                           type       …/services/forecast/trusted-forecast-policy.ts:83:13
+TrustedForecastIssueInput                                type       …/services/forecast/trusted-forecast-policy.ts:87:13
+TrustedForecastExclusionReason                           type       …services/forecast/trusted-forecast-policy.ts:535:13
+TrustedForecastExcludedIssue                             interface  …services/forecast/trusted-forecast-policy.ts:551:18
+TrustedForecastAuthoritySelection                        interface  …services/forecast/trusted-forecast-policy.ts:561:18
+SelectTrustedForecastAuthorityArgs                       interface  …services/forecast/trusted-forecast-policy.ts:763:18
+TrustedForecastRepositoryErrorCode                       type       …vices/forecast/trusted-forecast-repository.ts:56:13
+ForecastData                                             interface  lib/services/implicit-preferences-service.ts:23:18  
+ImplicitBonusResult                                      interface  lib/services/implicit-preferences-service.ts:32:18  
+IndexNowResult                                           interface  lib/services/indexnow-service.ts:21:18              
+IndexNowBatchResult                                      interface  lib/services/indexnow-service.ts:30:18              
+DailyIntelWaveHeightLabels                               type       lib/services/intel/wave-height-labels.ts:7:13       
+ERDDAPTableResponse                                      interface  lib/services/ioos/api-client.ts:17:18               
+ERDDAPInfoResponse                                       interface  lib/services/ioos/api-client.ts:27:18               
+CacheEntry                                               type       lib/services/ioos/index.ts:23:34                    
+StationVariablesResult                                   type       lib/services/ioos/index.ts:23:46                    
+EnhancedForecastEntity                                   type       lib/services/magic-hour/index.ts:23:3               
+OptimalWindow                                            type       lib/services/magic-hour/index.ts:25:3               
+WindQualityResult                                        type       lib/services/magic-hour/index.ts:27:3               
+NDBCStation                                              type       lib/services/ndbc-service.ts:4:13                   
+NDBCObservation                                          type       lib/services/ndbc-service.ts:13:13                  
+NearbyBeachQuery                                         interface  lib/services/nearby-beach-service.ts:30:18          
+NearbyBeachResult                                        interface  lib/services/nearby-beach-service.ts:35:18          
+ApiClientOptions                                         interface  lib/services/noaa-coops/api-client.ts:28:18         
+TideData                                                 type       lib/services/noaa-coops/index.ts:15:3               
+TideExtreme                                              type       lib/services/noaa-coops/index.ts:16:3               
+COOPSForecast                                            type       lib/services/noaa-coops/index.ts:17:3               
+RegionBounds                                             type       lib/services/noaa-coops/index.ts:18:3               
+StationInfo                                              type       lib/services/noaa-coops/index.ts:19:3               
+TideCacheEntry                                           type       lib/services/noaa-coops/index.ts:20:3               
+StationResolverOptions                                   interface  lib/services/noaa-coops/station-resolver.ts:17:18   
+TideCacheEvent                                           interface  lib/services/noaa-coops/tide-cache-monitor.ts:13:18 
+TideCacheOptions                                         interface  lib/services/noaa-coops/tide-cache.ts:19:18         
+TideExtremaDetectorConfig                                interface  …/services/noaa-coops/tide-extrema-detector.ts:38:18
+ProcessNOAAGridDataOptions                               interface  lib/services/noaa-wavewatch/data-processors.ts:26:18
+GfsWaveShadowCaptureStatus                               type       lib/services/noaa-wavewatch/gfs-wave-shadow.ts:18:13
+WaveWatchData                                            type       lib/services/noaa-wavewatch/index.ts:16:3           
+WaveWatchForecast                                        type       lib/services/noaa-wavewatch/index.ts:17:3           
+NOAAWavePoint                                            type       lib/services/noaa-wavewatch/index.ts:18:3           
+NOAAGridData                                             type       lib/services/noaa-wavewatch/index.ts:19:3           
+OpenMeteoMarineResponse                                  type       lib/services/noaa-wavewatch/index.ts:20:3           
+SwellFieldSource                                         interface  lib/services/noaa-wavewatch/types.ts:70:18          
+NOAAValidTimeInterval                                    interface  lib/services/noaa-wavewatch/wave-analysis.ts:20:18  
+NwsHourlyWindPoint                                       type       lib/services/nws-wind-service.ts:4:13               
+NewMilestone                                             interface  …services/personalization-milestone-service.ts:24:18
+AvoidancePattern                                         interface  lib/services/preference-learning-service.ts:44:18   
+AvoidanceForecastInput                                   interface  lib/services/preference-learning-service.ts:58:18   
+PushDispatchResult                                       interface  lib/services/push-delivery.ts:14:18                 
+PushMessage                                              type       lib/services/push-notifications.ts:20:13            
+SurfDiscoveryOperationalErrorCode                        type       lib/services/surf-discovery-service.ts:23:3         
+TidePoint                                                type       lib/services/tide-forecast-batch-utils.ts:1:13      
+TideForecastRow                                          type       lib/services/tide-forecast-batch-utils.ts:8:13      
+AlertResult                                              interface  …water-quality/water-quality-alerts-service.ts:46:18
+SessionDecompositionInput                                interface  lib/session-fit.ts:33:18                            
+WaveShareParams                                          interface  lib/share/build-share-card-url.ts:26:18             
+SessionShareParams                                       interface  lib/share/build-share-card-url.ts:36:18             
+SurfCallShareParams                                      interface  lib/share/build-share-card-url.ts:83:18             
+ProgressionShareParams                                   interface  lib/share/build-share-card-url.ts:218:18            
+StreakShareParams                                        interface  lib/share/build-share-card-url.ts:240:18            
+ForecastWindowShareMetadataInput                         interface  lib/share/forecast-window-share.ts:11:18            
+SessionShareSheetData                                    interface  lib/share/session-share.ts:6:18                     
+ShareData                                                interface  lib/share/share-data-builder.ts:20:18               
+BuildShareDataInput                                      interface  lib/share/share-data-builder.ts:34:18               
+ShareImageOptions                                        interface  lib/share/share-image.ts:8:18                       
+ShareImageResult                                         interface  lib/share/share-image.ts:19:18                      
+SocialProofCounts                                        interface  lib/social-proof/count-real-surfers.ts:6:18         
+GrantPromotionalEntitlementResult                        type       …subscription/grant-promotional-entitlement.ts:20:13
+EntitlementSegment                                       type       lib/subscription/reconciliation-report.ts:25:13     
+EntitlementReconciliationReport                          interface  lib/subscription/reconciliation-report.ts:50:18     
+ReadPageResult                                           interface  lib/subscription/reconciliation-report.ts:66:18     
+IntelVoteRow                                             interface  lib/supabase/intel-votes-query.ts:23:18             
+IntelVoteInsert                                          interface  lib/supabase/intel-votes-query.ts:31:18             
+IntelVoteUpdate                                          interface  lib/supabase/intel-votes-query.ts:37:18             
+ApprovedPhotosOptions                                    interface  lib/supabase/query-builders.ts:15:18                
+UploadResult                                             interface  lib/supabase/storage.ts:11:18                       
+CompactSurfSummaryInput                                  interface  lib/surf-summary-display.ts:5:18                    
+CompactSurfSummary                                       interface  lib/surf-summary-display.ts:17:18                   
+HourlyTide                                               interface  lib/surf/scoring.ts:43:18                           
+TideDirection                                            type       lib/surf/tide-direction.ts:1:13                     
+TidePreference                                           type       lib/surf/tide-direction.ts:2:13                     
+SystemAuthoredRecord                                     type       lib/system-identity.ts:26:13                        
+CoordinatesVerbose                                       interface  lib/types/coordinates.ts:29:18                      
+MapboxCoordinates                                        type       lib/types/coordinates.ts:43:13                      
+DatabaseCoordinates                                      interface  lib/types/coordinates.ts:49:18                      
+CoordinatesInput                                         type       lib/types/coordinates.ts:60:13                      
+NormalizeCoordinatesOptions                              type       lib/types/coordinates.ts:75:13                      
+Latitude                                                 type       lib/types/coordinates.ts:302:3                      
+Longitude                                                type       lib/types/coordinates.ts:303:3                      
+BrandedCoordinates                                       type       lib/types/coordinates.ts:304:3                      
+StrictCoordinates                                        type       lib/types/coordinates.ts:336:13                     
+QuiverStickerAsset                                       interface  lib/ui/quiver-sticker-assets.ts:1:18                
+RetryOptions                                             interface  lib/utils/api-retry.ts:8:18                         
+BeachInput                                               type       lib/utils/beach-defaults.ts:23:13                   
+BeachMatchParams                                         interface  lib/utils/beach-matching-utils.ts:11:18             
+BeachMatchContext                                        interface  lib/utils/beach-search/match-strategy.ts:44:18      
+HiIslandSlug                                             type       lib/utils/beach-url-utils.ts:17:13                  
+CoastalStateSuffix                                       type       lib/utils/beach-url-utils.ts:541:13                 
+BeginnerSeasonalResult                                   interface  lib/utils/beginner-seasonal-utils.ts:36:18          
+TideData                                                 interface  lib/utils/coast-pulse-formatter.ts:236:18           
+BuoyData                                                 interface  lib/utils/coast-pulse-formatter.ts:308:18           
+CoastPulseSummary                                        interface  lib/utils/coast-pulse-summary.ts:22:18              
+ConditionBadgeConfig                                     interface  lib/utils/condition-tier-utils.ts:71:18             
+HeadlineText                                             interface  lib/utils/condition-tier-utils.ts:111:18            
+BuildConditionsCardsOptions                              interface  lib/utils/conditions-card-builder.ts:14:18          
+DiscoveryCacheOptions                                    interface  lib/utils/discovery-cache-utils.ts:14:18            
+ConfidenceInfo                                           interface  lib/utils/forecast-freshness.ts:6:18                
+ForecastHandoffBlendSlot                                 interface  lib/utils/forecast-handoff-blend.ts:7:18            
+ForecastHandoffBlendAdjustment                           interface  lib/utils/forecast-handoff-blend.ts:44:18           
+ForecastHandoffBlendStep                                 interface  lib/utils/forecast-handoff-blend.ts:49:18           
+RegionalForecastPageData                                 interface  lib/utils/forecast-hub-utils.ts:39:18               
+GetRegionalSummariesOptions                              interface  lib/utils/forecast-hub-utils.ts:74:18               
+BestRegionResult                                         interface  lib/utils/forecast-hub-utils.ts:503:18              
+ForecastUpdateOptions                                    type       lib/utils/forecast-server-utils.ts:16:13            
+LatestForecastMetadata                                   type       lib/utils/forecast-service-utils.ts:92:13           
+ForecastCacheMetadata                                    interface  lib/utils/forecast-service-utils.ts:199:18          
+ForecastCacheOptions                                     interface  lib/utils/forecast-service-utils.ts:212:18          
+BatchForecastCacheResult                                 interface  lib/utils/forecast-service-utils.ts:391:18          
+ImageTransformOptions                                    interface  lib/utils/image-utils.ts:24:18                      
+IntelDedupeParams                                        interface  lib/utils/intel-dedupe.ts:23:18                     
+TideDirection                                            type       lib/utils/morning-intel-utils.ts:48:8               
+SessionForecastData                                      type       lib/utils/morning-intel-utils.ts:62:24              
+SessionWindow                                            type       lib/utils/morning-intel-utils.ts:63:8               
+RateLimiterSingleton                                     interface  lib/utils/rate-limiter.ts:227:18                    
+ResolveActiveRegionOptions                               interface  lib/utils/resolve-active-region.ts:28:18            
+ScoreColorConfig                                         interface  lib/utils/score-color-utils.ts:14:18                
+SessionPayload                                           interface  lib/utils/session-data-builder.ts:73:18             
+TideDataPoint                                            interface  lib/utils/tide-interpolation.ts:10:18               
+TideWindowOptions                                        interface  lib/utils/tide-interpolation.ts:281:18              
+TideExtremum                                             interface  lib/utils/tide-interpolation.ts:289:18              
+TideWindow                                               interface  lib/utils/tide-interpolation.ts:423:18              
+WindowBounds                                             interface  lib/utils/tide-window.ts:8:18                       
+WindowConfig                                             interface  lib/utils/tide-window.ts:21:18                      
+DeviceInfo                                               interface  lib/utils/user-agent-parser.ts:1:18                 
+WaveHeightSourceParams                                   interface  lib/utils/wave-formatters.ts:398:18                 
+WaveHeightSource                                         interface  lib/utils/wave-formatters.ts:412:18                 
+FaceHeightParams                                         interface  lib/utils/wave-formatters.ts:549:18                 
+DecomposedFaceHeightParams                               interface  lib/utils/wave-formatters.ts:632:18                 
+WaveHeightRange                                          interface  lib/utils/wave-height-transformer.ts:210:18         
+FaceHeightWithMetadata                                   interface  lib/utils/wave-height-transformer.ts:429:18         
+DecomposedFaceHeightResult                               interface  lib/utils/wave-height-transformer.ts:896:18         
+WindQualityLabel                                         interface  lib/utils/wind-quality.ts:3:18                      
+WindowStatusType                                         type       lib/utils/window-status.ts:1:13                     
+WindowStatus                                             interface  lib/utils/window-status.ts:3:18                     
+BeachUpdateData                                          type       lib/validation/admin/beach-schema.ts:80:13          
+ToggleIntelActiveData                                    type       lib/validation/admin/intel-schema.ts:36:13          
+UpdateIntelContentData                                   type       lib/validation/admin/intel-schema.ts:37:13          
+BoardCreateInput                                         type       lib/validation/schemas.ts:43:13                     
+CommentInput                                             type       lib/validation/schemas.ts:57:13                     
+SessionPlanInput                                         type       lib/validation/schemas.ts:83:13                     
+IntelPostCreateInput                                     type       lib/validation/schemas.ts:132:13                    
+AppLinkEmailInput                                        type       lib/validation/schemas.ts:142:13                    
+AndroidBetaLeadInput                                     type       lib/validation/schemas.ts:163:13                    
+IntelReportInput                                         type       lib/validation/schemas.ts:172:13                    
+IntelVoteInput                                           type       lib/validation/schemas.ts:184:13                    
+IntelReportReason                                        type       lib/validation/schemas.ts:191:13                    
+IntelReportV2Input                                       type       lib/validation/schemas.ts:203:13                    
+BeachSearchInput                                         type       lib/validation/schemas.ts:225:13                    
+ProfileUpdateInput                                       type       lib/validation/schemas.ts:240:13                    
+PaginationInput                                          type       lib/validation/schemas.ts:258:13                    
+DeviceRegistrationInput                                  type       lib/validation/schemas.ts:278:13                    
+SessionWizardPrefillInput                                type       lib/validation/schemas.ts:459:13                    
+Duplicate exports (7)
+TideHourlyTable|default    components/forecast/tide-hourly-table.tsx  
+TideNextExtreme|default    components/forecast/tide-next-extreme.tsx  
+TideVerifiedBadge|default  components/forecast/tide-verified-badge.tsx
+TideWarningBanner|default  components/forecast/tide-warning-banner.tsx
+BottomNav|default          components/home-screen/bottom-nav.tsx      
+AnimatedWaveIcon|default   components/ui/animated-wave-icon.tsx       
+CREAM|PAPER                lib/mailer/theme.ts                        
+Configuration hints (7)
+**/*.d.ts                  knip.json  Remove from ignore            
+**/setup/**                knip.json  Remove from ignore            
+**/test-utils/**           knip.json  Remove from ignore            
+**/migrations/**           knip.json  Remove from ignore            
+playwright-report/**       knip.json  Remove from ignore            
+public/**                  knip.json  Remove from ignore            
+webpack-bundle-analyzer    knip.json  Remove from ignoreDependencies
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.

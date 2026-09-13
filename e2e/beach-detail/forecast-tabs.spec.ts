@@ -63,7 +63,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
   test.describe('Default Tab Behavior', () => {
     test('should have "Today" tab active on page load', async ({ page }) => {
       // Verify Today tab is active — use .first() to avoid matching the tide chart time-range "Today" button
-      const todayTab = page.getByRole('tab', { name: /today/i }).first();
+      const todayTab = page.getByRole('tab', { name: /^now$/i }).first();
       await expect(todayTab).toBeVisible();
       await expect(todayTab).toHaveAttribute('data-state', 'active');
     });
@@ -98,7 +98,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
       await expect(tidesTab).toHaveAttribute('data-state', 'active', { timeout: TIMEOUTS.short });
 
       // Verify Today tab becomes inactive
-      const todayTab = page.getByRole('tab', { name: /today/i }).first();
+      const todayTab = page.getByRole('tab', { name: /^now$/i }).first();
       await expect(todayTab).toHaveAttribute('data-state', 'inactive');
     });
 
@@ -134,7 +134,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
       await expect(conditionsTab).toHaveAttribute('data-state', 'active', { timeout: TIMEOUTS.short });
 
       // Verify Today tab becomes inactive
-      const todayTab = page.getByRole('tab', { name: /today/i }).first();
+      const todayTab = page.getByRole('tab', { name: /^now$/i }).first();
       await expect(todayTab).toHaveAttribute('data-state', 'inactive');
     });
 
@@ -147,12 +147,12 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
       // Verify conditions overview content becomes visible (hero section)
       // Text may be "Best Day This Week" or "Selected Day" depending on
       // whether a day is selected in the horizon strip (Today is auto-selected)
-      const heroSection = page.locator('text=/Best Day This Week|Selected Day/i');
+      const heroSection = page.getByText(/^(Best Day This Week|Selected Day)$/i);
       await expect(heroSection).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
     test('should return to "Today" tab when clicked after switching', async ({ page }) => {
-      const todayTab = page.getByRole('tab', { name: /today/i }).first();
+      const todayTab = page.getByRole('tab', { name: /^now$/i }).first();
       const tidesTab = page.getByRole('tab', { name: /tides/i });
 
       // Switch to Tides
@@ -171,7 +171,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
     });
 
     test('should switch between all tabs in sequence', async ({ page }) => {
-      const todayTab = page.getByRole('tab', { name: /today/i }).first();
+      const todayTab = page.getByRole('tab', { name: /^now$/i }).first();
       const tidesTab = page.getByRole('tab', { name: /tides/i });
       const conditionsTab = page.getByRole('tab', { name: /conditions/i });
 
@@ -201,7 +201,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
     test('should display metric cards (Tide, Wind, Swell)', async ({ page }) => {
       // Scope all locators to the active "Today" tabpanel to avoid matching
       // hidden elements in the ConditionsTicker's CSS-hidden static track.
-      const todayPanel = page.getByRole('tabpanel', { name: /today/i });
+      const todayPanel = page.getByRole('tabpanel', { name: /^now$/i });
 
       // Check for Next Tide card (in the secondary conditions grid)
       const tideLabel = todayPanel.getByText(/next tide/i).first();
@@ -226,7 +226,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
     });
 
     test('should display wind information', async ({ page }) => {
-      const todayPanel = page.getByRole('tabpanel', { name: /today/i });
+      const todayPanel = page.getByRole('tabpanel', { name: /^now$/i });
 
       // Wind should show speed and direction in the active Today panel.
       const windLabel = todayPanel.getByText(/^wind$/i).first();
@@ -247,7 +247,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
     test('should display swell information', async ({ page }) => {
       // Scope to the "Today" tabpanel to avoid matching hidden ConditionsTicker
       // elements (ticker-static-track is CSS display:none but still in the DOM).
-      const todayPanel = page.getByRole('tabpanel', { name: /today/i });
+      const todayPanel = page.getByRole('tabpanel', { name: /^now$/i });
       const swellHeight = todayPanel.locator('text=/\\d+(\\.\\d+)?\\s*ft/i').first();
       await expect(swellHeight).toBeVisible({ timeout: TIMEOUTS.short });
     });
@@ -335,7 +335,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
       // The hero card should display with a gradient background
       // Text may be "Best Day This Week" or "Selected Day" depending on
       // whether a day is selected in the horizon strip (Today is auto-selected)
-      const heroSection = page.locator('text=/Best Day This Week|Selected Day/i');
+      const heroSection = page.getByText(/^(Best Day This Week|Selected Day)$/i);
       await expect(heroSection).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
@@ -374,7 +374,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
       await page.setViewportSize(VIEWPORTS.mobile);
 
       // Verify tabs are visible on mobile
-      const todayTab = page.getByRole('tab', { name: /today/i }).first();
+      const todayTab = page.getByRole('tab', { name: /^now$/i }).first();
       await expect(todayTab).toBeVisible();
 
       // Verify content is accessible
@@ -440,7 +440,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
 
   test.describe('Tab Keyboard Navigation', () => {
     test('should support keyboard navigation between tabs', async ({ page }) => {
-      const todayTab = page.getByRole('tab', { name: /today/i }).first();
+      const todayTab = page.getByRole('tab', { name: /^now$/i }).first();
 
       // Focus the Today tab
       await todayTab.focus();
@@ -483,7 +483,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
 
   test.describe('Tab Accessibility', () => {
     test('should have proper ARIA attributes on tabs', async ({ page }) => {
-      const todayTab = page.getByRole('tab', { name: /today/i }).first();
+      const todayTab = page.getByRole('tab', { name: /^now$/i }).first();
 
       // Verify tab role
       await expect(todayTab).toHaveAttribute('role', 'tab');
@@ -501,7 +501,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
     });
 
     test('should maintain focus visible indicators', async ({ page }) => {
-      const todayTab = page.getByRole('tab', { name: /today/i }).first();
+      const todayTab = page.getByRole('tab', { name: /^now$/i }).first();
 
       // Focus the tab using keyboard
       await page.keyboard.press('Tab');
@@ -523,7 +523,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
   test.describe('Error Handling and Edge Cases', () => {
     test('should handle missing forecast data gracefully', async ({ page }) => {
       // Even with missing data, tabs should still be functional
-      const todayTab = page.getByRole('tab', { name: /today/i }).first();
+      const todayTab = page.getByRole('tab', { name: /^now$/i }).first();
       const tidesTab = page.getByRole('tab', { name: /tides/i });
 
       // Tabs should be clickable
@@ -553,7 +553,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
       // Switch between tabs
       const tidesTab = page.getByRole('tab', { name: /tides/i });
       const conditionsTab = page.getByRole('tab', { name: /conditions/i });
-      const todayTab = page.getByRole('tab', { name: /today/i }).first();
+      const todayTab = page.getByRole('tab', { name: /^now$/i }).first();
 
       await tidesTab.click();
       await expect(tidesTab).toHaveAttribute('data-state', 'active', { timeout: 2000 });
@@ -573,7 +573,7 @@ test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
     });
 
     test('should handle rapid tab switching without breaking', async ({ page }) => {
-      const todayTab = page.getByRole('tab', { name: /today/i }).first();
+      const todayTab = page.getByRole('tab', { name: /^now$/i }).first();
       const tidesTab = page.getByRole('tab', { name: /tides/i });
       const conditionsTab = page.getByRole('tab', { name: /conditions/i });
 

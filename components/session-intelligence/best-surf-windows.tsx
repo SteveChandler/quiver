@@ -4,7 +4,8 @@ import { useEffect, useRef } from "react";
 import Image from "next/image";
 import { ArrowRight, Clock, Tags } from "lucide-react";
 
-import { HalftonePhoto } from "@/components/beach-detail/zine/atoms";
+import { RipCurrentWarning } from "@/components/beach-detail/rip-current-warning";
+import { formatDateInTimezone } from "@/lib/utils/date-time";
 import { QuiverSticker } from "@/components/zine/quiver-sticker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -717,7 +718,6 @@ function CompactWindowRow({
 
 function ZineWindowEntry({
   recommendation,
-  ctaLabel,
   surface,
 }: {
   recommendation: SurfWindowRecommendation;
@@ -726,211 +726,57 @@ function ZineWindowEntry({
 }) {
   const { track } = useTrackEvent();
   const tracking = buildSurfWindowTrackingContext(recommendation, surface);
-  const beach = recommendation.beach;
-  const locality =
-    [beach.city, beach.state].filter(Boolean).join(", ") ||
-    beach.region ||
-    null;
-  const webUrl = recommendation.canonicalWebUrl;
-  const photoUrl = beach.photoUrl?.trim() ?? "";
-  const photoSrc = photoUrl.length > 0 ? getProxiedImageUrl(photoUrl) : null;
+  const { beach } = recommendation;
+  const webUrl = recommendation.canonicalWebUrl
+    ? `${recommendation.canonicalWebUrl}${recommendation.canonicalWebUrl.includes("?") ? "&" : "?"}${new URLSearchParams({ window: recommendation.startIso, windowEnd: recommendation.endIso, tab: "forecast" })}`
+    : null;
+  const date = new Intl.DateTimeFormat("en-US", {
+    timeZone: recommendation.timezone, weekday: "short", month: "short", day: "numeric",
+  }).format(new Date(recommendation.startIso));
 
   function handleWebClick(): void {
     if (!webUrl) return;
     void track("surf_window_click", {
       beachId: beach.id,
-      metadata: buildSurfWindowTrackingMetadata(tracking, {
-        targetHref: webUrl,
-        linkType: "web",
-      }),
+      metadata: buildSurfWindowTrackingMetadata(tracking, { targetHref: webUrl, linkType: "web" }),
       debounceMs: 0,
     });
   }
 
-  const titleHeading = (
-    <h3 className="font-heading text-2xl font-bold leading-tight text-[#11100D] sm:text-3xl">
-      {beach.name}
-    </h3>
-  );
-
   return (
-    <article
-      data-testid="surf-window-card"
-      data-variant="zine"
-      className="relative bg-[#FBF6E8] py-6 text-[#11100D] first:pt-2 last:pb-2"
-    >
-      <div
-        className={cn(
-          "grid gap-5",
-          photoSrc && "md:grid-cols-[minmax(10rem,0.7fr)_minmax(0,1.3fr)]",
-        )}
-      >
-        {photoSrc ? (
-          <div className="polaroid rot-neg self-start">
-            <span className="tape tl" aria-hidden="true" />
-            {webUrl ? (
-              <a
-                href={webUrl}
-                aria-label={`View ${beach.name} forecast`}
-                onClick={handleWebClick}
-                className="photo block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
-              >
-                <HalftonePhoto
-                  src={photoSrc}
-                  alt={`Surf photo of ${beach.name}`}
-                  height={220}
-                />
-              </a>
-            ) : (
-              <div className="photo">
-                <HalftonePhoto
-                  src={photoSrc}
-                  alt={`Surf photo of ${beach.name}`}
-                  height={220}
-                />
-              </div>
-            )}
-            <p className="cap">{beach.name}</p>
-          </div>
-        ) : null}
-
-        <div className="min-w-0 space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className="circled shrink-0 bg-[#FDB84B]/35"
-                  aria-label={`Rank ${recommendation.rank}`}
-                >
-                  {recommendation.rank}
-                </span>
-                <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[0.08em] text-[#11100D]/75">
-                  <Clock
-                    className="h-4 w-4 text-[#B56A2B]"
-                    aria-hidden="true"
-                  />
-                  {recommendation.localTimeLabel}
-                </span>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "border px-2.5 py-1 font-mono text-[11px] font-bold uppercase",
-                    paperVerdictClasses(recommendation.verdict),
-                  )}
-                >
-                  {recommendation.verdict}
-                </Badge>
-              </div>
-              {webUrl ? (
-                <a
-                  href={webUrl}
-                  onClick={handleWebClick}
-                  className="block decoration-[#B56A2B] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#11100D]"
-                >
-                  {titleHeading}
-                </a>
-              ) : (
-                titleHeading
-              )}
-              {locality ? (
-                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#11100D]/65">
-                  {locality}
-                </p>
-              ) : null}
-            </div>
-            <div
-              className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full border-[3px] border-double border-[#0B3A75] bg-[#F4EBD8] text-[#0B3A75] shadow-sm"
-              aria-label={`Surf window score ${recommendation.score}`}
-            >
-              <span className="font-heading text-xl font-black leading-none">
-                {recommendation.score}
-              </span>
-              <span className="font-mono text-[9px] font-bold uppercase">
-                score
-              </span>
-            </div>
-          </div>
-
-          <p className="font-[var(--font-handwritten)] text-xl font-bold leading-snug text-[#11100D]/85">
-            {recommendation.headline}
+    <article data-testid="surf-window-card" data-variant="zine" className="space-y-3 bg-[#FBF6E8] py-5 text-[#11100D] first:pt-2 last:pb-2">
+      <div className="flex items-start gap-3">
+        <span className="circled shrink-0 bg-[#FDB84B]/35" aria-label={`Rank ${recommendation.rank}`}>{recommendation.rank}</span>
+        <div className="min-w-0">
+          <h3 className="font-heading text-2xl font-bold leading-tight">{beach.name}</h3>
+          <p className="mt-1 text-sm font-semibold">
+            <time dateTime={recommendation.startIso}>{date} · {recommendation.localTimeLabel}</time>
+            <span className="block font-normal">{recommendation.timezone}</span>
           </p>
-
-          <div
-            className="condition-strip grid-cols-1 sm:grid-cols-3"
-            role="group"
-            aria-label={`Conditions for ${beach.name}`}
-          >
-            <ConditionRow
-              sticker="spotSwellMatch"
-              label="Wave"
-              value={recommendation.wave.summary}
-              variant="zine"
-            />
-            <ConditionRow
-              sticker="spotWindRead"
-              label="Wind"
-              value={recommendation.wind.summary}
-              variant="zine"
-            />
-            <ConditionRow
-              sticker="spotTideWindow"
-              label="Tide"
-              value={recommendation.tide.summary}
-              variant="zine"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 border-b border-dashed border-[#11100D]/30 pb-4">
-            <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#11100D]/70">
-              <Tags className="h-3.5 w-3.5" aria-hidden="true" />
-              Best for
-            </span>
-            {recommendation.bestFor.map((tag) => (
-              <Badge
-                key={tag}
-                variant="outline"
-                className="border-[#11100D]/35 bg-[#F0E5CC] text-[11px] text-[#11100D]"
-              >
-                {tag}
-              </Badge>
-            ))}
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            {webUrl ? (
-              <Button
-                asChild
-                size="sm"
-                className="h-10 w-full bg-[#F78E42] text-[#11100D] shadow-sm hover:bg-[#F78E42]/90"
-              >
-                <a
-                  href={webUrl}
-                  data-testid="surf-window-web-cta"
-                  onClick={handleWebClick}
-                >
-                  <span>View spot forecast</span>
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </a>
-              </Button>
-            ) : null}
-            <AppDeepLinkCTA
-              links={recommendation}
-              label={ctaLabel}
-              variant="ghost"
-              tracking={tracking}
-              handoff={exactHandoffContext(recommendation)}
-              handoffSurface="beach_detail"
-              intentEvidence={SURF_COMPARISON_INTENT}
-              className="w-full border-[#11100D]/45 bg-transparent text-[#11100D] hover:bg-[#F0E5CC] hover:text-[#11100D]"
-            />
-          </div>
-          <WhyThisCall
-            recommendation={recommendation}
-            surface={surface}
-            variant="zine"
-          />
         </div>
       </div>
+      <RipCurrentWarning beachId={beach.id} localDate={formatDateInTimezone(new Date(recommendation.startIso), recommendation.timezone)} timezone={recommendation.timezone} />
+      {recommendation.watchouts.length > 0 && (
+        <ul aria-label="Watchouts" className="border-l-4 border-[#B47A0F] bg-[#F7E7BE] px-3 py-2 text-sm">
+          {recommendation.watchouts.map((warning) => <li key={warning}>{warning.replace(/ caps score (?:at|to) \d+/i, "")}</li>)}
+        </ul>
+      )}
+      <p className="text-sm">Forecast confidence: {recommendation.confidence.level}.</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <Badge variant="outline" className={cn("px-2.5 py-1 text-sm", paperVerdictClasses(recommendation.verdict))}>{recommendation.verdict}</Badge>
+        {webUrl && (
+          <Button asChild size="sm" className="min-h-11 bg-[#F78E42] text-[#11100D] hover:bg-[#FDB84B]">
+            <a href={webUrl} data-testid="surf-window-web-cta" aria-label={`View ${beach.name} window`} onClick={handleWebClick}>View this window <ArrowRight className="h-4 w-4" aria-hidden="true" /></a>
+          </Button>
+        )}
+      </div>
+      <dl className="grid grid-cols-2 gap-3 border-y border-[#11100D]/25 py-3 sm:grid-cols-3">
+        {[{ label: "Surf", value: recommendation.wave.summary }, { label: "Wind", value: recommendation.wind.summary }, { label: "Tide", value: recommendation.tide.summary }].map(({ label, value }) => (
+          <div key={label} className="min-w-0"><dt className="font-mono text-xs font-bold uppercase">{label}</dt><dd className="mt-1 text-base leading-snug">{value}</dd></div>
+        ))}
+      </dl>
+      {recommendation.positives[0] && <p className="text-sm"><strong>Why:</strong> {recommendation.positives.find((reason) => !/wave size/i.test(reason)) ?? recommendation.positives[0]}</p>}
+      <WhyThisCall recommendation={recommendation} surface={surface} variant="zine" />
     </article>
   );
 }

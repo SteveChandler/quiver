@@ -1,0 +1,95 @@
+diff --git a/__tests__/components/cams/cam-card.test.tsx b/__tests__/components/cams/cam-card.test.tsx
+index 493447ddd..3828e5831 100644
+--- a/__tests__/components/cams/cam-card.test.tsx
++++ b/__tests__/components/cams/cam-card.test.tsx
+@@ -1,6 +1,7 @@
+ import { forwardRef, type ImgHTMLAttributes } from "react";
+ import { fireEvent, render, screen } from "@testing-library/react";
+ 
++import { CamsHeroContactSheet } from "@/components/cams/cams-hero-contact-sheet";
+ import { CamCard } from "@/components/cams/cam-card";
+ import { CAM_CARD_FALLBACK_IMAGE_URL } from "@/lib/media/cam-thumbnail";
+ import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
+@@ -63,7 +64,7 @@ describe("CamCard", () => {
+ 
+     expect(screen.getByAltText("Test Beach live camera")).toHaveAttribute(
+       "src",
+-      "https://photos.example/test-beach.jpg",
++      "/api/image-proxy?url=https%3A%2F%2Fphotos.example%2Ftest-beach.jpg",
+     );
+     expect(screen.queryByText("Preview unavailable")).not.toBeInTheDocument();
+   });
+@@ -110,3 +111,13 @@ describe("CamCard", () => {
+     expect(screen.getByText("Open cam page →")).toBeInTheDocument();
+   });
+ });
++
++ it("routes untrusted hero photos through the proxy and falls back when rejected", () => {
++   render(<CamsHeroContactSheet beaches={[{ ...baseBeach, camera_url: "https://example.com/cam", thumbnail_url: null, photo_url: "https://untrusted.example/photo.jpg" }]} label="Featured cameras" />);
++   const image = screen.getByAltText("Test Beach surf cam preview");
++   expect(image).toHaveAttribute("src", "/api/image-proxy?url=https%3A%2F%2Funtrusted.example%2Fphoto.jpg");
++   fireEvent.error(image);
++   expect(image).toHaveAttribute("src", CAM_CARD_FALLBACK_IMAGE_URL);
++   fireEvent.error(image);
++   expect(image).toHaveAttribute("src", CAM_CARD_FALLBACK_IMAGE_URL);
++ });
+diff --git a/__tests__/lib/media/cam-thumbnail.test.ts b/__tests__/lib/media/cam-thumbnail.test.ts
+index 48ba9e3bc..e8dc20632 100644
+--- a/__tests__/lib/media/cam-thumbnail.test.ts
++++ b/__tests__/lib/media/cam-thumbnail.test.ts
+@@ -259,7 +259,7 @@ describe("getDisplayCamThumbnailUrls", () => {
+         fallbackImageUrl: "https://photos.example/beach.jpg",
+       }),
+     ).toEqual([
+-      "https://photos.example/beach.jpg",
++      "/api/image-proxy?url=https%3A%2F%2Fphotos.example%2Fbeach.jpg",
+       CAM_CARD_FALLBACK_IMAGE_URL,
+     ]);
+   });
+diff --git a/components/cams/cams-hero-contact-sheet.tsx b/components/cams/cams-hero-contact-sheet.tsx
+index 936399672..ab8a58b53 100644
+--- a/components/cams/cams-hero-contact-sheet.tsx
++++ b/components/cams/cams-hero-contact-sheet.tsx
+@@ -1,4 +1,6 @@
+-import type { ReactElement } from "react";
++"use client";
++
++import { useState, type ReactElement } from "react";
+ import Image from "next/image";
+ 
+ import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
+@@ -16,6 +18,7 @@ export function CamsHeroContactSheet({
+   beaches,
+   label,
+ }: CamsHeroContactSheetProps): ReactElement | null {
++  const [failedImages, setFailedImages] = useState<Set<string>>(() => new Set());
+   const featuredBeaches = beaches.slice(0, 3).map((beach) => {
+     const [imageUrl = CAM_CARD_FALLBACK_IMAGE_URL] = getDisplayCamThumbnailUrls(
+       {
+@@ -51,7 +54,8 @@ export function CamsHeroContactSheet({
+               }
+             >
+               <Image
+-                src={beach.imageUrl}
++                src={failedImages.has(beach.id) ? CAM_CARD_FALLBACK_IMAGE_URL : beach.imageUrl}
++                onError={() => setFailedImages((current) => current.has(beach.id) ? current : new Set(current).add(beach.id))}
+                 alt={`${beach.name} surf cam preview`}
+                 fill
+                 className="object-cover"
+diff --git a/lib/media/cam-thumbnail.ts b/lib/media/cam-thumbnail.ts
+index 2c6ae0eca..27576cac3 100644
+--- a/lib/media/cam-thumbnail.ts
++++ b/lib/media/cam-thumbnail.ts
+@@ -1,3 +1,5 @@
++import { getProxiedImageUrl } from "@/lib/utils/image-utils";
++
+ /**
+  * Extract a static thumbnail URL from a camera URL.
+  * Supports providers with stable public thumbnail patterns.
+@@ -197,5 +199,5 @@ export function getDisplayCamThumbnailUrls({
+   appendUniqueUrl(urls, fallbackImageUrl);
+   appendUniqueUrl(urls, CAM_CARD_FALLBACK_IMAGE_URL);
+ 
+-  return urls;
++  return urls.map(getProxiedImageUrl);
+ }

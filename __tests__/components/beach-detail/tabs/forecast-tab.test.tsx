@@ -245,7 +245,7 @@ describe("ForecastTab", () => {
       expect(screen.getByTestId("tab-trigger-tides")).toBeInTheDocument();
       expect(screen.getByTestId("tab-trigger-conditions")).toBeInTheDocument();
 
-      expect(screen.getByTestId("tab-trigger-today")).toHaveTextContent("Today");
+      expect(screen.getByTestId("tab-trigger-today")).toHaveTextContent("Now");
       expect(screen.getByTestId("tab-trigger-tides")).toHaveTextContent("Tides");
       expect(screen.getByTestId("tab-trigger-conditions")).toHaveTextContent("Conditions");
     });

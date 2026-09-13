@@ -1,0 +1,676 @@
+yarn run v1.22.17
+$ NODE_OPTIONS="${NODE_OPTIONS:-} --disable-warning=DEP0040" jest --runInBand __tests__/components/beach-detail/public-forecast-answer.test.tsx __tests__/components/beach-detail/public-forecast-hourly.test.tsx __tests__/components/beach-detail/tabs/forecast-tab.test.tsx __tests__/components/session-intelligence/best-surf-windows.test.tsx __tests__/components/session-intelligence/why-this-call.test.tsx __tests__/components/forecast/conditions-overview/conditions-overview.test.tsx __tests__/lib/media/cam-thumbnail.test.ts __tests__/lib/recommendations/surf-window-recommendations.test.ts __tests__/lib/share/forecast-window-share.test.ts __tests__/app/generic-beach-detail-resolution.test.ts __tests__/components/cams/cam-card.test.tsx __tests__/app/vs-surfline-free-live-cam-card.test.tsx
+⚠️  Environment Configuration Warnings:
+   • SUPABASE_SERVICE_ROLE_KEY not set - admin operations will fail
+   • NEXT_PUBLIC_SITE_URL not set - OAuth redirects may not work correctly
+PASS __tests__/components/session-intelligence/best-surf-windows.test.tsx
+PASS __tests__/app/generic-beach-detail-resolution.test.ts
+  ● Console
+
+    console.error
+      [getTideMetaData] Error fetching tide data: {
+        beachId: 'lower-trestles',
+        message: 'supabase.from is not a function'
+      }
+
+      392 |     }
+      393 |     // Still print so developers see the output when debugging
+    > 394 |     _originalError.apply(console, args);
+          |                    ^
+      395 |   };
+      396 |
+      397 |   console.warn = (...args) => {
+
+      at console.apply (jest.setup.js:394:20)
+      at error (lib/seo/tide-meta-data.ts:166:15)
+          at async Promise.all (index 2)
+      at DeferredRelatedGuidesSection (app/[intent]/[city]/[beachSlug]/page.tsx:427:56)
+
+    console.error
+      [getTideMetaData] Error fetching tide data: {
+        beachId: '94f1010b-c71f-4025-bda1-c26ed9467c85',
+        message: 'supabase.from is not a function'
+      }
+
+      392 |     }
+      393 |     // Still print so developers see the output when debugging
+    > 394 |     _originalError.apply(console, args);
+          |                    ^
+      395 |   };
+      396 |
+      397 |   console.warn = (...args) => {
+
+      at console.apply (jest.setup.js:394:20)
+      at error (lib/seo/tide-meta-data.ts:166:15)
+          at async Promise.all (index 2)
+      at DeferredRelatedGuidesSection (app/[intent]/[city]/[beachSlug]/page.tsx:427:56)
+
+    console.error
+      [getTideMetaData] Error fetching tide data: { beachId: 'beach-1', message: 'supabase.from is not a function' }
+
+      392 |     }
+      393 |     // Still print so developers see the output when debugging
+    > 394 |     _originalError.apply(console, args);
+          |                    ^
+      395 |   };
+      396 |
+      397 |   console.warn = (...args) => {
+
+      at console.apply (jest.setup.js:394:20)
+      at error (lib/seo/tide-meta-data.ts:166:15)
+          at async Promise.all (index 2)
+      at DeferredRelatedGuidesSection (app/[intent]/[city]/[beachSlug]/page.tsx:427:56)
+
+    console.error
+      [getTideMetaData] Error fetching tide data: { beachId: 'beach-1', message: 'supabase.from is not a function' }
+
+      392 |     }
+      393 |     // Still print so developers see the output when debugging
+    > 394 |     _originalError.apply(console, args);
+          |                    ^
+      395 |   };
+      396 |
+      397 |   console.warn = (...args) => {
+
+      at console.apply (jest.setup.js:394:20)
+      at error (lib/seo/tide-meta-data.ts:166:15)
+          at async Promise.all (index 2)
+      at DeferredRelatedGuidesSection (app/[intent]/[city]/[beachSlug]/page.tsx:427:56)
+
+    console.error
+      [getTideMetaData] Error fetching tide data: { beachId: 'beach-1', message: 'supabase.from is not a function' }
+
+      392 |     }
+      393 |     // Still print so developers see the output when debugging
+    > 394 |     _originalError.apply(console, args);
+          |                    ^
+      395 |   };
+      396 |
+      397 |   console.warn = (...args) => {
+
+      at console.apply (jest.setup.js:394:20)
+      at error (lib/seo/tide-meta-data.ts:166:15)
+          at async Promise.all (index 2)
+      at DeferredRelatedGuidesSection (app/[intent]/[city]/[beachSlug]/page.tsx:427:56)
+
+    console.warn
+      [GenericBeachDetailPage] City slug mismatch: {
+        beachSlug: 'lower-trestles',
+        expectedCity: 'dana-point',
+        providedCity: 'orange-county'
+      }
+
+      399 |       globalThis.__quiverConsoleWarns.push(args.map(String).join(" "));
+      400 |     }
+    > 401 |     _originalWarn.apply(console, args);
+          |                   ^
+      402 |   };
+      403 | });
+      404 |
+
+      at console.apply [as warn] (jest.setup.js:401:19)
+      at warn (app/[intent]/[city]/[beachSlug]/page.tsx:160:15)
+      at Object.<anonymous> (__tests__/app/generic-beach-detail-resolution.test.ts:668:5)
+
+PASS __tests__/components/beach-detail/tabs/forecast-tab.test.tsx
+  ● Console
+
+    console.error
+      React does not recognize the `horizonDaySummaries` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `horizondaysummaries` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+
+      392 |     }
+      393 |     // Still print so developers see the output when debugging
+    > 394 |     _originalError.apply(console, args);
+          |                    ^
+      395 |   };
+      396 |
+      397 |   console.warn = (...args) => {
+
+      at console.apply (jest.setup.js:394:20)
+      at validateProperty (../../node_modules/react-dom/cjs/react-dom-client.development.js:3001:19)
+      at warnUnknownProperties (../../node_modules/react-dom/cjs/react-dom-client.development.js:3146:9)
+      at validatePropertiesInDevelopment (../../node_modules/react-dom/cjs/react-dom-client.development.js:19868:9)
+      at setInitialProperties (../../node_modules/react-dom/cjs/react-dom-client.development.js:20491:7)
+      at completeWork (../../node_modules/react-dom/cjs/react-dom-client.development.js:12662:18)
+      at runWithFiberInDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at completeUnitOfWork (../../node_modules/react-dom/cjs/react-dom-client.development.js:17777:19)
+      at performUnitOfWork (../../node_modules/react-dom/cjs/react-dom-client.development.js:17658:11)
+      at workLoopSync (../../node_modules/react-dom/cjs/react-dom-client.development.js:17469:41)
+      at renderRootSync (../../node_modules/react-dom/cjs/react-dom-client.development.js:17450:11)
+      at performWorkOnRoot (../../node_modules/react-dom/cjs/react-dom-client.development.js:16504:11)
+      at performWorkOnRootViaSchedulerTask (../../node_modules/react-dom/cjs/react-dom-client.development.js:18957:7)
+      at flushActQueue (../../node_modules/react/cjs/react.development.js:590:34)
+      at Object.<anonymous>.process.env.NODE_ENV.exports.act (../../node_modules/react/cjs/react.development.js:884:10)
+      at ../../node_modules/@testing-library/react/dist/act-compat.js:46:25
+      at renderRoot (../../node_modules/@testing-library/react/dist/pure.js:189:26)
+      at render (../../node_modules/@testing-library/react/dist/pure.js:291:10)
+      at Object.<anonymous> (__tests__/components/beach-detail/tabs/forecast-tab.test.tsx:242:13)
+
+    console.error
+      React does not recognize the `selectedDate` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `selecteddate` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+
+      392 |     }
+      393 |     // Still print so developers see the output when debugging
+    > 394 |     _originalError.apply(console, args);
+          |                    ^
+      395 |   };
+      396 |
+      397 |   console.warn = (...args) => {
+
+      at console.apply (jest.setup.js:394:20)
+      at validateProperty (../../node_modules/react-dom/cjs/react-dom-client.development.js:3001:19)
+      at warnUnknownProperties (../../node_modules/react-dom/cjs/react-dom-client.development.js:3146:9)
+      at validatePropertiesInDevelopment (../../node_modules/react-dom/cjs/react-dom-client.development.js:19868:9)
+      at setInitialProperties (../../node_modules/react-dom/cjs/react-dom-client.development.js:20491:7)
+      at completeWork (../../node_modules/react-dom/cjs/react-dom-client.development.js:12662:18)
+      at runWithFiberInDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at completeUnitOfWork (../../node_modules/react-dom/cjs/react-dom-client.development.js:17777:19)
+      at performUnitOfWork (../../node_modules/react-dom/cjs/react-dom-client.development.js:17658:11)
+      at workLoopSync (../../node_modules/react-dom/cjs/react-dom-client.development.js:17469:41)
+      at renderRootSync (../../node_modules/react-dom/cjs/react-dom-client.development.js:17450:11)
+      at performWorkOnRoot (../../node_modules/react-dom/cjs/react-dom-client.development.js:16504:11)
+      at performWorkOnRootViaSchedulerTask (../../node_modules/react-dom/cjs/react-dom-client.development.js:18957:7)
+      at flushActQueue (../../node_modules/react/cjs/react.development.js:590:34)
+      at Object.<anonymous>.process.env.NODE_ENV.exports.act (../../node_modules/react/cjs/react.development.js:884:10)
+      at ../../node_modules/@testing-library/react/dist/act-compat.js:46:25
+      at renderRoot (../../node_modules/@testing-library/react/dist/pure.js:189:26)
+      at render (../../node_modules/@testing-library/react/dist/pure.js:291:10)
+      at Object.<anonymous> (__tests__/components/beach-detail/tabs/forecast-tab.test.tsx:242:13)
+
+    console.error
+      React does not recognize the `beachTimezone` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `beachtimezone` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+
+      392 |     }
+      393 |     // Still print so developers see the output when debugging
+    > 394 |     _originalError.apply(console, args);
+          |                    ^
+      395 |   };
+      396 |
+      397 |   console.warn = (...args) => {
+
+      at console.apply (jest.setup.js:394:20)
+      at validateProperty (../../node_modules/react-dom/cjs/react-dom-client.development.js:3001:19)
+      at warnUnknownProperties (../../node_modules/react-dom/cjs/react-dom-client.development.js:3146:9)
+      at validatePropertiesInDevelopment (../../node_modules/react-dom/cjs/react-dom-client.development.js:19868:9)
+      at setInitialProperties (../../node_modules/react-dom/cjs/react-dom-client.development.js:20491:7)
+      at completeWork (../../node_modules/react-dom/cjs/react-dom-client.development.js:12662:18)
+      at runWithFiberInDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at completeUnitOfWork (../../node_modules/react-dom/cjs/react-dom-client.development.js:17777:19)
+      at performUnitOfWork (../../node_modules/react-dom/cjs/react-dom-client.development.js:17658:11)
+      at workLoopSync (../../node_modules/react-dom/cjs/react-dom-client.development.js:17469:41)
+      at renderRootSync (../../node_modules/react-dom/cjs/react-dom-client.development.js:17450:11)
+      at performWorkOnRoot (../../node_modules/react-dom/cjs/react-dom-client.development.js:16504:11)
+      at performWorkOnRootViaSchedulerTask (../../node_modules/react-dom/cjs/react-dom-client.development.js:18957:7)
+      at flushActQueue (../../node_modules/react/cjs/react.development.js:590:34)
+      at Object.<anonymous>.process.env.NODE_ENV.exports.act (../../node_modules/react/cjs/react.development.js:884:10)
+      at ../../node_modules/@testing-library/react/dist/act-compat.js:46:25
+      at renderRoot (../../node_modules/@testing-library/react/dist/pure.js:189:26)
+      at render (../../node_modules/@testing-library/react/dist/pure.js:291:10)
+      at Object.<anonymous> (__tests__/components/beach-detail/tabs/forecast-tab.test.tsx:242:13)
+
+    console.error
+      An update to ForecastTab inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      106 |       }
+      107 |
+    > 108 |       setState({
+          |       ^
+      109 |         data: result,
+      110 |         loading: false,
+      111 |         error: null,
+
+      at ../../node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (../../node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (../../node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at dispatchSetState (../../node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at setState (hooks/use-data-fetcher.ts:108:7)
+
+    console.warn
+      GoTrueClient@sb-127-auth-token:1 (2.100.0) 2026-09-08T04:06:34.394Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+
+      399 |       globalThis.__quiverConsoleWarns.push(args.map(String).join(" "));
+      400 |     }
+    > 401 |     _originalWarn.apply(console, args);
+          |                   ^
+      402 |   };
+      403 | });
+      404 |
+
+      at console.apply [as warn] (jest.setup.js:401:19)
+      at new GoTrueClient (../../node_modules/@supabase/auth-js/src/GoTrueClient.ts:313:15)
+      at new SupabaseAuthClient (../../node_modules/@supabase/supabase-js/src/lib/SupabaseAuthClient.ts:6:5)
+      at SupabaseClient._initSupabaseAuthClient (../../node_modules/@supabase/supabase-js/src/SupabaseClient.ts:536:12)
+      at new SupabaseClient (../../node_modules/@supabase/supabase-js/src/SupabaseClient.ts:308:24)
+      at createClient (../../node_modules/@supabase/supabase-js/src/index.ts:60:10)
+      at createServerClient (lib/supabase.ts:159:22)
+      at lib/server-action-utils.ts:233:54
+      at action (lib/server-action-utils.ts:30:24)
+      at withServerAction (lib/server-action-utils.ts:232:10)
+      at getUserBoards (actions/board-actions.ts:23:31)
+      at Object.current (hooks/use-condition-intelligence.ts:56:39)
+      at current (hooks/use-data-fetcher.ts:95:39)
+      at fetchData (hooks/use-data-fetcher.ts:164:7)
+      at Object.react_stack_bottom_frame (../../node_modules/react-dom/cjs/react-dom-client.development.js:25989:20)
+      at runWithFiberInDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at commitHookEffectListMount (../../node_modules/react-dom/cjs/react-dom-client.development.js:13249:29)
+      at commitHookPassiveMountEffects (../../node_modules/react-dom/cjs/react-dom-client.development.js:13336:11)
+      at commitPassiveMountOnFiber (../../node_modules/react-dom/cjs/react-dom-client.development.js:15484:13)
+      at recursivelyTraversePassiveMountEffects (../../node_modules/react-dom/cjs/react-dom-client.development.js:15439:11)
+      at commitPassiveMountOnFiber (../../node_modules/react-dom/cjs/react-dom-client.development.js:15519:11)
+      at flushPassiveEffects (../../node_modules/react-dom/cjs/react-dom-client.development.js:18432:9)
+      at flushPendingEffects (../../node_modules/react-dom/cjs/react-dom-client.development.js:18358:14)
+      at performSyncWorkOnRoot (../../node_modules/react-dom/cjs/react-dom-client.development.js:18969:11)
+      at flushSyncWorkAcrossRoots_impl (../../node_modules/react-dom/cjs/react-dom-client.development.js:18814:21)
+      at flushSpawnedWork (../../node_modules/react-dom/cjs/react-dom-client.development.js:18334:9)
+      at commitRoot (../../node_modules/react-dom/cjs/react-dom-client.development.js:17955:9)
+      at performWorkOnRoot (../../node_modules/react-dom/cjs/react-dom-client.development.js:16667:15)
+      at performWorkOnRootViaSchedulerTask (../../node_modules/react-dom/cjs/react-dom-client.development.js:18957:7)
+      at flushActQueue (../../node_modules/react/cjs/react.development.js:590:34)
+      at Object.<anonymous>.process.env.NODE_ENV.exports.act (../../node_modules/react/cjs/react.development.js:884:10)
+      at ../../node_modules/@testing-library/react/dist/act-compat.js:46:25
+      at renderRoot (../../node_modules/@testing-library/react/dist/pure.js:189:26)
+      at render (../../node_modules/@testing-library/react/dist/pure.js:291:10)
+      at Object.<anonymous> (__tests__/components/beach-detail/tabs/forecast-tab.test.tsx:323:13)
+
+    console.error
+      An update to ForecastTab inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      106 |       }
+      107 |
+    > 108 |       setState({
+          |       ^
+      109 |         data: result,
+      110 |         loading: false,
+      111 |         error: null,
+
+      at ../../node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (../../node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (../../node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at dispatchSetState (../../node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at setState (hooks/use-data-fetcher.ts:108:7)
+
+    console.warn
+      GoTrueClient@sb-127-auth-token:2 (2.100.0) 2026-09-08T04:06:34.505Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+
+      399 |       globalThis.__quiverConsoleWarns.push(args.map(String).join(" "));
+      400 |     }
+    > 401 |     _originalWarn.apply(console, args);
+          |                   ^
+      402 |   };
+      403 | });
+      404 |
+
+      at console.apply [as warn] (jest.setup.js:401:19)
+      at new GoTrueClient (../../node_modules/@supabase/auth-js/src/GoTrueClient.ts:313:15)
+      at new SupabaseAuthClient (../../node_modules/@supabase/supabase-js/src/lib/SupabaseAuthClient.ts:6:5)
+      at SupabaseClient._initSupabaseAuthClient (../../node_modules/@supabase/supabase-js/src/SupabaseClient.ts:536:12)
+      at new SupabaseClient (../../node_modules/@supabase/supabase-js/src/SupabaseClient.ts:308:24)
+      at createClient (../../node_modules/@supabase/supabase-js/src/index.ts:60:10)
+      at createServerClient (lib/supabase.ts:159:22)
+      at lib/server-action-utils.ts:233:54
+      at action (lib/server-action-utils.ts:30:24)
+      at withServerAction (lib/server-action-utils.ts:232:10)
+      at getUserBoards (actions/board-actions.ts:23:31)
+      at Object.current (hooks/use-condition-intelligence.ts:56:39)
+      at current (hooks/use-data-fetcher.ts:95:39)
+      at fetchData (hooks/use-data-fetcher.ts:164:7)
+      at Object.react_stack_bottom_frame (../../node_modules/react-dom/cjs/react-dom-client.development.js:25989:20)
+      at runWithFiberInDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at commitHookEffectListMount (../../node_modules/react-dom/cjs/react-dom-client.development.js:13249:29)
+      at commitHookPassiveMountEffects (../../node_modules/react-dom/cjs/react-dom-client.development.js:13336:11)
+      at commitPassiveMountOnFiber (../../node_modules/react-dom/cjs/react-dom-client.development.js:15484:13)
+      at recursivelyTraversePassiveMountEffects (../../node_modules/react-dom/cjs/react-dom-client.development.js:15439:11)
+      at commitPassiveMountOnFiber (../../node_modules/react-dom/cjs/react-dom-client.development.js:15519:11)
+      at flushPassiveEffects (../../node_modules/react-dom/cjs/react-dom-client.development.js:18432:9)
+      at flushPendingEffects (../../node_modules/react-dom/cjs/react-dom-client.development.js:18358:14)
+      at performSyncWorkOnRoot (../../node_modules/react-dom/cjs/react-dom-client.development.js:18969:11)
+      at flushSyncWorkAcrossRoots_impl (../../node_modules/react-dom/cjs/react-dom-client.development.js:18814:21)
+      at flushSpawnedWork (../../node_modules/react-dom/cjs/react-dom-client.development.js:18334:9)
+      at commitRoot (../../node_modules/react-dom/cjs/react-dom-client.development.js:17955:9)
+      at performWorkOnRoot (../../node_modules/react-dom/cjs/react-dom-client.development.js:16667:15)
+      at performWorkOnRootViaSchedulerTask (../../node_modules/react-dom/cjs/react-dom-client.development.js:18957:7)
+      at flushActQueue (../../node_modules/react/cjs/react.development.js:590:34)
+      at Object.<anonymous>.process.env.NODE_ENV.exports.act (../../node_modules/react/cjs/react.development.js:884:10)
+      at ../../node_modules/@testing-library/react/dist/act-compat.js:46:25
+      at renderRoot (../../node_modules/@testing-library/react/dist/pure.js:189:26)
+      at render (../../node_modules/@testing-library/react/dist/pure.js:291:10)
+      at Object.<anonymous> (__tests__/components/beach-detail/tabs/forecast-tab.test.tsx:422:13)
+
+    console.error
+      An update to ForecastTab inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      106 |       }
+      107 |
+    > 108 |       setState({
+          |       ^
+      109 |         data: result,
+      110 |         loading: false,
+      111 |         error: null,
+
+      at ../../node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (../../node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (../../node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at dispatchSetState (../../node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at setState (hooks/use-data-fetcher.ts:108:7)
+
+PASS __tests__/components/session-intelligence/why-this-call.test.tsx
+PASS __tests__/components/beach-detail/public-forecast-answer.test.tsx
+PASS __tests__/components/forecast/conditions-overview/conditions-overview.test.tsx
+PASS __tests__/components/cams/cam-card.test.tsx
+PASS __tests__/lib/recommendations/surf-window-recommendations.test.ts
+  ● Console
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 4 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-16, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-17, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-18, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 4 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach B: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Beach B: No same-day sunset found for 2024-01-16, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach B: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach A: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Beach A: No same-day sunset found for 2024-01-16, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach A: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach B: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Beach B: No same-day sunset found for 2024-01-16, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach B: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach A: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Beach A: No same-day sunset found for 2024-01-16, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Beach A: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 3 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-16, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-20, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 3 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 2 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-24, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 2 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 1 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 1 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: 4 forecasts to evaluate, isMorning=true
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-15, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-16, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-17, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindow] Test Beach: No same-day sunset found for 2024-01-18, sunsets available:
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+    console.log
+      [WindowSelector] [selectBestWindows] Test Beach: Main loop found 4 candidate windows
+
+      at Object.log [as debug] (lib/logger.ts:88:17)
+          at Array.flatMap (<anonymous>)
+
+PASS __tests__/app/vs-surfline-free-live-cam-card.test.tsx
+PASS __tests__/components/beach-detail/public-forecast-hourly.test.tsx
+PASS __tests__/lib/media/cam-thumbnail.test.ts
+PASS __tests__/lib/share/forecast-window-share.test.ts
+
+Test Suites: 12 passed, 12 total
+Tests:       164 passed, 164 total
+Snapshots:   0 total
+Time:        4.12 s, estimated 9 s
+Ran all test suites matching /__tests__\/components\/beach-detail\/public-forecast-answer.test.tsx|__tests__\/components\/beach-detail\/public-forecast-hourly.test.tsx|__tests__\/components\/beach-detail\/tabs\/forecast-tab.test.tsx|__tests__\/components\/session-intelligence\/best-surf-windows.test.tsx|__tests__\/components\/session-intelligence\/why-this-call.test.tsx|__tests__\/components\/forecast\/conditions-overview\/conditions-overview.test.tsx|__tests__\/lib\/media\/cam-thumbnail.test.ts|__tests__\/lib\/recommendations\/surf-window-recommendations.test.ts|__tests__\/lib\/share\/forecast-window-share.test.ts|__tests__\/app\/generic-beach-detail-resolution.test.ts|__tests__\/components\/cams\/cam-card.test.tsx|__tests__\/app\/vs-surfline-free-live-cam-card.test.tsx/i.
+Done in 6.04s.

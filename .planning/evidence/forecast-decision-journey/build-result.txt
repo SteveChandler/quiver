@@ -1,0 +1,3 @@
+VERCEL_ENV=preview yarn build
+Exit: 0. Compiled, TypeScript checked and generated route output. Done in 182.28s.
+Run preceded final Explore forecast copy adjustment; final source also passed typecheck and focused unit tests afterward.

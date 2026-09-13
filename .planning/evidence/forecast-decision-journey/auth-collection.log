@@ -1,0 +1,44 @@
+Listing tests:
+  [auth] › beach-detail/forecast-tabs.spec.ts:64:9 › ForecastTab - Tabbed Interface @requires-data › Default Tab Behavior › should have "Today" tab active on page load
+  [auth] › beach-detail/forecast-tabs.spec.ts:71:9 › ForecastTab - Tabbed Interface @requires-data › Default Tab Behavior › should display "Today" tab content immediately
+  [auth] › beach-detail/forecast-tabs.spec.ts:77:9 › ForecastTab - Tabbed Interface @requires-data › Default Tab Behavior › should have "Tides" and "Conditions" tabs inactive on load
+  [auth] › beach-detail/forecast-tabs.spec.ts:91:9 › ForecastTab - Tabbed Interface @requires-data › Tab Switching › should switch to "Tides" tab when clicked
+  [auth] › beach-detail/forecast-tabs.spec.ts:105:9 › ForecastTab - Tabbed Interface @requires-data › Tab Switching › should display tide chart when "Tides" tab is active
+  [auth] › beach-detail/forecast-tabs.spec.ts:116:9 › ForecastTab - Tabbed Interface @requires-data › Tab Switching › should hide "Today" content when switching to "Tides"
+  [auth] › beach-detail/forecast-tabs.spec.ts:127:9 › ForecastTab - Tabbed Interface @requires-data › Tab Switching › should switch to "Conditions" tab when clicked
+  [auth] › beach-detail/forecast-tabs.spec.ts:141:9 › ForecastTab - Tabbed Interface @requires-data › Tab Switching › should display conditions overview when "Conditions" tab is active
+  [auth] › beach-detail/forecast-tabs.spec.ts:154:9 › ForecastTab - Tabbed Interface @requires-data › Tab Switching › should return to "Today" tab when clicked after switching
+  [auth] › beach-detail/forecast-tabs.spec.ts:173:9 › ForecastTab - Tabbed Interface @requires-data › Tab Switching › should switch between all tabs in sequence
+  [auth] › beach-detail/forecast-tabs.spec.ts:196:9 › ForecastTab - Tabbed Interface @requires-data › Today Tab Content Verification › should display conditions section
+  [auth] › beach-detail/forecast-tabs.spec.ts:201:9 › ForecastTab - Tabbed Interface @requires-data › Today Tab Content Verification › should display metric cards (Tide, Wind, Swell)
+  [auth] › beach-detail/forecast-tabs.spec.ts:219:9 › ForecastTab - Tabbed Interface @requires-data › Today Tab Content Verification › should display tide information with trend
+  [auth] › beach-detail/forecast-tabs.spec.ts:228:9 › ForecastTab - Tabbed Interface @requires-data › Today Tab Content Verification › should display wind information
+  [auth] › beach-detail/forecast-tabs.spec.ts:247:9 › ForecastTab - Tabbed Interface @requires-data › Today Tab Content Verification › should display swell information
+  [auth] › beach-detail/forecast-tabs.spec.ts:255:9 › ForecastTab - Tabbed Interface @requires-data › Today Tab Content Verification › should display BestSurfWindow component
+  [auth] › beach-detail/forecast-tabs.spec.ts:269:9 › ForecastTab - Tabbed Interface @requires-data › Today Tab Content Verification › should conditionally display Live Cam section if beach has camera
+  [auth] › beach-detail/forecast-tabs.spec.ts:290:9 › ForecastTab - Tabbed Interface @requires-data › Tides Tab Content Verification › should render TideChart component
+  [auth] › beach-detail/forecast-tabs.spec.ts:296:9 › ForecastTab - Tabbed Interface @requires-data › Tides Tab Content Verification › should display tide chart with data visualization
+  [auth] › beach-detail/forecast-tabs.spec.ts:306:9 › ForecastTab - Tabbed Interface @requires-data › Tides Tab Content Verification › should display tide-related text or labels
+  [auth] › beach-detail/forecast-tabs.spec.ts:317:9 › ForecastTab - Tabbed Interface @requires-data › Tides Tab Content Verification › should have interactive chart elements
+  [auth] › beach-detail/forecast-tabs.spec.ts:334:9 › ForecastTab - Tabbed Interface @requires-data › Conditions Tab Content Verification › should render Best Day hero section
+  [auth] › beach-detail/forecast-tabs.spec.ts:342:9 › ForecastTab - Tabbed Interface @requires-data › Conditions Tab Content Verification › should display score gauge in hero
+  [auth] › beach-detail/forecast-tabs.spec.ts:350:9 › ForecastTab - Tabbed Interface @requires-data › Conditions Tab Content Verification › should display wave and wind information in hero
+  [auth] › beach-detail/forecast-tabs.spec.ts:356:9 › ForecastTab - Tabbed Interface @requires-data › Conditions Tab Content Verification › should display Day Outlook chart section
+  [auth] › beach-detail/forecast-tabs.spec.ts:362:9 › ForecastTab - Tabbed Interface @requires-data › Conditions Tab Content Verification › should display Explore More links
+  [auth] › beach-detail/forecast-tabs.spec.ts:373:9 › ForecastTab - Tabbed Interface @requires-data › Responsive Behavior › should display correctly on mobile viewport (375x667)
+  [auth] › beach-detail/forecast-tabs.spec.ts:389:9 › ForecastTab - Tabbed Interface @requires-data › Responsive Behavior › should display correctly on tablet viewport (768x1024)
+  [auth] › beach-detail/forecast-tabs.spec.ts:401:9 › ForecastTab - Tabbed Interface @requires-data › Responsive Behavior › should display correctly on desktop viewport (1920x1080)
+  [auth] › beach-detail/forecast-tabs.spec.ts:413:9 › ForecastTab - Tabbed Interface @requires-data › Responsive Behavior › should allow tab switching on mobile viewport
+  [auth] › beach-detail/forecast-tabs.spec.ts:427:9 › ForecastTab - Tabbed Interface @requires-data › Responsive Behavior › should maintain readable text on all viewports
+  [auth] › beach-detail/forecast-tabs.spec.ts:442:9 › ForecastTab - Tabbed Interface @requires-data › Tab Keyboard Navigation › should support keyboard navigation between tabs
+  [auth] › beach-detail/forecast-tabs.spec.ts:457:9 › ForecastTab - Tabbed Interface @requires-data › Tab Keyboard Navigation › should activate tab on Enter key
+  [auth] › beach-detail/forecast-tabs.spec.ts:470:9 › ForecastTab - Tabbed Interface @requires-data › Tab Keyboard Navigation › should activate tab on Space key
+  [auth] › beach-detail/forecast-tabs.spec.ts:485:9 › ForecastTab - Tabbed Interface @requires-data › Tab Accessibility › should have proper ARIA attributes on tabs
+  [auth] › beach-detail/forecast-tabs.spec.ts:495:9 › ForecastTab - Tabbed Interface @requires-data › Tab Accessibility › should have proper ARIA attributes on tab panels
+  [auth] › beach-detail/forecast-tabs.spec.ts:503:9 › ForecastTab - Tabbed Interface @requires-data › Tab Accessibility › should maintain focus visible indicators
+  [auth] › beach-detail/forecast-tabs.spec.ts:524:9 › ForecastTab - Tabbed Interface @requires-data › Error Handling and Edge Cases › should handle missing forecast data gracefully
+  [auth] › beach-detail/forecast-tabs.spec.ts:538:9 › ForecastTab - Tabbed Interface @requires-data › Error Handling and Edge Cases › should not have console errors during tab switching
+  [auth] › beach-detail/forecast-tabs.spec.ts:575:9 › ForecastTab - Tabbed Interface @requires-data › Error Handling and Edge Cases › should handle rapid tab switching without breaking
+  [auth] › beach-detail/forecast-tabs.spec.ts:596:9 › ForecastTab - Tabbed Interface @requires-data › Tab readiness › should render Today tab content
+  [auth] › beach-detail/forecast-tabs.spec.ts:602:9 › ForecastTab - Tabbed Interface @requires-data › Tab readiness › should switch tabs and activate the selected tab
+Total: 42 tests in 1 file

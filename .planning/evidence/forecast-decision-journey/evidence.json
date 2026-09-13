@@ -1,0 +1,59 @@
+{
+  "screenshots": [
+    {
+      "path": "/Users/stevenchandler/Desktop/dev/quiver/.worktrees/forecast-decision-journey/.planning/evidence/forecast-decision-journey/journey-spot-360.png",
+      "viewport": "360x1000",
+      "primary_asset_visible": true,
+      "text_fits": true,
+      "overlap_detected": false
+    },
+    {
+      "path": "/Users/stevenchandler/Desktop/dev/quiver/.worktrees/forecast-decision-journey/.planning/evidence/forecast-decision-journey/journey-spot-768.png",
+      "viewport": "768x1000",
+      "primary_asset_visible": true,
+      "text_fits": true,
+      "overlap_detected": false
+    },
+    {
+      "path": "/Users/stevenchandler/Desktop/dev/quiver/.worktrees/forecast-decision-journey/.planning/evidence/forecast-decision-journey/journey-spot-1440.png",
+      "viewport": "1440x1000",
+      "primary_asset_visible": true,
+      "text_fits": true,
+      "overlap_detected": false
+    }
+  ],
+  "console_errors": [
+    "Baseline and patched /forecast: water-quality-hold:query-error; water_quality_held_beaches; TypeError: fetch failed. Existing strict browser gate fails."
+  ],
+  "interactions": [
+    {
+      "name": "Keyboard Enter opens linked selected local window",
+      "passed": true
+    },
+    {
+      "name": "Selected date survives reload",
+      "passed": true
+    },
+    {
+      "name": "Back restores window and list",
+      "passed": true
+    },
+    {
+      "name": "Keyboard opens advanced data",
+      "passed": true
+    },
+    {
+      "name": "Explore forecast switches from Overview retaining selected date",
+      "passed": true
+    },
+    {
+      "name": "Missing day remains unavailable",
+      "passed": true
+    },
+    {
+      "name": "Cams responds HTTP 200",
+      "passed": true
+    }
+  ],
+  "notes": "Chromium desktop emulation, not real devices or user comprehension testing. Strict complete E2E verdict remains FAIL."
+}

@@ -27,6 +27,7 @@ interface ZineHeroProps {
   summarySlot?: ReactNode;
   /** Server-rendered forecast answer, shown in the hero's left column. */
   forecastSlot?: ReactNode;
+  children?: ReactNode;
 }
 
 export function ZineHero({
@@ -37,6 +38,7 @@ export function ZineHero({
   headingSuffix,
   summarySlot,
   forecastSlot,
+  children,
 }: ZineHeroProps) {
   const skill = (beach.skill_level || "All").toUpperCase();
   const breakType = (beach.break_type || "Spot").toUpperCase();
@@ -48,8 +50,8 @@ export function ZineHero({
 
   return (
     <section>
-      <div className="grid gap-6 md:grid-cols-[1.4fr_1fr] md:gap-7 items-start">
-      <div>
+      <div className="grid gap-4">
+      <div className="min-w-0">
         <SaltyEyebrow text={`FIELD GUIDE · ${(beach.city || "FIELD").toUpperCase()}`} />
 
         <HeadingTag
@@ -88,6 +90,10 @@ export function ZineHero({
 
         {summarySlot ? <div className="mt-5">{summarySlot}</div> : null}
 
+        {forecastSlot ? <div className="mt-5">{forecastSlot}</div> : null}
+        {children}
+        <details className="mt-6 border-t border-[#11100D]/30 pt-4">
+          <summary className="cursor-pointer text-base font-bold focus-visible:outline focus-visible:outline-2">About this spot · ratings &amp; ideal conditions</summary>
         <div className="flex flex-wrap items-center gap-4 md:gap-6 mt-5">
           <MetaItem icon={<SkillBars size={28} />} label={skill} />
           <Divider />
@@ -105,8 +111,6 @@ export function ZineHero({
             </>
           )}
         </div>
-
-        {forecastSlot ? <div className="mt-6">{forecastSlot}</div> : null}
 
         {/* Hero prose sits in the left column so it fills the space beside the
             taller photo/map stack rather than leaving dead cream paper there. */}
@@ -127,9 +131,10 @@ export function ZineHero({
             {beach.best_conditions_prose}
           </p>
         )}
+        </details>
       </div>
 
-      <TapedMapPhoto
+      <details className="mt-4"><summary className="cursor-pointer text-base font-bold focus-visible:outline focus-visible:outline-2">Spot photo, map &amp; camera</summary><TapedMapPhoto
         beachPhoto={beachPhoto}
         beachName={beach.name}
         locationName={locationName || beach.name}
@@ -139,7 +144,7 @@ export function ZineHero({
         aspectDeg={beach.aspect_deg}
         breakType={beach.break_type}
         features={beach.features}
-      />
+      /></details>
       </div>
     </section>
   );
