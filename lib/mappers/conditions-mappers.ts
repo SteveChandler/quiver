@@ -1,7 +1,6 @@
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { ConditionsData } from "@/types/conditions";
 import type { Beach } from "@/types/database";
-import { calculateRideableWaves } from "@/lib/domains/wave-frequency";
 import { degreeToCardinal } from "@/lib/utils/geo-utils";
 
 /** Convert numeric degree strings (e.g. "109") to cardinal (e.g. "ESE"), pass through existing cardinals. */
@@ -20,7 +19,7 @@ function normalizeDirection(value: string | null | undefined): string | null {
  * Maps an EnhancedForecastEntity (snake_case DB row) to the
  * shared ConditionsData shape (camelCase) used by ticker components.
  *
- * When `beach` is provided, also calculates rideable waves per hour.
+ * Surfable frequency remains unknown without calibrated event observations.
  */
 export function forecastToConditionsData(
   forecast: EnhancedForecastEntity,
@@ -38,10 +37,8 @@ export function forecastToConditionsData(
   };
 
   if (beach) {
-    const result = calculateRideableWaves(forecast, beach);
-    base.rideableWavesPerHour = result.rideableWavesPerHour;
-    base.swellTrains = result.swellTrains;
-    base.dominantBeatIntervalS = result.dominantBeatIntervalS;
+    base.rideableWavesPerHour = null;
+    base.dominantBeatIntervalS = null;
   }
 
   return base;

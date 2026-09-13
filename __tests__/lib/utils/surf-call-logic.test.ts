@@ -1577,7 +1577,7 @@ describe('computeSurfCall', () => {
   });
 
   describe('rideableWavesPerHour', () => {
-    it('returns non-null rideableWavesPerHour for valid window with swell data', () => {
+    it('withholds uncalibrated frequency even for a valid window with swell data', () => {
       const beach = makeBeach({ break_type: 'beach break' });
       const forecasts = [makeForecast({
         wave_height: '3-4 ft',
@@ -1587,8 +1587,8 @@ describe('computeSurfCall', () => {
         swell_1_direction: 'W',
       })];
       const result = computeSurfCall(makeWindow({ score: 75 }), forecasts, beach);
-      expect(result.rideableWavesPerHour).not.toBeNull();
-      expect(result.rideableWavesPerHour).toBeGreaterThan(0);
+      expect(result.rideableWavesPerHour).toBeNull();
+      expect(result.dominantBeatIntervalS).toBeNull();
     });
 
     it('returns null rideableWavesPerHour when no forecasts', () => {
@@ -1602,7 +1602,7 @@ describe('computeSurfCall', () => {
       expect(result.rideableWavesPerHour).toBeNull();
     });
 
-    it('populates rideableWavesPerHour on short-window early-return', () => {
+    it('withholds uncalibrated frequency on short-window early-return', () => {
       const shortWindow = makeWindow({
         start: new Date('2026-01-22T08:00:00Z'),
         end: new Date('2026-01-22T08:20:00Z'), // 20 min — below minimum
@@ -1617,7 +1617,8 @@ describe('computeSurfCall', () => {
       })];
       const result = computeSurfCall(shortWindow, forecasts, makeBeach());
       expect(result.verdict).toBe('NO');
-      expect(result.rideableWavesPerHour).not.toBeNull();
+      expect(result.rideableWavesPerHour).toBeNull();
+      expect(result.dominantBeatIntervalS).toBeNull();
     });
   });
 });

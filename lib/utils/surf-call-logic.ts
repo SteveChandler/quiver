@@ -14,7 +14,6 @@ import { computeTrendTags, type TrendTag } from '@/lib/scoring';
 import { formatTideHeight, formatWaveHeightRange as formatWaveHeight } from '@/lib/formatters/surf-data';
 import { parseSkillLevel, SKILL_WAVE_RANGES, type SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 import type { SkillSource } from '@/lib/domains/rideability/ability';
-import { calculateRideableWaves } from '@/lib/domains/wave-frequency/calculator';
 import {
   beachToSpotProfile,
   forecastToSnapshot,
@@ -795,22 +794,7 @@ export function computeSurfCall(
   const tide = getWindowTide(effectiveForecasts, windowStartMs, !isTomorrow);
   const waveHeight = window.waveHeight !== 'Unknown' ? window.waveHeight : null;
 
-  // Wave frequency — pass the peak-wave-height hour in the window so the
-  // calculator's height view matches the waveHeight we render on the card
-  // (window.waveHeight is the peak across the window, not hour 0). Without
-  // this, a window that peaks at 3ft mid-way through could be gated against
-  // hour 0's 1.9ft forecast and score 0 waves/hr under an "EPIC" badge.
-  const freqForecast = effectiveForecasts.reduce<EnhancedForecastEntity | null>(
-    (best, f) => {
-      const fMax = parseMaxWaveHeight(f.wave_height);
-      if (fMax == null) return best;
-      if (best == null) return f;
-      const bestMax = parseMaxWaveHeight(best.wave_height) ?? 0;
-      return fMax > bestMax ? f : best;
-    },
-    null,
-  ) ?? effectiveForecasts[0] ?? null;
-  const freqResult = freqForecast ? calculateRideableWaves(freqForecast, beach) : null;
+  // Bulk swell periods do not establish surfable opportunity frequency or set waits.
 
   // Compute composite + character via the new domain engine using the
   // window's representative forecast (closest to peakTime). This is what
@@ -847,8 +831,8 @@ export function computeSurfCall(
       lowForecastConfidence,
       score,
       whySentence: 'No viable window long enough to surf.',
-      rideableWavesPerHour: freqResult?.rideableWavesPerHour ?? null,
-      dominantBeatIntervalS: freqResult?.dominantBeatIntervalS ?? null,
+      rideableWavesPerHour: null,
+      dominantBeatIntervalS: null,
       character,
       cautions,
     };
@@ -944,8 +928,8 @@ export function computeSurfCall(
     trendTags,
     updatedAt,
     isCalibrated,
-    rideableWavesPerHour: freqResult?.rideableWavesPerHour ?? null,
-    dominantBeatIntervalS: freqResult?.dominantBeatIntervalS ?? null,
+    rideableWavesPerHour: null,
+    dominantBeatIntervalS: null,
     character,
     cautions,
   };

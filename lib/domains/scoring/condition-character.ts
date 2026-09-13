@@ -166,16 +166,12 @@ export function getConditionCharacter(
 
   const isOnshore = isWindOnshoreForCharacter(windSpeed, windDirection, profile);
 
-  // 1. Skip conditions — read the composite's skip reason directly. The
-  //    `windQualityScorer` (post-PR 4) raises `skip` only at the Blown-out
-  //    tier (≥22 mph onshore-or-cross OR ≥30 mph offshore), which is the
-  //    new single source of truth for "too windy to surf". Skip from any
-  //    other scorer (e.g. `baseConditionsScorer` for >25 ft) also lands
-  //    here — surface a generic blown-out label since wind is the most
-  //    common cause; downstream callers display the composite's actual
-  //    skipReason when more detail is needed.
+  // Setup/tide and size holds must retain their cause at every display consumer.
   if (composite.skipReason) {
     const lower = composite.skipReason.toLowerCase();
+    if (!lower.includes('blown out')) {
+      return { category: 'skip', label: composite.skipReason };
+    }
     const label = lower.includes('onshore')
       ? 'Onshore wind — conditions blown out'
       : 'Blown out — too much wind';

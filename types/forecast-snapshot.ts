@@ -51,6 +51,7 @@ export interface ForecastSnapshotData {
  * Actual conditions as recorded by user
  */
 export interface ActualConditions {
+  wave_characteristics?: string[] | null;
   wave_height_ft?: number;
   wind_speed_mph?: number;
   wind_direction?: string;

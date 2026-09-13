@@ -3,7 +3,6 @@ import { currentWaterQuality } from "@/lib/services/water-quality/current-status
 import type { Database } from "@/types/database.generated";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
-import { calculateRideableWaves } from "@/lib/domains/wave-frequency";
 import {
   beachToSpotProfile,
   createDiscoveryScoringEngine,
@@ -187,17 +186,14 @@ async function fetchWaveAndForecastSignals(
       ? forecast.confidence_score
       : null;
 
-  const waveFrequency = beach
-    ? computeWaveFrequency(forecast, beach)
-    : null;
   const conditionCharacter = beach
     ? computeConditionCharacter(forecast, beach)
     : null;
 
   return {
-    rideableWavesPerHour: waveFrequency?.rideableWavesPerHour ?? null,
-    setIntervalSeconds: waveFrequency?.dominantBeatIntervalS ?? null,
-    waveFrequencyConfidence: waveFrequency?.confidence ?? null,
+    rideableWavesPerHour: null,
+    setIntervalSeconds: null,
+    waveFrequencyConfidence: null,
     forecastConfidence,
     conditionCharacter,
   };
@@ -270,18 +266,6 @@ async function fetchRepresentativeForecast(
     }, localRows[0]);
   } catch (error) {
     console.error(`${CONTEXT_TAG} Failed to load forecasts:`, error);
-    return null;
-  }
-}
-
-function computeWaveFrequency(
-  forecast: EnhancedForecastEntity,
-  beach: Beach
-): ReturnType<typeof calculateRideableWaves> | null {
-  try {
-    return calculateRideableWaves(forecast, beach);
-  } catch (error) {
-    console.error(`${CONTEXT_TAG} Failed to compute wave frequency:`, error);
     return null;
   }
 }

@@ -143,9 +143,9 @@ describe("enrichBeachSignals", () => {
 
     const expected: BeachSignalEnrichment = {
       ripRisk: "moderate",
-      rideableWavesPerHour: 14,
-      setIntervalSeconds: 180,
-      waveFrequencyConfidence: "high",
+      rideableWavesPerHour: null,
+      setIntervalSeconds: null,
+      waveFrequencyConfidence: null,
       forecastConfidence: 82,
       conditionCharacter: "Dialed — everything's lining up",
       waterQuality: "advisory",
@@ -180,7 +180,8 @@ describe("enrichBeachSignals", () => {
 
     expect(result.ripRisk).toBeNull();
     // Other signals still resolve.
-    expect(result.rideableWavesPerHour).toBe(14);
+    expect(result.rideableWavesPerHour).toBeNull();
+    expect(mockCalculateRideableWaves).not.toHaveBeenCalled();
     expect(result.forecastConfidence).toBe(82);
   });
 
@@ -254,7 +255,8 @@ describe("enrichBeachSignals", () => {
 
     expect(result.waterQuality).toBeNull();
     // Other signals still resolve.
-    expect(result.rideableWavesPerHour).toBe(14);
+    expect(result.rideableWavesPerHour).toBeNull();
+    expect(mockCalculateRideableWaves).not.toHaveBeenCalled();
   });
 
   it("returns null water quality (no throw) when the source errors", async () => {
@@ -376,7 +378,8 @@ describe("enrichBeachSignals", () => {
 
     expect(result.conditionCharacter).toBeNull();
     // Wave-frequency + confidence are independent and still resolve.
-    expect(result.rideableWavesPerHour).toBe(14);
+    expect(result.rideableWavesPerHour).toBeNull();
+    expect(mockCalculateRideableWaves).not.toHaveBeenCalled();
     expect(result.forecastConfidence).toBe(82);
   });
 
