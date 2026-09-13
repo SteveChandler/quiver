@@ -3,6 +3,35 @@
 Status: operator launch authorization received; acquisition-only final review PASS.
 Not activation or study-start evidence.
 
+## Merge and preview receipt — 2026-09-06 22:13 UTC
+
+PR https://github.com/SteveChandler/quiver/pull/702 was squash-merged to main as
+`a34eb0750dc997192d3cbf1603c3941db25aea38`, from reviewed feature commit
+`7ba6d47cb1e9f55be4755f2a9e2e17bb1afd9e42`. Main Gate run 34062857832 completed
+successfully: TypeScript 3m7s, lint 3m26s, unit tests 4m12s, build 4m12s.
+Commands: `git push -u origin orch/phase-26-no-send-current`, `gh pr create`,
+`gh run watch 34062857832 --exit-status --interval 30`, and
+`gh pr merge 702 --squash --match-head-commit 7ba6d47cb1e9f55be4755f2a9e2e17bb1afd9e42`
+all passed. Precommit secret scanning passed, and all 14 guardrails passed.
+Staged diff checking reported trailing blank lines at horizon-derivation.ts:99
+and migration 20260905030000:287; frozen reviewed bytes were preserved.
+
+`vercel inspect dpl_AprjEBovL9uenhZj9K47fSMHcBY8 --wait --timeout 60s --scope stcha0004-9905s-projects`
+eventually confirmed Ready, Preview, aliased to dev.quiversurf.app. Earlier
+one-minute observation timeouts did not restart the build. Node fetch assertions
+against GET /api/cron/swell-watch-acquire and POST /api/cron/swell-watch-evaluate
+on that alias passed: both returned 401 Invalid cron authentication and
+`private, no-store, no-cache, must-revalidate`. No cron credentials were supplied.
+These checks do not prove authenticated disabled behavior or enabled acquisition.
+No browser/native E2E was run in this merge/preview increment.
+
+Production head remains `b087d1ac0ebb41f96ea14c5e1b65bb486e8b75ac`. Normal promotion
+now also includes PR #700, outside the frozen launch inventory. Operator was asked
+whether to include it; no answer has been received. Do not interpret automatic
+goal continuations as that answer. No production env changes, backup, policy write,
+provider acquisition, sends or OTA publication occurred. The study is unstarted.
+The existing exact no-send authorization remains valid for its unchanged scope.
+
 ## Final independent review — 2026-09-06
 
 The explicitly requested `phase26_final_launch_review` subagent (gpt-5.6-sol,
