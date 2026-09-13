@@ -1,4 +1,4 @@
-import { VALID_EVENTS, ANONYMOUS_ALLOWED_EVENTS, PRE_AUTH_ONLY_EVENTS } from '@/app/api/events/route';
+import { VALID_EVENTS, ANONYMOUS_ALLOWED_EVENTS, PRE_AUTH_ONLY_EVENTS } from '@/lib/analytics/event-taxonomy';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 

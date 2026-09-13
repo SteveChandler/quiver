@@ -1,0 +1,100 @@
+{
+  "status": "dependency_inventory_not_release_approval",
+  "baseCommit": "a69b0149faee074c1055bbeedeb271e0a798c849",
+  "entrypoints": [
+    "app/api/cron/swell-watch-acquire/route.ts",
+    "app/api/cron/swell-watch-evaluate/route.ts"
+  ],
+  "resolvedLocalFiles": 52,
+  "files": [
+    {
+      "path": "app/api/cron/swell-watch-acquire/route.ts",
+      "sha256": "be5b2c18b8133832ecd6c7f50e06e01f0393120fdc2306c5c0066e37157e9cb5"
+    },
+    {
+      "path": "app/api/cron/swell-watch-evaluate/route.ts",
+      "sha256": "2731591ffebc2e685566d0e771556b595152489a178080ce0e758f32b2f64b95"
+    },
+    {
+      "path": "lib/alerts/swell-watch/acquisition.ts",
+      "sha256": "4a47322586f49baeedda16b08be7ba68da51162b53119bebc67b761137a2aee0"
+    },
+    {
+      "path": "lib/alerts/swell-watch/attested-run.ts",
+      "sha256": "6fc5793629f45b71ac37a330975bc983d6b06485daa8cf8f0c2353b323e9f7b2"
+    },
+    {
+      "path": "lib/alerts/swell-watch/audience.ts",
+      "sha256": "57b6f1f6a76c15251c4cc9860acb6f5d547272883eb550beb78cbd7d4aa37f71"
+    },
+    {
+      "path": "lib/alerts/swell-watch/event-matcher.ts",
+      "sha256": "81dcd557983652a66cfa63efbd3a38d5594534301e861b2ba925cd3d206ab25f"
+    },
+    {
+      "path": "lib/alerts/swell-watch/horizon-derivation.ts",
+      "sha256": "d804de8a86de6904c7178d9d5375836b4d7f13b09c4818ee684c810847015b96"
+    },
+    {
+      "path": "lib/alerts/swell-watch/impact-evaluator.ts",
+      "sha256": "56f5f14ec5129ce7c9dd507f7bf5a0b17da725e77157d10ac6ce0a0c9f20d40f"
+    },
+    {
+      "path": "lib/alerts/swell-watch/partition-normalizer.ts",
+      "sha256": "f721d20f4f4a097b6eb253881cc97a50619f77b774afc2f351fbd1ed0b91f358"
+    },
+    {
+      "path": "lib/alerts/swell-watch/persisted-history.ts",
+      "sha256": "8a25ec5349826876a11a01d516f0584554a180656255d169796aa009ac55dd3b"
+    },
+    {
+      "path": "lib/alerts/swell-watch/policy.ts",
+      "sha256": "830f3027977777fcdd56f4a14afe7c515a4b01049c07a49c637cb6d0e0bd7931"
+    },
+    {
+      "path": "lib/alerts/swell-watch/provider-impact-ingestion.ts",
+      "sha256": "6652659d9c6b510a73950562a8836c2651874b449bc29c54cee42ff211fb1f3c"
+    },
+    {
+      "path": "lib/alerts/swell-watch/provider-run-store.ts",
+      "sha256": "c50f3104ba1dd663cb953511c5110d65abe22e3ee95f0640e728ee4f83aae683"
+    },
+    {
+      "path": "lib/alerts/swell-watch/regional-consolidator.ts",
+      "sha256": "ff8c3ade289fa29fbcf862c7f56b24a3d44ab01b497241a64e01503f09d5f1aa"
+    },
+    {
+      "path": "lib/alerts/swell-watch/safety-control.ts",
+      "sha256": "84dc72641076bfcf3f283c1caf66c043c76c23e670da0ba4a7a9c2f0a9ac0e92"
+    },
+    {
+      "path": "lib/alerts/swell-watch/shadow-evaluation.ts",
+      "sha256": "2c03cd43d58ca67fd7eb9fc1c695a6e3457f8ebc7a49776bc88a95776f3cbeb5"
+    },
+    {
+      "path": "lib/alerts/swell-watch/single-run-receipt.ts",
+      "sha256": "369e2d643d58ebdb2b0f85bb6c8d5e3ae9a479e2932ff10fcc4fad3011a488da"
+    },
+    {
+      "path": "lib/middleware/api-wrappers/types.ts",
+      "sha256": "7c91a5573badc676547651d9212fc655eca8d0a87f2e4e3ce494fa0c2f79ff2b"
+    },
+    {
+      "path": "lib/services/noaa-wavewatch/types.ts",
+      "sha256": "e0c4f88eed28d7d41f519f0bc880b57062181c3320362247f0f6f86fccece172"
+    },
+    {
+      "path": "types/database.generated.ts",
+      "sha256": "1974de460adcc9a6880753cea8b55ff67e8a7eb7d571b8a05e1b9cee757e79dc"
+    },
+    {
+      "path": "types/forecast.ts",
+      "sha256": "555d23f0d05c5a5ff04fc1588da6d8554c083de19178823e8faa798eae81a9ca"
+    }
+  ],
+  "limitations": [
+    "Static TypeScript imports only; not a bundle or full Next.js build proof",
+    "Tests and global build configuration require separate clean-checkout validation",
+    "No commit, push, deployment, policy installation, attestation or activation authorized"
+  ]
+}

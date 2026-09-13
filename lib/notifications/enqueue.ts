@@ -16,7 +16,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ZodError } from "zod";
-import type { Database } from "@/types/database.generated";
+import type { Database, Json } from "@/types/database.generated";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getRegistryEntry, isKnownNotificationType } from "./registry";
 import type { EnqueueArgs, EnqueueResult } from "./types";
@@ -103,6 +103,23 @@ export async function enqueueNotification(
 
   const supabase = client ?? createSupabaseServiceRoleClient();
   const notifClient = supabase as unknown as NotificationEventsClient;
+  if (args.type === "swell_watch" && validatedPayload.schema_version === "swell-watch-notification.v2") {
+    const authority = args.swellWatchAuthority;
+    if (!authority || !Number.isSafeInteger(authority.expectedEpoch) || authority.expectedEpoch < 1
+      || !/^[a-f0-9]{64}$/.test(authority.policyHash)) {
+      return { enqueued: false, reason: "safety_rejected", message: "authority_required" };
+    }
+    const { data, error } = await supabase.rpc("swell_watch_enqueue_notification", {
+      p_recipient_id: args.recipientUserId, p_payload: validatedPayload as Json,
+      p_expected_epoch: authority.expectedEpoch, p_policy_hash: authority.policyHash,
+    });
+    if (error) return { enqueued: false, reason: "internal_error", message: error.message };
+    const result = data?.[0];
+    if (!result) return { enqueued: false, reason: "internal_error", message: "enqueue returned no row" };
+    if (result.enqueued && result.notification_event_id) return { enqueued: true, eventId: result.notification_event_id };
+    if (result.reason_code === "duplicate") return { enqueued: false, reason: "duplicate" };
+    return { enqueued: false, reason: "safety_rejected", message: result.reason_code };
+  }
   const nextAttemptAt = def.surfAlertPriority
     ? new Date(Date.now() + SURF_ALERT_COALESCE_MS).toISOString()
     : null;

@@ -7,6 +7,7 @@
  */
 
 import { createHash } from "node:crypto";
+import * as eventsRoute from "@/app/api/events/route";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -14,14 +15,9 @@ import {
   ANONYMOUS_ALLOWED_EVENTS,
   PRE_AUTH_ONLY_EVENTS,
   VALID_EVENTS,
-} from "@/app/api/events/route";
-import {
-  ANONYMOUS_ALLOWED_EVENTS as REGISTRY_ANONYMOUS_ALLOWED_EVENTS,
   BFR_ANONYMOUS_EVENT_TYPES,
   BFR_WEB_EVENT_TYPES,
   NATIVE_DIRECT_INSERT_EVENTS,
-  PRE_AUTH_ONLY_EVENTS as REGISTRY_PRE_AUTH_ONLY_EVENTS,
-  VALID_EVENTS as REGISTRY_VALID_EVENTS,
 } from "@/lib/analytics/event-taxonomy";
 import { EVENT_WEIGHTS } from "@/types/implicit-preferences";
 
@@ -189,10 +185,8 @@ describe("events taxonomy characterization", () => {
     }
   });
 
-  it("wires the API route exports to the shared registry arrays", () => {
-    expect(VALID_EVENTS).toBe(REGISTRY_VALID_EVENTS);
-    expect(ANONYMOUS_ALLOWED_EVENTS).toBe(REGISTRY_ANONYMOUS_ALLOWED_EVENTS);
-    expect(PRE_AUTH_ONLY_EVENTS).toBe(REGISTRY_PRE_AUTH_ONLY_EVENTS);
+  it("exposes only supported Next.js route exports", () => {
+    expect(Object.keys(eventsRoute).sort()).toEqual(["POST", "dynamic"]);
   });
 
   it("registers the public BFR family with explicit anonymous membership", () => {

@@ -5,8 +5,8 @@
 import {
   buildBestTimeLiveHandoffSteps,
   buildBestTimeMetadataCopy,
-  generateMetadata,
-} from "@/app/best-time-to-surf/[city]/page";
+} from "@/lib/seo/best-time-copy";
+import { generateMetadata } from "@/app/best-time-to-surf/[city]/page";
 import { findCityBySlug } from "@/actions/city/city-metadata-actions";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
 import { getBestTimeToSurfData } from "@/actions/city/best-time-actions";
@@ -404,9 +404,10 @@ describe("best-time city SEO page", () => {
       "utf8"
     );
 
-    expect(source).toContain(
-      "Best ${cityName} surf window today: tide and conditions",
+    expect(buildBestTimeMetadataCopy("San Diego").h1).toBe(
+      "Best San Diego surf window today: tide and conditions",
     );
+    expect(source).toContain("{metadataCopy.h1}");
     expect(source).toContain("{liveAnswerCopy.todayAnswer}");
     expect(source).toContain("Surf Score by Month");
     expect(source).toContain("Monthly Breakdown");

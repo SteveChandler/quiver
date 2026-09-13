@@ -36,9 +36,11 @@ import {
   type SimilarityMatchPayload,
 } from "./types/similarity-match";
 import {
-  parseMajorSwellNotificationPayload,
-  type MajorSwellNotificationPayload,
-} from "./types/major-swell";
+  normalizeSwellWatchNotificationPayload,
+  parseSwellWatchNotificationPayload,
+  toSwellWatchClientData,
+  type SwellWatchNotificationPayload,
+} from "./types/swell-watch-v2";
 import { canonicalSessionDecisionSchema } from "@/lib/recommendations/canonical-decision/contract";
 
 // ─── Phase 5e: payload schemas (validatePayload source of truth) ─────────────
@@ -945,38 +947,24 @@ export const NOTIFICATION_REGISTRY = {
     suppressSelfNotify: false,
     quietHours: DEFAULT_QUIET,
     cooldownMs: 96 * 60 * 60 * 1000,
-    validatePayload: parseMajorSwellNotificationPayload,
-    buildPushPayload: (p) => ({
-      ...SURF_ALERT_PUSH_PRESENTATION,
-      title: p.title,
-      body: p.body,
-      data: {
+    validatePayload: parseSwellWatchNotificationPayload,
+    buildPushPayload: (p) => {
+      const payload = normalizeSwellWatchNotificationPayload(p);
+      return {
+        ...SURF_ALERT_PUSH_PRESENTATION,
+        title: payload.title,
+        body: payload.body,
+        data: toSwellWatchClientData(payload),
+      };
+    },
+    buildInAppPayload: (p) => {
+      const payload = normalizeSwellWatchNotificationPayload(p);
+      return {
         type: "swell_watch",
-        beach_id: p.beach_id,
-        ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
-        ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
-        awareness_signal: p.awareness_signal,
-        awareness_severity: p.awareness_severity,
-      },
-    }),
-    buildInAppPayload: (p) => ({
-      type: "swell_watch",
-      data: {
-        beach_id: p.beach_id,
-        ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
-        beach_name: p.beach_name,
-        event_start_date: p.event_start_date,
-        peak_date: p.peak_date,
-        peak_height_ft: p.peak_height_ft,
-        peak_period_s: p.peak_period_s,
-        forecast_at: p.forecast_at,
-        awareness_signal: p.awareness_signal,
-        awareness_severity: p.awareness_severity,
-        title: p.title,
-        body: p.body,
-      },
-    }),
-  } satisfies NotificationTypeDef<MajorSwellNotificationPayload>,
+        data: toSwellWatchClientData(payload),
+      };
+    },
+  } satisfies NotificationTypeDef<SwellWatchNotificationPayload>,
 
   trial_ending: {
     type: "trial_ending",

@@ -1,11 +1,11 @@
 /**
  * Unit tests for scoreForecastSlots and identifyGoldenWindows
- * (exported from the scored forecast route for testability).
+ * used by the scored forecast route.
  *
  * These tests exercise pure logic without any HTTP layer or Supabase mocking.
  */
 
-import { scoreForecastSlots, identifyGoldenWindows } from "../route";
+import { scoreForecastSlots, identifyGoldenWindows } from "@/lib/services/forecast/scored-slots";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 

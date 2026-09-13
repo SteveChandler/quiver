@@ -12,6 +12,7 @@
 
 import type {
   SurfDiscoveryRecommendation,
+  SurfDiscoveryResponse,
   PersonalizedForecastWindow,
   DetailedScore,
 } from '@/types/personalization';
@@ -24,6 +25,22 @@ import type { ConditionCharacterCategory } from '@/lib/domains/scoring';
 
 // Re-export FALLBACK_IMAGE_BY_NAME for backward compatibility
 export { FALLBACK_IMAGE_BY_NAME };
+
+/** Keep internal ranking values out of the public condition-score contract. */
+export function stripInternalRankingScore(
+  discovery: SurfDiscoveryResponse
+): SurfDiscoveryResponse {
+  const strip = (
+    recs: SurfDiscoveryResponse['recommendations'] | undefined
+  ): SurfDiscoveryResponse['recommendations'] | undefined =>
+    recs?.map(({ rankingScore: _rankingScore, ...rest }) => rest);
+
+  return {
+    ...discovery,
+    recommendations: strip(discovery.recommendations) ?? discovery.recommendations,
+    includedRecommendations: strip(discovery.includedRecommendations),
+  };
+}
 
 // ============================================================================
 // Photo Enrichment

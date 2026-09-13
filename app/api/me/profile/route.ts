@@ -5,7 +5,6 @@ import {
   createNotFoundError,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
-import { fetchProfile as defaultFetchProfile } from "@/actions/profile-actions";
 import { getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
 
 export const dynamic = "force-dynamic";
@@ -18,33 +17,11 @@ export const dynamic = "force-dynamic";
  * and returned 401 for every native caller.
  */
 
-// Legacy DI type kept for test compatibility. New callers should not pass
-// deps — the real auth path goes through withAuth.
-export type GetDeps = {
-  fetchProfileFn?: typeof defaultFetchProfile;
-};
-
-export async function handleGet(
+async function handleGet(
   _request: NextRequest,
   context: AuthenticatedContext,
-  deps?: GetDeps,
 ) {
   const { user, supabase } = context;
-
-  if (deps?.fetchProfileFn) {
-    const profileData = await deps.fetchProfileFn(user.id);
-    if (!profileData) {
-      return createNotFoundError("Profile not found");
-    }
-    return createSuccessResponse({
-      id: profileData.id,
-      home_beach_id: profileData.home_beach_id,
-      full_name: profileData.full_name,
-      avatar_url: (profileData as { avatar_url?: string | null }).avatar_url ?? null,
-      bio: (profileData as { bio?: string | null }).bio ?? null,
-      location: (profileData as { location?: string | null }).location ?? null,
-    });
-  }
 
   const { profile, homeBeachName } = await getProfileWithHomeBeachById(
     user.id,
@@ -52,7 +29,7 @@ export async function handleGet(
   );
 
   if (!profile) {
-    return createNotFoundError("Profile not found");
+    return createNotFoundError("Profile");
   }
 
   return createSuccessResponse({

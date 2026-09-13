@@ -87,6 +87,57 @@ describe('processNOAAGridData — real partition parsing', () => {
     expect(result[1].swell_2_height).toBeCloseTo(0.5, 2);
     expect(result[1].swell_2_period).toBeCloseTo(9, 1);
     expect(result[1].swell_2_direction).toBe(200);
+    expect(result[0].swell_field_sources).toMatchObject({
+      provider: 'noaa', immutableRunId: null,
+      s1: {
+        height: { kind: 'provider_field', field: 'primarySwellHeight' },
+        period: { kind: 'provider_field', field: 'wavePeriod' },
+        direction: { kind: 'provider_field', field: 'primarySwellDirection' },
+      },
+      s2: {
+        height: { kind: 'provider_field', field: 'secondarySwellHeight' },
+        period: { kind: 'provider_field', field: 'wavePeriod2' },
+        direction: { kind: 'provider_field', field: 'secondarySwellDirection' },
+      },
+    });
+  });
+
+  it('moves field lineage with the NOAA tuple when the longer secondary becomes S1', () => {
+    const [slot] = processNOAAGridData({ properties: {
+      waveHeight: series([2]), wavePeriod: series([9]), waveDirection: series([200]),
+      primarySwellHeight: series([1.5]), primarySwellDirection: series([210]),
+      secondarySwellHeight: series([1]), secondarySwellDirection: series([170]),
+      wavePeriod2: series([13]),
+    } }, 1, LAT, LON);
+    expect([slot.swell_1_height, slot.swell_1_period, slot.swell_1_direction]).toEqual([1, 13, 170]);
+    expect(slot.swell_field_sources?.s1).toMatchObject({
+      height: { kind: 'provider_field', field: 'secondarySwellHeight' },
+      period: { kind: 'provider_field', field: 'wavePeriod2' },
+      direction: { kind: 'provider_field', field: 'secondarySwellDirection' },
+    });
+    expect(slot.swell_field_sources?.s2.height.field).toBe('primarySwellHeight');
+    expect(slot.swell_field_sources?.s1.height.sample).toEqual({
+      value: 1, validTime: '2026-04-21T00:00:00Z/PT3H', unit: 'wmoUnit:m',
+    });
+    expect(slot.swell_field_sources?.s2.height.sample?.value).toBe(1.5);
+    expect(slot.swell_field_sources?.immutableRunId).toBeNull();
+  });
+
+  it('distinguishes NOAA derived fields and missing sentinels from provider measurements', () => {
+    const [slot] = processNOAAGridData({ properties: { waveHeight: series([2]) } }, 1, LAT, LON);
+    expect(slot.swell_1_height).toBe(1.4);
+    expect(slot.swell_field_sources?.s1).toMatchObject({
+      height: { kind: 'derived', field: 'waveHeight' },
+      period: { kind: 'missing', field: null },
+      direction: { kind: 'derived', field: 'prevailing_direction' },
+    });
+    expect(slot.swell_field_sources?.s1.height.sample?.value).toBe(2);
+    expect(slot.swell_field_sources?.s1.direction.sample).toBeUndefined();
+    expect(slot.swell_field_sources?.s2).toEqual({
+      height: { kind: 'missing', field: null },
+      period: { kind: 'missing', field: null },
+      direction: { kind: 'missing', field: null },
+    });
   });
 
   it('falls back to generic swellHeight for swell_1 when primary partition is absent', () => {
@@ -105,6 +156,11 @@ describe('processNOAAGridData — real partition parsing', () => {
     const result = processNOAAGridData(gridData, 1, LAT, LON);
     expect(result[0].swell_1_height).toBeCloseTo(1.1, 2);
     expect(result[0].swell_1_direction).toBe(260);
+    expect(result[0].swell_field_sources?.s1).toMatchObject({
+      height: { kind: 'provider_field', field: 'swellHeight' },
+      period: { kind: 'provider_field', field: 'swellPeriod' },
+      direction: { kind: 'provider_field', field: 'swellDirection' },
+    });
     // Secondary MUST be the zero sentinel — no synthesis from swell_1.
     // Downstream consumers read `swell_2_height > 0 && swell_2_period > 0`
     // as "has second swell train," so 0 means "no second swell."
@@ -486,8 +542,45 @@ describe('processNOAAGridData — real partition parsing', () => {
   });
 });
 
-describe('processOpenMeteoData — swell_2 is always zero sentinel', () => {
-  it('zeros swell_2 unconditionally even when swell_wave_height is populated', () => {
+describe('processOpenMeteoData — secondary partition preservation', () => {
+  it('labels Open-Meteo fallback choices without inventing a completed run', () => {
+    const [slot] = processOpenMeteoData({ hourly: {
+      time: ['2026-04-21T00:00', '2026-04-21T01:00', '2026-04-21T02:00'],
+      wave_height: [2], wave_period: [9], wave_direction: [0],
+    } }, 1);
+    expect([slot.swell_1_height, slot.swell_1_period, slot.swell_1_direction]).toEqual([1.4, 9, 0]);
+    expect(slot.swell_field_sources).toMatchObject({
+      provider: 'open_meteo', immutableRunId: null,
+      s1: {
+        height: { kind: 'derived', field: 'wave_height' },
+        period: { kind: 'provider_field', field: 'wave_period' },
+        direction: { kind: 'provider_field', field: 'wave_direction' },
+      },
+      s2: {
+        height: { kind: 'missing', field: null },
+        period: { kind: 'missing', field: null },
+        direction: { kind: 'missing', field: null },
+      },
+    });
+    expect(slot.swell_field_sources?.s1.height.sample).toEqual({
+      value: 2, validTime: '2026-04-21T00:00', unit: null, timezone: null, utcOffsetSeconds: null,
+    });
+  });
+  it('retains Open-Meteo raw epoch and returned units without inferring an issuance', () => {
+    const time = Date.parse('2026-04-21T00:00:00Z') / 1000;
+    const [slot] = processOpenMeteoData({
+      timezone: 'America/Los_Angeles', utc_offset_seconds: -25200,
+      hourly_units: { swell_wave_height: 'm' },
+      hourly: { time: [time, time + 3600, time + 7200], swell_wave_height: [1.234] },
+    }, 1);
+    expect(slot.swell_field_sources?.s1.height.sample).toEqual({
+      value: 1.234, validTime: time, unit: 'm', timezone: 'America/Los_Angeles', utcOffsetSeconds: -25200,
+    });
+    expect(slot.swell_field_sources?.s1.period).toEqual({ kind: 'derived', field: 'default_period' });
+    expect(slot.swell_field_sources?.immutableRunId).toBeNull();
+    expect(slot.timestamp).toBe('2026-04-21T00:00:00.000Z');
+  });
+  it('preserves a complete Open-Meteo secondary tuple instead of zeroing it', () => {
     const data: OpenMeteoMarineResponse = {
       hourly: {
         time: [
@@ -504,16 +597,47 @@ describe('processOpenMeteoData — swell_2 is always zero sentinel', () => {
         swell_wave_height: [1.1, 1.1, 1.1, 1.2, 1.2, 1.2],
         swell_wave_period: [14, 14, 14, 15, 15, 15],
         swell_wave_direction: [265, 265, 265, 268, 268, 268],
+        secondary_swell_wave_height: [0.4, 0.4, 0.4, 0.5, 0.5, 0.5],
+        secondary_swell_wave_period: [13, 13, 13, 12, 12, 12],
+        secondary_swell_wave_direction: [170, 170, 170, 175, 175, 175],
       },
     };
 
     const result = processOpenMeteoData(data, 1);
     expect(result.length).toBeGreaterThan(0);
+    expect(result[0].swell_field_sources?.s2).toMatchObject({
+      height: { kind: 'provider_field', field: 'secondary_swell_wave_height' },
+      period: { kind: 'provider_field', field: 'secondary_swell_wave_period' },
+      direction: { kind: 'provider_field', field: 'secondary_swell_wave_direction' },
+    });
     for (const slot of result) {
-      expect(slot.swell_2_height).toBe(0);
-      expect(slot.swell_2_period).toBe(0);
-      expect(slot.swell_2_direction).toBe(0);
+      expect(slot.swell_2_height).toBeGreaterThan(0);
+      expect(slot.swell_2_period).toBeGreaterThan(0);
+      expect(slot.swell_2_direction).toBeGreaterThan(0);
     }
+  });
+
+  it('keeps an incomplete Open-Meteo secondary tuple missing', () => {
+    const data: OpenMeteoMarineResponse = {
+      hourly: {
+        time: [
+          '2026-02-16T00:00',
+          '2026-02-16T01:00',
+          '2026-02-16T02:00',
+          '2026-02-16T03:00',
+        ],
+        wave_height: [1.5, 1.5, 1.5, 1.5],
+        wave_period: [12, 12, 12, 12],
+        wave_direction: [270, 270, 270, 270],
+        secondary_swell_wave_height: [0.4, 0.4, 0.4, 0.4],
+        secondary_swell_wave_period: [13, 13, 13, 13],
+      },
+    };
+
+    const [slot] = processOpenMeteoData(data, 1);
+    expect(slot.swell_2_height).toBeNull();
+    expect(slot.swell_2_period).toBeNull();
+    expect(slot.swell_2_direction).toBeNull();
   });
 
   it('never synthesizes swell_2 = swell_1 * 0.6 (regression guard)', () => {
@@ -537,7 +661,7 @@ describe('processOpenMeteoData — swell_2 is always zero sentinel', () => {
     const result = processOpenMeteoData(data, 1);
     for (const slot of result) {
       expect(slot.swell_2_height).not.toBe(0.9); // 1.5 * 0.6
-      expect(slot.swell_2_height).toBe(0);
+      expect(slot.swell_2_height).toBeNull();
     }
   });
 

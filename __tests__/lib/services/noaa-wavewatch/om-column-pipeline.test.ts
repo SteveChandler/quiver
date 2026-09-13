@@ -146,6 +146,7 @@ describe("processOpenMeteoData: om_values capture", () => {
       expect(fc.om_values?.om_wind_wave_missing).toBe(false);
       expect(fc.om_values?.om_primary_swell_missing).toBe(false);
       expect(fc.om_values?.om_secondary_swell_missing).toBe(false);
+      expect(fc.om_values?.om_secondary_swell_complete).toBe(true);
       expect(fc.om_values?.om_tertiary_swell_missing).toBe(false);
       expect(fc.om_values?.om_partition_schema_version).toBe(1);
     });
@@ -222,6 +223,7 @@ describe("processOpenMeteoData: om_values capture", () => {
       expect(fc.om_values?.om_wind_wave_missing).toBe(true);
       expect(fc.om_values?.om_primary_swell_missing).toBe(true);
       expect(fc.om_values?.om_secondary_swell_missing).toBe(true);
+      expect(fc.om_values?.om_secondary_swell_complete).toBe(false);
       expect(fc.om_values?.om_tertiary_swell_missing).toBe(true);
       expect(fc.om_values?.om_partition_schema_version).toBe(1);
     });

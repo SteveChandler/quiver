@@ -9,13 +9,18 @@ const mockSingle = jest.fn();
 const mockSelect = jest.fn(() => ({ single: mockSingle }));
 const mockInsert = jest.fn(() => ({ select: mockSelect }));
 const mockFrom = jest.fn(() => ({ insert: mockInsert }));
+const mockRpc = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
-  createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockFrom })),
+  createSupabaseServiceRoleClient: jest.fn(() => ({ from: mockFrom, rpc: mockRpc })),
 }));
 
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
+import {
+  parseSwellWatchNotificationPayload,
+} from "@/lib/notifications/types/swell-watch-v2";
+import swellWatchV2Fixture from "../fixtures/swell-watch-v2.json";
 
 describe("enqueueNotification", () => {
   beforeEach(() => {
@@ -153,10 +158,9 @@ describe("enqueueNotification", () => {
     });
 
     expect(result.enqueued).toBe(false);
-    if (result.enqueued === false) {
-      expect(result.reason).toBe("invalid_payload");
-      expect(result.message).toMatch(/session_id/);
-    }
+    if (result.enqueued) throw new Error("Expected invalid payload result");
+    expect(result.reason).toBe("invalid_payload");
+    expect(result.message).toMatch(/session_id/);
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
@@ -176,9 +180,8 @@ describe("enqueueNotification", () => {
     });
 
     expect(result.enqueued).toBe(false);
-    if (result.enqueued === false) {
-      expect(result.reason).toBe("invalid_payload");
-    }
+    if (result.enqueued) throw new Error("Expected invalid payload result");
+    expect(result.reason).toBe("invalid_payload");
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
@@ -208,6 +211,55 @@ describe("enqueueNotification", () => {
         },
       })
     );
+  });
+
+  it("stores the normalized Swell Watch v2 identity used by permanent enqueue dedupe", async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: [{ enqueued: true, reason_code: "enqueued", notification_event_id: "evt-swell-watch-v2" }],
+      error: null,
+    });
+    const payload = parseSwellWatchNotificationPayload(swellWatchV2Fixture);
+
+    await expect(enqueueNotification({
+      type: "swell_watch",
+      recipientUserId: "user-A",
+      payload: swellWatchV2Fixture,
+      swellWatchAuthority: { expectedEpoch: 9, policyHash: "a".repeat(64) },
+    })).resolves.toEqual({ enqueued: true, eventId: "evt-swell-watch-v2" });
+
+    expect(mockRpc).toHaveBeenCalledWith("swell_watch_enqueue_notification", {
+      p_recipient_id: "user-A", p_payload: payload, p_expected_epoch: 9, p_policy_hash: "a".repeat(64),
+    });
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects Swell Watch v2 without authority rather than inserting directly", async () => {
+    expect(await enqueueNotification({ type: "swell_watch", recipientUserId: "user-A", payload: swellWatchV2Fixture }))
+      .toEqual({ enqueued: false, reason: "safety_rejected", message: "authority_required" });
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it.each(["duplicate", "projected_send_cap_exceeded", "control_epoch_changed", "authority_unavailable"])("returns atomic enqueue rejection %s without fallback insert", async (reason) => {
+    mockRpc.mockResolvedValueOnce({ data: [{ enqueued: false, reason_code: reason, notification_event_id: null }], error: null });
+    expect(await enqueueNotification({ type: "swell_watch", recipientUserId: "user-A", payload: swellWatchV2Fixture,
+      swellWatchAuthority: { expectedEpoch: 9, policyHash: "a".repeat(64) } }))
+      .toEqual(reason === "duplicate" ? { enqueued: false, reason: "duplicate" } : { enqueued: false, reason: "safety_rejected", message: reason });
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed Swell Watch v2 identity before it can reach the queue", async () => {
+    const { regional_event_id: _regionalEventId, ...invalidPayload } = swellWatchV2Fixture;
+
+    await expect(enqueueNotification({
+      type: "swell_watch",
+      recipientUserId: "user-A",
+      payload: invalidPayload,
+    })).resolves.toMatchObject({
+      enqueued: false,
+      reason: "invalid_payload",
+    });
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   it("accepts the Weekend Scout cron payload with bounded hold context", async () => {

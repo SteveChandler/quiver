@@ -1,6 +1,40 @@
 # Swell Watch: production no-send installation plan
 
-Status: draft, not executable authorization. Prepared 2026-09-05 from the isolated `orch/phase-26-swell-web` worktree at HEAD `cb6d545da0634b00ad627547352ddf614cdd328e` plus uncommitted Phase 26 changes.
+Status: reviewed schema-installation proposal, awaiting exact maintainer approval. The fresh corrected drill passed; no production mutation is authorized yet.
+
+## Final execution boundary — 2026-09-06
+
+Latest prerequisite result: corrected `bash scripts/test-swell-watch-worker-postgres.sh` PASS 9/9 (126.52s Jest; long case 39.706s under the unchanged 60-second limit), despite host load rising to 141.58. `yarn typecheck` PASS (65.82s), `node_modules/.bin/eslint --max-warnings=0 __tests__/notifications/swell-watch-worker-postgres.drill.ts` PASS, and `git diff --check` PASS. Independent source review approved the fixture helper correction and separately found no further execution-scope flaw in this proposal. No production SQL/runtime source changed; only the test fixture helper and this document changed, without a new commit. Browser/native E2E was not run and remains incomplete.
+
+Failure history: the prior drill failed (Jest 129.346s; 7/9 passed). The kill/hold/reset case exceeded its 60-second timeout, then the owner-revocation case failed because its predecessor had not left control held. The unchanged diagnostic rerun passed before the minimal fixture correction below. The later failure was not independent evidence of a production defect; no timeout or assertion was weakened to obtain the corrected pass.
+
+This section supersedes historical pending-review/commit/connection notes below. SQL source is immutable commit `17d1b45e2edf47b8dee203c0a9d3742e86ae6faf`; the thirteen-file candidate manifest below is the allowlist. The five restored history files are already tracked in production and must not be reapplied.
+
+Target: production Supabase `vawdnbbgawichorsjiwe` (`quiverDB`), database `postgres`, production owner connection through the linked IPv4 pooler. Confirm owner identity before mutation. Run from `/Users/stevenchandler/Desktop/dev/.worktrees/phase-26/quiver` only.
+
+Immediately before execution, revalidate the thirteen working-tree and committed SQL hashes, the linked project, backup freshness/integrity and exact pending set using `supabase db push --linked --include-all --dry-run`. Stop if anything differs or unrelated migrations/seeds/roles appear. The approved mutation command, only after those checks and the maintainer token, is `supabase db push --linked --include-all`. Do not use `--yes`, repair tracking, seed data, or substitute ad hoc SQL. Confirm the CLI prompt only when it lists exactly the allowlist. This uses normal CLI tracking and each file's transaction; it is not a single atomic transaction for all thirteen files.
+
+Objects/effects and no-send restrictions are specified below. The shared notification queue receives only the reviewed v2 constraint/index; their transaction has a 2-second lock timeout and 30-second statement timeout. On any error, stop without retry or rollback improvisation, inspect committed tracking/object state read-only, and propose a targeted recovery. Earlier successful files may remain installed. No deletion or whole-database restore is authorized.
+
+The CLI batch does not pause for manual inspection between successful files. After completion or any failure, verify every applied version/name and its affected objects/grants against the committed SQL. After success, verify receipt-table RLS, owner-only attestation grants, absence of armed control/approval authority, zero v2 queue rows, and no new Swell Watch queue/delivery rows relative to the historical baseline below. This batch-level verification replaces the earlier per-file manual-check wording. Stop before any runtime work if verification fails.
+
+Backup: `/Users/stevenchandler/phase26-backup.375aY3/quiver-pre-swell-watch.dump`, SHA-256 `d4d76f65c8501564361091f2c491fb12f7f0240d999e4533b88b1647e31229fe`, completed `2026-09-06T05:01:34.986Z`. This proposal expires at `2026-09-07T05:01:34.986Z`; a changed backup or execution scope requires an updated plan and approval hash. Archive readability was checked; an actual restore rehearsal was not performed.
+
+No push, deployment, collection scheduling, policy/attestation writes, notification sends (including canaries), activation, OTA or automatic activation after 30 days is included. Schema installation alone does not start or qualify the 30-day observation clock.
+
+Approval must be `APPROVE: <sha256>` of this complete file's exact bytes. Recompute and compare before execution; changes invalidate the token. General approval or the earlier local-commit approval does not authorize this production command.
+
+Fresh checks at approximately 2026-09-06 13:16 UTC: all thirteen committed/working-tree SQL hashes matched; backup size, SHA-256, 0600 file permissions and freshness passed. `supabase db push --linked --include-all --dry-run` passed with exactly thirteen candidates, no seeds/roles. Read-only metadata returned owner/database `postgres`, zero Swell Watch tables, zero v2 queue rows, queue size 1,548,288 bytes and zero transactions older than five minutes. The combined SELECT observed one queue lock (it reads that table); this is not proof of external contention or a guarantee of a lock-free install.
+
+### Corrected notification baseline and drill diagnosis
+
+The initial 13:16 preflight incorrectly filtered `type='swell_watch_v2'`; that zero count did not prove the v2 baseline. The actual contract is `type='swell_watch'` with `payload->>'schema_version'='swell-watch-notification.v2'`. Corrected read-only queries on 2026-09-06 confirmed zero v2 rows, but one processed legacy Swell Watch row (schema version absent) and two delivery attempts recorded as `sent`. The legacy queue row was created `2026-07-09T00:25:22.441584Z`; both attempt records were created `2026-07-09T00:25:24.659288Z`. These predate the proposed verification window; do not erase or describe them as zero lifetime sends. The 30-day window has not begun, and all Swell Watch versions remain subject to the no-send requirement.
+
+Exact baseline command (PASS): `supabase db query --linked "SELECT count(*) FILTER (WHERE type='swell_watch') AS swell_watch_all_versions, count(*) FILTER (WHERE type='swell_watch' AND payload->>'schema_version'='swell-watch-notification.v2') AS swell_watch_v2_rows, (SELECT count(*) FROM public.notification_delivery_attempts a JOIN public.notification_events n ON n.id=a.notification_event_id WHERE n.type='swell_watch') AS swell_watch_delivery_attempts FROM public.notification_events" --output json`. Grouped status/schema and min/max created_at metadata queries also passed; no personal data or credentials were printed.
+
+Unchanged diagnostic rerun `bash scripts/test-swell-watch-worker-postgres.sh` PASS 9/9 (51.543s Jest; long case 26.338s, versus prior timeout at 60s). Five read-only Docker/psql `SELECT 1` samples took 2326/344/369/663/368ms; local psql samples took 1514/594/428/160/156ms. An earlier probe during startup failed because PostgreSQL was not ready. These measurements support environment latency, not a proven product regression. The independent reviewer confirmed later cases consume the long case's bindings, authority and final held state; Jest timeout does not cancel its async body, so forcing a later state reset would be unsafe.
+
+Minimal test-only correction: capture the base issuance once, reuse already-completed identical fixture batches keyed by run/height/beach, and combine the two suppression count queries while retaining the exact `0:0` assertion. No new issuance is inferred from reuse. Existing explicit receipt/completion retry coverage and all safety assertions remain; the 60-second limit is unchanged. Independent source re-review approved these helper changes. Edited-rerun verification passed as recorded above; no migration/runtime source changed. The shared fixture sequence remains a limitation, not independent per-test setup.
 
 ## Approved local commit boundary — supersedes older pending-commit notes
 

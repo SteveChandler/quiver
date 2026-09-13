@@ -259,6 +259,11 @@ interface ChannelDecision {
   cancelEventReason?: string | null;
 }
 
+interface SwellWatchReleaseDecision {
+  allowed: boolean;
+  reasonCode: string;
+}
+
 type SurfAlertCandidate = {
   id: string;
   type: string;
@@ -1289,6 +1294,19 @@ async function dispatchPush(
   );
   if (finalHoldSuppression) return finalHoldSuppression;
 
+  const swellWatchRelease = await validateSwellWatchReleaseAtDispatch(
+    supabase,
+    event,
+  );
+  if (swellWatchRelease !== null && !swellWatchRelease.allowed) {
+    return channelDecision("skipped_disabled", {
+      providerResponse: {
+        audit_code: "swell_watch_release",
+        reason_code: swellWatchRelease.reasonCode,
+      },
+    });
+  }
+
   const dispatchableDevices = await claimInstallationTargets(
     supabase,
     event.id,
@@ -1381,6 +1399,10 @@ async function dispatchPush(
         sanitizeProviderText(finalizeMessage, dispatchableDevices),
       );
     }
+    await recordSwellWatchProviderOutcome(supabase, event, {
+      samples: Math.max(1, dispatchableDevices.length),
+      failures: Math.max(1, dispatchableDevices.length),
+    });
     return channelDecision("failed_provider", {
       providerResponse: { reason: "dispatch_exception" },
       errorMessage: safeMessage,
@@ -1425,6 +1447,10 @@ async function dispatchPush(
       sanitizeProviderText(finalizeMessage, dispatchableDevices),
     );
   }
+  await recordSwellWatchProviderOutcome(supabase, event, {
+    samples: result.success + result.failed,
+    failures: result.failed,
+  });
   const errorMessage =
     safeErrors[0] ??
     (result.failed > 0 ? "Push provider returned failed deliveries" : null);
@@ -1445,6 +1471,157 @@ async function dispatchPush(
     providerResponse,
     errorMessage: "Push provider returned no sent or failed deliveries",
   });
+}
+
+function swellWatchReleaseInput(
+  payload: unknown,
+): {
+  regionalEventId: string;
+  beachId: string;
+  forecastAt: string;
+} | null {
+  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
+    return null;
+  }
+  const value = payload as Record<string, unknown>;
+  if (
+    value.schema_version !== "swell-watch-notification.v2" ||
+    typeof value.regional_event_id !== "string" ||
+    typeof value.beach_id !== "string" ||
+    typeof value.forecast_at !== "string"
+  ) {
+    return null;
+  }
+  return {
+    regionalEventId: value.regional_event_id,
+    beachId: value.beach_id,
+    forecastAt: value.forecast_at,
+  };
+}
+
+/**
+ * The SQL RPC re-reads control, authority, event, audience, device, and
+ * announcement state in one service-only transaction immediately before FCM.
+ * Legacy payloads are intentionally not releaseable.
+ */
+export async function validateSwellWatchReleaseAtDispatch(
+  supabase: ServiceClient,
+  event: Pick<NotificationEventRow, "id" | "type" | "payload" | "recipient_user_id">,
+): Promise<SwellWatchReleaseDecision | null> {
+  if (event.type !== "swell_watch") return null;
+  if (process.env.SWELL_WATCH_PUSH_ENABLED !== "true") {
+    return { allowed: false, reasonCode: "static_disabled" };
+  }
+  const input = swellWatchReleaseInput(event.payload);
+  if (!input) return { allowed: false, reasonCode: "invalid_release_input" };
+  const releaseClient = supabase as unknown as {
+    rpc(name: "swell_watch_validate_notification_release", args: {
+      p_regional_event_id: string;
+      p_beach_id: string;
+      p_recipient_id: string;
+      p_forecast_at: string;
+      p_notification_event_id: string;
+    }): Promise<{ data: unknown; error: { message: string } | null }>;
+  };
+  try {
+    const result = await releaseClient.rpc("swell_watch_validate_notification_release", {
+      p_regional_event_id: input.regionalEventId,
+      p_beach_id: input.beachId,
+      p_recipient_id: event.recipient_user_id,
+      p_forecast_at: input.forecastAt,
+      p_notification_event_id: event.id,
+    });
+    const row = Array.isArray(result.data) ? result.data[0] : result.data;
+    if (
+      result.error ||
+      !row ||
+      typeof row !== "object" ||
+      typeof (row as Record<string, unknown>).allowed !== "boolean" ||
+      typeof (row as Record<string, unknown>).reason_code !== "string"
+    ) {
+      return { allowed: false, reasonCode: "control_unavailable" };
+    }
+    return {
+      allowed: (row as Record<string, unknown>).allowed as boolean,
+      reasonCode: (row as Record<string, unknown>).reason_code as string,
+    };
+  } catch {
+    return { allowed: false, reasonCode: "control_unavailable" };
+  }
+}
+
+export async function recordSwellWatchProviderOutcome(
+  supabase: ServiceClient,
+  event: Pick<NotificationEventRow, "id" | "type" | "attempt_count">,
+  outcome: { samples: number; failures: number },
+): Promise<void> {
+  if (
+    event.type !== "swell_watch" ||
+    !Number.isInteger(event.attempt_count) ||
+    event.attempt_count < 1 ||
+    !Number.isInteger(outcome.samples) ||
+    !Number.isInteger(outcome.failures) ||
+    outcome.samples < 1 ||
+    outcome.failures < 0 ||
+    outcome.failures > outcome.samples
+  ) return;
+  const client = supabase as unknown as {
+    rpc(name: "swell_watch_record_provider_delivery_outcome", args: {
+      p_notification_event_id: string;
+      p_attempt_number: number;
+      p_sample_count: number;
+      p_failure_count: number;
+    }): Promise<{ error: { message: string } | null }>;
+    rpc(name: "swell_watch_get_automation_control"): Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+    rpc(name: "transition_swell_watch_automation_control", args: {
+      p_operation: "hold";
+      p_expected_epoch: number;
+      p_reason_code: "provider_outcome_persistence_failed";
+      p_idempotency_key: string;
+      p_actor_user_id: null;
+      p_system_actor: "swell_watch_provider_monitor";
+    }): Promise<{ error: { message: string } | null }>;
+  };
+  let result: { error: { message: string } | null };
+  try {
+    result = await client.rpc("swell_watch_record_provider_delivery_outcome", {
+      p_notification_event_id: event.id,
+      p_attempt_number: event.attempt_count,
+      p_sample_count: outcome.samples,
+      p_failure_count: outcome.failures,
+    });
+  } catch {
+    result = { error: { message: "provider outcome RPC threw" } };
+  }
+  if (!result.error) return;
+  try {
+    const control = await client.rpc("swell_watch_get_automation_control");
+    const row = Array.isArray(control.data) ? control.data[0] : control.data;
+    if (
+      control.error ||
+      !row ||
+      typeof row !== "object" ||
+      (row as Record<string, unknown>).state !== "armed" ||
+      !Number.isInteger((row as Record<string, unknown>).epoch)
+    ) {
+      throw new Error("swell watch control unavailable");
+    }
+    const held = await client.rpc("transition_swell_watch_automation_control", {
+      p_operation: "hold",
+      p_expected_epoch: (row as Record<string, unknown>).epoch as number,
+      p_reason_code: "provider_outcome_persistence_failed",
+      p_idempotency_key: `swell-watch-monitor-${event.id}-${event.attempt_count}`,
+      p_actor_user_id: null,
+      p_system_actor: "swell_watch_provider_monitor",
+    });
+    if (held.error) throw new Error("swell watch control hold failed");
+  } catch {
+    throw new Error("swell watch provider outcome persistence failed");
+  }
+  throw new Error("swell watch provider outcome persistence failed");
 }
 
 async function finalizeInstallationTargets(

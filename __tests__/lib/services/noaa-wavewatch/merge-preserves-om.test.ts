@@ -82,6 +82,19 @@ describe("NOAAWaveWatchService.mergeForecasts: OM co-location", () => {
     wind_wave_period: 6,
     wind_wave_direction: 200,
     data_source: "NOAA_NWS",
+    swell_field_sources: {
+      provider: "noaa", immutableRunId: null,
+      s1: {
+        height: { kind: "derived", field: "waveHeight" },
+        period: { kind: "provider_field", field: "swellPeriod" },
+        direction: { kind: "provider_field", field: "swellDirection" },
+      },
+      s2: {
+        height: { kind: "missing", field: null },
+        period: { kind: "missing", field: null },
+        direction: { kind: "missing", field: null },
+      },
+    },
   });
 
   const omPoint = (ts: string, height: number): WaveWatchData => ({
@@ -99,6 +112,19 @@ describe("NOAAWaveWatchService.mergeForecasts: OM co-location", () => {
     wind_wave_period: 6,
     wind_wave_direction: 200,
     data_source: "OPEN_METEO",
+    swell_field_sources: {
+      provider: "open_meteo", immutableRunId: null,
+      s1: {
+        height: { kind: "provider_field", field: "swell_wave_height" },
+        period: { kind: "provider_field", field: "swell_wave_period" },
+        direction: { kind: "provider_field", field: "swell_wave_direction" },
+      },
+      s2: {
+        height: { kind: "missing", field: null },
+        period: { kind: "missing", field: null },
+        direction: { kind: "missing", field: null },
+      },
+    },
     om_values: {
       wave_height_om: height,
       wave_period_om: 11,
@@ -157,6 +183,7 @@ describe("NOAAWaveWatchService.mergeForecasts: OM co-location", () => {
 
     expect(early).toEqual(expect.any(Object));
     expect(early!.data_source).toBe("NOAA_NWS");
+    expect(early!.swell_field_sources).toEqual(noaaPoint(earlySlot, 1.1).swell_field_sources);
     expect(early!.om_values?.wave_height_om).toBe(1.05);
     expect(early!.om_values?.wave_period_om).toBe(11);
     expect(early!.om_values).toEqual(
@@ -182,6 +209,7 @@ describe("NOAAWaveWatchService.mergeForecasts: OM co-location", () => {
 
     expect(late).toEqual(expect.any(Object));
     expect(late!.data_source).toBe("OPEN_METEO");
+    expect(late!.swell_field_sources).toEqual(omPoint(lateSlot, 0.95).swell_field_sources);
     expect(late!.om_values?.wave_height_om).toBe(0.95);
     expect(late!.om_values?.om_partition_schema_version).toBe(1);
   });

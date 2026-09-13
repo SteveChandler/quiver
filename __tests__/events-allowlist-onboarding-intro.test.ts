@@ -2,7 +2,7 @@ import {
   ANONYMOUS_ALLOWED_EVENTS,
   PRE_AUTH_ONLY_EVENTS,
   VALID_EVENTS,
-} from '@/app/api/events/route';
+} from '@/lib/analytics/event-taxonomy';
 
 const ONBOARDING_INTRO_EVENT = 'onboarding_intro_get_started';
 

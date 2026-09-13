@@ -190,6 +190,11 @@ describe("ForecastDataSourceManager", () => {
       expect(result).toBeDefined();
       expect(result.forecast).toBeDefined();
       expect(Array.isArray(result.forecast)).toBe(true);
+      expect(result.forecast[0]).toMatchObject({
+        swell2Height: null,
+        swell2Period: null,
+        swell2Direction: null,
+      });
     });
 
     it("returns empty forecast when WaveWatch returns null", async () => {

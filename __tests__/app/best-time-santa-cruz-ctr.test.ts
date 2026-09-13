@@ -6,8 +6,8 @@ import {
   buildBestTimeLiveHandoffSteps,
   buildBestTimeMetadataCopy,
   buildBestTimeTodayAnswerCopy,
-  generateMetadata,
-} from "@/app/best-time-to-surf/[city]/page";
+} from "@/lib/seo/best-time-copy";
+import { generateMetadata } from "@/app/best-time-to-surf/[city]/page";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
 import { findCityBySlug } from "@/actions/city/city-metadata-actions";
 import { getBestTimeToSurfData } from "@/actions/city/best-time-actions";

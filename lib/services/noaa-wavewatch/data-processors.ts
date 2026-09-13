@@ -10,6 +10,7 @@ import { createContextLogger } from "@/lib/logger";
 import { FORECAST_CONFIG } from "./constants";
 import {
   getPrevailingWaveDirection,
+  getSampleAtTime,
   getTimestampForForecastSlot,
   getValueAtTime,
 } from "./wave-analysis";
@@ -17,11 +18,17 @@ import type {
   NOAAGridData,
   OpenMeteoMarineResponse,
   OpenMeteoSlotValues,
+  SwellFieldSource,
+  SwellTupleSources,
   WaveWatchData,
 } from "./types";
 
 const log = createContextLogger("NOAAWaveWatch:DataProcessors");
 const OM_PARTITION_SCHEMA_VERSION = 1;
+
+function fieldSource(field: string | null, kind: SwellFieldSource["kind"] = "provider_field"): SwellFieldSource {
+  return { field, kind: field === null ? "missing" : kind };
+}
 
 export interface ProcessNOAAGridDataOptions {
   baseTime?: Date;
@@ -61,6 +68,21 @@ export function openMeteoTimeToDate(value: unknown): Date | null {
 
 function allMissing(values: Array<number | null>): boolean {
   return values.every((value) => value === null);
+}
+
+function completeTuple(
+  heightM: number | null | undefined,
+  periodS: number | null | undefined,
+  directionDeg: number | null | undefined
+): heightM is number {
+  return (
+    heightM !== null &&
+    heightM !== undefined &&
+    periodS !== null &&
+    periodS !== undefined &&
+    directionDeg !== null &&
+    directionDeg !== undefined
+  );
 }
 
 /**
@@ -180,6 +202,28 @@ export function processNOAAGridData(
         ? secondarySwellDirectionRaw
         : 0;
 
+    const primarySources: SwellTupleSources = {
+      height: primarySwellHeight !== null
+        ? fieldSource("primarySwellHeight")
+        : swellHeight !== null ? fieldSource("swellHeight") : fieldSource("waveHeight", "derived"),
+      period: fieldSource(swellPeriod !== null ? "swellPeriod" : wavePeriod !== null ? "wavePeriod" : null),
+      direction: primarySwellDirection !== null
+        ? fieldSource("primarySwellDirection")
+        : swellDirection !== null ? fieldSource("swellDirection")
+          : waveDirection !== null ? fieldSource("waveDirection") : fieldSource("prevailing_direction", "derived"),
+    };
+    const secondarySources: SwellTupleSources = {
+      height: fieldSource(hasSecondary ? "secondarySwellHeight" : null),
+      period: fieldSource(hasSecondary && wavePeriod2Raw !== null && wavePeriod2Raw > 0 ? "wavePeriod2" : null),
+      direction: fieldSource(hasSecondary && secondarySwellDirectionRaw !== null ? "secondarySwellDirection" : null),
+    };
+
+    for (const source of [...Object.values(primarySources), ...Object.values(secondarySources)]) {
+      if (source.field === null || !Object.hasOwn(props, source.field)) continue;
+      const sample = getSampleAtTime(props[source.field as keyof typeof props], targetMs);
+      if (sample) source.sample = sample;
+    }
+
     // Re-rank by period descending. NOAA ranks partitions by HEIGHT, so on
     // mixed-swell days the short-period wind-sea can land in the "primary"
     // slot while the real long-period groundswell lands in "secondary."
@@ -247,6 +291,12 @@ export function processNOAAGridData(
         windWavePeriod !== null ? Math.round(windWavePeriod * 10) / 10 : 0,
       wind_wave_direction: Math.round(windWaveDirection),
       data_source: "NOAA_NWS" as const,
+      swell_field_sources: {
+        provider: "noaa",
+        immutableRunId: null,
+        s1: shouldSwap ? secondarySources : primarySources,
+        s2: shouldSwap ? primarySources : secondarySources,
+      },
     });
   }
 
@@ -371,6 +421,11 @@ export function processOpenMeteoData(
       rawOm.secondary_swell_period_om ?? null,
       rawOm.secondary_swell_direction_om ?? null,
     ]);
+    rawOm.om_secondary_swell_complete = completeTuple(
+      rawOm.secondary_swell_height_om,
+      rawOm.secondary_swell_period_om,
+      rawOm.secondary_swell_direction_om
+    );
     rawOm.om_tertiary_swell_missing = allMissing([
       rawOm.tertiary_swell_height_om ?? null,
       rawOm.tertiary_swell_period_om ?? null,
@@ -385,20 +440,59 @@ export function processOpenMeteoData(
       swell_1_height: swell1Height,
       swell_1_period: swell1Period,
       swell_1_direction: swell1Direction,
-      // Do not synthesize a secondary partition from primary swell. Emit the
-      // `0` sentinel so downstream
-      // `swell_2_height > 0 && swell_2_period > 0` guards treat this as
-      // "no second swell train," not as "small second swell."
-      swell_2_height: 0,
-      swell_2_period: 0,
-      swell_2_direction: 0,
+      // A complete Open-Meteo secondary partition is canonical data. Keep an
+      // absent or partial tuple null so consumers cannot mistake missingness
+      // for a physical zero-valued partition.
+      swell_2_height: rawOm.om_secondary_swell_complete
+        ? rawOm.secondary_swell_height_om ?? null
+        : null,
+      swell_2_period: rawOm.om_secondary_swell_complete
+        ? rawOm.secondary_swell_period_om ?? null
+        : null,
+      swell_2_direction: rawOm.om_secondary_swell_complete
+        ? rawOm.secondary_swell_direction_om ?? null
+        : null,
       wind_wave_height: windWaveHeight,
       wind_wave_period: windWavePeriod,
       wind_wave_direction: windWaveDirection,
       data_source: "OPEN_METEO" as const,
       om_values: rawOm,
+      swell_field_sources: {
+        provider: "open_meteo",
+        immutableRunId: null,
+        s1: {
+          height: data.hourly.swell_wave_height?.[i] != null
+            ? fieldSource("swell_wave_height") : data.hourly.wave_height?.[i] != null
+              ? fieldSource("wave_height", "derived") : fieldSource("default_height", "derived"),
+          period: data.hourly.swell_wave_period?.[i] != null
+            ? fieldSource("swell_wave_period") : data.hourly.wave_period?.[i] != null
+              ? fieldSource("wave_period") : fieldSource("default_period", "derived"),
+          direction: data.hourly.swell_wave_direction?.[i] != null
+            ? fieldSource("swell_wave_direction") : data.hourly.wave_direction?.[i] != null
+              ? fieldSource("wave_direction") : fieldSource("default_direction", "derived"),
+        },
+        s2: {
+          height: fieldSource(rawOm.om_secondary_swell_complete ? "secondary_swell_wave_height" : null),
+          period: fieldSource(rawOm.om_secondary_swell_complete ? "secondary_swell_wave_period" : null),
+          direction: fieldSource(rawOm.om_secondary_swell_complete ? "secondary_swell_wave_direction" : null),
+        },
+      },
     };
 
+    const sources = forecast.swell_field_sources!;
+    for (const source of [...Object.values(sources.s1), ...Object.values(sources.s2)]) {
+      if (source.field === null || !Object.hasOwn(data.hourly, source.field)) continue;
+      const value = data.hourly[source.field as keyof typeof data.hourly]?.[i];
+      if (typeof value !== "number" || !Number.isFinite(value)) continue;
+      source.sample = {
+        value,
+        validTime: openMeteoTime,
+        unit: typeof data.hourly_units?.[source.field] === "string" ? data.hourly_units[source.field] : null,
+        timezone: typeof data.timezone === "string" ? data.timezone : null,
+        utcOffsetSeconds: typeof data.utc_offset_seconds === "number" && Number.isFinite(data.utc_offset_seconds)
+          ? data.utc_offset_seconds : null,
+      };
+    }
     forecasts.push(forecast);
   }
 

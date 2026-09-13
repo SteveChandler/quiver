@@ -1,4 +1,4 @@
-import { VALID_EVENTS, ANONYMOUS_ALLOWED_EVENTS, PRE_AUTH_ONLY_EVENTS } from '@/app/api/events/route';
+import { VALID_EVENTS, ANONYMOUS_ALLOWED_EVENTS, PRE_AUTH_ONLY_EVENTS } from '@/lib/analytics/event-taxonomy';
 
 const PHASE21_BOARD_EVENTS = [
   'board_form_saved',

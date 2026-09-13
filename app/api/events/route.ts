@@ -36,12 +36,6 @@ import { getOwnAnalyticsTrackingAllowed } from '@/lib/analytics/consent';
 
 export const dynamic = 'force-dynamic';
 
-export {
-  ANONYMOUS_ALLOWED_EVENTS,
-  PRE_AUTH_ONLY_EVENTS,
-  VALID_EVENTS,
-};
-
 // =============================================================================
 // Rate Limiting Configuration
 // =============================================================================

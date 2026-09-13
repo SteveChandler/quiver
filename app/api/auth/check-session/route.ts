@@ -17,7 +17,9 @@ function extractBearerToken(request: NextRequest): string | null {
   return match ? match[1] : null;
 }
 
-export async function GET(request?: NextRequest) {
+export function GET(): Promise<NextResponse>;
+export function GET(request: NextRequest): Promise<NextResponse>;
+export async function GET(request?: NextRequest): Promise<NextResponse> {
   try {
     const bearerToken = request ? extractBearerToken(request) : null;
     if (bearerToken) {

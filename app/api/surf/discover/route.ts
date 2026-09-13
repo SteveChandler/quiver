@@ -16,12 +16,12 @@ import {
 } from '@/lib/services/discovery/discovery-availability';
 import { entitlementFromRow } from '@/lib/alerts/entitlements';
 import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discovery-gating';
+import { stripInternalRankingScore } from '@/lib/services/discovery/response-formatter';
 import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision';
 import type {
   SurfDiscoveryEntitlement,
-  SurfDiscoveryResponse,
   TimeSlot,
 } from '@/types/personalization';
 
@@ -337,36 +337,14 @@ async function surfDiscoveryHandler(
   return createSuccessResponse(stripInternalRankingScore(gatedDiscovery));
 }
 
-/**
- * Removes the internal ranking value from every recommendation on the way out.
- * `score` (condition-only) is the public contract; `rankingScore` exists solely
- * so personalization can order spots without saturating that public number.
- */
-export function stripInternalRankingScore(
-  discovery: SurfDiscoveryResponse
-): SurfDiscoveryResponse {
-  const strip = (
-    recs: SurfDiscoveryResponse['recommendations'] | undefined
-  ): SurfDiscoveryResponse['recommendations'] | undefined =>
-    recs?.map(({ rankingScore: _rankingScore, ...rest }) => rest);
-
-  return {
-    ...discovery,
-    recommendations: strip(discovery.recommendations) ?? discovery.recommendations,
-    includedRecommendations: strip(discovery.includedRecommendations),
-  };
-}
-
 // Compose: auth first (inner), then rate limit (outer)
 const protectedGET = withRateLimit(
   withAuth(surfDiscoveryHandler, { errorMessage: 'Error discovering surf spots' }),
   'surf-discovery'
 );
 
-export const GET = async (
-  ...args: Parameters<typeof protectedGET>
-): Promise<NextResponse> => {
-  const response = await protectedGET(...args);
+export const GET: typeof protectedGET = async (request, context) => {
+  const response = await protectedGET(request, context);
   response.headers.delete('ETag');
   response.headers.set(
     'Cache-Control',

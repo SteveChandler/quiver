@@ -50,7 +50,7 @@ describe("Best surf forecast app SEO page", () => {
     expect(source).toContain("Can I use Quiver without paying?");
     expect(source).toContain("one watched beach with up to three alert rules");
     expect(source).toContain(
-      "Pro only: personal match score, ranked session windows, and personal alerts.",
+      "Growth offers can expand free access.",
     );
   });
 
@@ -62,5 +62,20 @@ describe("Best surf forecast app SEO page", () => {
 
     expect(source).toContain('href="/best-surf-forecast-app"');
     expect(source).toContain("Compare surf forecast apps by job");
+  });
+
+  it("preserves the verified competitor free-tier boundaries and App Store rating count", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/best-surf-forecast-app/page.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("Free tier with personalization; Pro $7.99/mo");
+    expect(source).toContain("16-day forecasts, and custom surf alerts require Premium");
+    expect(source).toContain('ratingCount: "7"');
+    expect(source).not.toContain("Paid personalized session-driven forecasting");
+    expect(source).not.toContain("Free web and app with hourly and 16-day forecasts");
+    expect(source).toContain("Free GFS wind map; additional models");
+    expect(source).not.toContain("Free raw swell and wind maps");
   });
 });

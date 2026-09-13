@@ -27,6 +27,12 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { z } from "zod";
+import { verifySwellWatchPolicy, type SwellWatchPolicy } from "@/lib/alerts/swell-watch/policy";
+import { loadSwellWatchAcquisitionScope } from "@/lib/alerts/swell-watch/provider-run-store";
+import { acquisitionConfig, acquireSwellWatchCohort } from "@/lib/alerts/swell-watch/acquisition";
+import { enqueueAttestedSwellWatchCohort } from "@/lib/alerts/swell-watch/enqueue-candidates";
+import { createSwellWatchObservability } from "@/lib/alerts/swell-watch/observability";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -134,7 +140,7 @@ function weekdayName(dateKey: string, timezone: string): string {
   }
 }
 
-export function buildSwellWatchCopy(input: {
+function buildSwellWatchCopy(input: {
   beachName: string;
   eventStartDate: string;
   peakDate: string;
@@ -246,6 +252,14 @@ async function _GET(request: Request): Promise<Response> {
     summary.durationMs = Date.now() - startedAt;
     return createSuccessResponse(summary);
   }
+  // The legacy shadow path stays read-only. A future enqueue path must first
+  // receive a provider-issued completed-batch identity from forecast ingestion.
+  if (process.env.SWELL_WATCH_PUSH_ENABLED === "true") {
+    summary.skipped = true;
+    summary.reason = "missing_immutable_issuance";
+    summary.durationMs = Date.now() - startedAt;
+    return createSuccessResponse(summary);
+  }
 
   try {
     const supabase = createSupabaseServiceRoleClient();
@@ -342,3 +356,55 @@ export const GET = withObservedCron(
   _GET,
   SENTRY_MONITOR
 );
+
+const producerConfig = acquisitionConfig.extend({
+  policy: z.custom<SwellWatchPolicy>((value) => verifySwellWatchPolicy(value) && value.provenance === "production_approved"
+    && value.schema_version === "swell-watch-policy.v2" && value.approval_evidence !== null),
+}).strict();
+
+/** Acquisition never completes or enqueues; the completed-run callback is a separate request. */
+async function _POST(request: Request): Promise<Response> {
+  if (!validateCronRequest(request)) return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
+  if (process.env.SWELL_WATCH_ENABLED !== "true") return createSuccessResponse({ skipped: true, reason: "disabled", enqueued: 0 });
+  let operation: { provider_batch_id: string } | { action: "acquire" };
+  try {
+    operation = z.union([z.object({ provider_batch_id: z.uuid() }).strict(),
+      z.object({ action: z.literal("acquire") }).strict()]).parse(await request.json());
+  } catch {
+    return createErrorResponse("Invalid request", "Expected a completed provider batch ID or acquisition action", 400);
+  }
+  let config: ({ action: "acquire" } & z.infer<typeof acquisitionConfig>)
+    | ({ action: "complete"; providerBatchId: string } & z.infer<typeof producerConfig>);
+  try {
+    const raw = JSON.parse(process.env.SWELL_WATCH_PRODUCER_CONFIG ?? "null");
+    config = "action" in operation
+      ? { ...acquisitionConfig.parse(raw), action: "acquire" }
+      : { ...producerConfig.parse(raw), action: "complete", providerBatchId: operation.provider_batch_id };
+  } catch {
+    return createErrorResponse("Producer unavailable", "Valid server-side producer configuration is required", 503);
+  }
+  const diagnostics = createSwellWatchObservability();
+  try {
+    const supabase = createSupabaseServiceRoleClient();
+    if (config.action === "acquire") {
+      const stored = await acquireSwellWatchCohort(config.cohort, supabase);
+      return createSuccessResponse({ ...stored, qualification: "prototype_unqualified", enqueued: 0 });
+    }
+    const scopes = await loadSwellWatchAcquisitionScope(config.cohort, supabase);
+    const result = await enqueueAttestedSwellWatchCohort({ providerBatchId: config.providerBatchId, forecastDays: 7,
+      now: new Date().toISOString(), policy: config.policy, scopes },
+    supabase as unknown as Parameters<typeof enqueueAttestedSwellWatchCohort>[1], diagnostics);
+    return createSuccessResponse({ ...result, diagnostics: diagnostics.snapshot() });
+  } catch {
+    diagnostics.record("error");
+    const acquisition = "action" in operation;
+    console.error(acquisition ? "[swell-watch] acquisition failed" : "[swell-watch] completed-run processing failed", diagnostics.snapshot());
+    return createErrorResponse("Producer failed", acquisition ? "Provider acquisition failed" : "Completed-run processing failed", 500);
+  }
+}
+
+export const POST = withObservedCron("/api/cron/swell-watch", async (request) => {
+  const response = await _POST(request);
+  response.headers.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
+  return response;
+}, SENTRY_MONITOR);

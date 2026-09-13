@@ -11,7 +11,7 @@ interface ProfileShareMetadataInput {
   full_name: string | null;
 }
 
-export function buildProfileShareMetadata(
+function buildProfileShareMetadata(
   profileId: string,
   user: ProfileShareMetadataInput | null,
 ): Metadata {

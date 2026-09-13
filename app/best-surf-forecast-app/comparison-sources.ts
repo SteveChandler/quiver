@@ -5,8 +5,8 @@ export interface ComparisonSourceLink {
 }
 
 export const COMPARISON_SOURCE_REVIEW = {
-  lastVerified: "2026-07-08",
-  reviewedBy: "Quiver editorial team",
+  lastVerified: "2026-09-06",
+  reviewedBy: "Codex source review",
   // Pricing and product features change often enough to warrant review every two months.
   freshnessThresholdDays: 60,
 } as const;
@@ -44,6 +44,12 @@ export const COMPARISON_SOURCE_LINKS: readonly ComparisonSourceLink[] = [
       "Global spot coverage, maps, alerts, tide timing, hourly forecasts, and 16-day planning.",
   },
   {
+    label: "Surf-Forecast.com Premium membership",
+    href: "https://www.surf-forecast.com/subscribe",
+    note:
+      "Paid access to hourly forecasts, full 16-day forecasts, and custom surf alerts.",
+  },
+  {
     label: "Surf Captain FAQ",
     href: "https://surfcaptain.com/faq",
     note:
@@ -53,6 +59,11 @@ export const COMPARISON_SOURCE_LINKS: readonly ComparisonSourceLink[] = [
     label: "Windy surfing guide",
     href: "https://windy.app/guide/mini-guide-to-surfing.html",
     note: "Wind, swell, tide, and map-reading education for surf forecasting.",
+  },
+  {
+    label: "Windy.app free and Pro guide",
+    href: "https://media.windy.app/guide-ios",
+    note: "Free GFS wind maps and paid additional models, HD maps, and offline access.",
   },
   {
     label: "NOAA NDBC",

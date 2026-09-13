@@ -129,7 +129,7 @@ test.describe("Updated SEO public surfaces", () => {
   }) => {
     await gotoPublicPage(page, "/best-surf-forecast-app");
 
-    await expect(page).toHaveTitle(/Best Surf Forecast App by Surf Job in 2026/);
+    await expect(page).toHaveTitle(/Best Surf Forecast Apps: Free & Paid Picks for 2026/);
     await expect(
       page.getByRole("heading", {
         name: "Best Surf Forecast App by Surf Job in 2026",

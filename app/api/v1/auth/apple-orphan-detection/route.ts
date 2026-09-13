@@ -26,7 +26,7 @@ function jsonNoStore(body: unknown, status: number): NextResponse {
   });
 }
 
-export const detectionHandler: AuthenticatedHandler = async (
+const detectionHandler: AuthenticatedHandler = async (
   request,
   { user },
 ) => {

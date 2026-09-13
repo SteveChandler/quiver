@@ -189,6 +189,7 @@ export interface EnqueueArgs<P = Record<string, unknown>> {
   entityType?: string | null;
   entityId?: string | null;
   payload?: P;
+  swellWatchAuthority?: { expectedEpoch: number; policyHash: string };
   /**
    * Producer-supplied idempotency key. The partial unique index on
    * (recipient_user_id, type, dedupe_key) blocks a duplicate insert when
@@ -219,6 +220,7 @@ export type EnqueueResult =
         | "duplicate"
         | "unknown_type"
         | "internal_error"
+        | "safety_rejected"
         | "invalid_payload";
       message?: string;
     };

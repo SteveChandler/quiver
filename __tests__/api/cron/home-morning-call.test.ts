@@ -27,7 +27,7 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
 }));
 
-import { selectAndBuildMorningCall } from "@/app/api/cron/home-morning-call/route";
+import { selectAndBuildMorningCall } from "@/lib/notifications/home-morning-call-selection";
 import {
   isEligibleHomeBeachPushProfile,
   type HomeBeachPushSelectArgs,

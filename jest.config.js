@@ -12,6 +12,12 @@ const customJestConfig = {
   testEnvironment: "jest-environment-jsdom",
   // Increase default test timeout to reduce flakiness with async/rendering tests
   testTimeout: 15000,
+  testMatch: [
+    "**/__tests__/**/*.[jt]s?(x)",
+    "**/?(*.)+(spec|test).[tj]s?(x)",
+    // The disposable database harness selects this explicitly with --testMatch.
+    "!**/swell-watch-worker-postgres.drill.ts",
+  ],
   testPathIgnorePatterns: [
     "<rootDir>/node_modules/",
     "<rootDir>/.next/",

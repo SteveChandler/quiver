@@ -17,6 +17,15 @@ const mockEnqueueNotification = jest.fn();
 const mockResendSend = jest.fn();
 const mockThrottle = jest.fn();
 const mockLogDelivery = jest.fn();
+const mockLoadCohort = jest.fn();
+const mockAcquireRun = jest.fn();
+const mockProcessCohort = jest.fn();
+
+jest.mock("@/lib/alerts/swell-watch/provider-run-store", () => ({
+  loadSwellWatchAcquisitionScope: (...args: unknown[]) => mockLoadCohort(...args),
+  acquireProviderRunReceipts: (...args: unknown[]) => mockAcquireRun(...args),
+}));
+jest.mock("@/lib/alerts/swell-watch/enqueue-candidates", () => ({ enqueueAttestedSwellWatchCohort: (...args: unknown[]) => mockProcessCohort(...args) }));
 
 jest.mock("@/lib/cron/observability", () => ({
   withObservedCron: (_route: string, handler: any) => handler,
@@ -127,7 +136,232 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: () => mockSupabase,
 }));
 
-import { GET } from "@/app/api/cron/swell-watch/route";
+import { GET, POST } from "@/app/api/cron/swell-watch/route";
+import { GET as ACQUIRE } from "@/app/api/cron/swell-watch-acquire/route";
+import fixturePolicy from "@/__tests__/fixtures/swell-watch-provisional-policy.json";
+import { calculateSwellWatchPolicyHash, type SwellWatchPolicy } from "@/lib/alerts/swell-watch/policy";
+
+describe("GET /api/cron/swell-watch-acquire", () => {
+  const originalEnv = process.env;
+  const cohort = [{ sourcePointId: BEACH_ID, regionKey: "fixture-region" }];
+  const request = (authenticated = true, search = ""): Request => new Request(
+    `https://www.quiversurf.app/api/cron/swell-watch-acquire${search}`,
+    { headers: authenticated ? { authorization: "Bearer test-cron-secret" } : {} },
+  );
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...originalEnv, CRON_SECRET: "test-cron-secret", SWELL_WATCH_ENABLED: "false",
+      SWELL_WATCH_ACQUISITION_ENABLED: "true", SWELL_WATCH_PRODUCER_CONFIG: JSON.stringify({ cohort }) };
+    mockLoadCohort.mockResolvedValue(cohort);
+    mockAcquireRun.mockResolvedValue({ issuanceId: BEACH_ID, runBatchId: BEACH_ID, revisionSetId: BEACH_ID });
+  });
+  afterEach(() => { process.env = originalEnv; });
+
+  it("authenticates and defaults off before acquisition", async () => {
+    expect((await ACQUIRE(request(false))).status).toBe(401);
+    delete process.env.SWELL_WATCH_ACQUISITION_ENABLED;
+    expect(await (await ACQUIRE(request())).json()).toMatchObject({ data: { skipped: true, reason: "disabled", enqueued: 0 } });
+    expect(mockLoadCohort).not.toHaveBeenCalled();
+    expect(mockAcquireRun).not.toHaveBeenCalled();
+  });
+
+  it("collects only the configured cohort while legacy and completed processing stay disabled", async () => {
+    const response = await ACQUIRE(request());
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store, no-cache, must-revalidate");
+    expect(await response.json()).toMatchObject({ data: { runBatchId: BEACH_ID, qualification: "prototype_unqualified", enqueued: 0 } });
+    expect(mockLoadCohort).toHaveBeenCalledWith(cohort, mockSupabase);
+    expect(mockAcquireRun).toHaveBeenCalledTimes(1);
+    expect(await (await GET(request())).json()).toMatchObject({ data: { skipped: true } });
+    expect(await (await POST(new Request(request(), { method: "POST", body: JSON.stringify({ provider_batch_id: BEACH_ID }) }))).json())
+      .toMatchObject({ data: { skipped: true, enqueued: 0 } });
+    expect(mockProcessCohort).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockSupabase.rpc.mock.calls.map(([name]) => name)).toEqual([
+      "try_acquire_swell_watch_collection_lease", "release_swell_watch_collection_lease",
+    ]);
+    expect(mockResendSend).not.toHaveBeenCalled();
+  });
+
+  it("rejects caller overrides and malformed configuration before I/O", async () => {
+    expect((await ACQUIRE(request(true, "?provider_batch_id=" + BEACH_ID))).status).toBe(400);
+    const oversized = Array.from({ length: 11 }, (_, index) => ({
+      sourcePointId: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`, regionKey: "fixture",
+    }));
+    for (const config of ["null", "{", JSON.stringify({ cohort: [] }), JSON.stringify({ cohort: [cohort[0], cohort[0]] }),
+      JSON.stringify({ cohort: oversized })]) {
+      process.env.SWELL_WATCH_PRODUCER_CONFIG = config;
+      expect((await ACQUIRE(request())).status).toBe(503);
+    }
+    expect(mockLoadCohort).not.toHaveBeenCalled();
+    expect(mockAcquireRun).not.toHaveBeenCalled();
+  });
+
+  it("reports upstream failure without processing or leaking details", async () => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      mockAcquireRun.mockRejectedValueOnce(new Error("private-provider-detail"));
+      const response = await ACQUIRE(request());
+      expect(response.status).toBe(500);
+      expect(await response.text()).not.toContain("private-provider-detail");
+      expect(JSON.stringify(log.mock.calls)).not.toContain("private-provider-detail");
+      expect(mockProcessCohort).not.toHaveBeenCalled();
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    } finally { log.mockRestore(); }
+  });
+});
+
+describe("POST /api/cron/swell-watch completed-run callback", () => {
+  const originalEnv = process.env;
+  const policy: SwellWatchPolicy = { ...fixturePolicy as SwellWatchPolicy, provenance: "production_approved",
+    schema_version: "swell-watch-policy.v2", policy_values: { ...fixturePolicy.policy_values,
+      volume_caps: { ...fixturePolicy.policy_values.volume_caps, projected_send_window_hours: 24 } },
+    approval_evidence: { approval_id: "fixture", evidence_hash: "a".repeat(64), reviewer: "fixture", reviewed_at: "2026-09-05T00:00:00Z" } };
+  policy.value_hash = calculateSwellWatchPolicyHash(policy);
+  const cohort = [{ sourcePointId: BEACH_ID, regionKey: "fixture-region" }];
+  const scopes = [{ ...cohort[0], latitude: 32.8, longitude: -117.3,
+    beach: { swell_window_center_deg: 170, swell_window_halfwidth_deg: 30 } }];
+  const post = (body: unknown = { provider_batch_id: BEACH_ID }, authenticated = true): Request =>
+    new Request("https://www.quiversurf.app/api/cron/swell-watch", { method: "POST",
+      headers: authenticated ? { authorization: "Bearer test-cron-secret" } : {}, body: JSON.stringify(body) });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...originalEnv, CRON_SECRET: "test-cron-secret", SWELL_WATCH_ENABLED: "true",
+      SWELL_WATCH_PRODUCER_CONFIG: JSON.stringify({ policy, cohort }) };
+    mockLoadCohort.mockResolvedValue(scopes);
+    mockProcessCohort.mockResolvedValue({ enqueued: 1, duplicates: 0, stoppedReason: null });
+  });
+  afterEach(() => { process.env = originalEnv; });
+
+  it("authenticates and honors the master switch before database access", async () => {
+    expect((await POST(post({}, false))).status).toBe(401);
+    expect((await POST(post({ action: "acquire" }, false))).status).toBe(401);
+    process.env.SWELL_WATCH_ENABLED = "false";
+    expect(await (await POST(post({ action: "acquire" }))).json()).toMatchObject({ data: { skipped: true } });
+    expect(await (await POST(post())).json()).toMatchObject({ data: { skipped: true, reason: "disabled", enqueued: 0 } });
+    expect(mockLoadCohort).not.toHaveBeenCalled();
+    expect(mockProcessCohort).not.toHaveBeenCalled();
+    expect(mockAcquireRun).not.toHaveBeenCalled();
+  });
+
+  it("rejects caller-selected policy/scope and unavailable server configuration", async () => {
+    for (const body of [{}, { provider_batch_id: "not-a-uuid" }, { provider_batch_id: BEACH_ID, cohort },
+      { action: "acquire", cohort }, { action: "acquire", provider_batch_id: BEACH_ID }]) {
+      expect((await POST(post(body))).status).toBe(400);
+    }
+    for (const config of ["invalid-json", "null", JSON.stringify({ policy: fixturePolicy, cohort }),
+      JSON.stringify({ policy: { ...policy, approval_evidence: null }, cohort }),
+      JSON.stringify({ policy, cohort: [cohort[0], cohort[0]] })]) {
+      process.env.SWELL_WATCH_PRODUCER_CONFIG = config;
+      expect((await POST(post())).status).toBe(503);
+    }
+    expect(mockLoadCohort).not.toHaveBeenCalled();
+    expect(mockProcessCohort).not.toHaveBeenCalled();
+  });
+
+  it("passes server-owned membership and the explicit completed ID to the guarded producer", async () => {
+    const response = await POST(post());
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store, no-cache, must-revalidate");
+    expect(await response.json()).toMatchObject({ data: { enqueued: 1, duplicates: 0, diagnostics: { correlations: [] } } });
+    expect(mockLoadCohort).toHaveBeenCalledWith(cohort, mockSupabase);
+    expect(mockProcessCohort).toHaveBeenCalledWith({ providerBatchId: BEACH_ID, forecastDays: 7,
+      now: expect.any(String), policy, scopes }, mockSupabase, expect.objectContaining({ record: expect.any(Function) }));
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+  });
+
+  it("acquires only the server cohort and returns unqualified receipts without processing", async () => {
+    const stored = { issuanceId: BEACH_ID, runBatchId: BEACH_ID, revisionSetId: BEACH_ID };
+    mockAcquireRun.mockResolvedValueOnce(stored);
+    const response = await POST(post({ action: "acquire" }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ data: { ...stored, qualification: "prototype_unqualified", enqueued: 0 } });
+    expect(mockLoadCohort).toHaveBeenCalledWith(cohort, mockSupabase);
+    expect(mockAcquireRun).toHaveBeenCalledWith({ scopes, forecastDays: 7, latestAvailableAt: expect.any(Date) },
+      expect.any(Function), { rpc: expect.any(Function) });
+    expect(mockProcessCohort).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockSupabase.rpc.mock.calls.map(([name]) => name)).toEqual([
+      "try_acquire_swell_watch_collection_lease", "release_swell_watch_collection_lease",
+    ]);
+  });
+
+  it.each([undefined, fixturePolicy, null])("collects without release approval (%p), but rejects completion before I/O", async (unapprovedPolicy) => {
+    process.env.SWELL_WATCH_PRODUCER_CONFIG = JSON.stringify({ cohort, policy: unapprovedPolicy });
+    expect((await POST(post())).status).toBe(503);
+    expect(mockLoadCohort).not.toHaveBeenCalled();
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+    expect(mockAcquireRun).not.toHaveBeenCalled();
+
+    const stored = { issuanceId: BEACH_ID, runBatchId: BEACH_ID, revisionSetId: BEACH_ID };
+    mockAcquireRun.mockResolvedValueOnce(stored);
+    const response = await POST(post({ action: "acquire" }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ data: { ...stored, qualification: "prototype_unqualified", enqueued: 0 } });
+    expect(mockLoadCohort).toHaveBeenCalledWith(cohort, mockSupabase);
+    expect(mockAcquireRun).toHaveBeenCalledTimes(1);
+    expect(mockProcessCohort).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockSupabase.rpc.mock.calls.map(([name]) => name)).toEqual([
+      "try_acquire_swell_watch_collection_lease", "release_swell_watch_collection_lease",
+    ]);
+  });
+
+  it.each([
+    { invalidCohort: [] },
+    { invalidCohort: [cohort[0], cohort[0]] },
+    { invalidCohort: [{ sourcePointId: "invalid", regionKey: "region" }] },
+  ])(
+    "rejects invalid acquisition membership before I/O ($invalidCohort)", async ({ invalidCohort }) => {
+      process.env.SWELL_WATCH_PRODUCER_CONFIG = JSON.stringify({ cohort: invalidCohort });
+      expect((await POST(post({ action: "acquire" }))).status).toBe(503);
+      expect(mockLoadCohort).not.toHaveBeenCalled();
+      expect(mockAcquireRun).not.toHaveBeenCalled();
+      expect(mockProcessCohort).not.toHaveBeenCalled();
+      expect(mockSupabase.rpc).not.toHaveBeenCalled();
+    },
+  );
+
+  it("uses an uncached deadline-bound provider transport", async () => {
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue(new Response("{}"));
+    try {
+      mockAcquireRun.mockImplementationOnce(async (_input, fetcher) => {
+        await fetcher("https://marine-api.open-meteo.com/data/ncep_gfswave016/static/meta.json", { method: "GET", redirect: "error" });
+        return { issuanceId: BEACH_ID, runBatchId: BEACH_ID, revisionSetId: BEACH_ID };
+      });
+      expect((await POST(post({ action: "acquire" }))).status).toBe(200);
+      expect(fetchSpy).toHaveBeenCalledWith("https://marine-api.open-meteo.com/data/ncep_gfswave016/static/meta.json", {
+        method: "GET", redirect: "error", cache: "no-store", signal: expect.any(AbortSignal),
+      });
+    } finally { fetchSpy.mockRestore(); }
+  });
+
+  it("surfaces acquisition failures without processing a completed batch", async () => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      mockAcquireRun.mockRejectedValueOnce(new Error("private-provider-error"));
+      const response = await POST(post({ action: "acquire" }));
+      expect(response.status).toBe(500);
+      expect(await response.text()).not.toContain("private-provider-error");
+      expect(mockProcessCohort).not.toHaveBeenCalled();
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    } finally { log.mockRestore(); }
+  });
+
+  it("surfaces failures as 500 without reflecting raw upstream errors", async () => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      mockProcessCohort.mockRejectedValueOnce(new Error("person@example.com sensitive upstream data"));
+      const response = await POST(post());
+      expect(response.status).toBe(500);
+      expect(await response.text()).not.toContain("person@example.com");
+      expect(log).toHaveBeenCalledWith("[swell-watch] completed-run processing failed", expect.objectContaining({
+        stageCounts: expect.objectContaining({ error: 1 }) }));
+      expect(JSON.stringify(log.mock.calls)).not.toContain("person@example.com");
+    } finally { log.mockRestore(); }
+  });
+});
 
 function dateKey(offset: number): string {
   const date = new Date("2026-07-01T00:00:00.000Z");
@@ -238,6 +472,19 @@ describe("GET /api/cron/swell-watch", () => {
     });
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
     expect(mockResendSend).not.toHaveBeenCalled();
+  });
+
+  it("fails closed before forecast reads when a push path lacks completed-batch lineage", async () => {
+    process.env.SWELL_WATCH_PUSH_ENABLED = "true";
+
+    const response = await GET(request());
+    const body = await json(response);
+
+    expect(body.data).toMatchObject({
+      skipped: true,
+      reason: "missing_immutable_issuance",
+    });
+    expect(mockSupabase.from).not.toHaveBeenCalled();
   });
 
   it("skips users when no swell event is detected", async () => {

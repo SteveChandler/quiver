@@ -43,7 +43,7 @@ function jsonVerdict(
   );
 }
 
-export const precheckHandler: RouteHandler = async (request) => {
+const precheckHandler: RouteHandler = async (request) => {
   const parsedBody = bodySchema.safeParse(
     await request.json().catch(() => null),
   );

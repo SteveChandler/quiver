@@ -115,6 +115,20 @@ function emitOutcome({
   }
 }
 
+export function withCommunityPhotoRouteObservability<ResponseType extends Response>(
+  config: CommunityPhotoRouteObservabilityConfig,
+  handler: (request: Request) => ResponseType | Promise<ResponseType>,
+): (request: Request) => Promise<ResponseType>;
+export function withCommunityPhotoRouteObservability(
+  config: CommunityPhotoRouteObservabilityConfig,
+  handler: import("@/lib/middleware/api-wrappers/types").RouteHandler,
+): import("@/lib/middleware/api-wrappers/types").RouteHandler;
+export function withCommunityPhotoRouteObservability<
+  RequestType extends Request, Args extends unknown[], ResponseType extends Response,
+>(
+  config: CommunityPhotoRouteObservabilityConfig,
+  handler: (request: RequestType, ...args: Args) => ResponseType | Promise<ResponseType>,
+): (request: RequestType, ...args: Args) => Promise<ResponseType>;
 export function withCommunityPhotoRouteObservability<
   RequestType extends Request,
   Args extends unknown[],

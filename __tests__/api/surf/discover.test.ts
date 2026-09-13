@@ -374,6 +374,23 @@ describe("/api/surf/discover entitlement resolution", () => {
     expect(opts.candidatePoolLimit).toBeGreaterThan(opts.maxResults);
   });
 
+  it("removes internal ranking scores at the HTTP response boundary", async () => {
+    const discovery = makeDiscoveryResponse();
+    const recommendations = discovery.recommendations.map((recommendation) => ({
+      ...recommendation,
+      rankingScore: 120,
+    }));
+    mockDiscoverSurfSpots.mockResolvedValueOnce({ ...discovery, recommendations });
+
+    const response = await callDiscoverRoute({ is_pro: true, expires_at: null });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.recommendations).toHaveLength(recommendations.length);
+    expect(body.data.recommendations[0].score).toBe(recommendations[0].score);
+    expect(body.data.recommendations[0]).not.toHaveProperty("rankingScore");
+  });
+
   it("returns explicit no_candidates without manufacturing a safety hold", async () => {
     mockDiscoverSurfSpots.mockResolvedValueOnce({
       recommendations: [],

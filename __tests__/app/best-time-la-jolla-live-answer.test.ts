@@ -1,4 +1,4 @@
-import { buildBestTimeTodayAnswerCopy } from "@/app/best-time-to-surf/[city]/page";
+import { buildBestTimeTodayAnswerCopy } from "@/lib/seo/best-time-copy";
 
 describe("best-time La Jolla live answer copy", () => {
   it("frames the page around today's and this week's surf-report intent", () => {

@@ -6,6 +6,8 @@
  */
 
 import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
+import v1SwellWatchFixture from "../fixtures/swell-watch-v1.json";
+import v2SwellWatchFixture from "../fixtures/swell-watch-v2.json";
 
 describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () => {
   it("keeps watched-call payloads bounded and category-specific", () => {
@@ -345,6 +347,10 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
       body: "Advanced conditions are approaching.",
     });
 
+    if (shadow.kind !== "v1" || enforce.kind !== "v1") {
+      throw new Error("Expected legacy major-swell payloads to normalize as v1");
+    }
+
     expect(shadow.awareness_mode).toBe("shadow");
     expect(shadow.automation_enabled).toBe(false);
     expect(shadow.enforcement).toBeNull();
@@ -390,6 +396,89 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
       would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
       enforcement: null,
     });
+  });
+
+  it("normalizes v1/v2 Swell Watch payloads to the client allowlist without enabling delivery", () => {
+    const def = NOTIFICATION_REGISTRY.swell_watch;
+    const v1 = def.validatePayload!(v1SwellWatchFixture);
+    const v2 = def.validatePayload!(v2SwellWatchFixture);
+
+    expect(v1).toMatchObject({ kind: "v1", beach_id: v1SwellWatchFixture.beach_id });
+    expect(v2).toMatchObject({ kind: "v2", regional_event_id: v2SwellWatchFixture.regional_event_id });
+    expect(def.channels).toEqual([]);
+    expect(def.prefs).toEqual({
+      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
+      perType: { push: "notif_forecast_alerts", in_app: "notif_forecast_alerts" },
+    });
+    expect(def.quietHours).toEqual({ mode: "defer", windowStart: 22, windowEnd: 4 });
+    expect(def.cooldownMs).toBe(96 * 60 * 60 * 1000);
+
+    const expectedV2Data = {
+      type: "swell_watch",
+      version: "2",
+      regional_event_id: v2SwellWatchFixture.regional_event_id,
+      beach_id: v2SwellWatchFixture.beach_id,
+      beach_slug: v2SwellWatchFixture.beach_slug,
+      forecast_at: v2SwellWatchFixture.forecast_at,
+      target_partition: v2SwellWatchFixture.target_partition,
+      arrival_at: v2SwellWatchFixture.arrival_at,
+      peak_at: v2SwellWatchFixture.peak_at,
+    };
+    expect(def.buildPushPayload!(v2).data).toEqual(expectedV2Data);
+    expect(def.buildInAppPayload!(v2).data).toEqual(expectedV2Data);
+    expect(def.buildPushPayload!(v1).data).toEqual({
+      type: "swell_watch",
+      beach_id: v1SwellWatchFixture.beach_id,
+      beach_slug: v1SwellWatchFixture.beach_slug,
+      forecast_at: v1SwellWatchFixture.forecast_at,
+    });
+  });
+
+  it("keeps persisted raw v1 payloads on the beach/time fallback path", () => {
+    const push = NOTIFICATION_REGISTRY.swell_watch.buildPushPayload!(
+      v1SwellWatchFixture as never,
+    );
+    expect(push.data).toEqual({
+      type: "swell_watch",
+      beach_id: v1SwellWatchFixture.beach_id,
+      beach_slug: v1SwellWatchFixture.beach_slug,
+      forecast_at: v1SwellWatchFixture.forecast_at,
+    });
+    expect(push.data).not.toHaveProperty("version");
+    expect(push.data).not.toHaveProperty("regional_event_id");
+    expect(push.data).not.toHaveProperty("target_partition");
+  });
+
+  it("revalidates normalized payloads at the registry builder boundary", () => {
+    const def = NOTIFICATION_REGISTRY.swell_watch;
+    const normalized = def.validatePayload!(v2SwellWatchFixture);
+    expect(def.buildPushPayload!({
+      ...normalized,
+      title: "Forged title",
+      body: "Forged body",
+    } as never)).toMatchObject({
+      title: "Swell incoming.",
+      body: "Productivity has been cancelled. Arrives Tuesday. Peaks Wednesday.",
+    });
+    expect(() => def.buildPushPayload!({
+      ...normalized,
+      kind: "v2",
+      target_partition: {
+        ...(normalized as Extract<typeof normalized, { kind: "v2" }>).target_partition,
+        source_evidence: "must-never-reach-a-client",
+      },
+    } as never)).toThrow();
+  });
+
+  it("accepts v2 without optional copy context but omits uncertain timing", () => {
+    const { copy_context: _copyContext, ...withoutCopyContext } = v2SwellWatchFixture;
+    const payload = NOTIFICATION_REGISTRY.swell_watch.validatePayload!(withoutCopyContext);
+    const push = NOTIFICATION_REGISTRY.swell_watch.buildPushPayload!(payload);
+    expect(push).toMatchObject({
+      title: "Swell incoming.",
+      body: "Productivity has been cancelled.",
+    });
+    expect(push.data).not.toHaveProperty("copy_context");
   });
 
   it("does not expose major-swell evidence or hold proof to clients", () => {

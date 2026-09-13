@@ -3,7 +3,6 @@ import { render, screen } from "@testing-library/react";
 import { getBeginnerConditionsData } from "@/actions/beginner/beginner-actions";
 import UsOpenOfSurfingForecastPage, {
   metadata,
-  US_OPEN_FORECAST_FALLBACK_COPY,
 } from "@/app/us-open-of-surfing-forecast/page";
 import type { RightNowConditions } from "@/types/beginner";
 
@@ -89,7 +88,7 @@ describe("US Open of Surfing forecast page", () => {
     render(await UsOpenOfSurfingForecastPage());
 
     expect(screen.getByRole("status")).toHaveTextContent(
-      US_OPEN_FORECAST_FALLBACK_COPY,
+      "Live Huntington Beach conditions are temporarily unavailable. Open the local forecast before you drive and verify the sets from shore.",
     );
     expect(screen.getAllByText("Check live forecast").length).toBeGreaterThan(0);
   });

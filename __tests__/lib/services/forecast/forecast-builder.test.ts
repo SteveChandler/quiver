@@ -6,6 +6,7 @@ import {
   logGfsWaveShadowRows,
 } from "@/lib/services/noaa-wavewatch/gfs-wave-shadow";
 import type { Beach } from "@/types/database";
+import { processOpenMeteoData } from "@/lib/services/noaa-wavewatch/data-processors";
 
 // Mock dependencies
 jest.mock("@/lib/services/forecast/confidence-scorer", () => ({
@@ -209,6 +210,24 @@ describe("ForecastBuilder", () => {
 
     expect(forecasts.length).toBeGreaterThan(0);
     expect(forecasts[0].beach_id).toBe("beach-1");
+  });
+
+  it("retains parser lineage as offshore metadata without claiming completed evaluation", async () => {
+    const time = mockWaveData.forecast[0].timestamp;
+    const [parsed] = processOpenMeteoData({
+      hourly_units: { swell_wave_height: "m" },
+      hourly: { time: [time, time, time], swell_wave_height: [1.23], swell_wave_period: [13], swell_wave_direction: [170] },
+    }, 1);
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: { ...mockWaveData, forecast: [parsed] },
+      tideData: mockTideData, weatherData: [], buoyData: null, cdipData: null,
+      ioosWaterTempC: null, coopsWaterTempC: null,
+    });
+    const metadata = forecasts.find((row) => row.raw_forecast?.offshore_swell_field_sources)?.raw_forecast;
+    expect(metadata?.offshore_swell_field_sources).toEqual(parsed.swell_field_sources);
+    expect(metadata?.offshore_swell_field_sources?.s1.height.sample?.value).toBe(1.23);
+    expect(metadata?.offshore_swell_field_sources?.immutableRunId).toBeNull();
   });
 
   it("includes forecast_date and forecast_time", async () => {

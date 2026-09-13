@@ -1,4 +1,5 @@
 import {
+  getSampleAtTime,
   getValueAtTime,
   metersToFeet,
   parseNOAAValidTime,
@@ -6,6 +7,20 @@ import {
 import type { NOAAValueSeries } from '@/lib/services/noaa-wavewatch/types';
 
 describe('NOAA WaveWatch interval utilities', () => {
+  it('retains exact raw units and interval without skipping a covered null sample', () => {
+    const validTime = '2026-05-27T11:00:00+00:00/PT3H';
+    const series: NOAAValueSeries = {
+      uom: 'wmoUnit:ft',
+      values: [{ validTime, value: null }, { validTime, value: 7 }],
+    };
+    expect(getSampleAtTime(series, Date.parse('2026-05-27T12:00:00Z'))).toEqual({
+      value: null, validTime, unit: 'wmoUnit:ft',
+    });
+    expect(getValueAtTime(series, Date.parse('2026-05-27T12:00:00Z'))).toBeNull();
+    expect(getSampleAtTime(series, Date.parse('2026-05-27T14:00:00Z'))).toBeNull();
+    expect(getSampleAtTime(undefined, Date.now())).toBeNull();
+    expect(getSampleAtTime(series, Number.NaN)).toBeNull();
+  });
   it('parses hour and day-hour validTime intervals', () => {
     expect(parseNOAAValidTime('2026-05-27T11:00:00+00:00/PT3H')).toEqual({
       startMs: Date.parse('2026-05-27T11:00:00+00:00'),

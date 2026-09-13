@@ -1,59 +1,48 @@
-describe("handleGet /api/me/profile", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+/** @jest-environment node */
+import { NextRequest } from "next/server";
+import { GET } from "@/app/api/me/profile/route";
+import { getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
+
+jest.mock("@/lib/profile/fetchers", () => ({
+  getProfileWithHomeBeachById: jest.fn(),
+}));
+jest.mock("@/lib/middleware/api-wrappers", () => ({
+  ...jest.requireActual("@/lib/middleware/api-wrappers"),
+  withAuth: (handler: unknown) => handler,
+}));
+
+const mockFetchProfile = jest.mocked(getProfileWithHomeBeachById);
+const supabase = {};
+const context = { user: { id: "u1" }, supabase, params: {} };
+const request = new NextRequest("http://localhost/api/me/profile");
+
+describe("GET /api/me/profile", () => {
+  beforeEach(() => jest.resetAllMocks());
+
+  it("returns 404 when the authenticated user's profile is missing", async () => {
+    mockFetchProfile.mockResolvedValue({ profile: null as any, homeBeachName: null });
+    const response = await GET(request, context as any);
+    expect(mockFetchProfile).toHaveBeenCalledWith("u1", supabase);
+    expect(response.status).toBe(404);
+    expect((await response.json()).error).toBe("Profile not found");
   });
 
-  // 401 path is covered by withAuth's own tests — handleGet is only ever
-  // invoked with an already-resolved AuthenticatedContext. These tests pin
-  // the happy-path and the profile-not-found path.
-
-  it("returns 404 when profile not found", async () => {
-    jest.doMock("@/lib/middleware/api-wrappers", () => ({
-      withAuth: (handler: any) => handler,
-      createSuccessResponse: (data: any, status = 200) => ({ status, json: async () => ({ success: true, data }) }),
-      createNotFoundError: (msg: string) => ({ status: 404, json: async () => ({ error: msg }) }),
-    }));
-    const { handleGet } = await import("@/app/api/me/profile/route");
-    const ctx = {
-      params: {},
-      user: { id: "u1" } as any,
-      supabase: {} as any,
-    };
-    const res = await handleGet({} as any, ctx as any, {
-      fetchProfileFn: async () => null as any,
+  it("returns the public profile fields and resolved home beach", async () => {
+    mockFetchProfile.mockResolvedValue({
+      profile: {
+        id: "u1", home_beach_id: "beach-123", full_name: "Test User",
+        bio: "hi", location: "SD", avatar_url: null,
+      } as any,
+      homeBeachName: "Blacks",
     });
-    expect(res.status).toBe(404);
-    const json = await (res as any).json();
-    expect(json.error).toBe("Profile not found");
-  });
-
-  it("returns 200 with success envelope and mapped fields", async () => {
-    jest.doMock("@/lib/middleware/api-wrappers", () => ({
-      withAuth: (handler: any) => handler,
-      createSuccessResponse: (data: any, status = 200) => ({ status, json: async () => ({ success: true, data }) }),
-      createNotFoundError: (msg: string) => ({ status: 404, json: async () => ({ error: msg }) }),
-    }));
-    const { handleGet } = await import("@/app/api/me/profile/route");
-    const ctx = {
-      params: {},
-      user: { id: "u1" } as any,
-      supabase: {} as any,
-    };
-    const res = await handleGet({} as any, ctx as any, {
-      fetchProfileFn: async () => ({
-        id: "u1",
-        home_beach_id: "beach-123",
-        full_name: "Test User",
-        bio: "hi",
-        location: "SD",
-        avatar_url: null,
-      } as any),
+    const response = await GET(request, context as any);
+    expect(mockFetchProfile).toHaveBeenCalledWith("u1", supabase);
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data).toEqual({
+      id: "u1", home_beach_id: "beach-123", full_name: "Test User",
+      homeBeachName: "Blacks", bio: "hi", location: "SD", avatar_url: null,
     });
-    expect(res.status).toBe(200);
-    const json = await (res as any).json();
-    expect(json.success).toBe(true);
-    expect(json.data.id).toBe("u1");
-    expect(json.data.home_beach_id).toBe("beach-123");
-    expect(json.data.default_beach_id).toBeUndefined();
   });
 });

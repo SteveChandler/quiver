@@ -4,6 +4,7 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { NextRequest } from "next/server";
 import { GET } from "@/app/api/auth/check-session/route";
 import {
   createMockSupabaseClient,
@@ -62,7 +63,8 @@ describe("/api/auth/check-session", () => {
         error: null,
       });
 
-      const response = await GET();
+      const request: Parameters<typeof GET>[0] = new NextRequest("http://localhost/api/auth/check-session");
+      const response = await GET(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);

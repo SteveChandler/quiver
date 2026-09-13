@@ -1414,6 +1414,7 @@ export class ForecastBuilder {
 
       // Raw forecast metadata
       raw_forecast: this.buildRawForecast({
+        offshoreSwellFieldSources: wavePoint?.swell_field_sources,
         dataSources,
         useCDIPData,
         cdipData,
@@ -1435,6 +1436,7 @@ export class ForecastBuilder {
    * Build raw_forecast metadata object
    */
   private buildRawForecast(params: {
+    offshoreSwellFieldSources?: WaveWatchData["swell_field_sources"];
     dataSources: string[];
     useCDIPData: boolean;
     cdipData: CDIPBuoyData | null;
@@ -1477,6 +1479,9 @@ export class ForecastBuilder {
     })();
 
     return {
+      ...(params.offshoreSwellFieldSources && {
+        offshore_swell_field_sources: params.offshoreSwellFieldSources,
+      }),
       data_sources: dataSources,
       ...(useCDIPData &&
         cdipData && {
@@ -1756,12 +1761,13 @@ export class ForecastBuilder {
                   cardinalToDegrees(wavePoint.swell_1_direction) ?? null,
               }
             : null,
-          wavePoint.swell_2_height > 0 && wavePoint.swell_2_period > 0
+          (wavePoint.swell_2_height ?? 0) > 0 &&
+          (wavePoint.swell_2_period ?? 0) > 0
             ? {
-                heightFt: wavePoint.swell_2_height * METERS_TO_FEET,
-                periodS: wavePoint.swell_2_period,
+                heightFt: (wavePoint.swell_2_height ?? 0) * METERS_TO_FEET,
+                periodS: wavePoint.swell_2_period ?? 0,
                 directionDeg:
-                  cardinalToDegrees(wavePoint.swell_2_direction) ?? null,
+                  cardinalToDegrees(wavePoint.swell_2_direction ?? 0) ?? null,
               }
             : null,
           wavePoint.wind_wave_height > 0 && wavePoint.wind_wave_period > 0
@@ -1900,7 +1906,11 @@ export class ForecastBuilder {
   ): { height: number; period: number; direction: number } | null {
     return pickDominantSwell({
       swell_1: { height: wavePoint.swell_1_height, period: wavePoint.swell_1_period, direction: wavePoint.swell_1_direction },
-      swell_2: { height: wavePoint.swell_2_height, period: wavePoint.swell_2_period, direction: wavePoint.swell_2_direction },
+      swell_2: {
+        height: wavePoint.swell_2_height ?? 0,
+        period: wavePoint.swell_2_period ?? 0,
+        direction: wavePoint.swell_2_direction ?? 0,
+      },
       wind_wave: { height: wavePoint.wind_wave_height, period: wavePoint.wind_wave_period, direction: wavePoint.wind_wave_direction },
     });
   }
@@ -1967,9 +1977,8 @@ export class ForecastBuilder {
   }
 
   private getSwell2Height(wavePoint: WaveWatchData | null): string | null {
-    // 0 is the pipeline sentinel from data-processors.ts meaning "no real
-    // secondary swell" (see the Phase 1 note in that file). Treat it as absent
-    // instead of rendering "0 ft" downstream.
+    // NOAA's 0 sentinel and Open-Meteo's null missingness both mean there is
+    // no complete secondary swell to display.
     if (wavePoint?.swell_2_height == null || wavePoint.swell_2_height === 0) return null;
     if (!isFinite(wavePoint.swell_2_height)) return null;
     if (wavePoint.swell_2_height < 0 || wavePoint.swell_2_height > 10) return null;
@@ -1984,7 +1993,12 @@ export class ForecastBuilder {
   private getSwell2Direction(wavePoint: WaveWatchData | null): string | null {
     // Gate on height: 0° is a legitimate direction on its own, but if the
     // secondary-swell height is the 0 sentinel the direction is meaningless.
-    if (!wavePoint || wavePoint.swell_2_height == null || wavePoint.swell_2_height === 0) return null;
+    if (
+      !wavePoint ||
+      wavePoint.swell_2_height == null ||
+      wavePoint.swell_2_height === 0 ||
+      wavePoint.swell_2_direction == null
+    ) return null;
     return this.services.getWaveDirectionText(wavePoint.swell_2_direction);
   }
 

@@ -16,7 +16,7 @@ import {
   toDisplayConditionScore,
 } from '@/lib/services/discovery/surf-discovery-orchestrator';
 import { compareDiscoveryRecommendations } from '@/lib/services/discovery/distance-friction';
-import { stripInternalRankingScore } from '@/app/api/surf/discover/route';
+import { stripInternalRankingScore } from '@/lib/services/discovery/response-formatter';
 import type { SurfDiscoveryRecommendation, SurfDiscoveryResponse } from '@/types/personalization';
 
 type Rankable = Pick<

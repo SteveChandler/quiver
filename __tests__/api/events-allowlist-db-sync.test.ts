@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { VALID_EVENTS } from "@/app/api/events/route";
+import { VALID_EVENTS } from "@/lib/analytics/event-taxonomy";
 import {
   KNOWN_REJECTED_USER_EVENT_EMITTERS,
   NATIVE_DIRECT_INSERT_EVENTS,

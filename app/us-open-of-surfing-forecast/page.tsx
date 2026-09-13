@@ -20,7 +20,7 @@ const PAGE_PATH = "/us-open-of-surfing-forecast";
 const PAGE_DESCRIPTION =
   "Check Huntington Beach waves, wind, tide, water temperature, and watch windows for the US Open of Surfing, backed by Quiver's local forecast.";
 
-export const US_OPEN_FORECAST_FALLBACK_COPY =
+const US_OPEN_FORECAST_FALLBACK_COPY =
   "Live Huntington Beach conditions are temporarily unavailable. Open the local forecast before you drive and verify the sets from shore.";
 
 export const metadata: Metadata = buildPageMetadata({

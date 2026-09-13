@@ -261,13 +261,21 @@ export function getValueAtTime(
   series: NOAAValueSeries | undefined,
   targetMs: number
 ): number | null {
+  const sample = getSampleAtTime(series, targetMs);
+  return sample && Number.isFinite(sample.value) ? sample.value : null;
+}
+
+export function getSampleAtTime(
+  series: NOAAValueSeries | undefined,
+  targetMs: number
+): { value: number | null; validTime: string; unit: string | null } | null {
   if (!series?.values || !Number.isFinite(targetMs)) return null;
 
   for (const entry of series.values) {
     const interval = parseNOAAValidTime(entry.validTime);
     if (!interval) continue;
     if (targetMs < interval.startMs || targetMs >= interval.endMs) continue;
-    return Number.isFinite(entry.value) ? entry.value : null;
+    return { value: entry.value, validTime: entry.validTime, unit: series.uom ?? null };
   }
 
   return null;

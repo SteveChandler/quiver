@@ -42,6 +42,8 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 import { processPendingEvents as processPendingEventsReal } from "@/lib/notifications/worker";
+import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
+import swellWatchFixture from "@/__tests__/fixtures/swell-watch-v2.json";
 import { capturePostHogEvent } from "@/lib/posthog-server";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import {
@@ -782,6 +784,102 @@ async function processPendingEvents(
       options.resolveMajorEventHold ?? allowFixtureNotificationHold,
   });
 }
+
+describe("Swell Watch worker release integration", () => {
+  const entry = NOTIFICATION_REGISTRY.swell_watch;
+  const originalChannels = entry.channels;
+  const originalFlag = process.env.SWELL_WATCH_PUSH_ENABLED;
+
+  beforeEach(() => {
+    entry.channels = ["push"] as never;
+    process.env.SWELL_WATCH_PUSH_ENABLED = "true";
+  });
+
+  afterEach(() => {
+    entry.channels = originalChannels;
+    if (originalFlag === undefined) delete process.env.SWELL_WATCH_PUSH_ENABLED;
+    else process.env.SWELL_WATCH_PUSH_ENABLED = originalFlag;
+  });
+
+  function setup(allowed: boolean, reasonCode: string) {
+    const state = emptyState();
+    state.events.push(buildEvent({
+      id: "55555555-5555-4555-8555-555555555555",
+      actor_user_id: null,
+      type: "swell_watch",
+      payload: swellWatchFixture,
+    }));
+    state.profiles.set("user-recipient", buildProfile());
+    state.devices.set("user-recipient", [buildDevice("fixture-token")]);
+    const base = buildMockSupabase(state);
+    const rpc = jest.fn(async (name: string, args: Record<string, unknown>) => {
+      if (name === "swell_watch_validate_notification_release") {
+        return { data: [{ allowed, reason_code: reasonCode }], error: null };
+      }
+      if (name === "swell_watch_record_provider_delivery_outcome") {
+        return { data: [{ held: false, reason_code: "allowed" }], error: null };
+      }
+      return base.rpc(name, args);
+    });
+    const client = { ...base, rpc };
+    const fcm = { sendEach: jest.fn(async () => ({
+      successCount: 1, failureCount: 0, responses: [{ success: true }],
+    })) };
+    return { state, client, rpc, fcm };
+  }
+
+  it("delivers an eligible v2 event once through the real worker and records its outcome", async () => {
+    const { state, client, rpc, fcm } = setup(true, "allowed");
+    const result = await processPendingEvents(client as never, { now: NOON_PT, fcm: fcm as never });
+    expect(result.by_status.sent).toBe(1);
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(fcm.sendEach).toHaveBeenCalledWith([expect.objectContaining({
+      token: "fixture-token",
+      notification: expect.objectContaining({ title: "Swell incoming." }),
+      data: expect.objectContaining({
+        type: "swell_watch", version: "2",
+        regional_event_id: swellWatchFixture.regional_event_id,
+        forecast_at: swellWatchFixture.forecast_at,
+        target_partition: JSON.stringify(swellWatchFixture.target_partition),
+      }),
+    })]);
+    expect(rpc).toHaveBeenCalledWith("swell_watch_validate_notification_release", {
+      p_regional_event_id: swellWatchFixture.regional_event_id,
+      p_beach_id: swellWatchFixture.beach_id,
+      p_recipient_id: "user-recipient",
+      p_forecast_at: swellWatchFixture.forecast_at,
+      p_notification_event_id: state.events[0].id,
+    });
+    expect(rpc).toHaveBeenCalledWith("swell_watch_record_provider_delivery_outcome", expect.objectContaining({
+      p_notification_event_id: state.events[0].id, p_sample_count: 1, p_failure_count: 0,
+    }));
+    expect(state.attempts).toEqual([expect.objectContaining({ channel: "push", status: "sent" })]);
+    expect(state.events[0].status).toBe("processed");
+    const retry = await processPendingEvents(client as never, { now: NOON_PT, fcm: fcm as never });
+    expect(retry.fetched).toBe(0);
+    expect(fcm.sendEach).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["static_disabled", "control_not_armed", "notification_binding_mismatch", "provider_evidence_unavailable"])(
+    "records %s and terminates the queued event without dispatch or retry", async (reasonCode) => {
+      const { state, client, rpc, fcm } = setup(false, reasonCode);
+      if (reasonCode === "static_disabled") delete process.env.SWELL_WATCH_PUSH_ENABLED;
+      const result = await processPendingEvents(client as never, { now: NOON_PT, fcm: fcm as never });
+      expect(result.by_status.skipped_disabled).toBe(1);
+      expect(state.attempts).toEqual([expect.objectContaining({
+        channel: "push", status: "skipped_disabled",
+        provider_response: { audit_code: "swell_watch_release", reason_code: reasonCode },
+      })]);
+      expect(state.events[0].status).toBe("processed");
+      expect(fcm.sendEach).not.toHaveBeenCalled();
+      expect(rpc.mock.calls.some(([name]) => name === "swell_watch_validate_notification_release")).toBe(reasonCode !== "static_disabled");
+      expect(rpc.mock.calls.some(([name]) => name === "swell_watch_record_provider_delivery_outcome")).toBe(false);
+      const retry = await processPendingEvents(client as never, { now: NOON_PT, fcm: fcm as never });
+      expect(retry.fetched).toBe(0);
+      expect(fcm.sendEach).not.toHaveBeenCalled();
+    },
+  );
+});
 
 describe("worker recommendation-hold integration", () => {
   it("suppresses a Quiver feedback nudge through the worker's real resolver", async () => {

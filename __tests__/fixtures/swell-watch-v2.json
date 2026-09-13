@@ -1,0 +1,18 @@
+{
+  "type": "swell_watch",
+  "schema_version": "swell-watch-notification.v2",
+  "regional_event_id": "22222222-2222-4222-8222-222222222222",
+  "beach_id": "11111111-1111-4111-8111-111111111111",
+  "beach_slug": "blacks",
+  "forecast_at": "2026-09-08T15:00:00.000Z",
+  "copy_context": {
+    "beach_timezone": "America/Los_Angeles"
+  },
+  "target_partition": {
+    "height_m": 1.8,
+    "period_s": 13,
+    "direction_deg": 170
+  },
+  "arrival_at": "2026-09-08T15:00:00.000Z",
+  "peak_at": "2026-09-09T18:00:00.000Z"
+}

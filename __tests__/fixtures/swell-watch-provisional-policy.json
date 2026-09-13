@@ -1,0 +1,48 @@
+{
+  "schema_version": "swell-watch-policy.v1",
+  "profile_id": "swell-watch-provisional-fixture.v1",
+  "provenance": "provisional_fixture",
+  "policy_values": {
+    "local_significance": {
+      "minimum_height_rise_ft": 1,
+      "minimum_energy_ratio": 1.25
+    },
+    "local_impact": {
+      "minimum_impact_score": 1
+    },
+    "partition_matching": {
+      "maximum_direction_delta_deg": 25,
+      "maximum_period_delta_s": 2,
+      "maximum_arrival_delta_hours": 6
+    },
+    "missing_or_disagreement": {
+      "suppress_on_missing_partition": true,
+      "suppress_on_material_source_disagreement": true
+    },
+    "actionability": {
+      "minimum_days_before_arrival": 2,
+      "maximum_days_before_arrival": 5
+    },
+    "stability": {
+      "minimum_genuine_evaluations": 2
+    },
+    "volume_caps": {
+      "maximum_candidates_per_region": 50,
+      "maximum_recipients_per_event": 1000,
+      "maximum_projected_sends_per_window": 1000
+    },
+    "provider_failure_hold": {
+      "window_minutes": 60,
+      "maximum_failure_rate": 0.05,
+      "minimum_samples": 20
+    },
+    "staleness": {
+      "maximum_forecast_age_hours": 6
+    },
+    "cadence": {
+      "evaluation_interval_minutes": 60
+    }
+  },
+  "value_hash": "9a278ceca6c2fde80358e19258e2f6118e564735b8eb762266bd682c494df2ad",
+  "approval_evidence": null
+}

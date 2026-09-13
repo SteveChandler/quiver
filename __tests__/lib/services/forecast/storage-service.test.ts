@@ -27,6 +27,7 @@ jest.mock("@/lib/supabase/server", () => ({
 import { ForecastStorageService } from "@/lib/services/forecast/storage-service";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { processOpenMeteoData } from "@/lib/services/noaa-wavewatch/data-processors";
 
 describe("ForecastStorageService", () => {
   let service: ForecastStorageService;
@@ -122,6 +123,24 @@ describe("ForecastStorageService", () => {
   });
 
   describe("storeEnhancedForecasts", () => {
+    it("passes offshore lineage through JSON serialization and upsert without dropping other metadata", async () => {
+      const [parsed] = processOpenMeteoData({ hourly: {
+        time: ['2026-09-05T00:00', '2026-09-05T01:00', '2026-09-05T02:00'],
+        swell_wave_height: [1.23], swell_wave_period: [13], swell_wave_direction: [170],
+      } }, 1);
+      const rawForecast = {
+        data_sources: ['CDIP'],
+        offshore_swell_field_sources: parsed.swell_field_sources,
+      };
+      const result = await service.storeEnhancedForecasts(mockBeach, [{ ...mockForecast, raw_forecast: rawForecast }]);
+      expect(result.success).toBe(true);
+      expect(upsertMock).toHaveBeenCalledTimes(1);
+      const stored = JSON.parse(JSON.stringify(upsertMock.mock.calls[0][0][0]));
+      expect(stored.raw_forecast).toEqual(rawForecast);
+      expect(stored.raw_forecast.offshore_swell_field_sources.immutableRunId).toBeNull();
+      expect(stored.data_source).toBe('CDIP');
+      expect(stored).not.toHaveProperty('id');
+    });
     it("returns success for valid forecasts", async () => {
       const result = await service.storeEnhancedForecasts(mockBeach, [mockForecast]);
 

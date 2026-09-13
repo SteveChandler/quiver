@@ -9,6 +9,8 @@
  * - Ownership helpers
  */
 
+import type { RouteHandler } from "@/lib/middleware/api-wrappers/types";
+
 // Mock NextResponse BEFORE imports
 jest.mock("next/server", () => {
   // Create a mock Response class
@@ -332,6 +334,16 @@ describe("API Wrappers", () => {
       );
     });
 
+    it("exposes a required Next.js Promise context and resolves it before the handler", async () => {
+      mockAuthenticatedUser();
+      const nextContext = (value: Parameters<RouteHandler>[1]): { params: Promise<Record<string, string>> } => value;
+      const context = nextContext({ params: Promise.resolve({ id: "session-123" }) });
+      const handler = jest.fn().mockResolvedValue(NextResponse.json({ success: true }));
+      const response = await withAuth(handler)(createTestRequest() as any, context);
+      expect(response.status).toBe(200);
+      expect(handler).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ params: { id: "session-123" } }));
+    });
+
     describe("Bearer token auth (native clients)", () => {
       it("should use the bearer-scoped client when Authorization: Bearer is present", async () => {
         const mockUser = createMockUser();
@@ -492,19 +504,15 @@ describe("API Wrappers", () => {
       const validUuid = "123e4567-e89b-12d3-a456-426614174000";
       const result = validateUuidParam(validUuid);
 
-      expect("value" in result).toBe(true);
-      if ("value" in result) {
-        expect(result.value).toBe(validUuid);
-      }
+      if (!("value" in result)) throw new Error("Expected valid UUID");
+      expect(result.value).toBe(validUuid);
     });
 
     it("should return error for invalid UUID", () => {
       const result = validateUuidParam("invalid-uuid");
 
-      expect("error" in result).toBe(true);
-      if ("error" in result) {
-        expect(result.error.status).toBe(400);
-      }
+      if (!("error" in result)) throw new Error("Expected validation error");
+      expect(result.error.status).toBe(400);
     });
 
     it("should return error for undefined", () => {
@@ -522,11 +530,9 @@ describe("API Wrappers", () => {
     it("should use custom parameter name in error", async () => {
       const result = validateUuidParam("invalid", "session");
 
-      expect("error" in result).toBe(true);
-      if ("error" in result) {
-        const data = await result.error.json();
-        expect(data.error).toContain("session");
-      }
+      if (!("error" in result)) throw new Error("Expected validation error");
+      const data = await result.error.json();
+      expect(data.error).toContain("session");
     });
   });
 
@@ -542,12 +548,10 @@ describe("API Wrappers", () => {
       const params = { lat: "33.75" };
       const result = validateRequiredParams(params, ["lat", "lon"]);
 
-      expect(result).not.toBeNull();
-      if (result) {
-        expect(result.status).toBe(400);
-        const data = await result.json();
-        expect(data.error).toContain("lon");
-      }
+      if (!result) throw new Error("Expected missing parameter error");
+      expect(result.status).toBe(400);
+      const data = await result.json();
+      expect(data.error).toContain("lon");
     });
 
     it("should return error for null params", () => {
@@ -561,12 +565,10 @@ describe("API Wrappers", () => {
       const params = { name: "test" };
       const result = validateRequiredParams(params, ["lat", "lon", "name"]);
 
-      expect(result).not.toBeNull();
-      if (result) {
-        const data = await result.json();
-        expect(data.details.missing).toContain("lat");
-        expect(data.details.missing).toContain("lon");
-      }
+      if (!result) throw new Error("Expected missing parameter error");
+      const data = await result.json();
+      expect(data.details.missing).toContain("lat");
+      expect(data.details.missing).toContain("lon");
     });
   });
 
@@ -615,12 +617,10 @@ describe("API Wrappers", () => {
         "Session"
       );
 
-      expect("error" in result).toBe(true);
-      if ("error" in result) {
-        expect(result.error.status).toBe(404);
-        const data = await result.error.json();
-        expect(data.error).toBe("Session not found");
-      }
+      if (!("error" in result)) throw new Error("Expected ownership error");
+      expect(result.error.status).toBe(404);
+      const data = await result.error.json();
+      expect(data.error).toBe("Session not found");
     });
 
     it("should return 403 for resource owned by different user", async () => {
@@ -641,12 +641,10 @@ describe("API Wrappers", () => {
         "Session"
       );
 
-      expect("error" in result).toBe(true);
-      if ("error" in result) {
-        expect(result.error.status).toBe(403);
-        const data = await result.error.json();
-        expect(data.error).toBe("Forbidden");
-      }
+      if (!("error" in result)) throw new Error("Expected ownership error");
+      expect(result.error.status).toBe(403);
+      const data = await result.error.json();
+      expect(data.error).toBe("Forbidden");
     });
 
     it("should throw for other database errors", async () => {
