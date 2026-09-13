@@ -140,7 +140,7 @@ export async function acquireProviderRunReceipts(
   scopes.forEach(({ latitude, longitude }) => buildOpenMeteoSingleRunRequest({ latitude, longitude, runUtc, forecastDays }));
   const receipts: ProviderRunScope[] = [];
   for (const { sourcePointId, latitude, longitude } of scopes) {
-    receipts.push({ sourcePointId, receipt: await fetchOpenMeteoSingleRunReceipt({ latitude, longitude, runUtc, forecastDays }, fetcher) });
+    receipts.push({ sourcePointId, receipt: await fetchOpenMeteoSingleRunReceipt({ latitude, longitude, runUtc, forecastDays }, fetcher, sourcePointId) });
   }
   return storePrototypeSingleRunReceipts(receipts, client);
 }
