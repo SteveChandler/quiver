@@ -103,13 +103,16 @@ describe("GET /api/beaches/[id]/sources", () => {
     });
   });
 
-  it("marks Surfline report cam pages as external link-outs, not embeddable iframes", async () => {
+  it.each([
+    "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
+    "https://flaglersurf.com/webcam/",
+    "https://www.corollalightresort.com/surf-cam/",
+  ])("marks %s as an external link-out", async (cameraUrl) => {
     const sourceChain = makeChain({
       data: {
         beach_id: VALID_BEACH_UUID,
         forecast_source_id: null,
-        camera_url:
-          "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
+        camera_url: cameraUrl,
         thumbnail_url: null,
       },
       error: null,
@@ -133,13 +136,12 @@ describe("GET /api/beaches/[id]/sources", () => {
       }
     );
 
+    expect(response.status).toBe(200);
     const body = await response.json();
 
     expect(body.data.sources).toMatchObject({
-      camera_url:
-        "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
-      cam_open_url:
-        "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
+      camera_url: cameraUrl,
+      cam_open_url: cameraUrl,
       cam_kind: "external",
       embed_allowed: false,
     });

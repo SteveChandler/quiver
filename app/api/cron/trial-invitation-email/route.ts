@@ -258,6 +258,7 @@ async function runEnabled(startTime: number): Promise<{ summary: RunSummary }> {
       await rateLimiter.throttle();
 
       const { data: sendData, error: sendError } = await sendEmail({
+        contactPolicy: { userId: candidate.user_id, emailType: "trial_invitation" },
         from: MAIL_FROM,
         replyTo: MAIL_REPLY_TO,
         to: candidate.email,

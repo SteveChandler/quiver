@@ -449,11 +449,17 @@ function renderBacklink(backlink?: BacklinkProxyInput): string {
   const topCitationDomains = [...new Map(citationDomains.map((row) => [row.domain, row])).values()]
     .sort((a, b) => b.links - a.links || (b.domainRating ?? 0) - (a.domainRating ?? 0))
     .slice(0, 6);
+  const captureDates = [...new Set(backlink.manualExports
+    .map((item) => item.capturedAt)
+    .filter((value): value is string => Boolean(value)))].sort();
+  const captureNote = captureDates.length
+    ? ` Captured ${captureDates.join(", ")}.`
+    : "";
   const rows = [
     `- Vercel referrer domains/labels: ${backlink.referrers.length}.`,
     `- Embed referrer domains: ${backlink.embedReferrers.length}.`,
     `- Outreach rows parsed: ${backlink.outreachStatuses.length}.`,
-    `- Manual backlink exports imported: ${backlink.manualExports.length} file${backlink.manualExports.length === 1 ? "" : "s"} / ${manualRows} row${manualRows === 1 ? "" : "s"} / ${manualDomains} referring-domain observations.`,
+    `- Manual backlink exports imported: ${backlink.manualExports.length} file${backlink.manualExports.length === 1 ? "" : "s"} / ${manualRows} row${manualRows === 1 ? "" : "s"} / ${manualDomains} referring-domain observations.${captureNote}`,
     manualRows > 0
       ? `- Manual backlink quality mix: ${nonSpamRows} non-spam rows, ${spamRows} spam-labeled rows, ${dofollowLinks} dofollow links.`
       : "- Manual backlink quality mix: no imported manual backlink rows.",

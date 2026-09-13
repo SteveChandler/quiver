@@ -1,6 +1,10 @@
 /** @jest-environment node */
 
 const mockResendSend = jest.fn();
+const mockContactRpc = jest.fn();
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(async () => ({ rpc: mockContactRpc })),
+}));
 
 jest.mock("resend", () => ({
   Resend: jest.fn().mockImplementation(() => ({
@@ -22,6 +26,7 @@ describe("mailer client", () => {
       RESEND_API_KEY: "test-resend-key",
     };
     delete process.env.E2E_ALLOW_EMAIL_SENDS;
+    delete process.env.EMAIL_CONTACT_POLICY_ENABLED;
     delete process.env.PLAYWRIGHT_TEST;
     delete process.env.NEXT_PUBLIC_E2E_DISABLE_EMAIL_SENDS;
     mockResendSend.mockResolvedValue({
@@ -32,6 +37,36 @@ describe("mailer client", () => {
 
   afterEach(() => {
     process.env = originalEnv;
+  });
+
+  it("routes managed sends through the DB gate and strips internal metadata", async () => {
+    process.env.EMAIL_CONTACT_POLICY_ENABLED = "true";
+    process.env.EMAIL_REPLY_MAILBOX = "replies@inbound.example.com";
+    mockContactRpc.mockResolvedValue({ data: { allowed: true, attempt_id: "claim-123" }, error: null });
+    const { sendEmail } = await import("@/lib/mailer/client");
+    await sendEmail({
+      from: "test@example.com", to: "surfer@example.com", subject: "Test", text: "Test",
+      unsubscribeUrl: "https://example.com/unsubscribe",
+      contactPolicy: { userId: "11111111-1111-4111-8111-111111111111", emailType: "trial_invitation" },
+    });
+    expect(mockResendSend).toHaveBeenCalledWith(expect.objectContaining({
+      replyTo: "replies@inbound.example.com", headers: { "List-Unsubscribe": "<https://example.com/unsubscribe>" },
+    }), { idempotencyKey: "claim-123" });
+    expect(mockResendSend.mock.calls[0][0]).not.toHaveProperty("contactPolicy");
+    expect(mockContactRpc).toHaveBeenCalledWith("finish_email_contact", { p_attempt_id: "claim-123", p_provider_id: "email-123" });
+  });
+
+  it("never bypasses a denied contact gate", async () => {
+    process.env.EMAIL_CONTACT_POLICY_ENABLED = "true";
+    process.env.EMAIL_REPLY_MAILBOX = "replies@inbound.example.com";
+    mockContactRpc.mockResolvedValue({ data: { allowed: false, reason: "disabled" }, error: null });
+    const { sendEmail } = await import("@/lib/mailer/client");
+    await expect(sendEmail({
+      from: "test@example.com", to: "surfer@example.com", subject: "Test", text: "Test",
+      unsubscribeUrl: "https://example.com/unsubscribe",
+      contactPolicy: { userId: "11111111-1111-4111-8111-111111111111", emailType: "trial_invitation" },
+    })).rejects.toThrow("disabled");
+    expect(mockResendSend).not.toHaveBeenCalled();
   });
 
   it("adds an angle-bracketed List-Unsubscribe header without replacing caller headers", async () => {

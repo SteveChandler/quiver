@@ -153,7 +153,7 @@ describe("filterSuppressedRecipients", () => {
     expect(result).toEqual(recipients);
   });
 
-  it("fails open when the suppression lookup errors", async () => {
+  it("fails closed when the suppression lookup errors", async () => {
     const lookupError = { message: "permission denied" };
     const { supabase } = createSuppressionSupabaseMock({
       data: null,
@@ -163,16 +163,14 @@ describe("filterSuppressedRecipients", () => {
       { user_id: "user-1", email: "blocked@example.com", label: "kept" },
     ];
 
-    const result = await filterSuppressedRecipients(supabase as never, recipients);
-
-    expect(result).toEqual(recipients);
+    await expect(filterSuppressedRecipients(supabase as never, recipients)).rejects.toThrow("Email suppression lookup failed");
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining("Failed to check email suppression list"),
       lookupError
     );
   });
 
-  it("fails open when the suppression lookup throws", async () => {
+  it("fails closed when the suppression lookup throws", async () => {
     const thrownError = new Error("network failed");
     const { supabase } = createSuppressionSupabaseMock({
       throwOnIn: thrownError,
@@ -181,9 +179,7 @@ describe("filterSuppressedRecipients", () => {
       { user_id: "user-1", email: "blocked@example.com", label: "kept" },
     ];
 
-    const result = await filterSuppressedRecipients(supabase as never, recipients);
-
-    expect(result).toEqual(recipients);
+    await expect(filterSuppressedRecipients(supabase as never, recipients)).rejects.toThrow("Email suppression lookup failed");
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining("Failed to check email suppression list"),
       thrownError

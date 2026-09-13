@@ -11,6 +11,12 @@ import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { computeBestDaysForUser } from "@/lib/alerts/best-days";
 
+// Suppression failure behavior is covered by suppression.test.ts; route fixtures
+// model successful lookup, not the old fail-open fallback.
+jest.mock("@/lib/email/suppression", () => ({
+  filterSuppressedRecipients: jest.fn(async (_client, recipients) => recipients),
+}));
+
 const mockLogDelivery = jest.fn();
 jest.mock("@/lib/cron/outcome", () => ({
   withCronOutcome: jest.fn(async (_options: unknown, handler: () => Promise<unknown>) => handler()),

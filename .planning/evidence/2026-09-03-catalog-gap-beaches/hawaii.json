@@ -1,0 +1,881 @@
+[
+  {
+    "candidate": "Kailua Bay / Hulihee",
+    "disposition": "accepted",
+    "name": "Kamakahonu Beach",
+    "city": "Kailua-Kona",
+    "state": "HI",
+    "country": "USA",
+    "region": "Big Island",
+    "lat": 19.63934,
+    "lon": -155.99748,
+    "timezone": "Pacific/Honolulu",
+    "description": "A small sandy cove beside Kailua Pier in historic Kailua Village.",
+    "access_tips": "Use the public approach beside Kailua Pier from Aliʻi Drive and Palani Road.",
+    "hazards": null,
+    "aliases": [
+      "Kamakahonu"
+    ],
+    "beach_type": "sandy beach",
+    "camera_url": null,
+    "camera_reason": "Playback and exact coverage not yet verified for this new row.",
+    "photo_url": null,
+    "checked_at": "2026-09-03",
+    "editorial_sources": [
+      {
+        "url": "https://www.planning.hawaiicounty.gov/resources/shoreline-public-access/north-kona",
+        "fields": [
+          "name",
+          "city",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://gis.hawaiicounty.gov/public/downloads/plhyperlinks/SMA_Major/year2009/09-000032.PDF",
+        "fields": [
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://mapcarta.com/24041648",
+        "fields": [
+          "coordinate_reference"
+        ]
+      },
+      {
+        "url": "https://www.timeanddate.com/time/zone/usa/hawaii",
+        "fields": [
+          "timezone"
+        ]
+      },
+      {
+        "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.00188%2C19.63666%2C-155.99388000000002%2C19.64266&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+        "fields": [
+          "lat",
+          "lon",
+          "pin_meaning"
+        ]
+      }
+    ],
+    "coordinate_method": "GNIS reference19.63966,-155.99788 falls on sand. Selected nearshore cove point from georeferenced imagery x550,y415; approximate water pin, not surveyed.",
+    "geometry_evidence": "kamakahonu.png",
+    "duplicate_review": "No exact named row in refreshed467-row snapshot or pending20260903150000 migration; nearest existing rows must not be merged by proximity.",
+    "source_coordinates": {
+      "lat": 19.63966,
+      "lon": -155.99788,
+      "meaning": "Published reference described in coordinate_method; not automatically the selected ocean pin."
+    },
+    "pin_meaning": "Representative water point adjoining the named beach or reef; approximate, not surveyed.",
+    "geometry_source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.00188%2C19.63666%2C-155.99388000000002%2C19.64266&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "geometry_review": "Visually reviewed georeferenced satellite imagery; final_geometry_evidence supersedes preliminary image when present."
+  },
+  {
+    "candidate": "Turtle Bay West",
+    "disposition": "accepted",
+    "name": "Turtle Bay West",
+    "city": "Kahuku",
+    "state": "HI",
+    "country": "USA",
+    "region": "Oahu",
+    "lat": 21.705403,
+    "lon": -158.00333,
+    "timezone": "Pacific/Honolulu",
+    "description": "A reef surf break on the west side of the Turtle Bay resort area.",
+    "access_tips": "Use designated public shoreline access and trails.",
+    "hazards": [
+      "Reef"
+    ],
+    "aliases": [
+      "Turtle Bay West"
+    ],
+    "beach_type": "reef break",
+    "camera_url": null,
+    "camera_reason": "Playback and exact coverage not yet verified for this new row.",
+    "photo_url": null,
+    "checked_at": "2026-09-03",
+    "editorial_sources": [
+      {
+        "url": "https://www.surfline.com/surf-report/turtle-bay-west/5842041f4e65fad6a7708df2/spot-guide",
+        "fields": [
+          "name",
+          "description",
+          "beach_type",
+          "hazards"
+        ]
+      },
+      {
+        "url": "https://breakfinder.surf/surf_spots/turtle-bay-west",
+        "fields": [
+          "lat",
+          "lon"
+        ]
+      },
+      {
+        "url": "https://www.tpl.org/our-work/kahuku-kawela-forever",
+        "fields": [
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://www.timeanddate.com/time/zone/usa/hawaii",
+        "fields": [
+          "timezone"
+        ]
+      },
+      {
+        "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-158.01133000000002%2C21.699403%2C-157.99533%2C21.711403&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+        "fields": [
+          "lat",
+          "lon",
+          "pin_meaning"
+        ]
+      }
+    ],
+    "coordinate_method": "Published surf-zone coordinate; satellite shows water/reef west of resort. Existing Velzyland row has nearby suspect coordinates; this is not an alias for Velzyland.",
+    "geometry_evidence": "turtle-bay-west.png",
+    "duplicate_review": "No exact named row in refreshed467-row snapshot or pending20260903150000 migration; nearest existing rows must not be merged by proximity.",
+    "final_geometry_evidence": "turtle-bay-west-final.png",
+    "final_geometry_source": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-158.01133000000002%2C21.699403%2C-157.99533%2C21.711403&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "existing_coordinate_defect": {
+      "name": "Velzyland",
+      "distance_m": 525,
+      "note": "Existing Velzyland pin is at Turtle Bay resort vicinity. Distinct identity; no existing-row change authorized by this research."
+    },
+    "source_coordinates": {
+      "lat": 21.705403,
+      "lon": -158.00333,
+      "meaning": "Published reference described in coordinate_method; not automatically the selected ocean pin."
+    },
+    "pin_meaning": "Representative water point adjoining the named beach or reef; approximate, not surveyed.",
+    "geometry_source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-158.00733%2C21.702403%2C-157.99933000000001%2C21.708403&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "geometry_review": "Visually reviewed georeferenced satellite imagery; final_geometry_evidence supersedes preliminary image when present."
+  },
+  {
+    "candidate": "Ala Moana Courts",
+    "disposition": "held_exact_location",
+    "name": "Ala Moana Courts",
+    "city": "Honolulu",
+    "state": "HI",
+    "country": "USA",
+    "region": "Oahu",
+    "lat": null,
+    "lon": null,
+    "timezone": "Pacific/Honolulu",
+    "description": null,
+    "access_tips": null,
+    "hazards": null,
+    "aliases": [],
+    "beach_type": "reef break",
+    "camera_url": null,
+    "camera_reason": "Playback and exact coverage not yet verified for this new row.",
+    "photo_url": null,
+    "checked_at": "2026-09-03",
+    "editorial_sources": [
+      {
+        "url": "https://www.surf-forecast.com/breaks/Ala-Moana-Courts",
+        "fields": [
+          "name",
+          "beach_type"
+        ]
+      },
+      {
+        "url": "https://www.timeanddate.com/time/zone/usa/hawaii",
+        "fields": [
+          "timezone"
+        ]
+      }
+    ],
+    "coordinate_method": "HOLD: available coordinates either coarse or appear near beach lagoon. Exact Courts reef peak not independently established; do not use exploratory image center as verified pin.",
+    "geometry_evidence": null,
+    "duplicate_review": "No exact named row in refreshed467-row snapshot or pending20260903150000 migration; nearest existing rows must not be merged by proximity."
+  },
+  {
+    "candidate": "Lawai / Beach House",
+    "disposition": "accepted",
+    "name": "Lawai Beach",
+    "city": "Koloa",
+    "state": "HI",
+    "country": "USA",
+    "region": "Kauai",
+    "lat": 21.8812,
+    "lon": -159.4763,
+    "timezone": "Pacific/Honolulu",
+    "description": "A small beach beside the Beach House Restaurant on Kauai’s south coast.",
+    "access_tips": "Approach from Lawai Road; the adjacent resort identifies this public shoreline destination.",
+    "hazards": [
+      "No lifeguard"
+    ],
+    "aliases": [
+      "Lāwaʻi Beach",
+      "Lawai"
+    ],
+    "beach_type": "sandy beach",
+    "camera_url": "https://www.youtube.com/watch?v=3ATYHKN2hIg",
+    "camera_reason": "Accepted YouTube official resort live view. Chrome player shows Lawai Beach Resort; image clock09/03/26 advances09:19:12AM to09:19:16AM, palms/waves move. View across resort lawn and LawaiRoad to LawaiBeach west of BeachHouse. Broad beach camera, not claimed exactPKspeak.",
+    "photo_url": null,
+    "checked_at": "2026-09-03",
+    "editorial_sources": [
+      {
+        "url": "https://www.hawaii-guide.com/kauai/beaches/lawai-beach",
+        "fields": [
+          "name",
+          "description",
+          "hazards",
+          "coordinate_reference"
+        ]
+      },
+      {
+        "url": "https://www.lawaibeach.org/",
+        "fields": [
+          "city",
+          "description",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://www.timeanddate.com/time/zone/usa/hawaii",
+        "fields": [
+          "timezone"
+        ]
+      },
+      {
+        "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-159.4803%2C21.8782%2C-159.47230000000002%2C21.8842&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+        "fields": [
+          "lat",
+          "lon",
+          "pin_meaning"
+        ]
+      }
+    ],
+    "coordinate_method": "Guide coordinates differ between text and map link. Satellite-selected nearshore point west of Beach House, facing the named beach.",
+    "geometry_evidence": "lawai.png",
+    "duplicate_review": "No exact named row in refreshed467-row snapshot or pending20260903150000 migration; nearest existing rows must not be merged by proximity.",
+    "camera_checked_at": "2026-09-03T19:19:16Z",
+    "source_coordinates": {
+      "lat": 21.88098377,
+      "lon": -159.4756989,
+      "meaning": "Published reference described in coordinate_method; not automatically the selected ocean pin."
+    },
+    "pin_meaning": "Representative water point adjoining the named beach or reef; approximate, not surveyed.",
+    "geometry_source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-159.4803%2C21.8782%2C-159.47230000000002%2C21.8842&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "geometry_review": "Visually reviewed georeferenced satellite imagery; final_geometry_evidence supersedes preliminary image when present."
+  },
+  {
+    "candidate": "PKs / Whalers Cove",
+    "disposition": "held_distinct_break",
+    "name": "PKs / Whalers Cove",
+    "city": "Koloa",
+    "state": "HI",
+    "country": "USA",
+    "region": "Kauai",
+    "lat": null,
+    "lon": null,
+    "timezone": "Pacific/Honolulu",
+    "description": null,
+    "access_tips": null,
+    "hazards": null,
+    "aliases": [],
+    "beach_type": null,
+    "camera_url": null,
+    "camera_reason": "Playback and exact coverage not yet verified for this new row.",
+    "photo_url": null,
+    "checked_at": "2026-09-03",
+    "editorial_sources": [
+      {
+        "url": "https://www.timeanddate.com/time/zone/usa/hawaii",
+        "fields": [
+          "timezone"
+        ]
+      }
+    ],
+    "coordinate_method": "HOLD: distinct named reef breaks east of Lawai Beach cannot be safely collapsed into the Lawai beach row; exact identity and pin not established.",
+    "geometry_evidence": null,
+    "duplicate_review": "No exact named row in refreshed467-row snapshot or pending20260903150000 migration; nearest existing rows must not be merged by proximity."
+  },
+  {
+    "candidate": "Kaanapali / Whaler",
+    "disposition": "accepted",
+    "name": "Kaanapali Beach",
+    "city": "Lahaina",
+    "state": "HI",
+    "country": "USA",
+    "region": "Maui",
+    "lat": 20.922221,
+    "lon": -156.6963,
+    "timezone": "Pacific/Honolulu",
+    "description": "A long sandy beach on West Maui’s resort coast, south of Black Rock.",
+    "access_tips": "Use marked public beach access along Kaanapali Parkway.",
+    "hazards": [
+      "No lifeguard",
+      "Stronger currents near Black Rock"
+    ],
+    "aliases": [
+      "Kāʻanapali Beach"
+    ],
+    "beach_type": "sandy beach",
+    "camera_url": null,
+    "camera_reason": "Playback and exact coverage not yet verified for this new row.",
+    "photo_url": null,
+    "checked_at": "2026-09-03",
+    "editorial_sources": [
+      {
+        "url": "https://www.aquaaston.com/vacation-inspiration/activities/relax-on-kaanapali-beach",
+        "fields": [
+          "name",
+          "city",
+          "description",
+          "access_tips",
+          "hazards",
+          "coordinate_reference"
+        ]
+      },
+      {
+        "url": "https://www.timeanddate.com/time/zone/usa/hawaii",
+        "fields": [
+          "timezone"
+        ]
+      },
+      {
+        "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.699895%2C20.919221%2C-156.69189500000002%2C20.925221&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+        "fields": [
+          "lat",
+          "lon",
+          "pin_meaning"
+        ]
+      }
+    ],
+    "coordinate_method": "Published20.922221,-156.695895 falls on beach; shifted~42m west to adjoining water using imagery. Covers south Kaanapali, not Eldorado north of Black Rock.",
+    "geometry_evidence": "kaanapali.png",
+    "duplicate_review": "No exact named row in refreshed467-row snapshot or pending20260903150000 migration; nearest existing rows must not be merged by proximity.",
+    "source_coordinates": {
+      "lat": 20.922221,
+      "lon": -156.695895,
+      "meaning": "Published reference described in coordinate_method; not automatically the selected ocean pin."
+    },
+    "pin_meaning": "Representative water point adjoining the named beach or reef; approximate, not surveyed.",
+    "geometry_source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.699895%2C20.919221%2C-156.69189500000002%2C20.925221&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "geometry_review": "Visually reviewed georeferenced satellite imagery; final_geometry_evidence supersedes preliminary image when present."
+  },
+  {
+    "candidate": "Maui Eldorado beachfront",
+    "disposition": "held_exact_location",
+    "name": "Maui Eldorado beachfront",
+    "city": "Lahaina",
+    "state": "HI",
+    "country": "USA",
+    "region": "Maui",
+    "lat": null,
+    "lon": null,
+    "timezone": "Pacific/Honolulu",
+    "description": null,
+    "access_tips": null,
+    "hazards": null,
+    "aliases": [],
+    "beach_type": null,
+    "camera_url": null,
+    "camera_reason": "Playback and exact coverage not yet verified for this new row.",
+    "photo_url": null,
+    "checked_at": "2026-09-03",
+    "editorial_sources": [
+      {
+        "url": "https://www.mauieldorado.com/webcams",
+        "fields": [
+          "candidate"
+        ]
+      },
+      {
+        "url": "https://www.timeanddate.com/time/zone/usa/hawaii",
+        "fields": [
+          "timezone"
+        ]
+      }
+    ],
+    "coordinate_method": "HOLD: north-of-Black-Rock cabana shoreline should not automatically be merged with south Kaanapali or Kahekili Park without exact field-of-view review.",
+    "geometry_evidence": null,
+    "duplicate_review": "No exact named row in refreshed467-row snapshot or pending20260903150000 migration; nearest existing rows must not be merged by proximity."
+  },
+  {
+    "candidate": "Hale Mahina beachfront",
+    "disposition": "held_public_access",
+    "name": "Hale Mahina beachfront",
+    "city": "Lahaina",
+    "state": "HI",
+    "country": "USA",
+    "region": "Maui",
+    "lat": null,
+    "lon": null,
+    "timezone": "Pacific/Honolulu",
+    "description": null,
+    "access_tips": null,
+    "hazards": [
+      "Sinkholes and shoreline construction"
+    ],
+    "aliases": [],
+    "beach_type": null,
+    "camera_url": null,
+    "camera_reason": "Playback and exact coverage not yet verified for this new row.",
+    "photo_url": null,
+    "checked_at": "2026-09-03",
+    "editorial_sources": [
+      {
+        "url": "https://www.mauinews.com/opinion/letters-to-the-editor/2026/06/letters-hale-mahina-asks-support-for-proposed-beach-access/",
+        "fields": [
+          "access_status"
+        ]
+      },
+      {
+        "url": "https://halemahinaresort.com/",
+        "fields": [
+          "hazards",
+          "access_status"
+        ]
+      },
+      {
+        "url": "https://www.timeanddate.com/time/zone/usa/hawaii",
+        "fields": [
+          "timezone"
+        ]
+      }
+    ],
+    "coordinate_method": "HOLD as of2026-09-03: June2 board-president letter says north access lacks safe stairs; proposed south stairs still requires approval. Current resort project describes sinkholes and seawall works. Do not claim an open public route or equate this with S-Turns.",
+    "geometry_evidence": null,
+    "duplicate_review": "No exact named row in refreshed467-row snapshot or pending20260903150000 migration; nearest existing rows must not be merged by proximity."
+  },
+  {
+    "candidate": "S-Turns",
+    "disposition": "accepted",
+    "name": "Pohaku Park (S-Turns)",
+    "city": "Lahaina",
+    "state": "HI",
+    "country": "USA",
+    "region": "Maui",
+    "lat": 20.96708,
+    "lon": -156.68165,
+    "timezone": "Pacific/Honolulu",
+    "description": "A West Maui surf park with rocky shoreline and a small sandy southern section.",
+    "access_tips": "Use the public park entrance on Lower Honoapiilani Road.",
+    "hazards": [
+      "Rocky shoreline",
+      "Drainage culvert"
+    ],
+    "aliases": [
+      "Pōhaku Park",
+      "S-Turns"
+    ],
+    "beach_type": "reef break",
+    "camera_url": null,
+    "camera_reason": "Playback and exact coverage not yet verified for this new row.",
+    "photo_url": null,
+    "checked_at": "2026-09-03",
+    "editorial_sources": [
+      {
+        "url": "https://www.mauicounty.gov/Facilities/Facility/Details/Pohaku-Park-113",
+        "fields": [
+          "name",
+          "city",
+          "aliases",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://health.hawaii.gov/cwb/files/2013/06/SampleSite_Maui724.pdf",
+        "fields": [
+          "description",
+          "hazards",
+          "coordinate_reference"
+        ]
+      },
+      {
+        "url": "https://www.timeanddate.com/time/zone/usa/hawaii",
+        "fields": [
+          "timezone"
+        ]
+      },
+      {
+        "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.68514%2C20.96496%2C-156.67714%2C20.97096&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+        "fields": [
+          "lat",
+          "lon",
+          "pin_meaning"
+        ]
+      }
+    ],
+    "coordinate_method": "DOH sampleN20°58′01.5″ W156°40′53.0″ =20.967083,-156.681389. Shifted~27m west into nearshore water using imagery; separate from Hale Mahina.",
+    "geometry_evidence": "pohaku.png",
+    "duplicate_review": "No exact named row in refreshed467-row snapshot or pending20260903150000 migration; nearest existing rows must not be merged by proximity.",
+    "source_coordinates": {
+      "lat": 20.9670833,
+      "lon": -156.6813889,
+      "meaning": "Published reference described in coordinate_method; not automatically the selected ocean pin."
+    },
+    "pin_meaning": "Representative water point adjoining the named beach or reef; approximate, not surveyed.",
+    "geometry_source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.68514%2C20.96496%2C-156.67714%2C20.97096&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "geometry_review": "Visually reviewed georeferenced satellite imagery; final_geometry_evidence supersedes preliminary image when present."
+  },
+  {
+    "candidate": "Kaunaoa Beach",
+    "disposition": "accepted",
+    "name": "Kaunaoa Beach",
+    "city": "Waimea",
+    "state": "HI",
+    "country": "USA",
+    "region": "Big Island",
+    "lat": 20.0045643,
+    "lon": -155.8253,
+    "timezone": "Pacific/Honolulu",
+    "description": "A crescent of white sand at Kaunaʻoa Bay beside Mauna Kea Beach Hotel.",
+    "access_tips": "Request a public beach parking pass at the resort entrance; spaces are limited.",
+    "hazards": [
+      "Strong currents and waves",
+      "Uneven footing"
+    ],
+    "aliases": [
+      "Kaunaʻoa Beach",
+      "Mauna Kea Beach"
+    ],
+    "beach_type": "sandy beach",
+    "camera_url": "https://marriott.ozolio.com/mauna-kea-beach-hotel/",
+    "camera_reason": "Accepted external provider link. Chrome showed LIVE/Pause, moving swimmers and changing breaking waves in successive screenshots. Hotel title explicitly identifies Kaunaʻoa Bay; full crescent matches map. Slideshow alternatives were not selected.",
+    "photo_url": null,
+    "checked_at": "2026-09-03",
+    "editorial_sources": [
+      {
+        "url": "https://www.planning.hawaiicounty.gov/resources/shoreline-public-access/south-kohala",
+        "fields": [
+          "name",
+          "description",
+          "access_tips",
+          "hazards"
+        ]
+      },
+      {
+        "url": "https://www.topozone.com/hawaii/hawaii-hi/beach/kaunaoa-beach/",
+        "fields": [
+          "coordinate_reference"
+        ]
+      },
+      {
+        "url": "https://www.timeanddate.com/time/zone/usa/hawaii",
+        "fields": [
+          "timezone"
+        ]
+      },
+      {
+        "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-155.8287995%2C20.0015643%2C-155.82079950000002%2C20.0075643&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+        "fields": [
+          "lat",
+          "lon",
+          "pin_meaning"
+        ]
+      }
+    ],
+    "coordinate_method": "GNIS20.0045643,-155.8247995 lies on sand. Shifted~52m west to nearshore water via imagery. Distinct from Hapuna.",
+    "geometry_evidence": "kaunaoa.png",
+    "duplicate_review": "No exact named row in refreshed467-row snapshot or pending20260903150000 migration; nearest existing rows must not be merged by proximity.",
+    "camera_checked_at": "2026-09-03T19:19:00Z",
+    "source_coordinates": {
+      "lat": 20.0045643,
+      "lon": -155.8247995,
+      "meaning": "Published reference described in coordinate_method; not automatically the selected ocean pin."
+    },
+    "pin_meaning": "Representative water point adjoining the named beach or reef; approximate, not surveyed.",
+    "geometry_source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-155.8287995%2C20.0015643%2C-155.82079950000002%2C20.0075643&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "geometry_review": "Visually reviewed georeferenced satellite imagery; final_geometry_evidence supersedes preliminary image when present."
+  },
+  {
+    "candidate": "Napili Bay Beach",
+    "disposition": "accepted",
+    "name": "Napili Bay Beach",
+    "city": "Lahaina",
+    "state": "HI",
+    "country": "USA",
+    "region": "Maui",
+    "lat": 20.99554,
+    "lon": -156.667,
+    "timezone": "Pacific/Honolulu",
+    "description": "A sandy crescent along Nāpili Bay on Maui’s northwest coast.",
+    "access_tips": "Use signed public beach access from Napili Place or Hui Drive.",
+    "hazards": null,
+    "aliases": [
+      "Nāpili Bay Beach",
+      "Napili Beach"
+    ],
+    "beach_type": "sandy beach",
+    "camera_url": "https://www.napilisunset.com/live-webcam/",
+    "camera_reason": "Accepted external provider link. Chrome showed LIVE/Pause player and changing shorebreak/palm positions in successive screenshots; view covers sandy Napili Bay from resort46HuiDrive. No timestamp visible; no guarantee of future availability.",
+    "photo_url": null,
+    "checked_at": "2026-09-03",
+    "editorial_sources": [
+      {
+        "url": "https://www.mauicounty.gov/DocumentView.asp?DID=8198",
+        "fields": [
+          "name",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://pubs.usgs.gov/of/2001/0308/MDATA/Maui_Profiles.pdf",
+        "fields": [
+          "coordinate_reference"
+        ]
+      },
+      {
+        "url": "https://mapcarta.com/24048452",
+        "fields": [
+          "name",
+          "coordinate_reference"
+        ]
+      },
+      {
+        "url": "https://www.timeanddate.com/time/zone/usa/hawaii",
+        "fields": [
+          "timezone"
+        ]
+      },
+      {
+        "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.67%2C20.99329%2C-156.66400000000002%2C20.99779&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+        "fields": [
+          "lat",
+          "lon",
+          "pin_meaning"
+        ]
+      }
+    ],
+    "coordinate_method": "USGS Napili beachprofile20.995541,-156.666122 is shoreline reference; nearshore bay point shifted west. County access20.997396,-156.670630 lies far offshore and is not used.",
+    "geometry_evidence": "napili.png",
+    "duplicate_review": "No exact named row in refreshed467-row snapshot or pending20260903150000 migration; nearest existing rows must not be merged by proximity.",
+    "final_geometry_evidence": "napili-bay-beach-final.png",
+    "final_geometry_source": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.67%2C20.99329%2C-156.66400000000002%2C20.99779&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "camera_checked_at": "2026-09-03T19:19:00Z",
+    "source_coordinates": {
+      "lat": 20.995541,
+      "lon": -156.666122,
+      "meaning": "Published reference described in coordinate_method; not automatically the selected ocean pin."
+    },
+    "pin_meaning": "Representative water point adjoining the named beach or reef; approximate, not surveyed.",
+    "geometry_source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.67462999999998%2C20.994396%2C-156.66663%2C21.000396&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "geometry_review": "Visually reviewed georeferenced satellite imagery; final_geometry_evidence supersedes preliminary image when present."
+  },
+  {
+    "candidate": "Kamaole Beach Park II",
+    "disposition": "accepted",
+    "name": "Kamaole Beach Park II",
+    "city": "Kihei",
+    "state": "HI",
+    "country": "USA",
+    "region": "Maui",
+    "lat": 20.7164722,
+    "lon": -156.4473,
+    "timezone": "Pacific/Honolulu",
+    "description": "A sandy beach between Kamaʻole Beach Parks I and III in Kīhei.",
+    "access_tips": "Reopened August11,2026 after storm repairs; respect barricades around restoration areas.",
+    "hazards": [
+      "Stormwater runoff"
+    ],
+    "aliases": [
+      "Kamaʻole Beach Park II",
+      "Kamaole II",
+      "Kam II"
+    ],
+    "beach_type": "sandy beach",
+    "camera_url": null,
+    "camera_reason": "Rejected current halepauhana.com/see-and-do embedhPvl6IACa2k: YouTube UI saysLive but video explicitly overlaysNOTLive. Not sufficient currentplayback evidence.",
+    "photo_url": null,
+    "checked_at": "2026-09-03",
+    "editorial_sources": [
+      {
+        "url": "https://www.mauicounty.gov/facilities/facility/details/Kamaole-Park-II-232",
+        "fields": [
+          "name",
+          "city",
+          "description",
+          "beach_type"
+        ]
+      },
+      {
+        "url": "https://www.mauicounty.gov/m/NewsFlash/Home/Detail/19144",
+        "fields": [
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://health.hawaii.gov/cwb/files/2013/06/SampleSite_Maui682.pdf",
+        "fields": [
+          "coordinate_reference",
+          "hazards"
+        ]
+      },
+      {
+        "url": "https://www.timeanddate.com/time/zone/usa/hawaii",
+        "fields": [
+          "timezone"
+        ]
+      },
+      {
+        "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.45075%2C20.7134722%2C-156.44275000000002%2C20.7194722&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+        "fields": [
+          "lat",
+          "lon",
+          "pin_meaning"
+        ]
+      }
+    ],
+    "coordinate_method": "DOH sample20.7164722,-156.44675 is sand/edge. Shifted~57m west to water. Current access checked2026-09-03.",
+    "geometry_evidence": "kamaole-ii.png",
+    "duplicate_review": "No exact named row in refreshed467-row snapshot or pending20260903150000 migration; nearest existing rows must not be merged by proximity.",
+    "source_coordinates": {
+      "lat": 20.7164722,
+      "lon": -156.44675,
+      "meaning": "Published reference described in coordinate_method; not automatically the selected ocean pin."
+    },
+    "pin_meaning": "Representative water point adjoining the named beach or reef; approximate, not surveyed.",
+    "geometry_source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.45075%2C20.7134722%2C-156.44275000000002%2C20.7194722&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "geometry_review": "Visually reviewed georeferenced satellite imagery; final_geometry_evidence supersedes preliminary image when present."
+  },
+  {
+    "candidate": "Wailea Beach",
+    "disposition": "accepted",
+    "name": "Wailea Beach",
+    "city": "Wailea",
+    "state": "HI",
+    "country": "USA",
+    "region": "Maui",
+    "lat": 20.6829994,
+    "lon": -156.44365,
+    "timezone": "Pacific/Honolulu",
+    "description": "A sandy crescent on South Maui’s Wailea resort coastline.",
+    "access_tips": "Use signed public beach access and the coastal beachwalk.",
+    "hazards": null,
+    "aliases": [
+      "Wailea"
+    ],
+    "beach_type": "sandy beach",
+    "camera_url": null,
+    "camera_reason": "Playback and exact coverage not yet verified for this new row.",
+    "photo_url": null,
+    "checked_at": "2026-09-03",
+    "editorial_sources": [
+      {
+        "url": "https://www.mauicounty.gov/DocumentView.asp?DID=8198",
+        "fields": [
+          "name",
+          "access_tips"
+        ]
+      },
+      {
+        "url": "https://www.gohawaii.com/islands/maui/regions/south-maui/Wailea",
+        "fields": [
+          "city",
+          "description"
+        ]
+      },
+      {
+        "url": "https://www.topozone.com/hawaii/maui-hi/beach/wailea-beach/",
+        "fields": [
+          "coordinate_reference"
+        ]
+      },
+      {
+        "url": "https://www.timeanddate.com/time/zone/usa/hawaii",
+        "fields": [
+          "timezone"
+        ]
+      },
+      {
+        "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.4470594%2C20.6799994%2C-156.43905940000002%2C20.6859994&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+        "fields": [
+          "lat",
+          "lon",
+          "pin_meaning"
+        ]
+      }
+    ],
+    "coordinate_method": "GNIS20.6829994,-156.4430594 is on beach; shifted~61m west into water from imagery.",
+    "geometry_evidence": "wailea.png",
+    "duplicate_review": "No exact named row in refreshed467-row snapshot or pending20260903150000 migration; nearest existing rows must not be merged by proximity.",
+    "source_coordinates": {
+      "lat": 20.6829994,
+      "lon": -156.4430594,
+      "meaning": "Published reference described in coordinate_method; not automatically the selected ocean pin."
+    },
+    "pin_meaning": "Representative water point adjoining the named beach or reef; approximate, not surveyed.",
+    "geometry_source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.4470594%2C20.6799994%2C-156.43905940000002%2C20.6859994&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "geometry_review": "Visually reviewed georeferenced satellite imagery; final_geometry_evidence supersedes preliminary image when present."
+  },
+  {
+    "candidate": "Kihei Cove",
+    "disposition": "accepted",
+    "name": "Kihei Cove",
+    "city": "Kihei",
+    "state": "HI",
+    "country": "USA",
+    "region": "Maui",
+    "lat": 20.727759,
+    "lon": -156.450398,
+    "timezone": "Pacific/Honolulu",
+    "description": "A small surfing cove at the south end of Kalama Park in Kīhei.",
+    "access_tips": "Use the public Cove Park shoreline entrance.",
+    "hazards": null,
+    "aliases": [
+      "The Cove",
+      "Cove Park"
+    ],
+    "beach_type": "reef break",
+    "camera_url": null,
+    "camera_reason": "Rentals Maui provider explicitly says webcam offline.",
+    "photo_url": null,
+    "checked_at": "2026-09-03",
+    "editorial_sources": [
+      {
+        "url": "https://www.mauicounty.gov/facilities/facility/details/Cove-Park-196",
+        "fields": [
+          "name",
+          "city",
+          "access_tips",
+          "description"
+        ]
+      },
+      {
+        "url": "https://openswells.com/surf-spots/kihei-cove",
+        "fields": [
+          "lat",
+          "lon"
+        ]
+      },
+      {
+        "url": "https://health.hawaii.gov/cwb/files/2013/06/SampleSite_Maui703.pdf",
+        "fields": [
+          "coordinate_reference"
+        ]
+      },
+      {
+        "url": "https://www.rentalsmaui.com/maui-web-cam/",
+        "fields": [
+          "camera_status"
+        ]
+      },
+      {
+        "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.453398%2C20.725509%2C-156.44739800000002%2C20.730009&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+        "fields": [
+          "lat",
+          "lon",
+          "pin_meaning"
+        ]
+      }
+    ],
+    "coordinate_method": "Published surf-zone coordinate20.727759,-156.450398 supported by DOH Cove sample20.7275278,-156.4498889 and GNIS park20.7277778,-156.4491667. Earlier countyaccess reference pointed to Kalama Park and was rejected.",
+    "geometry_evidence": "kihei-cove.png",
+    "duplicate_review": "No exact named row in refreshed467-row snapshot or pending20260903150000 migration; nearest existing rows must not be merged by proximity.",
+    "final_geometry_evidence": "kihei-cove-corrected.png",
+    "final_geometry_source": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.453398%2C20.725509%2C-156.44739800000002%2C20.730009&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "source_coordinates": {
+      "lat": 20.727759,
+      "lon": -156.450398,
+      "meaning": "Published reference described in coordinate_method; not automatically the selected ocean pin."
+    },
+    "pin_meaning": "Representative water point adjoining the named beach or reef; approximate, not surveyed.",
+    "geometry_source_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-156.45691599999998%2C20.727663%2C-156.448916%2C20.733663&bboxSR=4326&imageSR=4326&size=1000%2C750&format=png&f=image",
+    "geometry_review": "Visually reviewed georeferenced satellite imagery; final_geometry_evidence supersedes preliminary image when present."
+  }
+]

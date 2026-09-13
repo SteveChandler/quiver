@@ -24,13 +24,14 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
+import { sendEmail, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { buildSessionEmailLink } from "@/lib/mailer/email-links";
 import { SessionPromptEmail } from "@/lib/mailer/templates/SessionPromptEmail";
 import type { SessionPromptCandidate } from "@/lib/email/email-types";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
+import { generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 import { signEmailToken, getEmailTokenSecret } from "@/lib/utils/email-token";
 import { withObservedCron } from "@/lib/cron/observability";
 import { withCronOutcome } from "@/lib/cron/outcome";
@@ -146,7 +147,7 @@ async function processCandidate(
   }
 
   // 2. Prepare email content
-  const unsubscribeUrl = `${baseUrl}/settings`;
+  const unsubscribeUrl = `${baseUrl}/api/alerts/unsubscribe-email?user_id=${candidate.user_id}&token=${generateEmailUnsubscribeToken(candidate.user_id)}`;
   const emailSubject = `How was your session at ${candidate.beach_name}?`;
   const messageInstanceId = crypto.randomUUID();
 
@@ -180,7 +181,9 @@ async function processCandidate(
   // 3. Rate limit and send email
   await rateLimiter.throttle();
 
-  const { data: sendData, error: sendError } = await resend.emails.send({
+  const { data: sendData, error: sendError } = await sendEmail({
+    contactPolicy: { userId: candidate.user_id, emailType: "session_prompt" },
+    unsubscribeUrl,
     from: MAIL_FROM,
     replyTo: MAIL_REPLY_TO,
     to: candidate.email,

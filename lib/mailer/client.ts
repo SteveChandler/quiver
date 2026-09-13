@@ -48,12 +48,27 @@ export const resend: any = new Proxy(
 
 export type SendEmailOptions = CreateEmailOptions & {
   unsubscribeUrl?: string;
+  contactPolicy?: import("@/lib/email/contact-policy").EmailContact;
 };
 
 export async function sendEmail(
   options: SendEmailOptions
 ): Promise<CreateEmailResponse> {
-  const { unsubscribeUrl, headers, ...resendOptions } = options;
+  const { unsubscribeUrl, headers, contactPolicy, ...resendOptions } = options;
+
+  if (contactPolicy && process.env.EMAIL_CONTACT_POLICY_ENABLED === "true" && !shouldSuppressE2EEmailSends()) {
+    if (options.cc || options.bcc) throw new Error("Managed contact emails require exactly one recipient");
+    if (!unsubscribeUrl || new URL(unsubscribeUrl).protocol !== "https:") {
+      throw new Error("Managed email requires an HTTPS unsubscribe URL");
+    }
+    const { sendWithContactPolicy } = await import("@/lib/email/contact-policy");
+    return sendWithContactPolicy(contactPolicy, options.to, async (idempotencyKey, replyTo) => {
+      return resend.emails.send({
+        ...resendOptions, replyTo,
+        headers: { ...headers, "List-Unsubscribe": `<${unsubscribeUrl}>` },
+      }, { idempotencyKey });
+    });
+  }
 
   if (!unsubscribeUrl) {
     return resend.emails.send({

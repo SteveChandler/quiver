@@ -329,6 +329,7 @@ async function _GET(request: Request): Promise<Response> {
           await rateLimiter.throttle();
 
           const { data: sendData, error: sendError } = await sendEmail({
+            contactPolicy: { userId: profile.id, emailType: "weekly_recap" },
             from: MAIL_FROM,
             replyTo: MAIL_REPLY_TO,
             to: profile.email,

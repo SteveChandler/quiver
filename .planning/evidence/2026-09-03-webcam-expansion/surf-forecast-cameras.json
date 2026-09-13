@@ -1,0 +1,2719 @@
+{
+  "checked_at": "2026-09-03T18:27:48.842633+00:00",
+  "scope": "Expanded US mainland discovery plus Hawaii baseline; Puerto Rico Rincon checked with zero listings. Search regions identify discovery seeds, not confirmed camera geography. Not exhaustive.",
+  "pages": [
+    {
+      "url": "https://www.surf-forecast.com/breaks/Makalawena/webcams/latest",
+      "status": 200,
+      "listings": 3
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+      "status": 200,
+      "listings": 11
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+      "status": 200,
+      "listings": 11
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Hanalei-Bay/webcams/latest",
+      "status": 200,
+      "listings": 4
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+      "status": 200,
+      "listings": 7
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Pine-Trees/webcams/latest",
+      "status": 200,
+      "listings": 3
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+      "status": 200,
+      "listings": 11
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Publics/webcams/latest",
+      "status": 200,
+      "listings": 11
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/P-Ks/webcams/latest",
+      "status": 200,
+      "listings": 4
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest",
+      "status": 200,
+      "listings": 7
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/O-B-pier/webcams/latest",
+      "status": 200,
+      "listings": 8
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Rincon-3/webcams/latest",
+      "status": 200,
+      "listings": 0
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+      "status": 200,
+      "listings": 14
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Cannon-Beach/webcams/latest",
+      "status": 200,
+      "listings": 2
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Elwha/webcams/latest",
+      "status": 200,
+      "listings": 2
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Fort-Canby-A-Jetty/webcams/latest",
+      "status": 200,
+      "listings": 1
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Virginia-Beach/webcams/latest",
+      "status": 200,
+      "listings": 4
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Belmar-Fishing-Pier/webcams/latest",
+      "status": 200,
+      "listings": 4
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Narragansett-Town-Beach/webcams/latest",
+      "status": 200,
+      "listings": 3
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Cocoa-Beach-Pier/webcams/latest",
+      "status": 200,
+      "listings": 4
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Rincon/webcams/latest",
+      "status": 200,
+      "listings": 0
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/La-Jolla-Shores/webcams/latest",
+      "status": 200,
+      "listings": 10
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+      "status": 200,
+      "listings": 15
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest",
+      "status": 200,
+      "listings": 15
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest",
+      "status": 200,
+      "listings": 14
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Double-Point/webcams/latest",
+      "status": 200,
+      "listings": 13
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Drakes-Estero/webcams/latest",
+      "status": 200,
+      "listings": 13
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest",
+      "status": 200,
+      "listings": 14
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Seaside-Cove/webcams/latest",
+      "status": 200,
+      "listings": 1
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Roads-End/webcams/latest",
+      "status": 200,
+      "listings": 1
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Tobay-Beach/webcams/latest",
+      "status": 200,
+      "listings": 3
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Crystals/webcams/latest",
+      "status": 200,
+      "listings": 9
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Georgia_East-Hampton/webcams/latest",
+      "status": 200,
+      "listings": 3
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Georgica-Pond/webcams/latest",
+      "status": 200,
+      "listings": 3
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Flagler-Avenue/webcams/latest",
+      "status": 200,
+      "listings": 12
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+      "status": 200,
+      "listings": 19
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest",
+      "status": 200,
+      "listings": 18
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Fourtyseventh-Street/webcams/latest",
+      "status": 200,
+      "listings": 11
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Rehoboth-Main/webcams/latest",
+      "status": 200,
+      "listings": 11
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Lighthouse-7/webcams/latest",
+      "status": 200,
+      "listings": 16
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/St-Augustine-Beach-Pier/webcams/latest",
+      "status": 200,
+      "listings": 16
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/St-Augustine-Pier/webcams/latest",
+      "status": 200,
+      "listings": 16
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Redondo-Beach/webcams/latest",
+      "status": 200,
+      "listings": 14
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Manhattan-Beach-Pier/webcams/latest",
+      "status": 200,
+      "listings": 14
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Venice-Breakwater/webcams/latest",
+      "status": 200,
+      "listings": 14
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/The-Inlet-and-Pier/webcams/latest",
+      "status": 200,
+      "listings": 6
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Vilano-Beach/webcams/latest",
+      "status": 200,
+      "listings": 13
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Ponte-Vedra/webcams/latest",
+      "status": 200,
+      "listings": 13
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Seventh-Avenue/webcams/latest",
+      "status": 200,
+      "listings": 13
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Jax-Beach-Pier/webcams/latest",
+      "status": 200,
+      "listings": 13
+    }
+  ],
+  "cameras": [
+    {
+      "name": "Kohanaiki Web Camera",
+      "listed_location": "Pine Trees",
+      "provider_url": "https://www.youtube.com/@kohanaikihawaii3092/streams",
+      "embed_url": "https://www.youtube.com/embed/Sb6v9lXIDjc?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/Sb6v9lXIDjc/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Makalawena/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Pine-Trees/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/Sb6v9lXIDjc?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "watch_url": "https://www.youtube.com/watch?v=Sb6v9lXIDjc",
+      "possible_overlap": [],
+      "search_region": "Hawaii Island",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "KONAWEB (Hulihee Palace)",
+      "listed_location": "Hulihee Palace",
+      "provider_url": "https://www.konaweb.com/cam/index.html",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Makalawena/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Pine-Trees/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.konaweb.com/cam/index.html",
+      "page_title": "KONAWEB - An Online Resource for the Big Island & Kona, Hawaii",
+      "provider_player_urls": [],
+      "possible_overlap": [],
+      "search_region": "Hawaii Island",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Mauna Kea Beach Hotel (Hapuna)",
+      "listed_location": "Hapuna",
+      "provider_url": "https://marriott.ozolio.com/mauna-kea-beach-hotel/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Makalawena/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Pine-Trees/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://marriott.ozolio.com/mauna-kea-beach-hotel/",
+      "page_title": "Mauna Kea Beach Hotel, Autograph Collection – Marriott Bonvoy Webcams",
+      "provider_player_urls": [],
+      "possible_overlap": [],
+      "search_region": "Hawaii Island",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "The Surfers View (Turtle Bay)",
+      "listed_location": "Turtle Bay",
+      "provider_url": "https://thesurfersview.com/live-cams/hawaii/turtle-bay-beach-cam-west-and-surf-report/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://thesurfersview.com/live-cams/hawaii/turtle-bay-beach-cam-west-and-surf-report/",
+      "page_title": "Turtle Bay Beach Cam West & Surf Report - The Surfers View",
+      "provider_player_urls": [],
+      "possible_overlap": [],
+      "search_region": "Oahu",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Explore Annenberg LLC (Waimea Bay/Pinballs)",
+      "listed_location": "Waimea Bay/Pinballs",
+      "provider_url": "https://explore.org/livecams/hawaii/hawaii-waimea-bay-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://explore.org/livecams/hawaii/hawaii-waimea-bay-cam",
+      "page_title": "Hawaii Waimea Bay Cam | Hawaii | Live Cams | Explore.org",
+      "provider_player_urls": [],
+      "possible_overlap": [],
+      "search_region": "Oahu",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "LIVE Banzai Pipeline Surf Cam: North Shore, Oahu - Hawaii | explore.org",
+      "listed_location": "Banzai Pipeline and Backdoor",
+      "provider_url": "https://www.youtube.com/@ExploreBigSurfandBeaches",
+      "embed_url": "https://www.youtube.com/embed/Fp7l8XASb9Y?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/Fp7l8XASb9Y/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/Fp7l8XASb9Y?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "watch_url": "https://www.youtube.com/watch?v=Fp7l8XASb9Y",
+      "possible_overlap": [],
+      "search_region": "Oahu",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Explore Annenberg LLC (Ehukai/Gums)",
+      "listed_location": "Ehukai/Gums",
+      "provider_url": "https://explore.org/livecams/hawaii/hawaii-pipeline-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://explore.org/livecams/hawaii/hawaii-pipeline-cam",
+      "page_title": "Hawaii Pipeline Cam | Hawaii | Live Cams | Explore.org",
+      "provider_player_urls": [],
+      "possible_overlap": [],
+      "search_region": "Oahu",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Webcamtaxi (Ala Moana Courts)",
+      "listed_location": "Ala Moana Courts",
+      "provider_url": "https://www.webcamtaxi.com/en/usa/hawaii/honolulu-island-of-oahu.html/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_error": "HTTP Error 403: Forbidden",
+      "possible_overlap": [],
+      "search_region": "Oahu",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "CamGuide (Reef Runway (Hickam Harbor))",
+      "listed_location": "Hickam Harbor",
+      "provider_url": "https://camguide.net/usa/hawaii/honolulu/beach/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://camguide.net/usa/hawaii/honolulu/beach/",
+      "page_title": "Waikiki Beach, Mamala bay Webcam | Honolulu (HI)",
+      "provider_player_urls": [],
+      "possible_overlap": [],
+      "search_region": "Oahu",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Ward Village (Ala Moana Bowls)",
+      "listed_location": "Ala Moana Bowls",
+      "provider_url": "https://www.wardvillage.com/surf-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_error": "HTTP Error 403: Forbidden",
+      "possible_overlap": [],
+      "search_region": "Oahu",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Hilton Hotel Waikiki (Waikiki)",
+      "listed_location": "Waikiki",
+      "provider_url": "https://www.hiltonwaikikibeach.com/surf-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_error": "HTTP Error 403: Forbidden",
+      "possible_overlap": [],
+      "search_region": "Oahu",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Sheraton Waikiki (Waikiki)",
+      "listed_location": "Waikiki",
+      "provider_url": "https://marriott.ozolio.com/sheraton-waikiki/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://marriott.ozolio.com/sheraton-waikiki/",
+      "page_title": "Sheraton Waikiki – Marriott Bonvoy Webcams",
+      "provider_player_urls": [],
+      "possible_overlap": [],
+      "search_region": "Oahu",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Waikiki Aquarium (Waikiki)",
+      "listed_location": "Waikiki",
+      "provider_url": "https://www.youtube.com/@WaikikiAquariumHonolulu/streams",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/@WaikikiAquariumHonolulu/streams",
+      "page_title": "Waikiki Aquarium - YouTube",
+      "provider_player_urls": [],
+      "possible_overlap": [
+        "South Shore Surf Cam"
+      ],
+      "search_region": "Oahu",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "South Shore Surf Cam",
+      "listed_location": "Publics",
+      "provider_url": "https://www.youtube.com/@WaikikiAquariumHonolulu/streams",
+      "embed_url": "https://www.youtube.com/embed/WIUg8wzhq1g?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/WIUg8wzhq1g/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/WIUg8wzhq1g?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "watch_url": "https://www.youtube.com/watch?v=WIUg8wzhq1g",
+      "possible_overlap": [
+        "Waikiki Aquarium (Waikiki)"
+      ],
+      "search_region": "Oahu",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "The Royal Sonesta Resort (Kalapaki Beach)",
+      "listed_location": "Kalapaki Beach",
+      "provider_url": "https://www.ozolio.com/explore/IDWX000000A6",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Hanalei-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/P-Ks/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.ozolio.com/explore/IDWX000000A6",
+      "page_title": "Royal Sonesta Kaua'i Resort - Webcam - Ozolio",
+      "provider_player_urls": [
+        "https://relay.ozolio.com//pub.api?cmd=explore&oid=CID_IDWX000000A6&channel=0"
+      ],
+      "possible_overlap": [],
+      "search_region": "Kauai",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Lawai Beach Resort - Live Cam",
+      "listed_location": "PKs",
+      "provider_url": "https://www.youtube.com/@OurLawaiBeachResort/streams",
+      "embed_url": "https://www.youtube.com/embed/3ATYHKN2hIg?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/3ATYHKN2hIg/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Hanalei-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/P-Ks/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/3ATYHKN2hIg?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "watch_url": "https://www.youtube.com/watch?v=3ATYHKN2hIg",
+      "possible_overlap": [],
+      "search_region": "Kauai",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Whalers Cove Resort (PKs)",
+      "listed_location": "PKs",
+      "provider_url": "https://www.whalerscoveresort.com/webcam",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Hanalei-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/P-Ks/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.whalerscoveresort.com/webcam",
+      "page_title": "Webcam - Whalers Cove Resort",
+      "provider_player_urls": [],
+      "possible_overlap": [],
+      "search_region": "Kauai",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Brenneckes.com (Brenneckes)",
+      "listed_location": "Brenneckes",
+      "provider_url": "https://brenneckes.com/beach-webcam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Hanalei-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/P-Ks/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://brenneckes.com/beach-webcam/",
+      "page_title": "beach-webcam – Brennecke’s Beach Broiler",
+      "provider_player_urls": [],
+      "possible_overlap": [],
+      "search_region": "Kauai",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Maui Eldorado (Osterizers/Rainbows)",
+      "listed_location": "Osterizers/Rainbows",
+      "provider_url": "https://www.mauieldorado.com/webcams",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.mauieldorado.com/webcams",
+      "page_title": "WEBCAMS | Explore Live Views — Your Site Title",
+      "provider_player_urls": [
+        "https://relay.ozolio.com/pub.api?cmd=embed&oid=EMB_PMFE00001042",
+        "https://relay.ozolio.com/pub.api?cmd=embed&oid=EMB_FUBD00000C0F"
+      ],
+      "possible_overlap": [],
+      "search_region": "Maui",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Whaler Condo (Ka'anapali Point)",
+      "listed_location": "Ka'anapali Point",
+      "provider_url": "https://www.youtube.com/@mauilivecam7143/streams",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/@mauilivecam7143/streams",
+      "page_title": "Maui Live Cam - YouTube",
+      "provider_player_urls": [],
+      "possible_overlap": [],
+      "search_region": "Maui",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Maui Seashell – Hale Mahina Resort (S-Turns)",
+      "listed_location": "S-Turns",
+      "provider_url": "https://halemahinacondo.com/web-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://halemahinacondo.com/web-cam/",
+      "page_title": "Web Cam – Maui Sea Shell Condo – Hale Mahina A305 – Ocean-Front Views in Maui",
+      "provider_player_urls": [],
+      "possible_overlap": [],
+      "search_region": "Maui",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Napili Sunset Resort (Little Makaha)",
+      "listed_location": "Little Makaha",
+      "provider_url": "https://www.napilisunset.com/live-webcam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.napilisunset.com/live-webcam/",
+      "page_title": "Webcam - Napili Sunset",
+      "provider_player_urls": [],
+      "possible_overlap": [],
+      "search_region": "Maui",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "The Hale Pau Hana Surf Cam",
+      "listed_location": "Kihei Cove",
+      "provider_url": "https://www.youtube.com/@HalePauHanaBeachResortKihei/streams",
+      "embed_url": "https://www.youtube.com/embed/hPvl6IACa2k?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/hPvl6IACa2k/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/hPvl6IACa2k?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "watch_url": "https://www.youtube.com/watch?v=hPvl6IACa2k",
+      "possible_overlap": [],
+      "search_region": "Maui",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Grand Wailea Hotel (Kihei Cove)",
+      "listed_location": "Kihei Cove",
+      "provider_url": "https://www.grandwailea.com/grand-wailea-webcam",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.grandwailea.com/grand-wailea-maui-webcam",
+      "page_title": "View Our Daily Webcam | Grand Wailea Maui",
+      "provider_player_urls": [
+        "https://relay.ozolio.com/pub.api?cmd=embed&oid=EMB_NBDE00000DF9"
+      ],
+      "possible_overlap": [],
+      "search_region": "Maui",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Rentals Maui (Kihei Cove)",
+      "listed_location": "Kihei Cove",
+      "provider_url": "https://www.rentalsmaui.com/maui-web-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.rentalsmaui.com/maui-web-cam/",
+      "page_title": "Hawaii Webcams on Maui: Kihei Cove Park at Charley Young Beach Webcam",
+      "provider_player_urls": [],
+      "possible_overlap": [],
+      "search_region": "Maui",
+      "checked_at": "2026-09-03T18:24:45.830469+00:00"
+    },
+    {
+      "name": "Pacific Terrace Hotel (Crystal Pier and Pacific Beach)",
+      "search_region": "Southern California",
+      "listed_location": "Crystal Pier and Pacific Beach",
+      "provider_url": "https://www.pacificterrace.com/web-cam",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/O-B-pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/La-Jolla-Shores/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_error": "HTTP Error 403: Forbidden",
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "🔴La Jolla Beach - San Diego, California - Live Cam",
+      "search_region": "Southern California",
+      "listed_location": "La Jolla Shores",
+      "provider_url": "https://www.youtube.com/@EarthWatchLive1",
+      "embed_url": "https://www.youtube.com/embed/YQovPWtgydY?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/YQovPWtgydY/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/O-B-pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/La-Jolla-Shores/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/YQovPWtgydY?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=YQovPWtgydY",
+      "possible_overlap": []
+    },
+    {
+      "name": "HDONTAP (Del Mar Beach)",
+      "search_region": "Southern California",
+      "listed_location": "Del Mar Beach",
+      "provider_url": "https://hdontap.com/index.php/video/stream/del_mar_beach",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/O-B-pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/La-Jolla-Shores/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://hdontap.com/stream/399483/del-mar-beach-south-roaming-live-webcam/",
+      "page_title": "Del Mar Beach South Roaming Live Webcam - HDOnTap",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Moonlight Beach Rental (Sandbox)",
+      "search_region": "Southern California",
+      "listed_location": "Sandbox",
+      "provider_url": "https://www.skylinewebcams.com/en/webcam/united-states/california/encinitas/encinitas-california.html",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/O-B-pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/La-Jolla-Shores/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.skylinewebcams.com/en/webcam/united-states/california/encinitas/encinitas-california.html",
+      "page_title": "【LIVE】 Webcam Encinitas - California | SkylineWebcams",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "The Rooftop Bar | Oceanside, CA | San Diego Web Cam",
+      "search_region": "Southern California",
+      "listed_location": "Oceanside Pier",
+      "provider_url": "https://www.youtube.com/@SanDiegoWebCam/streams",
+      "embed_url": "https://www.youtube.com/embed/cvP_F-c2Upw?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/cvP_F-c2Upw/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/O-B-pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/La-Jolla-Shores/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/cvP_F-c2Upw?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=cvP_F-c2Upw",
+      "possible_overlap": [
+        "The Rooftop Bar (Fixed Wide West) | Oceanside, CA | San Diego Web Cam"
+      ]
+    },
+    {
+      "name": "HDONTAP (Terra Mar)",
+      "search_region": "Southern California",
+      "listed_location": "Terra Mar",
+      "provider_url": "https://hdontap.com/index.php/video/stream/carlsbad-beach-live-webcam",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/O-B-pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/La-Jolla-Shores/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://hdontap.com/stream/177276/terramar-point-surf-live-webcam/",
+      "page_title": "Terramar Point Surf Live Webcam - HDOnTap",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "The Rooftop Bar (Fixed Wide West) | Oceanside, CA | San Diego Web Cam",
+      "search_region": "Southern California",
+      "listed_location": "Oceanside Beach",
+      "provider_url": "https://www.youtube.com/@SanDiegoWebCam/streams",
+      "embed_url": "https://www.youtube.com/embed/OYqo4dqYjh0?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/OYqo4dqYjh0/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/O-B-pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/La-Jolla-Shores/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/OYqo4dqYjh0?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=OYqo4dqYjh0",
+      "possible_overlap": [
+        "The Rooftop Bar | Oceanside, CA | San Diego Web Cam"
+      ]
+    },
+    {
+      "name": "Waldorf Astoria Monarch Beach Resort (Dana Point)",
+      "search_region": "Southern California",
+      "listed_location": "Dana Point",
+      "provider_url": "https://www.waldorfastoriamonarchbeach.com/experience/private-beach-club",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/O-B-pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/La-Jolla-Shores/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Redondo-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Manhattan-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Venice-Breakwater/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.waldorfastoriamonarchbeach.com/experience/private-beach-club",
+      "page_title": "Monarch Bay Beach Club at Waldorf Astoria",
+      "provider_player_urls": [
+        "//portal.hdontap.com/s/embed?stream=fulkra_monarch_resort_beach-CUST&ratio=16:9&fluid=true"
+      ],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Pacifica View",
+      "search_region": "Northern California",
+      "listed_location": null,
+      "provider_url": "https://pacificaview.net/livecam/index.php/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Double-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Drakes-Estero/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://pacificaview.net/livecam/index.php/",
+      "page_title": "Welcome to Pacifica Live Cameras",
+      "provider_player_urls": [
+        "https://youtube.com/embed/QYRIc4LcvqQ",
+        "https://www.youtube.com/embed/lmec_rcEIL4",
+        "https://www.youtube.com/embed/q0Z7tv_7n-0",
+        "https://youtube.com/embed/BrUaOjjXgZM"
+      ],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Pacifica Pier and Beach, Pacifica CA 4k Live",
+      "search_region": "Northern California",
+      "listed_location": "Sharp Park",
+      "provider_url": "https://www.youtube.com/@ChamberlinNature/streams",
+      "embed_url": "https://www.youtube.com/embed/QYRIc4LcvqQ?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/QYRIc4LcvqQ/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Double-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Drakes-Estero/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/QYRIc4LcvqQ?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=QYRIc4LcvqQ",
+      "possible_overlap": [
+        "Sharp Park Beach, Pacifica CA 4K Live",
+        "Chamberlin Nature (Sharp Park)"
+      ]
+    },
+    {
+      "name": "Sharp Park Beach, Pacifica CA 4K Live",
+      "search_region": "Northern California",
+      "listed_location": "Sharp Park",
+      "provider_url": "https://www.youtube.com/@ChamberlinNature/streams",
+      "embed_url": "https://www.youtube.com/embed/lmec_rcEIL4?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/lmec_rcEIL4/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Double-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Drakes-Estero/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/lmec_rcEIL4?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=lmec_rcEIL4",
+      "possible_overlap": [
+        "Pacifica Pier and Beach, Pacifica CA 4k Live",
+        "Chamberlin Nature (Sharp Park)"
+      ]
+    },
+    {
+      "name": "Chamberlin Nature (Sharp Park)",
+      "search_region": "Northern California",
+      "listed_location": "Sharp Park",
+      "provider_url": "https://www.youtube.com/@ChamberlinNature/streams",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Double-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Drakes-Estero/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/@ChamberlinNature/streams",
+      "page_title": "Chamberlin Nature - YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": [
+        "Pacifica Pier and Beach, Pacifica CA 4k Live",
+        "Sharp Park Beach, Pacifica CA 4K Live"
+      ]
+    },
+    {
+      "name": "Pacifica Live Cameras (Sharp Park)",
+      "search_region": "Northern California",
+      "listed_location": "Sharp Park",
+      "provider_url": "https://www.pacificaview.net/livecam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Double-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Drakes-Estero/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.pacificaview.net/livecam/",
+      "page_title": "Welcome to Pacifica Live Cameras",
+      "provider_player_urls": [
+        "https://youtube.com/embed/QYRIc4LcvqQ",
+        "https://www.youtube.com/embed/lmec_rcEIL4",
+        "https://www.youtube.com/embed/q0Z7tv_7n-0",
+        "https://youtube.com/embed/BrUaOjjXgZM"
+      ],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Skyline Webcams (Sharp Park)",
+      "search_region": "Northern California",
+      "listed_location": "Sharp Park",
+      "provider_url": "https://www.skylinewebcams.com/en/webcam/united-states/california/pacifica/pacifica-sharp-park-beach.html/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Double-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Drakes-Estero/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.skylinewebcams.com/en/webcam/united-states/california/pacifica/pacifica-sharp-park-beach.html",
+      "page_title": "【LIVE】 Webcam Pacifica - Sharp Park Beach | SkylineWebcams",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Marin-County (Ocean Beach)",
+      "search_region": "Northern California",
+      "listed_location": "Ocean Beach",
+      "provider_url": "https://www.surfoutlook.com/surfcam/sanfrancisco/ocean-beach",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Double-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Drakes-Estero/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.surfoutlook.com/surfcam/sanfrancisco/ocean-beach",
+      "page_title": "Ocean Beach San Francisco Surfcam",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Sigward (Stinson Beach)",
+      "search_region": "Northern California",
+      "listed_location": "Stinson Beach",
+      "provider_url": "https://www.sigward.com/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Double-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Drakes-Estero/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.sigward.com/",
+      "page_title": "sigward.com",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Farallon Islands Live Webcam | California Academy of Sciences",
+      "search_region": "Northern California",
+      "listed_location": "Double Point",
+      "provider_url": "https://www.youtube.com/@calacademy/streams",
+      "embed_url": "https://www.youtube.com/embed/fHb0eB9RUgA?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/fHb0eB9RUgA/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Double-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Drakes-Estero/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/fHb0eB9RUgA?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=fHb0eB9RUgA",
+      "possible_overlap": []
+    },
+    {
+      "name": "The Marine Mammal Center Live Stream Point Reyes National Seashore",
+      "search_region": "Northern California",
+      "listed_location": "Drakes Estero",
+      "provider_url": "https://www.youtube.com/@themarinemammalcenterlives3249/streams",
+      "embed_url": "https://www.youtube.com/embed/t4IilnlL_9Q?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/t4IilnlL_9Q/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Double-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Drakes-Estero/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/t4IilnlL_9Q?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=t4IilnlL_9Q",
+      "possible_overlap": []
+    },
+    {
+      "name": "Lawsons Landing (Shark Pit)",
+      "search_region": "Northern California",
+      "listed_location": "Shark Pit",
+      "provider_url": "https://www.lawsonslanding.com/webcam.html",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Double-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Drakes-Estero/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.lawsonslanding.com/webcam.html",
+      "page_title": "Lawson's Landing | Webcam",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Pacific Coastal and Marine Science Center (Cowells Cove)",
+      "search_region": "Northern California",
+      "listed_location": "Cowells Cove",
+      "provider_url": "https://www.usgs.gov/media/webcams/santa-cruz-main-beach-video-camera-1-snapshot",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1081)>",
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Horseshoe Cove Webcam",
+      "search_region": "Northern California",
+      "listed_location": "Doran Beach",
+      "provider_url": "https://www.youtube.com/@BodegaMarineLab/streams",
+      "embed_url": "https://www.youtube.com/embed/jUjO_Z1EVfA?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/jUjO_Z1EVfA/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Double-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Drakes-Estero/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/jUjO_Z1EVfA?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=jUjO_Z1EVfA",
+      "possible_overlap": []
+    },
+    {
+      "name": "Bodega Ocean Observing Node (Salmon Creek)",
+      "search_region": "Northern California",
+      "listed_location": "Salmon Creek",
+      "provider_url": "https://boon.ucdavis.edu/tools/coastal-conditions/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Rockaway/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Sharp-Park/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Double-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Drakes-Estero/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_error": "HTTP Error 403: Forbidden",
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "City of Seaside",
+      "search_region": "Oregon",
+      "listed_location": "Seaside Cove",
+      "provider_url": "https://www.youtube.com/@KOINLOCAL6",
+      "embed_url": "https://www.youtube.com/embed/Ce_vAKq1kUA?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/Ce_vAKq1kUA/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Cannon-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Fort-Canby-A-Jetty/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Seaside-Cove/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/Ce_vAKq1kUA?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=Ce_vAKq1kUA",
+      "possible_overlap": []
+    },
+    {
+      "name": "Chinook Winds Casino Resort in Lincoln City, OR",
+      "search_region": "Oregon",
+      "listed_location": "Roads End",
+      "provider_url": "https://www.youtube.com/@KOINLOCAL6/streams",
+      "embed_url": "https://www.youtube.com/embed/KFPYXo72qDI?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/KFPYXo72qDI/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Cannon-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Roads-End/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/KFPYXo72qDI?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=KFPYXo72qDI",
+      "possible_overlap": []
+    },
+    {
+      "name": "Forks Chamber of Commerce (La Push)",
+      "search_region": "Washington",
+      "listed_location": "La Push",
+      "provider_url": "https://forkswa.com/plan-your-visit/webcams/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Elwha/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://forkswa.com/plan-your-visit/webcams/",
+      "page_title": "View Olympic Peninsula Web Cams",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "ForksWA (The Cape)",
+      "search_region": "Washington",
+      "listed_location": "The Cape",
+      "provider_url": "https://pixelcaster.com/dnc-kalaloch/kalaloch.jpg",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Elwha/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://pixelcaster.com/dnc-kalaloch/kalaloch.jpg",
+      "page_title": null,
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Courtyard Virginia Beach Oceanfront",
+      "search_region": "Virginia / North Carolina",
+      "listed_location": null,
+      "provider_url": "https://vbbound.com/webcams/courtyard-virginia-beach-boardwalk-webcam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Virginia-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://vbbound.com/webcams/courtyard-virginia-beach-boardwalk-webcam/",
+      "page_title": "Courtyard Virginia Beach Oceanfront Boardwalk Webcam",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Watermans Surfside Grill",
+      "search_region": "Virginia / North Carolina",
+      "listed_location": null,
+      "provider_url": "https://vbbound.com/webcams/watermans-surfside-grill-boardwalk-webcam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Virginia-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://vbbound.com/webcams/watermans-surfside-grill-boardwalk-webcam/",
+      "page_title": "Waterman's Surfside Grille Boardwalk Webcam - Visit Virginia Beach",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Corolla Light Resort (Corolla Lighthouse)",
+      "search_region": "Virginia / North Carolina",
+      "listed_location": "Corolla Lighthouse",
+      "provider_url": "https://www.corollalightresort.com/surf-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Virginia-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.corollalightresort.com/surf-cam/",
+      "page_title": "OBX Surf Cam | Corolla Light Resort",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Sea Ranch Resort (Avalon Pier)",
+      "search_region": "Virginia / North Carolina",
+      "listed_location": "Avalon Pier",
+      "provider_url": "https://www.searanchresort.com/webcam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Virginia-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.searanchresort.com/webcam/",
+      "page_title": "Webcam - Sea Ranch Resort",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Nest (Jenkinsons (Point Pleasant Beach))",
+      "search_region": "New Jersey / New York",
+      "listed_location": "Point Pleasant Beach",
+      "provider_url": "https://video.nest.com/live/JKTTcsayyN",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Belmar-Fishing-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Tobay-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Crystals/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://video.nest.com/live/JKTTcsayyN",
+      "page_title": "Beach Cam | Nest",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "The Surfers View (Rockaway)",
+      "search_region": "New Jersey / New York",
+      "listed_location": "Rockaway",
+      "provider_url": "https://thesurfersview.com/live-cams/new-york/rockaway-beach-cam-and-surf-report/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Belmar-Fishing-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Tobay-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://thesurfersview.com/live-cams/new-york/rockaway-beach-cam-and-surf-report/",
+      "page_title": "Rockaway NY Beach Cam & Surf Report - The Surfers View",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "TOBAY Beach Live Stream",
+      "search_region": "New Jersey / New York",
+      "listed_location": "Tobay beach",
+      "provider_url": "https://www.youtube.com/@townofoysterbay9160/streams",
+      "embed_url": "https://www.youtube.com/embed/Qzcvhq34p6w?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/Qzcvhq34p6w/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Belmar-Fishing-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Tobay-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/Qzcvhq34p6w?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=Qzcvhq34p6w",
+      "possible_overlap": []
+    },
+    {
+      "name": "Resorts Casino Hotel Beach Camera",
+      "search_region": "New Jersey / New York",
+      "listed_location": "Crystals",
+      "provider_url": "https://www.youtube.com/@ResortsCasino/streams",
+      "embed_url": "https://www.youtube.com/embed/vVyBOU9Huvo?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/vVyBOU9Huvo/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Belmar-Fishing-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Crystals/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Fourtyseventh-Street/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Rehoboth-Main/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/vVyBOU9Huvo?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=vVyBOU9Huvo",
+      "possible_overlap": []
+    },
+    {
+      "name": "EEOR - East Hampton, NY Main Beach Surf and Weather Webcam",
+      "search_region": "New England",
+      "listed_location": "Georgica (East Hampton)",
+      "provider_url": "https://www.youtube.com/@ErdmanVideoSystems/streams",
+      "embed_url": "https://www.youtube.com/embed/E8fp7TDgQUk?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/E8fp7TDgQUk/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Narragansett-Town-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Georgia_East-Hampton/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Georgica-Pond/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/E8fp7TDgQUk?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=E8fp7TDgQUk",
+      "possible_overlap": []
+    },
+    {
+      "name": "Hamptons.com - LIVE! 4K Main Beach, East Hampton Village, New York - Hamptons Surf Report",
+      "search_region": "New England",
+      "listed_location": "Georgica (East Hampton)",
+      "provider_url": "https://www.youtube.com/@Hamptons/streams",
+      "embed_url": "https://www.youtube.com/embed/xM1-e429Y3A?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/xM1-e429Y3A/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Narragansett-Town-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Georgia_East-Hampton/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Georgica-Pond/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/xM1-e429Y3A?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=xM1-e429Y3A",
+      "possible_overlap": [
+        "Hamptons.com - LIVE! Windmill Bay & Beach, Sag Harbor, New York | K Pasa Restaurant"
+      ]
+    },
+    {
+      "name": "Hamptons.com - LIVE! Windmill Bay & Beach, Sag Harbor, New York | K Pasa Restaurant",
+      "search_region": "New England",
+      "listed_location": "Georgica Pond",
+      "provider_url": "https://www.youtube.com/@Hamptons/streams",
+      "embed_url": "https://www.youtube.com/embed/l1A96hXsrCU?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/l1A96hXsrCU/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Narragansett-Town-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Georgia_East-Hampton/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Georgica-Pond/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/l1A96hXsrCU?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=l1A96hXsrCU",
+      "possible_overlap": [
+        "Hamptons.com - LIVE! 4K Main Beach, East Hampton Village, New York - Hamptons Surf Report"
+      ]
+    },
+    {
+      "name": "Two Palms (Lori Wilson Park)",
+      "search_region": "Florida",
+      "listed_location": "Lori Wilson Park",
+      "provider_url": "https://www.twopalms.com/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Cocoa-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Flagler-Avenue/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.twopalms.com/",
+      "page_title": "TwoPalms Cape Canaveral Beach Cam",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "New Smyrna Beach Cam 180",
+      "search_region": "Florida",
+      "listed_location": "Flagler Avenue",
+      "provider_url": "https://www.youtube.com/@VolusiaBeaches/streams",
+      "embed_url": "https://www.youtube.com/embed/550p9smwjPM?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/550p9smwjPM/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Cocoa-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Flagler-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Lighthouse-7/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/550p9smwjPM?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=550p9smwjPM",
+      "possible_overlap": [
+        "Volusia Beaches (New Smyrna Inlet)"
+      ]
+    },
+    {
+      "name": "Volusia Beaches (New Smyrna Inlet)",
+      "search_region": "Florida",
+      "listed_location": "New Smyrna Inlet",
+      "provider_url": "https://www.youtube.com/@VolusiaBeaches/streams",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Cocoa-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Flagler-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Lighthouse-7/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Vilano-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/@VolusiaBeaches/streams",
+      "page_title": "Volusia Beaches - YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": [
+        "New Smyrna Beach Cam 180"
+      ]
+    },
+    {
+      "name": "Volusia County (New Smyrna Inlet)",
+      "search_region": "Florida",
+      "listed_location": "New Smyrna Inlet",
+      "provider_url": "https://www.skylinewebcams.com/en/webcam/united-states/florida/new-smyrna/new-smyrna.html",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Cocoa-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Flagler-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Lighthouse-7/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.skylinewebcams.com/en/webcam/united-states/florida/new-smyrna/new-smyrna.html",
+      "page_title": "【LIVE】 Webcam New Smyrna - Florida | SkylineWebcams",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Skyline Webcams (Laguna Beach - South Crescent Bay)",
+      "search_region": "Southern California",
+      "listed_location": "Laguna Beach - South Crescent Bay",
+      "provider_url": "https://www.skylinewebcams.com/en/webcam/united-states/california/laguna-beach/laguna-beach.html",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/La-Jolla-Shores/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Redondo-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Manhattan-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Venice-Breakwater/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.skylinewebcams.com/en/webcam/united-states/california/laguna-beach/laguna-beach.html",
+      "page_title": "【LIVE】 Webcam Laguna Beach - California | SkylineWebcams",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Surf & Sand Resort (Laguna Beach - Rockpile)",
+      "search_region": "Southern California",
+      "listed_location": "Laguna Beach - Rockpile",
+      "provider_url": "https://www.surfandsandresort.com/live-webcam",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/La-Jolla-Shores/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Redondo-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Manhattan-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Venice-Breakwater/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.surfandsandresort.com/live-webcam",
+      "page_title": "Live Laguna Beach Beach Cam | Surf & Sand Laguna Beach",
+      "provider_player_urls": [
+        "https://relay.ozolio.com/pub.api?cmd=embed&oid=EMB_WQYS000009DA",
+        "https://relay.ozolio.com/pub.api?cmd=embed&oid=EMB_WQYS000009DA"
+      ],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Lifeguard HQ",
+      "search_region": "Southern California",
+      "listed_location": "Huntington Beach",
+      "provider_url": "https://www.youtube.com/@cityofhb/streams",
+      "embed_url": "https://www.youtube.com/embed/RGYlFjV-dtc?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/RGYlFjV-dtc/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Redondo-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Manhattan-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Venice-Breakwater/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/RGYlFjV-dtc?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=RGYlFjV-dtc",
+      "possible_overlap": [
+        "View from Huntington Beach Pier"
+      ]
+    },
+    {
+      "name": "View from Huntington Beach Pier",
+      "search_region": "Southern California",
+      "listed_location": "Huntington Beach",
+      "provider_url": "https://www.youtube.com/@cityofhb/streams",
+      "embed_url": "https://www.youtube.com/embed/mhQjsLBfOoY?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/mhQjsLBfOoY/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Redondo-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Manhattan-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Venice-Breakwater/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/mhQjsLBfOoY?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=mhQjsLBfOoY",
+      "possible_overlap": [
+        "Lifeguard HQ"
+      ]
+    },
+    {
+      "name": "Huntington Pier Webcam",
+      "search_region": "Southern California",
+      "listed_location": "Huntington Pier",
+      "provider_url": "https://www.youtube.com/watch?v=mhQjsLBfOoY",
+      "embed_url": "https://www.youtube.com/watch?v=mhQjsLBfOoY",
+      "thumbnail_url": "https://img.youtube.com/vi/xXV3sz92k8w/hqdefault.jpg",
+      "type": "iframe",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Redondo-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Manhattan-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Venice-Breakwater/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/watch?v=mhQjsLBfOoY",
+      "page_title": "View from Huntington Beach Pier - YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Lifeguard HQ Huntington Beach (Huntington Pier)",
+      "search_region": "Southern California",
+      "listed_location": "Huntington Pier",
+      "provider_url": "https://www.youtube.com/watch?v=RGYlFjV-dtc",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Oceanside-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Oceanside-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Redondo-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Manhattan-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Venice-Breakwater/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/watch?v=RGYlFjV-dtc",
+      "page_title": "Lifeguard HQ - YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "North Coast Aviation (Manchester Beach)",
+      "search_region": "Northern California",
+      "listed_location": "Manchester Beach",
+      "provider_url": "https://northcoastaviation.com/pt_arena/point_arena_west.htm",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Doran-Beach/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_error": "HTTP Error 406: Not Acceptable",
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "7th Street Surf Shop (Ocean City - 7th Street)",
+      "search_region": "New Jersey / New York",
+      "listed_location": "Ocean City - 7th Street",
+      "provider_url": "https://7thstreetsurfshop.com/wave-cam",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Crystals/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Fourtyseventh-Street/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Rehoboth-Main/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://7thstreetsurfshop.com/wave-cam",
+      "page_title": "Wave Cam — 7th Street Surf Shop  |  Ocean City, NJ",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": [
+        "7th Street Surf Shop (Ocean City - 7th Street)"
+      ]
+    },
+    {
+      "name": "7th Street Surf Shop (Ocean City - 7th Street)",
+      "search_region": "New Jersey / New York",
+      "listed_location": "Ocean City - 7th Street",
+      "provider_url": "https://7thstreetsurfshop.com/wave-cam/7th-street",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Crystals/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Fourtyseventh-Street/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Rehoboth-Main/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://7thstreetsurfshop.com/wave-cam/7th-street",
+      "page_title": "7th Street Wave Cam — 7th Street Surf Shop  |  Ocean City, NJ",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": [
+        "7th Street Surf Shop (Ocean City - 7th Street)"
+      ]
+    },
+    {
+      "name": "Berger Realty (Ocean City - 7th Street)",
+      "search_region": "New Jersey / New York",
+      "listed_location": "Ocean City - 7th Street",
+      "provider_url": "https://www.bergerrealty.com/ocean-city/live-cams.html",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Crystals/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Fourtyseventh-Street/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Rehoboth-Main/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.bergerrealty.com/ocean-city/live-cams.html",
+      "page_title": "Ocean City, NJ Live Cams | Ocean City, NJ Beach & Boardwalk Cams | Berger Realty",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Ocean City Webcams (Ocean City - 14th 15th St)",
+      "search_region": "New Jersey / New York",
+      "listed_location": "Ocean City - 14th 15th St",
+      "provider_url": "https://oceancitylive.com/ocean-city-webcams/ocean-city-beach-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Crystals/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Fourtyseventh-Street/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Rehoboth-Main/webcams/latest",
+        "https://www.surf-forecast.com/breaks/The-Inlet-and-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://oceancitylive.com/ocean-city-webcams/ocean-city-beach-cam/",
+      "page_title": "Ocean City Beach Cam - Watch Live! Ocean City MD Boardwalk & Beach",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Sea Isle City Beach Patrol Webcam",
+      "search_region": "New Jersey / New York",
+      "listed_location": "47th Street",
+      "provider_url": "https://www.youtube.com/@seaislecitybeachpatrol2994/streams",
+      "embed_url": "https://www.youtube.com/embed/FYOGiFH60uM?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/FYOGiFH60uM/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Crystals/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Fourtyseventh-Street/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Rehoboth-Main/webcams/latest",
+        "https://www.surf-forecast.com/breaks/The-Inlet-and-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/FYOGiFH60uM?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=FYOGiFH60uM",
+      "possible_overlap": []
+    },
+    {
+      "name": "Rehoboth Boardwalk Plaza Hotel Cam",
+      "search_region": "New Jersey / New York",
+      "listed_location": "Rehoboth Main",
+      "provider_url": "https://www.youtube.com/@rehobothboardwalkcam2205/streams",
+      "embed_url": "https://www.youtube.com/embed/lq15dNFXISw?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/lq15dNFXISw/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Crystals/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Fourtyseventh-Street/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Rehoboth-Main/webcams/latest",
+        "https://www.surf-forecast.com/breaks/The-Inlet-and-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/lq15dNFXISw?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=lq15dNFXISw",
+      "possible_overlap": []
+    },
+    {
+      "name": "Beach-net.com Boardwalk Plaza Hotel (Rehoboth Main)",
+      "search_region": "New Jersey / New York",
+      "listed_location": "Rehoboth Main",
+      "provider_url": "https://www.rehobothbeachcam.com/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Crystals/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Fourtyseventh-Street/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Rehoboth-Main/webcams/latest",
+        "https://www.surf-forecast.com/breaks/The-Inlet-and-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.rehobothbeachcam.com/",
+      "page_title": "Rehoboth Beach cam, Delaware Beach Cam",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Flagler Beach Pier Cam (Flagler)",
+      "search_region": "Florida",
+      "listed_location": "Flagler",
+      "provider_url": "https://www.youtube.com/@flaglerbeachpiercam3210",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Flagler-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Lighthouse-7/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Vilano-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Ponte-Vedra/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Seventh-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Jax-Beach-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/@flaglerbeachpiercam3210",
+      "page_title": "Flagler Beach Pier Cam - YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Flagler Surf (Flagler)",
+      "search_region": "Florida",
+      "listed_location": "Flagler",
+      "provider_url": "https://flaglersurf.com/webcam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Flagler-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Lighthouse-7/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Vilano-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Ponte-Vedra/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Seventh-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Jax-Beach-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://flaglersurf.com/webcam/",
+      "page_title": "Flagler Beach Web Cam - Flagler Surf is a Flagler Beach website with live stream webcam of Atlantic Ocean",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "North Vilano - South Ponte Vedra Surf Station Cam",
+      "search_region": "Florida",
+      "listed_location": "Lighthouse",
+      "provider_url": "https://www.youtube.com/@SurfStationCam/streams",
+      "embed_url": "https://www.youtube.com/embed/o4BJ-eDgYrM?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/o4BJ-eDgYrM/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Flagler-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Lighthouse-7/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Vilano-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Ponte-Vedra/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Seventh-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Jax-Beach-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/o4BJ-eDgYrM?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=o4BJ-eDgYrM",
+      "possible_overlap": [
+        "Surf Station North Pier Cam"
+      ]
+    },
+    {
+      "name": "Surf Station North Pier Cam",
+      "search_region": "Florida",
+      "listed_location": "St Augustine Beach Pier",
+      "provider_url": "https://www.youtube.com/@SurfStationCam/streams",
+      "embed_url": "https://www.youtube.com/embed/Q6eZVkUKFxo?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/Q6eZVkUKFxo/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Flagler-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Lighthouse-7/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Vilano-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Ponte-Vedra/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Seventh-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Jax-Beach-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/Q6eZVkUKFxo?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=Q6eZVkUKFxo",
+      "possible_overlap": [
+        "North Vilano - South Ponte Vedra Surf Station Cam"
+      ]
+    },
+    {
+      "name": "@SurfStationCam (St Augustine Pier)",
+      "search_region": "Florida",
+      "listed_location": "St Augustine Pier",
+      "provider_url": "https://www.youtube.com/embed/Q6eZVkUKFxo",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Flagler-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Lighthouse-7/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Vilano-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Ponte-Vedra/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Seventh-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Jax-Beach-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/Q6eZVkUKFxo",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Surf Station (St Augustine Beach Pier)",
+      "search_region": "Florida",
+      "listed_location": "St Augustine Beach Pier",
+      "provider_url": "https://www.surf-station.com/st-augustine-pier-wave-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Flagler-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Lighthouse-7/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Vilano-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Ponte-Vedra/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Seventh-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Jax-Beach-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.surf-station.com/st-augustine-pier-wave-cam/",
+      "page_title": "St. Augustine Pier Wave Cam - Surf Station Surf Report",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "City of Redondo Beach Pier",
+      "search_region": "Southern California",
+      "listed_location": "Redondo Beach",
+      "provider_url": "https://www.youtube.com/@CityofRedondoBeachIT/streams",
+      "embed_url": "https://www.youtube.com/embed/TuVOKRP7IBA?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/TuVOKRP7IBA/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Redondo-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Manhattan-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Venice-Breakwater/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/TuVOKRP7IBA?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=TuVOKRP7IBA",
+      "possible_overlap": []
+    },
+    {
+      "name": "LuvinLife (Redondo Beach)",
+      "search_region": "Southern California",
+      "listed_location": "Redondo Beach",
+      "provider_url": "https://www.luvinlife.me/Beach_Cam.html",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Redondo-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Manhattan-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Venice-Breakwater/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.luvinlife.me/Beach_Cam.html",
+      "page_title": "Dave & Kathy’s slice of Heaven",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Manhattan Beach Cam and Surf Report",
+      "search_region": "Southern California",
+      "listed_location": "Manhattan Beach and Pier",
+      "provider_url": "https://www.youtube.com/@TheSurfersView/streams",
+      "embed_url": "https://www.youtube.com/embed/tBEIYdw1HeM?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/tBEIYdw1HeM/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Redondo-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Manhattan-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Venice-Breakwater/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/tBEIYdw1HeM?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=tBEIYdw1HeM",
+      "possible_overlap": []
+    },
+    {
+      "name": "Venice Sidewalk Cafe (Venice Pier)",
+      "search_region": "Southern California",
+      "listed_location": "Venice Pier",
+      "provider_url": "https://www.westland.net/beachcam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Redondo-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Manhattan-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Venice-Breakwater/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.westland.net/beachcam/",
+      "page_title": "BEACH CAM - Live streaming webcam from Venice Beach, California",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "🔴 Los Angeles Live Cam · Venice Beach · Venice V Hotel · Live Camera Stream",
+      "search_region": "Southern California",
+      "listed_location": "Venice Breakwater",
+      "provider_url": "https://www.youtube.com/@Teleport.camera/streams",
+      "embed_url": "https://www.youtube.com/embed/EO_1LWqsCNE?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/EO_1LWqsCNE/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Huntington-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Huntington-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Redondo-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Manhattan-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Venice-Breakwater/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/EO_1LWqsCNE?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=EO_1LWqsCNE",
+      "possible_overlap": []
+    },
+    {
+      "name": "Gateway Subaru Camera at The Commander Hotel",
+      "search_region": "New Jersey / New York",
+      "listed_location": "The Inlet and Pier",
+      "provider_url": "https://www.youtube.com/@CommanderCamera-qv3xl/streams",
+      "embed_url": "https://www.youtube.com/embed/zCEiot7sEWY?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/zCEiot7sEWY/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Fourtyseventh-Street/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Rehoboth-Main/webcams/latest",
+        "https://www.surf-forecast.com/breaks/The-Inlet-and-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/zCEiot7sEWY?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=zCEiot7sEWY",
+      "possible_overlap": []
+    },
+    {
+      "name": "Days Inn Oceanfront (The Inlet and Pier)",
+      "search_region": "New Jersey / New York",
+      "listed_location": "The Inlet and Pier",
+      "provider_url": "https://daysinnboardwalk.com/ocean-city-md-hotel-live-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Fourtyseventh-Street/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Rehoboth-Main/webcams/latest",
+        "https://www.surf-forecast.com/breaks/The-Inlet-and-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://daysinnboardwalk.com/ocean-city-md-hotel-live-cam/",
+      "page_title": "Live Cam | Days Inn Oceanfront Hotel | Ocean City, MD Boardwalk",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Jacksonville Beach Pier Live Cam / South View / By 911surfreport.com",
+      "search_region": "Florida",
+      "listed_location": "Ponte Vedra",
+      "provider_url": "https://www.youtube.com/@eddiewouldknow/streams",
+      "embed_url": "https://www.youtube.com/embed/c400PBf6adI?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/c400PBf6adI/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lighthouse-7/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Vilano-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Ponte-Vedra/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Seventh-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Jax-Beach-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/c400PBf6adI?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=c400PBf6adI",
+      "possible_overlap": [
+        "Live Cam From The Best Western In Jacksonville Beach, Fl.",
+        "Jacksonville Beach Pier Live Cam / North View / By 911surfreport.com"
+      ]
+    },
+    {
+      "name": "Surf Station (Ponte Vedra)",
+      "search_region": "Florida",
+      "listed_location": "Ponte Vedra",
+      "provider_url": "https://www.surf-station.com/north-vilano-surf-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lighthouse-7/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Vilano-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Ponte-Vedra/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Seventh-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Jax-Beach-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.surf-station.com/north-vilano-surf-cam/",
+      "page_title": "North Vilano Surf Cam - Surf Station Surf Report",
+      "provider_player_urls": [
+        "https://www.youtube.com/embed/SOBqGul1RiE?feature=oembed"
+      ],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    },
+    {
+      "name": "Live Cam From The Best Western In Jacksonville Beach, Fl.",
+      "search_region": "Florida",
+      "listed_location": "7th Avenue",
+      "provider_url": "https://www.youtube.com/@eddiewouldknow/streams",
+      "embed_url": "https://www.youtube.com/embed/bZ4uxyLqV-E?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/bZ4uxyLqV-E/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lighthouse-7/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Vilano-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Ponte-Vedra/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Seventh-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Jax-Beach-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/bZ4uxyLqV-E?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=bZ4uxyLqV-E",
+      "possible_overlap": [
+        "Jacksonville Beach Pier Live Cam / South View / By 911surfreport.com",
+        "Jacksonville Beach Pier Live Cam / North View / By 911surfreport.com"
+      ]
+    },
+    {
+      "name": "Jacksonville Beach Pier Live Cam / North View / By 911surfreport.com",
+      "search_region": "Florida",
+      "listed_location": "Jax Beach Pier",
+      "provider_url": "https://www.youtube.com/@eddiewouldknow/streams",
+      "embed_url": "https://www.youtube.com/embed/JLvCEDGJr-s?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/JLvCEDGJr-s/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lighthouse-7/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Beach-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/St-Augustine-Pier/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Vilano-Beach/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Ponte-Vedra/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Seventh-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Jax-Beach-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/JLvCEDGJr-s?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "watch_url": "https://www.youtube.com/watch?v=JLvCEDGJr-s",
+      "possible_overlap": [
+        "Jacksonville Beach Pier Live Cam / South View / By 911surfreport.com",
+        "Live Cam From The Best Western In Jacksonville Beach, Fl."
+      ]
+    },
+    {
+      "name": "Golden Isles Georgia (St Simons Island)",
+      "search_region": "Florida",
+      "listed_location": "St Simons Island",
+      "provider_url": "https://www.goldenisles.com/webcams/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Ponte-Vedra/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Seventh-Avenue/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Jax-Beach-Pier/webcams/latest"
+      ],
+      "coverage_status": "Directory association only; nearby listings may be in a different state/region. Exact beach field of view unverified.",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_error": "HTTP Error 403: Forbidden",
+      "checked_at": "2026-09-03T18:27:48.842633+00:00",
+      "possible_overlap": []
+    }
+  ],
+  "validation": {
+    "new_listings": 73,
+    "total_listings": 98,
+    "http_200": 90,
+    "playback_verified": false,
+    "unique_physical_cameras_verified": false
+  }
+}

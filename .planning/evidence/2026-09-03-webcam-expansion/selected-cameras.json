@@ -1,0 +1,130 @@
+[
+  {
+    "index": 10,
+    "name": "Hilton Hotel Waikiki (Waikiki)",
+    "disposition": "accepted",
+    "beach_id": "846ccff8-0e26-41f3-8496-5c5221109c6c",
+    "beach_name": "Waikiki Beach",
+    "camera_url": "https://www.hilton.com/en/hotels/hnlwahf-hilton-waikiki-beach-resort-and-spa/resort/webcam/",
+    "reason": "Official Hilton page redirects to current hilton.com City & Beach Webcam; playing view includes Waikiki surf zone and beach. Broad Waikiki Beach mapping supported.",
+    "evidence_urls": [
+      "https://www.hiltonwaikikibeach.com/surf-cam/",
+      "https://www.hilton.com/en/hotels/hnlwahf-hilton-waikiki-beach-resort-and-spa/resort/webcam/"
+    ],
+    "playback_observation": "Chrome EarthCam player displayed LIVE, Pause, Sep3 2026 current morning clock. Two screenshots showed changing wave fronts and a camera pan over Waikiki beach.",
+    "checked_at": "2026-09-03T19:00:17.340449+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed",
+    "slug": "waikiki-beach",
+    "state": "HI",
+    "previous_camera_url": null
+  },
+  {
+    "index": 14,
+    "name": "The Royal Sonesta Resort (Kalapaki Beach)",
+    "disposition": "accepted",
+    "beach_id": "b2b469ea-3d00-44df-88e8-621934c6926f",
+    "beach_name": "Kalapaki Beach",
+    "camera_url": "https://www.ozolio.com/explore/IDWX000000A6",
+    "reason": "Official Sonesta resort page explicitly describes camera view of pool, beach and Kalapaki Bay; browser image matches. Ozolio prose incorrectly says Poipu and must not be reused.",
+    "evidence_urls": [
+      "https://www.ozolio.com/explore/IDWX000000A6",
+      "https://www.sonesta.com/royal-sonesta/hi/lihue/royal-sonesta-kauai-resort-lihue"
+    ],
+    "playback_observation": "Chrome player showed LIVE/Pause with Kalapaki beach, pool and Nawiliwili headland. Two screenshots showed changing whitewater and palms.",
+    "checked_at": "2026-09-03T19:00:17.340484+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed",
+    "slug": "kalapaki-beach",
+    "state": "HI",
+    "previous_camera_url": null
+  },
+  {
+    "index": 17,
+    "name": "Brenneckes.com (Brenneckes)",
+    "disposition": "accepted",
+    "beach_id": "231d8635-6ae1-40e5-9112-88c26b0918ac",
+    "beach_name": "Poipu Beach (Kauai)",
+    "camera_url": "https://brenneckes.com/beach-webcam/",
+    "reason": "Official Brenneckes camera across from Poipu Beach Park shows swimming basin and surf, matching broad Poipu Beach catalog row.",
+    "evidence_urls": [
+      "https://brenneckes.com/beach-webcam/"
+    ],
+    "playback_observation": "Chrome Dacast player showed LIVE/Pause. Screenshots showed bathers/swimming basin, breaking surf and changing people/waves. One intermediate frame had gray compression corruption; later screenshot recovered completely.",
+    "checked_at": "2026-09-03T19:00:17.340559+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed",
+    "slug": "poipu-beach-kauai",
+    "state": "HI",
+    "previous_camera_url": null
+  },
+  {
+    "index": 53,
+    "name": "Corolla Light Resort (Corolla Lighthouse)",
+    "disposition": "accepted",
+    "beach_id": "885440f6-10c2-4c70-aa40-b7b71044cda3",
+    "camera_url": "https://www.corollalightresort.com/surf-cam/",
+    "reason": "Official resort beach page identifies Corolla oceanfront camera.",
+    "evidence_urls": [
+      "https://www.corollalightresort.com/surf-cam/",
+      "https://www.corollalightresort.com/corolla-beaches"
+    ],
+    "playback_observation": "Browser LIVE/Pause and oceanfront surf scene visually verified earlier this turn.",
+    "checked_at": "2026-09-03T19:00:58.009225+00:00",
+    "slug": "corolla-corolla-nc",
+    "beach_name": "Corolla",
+    "state": "NC",
+    "previous_camera_url": null
+  },
+  {
+    "index": 74,
+    "name": "7th Street Surf Shop (Ocean City - 7th Street)",
+    "disposition": "accepted",
+    "beach_id": "336e967d-86a6-40db-9404-e398b057fefe",
+    "camera_url": "https://7thstreetsurfshop.com/wave-cam/7th-street",
+    "reason": "Official7thStreet Surf Shop labels specific7thStreet Wave Cam.",
+    "evidence_urls": [
+      "https://7thstreetsurfshop.com/wave-cam/7th-street"
+    ],
+    "playback_observation": "Chrome clicked play; player reported LIVE; screenshot after playback showed changed surf/boardwalk scene.",
+    "checked_at": "2026-09-03T19:00:58.009299+00:00",
+    "slug": "7th-street-beach-ocean-city-nj",
+    "beach_name": "7th Street Beach",
+    "state": "NJ",
+    "previous_camera_url": null
+  },
+  {
+    "index": 81,
+    "name": "Flagler Surf (Flagler)",
+    "disposition": "accepted",
+    "beach_id": "9ca1fa2f-2b90-4aa3-8784-48721e5463bb",
+    "camera_url": "https://flaglersurf.com/webcam/",
+    "reason": "Provider explicitly Flagler Beach.",
+    "evidence_urls": [
+      "https://flaglersurf.com/webcam/"
+    ],
+    "playback_observation": "Browser iframe reported LIVE; screenshots showed changed waves beside pier construction earlier this turn.",
+    "checked_at": "2026-09-03T19:00:58.009320+00:00",
+    "slug": "flagler-beach-flagler-beach-fl",
+    "beach_name": "Flagler Beach",
+    "state": "FL",
+    "previous_camera_url": null
+  },
+  {
+    "index": 93,
+    "name": "Jacksonville Beach Pier Live Cam / South View / By 911surfreport.com",
+    "disposition": "accepted",
+    "beach_id": "a4472f56-626e-4905-b909-5f1dc27174a9",
+    "camera_url": "https://www.youtube.com/watch?v=c400PBf6adI",
+    "reason": "Provider title/description explicitly southside Jacksonville Beach Pier, provided by pier/BeachLife Rentals/911SurfReport.",
+    "evidence_urls": [
+      "https://www.youtube.com/@eddiewouldknow/streams"
+    ],
+    "playback_observation": "Chrome Pause/Live; visible09-03-2026 14:58:43 timestamp, surfers and breaking waves;6watching.",
+    "checked_at": "2026-09-03T19:00:58.009340+00:00",
+    "slug": "jacksonville-beach-pier-jacksonville-beach-fl",
+    "beach_name": "Jacksonville Beach Pier",
+    "state": "FL",
+    "previous_camera_url": null
+  }
+]

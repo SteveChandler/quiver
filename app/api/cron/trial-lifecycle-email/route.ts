@@ -503,6 +503,8 @@ async function runStage(
       await rateLimiter.throttle();
 
       const { data: sendData, error: sendError } = await sendEmail({
+        // Charge notices must not be delayed by marketing frequency limits.
+        ...(stage !== "trial_ending" ? { contactPolicy: { userId: candidate.user_id, emailType: stage } } : {}),
         from: MAIL_FROM,
         replyTo: MAIL_REPLY_TO,
         to: candidate.email,

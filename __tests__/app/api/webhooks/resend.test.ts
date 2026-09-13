@@ -49,6 +49,7 @@ const mockExistingLogSelect = jest.fn();
 const mockExistingLogEq = jest.fn();
 const mockExistingLogMaybeSingle = jest.fn();
 const mockCreateSupabaseServiceRoleClient = jest.fn();
+const mockReplyRpc = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() =>
@@ -88,6 +89,38 @@ function createWebhookRequest(
 }
 
 describe("Resend Webhook Endpoint", () => {
+  describe("inbound replies", () => {
+    const event = { type: "email.received", data: {
+      email_id: "inbound-1", from: "surfer@example.com", to: ["replies@inbound.example.com"], created_at: "2026-09-03T12:00:00Z",
+    } };
+    afterEach(() => { delete process.env.EMAIL_REPLY_MAILBOX; });
+    it("pauses through the signed webhook and persists metadata", async () => {
+      process.env.EMAIL_REPLY_MAILBOX = "replies@inbound.example.com";
+      mockVerify.mockReturnValue(event);
+      mockReplyRpc.mockResolvedValue({ data: null, error: null });
+      const response = await POST(createWebhookRequest(event));
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ received: true, processed: true });
+      expect(mockReplyRpc).toHaveBeenCalledWith("record_email_reply", {
+        p_event_id: "inbound-1", p_webhook_id: "msg_test123", p_sender: "surfer@example.com", p_received_at: event.data.created_at,
+      });
+    });
+    it("returns a retryable error if reply persistence fails", async () => {
+      process.env.EMAIL_REPLY_MAILBOX = "replies@inbound.example.com";
+      mockVerify.mockReturnValue(event);
+      mockReplyRpc.mockResolvedValue({ error: { message: "offline" } });
+      const response = await POST(createWebhookRequest(event));
+      expect(response.status).toBe(503);
+      expect((await response.json()).retryable).toBe(true);
+    });
+    it("does not process an unsigned reply", async () => {
+      mockVerify.mockImplementationOnce(() => { throw new Error("bad signature"); });
+      const response = await POST(createWebhookRequest(event));
+      expect(response.status).toBe(401);
+      expect(mockReplyRpc).not.toHaveBeenCalled();
+    });
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.RESEND_WEBHOOK_SECRET = "whsec_test_secret";
@@ -102,6 +135,7 @@ describe("Resend Webhook Endpoint", () => {
     mockSuppressionUpsert.mockResolvedValue({ error: null });
     mockCreateSupabaseServiceRoleClient.mockResolvedValue({
       from: mockFrom,
+      rpc: mockReplyRpc,
     });
     mockExistingLogMaybeSingle.mockResolvedValue({
       data: { id: "existing-log-id" },

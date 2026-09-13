@@ -1,0 +1,1682 @@
+{
+  "total_listings": 98,
+  "counts": {
+    "Location mismatch or unproven coverage": 20,
+    "No matching catalog beach": 28,
+    "Existing camera retained": 17,
+    "Duplicate or alternate listing": 18,
+    "Add verified camera": 7,
+    "Playback unverified": 4,
+    "Offline": 4
+  },
+  "listings": [
+    {
+      "index": 0,
+      "name": "Kohanaiki Web Camera",
+      "disposition": "coverage_unresolved",
+      "beach_id": "fbe805b3-b9f5-40e0-afbb-3c5a8d45f67b",
+      "beach_name": "Pine Trees (Kohanaiki)",
+      "camera_url": "https://www.youtube.com/watch?v=Sb6v9lXIDjc",
+      "reason": "Kohanaiki channel confirmed but camera views resort lawn and partly obscured coastline. Cannot establish Pine Trees public surf area field of view at catalog coordinates; do not infer from resort name.",
+      "evidence_urls": [
+        "https://www.youtube.com/@kohanaikihawaii3092/streams",
+        "https://www.youtube.com/watch?v=Sb6v9lXIDjc"
+      ],
+      "playback_observation": "Chrome YouTube watch page showed Live/Pause, one viewer; two screenshots showed changing whitewater and palm positions. Playback working; exact location unresolved.",
+      "checked_at": "2026-09-03T19:00:17.339906+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://www.youtube.com/@kohanaikihawaii3092/streams"
+    },
+    {
+      "index": 1,
+      "name": "KONAWEB (Hulihee Palace)",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.konaweb.com/cam/index.html",
+      "reason": "KONAWEB says camera is at Fish Hopper restaurant, Alii Drive Kailua-Kona. No exact Hulihee/Kailua Bay catalog beach; not Pine Trees.",
+      "evidence_urls": [
+        "https://www.konaweb.com/cam/index.html"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340405+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.konaweb.com/cam/index.html"
+    },
+    {
+      "index": 2,
+      "name": "Mauna Kea Beach Hotel (Hapuna)",
+      "disposition": "mismatch",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://marriott.ozolio.com/mauna-kea-beach-hotel/",
+      "reason": "Official camera page explicitly identifies Kaunaoa Bay; directory Hapuna label wrong. No Kaunaoa catalog beach.",
+      "evidence_urls": [
+        "https://marriott.ozolio.com/mauna-kea-beach-hotel/"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340412+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://marriott.ozolio.com/mauna-kea-beach-hotel/"
+    },
+    {
+      "index": 3,
+      "name": "The Surfers View (Turtle Bay)",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://thesurfersview.com/live-cams/hawaii/turtle-bay-beach-cam-west-and-surf-report/",
+      "reason": "Turtle Bay West named by provider; no Turtle Bay catalog beach. Not Kualoa or Kahana.",
+      "evidence_urls": [
+        "https://thesurfersview.com/live-cams/hawaii/turtle-bay-beach-cam-west-and-surf-report/"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340416+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "No matching catalog beach",
+      "listing_url": "https://thesurfersview.com/live-cams/hawaii/turtle-bay-beach-cam-west-and-surf-report/"
+    },
+    {
+      "index": 4,
+      "name": "Explore Annenberg LLC (Waimea Bay/Pinballs)",
+      "disposition": "existing_camera",
+      "beach_id": "12431285-b73c-48e4-99b3-731594f6f98c",
+      "beach_name": "Waimea Bay",
+      "camera_url": "https://explore.org/livecams/hawaii/hawaii-waimea-bay-cam/",
+      "reason": "Waimea Bay already has camera_url; retain existing. Provider indexed status Off Season; not verified currently live.",
+      "evidence_urls": [
+        "https://explore.org/livecams/hawaii/hawaii-waimea-bay-cam/",
+        "https://explore.org/livecams/oceans/hawaii-waimea-bay-cam"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340422+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Existing camera retained",
+      "listing_url": "https://explore.org/livecams/hawaii/hawaii-waimea-bay-cam/"
+    },
+    {
+      "index": 5,
+      "name": "LIVE Banzai Pipeline Surf Cam: North Shore, Oahu - Hawaii | explore.org",
+      "disposition": "existing_camera",
+      "beach_id": "6a0674ac-3e6d-49f3-9fd4-a4f1857c408a",
+      "beach_name": "Pipeline",
+      "camera_url": "https://www.youtube.com/@ExploreBigSurfandBeaches",
+      "reason": "Pipeline already has camera_url. This and index6 represent Explore Pipeline/Ehukai; no replacement authorized by additive import.",
+      "evidence_urls": [
+        "https://www.youtube.com/@ExploreBigSurfandBeaches"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340427+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Existing camera retained",
+      "listing_url": "https://www.youtube.com/@ExploreBigSurfandBeaches"
+    },
+    {
+      "index": 6,
+      "name": "Explore Annenberg LLC (Ehukai/Gums)",
+      "disposition": "duplicate",
+      "beach_id": "6a0674ac-3e6d-49f3-9fd4-a4f1857c408a",
+      "beach_name": "Pipeline",
+      "camera_url": "https://explore.org/livecams/hawaii/hawaii-pipeline-cam/",
+      "reason": "Same Explore Pipeline/Ehukai camera as index5; preserve existing Pipeline camera.",
+      "evidence_urls": [
+        "https://explore.org/livecams/hawaii/hawaii-pipeline-cam/"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340431+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://explore.org/livecams/hawaii/hawaii-pipeline-cam/"
+    },
+    {
+      "index": 7,
+      "name": "Webcamtaxi (Ala Moana Courts)",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.webcamtaxi.com/en/usa/hawaii/honolulu-island-of-oahu.html/",
+      "reason": "Ala Moana Courts is not an existing catalog beach; do not relabel as Ala Moana Bowls. Prior HTTP403 did not verify playback.",
+      "evidence_urls": [
+        "https://www.webcamtaxi.com/en/usa/hawaii/honolulu-island-of-oahu.html/"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340435+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.webcamtaxi.com/en/usa/hawaii/honolulu-island-of-oahu.html/"
+    },
+    {
+      "index": 8,
+      "name": "CamGuide (Reef Runway (Hickam Harbor))",
+      "disposition": "mismatch",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://camguide.net/usa/hawaii/honolulu/beach/",
+      "reason": "Directory Hickam Harbor label contradicts destination Waikiki/Mamala Bay title. Exact view unverified.",
+      "evidence_urls": [
+        "https://camguide.net/usa/hawaii/honolulu/beach/"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340439+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://camguide.net/usa/hawaii/honolulu/beach/"
+    },
+    {
+      "index": 9,
+      "name": "Ward Village (Ala Moana Bowls)",
+      "disposition": "existing_camera",
+      "beach_id": "80fc2c1b-2d3f-4a94-bcc2-c8ea0e9b8fc5",
+      "beach_name": "Ala Moana Bowls",
+      "camera_url": "https://www.wardvillage.com/surf-cam/",
+      "reason": "Ala Moana Bowls already has camera_url; provider exact field of view remains unverified; preserve existing.",
+      "evidence_urls": [
+        "https://www.wardvillage.com/surf-cam/"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340443+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Existing camera retained",
+      "listing_url": "https://www.wardvillage.com/surf-cam/"
+    },
+    {
+      "index": 10,
+      "name": "Hilton Hotel Waikiki (Waikiki)",
+      "disposition": "accepted",
+      "beach_id": "846ccff8-0e26-41f3-8496-5c5221109c6c",
+      "beach_name": "Waikiki Beach",
+      "camera_url": "https://www.hilton.com/en/hotels/hnlwahf-hilton-waikiki-beach-resort-and-spa/resort/webcam/",
+      "reason": "Official Hilton page redirects to current hilton.com City & Beach Webcam; playing view includes Waikiki surf zone and beach. Broad Waikiki Beach mapping supported.",
+      "evidence_urls": [
+        "https://www.hiltonwaikikibeach.com/surf-cam/",
+        "https://www.hilton.com/en/hotels/hnlwahf-hilton-waikiki-beach-resort-and-spa/resort/webcam/"
+      ],
+      "playback_observation": "Chrome EarthCam player displayed LIVE, Pause, Sep3 2026 current morning clock. Two screenshots showed changing wave fronts and a camera pan over Waikiki beach.",
+      "checked_at": "2026-09-03T19:00:17.340449+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Add verified camera",
+      "listing_url": "https://www.hiltonwaikikibeach.com/surf-cam/"
+    },
+    {
+      "index": 11,
+      "name": "Sheraton Waikiki (Waikiki)",
+      "disposition": "playback_unverified_alternative",
+      "beach_id": "846ccff8-0e26-41f3-8496-5c5221109c6c",
+      "beach_name": "Waikiki Beach",
+      "camera_url": "https://marriott.ozolio.com/sheraton-waikiki/",
+      "reason": "Provider location Waikiki confirmed but player never produced image in two separated Chrome screenshots. Prefer verified Hilton index10 for one-source-per-beach.",
+      "evidence_urls": [
+        "https://marriott.ozolio.com/sheraton-waikiki/"
+      ],
+      "playback_observation": "Two Chrome screenshots showed black player with loading spinner; no actual playback confirmed.",
+      "checked_at": "2026-09-03T19:00:17.340453+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Playback unverified",
+      "listing_url": "https://marriott.ozolio.com/sheraton-waikiki/"
+    },
+    {
+      "index": 12,
+      "name": "Waikiki Aquarium (Waikiki)",
+      "disposition": "existing_camera",
+      "beach_id": "880748ee-5423-4b2e-a5c3-b2faab5c4a7a",
+      "beach_name": "Waikiki (Aquarium)",
+      "camera_url": "https://www.waikikiaquarium.org/experience/virtual/webcam/",
+      "reason": "Official Aquarium URL already assigned to Waikiki (Aquarium), preserve.",
+      "evidence_urls": [
+        "https://www.youtube.com/@WaikikiAquariumHonolulu/streams",
+        "https://www.waikikiaquarium.org/experience/virtual/webcam/"
+      ],
+      "playback_observation": "Expanded South Shore Surf Cam accordion in Chrome; embedded WIUg8wzhq1g showed panoramic ocean with changing water between screenshots.",
+      "checked_at": "2026-09-03T19:00:17.340457+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Existing camera retained",
+      "listing_url": "https://www.youtube.com/@WaikikiAquariumHonolulu/streams"
+    },
+    {
+      "index": 13,
+      "name": "South Shore Surf Cam",
+      "disposition": "duplicate",
+      "beach_id": "880748ee-5423-4b2e-a5c3-b2faab5c4a7a",
+      "beach_name": "Waikiki (Aquarium)",
+      "camera_url": "https://www.youtube.com/@WaikikiAquariumHonolulu/streams",
+      "reason": "Same stream WIUg8wzhq1g as official Aquarium camera already on catalog row. Publics exact break field unconfirmed; do not duplicate to Publics.",
+      "evidence_urls": [
+        "https://www.youtube.com/@WaikikiAquariumHonolulu/streams",
+        "https://www.waikikiaquarium.org/experience/virtual/webcam/"
+      ],
+      "playback_observation": "Official Aquarium accordion visibly loads same YouTube video ID and plays coastal panorama.",
+      "checked_at": "2026-09-03T19:00:17.340474+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://www.youtube.com/@WaikikiAquariumHonolulu/streams"
+    },
+    {
+      "index": 14,
+      "name": "The Royal Sonesta Resort (Kalapaki Beach)",
+      "disposition": "accepted",
+      "beach_id": "b2b469ea-3d00-44df-88e8-621934c6926f",
+      "beach_name": "Kalapaki Beach",
+      "camera_url": "https://www.ozolio.com/explore/IDWX000000A6",
+      "reason": "Official Sonesta resort page explicitly describes camera view of pool, beach and Kalapaki Bay; browser image matches. Ozolio prose incorrectly says Poipu and must not be reused.",
+      "evidence_urls": [
+        "https://www.ozolio.com/explore/IDWX000000A6",
+        "https://www.sonesta.com/royal-sonesta/hi/lihue/royal-sonesta-kauai-resort-lihue"
+      ],
+      "playback_observation": "Chrome player showed LIVE/Pause with Kalapaki beach, pool and Nawiliwili headland. Two screenshots showed changing whitewater and palms.",
+      "checked_at": "2026-09-03T19:00:17.340484+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Add verified camera",
+      "listing_url": "https://www.ozolio.com/explore/IDWX000000A6"
+    },
+    {
+      "index": 15,
+      "name": "Lawai Beach Resort - Live Cam",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.youtube.com/@OurLawaiBeachResort/streams",
+      "reason": "Lawai Beach and PKs absent from catalog. Official resort describes Lawai Beach; not Poipu Beach Park 2 miles away.",
+      "evidence_urls": [
+        "https://www.youtube.com/@OurLawaiBeachResort/streams",
+        "https://www.lawaibeach.org/"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340505+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@OurLawaiBeachResort/streams"
+    },
+    {
+      "index": 16,
+      "name": "Whalers Cove Resort (PKs)",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.whalerscoveresort.com/webcam",
+      "reason": "Whalers Cove oceanfront at2640 Puuholo Road is not catalog Poipu Beach Park; PKs/Lawai absent.",
+      "evidence_urls": [
+        "https://www.whalerscoveresort.com/webcam"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340549+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.whalerscoveresort.com/webcam"
+    },
+    {
+      "index": 17,
+      "name": "Brenneckes.com (Brenneckes)",
+      "disposition": "accepted",
+      "beach_id": "231d8635-6ae1-40e5-9112-88c26b0918ac",
+      "beach_name": "Poipu Beach (Kauai)",
+      "camera_url": "https://brenneckes.com/beach-webcam/",
+      "reason": "Official Brenneckes camera across from Poipu Beach Park shows swimming basin and surf, matching broad Poipu Beach catalog row.",
+      "evidence_urls": [
+        "https://brenneckes.com/beach-webcam/"
+      ],
+      "playback_observation": "Chrome Dacast player showed LIVE/Pause. Screenshots showed bathers/swimming basin, breaking surf and changing people/waves. One intermediate frame had gray compression corruption; later screenshot recovered completely.",
+      "checked_at": "2026-09-03T19:00:17.340559+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Add verified camera",
+      "listing_url": "https://brenneckes.com/beach-webcam/"
+    },
+    {
+      "index": 18,
+      "name": "Maui Eldorado (Osterizers/Rainbows)",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.mauieldorado.com/webcams",
+      "reason": "Kaanapali/Eldorado/Osterizers not in catalog; not Lahaina Harbor.",
+      "evidence_urls": [
+        "https://www.mauieldorado.com/webcams"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340563+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.mauieldorado.com/webcams"
+    },
+    {
+      "index": 19,
+      "name": "Whaler Condo (Ka'anapali Point)",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.youtube.com/@mauilivecam7143/streams",
+      "reason": "Kaanapali Point/Whaler not in catalog; not Lahaina Harbor.",
+      "evidence_urls": [
+        "https://www.youtube.com/@mauilivecam7143/streams"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340564+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@mauilivecam7143/streams"
+    },
+    {
+      "index": 20,
+      "name": "Maui Seashell – Hale Mahina Resort (S-Turns)",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://halemahinacondo.com/web-cam/",
+      "reason": "Hale Mahina condo coastline/S-Turns not in catalog; not Honolua Bay.",
+      "evidence_urls": [
+        "https://halemahinacondo.com/web-cam/"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340566+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "No matching catalog beach",
+      "listing_url": "https://halemahinacondo.com/web-cam/"
+    },
+    {
+      "index": 21,
+      "name": "Napili Sunset Resort (Little Makaha)",
+      "disposition": "mismatch",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.napilisunset.com/live-webcam/",
+      "reason": "Provider is Napili Sunset at Napili Bay; directory Little Makaha association unsupported. Neither exact location exists in catalog.",
+      "evidence_urls": [
+        "https://www.napilisunset.com/live-webcam/"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340568+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://www.napilisunset.com/live-webcam/"
+    },
+    {
+      "index": 22,
+      "name": "The Hale Pau Hana Surf Cam",
+      "disposition": "mismatch",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.youtube.com/@HalePauHanaBeachResortKihei/streams",
+      "reason": "Hale Pau Hana camera is Kamaole II, not Kihei Cove. Neither in catalog.",
+      "evidence_urls": [
+        "https://www.youtube.com/@HalePauHanaBeachResortKihei/streams",
+        "https://halepauhana.com/see-and-do/"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340570+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://www.youtube.com/@HalePauHanaBeachResortKihei/streams"
+    },
+    {
+      "index": 23,
+      "name": "Grand Wailea Hotel (Kihei Cove)",
+      "disposition": "mismatch",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.grandwailea.com/grand-wailea-webcam",
+      "reason": "Grand Wailea overlooks Wailea resort coast, not Kihei Cove; no Wailea catalog beach. Provider says live05:00–19:30 HST and evening replay.",
+      "evidence_urls": [
+        "https://www.grandwailea.com/grand-wailea-webcam",
+        "https://www.grandwailea.com/grand-wailea-maui-webcam"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340572+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://www.grandwailea.com/grand-wailea-webcam"
+    },
+    {
+      "index": 24,
+      "name": "Rentals Maui (Kihei Cove)",
+      "disposition": "offline",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.rentalsmaui.com/maui-web-cam/",
+      "reason": "Provider explicitly says webcam currently offline. Kihei Cove absent from catalog as well.",
+      "evidence_urls": [
+        "https://www.rentalsmaui.com/maui-web-cam/"
+      ],
+      "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+      "checked_at": "2026-09-03T19:00:17.340574+00:00",
+      "integration": "external_link_only",
+      "embed_permission": "not evaluated; no embedding proposed",
+      "category": "Offline",
+      "listing_url": "https://www.rentalsmaui.com/maui-web-cam/"
+    },
+    {
+      "index": 25,
+      "disposition": "existing_camera",
+      "beach_id": "65809772-20bc-4009-b9b2-89c8ef3c4127",
+      "beach_name": "Pacific Beach",
+      "camera_url": "https://www.pacificterrace.com/web-cam",
+      "existing_camera_url": "https://hdontap.com/stream/186699/pacific-beach-live-surf-webcam/",
+      "reason": "Pacific Beach and Crystal Pier already have cameras; do not overwrite either.",
+      "evidence_urls": [
+        "https://www.pacificterrace.com/web-cam"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513109+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Existing camera retained",
+      "listing_url": "https://www.pacificterrace.com/web-cam",
+      "name": "Pacific Terrace Hotel (Crystal Pier and Pacific Beach)"
+    },
+    {
+      "index": 26,
+      "disposition": "existing_camera",
+      "beach_id": "d291411d-d331-4bf1-ad1a-302da3c69de0",
+      "beach_name": "La Jolla Shores",
+      "camera_url": "https://www.youtube.com/watch?v=YQovPWtgydY",
+      "existing_camera_url": "https://hdontap.com/stream/532541/la-jolla-shores-live-surf-cam/",
+      "reason": "Exact catalog beach already has HDOnTap camera.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=YQovPWtgydY",
+        "https://www.youtube.com/@EarthWatchLive1"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513249+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Existing camera retained",
+      "listing_url": "https://www.youtube.com/@EarthWatchLive1",
+      "name": "🔴La Jolla Beach - San Diego, California - Live Cam"
+    },
+    {
+      "index": 27,
+      "disposition": "existing_camera",
+      "beach_id": "5e72b79d-a12d-4cd3-8da4-b7b92069efbf",
+      "beach_name": "Del Mar",
+      "camera_url": "https://hdontap.com/stream/399483/del-mar-beach-south-roaming-live-webcam/",
+      "existing_camera_url": "https://hdontap.com/stream/399483/del-mar-beach-south-roaming-live-webcam/",
+      "reason": "Resolved HDOnTap URL already stored for Del Mar; also used by Del Mar Rivermouth and Torrey Pines.",
+      "evidence_urls": [
+        "https://hdontap.com/stream/399483/del-mar-beach-south-roaming-live-webcam/",
+        "https://hdontap.com/index.php/video/stream/del_mar_beach"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513252+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Existing camera retained",
+      "listing_url": "https://hdontap.com/index.php/video/stream/del_mar_beach",
+      "name": "HDONTAP (Del Mar Beach)"
+    },
+    {
+      "index": 28,
+      "disposition": "access_blocked",
+      "beach_id": "deea2ae1-849d-47a1-9c27-b7bd505dbc07",
+      "beach_name": "Moonlight State Beach",
+      "camera_url": "https://www.skylinewebcams.com/en/webcam/united-states/california/encinitas/encinitas-california.html",
+      "existing_camera_url": null,
+      "reason": "Plausible Moonlight rental association, but runtime playback failed and exact view remains unverified.",
+      "evidence_urls": [
+        "https://www.skylinewebcams.com/en/webcam/united-states/california/encinitas/encinitas-california.html"
+      ],
+      "playback_observation": "Browser provider page rendered Unable to play media; no playable live image verified.",
+      "checked_at": "2026-09-03T19:02:02.513254+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Playback unverified",
+      "listing_url": "https://www.skylinewebcams.com/en/webcam/united-states/california/encinitas/encinitas-california.html",
+      "name": "Moonlight Beach Rental (Sandbox)"
+    },
+    {
+      "index": 29,
+      "disposition": "existing_camera",
+      "beach_id": "cceecad1-7668-4ad8-88ff-ade893c605cd",
+      "beach_name": "Oceanside Pier",
+      "camera_url": "https://www.youtube.com/watch?v=cvP_F-c2Upw",
+      "existing_camera_url": "https://www.youtube.com/watch?v=cvP_F-c2Upw",
+      "reason": "Exact same YouTube cvP_F-c2Upw already stored.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=cvP_F-c2Upw",
+        "https://www.youtube.com/@SanDiegoWebCam/streams"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513257+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Existing camera retained",
+      "listing_url": "https://www.youtube.com/@SanDiegoWebCam/streams",
+      "name": "The Rooftop Bar | Oceanside, CA | San Diego Web Cam"
+    },
+    {
+      "index": 30,
+      "disposition": "existing_camera",
+      "beach_id": "1fe4bf73-c425-48a5-899d-a7e8ee2d67e3",
+      "beach_name": "Terramar Point",
+      "camera_url": "https://hdontap.com/stream/177276/terramar-point-surf-live-webcam/",
+      "existing_camera_url": "https://hdontap.com/stream/177276/terramar-point-surf-live-webcam/",
+      "reason": "Exact resolved Terramar HDOnTap URL already stored; also stored on Ponto.",
+      "evidence_urls": [
+        "https://hdontap.com/stream/177276/terramar-point-surf-live-webcam/",
+        "https://hdontap.com/index.php/video/stream/carlsbad-beach-live-webcam"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513258+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Existing camera retained",
+      "listing_url": "https://hdontap.com/index.php/video/stream/carlsbad-beach-live-webcam",
+      "name": "HDONTAP (Terra Mar)"
+    },
+    {
+      "index": 31,
+      "disposition": "duplicate",
+      "beach_id": "cceecad1-7668-4ad8-88ff-ade893c605cd",
+      "beach_name": "Oceanside Pier",
+      "camera_url": "https://www.youtube.com/watch?v=OYqo4dqYjh0",
+      "existing_camera_url": "https://www.youtube.com/watch?v=cvP_F-c2Upw",
+      "reason": "Alternate Rooftop Bar fixed view of same pier covered by index29 existing camera; no broad Oceanside Beach catalog row.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=OYqo4dqYjh0",
+        "https://www.youtube.com/@SanDiegoWebCam/streams"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513260+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://www.youtube.com/@SanDiegoWebCam/streams",
+      "name": "The Rooftop Bar (Fixed Wide West) | Oceanside, CA | San Diego Web Cam"
+    },
+    {
+      "index": 32,
+      "disposition": "existing_camera",
+      "beach_id": "73bb4a48-3d53-42ba-bbd0-d89a7cf95711",
+      "beach_name": "Salt Creek",
+      "camera_url": "https://www.waldorfastoriamonarchbeach.com/experience/private-beach-club",
+      "existing_camera_url": "https://hdontap.com/stream/621213/monarch-bay-beach-club-live-webcam/",
+      "reason": "Owner Monarch Bay Beach Club view corresponds to existing Monarch Bay HDOnTap camera on Salt Creek. Do not relabel as Doheny/Strands.",
+      "evidence_urls": [
+        "https://www.waldorfastoriamonarchbeach.com/experience/private-beach-club"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513262+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Existing camera retained",
+      "listing_url": "https://www.waldorfastoriamonarchbeach.com/experience/private-beach-club",
+      "name": "Waldorf Astoria Monarch Beach Resort (Dana Point)"
+    },
+    {
+      "index": 33,
+      "disposition": "duplicate",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://pacificaview.net/livecam/index.php/",
+      "existing_camera_url": null,
+      "reason": "PacificaView aggregate repeats Sharp Park/Pacifica Pier videos indices34-37; no Sharp Park catalog row.",
+      "evidence_urls": [
+        "https://pacificaview.net/livecam/index.php/"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513264+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://pacificaview.net/livecam/index.php/",
+      "name": "Pacifica View"
+    },
+    {
+      "index": 34,
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.youtube.com/watch?v=QYRIc4LcvqQ",
+      "existing_camera_url": null,
+      "reason": "Sharp Park/Pacifica Pier absent from catalog. Linda Mar and Rockaway are different beaches and already camera-populated.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=QYRIc4LcvqQ",
+        "https://www.youtube.com/@ChamberlinNature/streams"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513267+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@ChamberlinNature/streams",
+      "name": "Pacifica Pier and Beach, Pacifica CA 4k Live"
+    },
+    {
+      "index": 35,
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.youtube.com/watch?v=lmec_rcEIL4",
+      "existing_camera_url": null,
+      "reason": "Sharp Park absent from catalog; do not substitute Linda Mar/Rockaway.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=lmec_rcEIL4",
+        "https://www.youtube.com/@ChamberlinNature/streams"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513268+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@ChamberlinNature/streams",
+      "name": "Sharp Park Beach, Pacifica CA 4K Live"
+    },
+    {
+      "index": 36,
+      "disposition": "duplicate",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.youtube.com/@ChamberlinNature/streams",
+      "existing_camera_url": null,
+      "reason": "Channel-wide provider link repeats indices34/35; not a unique camera or catalog match.",
+      "evidence_urls": [
+        "https://www.youtube.com/@ChamberlinNature/streams"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513270+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://www.youtube.com/@ChamberlinNature/streams",
+      "name": "Chamberlin Nature (Sharp Park)"
+    },
+    {
+      "index": 37,
+      "disposition": "duplicate",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.pacificaview.net/livecam/",
+      "existing_camera_url": null,
+      "reason": "Same PacificaView aggregate as33 (www/path variation).",
+      "evidence_urls": [
+        "https://www.pacificaview.net/livecam/"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513272+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://www.pacificaview.net/livecam/",
+      "name": "Pacifica Live Cameras (Sharp Park)"
+    },
+    {
+      "index": 38,
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.skylinewebcams.com/en/webcam/united-states/california/pacifica/pacifica-sharp-park-beach.html",
+      "existing_camera_url": null,
+      "reason": "Explicit Sharp Park provider page; Sharp Park absent from catalog.",
+      "evidence_urls": [
+        "https://www.skylinewebcams.com/en/webcam/united-states/california/pacifica/pacifica-sharp-park-beach.html",
+        "https://www.skylinewebcams.com/en/webcam/united-states/california/pacifica/pacifica-sharp-park-beach.html/"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513273+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.skylinewebcams.com/en/webcam/united-states/california/pacifica/pacifica-sharp-park-beach.html/",
+      "name": "Skyline Webcams (Sharp Park)"
+    },
+    {
+      "index": 39,
+      "disposition": "access_blocked",
+      "beach_id": "eca7e91a-0e5e-40d5-acb4-59c6ff50d861",
+      "beach_name": "Ocean Beach SF – North",
+      "camera_url": "https://www.surfoutlook.com/surfcam/sanfrancisco/ocean-beach",
+      "existing_camera_url": null,
+      "reason": "Generic Ocean Beach SF page does not establish which of North/Middle/Sloat receives view; no verified live playback.",
+      "evidence_urls": [
+        "https://www.surfoutlook.com/surfcam/sanfrancisco/ocean-beach"
+      ],
+      "playback_observation": "Browser showed Surf Camera View image and CAM1/CAM2 controls, not verified playing video; no precise segment evidence.",
+      "checked_at": "2026-09-03T19:02:02.513275+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Playback unverified",
+      "listing_url": "https://www.surfoutlook.com/surfcam/sanfrancisco/ocean-beach",
+      "name": "Marin-County (Ocean Beach)"
+    },
+    {
+      "index": 40,
+      "disposition": "wrong_location",
+      "beach_id": "5a5dc7b8-4d30-44af-9715-3dbb4dbc9859",
+      "beach_name": "Stinson Beach",
+      "camera_url": "https://www.sigward.com/",
+      "existing_camera_url": null,
+      "reason": "Owner page explicitly labels camera MUIR BEACH, not Stinson Beach. No Muir Beach catalog row.",
+      "evidence_urls": [
+        "https://www.sigward.com/"
+      ],
+      "playback_observation": "Browser heading MUIR BEACH WEBCAM; iframe ipcamlive alias608dc4709bc06 rendered Unable to play media.",
+      "checked_at": "2026-09-03T19:02:02.513276+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://www.sigward.com/",
+      "name": "Sigward (Stinson Beach)"
+    },
+    {
+      "index": 41,
+      "disposition": "wrong_location",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.youtube.com/watch?v=fHb0eB9RUgA",
+      "existing_camera_url": null,
+      "reason": "Camera title is Farallon Islands wildlife view, not directory Double Point; neither exact camera location nor Double Point exists in catalog.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=fHb0eB9RUgA",
+        "https://www.youtube.com/@calacademy/streams"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513278+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://www.youtube.com/@calacademy/streams",
+      "name": "Farallon Islands Live Webcam | California Academy of Sciences"
+    },
+    {
+      "index": 42,
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.youtube.com/watch?v=t4IilnlL_9Q",
+      "existing_camera_url": null,
+      "reason": "Point Reyes National Seashore wildlife stream; Drakes Estero/Point Reyes absent from catalog. Do not relabel as Bolinas/Stinson.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=t4IilnlL_9Q",
+        "https://www.youtube.com/@themarinemammalcenterlives3249/streams"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513280+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@themarinemammalcenterlives3249/streams",
+      "name": "The Marine Mammal Center Live Stream Point Reyes National Seashore"
+    },
+    {
+      "index": 43,
+      "disposition": "offline",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.lawsonslanding.com/webcam.html",
+      "existing_camera_url": null,
+      "reason": "Owner explicitly says camera down for maintenance; Shark Pit/Lawsons Landing absent from catalog.",
+      "evidence_urls": [
+        "https://www.lawsonslanding.com/webcam.html"
+      ],
+      "playback_observation": "Owner web page states camera down for maintenance but will be back in a few days.",
+      "checked_at": "2026-09-03T19:02:02.513282+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Offline",
+      "listing_url": "https://www.lawsonslanding.com/webcam.html",
+      "name": "Lawsons Landing (Shark Pit)"
+    },
+    {
+      "index": 44,
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.usgs.gov/media/webcams/santa-cruz-main-beach-video-camera-1-snapshot",
+      "existing_camera_url": null,
+      "reason": "USGS source is Santa Cruz Main Beach snapshot, not Cowells Cove; neither Main Beach nor Cowells exists in catalog. Not a verified video stream.",
+      "evidence_urls": [
+        "https://www.usgs.gov/media/webcams/santa-cruz-main-beach-video-camera-1-snapshot"
+      ],
+      "playback_observation": "USGS page labels video camera 1 snapshot and serves image.",
+      "checked_at": "2026-09-03T19:02:02.513284+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.usgs.gov/media/webcams/santa-cruz-main-beach-video-camera-1-snapshot",
+      "name": "Pacific Coastal and Marine Science Center (Cowells Cove)"
+    },
+    {
+      "index": 45,
+      "disposition": "wrong_location",
+      "beach_id": "92e18cf0-97c3-4c68-9cdf-800eb9ac4313",
+      "beach_name": "Bodega Bay / Doran Beach",
+      "camera_url": "https://www.youtube.com/watch?v=jUjO_Z1EVfA",
+      "existing_camera_url": null,
+      "reason": "Horseshoe Cove at UC Davis Bodega Marine Reserve is a different cove from Doran Beach.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=jUjO_Z1EVfA",
+        "https://www.youtube.com/@BodegaMarineLab/streams",
+        "https://boon.ucdavis.edu/tools/coastal-conditions"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513285+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://www.youtube.com/@BodegaMarineLab/streams",
+      "name": "Horseshoe Cove Webcam"
+    },
+    {
+      "index": 46,
+      "disposition": "duplicate",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://boon.ucdavis.edu/tools/coastal-conditions/",
+      "existing_camera_url": null,
+      "reason": "Official BOON page embeds same Horseshoe Cove webcam as45, not directory Salmon Creek. No Horseshoe Cove/Salmon Creek catalog row.",
+      "evidence_urls": [
+        "https://boon.ucdavis.edu/tools/coastal-conditions/",
+        "https://boon.ucdavis.edu/tools/coastal-conditions"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513287+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://boon.ucdavis.edu/tools/coastal-conditions/",
+      "name": "Bodega Ocean Observing Node (Salmon Creek)"
+    },
+    {
+      "index": 47,
+      "disposition": "existing_camera",
+      "beach_id": "4055099a-2e07-4a84-b17a-47a401ff749c",
+      "beach_name": "Seaside Cove",
+      "camera_url": "https://www.youtube.com/watch?v=Ce_vAKq1kUA",
+      "existing_camera_url": "https://seasidelanai.com/",
+      "reason": "Broad Seaside catalog row already has seasidelanai.com camera; City of Seaside label does not justify assigning to separate precise Seaside Cove (Oregon) row.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=Ce_vAKq1kUA",
+        "https://www.youtube.com/@KOINLOCAL6"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513289+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Existing camera retained",
+      "listing_url": "https://www.youtube.com/@KOINLOCAL6",
+      "name": "City of Seaside"
+    },
+    {
+      "index": 48,
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://www.youtube.com/watch?v=KFPYXo72qDI",
+      "existing_camera_url": null,
+      "reason": "Chinook Winds/Roads End absent from catalog; Nelscott Reef is a distinct reef south of resort and must not inherit camera.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=KFPYXo72qDI",
+        "https://www.youtube.com/@KOINLOCAL6/streams"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513290+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@KOINLOCAL6/streams",
+      "name": "Chinook Winds Casino Resort in Lincoln City, OR"
+    },
+    {
+      "index": 49,
+      "disposition": "offline",
+      "beach_id": "058c415c-39da-41bb-aee9-c4942d79e95d",
+      "beach_name": "La Push — First Beach",
+      "camera_url": "https://forkswa.com/plan-your-visit/webcams/",
+      "existing_camera_url": null,
+      "reason": "Owner explicitly says First Beach and James Island cameras temporarily offline during relocation.",
+      "evidence_urls": [
+        "https://forkswa.com/plan-your-visit/webcams/"
+      ],
+      "playback_observation": "Browser heading La Push Webcams Temporarily Offline; relocation notice visible. Other page cameras Kalaloch/Lake Crescent/River are different locations.",
+      "checked_at": "2026-09-03T19:02:02.513292+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Offline",
+      "listing_url": "https://forkswa.com/plan-your-visit/webcams/",
+      "name": "Forks Chamber of Commerce (La Push)"
+    },
+    {
+      "index": 50,
+      "disposition": "wrong_location",
+      "beach_id": null,
+      "beach_name": null,
+      "camera_url": "https://pixelcaster.com/dnc-kalaloch/kalaloch.jpg",
+      "existing_camera_url": null,
+      "reason": "Kalaloch Creek JPG is not directory The Cape; Kalaloch has no catalog row. Do not substitute La Push.",
+      "evidence_urls": [
+        "https://pixelcaster.com/dnc-kalaloch/kalaloch.jpg",
+        "https://forkswa.com/plan-your-visit/webcams/"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513293+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://pixelcaster.com/dnc-kalaloch/kalaloch.jpg",
+      "name": "ForksWA (The Cape)"
+    },
+    {
+      "index": 51,
+      "name": "Courtyard Virginia Beach Oceanfront",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "camera_url": "https://vbbound.com/webcams/courtyard-virginia-beach-boardwalk-webcam/",
+      "reason": "Provider specifies Courtyard at25th Street; no broad Virginia Beach or25thStreet catalog row. Existing pier/jetty rows are not equivalent.",
+      "evidence_urls": [
+        "https://vbbound.com/webcams/courtyard-virginia-beach-boardwalk-webcam/"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009006+00:00",
+      "category": "No matching catalog beach",
+      "listing_url": "https://vbbound.com/webcams/courtyard-virginia-beach-boardwalk-webcam/"
+    },
+    {
+      "index": 52,
+      "name": "Watermans Surfside Grill",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "camera_url": "https://vbbound.com/webcams/watermans-surfside-grill-boardwalk-webcam/",
+      "reason": "Provider specifies Watermans at5thStreet; no5thStreet or broad Virginia Beach row. Do not substitute for1stStreet Jetty.",
+      "evidence_urls": [
+        "https://vbbound.com/webcams/watermans-surfside-grill-boardwalk-webcam/"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009218+00:00",
+      "category": "No matching catalog beach",
+      "listing_url": "https://vbbound.com/webcams/watermans-surfside-grill-boardwalk-webcam/"
+    },
+    {
+      "index": 53,
+      "name": "Corolla Light Resort (Corolla Lighthouse)",
+      "disposition": "accepted",
+      "beach_id": "885440f6-10c2-4c70-aa40-b7b71044cda3",
+      "camera_url": "https://www.corollalightresort.com/surf-cam/",
+      "reason": "Official resort beach page identifies Corolla oceanfront camera.",
+      "evidence_urls": [
+        "https://www.corollalightresort.com/surf-cam/",
+        "https://www.corollalightresort.com/corolla-beaches"
+      ],
+      "playback_observation": "Browser LIVE/Pause and oceanfront surf scene visually verified earlier this turn.",
+      "checked_at": "2026-09-03T19:00:58.009225+00:00",
+      "category": "Add verified camera",
+      "listing_url": "https://www.corollalightresort.com/surf-cam/"
+    },
+    {
+      "index": 54,
+      "name": "Sea Ranch Resort (Avalon Pier)",
+      "disposition": "offline",
+      "beach_id": "fea10ecf-6b55-4cc9-b29b-f215f923759d",
+      "camera_url": "https://www.searanchresort.com/webcam/",
+      "reason": "Broad Kill Devil Hills row could accept resort beach but current player explicitly offline; do not map to Avalon Pier.",
+      "evidence_urls": [
+        "https://www.searanchresort.com/webcam/"
+      ],
+      "playback_observation": "Chrome screenshot: Brownrice player states webcam appears offline, with dark stale scene.",
+      "checked_at": "2026-09-03T19:00:58.009229+00:00",
+      "category": "Offline",
+      "listing_url": "https://www.searanchresort.com/webcam/"
+    },
+    {
+      "index": 55,
+      "name": "Nest (Jenkinsons (Point Pleasant Beach))",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "camera_url": "https://video.nest.com/live/JKTTcsayyN",
+      "reason": "No Jenkinsons/Point Pleasant beach row in467-row snapshot.",
+      "evidence_urls": [
+        "https://video.nest.com/live/JKTTcsayyN"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009232+00:00",
+      "category": "No matching catalog beach",
+      "listing_url": "https://video.nest.com/live/JKTTcsayyN"
+    },
+    {
+      "index": 56,
+      "name": "The Surfers View (Rockaway)",
+      "disposition": "wrong_location",
+      "beach_id": null,
+      "camera_url": "https://thesurfersview.com/live-cams/new-york/rockaway-beach-cam-and-surf-report/",
+      "reason": "Generic Rockaway listing does not establish90th or98thStreet field of view; no broad Rockaway row.",
+      "evidence_urls": [
+        "https://thesurfersview.com/live-cams/new-york/rockaway-beach-cam-and-surf-report/"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009235+00:00",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://thesurfersview.com/live-cams/new-york/rockaway-beach-cam-and-surf-report/"
+    },
+    {
+      "index": 57,
+      "name": "TOBAY Beach Live Stream",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "camera_url": "https://www.youtube.com/watch?v=Qzcvhq34p6w",
+      "reason": "TOBAY has no exact catalog row; do not assign to Montauk Ditch Plains/Turtle Cove or Hampton NH.",
+      "evidence_urls": [
+        "https://www.youtube.com/@townofoysterbay9160/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009241+00:00",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@townofoysterbay9160/streams"
+    },
+    {
+      "index": 58,
+      "name": "Resorts Casino Hotel Beach Camera",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "camera_url": "https://www.youtube.com/watch?v=vVyBOU9Huvo",
+      "reason": "Atlantic City Resorts has no exact catalog row; do not assign to Montauk Ditch Plains/Turtle Cove or Hampton NH.",
+      "evidence_urls": [
+        "https://www.youtube.com/@ResortsCasino/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009246+00:00",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@ResortsCasino/streams"
+    },
+    {
+      "index": 59,
+      "name": "EEOR - East Hampton, NY Main Beach Surf and Weather Webcam",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "camera_url": "https://www.youtube.com/watch?v=E8fp7TDgQUk",
+      "reason": "East Hampton Main Beach has no exact catalog row; do not assign to Montauk Ditch Plains/Turtle Cove or Hampton NH.",
+      "evidence_urls": [
+        "https://www.youtube.com/@ErdmanVideoSystems/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009249+00:00",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@ErdmanVideoSystems/streams"
+    },
+    {
+      "index": 60,
+      "name": "Hamptons.com - LIVE! 4K Main Beach, East Hampton Village, New York - Hamptons Surf Report",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "camera_url": "https://www.youtube.com/watch?v=xM1-e429Y3A",
+      "reason": "East Hampton Main Beach has no exact catalog row; do not assign to Montauk Ditch Plains/Turtle Cove or Hampton NH.",
+      "evidence_urls": [
+        "https://www.youtube.com/@Hamptons/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009253+00:00",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@Hamptons/streams"
+    },
+    {
+      "index": 61,
+      "name": "Hamptons.com - LIVE! Windmill Bay & Beach, Sag Harbor, New York | K Pasa Restaurant",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "camera_url": "https://www.youtube.com/watch?v=l1A96hXsrCU",
+      "reason": "Sag Harbor Windmill Bay has no exact catalog row; do not assign to Montauk Ditch Plains/Turtle Cove or Hampton NH.",
+      "evidence_urls": [
+        "https://www.youtube.com/@Hamptons/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009256+00:00",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@Hamptons/streams"
+    },
+    {
+      "index": 62,
+      "name": "Two Palms (Lori Wilson Park)",
+      "disposition": "wrong_location",
+      "beach_id": null,
+      "camera_url": "https://www.twopalms.com/",
+      "reason": "Provider HTML explicitly Cape Canaveral, not directory Lori Wilson Park. No Cape Canaveral row.",
+      "evidence_urls": [
+        "https://www.twopalms.com/"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009262+00:00",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://www.twopalms.com/"
+    },
+    {
+      "index": 63,
+      "name": "New Smyrna Beach Cam 180",
+      "disposition": "wrong_location",
+      "beach_id": null,
+      "camera_url": "https://www.youtube.com/watch?v=550p9smwjPM",
+      "reason": "New Smyrna Beach/Flagler Avenue listing does not establish inlet coverage; existing inlet row already has another camera.",
+      "evidence_urls": [
+        "https://www.youtube.com/@VolusiaBeaches/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009266+00:00",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://www.youtube.com/@VolusiaBeaches/streams"
+    },
+    {
+      "index": 64,
+      "name": "Volusia Beaches (New Smyrna Inlet)",
+      "disposition": "duplicate",
+      "beach_id": "f5eec6e8-844a-41be-b3bf-4c47e0615545",
+      "camera_url": "https://www.youtube.com/@VolusiaBeaches/streams",
+      "reason": "Same Volusia channel as63; channel is not a specific inlet player; existing inlet camera retained.",
+      "evidence_urls": [
+        "https://www.youtube.com/@VolusiaBeaches/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009269+00:00",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://www.youtube.com/@VolusiaBeaches/streams"
+    },
+    {
+      "index": 65,
+      "name": "Volusia County (New Smyrna Inlet)",
+      "disposition": "existing_camera",
+      "beach_id": "f5eec6e8-844a-41be-b3bf-4c47e0615545",
+      "camera_url": "https://www.skylinewebcams.com/en/webcam/united-states/florida/new-smyrna/new-smyrna.html",
+      "reason": "Existing inlet camera retained; no replacement authorized. Skyline broad New Smyrna page also does not prove inlet field of view.",
+      "evidence_urls": [
+        "https://www.skylinewebcams.com/en/webcam/united-states/florida/new-smyrna/new-smyrna.html"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009272+00:00",
+      "category": "Existing camera retained",
+      "listing_url": "https://www.skylinewebcams.com/en/webcam/united-states/florida/new-smyrna/new-smyrna.html"
+    },
+    {
+      "index": 66,
+      "name": "Skyline Webcams (Laguna Beach - South Crescent Bay)",
+      "disposition": "wrong_location",
+      "beach_id": null,
+      "camera_url": "https://www.skylinewebcams.com/en/webcam/united-states/california/laguna-beach/laguna-beach.html",
+      "reason": "Provider description identifies The Cliff Restaurant, not South Crescent Bay. No matching exact beach established; do not map by directory proximity.",
+      "evidence_urls": [
+        "https://www.skylinewebcams.com/en/webcam/united-states/california/laguna-beach/laguna-beach.html"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009275+00:00",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://www.skylinewebcams.com/en/webcam/united-states/california/laguna-beach/laguna-beach.html"
+    },
+    {
+      "index": 67,
+      "name": "Surf & Sand Resort (Laguna Beach - Rockpile)",
+      "disposition": "wrong_location",
+      "beach_id": null,
+      "camera_url": "https://www.surfandsandresort.com/live-webcam",
+      "reason": "Surf & Sand resort frontage is not Rockpile; exact Rockpile coverage unsupported.",
+      "evidence_urls": [
+        "https://www.surfandsandresort.com/live-webcam"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009278+00:00",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://www.surfandsandresort.com/live-webcam"
+    },
+    {
+      "index": 68,
+      "name": "Lifeguard HQ",
+      "disposition": "existing_camera",
+      "beach_id": "071db1df-b5ee-4af6-a022-ea8a09667cbe",
+      "camera_url": "https://www.youtube.com/watch?v=RGYlFjV-dtc",
+      "reason": "Huntington pier rows already carry city pier camera; retain those. Lifeguard HQ is another view, not proven Huntington St row.",
+      "evidence_urls": [
+        "https://www.youtube.com/@cityofhb/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009281+00:00",
+      "category": "Existing camera retained",
+      "listing_url": "https://www.youtube.com/@cityofhb/streams"
+    },
+    {
+      "index": 69,
+      "name": "View from Huntington Beach Pier",
+      "disposition": "existing_camera",
+      "beach_id": "071db1df-b5ee-4af6-a022-ea8a09667cbe",
+      "camera_url": "https://www.youtube.com/watch?v=mhQjsLBfOoY",
+      "reason": "Exact video mhQjsLBfOoY already assigned to Huntington pier rows.",
+      "evidence_urls": [
+        "https://www.youtube.com/@cityofhb/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009284+00:00",
+      "category": "Existing camera retained",
+      "listing_url": "https://www.youtube.com/@cityofhb/streams"
+    },
+    {
+      "index": 70,
+      "name": "Huntington Pier Webcam",
+      "disposition": "duplicate",
+      "beach_id": "071db1df-b5ee-4af6-a022-ea8a09667cbe",
+      "camera_url": "https://www.youtube.com/watch?v=mhQjsLBfOoY",
+      "reason": "Same video mhQjsLBfOoY as69.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=mhQjsLBfOoY"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009287+00:00",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://www.youtube.com/watch?v=mhQjsLBfOoY"
+    },
+    {
+      "index": 71,
+      "name": "Lifeguard HQ Huntington Beach (Huntington Pier)",
+      "disposition": "duplicate",
+      "beach_id": "071db1df-b5ee-4af6-a022-ea8a09667cbe",
+      "camera_url": "https://www.youtube.com/watch?v=RGYlFjV-dtc",
+      "reason": "Same video RGYlFjV-dtc as68.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=RGYlFjV-dtc"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009290+00:00",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://www.youtube.com/watch?v=RGYlFjV-dtc"
+    },
+    {
+      "index": 72,
+      "name": "North Coast Aviation (Manchester Beach)",
+      "disposition": "wrong_location",
+      "beach_id": "c778cc0a-2094-4649-84cd-4c38ce864f23",
+      "camera_url": "https://northcoastaviation.com/pt_arena/point_arena_west.htm",
+      "reason": "Provider describes west lighthouse/sky view and Arena Rock offshore, not catalog beach break. No beach field of view established.",
+      "evidence_urls": [
+        "https://northcoastaviation.com/pt_arena/point_arena_west.htm"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009293+00:00",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://northcoastaviation.com/pt_arena/point_arena_west.htm"
+    },
+    {
+      "index": 73,
+      "name": "7th Street Surf Shop (Ocean City - 7th Street)",
+      "disposition": "duplicate",
+      "beach_id": "336e967d-86a6-40db-9404-e398b057fefe",
+      "camera_url": "https://7thstreetsurfshop.com/wave-cam",
+      "reason": "General wave-cam entry duplicates specific7thStreet provider entry74; use74.",
+      "evidence_urls": [
+        "https://7thstreetsurfshop.com/wave-cam"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009296+00:00",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://7thstreetsurfshop.com/wave-cam"
+    },
+    {
+      "index": 74,
+      "name": "7th Street Surf Shop (Ocean City - 7th Street)",
+      "disposition": "accepted",
+      "beach_id": "336e967d-86a6-40db-9404-e398b057fefe",
+      "camera_url": "https://7thstreetsurfshop.com/wave-cam/7th-street",
+      "reason": "Official7thStreet Surf Shop labels specific7thStreet Wave Cam.",
+      "evidence_urls": [
+        "https://7thstreetsurfshop.com/wave-cam/7th-street"
+      ],
+      "playback_observation": "Chrome clicked play; player reported LIVE; screenshot after playback showed changed surf/boardwalk scene.",
+      "checked_at": "2026-09-03T19:00:58.009299+00:00",
+      "category": "Add verified camera",
+      "listing_url": "https://7thstreetsurfshop.com/wave-cam/7th-street"
+    },
+    {
+      "index": 75,
+      "name": "Berger Realty (Ocean City - 7th Street)",
+      "disposition": "wrong_location",
+      "beach_id": null,
+      "camera_url": "https://www.bergerrealty.com/ocean-city/live-cams.html",
+      "reason": "Provider lists9th,14th and3rdStreet cameras plus Hollywood Arcade, not exact7thStreet camera. Use74 for7thStreet.",
+      "evidence_urls": [
+        "https://www.bergerrealty.com/ocean-city/live-cams.html"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009302+00:00",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://www.bergerrealty.com/ocean-city/live-cams.html"
+    },
+    {
+      "index": 76,
+      "name": "Ocean City Webcams (Ocean City - 14th 15th St)",
+      "disposition": "wrong_location",
+      "beach_id": null,
+      "camera_url": "https://oceancitylive.com/ocean-city-webcams/ocean-city-beach-cam/",
+      "reason": "Provider explicitly Ocean City MARYLAND21stStreet Grand Hotel, not directory14th/15thStreet NJ. No Maryland catalog rows.",
+      "evidence_urls": [
+        "https://oceancitylive.com/ocean-city-webcams/ocean-city-beach-cam/"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009305+00:00",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://oceancitylive.com/ocean-city-webcams/ocean-city-beach-cam/"
+    },
+    {
+      "index": 77,
+      "name": "Sea Isle City Beach Patrol Webcam",
+      "disposition": "wrong_location",
+      "beach_id": null,
+      "camera_url": "https://www.youtube.com/watch?v=FYOGiFH60uM",
+      "reason": "Beach Patrol HQ44thStreet view does not prove36th–42nd or12thStreet coverage.",
+      "evidence_urls": [
+        "https://www.youtube.com/@seaislecitybeachpatrol2994/streams",
+        "https://sicbp.com/50thAnnualCaptainBillGallagher10MileIslandRun"
+      ],
+      "playback_observation": "Chrome video showed active beach footage and21watching; no exact catalog field of view established.",
+      "checked_at": "2026-09-03T19:00:58.009308+00:00",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://www.youtube.com/@seaislecitybeachpatrol2994/streams"
+    },
+    {
+      "index": 78,
+      "name": "Rehoboth Boardwalk Plaza Hotel Cam",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "camera_url": "https://www.youtube.com/watch?v=lq15dNFXISw",
+      "reason": "No Rehoboth or Delaware beach in supplied catalog snapshot.",
+      "evidence_urls": [
+        "https://www.youtube.com/@rehobothboardwalkcam2205/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009311+00:00",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@rehobothboardwalkcam2205/streams"
+    },
+    {
+      "index": 79,
+      "name": "Beach-net.com Boardwalk Plaza Hotel (Rehoboth Main)",
+      "disposition": "duplicate",
+      "beach_id": null,
+      "camera_url": "https://www.rehobothbeachcam.com/",
+      "reason": "Same Boardwalk Plaza/Rehoboth provider camera as78; also no Rehoboth catalog row.",
+      "evidence_urls": [
+        "https://www.rehobothbeachcam.com/"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009314+00:00",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://www.rehobothbeachcam.com/"
+    },
+    {
+      "index": 80,
+      "name": "Flagler Beach Pier Cam (Flagler)",
+      "disposition": "duplicate",
+      "beach_id": "9ca1fa2f-2b90-4aa3-8784-48721e5463bb",
+      "camera_url": "https://www.youtube.com/@flaglerbeachpiercam3210",
+      "reason": "Alternate Flagler pier channel; use already playback-verified direct Flagler Surf provider81, one camera per beach.",
+      "evidence_urls": [
+        "https://www.youtube.com/@flaglerbeachpiercam3210"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009317+00:00",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://www.youtube.com/@flaglerbeachpiercam3210"
+    },
+    {
+      "index": 81,
+      "name": "Flagler Surf (Flagler)",
+      "disposition": "accepted",
+      "beach_id": "9ca1fa2f-2b90-4aa3-8784-48721e5463bb",
+      "camera_url": "https://flaglersurf.com/webcam/",
+      "reason": "Provider explicitly Flagler Beach.",
+      "evidence_urls": [
+        "https://flaglersurf.com/webcam/"
+      ],
+      "playback_observation": "Browser iframe reported LIVE; screenshots showed changed waves beside pier construction earlier this turn.",
+      "checked_at": "2026-09-03T19:00:58.009320+00:00",
+      "category": "Add verified camera",
+      "listing_url": "https://flaglersurf.com/webcam/"
+    },
+    {
+      "index": 82,
+      "name": "North Vilano - South Ponte Vedra Surf Station Cam",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "camera_url": "https://www.youtube.com/watch?v=o4BJ-eDgYrM",
+      "reason": "No North Vilano/South Ponte Vedra catalog row.",
+      "evidence_urls": [
+        "https://www.youtube.com/@SurfStationCam/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009323+00:00",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@SurfStationCam/streams"
+    },
+    {
+      "index": 83,
+      "name": "Surf Station North Pier Cam",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "camera_url": "https://www.youtube.com/watch?v=Q6eZVkUKFxo",
+      "reason": "No St Augustine Pier catalog row.",
+      "evidence_urls": [
+        "https://www.youtube.com/@SurfStationCam/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009325+00:00",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@SurfStationCam/streams"
+    },
+    {
+      "index": 84,
+      "name": "@SurfStationCam (St Augustine Pier)",
+      "disposition": "duplicate",
+      "beach_id": null,
+      "camera_url": "https://www.youtube.com/embed/Q6eZVkUKFxo",
+      "reason": "Same video Q6eZVkUKFxo as83; no St Augustine row.",
+      "evidence_urls": [
+        "https://www.youtube.com/embed/Q6eZVkUKFxo"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009328+00:00",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://www.youtube.com/embed/Q6eZVkUKFxo"
+    },
+    {
+      "index": 85,
+      "name": "Surf Station (St Augustine Beach Pier)",
+      "disposition": "duplicate",
+      "beach_id": null,
+      "camera_url": "https://www.surf-station.com/st-augustine-pier-wave-cam/",
+      "reason": "Provider page same StAugustine Pier camera as83; no catalog row.",
+      "evidence_urls": [
+        "https://www.surf-station.com/st-augustine-pier-wave-cam/"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009331+00:00",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://www.surf-station.com/st-augustine-pier-wave-cam/"
+    },
+    {
+      "index": 86,
+      "disposition": "wrong_location",
+      "beach_id": "13a91b0d-3e80-4140-b11e-2c1b12e00687",
+      "beach_name": "Redondo Breakwall",
+      "camera_url": "https://www.youtube.com/watch?v=TuVOKRP7IBA",
+      "existing_camera_url": null,
+      "reason": "Verified live view explicitly looks SOUTH of Redondo Beach Pier; catalog Redondo Breakwall is north at33.8495,-118.4041. No broad Redondo Beach row.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=TuVOKRP7IBA",
+        "https://www.youtube.com/@CityofRedondoBeachIT/streams"
+      ],
+      "playback_observation": "YouTube live controls and visible shoreline frame; on-screen View South of Redondo Beach Pier Thursday Sep3 12:00PM. This is genuine playback but wrong catalog location.",
+      "checked_at": "2026-09-03T19:02:02.513295+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Location mismatch or unproven coverage",
+      "listing_url": "https://www.youtube.com/@CityofRedondoBeachIT/streams",
+      "name": "City of Redondo Beach Pier"
+    },
+    {
+      "index": 87,
+      "disposition": "access_blocked",
+      "beach_id": "13a91b0d-3e80-4140-b11e-2c1b12e00687",
+      "beach_name": "Redondo Breakwall",
+      "camera_url": "https://www.luvinlife.me/Beach_Cam.html",
+      "existing_camera_url": null,
+      "reason": "Private owner page has no clear exact Redondo Breakwall coverage and no playable webcam observed.",
+      "evidence_urls": [
+        "https://www.luvinlife.me/Beach_Cam.html"
+      ],
+      "playback_observation": "Browser showed Dave & Kathy slice of Heaven, audio-player and empty about:blank iframe; no live beach image.",
+      "checked_at": "2026-09-03T19:02:02.513297+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Playback unverified",
+      "listing_url": "https://www.luvinlife.me/Beach_Cam.html",
+      "name": "LuvinLife (Redondo Beach)"
+    },
+    {
+      "index": 88,
+      "disposition": "existing_camera",
+      "beach_id": "7a093b7e-2230-4bf1-abeb-9b31faa794d5",
+      "beach_name": "Manhattan Beach Pier",
+      "camera_url": "https://www.youtube.com/watch?v=tBEIYdw1HeM",
+      "existing_camera_url": "https://hdontap.com/stream/126730/manhattan-beach-pier-ultra-hd-live-webcam/",
+      "reason": "Exact catalog beach already has HDOnTap camera; alternate does not create a new row.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=tBEIYdw1HeM",
+        "https://www.youtube.com/@TheSurfersView/streams"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513298+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Existing camera retained",
+      "listing_url": "https://www.youtube.com/@TheSurfersView/streams",
+      "name": "Manhattan Beach Cam and Surf Report"
+    },
+    {
+      "index": 89,
+      "disposition": "existing_camera",
+      "beach_id": "11467f21-5a69-430d-9eb9-05a46cd39990",
+      "beach_name": "Venice Beach",
+      "camera_url": "https://www.westland.net/beachcam/",
+      "existing_camera_url": "https://hdontap.com/stream/322247/venice-beach-live-surf-cam/",
+      "reason": "Boardwalk/Sidewalk Cafe provider location maps broad Venice Beach, already camera-populated. No Venice Pier row; must not pretend precise pier view.",
+      "evidence_urls": [
+        "https://www.westland.net/beachcam/"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513300+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Existing camera retained",
+      "listing_url": "https://www.westland.net/beachcam/",
+      "name": "Venice Sidewalk Cafe (Venice Pier)"
+    },
+    {
+      "index": 90,
+      "disposition": "existing_camera",
+      "beach_id": "96fd7011-b894-4776-a68d-ff16fb1985d8",
+      "beach_name": "Venice Breakwater",
+      "camera_url": "https://www.youtube.com/watch?v=EO_1LWqsCNE",
+      "existing_camera_url": "https://hdontap.com/stream/322247/venice-beach-live-surf-cam/",
+      "reason": "Catalog Venice Breakwater and broad Venice Beach both already have HDOnTap view; do not overwrite.",
+      "evidence_urls": [
+        "https://www.youtube.com/watch?v=EO_1LWqsCNE",
+        "https://www.youtube.com/@Teleport.camera/streams"
+      ],
+      "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+      "checked_at": "2026-09-03T19:02:02.513301+00:00",
+      "rights_status": "Public provider page only; rebroadcast/download/embedding license not established.",
+      "category": "Existing camera retained",
+      "listing_url": "https://www.youtube.com/@Teleport.camera/streams",
+      "name": "🔴 Los Angeles Live Cam · Venice Beach · Venice V Hotel · Live Camera Stream"
+    },
+    {
+      "index": 91,
+      "name": "Gateway Subaru Camera at The Commander Hotel",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "camera_url": "https://www.youtube.com/watch?v=zCEiot7sEWY",
+      "reason": "Commander Hotel Ocean City Maryland; no Maryland beach row.",
+      "evidence_urls": [
+        "https://www.youtube.com/@CommanderCamera-qv3xl/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009334+00:00",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.youtube.com/@CommanderCamera-qv3xl/streams"
+    },
+    {
+      "index": 92,
+      "name": "Days Inn Oceanfront (The Inlet and Pier)",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "camera_url": "https://daysinnboardwalk.com/ocean-city-md-hotel-live-cam/",
+      "reason": "Days Inn Ocean City Maryland; no Maryland beach row; not New Jersey Ocean City.",
+      "evidence_urls": [
+        "https://daysinnboardwalk.com/ocean-city-md-hotel-live-cam/"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009337+00:00",
+      "category": "No matching catalog beach",
+      "listing_url": "https://daysinnboardwalk.com/ocean-city-md-hotel-live-cam/"
+    },
+    {
+      "index": 93,
+      "name": "Jacksonville Beach Pier Live Cam / South View / By 911surfreport.com",
+      "disposition": "accepted",
+      "beach_id": "a4472f56-626e-4905-b909-5f1dc27174a9",
+      "camera_url": "https://www.youtube.com/watch?v=c400PBf6adI",
+      "reason": "Provider title/description explicitly southside Jacksonville Beach Pier, provided by pier/BeachLife Rentals/911SurfReport.",
+      "evidence_urls": [
+        "https://www.youtube.com/@eddiewouldknow/streams"
+      ],
+      "playback_observation": "Chrome Pause/Live; visible09-03-2026 14:58:43 timestamp, surfers and breaking waves;6watching.",
+      "checked_at": "2026-09-03T19:00:58.009340+00:00",
+      "category": "Add verified camera",
+      "listing_url": "https://www.youtube.com/@eddiewouldknow/streams"
+    },
+    {
+      "index": 94,
+      "name": "Surf Station (Ponte Vedra)",
+      "disposition": "duplicate",
+      "beach_id": null,
+      "camera_url": "https://www.surf-station.com/north-vilano-surf-cam/",
+      "reason": "Same North Vilano/South Ponte Vedra camera as82; no catalog row.",
+      "evidence_urls": [
+        "https://www.surf-station.com/north-vilano-surf-cam/"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009343+00:00",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://www.surf-station.com/north-vilano-surf-cam/"
+    },
+    {
+      "index": 95,
+      "name": "Live Cam From The Best Western In Jacksonville Beach, Fl.",
+      "disposition": "duplicate",
+      "beach_id": "a4472f56-626e-4905-b909-5f1dc27174a9",
+      "camera_url": "https://www.youtube.com/watch?v=bZ4uxyLqV-E",
+      "reason": "Alternate BestWestern Jacksonville shoreline view; selected verified pier south view93 instead. No separate broad Jacksonville beach row.",
+      "evidence_urls": [
+        "https://www.youtube.com/@eddiewouldknow/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009346+00:00",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://www.youtube.com/@eddiewouldknow/streams"
+    },
+    {
+      "index": 96,
+      "name": "Jacksonville Beach Pier Live Cam / North View / By 911surfreport.com",
+      "disposition": "duplicate",
+      "beach_id": "a4472f56-626e-4905-b909-5f1dc27174a9",
+      "camera_url": "https://www.youtube.com/watch?v=JLvCEDGJr-s",
+      "reason": "Alternate north view of same named pier; selected verified south view93 under one-camera-per-beach schema.",
+      "evidence_urls": [
+        "https://www.youtube.com/@eddiewouldknow/streams"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009349+00:00",
+      "category": "Duplicate or alternate listing",
+      "listing_url": "https://www.youtube.com/@eddiewouldknow/streams"
+    },
+    {
+      "index": 97,
+      "name": "Golden Isles Georgia (St Simons Island)",
+      "disposition": "no_catalog_match",
+      "beach_id": null,
+      "camera_url": "https://www.goldenisles.com/webcams/",
+      "reason": "StSimons/GoldenIsles cameras have no catalog row. Tybee Island is a different island and must not receive these.",
+      "evidence_urls": [
+        "https://www.goldenisles.com/webcams/"
+      ],
+      "playback_observation": "Not playback-tested: disposition determined by catalog/geographic/duplicate review.",
+      "checked_at": "2026-09-03T19:00:58.009352+00:00",
+      "category": "No matching catalog beach",
+      "listing_url": "https://www.goldenisles.com/webcams/"
+    }
+  ]
+}

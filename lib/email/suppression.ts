@@ -34,11 +34,7 @@ export async function filterSuppressedRecipients<
         .in("email", emailChunk);
 
       if (error) {
-        console.error(
-          `${CONTEXT_TAG} Failed to check email suppression list:`,
-          error
-        );
-        return recipients;
+        throw error;
       }
 
       for (const entry of data ?? []) {
@@ -58,6 +54,6 @@ export async function filterSuppressedRecipients<
       `${CONTEXT_TAG} Failed to check email suppression list:`,
       error
     );
-    return recipients;
+    throw new Error("Email suppression lookup failed", { cause: error });
   }
 }

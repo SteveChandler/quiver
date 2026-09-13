@@ -538,6 +538,7 @@ async function _GET(request: Request): Promise<Response> {
         }
 
         const { data: sendData, error: sendError } = await sendEmail({
+          contactPolicy: { userId: candidate.user_id, emailType: "first_session_nudge" },
           from: MAIL_FROM,
           replyTo: MAIL_REPLY_TO,
           to: candidate.email,

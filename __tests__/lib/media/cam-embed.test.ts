@@ -1,6 +1,30 @@
 import { buildCamEmbed, getViewableUrl, toProxiedHlsUrl } from "@/lib/media/cam-embed";
 
 describe("buildCamEmbed", () => {
+  it.each([
+    ["https://flaglersurf.com/webcam/", "Flagler Surf"],
+    ["https://www.corollalightresort.com/surf-cam/", "Corolla Light Resort"],
+    ["https://7thstreetsurfshop.com/wave-cam/7th-street", "7th Street Surf Shop"],
+    ["https://www.hilton.com/en/hotels/hnlwahf-hilton-waikiki-beach-resort-and-spa/resort/webcam/", "Hilton"],
+    ["https://www.ozolio.com/explore/IDWX000000A6", "Ozolio"],
+    ["https://brenneckes.com/beach-webcam/", "Brennecke’s"],
+    ["https://www.napilisunset.com/live-webcam/", "Napili Sunset"],
+    ["https://www.sigward.com/", "Muir Beach Webcam"],
+    ["https://video.nest.com/live/JKTTcsayyN", "Nest"],
+    ["https://vbbound.com/webcams/courtyard-virginia-beach-boardwalk-webcam/", "Virginia Beach Bound"],
+    ["https://marriott.ozolio.com/mauna-kea-beach-hotel/", "Mauna Kea Beach Hotel"],
+  ])("opens verified provider page %s externally", (pageUrl, provider) => {
+    expect(buildCamEmbed(pageUrl)).toEqual({ kind: "external", pageUrl, provider });
+  });
+
+  it.each([
+    "https://relay.ozolio.com/pub.cgi?cmd=iframe&oid=CID_XCLW000002D1",
+    "https://marriott.ozolio.com/westin-hapuna-beach-resort/",
+    "https://constructor/",
+  ])("preserves iframe handling for unrelated host %s", (url) => {
+    expect(buildCamEmbed(url)).toMatchObject({ kind: "iframe", src: url });
+  });
+
   // --- Null / undefined ---
   it("returns none for null", () => {
     expect(buildCamEmbed(null)).toEqual({ kind: "none" });

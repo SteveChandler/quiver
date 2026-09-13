@@ -398,6 +398,7 @@ export interface DataForSeoExportInput {
 export interface ManualBacklinkExport {
   source: string;
   path: string;
+  capturedAt?: string;
   rows: number;
   uniqueReferringDomains: number;
   sampleReferringDomains: string[];

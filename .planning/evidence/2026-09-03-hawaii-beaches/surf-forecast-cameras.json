@@ -1,0 +1,612 @@
+{
+  "checked_at": "2026-09-03T18:24:45.830469+00:00",
+  "scope": "Hawaii Island, Oahu, Kauai, Maui; five regional seeds and discovered camera-location links, not exhaustive statewide coverage",
+  "pages": [
+    {
+      "url": "https://www.surf-forecast.com/breaks/Makalawena/webcams/latest",
+      "status": 200,
+      "listings": 3
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+      "status": 200,
+      "listings": 11
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+      "status": 200,
+      "listings": 11
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Hanalei-Bay/webcams/latest",
+      "status": 200,
+      "listings": 4
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+      "status": 200,
+      "listings": 7
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Pine-Trees/webcams/latest",
+      "status": 200,
+      "listings": 3
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+      "status": 200,
+      "listings": 11
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Publics/webcams/latest",
+      "status": 200,
+      "listings": 11
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/P-Ks/webcams/latest",
+      "status": 200,
+      "listings": 4
+    },
+    {
+      "url": "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest",
+      "status": 200,
+      "listings": 7
+    }
+  ],
+  "cameras": [
+    {
+      "name": "Kohanaiki Web Camera",
+      "island": "Hawaii Island",
+      "listed_location": "Pine Trees",
+      "provider_url": "https://www.youtube.com/@kohanaikihawaii3092/streams",
+      "embed_url": "https://www.youtube.com/embed/Sb6v9lXIDjc?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/Sb6v9lXIDjc/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Makalawena/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Pine-Trees/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/Sb6v9lXIDjc?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "watch_url": "https://www.youtube.com/watch?v=Sb6v9lXIDjc",
+      "possible_overlap": []
+    },
+    {
+      "name": "KONAWEB (Hulihee Palace)",
+      "island": "Hawaii Island",
+      "listed_location": "Hulihee Palace",
+      "provider_url": "https://www.konaweb.com/cam/index.html",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Makalawena/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Pine-Trees/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.konaweb.com/cam/index.html",
+      "page_title": "KONAWEB - An Online Resource for the Big Island & Kona, Hawaii",
+      "provider_player_urls": [],
+      "possible_overlap": []
+    },
+    {
+      "name": "Mauna Kea Beach Hotel (Hapuna)",
+      "island": "Hawaii Island",
+      "listed_location": "Hapuna",
+      "provider_url": "https://marriott.ozolio.com/mauna-kea-beach-hotel/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Makalawena/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Pine-Trees/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://marriott.ozolio.com/mauna-kea-beach-hotel/",
+      "page_title": "Mauna Kea Beach Hotel, Autograph Collection – Marriott Bonvoy Webcams",
+      "provider_player_urls": [],
+      "possible_overlap": []
+    },
+    {
+      "name": "The Surfers View (Turtle Bay)",
+      "island": "Oahu",
+      "listed_location": "Turtle Bay",
+      "provider_url": "https://thesurfersview.com/live-cams/hawaii/turtle-bay-beach-cam-west-and-surf-report/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://thesurfersview.com/live-cams/hawaii/turtle-bay-beach-cam-west-and-surf-report/",
+      "page_title": "Turtle Bay Beach Cam West & Surf Report - The Surfers View",
+      "provider_player_urls": [],
+      "possible_overlap": []
+    },
+    {
+      "name": "Explore Annenberg LLC (Waimea Bay/Pinballs)",
+      "island": "Oahu",
+      "listed_location": "Waimea Bay/Pinballs",
+      "provider_url": "https://explore.org/livecams/hawaii/hawaii-waimea-bay-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://explore.org/livecams/hawaii/hawaii-waimea-bay-cam",
+      "page_title": "Hawaii Waimea Bay Cam | Hawaii | Live Cams | Explore.org",
+      "provider_player_urls": [],
+      "possible_overlap": []
+    },
+    {
+      "name": "LIVE Banzai Pipeline Surf Cam: North Shore, Oahu - Hawaii | explore.org",
+      "island": "Oahu",
+      "listed_location": "Banzai Pipeline and Backdoor",
+      "provider_url": "https://www.youtube.com/@ExploreBigSurfandBeaches",
+      "embed_url": "https://www.youtube.com/embed/Fp7l8XASb9Y?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/Fp7l8XASb9Y/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/Fp7l8XASb9Y?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "watch_url": "https://www.youtube.com/watch?v=Fp7l8XASb9Y",
+      "possible_overlap": []
+    },
+    {
+      "name": "Explore Annenberg LLC (Ehukai/Gums)",
+      "island": "Oahu",
+      "listed_location": "Ehukai/Gums",
+      "provider_url": "https://explore.org/livecams/hawaii/hawaii-pipeline-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://explore.org/livecams/hawaii/hawaii-pipeline-cam",
+      "page_title": "Hawaii Pipeline Cam | Hawaii | Live Cams | Explore.org",
+      "provider_player_urls": [],
+      "possible_overlap": []
+    },
+    {
+      "name": "Webcamtaxi (Ala Moana Courts)",
+      "island": "Oahu",
+      "listed_location": "Ala Moana Courts",
+      "provider_url": "https://www.webcamtaxi.com/en/usa/hawaii/honolulu-island-of-oahu.html/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_error": "HTTP Error 403: Forbidden",
+      "possible_overlap": []
+    },
+    {
+      "name": "CamGuide (Reef Runway (Hickam Harbor))",
+      "island": "Oahu",
+      "listed_location": "Hickam Harbor",
+      "provider_url": "https://camguide.net/usa/hawaii/honolulu/beach/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://camguide.net/usa/hawaii/honolulu/beach/",
+      "page_title": "Waikiki Beach, Mamala bay Webcam | Honolulu (HI)",
+      "provider_player_urls": [],
+      "possible_overlap": []
+    },
+    {
+      "name": "Ward Village (Ala Moana Bowls)",
+      "island": "Oahu",
+      "listed_location": "Ala Moana Bowls",
+      "provider_url": "https://www.wardvillage.com/surf-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_error": "HTTP Error 403: Forbidden",
+      "possible_overlap": []
+    },
+    {
+      "name": "Hilton Hotel Waikiki (Waikiki)",
+      "island": "Oahu",
+      "listed_location": "Waikiki",
+      "provider_url": "https://www.hiltonwaikikibeach.com/surf-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_error": "HTTP Error 403: Forbidden",
+      "possible_overlap": []
+    },
+    {
+      "name": "Sheraton Waikiki (Waikiki)",
+      "island": "Oahu",
+      "listed_location": "Waikiki",
+      "provider_url": "https://marriott.ozolio.com/sheraton-waikiki/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://marriott.ozolio.com/sheraton-waikiki/",
+      "page_title": "Sheraton Waikiki – Marriott Bonvoy Webcams",
+      "provider_player_urls": [],
+      "possible_overlap": []
+    },
+    {
+      "name": "Waikiki Aquarium (Waikiki)",
+      "island": "Oahu",
+      "listed_location": "Waikiki",
+      "provider_url": "https://www.youtube.com/@WaikikiAquariumHonolulu/streams",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/@WaikikiAquariumHonolulu/streams",
+      "page_title": "Waikiki Aquarium - YouTube",
+      "provider_player_urls": [],
+      "possible_overlap": [
+        "South Shore Surf Cam"
+      ]
+    },
+    {
+      "name": "South Shore Surf Cam",
+      "island": "Oahu",
+      "listed_location": "Publics",
+      "provider_url": "https://www.youtube.com/@WaikikiAquariumHonolulu/streams",
+      "embed_url": "https://www.youtube.com/embed/WIUg8wzhq1g?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/WIUg8wzhq1g/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Kualoa-Point/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kahana-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Banzai-Pipelines-and-Backdoor/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Publics/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/WIUg8wzhq1g?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "watch_url": "https://www.youtube.com/watch?v=WIUg8wzhq1g",
+      "possible_overlap": [
+        "Waikiki Aquarium (Waikiki)"
+      ]
+    },
+    {
+      "name": "The Royal Sonesta Resort (Kalapaki Beach)",
+      "island": "Kauai",
+      "listed_location": "Kalapaki Beach",
+      "provider_url": "https://www.ozolio.com/explore/IDWX000000A6",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Hanalei-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/P-Ks/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.ozolio.com/explore/IDWX000000A6",
+      "page_title": "Royal Sonesta Kaua'i Resort - Webcam - Ozolio",
+      "provider_player_urls": [
+        "https://relay.ozolio.com//pub.api?cmd=explore&oid=CID_IDWX000000A6&channel=0"
+      ],
+      "possible_overlap": []
+    },
+    {
+      "name": "Lawai Beach Resort - Live Cam",
+      "island": "Kauai",
+      "listed_location": "PKs",
+      "provider_url": "https://www.youtube.com/@OurLawaiBeachResort/streams",
+      "embed_url": "https://www.youtube.com/embed/3ATYHKN2hIg?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/3ATYHKN2hIg/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Hanalei-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/P-Ks/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/3ATYHKN2hIg?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "watch_url": "https://www.youtube.com/watch?v=3ATYHKN2hIg",
+      "possible_overlap": []
+    },
+    {
+      "name": "Whalers Cove Resort (PKs)",
+      "island": "Kauai",
+      "listed_location": "PKs",
+      "provider_url": "https://www.whalerscoveresort.com/webcam",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Hanalei-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/P-Ks/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.whalerscoveresort.com/webcam",
+      "page_title": "Webcam - Whalers Cove Resort",
+      "provider_player_urls": [],
+      "possible_overlap": []
+    },
+    {
+      "name": "Brenneckes.com (Brenneckes)",
+      "island": "Kauai",
+      "listed_location": "Brenneckes",
+      "provider_url": "https://brenneckes.com/beach-webcam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Hanalei-Bay/webcams/latest",
+        "https://www.surf-forecast.com/breaks/P-Ks/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://brenneckes.com/beach-webcam/",
+      "page_title": "beach-webcam – Brennecke’s Beach Broiler",
+      "provider_player_urls": [],
+      "possible_overlap": []
+    },
+    {
+      "name": "Maui Eldorado (Osterizers/Rainbows)",
+      "island": "Maui",
+      "listed_location": "Osterizers/Rainbows",
+      "provider_url": "https://www.mauieldorado.com/webcams",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.mauieldorado.com/webcams",
+      "page_title": "WEBCAMS | Explore Live Views — Your Site Title",
+      "provider_player_urls": [
+        "https://relay.ozolio.com/pub.api?cmd=embed&oid=EMB_PMFE00001042",
+        "https://relay.ozolio.com/pub.api?cmd=embed&oid=EMB_FUBD00000C0F"
+      ],
+      "possible_overlap": []
+    },
+    {
+      "name": "Whaler Condo (Ka'anapali Point)",
+      "island": "Maui",
+      "listed_location": "Ka'anapali Point",
+      "provider_url": "https://www.youtube.com/@mauilivecam7143/streams",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/@mauilivecam7143/streams",
+      "page_title": "Maui Live Cam - YouTube",
+      "provider_player_urls": [],
+      "possible_overlap": []
+    },
+    {
+      "name": "Maui Seashell – Hale Mahina Resort (S-Turns)",
+      "island": "Maui",
+      "listed_location": "S-Turns",
+      "provider_url": "https://halemahinacondo.com/web-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://halemahinacondo.com/web-cam/",
+      "page_title": "Web Cam – Maui Sea Shell Condo – Hale Mahina A305 – Ocean-Front Views in Maui",
+      "provider_player_urls": [],
+      "possible_overlap": []
+    },
+    {
+      "name": "Napili Sunset Resort (Little Makaha)",
+      "island": "Maui",
+      "listed_location": "Little Makaha",
+      "provider_url": "https://www.napilisunset.com/live-webcam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.napilisunset.com/live-webcam/",
+      "page_title": "Webcam - Napili Sunset",
+      "provider_player_urls": [],
+      "possible_overlap": []
+    },
+    {
+      "name": "The Hale Pau Hana Surf Cam",
+      "island": "Maui",
+      "listed_location": "Kihei Cove",
+      "provider_url": "https://www.youtube.com/@HalePauHanaBeachResortKihei/streams",
+      "embed_url": "https://www.youtube.com/embed/hPvl6IACa2k?autoplay=1&mute=1",
+      "thumbnail_url": "https://i.ytimg.com/vi/hPvl6IACa2k/hqdefault_live.jpg",
+      "type": "youtube",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.youtube.com/embed/hPvl6IACa2k?autoplay=1&mute=1",
+      "page_title": "YouTube",
+      "provider_player_urls": [],
+      "watch_url": "https://www.youtube.com/watch?v=hPvl6IACa2k",
+      "possible_overlap": []
+    },
+    {
+      "name": "Grand Wailea Hotel (Kihei Cove)",
+      "island": "Maui",
+      "listed_location": "Kihei Cove",
+      "provider_url": "https://www.grandwailea.com/grand-wailea-webcam",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.grandwailea.com/grand-wailea-maui-webcam",
+      "page_title": "View Our Daily Webcam | Grand Wailea Maui",
+      "provider_player_urls": [
+        "https://relay.ozolio.com/pub.api?cmd=embed&oid=EMB_NBDE00000DF9"
+      ],
+      "possible_overlap": []
+    },
+    {
+      "name": "Rentals Maui (Kihei Cove)",
+      "island": "Maui",
+      "listed_location": "Kihei Cove",
+      "provider_url": "https://www.rentalsmaui.com/maui-web-cam/",
+      "embed_url": null,
+      "thumbnail_url": null,
+      "type": "external",
+      "source_pages": [
+        "https://www.surf-forecast.com/breaks/Lahaina-Breakwall-Harbour/webcams/latest",
+        "https://www.surf-forecast.com/breaks/Kihei-Cove/webcams/latest"
+      ],
+      "coverage_status": "directory-listed; exact beach mapping unverified",
+      "embed_permission": "unverified",
+      "live_playback": "unverified",
+      "http_status": 200,
+      "resolved_url": "https://www.rentalsmaui.com/maui-web-cam/",
+      "page_title": "Hawaii Webcams on Maui: Kihei Cove Park at Charley Young Beach Webcam",
+      "provider_player_urls": [],
+      "possible_overlap": []
+    }
+  ]
+}

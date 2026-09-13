@@ -1,0 +1,486 @@
+[
+  {
+    "index": 25,
+    "disposition": "existing-camera",
+    "beach_id": "65809772-20bc-4009-b9b2-89c8ef3c4127",
+    "beach_name": "Pacific Beach",
+    "camera_url": "https://www.pacificterrace.com/web-cam",
+    "existing_camera_url": "https://hdontap.com/stream/186699/pacific-beach-live-surf-webcam/",
+    "reason": "Pacific Beach and Crystal Pier already have cameras; do not overwrite either.",
+    "evidence_urls": [
+      "https://www.pacificterrace.com/web-cam"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513109+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 26,
+    "disposition": "existing-camera",
+    "beach_id": "d291411d-d331-4bf1-ad1a-302da3c69de0",
+    "beach_name": "La Jolla Shores",
+    "camera_url": "https://www.youtube.com/watch?v=YQovPWtgydY",
+    "existing_camera_url": "https://hdontap.com/stream/532541/la-jolla-shores-live-surf-cam/",
+    "reason": "Exact catalog beach already has HDOnTap camera.",
+    "evidence_urls": [
+      "https://www.youtube.com/watch?v=YQovPWtgydY",
+      "https://www.youtube.com/@EarthWatchLive1"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513249+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 27,
+    "disposition": "existing-camera",
+    "beach_id": "5e72b79d-a12d-4cd3-8da4-b7b92069efbf",
+    "beach_name": "Del Mar",
+    "camera_url": "https://hdontap.com/stream/399483/del-mar-beach-south-roaming-live-webcam/",
+    "existing_camera_url": "https://hdontap.com/stream/399483/del-mar-beach-south-roaming-live-webcam/",
+    "reason": "Resolved HDOnTap URL already stored for Del Mar; also used by Del Mar Rivermouth and Torrey Pines.",
+    "evidence_urls": [
+      "https://hdontap.com/stream/399483/del-mar-beach-south-roaming-live-webcam/",
+      "https://hdontap.com/index.php/video/stream/del_mar_beach"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513252+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 28,
+    "disposition": "access-blocked",
+    "beach_id": "deea2ae1-849d-47a1-9c27-b7bd505dbc07",
+    "beach_name": "Moonlight State Beach",
+    "camera_url": "https://www.skylinewebcams.com/en/webcam/united-states/california/encinitas/encinitas-california.html",
+    "existing_camera_url": null,
+    "reason": "Plausible Moonlight rental association, but runtime playback failed and exact view remains unverified.",
+    "evidence_urls": [
+      "https://www.skylinewebcams.com/en/webcam/united-states/california/encinitas/encinitas-california.html"
+    ],
+    "playback_observation": "Browser provider page rendered Unable to play media; no playable live image verified.",
+    "checked_at": "2026-09-03T19:02:02.513254+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 29,
+    "disposition": "existing-camera",
+    "beach_id": "cceecad1-7668-4ad8-88ff-ade893c605cd",
+    "beach_name": "Oceanside Pier",
+    "camera_url": "https://www.youtube.com/watch?v=cvP_F-c2Upw",
+    "existing_camera_url": "https://www.youtube.com/watch?v=cvP_F-c2Upw",
+    "reason": "Exact same YouTube cvP_F-c2Upw already stored.",
+    "evidence_urls": [
+      "https://www.youtube.com/watch?v=cvP_F-c2Upw",
+      "https://www.youtube.com/@SanDiegoWebCam/streams"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513257+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 30,
+    "disposition": "existing-camera",
+    "beach_id": "1fe4bf73-c425-48a5-899d-a7e8ee2d67e3",
+    "beach_name": "Terramar Point",
+    "camera_url": "https://hdontap.com/stream/177276/terramar-point-surf-live-webcam/",
+    "existing_camera_url": "https://hdontap.com/stream/177276/terramar-point-surf-live-webcam/",
+    "reason": "Exact resolved Terramar HDOnTap URL already stored; also stored on Ponto.",
+    "evidence_urls": [
+      "https://hdontap.com/stream/177276/terramar-point-surf-live-webcam/",
+      "https://hdontap.com/index.php/video/stream/carlsbad-beach-live-webcam"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513258+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 31,
+    "disposition": "duplicate",
+    "beach_id": "cceecad1-7668-4ad8-88ff-ade893c605cd",
+    "beach_name": "Oceanside Pier",
+    "camera_url": "https://www.youtube.com/watch?v=OYqo4dqYjh0",
+    "existing_camera_url": "https://www.youtube.com/watch?v=cvP_F-c2Upw",
+    "reason": "Alternate Rooftop Bar fixed view of same pier covered by index29 existing camera; no broad Oceanside Beach catalog row.",
+    "evidence_urls": [
+      "https://www.youtube.com/watch?v=OYqo4dqYjh0",
+      "https://www.youtube.com/@SanDiegoWebCam/streams"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513260+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 32,
+    "disposition": "existing-camera",
+    "beach_id": "73bb4a48-3d53-42ba-bbd0-d89a7cf95711",
+    "beach_name": "Salt Creek",
+    "camera_url": "https://www.waldorfastoriamonarchbeach.com/experience/private-beach-club",
+    "existing_camera_url": "https://hdontap.com/stream/621213/monarch-bay-beach-club-live-webcam/",
+    "reason": "Owner Monarch Bay Beach Club view corresponds to existing Monarch Bay HDOnTap camera on Salt Creek. Do not relabel as Doheny/Strands.",
+    "evidence_urls": [
+      "https://www.waldorfastoriamonarchbeach.com/experience/private-beach-club"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513262+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 33,
+    "disposition": "duplicate",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://pacificaview.net/livecam/index.php/",
+    "existing_camera_url": null,
+    "reason": "PacificaView aggregate repeats Sharp Park/Pacifica Pier videos indices34-37; no Sharp Park catalog row.",
+    "evidence_urls": [
+      "https://pacificaview.net/livecam/index.php/"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513264+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 34,
+    "disposition": "no-catalog-match",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.youtube.com/watch?v=QYRIc4LcvqQ",
+    "existing_camera_url": null,
+    "reason": "Sharp Park/Pacifica Pier absent from catalog. Linda Mar and Rockaway are different beaches and already camera-populated.",
+    "evidence_urls": [
+      "https://www.youtube.com/watch?v=QYRIc4LcvqQ",
+      "https://www.youtube.com/@ChamberlinNature/streams"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513267+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 35,
+    "disposition": "no-catalog-match",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.youtube.com/watch?v=lmec_rcEIL4",
+    "existing_camera_url": null,
+    "reason": "Sharp Park absent from catalog; do not substitute Linda Mar/Rockaway.",
+    "evidence_urls": [
+      "https://www.youtube.com/watch?v=lmec_rcEIL4",
+      "https://www.youtube.com/@ChamberlinNature/streams"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513268+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 36,
+    "disposition": "duplicate",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.youtube.com/@ChamberlinNature/streams",
+    "existing_camera_url": null,
+    "reason": "Channel-wide provider link repeats indices34/35; not a unique camera or catalog match.",
+    "evidence_urls": [
+      "https://www.youtube.com/@ChamberlinNature/streams"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513270+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 37,
+    "disposition": "duplicate",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.pacificaview.net/livecam/",
+    "existing_camera_url": null,
+    "reason": "Same PacificaView aggregate as33 (www/path variation).",
+    "evidence_urls": [
+      "https://www.pacificaview.net/livecam/"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513272+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 38,
+    "disposition": "no-catalog-match",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.skylinewebcams.com/en/webcam/united-states/california/pacifica/pacifica-sharp-park-beach.html",
+    "existing_camera_url": null,
+    "reason": "Explicit Sharp Park provider page; Sharp Park absent from catalog.",
+    "evidence_urls": [
+      "https://www.skylinewebcams.com/en/webcam/united-states/california/pacifica/pacifica-sharp-park-beach.html",
+      "https://www.skylinewebcams.com/en/webcam/united-states/california/pacifica/pacifica-sharp-park-beach.html/"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513273+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 39,
+    "disposition": "access-blocked",
+    "beach_id": "eca7e91a-0e5e-40d5-acb4-59c6ff50d861",
+    "beach_name": "Ocean Beach SF \u2013 North",
+    "camera_url": "https://www.surfoutlook.com/surfcam/sanfrancisco/ocean-beach",
+    "existing_camera_url": null,
+    "reason": "Generic Ocean Beach SF page does not establish which of North/Middle/Sloat receives view; no verified live playback.",
+    "evidence_urls": [
+      "https://www.surfoutlook.com/surfcam/sanfrancisco/ocean-beach"
+    ],
+    "playback_observation": "Browser showed Surf Camera View image and CAM1/CAM2 controls, not verified playing video; no precise segment evidence.",
+    "checked_at": "2026-09-03T19:02:02.513275+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 40,
+    "disposition": "wrong-location",
+    "beach_id": "5a5dc7b8-4d30-44af-9715-3dbb4dbc9859",
+    "beach_name": "Stinson Beach",
+    "camera_url": "https://www.sigward.com/",
+    "existing_camera_url": null,
+    "reason": "Owner page explicitly labels camera MUIR BEACH, not Stinson Beach. No Muir Beach catalog row.",
+    "evidence_urls": [
+      "https://www.sigward.com/"
+    ],
+    "playback_observation": "Browser heading MUIR BEACH WEBCAM; iframe ipcamlive alias608dc4709bc06 rendered Unable to play media.",
+    "checked_at": "2026-09-03T19:02:02.513276+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 41,
+    "disposition": "wrong-location",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.youtube.com/watch?v=fHb0eB9RUgA",
+    "existing_camera_url": null,
+    "reason": "Camera title is Farallon Islands wildlife view, not directory Double Point; neither exact camera location nor Double Point exists in catalog.",
+    "evidence_urls": [
+      "https://www.youtube.com/watch?v=fHb0eB9RUgA",
+      "https://www.youtube.com/@calacademy/streams"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513278+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 42,
+    "disposition": "no-catalog-match",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.youtube.com/watch?v=t4IilnlL_9Q",
+    "existing_camera_url": null,
+    "reason": "Point Reyes National Seashore wildlife stream; Drakes Estero/Point Reyes absent from catalog. Do not relabel as Bolinas/Stinson.",
+    "evidence_urls": [
+      "https://www.youtube.com/watch?v=t4IilnlL_9Q",
+      "https://www.youtube.com/@themarinemammalcenterlives3249/streams"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513280+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 43,
+    "disposition": "offline",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.lawsonslanding.com/webcam.html",
+    "existing_camera_url": null,
+    "reason": "Owner explicitly says camera down for maintenance; Shark Pit/Lawsons Landing absent from catalog.",
+    "evidence_urls": [
+      "https://www.lawsonslanding.com/webcam.html"
+    ],
+    "playback_observation": "Owner web page states camera down for maintenance but will be back in a few days.",
+    "checked_at": "2026-09-03T19:02:02.513282+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 44,
+    "disposition": "no-catalog-match",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.usgs.gov/media/webcams/santa-cruz-main-beach-video-camera-1-snapshot",
+    "existing_camera_url": null,
+    "reason": "USGS source is Santa Cruz Main Beach snapshot, not Cowells Cove; neither Main Beach nor Cowells exists in catalog. Not a verified video stream.",
+    "evidence_urls": [
+      "https://www.usgs.gov/media/webcams/santa-cruz-main-beach-video-camera-1-snapshot"
+    ],
+    "playback_observation": "USGS page labels video camera 1 snapshot and serves image.",
+    "checked_at": "2026-09-03T19:02:02.513284+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 45,
+    "disposition": "wrong-location",
+    "beach_id": "92e18cf0-97c3-4c68-9cdf-800eb9ac4313",
+    "beach_name": "Bodega Bay / Doran Beach",
+    "camera_url": "https://www.youtube.com/watch?v=jUjO_Z1EVfA",
+    "existing_camera_url": null,
+    "reason": "Horseshoe Cove at UC Davis Bodega Marine Reserve is a different cove from Doran Beach.",
+    "evidence_urls": [
+      "https://www.youtube.com/watch?v=jUjO_Z1EVfA",
+      "https://www.youtube.com/@BodegaMarineLab/streams",
+      "https://boon.ucdavis.edu/tools/coastal-conditions"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513285+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 46,
+    "disposition": "duplicate",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://boon.ucdavis.edu/tools/coastal-conditions/",
+    "existing_camera_url": null,
+    "reason": "Official BOON page embeds same Horseshoe Cove webcam as45, not directory Salmon Creek. No Horseshoe Cove/Salmon Creek catalog row.",
+    "evidence_urls": [
+      "https://boon.ucdavis.edu/tools/coastal-conditions/",
+      "https://boon.ucdavis.edu/tools/coastal-conditions"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513287+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 47,
+    "disposition": "existing-camera",
+    "beach_id": "4055099a-2e07-4a84-b17a-47a401ff749c",
+    "beach_name": "Seaside Cove",
+    "camera_url": "https://www.youtube.com/watch?v=Ce_vAKq1kUA",
+    "existing_camera_url": "https://seasidelanai.com/",
+    "reason": "Broad Seaside catalog row already has seasidelanai.com camera; City of Seaside label does not justify assigning to separate precise Seaside Cove (Oregon) row.",
+    "evidence_urls": [
+      "https://www.youtube.com/watch?v=Ce_vAKq1kUA",
+      "https://www.youtube.com/@KOINLOCAL6"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513289+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 48,
+    "disposition": "no-catalog-match",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.youtube.com/watch?v=KFPYXo72qDI",
+    "existing_camera_url": null,
+    "reason": "Chinook Winds/Roads End absent from catalog; Nelscott Reef is a distinct reef south of resort and must not inherit camera.",
+    "evidence_urls": [
+      "https://www.youtube.com/watch?v=KFPYXo72qDI",
+      "https://www.youtube.com/@KOINLOCAL6/streams"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513290+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 49,
+    "disposition": "offline",
+    "beach_id": "058c415c-39da-41bb-aee9-c4942d79e95d",
+    "beach_name": "La Push \u2014 First Beach",
+    "camera_url": "https://forkswa.com/plan-your-visit/webcams/",
+    "existing_camera_url": null,
+    "reason": "Owner explicitly says First Beach and James Island cameras temporarily offline during relocation.",
+    "evidence_urls": [
+      "https://forkswa.com/plan-your-visit/webcams/"
+    ],
+    "playback_observation": "Browser heading La Push Webcams Temporarily Offline; relocation notice visible. Other page cameras Kalaloch/Lake Crescent/River are different locations.",
+    "checked_at": "2026-09-03T19:02:02.513292+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 50,
+    "disposition": "wrong-location",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://pixelcaster.com/dnc-kalaloch/kalaloch.jpg",
+    "existing_camera_url": null,
+    "reason": "Kalaloch Creek JPG is not directory The Cape; Kalaloch has no catalog row. Do not substitute La Push.",
+    "evidence_urls": [
+      "https://pixelcaster.com/dnc-kalaloch/kalaloch.jpg",
+      "https://forkswa.com/plan-your-visit/webcams/"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513293+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 86,
+    "disposition": "wrong-location",
+    "beach_id": "13a91b0d-3e80-4140-b11e-2c1b12e00687",
+    "beach_name": "Redondo Breakwall",
+    "camera_url": "https://www.youtube.com/watch?v=TuVOKRP7IBA",
+    "existing_camera_url": null,
+    "reason": "Verified live view explicitly looks SOUTH of Redondo Beach Pier; catalog Redondo Breakwall is north at33.8495,-118.4041. No broad Redondo Beach row.",
+    "evidence_urls": [
+      "https://www.youtube.com/watch?v=TuVOKRP7IBA",
+      "https://www.youtube.com/@CityofRedondoBeachIT/streams"
+    ],
+    "playback_observation": "YouTube live controls and visible shoreline frame; on-screen View South of Redondo Beach Pier Thursday Sep3 12:00PM. This is genuine playback but wrong catalog location.",
+    "checked_at": "2026-09-03T19:02:02.513295+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 87,
+    "disposition": "access-blocked",
+    "beach_id": "13a91b0d-3e80-4140-b11e-2c1b12e00687",
+    "beach_name": "Redondo Breakwall",
+    "camera_url": "https://www.luvinlife.me/Beach_Cam.html",
+    "existing_camera_url": null,
+    "reason": "Private owner page has no clear exact Redondo Breakwall coverage and no playable webcam observed.",
+    "evidence_urls": [
+      "https://www.luvinlife.me/Beach_Cam.html"
+    ],
+    "playback_observation": "Browser showed Dave & Kathy slice of Heaven, audio-player and empty about:blank iframe; no live beach image.",
+    "checked_at": "2026-09-03T19:02:02.513297+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 88,
+    "disposition": "existing-camera",
+    "beach_id": "7a093b7e-2230-4bf1-abeb-9b31faa794d5",
+    "beach_name": "Manhattan Beach Pier",
+    "camera_url": "https://www.youtube.com/watch?v=tBEIYdw1HeM",
+    "existing_camera_url": "https://hdontap.com/stream/126730/manhattan-beach-pier-ultra-hd-live-webcam/",
+    "reason": "Exact catalog beach already has HDOnTap camera; alternate does not create a new row.",
+    "evidence_urls": [
+      "https://www.youtube.com/watch?v=tBEIYdw1HeM",
+      "https://www.youtube.com/@TheSurfersView/streams"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513298+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 89,
+    "disposition": "existing-camera",
+    "beach_id": "11467f21-5a69-430d-9eb9-05a46cd39990",
+    "beach_name": "Venice Beach",
+    "camera_url": "https://www.westland.net/beachcam/",
+    "existing_camera_url": "https://hdontap.com/stream/322247/venice-beach-live-surf-cam/",
+    "reason": "Boardwalk/Sidewalk Cafe provider location maps broad Venice Beach, already camera-populated. No Venice Pier row; must not pretend precise pier view.",
+    "evidence_urls": [
+      "https://www.westland.net/beachcam/"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513300+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  },
+  {
+    "index": 90,
+    "disposition": "existing-camera",
+    "beach_id": "96fd7011-b894-4776-a68d-ff16fb1985d8",
+    "beach_name": "Venice Breakwater",
+    "camera_url": "https://www.youtube.com/watch?v=EO_1LWqsCNE",
+    "existing_camera_url": "https://hdontap.com/stream/322247/venice-beach-live-surf-cam/",
+    "reason": "Catalog Venice Breakwater and broad Venice Beach both already have HDOnTap view; do not overwrite.",
+    "evidence_urls": [
+      "https://www.youtube.com/watch?v=EO_1LWqsCNE",
+      "https://www.youtube.com/@Teleport.camera/streams"
+    ],
+    "playback_observation": "Not playback-tested: excluded by catalog/existing-camera gate.",
+    "checked_at": "2026-09-03T19:02:02.513301+00:00",
+    "rights_status": "Public provider page only; rebroadcast/download/embedding license not established."
+  }
+]

@@ -46,6 +46,7 @@ export const dynamic = 'force-dynamic';
 const BASE_ALLOWED_DOMAINS = [
   "api.openverse.org",
   "upload.wikimedia.org",
+  "thumb.wikimedia.org",
   "live.staticflickr.com",
   "i0.wp.com",
   "i1.wp.com",

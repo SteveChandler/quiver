@@ -14,6 +14,8 @@ Phases 1 through 20 are complete. Phase 13 closed the controlled refactor checkp
 
 Phase 20.1 implementation and web release are complete. Native #312/#313, deterministic #309 assignment, and the Week Scout correction are released through the existing build-16 OTA; exact Android receipt and #312 physical completion are proven, while #313 delivery attribution and mature retention evidence remain. Phase 21 implementation is integrated and serving only the exact Steven/Shapan allowlist. Its production integrity and ingestion-parity reports are verified; local-job retirement and outcome validation remain gated, and broad rollout stays dark.
 
+Cross-project Phase 26 is planned in the native GSD proposal queue but has not been approved for execution or activation. Web owns its partition integrity, event detection, audience, safety, enqueue, delivery, and observability work; native owns destination presentation, routing, and device proof.
+
 ## Active Requirements
 
 - Preserve Phase 13 validation evidence in `docs/refactor-roadmap.md`.
@@ -30,6 +32,7 @@ Phase 20.1 implementation and web release are complete. Native #312/#313, determ
 - Watch/alert and session feedback adoption is too small to show that either currently drives return behavior.
 - Phase 20 production web verification passed after approved deploy. Native `/app/spot/:slug` routing is simulator-verified; signed HTTPS handoff and App Store first-open context recovery remain device validation lanes in Phase 20.1.
 - Phase 21 exactly-two-account allowlist, production integrity proof, canary activation, and production ingestion parity passed on 2026-09-01. Local-scraper retirement and outcome validation remain gated under MFA-08; broad rollout stays dark.
+- Swell Watch remains shadow-only. The planned Phase 26 must preserve secondary partition data across the NOAA/Open-Meteo seam and prove detection, recipient consolidation, automatic holds, dedupe, and delivery safety before activation can be considered.
 - Future refactor candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Public go-live deployment/alias promotion and any outbound launch actions remain approval-gated.
 
@@ -53,6 +56,7 @@ Phase 20.1 implementation and web release are complete. Native #312/#313, determ
 - Keep #312 closed with its exact Android physical receipt; collect a genuine #313 push-attribution receipt and mature #309 cohort evidence.
 - Use the Phase 20.1 validation scorecard and holdouts after D1/D7 maturity to decide expansion, continued pilot, revision, or rollback. Do not claim retention lift from raw event counts.
 - Keep Phase 21 limited to Steven/Shapan while local-job retirement and outcome validation continue; broad rollout stays dark.
+- Keep Phase 26 in the proposal lane until explicitly approved; if activated, execute its backend plans in this repository and its routing/presentation plans in `quiver-native` without cross-repository commits.
 - Keep deploy, production mutation, outbound send, payment, entitlement, production flag, and native publication actions approval-gated.
 
 ## Session Intelligence v1 Addendum
@@ -342,3 +346,23 @@ Plans:
 - [x] 21-03 — Coverage-Aware Decision Engine
 - [x] 21-04 — Forecast Builder Integration and Privacy
 - [ ] 21-05 — Verification and Default-On Rollout (read-only verification complete; canary activation and outcome validation remain)
+
+### Cross-Project Phase 26: Incoming Swell Detection and Push Alerts
+
+**Goal:** Turn the existing shadow-only Swell Watch capability into a trustworthy incoming-swell alert while keeping all production sends disabled until an explicit release approval.
+**Mode:** standard
+**Depends on:** Native Phase 25
+**Status:** 11 plans prepared in the native proposal queue; 0 executed; activation unapproved.
+**Canonical plan:** [Phase 26 context](../../quiver-native/.planning/proposals/26-incoming-swell-detection-and-push-alerts/26-CONTEXT.md)
+**Web ownership:** Plans 26-01 through 26-07 preserve S1/S2 partitions, calibrate and persist stable regional events, select and consolidate eligible recipients, define the push contract, enforce fail-closed safety, and wire an observable still-disabled pipeline. Plans 26-10 and 26-11 provide cross-repository release evidence and a separately approved reversible activation.
+**Native ownership:** Plans 26-08 and 26-09 preserve lifecycle routing and show the incoming partition at the exact Beach Detail forecast window.
+**Success Criteria** (what must be TRUE):
+
+  1. Secondary partitions remain independently detectable across source handoffs, with explicit provenance and missingness.
+  2. Beach-relative incoming-swell events require stable, coherent, actionable evidence and suppress contradictions or stale/discontinuous data.
+  3. Only explicitly related, push-enabled users qualify, and one regional swell produces one consolidated notification per user.
+  4. Quiet hours, release-time revalidation, dedupe/cooldown, kill switch, automatic holds, authentication, and observability fail closed.
+  5. Native taps open the lead beach at the event window and show source-honest partition context through warm, background, and cold starts.
+  6. Automated and device evidence passes before a separate human-approved production activation.
+
+**Plans:** 11 prepared; see the [native Phase 26 proposal](../../quiver-native/.planning/proposals/26-incoming-swell-detection-and-push-alerts/) for the dependency-ordered execution plans.

@@ -153,6 +153,7 @@ describe("RevenueCat entitlement reconciliation report", () => {
           retry_count: 0,
         },
       ],
+      [],
       NOW,
     );
 
@@ -163,6 +164,31 @@ describe("RevenueCat entitlement reconciliation report", () => {
       pending_count: 3,
       retry_count: 3,
       by_event_type: { EXPIRATION: 2, unknown: 1 },
+    });
+  });
+
+  it("separates active trial cancellation intent from cancellation lifecycle events", () => {
+    const report = buildEntitlementReconciliationReport(
+      [
+        { user_id: "renewing", is_pro: true, is_trialing: true, will_renew: true, profile_found: true, rc_raw: { environment: "PRODUCTION", period_type: "TRIAL" } },
+        { user_id: "cancelled", is_pro: true, is_trialing: true, will_renew: false, profile_found: true, rc_raw: { environment: "PRODUCTION", period_type: "TRIAL" } },
+        { user_id: "unknown", is_pro: true, is_trialing: true, will_renew: null, profile_found: true, rc_raw: { environment: "PRODUCTION", period_type: "TRIAL" } },
+      ],
+      [],
+      [
+        { app_user_id: "cancelled", event_type: "CANCELLATION", event_timestamp: "2026-08-14T12:00:00.000Z", environment: "PRODUCTION", profile_found: true },
+        { app_user_id: "renewing", event_type: "UNCANCELLATION", event_timestamp: "2026-08-07T12:00:00.000Z", environment: "PRODUCTION", profile_found: true },
+        { app_user_id: "mock", event_type: "EXPIRATION", event_timestamp: "2026-08-14T12:00:00.000Z", environment: "PRODUCTION", is_mock: true, profile_found: true },
+      ],
+      NOW,
+    );
+
+    expect(report.cancellation).toEqual({
+      active_trials: { total: 3, renewing: 1, cancelled_renewal: 1, renewal_unknown: 1 },
+      events: {
+        current_7d: { CANCELLATION: 1, UNCANCELLATION: 0, EXPIRATION: 0 },
+        prior_7d: { CANCELLATION: 0, UNCANCELLATION: 1, EXPIRATION: 0 },
+      },
     });
   });
 

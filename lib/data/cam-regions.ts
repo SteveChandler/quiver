@@ -1,7 +1,7 @@
 /**
  * Cam Region Definitions
  *
- * Maps US states to surfing regions for the /cams directory pages.
+ * Maps US states to surfing regions for the /surf-cams directory pages.
  * Each region groups beaches by geographic proximity and surfing culture.
  */
 
@@ -12,12 +12,6 @@ export interface CamRegion {
   states: string[];
   /** Short description for SEO and display */
   description: string;
-  /**
-   * Set when a curated /surf-cams page already owns this region's search
-   * demand. The /cams/<slug> URL then permanently redirects there, stays out
-   * of the sitemap and IndexNow, and every hub link points at the owner.
-   */
-  canonicalPath?: string;
 }
 
 export const CAM_REGIONS: CamRegion[] = [
@@ -53,7 +47,6 @@ export const CAM_REGIONS: CamRegion[] = [
     slug: "florida",
     name: "Florida",
     states: ["FL"],
-    canonicalPath: "/surf-cams/florida",
     description:
       "Live surf cams from Jacksonville to South Florida — East Coast swells and Gulf breaks.",
   },
@@ -140,21 +133,7 @@ export function getAllCamRegionSlugs(): string[] {
   return CAM_REGIONS.map((r) => r.slug);
 }
 
-/**
- * Cam region slugs whose /cams/<slug> page is the canonical, indexable URL.
- * Use this for the sitemap and IndexNow so redirecting URLs are never
- * advertised to crawlers.
- */
-export function getIndexableCamRegionSlugs(): string[] {
-  return CAM_REGIONS.filter((r) => !r.canonicalPath).map((r) => r.slug);
-}
-
-/**
- * Public path for a cam region: the curated owner page when one exists,
- * otherwise the /cams/<slug> directory page.
- */
-export function getCamRegionPath(
-  region: Pick<CamRegion, "slug" | "canonicalPath">,
-): string {
-  return region.canonicalPath ?? `/cams/${region.slug}`;
+/** Public canonical path for a regional cam page. */
+export function getCamRegionPath(region: Pick<CamRegion, "slug">): string {
+  return `/surf-cams/${region.slug}`;
 }

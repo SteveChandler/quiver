@@ -78,6 +78,7 @@ jest.mock("@/lib/supabase/server", () => ({
 // const declarations, but the closure defers access until call time.
 const mockEmailsSend = jest.fn();
 jest.mock("@/lib/mailer/client", () => ({
+  sendEmail: (...args: any[]) => mockEmailsSend(...args),
   resend: {
     emails: {
       send: (...args: any[]) => mockEmailsSend(...args),
@@ -492,6 +493,8 @@ describe("Session Prompt Email Cron Job API", () => {
       await GET(request);
 
       expect(mockEmailsSend).toHaveBeenCalledWith({
+        contactPolicy: { userId: "user-1", emailType: "session_prompt" },
+        unsubscribeUrl: expect.stringContaining("/api/alerts/unsubscribe-email"),
         from: "Quiver <test@quiversurf.app>",
         replyTo: "Quiver <test@quiversurf.app>",
         to: "user1@example.com",
@@ -534,7 +537,7 @@ describe("Session Prompt Email Cron Job API", () => {
       expect(callArgs.beachName).toBe("Ocean Beach");
       expect(callArgs.conditionsScore).toBe(90);
       expect(callArgs.surfDescription).toBe("Clean 3-4ft");
-      expect(callArgs.unsubscribeUrl).toBe("https://quiversurf.app/settings");
+      expect(callArgs.unsubscribeUrl).toMatch(/^https:\/\/quiversurf.app\/api\/alerts\/unsubscribe-email\?user_id=user-1&token=[a-f0-9]+$/);
       expect(callArgs.appSessionUrl).toBe(callArgs.confirmUrl);
       expect(callArgs.confirmUrl).toBe(callArgs.skipUrl);
       const ctaUrl = new URL(callArgs.appSessionUrl);

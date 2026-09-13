@@ -28,6 +28,7 @@ export interface ReconciliationEntitlementRow {
   user_id: string;
   is_pro?: boolean | null;
   is_trialing?: boolean | null;
+  will_renew?: boolean | null;
   expires_at?: string | null;
   lapsed_at?: string | null;
   billing_issue?: boolean | null;
@@ -47,6 +48,15 @@ export interface FailedWebhookQueueRow {
   last_retried_at?: string | null;
 }
 
+export interface RevenueCatLifecycleEventRow {
+  app_user_id?: string | null;
+  event_type?: string | null;
+  event_timestamp?: string | null;
+  environment?: string | null;
+  is_mock?: boolean | null;
+  profile_found?: boolean;
+}
+
 export interface EntitlementReconciliationReport {
   generated_at: string;
   read_only: true;
@@ -58,6 +68,18 @@ export interface EntitlementReconciliationReport {
     pending_count: number;
     retry_count: number;
     by_event_type: Record<string, number>;
+  };
+  cancellation: {
+    active_trials: {
+      total: number;
+      renewing: number;
+      cancelled_renewal: number;
+      renewal_unknown: number;
+    };
+    events: {
+      current_7d: Record<"CANCELLATION" | "UNCANCELLATION" | "EXPIRATION", number>;
+      prior_7d: Record<"CANCELLATION" | "UNCANCELLATION" | "EXPIRATION", number>;
+    };
   };
 }
 
@@ -177,9 +199,61 @@ function countByEventType(rows: FailedWebhookQueueRow[]): Record<string, number>
   }, {});
 }
 
+const CANCELLATION_EVENT_TYPES = ["CANCELLATION", "UNCANCELLATION", "EXPIRATION"] as const;
+
+type CancellationEventType = (typeof CANCELLATION_EVENT_TYPES)[number];
+
+function emptyCancellationEventCounts(): Record<CancellationEventType, number> {
+  return { CANCELLATION: 0, UNCANCELLATION: 0, EXPIRATION: 0 };
+}
+
+function cancellationEventType(event: RevenueCatLifecycleEventRow): CancellationEventType | null {
+  const type = event.event_type?.toUpperCase();
+  return CANCELLATION_EVENT_TYPES.includes(type as CancellationEventType)
+    ? type as CancellationEventType
+    : null;
+}
+
+function isProductionProfileEvent(event: RevenueCatLifecycleEventRow): boolean {
+  return event.profile_found !== false
+    && event.is_mock !== true
+    && event.environment?.toUpperCase() === "PRODUCTION";
+}
+
+function buildCancellationSummary(
+  entitlements: ReconciliationEntitlementRow[],
+  events: RevenueCatLifecycleEventRow[],
+  now: Date,
+): EntitlementReconciliationReport["cancellation"] {
+  const activeTrials = { total: 0, renewing: 0, cancelled_renewal: 0, renewal_unknown: 0 };
+  for (const row of entitlements) {
+    if (classifyEntitlement(row, now) !== "trial") continue;
+    activeTrials.total += 1;
+    if (row.will_renew === true) activeTrials.renewing += 1;
+    else if (row.will_renew === false) activeTrials.cancelled_renewal += 1;
+    else activeTrials.renewal_unknown += 1;
+  }
+
+  const current = emptyCancellationEventCounts();
+  const prior = emptyCancellationEventCounts();
+  const nowMs = now.getTime();
+  const currentStartMs = nowMs - 7 * 86_400_000;
+  const priorStartMs = currentStartMs - 7 * 86_400_000;
+  for (const event of events) {
+    const type = cancellationEventType(event);
+    const timestamp = event.event_timestamp ? Date.parse(event.event_timestamp) : Number.NaN;
+    if (!type || !isProductionProfileEvent(event) || !Number.isFinite(timestamp)) continue;
+    if (timestamp >= currentStartMs && timestamp <= nowMs) current[type] += 1;
+    else if (timestamp >= priorStartMs && timestamp < currentStartMs) prior[type] += 1;
+  }
+
+  return { active_trials: activeTrials, events: { current_7d: current, prior_7d: prior } };
+}
+
 export function buildEntitlementReconciliationReport(
   rows: ReconciliationEntitlementRow[],
   failedWebhookRows: FailedWebhookQueueRow[],
+  lifecycleEvents: RevenueCatLifecycleEventRow[],
   now = new Date(),
 ): EntitlementReconciliationReport {
   const bySegment = Object.fromEntries(
@@ -205,5 +279,6 @@ export function buildEntitlementReconciliationReport(
       ),
       by_event_type: countByEventType(failedWebhookRows),
     },
+    cancellation: buildCancellationSummary(rows, lifecycleEvents, now),
   };
 }

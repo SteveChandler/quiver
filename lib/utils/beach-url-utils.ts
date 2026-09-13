@@ -106,11 +106,13 @@ export function buildHiCityUrlForBeach(beach: {
 export const US_STATE_SLUG_MAP: Record<string, string> = {
   // US States (2-letter codes)
   CA: "ca",
+  DE: "de",
   FL: "fl",
   GA: "ga",
   HI: "hi",
   MA: "ma",
   ME: "me",
+  MD: "md",
   NC: "nc",
   NH: "nh",
   NJ: "nj",
@@ -125,10 +127,12 @@ export const US_STATE_SLUG_MAP: Record<string, string> = {
 
   // US States (full names) - common surf states
   California: "ca",
+  Delaware: "de",
   Florida: "fl",
   Georgia: "ga",
   Hawaii: "hi",
   Maine: "me",
+  Maryland: "md",
   Massachusetts: "ma",
   "New Hampshire": "nh",
   "New Jersey": "nj",

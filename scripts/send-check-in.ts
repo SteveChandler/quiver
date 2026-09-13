@@ -105,6 +105,9 @@ function parseRecipients(path: string): Recipient[] {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const send = args.includes("--send");
+  if (send && process.env.EMAIL_CONTACT_POLICY_ENABLED === "true") {
+    throw new Error("Legacy direct sends are disabled under the shared contact policy. Use the managed sender.");
+  }
   const testIdx = args.indexOf("--test");
   const subjectIdx = args.indexOf("--subject");
   const subject = subjectIdx >= 0 ? args[subjectIdx + 1] : DEFAULT_SUBJECT;

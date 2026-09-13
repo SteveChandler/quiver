@@ -1,0 +1,411 @@
+[
+  {
+    "index": 0,
+    "name": "Kohanaiki Web Camera",
+    "disposition": "coverage_unresolved",
+    "beach_id": "fbe805b3-b9f5-40e0-afbb-3c5a8d45f67b",
+    "beach_name": "Pine Trees (Kohanaiki)",
+    "camera_url": "https://www.youtube.com/watch?v=Sb6v9lXIDjc",
+    "reason": "Kohanaiki channel confirmed but camera views resort lawn and partly obscured coastline. Cannot establish Pine Trees public surf area field of view at catalog coordinates; do not infer from resort name.",
+    "evidence_urls": [
+      "https://www.youtube.com/@kohanaikihawaii3092/streams",
+      "https://www.youtube.com/watch?v=Sb6v9lXIDjc"
+    ],
+    "playback_observation": "Chrome YouTube watch page showed Live/Pause, one viewer; two screenshots showed changing whitewater and palm positions. Playback working; exact location unresolved.",
+    "checked_at": "2026-09-03T19:00:17.339906+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 1,
+    "name": "KONAWEB (Hulihee Palace)",
+    "disposition": "no_catalog_match",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.konaweb.com/cam/index.html",
+    "reason": "KONAWEB says camera is at Fish Hopper restaurant, Alii Drive Kailua-Kona. No exact Hulihee/Kailua Bay catalog beach; not Pine Trees.",
+    "evidence_urls": [
+      "https://www.konaweb.com/cam/index.html"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340405+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 2,
+    "name": "Mauna Kea Beach Hotel (Hapuna)",
+    "disposition": "mismatch",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://marriott.ozolio.com/mauna-kea-beach-hotel/",
+    "reason": "Official camera page explicitly identifies Kaunaoa Bay; directory Hapuna label wrong. No Kaunaoa catalog beach.",
+    "evidence_urls": [
+      "https://marriott.ozolio.com/mauna-kea-beach-hotel/"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340412+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 3,
+    "name": "The Surfers View (Turtle Bay)",
+    "disposition": "no_catalog_match",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://thesurfersview.com/live-cams/hawaii/turtle-bay-beach-cam-west-and-surf-report/",
+    "reason": "Turtle Bay West named by provider; no Turtle Bay catalog beach. Not Kualoa or Kahana.",
+    "evidence_urls": [
+      "https://thesurfersview.com/live-cams/hawaii/turtle-bay-beach-cam-west-and-surf-report/"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340416+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 4,
+    "name": "Explore Annenberg LLC (Waimea Bay/Pinballs)",
+    "disposition": "existing_camera",
+    "beach_id": "12431285-b73c-48e4-99b3-731594f6f98c",
+    "beach_name": "Waimea Bay",
+    "camera_url": "https://explore.org/livecams/hawaii/hawaii-waimea-bay-cam/",
+    "reason": "Waimea Bay already has camera_url; retain existing. Provider indexed status Off Season; not verified currently live.",
+    "evidence_urls": [
+      "https://explore.org/livecams/hawaii/hawaii-waimea-bay-cam/",
+      "https://explore.org/livecams/oceans/hawaii-waimea-bay-cam"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340422+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 5,
+    "name": "LIVE Banzai Pipeline Surf Cam: North Shore, Oahu - Hawaii | explore.org",
+    "disposition": "existing_camera",
+    "beach_id": "6a0674ac-3e6d-49f3-9fd4-a4f1857c408a",
+    "beach_name": "Pipeline",
+    "camera_url": "https://www.youtube.com/@ExploreBigSurfandBeaches",
+    "reason": "Pipeline already has camera_url. This and index6 represent Explore Pipeline/Ehukai; no replacement authorized by additive import.",
+    "evidence_urls": [
+      "https://www.youtube.com/@ExploreBigSurfandBeaches"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340427+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 6,
+    "name": "Explore Annenberg LLC (Ehukai/Gums)",
+    "disposition": "duplicate",
+    "beach_id": "6a0674ac-3e6d-49f3-9fd4-a4f1857c408a",
+    "beach_name": "Pipeline",
+    "camera_url": "https://explore.org/livecams/hawaii/hawaii-pipeline-cam/",
+    "reason": "Same Explore Pipeline/Ehukai camera as index5; preserve existing Pipeline camera.",
+    "evidence_urls": [
+      "https://explore.org/livecams/hawaii/hawaii-pipeline-cam/"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340431+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 7,
+    "name": "Webcamtaxi (Ala Moana Courts)",
+    "disposition": "no_catalog_match",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.webcamtaxi.com/en/usa/hawaii/honolulu-island-of-oahu.html/",
+    "reason": "Ala Moana Courts is not an existing catalog beach; do not relabel as Ala Moana Bowls. Prior HTTP403 did not verify playback.",
+    "evidence_urls": [
+      "https://www.webcamtaxi.com/en/usa/hawaii/honolulu-island-of-oahu.html/"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340435+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 8,
+    "name": "CamGuide (Reef Runway (Hickam Harbor))",
+    "disposition": "mismatch",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://camguide.net/usa/hawaii/honolulu/beach/",
+    "reason": "Directory Hickam Harbor label contradicts destination Waikiki/Mamala Bay title. Exact view unverified.",
+    "evidence_urls": [
+      "https://camguide.net/usa/hawaii/honolulu/beach/"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340439+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 9,
+    "name": "Ward Village (Ala Moana Bowls)",
+    "disposition": "existing_camera",
+    "beach_id": "80fc2c1b-2d3f-4a94-bcc2-c8ea0e9b8fc5",
+    "beach_name": "Ala Moana Bowls",
+    "camera_url": "https://www.wardvillage.com/surf-cam/",
+    "reason": "Ala Moana Bowls already has camera_url; provider exact field of view remains unverified; preserve existing.",
+    "evidence_urls": [
+      "https://www.wardvillage.com/surf-cam/"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340443+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 10,
+    "name": "Hilton Hotel Waikiki (Waikiki)",
+    "disposition": "accepted",
+    "beach_id": "846ccff8-0e26-41f3-8496-5c5221109c6c",
+    "beach_name": "Waikiki Beach",
+    "camera_url": "https://www.hilton.com/en/hotels/hnlwahf-hilton-waikiki-beach-resort-and-spa/resort/webcam/",
+    "reason": "Official Hilton page redirects to current hilton.com City & Beach Webcam; playing view includes Waikiki surf zone and beach. Broad Waikiki Beach mapping supported.",
+    "evidence_urls": [
+      "https://www.hiltonwaikikibeach.com/surf-cam/",
+      "https://www.hilton.com/en/hotels/hnlwahf-hilton-waikiki-beach-resort-and-spa/resort/webcam/"
+    ],
+    "playback_observation": "Chrome EarthCam player displayed LIVE, Pause, Sep3 2026 current morning clock. Two screenshots showed changing wave fronts and a camera pan over Waikiki beach.",
+    "checked_at": "2026-09-03T19:00:17.340449+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 11,
+    "name": "Sheraton Waikiki (Waikiki)",
+    "disposition": "playback_unverified_alternative",
+    "beach_id": "846ccff8-0e26-41f3-8496-5c5221109c6c",
+    "beach_name": "Waikiki Beach",
+    "camera_url": "https://marriott.ozolio.com/sheraton-waikiki/",
+    "reason": "Provider location Waikiki confirmed but player never produced image in two separated Chrome screenshots. Prefer verified Hilton index10 for one-source-per-beach.",
+    "evidence_urls": [
+      "https://marriott.ozolio.com/sheraton-waikiki/"
+    ],
+    "playback_observation": "Two Chrome screenshots showed black player with loading spinner; no actual playback confirmed.",
+    "checked_at": "2026-09-03T19:00:17.340453+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 12,
+    "name": "Waikiki Aquarium (Waikiki)",
+    "disposition": "existing_camera",
+    "beach_id": "880748ee-5423-4b2e-a5c3-b2faab5c4a7a",
+    "beach_name": "Waikiki (Aquarium)",
+    "camera_url": "https://www.waikikiaquarium.org/experience/virtual/webcam/",
+    "reason": "Official Aquarium URL already assigned to Waikiki (Aquarium), preserve.",
+    "evidence_urls": [
+      "https://www.youtube.com/@WaikikiAquariumHonolulu/streams",
+      "https://www.waikikiaquarium.org/experience/virtual/webcam/"
+    ],
+    "playback_observation": "Expanded South Shore Surf Cam accordion in Chrome; embedded WIUg8wzhq1g showed panoramic ocean with changing water between screenshots.",
+    "checked_at": "2026-09-03T19:00:17.340457+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 13,
+    "name": "South Shore Surf Cam",
+    "disposition": "duplicate",
+    "beach_id": "880748ee-5423-4b2e-a5c3-b2faab5c4a7a",
+    "beach_name": "Waikiki (Aquarium)",
+    "camera_url": "https://www.youtube.com/@WaikikiAquariumHonolulu/streams",
+    "reason": "Same stream WIUg8wzhq1g as official Aquarium camera already on catalog row. Publics exact break field unconfirmed; do not duplicate to Publics.",
+    "evidence_urls": [
+      "https://www.youtube.com/@WaikikiAquariumHonolulu/streams",
+      "https://www.waikikiaquarium.org/experience/virtual/webcam/"
+    ],
+    "playback_observation": "Official Aquarium accordion visibly loads same YouTube video ID and plays coastal panorama.",
+    "checked_at": "2026-09-03T19:00:17.340474+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 14,
+    "name": "The Royal Sonesta Resort (Kalapaki Beach)",
+    "disposition": "accepted",
+    "beach_id": "b2b469ea-3d00-44df-88e8-621934c6926f",
+    "beach_name": "Kalapaki Beach",
+    "camera_url": "https://www.ozolio.com/explore/IDWX000000A6",
+    "reason": "Official Sonesta resort page explicitly describes camera view of pool, beach and Kalapaki Bay; browser image matches. Ozolio prose incorrectly says Poipu and must not be reused.",
+    "evidence_urls": [
+      "https://www.ozolio.com/explore/IDWX000000A6",
+      "https://www.sonesta.com/royal-sonesta/hi/lihue/royal-sonesta-kauai-resort-lihue"
+    ],
+    "playback_observation": "Chrome player showed LIVE/Pause with Kalapaki beach, pool and Nawiliwili headland. Two screenshots showed changing whitewater and palms.",
+    "checked_at": "2026-09-03T19:00:17.340484+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 15,
+    "name": "Lawai Beach Resort - Live Cam",
+    "disposition": "no_catalog_match",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.youtube.com/@OurLawaiBeachResort/streams",
+    "reason": "Lawai Beach and PKs absent from catalog. Official resort describes Lawai Beach; not Poipu Beach Park 2 miles away.",
+    "evidence_urls": [
+      "https://www.youtube.com/@OurLawaiBeachResort/streams",
+      "https://www.lawaibeach.org/"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340505+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 16,
+    "name": "Whalers Cove Resort (PKs)",
+    "disposition": "no_catalog_match",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.whalerscoveresort.com/webcam",
+    "reason": "Whalers Cove oceanfront at2640 Puuholo Road is not catalog Poipu Beach Park; PKs/Lawai absent.",
+    "evidence_urls": [
+      "https://www.whalerscoveresort.com/webcam"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340549+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 17,
+    "name": "Brenneckes.com (Brenneckes)",
+    "disposition": "accepted",
+    "beach_id": "231d8635-6ae1-40e5-9112-88c26b0918ac",
+    "beach_name": "Poipu Beach (Kauai)",
+    "camera_url": "https://brenneckes.com/beach-webcam/",
+    "reason": "Official Brenneckes camera across from Poipu Beach Park shows swimming basin and surf, matching broad Poipu Beach catalog row.",
+    "evidence_urls": [
+      "https://brenneckes.com/beach-webcam/"
+    ],
+    "playback_observation": "Chrome Dacast player showed LIVE/Pause. Screenshots showed bathers/swimming basin, breaking surf and changing people/waves. One intermediate frame had gray compression corruption; later screenshot recovered completely.",
+    "checked_at": "2026-09-03T19:00:17.340559+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 18,
+    "name": "Maui Eldorado (Osterizers/Rainbows)",
+    "disposition": "no_catalog_match",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.mauieldorado.com/webcams",
+    "reason": "Kaanapali/Eldorado/Osterizers not in catalog; not Lahaina Harbor.",
+    "evidence_urls": [
+      "https://www.mauieldorado.com/webcams"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340563+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 19,
+    "name": "Whaler Condo (Ka'anapali Point)",
+    "disposition": "no_catalog_match",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.youtube.com/@mauilivecam7143/streams",
+    "reason": "Kaanapali Point/Whaler not in catalog; not Lahaina Harbor.",
+    "evidence_urls": [
+      "https://www.youtube.com/@mauilivecam7143/streams"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340564+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 20,
+    "name": "Maui Seashell – Hale Mahina Resort (S-Turns)",
+    "disposition": "no_catalog_match",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://halemahinacondo.com/web-cam/",
+    "reason": "Hale Mahina condo coastline/S-Turns not in catalog; not Honolua Bay.",
+    "evidence_urls": [
+      "https://halemahinacondo.com/web-cam/"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340566+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 21,
+    "name": "Napili Sunset Resort (Little Makaha)",
+    "disposition": "mismatch",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.napilisunset.com/live-webcam/",
+    "reason": "Provider is Napili Sunset at Napili Bay; directory Little Makaha association unsupported. Neither exact location exists in catalog.",
+    "evidence_urls": [
+      "https://www.napilisunset.com/live-webcam/"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340568+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 22,
+    "name": "The Hale Pau Hana Surf Cam",
+    "disposition": "mismatch",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.youtube.com/@HalePauHanaBeachResortKihei/streams",
+    "reason": "Hale Pau Hana camera is Kamaole II, not Kihei Cove. Neither in catalog.",
+    "evidence_urls": [
+      "https://www.youtube.com/@HalePauHanaBeachResortKihei/streams",
+      "https://halepauhana.com/see-and-do/"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340570+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 23,
+    "name": "Grand Wailea Hotel (Kihei Cove)",
+    "disposition": "mismatch",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.grandwailea.com/grand-wailea-webcam",
+    "reason": "Grand Wailea overlooks Wailea resort coast, not Kihei Cove; no Wailea catalog beach. Provider says live05:00–19:30 HST and evening replay.",
+    "evidence_urls": [
+      "https://www.grandwailea.com/grand-wailea-webcam",
+      "https://www.grandwailea.com/grand-wailea-maui-webcam"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340572+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  },
+  {
+    "index": 24,
+    "name": "Rentals Maui (Kihei Cove)",
+    "disposition": "offline",
+    "beach_id": null,
+    "beach_name": null,
+    "camera_url": "https://www.rentalsmaui.com/maui-web-cam/",
+    "reason": "Provider explicitly says webcam currently offline. Kihei Cove absent from catalog as well.",
+    "evidence_urls": [
+      "https://www.rentalsmaui.com/maui-web-cam/"
+    ],
+    "playback_observation": "Not playback-tested: catalog mismatch or duplicate is sufficient to exclude importing this listing.",
+    "checked_at": "2026-09-03T19:00:17.340574+00:00",
+    "integration": "external_link_only",
+    "embed_permission": "not evaluated; no embedding proposed"
+  }
+]

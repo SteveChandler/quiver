@@ -133,7 +133,34 @@ type SessionRow = {
   created_at: string;
 };
 
-/** Junk-name heuristics: initials, handles, single letters, digits, emails. */
+/**
+ * Words that pass every shape check but are not the reader's name. "Mom E Lassen"
+ * is a real 2026-08-31 profile; "Hey Mom," went out as a draft and reads as a bug.
+ */
+const NON_NAME_FIRST_WORDS = new Set([
+  "mom",
+  "mum",
+  "mommy",
+  "dad",
+  "daddy",
+  "grandma",
+  "grandpa",
+  "me",
+  "my",
+  "user",
+  "guest",
+  "admin",
+  "test",
+  "testing",
+  "none",
+  "null",
+  "undefined",
+  "unknown",
+  "anonymous",
+  "surfer",
+]);
+
+/** Junk-name heuristics: initials, handles, single letters, digits, emails, relationship labels. */
 function toGreeting(displayName: string | null): string | null {
   if (!displayName) return null;
   const first = displayName.trim().split(/\s+/)[0] ?? "";
@@ -141,8 +168,12 @@ function toGreeting(displayName: string | null): string | null {
   if (first.includes("@")) return null;
   if (!/^[\p{L}][\p{L}'’-]+$/u.test(first)) return null;
   if (first === first.toUpperCase() && first.length <= 3) return null;
+  if (NON_NAME_FIRST_WORDS.has(first.toLowerCase())) return null;
 
-  return first.charAt(0).toUpperCase() + first.slice(1);
+  // Only an all-caps token gets its tail lowered, so a shouted handle ("TUBED
+  // ONLINE") does not shout back while "DeShawn" and "McKenna" keep their shape.
+  const cased = first === first.toUpperCase() ? first.toLowerCase() : first;
+  return cased.charAt(0).toUpperCase() + cased.slice(1);
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -401,6 +432,9 @@ async function main(): Promise<void> {
       .from("profiles")
       .select("id, email, display_name, full_name, created_at, home_beach_id")
       .eq("is_mock", false)
+      // Account deletion keeps the row and renames it "Deleted surfer". Two such
+      // rows reached the 2026-09-07 outreach list; nobody is behind that address.
+      .is("deleted_at", null)
       .gte("created_at", cutoffIso)
       .order("created_at")
       .range(from, to)

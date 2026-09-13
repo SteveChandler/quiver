@@ -768,3 +768,6 @@ describe("Cron: welcome-email", () => {
     });
   });
 });
+jest.mock("@/lib/email/suppression", () => ({
+  filterSuppressedRecipients: jest.fn(async (_client, recipients) => recipients),
+}));

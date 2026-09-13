@@ -20,6 +20,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Webhook } from "svix";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withRateLimit } from "@/lib/middleware/api-wrappers/rate-limit-wrapper";
+import { recordInboundReply } from "@/lib/email/contact-policy";
 
 const CONTEXT_TAG = "[resend-webhook]";
 
@@ -187,6 +188,16 @@ async function handler(request: NextRequest): Promise<NextResponse> {
       { error: "Invalid signature" },
       { status: 401 }
     );
+  }
+
+  if (payload.type === "email.received") {
+    try {
+      const processed = await recordInboundReply(payload.data, svixId);
+      return NextResponse.json({ received: true, processed });
+    } catch {
+      // Do not acknowledge failed persistence: the provider must retry.
+      return NextResponse.json({ error: "Inbound reply processing failed", retryable: true }, { status: 503 });
+    }
   }
 
   // Check if we handle this event type

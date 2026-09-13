@@ -183,6 +183,7 @@ type ProfileRow = {
 
 type Verdict =
   | "never-signed-in"
+  | "signed-in-silent"
   | "bounced"
   | "explored"
   | "logged-session";
@@ -253,8 +254,15 @@ function inferPlatform(events: EventRow[]): string {
   return native > 0 ? "native" : "web";
 }
 
-function classify(events: EventRow[], completedSessions: number): Verdict {
-  if (events.length === 0) return "never-signed-in";
+/**
+ * A zero-event account is not automatically a failed sign-in. `auth.users`
+ * decides that: over the 60 days to 2026-09-07, 9 of 14 zero-event accounts had
+ * a `last_sign_in_at`. Those are authenticated clients emitting nothing, which
+ * is an instrumentation problem, not a signup problem, and the two need
+ * opposite fixes. Read the flag rather than inferring auth state from silence.
+ */
+function classify(events: EventRow[], completedSessions: number, hasSignedIn: boolean): Verdict {
+  if (events.length === 0) return hasSignedIn ? "signed-in-silent" : "never-signed-in";
   if (completedSessions > 0) return "logged-session";
   const meaningful = events.filter((event) =>
     ["beach_view", "map_interaction", "forecast_interaction", "session_log_start", "tab_view"].includes(
@@ -269,18 +277,42 @@ function classify(events: EventRow[], completedSessions: number): Verdict {
  * B names the beach, and native abandons carry no `beach_id` (the majority of
  * rows), so B is undraftable there and only a nameable abandon earns it.
  */
-function pickEmailVersion(events: EventRow[], hasBeachSignal: boolean, verdict: Verdict): "A" | "B" | "C" | "D" {
+function pickEmailVersion(events: EventRow[], hasBeachSignal: boolean): "A" | "B" | "C" | "D" {
   const types = new Set(events.map((event) => event.event_type));
+  // Both zero-result shapes, matching `toZeroResultSearch` in list-new-users-week.ts:
+  // native fires a dedicated event, web flags an ordinary `beach_search`.
   if (types.has("session_spot_search_no_results")) return "A";
+  if (events.some((event) =>
+    event.event_type === "beach_search" && asRecord(event.metadata).zero_results === true)) return "A";
   if (events.some((event) => event.event_type === "session_log_abandon" &&
     (event.beach_id || typeof asRecord(event.metadata).beach_id === "string"))) return "B";
-  if (hasBeachSignal && verdict !== "never-signed-in") return "C";
+  // A home break with no events is still nothing to say "you have been checking out" about.
+  if (hasBeachSignal && events.length > 0) return "C";
   return "D";
 }
 
 function pct(numerator: number, denominator: number): string {
   if (denominator === 0) return "n/a";
   return `${((numerator / denominator) * 100).toFixed(1)}%`;
+}
+
+/**
+ * `auth.users.last_sign_in_at` for the accounts that produced no events, so the
+ * report can say which failure it is. Only zero-event accounts are looked up:
+ * that is a handful per week, one admin call each, and every other account has
+ * already proved it signed in by emitting something.
+ */
+async function fetchSignedInIds(
+  supabase: SupabaseClient,
+  userIds: string[]
+): Promise<Set<string>> {
+  const signedIn = new Set<string>();
+  for (const id of userIds) {
+    const { data, error } = await supabase.auth.admin.getUserById(id);
+    if (error) throw new Error(`auth user ${id} fetch failed: ${error.message}`);
+    if (data.user?.last_sign_in_at) signedIn.add(id);
+  }
+  return signedIn;
 }
 
 async function fetchEvents(
@@ -312,6 +344,9 @@ async function main(): Promise<void> {
       .from("profiles")
       .select("id, email, display_name, full_name, created_at, home_beach_id")
       .eq("is_mock", false)
+      // Deleted accounts keep their row, so they otherwise count as zero-event
+      // signups and inflate the signup-authentication gate.
+      .is("deleted_at", null)
       .gte("created_at", cutoffIso)
       .order("created_at")
       .range(from, to)
@@ -352,10 +387,16 @@ async function main(): Promise<void> {
     else eventsByUser.set(event.user_id, [event]);
   }
 
+  const eventsSince = (row: ProfileRow): EventRow[] =>
+    (eventsByUser.get(row.id) ?? []).filter((event) => event.created_at >= row.created_at);
+
+  const signedIn = await fetchSignedInIds(
+    supabase,
+    profiles.filter((row) => eventsSince(row).length === 0).map((row) => row.id)
+  );
+
   const cohort: CohortMember[] = profiles.map((row) => {
-    const userEvents = (eventsByUser.get(row.id) ?? []).filter(
-      (event) => event.created_at >= row.created_at
-    );
+    const userEvents = eventsSince(row);
     const completed = sessionRows.filter(
       (session) => session.user_id === row.id && session.created_at >= row.created_at
     ).length;
@@ -368,7 +409,7 @@ async function main(): Promise<void> {
     const spanMinutes =
       first && last ? Math.round((Date.parse(last) - Date.parse(first)) / 60000) : null;
 
-    const verdict = classify(userEvents, completed);
+    const verdict = classify(userEvents, completed, signedIn.has(row.id));
     const hasBeachSignal =
       Boolean(row.home_beach_id) || userEvents.some((event) => event.event_type === "beach_view");
 
@@ -384,7 +425,7 @@ async function main(): Promise<void> {
       topEvents: [...perType].sort((a, b) => b[1] - a[1]).slice(0, 4),
       frictionHits: FRICTION_GATES.filter((gate) => perType.has(gate.failEvent)).map((gate) => gate.id),
       verdict,
-      emailVersion: pickEmailVersion(userEvents, hasBeachSignal, verdict),
+      emailVersion: pickEmailVersion(userEvents, hasBeachSignal),
       isRelay: row.email.toLowerCase().endsWith(APPLE_RELAY_DOMAIN),
     };
   });
@@ -497,9 +538,10 @@ async function main(): Promise<void> {
   }
   lines.push("");
   const neverSignedIn = cohort.filter((m) => m.verdict === "never-signed-in");
-  if (neverSignedIn.length > 0) {
+  const signedInSilent = cohort.filter((m) => m.verdict === "signed-in-silent");
+  if (neverSignedIn.length + signedInSilent.length > 0) {
     lines.push(
-      `**${neverSignedIn.length} of ${cohort.length} accounts produced zero events after signup.** These are not disinterested users; they are accounts that were created and then never used. Check whether signup signs the user in on the platform they used.`
+      `**${neverSignedIn.length + signedInSilent.length} of ${cohort.length} accounts produced zero events after signup.** ${neverSignedIn.length} never reached a sign-in (\`auth.users.last_sign_in_at\` is null) and ${signedInSilent.length} did sign in and still emitted nothing. They are different failures: the first is signup not leaving the user authenticated, the second is an authenticated client whose tracking never fires.`
     );
     lines.push("");
   }
@@ -628,7 +670,12 @@ async function main(): Promise<void> {
   }
   if (neverSignedIn.length > 0) {
     actions.push(
-      `- [APPLY FIX] ${neverSignedIn.length} account(s) created with zero follow-on events. Confirm signup leaves the user authenticated instead of returning them to a login screen.`
+      `- [APPLY FIX] ${neverSignedIn.length} account(s) created that never reached a sign-in. Confirm signup leaves the user authenticated instead of returning them to a login screen: ${neverSignedIn.map((m) => m.email).join(", ")}.`
+    );
+  }
+  if (signedInSilent.length > 0) {
+    actions.push(
+      `- [APPLY FIX] ${signedInSilent.length} account(s) signed in and emitted zero events. Signup worked, so this is the tracking client: confirm \`user_events\` writes are not being dropped for these accounts before treating them as churn. ${signedInSilent.map((m) => m.email).join(", ")}.`
     );
   }
   lines.push(...actions);
@@ -651,6 +698,7 @@ async function main(): Promise<void> {
         totalEvents: events.length,
         distinctEventTypes: eventCounts.size,
         neverSignedIn: neverSignedIn.length,
+        signedInSilent: signedInSilent.length,
         gatesFired: firedGates.filter((r) => r.fired).map((r) => r.gate.id),
         emailActions: cohort.filter((m) => !m.isRelay).length,
       },
