@@ -73,7 +73,7 @@ export function evaluateConditions(
   if (conditions.tide_direction != null) {
     if (
       forecast.tide_status == null ||
-      forecast.tide_status !== conditions.tide_direction
+      forecast.tide_status.trim().toLowerCase() !== conditions.tide_direction
     )
       return false;
   }
