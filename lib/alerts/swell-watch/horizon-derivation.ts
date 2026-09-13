@@ -1,3 +1,4 @@
+import { GFS_NATIVE_CONTRACT_REF, selectGfsNativeFrames, type NativeSamplingEvidence } from "./native-step-selection";
 import { evaluateSwellWatchImpact, evaluateSwellWatchPhysicalImpact } from "./impact-evaluator";
 import type { SwellPartitionObservation } from "./partition-normalizer";
 import type { SwellWatchPolicy } from "./policy";
@@ -6,7 +7,15 @@ import { metersToFeet } from "@/lib/utils/unit-conversions";
 
 const HOUR = 3_600_000;
 type Impact = Extract<ReturnType<typeof evaluateSwellWatchImpact>, { kind: "candidate" }>;
-interface Event { arrivalAt: string; peakAt: string; impact: Impact; confidence: number | null }
+export interface NativeEventTiming {
+  // Existing arrivalAt/peakAt are retained-sample times, not exact ocean-onset/peak times.
+  arrivalAfter: string;
+  arrivalAtOrBefore: string;
+  closureAfter: string;
+  closureAtOrBefore: string;
+  peakKind: "maximum_native_sample";
+}
+interface Event { arrivalAt: string; peakAt: string; impact: Impact; confidence: number | null; nativeTiming?: NativeEventTiming }
 
 function distance(left: number, right: number): number {
   const delta = Math.abs(left - right) % 360;
@@ -50,7 +59,9 @@ export function deriveSwellWatchHorizon(input: {
   now: string;
   beach: BeachTerrainConfig & { swell_window_center_deg: number; swell_window_halfwidth_deg: number };
   policy: SwellWatchPolicy;
-}): { baseline: { heightFt: number; energy: number }; events: Event[] } {
+  sampling?: NativeSamplingEvidence;
+}): { baseline: { heightFt: number; energy: number }; events: Event[];
+  sampling?: NativeSamplingEvidence & { contractRef: typeof GFS_NATIVE_CONTRACT_REF; retainedFrames: number; trackingFrames: number } } {
   const { series, policy } = input;
   if (series.length < 144 || series.some((frame) => frame.length !== 2)) throw new Error("incomplete_horizon");
   const requiredEnd = Date.parse(input.now) + policy.policy_values.actionability.maximum_days_before_arrival * 24 * HOUR;
@@ -67,9 +78,16 @@ export function deriveSwellWatchHorizon(input: {
   }
   if (baseline.energy <= 0 || !Number.isFinite(baseline.energy)) throw new Error("missing_baseline");
 
-  const tracks: SwellPartitionObservation[][] = series[0].map((part) => [part]);
+  // Validate all hourly inputs before selecting native frames. Interpolated missing
+  // data is not silently discarded. Native selection changes tracking, not evidence.
+  const selected = input.sampling ? selectGfsNativeFrames(series, input.sampling) : null;
+  const trackingSeries = selected?.frames ?? series;
+  if (Date.parse(trackingSeries[trackingSeries.length - 1][0].forecastAt) <= requiredEnd) {
+    throw new Error("incomplete_horizon");
+  }
+  const tracks: SwellPartitionObservation[][] = trackingSeries[0].map((part) => [part]);
   let active = tracks.slice();
-  for (const frame of series.slice(1)) {
+  for (const frame of trackingSeries.slice(1)) {
     const matches = matchSwellWatchFrame(active, frame, policy);
     active = frame.map((part, index) => {
       const previous = matches[index];
@@ -89,33 +107,50 @@ export function deriveSwellWatchHorizon(input: {
     return days >= policy.policy_values.actionability.minimum_days_before_arrival
       && days <= policy.policy_values.actionability.maximum_days_before_arrival;
   };
+  const boundedActionable = (arrivalAt: string, after: string | null): boolean => {
+    if (!selected || after === null) return actionable(arrivalAt);
+    const min = Date.parse(input.now) + policy.policy_values.actionability.minimum_days_before_arrival * 24 * HOUR;
+    const max = requiredEnd;
+    const lower = Date.parse(after);
+    const upper = Date.parse(arrivalAt);
+    if (upper < min || lower >= max) return false;
+    if (lower < min || upper > max) throw new Error("ambiguous_arrival_window");
+    return true;
+  };
   for (const track of tracks) {
-    let episode: { arrivalAt: string; peak: SwellPartitionObservation; projected: number } | null = null;
+    let episode: { arrivalAt: string; after: string | null; lastCandidateAt: string;
+      peak: SwellPartitionObservation; projected: number } | null = null;
     for (const [index, part] of track.entries()) {
       const physical = evaluateSwellWatchPhysicalImpact({ ...physicalInput, partition: part });
       if (physical.kind === "candidate") {
         if (!episode) {
           if (index === 0 && actionable(part.forecastAt)) throw new Error("unbounded_episode");
-          episode = { arrivalAt: part.forecastAt, peak: part, projected: physical.projectedFaceHeightFt };
+          episode = { arrivalAt: part.forecastAt, after: index ? track[index - 1].forecastAt : null,
+            lastCandidateAt: part.forecastAt, peak: part, projected: physical.projectedFaceHeightFt };
         } else if (physical.projectedFaceHeightFt > episode.projected) {
           episode.peak = part;
           episode.projected = physical.projectedFaceHeightFt;
         }
+        episode.lastCandidateAt = part.forecastAt;
         continue;
       }
       if (physical.reason !== "low_significance" && physical.reason !== "non_impactful") throw new Error(physical.reason);
-      if (episode && actionable(episode.arrivalAt)) {
+      if (episode && boundedActionable(episode.arrivalAt, episode.after)) {
         const impact = evaluateSwellWatchImpact({ ...physicalInput, partition: episode.peak,
           arrivalAt: episode.arrivalAt, now: new Date(input.now) });
         if (impact.kind !== "candidate") throw new Error(impact.reason);
-        events.push({ arrivalAt: episode.arrivalAt, peakAt: episode.peak.forecastAt, impact, confidence: null });
+        events.push({ arrivalAt: episode.arrivalAt, peakAt: episode.peak.forecastAt, impact, confidence: null,
+          ...(selected ? { nativeTiming: { arrivalAfter: episode.after!, arrivalAtOrBefore: episode.arrivalAt,
+            closureAfter: episode.lastCandidateAt, closureAtOrBefore: part.forecastAt,
+            peakKind: "maximum_native_sample" as const } } : {}) });
       }
       episode = null;
     }
-    if (episode && actionable(episode.arrivalAt)) throw new Error("unclosed_episode");
+    if (episode && boundedActionable(episode.arrivalAt, episode.after)) throw new Error("unclosed_episode");
   }
   events.sort((left, right) => Date.parse(left.arrivalAt) - Date.parse(right.arrivalAt)
     || Date.parse(left.peakAt) - Date.parse(right.peakAt)
     || left.impact.partition.sourceSlot.localeCompare(right.impact.partition.sourceSlot));
-  return { baseline, events };
+  return { baseline, events, ...(selected ? { sampling: { ...input.sampling!,
+    contractRef: GFS_NATIVE_CONTRACT_REF, retainedFrames: series.length, trackingFrames: trackingSeries.length } } : {}) };
 }

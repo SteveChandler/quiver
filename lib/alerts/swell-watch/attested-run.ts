@@ -1,3 +1,4 @@
+import { GFS_NATIVE_SAMPLING_PROFILE } from "./native-step-selection";
 import { z } from "zod";
 import { deriveSwellWatchHorizon } from "./horizon-derivation";
 import { normalizeSwellPartitions } from "./partition-normalizer";
@@ -83,7 +84,10 @@ export async function deriveAttestedSwellWatchRun(
   });
   try {
     return { kind: "derived", source: run.source, thresholdPolicyHash: input.policy.value_hash,
-      ...deriveSwellWatchHorizon({ series, now: input.now, beach: input.beach, policy: input.policy }) };
+      ...deriveSwellWatchHorizon({ series, now: input.now, beach: input.beach, policy: input.policy,
+        // Only the validated database read can select the provider sampling contract.
+        sampling: { profile: GFS_NATIVE_SAMPLING_PROFILE, transportProvider: run.source.transportProvider,
+          model: run.source.model, issuedAt: run.source.issuedAt } }) };
   } catch (error) {
     return { kind: "suppressed", reason: error instanceof Error ? error.message : "invalid_horizon" };
   }
