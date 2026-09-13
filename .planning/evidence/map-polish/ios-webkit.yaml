@@ -1,0 +1,14 @@
+appId: com.apple.mobilesafari
+---
+- openLink: "http://localhost:3107/embed/map?lat=32.728&lon=-117.258&zoom=13&timeline=hourly"
+- extendedWaitUntil:
+    visible: "View Osprey Point conditions"
+    timeout: 60000
+- tapOn:
+    text: "View Osprey Point conditions"
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible: ".*Full forecast.*"
+    timeout: 30000
+- assertVisible: "Osprey Point.*surf conditions:.*"
+- takeScreenshot: .planning/evidence/map-polish/ios-webkit-selected

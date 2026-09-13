@@ -1,0 +1,454 @@
+⚠️  Environment Configuration Warnings:
+   • NEXT_PUBLIC_SITE_URL not set - OAuth redirects may not work correctly
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/stevenchandler/Desktop/dev/quiver/yarn.lock as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Users/stevenchandler/Desktop/dev/quiver/.worktrees/native-audit-main-20260906/yarn.lock
+
+▲ Next.js 16.2.11 (Turbopack)
+- Environments: .env.local
+- Experiments (use with caution):
+  ✓ externalDir
+  · optimizePackageImports
+  · serverActions
+
+  Creating an optimized production build ...
+⚠️  Environment Configuration Warnings:
+   • NEXT_PUBLIC_SITE_URL not set - OAuth redirects may not work correctly
+✓ Compiled successfully in 33.2s
+  Running TypeScript ...
+  Finished TypeScript in 96s ...
+  Collecting page data using 10 workers ...
+  Generating static pages using 10 workers (0/185) ...
+  Generating static pages using 10 workers (46/185) 
+  Generating static pages using 10 workers (92/185) 
+  Generating static pages using 10 workers (138/185) 
+[water-quality-hold:query-error] {
+  beachCount: 2,
+  table: 'water_quality_held_beaches',
+  error: "Error: Dynamic server usage: Route /hi/waimea-big-island couldn't be rendered statically because it used no-store fetch https://vawdnbbgawichorsjiwe.supabase.co/rest/v1/water_quality_held_beaches?select=beach_id&beach_id=in.%281ac4f5f1-94a1-4347-b4ca-6c9d62aee5d3%2C313e745b-4521-57d4-9d33-808acaca4761%29 /hi/waimea-big-island. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"
+}
+[RecommendationSelection] Water-quality hold probe failed (resolver_returned_unresolved); treating as no holds known {
+  cause: 'resolver_returned_unresolved',
+  candidateCount: 2,
+  epoch: 'e47315355758a949f80608e5b651312b59c4dd6ebc7ea34ac823ecabaf4d1028'
+}
+[water-quality-hold:query-error] {
+  beachCount: 2,
+  table: 'water_quality_held_beaches',
+  error: "Error: Dynamic server usage: Route /hi/waimea-big-island couldn't be rendered statically because it used no-store fetch https://vawdnbbgawichorsjiwe.supabase.co/rest/v1/water_quality_held_beaches?select=beach_id&beach_id=in.%281ac4f5f1-94a1-4347-b4ca-6c9d62aee5d3%2C313e745b-4521-57d4-9d33-808acaca4761%29 /hi/waimea-big-island. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"
+}
+[RecommendationSelection] Water-quality hold probe failed (resolver_returned_unresolved); treating as no holds known {
+  cause: 'resolver_returned_unresolved',
+  candidateCount: 2,
+  epoch: 'e47315355758a949f80608e5b651312b59c4dd6ebc7ea34ac823ecabaf4d1028'
+}
+[water-quality-hold:query-error] {
+  beachCount: 1,
+  table: 'water_quality_held_beaches',
+  error: "Error: Dynamic server usage: Route /hi/waimea-kauai couldn't be rendered statically because it used no-store fetch https://vawdnbbgawichorsjiwe.supabase.co/rest/v1/water_quality_held_beaches?select=beach_id&beach_id=in.%2834e6e6d4-b640-4412-934f-4343b7dd8dfc%29 /hi/waimea-kauai. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"
+}
+[RecommendationSelection] Water-quality hold probe failed (resolver_returned_unresolved); treating as no holds known {
+  cause: 'resolver_returned_unresolved',
+  candidateCount: 1,
+  epoch: 'e47315355758a949f80608e5b651312b59c4dd6ebc7ea34ac823ecabaf4d1028'
+}
+[water-quality-hold:query-error] {
+  beachCount: 1,
+  table: 'water_quality_held_beaches',
+  error: "Error: Dynamic server usage: Route /hi/waimea-kauai couldn't be rendered statically because it used no-store fetch https://vawdnbbgawichorsjiwe.supabase.co/rest/v1/water_quality_held_beaches?select=beach_id&beach_id=in.%2834e6e6d4-b640-4412-934f-4343b7dd8dfc%29 /hi/waimea-kauai. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"
+}
+[RecommendationSelection] Water-quality hold probe failed (resolver_returned_unresolved); treating as no holds known {
+  cause: 'resolver_returned_unresolved',
+  candidateCount: 1,
+  epoch: 'e47315355758a949f80608e5b651312b59c4dd6ebc7ea34ac823ecabaf4d1028'
+}
+[getBestTimeToSurfUrl] Query failed: Error: Dynamic server usage: Route /hi/waimea-big-island couldn't be rendered statically because it used no-store fetch https://vawdnbbgawichorsjiwe.supabase.co/rest/v1/beaches?select=id&city=eq.Waimea&state=eq.HI&best_months=not.is.null&or=%28is_private.is.null%2Cis_private.eq.false%29 /hi/waimea-big-island. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+[getBestTimeToSurfUrl] Query failed: Error: Dynamic server usage: Route /hi/waimea-kauai couldn't be rendered statically because it used no-store fetch https://vawdnbbgawichorsjiwe.supabase.co/rest/v1/beaches?select=id&city=eq.Waimea&state=eq.HI&best_months=not.is.null&or=%28is_private.is.null%2Cis_private.eq.false%29 /hi/waimea-kauai. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+✓ Generating static pages using 10 workers (185/185) in 2.5s
+  Finalizing page optimization ...
+
+Route (app)                                                              Revalidate  Expire
+┌ ○ /                                                                           10m      1y
+├ ○ /_not-found
+├ ○ /.well-known/apple-app-site-association                                      1h      1y
+├ ○ /.well-known/assetlinks.json                                                 1h      1y
+├ ƒ /[intent]
+├ ○ /[intent]/[city]
+├ ○ /[intent]/[city]/[beachSlug]
+├ ○ /[intent]/[city]/[beachSlug]/[intlBeachSlug]
+├ ○ /[intent]/[city]/[beachSlug]/tides
+├ ○ /[intent]/[city]/[beachSlug]/water-temp
+├ ○ /about                                                                       1h      1y
+├ ƒ /admin
+├ ƒ /admin/beaches
+├ ƒ /admin/community-photos
+├ ƒ /admin/forecasts
+├ ƒ /admin/intel
+├ ƒ /admin/photos
+├ ƒ /admin/reviews
+├ ƒ /admin/session-videos
+├ ƒ /admin/sessions
+├ ƒ /alerts
+├ ○ /android-beta
+├ ƒ /api/admin/android-tester-roster
+├ ƒ /api/admin/android-tester-roster/export
+├ ƒ /api/admin/android-tester-roster/identity/[entryId]
+├ ƒ /api/admin/android-tester-roster/play-evidence
+├ ƒ /api/admin/android-tester-roster/sync
+├ ƒ /api/admin/broadcast-push
+├ ƒ /api/admin/cleanup-inactive-buoys
+├ ƒ /api/admin/community-photo-contributors/[contributorId]/restriction
+├ ƒ /api/admin/community-photos
+├ ƒ /api/admin/community-photos/[photoId]/hold
+├ ƒ /api/admin/community-photos/[photoId]/image
+├ ƒ /api/admin/community-photos/[photoId]/moderation
+├ ƒ /api/admin/community-photos/[photoId]/pin
+├ ƒ /api/admin/community-photos/[photoId]/recover
+├ ƒ /api/admin/community-photos/monitoring
+├ ƒ /api/admin/delivery-stats
+├ ƒ /api/admin/new-user-alert
+├ ƒ /api/admin/notifications/recent
+├ ƒ /api/admin/recommendation-holds
+├ ƒ /api/admin/session-videos
+├ ƒ /api/admin/sync-buoys
+├ ƒ /api/admin/test-push
+├ ƒ /api/admin/update-buoy-conditions
+├ ƒ /api/alerts/activity
+├ ƒ /api/alerts/activity/[notificationId]/read
+├ ƒ /api/alerts/anon-capture
+├ ƒ /api/alerts/attribution
+├ ƒ /api/alerts/debug/[ruleId]
+├ ƒ /api/alerts/rules
+├ ƒ /api/alerts/rules/[ruleId]
+├ ƒ /api/alerts/rules/[ruleId]/disable-email
+├ ƒ /api/alerts/seed-default
+├ ƒ /api/alerts/unsubscribe-email
+├ ƒ /api/analytics/sessions
+├ ƒ /api/android-beta/leads
+├ ƒ /api/android-beta/status
+├ ƒ /api/android-tester-roster/first-open
+├ ƒ /api/android-tester-roster/install
+├ ƒ /api/android-tester-roster/join
+├ ƒ /api/app-link-email
+├ ƒ /api/auth/[...supabase]
+├ ƒ /api/auth/apple-recovery/assess
+├ ƒ /api/auth/apple-recovery/confirm
+├ ƒ /api/auth/check-session
+├ ƒ /api/auth/email/update
+├ ƒ /api/auth/refresh-session
+├ ƒ /api/auth/supabase/resend-confirmation
+├ ƒ /api/beach-daily-intel
+├ ƒ /api/beach/personalized-score
+├ ƒ /api/beaches
+├ ƒ /api/beaches/[id]
+├ ƒ /api/beaches/[id]/favorite/toggle
+├ ƒ /api/beaches/[id]/sessions
+├ ƒ /api/beaches/[id]/sources
+├ ƒ /api/beaches/[id]/sun-times
+├ ƒ /api/beaches/[id]/view-count
+├ ƒ /api/beaches/favorites
+├ ƒ /api/beaches/featured
+├ ƒ /api/beaches/nearby
+├ ƒ /api/beaches/popular
+├ ƒ /api/beaches/search
+├ ƒ /api/board-recommendations
+├ ƒ /api/boards
+├ ƒ /api/buoys/conditions
+├ ƒ /api/buoys/nearby
+├ ƒ /api/cam-resolve
+├ ƒ /api/coach-picks
+├ ƒ /api/coast-pulse
+├ ƒ /api/coast-pulse/summary
+├ ƒ /api/comments/[commentId]
+├ ƒ /api/community-photos
+├ ƒ /api/community-photos/[photoId]
+├ ƒ /api/community-photos/[photoId]/image
+├ ƒ /api/community-photos/[photoId]/recover
+├ ƒ /api/community-photos/[photoId]/report
+├ ƒ /api/community-photos/[photoId]/vote
+├ ƒ /api/community-photos/mine
+├ ƒ /api/community-photos/upload
+├ ƒ /api/community-stats
+├ ƒ /api/cron/android-tester-roster
+├ ƒ /api/cron/ccc-sync
+├ ƒ /api/cron/cleanup-pending-alert-captures
+├ ƒ /api/cron/community-photo-retention
+├ ƒ /api/cron/condition-alert-deliver
+├ ƒ /api/cron/condition-alert-evaluate
+├ ƒ /api/cron/county-beach-advisories
+├ ƒ /api/cron/daily-call-streak-reminder
+├ ƒ /api/cron/daily-intel
+├ ƒ /api/cron/earn-pro-evaluate
+├ ƒ /api/cron/enhanced-forecast-sync
+├ ƒ /api/cron/enhanced-forecast-sync-cdip
+├ ƒ /api/cron/enhanced-forecast-sync-dispatch
+├ ƒ /api/cron/enhanced-forecast-sync-offset
+├ ƒ /api/cron/first-session-nudge
+├ ƒ /api/cron/first-session-nudge-push
+├ ƒ /api/cron/forecasts/refresh
+├ ƒ /api/cron/home-morning-call
+├ ƒ /api/cron/indexnow-submit
+├ ƒ /api/cron/ioos-sync
+├ ƒ /api/cron/major-event-hold-evaluate
+├ ƒ /api/cron/major-event-hold-retention
+├ ƒ /api/cron/morning-forecast-bot
+├ ƒ /api/cron/ndbc-direct-sync
+├ ƒ /api/cron/notifications-deliver
+├ ƒ /api/cron/npc-activity
+├ ƒ /api/cron/reengagement-email
+├ ƒ /api/cron/refresh-beach-traffic-weights
+├ ƒ /api/cron/resolve-cam-thumbnails
+├ ƒ /api/cron/resolve-youtube-cams
+├ ƒ /api/cron/session-prompt-email
+├ ƒ /api/cron/session-video-retention
+├ ƒ /api/cron/similarity-alerts
+├ ƒ /api/cron/sitemap-health
+├ ƒ /api/cron/swell-watch
+├ ƒ /api/cron/sync-buoys
+├ ƒ /api/cron/system-cards
+├ ƒ /api/cron/trial-ending-push-deliver
+├ ƒ /api/cron/trial-invitation-email
+├ ƒ /api/cron/trial-lifecycle-email
+├ ƒ /api/cron/update-buoy-conditions
+├ ƒ /api/cron/update-implicit-preferences
+├ ƒ /api/cron/update-user-preferences
+├ ƒ /api/cron/water-quality-alerts
+├ ƒ /api/cron/water-quality-sync
+├ ƒ /api/cron/weekend-window
+├ ƒ /api/cron/weekly-recap-email
+├ ƒ /api/cron/weekly-streak-reminder
+├ ƒ /api/cron/welcome-email
+├ ƒ /api/cron/wind/update
+├ ƒ /api/devices/remove
+├ ƒ /api/devices/upsert
+├ ƒ /api/e2e-login
+├ ƒ /api/embed-impressions
+├ ƒ /api/events
+├ ƒ /api/events/link
+├ ƒ /api/forecast-feedback
+├ ƒ /api/forecasts/bulk
+├ ƒ /api/forecasts/current
+├ ƒ /api/forecasts/scored/[beachId]
+├ ƒ /api/forecasts/update
+├ ƒ /api/forecasts/update-enhanced
+├ ƒ /api/gamification/award
+├ ƒ /api/gamification/badge-definitions
+├ ƒ /api/gamification/user-badges
+├ ƒ /api/gamification/xp-status
+├ ƒ /api/health
+├ ƒ /api/hls-proxy/[...path]
+├ ƒ /api/image-proxy
+├ ƒ /api/install-attribution/issue
+├ ƒ /api/install-attribution/redeem
+├ ƒ /api/intel
+├ ƒ /api/intel/[id]/confirm
+├ ƒ /api/intel/[id]/report
+├ ƒ /api/intel/[id]/vote
+├ ƒ /api/internal/send-welcome-email
+├ ƒ /api/invites/consume
+├ ƒ /api/invites/generate
+├ ƒ /api/journal/export
+├ ƒ /api/map/bootstrap
+├ ƒ /api/me/milestones
+├ ƒ /api/me/profile
+├ ƒ /api/me/profile-page
+├ ƒ /api/monitoring/forecast-health
+├ ƒ /api/og/beach
+├ ƒ /api/og/cams
+├ ƒ /api/og/forecast-accuracy
+├ ƒ /api/og/forecast-window
+├ ƒ /api/og/guide
+├ ƒ /api/og/intent
+├ ƒ /api/og/learn
+├ ƒ /api/og/progression
+├ ƒ /api/og/session
+├ ƒ /api/og/share-sticker
+├ ƒ /api/og/streak
+├ ƒ /api/og/surf-call
+├ ƒ /api/og/water-quality
+├ ƒ /api/og/wave
+├ ƒ /api/og/weekend-wave-check
+├ ƒ /api/personalization/match-score
+├ ƒ /api/prefs/set
+├ ƒ /api/profile
+├ ƒ /api/profile/[id]
+├ ƒ /api/recent-posts
+├ ƒ /api/recommendation-impressions
+├ ƒ /api/recommendations/session-context
+├ ƒ /api/reports
+├ ƒ /api/roadmap/items
+├ ƒ /api/roadmap/items/[id]/vote
+├ ƒ /api/roadmap/submissions
+├ ƒ /api/roadmap/submissions/duplicate-search
+├ ƒ /api/sessions/[id]
+├ ƒ /api/sessions/[id]/comments
+├ ƒ /api/sessions/[id]/comments/[commentId]
+├ ƒ /api/sessions/[id]/likes
+├ ƒ /api/sessions/[id]/likes/toggle
+├ ƒ /api/sessions/[id]/photos
+├ ƒ /api/sessions/[id]/videos
+├ ƒ /api/sessions/[id]/videos/[mediaId]
+├ ƒ /api/sessions/public
+├ ƒ /api/social-proof
+├ ƒ /api/surf
+├ ƒ /api/surf/call
+├ ƒ /api/surf/discover
+├ ƒ /api/surf/insights
+├ ƒ /api/surf/session-decision
+├ ƒ /api/surf/week-scout
+├ ƒ /api/surf/week-scout/snapshots/[snapshotId]
+├ ƒ /api/surf/week-scout/weekend
+├ ƒ /api/tools/dawn-patrol
+├ ƒ /api/tools/tide-clock
+├ ƒ /api/user/beach-affinity
+├ ƒ /api/user/location-snapshot
+├ ƒ /api/user/preferences
+├ ƒ /api/users/[id]/block
+├ ƒ /api/users/[id]/comments
+├ ƒ /api/users/[id]/follow
+├ ƒ /api/users/[id]/follow/toggle
+├ ƒ /api/users/[id]/followers
+├ ƒ /api/users/[id]/following
+├ ƒ /api/users/[id]/profile
+├ ƒ /api/users/[id]/sessions
+├ ƒ /api/users/[id]/stats
+├ ƒ /api/users/me/blocks
+├ ƒ /api/users/search
+├ ƒ /api/users/suggested
+├ ƒ /api/v1/auth/apple-orphan-detection
+├ ƒ /api/v1/auth/apple-orphan-precheck
+├ ƒ /api/v1/conditions-reports
+├ ƒ /api/v1/experiments/assignment
+├ ƒ /api/v1/experiments/link
+├ ƒ /api/v1/recommendations
+├ ƒ /api/webhooks/resend
+├ ƒ /api/webhooks/revenuecat
+├ ƒ /app
+├ ƒ /app-store
+├ ƒ /app/handoff
+├ ƒ /app/spot/[slug]
+├ ƒ /auth/callback
+├ ƒ /auth/confirm
+├ ○ /auth/forgot-password
+├ ○ /auth/reset
+├ ○ /auth/sign-in
+├ ƒ /auth/sign-up
+├ ƒ /beach/[slug]
+├ ƒ /beach/[slug]/tides
+├ ƒ /beach/[slug]/water-temp
+├ ○ /beaches                                                                     1d      1y
+├ ○ /beaches/[country]/[state]/[city]
+├ ƒ /beaches/mexico
+├ ƒ /beaches/mexico/[state]
+├ ○ /beaches/usa                                                                 1d      1y
+├ ƒ /beaches/usa/[state]
+├ ○ /best-surf-forecast-app                                                      1w      1y
+├ ○ /best-time-to-surf                                                           1d      1y
+├ ƒ /best-time-to-surf/[city]
+├ ○ /blog
+├ ● /blog/[slug]                                                                 1w      1y
+│ ├ /blog/why-quiver-is-built-around-one-surf-call                               1w      1y
+│ ├ /blog/how-to-pick-a-surf-spot-before-dawn                                    1w      1y
+│ └ /blog/fun-observation-session-logs                                           1w      1y
+├ ○ /cams                                                                        1h      1y
+├ ƒ /cams/[region]
+├ ƒ /custom-spots/[id]
+├ ○ /data-deletion
+├ ○ /dev/session-intelligence-preview
+├ ƒ /discover
+├ ƒ /download
+├ ƒ /embed/conditions/[slug]
+├ ● /embed/learn/[figureKey]
+│ ├ /embed/learn/swell-period-morph
+│ ├ /embed/learn/swell-origin-fetch
+│ ├ /embed/learn/wave-height-reference
+│ └ /embed/learn/tide-window
+├ ○ /embed/map
+├ ƒ /embed/surf-terminal/[slug]
+├ ƒ /embed/ticker/[slug]
+├ ƒ /embed/tides/[slug]
+├ ○ /error
+├ ○ /features
+├ ƒ /for-businesses
+├ ƒ /for-surf-schools
+├ ƒ /forecast
+├ ○ /forecast-accuracy
+├ ● /forecast/[beachId]                                                         15m      1y
+│ ├ /forecast/southern-california                                               15m      1y
+│ ├ /forecast/san-diego                                                         15m      1y
+│ ├ /forecast/orange-county                                                     15m      1y
+│ └ [+13 more paths]
+├ ○ /free-surf-reports                                                           1w      1y
+├ ○ /guides                                                                      1d      1y
+├ ƒ /guides/[slug]
+├ ƒ /hi/waimea-big-island
+├ ƒ /hi/waimea-kauai
+├ ƒ /invite/[token]
+├ ƒ /invite/consume
+├ ƒ /invite/start
+├ ○ /journal/new
+├ ○ /learn
+├ ● /learn/[slug]                                                                1w      1y
+│ ├ /learn/surf-paddling-for-beginners                                           1w      1y
+│ ├ /learn/how-to-read-surf-conditions                                           1w      1y
+│ ├ /learn/swell-period-explained                                                1w      1y
+│ └ [+25 more paths]
+├ ƒ /map
+├ ○ /mexico/[region]/[city]/[beachSlug]
+├ ○ /mexico/[region]/[city]/[beachSlug]/tides
+├ ○ /mexico/[region]/[city]/[beachSlug]/water-temp
+├ ƒ /p/[partnerCode]
+├ ƒ /p/[partnerCode]/flyer
+├ ƒ /pbsc
+├ ○ /personal-surf-forecast                                                      1d      1y
+├ ○ /plans
+├ ○ /prefs/home-beach
+├ ○ /pricing
+├ ○ /privacy
+├ ƒ /profile
+├ ƒ /profile/[id]
+├ ƒ /redeem
+├ ƒ /roadmap
+├ ƒ /roadmap/[id]
+├ ○ /robots.txt
+├ ○ /seo-pages/vs-surfline-free                                                  1h      1y
+├ ƒ /session/confirm
+├ ○ /session/log
+├ ƒ /session/skip
+├ ○ /sessions
+├ ƒ /sessions/[id]
+├ ƒ /sessions/new
+├ ƒ /sitemap.xml
+├ ƒ /spots/[slug]
+├ ○ /support
+├ ○ /surf-cams/[region]
+├ ○ /surf-map-prototype
+├ ○ /surf-report/[slug]
+├ ○ /surf-session-log                                                            1d      1y
+├ ○ /terms
+├ ○ /tools                                                                       1d      1y
+├ ○ /tools/board-calculator                                                      1d      1y
+├ ○ /tools/dawn-patrol                                                           1h      1y
+├ ƒ /tools/swell-analyzer
+├ ○ /tools/tide-clock                                                            5m      1y
+├ ƒ /tools/water-quality
+├ ○ /tools/wave-converter                                                        1d      1y
+├ ƒ /tools/wind-checker
+├ ○ /us-open-of-surfing-forecast                                                30m      1y
+├ ƒ /user/[id]
+├ ○ /vs/surfline                                                                 1d      1y
+├ ○ /vs/surfline/free                                                            1h      1y
+├ ○ /welcome
+├ ○ /whats-new                                                                   1h      1y
+└ ƒ /window/save
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+

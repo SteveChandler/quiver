@@ -1,0 +1,514 @@
+Vercel CLI 41.4.1
+Fetching deployment "v0-prd-design-concept-7w8u2yiqi-stcha0004-9905s-projects.vercel.app" in stcha0004-9905s-projects
+2026-09-07T04:06:09.277Z  Running build in Washington, D.C., USA (East) – iad1
+2026-09-07T04:06:09.277Z  Build machine configuration: 4 cores, 8 GB
+2026-09-07T04:06:09.426Z  Cloning github.com/SteveChandler/quiver (Branch: prod, Commit: f1069ff)
+2026-09-07T04:06:17.552Z  Cloning completed: 8.125s
+2026-09-07T04:06:18.179Z  Found .vercelignore
+2026-09-07T04:06:18.475Z  Removed 3696 ignored files defined in .vercelignore
+2026-09-07T04:06:18.475Z    /__tests__/__mocks__/@/actions/profile-actions.ts
+2026-09-07T04:06:18.476Z    /__tests__/__mocks__/@/app/actions/profile.ts
+2026-09-07T04:06:18.476Z    /__tests__/__mocks__/fs-promises.ts
+2026-09-07T04:06:18.476Z    /__tests__/__mocks__/http-proxy-agent.ts
+2026-09-07T04:06:18.476Z    /__tests__/__mocks__/jose.ts
+2026-09-07T04:06:18.476Z    /__tests__/__mocks__/supabase-server.ts
+2026-09-07T04:06:18.476Z    /__tests__/__mocks__/supercluster.ts
+2026-09-07T04:06:18.476Z    /__tests__/accessibility/focus-ring.test.ts
+2026-09-07T04:06:18.476Z    /__tests__/actions/accuracy-actions.test.ts
+2026-09-07T04:06:18.476Z    /__tests__/actions/activity-actions.test.ts
+2026-09-07T04:06:18.577Z  Restored build cache from previous deployment (9TttKc4oWrqmDnFzAPR5vXceaT9L)
+2026-09-07T04:06:21.834Z  Running "git diff --quiet "${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}" HEAD -- . ':(exclude)*.md' ':(exclude)**/*.md' ':(exclude).github/**' ':(exclude).planning/**' ':(exclude)__tests__/**' ':(exclude)docs/**' ':(exclude)e2e/**' ':(exclude)plans/**'"
+2026-09-07T04:06:21.992Z  Running "vercel build"
+2026-09-07T04:06:22.021Z  Vercel CLI 59.11.7
+2026-09-07T04:06:22.543Z  Installing dependencies...
+2026-09-07T04:06:22.921Z  yarn install v1.22.19
+2026-09-07T04:06:23.033Z  [1/5] Validating package.json...
+2026-09-07T04:06:23.038Z  [2/5] Resolving packages...
+2026-09-07T04:06:23.229Z  warning Resolution field "rollup@4.59.0" is incompatible with requested version "rollup@^4.60.3"
+2026-09-07T04:06:23.301Z  warning Resolution field "@types/mapbox__point-geometry@0.1.4" is incompatible with requested version "@types/mapbox__point-geometry@^1.0.87"
+2026-09-07T04:06:23.439Z  warning Resolution field "@sentry/node@10.59.0" is incompatible with requested version "@sentry/node@^9.28.1"
+2026-09-07T04:06:23.517Z  success Already up-to-date.
+2026-09-07T04:06:23.522Z  $ patch-package && (git config core.hooksPath .githooks || true)
+2026-09-07T04:06:23.786Z  patch-package 8.0.1
+2026-09-07T04:06:23.787Z  Applying patches...
+2026-09-07T04:06:23.798Z  @supabase/auth-js@2.100.0 ✔
+2026-09-07T04:06:23.813Z  Done in 0.90s.
+2026-09-07T04:06:23.830Z  Detected Next.js version: 16.2.11
+2026-09-07T04:06:23.836Z  Running "yarn run build"
+2026-09-07T04:06:24.030Z  yarn run v1.22.19
+2026-09-07T04:06:24.067Z  $ next build
+2026-09-07T04:06:26.008Z  [@sentry/nextjs] DEPRECATION WARNING: autoInstrumentMiddleware is deprecated and will be removed in a future version. Use webpack.autoInstrumentMiddleware instead. (Not supported with Turbopack.)
+2026-09-07T04:06:26.010Z  [@sentry/nextjs] DEPRECATION WARNING: disableLogger is deprecated and will be removed in a future version. Use webpack.treeshake.removeDebugLogging instead. (Not supported with Turbopack.)
+2026-09-07T04:06:26.010Z  [@sentry/nextjs] DEPRECATION WARNING: automaticVercelMonitors is deprecated and will be removed in a future version. Use webpack.automaticVercelMonitors instead. (Not supported with Turbopack.)
+2026-09-07T04:06:26.160Z    Applying modifyConfig from Vercel
+2026-09-07T04:06:26.353Z  ▲ Next.js 16.2.11 (Turbopack)
+2026-09-07T04:06:26.354Z  - Experiments (use with caution):
+2026-09-07T04:06:26.355Z    · clientTraceMetadata
+2026-09-07T04:06:26.355Z    ✓ externalDir
+2026-09-07T04:06:26.355Z    · optimizePackageImports
+2026-09-07T04:06:26.355Z    · serverActions
+2026-09-07T04:06:26.355Z  
+2026-09-07T04:06:26.626Z    Creating an optimized production build ...
+2026-09-07T04:06:27.894Z  [@sentry/nextjs] DEPRECATION WARNING: autoInstrumentMiddleware is deprecated and will be removed in a future version. Use webpack.autoInstrumentMiddleware instead. (Not supported with Turbopack.)
+2026-09-07T04:06:28.079Z  [@sentry/nextjs] DEPRECATION WARNING: disableLogger is deprecated and will be removed in a future version. Use webpack.treeshake.removeDebugLogging instead. (Not supported with Turbopack.)
+2026-09-07T04:06:28.080Z  [@sentry/nextjs] DEPRECATION WARNING: automaticVercelMonitors is deprecated and will be removed in a future version. Use webpack.automaticVercelMonitors instead. (Not supported with Turbopack.)
+2026-09-07T04:07:37.915Z  ✓ Compiled successfully in 70s
+2026-09-07T04:07:37.918Z    Running next.config.js provided runAfterProductionCompile ...
+2026-09-07T04:07:57.747Z  ✓ Completed runAfterProductionCompile in 19.8s
+2026-09-07T04:07:57.748Z    Running TypeScript ...
+2026-09-07T04:10:08.810Z    Finished TypeScript in 2.2min ...
+2026-09-07T04:10:08.824Z    Collecting page data using 3 workers ...
+2026-09-07T04:10:12.697Z    Generating static pages using 3 workers (0/185) ...
+2026-09-07T04:10:14.118Z    Generating static pages using 3 workers (46/185) 
+2026-09-07T04:10:14.340Z    Generating static pages using 3 workers (92/185) 
+2026-09-07T04:10:15.670Z    Generating static pages using 3 workers (138/185) 
+2026-09-07T04:10:16.982Z  ✅ [getBatchFreshForecastsFromCache] Complete in 716ms: 39 fresh, 0 stale, 0 missing out of 39 beaches (5 queries)
+2026-09-07T04:10:19.467Z  ✅ [getBatchFreshForecastsFromCache] Complete in 2844ms: 125 fresh, 0 stale, 0 missing out of 125 beaches (14 queries)
+2026-09-07T04:10:22.738Z  ✅ [getBatchFreshForecastsFromCache] Complete in 792ms: 17 fresh, 0 stale, 0 missing out of 17 beaches (3 queries)
+2026-09-07T04:10:23.404Z  ✅ [getBatchFreshForecastsFromCache] Complete in 1396ms: 27 fresh, 0 stale, 0 missing out of 27 beaches (4 queries)
+2026-09-07T04:10:23.706Z  ✅ [getBatchFreshForecastsFromCache] Complete in 1365ms: 6 fresh, 0 stale, 0 missing out of 6 beaches (2 queries)
+2026-09-07T04:10:23.785Z  ✅ [getBatchFreshForecastsFromCache] Complete in 1762ms: 14 fresh, 0 stale, 0 missing out of 14 beaches (3 queries)
+2026-09-07T04:10:24.022Z  ✅ [getBatchFreshForecastsFromCache] Complete in 2035ms: 35 fresh, 0 stale, 0 missing out of 35 beaches (5 queries)
+2026-09-07T04:10:24.921Z  ✅ [getBatchFreshForecastsFromCache] Complete in 2833ms: 47 fresh, 0 stale, 0 missing out of 47 beaches (6 queries)
+2026-09-07T04:10:25.419Z  ✅ [getBatchFreshForecastsFromCache] Complete in 3317ms: 68 fresh, 0 stale, 0 missing out of 68 beaches (8 queries)
+2026-09-07T04:10:26.045Z  ✅ [getBatchFreshForecastsFromCache] Complete in 3859ms: 51 fresh, 0 stale, 0 missing out of 51 beaches (7 queries)
+2026-09-07T04:10:27.840Z  ✅ [getBatchFreshForecastsFromCache] Complete in 434ms: 12 fresh, 0 stale, 0 missing out of 12 beaches (3 queries)
+2026-09-07T04:10:28.022Z  ✅ [getBatchFreshForecastsFromCache] Complete in 643ms: 9 fresh, 0 stale, 0 missing out of 9 beaches (2 queries)
+2026-09-07T04:10:28.178Z  ✅ [getBatchFreshForecastsFromCache] Complete in 794ms: 15 fresh, 0 stale, 0 missing out of 15 beaches (3 queries)
+2026-09-07T04:10:28.406Z  ✅ [getBatchFreshForecastsFromCache] Complete in 954ms: 10 fresh, 0 stale, 0 missing out of 10 beaches (2 queries)
+2026-09-07T04:10:28.576Z  ✅ [getBatchFreshForecastsFromCache] Complete in 1098ms: 10 fresh, 0 stale, 0 missing out of 10 beaches (2 queries)
+2026-09-07T04:10:28.786Z  ✅ [getBatchFreshForecastsFromCache] Complete in 1268ms: 28 fresh, 0 stale, 0 missing out of 28 beaches (4 queries)
+2026-09-07T04:10:29.484Z  [water-quality-hold:query-error] {
+2026-09-07T04:10:29.484Z    beachCount: 2,
+2026-09-07T04:10:29.484Z    table: 'water_quality_held_beaches',
+2026-09-07T04:10:29.499Z    error: "Error: Dynamic server usage: Route /hi/waimea-big-island couldn't be rendered statically because it used revalidate: 0 fetch [REDACTED]/rest/v1/water_quality_held_beaches?select=beach_id&beach_id=in.%281ac4f5f1-94a1-4347-b4ca-6c9d62aee5d3%2C313e745b-4521-57d4-9d33-808acaca4761%29 /hi/waimea-big-island. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"
+2026-09-07T04:10:29.499Z  }
+2026-09-07T04:10:29.501Z  [RecommendationSelection] Water-quality hold probe failed (resolver_returned_unresolved); treating as no holds known {
+2026-09-07T04:10:29.501Z    cause: 'resolver_returned_unresolved',
+2026-09-07T04:10:29.502Z    candidateCount: 2,
+2026-09-07T04:10:29.502Z    epoch: 'e47315355758a949f80608e5b651312b59c4dd6ebc7ea34ac823ecabaf4d1028'
+2026-09-07T04:10:29.502Z  }
+2026-09-07T04:10:29.502Z  [water-quality-hold:query-error] {
+2026-09-07T04:10:29.502Z    beachCount: 2,
+2026-09-07T04:10:29.502Z    table: 'water_quality_held_beaches',
+2026-09-07T04:10:29.502Z    error: "Error: Dynamic server usage: Route /hi/waimea-big-island couldn't be rendered statically because it used no-store fetch [REDACTED]/rest/v1/water_quality_held_beaches?select=beach_id&beach_id=in.%281ac4f5f1-94a1-4347-b4ca-6c9d62aee5d3%2C313e745b-4521-57d4-9d33-808acaca4761%29 /hi/waimea-big-island. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"
+2026-09-07T04:10:29.502Z  }
+2026-09-07T04:10:29.502Z  [RecommendationSelection] Water-quality hold probe failed (resolver_returned_unresolved); treating as no holds known {
+2026-09-07T04:10:29.502Z    cause: 'resolver_returned_unresolved',
+2026-09-07T04:10:29.502Z    candidateCount: 2,
+2026-09-07T04:10:29.502Z    epoch: 'e47315355758a949f80608e5b651312b59c4dd6ebc7ea34ac823ecabaf4d1028'
+2026-09-07T04:10:29.503Z  }
+2026-09-07T04:10:29.503Z  [water-quality-hold:query-error] {
+2026-09-07T04:10:29.503Z    beachCount: 1,
+2026-09-07T04:10:29.503Z    table: 'water_quality_held_beaches',
+2026-09-07T04:10:29.503Z    error: "Error: Dynamic server usage: Route /hi/waimea-kauai couldn't be rendered statically because it used no-store fetch [REDACTED]/rest/v1/water_quality_held_beaches?select=beach_id&beach_id=in.%2834e6e6d4-b640-4412-934f-4343b7dd8dfc%29 /hi/waimea-kauai. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"
+2026-09-07T04:10:29.503Z  }
+2026-09-07T04:10:29.503Z  [RecommendationSelection] Water-quality hold probe failed (resolver_returned_unresolved); treating as no holds known {
+2026-09-07T04:10:29.503Z    cause: 'resolver_returned_unresolved',
+2026-09-07T04:10:29.503Z    candidateCount: 1,
+2026-09-07T04:10:29.503Z    epoch: 'e47315355758a949f80608e5b651312b59c4dd6ebc7ea34ac823ecabaf4d1028'
+2026-09-07T04:10:29.503Z  }
+2026-09-07T04:10:29.503Z  [water-quality-hold:query-error] {
+2026-09-07T04:10:29.504Z    beachCount: 1,
+2026-09-07T04:10:29.504Z    table: 'water_quality_held_beaches',
+2026-09-07T04:10:29.504Z    error: "Error: Dynamic server usage: Route /hi/waimea-kauai couldn't be rendered statically because it used no-store fetch [REDACTED]/rest/v1/water_quality_held_beaches?select=beach_id&beach_id=in.%2834e6e6d4-b640-4412-934f-4343b7dd8dfc%29 /hi/waimea-kauai. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"
+2026-09-07T04:10:29.504Z  }
+2026-09-07T04:10:29.504Z  [RecommendationSelection] Water-quality hold probe failed (resolver_returned_unresolved); treating as no holds known {
+2026-09-07T04:10:29.504Z    cause: 'resolver_returned_unresolved',
+2026-09-07T04:10:29.504Z    candidateCount: 1,
+2026-09-07T04:10:29.504Z    epoch: 'e47315355758a949f80608e5b651312b59c4dd6ebc7ea34ac823ecabaf4d1028'
+2026-09-07T04:10:29.504Z  }
+2026-09-07T04:10:29.504Z  [getBestTimeToSurfUrl] Query failed: Error: Dynamic server usage: Route /hi/waimea-big-island couldn't be rendered statically because it used no-store fetch [REDACTED]/rest/v1/beaches?select=id&city=eq.Waimea&state=eq.HI&best_months=not.is.null&or=%28is_private.is.null%2Cis_private.eq.false%29 /hi/waimea-big-island. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+2026-09-07T04:10:29.504Z  [getBestTimeToSurfUrl] Query failed: Error: Dynamic server usage: Route /hi/waimea-kauai couldn't be rendered statically because it used no-store fetch [REDACTED]/rest/v1/beaches?select=id&city=eq.Waimea&state=eq.HI&best_months=not.is.null&or=%28is_private.is.null%2Cis_private.eq.false%29 /hi/waimea-kauai. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+2026-09-07T04:10:30.018Z  ✓ Generating static pages using 3 workers (185/185) in 17.3s
+2026-09-07T04:10:30.041Z    Finalizing page optimization ...
+2026-09-07T04:10:30.899Z    Running onBuildComplete from Vercel
+2026-09-07T04:10:32.663Z  
+2026-09-07T04:10:32.672Z  Route (app)                                                              Revalidate  Expire
+2026-09-07T04:10:32.673Z  ┌ ○ /                                                                           10m      1y
+2026-09-07T04:10:32.673Z  ├ ○ /_not-found
+2026-09-07T04:10:32.673Z  ├ ○ /.well-known/apple-app-site-association                                      1h      1y
+2026-09-07T04:10:32.673Z  ├ ○ /.well-known/assetlinks.json                                                 1h      1y
+2026-09-07T04:10:32.673Z  ├ ƒ /[intent]
+2026-09-07T04:10:32.673Z  ├ ○ /[intent]/[city]
+2026-09-07T04:10:32.673Z  ├ ○ /[intent]/[city]/[beachSlug]
+2026-09-07T04:10:32.673Z  ├ ○ /[intent]/[city]/[beachSlug]/[intlBeachSlug]
+2026-09-07T04:10:32.673Z  ├ ○ /[intent]/[city]/[beachSlug]/tides
+2026-09-07T04:10:32.673Z  ├ ○ /[intent]/[city]/[beachSlug]/water-temp
+2026-09-07T04:10:32.673Z  ├ ○ /about                                                                       1h      1y
+2026-09-07T04:10:32.674Z  ├ ƒ /admin
+2026-09-07T04:10:32.674Z  ├ ƒ /admin/beaches
+2026-09-07T04:10:32.674Z  ├ ƒ /admin/community-photos
+2026-09-07T04:10:32.674Z  ├ ƒ /admin/forecasts
+2026-09-07T04:10:32.674Z  ├ ƒ /admin/intel
+2026-09-07T04:10:32.674Z  ├ ƒ /admin/photos
+2026-09-07T04:10:32.674Z  ├ ƒ /admin/reviews
+2026-09-07T04:10:32.674Z  ├ ƒ /admin/session-videos
+2026-09-07T04:10:32.674Z  ├ ƒ /admin/sessions
+2026-09-07T04:10:32.674Z  ├ ƒ /alerts
+2026-09-07T04:10:32.674Z  ├ ○ /android-beta
+2026-09-07T04:10:32.674Z  ├ ƒ /api/admin/android-tester-roster
+2026-09-07T04:10:32.674Z  ├ ƒ /api/admin/android-tester-roster/export
+2026-09-07T04:10:32.674Z  ├ ƒ /api/admin/android-tester-roster/identity/[entryId]
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/android-tester-roster/play-evidence
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/android-tester-roster/sync
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/broadcast-push
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/cleanup-inactive-buoys
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/community-photo-contributors/[contributorId]/restriction
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/community-photos
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/community-photos/[photoId]/hold
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/community-photos/[photoId]/image
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/community-photos/[photoId]/moderation
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/community-photos/[photoId]/pin
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/community-photos/[photoId]/recover
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/community-photos/monitoring
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/delivery-stats
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/new-user-alert
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/notifications/recent
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/recommendation-holds
+2026-09-07T04:10:32.675Z  ├ ƒ /api/admin/session-videos
+2026-09-07T04:10:32.677Z  ├ ƒ /api/admin/sync-buoys
+2026-09-07T04:10:32.677Z  ├ ƒ /api/admin/test-push
+2026-09-07T04:10:32.677Z  ├ ƒ /api/admin/update-buoy-conditions
+2026-09-07T04:10:32.677Z  ├ ƒ /api/alerts/activity
+2026-09-07T04:10:32.677Z  ├ ƒ /api/alerts/activity/[notificationId]/read
+2026-09-07T04:10:32.677Z  ├ ƒ /api/alerts/anon-capture
+2026-09-07T04:10:32.677Z  ├ ƒ /api/alerts/attribution
+2026-09-07T04:10:32.677Z  ├ ƒ /api/alerts/debug/[ruleId]
+2026-09-07T04:10:32.678Z  ├ ƒ /api/alerts/rules
+2026-09-07T04:10:32.678Z  ├ ƒ /api/alerts/rules/[ruleId]
+2026-09-07T04:10:32.678Z  ├ ƒ /api/alerts/rules/[ruleId]/disable-email
+2026-09-07T04:10:32.678Z  ├ ƒ /api/alerts/seed-default
+2026-09-07T04:10:32.678Z  ├ ƒ /api/alerts/unsubscribe-email
+2026-09-07T04:10:32.678Z  ├ ƒ /api/analytics/sessions
+2026-09-07T04:10:32.678Z  ├ ƒ /api/android-beta/leads
+2026-09-07T04:10:32.678Z  ├ ƒ /api/android-beta/status
+2026-09-07T04:10:32.678Z  ├ ƒ /api/android-tester-roster/first-open
+2026-09-07T04:10:32.678Z  ├ ƒ /api/android-tester-roster/install
+2026-09-07T04:10:32.678Z  ├ ƒ /api/android-tester-roster/join
+2026-09-07T04:10:32.678Z  ├ ƒ /api/app-link-email
+2026-09-07T04:10:32.678Z  ├ ƒ /api/auth/[...supabase]
+2026-09-07T04:10:32.678Z  ├ ƒ /api/auth/apple-recovery/assess
+2026-09-07T04:10:32.679Z  ├ ƒ /api/auth/apple-recovery/confirm
+2026-09-07T04:10:32.679Z  ├ ƒ /api/auth/check-session
+2026-09-07T04:10:32.679Z  ├ ƒ /api/auth/email/update
+2026-09-07T04:10:32.679Z  ├ ƒ /api/auth/refresh-session
+2026-09-07T04:10:32.679Z  ├ ƒ /api/auth/supabase/resend-confirmation
+2026-09-07T04:10:32.679Z  ├ ƒ /api/beach-daily-intel
+2026-09-07T04:10:32.679Z  ├ ƒ /api/beach/personalized-score
+2026-09-07T04:10:32.679Z  ├ ƒ /api/beaches
+2026-09-07T04:10:32.679Z  ├ ƒ /api/beaches/[id]
+2026-09-07T04:10:32.679Z  ├ ƒ /api/beaches/[id]/favorite/toggle
+2026-09-07T04:10:32.679Z  ├ ƒ /api/beaches/[id]/sessions
+2026-09-07T04:10:32.679Z  ├ ƒ /api/beaches/[id]/sources
+2026-09-07T04:10:32.679Z  ├ ƒ /api/beaches/[id]/sun-times
+2026-09-07T04:10:32.679Z  ├ ƒ /api/beaches/[id]/view-count
+2026-09-07T04:10:32.679Z  ├ ƒ /api/beaches/favorites
+2026-09-07T04:10:32.680Z  ├ ƒ /api/beaches/featured
+2026-09-07T04:10:32.680Z  ├ ƒ /api/beaches/nearby
+2026-09-07T04:10:32.680Z  ├ ƒ /api/beaches/popular
+2026-09-07T04:10:32.680Z  ├ ƒ /api/beaches/search
+2026-09-07T04:10:32.680Z  ├ ƒ /api/board-recommendations
+2026-09-07T04:10:32.680Z  ├ ƒ /api/boards
+2026-09-07T04:10:32.680Z  ├ ƒ /api/buoys/conditions
+2026-09-07T04:10:32.680Z  ├ ƒ /api/buoys/nearby
+2026-09-07T04:10:32.680Z  ├ ƒ /api/cam-resolve
+2026-09-07T04:10:32.680Z  ├ ƒ /api/coach-picks
+2026-09-07T04:10:32.680Z  ├ ƒ /api/coast-pulse
+2026-09-07T04:10:32.680Z  ├ ƒ /api/coast-pulse/summary
+2026-09-07T04:10:32.680Z  ├ ƒ /api/comments/[commentId]
+2026-09-07T04:10:32.680Z  ├ ƒ /api/community-photos
+2026-09-07T04:10:32.680Z  ├ ƒ /api/community-photos/[photoId]
+2026-09-07T04:10:32.681Z  ├ ƒ /api/community-photos/[photoId]/image
+2026-09-07T04:10:32.681Z  ├ ƒ /api/community-photos/[photoId]/recover
+2026-09-07T04:10:32.681Z  ├ ƒ /api/community-photos/[photoId]/report
+2026-09-07T04:10:32.681Z  ├ ƒ /api/community-photos/[photoId]/vote
+2026-09-07T04:10:32.681Z  ├ ƒ /api/community-photos/mine
+2026-09-07T04:10:32.681Z  ├ ƒ /api/community-photos/upload
+2026-09-07T04:10:32.681Z  ├ ƒ /api/community-stats
+2026-09-07T04:10:32.681Z  ├ ƒ /api/cron/android-tester-roster
+2026-09-07T04:10:32.681Z  ├ ƒ /api/cron/ccc-sync
+2026-09-07T04:10:32.681Z  ├ ƒ /api/cron/cleanup-pending-alert-captures
+2026-09-07T04:10:32.681Z  ├ ƒ /api/cron/community-photo-retention
+2026-09-07T04:10:32.681Z  ├ ƒ /api/cron/condition-alert-deliver
+2026-09-07T04:10:32.681Z  ├ ƒ /api/cron/condition-alert-evaluate
+2026-09-07T04:10:32.681Z  ├ ƒ /api/cron/county-beach-advisories
+2026-09-07T04:10:32.681Z  ├ ƒ /api/cron/daily-call-streak-reminder
+2026-09-07T04:10:32.682Z  ├ ƒ /api/cron/daily-intel
+2026-09-07T04:10:32.682Z  ├ ƒ /api/cron/earn-pro-evaluate
+2026-09-07T04:10:32.682Z  ├ ƒ /api/cron/enhanced-forecast-sync
+2026-09-07T04:10:32.682Z  ├ ƒ /api/cron/enhanced-forecast-sync-cdip
+2026-09-07T04:10:32.682Z  ├ ƒ /api/cron/enhanced-forecast-sync-dispatch
+2026-09-07T04:10:32.683Z  ├ ƒ /api/cron/enhanced-forecast-sync-offset
+2026-09-07T04:10:32.683Z  ├ ƒ /api/cron/first-session-nudge
+2026-09-07T04:10:32.683Z  ├ ƒ /api/cron/first-session-nudge-push
+2026-09-07T04:10:32.683Z  ├ ƒ /api/cron/forecasts/refresh
+2026-09-07T04:10:32.683Z  ├ ƒ /api/cron/home-morning-call
+2026-09-07T04:10:32.683Z  ├ ƒ /api/cron/indexnow-submit
+2026-09-07T04:10:32.684Z  ├ ƒ /api/cron/ioos-sync
+2026-09-07T04:10:32.684Z  ├ ƒ /api/cron/major-event-hold-evaluate
+2026-09-07T04:10:32.684Z  ├ ƒ /api/cron/major-event-hold-retention
+2026-09-07T04:10:32.684Z  ├ ƒ /api/cron/morning-forecast-bot
+2026-09-07T04:10:32.684Z  ├ ƒ /api/cron/ndbc-direct-sync
+2026-09-07T04:10:32.684Z  ├ ƒ /api/cron/notifications-deliver
+2026-09-07T04:10:32.685Z  ├ ƒ /api/cron/npc-activity
+2026-09-07T04:10:32.685Z  ├ ƒ /api/cron/reengagement-email
+2026-09-07T04:10:32.685Z  ├ ƒ /api/cron/refresh-beach-traffic-weights
+2026-09-07T04:10:32.685Z  ├ ƒ /api/cron/resolve-cam-thumbnails
+2026-09-07T04:10:32.685Z  ├ ƒ /api/cron/resolve-youtube-cams
+2026-09-07T04:10:32.685Z  ├ ƒ /api/cron/session-prompt-email
+2026-09-07T04:10:32.686Z  ├ ƒ /api/cron/session-video-retention
+2026-09-07T04:10:32.686Z  ├ ƒ /api/cron/similarity-alerts
+2026-09-07T04:10:32.686Z  ├ ƒ /api/cron/sitemap-health
+2026-09-07T04:10:32.686Z  ├ ƒ /api/cron/swell-watch
+2026-09-07T04:10:32.686Z  ├ ƒ /api/cron/swell-watch-acquire
+2026-09-07T04:10:32.686Z  ├ ƒ /api/cron/swell-watch-evaluate
+2026-09-07T04:10:32.687Z  ├ ƒ /api/cron/sync-buoys
+2026-09-07T04:10:32.687Z  ├ ƒ /api/cron/system-cards
+2026-09-07T04:10:32.687Z  ├ ƒ /api/cron/trial-ending-push-deliver
+2026-09-07T04:10:32.687Z  ├ ƒ /api/cron/trial-invitation-email
+2026-09-07T04:10:32.687Z  ├ ƒ /api/cron/trial-lifecycle-email
+2026-09-07T04:10:32.687Z  ├ ƒ /api/cron/update-buoy-conditions
+2026-09-07T04:10:32.688Z  ├ ƒ /api/cron/update-implicit-preferences
+2026-09-07T04:10:32.688Z  ├ ƒ /api/cron/update-user-preferences
+2026-09-07T04:10:32.688Z  ├ ƒ /api/cron/water-quality-alerts
+2026-09-07T04:10:32.688Z  ├ ƒ /api/cron/water-quality-sync
+2026-09-07T04:10:32.688Z  ├ ƒ /api/cron/weekend-window
+2026-09-07T04:10:32.690Z  ├ ƒ /api/cron/weekly-recap-email
+2026-09-07T04:10:32.690Z  ├ ƒ /api/cron/weekly-streak-reminder
+2026-09-07T04:10:32.690Z  ├ ƒ /api/cron/welcome-email
+2026-09-07T04:10:32.690Z  ├ ƒ /api/cron/wind/update
+2026-09-07T04:10:32.691Z  ├ ƒ /api/devices/remove
+2026-09-07T04:10:32.691Z  ├ ƒ /api/devices/upsert
+2026-09-07T04:10:32.691Z  ├ ƒ /api/e2e-login
+2026-09-07T04:10:32.691Z  ├ ƒ /api/embed-impressions
+2026-09-07T04:10:32.691Z  ├ ƒ /api/events
+2026-09-07T04:10:32.691Z  ├ ƒ /api/events/link
+2026-09-07T04:10:32.692Z  ├ ƒ /api/forecast-feedback
+2026-09-07T04:10:32.692Z  ├ ƒ /api/forecasts/bulk
+2026-09-07T04:10:32.692Z  ├ ƒ /api/forecasts/current
+2026-09-07T04:10:32.692Z  ├ ƒ /api/forecasts/scored/[beachId]
+2026-09-07T04:10:32.692Z  ├ ƒ /api/forecasts/update
+2026-09-07T04:10:32.692Z  ├ ƒ /api/forecasts/update-enhanced
+2026-09-07T04:10:32.692Z  ├ ƒ /api/gamification/award
+2026-09-07T04:10:32.693Z  ├ ƒ /api/gamification/badge-definitions
+2026-09-07T04:10:32.693Z  ├ ƒ /api/gamification/user-badges
+2026-09-07T04:10:32.693Z  ├ ƒ /api/gamification/xp-status
+2026-09-07T04:10:32.693Z  ├ ƒ /api/health
+2026-09-07T04:10:32.693Z  ├ ƒ /api/hls-proxy/[...path]
+2026-09-07T04:10:32.693Z  ├ ƒ /api/image-proxy
+2026-09-07T04:10:32.693Z  ├ ƒ /api/install-attribution/issue
+2026-09-07T04:10:32.694Z  ├ ƒ /api/install-attribution/redeem
+2026-09-07T04:10:32.694Z  ├ ƒ /api/intel
+2026-09-07T04:10:32.694Z  ├ ƒ /api/intel/[id]/confirm
+2026-09-07T04:10:32.694Z  ├ ƒ /api/intel/[id]/report
+2026-09-07T04:10:32.694Z  ├ ƒ /api/intel/[id]/vote
+2026-09-07T04:10:32.694Z  ├ ƒ /api/internal/send-welcome-email
+2026-09-07T04:10:32.695Z  ├ ƒ /api/invites/consume
+2026-09-07T04:10:32.695Z  ├ ƒ /api/invites/generate
+2026-09-07T04:10:32.695Z  ├ ƒ /api/journal/export
+2026-09-07T04:10:32.695Z  ├ ƒ /api/map/bootstrap
+2026-09-07T04:10:32.695Z  ├ ƒ /api/me/milestones
+2026-09-07T04:10:32.695Z  ├ ƒ /api/me/profile
+2026-09-07T04:10:32.695Z  ├ ƒ /api/me/profile-page
+2026-09-07T04:10:32.696Z  ├ ƒ /api/monitoring/forecast-health
+2026-09-07T04:10:32.696Z  ├ ƒ /api/og/beach
+2026-09-07T04:10:32.696Z  ├ ƒ /api/og/cams
+2026-09-07T04:10:32.696Z  ├ ƒ /api/og/forecast-accuracy
+2026-09-07T04:10:32.696Z  ├ ƒ /api/og/forecast-window
+2026-09-07T04:10:32.696Z  ├ ƒ /api/og/guide
+2026-09-07T04:10:32.696Z  ├ ƒ /api/og/intent
+2026-09-07T04:10:32.697Z  ├ ƒ /api/og/learn
+2026-09-07T04:10:32.697Z  ├ ƒ /api/og/progression
+2026-09-07T04:10:32.697Z  ├ ƒ /api/og/session
+2026-09-07T04:10:32.697Z  ├ ƒ /api/og/share-sticker
+2026-09-07T04:10:32.697Z  ├ ƒ /api/og/streak
+2026-09-07T04:10:32.697Z  ├ ƒ /api/og/surf-call
+2026-09-07T04:10:32.698Z  ├ ƒ /api/og/water-quality
+2026-09-07T04:10:32.698Z  ├ ƒ /api/og/wave
+2026-09-07T04:10:32.698Z  ├ ƒ /api/og/weekend-wave-check
+2026-09-07T04:10:32.698Z  ├ ƒ /api/personalization/match-score
+2026-09-07T04:10:32.698Z  ├ ƒ /api/prefs/set
+2026-09-07T04:10:32.698Z  ├ ƒ /api/profile
+2026-09-07T04:10:32.699Z  ├ ƒ /api/profile/[id]
+2026-09-07T04:10:32.699Z  ├ ƒ /api/recent-posts
+2026-09-07T04:10:32.699Z  ├ ƒ /api/recommendation-impressions
+2026-09-07T04:10:32.699Z  ├ ƒ /api/recommendations/session-context
+2026-09-07T04:10:32.699Z  ├ ƒ /api/reports
+2026-09-07T04:10:32.699Z  ├ ƒ /api/roadmap/items
+2026-09-07T04:10:32.699Z  ├ ƒ /api/roadmap/items/[id]/vote
+2026-09-07T04:10:32.700Z  ├ ƒ /api/roadmap/submissions
+2026-09-07T04:10:32.700Z  ├ ƒ /api/roadmap/submissions/duplicate-search
+2026-09-07T04:10:32.700Z  ├ ƒ /api/sessions/[id]
+2026-09-07T04:10:32.700Z  ├ ƒ /api/sessions/[id]/comments
+2026-09-07T04:10:32.700Z  ├ ƒ /api/sessions/[id]/comments/[commentId]
+2026-09-07T04:10:32.700Z  ├ ƒ /api/sessions/[id]/likes
+2026-09-07T04:10:32.701Z  ├ ƒ /api/sessions/[id]/likes/toggle
+2026-09-07T04:10:32.701Z  ├ ƒ /api/sessions/[id]/photos
+2026-09-07T04:10:32.701Z  ├ ƒ /api/sessions/[id]/videos
+2026-09-07T04:10:32.701Z  ├ ƒ /api/sessions/[id]/videos/[mediaId]
+2026-09-07T04:10:32.701Z  ├ ƒ /api/sessions/public
+2026-09-07T04:10:32.701Z  ├ ƒ /api/social-proof
+2026-09-07T04:10:32.701Z  ├ ƒ /api/surf
+2026-09-07T04:10:32.702Z  ├ ƒ /api/surf/call
+2026-09-07T04:10:32.702Z  ├ ƒ /api/surf/discover
+2026-09-07T04:10:32.702Z  ├ ƒ /api/surf/insights
+2026-09-07T04:10:32.702Z  ├ ƒ /api/surf/session-decision
+2026-09-07T04:10:32.702Z  ├ ƒ /api/surf/week-scout
+2026-09-07T04:10:32.702Z  ├ ƒ /api/surf/week-scout/snapshots/[snapshotId]
+2026-09-07T04:10:32.703Z  ├ ƒ /api/surf/week-scout/weekend
+2026-09-07T04:10:32.703Z  ├ ƒ /api/tools/dawn-patrol
+2026-09-07T04:10:32.703Z  ├ ƒ /api/tools/tide-clock
+2026-09-07T04:10:32.703Z  ├ ƒ /api/user/beach-affinity
+2026-09-07T04:10:32.703Z  ├ ƒ /api/user/location-snapshot
+2026-09-07T04:10:32.703Z  ├ ƒ /api/user/preferences
+2026-09-07T04:10:32.703Z  ├ ƒ /api/users/[id]/block
+2026-09-07T04:10:32.704Z  ├ ƒ /api/users/[id]/comments
+2026-09-07T04:10:32.704Z  ├ ƒ /api/users/[id]/follow
+2026-09-07T04:10:32.704Z  ├ ƒ /api/users/[id]/follow/toggle
+2026-09-07T04:10:32.704Z  ├ ƒ /api/users/[id]/followers
+2026-09-07T04:10:32.704Z  ├ ƒ /api/users/[id]/following
+2026-09-07T04:10:32.704Z  ├ ƒ /api/users/[id]/profile
+2026-09-07T04:10:32.705Z  ├ ƒ /api/users/[id]/sessions
+2026-09-07T04:10:32.705Z  ├ ƒ /api/users/[id]/stats
+2026-09-07T04:10:32.705Z  ├ ƒ /api/users/me/blocks
+2026-09-07T04:10:32.705Z  ├ ƒ /api/users/search
+2026-09-07T04:10:32.705Z  ├ ƒ /api/users/suggested
+2026-09-07T04:10:32.705Z  ├ ƒ /api/v1/auth/apple-orphan-detection
+2026-09-07T04:10:32.706Z  ├ ƒ /api/v1/auth/apple-orphan-precheck
+2026-09-07T04:10:32.706Z  ├ ƒ /api/v1/conditions-reports
+2026-09-07T04:10:32.706Z  ├ ƒ /api/v1/experiments/assignment
+2026-09-07T04:10:32.706Z  ├ ƒ /api/v1/experiments/link
+2026-09-07T04:10:32.706Z  ├ ƒ /api/v1/recommendations
+2026-09-07T04:10:32.706Z  ├ ƒ /api/webhooks/resend
+2026-09-07T04:10:32.707Z  ├ ƒ /api/webhooks/revenuecat
+2026-09-07T04:10:32.707Z  ├ ƒ /app
+2026-09-07T04:10:32.708Z  ├ ƒ /app-store
+2026-09-07T04:10:32.708Z  ├ ƒ /app/handoff
+2026-09-07T04:10:32.709Z  ├ ƒ /app/spot/[slug]
+2026-09-07T04:10:32.709Z  ├ ƒ /auth/callback
+2026-09-07T04:10:32.709Z  ├ ƒ /auth/confirm
+2026-09-07T04:10:32.709Z  ├ ○ /auth/forgot-password
+2026-09-07T04:10:32.709Z  ├ ○ /auth/reset
+2026-09-07T04:10:32.709Z  ├ ○ /auth/sign-in
+2026-09-07T04:10:32.709Z  ├ ƒ /auth/sign-up
+2026-09-07T04:10:32.709Z  ├ ƒ /beach/[slug]
+2026-09-07T04:10:32.709Z  ├ ƒ /beach/[slug]/tides
+2026-09-07T04:10:32.710Z  ├ ƒ /beach/[slug]/water-temp
+2026-09-07T04:10:32.710Z  ├ ○ /beaches                                                                     1d      1y
+2026-09-07T04:10:32.710Z  ├ ○ /beaches/[country]/[state]/[city]
+2026-09-07T04:10:32.710Z  ├ ƒ /beaches/mexico
+2026-09-07T04:10:32.710Z  ├ ƒ /beaches/mexico/[state]
+2026-09-07T04:10:32.710Z  ├ ○ /beaches/usa                                                                 1d      1y
+2026-09-07T04:10:32.710Z  ├ ƒ /beaches/usa/[state]
+2026-09-07T04:10:32.710Z  ├ ○ /best-surf-forecast-app                                                      1w      1y
+2026-09-07T04:10:32.711Z  ├ ○ /best-time-to-surf                                                           1d      1y
+2026-09-07T04:10:32.711Z  ├ ƒ /best-time-to-surf/[city]
+2026-09-07T04:10:32.711Z  ├ ○ /blog
+2026-09-07T04:10:32.711Z  ├ ● /blog/[slug]                                                                 1w      1y
+2026-09-07T04:10:32.711Z  │ ├ /blog/why-quiver-is-built-around-one-surf-call                               1w      1y
+2026-09-07T04:10:32.711Z  │ ├ /blog/how-to-pick-a-surf-spot-before-dawn                                    1w      1y
+2026-09-07T04:10:32.712Z  │ └ /blog/fun-observation-session-logs                                           1w      1y
+2026-09-07T04:10:32.712Z  ├ ○ /cams                                                                        1h      1y
+2026-09-07T04:10:32.712Z  ├ ƒ /cams/[region]
+2026-09-07T04:10:32.712Z  ├ ƒ /custom-spots/[id]
+2026-09-07T04:10:32.712Z  ├ ○ /data-deletion
+2026-09-07T04:10:32.712Z  ├ ○ /dev/session-intelligence-preview
+2026-09-07T04:10:32.712Z  ├ ƒ /discover
+2026-09-07T04:10:32.713Z  ├ ƒ /download
+2026-09-07T04:10:32.713Z  ├ ƒ /embed/conditions/[slug]
+2026-09-07T04:10:32.713Z  ├ ● /embed/learn/[figureKey]
+2026-09-07T04:10:32.713Z  │ ├ /embed/learn/swell-period-morph
+2026-09-07T04:10:32.713Z  │ ├ /embed/learn/swell-origin-fetch
+2026-09-07T04:10:32.713Z  │ ├ /embed/learn/wave-height-reference
+2026-09-07T04:10:32.714Z  │ └ /embed/learn/tide-window
+2026-09-07T04:10:32.714Z  ├ ○ /embed/map
+2026-09-07T04:10:32.714Z  ├ ƒ /embed/surf-terminal/[slug]
+2026-09-07T04:10:32.714Z  ├ ƒ /embed/ticker/[slug]
+2026-09-07T04:10:32.714Z  ├ ƒ /embed/tides/[slug]
+2026-09-07T04:10:32.714Z  ├ ○ /error
+2026-09-07T04:10:32.714Z  ├ ○ /features
+2026-09-07T04:10:32.715Z  ├ ƒ /for-businesses
+2026-09-07T04:10:32.715Z  ├ ƒ /for-surf-schools
+2026-09-07T04:10:32.715Z  ├ ƒ /forecast
+2026-09-07T04:10:32.715Z  ├ ○ /forecast-accuracy
+2026-09-07T04:10:32.715Z  ├ ● /forecast/[beachId]                                                         15m      1y
+2026-09-07T04:10:32.715Z  │ ├ /forecast/southern-california                                               15m      1y
+2026-09-07T04:10:32.716Z  │ ├ /forecast/san-diego                                                         15m      1y
+2026-09-07T04:10:32.716Z  │ ├ /forecast/orange-county                                                     15m      1y
+2026-09-07T04:10:32.716Z  │ └ [+13 more paths]
+2026-09-07T04:10:32.716Z  ├ ○ /free-surf-reports                                                           1w      1y
+2026-09-07T04:10:32.716Z  ├ ○ /guides                                                                      1d      1y
+2026-09-07T04:10:32.716Z  ├ ƒ /guides/[slug]
+2026-09-07T04:10:32.717Z  ├ ƒ /hi/waimea-big-island
+2026-09-07T04:10:32.717Z  ├ ƒ /hi/waimea-kauai
+2026-09-07T04:10:32.717Z  ├ ƒ /invite/[token]
+2026-09-07T04:10:32.717Z  ├ ƒ /invite/consume
+2026-09-07T04:10:32.717Z  ├ ƒ /invite/start
+2026-09-07T04:10:32.717Z  ├ ○ /journal/new
+2026-09-07T04:10:32.717Z  ├ ○ /learn
+2026-09-07T04:10:32.718Z  ├ ● /learn/[slug]                                                                1w      1y
+2026-09-07T04:10:32.718Z  │ ├ /learn/surf-paddling-for-beginners                                           1w      1y
+2026-09-07T04:10:32.718Z  │ ├ /learn/how-to-read-surf-conditions                                           1w      1y
+2026-09-07T04:10:32.718Z  │ ├ /learn/swell-period-explained                                                1w      1y
+2026-09-07T04:10:32.718Z  │ └ [+25 more paths]
+2026-09-07T04:10:32.719Z  ├ ƒ /map
+2026-09-07T04:10:32.719Z  ├ ○ /mexico/[region]/[city]/[beachSlug]
+2026-09-07T04:10:32.719Z  ├ ○ /mexico/[region]/[city]/[beachSlug]/tides
+2026-09-07T04:10:32.719Z  ├ ○ /mexico/[region]/[city]/[beachSlug]/water-temp
+2026-09-07T04:10:32.719Z  ├ ƒ /p/[partnerCode]
+2026-09-07T04:10:32.719Z  ├ ƒ /p/[partnerCode]/flyer
+2026-09-07T04:10:32.720Z  ├ ƒ /pbsc
+2026-09-07T04:10:32.720Z  ├ ○ /personal-surf-forecast                                                      1d      1y
+2026-09-07T04:10:32.720Z  ├ ○ /plans
+2026-09-07T04:10:32.720Z  ├ ○ /prefs/home-beach
+2026-09-07T04:10:32.720Z  ├ ○ /pricing
+2026-09-07T04:10:32.720Z  ├ ○ /privacy
+2026-09-07T04:10:32.720Z  ├ ƒ /profile
+2026-09-07T04:10:32.721Z  ├ ƒ /profile/[id]
+2026-09-07T04:10:32.721Z  ├ ƒ /redeem
+2026-09-07T04:10:32.721Z  ├ ƒ /roadmap
+2026-09-07T04:10:32.721Z  ├ ƒ /roadmap/[id]
+2026-09-07T04:10:32.721Z  ├ ○ /robots.txt
+2026-09-07T04:10:32.721Z  ├ ○ /seo-pages/vs-surfline-free                                                  1h      1y
+2026-09-07T04:10:32.721Z  ├ ƒ /session/confirm
+2026-09-07T04:10:32.721Z  ├ ○ /session/log
+2026-09-07T04:10:32.721Z  ├ ƒ /session/skip
+2026-09-07T04:10:32.721Z  ├ ○ /sessions
+2026-09-07T04:10:32.721Z  ├ ƒ /sessions/[id]
+2026-09-07T04:10:32.721Z  ├ ƒ /sessions/new
+2026-09-07T04:10:32.721Z  ├ ƒ /sitemap.xml
+2026-09-07T04:10:32.722Z  ├ ƒ /spots/[slug]
+2026-09-07T04:10:32.722Z  ├ ○ /support
+2026-09-07T04:10:32.722Z  ├ ○ /surf-cams/[region]
+2026-09-07T04:10:32.722Z  ├ ○ /surf-map-prototype
+2026-09-07T04:10:32.722Z  ├ ○ /surf-report/[slug]
+2026-09-07T04:10:32.722Z  ├ ○ /surf-session-log                                                            1d      1y
+2026-09-07T04:10:32.722Z  ├ ○ /terms
+2026-09-07T04:10:32.722Z  ├ ○ /tools                                                                       1d      1y
+2026-09-07T04:10:32.722Z  ├ ○ /tools/board-calculator                                                      1d      1y
+2026-09-07T04:10:32.722Z  ├ ○ /tools/dawn-patrol                                                           1h      1y
+2026-09-07T04:10:32.722Z  ├ ƒ /tools/swell-analyzer
+2026-09-07T04:10:32.722Z  ├ ○ /tools/tide-clock                                                            5m      1y
+2026-09-07T04:10:32.722Z  ├ ƒ /tools/water-quality
+2026-09-07T04:10:32.722Z  ├ ○ /tools/wave-converter                                                        1d      1y
+2026-09-07T04:10:32.724Z  ├ ƒ /tools/wind-checker
+2026-09-07T04:10:32.724Z  ├ ○ /us-open-of-surfing-forecast                                                30m      1y
+2026-09-07T04:10:32.724Z  ├ ƒ /user/[id]
+2026-09-07T04:10:32.724Z  ├ ○ /vs/surfline                                                                 1d      1y
+2026-09-07T04:10:32.724Z  ├ ○ /vs/surfline/free                                                            1h      1y
+2026-09-07T04:10:32.724Z  ├ ○ /welcome
+2026-09-07T04:10:32.725Z  ├ ○ /whats-new                                                                   1h      1y
+2026-09-07T04:10:32.725Z  └ ƒ /window/save
+2026-09-07T04:10:32.725Z  
+2026-09-07T04:10:32.725Z  
+2026-09-07T04:10:32.725Z  ƒ Proxy (Middleware)
+2026-09-07T04:10:32.728Z  
+2026-09-07T04:10:32.729Z  ○  (Static)   prerendered as static content
+2026-09-07T04:10:32.729Z  ●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+2026-09-07T04:10:32.729Z  ƒ  (Dynamic)  server-rendered on demand
+2026-09-07T04:10:32.729Z  
+2026-09-07T04:10:33.060Z  Done in 249.03s.
+2026-09-07T04:10:35.354Z  Build Completed in /vercel/output [4m]
+2026-09-07T04:10:35.382Z  Deploying outputs...
+status	● Building

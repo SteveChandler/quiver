@@ -1,0 +1,35 @@
+
+Running 1 test using 1 worker
+
+(node:57830) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:57830) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [guest] › ../native-audit-main-20260906/e2e/guest-map-polish.spec.ts:241:37 › map polish 390px › native embed opens a sourced conditions card on one tap (1.1m)
+
+
+  1) [guest] › ../native-audit-main-20260906/e2e/guest-map-polish.spec.ts:241:37 › map polish 390px › native embed opens a sourced conditions card on one tap 
+
+    Test was interrupted.
+
+    Error: page.waitForFunction: Test ended.
+
+      241 |     if (viewport.width === 390) test("native embed opens a sourced conditions card on one tap", async ({ page }) => {
+      242 |       await page.goto("/embed/map?lat=32.728&lon=-117.258&zoom=13&timeline=hourly");
+    > 243 |       await page.waitForFunction(() => Boolean((window as any).__quiverMapInstance?.getLayer("quiver-swell-field")));
+          |                  ^
+      244 |       for (const active of [false, true]) {
+      245 |         await page.evaluate((active) => window.postMessage({ type: "setActive", payload: { active } }, "*"), active);
+      246 |         await page.waitForFunction((active) => Boolean((window as any).__quiverMapInstance?.getLayer("quiver-swell-field")) === active, active);
+        at /Users/stevenchandler/Desktop/dev/quiver/.worktrees/native-audit-main-20260906/e2e/guest-map-polish.spec.ts:243:18
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../../../../../../tmp/overlay-verify-results/guest-map-polish-map-polis-8553f--conditions-card-on-one-tap-guest/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../../../../../tmp/overlay-verify-results/guest-map-polish-map-polis-8553f--conditions-card-on-one-tap-guest/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 interrupted
+    [guest] › ../native-audit-main-20260906/e2e/guest-map-polish.spec.ts:241:37 › map polish 390px › native embed opens a sourced conditions card on one tap 

@@ -1,0 +1,131 @@
+▲ Next.js 16.2.11
+- Local:         http://localhost:3141
+- Network:       http://192.168.50.50:3141
+✓ Ready in 140ms
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/stevenchandler/Desktop/dev/quiver/yarn.lock as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /Users/stevenchandler/Desktop/dev/quiver/.worktrees/native-audit-main-20260906/yarn.lock
+
+[WindowSelector] [selectBestWindows] Coronado North Jetty: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Coronado North Jetty: No same-day sunset found for 2026-09-06, sunsets available: 2026-09-05
+[WindowSelector] [selectBestWindow] Coronado North Jetty: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Coronado North Jetty: Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Coronado North Jetty: Main loop found 1 candidate windows
+[WindowSelector] [selectBestWindows] Avalanche: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Avalanche: Forecast 0 selectionScore=35 < threshold=50, skipping
+[WindowSelector] [selectBestWindow] Avalanche: Forecast 1 selectionScore=45 < threshold=50, skipping
+[WindowSelector] [selectBestWindow] Avalanche: Forecast 2 selectionScore=47 < threshold=50, skipping
+[WindowSelector] [selectBestWindows] Avalanche: Main loop found no valid window, trying fallback...
+[WindowSelector] [selectFallbackWindow] Avalanche: 1 daylight forecasts available for fallback selection
+[WindowSelector] [selectFallbackWindow] Avalanche: Fallback selected window with score=35, selectionScore=35, duration=1.0h
+[WindowSelector] [selectBestWindows] Sunset Cliffs – Garbage: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Sunset Cliffs – Garbage: Forecast 0 selectionScore=47 < threshold=50, skipping
+[WindowSelector] [selectBestWindow] Sunset Cliffs – Garbage: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Sunset Cliffs – Garbage: Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Sunset Cliffs – Garbage: Main loop found no valid window, trying fallback...
+[WindowSelector] [selectFallbackWindow] Sunset Cliffs – Garbage: 1 daylight forecasts available for fallback selection
+[WindowSelector] [selectFallbackWindow] Sunset Cliffs – Garbage: Fallback selected window with score=47, selectionScore=47, duration=1.0h
+[WindowSelector] [selectBestWindows] Sunset Cliffs – Luscombs: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Sunset Cliffs – Luscombs: Forecast 0 selectionScore=44 < threshold=50, skipping
+[WindowSelector] [selectBestWindow] Sunset Cliffs – Luscombs: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Sunset Cliffs – Luscombs: Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Sunset Cliffs – Luscombs: Main loop found no valid window, trying fallback...
+[WindowSelector] [selectFallbackWindow] Sunset Cliffs – Luscombs: 1 daylight forecasts available for fallback selection
+[WindowSelector] [selectFallbackWindow] Sunset Cliffs – Luscombs: Fallback selected window with score=44, selectionScore=44, duration=1.0h
+[WindowSelector] [selectBestWindows] Big Jetty: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Big Jetty: Forecast 0 selectionScore=20 < threshold=50, skipping
+[WindowSelector] [selectBestWindow] Big Jetty: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Big Jetty: Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Big Jetty: Main loop found no valid window, trying fallback...
+[WindowSelector] [selectFallbackWindow] Big Jetty: 1 daylight forecasts available for fallback selection
+[WindowSelector] [selectFallbackWindow] Big Jetty: Fallback selected window with score=20, selectionScore=20, duration=1.0h
+[WindowSelector] [selectBestWindows] Ocean Beach Pier: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Ocean Beach Pier: No same-day sunset found for 2026-09-06, sunsets available: 2026-09-05
+[WindowSelector] [selectBestWindow] Ocean Beach Pier: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Ocean Beach Pier: Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Ocean Beach Pier: Main loop found 1 candidate windows
+[WindowSelector] [selectBestWindows] Tourmaline Beach: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Tourmaline Beach: No same-day sunset found for 2026-09-06, sunsets available: 2026-09-05
+[WindowSelector] [selectBestWindow] Tourmaline Beach: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Tourmaline Beach: Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Tourmaline Beach: Main loop found 1 candidate windows
+[WindowSelector] [selectBestWindows] Birdrock: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Birdrock: No same-day sunset found for 2026-09-06, sunsets available: 2026-09-05
+[WindowSelector] [selectBestWindow] Birdrock: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Birdrock: Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Birdrock: Main loop found 1 candidate windows
+[WindowSelector] [selectBestWindows] Mission Beach: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Mission Beach: No same-day sunset found for 2026-09-06, sunsets available: 2026-09-05
+[WindowSelector] [selectBestWindow] Mission Beach: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Mission Beach: Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Mission Beach: Main loop found 1 candidate windows
+[WindowSelector] [selectBestWindows] Mission Beach (Central): 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Mission Beach (Central): No same-day sunset found for 2026-09-06, sunsets available: 2026-09-05
+[WindowSelector] [selectBestWindow] Mission Beach (Central): Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Mission Beach (Central): Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Mission Beach (Central): Main loop found 1 candidate windows
+[WindowSelector] [selectBestWindows] Pacific Beach: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Pacific Beach: Forecast 0 selectionScore=35 < threshold=50, skipping
+[WindowSelector] [selectBestWindow] Pacific Beach: Forecast 1 selectionScore=43 < threshold=50, skipping
+[WindowSelector] [selectBestWindow] Pacific Beach: Forecast 2 selectionScore=43 < threshold=50, skipping
+[WindowSelector] [selectBestWindows] Pacific Beach: Main loop found no valid window, trying fallback...
+[WindowSelector] [selectFallbackWindow] Pacific Beach: 1 daylight forecasts available for fallback selection
+[WindowSelector] [selectFallbackWindow] Pacific Beach: Fallback selected window with score=35, selectionScore=35, duration=1.0h
+[WindowSelector] [selectBestWindows] Osprey Point: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Osprey Point: Forecast 0 selectionScore=40 < threshold=50, skipping
+[WindowSelector] [selectBestWindow] Osprey Point: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Osprey Point: Forecast 2 selectionScore=49 < threshold=50, skipping
+[WindowSelector] [selectBestWindows] Osprey Point: Main loop found no valid window, trying fallback...
+[WindowSelector] [selectFallbackWindow] Osprey Point: 1 daylight forecasts available for fallback selection
+[WindowSelector] [selectFallbackWindow] Osprey Point: Fallback selected window with score=40, selectionScore=40, duration=1.0h
+[WindowSelector] [selectBestWindows] PB Point: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] PB Point: No same-day sunset found for 2026-09-06, sunsets available: 2026-09-05
+[WindowSelector] [selectBestWindow] PB Point: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] PB Point: Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] PB Point: Main loop found 1 candidate windows
+[WindowSelector] [selectBestWindows] Crystal Pier: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Crystal Pier: No same-day sunset found for 2026-09-06, sunsets available: 2026-09-05
+[WindowSelector] [selectBestWindow] Crystal Pier: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Crystal Pier: Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Crystal Pier: Main loop found 1 candidate windows
+[WindowSelector] [selectBestWindows] Shipwrecks: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Shipwrecks: Forecast 0 selectionScore=35 < threshold=50, skipping
+[WindowSelector] [selectBestWindow] Shipwrecks: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Shipwrecks: Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Shipwrecks: Main loop found no valid window, trying fallback...
+[WindowSelector] [selectFallbackWindow] Shipwrecks: 1 daylight forecasts available for fallback selection
+[WindowSelector] [selectFallbackWindow] Shipwrecks: Fallback selected window with score=35, selectionScore=35, duration=1.0h
+[WindowSelector] [selectBestWindows] Hotel Del Coronado: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Hotel Del Coronado: No same-day sunset found for 2026-09-06, sunsets available: 2026-09-05
+[WindowSelector] [selectBestWindow] Hotel Del Coronado: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Hotel Del Coronado: Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Hotel Del Coronado: Main loop found 1 candidate windows
+[WindowSelector] [selectBestWindows] New Break (Nubes): 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] New Break (Nubes): Forecast 0 selectionScore=44 < threshold=50, skipping
+[WindowSelector] [selectBestWindow] New Break (Nubes): Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] New Break (Nubes): Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] New Break (Nubes): Main loop found no valid window, trying fallback...
+[WindowSelector] [selectFallbackWindow] New Break (Nubes): 1 daylight forecasts available for fallback selection
+[WindowSelector] [selectFallbackWindow] New Break (Nubes): Fallback selected window with score=44, selectionScore=44, duration=1.0h
+[WindowSelector] [selectBestWindows] Ocean Beach: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Ocean Beach: Forecast 0 selectionScore=47 < threshold=50, skipping
+[WindowSelector] [selectBestWindow] Ocean Beach: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Ocean Beach: Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Ocean Beach: Main loop found no valid window, trying fallback...
+[WindowSelector] [selectFallbackWindow] Ocean Beach: 1 daylight forecasts available for fallback selection
+[WindowSelector] [selectFallbackWindow] Ocean Beach: Fallback selected window with score=47, selectionScore=47, duration=1.0h
+[WindowSelector] [selectBestWindows] Sunset Cliffs North (Garbage): 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Sunset Cliffs North (Garbage): Forecast 0 selectionScore=47 < threshold=50, skipping
+[WindowSelector] [selectBestWindow] Sunset Cliffs North (Garbage): Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Sunset Cliffs North (Garbage): Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Sunset Cliffs North (Garbage): Main loop found no valid window, trying fallback...
+[WindowSelector] [selectFallbackWindow] Sunset Cliffs North (Garbage): 1 daylight forecasts available for fallback selection
+[WindowSelector] [selectFallbackWindow] Sunset Cliffs North (Garbage): Fallback selected window with score=47, selectionScore=47, duration=1.0h
+[WindowSelector] [selectBestWindows] Tourmaline Surf Park: 3 forecasts to evaluate, isMorning=false
+[WindowSelector] [selectBestWindow] Tourmaline Surf Park: No same-day sunset found for 2026-09-06, sunsets available: 2026-09-05
+[WindowSelector] [selectBestWindow] Tourmaline Surf Park: Forecast 1 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindow] Tourmaline Surf Park: Forecast 2 skipped due to light/sunset constraints
+[WindowSelector] [selectBestWindows] Tourmaline Surf Park: Main loop found 1 candidate windows

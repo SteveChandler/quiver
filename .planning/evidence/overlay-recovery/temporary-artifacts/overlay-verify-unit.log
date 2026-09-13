@@ -1,0 +1,154 @@
+⚠️  Environment Configuration Warnings:
+   • NEXT_PUBLIC_SITE_URL not set - OAuth redirects may not work correctly
+  console.error
+    An update to InteractiveMap inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      392 |     }
+      393 |     // Still print so developers see the output when debugging
+    > 394 |     _originalError.apply(console, args);
+          |                    ^
+      395 |   };
+      396 |
+      397 |   console.warn = (...args) => {
+
+      at console.apply (jest.setup.js:394:20)
+      at ../../node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (../../node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (../../node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (../../node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at dispatchSetState (../../node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at setSelectedBeachId (components/map/interactive-map.tsx:1164:5)
+      at Object.showCalloutForBeach [as current] (components/map/interactive-map.tsx:1253:5)
+      at current (components/map/interactive-map.tsx:2141:30)
+      at handler (__tests__/components/map/interactive-map.test.tsx:1518:9)
+      at Object.fireMapClick (__tests__/components/map/interactive-map.test.tsx:1550:7)
+
+  console.warn
+    Wave height batch 0 failed: Error: Bulk forecast API returned 500
+        at fetchBatch (/Users/stevenchandler/Desktop/dev/quiver/.worktrees/native-audit-main-20260906/components/map/map-beach-loader.ts:410:21)
+        at async Promise.allSettled (index 0)
+        at fetchInBatches (/Users/stevenchandler/Desktop/dev/quiver/.worktrees/native-audit-main-20260906/lib/utils/batch-fetch.ts:22:19)
+        at loadBeachesAndWaveHeights (/Users/stevenchandler/Desktop/dev/quiver/.worktrees/native-audit-main-20260906/components/map/map-beach-loader.ts:369:23)
+        at /Users/stevenchandler/Desktop/dev/quiver/.worktrees/native-audit-main-20260906/components/map/interactive-map.tsx:1778:31
+
+      399 |       globalThis.__quiverConsoleWarns.push(args.map(String).join(" "));
+      400 |     }
+    > 401 |     _originalWarn.apply(console, args);
+          |                   ^
+      402 |   };
+      403 | });
+      404 |
+
+      at console.apply [as warn] (jest.setup.js:401:19)
+      at warn (components/map/map-beach-loader.ts:425:19)
+      at onBatchError (lib/utils/batch-fetch.ts:25:9)
+          at async Promise.allSettled (index 0)
+      at fetchInBatches (lib/utils/batch-fetch.ts:22:19)
+      at loadBeachesAndWaveHeights (components/map/map-beach-loader.ts:369:23)
+      at components/map/interactive-map.tsx:1778:31
+
+  console.warn
+    Wave height batch 0 failed: Error: Bulk forecast API returned 500
+        at fetchBatch (/Users/stevenchandler/Desktop/dev/quiver/.worktrees/native-audit-main-20260906/components/map/map-beach-loader.ts:410:21)
+        at async Promise.allSettled (index 0)
+        at fetchInBatches (/Users/stevenchandler/Desktop/dev/quiver/.worktrees/native-audit-main-20260906/lib/utils/batch-fetch.ts:22:19)
+        at loadBeachesAndWaveHeights (/Users/stevenchandler/Desktop/dev/quiver/.worktrees/native-audit-main-20260906/components/map/map-beach-loader.ts:369:23)
+        at /Users/stevenchandler/Desktop/dev/quiver/.worktrees/native-audit-main-20260906/components/map/interactive-map.tsx:1778:31
+
+      399 |       globalThis.__quiverConsoleWarns.push(args.map(String).join(" "));
+      400 |     }
+    > 401 |     _originalWarn.apply(console, args);
+          |                   ^
+      402 |   };
+      403 | });
+      404 |
+
+      at console.apply [as warn] (jest.setup.js:401:19)
+      at warn (components/map/map-beach-loader.ts:425:19)
+      at onBatchError (lib/utils/batch-fetch.ts:25:9)
+          at async Promise.allSettled (index 0)
+      at fetchInBatches (lib/utils/batch-fetch.ts:22:19)
+      at loadBeachesAndWaveHeights (components/map/map-beach-loader.ts:369:23)
+      at components/map/interactive-map.tsx:1778:31
+
+PASS __tests__/components/map/interactive-map.test.tsx (12.724 s)
+  InteractiveMap
+    ✓ does not restrict navigation when the swell field is active (395 ms)
+    ✓ replaces the loading overlay with a retryable error after a fatal map failure (94 ms)
+    ✓ ends silent map loading with a retryable timeout state (17 ms)
+    ✓ starts forecast loading before the Mapbox style is ready (29 ms)
+    ✓ keeps the mount-time forecast load across Mapbox's initial moveend (1621 ms)
+    ✓ keeps the mount-time forecast load across native's first camera correction (1633 ms)
+    ✓ applies each camera command once and reports real camera gestures (28 ms)
+    ✓ restores the swell overlay after the map style loads (26 ms)
+    ✓ retries an overlay mount deferred by tile loading without another style.load (25 ms)
+    ✓ resizes Mapbox when its container changes size (58 ms)
+    ✓ gives Mapbox a dedicated empty container while React overlays stay outside it (7 ms)
+    ✓ reports only a user gesture's final moveend center (6 ms)
+    ✓ keeps a user viewport when a later command reaches the debounce queue (23 ms)
+    ✓ does not repost a solitary user viewport as programmatic after debounce (6 ms)
+    ✓ labels the map's ready bounds as initial (18 ms)
+    ✓ does not infer user provenance from source-less map events (7 ms)
+    ✓ does not reapply stale beach bounds after a cross-region command and drag (27 ms)
+    ✓ starts a replacement forecast load after a sub-threshold camera command (3235 ms)
+    ✓ exposes the first validated absolute hourly envelope for an embed (38 ms)
+    ✓ commits current enrichment before the full hourly timeline resolves (35 ms)
+    ✓ does not carry a prior hourly frame into a missing absolute timestamp (1 ms)
+    ✓ interpolates absolute hourly partitions at a fractional playback position
+    ✓ clears the debug center during map setup and cleanup (4 ms)
+    ✓ only settles leash suspension at the latest command target (1 ms)
+    ✓ does not delegate map clicks from markers or conditions callouts (6 ms)
+    ✓ creates distinct custom spot markers and filters invalid coordinates (23 ms)
+    ✓ opens the auth modal instead of navigating when an anonymous user clicks a custom spot (28 ms)
+    ✓ navigates to the custom spot detail route when an authenticated user clicks a custom spot (21 ms)
+    ✓ uses the current user after auth state changes without rebuilding the custom spot marker (26 ms)
+    ✓ reuses stable custom spot markers and removes only missing ids (24 ms)
+    ✓ reuses stable beach markers across equivalent cluster updates (22 ms)
+    ✓ reuses a stable cluster marker when equivalent beaches are reindexed (26 ms)
+    ✓ forwards skill advanced on the initial bulk request (31 ms)
+    ✓ forwards skill undefined on the initial bulk request (33 ms)
+    ✓ keeps the swell field in a truthful loading state until the initial forecast resolves (42 ms)
+    ✓ rebuilds an owed swell mask on sourcedata without waiting for idle (58 ms)
+    ✓ reuses cached cell verdicts across moveend and queries only missing cells (59 ms)
+    ✓ invalidates cached water verdicts when the integer zoom bucket changes (59 ms)
+    ✓ updates a playback field from its cached grid without querying warm mask verdicts (60 ms)
+    ✓ throttles repeated owed swell mask retries to once per second (62 ms)
+    ✓ retries an owed swell mask on the fallback timer (1029 ms)
+    ✓ does not deadlock loaded swell data when map bounds are briefly unavailable (37 ms)
+    ✓ labels a 500 response as unavailable instead of empty (81 ms)
+    ✓ labels a malformed hourly envelope as unavailable instead of empty (40 ms)
+    ✓ aborts a stale forecast request before loading a replacement beach set (37 ms)
+    ✓ repopulates on auth generation changes and discards the stale account response (41 ms)
+    ✓ aborts and invalidates a stale forecast request when the region viewport changes (38 ms)
+    ✓ removes the prior coast's swell state as soon as a new region is requested (69 ms)
+    ✓ keeps enriched state during the initial native viewport correction (55 ms)
+    ✓ reloads a same-count beach replacement but not stable equivalent ordering (58 ms)
+    ✓ uses the latest beach scope when a queued pan finishes after region loading (62 ms)
+    ✓ retains loaded forecast data when a background refresh fails (36 ms)
+    ✓ keeps loaded forecasts when the focused beach or camera changes (1658 ms)
+    ✓ tracks bounded scrub, play, and pause actions with local-time horizon metadata and no tick spam (659 ms)
+    ✓ emits one requested and one success extension result (49 ms)
+    ✓ emits one requested and one exhausted extension result (48 ms)
+    ✓ emits one requested and one failure extension result (57 ms)
+    conditions callout during forecast playback
+      ✓ does not rebuild the open callout for fractional index ticks within the same step (84 ms)
+      ✓ notifies the embed host when a pin opens, but not when it toggles off (33 ms)
+      ✓ loads all hourly pin conditions in bounded batches and updates colors without replacing pins (116 ms)
+      ✓ loads all expandable-hourly pin conditions in bounded batches and updates colors without replacing pins (94 ms)
+      ✓ passes the displayed spot conditions to the embed host (43 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       62 passed, 62 total
+Snapshots:   0 total
+Time:        13.412 s, estimated 15 s
+Ran all test suites matching /__tests__\/components\/map\/interactive-map.test.tsx/i.
