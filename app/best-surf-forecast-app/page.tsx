@@ -64,7 +64,7 @@ const FREE_FAQ_ITEMS = [
   {
     question: "Can I use Quiver without paying?",
     answer:
-      "Yes. Quiver's free tier includes forecasts, conditions, and tides for 280+ breaks; session logging with a free account; and one watched beach with up to three alert rules. The personal match score, ranked session windows, and personal alerts require Quiver Pro.",
+      "Yes. Quiver includes forecast basics and session logging with a free account. Standard alert limits are one watched beach with up to three alert rules; growth offers can expand free access. Quiver Pro includes personal recommendations and similarity alerts. Check the app for your current access and limits.",
   },
 ] as const;
 
@@ -75,7 +75,7 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     why:
       "Quiver Pro turns forecast data into a beach-level call, then uses logged sessions, board context, alerts, and similarity signals to make the next call more personal.",
     freeTier:
-      "Free: forecasts, conditions, and tides for 280+ breaks; session logging with a free account; one watched beach with up to three alert rules. Pro only: personal match score, ranked session windows, and personal alerts.",
+      "Free: forecast basics and session logging. Standard alerts: one watched beach with up to three alert rules. Growth offers can expand free access. Pro includes personal recommendations and similarity alerts; check the app for current limits.",
     tradeoff:
       "iPhone-first today; not the best pick if your main need is a huge live-cam network.",
     sourceHref: APP_STORE_URL,
@@ -86,7 +86,7 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     why:
       "Surfline remains the strongest pick for live cams, expert reports, 16-day forecasts, and global coverage.",
     freeTier:
-      "Free tier; Premium $119.99/yr; Premium+ $149.99/yr; App Store 4.7 stars from about 30K ratings (checked on 2026-06-24).",
+      "Free tier; Premium $119.99/yr; Premium+ $149.99/yr, before applicable taxes (checked on 2026-09-06).",
     tradeoff:
       "The strongest cam and premium features sit behind paid plans, and the product is less centered on your personal session history.",
     sourceHref: "https://www.surfline.com/upgrade",
@@ -97,7 +97,7 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     why:
       "LazySurfer is the closest session-driven personalization competitor and publicly compares itself around per-user prediction and ratings history.",
     freeTier:
-      "Paid personalized session-driven forecasting; no price captured in source notes (checked on 2026-06-24).",
+      "Free tier with personalization; Pro $7.99/mo, $29.99/6mo, or $49.99/yr, according to LazySurfer (checked on 2026-09-06).",
     tradeoff:
       "Its own comparison positions Quiver as cheaper annually, while LazySurfer has broader platform availability.",
     sourceHref: "https://lazysurfer.app/compare/quiver.html",
@@ -108,7 +108,7 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     why:
       "Surf-Forecast.com is useful when you want broad spot coverage, wave maps, tide timing, alerts, and 16-day planning.",
     freeTier:
-      "Free web and app with hourly and 16-day forecasts noted in source check (checked on 2026-06-24).",
+      "Free forecast basics; hourly forecasts, 16-day forecasts, and custom surf alerts require Premium (checked on 2026-09-06).",
     tradeoff:
       "It is a broad forecast product, not a personal session-learning app.",
     sourceHref: "https://www.surf-forecast.com/pages/app-store",
@@ -119,17 +119,17 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     why:
       "Surf Captain is useful when you want straightforward 5-day free forecasts or a low-cost Pro path to 16-day local forecasts for covered regions.",
     freeTier:
-      "Free 5-day forecast with ads; Pro $19.99/yr for 16-day forecasts (checked on 2026-06-24).",
+      "Free 5-day forecast with ads; Pro $19.99/yr for 16-day forecasts (checked on 2026-09-06).",
     tradeoff:
       "It is a simple forecast product, not a personal session-learning app or broad live-cam network.",
     sourceHref: "https://surfcaptain.com/faq",
   },
   {
     job: "Raw wind and swell map reading",
-    bestPick: "Windy",
+    bestPick: "Windy.app",
     why:
       "Windy is strongest when you want to inspect raw wind, swell, and weather layers yourself instead of receiving a finished surf call.",
-    freeTier: "Free raw swell and wind maps (checked on 2026-06-24).",
+    freeTier: "Free GFS wind map; additional models, HD maps, and offline access require Pro or Pro+ (checked on 2026-09-06).",
     tradeoff:
       "You still need to translate model layers into beach-specific surf quality.",
     sourceHref: "https://windy.app/guide/mini-guide-to-surfing.html",
@@ -139,7 +139,7 @@ const COMPARISON_ROWS: AppComparisonRow[] = [
     bestPick: "NDBC",
     why:
       "NOAA NDBC is the cleanest free source for buoy observations and historical station data.",
-    freeTier: "Free NOAA buoy observations (checked on 2026-06-24).",
+    freeTier: "Free NOAA buoy observations (checked on 2026-09-06).",
     tradeoff:
       "It is not a consumer surf app and does not convert observations into a local paddle-out recommendation.",
     sourceHref: "https://www.ndbc.noaa.gov/observations.shtml",
@@ -173,7 +173,7 @@ function SoftwareApplicationStructuredData(): ReactElement {
     operatingSystem: "iOS",
     url: APP_STORE_URL,
     description:
-      "iPhone surf forecast app covering 280+ US, Hawaii, Puerto Rico, and Baja breaks, with free forecasts, tides, and session logging.",
+      "iPhone surf forecast app with forecast basics, beach conditions, and session logging.",
     offers: {
       "@type": "Offer",
       price: "0",
@@ -182,7 +182,7 @@ function SoftwareApplicationStructuredData(): ReactElement {
     aggregateRating: {
       "@type": "AggregateRating",
       ratingValue: "5.0",
-      ratingCount: "4",
+      ratingCount: "7",
     },
     publisher: {
       "@type": "Organization",
@@ -351,20 +351,21 @@ export default function BestSurfForecastAppPage(): ReactElement {
                 <p>
                   For iPhone surfers who want forecast basics and session
                   logging without paying, Quiver is our pick. The free tier
-                  includes forecasts, conditions, and tides for 280+ breaks;
-                  session logging with a free account; and one watched beach
-                  with up to three alert rules. The personal match score,
-                  ranked session windows, and personal alerts are Quiver Pro
-                  only.
+                  includes forecast basics and session logging with a free
+                  account. Standard alert limits are one watched beach with
+                  up to three alert rules. Growth offers can expand free access.
+                  Quiver Pro includes personal recommendations and similarity
+                  alerts; check the app for your current access and limits.
                 </p>
                 <p>
                   The best free choice changes with the job. Surfline offers a
                   free tier, while Premium and Premium+ are paid. Surf-Forecast.com
-                  offers free web and app forecasts. Surf Captain has a free
+                  offers free forecast basics, with hourly and 16-day forecasts
+                  in Premium. Surf Captain has a free
                   5-day forecast with ads, with 16-day forecasts in paid Pro.
-                  Windy provides free raw swell and wind maps, and NDBC provides
-                  free NOAA buoy observations. LazySurfer&apos;s session-driven
-                  personalization is paid.
+                  Windy.app provides a free GFS wind map, and NDBC provides
+                  free NOAA buoy observations. LazySurfer advertises a free
+                  personalization tier and paid Pro plans.
                 </p>
               </div>
             </div>

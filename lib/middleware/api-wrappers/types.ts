@@ -18,10 +18,11 @@ import type { AdminUser } from "@/lib/auth/admin";
 /**
  * Standard Next.js route handler signature
  */
-export type RouteHandler = (
-  request: NextRequest,
-  context?: RouteContext
-) => Promise<NextResponse>;
+export type RouteHandler = {
+  (request: NextRequest, context?: RouteContext): Promise<NextResponse>;
+  // Next.js inspects the final signature; runtime callers retain the legacy overload.
+  (request: NextRequest, context: { params: Promise<Record<string, string>> }): Promise<NextResponse>;
+};
 
 /**
  * Route context with typed params as received from Next.js
