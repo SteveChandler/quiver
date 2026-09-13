@@ -3,16 +3,23 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
-import { fetchOpenMeteoSingleRunReceipt, buildOpenMeteoSingleRunRequest } from "../lib/alerts/swell-watch/single-run-receipt.ts";
-import { storePrototypeSingleRunReceipts } from "../lib/alerts/swell-watch/provider-run-store.ts";
-import { evaluateSwellWatchShadow } from "../lib/alerts/swell-watch/shadow-evaluation.ts";
-import { loadAttestedSwellWatchRun } from "../lib/alerts/swell-watch/attested-run.ts";
+import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { createRequire } from "node:module";
+
+// tsx registers the repository's CommonJS TypeScript imports without mocking them.
+const require = createRequire(import.meta.url);
+const { fetchOpenMeteoSingleRunReceipt, buildOpenMeteoSingleRunRequest } = require("../lib/alerts/swell-watch/single-run-receipt.ts");
+const { storePrototypeSingleRunReceipts } = require("../lib/alerts/swell-watch/provider-run-store.ts");
+const { evaluateSwellWatchShadow } = require("../lib/alerts/swell-watch/shadow-evaluation.ts");
+const { loadAttestedSwellWatchRun } = require("../lib/alerts/swell-watch/attested-run.ts");
 
 const container = process.argv[2];
 assert.match(container ?? "", /^swell-watch-study-test-\d+$/);
 const database = "study_normalization";
-const migration = readFileSync(new URL("../supabase/migrations/20260913171725_normalize_swell_watch_provider_direction.sql", import.meta.url), "utf8");
+const migrationsDirectory = new URL("../supabase/migrations/", import.meta.url);
+const migrationNames = readdirSync(migrationsDirectory).filter((name) => /^\d{14}_normalize_swell_watch_provider_direction\.sql$/.test(name));
+assert.equal(migrationNames.length, 1, "Exactly one tracked normalization migration required");
+const migration = readFileSync(new URL(migrationNames[0], migrationsDirectory), "utf8");
 const rollback = readFileSync(new URL("../docs/operations/swell-watch-direction-normalization-rollback.sql", import.meta.url), "utf8");
 const policy = JSON.parse(readFileSync(new URL("../docs/operations/swell-watch-no-send-producer-config-v2-proposed.json", import.meta.url), "utf8")).policy;
 assert.equal(policy.policy_values.staleness.maximum_forecast_age_hours, 12);
@@ -20,7 +27,7 @@ const q = (value) => `'${String(value).replaceAll("'", "''")}'`;
 const j = (value) => `${q(JSON.stringify(value))}::jsonb`;
 const command = ["exec", "-i", container, "psql", "-X", "-U", "postgres", "-d", database, "-qAt", "-v", "ON_ERROR_STOP=1"];
 function sql(text) {
-  const result = spawnSync("docker", command, { input: text, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
+  const result = spawnSync("docker", command, { input: text, encoding: "utf8", timeout: 30_000, maxBuffer: 32 * 1024 * 1024 });
   if (result.status !== 0) throw new Error((result.stderr || "isolated PostgreSQL command failed").split("\n")[0].slice(0, 200));
   return result.stdout.trim();
 }
@@ -167,9 +174,23 @@ if (process.env.SWELL_WATCH_NORMALIZATION_PROVIDER_PROBE === "true") {
   const receipt = await fetchOpenMeteoSingleRunReceipt(input, async () => ({ status: 200, text: async () => raw }), sourcePointId);
   const normalized = receipt.observations.flatMap((o, i) => o.components.filter((p) => p.rawFieldProvenance.directionNormalization).map((p) => ({ hourlyIndex: i, forecastAtUtc: o.forecastAtUtc, sourceSlot: p.sourceSlot, ...p.rawFieldProvenance.directionNormalization })));
   assert(normalized.length > 0, "Historical counterexample no longer present; needs review, not silent pass");
+  // Exercise the actual transport receipt at the SQL boundary, in the disposable DB only.
+  // It retains its real source ID and coordinates and receives NO study acceptance.
+  const beforeLiveSendCounts = sendCounts();
+  sql(`INSERT INTO public.beaches(id,lat,lon) VALUES(${q(sourcePointId)},${input.latitude},${input.longitude}) ON CONFLICT(id) DO NOTHING;`);
+  const storedProvider = await storePrototypeSingleRunReceipts([{ sourcePointId, receipt }], client);
+  const providerStored = value(`SELECT jsonb_build_object('normalizedComponents',count(*) FILTER (WHERE c.raw_field_provenance ? 'directionNormalization'),
+    'badCanonicalDirections',count(*) FILTER (WHERE c.direction_deg<0 OR c.direction_deg>=360))
+    FROM public.swell_watch_provider_run_revision_set_members m
+    JOIN public.swell_watch_provider_run_revision_components c ON c.revision_id=m.revision_id
+    WHERE m.revision_set_id=${q(storedProvider.revisionSetId)}::uuid;`);
+  assert.equal(providerStored.normalizedComponents, normalized.length);
+  assert.equal(providerStored.badCanonicalDirections, 0);
+  assert.equal(sql(`SELECT count(*) FROM public.swell_watch_study_acceptances WHERE revision_set_id=${q(storedProvider.revisionSetId)}::uuid;`), "0");
+  assert.deepEqual(sendCounts(), beforeLiveSendCounts);
   const report = { mode: "read_only_historical_provider_replay", observedAt, sourcePointId, requestedRunUtc: input.runUtc, httpStatus: response.status,
     rawResponseSha256: receipt.rawResponseSha256, semanticRevisionHash: receipt.revisionHash, parserOutcome: "accepted_unqualified_receipt", normalizationCount: normalized.length,
-    normalized: normalized.slice(0, 5), providerRequests: 1, productionDatabaseCalls: 0, enqueued: 0, qualification: "not_evaluated" };
+    normalized: normalized.slice(0, 5), disposableDatabaseStorage: providerStored, providerRequests: 1, productionDatabaseCalls: 0, enqueued: 0, qualification: "not_evaluated" };
   writeFileSync("/tmp/swell-normalization-artifact/provider-evidence.json", JSON.stringify(report, null, 2), { mode: 0o600 });
   console.log(JSON.stringify(report, null, 2));
 }
