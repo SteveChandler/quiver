@@ -7,7 +7,7 @@ import { metersToFeet } from "@/lib/utils/unit-conversions";
 
 const HOUR = 3_600_000;
 type Impact = Extract<ReturnType<typeof evaluateSwellWatchImpact>, { kind: "candidate" }>;
-export interface NativeEventTiming {
+interface NativeEventTiming {
   // Existing arrivalAt/peakAt are retained-sample times, not exact ocean-onset/peak times.
   arrivalAfter: string;
   arrivalAtOrBefore: string;
