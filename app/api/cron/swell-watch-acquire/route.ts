@@ -3,6 +3,7 @@ import { createErrorResponse, createSuccessResponse, validateCronRequest } from 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { acquisitionConfig, acquireSwellWatchCohort, type SwellWatchAcquisitionStage } from "@/lib/alerts/swell-watch/acquisition";
 import { completeSwellWatchStudyRun, readSwellWatchStudyStatus, recoverSwellWatchStudyRuns, studyConfig } from "@/lib/alerts/swell-watch/study";
+import { getSingleRunTupleDiagnostic } from "@/lib/alerts/swell-watch/single-run-receipt";
 import { z } from "zod";
 
 export const revalidate = 0;
@@ -91,16 +92,22 @@ async function acquire(request: Request): Promise<Response> {
       stage = "completion";
       const study = await completeSwellWatchStudyRun(stored.revisionSetId, studyConfig.parse(config), client);
       if (recovery.failed) return createErrorResponse("Study recovery incomplete", { recovery, study, enqueued: 0 }, 500);
+      if ("status" in study && study.status === "suppressed") {
+        // Recording a suppressed result is not a successful study cycle.
+        return createErrorResponse("Study suppressed", { ...stored, study, recovery, qualification: "automated_study", enqueued: 0 }, 503);
+      }
       return createSuccessResponse({ ...stored, study, recovery, qualification: "automated_study", enqueued: 0 });
     }
     if (recovery.failed) return createErrorResponse("Study recovery incomplete", { recovery, enqueued: 0 }, 500);
     return createSuccessResponse({ ...stored, qualification: "prototype_unqualified", enqueued: 0 });
   } catch (error) {
+    const tuple = getSingleRunTupleDiagnostic(error);
+    const diagnostic = { stage, code: failureCode(error), ...(tuple ? { tuple } : {}) };
     if (automated) {
-      console.error("[swell-watch-acquire] automated study failed", { stage, code: failureCode(error) });
+      console.error("[swell-watch-acquire] automated study failed", diagnostic);
       return createErrorResponse("Study failed", "Automated study cycle failed; retained receipts can be retried", 500);
     }
-    console.error("[swell-watch-acquire] acquisition failed", { stage, code: failureCode(error) });
+    console.error("[swell-watch-acquire] acquisition failed", diagnostic);
     return createErrorResponse("Producer failed", "Provider acquisition failed", 500);
   }
 }

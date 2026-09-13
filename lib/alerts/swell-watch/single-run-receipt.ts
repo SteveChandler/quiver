@@ -94,15 +94,51 @@ function record(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function tuple(height: unknown, period: unknown, direction: unknown): PartitionValues {
+interface TupleDiagnostic {
+  sourcePointId: string | null;
+  requestedRunUtc: string;
+  forecastAtUtc: string;
+  hourlyIndex: number;
+  sourceSlot: "s1" | "s2";
+  rawResponseSha256: string;
+  invalidFields: readonly string[];
+  values: Readonly<Record<"height" | "period" | "direction", { type: string; number: number | null }>>;
+}
+
+// Only errors produced by this parser can carry diagnostics. Never serialize an
+// upstream Error, its message/cause, URLs, or nonnumeric provider values.
+const tupleDiagnostics = new WeakMap<Error, Readonly<TupleDiagnostic>>();
+export function getSingleRunTupleDiagnostic(error: unknown): Readonly<TupleDiagnostic> | null {
+  return error instanceof Error ? tupleDiagnostics.get(error) ?? null : null;
+}
+
+function diagnosticValue(value: unknown): { type: string; number: number | null } {
+  const type = value === null ? "null" : Array.isArray(value) ? "array"
+    : typeof value === "number" && !Number.isFinite(value) ? "nonfinite" : typeof value;
+  return Object.freeze({ type, number: typeof value === "number" && Number.isFinite(value) ? value : null });
+}
+
+function tuple(height: unknown, period: unknown, direction: unknown,
+  context: Omit<TupleDiagnostic, "invalidFields" | "values">): PartitionValues {
   if (height === 0 && period === 0 && direction === 0) {
     return { heightM: 0, periodS: 0, directionDeg: 0, unavailableReason: "provider_zero_tuple" };
   }
-  if (typeof height !== "number" || !Number.isFinite(height) || height < 0 || typeof period !== "number" || !Number.isFinite(period) || period <= 0 || typeof direction !== "number" || !Number.isFinite(direction) || direction < 0 || direction >= 360) throw new Error("Single Runs tuple is invalid");
+  if (typeof height !== "number" || !Number.isFinite(height) || height < 0 || typeof period !== "number" || !Number.isFinite(period) || period <= 0 || typeof direction !== "number" || !Number.isFinite(direction) || direction < 0 || direction >= 360) {
+    const prefix = context.sourceSlot === "s1" ? "swell_wave_" : "secondary_swell_wave_";
+    const invalidFields = [
+      ...(typeof height !== "number" || !Number.isFinite(height) || height < 0 ? [`${prefix}height`] : []),
+      ...(typeof period !== "number" || !Number.isFinite(period) || period <= 0 ? [`${prefix}period`] : []),
+      ...(typeof direction !== "number" || !Number.isFinite(direction) || direction < 0 || direction >= 360 ? [`${prefix}direction`] : []),
+    ];
+    const error = new Error("Single Runs tuple is invalid");
+    tupleDiagnostics.set(error, Object.freeze({ ...context, invalidFields: Object.freeze(invalidFields),
+      values: Object.freeze({ height: diagnosticValue(height), period: diagnosticValue(period), direction: diagnosticValue(direction) }) }));
+    throw error;
+  }
   return { heightM: height, periodS: period, directionDeg: direction };
 }
 
-function parseHourly(value: unknown, runUtc: string, forecastDays: number): PrototypeSingleRunReceipt["observations"] {
+function parseHourly(value: unknown, runUtc: string, forecastDays: number, rawResponseSha256: string, sourcePointId?: string): PrototypeSingleRunReceipt["observations"] {
   if (!record(value)) throw new Error("Single Runs hourly response is invalid");
   const keys = Object.keys(value).sort();
   const expectedKeys = ["time", ...HOURLY_FIELDS].sort();
@@ -114,8 +150,10 @@ function parseHourly(value: unknown, runUtc: string, forecastDays: number): Prot
   const slots = expectedSlots(runUtc, forecastDays);
   if (time.length !== slots.length || arrays.some((field) => field.length !== slots.length) || time.some((value, index) => value !== slots[index])) throw new Error("Single Runs hourly slots are invalid");
   return slots.map((forecastAtUtc, index) => {
-    const s1 = tuple(arrays[0][index], arrays[1][index], arrays[2][index]);
-    const s2 = tuple(arrays[3][index], arrays[4][index], arrays[5][index]);
+    const context = { requestedRunUtc: runUtc, forecastAtUtc: `${forecastAtUtc}Z`, hourlyIndex: index, rawResponseSha256,
+      sourcePointId: sourcePointId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sourcePointId) ? sourcePointId : null };
+    const s1 = tuple(arrays[0][index], arrays[1][index], arrays[2][index], { ...context, sourceSlot: "s1" });
+    const s2 = tuple(arrays[3][index], arrays[4][index], arrays[5][index], { ...context, sourceSlot: "s2" });
     return { providerForecastAt: forecastAtUtc, forecastAtUtc: `${forecastAtUtc}Z`, timeProvenance: { field: "time", timezone: "UTC" }, components: [
       { sourceSlot: "s1", ...s1, rawFieldProvenance: { height: "swell_wave_height", period: "swell_wave_period", direction: "swell_wave_direction" } },
       { sourceSlot: "s2", ...s2, rawFieldProvenance: { height: "secondary_swell_wave_height", period: "secondary_swell_wave_period", direction: "secondary_swell_wave_direction" } },
@@ -159,7 +197,7 @@ export function buildOpenMeteoSingleRunRequest(input: OpenMeteoSingleRunInput): 
 }
 
 /** Local-only prototype: never elevates a transport response into a completed evaluation. */
-export async function fetchOpenMeteoSingleRunReceipt(input: OpenMeteoSingleRunInput, fetcher: (url: string, init: { method: "GET"; redirect: "error" }) => Promise<FetchResponse>): Promise<PrototypeSingleRunReceipt> {
+export async function fetchOpenMeteoSingleRunReceipt(input: OpenMeteoSingleRunInput, fetcher: (url: string, init: { method: "GET"; redirect: "error" }) => Promise<FetchResponse>, sourcePointId?: string): Promise<PrototypeSingleRunReceipt> {
   const canonicalRequest = buildOpenMeteoSingleRunRequest(input);
   const response = await fetcher(canonicalRequest.url, { method: canonicalRequest.method, redirect: "error" });
   if (!Number.isInteger(response.status) || response.status < 200 || response.status >= 300) throw new Error("Single Runs HTTP response was unsuccessful");
@@ -181,6 +219,6 @@ export async function fetchOpenMeteoSingleRunReceipt(input: OpenMeteoSingleRunIn
     prototypeReceiptKey: sha256(`${prototypeEvaluationIdentity}:${revisionHash}`),
     qualification: { status: "prototype_unqualified", reason: "provider_response_does_not_echo_run_and_completion_not_operationally_proven" },
     selectedGrid: mappedGrid,
-    observations: parseHourly(envelope.hourly, input.runUtc, input.forecastDays),
+    observations: parseHourly(envelope.hourly, input.runUtc, input.forecastDays, rawResponseSha256, sourcePointId),
   };
 }
