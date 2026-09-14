@@ -51,6 +51,7 @@ done
 for pid in "${pids[@]}"; do wait "$pid"; done
 psql_local -c "DO \$\$ BEGIN ASSERT (SELECT count(*) FROM trial_feedback_submissions WHERE user_id='dddd0000-0000-4000-8000-000000000001')=1; END \$\$;"
 psql_local -f "$repo_dir/supabase/migrations/20260913230000_trial_feedback_web_recovery.sql"
+psql_local -f "$repo_dir/supabase/migrations/20260914170000_gmail_reply_reconciliation.sql" -f "$repo_dir/__tests__/integration/email-reply-reconciliation.sql"
 if [[ "${1:-}" == "--feedback-contract" ]]; then
   LIFECYCLE_TEST_SOCKET="$test_dir" LIFECYCLE_TEST_PSQL="$pg_bin/psql" \
     NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-fixture \

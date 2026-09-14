@@ -81,3 +81,22 @@ it('reconciles a lost grant response with GETs only and never grants twice', asy
   const denied=await rest('rpc/list_owned_pro_offers','authenticated',other,{method:'POST',body:JSON.stringify({p_user_id:user})});
   expect([401,403,404]).toContain(denied.status);
 });
+
+it('keeps missing Gmail messages durable across real RPC checkpoints and resolves them before opening handoff', async () => {
+  const incoming={id:'m2',threadId:'t2',internalDate:String(Date.now()),payload:{headers:[{name:'From',value:'Second <second@example.com>'},{name:'To',value:'steve@quiversurf.app'}]}};
+  const mailbox=jest.fn().mockResolvedValueOnce(json({access_token:'fixture'})).mockResolvedValueOnce(json({emailAddress:'mail@gmail.com'}))
+    .mockResolvedValueOnce(json({historyId:'110',history:[{messagesAdded:[{message:{id:'missing'}},{message:{id:'m2'}}]}]}))
+    .mockResolvedValueOnce(json({},404)).mockResolvedValueOnce(json(incoming));
+  await expect(syncGmailReplies(mailbox)).rejects.toThrow('gmail_message_gaps_unresolved');
+  expect(await lifecycleRpc('gmail_reply_ingestion_ready')).toBe(false);
+  expect(await (await rest('email_reply_sync?select=history_id,status')).json()).toEqual([{history_id:'110',status:'pending'}]);
+  expect(await (await rest('email_reply_missing_messages?select=message_id,resolution')).json()).toEqual([{message_id:'missing',resolution:null}]);
+  expect(await lifecycleRpc('evaluate_email_lifecycle',{p_user_id:other})).toMatchObject({status:'held',reason:'reply_paused'});
+  expect((await rest('email_reply_missing_messages','authenticated',user)).status).toBe(403);
+  const healthy=jest.fn().mockResolvedValueOnce(json({access_token:'fixture'})).mockResolvedValueOnce(json({emailAddress:'mail@gmail.com'}))
+    .mockResolvedValueOnce(json({historyId:'111'})).mockResolvedValueOnce(json({...incoming,id:'missing'}));
+  expect(await syncGmailReplies(healthy)).toEqual({processed:1});
+  expect(healthy.mock.calls[3][0]).toContain('/messages/missing?');
+  expect(await lifecycleRpc('gmail_reply_ingestion_ready')).toBe(true);
+  expect(await (await rest('email_reply_missing_messages?select=message_id,resolution')).json()).toEqual([{message_id:'missing',resolution:'metadata_recovered'}]);
+});
