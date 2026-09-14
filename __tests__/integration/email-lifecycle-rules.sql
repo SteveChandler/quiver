@@ -21,7 +21,7 @@ BEGIN
  UPDATE email_contact_state SET entitlement_verified_until=now()+interval '1 hour';
  INSERT INTO user_entitlements(user_id,is_pro,is_trialing,product_id,trial_ends_at) VALUES(u,true,true,'pro',now()+interval '12 days');
  ASSERT evaluate_email_lifecycle(u)->>'reason'='trial_unverified';
- INSERT INTO revenuecat_provider_events VALUES('trial-event',u,'SANDBOX',now(),'pro','TRIAL','INITIAL_PURCHASE',now()-interval '2 days',now()+interval '12 days',now()-interval '2 days');
+ INSERT INTO revenuecat_provider_events(provider_event_id,app_user_id,environment,processed_at,product_id,period_type,event_type,purchased_at,expiration_at,event_timestamp) VALUES('trial-event',u,'SANDBOX',now(),'pro','TRIAL','INITIAL_PURCHASE',now()-interval '2 days',now()+interval '12 days',now()-interval '2 days');
  ASSERT evaluate_email_lifecycle(u)->>'reason'='trial_unverified';
  UPDATE revenuecat_provider_events SET environment='PRODUCTION';
  d:=evaluate_email_lifecycle(u); ASSERT d->>'job'='trial_support',d::text; ASSERT d->>'status'='due',d::text;
@@ -89,7 +89,7 @@ ROLLBACK;
 BEGIN;
 DO $$ DECLARE u uuid:='11111111-1111-4111-8111-111111111111'; BEGIN
  INSERT INTO user_entitlements(user_id,is_pro,is_trialing,product_id,trial_ends_at) VALUES(u,true,true,'pro',now()+interval '12 days');
- INSERT INTO revenuecat_provider_events VALUES('trial-target',u,'PRODUCTION',now(),'pro','TRIAL','INITIAL_PURCHASE',now()-interval '2 days',now()+interval '12 days',now()-interval '2 days');
+ INSERT INTO revenuecat_provider_events(provider_event_id,app_user_id,environment,processed_at,product_id,period_type,event_type,purchased_at,expiration_at,event_timestamp) VALUES('trial-target',u,'PRODUCTION',now(),'pro','TRIAL','INITIAL_PURCHASE',now()-interval '2 days',now()+interval '12 days',now()-interval '2 days');
  ASSERT evaluate_email_lifecycle(u)->>'job'='trial_support';
  INSERT INTO user_events(user_id,bot_flagged,event_type,created_at) VALUES(u,false,'home_surf_call_tap',now());
  ASSERT evaluate_email_lifecycle(u)->>'reason'='trial_target_reached';

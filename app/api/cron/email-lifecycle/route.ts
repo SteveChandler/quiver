@@ -1,3 +1,4 @@
+import { runTrialFeedbackReconciliation } from "@/lib/trial-feedback/reconciliation";
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { runEmailLifecycle } from "@/lib/email/lifecycle-dispatcher";
@@ -15,15 +16,12 @@ export async function GET(request: Request): Promise<Response> {
   const dryRun = mode === "dry-run";
   const slug = "email-lifecycle";
   const checkIn = dryRun ? "" : startCronCheckIn({ slug, schedule: "*/15 * * * *", checkinMarginMinutes: 15, maxRuntimeMinutes: 3 });
-  if (!dryRun && !lifecycleEnabled()) {
-    await completeCronCheckIn(checkIn, slug, "ok");
-    return NextResponse.json({ status: "disabled" });
-  }
   let status: "ok" | "error" = "error";
   try {
-    const result = await runEmailLifecycle(dryRun);
-    status = result.status === "attention" ? "error" : "ok";
-    return NextResponse.json(result, { status: status === "error" ? 503 : 200 });
+    const feedback = dryRun ? undefined : await runTrialFeedbackReconciliation();
+    const result = !dryRun && !lifecycleEnabled() ? { status: "disabled" } : await runEmailLifecycle(dryRun);
+    status = result.status === "attention" || (feedback?.attention ?? 0) > 0 ? "error" : "ok";
+    return NextResponse.json({ ...result, ...(feedback ? { trial_feedback: feedback } : {}) }, { status: status === "error" ? 503 : 200 });
   } catch {
     return NextResponse.json({ error: "Lifecycle run failed; inspect run records" }, { status: 503 });
   } finally {

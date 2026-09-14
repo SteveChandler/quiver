@@ -37,3 +37,10 @@ it('refreshes a newly paid user before a promo reservation without changing enro
  expect(mockRead).toHaveBeenCalledWith(user_id,'fixture',fetch);
  expect(mockRpc.mock.calls).toEqual([['record_lifecycle_entitlement_attempt',{p_user_id:user_id}],['record_lifecycle_provider_snapshot',{p_user_id:user_id,p_active:true,p_trial:null}]]);
 });
+
+it.each(['app_store','play_store','stripe','rc_billing'])('retains independent cancellation and billing evidence for %s',async store => {
+ const expiry=new Date(Date.now()+86400000).toISOString();
+ mockRead.mockResolvedValue({entitlements:{'Quiver Pro':{expires_date:expiry,product_identifier:'pro'}},subscriptions:{pro:{store,is_sandbox:false,period_type:'trial',unsubscribe_detected_at:'2026-09-01T00:00:00Z',billing_issues_detected_at:null}}});
+ await refreshLifecycleUserEligibility(user_id);
+ expect(mockRpc).toHaveBeenLastCalledWith('record_lifecycle_provider_snapshot',{p_user_id:user_id,p_active:true,p_trial:{product_id:'pro',expires_at:expiry,store,will_renew:false,billing_issue:false}});
+});
