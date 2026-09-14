@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { completeSwellWatchStudyRun, readSwellWatchStudyStatus, recoverSwellWatchStudyRuns, studyConfig } from "@/lib/alerts/swell-watch/study";
+import { completeSwellWatchStudyRun, readSwellWatchStudyStatus, recoverSwellWatchStudyRuns, studyConfig, SwellWatchStudySkip } from "@/lib/alerts/swell-watch/study";
 import { loadSwellWatchAcquisitionScope } from "@/lib/alerts/swell-watch/provider-run-store";
 import { evaluateSwellWatchShadow } from "@/lib/alerts/swell-watch/shadow-evaluation";
 import { calculateSwellWatchPolicyHash } from "@/lib/alerts/swell-watch/policy";
@@ -86,6 +86,17 @@ it.each(["complete_swell_watch_study_run", "record_swell_watch_study_evaluation"
   expect(evaluateSwellWatchShadow).toHaveBeenCalledTimes(failed === "complete_swell_watch_study_run" ? 0 : 1);
 });
 
+it.each([
+  ["study acceptance belongs to a different authority epoch", "issuance_accepted_under_previous_epoch"],
+  ["study run is stale", "latest_issuance_stale"],
+] as const)("maps completion SQL skip %s", async (message, reason) => {
+  rpc.mockResolvedValueOnce({ data: null, error: { message } });
+  await expect(completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "model_reported_partition_count.v1"))
+    .rejects.toEqual(new SwellWatchStudySkip(reason));
+  expect(evaluateSwellWatchShadow).not.toHaveBeenCalled();
+  expect(rpc).toHaveBeenCalledTimes(1);
+});
+
 it("does not record an evaluation that threw", async () => {
   jest.mocked(evaluateSwellWatchShadow).mockRejectedValueOnce(new Error("evaluation failed"));
   await expect(completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "primary_partition_with_retained_unavailable_secondary.v1")).rejects.toThrow("evaluation failed");
@@ -147,4 +158,10 @@ it("reads the authority qualification rule and rejects unknown rules", async () 
   expect(await readSwellWatchStudyStatus(client)).toEqual(data);
   rpc.mockResolvedValueOnce({ data: { ...data, qualificationRule: "future-rule" }, error: null });
   await expect(readSwellWatchStudyStatus(client)).rejects.toThrow();
+});
+
+it("reads the model-reported partition-count rule", async () => {
+  const data = { status: "active", qualificationRule: "model_reported_partition_count.v1" };
+  rpc.mockResolvedValueOnce({ data, error: null });
+  await expect(readSwellWatchStudyStatus(client)).resolves.toEqual(data);
 });
