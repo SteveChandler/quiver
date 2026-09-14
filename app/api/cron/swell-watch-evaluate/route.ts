@@ -1,3 +1,4 @@
+import { COMPLETE_PARTITIONS_RULE } from "@/lib/alerts/swell-watch/native-sampling";
 import { z } from "zod";
 import { withObservedCron } from "@/lib/cron/observability";
 import { createErrorResponse, createSuccessResponse, validateCronRequest } from "@/lib/middleware/api-wrappers";
@@ -40,7 +41,7 @@ async function evaluate(request: Request): Promise<Response> {
     const client = createSupabaseServiceRoleClient();
     const scopes = await loadSwellWatchAcquisitionScope(config.cohort, client);
     const result = await evaluateSwellWatchShadow({ providerBatchId: operation.provider_batch_id,
-      forecastDays: 7, now: new Date().toISOString(), policy: config.policy, scopes },
+      qualificationRule: COMPLETE_PARTITIONS_RULE, forecastDays: 7, now: new Date().toISOString(), policy: config.policy, scopes },
     client as unknown as Parameters<typeof evaluateSwellWatchShadow>[1]);
     return createSuccessResponse(result);
   } catch {

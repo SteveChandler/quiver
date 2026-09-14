@@ -18,7 +18,7 @@ async function main(): Promise<void> {
   const outcomes = [];
   for (const scope of proposed.cohort) {
     const data = readScope(scope.sourcePointId);
-    const result = await deriveAttestedSwellWatchRun({ providerBatchId: batch, sourcePointId: scope.sourcePointId,
+    const result = await deriveAttestedSwellWatchRun({ qualificationRule: "complete_partitions.v1", providerBatchId: batch, sourcePointId: scope.sourcePointId,
       now, beach: data.beach as never, policy: proposed.policy as SwellWatchPolicy }, { rpc: async () => ({ data: data.run, error: null }) });
     outcomes.push({ sourcePointId: scope.sourcePointId, rawHashes: data.rawHashes, result: result.kind === "derived" ? "derived" : result.reason });
   }

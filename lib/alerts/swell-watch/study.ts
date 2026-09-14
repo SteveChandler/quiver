@@ -1,3 +1,4 @@
+import { COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, type SwellWatchQualificationRule } from "./native-sampling";
 import { z } from "zod";
 import { acquisitionConfig } from "./acquisition";
 import { verifySwellWatchPolicy, type SwellWatchPolicy } from "./policy";
@@ -19,18 +20,21 @@ const completionResult = z.array(z.object({
 
 export async function readSwellWatchStudyStatus(
   client: Parameters<typeof loadSwellWatchAcquisitionScope>[1],
-): Promise<"active" | "complete" | "expired" | "unconfigured" | "blocked"> {
+): Promise<{ status: "active" | "complete" | "expired" | "unconfigured" | "blocked"; qualificationRule: SwellWatchQualificationRule }> {
   const reader = client as unknown as {
     rpc: (name: string) => PromiseLike<{ data: unknown; error: unknown }>;
   };
   const result = await reader.rpc("read_swell_watch_study_health");
   if (result.error) throw new Error("Study health unavailable");
-  return z.object({ status: z.enum(["active", "complete", "expired", "unconfigured", "blocked"]) }).parse(result.data).status;
+  return z.object({ status: z.enum(["active", "complete", "expired", "unconfigured", "blocked"]),
+    qualificationRule: z.enum([COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE]).default(COMPLETE_PARTITIONS_RULE),
+  }).parse(result.data);
 }
 
 export async function recoverSwellWatchStudyRuns(
   config: z.infer<typeof studyConfig>,
   client: Parameters<typeof loadSwellWatchAcquisitionScope>[1],
+  qualificationRule: SwellWatchQualificationRule,
 ): Promise<{ processed: number; failed: number }> {
   const reader = client as unknown as {
     rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }>;
@@ -41,7 +45,7 @@ export async function recoverSwellWatchStudyRuns(
   const result = { processed: 0, failed: 0 };
   for (const run of runs) {
     try {
-      await completeSwellWatchStudyRun(run.revision_set_id, config, client);
+      await completeSwellWatchStudyRun(run.revision_set_id, config, client, qualificationRule);
       result.processed += 1;
     } catch {
       // Retained failures must not prevent collecting the next issuance.
@@ -55,6 +59,7 @@ export async function completeSwellWatchStudyRun(
   revisionSetId: string,
   config: z.infer<typeof studyConfig>,
   client: Parameters<typeof loadSwellWatchAcquisitionScope>[1],
+  qualificationRule: SwellWatchQualificationRule,
 ): Promise<Awaited<ReturnType<typeof evaluateSwellWatchShadow>>
   | { skipped: true; reason: "already_evaluated"; providerBatchId: string; enqueued: 0 }> {
   config = studyConfig.parse(config);
@@ -81,7 +86,7 @@ export async function completeSwellWatchStudyRun(
   const [batch] = completionResult.parse(completed.data);
   if (batch.already_evaluated) return { skipped: true, reason: "already_evaluated", providerBatchId: batch.provider_batch_id, enqueued: 0 };
   const result = await evaluateSwellWatchShadow({ providerBatchId: batch.provider_batch_id,
-    forecastDays: 7, now: new Date().toISOString(), policy: config.policy, scopes },
+    qualificationRule, forecastDays: 7, now: new Date().toISOString(), policy: config.policy, scopes },
   client as unknown as Parameters<typeof evaluateSwellWatchShadow>[1]);
   const recorded = await writer.rpc("record_swell_watch_study_evaluation", {
     p_provider_batch_id: batch.provider_batch_id, p_policy_hash: config.policy.value_hash, p_result: result,

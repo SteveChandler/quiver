@@ -40,6 +40,7 @@ if [ "${#normalization_migrations[@]}" -ne 1 ] || [ ! -f "${normalization_migrat
   echo 'Exactly one tracked normalization migration required' >&2; exit 1
 fi
 run_file "${normalization_migrations[0]}" >/dev/null
+run_file "$study_root/supabase/migrations/20260914050000_amend_swell_watch_study_partition_coverage.sql" >/dev/null
 query 'CREATE DATABASE study_normalization TEMPLATE postgres'
 node --import tsx "$study_root/scripts/test-swell-watch-normalization.mjs" "$study_container"
 query 'CREATE DATABASE study_activation TEMPLATE postgres'
