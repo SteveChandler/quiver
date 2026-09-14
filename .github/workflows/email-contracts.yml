@@ -14,6 +14,9 @@ on:
       - 'app/api/cron/email-*/**'
       - 'app/api/cron/pro-offer-*/**'
       - 'lib/email/**'
+      - '__tests__/lib/email/gmail-replies.test.ts'
+      - '__tests__/app/api/cron/email-replies/**'
+      - '__tests__/integration/email-reply-reconciliation.sql'
       - 'lib/mailer/**'
       - 'app/offers/**'
       - 'lib/subscription/offer-*.ts'
@@ -54,4 +57,4 @@ jobs:
       - name: Trial feedback and fulfillment (disposable PostgreSQL)
         run: LIFECYCLE_TEST_PG_BIN="$(pg_config --bindir)" bash scripts/test-email-lifecycle.sh --feedback-contract
       - name: Auth and wire contracts
-        run: yarn test:unit --runInBand --runTestsByPath __tests__/app/api/offers/auth-contract.test.ts __tests__/lib/subscription/offer-contract.test.ts __tests__/lib/subscription/offer-provider.test.ts
+        run: yarn test:unit --runInBand --runTestsByPath __tests__/app/api/offers/auth-contract.test.ts __tests__/lib/subscription/offer-contract.test.ts __tests__/lib/subscription/offer-provider.test.ts __tests__/lib/email/gmail-replies.test.ts __tests__/app/api/cron/email-replies/route.test.ts
