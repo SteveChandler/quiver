@@ -17,14 +17,14 @@ BEGIN
 END;
 $constraint$;
 
--- record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb): pre e0e0e7f5d09ce8e3d2b668dd4c022ed429ff38d57473ae803ee093620c9f5521; post ae1589a145a508cf2d83c9ac21d4c9396be377d6c469471a4ea0a3fd735c5eab.
+-- record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb): pre e0e0e7f5d09ce8e3d2b668dd4c022ed429ff38d57473ae803ee093620c9f5521; post d6ce951daa3bb58b6b5228732ce7fcd9263c0cb894863362258d923ad53dc817.
 DO $amend$
 DECLARE definition text; old_coverage text; new_coverage text;
 BEGIN
   IF current_user <> 'postgres' THEN RAISE EXCEPTION 'production owner required'; END IF;
   SELECT pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure) INTO definition;
   IF position('absent partition requires a valid primary partition' in definition)>0 THEN
-    IF encode(extensions.digest(definition,'sha256'),'hex')<>'ae1589a145a508cf2d83c9ac21d4c9396be377d6c469471a4ea0a3fd735c5eab' THEN
+    IF encode(extensions.digest(definition,'sha256'),'hex')<>'d6ce951daa3bb58b6b5228732ce7fcd9263c0cb894863362258d923ad53dc817' THEN
       RAISE EXCEPTION 'record_swell_watch_study_evaluation differs from reviewed epoch 4 definition';
     END IF;
     RETURN;
@@ -34,7 +34,7 @@ BEGIN
   END IF;
   definition := replace(definition,
     'scope jsonb; slot text; observed numeric; unavailable numeric; stored_unavailable bigint;',
-    'scope jsonb; slot text; observed numeric; unavailable numeric; absent numeric; stored_unavailable bigint; stored_invalid_absent bigint;');
+    'scope jsonb; slot text; observed numeric; unavailable numeric; absent numeric; stored_zero_tuples bigint; stored_invalid_absent bigint;');
   old_coverage := $old$
       FOREACH slot IN ARRAY ARRAY['s1','s2'] LOOP
         IF jsonb_typeof(scope #> ARRAY['partitionCoverage',slot,'observed']) IS DISTINCT FROM 'number'
@@ -67,26 +67,27 @@ $old$;
       FOREACH slot IN ARRAY ARRAY['s1','s2'] LOOP
         IF jsonb_typeof(scope #> ARRAY['partitionCoverage',slot,'observed']) IS DISTINCT FROM 'number'
           OR jsonb_typeof(scope #> ARRAY['partitionCoverage',slot,'unavailable']) IS DISTINCT FROM 'number'
-          OR jsonb_typeof(scope #> ARRAY['partitionCoverage',slot,'absent']) IS DISTINCT FROM 'number' THEN
+          OR (scope #> ARRAY['partitionCoverage',slot,'absent'] IS NOT NULL
+            AND jsonb_typeof(scope #> ARRAY['partitionCoverage',slot,'absent']) IS DISTINCT FROM 'number') THEN
           RAISE EXCEPTION 'invalid study partition coverage';
         END IF;
         observed := (scope #>> ARRAY['partitionCoverage',slot,'observed'])::numeric;
         unavailable := (scope #>> ARRAY['partitionCoverage',slot,'unavailable'])::numeric;
-        absent := (scope #>> ARRAY['partitionCoverage',slot,'absent'])::numeric;
+        absent := coalesce((scope #>> ARRAY['partitionCoverage',slot,'absent'])::numeric,0);
         IF observed<0 OR unavailable<0 OR absent<0 OR trunc(observed)<>observed OR trunc(unavailable)<>unavailable OR trunc(absent)<>absent
           OR observed+unavailable+absent<>168 OR (slot='s1' AND (unavailable<>0 OR absent<>0)) THEN
           RAISE EXCEPTION 'invalid study partition coverage';
         END IF;
-        SELECT count(*) FILTER (WHERE c.unavailable_reason IS NOT NULL AND c.source_slot=slot) INTO stored_unavailable
+        SELECT count(*) FILTER (WHERE c.unavailable_reason IS NOT NULL AND c.source_slot=slot) INTO stored_zero_tuples
           FROM public.swell_watch_provider_run_completed_batches b
           JOIN public.swell_watch_provider_run_revision_set_members m ON m.revision_set_id=b.revision_set_id
           JOIN public.swell_watch_provider_run_batch_scopes s ON s.id=m.scope_id AND s.batch_id=b.batch_id
           JOIN public.swell_watch_provider_run_revision_components c ON c.revision_id=m.revision_id
           WHERE b.id=p_provider_batch_id AND s.source_point_id::text=scope->>'sourcePointId';
-        IF slot='s1' AND stored_unavailable<>0 THEN RAISE EXCEPTION 'study partition coverage differs from retained components'; END IF;
+        IF slot='s1' AND stored_zero_tuples<>0 THEN RAISE EXCEPTION 'study partition coverage differs from retained components'; END IF;
         IF slot='s2' AND ((a.qualification_rule='complete_partitions.v1' AND p_result->>'status'='evaluated' AND (unavailable<>0 OR absent<>0))
-          OR (a.qualification_rule='primary_partition_with_retained_unavailable_secondary.v1' AND (unavailable IS DISTINCT FROM stored_unavailable OR absent<>0))
-          OR (a.qualification_rule='model_reported_partition_count.v1' AND (absent IS DISTINCT FROM stored_unavailable OR unavailable<>0))) THEN
+          OR (a.qualification_rule='primary_partition_with_retained_unavailable_secondary.v1' AND (unavailable IS DISTINCT FROM stored_zero_tuples OR absent<>0))
+          OR (a.qualification_rule='model_reported_partition_count.v1' AND (absent IS DISTINCT FROM stored_zero_tuples OR unavailable<>0))) THEN
           RAISE EXCEPTION 'study partition coverage differs from retained components';
         END IF;
       END LOOP;
@@ -108,7 +109,7 @@ $new$;
   IF position('absent partition requires a valid primary partition' in definition)=0 THEN RAISE EXCEPTION 'reviewed coverage block not found'; END IF;
   EXECUTE definition;
   SELECT pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure) INTO definition;
-  IF encode(extensions.digest(definition,'sha256'),'hex')<>'ae1589a145a508cf2d83c9ac21d4c9396be377d6c469471a4ea0a3fd735c5eab' THEN
+  IF encode(extensions.digest(definition,'sha256'),'hex')<>'d6ce951daa3bb58b6b5228732ce7fcd9263c0cb894863362258d923ad53dc817' THEN
     RAISE EXCEPTION 'model partition count definition hash mismatch';
   END IF;
 END;

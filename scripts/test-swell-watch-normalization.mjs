@@ -38,6 +38,8 @@ const completeRule = "complete_partitions.v1";
 const partialRule = "primary_partition_with_retained_unavailable_secondary.v1";
 const coverageMigration = readFileSync(new URL("../supabase/migrations/20260914050000_amend_swell_watch_study_partition_coverage.sql", import.meta.url), "utf8");
 const coverageRollback = readFileSync(new URL("../docs/operations/swell-watch-study-partition-coverage-rollback.sql", import.meta.url), "utf8");
+const modelPartitionCountMigration = readFileSync(new URL("../supabase/migrations/20260914190000_amend_swell_watch_study_model_partition_count.sql", import.meta.url), "utf8");
+const modelPartitionCountRollback = readFileSync(new URL("../docs/operations/swell-watch-study-model-partition-count-rollback.sql", import.meta.url), "utf8");
 const amendment = readFileSync(new URL("../docs/operations/swell-watch-study-amend-partition-coverage.sql", import.meta.url), "utf8");
 const revokeAmendment = readFileSync(new URL("../docs/operations/swell-watch-study-revoke-partition-coverage.sql", import.meta.url), "utf8");
 const functionHashes = {
@@ -69,6 +71,15 @@ assert.equal(studyPermissions(), studyAcl);
 sql(coverageMigration); assert.deepEqual(studyDefinitions(), postDefinitions); assert.equal(studyPermissions(), studyAcl);
 assert.throws(() => sql(`SET ROLE service_role; ${coverageMigration}`), /production owner required/);
 assert.deepEqual(studyDefinitions(), postDefinitions);
+const epochThreeStudyEvaluationHash = "e0e0e7f5d09ce8e3d2b668dd4c022ed429ff38d57473ae803ee093620c9f5521";
+const modelPartitionCountStudyEvaluationHash = "d6ce951daa3bb58b6b5228732ce7fcd9263c0cb894863362258d923ad53dc817";
+const studyEvaluationHash = () => sql("SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex');");
+sql(modelPartitionCountMigration);
+assert.equal(studyEvaluationHash(), modelPartitionCountStudyEvaluationHash);
+sql(modelPartitionCountRollback);
+assert.equal(studyEvaluationHash(), epochThreeStudyEvaluationHash);
+sql(modelPartitionCountMigration);
+assert.equal(studyEvaluationHash(), modelPartitionCountStudyEvaluationHash);
 
 const tableRpcs = new Set(["record_swell_watch_provider_run_receipt", "complete_swell_watch_study_run", "record_swell_watch_shadow_demand"]);
 const jsonRpcs = new Set(["read_swell_watch_run_scope", "read_swell_watch_attested_run", "record_swell_watch_study_evaluation", "read_swell_watch_study_pending_runs"]);
