@@ -14,8 +14,8 @@ const component = z.object({
   ? value.heightM === 0 && value.periodS === 0 && value.directionDeg === 0
   : value.periodS > 0);
 const runSchema = z.object({
-  source: z.object({ provider: z.string().min(1), transportProvider: z.string().min(1),
-    model: z.string().min(1), upstreamModelProvider: z.string().min(1), sourcePointId: z.uuid(),
+  source: z.object({ provider: z.literal("open_meteo"), transportProvider: z.literal("open_meteo_single_runs"),
+    model: z.literal("ncep_gfswave016"), upstreamModelProvider: z.literal("ncep"), sourcePointId: z.uuid(),
     issuedAt: instant, issuanceId: z.uuid(), evaluationId: z.string().regex(/^genuine_completed:[0-9a-f-]{36}$/i),
     providerBatchId: z.uuid(), revisionSetId: z.uuid() }),
   forecastDays: z.number().int().min(1).max(7), selectedGrid: z.record(z.string(), z.unknown()),
