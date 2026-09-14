@@ -7,6 +7,8 @@ import { gunzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
 import { swellWatchAttestedReplayGzipBase64 } from "@/__tests__/fixtures/swell-watch-attested-replay-20260910";
 
+import { retainedRun, waikiki } from "@/__tests__/helpers/swell-watch-retained";
+
 const id = "11111111-1111-4111-8111-111111111111";
 const input: Parameters<typeof ingestAttestedSwellWatchImpact>[0] = {
   providerBatchId: id, sourcePointId: id, observationId: id, impactId: id, regionalEventId: id,
@@ -109,6 +111,8 @@ describe("attested component impact ingestion", () => {
     expect(await ingestAttestedSwellWatchCohort({ providerBatchId: id, forecastDays: 7,
       now: value.now, policy: value.policy, scopes }, { rpc, ...identityReader }))
       .toEqual({ kind: "suppressed", reason: "incomplete_partition", sourcePointId: other,
+        derivation: { version: "swell-watch-horizon-derivation.v2", samplingProfile: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1",
+          witness: "provider-linear-interpolation.v1", scopes: [id, third].map((sourcePointId) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32 })) },
         scopeOutcomes: [
           { sourcePointId: id, status: "derived", reason: null },
           { sourcePointId: other, status: "suppressed", reason: "incomplete_partition" },
@@ -211,4 +215,30 @@ describe("attested component impact ingestion", () => {
     rpc.mockReset().mockResolvedValueOnce({ data: rows, error: null }).mockResolvedValueOnce({ data: null, error: { message: "resolution unavailable" } });
     await expect(ingestAttestedSwellWatchImpact(input, { rpc, ...identityReader })).rejects.toThrow("ingestion failed");
   });
+});
+
+it("carries native derivation and event windows while persisting only point estimates", async () => {
+  const data = retainedRun(waikiki);
+  const rpc = jest.fn(async (name: string) => ({ error: null, data: name === "read_swell_watch_attested_run" ? data
+    : [{ ordinal: 0, regional_event_id: id, event_state: "candidate" }] }));
+  const result = await ingestAttestedSwellWatchRun({ providerBatchId: data.source.providerBatchId, sourcePointId: waikiki.sourcePointId,
+    regionKey: "retained-waikiki", now: waikiki.replayClockBounds[0], beach: waikiki.beach, policy: proposed.policy as SwellWatchPolicy }, { rpc, ...identityReader });
+  expect(result).toMatchObject({ kind: "ingested", derivation: { version: "swell-watch-horizon-derivation.v2", nativeFrames: 136, interpolatedFrames: 32 },
+    events: [{ arrivalAt: "2026-09-18T18:00:00.000Z", arrivalWindow: { earliestAt: "2026-09-18T15:00:00.000Z", latestAt: "2026-09-18T18:00:00.000Z" },
+      peakWindow: { earliestAt: "2026-09-18T18:00:00.000Z", latestAt: "2026-09-18T21:00:00.000Z" },
+      closureWindow: { earliestAt: "2026-09-20T00:00:00.000Z", latestAt: "2026-09-20T03:00:00.000Z" } }] });
+  expect(rpc).toHaveBeenCalledTimes(2);
+  if (result.kind !== "ingested") throw new Error("Expected ingested event");
+  const event = result.events[0];
+  expect(event.impact.partition).not.toHaveProperty("gapHoursBefore");
+  expect(event.impact.partition).not.toHaveProperty("nativeIndex");
+  const physicalKey = createHash("sha256").update(JSON.stringify([data.source.evaluationId, waikiki.sourcePointId,
+    event.arrivalAt, event.peakAt, event.impact.partition.sourceSlot])).digest("hex");
+  const impactHash = createHash("sha256").update(JSON.stringify({ providerBatchId: data.source.providerBatchId,
+    sourcePointId: waikiki.sourcePointId, partition: event.impact.partition, projectedFaceHeightFt: event.impact.projectedFaceHeightFt,
+    heightRiseFt: event.impact.heightRiseFt, energyRatio: event.impact.energyRatio, arrivalAt: event.arrivalAt, peakAt: event.peakAt,
+    policyHash: proposed.policy.value_hash })).digest("hex");
+  expect(rpc).toHaveBeenLastCalledWith("ingest_swell_watch_run", { p_impacts: [expect.objectContaining({
+    p_arrival_at: event.arrivalWindow.latestAt, p_peak_at: event.peakAt, p_physical_key: physicalKey, p_impact_hash: impactHash,
+  })] });
 });

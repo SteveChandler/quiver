@@ -20,7 +20,7 @@ const policy = { ...fixture, schema_version: "swell-watch-policy.v2" as const,
 policy.value_hash = calculateSwellWatchPolicyHash(policy as never);
 const suppressed = { providerBatchId: "20000000-0000-4000-8000-000000000004", policyHash: policy.value_hash,
   evaluationIds: [], status: "suppressed" as const, reason: "incomplete_partition",
-  scopeOutcomes: cohort.map(({ sourcePointId }) => ({ sourcePointId, status: "suppressed" as const, reason: "incomplete_partition" })),
+  derivation: null, scopeOutcomes: cohort.map(({ sourcePointId }) => ({ sourcePointId, status: "suppressed" as const, reason: "incomplete_partition" })),
   suppressionReasons: {}, candidateCount: null, stableRegionalEventCount: null, preSafetyRecipientsThisEvaluation: null,
   sendEligibility: "not_evaluated" as const, projectedSendsRolling24Hours: null, deliveryHealth: null,
   recordedDemand: null, safety: null, enqueued: 0 as const };
