@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
-import { syncGmailReplies } from "@/lib/email/gmail-replies";
+import * as Sentry from "@sentry/nextjs";
+import { gmailFailureCode, syncGmailReplies } from "@/lib/email/gmail-replies";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { startCronCheckIn, completeCronCheckIn } from "@/lib/monitoring/sentry-cron";
 
@@ -24,7 +25,10 @@ export async function GET(request: Request): Promise<Response> {
   try {
     const result = await syncGmailReplies(); ok = true;
     return NextResponse.json(result);
-  } catch { return NextResponse.json({ error: "Reply ingestion failed; outbound eligibility stays closed until a healthy checkpoint" }, { status: 503 }); }
+  } catch (error) {
+    const code = gmailFailureCode(error);
+    Sentry.captureException(new Error(code), { tags: { operation: "gmail_reply_sync" } });
+    return NextResponse.json({ code, error: "Reply ingestion failed; outbound eligibility stays closed until a healthy checkpoint" }, { status: 503 }); }
   finally {
     const { error: finishError } = await db.from("cron_runs").update({ status: ok ? "ok" : "error", finished_at: new Date().toISOString() }).eq("id", run.id);
     await completeCronCheckIn(checkIn, slug, ok && !finishError ? "ok" : "error");
