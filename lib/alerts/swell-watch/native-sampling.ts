@@ -2,12 +2,18 @@ import type { SwellPartitionObservation } from "./partition-normalizer";
 
 export const COMPLETE_PARTITIONS_RULE = "complete_partitions.v1" as const;
 export const RETAINED_UNAVAILABLE_SECONDARY_RULE = "primary_partition_with_retained_unavailable_secondary.v1" as const;
-export type SwellWatchQualificationRule = typeof COMPLETE_PARTITIONS_RULE | typeof RETAINED_UNAVAILABLE_SECONDARY_RULE;
+export const MODEL_REPORTED_PARTITION_COUNT_RULE = "model_reported_partition_count.v1" as const;
+export type SwellWatchQualificationRule = typeof COMPLETE_PARTITIONS_RULE | typeof RETAINED_UNAVAILABLE_SECONDARY_RULE | typeof MODEL_REPORTED_PARTITION_COUNT_RULE;
 export type SwellWatchFramePart = SwellPartitionObservation | {
   kind: "unavailable"; sourceSlot: "s2"; forecastAt: string; reason: "provider_zero_tuple";
+} | {
+  kind: "absent"; basis: typeof MODEL_REPORTED_PARTITION_COUNT_RULE; sourceSlot: "s2"; forecastAt: string;
 };
 export function isObservedPartition(part: SwellWatchFramePart): part is SwellPartitionObservation {
   return !("kind" in part);
+}
+export function isAbsentPartition(part: SwellWatchFramePart): part is Extract<SwellWatchFramePart, { kind: "absent" }> {
+  return "kind" in part && part.kind === "absent";
 }
 
 export const SWELL_WATCH_DERIVATION_VERSION = "swell-watch-horizon-derivation.v2" as const;

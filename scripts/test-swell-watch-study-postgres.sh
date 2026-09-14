@@ -43,6 +43,8 @@ run_file "${normalization_migrations[0]}" >/dev/null
 run_file "$study_root/supabase/migrations/20260914050000_amend_swell_watch_study_partition_coverage.sql" >/dev/null
 query 'CREATE DATABASE study_normalization TEMPLATE postgres'
 node --import tsx "$study_root/scripts/test-swell-watch-normalization.mjs" "$study_container"
+run_file "$study_root/supabase/migrations/20260914190000_amend_swell_watch_study_model_partition_count.sql" >/dev/null
+run_file "$study_root/supabase/migrations/20260914190000_amend_swell_watch_study_model_partition_count.sql" >/dev/null
 query 'CREATE DATABASE study_activation TEMPLATE postgres'
 study_database=study_activation
 run_file "$study_root/__tests__/fixtures/swell-watch-study-activation.sql" >/dev/null

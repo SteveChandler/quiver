@@ -9,10 +9,11 @@ import type { SwellPartitionObservation } from "@/lib/alerts/swell-watch/partiti
 
 const complete = "complete_partitions.v1" as const;
 const partial = "primary_partition_with_retained_unavailable_secondary.v1" as const;
+const modelCount = "model_reported_partition_count.v1" as const;
 const policy = config.policy as SwellWatchPolicy;
 const issuedAt = "2026-09-13T12:00:00.000Z";
 const at = (hour: number): string => new Date(Date.parse(issuedAt) + hour * 3_600_000).toISOString();
-type Part = SwellPartitionObservation | { kind: "unavailable"; sourceSlot: "s2"; forecastAt: string; reason: "provider_zero_tuple" };
+type Part = SwellPartitionObservation | { kind: "unavailable"; sourceSlot: "s2"; forecastAt: string; reason: "provider_zero_tuple" } | { kind: "absent"; basis: typeof modelCount; sourceSlot: "s2"; forecastAt: string };
 function frames(from = 78, to = 84): Part[][] {
   return Array.from({ length: 168 }, (_, hour) => ["s1", "s2"].map((slot, i) => ({
     provider: "open_meteo", evaluationId: "genuine_completed:fixture", sourceSlot: slot as "s1" | "s2",
@@ -23,7 +24,10 @@ function frames(from = 78, to = 84): Part[][] {
 function gap(series: Part[][], from: number, to = from): void {
   for (let i = from; i <= to; i++) series[i][1] = { kind: "unavailable", sourceSlot: "s2", forecastAt: at(i), reason: "provider_zero_tuple" };
 }
-function derive(series: Part[][], qualificationRule: typeof complete | typeof partial = partial) {
+function absent(series: Part[][], from: number, to = from): void {
+  for (let i = from; i <= to; i++) series[i][1] = { kind: "absent", basis: modelCount, sourceSlot: "s2", forecastAt: at(i) };
+}
+function derive(series: Part[][], qualificationRule: typeof complete | typeof partial | typeof modelCount = partial) {
   return deriveSwellWatchHorizon({ series, qualificationRule, now: issuedAt, policy,
     beach: { swell_window_center_deg: 170, swell_window_halfwidth_deg: 30 },
     sampling: { profile: resolveNativeSamplingProfile(sourceIdentity), issuedAt } });
@@ -83,7 +87,7 @@ it("still witnesses the observed neighbour of an unavailable interpolation sampl
   (series[122][1] as SwellPartitionObservation).heightM = 9;
   expect(() => verifyInterpolationWitness(series, selection)).toThrow("sampling_profile_mismatch");
 });
-it.each([complete, partial])("primary unavailable still suppresses under %s", async (qualificationRule) => {
+it.each([complete, partial, modelCount])("primary unavailable still suppresses under %s", async (qualificationRule) => {
   const data = retainedRun(waikiki);
   Object.assign(data.samples[5].components[0], { heightM: 0, periodS: 0, directionDeg: 0, unavailableReason: "provider_zero_tuple" });
   expect(await deriveAttestedSwellWatchRun({ providerBatchId: data.source.providerBatchId, sourcePointId: waikiki.sourcePointId,
@@ -99,6 +103,32 @@ it.each(hatteras.replayClockBounds)("replays retained Hatteras under both rules 
   expect(result).toEqual({ kind: "suppressed", reason: "arrival_window_crosses_actionability" });
   expect(data.samples.flatMap((sample) => sample.components).filter((part) => part.unavailableReason))
     .toHaveLength(48);
+});
+it.each(hatteras.replayClockBounds)("derives retained Hatteras under the model-count rule at %s", async (now) => {
+  const data = retainedRun(hatteras);
+  const result = await deriveAttestedSwellWatchRun({ providerBatchId: data.source.providerBatchId, sourcePointId: hatteras.sourcePointId,
+    qualificationRule: modelCount, now, beach: hatteras.beach, policy }, { rpc: async () => ({ data, error: null }) });
+  expect(result).toMatchObject({ kind: "derived", derivation: { qualificationRule: modelCount,
+    partitionCoverage: { s2: { absent: 48, unavailable: 0 } } } });
+  if (result.kind !== "derived") throw new Error("Expected retained Hatteras to derive");
+  expect(result.events).toHaveLength(1);
+  expect(result.events[0].arrivalWindow).toEqual({ earliestAt: "2026-09-17T03:00:00.000Z", latestAt: "2026-09-17T04:00:00.000Z" });
+});
+it("never leaves the retained Hatteras model-count onset unobserved in the fresh 1..12h sweep", async () => {
+  const data = retainedRun(hatteras);
+  const results = await Promise.all(Array.from({ length: 12 }, async (_, index) => deriveAttestedSwellWatchRun({
+    providerBatchId: data.source.providerBatchId, sourcePointId: hatteras.sourcePointId, qualificationRule: modelCount,
+    now: new Date(Date.parse(data.source.issuedAt) + (index + 1) * 3_600_000).toISOString(), beach: hatteras.beach, policy,
+  }, { rpc: async () => ({ data, error: null }) })));
+  expect(results.some((result) => result.kind === "derived")).toBe(true);
+  expect(results).not.toContainEqual({ kind: "suppressed", reason: "arrival_window_unobserved" });
+});
+it("treats an absent secondary frame as a normal one-step closure", () => {
+  const series = frames(78, 81); absent(series, 82);
+  const result = derive(series, modelCount);
+  expect(result.events).toHaveLength(1);
+  expect(result.events[0].closureWindow).toEqual({ earliestAt: at(81), latestAt: at(82) });
+  expect(result.derivation.partitionCoverage.s2).toMatchObject({ absent: 1, unavailable: 0, absentNativeFrames: [82] });
 });
 it("replays historical sources under both rules with retained slot evidence", async () => {
   const outcomes = [];
