@@ -3,7 +3,7 @@ import { withObservedCron } from "@/lib/cron/observability";
 import { createErrorResponse, createSuccessResponse, validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { acquisitionConfig, acquireSwellWatchCohort, type SwellWatchAcquisitionStage } from "@/lib/alerts/swell-watch/acquisition";
-import { completeSwellWatchStudyRun, readSwellWatchStudyStatus, recoverSwellWatchStudyRuns, studyConfig } from "@/lib/alerts/swell-watch/study";
+import { completeSwellWatchStudyRun, readSwellWatchStudyStatus, recoverSwellWatchStudyRuns, studyConfig, SwellWatchStudySkip } from "@/lib/alerts/swell-watch/study";
 import { getSingleRunTupleDiagnostic } from "@/lib/alerts/swell-watch/single-run-receipt";
 import { z } from "zod";
 
@@ -95,7 +95,15 @@ async function acquire(request: Request): Promise<Response> {
     const stored = await acquireSwellWatchCohort(config.cohort, client, (acquisitionStage) => { stage = acquisitionStage; });
     if (automated && !("skipped" in stored)) {
       stage = "completion";
-      const study = await completeSwellWatchStudyRun(stored.revisionSetId, studyConfig.parse(config), client, qualificationRule);
+      let study;
+      try {
+        study = await completeSwellWatchStudyRun(stored.revisionSetId, studyConfig.parse(config), client, qualificationRule);
+      } catch (error) {
+        if (!(error instanceof SwellWatchStudySkip)) throw error;
+        if (recovery.failed) return createErrorResponse("Study recovery incomplete", { recovery, enqueued: 0 }, 500);
+        return createSuccessResponse({ skipped: true, reason: error.reason, revisionSetId: stored.revisionSetId,
+          issuanceId: stored.issuanceId, runBatchId: stored.runBatchId, recovery, qualification: "automated_study", enqueued: 0 });
+      }
       if (recovery.failed) return createErrorResponse("Study recovery incomplete", { recovery, study, enqueued: 0 }, 500);
       if ("status" in study && study.status === "suppressed") {
         // Recording a suppressed result is not a successful study cycle.
@@ -110,10 +118,10 @@ async function acquire(request: Request): Promise<Response> {
     const diagnostic = { stage, code: failureCode(error), ...(tuple ? { tuple } : {}) };
     if (automated) {
       console.error("[swell-watch-acquire] automated study failed", diagnostic);
-      return createErrorResponse("Study failed", "Automated study cycle failed; retained receipts can be retried", 500);
+      return createErrorResponse("Study failed", { stage: diagnostic.stage, code: diagnostic.code, enqueued: 0 }, 500);
     }
     console.error("[swell-watch-acquire] acquisition failed", diagnostic);
-    return createErrorResponse("Producer failed", "Provider acquisition failed", 500);
+    return createErrorResponse("Producer failed", { stage: diagnostic.stage, code: diagnostic.code, enqueued: 0 }, 500);
   }
 }
 

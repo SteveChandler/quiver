@@ -3,7 +3,7 @@ import { GET } from "@/app/api/cron/swell-watch-acquire/route";
 import { acquireSwellWatchCohort } from "@/lib/alerts/swell-watch/acquisition";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import deployment from "@/vercel.json";
-import { completeSwellWatchStudyRun, readSwellWatchStudyStatus, recoverSwellWatchStudyRuns } from "@/lib/alerts/swell-watch/study";
+import { completeSwellWatchStudyRun, readSwellWatchStudyStatus, recoverSwellWatchStudyRuns, SwellWatchStudySkip } from "@/lib/alerts/swell-watch/study";
 import { calculateSwellWatchPolicyHash } from "@/lib/alerts/swell-watch/policy";
 import fixture from "@/__tests__/fixtures/swell-watch-provisional-policy.json";
 import { z } from "zod";
@@ -150,6 +150,13 @@ describe("automated study", () => {
     expect(log).toHaveBeenCalledWith("[swell-watch-acquire] automated study failed", { stage: "completion", code: "unknown" });
   });
 
+  it.each(["issuance_accepted_under_previous_epoch", "latest_issuance_stale"] as const)("skips expected completion outcome %s", async (reason) => {
+    jest.mocked(completeSwellWatchStudyRun).mockRejectedValueOnce(new SwellWatchStudySkip(reason));
+    const response = await call();
+    expect(response.status).toBe(200);
+    expect((await response.json()).data).toEqual({ skipped: true, reason, ...receipt, recovery: { processed: 0, failed: 0 }, qualification: "automated_study", enqueued: 0 });
+  });
+
   it.each([
     ["client", "unknown"], ["health", "study_health_unavailable"],
     ["recovery", "pending_study_runs_unavailable"], ["health_after_recovery", "study_health_unavailable"],
@@ -164,7 +171,7 @@ describe("automated study", () => {
     }
     const response = await call();
     expect(response.status).toBe(500);
-    expect(await response.json()).toMatchObject({ details: "Automated study cycle failed; retained receipts can be retried" });
+    expect(await response.json()).toMatchObject({ details: { stage, code, enqueued: 0 } });
     expect(log).toHaveBeenCalledWith("[swell-watch-acquire] automated study failed", { stage, code });
     expect(acquireSwellWatchCohort).not.toHaveBeenCalled();
   });
@@ -198,7 +205,7 @@ describe("automated study", () => {
     jest.mocked(acquireSwellWatchCohort).mockRejectedValueOnce(error);
     const response = await call();
     expect(response.status).toBe(500);
-    expect(await response.json()).toMatchObject({ details: "Automated study cycle failed; retained receipts can be retried" });
+    expect(await response.json()).toMatchObject({ details: { stage: "acquisition", code, enqueued: 0 } });
     expect(log).toHaveBeenCalledWith("[swell-watch-acquire] automated study failed", { stage: "acquisition", code });
     expect(JSON.stringify(log.mock.calls)).not.toMatch(/private|secret|credentials|payload/);
     expect(completeSwellWatchStudyRun).not.toHaveBeenCalled();

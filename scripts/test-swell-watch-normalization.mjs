@@ -38,6 +38,8 @@ const completeRule = "complete_partitions.v1";
 const partialRule = "primary_partition_with_retained_unavailable_secondary.v1";
 const coverageMigration = readFileSync(new URL("../supabase/migrations/20260914050000_amend_swell_watch_study_partition_coverage.sql", import.meta.url), "utf8");
 const coverageRollback = readFileSync(new URL("../docs/operations/swell-watch-study-partition-coverage-rollback.sql", import.meta.url), "utf8");
+const modelPartitionCountMigration = readFileSync(new URL("../supabase/migrations/20260914190000_amend_swell_watch_study_model_partition_count.sql", import.meta.url), "utf8");
+const modelPartitionCountRollback = readFileSync(new URL("../docs/operations/swell-watch-study-model-partition-count-rollback.sql", import.meta.url), "utf8");
 const amendment = readFileSync(new URL("../docs/operations/swell-watch-study-amend-partition-coverage.sql", import.meta.url), "utf8");
 const revokeAmendment = readFileSync(new URL("../docs/operations/swell-watch-study-revoke-partition-coverage.sql", import.meta.url), "utf8");
 const functionHashes = {
@@ -69,6 +71,15 @@ assert.equal(studyPermissions(), studyAcl);
 sql(coverageMigration); assert.deepEqual(studyDefinitions(), postDefinitions); assert.equal(studyPermissions(), studyAcl);
 assert.throws(() => sql(`SET ROLE service_role; ${coverageMigration}`), /production owner required/);
 assert.deepEqual(studyDefinitions(), postDefinitions);
+const epochThreeStudyEvaluationHash = "e0e0e7f5d09ce8e3d2b668dd4c022ed429ff38d57473ae803ee093620c9f5521";
+const modelPartitionCountStudyEvaluationHash = "d6ce951daa3bb58b6b5228732ce7fcd9263c0cb894863362258d923ad53dc817";
+const studyEvaluationHash = () => sql("SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex');");
+sql(modelPartitionCountMigration);
+assert.equal(studyEvaluationHash(), modelPartitionCountStudyEvaluationHash);
+sql(modelPartitionCountRollback);
+assert.equal(studyEvaluationHash(), epochThreeStudyEvaluationHash);
+sql(modelPartitionCountMigration);
+assert.equal(studyEvaluationHash(), modelPartitionCountStudyEvaluationHash);
 
 const tableRpcs = new Set(["record_swell_watch_provider_run_receipt", "complete_swell_watch_study_run", "record_swell_watch_shadow_demand"]);
 const jsonRpcs = new Set(["read_swell_watch_run_scope", "read_swell_watch_attested_run", "record_swell_watch_study_evaluation", "read_swell_watch_study_pending_runs"]);
@@ -382,7 +393,7 @@ try {
     WHERE provider_batch_id=${q(nativeFirst.completed.provider_batch_id)};`);
   const shifted = (at) => new Date(Date.parse(at) + Date.parse(issuances[0]) - Date.parse(waikiki.issuedAt)).toISOString();
   assert.deepEqual(persistedScopes.find((scope) => scope.sourcePointId === cohort[waikikiIndex].sourcePointId), {
-    sourcePointId: cohort[waikikiIndex].sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0 }, s2: { observed: 168, unavailable: 0, unavailableNativeFrames: [] } },
+    sourcePointId: cohort[waikikiIndex].sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0 }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } },
     events: [{ sourceSlot: "s1", arrivalAt: shifted("2026-09-18T18:00:00.000Z"),
       arrivalWindow: { earliestAt: shifted("2026-09-18T15:00:00.000Z"), latestAt: shifted("2026-09-18T18:00:00.000Z") },
       peakAt: shifted("2026-09-18T18:00:00.000Z"),
@@ -527,7 +538,7 @@ try {
     assert.equal(result.evaluation.status, "evaluated");
     assert.equal(result.evaluation.candidateCount, 1, "Retained Waikiki's completely observed event persists");
     assert.deepEqual(result.evaluation.derivation.scopes[hatterasIndex].partitionCoverage, {
-      s1: { observed: 168, unavailable: 0 }, s2: { observed: 157, unavailable: 11, unavailableNativeFrames: Array.from({ length: 11 }, (_, i) => i + 4) },
+      s1: { observed: 168, unavailable: 0, absent: 0 }, s2: { observed: 157, unavailable: 11, absent: 0, unavailableNativeFrames: Array.from({ length: 11 }, (_, i) => i + 4), absentNativeFrames: [] },
     });
     assert.equal(result.evaluation.derivation.qualificationRule, partialRule);
     assert.equal(value("SELECT public.read_swell_watch_study_health();").qualifyingDays, index === 3 ? 1 : 0);
