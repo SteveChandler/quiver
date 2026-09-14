@@ -64,3 +64,11 @@ Steven approved the model-reported partition count rule (`APPROVE: 32957662` mig
 - `20260914190000_amend_swell_watch_study_model_partition_count` applied as `postgres` with exact tracking (statement SHA-256 `32957662693287809c19cd2d7d03ee4e09b47bd8444dc2586956db772ebfa8f2`). `record_swell_watch_study_evaluation` post-hash `d6ce951d…` verified; guard and health functions unchanged; the rule check constraint now allows three values; grants unchanged.
 - `swell-watch-study-amend-model-partition-count.sql` executed once at 2026-09-14 19:55:52 UTC: epoch 4 active, rule `model_reported_partition_count.v1`, config hash `6f7efd19f2b9…`, evidence `4db6916ef046…`; exact retry was a no-op. Health: epoch 4 active, 0 evaluated, 0/30 days. Push authorities 0, notification bindings 0, automation control disabled.
 - Verification: `select public.read_swell_watch_study_health();` must show `authorityEpoch` 4 and `qualificationRule = model_reported_partition_count.v1`; the first epoch-4 result will carry `derivation.qualificationRule` and per-scope `partitionCoverage.s2.absent`.
+
+## First unattended successful evaluation (2026-09-14 20:15 UTC)
+
+- Scheduled acquisition at 20:15:16 UTC (no manual trigger) acquired the provider's 2026-09-14T12:00Z issuance (published 19:20 UTC), automatically accepted it under epoch 4, completed provider batch `a94c98b4-9027-4395-8ed6-2950d378d37d`, and recorded study evaluation 17 as `evaluated` at 20:15:35 UTC with all ten sources `derived`.
+- Cape Hatteras: `partitionCoverage.s2.absent = 51`, matching the 51 retained secondary zero tuples (validated in SQL); two primary-partition candidates persisted with one-step onset windows (2026-09-17 07:00→08:00Z and 15:00→16:00Z) and allocated regional events. `candidateCount` 2, shadow demand recorded, `enqueued` 0.
+- Sends unchanged: push authorities 0, notification bindings 0, automation control disabled.
+
+Qualifying days count only issuances with `run_utc` at or after the active authority's `not_before` (epoch 4: 2026-09-14 19:55:52 UTC). The first eligible date is 2026-09-15; it qualifies when its 00Z, 06Z, 12Z and 18Z issuances each record an `evaluated` result within 12 hours. Verify with `select public.read_swell_watch_study_health();` (`qualifyingDays` 1, `qualifyingDates` `["2026-09-15"]`).
