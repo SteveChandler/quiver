@@ -10,7 +10,7 @@ jest.mock("@/lib/alerts/swell-watch/persisted-history", () => ({ loadMatchedSwel
 jest.mock("@/lib/alerts/swell-watch/audience", () => ({ loadSwellWatchAudience: jest.fn() }));
 jest.mock("@/lib/notifications/enqueue", () => ({ enqueueNotification: () => { throw new Error("Forbidden enqueue"); } }));
 
-const input = { providerBatchId: "batch", policy, now: "2026-09-06T00:00:00Z", forecastDays: 7,
+const input = { qualificationRule: "complete_partitions.v1", providerBatchId: "batch", policy, now: "2026-09-06T00:00:00Z", forecastDays: 7,
   scopes: ["beach-a", "beach-b"].map((sourcePointId) => ({ sourcePointId, regionKey: "region", beach: {} })),
 } as unknown as Parameters<typeof evaluateSwellWatchShadow>[0];
 const rpc = jest.fn(() => { throw new Error("Forbidden control/queue RPC"); });

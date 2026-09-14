@@ -45,10 +45,10 @@ it("requires the entire cohort and an hourly verified v2 policy", () => {
 });
 
 it("completes before evaluation and requires durable outcome recording", async () => {
-  await expect(completeSwellWatchStudyRun(revision, studyConfig.parse(config), client)).resolves.toMatchObject({ status: "evaluated", enqueued: 0 });
+  await expect(completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "primary_partition_with_retained_unavailable_secondary.v1")).resolves.toMatchObject({ status: "evaluated", enqueued: 0 });
   expect(rpc.mock.calls[0]).toEqual(["complete_swell_watch_study_run", { p_revision_set_id: revision,
     p_policy_hash: policy.value_hash, p_cohort: config.cohort, p_scope_inputs: scopeInputs }]);
-  expect(evaluateSwellWatchShadow).toHaveBeenCalledWith(expect.objectContaining({ providerBatchId: batch, scopes, forecastDays: 7 }), client);
+  expect(evaluateSwellWatchShadow).toHaveBeenCalledWith(expect.objectContaining({ providerBatchId: batch, scopes, forecastDays: 7, qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1" }), client);
   expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(jest.mocked(evaluateSwellWatchShadow).mock.invocationCallOrder[0]);
   expect(rpc.mock.calls[1]).toEqual(["record_swell_watch_study_evaluation", expect.objectContaining({ p_provider_batch_id: batch,
     p_policy_hash: policy.value_hash, p_scope_inputs: scopeInputs, p_result: expect.objectContaining({ status: "evaluated" }) })]);
@@ -58,13 +58,13 @@ it("retains suppressed scope diagnostics without converting them into success", 
   const result = { providerBatchId: batch, policyHash: policy.value_hash, status: "suppressed", reason: "incomplete_partition",
     scopeOutcomes: [{ sourcePointId: config.cohort[0].sourcePointId, status: "suppressed", reason: "incomplete_partition" }], enqueued: 0 };
   jest.mocked(evaluateSwellWatchShadow).mockResolvedValue(result as never);
-  expect(await completeSwellWatchStudyRun(revision, studyConfig.parse(config), client)).toEqual(result);
+  expect(await completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "primary_partition_with_retained_unavailable_secondary.v1")).toEqual(result);
   expect(rpc.mock.calls[1][1].p_result).toEqual(result);
 });
 
 it("does not reevaluate a successfully recorded immutable run", async () => {
   rpc.mockResolvedValueOnce({ data: [{ ...completion, already_evaluated: true }], error: null });
-  expect(await completeSwellWatchStudyRun(revision, studyConfig.parse(config), client)).toEqual({
+  expect(await completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "primary_partition_with_retained_unavailable_secondary.v1")).toEqual({
     skipped: true, reason: "already_evaluated", providerBatchId: batch, enqueued: 0,
   });
   expect(evaluateSwellWatchShadow).not.toHaveBeenCalled();
@@ -74,7 +74,7 @@ it("does not reevaluate a successfully recorded immutable run", async () => {
 it.each([null, [], [{ ...completion, provider_batch_id: "invalid" }], [{ ...completion, already_evaluated: undefined }]])(
   "rejects malformed completion without evaluating", async (data) => {
     rpc.mockResolvedValueOnce({ data, error: null });
-    await expect(completeSwellWatchStudyRun(revision, studyConfig.parse(config), client)).rejects.toThrow();
+    await expect(completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "primary_partition_with_retained_unavailable_secondary.v1")).rejects.toThrow();
     expect(evaluateSwellWatchShadow).not.toHaveBeenCalled();
   },
 );
@@ -82,19 +82,19 @@ it.each([null, [], [{ ...completion, provider_batch_id: "invalid" }], [{ ...comp
 it.each(["complete_swell_watch_study_run", "record_swell_watch_study_evaluation"])("propagates %s failure", async (failed) => {
   rpc.mockImplementation(async (name: string) => name === failed ? { data: null, error: { message: "unavailable" } }
     : { data: [completion], error: null });
-  await expect(completeSwellWatchStudyRun(revision, studyConfig.parse(config), client)).rejects.toThrow();
+  await expect(completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "primary_partition_with_retained_unavailable_secondary.v1")).rejects.toThrow();
   expect(evaluateSwellWatchShadow).toHaveBeenCalledTimes(failed === "complete_swell_watch_study_run" ? 0 : 1);
 });
 
 it("does not record an evaluation that threw", async () => {
   jest.mocked(evaluateSwellWatchShadow).mockRejectedValueOnce(new Error("evaluation failed"));
-  await expect(completeSwellWatchStudyRun(revision, studyConfig.parse(config), client)).rejects.toThrow("evaluation failed");
+  await expect(completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "primary_partition_with_retained_unavailable_secondary.v1")).rejects.toThrow("evaluation failed");
   expect(rpc).toHaveBeenCalledTimes(1);
 });
 
 it.each(["active", "complete", "expired", "unconfigured", "blocked"] as const)("reads %s from durable study health", async (status) => {
   rpc.mockResolvedValueOnce({ data: { status }, error: null });
-  expect(await readSwellWatchStudyStatus(client)).toBe(status);
+  expect(await readSwellWatchStudyStatus(client)).toEqual({ status, qualificationRule: "complete_partitions.v1" });
   expect(rpc).toHaveBeenCalledWith("read_swell_watch_study_health");
 });
 
@@ -112,9 +112,9 @@ it("recovers an older issuance after its result recording failed", async () => {
     if (name === "complete_swell_watch_study_run") return { data: [completion], error: null };
     return recordingFails ? { data: null, error: "transient failure" } : { data: { recorded: true }, error: null };
   });
-  await expect(completeSwellWatchStudyRun(revision, studyConfig.parse(config), client)).rejects.toThrow("Study outcome recording failed");
+  await expect(completeSwellWatchStudyRun(revision, studyConfig.parse(config), client, "primary_partition_with_retained_unavailable_secondary.v1")).rejects.toThrow("Study outcome recording failed");
   recordingFails = false;
-  expect(await recoverSwellWatchStudyRuns(studyConfig.parse(config), client)).toEqual({ processed: 1, failed: 0 });
+  expect(await recoverSwellWatchStudyRuns(studyConfig.parse(config), client, "primary_partition_with_retained_unavailable_secondary.v1")).toEqual({ processed: 1, failed: 0 });
   expect(rpc.mock.calls.map(([name]) => name)).toEqual([
     "complete_swell_watch_study_run", "record_swell_watch_study_evaluation", "read_swell_watch_study_pending_runs",
     "complete_swell_watch_study_run", "record_swell_watch_study_evaluation",
@@ -130,13 +130,21 @@ it("continues through retained runs when an older recovery fails", async () => {
       ? { data: null, error: "failed" } : { data: [completion], error: null };
     return { data: { recorded: true }, error: null };
   });
-  expect(await recoverSwellWatchStudyRuns(studyConfig.parse(config), client)).toEqual({ processed: 1, failed: 1 });
+  expect(await recoverSwellWatchStudyRuns(studyConfig.parse(config), client, "primary_partition_with_retained_unavailable_secondary.v1")).toEqual({ processed: 1, failed: 1 });
   expect(rpc.mock.calls.filter(([name]) => name === "complete_swell_watch_study_run").map(([, args]) => args.p_revision_set_id))
     .toEqual([revision, second]);
 });
 
 it("rejects an unavailable pending queue", async () => {
   rpc.mockResolvedValueOnce({ data: [], error: "unavailable" });
-  await expect(recoverSwellWatchStudyRuns(studyConfig.parse(config), client)).rejects.toThrow("Pending study runs unavailable");
+  await expect(recoverSwellWatchStudyRuns(studyConfig.parse(config), client, "primary_partition_with_retained_unavailable_secondary.v1")).rejects.toThrow("Pending study runs unavailable");
   expect(evaluateSwellWatchShadow).not.toHaveBeenCalled();
+});
+
+it("reads the authority qualification rule and rejects unknown rules", async () => {
+  const data = { status: "active", qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1" };
+  rpc.mockResolvedValueOnce({ data, error: null });
+  expect(await readSwellWatchStudyStatus(client)).toEqual(data);
+  rpc.mockResolvedValueOnce({ data: { ...data, qualificationRule: "future-rule" }, error: null });
+  await expect(readSwellWatchStudyStatus(client)).rejects.toThrow();
 });

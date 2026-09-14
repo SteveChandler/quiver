@@ -1,4 +1,4 @@
-import { selectNativeFrames, verifyInterpolationWitness, SWELL_WATCH_DERIVATION_VERSION, type NativeSamplingProfile } from "./native-sampling";
+import { selectNativeFrames, verifyInterpolationWitness, SWELL_WATCH_DERIVATION_VERSION, type NativeSamplingProfile, COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, isObservedPartition, type SwellWatchFramePart, type SwellWatchQualificationRule } from "./native-sampling";
 import { evaluateSwellWatchImpact, evaluateSwellWatchPhysicalImpact } from "./impact-evaluator";
 import type { SwellPartitionObservation } from "./partition-normalizer";
 import type { SwellWatchPolicy } from "./policy";
@@ -11,7 +11,9 @@ interface Window { earliestAt: string; latestAt: string }
 interface Event { arrivalAt: string; peakAt: string; arrivalWindow: Window; peakWindow: Window; closureWindow: Window; impact: Impact; confidence: number | null }
 interface TrackStep extends SwellPartitionObservation { nativeIndex: number; gapHoursBefore: number | null }
 interface Derivation { version: typeof SWELL_WATCH_DERIVATION_VERSION; samplingProfile: NativeSamplingProfile["id"];
-  witness: NativeSamplingProfile["witness"]; nativeFrames: number; interpolatedFrames: number }
+  witness: NativeSamplingProfile["witness"]; nativeFrames: number; interpolatedFrames: number; qualificationRule: SwellWatchQualificationRule;
+  partitionCoverage: { s1: { observed: number; unavailable: number };
+    s2: { observed: number; unavailable: number; unavailableNativeFrames: number[] } } }
 
 function distance(left: number, right: number): number {
   const delta = Math.abs(left - right) % 360;
@@ -49,17 +51,41 @@ export function matchSwellWatchFrame(active: SwellPartitionObservation[][], fram
   return winners[0].links;
 }
 
-/** Pure calculation over validated complete frames; does not establish evidence or release authority. */
+/** A partial transition has at most one link; use the same cardinality/minimax/sum ordering. */
+function matchPartialFrame(active: TrackStep[][], frame: SwellPartitionObservation[], policy: SwellWatchPolicy): Array<number | null> {
+  const candidates = active.flatMap((track, previous) => frame.flatMap((part, current) => {
+    const last = track[track.length - 1];
+    if (!follows(last, part, policy)) return [];
+    const direction = distance(last.directionDeg, part.directionDeg) / policy.policy_values.partition_matching.maximum_direction_delta_deg;
+    const period = Math.abs(last.periodS - part.periodS) / policy.policy_values.partition_matching.maximum_period_delta_s;
+    return [{ previous, current, worst: Math.max(direction, period), sum: direction + period }];
+  })).sort((a, b) => a.worst - b.worst || a.sum - b.sum);
+  const [best, second] = candidates;
+  if (second && (policy.policy_values.partition_matching.trajectory_assignment === undefined
+    || (best.worst === second.worst && best.sum === second.sum))) throw new Error("ambiguous_partition_path");
+  return frame.map((_, current) => best?.current === current ? best.previous : null);
+}
+
+/** Pure calculation over validated hourly frames; does not establish evidence or release authority. */
 export function deriveSwellWatchHorizon(input: {
-  series: SwellPartitionObservation[][];
+  series: SwellWatchFramePart[][];
+  qualificationRule: SwellWatchQualificationRule;
   now: string;
   beach: BeachTerrainConfig & { swell_window_center_deg: number; swell_window_halfwidth_deg: number };
   policy: SwellWatchPolicy;
   sampling: { profile: NativeSamplingProfile; issuedAt: string };
 }): { derivation: Derivation; baseline: { heightFt: number; energy: number }; events: Event[] } {
-  const { series, policy } = input;
+  const { series, policy, qualificationRule } = input;
+  if (qualificationRule !== COMPLETE_PARTITIONS_RULE && qualificationRule !== RETAINED_UNAVAILABLE_SECONDARY_RULE) {
+    throw new Error("invalid_qualification_rule");
+  }
   if (series.length < 144 || series.some((frame) => frame.length !== 2)) throw new Error("incomplete_horizon");
-  if (series.some((frame) => frame.some((part) => !Number.isFinite(part.heightM) || part.heightM < 0
+  if (series.some((frame) => new Set(frame.map((part) => part.sourceSlot)).size !== 2
+    || frame.some((part) => !["s1", "s2"].includes(part.sourceSlot)))) throw new Error("incomplete_partition");
+  if (series.some((frame) => frame.some((part) => !isObservedPartition(part)
+    ? qualificationRule !== RETAINED_UNAVAILABLE_SECONDARY_RULE || part.kind !== "unavailable"
+      || part.sourceSlot !== "s2" || part.reason !== "provider_zero_tuple"
+    : !Number.isFinite(part.heightM) || part.heightM < 0
     || !Number.isFinite(part.periodS) || part.periodS <= 0 || !Number.isFinite(part.directionDeg)
     || part.directionDeg < 0 || part.directionDeg >= 360))) throw new Error("incomplete_partition");
   const selection = selectNativeFrames(series, input.sampling.profile, input.sampling.issuedAt);
@@ -67,7 +93,7 @@ export function deriveSwellWatchHorizon(input: {
   const nativeAt = (index: number): string => series[selection.native[index].index][0].forecastAt;
   const requiredEnd = Date.parse(input.now) + policy.policy_values.actionability.maximum_days_before_arrival * 24 * HOUR;
   if (Date.parse(nativeAt(selection.native.length - 1)) <= requiredEnd) throw new Error("incomplete_horizon");
-  const exposed = series.slice(0, 48).flat().filter((part) => distance(part.directionDeg, input.beach.swell_window_center_deg)
+  const exposed = series.slice(0, 48).flat().filter(isObservedPartition).filter((part) => distance(part.directionDeg, input.beach.swell_window_center_deg)
     <= input.beach.swell_window_halfwidth_deg);
   if (!exposed.length) throw new Error("missing_baseline");
   const baseline = { heightFt: 0, energy: 0 };
@@ -79,20 +105,29 @@ export function deriveSwellWatchHorizon(input: {
   }
   if (baseline.energy <= 0 || !Number.isFinite(baseline.energy)) throw new Error("missing_baseline");
 
-  const tracks: TrackStep[][] = series[0].map((part) => [{ ...part, nativeIndex: 0, gapHoursBefore: null }]);
+  const tracks: TrackStep[][] = series[0].filter(isObservedPartition).map((part) => [{ ...part, nativeIndex: 0, gapHoursBefore: null }]);
   let active = tracks.slice();
+  const interrupted = new Set<TrackStep[]>();
+  const gapBorn = new Set<TrackStep[]>();
+  const onsetBounds = new Map<TrackStep[], number>(tracks.map((track) => [track, 0]));
+  let lastComplete = series[0].every(isObservedPartition) ? 0 : null;
   for (let nativeIndex = 1; nativeIndex < selection.native.length; nativeIndex++) {
     const { index, gapHoursBefore } = selection.native[nativeIndex];
-    const frame = series[index].map((part) => ({ ...part, nativeIndex, gapHoursBefore }));
-    const matches = matchSwellWatchFrame(active, frame, policy);
+    const frame = series[index].filter(isObservedPartition).map((part) => ({ ...part, nativeIndex, gapHoursBefore }));
+    const matches = active.length === 2 && frame.length === 2
+      ? matchSwellWatchFrame(active, frame, policy) : matchPartialFrame(active, frame, policy);
+    if (frame.length === 1) active.forEach((track, index) => { if (!matches.includes(index)) interrupted.add(track); });
     active = frame.map((part, index) => {
       const previous = matches[index];
       const track = previous === null ? undefined : active[previous];
       if (track) { track.push(part); return track; }
       const fresh = [part];
       tracks.push(fresh);
+      if (frame.length === 1 || active.length === 1) gapBorn.add(fresh);
+      if (lastComplete !== null) onsetBounds.set(fresh, lastComplete);
       return fresh;
     });
+    if (frame.length === 2) lastComplete = nativeIndex;
   }
 
   const events: Event[] = [];
@@ -112,9 +147,14 @@ export function deriveSwellWatchHorizon(input: {
       const physical = evaluateSwellWatchPhysicalImpact({ ...physicalInput, partition: part });
       if (physical.kind === "candidate") {
         if (!episode) {
-          const arrivalWindow = { earliestAt: nativeAt(Math.max(0, part.nativeIndex - 1)), latestAt: part.forecastAt };
+          const onset = index === 0 && qualificationRule === RETAINED_UNAVAILABLE_SECONDARY_RULE
+            ? onsetBounds.get(track) : Math.max(0, part.nativeIndex - 1);
+          const arrivalWindow = { earliestAt: nativeAt(onset ?? 0), latestAt: part.forecastAt };
           const isActionable = actionable(arrivalWindow);
-          if (index === 0 && isActionable) throw new Error("unbounded_episode");
+          if (isActionable && (Date.parse(arrivalWindow.latestAt) - Date.parse(arrivalWindow.earliestAt)) / HOUR
+            > policy.policy_values.partition_matching.maximum_arrival_delta_hours) throw new Error("arrival_window_unobserved");
+          if (index === 0 && isActionable && (qualificationRule === COMPLETE_PARTITIONS_RULE || !gapBorn.has(track) || onset === undefined
+            || part.nativeIndex === 0)) throw new Error("unbounded_episode");
           episode = { arrivalWindow, start: index, peak: index, projected: physical.projectedFaceHeightFt, actionable: isActionable };
         } else if (physical.projectedFaceHeightFt > episode.projected) {
           episode.peak = index;
@@ -128,7 +168,7 @@ export function deriveSwellWatchHorizon(input: {
         // the unchanged 6h arrival/peak matching window; thresholds remain per native step.
         const arrivalAt = episode.arrivalWindow.latestAt;
         const step = track[episode.peak];
-        const peak = series[selection.native[step.nativeIndex].index].find((part) => part.sourceSlot === step.sourceSlot)!;
+        const peak = series[selection.native[step.nativeIndex].index].filter(isObservedPartition).find((part) => part.sourceSlot === step.sourceSlot)!;
         const impact = evaluateSwellWatchImpact({ ...physicalInput, partition: peak,
           arrivalAt, now: new Date(input.now) });
         if (impact.kind !== "candidate") throw new Error(impact.reason);
@@ -139,11 +179,15 @@ export function deriveSwellWatchHorizon(input: {
       }
       episode = null;
     }
-    if (episode?.actionable) throw new Error("unclosed_episode");
+    if (episode?.actionable) throw new Error(interrupted.has(track) ? "episode_interrupted_by_unavailable_partition" : "unclosed_episode");
   }
   events.sort((left, right) => Date.parse(left.arrivalAt) - Date.parse(right.arrivalAt)
     || Date.parse(left.peakAt) - Date.parse(right.peakAt)
     || left.impact.partition.sourceSlot.localeCompare(right.impact.partition.sourceSlot));
-  return { derivation: { version: SWELL_WATCH_DERIVATION_VERSION, samplingProfile: input.sampling.profile.id,
+  const unavailable = series.flat().filter((part) => !isObservedPartition(part)).length;
+  const partitionCoverage = { s1: { observed: series.length, unavailable: 0 },
+    s2: { observed: series.length - unavailable, unavailable,
+      unavailableNativeFrames: selection.native.filter(({ index }) => series[index].some((part) => !isObservedPartition(part))).map(({ index }) => index) } };
+  return { derivation: { qualificationRule, partitionCoverage, version: SWELL_WATCH_DERIVATION_VERSION, samplingProfile: input.sampling.profile.id,
     witness: input.sampling.profile.witness, nativeFrames: selection.native.length, interpolatedFrames: selection.interpolated.length }, baseline, events };
 }

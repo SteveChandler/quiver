@@ -53,7 +53,7 @@ describe("automated study", () => {
       sourcePointId: `10000000-0000-4000-8000-${String(i).padStart(12, "0")}`, regionKey: `region-${i}`,
     })) });
     jest.mocked(completeSwellWatchStudyRun).mockResolvedValue({ status: "evaluated", enqueued: 0 } as never);
-    jest.mocked(readSwellWatchStudyStatus).mockResolvedValue("active");
+    jest.mocked(readSwellWatchStudyStatus).mockResolvedValue({ status: "active", qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1" });
     jest.mocked(recoverSwellWatchStudyRuns).mockResolvedValue({ processed: 0, failed: 0 });
   });
 
@@ -61,7 +61,18 @@ describe("automated study", () => {
     const response = await call();
     expect(response.status).toBe(200);
     expect((await response.json()).data).toMatchObject({ qualification: "automated_study", study: { status: "evaluated" }, enqueued: 0 });
-    expect(completeSwellWatchStudyRun).toHaveBeenCalledWith(receipt.revisionSetId, expect.anything(), expect.anything());
+    expect(completeSwellWatchStudyRun).toHaveBeenCalledWith(receipt.revisionSetId, expect.anything(), expect.anything(), "primary_partition_with_retained_unavailable_secondary.v1");
+    expect(recoverSwellWatchStudyRuns).toHaveBeenCalledWith(expect.anything(), expect.anything(), "primary_partition_with_retained_unavailable_secondary.v1");
+  });
+
+  it("uses the refreshed authority rule after recovery", async () => {
+    jest.mocked(readSwellWatchStudyStatus)
+      .mockResolvedValueOnce({ status: "active", qualificationRule: "complete_partitions.v1" })
+      .mockResolvedValueOnce({ status: "active", qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1" });
+    jest.mocked(recoverSwellWatchStudyRuns).mockResolvedValueOnce({ processed: 1, failed: 0 });
+    expect((await call()).status).toBe(200);
+    expect(recoverSwellWatchStudyRuns).toHaveBeenCalledWith(expect.anything(), expect.anything(), "complete_partitions.v1");
+    expect(completeSwellWatchStudyRun).toHaveBeenCalledWith(receipt.revisionSetId, expect.anything(), expect.anything(), "primary_partition_with_retained_unavailable_secondary.v1");
   });
 
   it("processes retained issuance A before acquiring newer issuance B", async () => {
@@ -71,7 +82,7 @@ describe("automated study", () => {
     expect((await response.json()).data.recovery).toEqual({ processed: 1, failed: 0 });
     expect(jest.mocked(recoverSwellWatchStudyRuns).mock.invocationCallOrder[0])
       .toBeLessThan(jest.mocked(acquireSwellWatchCohort).mock.invocationCallOrder[0]);
-    expect(completeSwellWatchStudyRun).toHaveBeenCalledWith(receipt.revisionSetId, expect.anything(), expect.anything());
+    expect(completeSwellWatchStudyRun).toHaveBeenCalledWith(receipt.revisionSetId, expect.anything(), expect.anything(), "primary_partition_with_retained_unavailable_secondary.v1");
   });
 
   it("reports retained failures while still processing the newest issuance", async () => {
@@ -84,7 +95,7 @@ describe("automated study", () => {
 
   it("stops before new acquisition if recovery reaches the target", async () => {
     jest.mocked(recoverSwellWatchStudyRuns).mockResolvedValueOnce({ processed: 1, failed: 0 });
-    jest.mocked(readSwellWatchStudyStatus).mockResolvedValueOnce("active").mockResolvedValueOnce("complete");
+    jest.mocked(readSwellWatchStudyStatus).mockResolvedValueOnce({ status: "active", qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1" }).mockResolvedValueOnce({ status: "complete", qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1" });
     const response = await call();
     expect(response.status).toBe(200);
     expect((await response.json()).data.reason).toBe("study_complete");
@@ -117,7 +128,7 @@ describe("automated study", () => {
   });
 
   it.each(["complete", "expired"] as const)("stops acquisition automatically when study is %s", async (status) => {
-    jest.mocked(readSwellWatchStudyStatus).mockResolvedValueOnce(status);
+    jest.mocked(readSwellWatchStudyStatus).mockResolvedValueOnce({ status: status, qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1" });
     const response = await call();
     expect(response.status).toBe(200);
     expect((await response.json()).data).toEqual({ skipped: true, reason: `study_${status}`, enqueued: 0 });
@@ -125,7 +136,7 @@ describe("automated study", () => {
   });
 
   it.each(["unconfigured", "blocked"] as const)("fails before acquisition when study is %s", async (status) => {
-    jest.mocked(readSwellWatchStudyStatus).mockResolvedValueOnce(status);
+    jest.mocked(readSwellWatchStudyStatus).mockResolvedValueOnce({ status: status, qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1" });
     expect((await call()).status).toBe(503);
     expect(acquireSwellWatchCohort).not.toHaveBeenCalled();
   });
@@ -149,7 +160,7 @@ describe("automated study", () => {
     if (stage === "recovery") jest.mocked(recoverSwellWatchStudyRuns).mockRejectedValueOnce(new Error("Pending study runs unavailable"));
     if (stage === "health_after_recovery") {
       jest.mocked(recoverSwellWatchStudyRuns).mockResolvedValueOnce({ processed: 1, failed: 0 });
-      jest.mocked(readSwellWatchStudyStatus).mockResolvedValueOnce("active").mockRejectedValueOnce(new Error("Study health unavailable"));
+      jest.mocked(readSwellWatchStudyStatus).mockResolvedValueOnce({ status: "active", qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1" }).mockRejectedValueOnce(new Error("Study health unavailable"));
     }
     const response = await call();
     expect(response.status).toBe(500);

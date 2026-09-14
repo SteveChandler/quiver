@@ -1,5 +1,15 @@
 import type { SwellPartitionObservation } from "./partition-normalizer";
 
+export const COMPLETE_PARTITIONS_RULE = "complete_partitions.v1" as const;
+export const RETAINED_UNAVAILABLE_SECONDARY_RULE = "primary_partition_with_retained_unavailable_secondary.v1" as const;
+export type SwellWatchQualificationRule = typeof COMPLETE_PARTITIONS_RULE | typeof RETAINED_UNAVAILABLE_SECONDARY_RULE;
+export type SwellWatchFramePart = SwellPartitionObservation | {
+  kind: "unavailable"; sourceSlot: "s2"; forecastAt: string; reason: "provider_zero_tuple";
+};
+export function isObservedPartition(part: SwellWatchFramePart): part is SwellPartitionObservation {
+  return !("kind" in part);
+}
+
 export const SWELL_WATCH_DERIVATION_VERSION = "swell-watch-horizon-derivation.v2" as const;
 const profile = {
   id: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1",
@@ -23,7 +33,7 @@ export function resolveNativeSamplingProfile(source: {
 }
 
 export function selectNativeFrames(
-  series: SwellPartitionObservation[][], sampling: NativeSamplingProfile, issuedAt: string,
+  series: SwellWatchFramePart[][], sampling: NativeSamplingProfile, issuedAt: string,
 ): Selection {
   resolveNativeSamplingProfile({ ...sampling, issuedAt });
   if (series.length !== sampling.forecastDays * 24) throw new Error("incomplete_horizon");
@@ -48,7 +58,7 @@ function directionDistance(left: number, right: number): number {
   return Math.abs(delta);
 }
 
-export function verifyInterpolationWitness(series: SwellPartitionObservation[][], selection: Selection): void {
+export function verifyInterpolationWitness(series: SwellWatchFramePart[][], selection: Selection): void {
   for (let bracket = 1; bracket < selection.native.length; bracket++) {
     const a = selection.native[bracket - 1].index;
     const b = selection.native[bracket].index;
@@ -57,6 +67,7 @@ export function verifyInterpolationWitness(series: SwellPartitionObservation[][]
       for (const part of series[i]) {
         const left = series[a].find((item) => item.sourceSlot === part.sourceSlot)!;
         const right = series[b].find((item) => item.sourceSlot === part.sourceSlot)!;
+        if (!isObservedPartition(part) || !isObservedPartition(left) || !isObservedPartition(right)) continue;
         const arc = ((right.directionDeg - left.directionDeg + 540) % 360) - 180;
         const shortDeviation = directionDistance(part.directionDeg, left.directionDeg + t * arc);
         const longDeviation = Math.abs(arc) >= 179

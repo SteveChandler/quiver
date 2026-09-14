@@ -106,8 +106,8 @@ type RunClient = ImpactIngestionClient & Parameters<typeof deriveAttestedSwellWa
     args: { p_impacts: Record<string, string | number>[] }) => Promise<RpcResult>;
 };
 type CohortScopeOutcome = { sourcePointId: string; status: "derived" | "suppressed"; reason: string | null };
-type CohortDerivation = (Pick<DerivedRun["derivation"], "version" | "samplingProfile" | "witness"> & {
-  scopes: Array<Pick<DerivedRun["derivation"], "nativeFrames" | "interpolatedFrames"> & {
+type CohortDerivation = (Pick<DerivedRun["derivation"], "version" | "samplingProfile" | "witness" | "qualificationRule"> & {
+  scopes: Array<Pick<DerivedRun["derivation"], "nativeFrames" | "interpolatedFrames" | "partitionCoverage"> & {
     sourcePointId: string;
     events: Array<Pick<DerivedRun["events"][number], "arrivalAt" | "arrivalWindow" | "peakAt" | "peakWindow" | "closureWindow"> & {
       sourceSlot: "s1" | "s2"; regionalEventId: string | null;
@@ -173,7 +173,7 @@ export async function ingestAttestedSwellWatchRun(
 
 /** Complete cohort preflight precedes one transaction across all beaches and regions. */
 export async function ingestAttestedSwellWatchCohort(
-  input: Omit<Parameters<typeof loadAttestedProviderRunScope>[0], "scopes"> & Pick<RunInput, "now" | "policy"> & {
+  input: Omit<Parameters<typeof loadAttestedProviderRunScope>[0], "scopes"> & Pick<RunInput, "now" | "policy" | "qualificationRule"> & {
     scopes: Array<Parameters<typeof loadAttestedProviderRunScope>[0]["scopes"][number] & Pick<RunInput, "regionKey" | "beach">>;
   },
   client: RunClient & Parameters<typeof loadAttestedProviderRunScope>[1],
@@ -188,7 +188,7 @@ export async function ingestAttestedSwellWatchCohort(
   const scopeOutcomes: CohortScopeOutcome[] = [];
   for (const scope of input.scopes) {
     const runInput = { providerBatchId: input.providerBatchId, sourcePointId: scope.sourcePointId,
-      now: input.now, policy: input.policy, regionKey: scope.regionKey, beach: scope.beach };
+      now: input.now, policy: input.policy, qualificationRule: input.qualificationRule, regionKey: scope.regionKey, beach: scope.beach };
     const derived = await deriveAttestedSwellWatchRun(runInput, client);
     if (derived.kind === "suppressed") {
       scopeOutcomes.push({ sourcePointId: scope.sourcePointId, status: "suppressed", reason: derived.reason });
@@ -203,9 +203,9 @@ export async function ingestAttestedSwellWatchCohort(
   const suppressed = scopeOutcomes.find((outcome) => outcome.status === "suppressed");
   const runs = suppressed ? [] : await persistRuns(prepared, client, "ingest_swell_watch_cohort");
   const first = prepared[0]?.derived.derivation;
-  const derivation: CohortDerivation = first ? { version: first.version, samplingProfile: first.samplingProfile, witness: first.witness,
+  const derivation: CohortDerivation = first ? { qualificationRule: first.qualificationRule, version: first.version, samplingProfile: first.samplingProfile, witness: first.witness,
     scopes: prepared.map(({ input, derived }, runIndex) => ({ sourcePointId: input.sourcePointId,
-      nativeFrames: derived.derivation.nativeFrames, interpolatedFrames: derived.derivation.interpolatedFrames,
+      partitionCoverage: derived.derivation.partitionCoverage, nativeFrames: derived.derivation.nativeFrames, interpolatedFrames: derived.derivation.interpolatedFrames,
       events: derived.events.map((event, eventIndex) => ({ sourceSlot: event.impact.partition.sourceSlot,
         arrivalAt: event.arrivalAt, arrivalWindow: event.arrivalWindow, peakAt: event.peakAt,
         peakWindow: event.peakWindow, closureWindow: event.closureWindow,

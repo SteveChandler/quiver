@@ -11,6 +11,7 @@ const require = createRequire(import.meta.url);
 const { fetchOpenMeteoSingleRunReceipt, buildOpenMeteoSingleRunRequest } = require("../lib/alerts/swell-watch/single-run-receipt.ts");
 const { storePrototypeSingleRunReceipts } = require("../lib/alerts/swell-watch/provider-run-store.ts");
 const { evaluateSwellWatchShadow } = require("../lib/alerts/swell-watch/shadow-evaluation.ts");
+const { recoverSwellWatchStudyRuns } = require("../lib/alerts/swell-watch/study.ts");
 const { loadAttestedSwellWatchRun } = require("../lib/alerts/swell-watch/attested-run.ts");
 
 const container = process.argv[2];
@@ -21,7 +22,8 @@ const migrationNames = readdirSync(migrationsDirectory).filter((name) => /^\d{14
 assert.equal(migrationNames.length, 1, "Exactly one tracked normalization migration required");
 const migration = readFileSync(new URL(migrationNames[0], migrationsDirectory), "utf8");
 const rollback = readFileSync(new URL("../docs/operations/swell-watch-direction-normalization-rollback.sql", import.meta.url), "utf8");
-const policy = JSON.parse(readFileSync(new URL("../docs/operations/swell-watch-no-send-producer-config-v2-proposed.json", import.meta.url), "utf8")).policy;
+const config = JSON.parse(readFileSync(new URL("../docs/operations/swell-watch-no-send-producer-config-v2-proposed.json", import.meta.url), "utf8"));
+const policy = config.policy;
 assert.equal(policy.policy_values.staleness.maximum_forecast_age_hours, 12);
 const q = (value) => `'${String(value).replaceAll("'", "''")}'`;
 const j = (value) => `${q(JSON.stringify(value))}::jsonb`;
@@ -32,8 +34,44 @@ function sql(text) {
   return result.stdout.trim();
 }
 function value(text) { return JSON.parse(sql(text)); }
+const completeRule = "complete_partitions.v1";
+const partialRule = "primary_partition_with_retained_unavailable_secondary.v1";
+const coverageMigration = readFileSync(new URL("../supabase/migrations/20260914050000_amend_swell_watch_study_partition_coverage.sql", import.meta.url), "utf8");
+const coverageRollback = readFileSync(new URL("../docs/operations/swell-watch-study-partition-coverage-rollback.sql", import.meta.url), "utf8");
+const amendment = readFileSync(new URL("../docs/operations/swell-watch-study-amend-partition-coverage.sql", import.meta.url), "utf8");
+const revokeAmendment = readFileSync(new URL("../docs/operations/swell-watch-study-revoke-partition-coverage.sql", import.meta.url), "utf8");
+const functionHashes = {
+  "guard_swell_watch_study_authority()": {
+    "pre": "8480f4860778224e8ec6ba308e165ad0990fa0cab0b8aafc7d51cdd722e66614",
+    "post": "0746463f7308dc48acce42a70dfe3c01dc72e0ac97f6540e294d80dd16d808e8"
+  },
+  "read_swell_watch_study_health()": {
+    "pre": "5c7183ca088c2ed6f41c8340584ecb8ff015f578368d892b25530816a0ec8c2e",
+    "post": "b2789dfdb0637335290be5883ef57f19e2889cfa071d1ecbadd6ad9b72b30c01"
+  },
+  "record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)": {
+    "pre": "ead27c82c4e7b7cb3d52ac05b57e7eeb7e5b550f05a07a66de19b725abd77223",
+    "post": "e0e0e7f5d09ce8e3d2b668dd4c022ed429ff38d57473ae803ee093620c9f5521"
+  }
+};
+const studyDefinitions = () => value(`SELECT jsonb_object_agg(oid::regprocedure::text,pg_get_functiondef(oid)) FROM pg_proc
+  WHERE pronamespace='public'::regnamespace AND proname IN ('guard_swell_watch_study_authority','read_swell_watch_study_health','record_swell_watch_study_evaluation');`);
+const studyPermissions = () => sql(`SELECT jsonb_object_agg(oid::regprocedure::text,proacl::text) FROM pg_proc
+  WHERE pronamespace='public'::regnamespace AND proname IN ('guard_swell_watch_study_authority','read_swell_watch_study_health','record_swell_watch_study_evaluation');`);
+const postDefinitions = studyDefinitions(); const studyAcl = studyPermissions();
+for (const [name, hashes] of Object.entries(functionHashes)) assert.equal(createHash("sha256").update(postDefinitions[name]).digest("hex"), hashes.post);
+sql(coverageMigration); sql(coverageMigration);
+assert.deepEqual(studyDefinitions(), postDefinitions); assert.equal(studyPermissions(), studyAcl);
+sql(coverageRollback); sql(coverageRollback);
+const preDefinitions = studyDefinitions();
+for (const [name, hashes] of Object.entries(functionHashes)) assert.equal(createHash("sha256").update(preDefinitions[name]).digest("hex"), hashes.pre);
+assert.equal(studyPermissions(), studyAcl);
+sql(coverageMigration); assert.deepEqual(studyDefinitions(), postDefinitions); assert.equal(studyPermissions(), studyAcl);
+assert.throws(() => sql(`SET ROLE service_role; ${coverageMigration}`), /production owner required/);
+assert.deepEqual(studyDefinitions(), postDefinitions);
+
 const tableRpcs = new Set(["record_swell_watch_provider_run_receipt", "complete_swell_watch_study_run", "record_swell_watch_shadow_demand"]);
-const jsonRpcs = new Set(["read_swell_watch_run_scope", "read_swell_watch_attested_run", "record_swell_watch_study_evaluation"]);
+const jsonRpcs = new Set(["read_swell_watch_run_scope", "read_swell_watch_attested_run", "record_swell_watch_study_evaluation", "read_swell_watch_study_pending_runs"]);
 const calls = [];
 const client = {
   from() { throw new Error("Unexpected audience/table read in zero-candidate fixture"); },
@@ -50,10 +88,10 @@ const client = {
     } catch (error) { return { data: null, error: { message: error.message } }; }
   },
 };
-const cohort = Array.from({ length: 10 }, (_, i) => ({ sourcePointId: `10000000-0000-4000-8000-${String(i).padStart(12, "0")}`, regionKey: "normalization-fixture" }));
+const cohort = [...config.cohort].sort((a, b) => a.sourcePointId.localeCompare(b.sourcePointId));
 const inputs = cohort.map(({ sourcePointId }) => ({ sourcePointId, latitude: 32.8, longitude: -117.3,
   beach: { swell_window_center_deg: 180, swell_window_halfwidth_deg: 90, swell_access_factors: null, terrain_enabled: null, deepwater_decay_factor: null, shoaling_factors: null } }));
-const scopes = inputs.map((input) => ({ ...input, regionKey: "normalization-fixture" }));
+const scopes = inputs.map((input, index) => ({ ...input, regionKey: cohort[index].regionKey }));
 const runUtc = new Date(Math.floor(Date.now() / 21_600_000) * 21_600_000).toISOString().slice(0, 16) + "Z";
 const fields = ["swell_wave_height", "swell_wave_period", "swell_wave_direction", "secondary_swell_wave_height", "secondary_swell_wave_period", "secondary_swell_wave_direction"];
 function body(run = runUtc, normalized = false, unavailable = false) {
@@ -148,7 +186,7 @@ async function completeAndEvaluate(receipt) {
   const completed = result.data[0];
   const run = await loadAttestedSwellWatchRun({ providerBatchId: completed.provider_batch_id, sourcePointId: cohort[0].sourcePointId }, client);
   assert.deepEqual(run.samples[146].components[0].rawFieldProvenance.directionNormalization, provenance);
-  const evaluation = await evaluateSwellWatchShadow({ providerBatchId: completed.provider_batch_id, forecastDays: 7, now: new Date().toISOString(), policy, scopes }, client);
+  const evaluation = await evaluateSwellWatchShadow({ qualificationRule: "complete_partitions.v1", providerBatchId: completed.provider_batch_id, forecastDays: 7, now: new Date().toISOString(), policy, scopes }, client);
   const recorded = await client.rpc("record_swell_watch_study_evaluation", { p_provider_batch_id: completed.provider_batch_id, p_policy_hash: policy.value_hash, p_result: evaluation, p_scope_inputs: inputs });
   assert.equal(recorded.error, null); assert.equal(recorded.data.recorded, true);
   return { stored, completed, evaluation };
@@ -211,8 +249,11 @@ sql("CREATE DATABASE study_native_sampling TEMPLATE postgres;");
 database = "study_native_sampling";
 const waikiki = JSON.parse(readFileSync(new URL("../__tests__/fixtures/swell-watch-retained-20260913/waikiki-20260913T1200Z.json", import.meta.url), "utf8"));
 const hatteras = JSON.parse(readFileSync(new URL("../__tests__/fixtures/swell-watch-retained-20260913/hatteras-20260913T1200Z.json", import.meta.url), "utf8"));
-const nativeInputs = inputs.map((input, i) => ({ ...input, beach: i === 9 ? waikiki.beach : input.beach }));
-const nativeScopes = nativeInputs.map((input) => ({ ...input, regionKey: "normalization-fixture" }));
+const waikikiIndex = cohort.findIndex((scope) => scope.sourcePointId === waikiki.sourcePointId);
+const hatterasIndex = cohort.findIndex((scope) => scope.sourcePointId === hatteras.sourcePointId);
+assert(waikikiIndex >= 0 && hatterasIndex >= 0);
+const nativeInputs = inputs.map((input, i) => ({ ...input, beach: i === waikikiIndex ? waikiki.beach : i === hatterasIndex ? hatteras.beach : input.beach }));
+const nativeScopes = nativeInputs.map((input, index) => ({ ...input, regionKey: cohort[index].regionKey }));
 const utcDay = runUtc.slice(0, 10);
 const issuances = [0, 6, 12, 18].map((hour) => `${utcDay}T${String(hour).padStart(2, "0")}:00:00.000Z`);
 const productionBodies = sql("SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE pronamespace='public'::regnamespace;");
@@ -253,7 +294,7 @@ try {
   const nativeClient = { ...client, from(table) {
     const filters = []; let columns; let offset = 0; let limit = 1001;
     const history = table === "swell_watch_event_impacts";
-    assert(history || ["profiles", "favorite_beaches", "alert_rules", "user_devices"].includes(table));
+    assert(history || ["profiles", "favorite_beaches", "alert_rules", "user_devices", "beaches"].includes(table));
     const builder = {
       select(selected) { columns = selected; return builder; },
       eq(key, item) {
@@ -283,14 +324,17 @@ try {
     };
     return builder;
   } };
-  async function nativeRun(issuance, missing = false) {
+  async function nativeRun(issuance, missing = false, qualificationRule = completeRule, options = {}) {
     const now = setClock(issuance);
     const receipts = await Promise.all(cohort.map(async ({ sourcePointId }, i) => {
       const payload = body(issuance);
-      if (i === 9 || (missing && i === 8)) {
-        const retained = missing && i === 8 ? hatteras : waikiki;
+      if ((!options.flat && i === waikikiIndex) || (missing && i === hatterasIndex)) {
+        const retained = missing && i === hatterasIndex ? hatteras : waikiki;
         for (const field of fields) payload.hourly[field] = [...retained.semanticPayload.hourly[field]];
         assert.deepEqual(fields.map((field) => payload.hourly[field]), fields.map((field) => retained.semanticPayload.hourly[field]), "Retained values unchanged; timestamps and synthetic location only are shifted");
+      }
+      if (options.syntheticGap && i === hatterasIndex) {
+        fields.slice(3).forEach((field) => { for (let hour = 4; hour <= 14; hour++) payload.hourly[field][hour] = 0; });
       }
       const raw = JSON.stringify(payload);
       const receipt = await fetchOpenMeteoSingleRunReceipt({ latitude: 32.8, longitude: -117.3, runUtc: issuance.slice(0, 16) + "Z", forecastDays: 7 },
@@ -310,8 +354,10 @@ try {
       p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs });
     assert.equal(result.error, null); assert.equal(result.data.length, 1);
     const completed = result.data[0];
-    const evaluation = await evaluateSwellWatchShadow({ providerBatchId: completed.provider_batch_id, forecastDays: 7, now, policy, scopes: nativeScopes }, nativeClient);
+    if (options.acceptOnly) return { receipts, stored, completed };
+    const evaluation = await evaluateSwellWatchShadow({ qualificationRule, providerBatchId: completed.provider_batch_id, forecastDays: 7, now, policy, scopes: nativeScopes }, nativeClient);
     const recordArgs = { p_provider_batch_id: completed.provider_batch_id, p_policy_hash: policy.value_hash, p_result: evaluation, p_scope_inputs: nativeInputs };
+    if (options.beforeRecord) await options.beforeRecord(evaluation, recordArgs);
     const extraScopeKey = structuredClone(evaluation);
     extraScopeKey.scopeOutcomes[0].nativeFrames = 136;
     const rejected = await nativeClient.rpc("record_swell_watch_study_evaluation", { ...recordArgs, p_result: extraScopeKey });
@@ -326,6 +372,7 @@ try {
     assert(evaluation.scopeOutcomes.every((scope) => Object.keys(scope).sort().join(",") === "reason,sourcePointId,status"));
     return { receipts, stored, completed, evaluation, recordArgs };
   }
+  sql("CREATE DATABASE study_partition_coverage TEMPLATE study_native_sampling;");
   const nativeFirst = await nativeRun(issuances[0]);
   assert.equal(nativeFirst.evaluation.status, "evaluated"); assert.equal(nativeFirst.evaluation.candidateCount, 1);
   for (const table of ["swell_watch_beach_impacts", "swell_watch_event_impacts", "swell_watch_regional_events", "swell_watch_shadow_demand_runs"]) {
@@ -334,8 +381,8 @@ try {
   const persistedScopes = value(`SELECT result->'derivation'->'scopes' FROM public.swell_watch_study_evaluations
     WHERE provider_batch_id=${q(nativeFirst.completed.provider_batch_id)};`);
   const shifted = (at) => new Date(Date.parse(at) + Date.parse(issuances[0]) - Date.parse(waikiki.issuedAt)).toISOString();
-  assert.deepEqual(persistedScopes.find((scope) => scope.sourcePointId === cohort[9].sourcePointId), {
-    sourcePointId: cohort[9].sourcePointId, nativeFrames: 136, interpolatedFrames: 32,
+  assert.deepEqual(persistedScopes.find((scope) => scope.sourcePointId === cohort[waikikiIndex].sourcePointId), {
+    sourcePointId: cohort[waikikiIndex].sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0 }, s2: { observed: 168, unavailable: 0, unavailableNativeFrames: [] } },
     events: [{ sourceSlot: "s1", arrivalAt: shifted("2026-09-18T18:00:00.000Z"),
       arrivalWindow: { earliestAt: shifted("2026-09-18T15:00:00.000Z"), latestAt: shifted("2026-09-18T18:00:00.000Z") },
       peakAt: shifted("2026-09-18T18:00:00.000Z"),
@@ -371,6 +418,152 @@ try {
     syntheticIssuances: issuances, evaluationClock: "disposable database only: issuance + 8h", flatSources: 9, retainedValueSources: 1,
     firstCandidateCount: 1, evaluatedRuns: 4, qualifyingDays: 1, qualifyingDates: [utcDay], equivalentRetryAddsDay: false,
     suppressedFifthAddsDay: false, policyFreshnessHours: 12, derivation: nativeFirst.evaluation.derivation, sends: nativeSafety }, null, 2));
+  database = "study_partition_coverage";
+  // New fixture epoch 2 has the reviewed production fields, with fixture scope inputs/hash.
+  const contract = "automated-study.v1: pinned Open-Meteo Single Runs requests; validated raw and semantic receipts; response does not echo issuance; no-send study only";
+  const epoch2Evidence = "d2733c02f8903601e140a51a7a7e0d5a89c3f6d54b63988960c35420bb2d216b";
+  const expiry = "2026-10-25T02:45:47.591003Z";
+  sql(`INSERT INTO public.swell_watch_evaluation_policies(epoch,state,policy_hash,policy_values,reviewer,evidence_hash,not_before,expires_at)
+    SELECT 2,'active',policy_hash,policy_values,reviewer,evidence_hash,not_before,${q(expiry)} FROM public.swell_watch_evaluation_policies WHERE epoch=1;`);
+  assert.throws(() => sql(amendment), /exact reviewed epoch 2 study authority required/);
+  assert.equal(sql("SELECT max(epoch) FROM public.swell_watch_study_authorities;"), "1");
+  sql(`INSERT INTO public.swell_watch_study_authorities(epoch,state,policy_hash,cohort,scope_inputs,config_hash,target_days,
+    provider_contract_ref,evidence_sha256,reviewer,not_before,expires_at)
+    SELECT 2,'active',policy_hash,cohort,scope_inputs,
+      encode(extensions.digest(jsonb_build_object('policyHash',policy_hash,'cohort',cohort,'scopeInputs',scope_inputs,
+        'forecastDays',7,'targetDays',target_days,'providerContractRef',${q(contract)},'evidenceSha256',${q(epoch2Evidence)})::text,'sha256'),'hex'),
+      target_days,${q(contract)},${q(epoch2Evidence)},'automated-study.v1 under Steven Chandler standing authorization',not_before,${q(expiry)}
+    FROM public.swell_watch_study_authorities WHERE epoch=1;`);
+  assert.equal(value("SELECT public.read_swell_watch_study_health();").qualificationRule, completeRule);
+  const authorityRows = () => value("SELECT jsonb_agg(to_jsonb(a) ORDER BY epoch) FROM public.swell_watch_study_authorities a;");
+  const oldEpochs = authorityRows();
+  const policyRows = value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;");
+  assert.throws(() => sql(amendment), /exact reviewed epoch 2 study authority required/);
+  assert.deepEqual(authorityRows(), oldEpochs);
+  const epoch2Hash = oldEpochs[1].config_hash;
+  // Mirror the exact production INSERT/guards using ONLY the fixture's independently computed hash.
+  // The production SQL file retains its literal reviewed pin and has just refused this fixture.
+  const fixtureAuthorityScript = (script) => {
+    const pin = "7390521c13f45cb5a1ce9a0cbe7a53d092a2e05ff187e5f2b773b75df74b3d7e";
+    assert.equal(script.split(pin).length, 2);
+    return script.replace(pin, epoch2Hash);
+  };
+  const fixtureAmendment = fixtureAuthorityScript(amendment);
+  const fixtureRevocation = fixtureAuthorityScript(revokeAmendment);
+  // Keep a real epoch-2 acceptance without a result, simulating recovery queued before amendment.
+  const pendingIssuance = new Date(Date.parse(issuances[0]) + 30 * 3_600_000).toISOString();
+  const pendingRun = await nativeRun(pendingIssuance, false, completeRule, { acceptOnly: true, flat: true });
+  const queued = await nativeClient.rpc("read_swell_watch_study_pending_runs", { p_policy_hash: policy.value_hash });
+  assert.equal(queued.error, null);
+  assert(queued.data.some((run) => run.revision_set_id === pendingRun.stored.revisionSetId));
+  const acceptedBefore = value(`SELECT to_jsonb(a) FROM public.swell_watch_study_acceptances a WHERE revision_set_id=${q(pendingRun.stored.revisionSetId)};`);
+  // Same complete-rule authority must reject a forged partial-coverage success before writing.
+  const writes = () => sql("SELECT count(*) FROM public.swell_watch_study_evaluations;");
+  const expectRejected = async (recordArgs, forged, pattern) => {
+    const before = writes();
+    const rejected = await nativeClient.rpc("record_swell_watch_study_evaluation", { ...recordArgs, p_result: forged });
+    assert.match(rejected.error?.message ?? "", pattern); assert.equal(writes(), before);
+  };
+  const pendingEvaluation = await evaluateSwellWatchShadow({ qualificationRule: completeRule,
+    providerBatchId: pendingRun.completed.provider_batch_id, forecastDays: 7, now: setClock(pendingIssuance), policy, scopes: nativeScopes }, nativeClient);
+  const pendingArgs = { p_provider_batch_id: pendingRun.completed.provider_batch_id, p_policy_hash: policy.value_hash, p_result: pendingEvaluation, p_scope_inputs: nativeInputs };
+  const partialClaim = structuredClone(pendingEvaluation);
+  Object.assign(partialClaim.derivation.scopes[0].partitionCoverage.s2, { observed: 167, unavailable: 1 });
+  await expectRejected(pendingArgs, partialClaim, /study result claims partial partition coverage under complete-partition rule/);
+  sql(fixtureAmendment);
+  const amendedAuthority = authorityRows();
+  sql(fixtureAmendment); assert.deepEqual(authorityRows(), amendedAuthority, "Exact fixture amendment retry is a no-op");
+  assert.deepEqual(amendedAuthority.slice(0, 2), oldEpochs);
+  assert.equal(amendedAuthority[2].qualification_rule, partialRule);
+  assert.notEqual(amendedAuthority[2].config_hash, epoch2Hash);
+  assert.equal(sql(`SELECT a.config_hash=encode(extensions.digest(jsonb_build_object('policyHash',a.policy_hash,'cohort',a.cohort,
+    'scopeInputs',a.scope_inputs,'forecastDays',7,'targetDays',a.target_days,'providerContractRef',a.provider_contract_ref,
+    'evidenceSha256',a.evidence_sha256,'qualificationRule',a.qualification_rule)::text,'sha256'),'hex')
+    FROM public.swell_watch_study_authorities a WHERE epoch=3;`), "t");
+  assert.throws(() => sql(`INSERT INTO public.swell_watch_study_authorities(epoch,state,policy_hash,cohort,scope_inputs,config_hash,target_days,
+    provider_contract_ref,evidence_sha256,reviewer,not_before,expires_at,qualification_rule)
+    SELECT 4,'active',policy_hash,cohort,scope_inputs,config_hash,target_days,provider_contract_ref,evidence_sha256,reviewer,not_before,expires_at,
+      'complete_partitions.v1' FROM public.swell_watch_study_authorities WHERE epoch=3;`), /study config hash or cohort ordering mismatch/);
+  assert.deepEqual(authorityRows(), amendedAuthority);
+  const completeAcrossEpoch = await nativeClient.rpc("complete_swell_watch_study_run", {
+    p_revision_set_id: pendingRun.stored.revisionSetId, p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs });
+  assert.match(completeAcrossEpoch.error?.message ?? "", /study acceptance belongs to a different authority epoch/);
+  const recovery = await recoverSwellWatchStudyRuns({ policy, cohort }, { ...nativeClient, rpc: async (name, args) =>
+    name === "read_swell_watch_study_pending_runs" ? queued : nativeClient.rpc(name, args) }, partialRule);
+  assert.deepEqual(recovery, { processed: 0, failed: 1 }, "Queued pre-amendment recovery fails without moving acceptance");
+  assert.deepEqual(value(`SELECT to_jsonb(a) FROM public.swell_watch_study_acceptances a WHERE revision_set_id=${q(pendingRun.stored.revisionSetId)};`), acceptedBefore);
+  const currentQueue = await nativeClient.rpc("read_swell_watch_study_pending_runs", { p_policy_hash: policy.value_hash });
+  assert.equal(currentQueue.error, null); assert(!currentQueue.data.some((run) => run.revision_set_id === pendingRun.stored.revisionSetId));
+  const retainedIssuance = new Date(Date.parse(issuances[0]) + 42 * 3_600_000).toISOString();
+  const retainedAmended = await nativeRun(retainedIssuance, true, partialRule);
+  assert.equal(retainedAmended.evaluation.status, "suppressed");
+  assert.equal(retainedAmended.evaluation.reason, "arrival_window_crosses_actionability");
+  assert.deepEqual(retainedAmended.evaluation.scopeOutcomes[hatterasIndex], { sourcePointId: cohort[hatterasIndex].sourcePointId, status: "suppressed", reason: "arrival_window_crosses_actionability" });
+  assert.equal(retainedAmended.evaluation.derivation.qualificationRule, partialRule);
+  assert.equal(sql(`SELECT count(*) FROM public.swell_watch_provider_run_completed_batches b
+    JOIN public.swell_watch_provider_run_revision_set_members m ON m.revision_set_id=b.revision_set_id
+    JOIN public.swell_watch_provider_run_batch_scopes s ON s.id=m.scope_id
+    JOIN public.swell_watch_provider_run_revision_components c ON c.revision_id=m.revision_id
+    WHERE b.id=${q(retainedAmended.completed.provider_batch_id)} AND s.source_point_id=${q(cohort[hatterasIndex].sourcePointId)}
+      AND c.source_slot='s2' AND c.unavailable_reason='provider_zero_tuple';`), "48");
+  const qualifiedIssuances = issuances.map((issuance) => new Date(Date.parse(issuance) + 48 * 3_600_000).toISOString());
+  for (const [index, issuance] of qualifiedIssuances.entries()) {
+    const result = await nativeRun(issuance, false, partialRule, { syntheticGap: true, beforeRecord: async (evaluation, args) => {
+      if (index) return;
+      const wrongRule = structuredClone(evaluation); wrongRule.derivation.qualificationRule = completeRule;
+      await expectRejected(args, wrongRule, /study qualification rule differs from authority/);
+      const wrongCount = structuredClone(evaluation); Object.assign(wrongCount.derivation.scopes[hatterasIndex].partitionCoverage.s2, { observed: 158, unavailable: 10 });
+      await expectRejected(args, wrongCount, /study partition coverage differs from retained components/);
+      for (const malformed of [null, [], "invalid", {}, { qualificationRule: partialRule, scopes: [] }]) {
+        await expectRejected(args, { ...evaluation, derivation: malformed }, /study (derivation|required|qualification)|invalid study derivation|evaluated study derivation/);
+      }
+      const absent = structuredClone(evaluation); delete absent.derivation;
+      await expectRejected(args, absent, /evaluated study derivation required/);
+      for (const unavailable of [null, "11", -1, 0.5, 169]) {
+        const invalid = structuredClone(evaluation); invalid.derivation.scopes[hatterasIndex].partitionCoverage.s2.unavailable = unavailable;
+        await expectRejected(args, invalid, /invalid study partition coverage/);
+      }
+    } });
+    assert.equal(result.evaluation.status, "evaluated");
+    assert.equal(result.evaluation.candidateCount, 1, "Retained Waikiki's completely observed event persists");
+    assert.deepEqual(result.evaluation.derivation.scopes[hatterasIndex].partitionCoverage, {
+      s1: { observed: 168, unavailable: 0 }, s2: { observed: 157, unavailable: 11, unavailableNativeFrames: Array.from({ length: 11 }, (_, i) => i + 4) },
+    });
+    assert.equal(result.evaluation.derivation.qualificationRule, partialRule);
+    assert.equal(value("SELECT public.read_swell_watch_study_health();").qualifyingDays, index === 3 ? 1 : 0);
+  }
+  const partialHealth = value("SELECT public.read_swell_watch_study_health();");
+  assert.equal(partialHealth.qualificationRule, partialRule); assert.equal(partialHealth.authorityEpoch, 3);
+  assert.equal(partialHealth.evaluatedRuns, 4); assert.equal(partialHealth.suppressedAttempts, 1);
+  assert.deepEqual(partialHealth.qualifyingDates, [qualifiedIssuances[0].slice(0, 10)]);
+  assert.deepEqual(authorityRows(), amendedAuthority);
+  assert.deepEqual(value("SELECT jsonb_agg(to_jsonb(p) ORDER BY epoch) FROM public.swell_watch_evaluation_policies p;"), policyRows);
+  assert.deepEqual(sendCounts(), nativeSafety);
+  for (const field of ["not_before", "expires_at"]) {
+    assert.throws(() => sql(`BEGIN;
+      INSERT INTO public.swell_watch_study_authorities(epoch,state,policy_hash,cohort,scope_inputs,config_hash,target_days,
+        provider_contract_ref,evidence_sha256,reviewer,not_before,expires_at,qualification_rule)
+      SELECT 4,'revoked',policy_hash,cohort,scope_inputs,config_hash,target_days,provider_contract_ref,evidence_sha256,reviewer,
+        not_before+interval '${field === "not_before" ? 1 : 0} second',expires_at+interval '${field === "expires_at" ? 1 : 0} second',qualification_rule
+        FROM public.swell_watch_study_authorities WHERE epoch=3;
+      ${fixtureRevocation.replace("BEGIN;", "")}`), /unexpected study authority; exact amendment revocation retry only/);
+    assert.deepEqual(authorityRows(), amendedAuthority);
+  }
+  sql(fixtureRevocation); const revokedAuthority = authorityRows(); sql(fixtureRevocation);
+  assert.deepEqual(authorityRows(), revokedAuthority); assert.equal(revokedAuthority[3].state, "revoked");
+  assert.equal(revokedAuthority[3].qualification_rule, partialRule);
+  assert.equal(value("SELECT public.read_swell_watch_study_health();").status, "blocked");
+  assert.throws(() => sql(fixtureAmendment), /unexpected study authority; exact amendment retry only/);
+  sql(`INSERT INTO public.swell_watch_study_authorities(epoch,state,policy_hash,cohort,scope_inputs,config_hash,target_days,
+    provider_contract_ref,evidence_sha256,reviewer,not_before,expires_at,qualification_rule)
+    SELECT 5,'revoked',policy_hash,cohort,scope_inputs,config_hash,target_days,provider_contract_ref,evidence_sha256,reviewer,not_before,expires_at,qualification_rule
+    FROM public.swell_watch_study_authorities WHERE epoch=4;`);
+  assert.throws(() => sql(fixtureRevocation), /unexpected study authority; exact amendment revocation retry only/);
+  assert.deepEqual(authorityRows().slice(0, 2), oldEpochs); assert.deepEqual(sendCounts(), nativeSafety);
+  console.log(JSON.stringify({ mode: "partition_coverage_epoch_3", retainedHatteras: retainedAmended.evaluation.reason,
+    retainedUnavailableSecondaryHours: 48, syntheticGapUnavailableSecondaryHours: 11,
+    evaluatedRuns: partialHealth.evaluatedRuns, qualifyingDays: partialHealth.qualifyingDays,
+    staleEpochRecovery: recovery, healthRule: partialHealth.qualificationRule, sends: nativeSafety }, null, 2));
 } finally {
   assert.equal(sql("SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname<>'clock_timestamp';"), productionBodies, "Production SQL bodies unchanged by disposable clock injection");
   database = "study_normalization";
