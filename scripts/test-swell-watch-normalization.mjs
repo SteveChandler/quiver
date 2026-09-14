@@ -331,6 +331,18 @@ try {
   for (const table of ["swell_watch_beach_impacts", "swell_watch_event_impacts", "swell_watch_regional_events", "swell_watch_shadow_demand_runs"]) {
     assert.equal(sql(`SELECT count(*) FROM public.${table};`), "1", `${table}: first native candidate persisted`);
   }
+  const persistedScopes = value(`SELECT result->'derivation'->'scopes' FROM public.swell_watch_study_evaluations
+    WHERE provider_batch_id=${q(nativeFirst.completed.provider_batch_id)};`);
+  const shifted = (at) => new Date(Date.parse(at) + Date.parse(issuances[0]) - Date.parse(waikiki.issuedAt)).toISOString();
+  assert.deepEqual(persistedScopes.find((scope) => scope.sourcePointId === cohort[9].sourcePointId), {
+    sourcePointId: cohort[9].sourcePointId, nativeFrames: 136, interpolatedFrames: 32,
+    events: [{ sourceSlot: "s1", arrivalAt: shifted("2026-09-18T18:00:00.000Z"),
+      arrivalWindow: { earliestAt: shifted("2026-09-18T15:00:00.000Z"), latestAt: shifted("2026-09-18T18:00:00.000Z") },
+      peakAt: shifted("2026-09-18T18:00:00.000Z"),
+      peakWindow: { earliestAt: shifted("2026-09-18T18:00:00.000Z"), latestAt: shifted("2026-09-18T21:00:00.000Z") },
+      closureWindow: { earliestAt: shifted("2026-09-20T00:00:00.000Z"), latestAt: shifted("2026-09-20T03:00:00.000Z") },
+      regionalEventId: sql("SELECT id FROM public.swell_watch_regional_events;") }],
+  });
   assert.equal(value("SELECT public.read_swell_watch_study_health();").evaluatedRuns, 1);
   assert.equal(value("SELECT public.read_swell_watch_study_health();").qualifyingDays, 0);
   for (const issuance of issuances.slice(1)) {

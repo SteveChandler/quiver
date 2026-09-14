@@ -49,13 +49,15 @@ it.each([false, true])("replays the real captured cohort without writes (reverse
   expect(result.scopeOutcomes?.filter((outcome) => outcome.reason === "unbounded_episode")).toHaveLength(1);
   expect(result.derivation).toEqual({ version: "swell-watch-horizon-derivation.v2",
     samplingProfile: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1", witness: "provider-linear-interpolation.v1",
-    scopes: result.scopeOutcomes!.filter((s) => s.status === "derived").map((s) => ({ sourcePointId: s.sourcePointId, nativeFrames: 136, interpolatedFrames: 32 })) });
+    scopes: result.scopeOutcomes!.filter((s) => s.status === "derived").map((s) => ({ sourcePointId: s.sourcePointId, nativeFrames: 136, interpolatedFrames: 32, events: expect.any(Array) })) });
   expect(result.scopeOutcomes?.every((s) => Object.keys(s).sort().join(",") === "reason,sourcePointId,status")).toBe(true);
   expect(forbidden).toEqual([]);
 });
 
-it.each([false, true])("preflights retained Waikiki and Hatteras without any write (all incomplete: %s)", async (allIncomplete) => {
-  const fixtures = [waikiki, hatteras];
+it.each([{ allIncomplete: false, sourceCount: 2 }, { allIncomplete: true, sourceCount: 2 }, { allIncomplete: false, sourceCount: 10 }])(
+  "preflights retained Waikiki and Hatteras without any write (all incomplete: $allIncomplete, sources: $sourceCount)", async ({ allIncomplete, sourceCount }) => {
+  const fixtures = [waikiki, hatteras, ...Array.from({ length: sourceCount - 2 }, (_, index) => ({ ...waikiki,
+    sourcePointId: `10000000-0000-4000-8000-${String(index).padStart(12, "0")}` }))];
   const scopes = fixtures.map((f) => ({ sourcePointId: f.sourcePointId, regionKey: "retained-replay",
     latitude: f.semanticPayload.latitude, longitude: f.semanticPayload.longitude, beach: f.beach }));
   const runs = fixtures.map(retainedRun);
@@ -64,7 +66,7 @@ it.each([false, true])("preflights retained Waikiki and Hatteras without any wri
   const forbidden = jest.fn();
   const client = { from: () => { throw new Error("Forbidden table read"); }, rpc: async (name: string, args: Record<string, string>) => {
     if (name === "read_swell_watch_run_scope") return { error: null, data: { providerBatchId: first.providerBatchId,
-      evaluationId: first.evaluationId, issuedAt: first.issuedAt, scopeHash: "a".repeat(64), expectedComponentCount: 672,
+      evaluationId: first.evaluationId, issuedAt: first.issuedAt, scopeHash: "a".repeat(64), expectedComponentCount: sourceCount * 336,
       scopes: scopes.map((scope) => ({ ...scope, forecastDays: 7 })) } };
     if (name === "read_swell_watch_attested_run") return { error: null, data: runs.find((r) => r.source.sourcePointId === args.p_source_point_id) };
     forbidden(name); throw new Error(`Forbidden replay write: ${name}`);
@@ -72,8 +74,21 @@ it.each([false, true])("preflights retained Waikiki and Hatteras without any wri
   const result = await evaluateSwellWatchShadow({ providerBatchId: first.providerBatchId, forecastDays: 7,
     now: waikiki.replayClockBounds[0], policy: proposed.policy as SwellWatchPolicy, scopes }, client as never);
   expect(result).toMatchObject({ status: "suppressed", reason: "incomplete_partition", candidateCount: null,
-    scopeOutcomes: [{ sourcePointId: waikiki.sourcePointId, status: allIncomplete ? "suppressed" : "derived", reason: allIncomplete ? "incomplete_partition" : null },
-      { sourcePointId: hatteras.sourcePointId, status: "suppressed", reason: "incomplete_partition" }],
-    derivation: allIncomplete ? null : { version: "swell-watch-horizon-derivation.v2", scopes: [{ sourcePointId: waikiki.sourcePointId, nativeFrames: 136, interpolatedFrames: 32 }] } });
+    derivation: allIncomplete ? null : { version: "swell-watch-horizon-derivation.v2" } });
+  expect(result.scopeOutcomes).toEqual(fixtures.map(({ sourcePointId }) => ({ sourcePointId,
+    status: allIncomplete || sourcePointId === hatteras.sourcePointId ? "suppressed" : "derived",
+    reason: allIncomplete || sourcePointId === hatteras.sourcePointId ? "incomplete_partition" : null })));
   expect(forbidden).not.toHaveBeenCalled();
+  if (allIncomplete) return;
+  const expectedEvent = { sourceSlot: "s1", arrivalAt: "2026-09-18T18:00:00.000Z",
+    arrivalWindow: { earliestAt: "2026-09-18T15:00:00.000Z", latestAt: "2026-09-18T18:00:00.000Z" },
+    peakAt: "2026-09-18T18:00:00.000Z",
+    peakWindow: { earliestAt: "2026-09-18T18:00:00.000Z", latestAt: "2026-09-18T21:00:00.000Z" },
+    closureWindow: { earliestAt: "2026-09-20T00:00:00.000Z", latestAt: "2026-09-20T03:00:00.000Z" }, regionalEventId: null };
+  expect(result.derivation?.scopes).toEqual(fixtures.filter((f) => f.sourcePointId !== hatteras.sourcePointId)
+    .map(({ sourcePointId }) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, events: [expectedEvent] })));
+  expect(result.scopeOutcomes).toHaveLength(sourceCount);
+  expect(result.derivation?.scopes.flatMap((scope) => scope.events)).toHaveLength(sourceCount - 1);
+  // Pretty JSON overestimates jsonb::text whitespace, leaving ample room below SQL's 131072-byte limit.
+  expect(Buffer.byteLength(JSON.stringify(result, null, 2))).toBeLessThan(32_768);
 });
