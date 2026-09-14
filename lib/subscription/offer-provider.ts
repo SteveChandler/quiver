@@ -5,7 +5,7 @@ export class OfferCustomerMissingError extends Error {}
 const subscriberSchema = z.object({ subscriber: z.object({
   original_app_user_id: z.string(),
   entitlements: z.record(z.string(), z.object({ expires_date: z.string().nullable(), grace_period_expires_date: z.string().nullable().optional(), product_identifier: z.string() })),
-  subscriptions: z.record(z.string(), z.object({ store: z.string(), period_type: z.string().optional(), is_sandbox: z.boolean(), expires_date: z.string().nullable() })),
+  subscriptions: z.record(z.string(), z.object({ store: z.string(), period_type: z.string().optional(), is_sandbox: z.boolean(), unsubscribe_detected_at: z.iso.datetime({ offset: true }).nullable().optional(), billing_issues_detected_at: z.iso.datetime({ offset: true }).nullable().optional(), expires_date: z.string().nullable() })),
 }) });
 export type OfferSubscriber = z.infer<typeof subscriberSchema>["subscriber"];
 

@@ -8,14 +8,14 @@ export async function refreshLifecycleUserEligibility(userId: string, fetchImpl:
   const secret = z.string().min(1).parse(process.env.REVENUECAT_SECRET_API_KEY);
   await lifecycleRpc("record_lifecycle_entitlement_attempt", { p_user_id: userId });
   let active = false;
-  let trial: { product_id: string; expires_at: string } | null = null;
+  let trial: { product_id: string; expires_at: string; will_renew: boolean | null; store: string; billing_issue: boolean | null } | null = null;
   try {
     const subscriber = await readOfferSubscriber(userId, secret, fetchImpl);
     active = hasActiveOfferAccess(subscriber);
     const entitlement = subscriber.entitlements[process.env.EARN_PRO_ENTITLEMENT_ID ?? "Quiver Pro"];
     const subscription = entitlement && subscriber.subscriptions[entitlement.product_identifier];
     if (entitlement?.expires_date && Date.parse(entitlement.expires_date) > Date.now() && subscription?.is_sandbox === false && subscription.period_type === "trial") {
-      trial = { product_id: entitlement.product_identifier, expires_at: entitlement.expires_date };
+      trial = { store: subscription.store, billing_issue: subscription.billing_issues_detected_at === undefined ? null : subscription.billing_issues_detected_at !== null, product_id: entitlement.product_identifier, expires_at: entitlement.expires_date, will_renew: subscription.unsubscribe_detected_at === undefined ? null : subscription.unsubscribe_detected_at === null };
     }
   }
   catch (error) { if (!(error instanceof OfferCustomerMissingError)) throw error; }

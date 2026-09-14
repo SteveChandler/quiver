@@ -56,7 +56,7 @@ BEGIN
  -- Verified trials receive support, never a saved promo.
  UPDATE user_entitlements SET is_trialing=true,product_id='pro',trial_ends_at=now()+interval '12 days' WHERE user_id=u;
  UPDATE email_contact_state SET provider_access_active=true,provider_trial=jsonb_build_object('product_id','pro','expires_at',now()+interval '12 days') WHERE user_id=u;
- INSERT INTO revenuecat_provider_events VALUES('audience-trial',u,'PRODUCTION',now(),'pro','TRIAL','INITIAL_PURCHASE',now()-interval '2 days',now()+interval '12 days',now()-interval '2 days');
+ INSERT INTO revenuecat_provider_events(provider_event_id,app_user_id,environment,processed_at,product_id,period_type,event_type,purchased_at,expiration_at,event_timestamp) VALUES('audience-trial',u,'PRODUCTION',now(),'pro','TRIAL','INITIAL_PURCHASE',now()-interval '2 days',now()+interval '12 days',now()-interval '2 days');
  d:=evaluate_email_lifecycle(u);
  ASSERT d->>'job'='trial_support' AND d->'source'->>'audience'='trial',d::text;
  ASSERT d->'source'->>'offer_id' IS NULL;

@@ -15,8 +15,9 @@ async function dispatchLifecycleUser(userId: string): Promise<string> {
   if (process.env.EMAIL_REPLY_INGESTION_VERIFIED !== "true") throw new Error("Reply ingestion is not verified");
   const candidate = lifecycleDecisionSchema.parse(await lifecycleRpc("evaluate_email_lifecycle", { p_user_id: userId }));
   if (candidate.status !== "due") return candidate.reason;
-  if (candidate.source?.audience === "free" && candidate.source.offer_id &&
-    (candidate.job === "offer_ready" || candidate.job === "activation" || candidate.job === "progress")) {
+  if (candidate.job === "trial_feedback" && process.env.TRIAL_FEEDBACK_ENABLED !== "true") return "trial_feedback_disabled";
+  if (candidate.job === "trial_feedback" || (candidate.source?.audience === "free" && candidate.source.offer_id &&
+    (candidate.job === "offer_ready" || candidate.job === "activation" || candidate.job === "progress"))) {
     // A cached free snapshot must not sell an offer to a newly paid customer.
     await refreshLifecycleUserEligibility(userId);
   }
