@@ -1,0 +1,122 @@
+{
+  "productionCommit": "6f2ff240ca03f327babbd9695095ca98d330d35f",
+  "sourceArchiveCommit": "5e31913bc67da59b2386b8172470c0888bf36f95",
+  "sourceArchiveArtifactId": 10321539099,
+  "coreSourceVerification": "GitHub compare_commits from archive to production reports no changes to the original pure evaluator, normalizer, policy, wave transformer, unit conversions, terrain types, policy JSON, or historical replay fixture. Original evaluator remains unchanged in this package.",
+  "providerSourceCommit": "9701689dd81ebef2d478800366c586c8a02c0c19",
+  "providerSources": [
+    "https://github.com/open-meteo/open-meteo/blob/9701689dd81ebef2d478800366c586c8a02c0c19/Sources/App/Gfs/GfsDomain.swift",
+    "https://github.com/open-meteo/open-meteo/blob/9701689dd81ebef2d478800366c586c8a02c0c19/Sources/App/Gfs/GfsWaveVariable.swift",
+    "https://github.com/open-meteo/open-meteo/blob/9701689dd81ebef2d478800366c586c8a02c0c19/Sources/App/Gfs/GfsDownload.swift"
+  ],
+  "files": [
+    {
+      "path": "register.cjs",
+      "sha256": "669ca0354f9a2745932f328e37a8c69146b45a01a0d0c5f10f9eca7c62175c24",
+      "gitBlobSha1": "442dbd12f2f8b2f4a0725aa4c150b05838efb316",
+      "role": "offline_harness"
+    },
+    {
+      "path": "tests.cjs",
+      "sha256": "c984d12eb98af77c1237459aa3fe30c64e64425903b7dbf0841d99624f1d396c",
+      "gitBlobSha1": "7b7069754d606cdc6ed3c0d68ecb6daa8076b5cb",
+      "role": "offline_harness"
+    },
+    {
+      "path": "replay.cjs",
+      "sha256": "672b7bed7df70091ba0d1a9d81fee89440dac1216d6d1b9c7551ec22cd269987",
+      "gitBlobSha1": "f358170b8af724f84cdcc97af6fc47156b12500f",
+      "role": "offline_harness"
+    },
+    {
+      "path": "native-report.cjs",
+      "sha256": "8d358b906bd55c2a99ecbb05de9682ffc76b92add86a1d505df476d5c762c53e",
+      "gitBlobSha1": "f836be8ee56c338081dde814643dcc48260a5629",
+      "role": "offline_harness"
+    },
+    {
+      "path": "historical-replay.cjs",
+      "sha256": "c8e7fa7733a8e327462f8fb1f7ad1eaf3646473ce288c651840a25e71fa0f624",
+      "gitBlobSha1": "954d5a57543ccaa3db45a2604dd30870568d4ccb",
+      "role": "offline_harness"
+    },
+    {
+      "path": "evidence/waikiki-20260913T1200Z.json",
+      "sha256": "dd7e330ad22544983a9d350b22b83073b30e123606dd78d6cf6ed21fa5f560b5",
+      "gitBlobSha1": "46b9f136662443eb763f510d15019410aaa4e7a9",
+      "role": "retained_or_baseline"
+    },
+    {
+      "path": "evidence/hatteras-20260913T1200Z.json",
+      "sha256": "25087d3058cb1109f6d844b6fb5529c095358f541a83675757d2e1d91d5c4740",
+      "gitBlobSha1": "c82779beabc268c789e207b75d6d06881937597f",
+      "role": "retained_or_baseline"
+    },
+    {
+      "path": "evidence/historical-cohort-20260909T1800Z.json",
+      "sha256": "3f6a54caa3bf7fc48f49e1143ea07068c6794c8764ebd1ee1640e26088978ec6",
+      "gitBlobSha1": "11b5b59a5d83ee50a82240176f750e55ef1eb6b9",
+      "role": "retained_or_baseline"
+    },
+    {
+      "path": "src/lib/alerts/swell-watch/horizon-derivation.ts",
+      "sha256": "6d3e75c645d544b0c85d132e74e30a0f81b1e318e8e1ac20d534c20b8dfb7ca8",
+      "gitBlobSha1": "114e284963873cde0510dd14a6510e1a6b68dabd",
+      "role": "retained_or_baseline"
+    },
+    {
+      "path": "src/lib/alerts/swell-watch/horizon-native-experiment.ts",
+      "sha256": "ad6d4492be08ba5f7634cdf0622601e108dd5736ebb76d15b27a5eb49700511c",
+      "gitBlobSha1": "6116a932709a7d9ed0b98411be802a8d3f6d80f9",
+      "role": "offline_candidate"
+    },
+    {
+      "path": "src/lib/alerts/swell-watch/native-step-selection.ts",
+      "sha256": "a12b28c390fa59835b988f33552d76370562f18be1ab6f51556ffb51fc23ecad",
+      "gitBlobSha1": "8d8924b5ebd48d895c75470d70397e1f91bf0e6e",
+      "role": "offline_candidate"
+    },
+    {
+      "path": "src/lib/alerts/swell-watch/partition-normalizer.ts",
+      "sha256": "8168cf259666235b988c5c5f7de377f80681faa7cb006791fde3fa86f6d19862",
+      "gitBlobSha1": "d264549ee7e93d3d8b2289a84982df2baf75b9dd",
+      "role": "retained_or_baseline"
+    },
+    {
+      "path": "src/lib/alerts/swell-watch/policy.ts",
+      "sha256": "dacdc4b6f90e2c73deb1acca65bd5b5f352255d663bacd6621b309e6ebcdb611",
+      "gitBlobSha1": "322680ec45c0e54ce0a26eb945e29f3d33b3ee51",
+      "role": "retained_or_baseline"
+    },
+    {
+      "path": "src/lib/alerts/swell-watch/impact-evaluator.ts",
+      "sha256": "9ddd9b4556f7b3eeb863f1c990c590abbfaa997e91ecf903854c781155bce46e",
+      "gitBlobSha1": "f24fa4fa0bb0031a08ac8be335e7487165341f72",
+      "role": "retained_or_baseline"
+    },
+    {
+      "path": "src/lib/utils/wave-height-transformer.ts",
+      "sha256": "52825df1298c944a57be3b4c5b6ed6249f7eec3beabb403542028550308383e6",
+      "gitBlobSha1": "2148c75b7ca7090df9a5b1318de729b9c1faf37b",
+      "role": "retained_or_baseline"
+    },
+    {
+      "path": "src/lib/utils/unit-conversions.ts",
+      "sha256": "c26f4ca67a04bb73204407cdbdb5073951ea50ecc75e620c9fe1a12936d378a4",
+      "gitBlobSha1": "e319ae09a085814088cc428c5cea36904310b07e",
+      "role": "retained_or_baseline"
+    },
+    {
+      "path": "src/types/terrain.ts",
+      "sha256": "9d111f28d9d8c83c4679697fb8d0bef6b475699e0a726f16bdb3d28a26a2ac0c",
+      "gitBlobSha1": "823a5cdac19e6156ec5bf42677cba98471e51774",
+      "role": "retained_or_baseline"
+    },
+    {
+      "path": "src/docs/operations/swell-watch-no-send-producer-config-v2-proposed.json",
+      "sha256": "6ac158d19ffd55505609efae9ce6b634bea9d92342c133333fdc91fe29471403",
+      "gitBlobSha1": "3a1b28438cf8cd7f5ad563715c002dfd54e02146",
+      "role": "retained_or_baseline"
+    }
+  ]
+}

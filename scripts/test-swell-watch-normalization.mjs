@@ -15,7 +15,7 @@ const { loadAttestedSwellWatchRun } = require("../lib/alerts/swell-watch/atteste
 
 const container = process.argv[2];
 assert.match(container ?? "", /^swell-watch-study-test-\d+$/);
-const database = "study_normalization";
+let database = "study_normalization";
 const migrationsDirectory = new URL("../supabase/migrations/", import.meta.url);
 const migrationNames = readdirSync(migrationsDirectory).filter((name) => /^\d{14}_normalize_swell_watch_provider_direction\.sql$/.test(name));
 assert.equal(migrationNames.length, 1, "Exactly one tracked normalization migration required");
@@ -25,9 +25,9 @@ const policy = JSON.parse(readFileSync(new URL("../docs/operations/swell-watch-n
 assert.equal(policy.policy_values.staleness.maximum_forecast_age_hours, 12);
 const q = (value) => `'${String(value).replaceAll("'", "''")}'`;
 const j = (value) => `${q(JSON.stringify(value))}::jsonb`;
-const command = ["exec", "-i", container, "psql", "-X", "-U", "postgres", "-d", database, "-qAt", "-v", "ON_ERROR_STOP=1"];
+const command = ["exec", "-i", container, "psql", "-X", "-U", "postgres", "-qAt", "-v", "ON_ERROR_STOP=1"];
 function sql(text) {
-  const result = spawnSync("docker", command, { input: text, encoding: "utf8", timeout: 30_000, maxBuffer: 32 * 1024 * 1024 });
+  const result = spawnSync("docker", [...command, "-d", database], { input: text, encoding: "utf8", timeout: 30_000, maxBuffer: 32 * 1024 * 1024 });
   if (result.status !== 0) throw new Error((result.stderr || "isolated PostgreSQL command failed").split("\n")[0].slice(0, 200));
   return result.stdout.trim();
 }
@@ -60,7 +60,17 @@ function body(run = runUtc, normalized = false, unavailable = false) {
   const time = Array.from({ length: 168 }, (_, index) => new Date(Date.parse(run) + index * 3_600_000).toISOString().slice(0, 16));
   const hourly = { time }; const hourly_units = { time: "iso8601" };
   fields.forEach((field, i) => { hourly[field] = Array(168).fill([1.2, 12, 225, 0.6, 9, 170][i]); hourly_units[field] = ["m", "s", "°"][i % 3]; });
-  if (normalized) { hourly.swell_wave_direction[146] = 360; hourly.secondary_swell_wave_direction[145] = 360; }
+  if (normalized) for (const field of ["swell_wave_direction", "secondary_swell_wave_direction"]) {
+    // Canonical north on native brackets, with coherent interpolated directions between them.
+    const initial = hourly[field][141];
+    hourly[field][144] = 360; hourly[field][147] = 360;
+    for (const [a, b] of [[141, 144], [144, 147], [147, 150]]) {
+      const left = hourly[field][a]; const right = hourly[field][b];
+      const arc = ((right - left + 540) % 360) - 180;
+      for (let i = a + 1; i < b; i++) hourly[field][i] = ((left + arc * (i - a) / (b - a)) % 360 + 360) % 360 || 360;
+    }
+    assert.equal(hourly[field][150], initial);
+  }
   if (unavailable) fields.slice(3).forEach((field) => { hourly[field][0] = 0; });
   return { latitude: 32.8, longitude: -117.3, generationtime_ms: 1, utc_offset_seconds: 0, timezone: "GMT", timezone_abbreviation: "GMT", elevation: 0, hourly_units, hourly };
 }
@@ -193,4 +203,163 @@ if (process.env.SWELL_WATCH_NORMALIZATION_PROVIDER_PROBE === "true") {
     normalized: normalized.slice(0, 5), disposableDatabaseStorage: providerStored, providerRequests: 1, productionDatabaseCalls: 0, enqueued: 0, qualification: "not_evaluated" };
   writeFileSync("/tmp/swell-normalization-artifact/provider-evidence.json", JSON.stringify(report, null, 2), { mode: 0o600 });
   console.log(JSON.stringify(report, null, 2));
+}
+
+// Synthetic time-shifted retained Waikiki values + nine flat sources. The clock below
+// belongs ONLY to a disposable database: exercise four issuances without relaxing 12h freshness.
+sql("CREATE DATABASE study_native_sampling TEMPLATE postgres;");
+database = "study_native_sampling";
+const waikiki = JSON.parse(readFileSync(new URL("../__tests__/fixtures/swell-watch-retained-20260913/waikiki-20260913T1200Z.json", import.meta.url), "utf8"));
+const hatteras = JSON.parse(readFileSync(new URL("../__tests__/fixtures/swell-watch-retained-20260913/hatteras-20260913T1200Z.json", import.meta.url), "utf8"));
+const nativeInputs = inputs.map((input, i) => ({ ...input, beach: i === 9 ? waikiki.beach : input.beach }));
+const nativeScopes = nativeInputs.map((input) => ({ ...input, regionKey: "normalization-fixture" }));
+const utcDay = runUtc.slice(0, 10);
+const issuances = [0, 6, 12, 18].map((hour) => `${utcDay}T${String(hour).padStart(2, "0")}:00:00.000Z`);
+const productionBodies = sql("SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE pronamespace='public'::regnamespace;");
+sql(`CREATE TABLE public.native_sampling_test_clock(instant timestamptz NOT NULL);
+INSERT INTO public.native_sampling_test_clock VALUES(${q(issuances[0])}::timestamptz+interval '8 hours');
+CREATE FUNCTION public.clock_timestamp() RETURNS timestamptz LANGUAGE sql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog AS 'SELECT instant FROM public.native_sampling_test_clock';
+DO $$ DECLARE f regprocedure; BEGIN
+  FOR f IN SELECT oid::regprocedure FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname<>'clock_timestamp' LOOP
+    EXECUTE format('ALTER FUNCTION %s SET search_path=public,extensions,pg_catalog,pg_temp',f);
+  END LOOP;
+END $$;`);
+const setClock = (issuance, hours = 8) => {
+  const now = new Date(Date.parse(issuance) + hours * 3_600_000).toISOString();
+  sql(`UPDATE public.native_sampling_test_clock SET instant=${q(now)};`);
+  assert.equal(sql("SELECT public.clock_timestamp()=instant FROM public.native_sampling_test_clock;"), "t");
+  return now;
+};
+try {
+  sql(`INSERT INTO public.beaches(id,lat,lon,swell_window_center_deg,swell_window_halfwidth_deg,terrain_enabled,deepwater_decay_factor,swell_access_factors,shoaling_factors)
+  SELECT (s->>'sourcePointId')::uuid,(s->>'latitude')::float8,(s->>'longitude')::float8,
+    (s#>>'{beach,swell_window_center_deg}')::float8,(s#>>'{beach,swell_window_halfwidth_deg}')::float8,
+    (s#>>'{beach,terrain_enabled}')::boolean,(s#>>'{beach,deepwater_decay_factor}')::float8,
+    CASE WHEN jsonb_typeof(s#>'{beach,swell_access_factors}')='array' THEN ARRAY(SELECT jsonb_array_elements_text(s#>'{beach,swell_access_factors}'))::float8[] END,
+    nullif(s#>'{beach,shoaling_factors}','null'::jsonb) FROM jsonb_array_elements(${j(nativeInputs)}) s;
+  SELECT set_config('app.swell_watch_internal_write','on',false);
+  INSERT INTO public.swell_watch_automation_control(id,state,reason_code) VALUES(gen_random_uuid(),'disabled','native_sampling_fixture');
+  INSERT INTO public.swell_watch_evaluation_policies(epoch,state,policy_hash,policy_values,reviewer,evidence_hash,not_before,expires_at)
+  VALUES(1,'active',${q(policy.value_hash)},${j(policy.policy_values)},'synthetic time-shifted native sampling test',repeat('c',64),${q(issuances[0])}::timestamptz-interval '1 hour',${q(issuances[0])}::timestamptz+interval '3 days');
+  INSERT INTO public.swell_watch_study_authorities(epoch,state,policy_hash,cohort,scope_inputs,config_hash,target_days,provider_contract_ref,evidence_sha256,reviewer,not_before,expires_at)
+  SELECT 1,'active',${q(policy.value_hash)},${j(cohort)},public.swell_watch_study_scope_inputs(${j(cohort)}),
+    encode(extensions.digest(jsonb_build_object('policyHash',${q(policy.value_hash)},'cohort',${j(cohort)},'scopeInputs',public.swell_watch_study_scope_inputs(${j(cohort)}),'forecastDays',7,'targetDays',30,'providerContractRef','synthetic time-shifted retained values','evidenceSha256',repeat('c',64))::text,'sha256'),'hex'),
+    30,'synthetic time-shifted retained values',repeat('c',64),'synthetic native sampling test',${q(issuances[0])}::timestamptz-interval '1 hour',${q(issuances[0])}::timestamptz+interval '3 days';`);
+  const nativeAuthority = sql("SELECT to_jsonb(a)::text FROM public.swell_watch_study_authorities a;");
+  const nativeSafety = sendCounts();
+  tableRpcs.add("ingest_swell_watch_cohort"); tableRpcs.add("read_swell_watch_attested_components");
+  // Minimal PostgREST transport adapter. Every row/count still comes from real SQL.
+  const nativeClient = { ...client, from(table) {
+    const filters = []; let columns; let offset = 0; let limit = 1001;
+    const history = table === "swell_watch_event_impacts";
+    assert(history || ["profiles", "favorite_beaches", "alert_rules", "user_devices"].includes(table));
+    const builder = {
+      select(selected) { columns = selected; return builder; },
+      eq(key, item) {
+        if (key === "swell_watch_regional_events.last_suppression.state") assert.equal(item, "suppressed");
+        else filters.push(`${key === "swell_watch_regional_events.region_key" ? "e.region_key" : `a.${key}`}=${q(item)}`);
+        return builder;
+      },
+      in(key, items) { filters.push(`a.${key} IN (${items.map(q).join(",")})`); return builder; },
+      is(key, item) { assert.equal(item, null); filters.push(`a.${key} IS NULL`); return builder; },
+      order() { return builder; },
+      limit(count, options) { if (!options?.referencedTable) limit = count; return builder; },
+      range(from, to) { offset = from; limit = to - from + 1; return builder; },
+      then(resolve, reject) {
+        try {
+          const query = history ? `SELECT a.*, jsonb_build_object('region_key',e.region_key,
+            'latest_state',(SELECT coalesce(jsonb_agg(t),'[]') FROM (SELECT state,version,created_at FROM public.swell_watch_event_state_transitions WHERE regional_event_id=e.id ORDER BY version DESC LIMIT 1) t),
+            'last_suppression',(SELECT coalesce(jsonb_agg(t),'[]') FROM (SELECT state,version,created_at FROM public.swell_watch_event_state_transitions WHERE regional_event_id=e.id AND state='suppressed' ORDER BY created_at DESC LIMIT 1) t)) AS swell_watch_regional_events,
+            jsonb_build_object('policy_hash',b.policy_hash,'swell_watch_observations',to_jsonb(o)) AS swell_watch_beach_impacts
+            FROM public.swell_watch_event_impacts a JOIN public.swell_watch_regional_events e ON e.id=a.regional_event_id
+            JOIN public.swell_watch_beach_impacts b ON b.id=a.beach_impact_id JOIN public.swell_watch_observations o ON o.id=b.observation_id`
+            : `SELECT ${columns} FROM public.${table} a`;
+          const rows = value(`SELECT coalesce(jsonb_agg(r),'[]') FROM (${query}${filters.length ? ` WHERE ${filters.join(" AND ")}` : ""}
+            ${history ? "ORDER BY a.evaluated_at,a.id" : ""}) r;`);
+          return Promise.resolve({ data: rows.slice(offset, offset + limit), count: rows.length, error: null }).then(resolve, reject);
+        } catch (error) { return Promise.reject(error).then(resolve, reject); }
+      },
+    };
+    return builder;
+  } };
+  async function nativeRun(issuance, missing = false) {
+    const now = setClock(issuance);
+    const receipts = await Promise.all(cohort.map(async ({ sourcePointId }, i) => {
+      const payload = body(issuance);
+      if (i === 9 || (missing && i === 8)) {
+        const retained = missing && i === 8 ? hatteras : waikiki;
+        for (const field of fields) payload.hourly[field] = [...retained.semanticPayload.hourly[field]];
+        assert.deepEqual(fields.map((field) => payload.hourly[field]), fields.map((field) => retained.semanticPayload.hourly[field]), "Retained values unchanged; timestamps and synthetic location only are shifted");
+      }
+      const raw = JSON.stringify(payload);
+      const receipt = await fetchOpenMeteoSingleRunReceipt({ latitude: 32.8, longitude: -117.3, runUtc: issuance.slice(0, 16) + "Z", forecastDays: 7 },
+        async () => ({ status: 200, text: async () => raw }));
+      return { sourcePointId, receipt };
+    }));
+    const stored = await storePrototypeSingleRunReceipts(receipts, nativeClient);
+    if (issuance === issuances[0]) {
+      setClock(issuance, 13);
+      const stale = await nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: stored.revisionSetId,
+        p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs });
+      assert.match(stale.error?.message ?? "", /study run is stale/, "Clock injection still enforces unchanged 12h freshness");
+      assert.equal(sql("SELECT count(*) FROM public.swell_watch_study_acceptances;"), "0");
+      setClock(issuance);
+    }
+    const result = await nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: stored.revisionSetId,
+      p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs });
+    assert.equal(result.error, null); assert.equal(result.data.length, 1);
+    const completed = result.data[0];
+    const evaluation = await evaluateSwellWatchShadow({ providerBatchId: completed.provider_batch_id, forecastDays: 7, now, policy, scopes: nativeScopes }, nativeClient);
+    const recordArgs = { p_provider_batch_id: completed.provider_batch_id, p_policy_hash: policy.value_hash, p_result: evaluation, p_scope_inputs: nativeInputs };
+    const extraScopeKey = structuredClone(evaluation);
+    extraScopeKey.scopeOutcomes[0].nativeFrames = 136;
+    const rejected = await nativeClient.rpc("record_swell_watch_study_evaluation", { ...recordArgs, p_result: extraScopeKey });
+    assert.match(rejected.error?.message ?? "", /invalid study scope outcomes/, "Scope outcomes still reject extra keys");
+    const recorded = await nativeClient.rpc("record_swell_watch_study_evaluation", recordArgs);
+    assert.equal(recorded.error, null); assert.equal(recorded.data.recorded, true);
+    assert.equal(evaluation.derivation.version, "swell-watch-horizon-derivation.v2");
+    assert.equal(evaluation.derivation.scopes.length, missing ? 9 : 10);
+    assert(evaluation.derivation.scopes.every((scope) => scope.nativeFrames === 136 && scope.interpolatedFrames === 32));
+    const persisted = value(`SELECT result FROM public.swell_watch_study_evaluations WHERE provider_batch_id=${q(completed.provider_batch_id)};`);
+    assert.deepEqual(persisted, evaluation, "SQL accepts and retains top-level derivation metadata");
+    assert(evaluation.scopeOutcomes.every((scope) => Object.keys(scope).sort().join(",") === "reason,sourcePointId,status"));
+    return { receipts, stored, completed, evaluation, recordArgs };
+  }
+  const nativeFirst = await nativeRun(issuances[0]);
+  assert.equal(nativeFirst.evaluation.status, "evaluated"); assert.equal(nativeFirst.evaluation.candidateCount, 1);
+  for (const table of ["swell_watch_beach_impacts", "swell_watch_event_impacts", "swell_watch_regional_events", "swell_watch_shadow_demand_runs"]) {
+    assert.equal(sql(`SELECT count(*) FROM public.${table};`), "1", `${table}: first native candidate persisted`);
+  }
+  assert.equal(value("SELECT public.read_swell_watch_study_health();").evaluatedRuns, 1);
+  assert.equal(value("SELECT public.read_swell_watch_study_health();").qualifyingDays, 0);
+  for (const issuance of issuances.slice(1)) {
+    const next = await nativeRun(issuance);
+    assert.equal(next.evaluation.status, "evaluated"); assert.equal(next.evaluation.candidateCount, 1);
+  }
+  const qualified = value("SELECT public.read_swell_watch_study_health();");
+  assert.equal(qualified.evaluatedRuns, 4); assert.equal(qualified.qualifyingDays, 1); assert.deepEqual(qualified.qualifyingDates, [utcDay]);
+  assert.deepEqual(await storePrototypeSingleRunReceipts(nativeFirst.receipts, nativeClient), nativeFirst.stored);
+  const retry = await nativeClient.rpc("complete_swell_watch_study_run", { p_revision_set_id: nativeFirst.stored.revisionSetId,
+    p_policy_hash: policy.value_hash, p_cohort: cohort, p_scope_inputs: nativeInputs });
+  assert.equal(retry.error, null); assert.equal(retry.data[0].already_evaluated, true);
+  const retryRecord = await nativeClient.rpc("record_swell_watch_study_evaluation", nativeFirst.recordArgs);
+  assert.equal(retryRecord.error, null); assert.equal(retryRecord.data.recorded, true);
+  assert.deepEqual(value("SELECT public.read_swell_watch_study_health();"), qualified);
+  const fifth = await nativeRun(new Date(Date.parse(issuances[0]) + 24 * 3_600_000).toISOString(), true);
+  assert.equal(fifth.evaluation.status, "suppressed"); assert.equal(fifth.evaluation.reason, "incomplete_partition");
+  const afterSuppressed = value("SELECT public.read_swell_watch_study_health();");
+  assert.equal(afterSuppressed.evaluatedRuns, 4); assert.equal(afterSuppressed.qualifyingDays, 1); assert.deepEqual(afterSuppressed.qualifyingDates, [utcDay]);
+  assert.equal(afterSuppressed.suppressedAttempts, 1);
+  assert.equal(sql("SELECT count(*) FROM public.swell_watch_event_impacts;"), "4");
+  assert.equal(sql("SELECT count(*) FROM public.swell_watch_shadow_demand_runs;"), "4");
+  assert.deepEqual(sendCounts(), nativeSafety); assert.equal(sql("SELECT to_jsonb(a)::text FROM public.swell_watch_study_authorities a;"), nativeAuthority);
+  assert.deepEqual(value("SELECT policy_values FROM public.swell_watch_evaluation_policies;"), policy.policy_values);
+  console.log(JSON.stringify({ mode: "synthetic_time_shifted_retained_native_sampling", retainedIssuedAt: waikiki.issuedAt,
+    syntheticIssuances: issuances, evaluationClock: "disposable database only: issuance + 8h", flatSources: 9, retainedValueSources: 1,
+    firstCandidateCount: 1, evaluatedRuns: 4, qualifyingDays: 1, qualifyingDates: [utcDay], equivalentRetryAddsDay: false,
+    suppressedFifthAddsDay: false, policyFreshnessHours: 12, derivation: nativeFirst.evaluation.derivation, sends: nativeSafety }, null, 2));
+} finally {
+  assert.equal(sql("SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname<>'clock_timestamp';"), productionBodies, "Production SQL bodies unchanged by disposable clock injection");
+  database = "study_normalization";
 }

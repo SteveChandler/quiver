@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolveNativeSamplingProfile } from "./native-sampling";
 import { deriveSwellWatchHorizon } from "./horizon-derivation";
 import { normalizeSwellPartitions } from "./partition-normalizer";
 import { verifySwellWatchPolicy } from "./policy";
@@ -73,17 +74,18 @@ export async function deriveAttestedSwellWatchRun(
   if (run.samples.some((sample) => sample.components.some((part) => part.unavailableReason))) {
     return { kind: "suppressed", reason: "incomplete_partition" };
   }
-  const series = run.samples.map((sample) => {
-    const normalized = normalizeSwellPartitions(sample.components.map((part) => ({
-      ...part, provider: run.source.provider, evaluationId: run.source.evaluationId,
-      forecastAt: new Date(sample.forecastAt).toISOString(),
-    })));
-    if (normalized.kind !== "observations") throw new Error("Invalid attested partition");
-    return normalized.observations;
-  });
   try {
+    const profile = resolveNativeSamplingProfile({ ...run.source, forecastDays: run.forecastDays });
+    const series = run.samples.map((sample) => {
+      const normalized = normalizeSwellPartitions(sample.components.map((part) => ({
+        ...part, provider: run.source.provider, evaluationId: run.source.evaluationId,
+        forecastAt: new Date(sample.forecastAt).toISOString(),
+      })));
+      if (normalized.kind !== "observations") throw new Error("Invalid attested partition");
+      return normalized.observations;
+    });
     return { kind: "derived", source: run.source, thresholdPolicyHash: input.policy.value_hash,
-      ...deriveSwellWatchHorizon({ series, now: input.now, beach: input.beach, policy: input.policy }) };
+      ...deriveSwellWatchHorizon({ series, sampling: { profile, issuedAt: run.source.issuedAt }, now: input.now, beach: input.beach, policy: input.policy }) };
   } catch (error) {
     return { kind: "suppressed", reason: error instanceof Error ? error.message : "invalid_horizon" };
   }
