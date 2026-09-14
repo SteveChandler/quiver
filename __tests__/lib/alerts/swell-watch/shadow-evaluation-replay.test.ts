@@ -50,7 +50,7 @@ it.each(["complete_partitions.v1", "primary_partition_with_retained_unavailable_
   expect(result.scopeOutcomes?.filter((outcome) => outcome.reason === "unbounded_episode")).toHaveLength(1);
   expect(result.derivation).toEqual({ qualificationRule, version: "swell-watch-horizon-derivation.v2",
     samplingProfile: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1", witness: "provider-linear-interpolation.v1",
-    scopes: result.scopeOutcomes!.filter((s) => s.status === "derived").map((s) => ({ sourcePointId: s.sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: expect.objectContaining({ s1: { observed: 168, unavailable: 0 } }), events: expect.any(Array) })) });
+    scopes: result.scopeOutcomes!.filter((s) => s.status === "derived").map((s) => ({ sourcePointId: s.sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: expect.objectContaining({ s1: expect.objectContaining({ observed: 168, unavailable: 0, absent: 0 }) }), events: expect.any(Array) })) });
   expect(result.scopeOutcomes?.every((s) => Object.keys(s).sort().join(",") === "reason,sourcePointId,status")).toBe(true);
   expect(forbidden).toEqual([]);
 });
@@ -87,7 +87,7 @@ it.each([{ allIncomplete: false, sourceCount: 2 }, { allIncomplete: true, source
     peakWindow: { earliestAt: "2026-09-18T18:00:00.000Z", latestAt: "2026-09-18T21:00:00.000Z" },
     closureWindow: { earliestAt: "2026-09-20T00:00:00.000Z", latestAt: "2026-09-20T03:00:00.000Z" }, regionalEventId: null };
   expect(result.derivation?.scopes).toEqual(fixtures.filter((f) => f.sourcePointId !== hatteras.sourcePointId)
-    .map(({ sourcePointId }) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0 }, s2: { observed: 168, unavailable: 0, unavailableNativeFrames: [] } }, events: [expectedEvent] })));
+    .map(({ sourcePointId }) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0 }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } }, events: [expectedEvent] })));
   expect(result.scopeOutcomes).toHaveLength(sourceCount);
   expect(result.derivation?.scopes.flatMap((scope) => scope.events)).toHaveLength(sourceCount - 1);
   // Pretty JSON overestimates jsonb::text whitespace, leaving ample room below SQL's 131072-byte limit.

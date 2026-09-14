@@ -148,7 +148,7 @@ BEGIN
     output:=output||jsonb_build_object('status','evaluated','reason',NULL,'scopeOutcomes',(SELECT jsonb_agg(jsonb_build_object('sourcePointId',s->>'sourcePointId','status','derived','reason',NULL)) FROM jsonb_array_elements(public.study_cohort()) s),
       'derivation',jsonb_build_object('qualificationRule','complete_partitions.v1','scopes',
         (SELECT jsonb_agg(jsonb_build_object('sourcePointId',s->>'sourcePointId','partitionCoverage',
-          '{"s1":{"observed":168,"unavailable":0},"s2":{"observed":168,"unavailable":0,"unavailableNativeFrames":[]}}'::jsonb))
+          '{"s1":{"observed":168,"unavailable":0,"absent":0},"s2":{"observed":168,"unavailable":0,"absent":0,"unavailableNativeFrames":[],"absentNativeFrames":[]}}'::jsonb))
           FROM jsonb_array_elements(public.study_cohort()) s)),
       'evaluationIds',jsonb_build_array(c.evaluation_id),'candidateCount',0,'stableRegionalEventCount',0,'preSafetyRecipientsThisEvaluation',0,
       'suppressionReasons','{}'::jsonb,'projectedSendsRolling24Hours',NULL,'deliveryHealth',NULL,
@@ -426,7 +426,7 @@ BEGIN
       'enqueued',0,'sendEligibility','not_evaluated','evaluationIds',jsonb_build_array(c.evaluation_id),
       'derivation',jsonb_build_object('qualificationRule','complete_partitions.v1','scopes',
         (SELECT jsonb_agg(jsonb_build_object('sourcePointId',s->>'sourcePointId','partitionCoverage',
-          '{"s1":{"observed":168,"unavailable":0},"s2":{"observed":168,"unavailable":0,"unavailableNativeFrames":[]}}'::jsonb))
+          '{"s1":{"observed":168,"unavailable":0,"absent":0},"s2":{"observed":168,"unavailable":0,"absent":0,"unavailableNativeFrames":[],"absentNativeFrames":[]}}'::jsonb))
           FROM jsonb_array_elements(public.study_cohort()) s)),
       'candidateCount',0,'stableRegionalEventCount',0,'preSafetyRecipientsThisEvaluation',0,'suppressionReasons','{}'::jsonb,
       'projectedSendsRolling24Hours',NULL,'deliveryHealth',NULL,'safety','{"reasonCode":null,"missingMetrics":["projected_send_window","delivery_health"]}'::jsonb,

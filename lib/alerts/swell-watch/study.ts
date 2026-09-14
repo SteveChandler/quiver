@@ -1,4 +1,4 @@
-import { COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, type SwellWatchQualificationRule } from "./native-sampling";
+import { COMPLETE_PARTITIONS_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, type SwellWatchQualificationRule } from "./native-sampling";
 import { z } from "zod";
 import { acquisitionConfig } from "./acquisition";
 import { verifySwellWatchPolicy, type SwellWatchPolicy } from "./policy";
@@ -18,6 +18,12 @@ const completionResult = z.array(z.object({
   already_evaluated: z.boolean(),
 })).length(1);
 
+export class SwellWatchStudySkip extends Error {
+  constructor(readonly reason: "issuance_accepted_under_previous_epoch" | "latest_issuance_stale") {
+    super(reason);
+  }
+}
+
 export async function readSwellWatchStudyStatus(
   client: Parameters<typeof loadSwellWatchAcquisitionScope>[1],
 ): Promise<{ status: "active" | "complete" | "expired" | "unconfigured" | "blocked"; qualificationRule: SwellWatchQualificationRule }> {
@@ -27,7 +33,7 @@ export async function readSwellWatchStudyStatus(
   const result = await reader.rpc("read_swell_watch_study_health");
   if (result.error) throw new Error("Study health unavailable");
   return z.object({ status: z.enum(["active", "complete", "expired", "unconfigured", "blocked"]),
-    qualificationRule: z.enum([COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE]).default(COMPLETE_PARTITIONS_RULE),
+    qualificationRule: z.enum([COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE]).default(COMPLETE_PARTITIONS_RULE),
   }).parse(result.data);
 }
 
@@ -82,7 +88,15 @@ export async function completeSwellWatchStudyRun(
     p_cohort: [...config.cohort].sort((a, b) => a.sourcePointId.localeCompare(b.sourcePointId)),
     p_scope_inputs: scopeInputs,
   });
-  if (completed.error) throw new Error("Study completion failed");
+  if (completed.error) {
+    const message = typeof completed.error === "object" && completed.error !== null && "message" in completed.error
+      ? (completed.error as { message?: unknown }).message : null;
+    if (message === "study acceptance belongs to a different authority epoch") {
+      throw new SwellWatchStudySkip("issuance_accepted_under_previous_epoch");
+    }
+    if (message === "study run is stale") throw new SwellWatchStudySkip("latest_issuance_stale");
+    throw new Error("Study completion failed");
+  }
   const [batch] = completionResult.parse(completed.data);
   if (batch.already_evaluated) return { skipped: true, reason: "already_evaluated", providerBatchId: batch.provider_batch_id, enqueued: 0 };
   const result = await evaluateSwellWatchShadow({ providerBatchId: batch.provider_batch_id,
