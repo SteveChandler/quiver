@@ -4,6 +4,7 @@ CREATE SCHEMA auth;
 CREATE TABLE auth.users (id uuid PRIMARY KEY);
 CREATE TABLE public.beaches (
   id uuid PRIMARY KEY, lat double precision DEFAULT 33.1, lon double precision DEFAULT -117.6,
+  slug text, timezone text,
   swell_window_center_deg double precision DEFAULT 180, swell_window_halfwidth_deg double precision DEFAULT 90,
   swell_access_factors double precision[], terrain_enabled boolean, deepwater_decay_factor double precision,
   shoaling_factors jsonb, deleted_at timestamptz, is_private boolean NOT NULL DEFAULT false, owner_id uuid

@@ -88,7 +88,7 @@ it("uses the server policy and cohort with live-send flags off", async () => {
   expect(await response.json()).toMatchObject({ data: result });
   expect(loadSwellWatchAcquisitionScope).toHaveBeenCalledWith(cohort, expect.anything());
   expect(evaluateSwellWatchShadow).toHaveBeenCalledTimes(1);
-  expect(evaluateSwellWatchShadow).toHaveBeenCalledWith({ providerBatchId: batch, forecastDays: 7,
+  expect(evaluateSwellWatchShadow).toHaveBeenCalledWith({ qualificationRule: "complete_partitions.v1", providerBatchId: batch, forecastDays: 7,
     policy, scopes: [], now: expect.any(String) }, expect.anything());
 });
 

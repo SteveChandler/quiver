@@ -16,7 +16,7 @@ function series() {
   })));
 }
 function derive(value: ReturnType<typeof series>, policy: SwellWatchPolicy) {
-  return deriveSwellWatchHorizon({ series: value, now: new Date(start).toISOString(), policy,
+  return deriveSwellWatchHorizon({ series: value, qualificationRule: "complete_partitions.v1", now: new Date(start).toISOString(), policy,
     sampling: { profile: resolveNativeSamplingProfile(sourceIdentity), issuedAt: new Date(start).toISOString() },
     beach: { swell_window_center_deg: 170, swell_window_halfwidth_deg: 30 } });
 }
@@ -74,7 +74,7 @@ it("keeps the old hash/strict behavior and rejects unsupported versions", () => 
     partition_matching: { ...config.policy.policy_values.partition_matching, trajectory_assignment: "bad" } } })).toBe(false);
 });
 
-const nativeInput = () => ({ series: retainedSeries(waikiki), now: waikiki.replayClockBounds[0],
+const nativeInput = () => ({ qualificationRule: "complete_partitions.v1" as const, series: retainedSeries(waikiki), now: waikiki.replayClockBounds[0],
   beach: waikiki.beach, policy: config.policy as SwellWatchPolicy,
   sampling: { profile: resolveNativeSamplingProfile(sourceIdentity), issuedAt: waikiki.issuedAt } });
 it.each(waikiki.replayClockBounds)("closes the retained Waikiki rank-swap episode at %s", (now) => {

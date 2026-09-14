@@ -32,7 +32,7 @@ beforeEach(() => {
     SWELL_WATCH_ENABLED: "false", SWELL_WATCH_PUSH_ENABLED: "false", SWELL_WATCH_PRODUCER_CONFIG: JSON.stringify({ cohort, policy }) };
   jest.mocked(createSupabaseServiceRoleClient).mockReturnValue({} as never);
   jest.mocked(acquireSwellWatchCohort).mockResolvedValue(stored);
-  jest.mocked(readSwellWatchStudyStatus).mockResolvedValue("active");
+  jest.mocked(readSwellWatchStudyStatus).mockResolvedValue({ status: "active", qualificationRule: "primary_partition_with_retained_unavailable_secondary.v1" });
   jest.mocked(recoverSwellWatchStudyRuns).mockResolvedValue({ processed: 0, failed: 0 });
   jest.mocked(completeSwellWatchStudyRun).mockResolvedValue(suppressed);
 });

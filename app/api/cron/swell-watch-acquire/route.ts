@@ -1,3 +1,4 @@
+import { COMPLETE_PARTITIONS_RULE, type SwellWatchQualificationRule } from "@/lib/alerts/swell-watch/native-sampling";
 import { withObservedCron } from "@/lib/cron/observability";
 import { createErrorResponse, createSuccessResponse, validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -67,30 +68,34 @@ async function acquire(request: Request): Promise<Response> {
     | SwellWatchAcquisitionStage = "client";
   try {
     const client = createSupabaseServiceRoleClient();
+    let qualificationRule: SwellWatchQualificationRule = COMPLETE_PARTITIONS_RULE;
     let recovery = { processed: 0, failed: 0 };
     if (automated) {
       stage = "health";
-      const status = await readSwellWatchStudyStatus(client);
+      const health = await readSwellWatchStudyStatus(client);
+      const { status } = health;
+      qualificationRule = health.qualificationRule;
       if (status === "complete" || status === "expired") {
         return createSuccessResponse({ skipped: true, reason: `study_${status}`, enqueued: 0 });
       }
       if (status !== "active") return createErrorResponse("Study unavailable", "Study authority is not active", 503);
       stage = "recovery";
-      recovery = await recoverSwellWatchStudyRuns(studyConfig.parse(config), client);
+      recovery = await recoverSwellWatchStudyRuns(studyConfig.parse(config), client, qualificationRule);
       if (recovery.processed) {
         stage = "health_after_recovery";
         const afterRecovery = await readSwellWatchStudyStatus(client);
-        if (afterRecovery === "complete" || afterRecovery === "expired") {
-          return createSuccessResponse({ skipped: true, reason: `study_${afterRecovery}`, recovery, enqueued: 0 });
+        if (afterRecovery.status === "complete" || afterRecovery.status === "expired") {
+          return createSuccessResponse({ skipped: true, reason: `study_${afterRecovery.status}`, recovery, enqueued: 0 });
         }
-        if (afterRecovery !== "active") return createErrorResponse("Study unavailable", "Study authority is not active", 503);
+        if (afterRecovery.status !== "active") return createErrorResponse("Study unavailable", "Study authority is not active", 503);
+        qualificationRule = afterRecovery.qualificationRule;
       }
     }
     stage = "acquisition";
     const stored = await acquireSwellWatchCohort(config.cohort, client, (acquisitionStage) => { stage = acquisitionStage; });
     if (automated && !("skipped" in stored)) {
       stage = "completion";
-      const study = await completeSwellWatchStudyRun(stored.revisionSetId, studyConfig.parse(config), client);
+      const study = await completeSwellWatchStudyRun(stored.revisionSetId, studyConfig.parse(config), client, qualificationRule);
       if (recovery.failed) return createErrorResponse("Study recovery incomplete", { recovery, study, enqueued: 0 }, 500);
       if ("status" in study && study.status === "suppressed") {
         // Recording a suppressed result is not a successful study cycle.

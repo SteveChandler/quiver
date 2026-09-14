@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { resolveNativeSamplingProfile } from "./native-sampling";
+import { resolveNativeSamplingProfile, COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, type SwellWatchQualificationRule, type SwellWatchFramePart } from "./native-sampling";
 import { deriveSwellWatchHorizon } from "./horizon-derivation";
 import { normalizeSwellPartitions } from "./partition-normalizer";
 import { verifySwellWatchPolicy } from "./policy";
@@ -52,6 +52,7 @@ export async function loadAttestedSwellWatchRun(
 export async function deriveAttestedSwellWatchRun(
   input: Parameters<typeof loadAttestedSwellWatchRun>[0] & {
     now: string;
+    qualificationRule: SwellWatchQualificationRule;
     beach: Parameters<typeof deriveSwellWatchHorizon>[0]["beach"];
     policy: Parameters<typeof deriveSwellWatchHorizon>[0]["policy"];
   },
@@ -62,6 +63,7 @@ export async function deriveAttestedSwellWatchRun(
     & ReturnType<typeof deriveSwellWatchHorizon>)
 > {
   instant.parse(input.now);
+  z.enum([COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE]).parse(input.qualificationRule);
   z.object({ swell_window_center_deg: z.number().finite().min(0).lt(360),
     swell_window_halfwidth_deg: z.number().finite().positive().max(180) }).parse(input.beach);
   if (!verifySwellWatchPolicy(input.policy)) throw new Error("Invalid derivation policy");
@@ -71,21 +73,25 @@ export async function deriveAttestedSwellWatchRun(
   if (age > input.policy.policy_values.staleness.maximum_forecast_age_hours) {
     return { kind: "suppressed", reason: "stale_run" };
   }
-  if (run.samples.some((sample) => sample.components.some((part) => part.unavailableReason))) {
+  if (run.samples.some((sample) => sample.components.some((part) => part.unavailableReason
+    && (input.qualificationRule === COMPLETE_PARTITIONS_RULE || part.sourceSlot === "s1")))) {
     return { kind: "suppressed", reason: "incomplete_partition" };
   }
   try {
     const profile = resolveNativeSamplingProfile({ ...run.source, forecastDays: run.forecastDays });
-    const series = run.samples.map((sample) => {
-      const normalized = normalizeSwellPartitions(sample.components.map((part) => ({
+    const series = run.samples.map((sample): SwellWatchFramePart[] => {
+      const normalized = normalizeSwellPartitions(sample.components.filter((part) => !part.unavailableReason).map((part) => ({
         ...part, provider: run.source.provider, evaluationId: run.source.evaluationId,
         forecastAt: new Date(sample.forecastAt).toISOString(),
       })));
       if (normalized.kind !== "observations") throw new Error("Invalid attested partition");
-      return normalized.observations;
+      return [...normalized.observations, ...sample.components.filter((part) => part.unavailableReason).map(() => ({
+        kind: "unavailable" as const, sourceSlot: "s2" as const, forecastAt: new Date(sample.forecastAt).toISOString(),
+        reason: "provider_zero_tuple" as const,
+      }))];
     });
     return { kind: "derived", source: run.source, thresholdPolicyHash: input.policy.value_hash,
-      ...deriveSwellWatchHorizon({ series, sampling: { profile, issuedAt: run.source.issuedAt }, now: input.now, beach: input.beach, policy: input.policy }) };
+      ...deriveSwellWatchHorizon({ qualificationRule: input.qualificationRule, series, sampling: { profile, issuedAt: run.source.issuedAt }, now: input.now, beach: input.beach, policy: input.policy }) };
   } catch (error) {
     return { kind: "suppressed", reason: error instanceof Error ? error.message : "invalid_horizon" };
   }
