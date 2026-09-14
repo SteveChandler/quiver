@@ -94,8 +94,11 @@ export async function ingestAttestedSwellWatchImpact(input: ImpactIngestionInput
 
 type DerivedRun = Extract<Awaited<ReturnType<typeof deriveAttestedSwellWatchRun>>, { kind: "derived" }>;
 type RunInput = Parameters<typeof deriveAttestedSwellWatchRun>[0] & { regionKey: string };
-type IngestedRun = { kind: "ingested"; source: DerivedRun["source"]; events: Array<{
+type IngestedRun = { kind: "ingested"; source: DerivedRun["source"]; derivation: DerivedRun["derivation"]; events: Array<{
   arrivalAt: string; peakAt: string;
+  arrivalWindow: DerivedRun["events"][number]["arrivalWindow"];
+  peakWindow: DerivedRun["events"][number]["peakWindow"];
+  closureWindow: DerivedRun["events"][number]["closureWindow"];
   impact: Extract<Awaited<ReturnType<typeof ingestAttestedSwellWatchImpact>>, { kind: "candidate" }>;
 }> };
 type RunClient = ImpactIngestionClient & Parameters<typeof deriveAttestedSwellWatchRun>[1] & {
@@ -103,8 +106,11 @@ type RunClient = ImpactIngestionClient & Parameters<typeof deriveAttestedSwellWa
     args: { p_impacts: Record<string, string | number>[] }) => Promise<RpcResult>;
 };
 type CohortScopeOutcome = { sourcePointId: string; status: "derived" | "suppressed"; reason: string | null };
-type SuppressedCohort = { kind: "suppressed"; reason: string; sourcePointId: string; scopeOutcomes: CohortScopeOutcome[] };
-type IngestedCohort = { kind: "ingested"; runs: IngestedRun[]; scopeOutcomes: CohortScopeOutcome[] };
+type CohortDerivation = (Pick<DerivedRun["derivation"], "version" | "samplingProfile" | "witness"> & {
+  scopes: Array<Pick<DerivedRun["derivation"], "nativeFrames" | "interpolatedFrames"> & { sourcePointId: string }>;
+}) | null;
+type SuppressedCohort = { kind: "suppressed"; reason: string; sourcePointId: string; scopeOutcomes: CohortScopeOutcome[]; derivation: CohortDerivation };
+type IngestedCohort = { kind: "ingested"; runs: IngestedRun[]; scopeOutcomes: CohortScopeOutcome[]; derivation: CohortDerivation };
 
 function prepareImpacts(input: RunInput, derived: DerivedRun): Record<string, string | number>[] {
   return derived.events.map((event) => {
@@ -139,10 +145,11 @@ async function persistRuns(
     throw new Error("Attested run ingestion identities are missing or inconsistent");
   }
   let offset = 0;
-  return prepared.map(({ derived }) => ({ kind: "ingested", source: derived.source,
+  return prepared.map(({ derived }) => ({ kind: "ingested", source: derived.source, derivation: derived.derivation,
     events: derived.events.map((event) => {
       const row = rows[offset++];
-      return { arrivalAt: event.arrivalAt, peakAt: event.peakAt,
+      return { arrivalAt: event.arrivalAt, peakAt: event.peakAt, arrivalWindow: event.arrivalWindow,
+        peakWindow: event.peakWindow, closureWindow: event.closureWindow,
         impact: { ...event.impact, regionalEventId: row.regional_event_id, eventState: row.event_state } };
     }),
   }));
@@ -188,7 +195,11 @@ export async function ingestAttestedSwellWatchCohort(
     scopeOutcomes.push({ sourcePointId: scope.sourcePointId, status: "derived", reason: null });
     prepared.push({ input: runInput, derived });
   }
+  const first = prepared[0]?.derived.derivation;
+  const derivation: CohortDerivation = first ? { version: first.version, samplingProfile: first.samplingProfile, witness: first.witness,
+    scopes: prepared.map(({ input, derived }) => ({ sourcePointId: input.sourcePointId,
+      nativeFrames: derived.derivation.nativeFrames, interpolatedFrames: derived.derivation.interpolatedFrames })) } : null;
   const suppressed = scopeOutcomes.find((outcome) => outcome.status === "suppressed");
-  if (suppressed) return { kind: "suppressed", reason: suppressed.reason!, sourcePointId: suppressed.sourcePointId, scopeOutcomes };
-  return { kind: "ingested", runs: await persistRuns(prepared, client, "ingest_swell_watch_cohort"), scopeOutcomes };
+  if (suppressed) return { kind: "suppressed", reason: suppressed.reason!, sourcePointId: suppressed.sourcePointId, scopeOutcomes, derivation };
+  return { kind: "ingested", runs: await persistRuns(prepared, client, "ingest_swell_watch_cohort"), scopeOutcomes, derivation };
 }

@@ -1,3 +1,4 @@
+import { selectNativeFrames, verifyInterpolationWitness, SWELL_WATCH_DERIVATION_VERSION, type NativeSamplingProfile } from "./native-sampling";
 import { evaluateSwellWatchImpact, evaluateSwellWatchPhysicalImpact } from "./impact-evaluator";
 import type { SwellPartitionObservation } from "./partition-normalizer";
 import type { SwellWatchPolicy } from "./policy";
@@ -6,7 +7,11 @@ import { metersToFeet } from "@/lib/utils/unit-conversions";
 
 const HOUR = 3_600_000;
 type Impact = Extract<ReturnType<typeof evaluateSwellWatchImpact>, { kind: "candidate" }>;
-interface Event { arrivalAt: string; peakAt: string; impact: Impact; confidence: number | null }
+interface Window { earliestAt: string; latestAt: string }
+interface Event { arrivalAt: string; peakAt: string; arrivalWindow: Window; peakWindow: Window; closureWindow: Window; impact: Impact; confidence: number | null }
+interface TrackStep extends SwellPartitionObservation { nativeIndex: number; gapHoursBefore: number | null }
+interface Derivation { version: typeof SWELL_WATCH_DERIVATION_VERSION; samplingProfile: NativeSamplingProfile["id"];
+  witness: NativeSamplingProfile["witness"]; nativeFrames: number; interpolatedFrames: number }
 
 function distance(left: number, right: number): number {
   const delta = Math.abs(left - right) % 360;
@@ -50,11 +55,18 @@ export function deriveSwellWatchHorizon(input: {
   now: string;
   beach: BeachTerrainConfig & { swell_window_center_deg: number; swell_window_halfwidth_deg: number };
   policy: SwellWatchPolicy;
-}): { baseline: { heightFt: number; energy: number }; events: Event[] } {
+  sampling: { profile: NativeSamplingProfile; issuedAt: string };
+}): { derivation: Derivation; baseline: { heightFt: number; energy: number }; events: Event[] } {
   const { series, policy } = input;
   if (series.length < 144 || series.some((frame) => frame.length !== 2)) throw new Error("incomplete_horizon");
+  if (series.some((frame) => frame.some((part) => !Number.isFinite(part.heightM) || part.heightM < 0
+    || !Number.isFinite(part.periodS) || part.periodS <= 0 || !Number.isFinite(part.directionDeg)
+    || part.directionDeg < 0 || part.directionDeg >= 360))) throw new Error("incomplete_partition");
+  const selection = selectNativeFrames(series, input.sampling.profile, input.sampling.issuedAt);
+  verifyInterpolationWitness(series, selection);
+  const nativeAt = (index: number): string => series[selection.native[index].index][0].forecastAt;
   const requiredEnd = Date.parse(input.now) + policy.policy_values.actionability.maximum_days_before_arrival * 24 * HOUR;
-  if (Date.parse(series[series.length - 1][0].forecastAt) <= requiredEnd) throw new Error("incomplete_horizon");
+  if (Date.parse(nativeAt(selection.native.length - 1)) <= requiredEnd) throw new Error("incomplete_horizon");
   const exposed = series.slice(0, 48).flat().filter((part) => distance(part.directionDeg, input.beach.swell_window_center_deg)
     <= input.beach.swell_window_halfwidth_deg);
   if (!exposed.length) throw new Error("missing_baseline");
@@ -67,9 +79,11 @@ export function deriveSwellWatchHorizon(input: {
   }
   if (baseline.energy <= 0 || !Number.isFinite(baseline.energy)) throw new Error("missing_baseline");
 
-  const tracks: SwellPartitionObservation[][] = series[0].map((part) => [part]);
+  const tracks: TrackStep[][] = series[0].map((part) => [{ ...part, nativeIndex: 0, gapHoursBefore: null }]);
   let active = tracks.slice();
-  for (const frame of series.slice(1)) {
+  for (let nativeIndex = 1; nativeIndex < selection.native.length; nativeIndex++) {
+    const { index, gapHoursBefore } = selection.native[nativeIndex];
+    const frame = series[index].map((part) => ({ ...part, nativeIndex, gapHoursBefore }));
     const matches = matchSwellWatchFrame(active, frame, policy);
     active = frame.map((part, index) => {
       const previous = matches[index];
@@ -84,38 +98,52 @@ export function deriveSwellWatchHorizon(input: {
   const events: Event[] = [];
   const physicalInput = { baselineHeightFt: baseline.heightFt, baselineEnergy: baseline.energy,
     beach: input.beach, policy, seamContinuous: true, sourceCoherent: true };
-  const actionable = (arrivalAt: string): boolean => {
-    const days = (Date.parse(arrivalAt) - Date.parse(input.now)) / (24 * HOUR);
-    return days >= policy.policy_values.actionability.minimum_days_before_arrival
-      && days <= policy.policy_values.actionability.maximum_days_before_arrival;
+  const actionable = (window: Window): boolean => {
+    const earliest = (Date.parse(window.earliestAt) - Date.parse(input.now)) / (24 * HOUR);
+    const latest = (Date.parse(window.latestAt) - Date.parse(input.now)) / (24 * HOUR);
+    const { minimum_days_before_arrival: min, maximum_days_before_arrival: max } = policy.policy_values.actionability;
+    if (earliest >= min && latest <= max) return true;
+    if (latest < min || earliest > max) return false;
+    throw new Error("arrival_window_crosses_actionability");
   };
   for (const track of tracks) {
-    let episode: { arrivalAt: string; peak: SwellPartitionObservation; projected: number } | null = null;
+    let episode: { arrivalWindow: Window; start: number; peak: number; projected: number; actionable: boolean } | null = null;
     for (const [index, part] of track.entries()) {
       const physical = evaluateSwellWatchPhysicalImpact({ ...physicalInput, partition: part });
       if (physical.kind === "candidate") {
         if (!episode) {
-          if (index === 0 && actionable(part.forecastAt)) throw new Error("unbounded_episode");
-          episode = { arrivalAt: part.forecastAt, peak: part, projected: physical.projectedFaceHeightFt };
+          const arrivalWindow = { earliestAt: nativeAt(Math.max(0, part.nativeIndex - 1)), latestAt: part.forecastAt };
+          const isActionable = actionable(arrivalWindow);
+          if (index === 0 && isActionable) throw new Error("unbounded_episode");
+          episode = { arrivalWindow, start: index, peak: index, projected: physical.projectedFaceHeightFt, actionable: isActionable };
         } else if (physical.projectedFaceHeightFt > episode.projected) {
-          episode.peak = part;
+          episode.peak = index;
           episode.projected = physical.projectedFaceHeightFt;
         }
         continue;
       }
       if (physical.reason !== "low_significance" && physical.reason !== "non_impactful") throw new Error(physical.reason);
-      if (episode && actionable(episode.arrivalAt)) {
-        const impact = evaluateSwellWatchImpact({ ...physicalInput, partition: episode.peak,
-          arrivalAt: episode.arrivalAt, now: new Date(input.now) });
+      if (episode?.actionable) {
+        // Latest onset bound is the persisted point estimate. A 3h native step fits within
+        // the unchanged 6h arrival/peak matching window; thresholds remain per native step.
+        const arrivalAt = episode.arrivalWindow.latestAt;
+        const step = track[episode.peak];
+        const peak = series[selection.native[step.nativeIndex].index].find((part) => part.sourceSlot === step.sourceSlot)!;
+        const impact = evaluateSwellWatchImpact({ ...physicalInput, partition: peak,
+          arrivalAt, now: new Date(input.now) });
         if (impact.kind !== "candidate") throw new Error(impact.reason);
-        events.push({ arrivalAt: episode.arrivalAt, peakAt: episode.peak.forecastAt, impact, confidence: null });
+        events.push({ arrivalAt, peakAt: peak.forecastAt, arrivalWindow: episode.arrivalWindow,
+          peakWindow: { earliestAt: track[Math.max(episode.start, episode.peak - 1)].forecastAt,
+            latestAt: track[Math.min(index - 1, episode.peak + 1)].forecastAt },
+          closureWindow: { earliestAt: track[index - 1].forecastAt, latestAt: part.forecastAt }, impact, confidence: null });
       }
       episode = null;
     }
-    if (episode && actionable(episode.arrivalAt)) throw new Error("unclosed_episode");
+    if (episode?.actionable) throw new Error("unclosed_episode");
   }
   events.sort((left, right) => Date.parse(left.arrivalAt) - Date.parse(right.arrivalAt)
     || Date.parse(left.peakAt) - Date.parse(right.peakAt)
     || left.impact.partition.sourceSlot.localeCompare(right.impact.partition.sourceSlot));
-  return { baseline, events };
+  return { derivation: { version: SWELL_WATCH_DERIVATION_VERSION, samplingProfile: input.sampling.profile.id,
+    witness: input.sampling.profile.witness, nativeFrames: selection.native.length, interpolatedFrames: selection.interpolated.length }, baseline, events };
 }

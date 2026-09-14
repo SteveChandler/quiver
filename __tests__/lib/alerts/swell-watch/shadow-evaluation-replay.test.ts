@@ -1,13 +1,11 @@
 /** @jest-environment node */
-import { gunzipSync } from "node:zlib";
+import { historical, retainedRun, waikiki, hatteras } from "@/__tests__/helpers/swell-watch-retained";
 import proposed from "@/docs/operations/swell-watch-no-send-producer-config-v2-proposed.json";
-import { swellWatchAttestedReplayGzipBase64 } from "@/__tests__/fixtures/swell-watch-attested-replay-20260910";
 import { evaluateSwellWatchShadow } from "@/lib/alerts/swell-watch/shadow-evaluation";
 import type { SwellWatchPolicy } from "@/lib/alerts/swell-watch/policy";
 
 it.each([false, true])("replays the real captured cohort without writes (reversed input: %s)", async (reversed) => {
-  const text = gunzipSync(Buffer.from(swellWatchAttestedReplayGzipBase64, "base64")).toString();
-  const replay = JSON.parse(text).rows[0].value as Array<{ sourcePointId: string; latitude: number; longitude: number; beach: Record<string, unknown>; run: { source: { evaluationId: string; issuedAt: string; providerBatchId: string; issuanceId: string; revisionSetId: string; sourcePointId: string }; samples: Array<{ components: Array<{ unavailableReason?: string }> }> } }>;
+  const replay = structuredClone(historical);
   if (reversed) replay.reverse();
   expect(replay.map((item) => item.sourcePointId).sort()).toEqual(proposed.cohort.map((scope) => scope.sourcePointId).sort());
   for (const item of replay) {
@@ -48,5 +46,33 @@ it.each([false, true])("replays the real captured cohort without writes (reverse
   expect(result.scopeOutcomes?.filter((outcome) => outcome.status === "derived")).toHaveLength(7);
   expect(result.scopeOutcomes?.filter((outcome) => outcome.reason === "incomplete_partition")).toHaveLength(2);
   expect(result.scopeOutcomes?.filter((outcome) => outcome.reason === "unbounded_episode")).toHaveLength(1);
+  expect(result.derivation).toEqual({ version: "swell-watch-horizon-derivation.v2",
+    samplingProfile: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1", witness: "provider-linear-interpolation.v1",
+    scopes: result.scopeOutcomes!.filter((s) => s.status === "derived").map((s) => ({ sourcePointId: s.sourcePointId, nativeFrames: 136, interpolatedFrames: 32 })) });
+  expect(result.scopeOutcomes?.every((s) => Object.keys(s).sort().join(",") === "reason,sourcePointId,status")).toBe(true);
   expect(forbidden).toEqual([]);
+});
+
+it.each([false, true])("preflights retained Waikiki and Hatteras without any write (all incomplete: %s)", async (allIncomplete) => {
+  const fixtures = [waikiki, hatteras];
+  const scopes = fixtures.map((f) => ({ sourcePointId: f.sourcePointId, regionKey: "retained-replay",
+    latitude: f.semanticPayload.latitude, longitude: f.semanticPayload.longitude, beach: f.beach }));
+  const runs = fixtures.map(retainedRun);
+  if (allIncomplete) Object.assign(runs[0].samples[139].components[0], { heightM: 0, periodS: 0, directionDeg: 0, unavailableReason: "provider_zero_tuple" });
+  const first = runs[0].source;
+  const forbidden = jest.fn();
+  const client = { from: () => { throw new Error("Forbidden table read"); }, rpc: async (name: string, args: Record<string, string>) => {
+    if (name === "read_swell_watch_run_scope") return { error: null, data: { providerBatchId: first.providerBatchId,
+      evaluationId: first.evaluationId, issuedAt: first.issuedAt, scopeHash: "a".repeat(64), expectedComponentCount: 672,
+      scopes: scopes.map((scope) => ({ ...scope, forecastDays: 7 })) } };
+    if (name === "read_swell_watch_attested_run") return { error: null, data: runs.find((r) => r.source.sourcePointId === args.p_source_point_id) };
+    forbidden(name); throw new Error(`Forbidden replay write: ${name}`);
+  } };
+  const result = await evaluateSwellWatchShadow({ providerBatchId: first.providerBatchId, forecastDays: 7,
+    now: waikiki.replayClockBounds[0], policy: proposed.policy as SwellWatchPolicy, scopes }, client as never);
+  expect(result).toMatchObject({ status: "suppressed", reason: "incomplete_partition", candidateCount: null,
+    scopeOutcomes: [{ sourcePointId: waikiki.sourcePointId, status: allIncomplete ? "suppressed" : "derived", reason: allIncomplete ? "incomplete_partition" : null },
+      { sourcePointId: hatteras.sourcePointId, status: "suppressed", reason: "incomplete_partition" }],
+    derivation: allIncomplete ? null : { version: "swell-watch-horizon-derivation.v2", scopes: [{ sourcePointId: waikiki.sourcePointId, nativeFrames: 136, interpolatedFrames: 32 }] } });
+  expect(forbidden).not.toHaveBeenCalled();
 });

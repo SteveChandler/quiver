@@ -4,6 +4,10 @@ import fixturePolicy from "@/__tests__/fixtures/swell-watch-provisional-policy.j
 import { verifySwellWatchPolicy, validateProductionPolicyAuthority } from "@/lib/alerts/swell-watch/policy";
 import evaluationConfig from "@/docs/operations/swell-watch-no-send-producer-config.json";
 
+import { retainedRun, waikiki, hatteras } from "@/__tests__/helpers/swell-watch-retained";
+import proposed from "@/docs/operations/swell-watch-no-send-producer-config-v2-proposed.json";
+import type { SwellWatchPolicy } from "@/lib/alerts/swell-watch/policy";
+
 const id = "11111111-1111-4111-8111-111111111111";
 const input = { providerBatchId: id, sourcePointId: id };
 function run() {
@@ -26,14 +30,13 @@ describe("attested whole-run reader", () => {
     expect(rpc.mock.calls).toEqual([["read_swell_watch_attested_run", { p_provider_batch_id: id, p_source_point_id: id }]]);
   });
 
-  it.each(["truncated", "duplicate-time", "duplicate-slot", "wrong-beach", "wrong-batch", "wrong-model", "zero-period", "forged-missing"])("rejects %s data", async (failure) => {
+  it.each(["truncated", "duplicate-time", "duplicate-slot", "wrong-beach", "wrong-batch", "zero-period", "forged-missing"])("rejects %s data", async (failure) => {
     const data = run();
     if (failure === "truncated") data.samples.pop();
     if (failure === "duplicate-time") data.samples[1].forecastAt = data.samples[0].forecastAt;
     if (failure === "duplicate-slot") data.samples[0].components[1].sourceSlot = "s1";
     if (failure === "wrong-beach") data.source.sourcePointId = "22222222-2222-4222-8222-222222222222";
     if (failure === "wrong-batch") data.source.providerBatchId = "22222222-2222-4222-8222-222222222222";
-    if (failure === "wrong-model") data.source.model = "best_match";
     if (failure === "zero-period") data.samples[0].components[1].periodS = 0;
     if (failure === "forged-missing") Object.assign(data.samples[0].components[1], { unavailableReason: "provider_zero_tuple" });
     await expect(loadAttestedSwellWatchRun(input, { rpc: jest.fn().mockResolvedValue({ data, error: null }) })).rejects.toThrow();
@@ -65,6 +68,7 @@ describe("attested horizon derivation", () => {
     const rpc = jest.fn().mockResolvedValue({ data, error: null });
     const result = await deriveAttestedSwellWatchRun(request(), { rpc });
     expect(result).toMatchObject({ kind: "derived", source: data.source,
+      derivation: { version: "swell-watch-horizon-derivation.v2", nativeFrames: 136, interpolatedFrames: 32 },
       baseline: { heightFt: 0.8202, energy: 0.8202 ** 2 * 13 },
       events: [{ arrivalAt: at(78), peakAt: at(81), confidence: null,
         impact: { partition: { evaluationId: data.source.evaluationId, sourceSlot: "s2", heightM: 1.5 } } }] });
@@ -94,7 +98,7 @@ describe("attested horizon derivation", () => {
     if (failure === "stale") value.now = at(13);
     if (failure === "future") value.now = at(-1);
     expect(await deriveAttestedSwellWatchRun(value, { rpc: jest.fn().mockResolvedValue({ data, error: null }) }))
-      .toEqual({ kind: "suppressed", reason: { missing: "incomplete_partition", short: "incomplete_horizon",
+      .toEqual({ kind: "suppressed", reason: { missing: "incomplete_partition", short: "unsupported_sampling_profile",
         stale: "stale_run", future: "future_run" }[failure] });
   });
   it("propagates revoked evidence and rejects a forged policy before reading", async () => {
@@ -106,4 +110,20 @@ describe("attested horizon derivation", () => {
     await expect(deriveAttestedSwellWatchRun(value, { rpc })).rejects.toThrow("Invalid derivation policy");
     expect(rpc).not.toHaveBeenCalled();
   });
+});
+
+it.each(["model", "witness", "hatteras", "interpolated-zero"])("suppresses %s through attested derivation", async (failure) => {
+  const fixture = failure === "hatteras" ? hatteras : waikiki;
+  const data = retainedRun(fixture);
+  if (failure === "model") data.source.model = "other";
+  if (failure === "witness") data.samples[139].components[0].directionDeg += 5;
+  if (failure === "interpolated-zero") Object.assign(data.samples[139].components[0],
+    { heightM: 0, periodS: 0, directionDeg: 0, unavailableReason: "provider_zero_tuple" });
+  expect(data.samples.flatMap((s) => s.components).filter((p) => p.unavailableReason))
+    .toHaveLength(failure === "hatteras" ? 48 : failure === "interpolated-zero" ? 1 : 0);
+  const result = await deriveAttestedSwellWatchRun({ providerBatchId: data.source.providerBatchId, sourcePointId: fixture.sourcePointId,
+    now: fixture.replayClockBounds[0], beach: fixture.beach, policy: proposed.policy as SwellWatchPolicy },
+  { rpc: jest.fn().mockResolvedValue({ data, error: null }) });
+  expect(result).toEqual({ kind: "suppressed", reason: failure === "model" ? "unsupported_sampling_profile"
+    : failure === "witness" ? "sampling_profile_mismatch" : "incomplete_partition" });
 });
