@@ -40,3 +40,12 @@ select (select count(*) from public.swell_watch_production_approval_authority) a
 ```
 
 Milestone 4 requires a scheduled `:15` invocation whose study result is `evaluated` with `derivation.version = swell-watch-horizon-derivation.v2` for all ten sources. Milestone 5 requires `qualifyingDays` to rise to 1 for a UTC date with all four issuances evaluated. While Hatteras returns zero secondary tuples, expect `suppressed` / `incomplete_partition` with Waikiki now `derived`.
+
+## Option 2 applied to production (2026-09-14)
+
+Steven approved option 2 (`APPROVE: 3a8551de` for the migration, `APPROVE: 232a963d` for the activation). Application: PR #775 (main `5baf6ca7e`), release #776 (prod `a1048a140`, deployment `dpl_B5KTXY4WTgcPyEbCD7iix5BnGoLG`).
+
+- Backup before the migration: `supabase db dump --linked --schema public`, 1,722,641 bytes, SHA-256 `a4ba9a5665f3cbbbf52bbd8cc6dc220b74cab8a22517487f9e68548379dbeed5` (retained locally, not committed).
+- `20260914050000_amend_swell_watch_study_partition_coverage` applied as `postgres` with exact tracking (statement SHA-256 `3a8551ded9d154d0cb9cc3159a86bc60ea25e7f7cb831dfc47336995a3f7d578`). Function post-hashes verified: `guard_swell_watch_study_authority` `0746463f…`, `read_swell_watch_study_health` `b2789dfd…`, `record_swell_watch_study_evaluation` `e0e0e7f5…`. Grants unchanged. Epochs 1–2 unchanged.
+- `swell-watch-study-amend-partition-coverage.sql` executed once at 2026-09-14 17:06:11 UTC: epoch 3 active, rule `primary_partition_with_retained_unavailable_secondary.v1`, config hash `bf0c71d76893…`, evidence `fdc98be5924a…`; exact retry was a no-op. Health: epoch 3 active, 0 evaluated, 0/30 days. Push authorities 0, notification bindings 0, automation control disabled.
+- Verification query: `select public.read_swell_watch_study_health();` must show `authorityEpoch` 3 and `qualificationRule` set; study results now carry `derivation.qualificationRule` and per-scope `partitionCoverage`.
