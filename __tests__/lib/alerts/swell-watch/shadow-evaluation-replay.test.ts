@@ -6,6 +6,7 @@ import type { SwellWatchPolicy } from "@/lib/alerts/swell-watch/policy";
 
 it.each([false, true])("replays the real captured cohort without writes (reversed input: %s)", async (reversed) => {
   const replay = structuredClone(historical);
+  expect(replay).toHaveLength(10);
   if (reversed) replay.reverse();
   expect(replay.map((item) => item.sourcePointId).sort()).toEqual(proposed.cohort.map((scope) => scope.sourcePointId).sort());
   for (const item of replay) {

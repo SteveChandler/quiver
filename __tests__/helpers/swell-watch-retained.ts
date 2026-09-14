@@ -1,7 +1,15 @@
+import { gunzipSync } from "node:zlib";
+import { swellWatchAttestedReplayGzipBase64 } from "@/__tests__/fixtures/swell-watch-attested-replay-20260910";
 import waikiki from "@/__tests__/fixtures/swell-watch-retained-20260913/waikiki-20260913T1200Z.json";
 import hatteras from "@/__tests__/fixtures/swell-watch-retained-20260913/hatteras-20260913T1200Z.json";
-import historical from "@/__tests__/fixtures/swell-watch-retained-20260913/historical-cohort-20260909T1800Z.json";
+import type { loadAttestedSwellWatchRun } from "@/lib/alerts/swell-watch/attested-run";
 import type { SwellPartitionObservation } from "@/lib/alerts/swell-watch/partition-normalizer";
+
+const historical = JSON.parse(gunzipSync(Buffer.from(swellWatchAttestedReplayGzipBase64, "base64")).toString()).rows[0].value as Array<{
+  sourcePointId: string; latitude: number; longitude: number;
+  beach: { swell_window_center_deg: number; swell_window_halfwidth_deg: number };
+  run: Awaited<ReturnType<typeof loadAttestedSwellWatchRun>>;
+}>;
 
 export { waikiki, hatteras, historical };
 export const sourceIdentity = { provider: "open_meteo", transportProvider: "open_meteo_single_runs",
