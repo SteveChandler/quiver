@@ -1,0 +1,403 @@
+{
+  "startedAt": "2026-09-14T02:20:32.859934+00:00",
+  "budget": {
+    "maxRequests": 6,
+    "maxBytesPerRequest": 4000000,
+    "timeoutSeconds": 30,
+    "method": "GET",
+    "allowedOrigins": [
+      "https://nomads.ncep.noaa.gov",
+      "https://noaa-gfs-bdp-pds.s3.amazonaws.com"
+    ],
+    "redirects": false,
+    "scope": "Provider probe HTTP only; explicitly requested pip installation is separate tooling traffic."
+  },
+  "requests": [
+    {
+      "url": "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.20260913/12/wave/gridded/gfswave.t12z.global.0p16.f048.grib2",
+      "byteRange": [
+        2889008,
+        3242648
+      ],
+      "httpStatus": "206",
+      "bytes": 353641,
+      "sha256": "e65a084cf4338d6786c6156a4a5da8bc973c34f17b52806a545953fd321de71f",
+      "timestamp": "2026-09-14T02:20:33.164636+00:00",
+      "elapsedSeconds": 0.294,
+      "curlExitCode": 0,
+      "error": null,
+      "responseContentRange": "bytes 2889008-3242648/11289566"
+    },
+    {
+      "url": "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.20260913/12/wave/gridded/gfswave.t12z.global.0p16.f048.grib2",
+      "byteRange": [
+        4811478,
+        5236716
+      ],
+      "httpStatus": "206",
+      "bytes": 425239,
+      "sha256": "3046133ef40e98f51fdaf745d1e0e1f76b987a796c3fa54cc495aeebc51a3ae3",
+      "timestamp": "2026-09-14T02:20:33.613936+00:00",
+      "elapsedSeconds": 0.224,
+      "curlExitCode": 0,
+      "error": null,
+      "responseContentRange": "bytes 4811478-5236716/11289566"
+    },
+    {
+      "url": "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.20260913/12/wave/gridded/gfswave.t12z.global.0p16.f048.grib2",
+      "byteRange": [
+        5236717,
+        5625467
+      ],
+      "httpStatus": "206",
+      "bytes": 388751,
+      "sha256": "0f1e33c610e9efb2b2ba19237feb1d224cc2952724d2bfee67154f21ea1ccb91",
+      "timestamp": "2026-09-14T02:20:33.872535+00:00",
+      "elapsedSeconds": 0.197,
+      "curlExitCode": 0,
+      "error": null,
+      "responseContentRange": "bytes 5236717-5625467/11289566"
+    },
+    {
+      "url": "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.20260913/12/wave/gridded/gfswave.t12z.global.0p16.f004.grib2.idx",
+      "byteRange": null,
+      "httpStatus": "200",
+      "bytes": 1004,
+      "sha256": "79fa62aa4ceac464fe005814ace0d2109cfc249a6e8781026d97fd700c902f66",
+      "timestamp": "2026-09-14T02:20:34.176442+00:00",
+      "elapsedSeconds": 0.238,
+      "curlExitCode": 0,
+      "error": null,
+      "responseContentRange": null
+    },
+    {
+      "url": "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.20260913/12/wave/gridded/gfswave.t12z.global.0p16.f004.grib2",
+      "byteRange": [
+        5217361,
+        5610513
+      ],
+      "httpStatus": "206",
+      "bytes": 393153,
+      "sha256": "d9a1bca8ba1a9c7d7394de44b1a290de2dbb967bbe2a81b9c96818e3b0ef5a15",
+      "timestamp": "2026-09-14T02:20:34.386578+00:00",
+      "elapsedSeconds": 0.203,
+      "curlExitCode": 0,
+      "error": null,
+      "responseContentRange": "bytes 5217361-5610513/11300070"
+    }
+  ],
+  "decodes": [
+    {
+      "hour": 48,
+      "record": "HTSGW:surface",
+      "inventoryLine": "5:2889008:d=2026091312:HTSGW:surface:48 hour fcst:",
+      "byteRange": [
+        2889008,
+        3242648
+      ],
+      "sha256": "e65a084cf4338d6786c6156a4a5da8bc973c34f17b52806a545953fd321de71f",
+      "decodeSucceeded": true,
+      "metadata": {
+        "shortName": "swh",
+        "name": "Significant height of combined wind waves and swell",
+        "discipline": 10,
+        "parameterCategory": 0,
+        "parameterNumber": 3,
+        "typeOfFirstFixedSurface": "sfc",
+        "scaledValueOfFirstFixedSurface": 1,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "dataDate": 20260913,
+        "dataTime": 1200,
+        "forecastTime": 48,
+        "stepUnits": 1,
+        "validityDate": 20260915,
+        "validityTime": 1200,
+        "gridType": "regular_ll",
+        "gridDefinitionTemplateNumber": 0,
+        "Ni": 2160,
+        "Nj": 406,
+        "latitudeOfFirstGridPointInDegrees": 52.5,
+        "longitudeOfFirstGridPointInDegrees": 0.0,
+        "latitudeOfLastGridPointInDegrees": -15.0,
+        "longitudeOfLastGridPointInDegrees": 359.833376,
+        "iDirectionIncrementInDegrees": 0.166667,
+        "jDirectionIncrementInDegrees": 0.166667,
+        "iScansNegatively": 0,
+        "jScansPositively": 0,
+        "jPointsAreConsecutive": 0,
+        "bitmapPresent": 1,
+        "numberOfMissing": 330377,
+        "numberOfDataPoints": 876960,
+        "numberOfValues": 546583,
+        "missingValue": 9999,
+        "packingType": "grid_jpeg"
+      },
+      "nearest": {
+        "lat": 35.166632000000334,
+        "lon": 284.5000337341343,
+        "value": 1.32,
+        "distance": 0.005042487971991195,
+        "index": 226347
+      },
+      "cellBitmapBit": 1,
+      "classification": "positive"
+    },
+    {
+      "hour": 48,
+      "record": "SWELL:1 in sequence",
+      "inventoryLine": "9:4811478:d=2026091312:SWELL:1 in sequence:48 hour fcst:",
+      "byteRange": [
+        4811478,
+        5236716
+      ],
+      "sha256": "3046133ef40e98f51fdaf745d1e0e1f76b987a796c3fa54cc495aeebc51a3ae3",
+      "decodeSucceeded": true,
+      "metadata": {
+        "shortName": "shts",
+        "name": "Significant height of total swell",
+        "discipline": 10,
+        "parameterCategory": 0,
+        "parameterNumber": 8,
+        "typeOfFirstFixedSurface": "241",
+        "scaledValueOfFirstFixedSurface": 1,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "dataDate": 20260913,
+        "dataTime": 1200,
+        "forecastTime": 48,
+        "stepUnits": 1,
+        "validityDate": 20260915,
+        "validityTime": 1200,
+        "gridType": "regular_ll",
+        "gridDefinitionTemplateNumber": 0,
+        "Ni": 2160,
+        "Nj": 406,
+        "latitudeOfFirstGridPointInDegrees": 52.5,
+        "longitudeOfFirstGridPointInDegrees": 0.0,
+        "latitudeOfLastGridPointInDegrees": -15.0,
+        "longitudeOfLastGridPointInDegrees": 359.833376,
+        "iDirectionIncrementInDegrees": 0.166667,
+        "jDirectionIncrementInDegrees": 0.166667,
+        "iScansNegatively": 0,
+        "jScansPositively": 0,
+        "jPointsAreConsecutive": 0,
+        "bitmapPresent": 1,
+        "numberOfMissing": 350538,
+        "numberOfDataPoints": 876960,
+        "numberOfValues": 526422,
+        "missingValue": 9999,
+        "packingType": "grid_jpeg"
+      },
+      "nearest": {
+        "lat": 35.166632000000334,
+        "lon": 284.5000337341343,
+        "value": 0.06,
+        "distance": 0.005042487971991195,
+        "index": 226347
+      },
+      "cellBitmapBit": 1,
+      "classification": "positive"
+    },
+    {
+      "hour": 48,
+      "record": "SWELL:2 in sequence",
+      "inventoryLine": "10:5236717:d=2026091312:SWELL:2 in sequence:48 hour fcst:",
+      "byteRange": [
+        5236717,
+        5625467
+      ],
+      "sha256": "0f1e33c610e9efb2b2ba19237feb1d224cc2952724d2bfee67154f21ea1ccb91",
+      "decodeSucceeded": true,
+      "metadata": {
+        "shortName": "shts",
+        "name": "Significant height of total swell",
+        "discipline": 10,
+        "parameterCategory": 0,
+        "parameterNumber": 8,
+        "typeOfFirstFixedSurface": "241",
+        "scaledValueOfFirstFixedSurface": 2,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "dataDate": 20260913,
+        "dataTime": 1200,
+        "forecastTime": 48,
+        "stepUnits": 1,
+        "validityDate": 20260915,
+        "validityTime": 1200,
+        "gridType": "regular_ll",
+        "gridDefinitionTemplateNumber": 0,
+        "Ni": 2160,
+        "Nj": 406,
+        "latitudeOfFirstGridPointInDegrees": 52.5,
+        "longitudeOfFirstGridPointInDegrees": 0.0,
+        "latitudeOfLastGridPointInDegrees": -15.0,
+        "longitudeOfLastGridPointInDegrees": 359.833376,
+        "iDirectionIncrementInDegrees": 0.166667,
+        "jDirectionIncrementInDegrees": 0.166667,
+        "iScansNegatively": 0,
+        "jScansPositively": 0,
+        "jPointsAreConsecutive": 0,
+        "bitmapPresent": 1,
+        "numberOfMissing": 387344,
+        "numberOfDataPoints": 876960,
+        "numberOfValues": 489616,
+        "missingValue": 9999,
+        "packingType": "grid_jpeg"
+      },
+      "nearest": {
+        "lat": 35.166632000000334,
+        "lon": 284.5000337341343,
+        "value": 9999.0,
+        "distance": 0.005042487971991195,
+        "index": 226347
+      },
+      "cellBitmapBit": 0,
+      "classification": "bitmap_missing_undefined"
+    },
+    {
+      "hour": 4,
+      "record": "SWELL:2 in sequence",
+      "inventoryLine": "10:5217361:d=2026091312:SWELL:2 in sequence:4 hour fcst:",
+      "byteRange": [
+        5217361,
+        5610513
+      ],
+      "sha256": "d9a1bca8ba1a9c7d7394de44b1a290de2dbb967bbe2a81b9c96818e3b0ef5a15",
+      "decodeSucceeded": true,
+      "metadata": {
+        "shortName": "shts",
+        "name": "Significant height of total swell",
+        "discipline": 10,
+        "parameterCategory": 0,
+        "parameterNumber": 8,
+        "typeOfFirstFixedSurface": "241",
+        "scaledValueOfFirstFixedSurface": 2,
+        "scaleFactorOfFirstFixedSurface": 0,
+        "dataDate": 20260913,
+        "dataTime": 1200,
+        "forecastTime": 4,
+        "stepUnits": 1,
+        "validityDate": 20260913,
+        "validityTime": 1600,
+        "gridType": "regular_ll",
+        "gridDefinitionTemplateNumber": 0,
+        "Ni": 2160,
+        "Nj": 406,
+        "latitudeOfFirstGridPointInDegrees": 52.5,
+        "longitudeOfFirstGridPointInDegrees": 0.0,
+        "latitudeOfLastGridPointInDegrees": -15.0,
+        "longitudeOfLastGridPointInDegrees": 359.833376,
+        "iDirectionIncrementInDegrees": 0.166667,
+        "jDirectionIncrementInDegrees": 0.166667,
+        "iScansNegatively": 0,
+        "jScansPositively": 0,
+        "jPointsAreConsecutive": 0,
+        "bitmapPresent": 1,
+        "numberOfMissing": 384317,
+        "numberOfDataPoints": 876960,
+        "numberOfValues": 492643,
+        "missingValue": 9999,
+        "packingType": "grid_jpeg"
+      },
+      "nearest": {
+        "lat": 35.166632000000334,
+        "lon": 284.5000337341343,
+        "value": 9999.0,
+        "distance": 0.005042487971991195,
+        "index": 226347
+      },
+      "cellBitmapBit": 0,
+      "classification": "bitmap_missing_undefined"
+    }
+  ],
+  "tools": {
+    "python": "3.14.5 (main, May 10 2026, 10:21:34) [Clang 21.0.0 (clang-2100.0.123.102)]",
+    "eccodes": "2.48.0",
+    "eccodesPython": "2.48.0",
+    "eccodeslib": "2.48.0.26",
+    "selfcheck": "passed"
+  },
+  "source": {
+    "id": "d264fbf8-0525-4d31-adb5-9a0742eaeb7e",
+    "model": "ncep_gfswave016",
+    "issuance": "2026-09-13T12:00:00Z",
+    "latitude": 35.166668,
+    "longitude": -75.5,
+    "semanticHash": "a63bfc9e83434a2bda42cd3149e3ec2f13415585aa66495b48d7c8502be5832c"
+  },
+  "savedInventory": {
+    "path": "/tmp/claude-501/gfswave.t12z.global.0p16.f048.grib2.idx",
+    "sha256": "1c65db2e7c05043f0b9ad393f44bfb93480fcc01afdc6d71942e5feb78a65648"
+  },
+  "updatedAt": "2026-09-14T02:20:34.399747+00:00",
+  "finishedAt": "2026-09-14T02:20:34.399728+00:00",
+  "totalBytes": 1561788,
+  "retainedFixture": {
+    "path": "__tests__/fixtures/swell-watch-retained-20260913/hatteras-20260913T1200Z.json",
+    "fileSha256": "25087d3058cb1109f6d844b6fb5529c095358f541a83675757d2e1d91d5c4740",
+    "topLevelKeys": [
+      "sourcePointId",
+      "name",
+      "issuedAt",
+      "semanticPayload",
+      "beach",
+      "semanticRevisionHash",
+      "rawResponseSha256",
+      "revisionId",
+      "revisionSetId",
+      "provenance",
+      "replayClockBounds",
+      "clockProvenance"
+    ],
+    "semanticPayloadKeys": [
+      "hourly",
+      "latitude",
+      "longitude",
+      "timezone",
+      "timezone_abbreviation",
+      "utc_offset_seconds",
+      "elevation",
+      "hourly_units"
+    ],
+    "hourlyFields": [
+      "swell_wave_height",
+      "swell_wave_period",
+      "swell_wave_direction",
+      "secondary_swell_wave_height",
+      "secondary_swell_wave_period",
+      "secondary_swell_wave_direction",
+      "time"
+    ],
+    "testedFrames": {
+      "4": {
+        "secondary_swell_wave_height": 0,
+        "secondary_swell_wave_period": 0,
+        "secondary_swell_wave_direction": 0
+      },
+      "48": {
+        "secondary_swell_wave_height": 0,
+        "secondary_swell_wave_period": 0,
+        "secondary_swell_wave_direction": 0
+      }
+    }
+  },
+  "conclusion": {
+    "sufficientAbsenceWitness": false,
+    "reason": "Bitmap zero identifies undefined/missing, not its cause. Absence implies UNDEF does not establish UNDEF implies absence. No independent per-partition validity/absence signal was obtained.",
+    "testedHours": [
+      4,
+      48
+    ],
+    "untestedZeroTupleHours": 46
+  },
+  "documentation": {
+    "httpRequests": 0,
+    "note": "No local primary manual or pinned Swift body located. URLs cited without fetching under the requested domain/budget restriction; WW3 UNDEF semantics supplied by task. Prior local source-manifest pins Swift commit; serving binary not attested."
+  },
+  "validation": {
+    "rangeLengthAndContentRange": "passed for four ranges",
+    "singleMessageLength": "passed for four GRIB messages",
+    "httpRequestCount": 5,
+    "totalBytes": 1561788,
+    "httpElapsedSeconds": 1.156,
+    "offlineReplay": "PASS: five request body hashes, budget, four message identities, nearest cells and bitmap bits, retained semantic hash reference and two zero tuples."
+  }
+}
