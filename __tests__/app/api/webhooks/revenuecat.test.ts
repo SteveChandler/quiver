@@ -276,3 +276,53 @@ it("preserves a finite active offer when an older product expires", () => {
   expect(mergeEntitlementUpdate({ currentRow: { is_pro: true, is_trialing: false, product_id: "rc_promo_pro", expires_at: expiresAt },
     update: { is_pro: false, previous_product_id: "rc_promo_pro" } })).toEqual({ is_pro: false, previous_product_id: "rc_promo_pro" });
 });
+
+it('records cancellation and zero-price offer evidence without treating missing environment as verified production', () => {
+ const event: RCEvent={id:'feedback-event',type:'RENEWAL',app_user_id:'11111111-1111-4111-8111-111111111111',environment:'PRODUCTION',store:'APP_STORE',cancel_reason:'UNSUBSCRIBE',offer_code:'extra-month',price:0};
+ expect(buildRevenueCatProviderEventInsert(event)).toMatchObject({environment_verified:true,cancellation_reason:'UNSUBSCRIBE',offer_code:'extra-month',price:0});
+ expect(buildRevenueCatProviderEventInsert({...event,environment:undefined,price:NaN,offer_code:42})).toMatchObject({environment_verified:false,price:null,offer_code:null});
+});
+
+it('preserves the observed Apple promotional renewal payload without promoting sandbox evidence to production', () => {
+  const event: RCEvent = {
+    id: 'sandbox-promotional-renewal',
+    type: 'RENEWAL',
+    app_user_id: '11111111-1111-4111-8111-111111111111',
+    environment: 'SANDBOX',
+    store: 'APP_STORE',
+    product_id: 'app.quiversurf.surf.pro.monthly',
+    entitlement_ids: ['Quiver Pro'],
+    period_type: 'TRIAL',
+    offer_code: 'trial_feedback_month_v1',
+    discount_identifier: null,
+    price: 0,
+    is_trial_conversion: false,
+    purchased_at_ms: 1789334708000,
+    expiration_at_ms: 1789335008000,
+    event_timestamp_ms: 1789334712635,
+  };
+
+  expect(buildRevenueCatProviderEventInsert(event)).toMatchObject({
+    provider_event_id: event.id,
+    app_user_id: event.app_user_id,
+    event_type: 'RENEWAL',
+    environment: 'SANDBOX',
+    environment_verified: false,
+    store: 'APP_STORE',
+    product_id: event.product_id,
+    period_type: 'TRIAL',
+    offer_code: 'trial_feedback_month_v1',
+    price: 0,
+    purchased_at: '2026-09-13T21:25:08.000Z',
+    expiration_at: '2026-09-13T21:30:08.000Z',
+    event_timestamp: '2026-09-13T21:25:12.635Z',
+  });
+  expect(buildEntitlementUpdate(event)).toMatchObject({
+    is_pro: true,
+    is_trialing: true,
+    will_renew: true,
+    product_id: event.product_id,
+    expires_at: '2026-09-13T21:30:08.000Z',
+    trial_ends_at: '2026-09-13T21:30:08.000Z',
+  });
+});

@@ -13,6 +13,8 @@ const customJestConfig = {
   // Increase default test timeout to reduce flakiness with async/rendering tests
   testTimeout: 15000,
   testPathIgnorePatterns: [
+    // This contract suite needs the disposable cluster created by the SQL runner.
+    ...(process.env.LIFECYCLE_TEST_SOCKET ? [] : ["<rootDir>/__tests__/integration/trial-feedback-postgres.integration.ts"]),
     "<rootDir>/node_modules/",
     "<rootDir>/.next/",
     "<rootDir>/test-utils/",

@@ -59,3 +59,21 @@ it.each(['activation', 'progress'] as const)('gives paid users personal-loop sup
  expect(email.text).toMatch(/personal forecaster|Keep the loop going/);
  expect(email.text).not.toContain('on us');
 });
+
+it('asks for trial feedback with the approved sticker and no incentive in the email',async () => {
+ const email=await render({...base,job:'trial_feedback',source:{...base.source!,audience:'trial'}});
+ expect(email.subject).toBe('Before you head out');
+ expect(email.text).toContain('What clicked for you? What never quite did?');
+ expect(email.html).toContain('/images/quiver-stickers/single-fin.png');
+ expect(email.text).toContain('/trial-feedback?message_instance_id=22222222-2222-4222-8222-222222222222');
+ expect(email.text).not.toMatch(/on us|extra month|gift|renew/);
+});
+it('preserves existing campaign approval while feedback is disabled and requires new approval when enabled', () => {
+ const before=process.env.TRIAL_FEEDBACK_ENABLED;
+ try {
+  delete process.env.TRIAL_FEEDBACK_ENABLED;
+  jest.isolateModules(() => expect(require('@/lib/mailer/lifecycle-email').LIFECYCLE_CONTENT_HASH).toBe('7fa9c944e8d8d1c86680c750f99d1db593a1f6a540ff0244f94eb4515de0e39d'));
+  process.env.TRIAL_FEEDBACK_ENABLED='true';
+  jest.isolateModules(() => expect(require('@/lib/mailer/lifecycle-email').LIFECYCLE_CONTENT_HASH).not.toBe('7fa9c944e8d8d1c86680c750f99d1db593a1f6a540ff0244f94eb4515de0e39d'));
+ } finally { if(before===undefined) delete process.env.TRIAL_FEEDBACK_ENABLED;else process.env.TRIAL_FEEDBACK_ENABLED=before; }
+});

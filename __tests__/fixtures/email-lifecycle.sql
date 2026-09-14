@@ -9,7 +9,7 @@ CREATE TABLE public.profiles(id uuid PRIMARY KEY, email text, analytics_is_real_
   onboarding_completed_at timestamptz DEFAULT now(), home_beach_id uuid DEFAULT gen_random_uuid(), created_at timestamptz DEFAULT now() - interval '4 days');
 CREATE TABLE public.email_suppression_list(email text);
 CREATE TABLE public.user_email_prefs(user_id uuid, email_frequency text);
-CREATE TABLE public.user_entitlements(user_id uuid PRIMARY KEY, is_pro boolean DEFAULT false, is_trialing boolean DEFAULT false, trial_ends_at timestamptz, lapsed_at timestamptz);
+CREATE TABLE public.user_entitlements(user_id uuid PRIMARY KEY, is_pro boolean DEFAULT false, is_trialing boolean DEFAULT false, will_renew boolean DEFAULT true, trial_ends_at timestamptz, lapsed_at timestamptz);
 CREATE TABLE public.email_send_log(user_id uuid, email_type text, resend_message_id text, sent_at timestamptz);
 GRANT USAGE ON SCHEMA public, auth TO service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
@@ -39,3 +39,9 @@ GRANT ALL ON cron_runs TO service_role;
 
 ALTER TABLE profiles ADD COLUMN deleted_at timestamptz;
 ALTER TABLE auth.users ADD COLUMN encrypted_password text DEFAULT 'private-fixture-only';
+
+ALTER TABLE revenuecat_provider_events ADD COLUMN store text;
+
+-- Webhook-to-feedback contract uses the production ledger/entitlement payload columns.
+ALTER TABLE revenuecat_provider_events ADD COLUMN app_user_id_status text, ADD COLUMN original_app_user_id uuid, ADD COLUMN entitlement_ids text[];
+ALTER TABLE user_entitlements ADD COLUMN billing_issue boolean DEFAULT false, ADD COLUMN previous_product_id text, ADD COLUMN rc_raw jsonb;

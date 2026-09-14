@@ -40,6 +40,10 @@ export interface RevenueCatProviderEventInsert {
   environment: "PRODUCTION" | "SANDBOX";
   store: string | null;
   entitlement_ids: string[];
+  cancellation_reason: string | null;
+  offer_code: string | null;
+  price: number | null;
+  environment_verified: boolean;
 }
 
 const UUID_PATTERN =
@@ -89,6 +93,10 @@ export function buildRevenueCatProviderEventInsert(
     period_type: event.period_type ?? null,
     environment: event.environment ?? "PRODUCTION",
     store: event.store ?? null,
+    environment_verified: event.environment === "PRODUCTION",
+    cancellation_reason: typeof event.cancel_reason === "string" ? event.cancel_reason : null,
+    offer_code: typeof event.offer_code === "string" ? event.offer_code : null,
+    price: typeof event.price === "number" && Number.isFinite(event.price) ? event.price : null,
     entitlement_ids: Array.isArray(event.entitlement_ids)
       ? event.entitlement_ids.filter((value): value is string => typeof value === "string")
       : [],

@@ -3,6 +3,13 @@ on:
   pull_request:
     paths:
       - 'app/api/offers/**'
+      - 'app/api/trial-feedback/**'
+      - 'app/trial-feedback/**'
+      - 'lib/trial-feedback/**'
+      - '__tests__/app/api/trial-feedback/**'
+      - '__tests__/lib/trial-feedback/**'
+      - '__tests__/integration/trial-feedback*'
+      - 'scripts/test-email-lifecycle.sh'
       - 'app/api/email/**'
       - 'app/api/cron/email-*/**'
       - 'app/api/cron/pro-offer-*/**'
@@ -44,5 +51,7 @@ jobs:
       - run: yarn install --frozen-lockfile
       - name: Database, transport and provider contracts (isolated containers)
         run: bash scripts/test-email-system-http.sh
+      - name: Trial feedback and fulfillment (disposable PostgreSQL)
+        run: LIFECYCLE_TEST_PG_BIN="$(pg_config --bindir)" bash scripts/test-email-lifecycle.sh --feedback-contract
       - name: Auth and wire contracts
         run: yarn test:unit --runInBand --runTestsByPath __tests__/app/api/offers/auth-contract.test.ts __tests__/lib/subscription/offer-contract.test.ts __tests__/lib/subscription/offer-provider.test.ts
