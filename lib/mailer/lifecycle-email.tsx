@@ -6,7 +6,7 @@ import { LIFECYCLE_CAMPAIGN, type LifecycleDecision, type LifecycleJob } from "@
 import type { QuiverStickerKey } from "@/lib/ui/quiver-sticker-assets";
 import { LifecycleEmail } from "@/lib/mailer/templates/LifecycleEmail";
 
-const COPY: Record<LifecycleJob, { subject: string; paragraphs: string[]; cta: string }> = {
+const COPY: Record<Exclude<LifecycleJob, "trial_feedback">, { subject: string; paragraphs: string[]; cta: string }> = {
   offer_ready: { subject: "Your Pro offer is ready", paragraphs: ["I built Quiver to help you make more of your time in the water.", "Your offer is saved on your Quiver account. Review it when you’re ready."], cta: "Review my Pro offer" },
   welcome: { subject: "Why I built Quiver", paragraphs: ["I built Quiver for the question before every surf: is it worth the drive?", "Save your home beach. Get the forecast. Make your call."], cta: "Check your beach" },
   activation: { subject: "Remember what the forecast felt like", paragraphs: ["The forecast is half the story. Your surf is the other half.", "Log your next session so you can look back on what worked."], cta: "Log a session" },
@@ -22,12 +22,14 @@ const OFFER_COPY = {
   readyThree: "I’d like to give you three calendar months of Quiver Pro on us.",
   acceptance: "Accept your gift in Quiver. It starts once added to your account. No payment or automatic renewal.",
 };
+const FEEDBACK_COPY = { subject: "Before you head out", paragraphs: ["Thanks for giving Quiver a little time in your surf routine.", "I started building it because checking the forecast doesn’t always answer the personal question: will these conditions work for me?", "I’d love to hear how it felt on your end. What clicked for you? What never quite did?"], cta: "Tell me how it went" };
+const FEEDBACK_VISUAL = { sticker: "singleFin" as const, eyebrow: "A note from Steven" };
 const POSTAL_ADDRESS = "Quiver Surf Technologies · 2261 Market Street STE 10852, San Francisco, CA 94114";
 const PERSONAL_COPY = {
   activation: "Log your next surf and give forecast feedback. It helps tune your personal forecaster.",
   progress: "Check the forecast. Surf. Tell Quiver how it matched. Your feedback helps your personal forecaster learn the conditions you love.",
 };
-const VISUALS: Record<LifecycleJob, { sticker: QuiverStickerKey; eyebrow: string }> = {
+const VISUALS: Record<Exclude<LifecycleJob, "trial_feedback">, { sticker: QuiverStickerKey; eyebrow: string }> = {
   welcome: { sticker: "breakingWave", eyebrow: "A note from Steven" },
   activation: { sticker: "surfWax", eyebrow: "From forecast to water" },
   progress: { sticker: "singleFin", eyebrow: "Keep the loop going" },
@@ -37,18 +39,18 @@ const VISUALS: Record<LifecycleJob, { sticker: QuiverStickerKey; eyebrow: string
   offer_ready: { sticker: "breakingWave", eyebrow: "This one’s on us" },
 };
 // Variant copy participates in approval just like the base messages.
-export const LIFECYCLE_CONTENT_HASH = createHash("sha256").update(JSON.stringify({ copy: COPY, offerCopy: OFFER_COPY, personalCopy: PERSONAL_COPY, visuals: VISUALS, postalAddress: POSTAL_ADDRESS, layout: "LifecycleEmail-v4-stickers-postal-footer", links: "app-session-offers-v2" })).digest("hex");
+export const LIFECYCLE_CONTENT_HASH = createHash("sha256").update(JSON.stringify({ copy: COPY, offerCopy: OFFER_COPY, personalCopy: PERSONAL_COPY, visuals: VISUALS, postalAddress: POSTAL_ADDRESS, layout: "LifecycleEmail-v4-stickers-postal-footer", links: "app-session-offers-v2", ...(process.env.TRIAL_FEEDBACK_ENABLED === "true" ? { trialFeedback: { copy: FEEDBACK_COPY, visual: FEEDBACK_VISUAL, path: "/trial-feedback", version: 1 } } : {}) })).digest("hex");
 
 export async function renderLifecycleEmail(decision: LifecycleDecision, attemptId: string, origin: string, replyTo: string, unsubscribeUrl: string): Promise<{ subject: string; html: string; text: string }> {
   if (!decision.job || !decision.source) throw new Error("Missing lifecycle content source");
   if (decision.job === "offer_ready" && (!decision.source.offer_id || !decision.source.offer_months || (decision.source.offer_months === 1 && decision.source.sessions < 5))) throw new Error("Missing earned offer evidence");
   const promotional = decision.source.audience === "free";
   if (decision.job === "offer_ready" && !promotional) throw new Error("Offers require a verified free audience");
-  const copy = COPY[decision.job];
+  const copy = decision.job === "trial_feedback" ? FEEDBACK_COPY : COPY[decision.job];
   const attribution = { origin, emailType: decision.job, messageInstanceId: attemptId, utmCampaign: LIFECYCLE_CAMPAIGN };
   const reply = decision.job === "friction" || decision.job === "routine";
   const session = decision.job === "activation" || decision.job === "progress";
-  const ctaHref = decision.job === "offer_ready" ? `${origin}/offers/claim?message_instance_id=${encodeURIComponent(attemptId)}&utm_campaign=${LIFECYCLE_CAMPAIGN}` : reply ? `mailto:${replyTo}?subject=${encodeURIComponent(copy.subject)}` : session
+  const ctaHref = decision.job === "trial_feedback" ? `${origin}/trial-feedback?message_instance_id=${encodeURIComponent(attemptId)}` : decision.job === "offer_ready" ? `${origin}/offers/claim?message_instance_id=${encodeURIComponent(attemptId)}&utm_campaign=${LIFECYCLE_CAMPAIGN}` : reply ? `mailto:${replyTo}?subject=${encodeURIComponent(copy.subject)}` : session
     ? buildSessionEmailLink(attribution)
     : buildAppEmailLink({ ...attribution, params: decision.job === "welcome" && !decision.source.home_beach_id ? { onboarding: "required" } : undefined });
   const ctaLabel = decision.job === "welcome" && !decision.source.home_beach_id ? "Choose your home beach" : copy.cta;
@@ -58,7 +60,7 @@ export async function renderLifecycleEmail(decision: LifecycleDecision, attemptI
   if (decision.job === "offer_ready") paragraphs = [decision.source.offer_months === 1 ? OFFER_COPY.readyOne : OFFER_COPY.readyThree, OFFER_COPY.acceptance];
   return {
     subject: copy.subject,
-    html: await render(<LifecycleEmail headline={copy.subject} paragraphs={paragraphs} ctaLabel={ctaLabel} ctaHref={ctaHref} unsubscribeUrl={unsubscribeUrl} postalAddress={POSTAL_ADDRESS} {...VISUALS[decision.job]} checklist={decision.job === "trial_support"} />),
+    html: await render(<LifecycleEmail headline={copy.subject} paragraphs={paragraphs} ctaLabel={ctaLabel} ctaHref={ctaHref} unsubscribeUrl={unsubscribeUrl} postalAddress={POSTAL_ADDRESS} {...(decision.job === "trial_feedback" ? FEEDBACK_VISUAL : VISUALS[decision.job])} checklist={decision.job === "trial_support"} />),
     text: [...paragraphs, `${ctaLabel}: ${ctaHref}`, "— Steven, founder of Quiver", POSTAL_ADDRESS, `Unsubscribe: ${unsubscribeUrl}`].join("\n\n"),
   };
 }
