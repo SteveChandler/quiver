@@ -51,7 +51,7 @@ describe("attested component impact ingestion", () => {
       if (name === "read_swell_watch_attested_run") return { data: bySource.get(args.p_source_point_id)!.run, error: null };
       throw new Error(`Forbidden replay write: ${name}`);
     });
-    const result = await ingestAttestedSwellWatchCohort({ providerBatchId: first.providerBatchId, forecastDays: 7, now: "2026-09-10T00:00:00Z",
+    const result = await ingestAttestedSwellWatchCohort({ qualificationRule: "complete_partitions.v1", providerBatchId: first.providerBatchId, forecastDays: 7, now: "2026-09-10T00:00:00Z",
       policy: proposed.policy as SwellWatchPolicy, scopes: scopes as never }, { rpc, ...identityReader } as never);
     expect(result).toMatchObject({ kind: "suppressed", reason: "unbounded_episode", sourcePointId: "e8a921b7-c2b5-4259-9e5c-bd06765f7ae4" });
     expect(result.scopeOutcomes).toHaveLength(10);
@@ -61,7 +61,7 @@ describe("attested component impact ingestion", () => {
     expect(rpc.mock.calls.map(([name]) => name)).not.toContain("ingest_swell_watch_cohort");
   });
   it("does not persist incomplete cohort coverage, and reports every scope", async () => {
-    const value = { providerBatchId: id, sourcePointId: id, regionKey: "fixture-region",
+    const value = { qualificationRule: "complete_partitions.v1" as const, providerBatchId: id, sourcePointId: id, regionKey: "fixture-region",
       now: "2026-09-05T00:00:00.000Z", policy: fixturePolicy as SwellWatchPolicy,
       beach: { swell_window_center_deg: 170, swell_window_halfwidth_deg: 90 } };
     const data = { source: { provider: "open_meteo", transportProvider: "open_meteo_single_runs",
@@ -108,11 +108,11 @@ describe("attested component impact ingestion", () => {
       }
       throw new Error("Cohort must not write after failed preflight");
     });
-    expect(await ingestAttestedSwellWatchCohort({ providerBatchId: id, forecastDays: 7,
+    expect(await ingestAttestedSwellWatchCohort({ qualificationRule: "complete_partitions.v1", providerBatchId: id, forecastDays: 7,
       now: value.now, policy: value.policy, scopes }, { rpc, ...identityReader }))
       .toEqual({ kind: "suppressed", reason: "incomplete_partition", sourcePointId: other,
-        derivation: { version: "swell-watch-horizon-derivation.v2", samplingProfile: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1",
-          witness: "provider-linear-interpolation.v1", scopes: [id, third].map((sourcePointId) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, events: [] })) },
+        derivation: { qualificationRule: "complete_partitions.v1", version: "swell-watch-horizon-derivation.v2", samplingProfile: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1",
+          witness: "provider-linear-interpolation.v1", scopes: [id, third].map((sourcePointId) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0 }, s2: { observed: 168, unavailable: 0, unavailableNativeFrames: [] } }, events: [] })) },
         scopeOutcomes: [
           { sourcePointId: id, status: "derived", reason: null },
           { sourcePointId: other, status: "suppressed", reason: "incomplete_partition" },
@@ -130,7 +130,7 @@ describe("attested component impact ingestion", () => {
       if (name === "read_swell_watch_attested_run") return { data: null, error: { message: "fixture trust failure" } };
       throw new Error("Cohort must not write after failed preflight");
     });
-    await expect(ingestAttestedSwellWatchCohort({ providerBatchId: id, forecastDays: 7,
+    await expect(ingestAttestedSwellWatchCohort({ qualificationRule: "complete_partitions.v1", providerBatchId: id, forecastDays: 7,
       now: value.now, policy: value.policy, scopes }, { rpc, ...identityReader })).rejects.toThrow("Attested run read failed");
     expect(rpc.mock.calls.map(([name]) => name)).not.toContain("ingest_swell_watch_cohort");
     expect(rpc.mock.calls.map(([name]) => name)).not.toContain("ingest_swell_watch_run");
@@ -221,7 +221,7 @@ it("carries native derivation and event windows while persisting only point esti
   const data = retainedRun(waikiki);
   const rpc = jest.fn(async (name: string) => ({ error: null, data: name === "read_swell_watch_attested_run" ? data
     : [{ ordinal: 0, regional_event_id: id, event_state: "candidate" }] }));
-  const result = await ingestAttestedSwellWatchRun({ providerBatchId: data.source.providerBatchId, sourcePointId: waikiki.sourcePointId,
+  const result = await ingestAttestedSwellWatchRun({ qualificationRule: "complete_partitions.v1", providerBatchId: data.source.providerBatchId, sourcePointId: waikiki.sourcePointId,
     regionKey: "retained-waikiki", now: waikiki.replayClockBounds[0], beach: waikiki.beach, policy: proposed.policy as SwellWatchPolicy }, { rpc, ...identityReader });
   expect(result).toMatchObject({ kind: "ingested", derivation: { version: "swell-watch-horizon-derivation.v2", nativeFrames: 136, interpolatedFrames: 32 },
     events: [{ arrivalAt: "2026-09-18T18:00:00.000Z", arrivalWindow: { earliestAt: "2026-09-18T15:00:00.000Z", latestAt: "2026-09-18T18:00:00.000Z" },

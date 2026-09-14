@@ -146,6 +146,10 @@ BEGIN
     PERFORM public.study_assert(NOT c.already_evaluated,'suppressed retry permitted');
     RESET ROLE;
     output:=output||jsonb_build_object('status','evaluated','reason',NULL,'scopeOutcomes',(SELECT jsonb_agg(jsonb_build_object('sourcePointId',s->>'sourcePointId','status','derived','reason',NULL)) FROM jsonb_array_elements(public.study_cohort()) s),
+      'derivation',jsonb_build_object('qualificationRule','complete_partitions.v1','scopes',
+        (SELECT jsonb_agg(jsonb_build_object('sourcePointId',s->>'sourcePointId','partitionCoverage',
+          '{"s1":{"observed":168,"unavailable":0},"s2":{"observed":168,"unavailable":0,"unavailableNativeFrames":[]}}'::jsonb))
+          FROM jsonb_array_elements(public.study_cohort()) s)),
       'evaluationIds',jsonb_build_array(c.evaluation_id),'candidateCount',0,'stableRegionalEventCount',0,'preSafetyRecipientsThisEvaluation',0,
       'suppressionReasons','{}'::jsonb,'projectedSendsRolling24Hours',NULL,'deliveryHealth',NULL,
       'safety','{"reasonCode":null,"missingMetrics":["projected_send_window","delivery_health"]}'::jsonb);
@@ -420,6 +424,10 @@ BEGIN
     SELECT * INTO demand FROM public.record_swell_watch_shadow_demand(c.provider_batch_id,repeat('a',64),'[]');
     output:=jsonb_build_object('providerBatchId',c.provider_batch_id,'policyHash',repeat('a',64),'status','evaluated','reason',NULL,
       'enqueued',0,'sendEligibility','not_evaluated','evaluationIds',jsonb_build_array(c.evaluation_id),
+      'derivation',jsonb_build_object('qualificationRule','complete_partitions.v1','scopes',
+        (SELECT jsonb_agg(jsonb_build_object('sourcePointId',s->>'sourcePointId','partitionCoverage',
+          '{"s1":{"observed":168,"unavailable":0},"s2":{"observed":168,"unavailable":0,"unavailableNativeFrames":[]}}'::jsonb))
+          FROM jsonb_array_elements(public.study_cohort()) s)),
       'candidateCount',0,'stableRegionalEventCount',0,'preSafetyRecipientsThisEvaluation',0,'suppressionReasons','{}'::jsonb,
       'projectedSendsRolling24Hours',NULL,'deliveryHealth',NULL,'safety','{"reasonCode":null,"missingMetrics":["projected_send_window","delivery_health"]}'::jsonb,
       'scopeOutcomes',(SELECT jsonb_agg(jsonb_build_object('sourcePointId',s->>'sourcePointId','status','derived','reason',NULL)) FROM jsonb_array_elements(public.study_cohort()) s),

@@ -61,7 +61,7 @@ describe("attested horizon derivation", () => {
   }
   function request() {
     if (!verifySwellWatchPolicy(fixturePolicy)) throw new Error("Invalid test policy");
-    return { ...input, now: at(0), policy: fixturePolicy,
+    return { ...input, qualificationRule: "complete_partitions.v1" as const, now: at(0), policy: fixturePolicy,
       beach: { swell_window_center_deg: 170, swell_window_halfwidth_deg: 30 } };
   }
   it("derives the real read identity and measured baseline without claiming independent-run confidence", async () => {
@@ -117,7 +117,7 @@ it.each(["provider", "transportProvider", "model", "upstreamModelProvider"] as c
   const data = retainedRun(waikiki);
   data.source[field] = "other";
   const client = { rpc: jest.fn().mockResolvedValue({ data, error: null }) };
-  const value = { providerBatchId: data.source.providerBatchId, sourcePointId: waikiki.sourcePointId,
+  const value = { qualificationRule: "complete_partitions.v1" as const, providerBatchId: data.source.providerBatchId, sourcePointId: waikiki.sourcePointId,
     now: waikiki.replayClockBounds[0], beach: waikiki.beach, policy: proposed.policy as SwellWatchPolicy };
   await expect(loadAttestedSwellWatchRun(value, client)).rejects.toThrow(ZodError);
   await expect(deriveAttestedSwellWatchRun(value, client)).rejects.toThrow(ZodError);
@@ -131,7 +131,7 @@ it.each(["witness", "hatteras", "interpolated-zero"])("suppresses %s through att
     { heightM: 0, periodS: 0, directionDeg: 0, unavailableReason: "provider_zero_tuple" });
   expect(data.samples.flatMap((s) => s.components).filter((p) => p.unavailableReason))
     .toHaveLength(failure === "hatteras" ? 48 : failure === "interpolated-zero" ? 1 : 0);
-  const result = await deriveAttestedSwellWatchRun({ providerBatchId: data.source.providerBatchId, sourcePointId: fixture.sourcePointId,
+  const result = await deriveAttestedSwellWatchRun({ qualificationRule: "complete_partitions.v1", providerBatchId: data.source.providerBatchId, sourcePointId: fixture.sourcePointId,
     now: fixture.replayClockBounds[0], beach: fixture.beach, policy: proposed.policy as SwellWatchPolicy },
   { rpc: jest.fn().mockResolvedValue({ data, error: null }) });
   expect(result).toEqual({ kind: "suppressed", reason: failure === "witness" ? "sampling_profile_mismatch" : "incomplete_partition" });
