@@ -1,5 +1,5 @@
 {
-  "ignoreCommand": "git diff --quiet \"${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}\" HEAD -- . ':(exclude)*.md' ':(exclude)**/*.md' ':(exclude).github/**' ':(exclude).planning/**' ':(exclude)__tests__/**' ':(exclude)docs/**' ':(exclude)e2e/**' ':(exclude)plans/**'",
+  "ignoreCommand": "test -n \"$VERCEL_GIT_PREVIOUS_SHA\" && git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" HEAD -- . ':(exclude)*.md' ':(exclude).github/**' ':(exclude).planning/**' ':(exclude)__tests__/**' ':(exclude)docs/**' ':(exclude)e2e/**' ':(exclude)plans/**'",
   "git": {
     "deploymentEnabled": {
       "**": false,

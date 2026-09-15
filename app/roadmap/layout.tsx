@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SEO_CONFIG } from "@/lib/constants/seo";
 
 export const metadata: Metadata = {
   title: "Roadmap — what's next in Quiver",
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
       "Public roadmap for Quiver — the surf app that tells you when to paddle out. Vote on what ships next.",
     url: "https://www.quiversurf.app/roadmap",
     type: "website",
+    images: [...SEO_CONFIG.openGraph.images],
   },
 };
 

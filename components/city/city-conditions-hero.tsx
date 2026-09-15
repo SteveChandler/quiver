@@ -75,19 +75,6 @@ function VerdictLabel({ verdict }: { verdict: CitySurfReportSummary["overallVerd
 // Helpers
 // ---------------------------------------------------------------------------
 
-function timeAgo(isoDate: string): string {
-  const diff = Date.now() - new Date(isoDate).getTime();
-  const minutes = Math.floor(diff / 60_000);
-
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes} min ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-
-  return "over a day ago";
-}
-
 function beachUrl(beach: CityBeachCondition): string {
   return buildBeachUrl({
     slug: beach.beachSlug,
@@ -140,9 +127,14 @@ export function CityConditionsHero({
         >
           Surf Report Today
         </h2>
-        <span className="text-xs text-gray-500">
-          Updated {timeAgo(report.updatedAt)}
-        </span>
+        {report.updatedAt && (
+          <time dateTime={report.updatedAt} className="text-xs text-gray-500">
+            Updated {new Date(report.updatedAt).toLocaleString("en-US", {
+              timeZone: "UTC", month: "short", day: "numeric",
+              hour: "numeric", minute: "2-digit", timeZoneName: "short",
+            })}
+          </time>
+        )}
       </div>
 
       {/* Verdict badge */}

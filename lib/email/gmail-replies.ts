@@ -27,12 +27,22 @@ async function gmailGet(path: string, token: string, fetchImpl: typeof fetch, de
   return response.json();
 }
 
+export class GmailReplyBackoffError extends Error {
+  constructor(readonly retryAfterSeconds: number) {
+    super("gmail_retry_backoff");
+    this.name = "GmailReplyBackoffError";
+  }
+}
+
 export async function syncGmailReplies(fetchImpl: typeof fetch = fetch): Promise<{ processed: number }> {
   if (process.env.EMAIL_GMAIL_REPLY_SYNC_ENABLED !== "true") throw new Error("gmail_reply_sync_disabled");
   const account = z.email().parse(process.env.EMAIL_GMAIL_ACCOUNT).toLowerCase();
   const replyTo = z.email().parse(process.env.EMAIL_REPLY_MAILBOX).toLowerCase();
+  const claim = await lifecycleRpc("claim_gmail_reply_sync", { p_mailbox: account });
+  const backoff = z.object({ status: z.literal("backoff"), retry_after_seconds: z.number().int().min(1).max(900) }).safeParse(claim);
+  if (backoff.success) throw new GmailReplyBackoffError(backoff.data.retry_after_seconds);
   const lease = z.object({ lease_id: z.uuid(), history_id: z.string().regex(/^\d+$/), missing_ids: z.array(z.string().min(1)).max(200).default([]) }).parse(
-    await lifecycleRpc("claim_gmail_reply_sync", { p_mailbox: account }));
+    claim);
   const deadline = AbortSignal.timeout(40_000);
   let processed = 0;
   let checkpointFinished = false;
@@ -119,7 +129,7 @@ export async function ensureGmailRepliesFresh(): Promise<void> {
 
 export function gmailFailureCode(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
-  if (/^gmail_(?:history_expired|message_missing|message_gaps_unresolved|scan_capacity|scan_incomplete|account_mismatch|message_mismatch|sender_ambiguous|message_time_invalid|reply_sync_disabled|(?:read|oauth)_[0-9]{3})$/.test(message)) return message;
+  if (/^gmail_(?:retry_backoff|history_expired|message_missing|message_gaps_unresolved|scan_capacity|scan_incomplete|account_mismatch|message_mismatch|sender_ambiguous|message_time_invalid|reply_sync_disabled|(?:read|oauth)_[0-9]{3})$/.test(message)) return message;
   if (message.startsWith("Lifecycle storage failed:")) return "gmail_storage_error";
   if (error instanceof TypeError || (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name))) return "gmail_transport_error";
   return "gmail_unexpected_error";
