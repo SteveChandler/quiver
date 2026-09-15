@@ -12,6 +12,8 @@ describe("vercel.json", () => {
     const configPath = path.join(process.cwd(), "vercel.json");
     const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
+    expect(config.ignoreCommand.length).toBeLessThanOrEqual(256);
+
     expect(config.git.deploymentEnabled).toEqual({
       "**": false,
       main: true,
@@ -57,6 +59,11 @@ describe("vercel.json", () => {
       fs.writeFileSync(path.join(repoPath, "README.md"), "docs update\n");
       git("add", "README.md");
       git("commit", "-m", "docs update");
+      expect(runIgnoreCommand()).toBe(0);
+
+      fs.writeFileSync(path.join(repoPath, "components", "README.md"), "nested docs\n");
+      git("add", "components/README.md");
+      git("commit", "-m", "nested docs update");
       expect(runIgnoreCommand()).toBe(0);
 
       fs.mkdirSync(path.join(repoPath, "__tests__"));
