@@ -168,4 +168,39 @@ describe("SEO workflow backlink proxy", () => {
     expect(discoverManualBacklinkExportFiles([directory])).toEqual([]);
     expect(discoverManualBacklinkExportFiles([directory], [oddPath])).toEqual([oddPath]);
   });
+
+  it("discovers documented filenames carrying a trailing capture date", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "quiver-backlinks-"));
+    const datedPath = path.join(directory, "REFERRING-DOMAINS-2026-08-25.csv");
+    fs.writeFileSync(datedPath, "Referring Domain,Spam,Dofollow Links\na.example,false,1");
+
+    expect(discoverManualBacklinkExportFiles([directory])).toEqual([datedPath]);
+  });
+
+  it("reads the capture date from the filename so a persisted export can age", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "quiver-backlinks-"));
+    const datedPath = path.join(directory, "REFERRING-DOMAINS-2026-08-25.csv");
+    fs.writeFileSync(datedPath, "Referring Domain,Spam,Dofollow Links\na.example,false,1");
+
+    const [imported] = discoverManualBacklinkExports([datedPath]);
+    expect(imported?.capturedAt).toBe("2026-08-25");
+  });
+
+  it("falls back to file mtime when the filename carries no capture date", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "quiver-backlinks-"));
+    const exportPath = path.join(directory, "REFERRING-DOMAINS.csv");
+    fs.writeFileSync(exportPath, "Referring Domain,Spam,Dofollow Links\na.example,false,1");
+    fs.utimesSync(exportPath, new Date("2026-07-04T12:00:00Z"), new Date("2026-07-04T12:00:00Z"));
+
+    const [imported] = discoverManualBacklinkExports([exportPath]);
+    expect(imported?.capturedAt).toBe("2026-07-04");
+  });
+
+  it("does not treat an unrelated trailing date as a documented stem", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "quiver-backlinks-"));
+    const oddPath = path.join(directory, "partner-link-dump-2026-08-25.csv");
+    fs.writeFileSync(oddPath, "Source URL,Target URL\nhttps://a.example,https://www.quiversurf.app/");
+
+    expect(discoverManualBacklinkExportFiles([directory])).toEqual([]);
+  });
 });

@@ -190,6 +190,7 @@ function parseManualBacklinkExport(filePath: string): ManualBacklinkExport {
   return {
     path: filePath,
     source: inferManualExportSource(filePath),
+    capturedAt: manualExportCapturedAt(filePath),
     rows: records.length,
     uniqueReferringDomains: referringDomainCounts.size,
     sampleReferringDomains: topCounts(referringDomainCounts, 10).map((row) => row.value),
@@ -315,7 +316,24 @@ function isManualBacklinkExportFile(filePath: string): boolean {
   const name = path.basename(filePath).toLowerCase();
   const stem = name.match(/^(.+)\.(?:csv|json)$/)?.[1];
   if (!stem) return false;
-  return MANUAL_BACKLINK_EXPORT_STEMS.has(stem.replace(/_/g, "-"));
+  const normalized = stem.replace(/_/g, "-");
+  return MANUAL_BACKLINK_EXPORT_STEMS.has(stripCaptureDate(normalized));
+}
+
+/** Strips a trailing `-YYYY-MM-DD` so dated drops keep matching the stem allowlist. */
+function stripCaptureDate(stem: string): string {
+  return stem.replace(/-\d{4}-\d{2}-\d{2}$/, "");
+}
+
+/** Capture date from the filename, else the file's mtime, so a persisted export can go stale visibly. */
+function manualExportCapturedAt(filePath: string): string | undefined {
+  const fromName = path.basename(filePath).match(/(\d{4}-\d{2}-\d{2})/)?.[1];
+  if (fromName) return fromName;
+  try {
+    return fs.statSync(filePath).mtime.toISOString().slice(0, 10);
+  } catch {
+    return undefined;
+  }
 }
 
 function inferManualExportSource(filePath: string): string {
