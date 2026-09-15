@@ -365,6 +365,13 @@ describe("GET /api/surf/call", () => {
       matchType: "exact",
       deltaMinutes: 0,
     });
+    expect(body.data.forecastContext).toMatchObject({
+      selectedRowTime: forecastAt,
+      selectedWindowStart: "2026-05-08T22:30:00.000Z",
+      selectedWindowEnd: "2026-05-09T01:30:00.000Z",
+    });
+    expect(body.data.sessionDecision.selection.forecastRef.forecastAt).toBe(forecastAt);
+    expect(body.data.report.score).toBe(72);
   });
 
   it("reports a nearest canonical forecast match within 90 minutes", async () => {
@@ -396,6 +403,7 @@ describe("GET /api/surf/call", () => {
       matchType: "nearest",
       deltaMinutes: 45,
     });
+    expect(body.data.forecastContext.selectedRowTime).toBe("2026-05-08T22:00:00.000Z");
   });
 
   it("reports no alignment instead of binding to an unrelated canonical row", async () => {

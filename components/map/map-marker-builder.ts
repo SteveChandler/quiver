@@ -83,7 +83,7 @@ export function getConditionMarkerGradient(
     return "linear-gradient(to right, #991B1B, #B91C1C)";
   }
   if (condition === "Worth it") return "linear-gradient(to right, #005B52, #008F7A)";
-  if (condition === "Maybe") return "linear-gradient(to right, #8A4A12, #9E5010)";
+  if (condition === "Maybe") return "linear-gradient(to right, #315F9B, #315F9B)";
   if (condition === "Skip") return "linear-gradient(to right, #334155, #475569)";
   return "linear-gradient(to right, #F4ECD8, #F4ECD8)";
 }

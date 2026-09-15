@@ -50,7 +50,7 @@ import {
 } from '@/lib/scoring';
 import {
   getNativeConditionMatchQuality,
-  scoreNativeForecastSlot,
+  resolveNativeSkillLevel,
 } from '@/lib/scoring/native-condition-score';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { rankBeaches } from '@/lib/recommendations/selection';
@@ -116,6 +116,7 @@ import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchines
 import { boardStyleFit } from './board-style-fit';
 import { resolveForecastAlignment } from './forecast-alignment';
 import { withDisplayWindow } from './window-authority';
+import { getQualityConfig } from '@/lib/utils/score-color-utils';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -1029,7 +1030,7 @@ function applyWorthTheDriveReasons(
   });
 }
 
-async function fetchUserBoardContext(
+export async function fetchUserBoardContext(
   supabase: Pick<SupabaseClient, 'from'>,
   userId: string,
   isPro: boolean
@@ -1120,9 +1121,11 @@ export function computeWindowSlotScores(
 
   return inWindow.map((f) => {
     try {
-      return boardClasses.length > 0
-        ? scoreWindowConditionScore(f, rec.beach, userSkillLevel, null, boardClasses)
-        : scoreNativeForecastSlot(f, userSkillLevel);
+      return scoreWindowConditionScore(
+        f, rec.beach,
+        boardClasses.length > 0 ? userSkillLevel : resolveNativeSkillLevel(userSkillLevel),
+        null, boardClasses,
+      );
     } catch {
       return 0;
     }
@@ -1181,7 +1184,7 @@ export function composeRankingScore(args: {
   );
 }
 
-function buildDiscoveryDisplayScore(args: {
+export function buildDiscoveryDisplayScore(args: {
   beach: Beach;
   forecast: EnhancedForecastEntity;
   userSkillLevel: SkillLevel | null;
@@ -1191,15 +1194,13 @@ function buildDiscoveryDisplayScore(args: {
   boardStyleFitPoints: number;
   boardClasses: readonly BoardClass[];
 }): DiscoveryDisplayScore {
-  const displayConditionScore = args.boardClasses.length > 0
-    ? scoreWindowConditionScore(
-        args.forecast,
-        args.beach,
-        args.userSkillLevel,
-        null,
-        args.boardClasses,
-      )
-    : scoreNativeForecastSlot(args.forecast, args.userSkillLevel);
+  const displayConditionScore = scoreWindowConditionScore(
+    args.forecast,
+    args.beach,
+    args.boardClasses.length > 0 ? args.userSkillLevel : resolveNativeSkillLevel(args.userSkillLevel),
+    null,
+    args.boardClasses,
+  );
   const nativeMatchQuality = getNativeConditionMatchQuality(displayConditionScore);
 
   return {
@@ -1320,7 +1321,7 @@ async function scoreBeachForDiscovery(args: {
   };
 }
 
-// Immediate discovery ranks the forecast bucket that covers "right now".
+// Immediate discovery anchors the reading to the bucket covering "right now".
 // Keep this separate from daypart window selection so "now" cannot drift into
 // a future best-window scan.
 const IMMEDIATE_FORECAST_BUCKET_MAX_HOURS = 4;
@@ -1375,7 +1376,8 @@ function capImmediateEndAtSunset(
 function findImmediateForecastBucket(
   forecasts: EnhancedForecastEntity[],
   beachTz: string,
-  now: Date
+  now: Date,
+  scoreForecast: (forecast: EnhancedForecastEntity) => number,
 ): ImmediateForecastBucket | null {
   const sortedForecasts = forecasts
     .map((forecast) => ({
@@ -1386,6 +1388,7 @@ function findImmediateForecastBucket(
     .sort((a, b) => a.forecastTime.getTime() - b.forecastTime.getTime());
 
   let activeBucket: ImmediateForecastBucket | null = null;
+  let activeIndex = -1;
   const nowMs = now.getTime();
 
   for (let index = 0; index < sortedForecasts.length; index++) {
@@ -1403,12 +1406,41 @@ function findImmediateForecastBucket(
         : fallbackEnd;
 
     if (current.forecastTime.getTime() <= nowMs && bucketEnd.getTime() > nowMs) {
+      activeIndex = index;
       activeBucket = {
         forecast: current.forecast,
         start: current.forecastTime,
         end: bucketEnd,
       };
     }
+  }
+
+  if (!activeBucket) return null;
+  const hasConditions = (forecast: EnhancedForecastEntity): boolean => [
+    forecast.wave_height,
+    forecast.wind_speed,
+    forecast.swell_1_period ?? forecast.wave_period,
+  ].every((value) => value != null && Number.isFinite(parseFloat(String(value))));
+  if (!hasConditions(activeBucket.forecast)) return activeBucket;
+  const currentScore = scoreForecast(activeBucket.forecast);
+  if (!Number.isFinite(currentScore)) return activeBucket;
+  const threshold = getQualityConfig(currentScore).minScore;
+  if (threshold === 0) return activeBucket;
+
+  // The next timestamp bounds a data bucket, not necessarily the surf window.
+  // Keep the current reading; only extend through supported, contiguous ratings.
+  for (let index = activeIndex + 1; index < sortedForecasts.length; index++) {
+    const previous = sortedForecasts[index - 1];
+    const next = sortedForecasts[index];
+    const gapHours = (next.forecastTime.getTime() - previous.forecastTime.getTime()) / 3_600_000;
+    if (gapHours <= 0) continue;
+    if (gapHours > IMMEDIATE_FORECAST_BUCKET_MAX_HOURS) break;
+    if (getLocalDateStr(next.forecastTime, beachTz) !== getLocalDateStr(now, beachTz)) break;
+
+    activeBucket.end = next.forecastTime;
+    if (!hasConditions(next.forecast)) break;
+    const nextScore = scoreForecast(next.forecast);
+    if (!Number.isFinite(nextScore) || nextScore < threshold) break;
   }
 
   return activeBucket;
@@ -1432,7 +1464,15 @@ function selectImmediateWindow(
   // "Now" means now: no daylight gate. A surfer checking at 4am or after dark
   // still needs the current reading, and gating on local hour left the Now feed
   // empty every evening and every pre-dawn check.
-  const bucket = findImmediateForecastBucket(forecasts, beachTz, now);
+  const scoreForecast = (forecast: EnhancedForecastEntity): number =>
+    scoreWindowConditionScore(
+      forecast,
+      beach,
+      boardClasses.length > 0 ? userSkillLevel : resolveNativeSkillLevel(userSkillLevel),
+      null,
+      boardClasses,
+    );
+  const bucket = findImmediateForecastBucket(forecasts, beachTz, now, scoreForecast);
   if (!bucket) return null;
 
   const end = capImmediateEndAtSunset(bucket.end, now, beachTz, sunTimes);
@@ -1453,13 +1493,7 @@ function selectImmediateWindow(
     confidence: bucket.forecast.confidence_score || 50,
     timezone: beachTz,
     usedTideBoundaries: false,
-    score: scoreWindowConditionScore(
-      bucket.forecast,
-      beach,
-      userSkillLevel,
-      null,
-      boardClasses,
-    ),
+    score: scoreForecast(bucket.forecast),
     peakTime: now,
     sourceForecast: bucket.forecast,
   };
