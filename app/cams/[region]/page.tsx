@@ -1,4 +1,3 @@
-import { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Mail } from "lucide-react";
@@ -9,7 +8,6 @@ import {
   getCamRegionBySlug,
   getCamRegionPath,
 } from "@/lib/data/cam-regions";
-import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { CamGrid } from "@/components/cams/cam-grid";
 import { CamsHeroContactSheet } from "@/components/cams/cams-hero-contact-sheet";
@@ -30,44 +28,15 @@ import {
 
 export const revalidate = 3600;
 
-interface PageProps {
-  params: Promise<{ region: string }>;
+interface DirectoryPageProps {
+  regionSlug: string;
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
-  const { region: regionSlug } = await params;
-  const region = getCamRegionBySlug(regionSlug);
-  // A region owned by a curated /surf-cams page never renders here; the
-  // next.config redirect fires first and the page body redirects as backup.
-  if (!region || region.canonicalPath) return {};
-
-  const beaches = await getBeachesWithCameras();
-  const regionBeaches = beaches.filter((b) => b.regionSlug === regionSlug);
-  const camCount = regionBeaches.length;
-
-  return buildPageMetadata({
-    title: `Live Surf Cams in ${region.name} — ${camCount} Cameras`,
-    description: `Watch ${camCount} live surf cams in ${region.name}. ${region.description}`,
-    path: `/cams/${regionSlug}`,
-    image: `/api/og/cams?region=${encodeURIComponent(regionSlug)}&name=${encodeURIComponent(region.name)}`,
-    keywords: [
-      `${region.name} surf cam`,
-      `${region.name} beach cam`,
-      `live surf cam ${region.name}`,
-      "surf cam live",
-      "surf webcam",
-      "beach camera",
-    ],
-  });
-}
-
-export default async function CamsRegionPage({ params }: PageProps) {
-  const { region: regionSlug } = await params;
+export async function CamsRegionDirectoryPage({
+  regionSlug,
+}: DirectoryPageProps) {
   const region = getCamRegionBySlug(regionSlug);
   if (!region) notFound();
-  if (region.canonicalPath) permanentRedirect(region.canonicalPath);
 
   const allBeaches = await getBeachesWithCameras();
   const regionBeaches = allBeaches.filter((b) => b.regionSlug === regionSlug);
@@ -99,7 +68,7 @@ export default async function CamsRegionPage({ params }: PageProps) {
           { name: "Live Surf Cams", url: `${baseUrl}/cams` },
           {
             name: region.name,
-            url: `${baseUrl}/cams/${regionSlug}`,
+            url: `${baseUrl}${getCamRegionPath(region)}`,
           },
         ]}
       />
@@ -238,4 +207,16 @@ export default async function CamsRegionPage({ params }: PageProps) {
       />
     </>
   );
+}
+
+export default async function CamsRegionPage({
+  params,
+}: {
+  params: Promise<{ region: string }>;
+}) {
+  const { region: regionSlug } = await params;
+  const region = getCamRegionBySlug(regionSlug);
+  if (!region) notFound();
+
+  permanentRedirect(getCamRegionPath(region));
 }

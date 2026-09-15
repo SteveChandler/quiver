@@ -120,7 +120,7 @@ test.describe("Public zine surfaces", () => {
   });
 
   test("Southern California cams region uses zine shell", async ({ page }) => {
-    await gotoPublicPage(page, "/cams/southern-california");
+    await gotoPublicPage(page, "/surf-cams/southern-california");
 
     await expect(page.getByTestId("cams-region-zine-surface")).toBeVisible();
     await expect(

@@ -11,7 +11,7 @@ interface CamGridProps {
 
 /**
  * Grid of camera cards, optionally grouped by region.
- * Used on both the /cams hub (grouped) and /cams/[region] pages (flat).
+ * Used on both the /cams hub (grouped) and regional cam pages (flat).
  */
 export function CamGrid({ beaches, groupByRegion = false }: CamGridProps) {
   if (!groupByRegion) {

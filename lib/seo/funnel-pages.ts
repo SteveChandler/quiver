@@ -385,7 +385,7 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     src: "/images/seo-dioramas/surf-cams/florida/florida-choppy-sea-photo.webp",
     alt: "Florida surf cam beachbreak context",
   },
-  "/cams/hawaii": {
+  "/surf-cams/hawaii": {
     src: "/images/seo-dioramas/surf-cams/hawaii/hawaii-surf-check-photo.webp",
     alt: "Hawaii surf cam context",
   },
@@ -1062,7 +1062,7 @@ const LONGBOARD_PAGES = [
     links: [
       { label: "Honolulu beginner surf", href: "/beginner/honolulu" },
       { label: "Best time to surf Honolulu", href: "/best-time-to-surf/honolulu" },
-      { label: "Hawaii surf cams", href: "/cams/hawaii" },
+      { label: "Hawaii surf cams", href: "/surf-cams/hawaii" },
       { label: "Open Quiver map", href: "/map?search=Honolulu" },
     ],
     spots: [
@@ -1076,7 +1076,7 @@ const LONGBOARD_PAGES = [
         href: "/hi/honolulu/waikiki-canoes",
         beachSlug: "waikiki-canoes",
       },
-      { label: "Hawaii cams", href: "/cams/hawaii" },
+      { label: "Hawaii cams", href: "/surf-cams/hawaii" },
     ],
     images: [
       [
@@ -1774,7 +1774,7 @@ const BEGINNER_PAGES = [
     namedBreaks: ["Waikiki", "Canoes", "Queens", "Diamond Head"],
     links: [
       { label: "Honolulu longboard guide", href: "/longboard/honolulu" },
-      { label: "Hawaii surf cams", href: "/cams/hawaii" },
+      { label: "Hawaii surf cams", href: "/surf-cams/hawaii" },
       { label: "Open Quiver map", href: "/map?search=Honolulu" },
     ],
     spots: [
@@ -1788,7 +1788,7 @@ const BEGINNER_PAGES = [
         href: "/hi/honolulu/waikiki-canoes",
         beachSlug: "waikiki-canoes",
       },
-      { label: "Hawaii cams", href: "/cams/hawaii" },
+      { label: "Hawaii cams", href: "/surf-cams/hawaii" },
     ],
     images: [
       [

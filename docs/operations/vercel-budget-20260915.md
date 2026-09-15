@@ -126,7 +126,22 @@ git diff --check
 
 Focused result: **93 tests passed**. Full result: **1,448 suites / 18,537 tests passed**, with 16 skipped suites, 195 skipped tests, one todo, and all four snapshots passing. This resolves the cross-repository failure documented above. Build and browser E2E were not rerun for this reporting-only follow-up.
 
-## Release steps
+## Production migration and release integration (2026-09-15)
+
+Steven authorized the migration and PR #787 production merge. Applied only `20260915132444_gmail_reply_retry_backoff.sql` through the production `postgres` owner connection, in one transaction with canonical migration tracking. Statement SHA-256: `ab1324859e62956afb0904603adc6c944985d24c5630a178052d874b257e7bf3`.
+
+- Fresh full `pg_dump` custom-format backup: `/Users/stevenchandler/Desktop/dev/.backups/prod-before-vercel-budget-20260915.dump`, 265,410,517 bytes; SHA-256 `a97a101c7f2c4042a349bf826da5875811ae01cc6b095a78907c4a77b79b5646`. PostgreSQL 15 dump completed successfully; `pg_restore --list` verified the archive catalog contains the claim function, reply state, run ledger, and migration history. The default PostgreSQL 14 binary initially rejected server version 15; the successful backup used the installed PostgreSQL 15 binary.
+- Retained the previous function definition beside the backup as `gmail-reply-claim-before-20260915.sql`.
+- Postflight passed: migration version/name tracked; index valid; function remains invoker-owned by `postgres`; grants remain `postgres` and `service_role` only. Function definition MD5: `99624fe984de22c6d9f744ed7c7507a6`.
+- A transaction-rolled-back claim check asserted a retry between 1 and 900 seconds, unchanged run count, unchanged mailbox state, and outbound readiness false. All 51 unresolved Gmail messages remain unresolved.
+
+Release preflight found Vercel rejected the 261-character `ignoreCommand` before building. Removing the redundant nested-Markdown exclusion reduced it below the 256-character limit; Git's existing `*.md` exclusion handles nested Markdown too. Added tests for Vercel's length limit and a nested component README. All three configuration tests and scoped ESLint passed. Vercel accepted the corrected configuration and started the next build.
+
+Conflict resolution retains the newer `main` game bundle, its matching HTML and accessibility changes, the complete budget/backoff implementation, and the extended swell-watch release record. Production's existing camera/SEO fixes remain in the release tree. The release uses a regular merge from `main` into a branch based on `prod`, preserving one-way history; no `prod` merge enters `main`.
+
+Merged-tree local validation passed: `yarn typecheck`; `yarn test:unit --bail=0 --runInBand` (1,448 suites / 18,535 tests passed, 16 skipped suites, 195 skipped tests, one todo, four snapshots); `bash scripts/test-email-lifecycle.sh`; `bash scripts/test-email-system-http.sh` (three contracts); `git diff --cached --check`; and verification that the game HTML references existing assets. The test count differs from the earlier main-only run because the merged tree preserves production’s camera/SEO test changes.
+
+## Original release plan (migration completed above)
 
 1. Review and authorize the code release, then use the normal feature → main → prod flow in one batch. The application is compatible with the existing claim RPC before the migration is applied.
 2. Before the database change, take a fresh production backup (proposed artifact: `prod-before-vercel-budget-20260915.sql`); no backup has been created by this task.

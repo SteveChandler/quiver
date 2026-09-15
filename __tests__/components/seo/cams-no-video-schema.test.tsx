@@ -56,13 +56,13 @@ describe("Cams pages structured data", () => {
 
       const schemas = getJsonLdScripts(container);
       const breadcrumb = schemas.find((s) => s["@type"] === "BreadcrumbList");
-      expect(breadcrumb).toBeDefined();
+      expect(breadcrumb).toEqual(expect.any(Object));
       expect(breadcrumb.itemListElement).toHaveLength(2);
       expect(breadcrumb.itemListElement[0].name).toBe("Quiver");
       expect(breadcrumb.itemListElement[1].name).toBe("Live Surf Cams");
     });
 
-    it("renders BreadcrumbList JSON-LD for /cams/[region] with region breadcrumb", () => {
+    it("renders BreadcrumbList JSON-LD for /surf-cams/[region] with region breadcrumb", () => {
       const { container } = render(
         <BreadcrumbStructuredData
           items={[
@@ -70,7 +70,7 @@ describe("Cams pages structured data", () => {
             { name: "Live Surf Cams", url: `${baseUrl}/cams` },
             {
               name: "Southern California",
-              url: `${baseUrl}/cams/southern-california`,
+              url: `${baseUrl}/surf-cams/southern-california`,
             },
           ]}
         />
@@ -78,7 +78,7 @@ describe("Cams pages structured data", () => {
 
       const schemas = getJsonLdScripts(container);
       const breadcrumb = schemas.find((s) => s["@type"] === "BreadcrumbList");
-      expect(breadcrumb).toBeDefined();
+      expect(breadcrumb).toEqual(expect.any(Object));
       expect(breadcrumb.itemListElement).toHaveLength(3);
       expect(breadcrumb.itemListElement[0].name).toBe("Quiver");
       expect(breadcrumb.itemListElement[1].name).toBe("Live Surf Cams");
