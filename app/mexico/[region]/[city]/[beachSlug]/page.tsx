@@ -8,7 +8,7 @@ import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-s
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
 import type { Metadata } from "next";
-import { buildPageMetadata, formatMetaDate } from "@/lib/seo/meta";
+import { buildDynamicBeachMetadata, buildPageMetadata, formatMetaDate } from "@/lib/seo/meta";
 import { notFound } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
@@ -217,7 +217,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
 
     const metadata = buildPageMetadata({
-      title: `${beach.name} Surf Report & Forecast (Updated Daily)`,
+      title: buildDynamicBeachMetadata({ beach, forecast: null }).title,
       description: `${beach.name} surf report for ${formatMetaDate()}. Wave height, swell, wind, and tide conditions${locationContext}.`,
       path: `/mexico/${params.region}/${params.city}/${params.beachSlug}`,
       image: `/api/og/beach?slug=${params.beachSlug}`,

@@ -23,9 +23,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
     <script type="module" crossorigin src="/surf-game/assets/index-BjakS_qx.js"></script>
     <link rel="stylesheet" crossorigin href="/surf-game/assets/index-DP3iMMYr.css">
+    <style>
+      .game-accessibility { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+      nav.game-accessibility:focus-within { position: fixed; top: 8px; left: 8px; z-index: 10; width: auto; height: auto; margin: 0; padding: 12px; clip-path: none; white-space: normal; color: #f8feff; background: #0a1d2b; font: 14px/1.5 monospace; }
+      .game-accessibility a { color: #b8f1ff; }
+    </style>
   </head>
   <body>
-    <main id="app" aria-label="EL NIÑO SWELL, a surf game by Quiver"></main>
+    <main id="app" aria-label="EL NIÑO SWELL, a surf game by Quiver">
+      <h1 class="game-accessibility">EL NIÑO SWELL — Surf Game by Quiver</h1>
+    </main>
+    <nav class="game-accessibility" aria-label="Quiver surf resources">
+      <a href="https://www.quiversurf.app/forecast">Real surf forecasts</a>
+      · <a href="https://www.quiversurf.app/guides">Surf guides</a>
+    </nav>
     <div id="rotate" role="status" aria-live="polite">
       <div class="rotate-phone" aria-hidden="true"></div>
       <p>TURN YOUR PHONE SIDEWAYS</p>
