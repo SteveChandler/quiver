@@ -158,18 +158,21 @@ export const SESSION_ACQUISITION_EVENT_TYPES = [
 export const SESSION_FORM_VALIDATION_ERROR_CODES = [
   "beach_required",
   "rating_required",
-  "wave_height_required",
   "rating_out_of_range",
   "crowd_level_out_of_range",
   "duration_out_of_range",
   "future_date",
 ] as const;
 
+// Older installed builds and retained reports can still contain retired codes.
+const LEGACY_SESSION_FORM_VALIDATION_ERROR_CODES = ["wave_height_required"] as const;
+
 type SessionAcquisitionEventType =
   (typeof SESSION_ACQUISITION_EVENT_TYPES)[number];
 
 type SessionFormValidationErrorCode =
-  (typeof SESSION_FORM_VALIDATION_ERROR_CODES)[number];
+  | (typeof SESSION_FORM_VALIDATION_ERROR_CODES)[number]
+  | (typeof LEGACY_SESSION_FORM_VALIDATION_ERROR_CODES)[number];
 type SessionAcquisitionReadinessFindingCode =
   | "rated_sessions_floor"
   | "rated_session_users_floor"
@@ -184,9 +187,10 @@ type SessionAcquisitionReadinessFindingCode =
   | "recent_build_metadata_coverage_floor"
   | "expected_recent_client_build_missing";
 
-const SESSION_FORM_VALIDATION_ERROR_CODE_SET = new Set<string>(
-  SESSION_FORM_VALIDATION_ERROR_CODES
-);
+const SESSION_FORM_VALIDATION_ERROR_CODE_SET = new Set<string>([
+  ...SESSION_FORM_VALIDATION_ERROR_CODES,
+  ...LEGACY_SESSION_FORM_VALIDATION_ERROR_CODES,
+]);
 
 export interface CliOptions {
   start: string;

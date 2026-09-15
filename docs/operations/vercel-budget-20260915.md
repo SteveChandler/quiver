@@ -104,9 +104,27 @@ Full push gate, using the same local environment above:
 yarn test:unit --bail=0 --runInBand
 ```
 
-Result: **1,447 suites / 18,535 tests passed; one unrelated baseline test failed**. There were 16 skipped suites, 195 skipped tests, and one todo. The failure is `scripts/__tests__/session-acquisition-funnel-report.test.ts:635`: web's validation-code set includes `wave_height_required`, while the sibling native form's error-code set does not. This same failure was already documented in PR #787 before the budget changes; neither source involved was changed here. All budget suites passed in the full run. The initial budget build passed before the refreshed-main SEO commit was incorporated; the refreshed tree then passed typecheck and the affected tests.
+Initial result before the follow-up below: **1,447 suites / 18,535 tests passed; one unrelated baseline test failed**. There were 16 skipped suites, 195 skipped tests, and one todo. The failure is `scripts/__tests__/session-acquisition-funnel-report.test.ts:635`: web's validation-code set includes `wave_height_required`, while the sibling native form's error-code set does not. This same failure was already documented in PR #787 before the budget changes; neither source involved was changed here. All budget suites passed in the full run. The initial budget build passed before the refreshed-main SEO commit was incorporated; the refreshed tree then passed typecheck and the affected tests.
 
 PR #787 already had conflicts in the surf-game generated bundle/index and `docs/operations/swell-watch-native-tracking-release-20260913.md` before these changes. This task adds the budget commits to `main`; it does not merge the release PR or resolve unrelated production divergence.
+
+## Native validation-code follow-up
+
+The report now matches the current native form, where wave height is optional. It retains `wave_height_required` as a legacy code so events from older installed builds and historical reports keep their original classification. Native form behavior is unchanged.
+
+Changed `scripts/session-acquisition-funnel-report.ts` and `scripts/__tests__/session-acquisition-funnel-report.test.ts`. The regression checks current-code exclusion, historical aggregation in both report windows, saved-report validation, and Markdown rendering. It failed before the fix and passed afterward.
+
+Using the same local placeholder environment, all follow-up checks passed:
+
+```sh
+yarn test:unit --runInBand --runTestsByPath scripts/__tests__/session-acquisition-funnel-report.test.ts
+yarn typecheck
+yarn eslint --max-warnings=0 scripts/session-acquisition-funnel-report.ts scripts/__tests__/session-acquisition-funnel-report.test.ts
+yarn test:unit --bail=0 --runInBand
+git diff --check
+```
+
+Focused result: **93 tests passed**. Full result: **1,448 suites / 18,537 tests passed**, with 16 skipped suites, 195 skipped tests, one todo, and all four snapshots passing. This resolves the cross-repository failure documented above. Build and browser E2E were not rerun for this reporting-only follow-up.
 
 ## Release steps
 
