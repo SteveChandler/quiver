@@ -46,3 +46,29 @@ select (select count(*) from public.swell_watch_production_approval_authority) a
 ```
 
 Milestone 4 requires a scheduled `:15` invocation whose study result is `evaluated` with `derivation.version = swell-watch-horizon-derivation.v2` for all ten sources. Milestone 5 requires `qualifyingDays` to rise to 1 for a UTC date with all four issuances evaluated. While Hatteras returns zero secondary tuples, expect `suppressed` / `incomplete_partition` with Waikiki now `derived`.
+
+## Option 2 applied to production (2026-09-14)
+
+Steven approved option 2 (`APPROVE: 3a8551de` for the migration, `APPROVE: 232a963d` for the activation). Application: PR #775 (main `5baf6ca7e`), release #776 (prod `a1048a140`, deployment `dpl_B5KTXY4WTgcPyEbCD7iix5BnGoLG`).
+
+- Backup before the migration: `supabase db dump --linked --schema public`, 1,722,641 bytes, SHA-256 `a4ba9a5665f3cbbbf52bbd8cc6dc220b74cab8a22517487f9e68548379dbeed5` (retained locally, not committed).
+- `20260914050000_amend_swell_watch_study_partition_coverage` applied as `postgres` with exact tracking (statement SHA-256 `3a8551ded9d154d0cb9cc3159a86bc60ea25e7f7cb831dfc47336995a3f7d578`). Function post-hashes verified: `guard_swell_watch_study_authority` `0746463f…`, `read_swell_watch_study_health` `b2789dfd…`, `record_swell_watch_study_evaluation` `e0e0e7f5…`. Grants unchanged. Epochs 1–2 unchanged.
+- `swell-watch-study-amend-partition-coverage.sql` executed once at 2026-09-14 17:06:11 UTC: epoch 3 active, rule `primary_partition_with_retained_unavailable_secondary.v1`, config hash `bf0c71d76893…`, evidence `fdc98be5924a…`; exact retry was a no-op. Health: epoch 3 active, 0 evaluated, 0/30 days. Push authorities 0, notification bindings 0, automation control disabled.
+- Verification query: `select public.read_swell_watch_study_health();` must show `authorityEpoch` 3 and `qualificationRule` set; study results now carry `derivation.qualificationRule` and per-scope `partitionCoverage`.
+
+## Epoch 4 applied to production (2026-09-14)
+
+Steven approved the model-reported partition count rule (`APPROVE: 32957662` migration, `APPROVE: 938b5c11` activation). Application: PR #781 (main `1afd3d209`), release #782 (prod `86bffa8f0`, deployment `dpl_C2fh9qxwqYRyqzrtJ19Tg1vFcAcU`).
+
+- Backup before the migration: `supabase db dump --linked --schema public`, 1,726,680 bytes, SHA-256 `0fadd0783975bcff6f4f6b6ee2689864e66305c3945fe2ab6c03089a53111669` (retained locally, not committed).
+- `20260914190000_amend_swell_watch_study_model_partition_count` applied as `postgres` with exact tracking (statement SHA-256 `32957662693287809c19cd2d7d03ee4e09b47bd8444dc2586956db772ebfa8f2`). `record_swell_watch_study_evaluation` post-hash `d6ce951d…` verified; guard and health functions unchanged; the rule check constraint now allows three values; grants unchanged.
+- `swell-watch-study-amend-model-partition-count.sql` executed once at 2026-09-14 19:55:52 UTC: epoch 4 active, rule `model_reported_partition_count.v1`, config hash `6f7efd19f2b9…`, evidence `4db6916ef046…`; exact retry was a no-op. Health: epoch 4 active, 0 evaluated, 0/30 days. Push authorities 0, notification bindings 0, automation control disabled.
+- Verification: `select public.read_swell_watch_study_health();` must show `authorityEpoch` 4 and `qualificationRule = model_reported_partition_count.v1`; the first epoch-4 result will carry `derivation.qualificationRule` and per-scope `partitionCoverage.s2.absent`.
+
+## First unattended successful evaluation (2026-09-14 20:15 UTC)
+
+- Scheduled acquisition at 20:15:16 UTC (no manual trigger) acquired the provider's 2026-09-14T12:00Z issuance (published 19:20 UTC), automatically accepted it under epoch 4, completed provider batch `a94c98b4-9027-4395-8ed6-2950d378d37d`, and recorded study evaluation 17 as `evaluated` at 20:15:35 UTC with all ten sources `derived`.
+- Cape Hatteras: `partitionCoverage.s2.absent = 51`, matching the 51 retained secondary zero tuples (validated in SQL); two primary-partition candidates persisted with one-step onset windows (2026-09-17 07:00→08:00Z and 15:00→16:00Z) and allocated regional events. `candidateCount` 2, shadow demand recorded, `enqueued` 0.
+- Sends unchanged: push authorities 0, notification bindings 0, automation control disabled.
+
+Qualifying days count only issuances with `run_utc` at or after the active authority's `not_before` (epoch 4: 2026-09-14 19:55:52 UTC). The first eligible date is 2026-09-15; it qualifies when its 00Z, 06Z, 12Z and 18Z issuances each record an `evaluated` result within 12 hours. Verify with `select public.read_swell_watch_study_health();` (`qualifyingDays` 1, `qualifyingDates` `["2026-09-15"]`).

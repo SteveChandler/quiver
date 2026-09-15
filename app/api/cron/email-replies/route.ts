@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import * as Sentry from "@sentry/nextjs";
-import { gmailFailureCode, syncGmailReplies } from "@/lib/email/gmail-replies";
+import { GmailReplyBackoffError, gmailFailureCode, syncGmailReplies } from "@/lib/email/gmail-replies";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { startCronCheckIn, completeCronCheckIn } from "@/lib/monitoring/sentry-cron";
 
@@ -26,6 +26,11 @@ export async function GET(request: Request): Promise<Response> {
     const result = await syncGmailReplies(); ok = true;
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof GmailReplyBackoffError) {
+      return NextResponse.json({ code: "gmail_retry_backoff", error: "Reply sync retry deferred; outbound eligibility remains closed" }, {
+        status: 503, headers: { "Retry-After": String(error.retryAfterSeconds) },
+      });
+    }
     const code = gmailFailureCode(error);
     Sentry.captureException(new Error(code), { tags: { operation: "gmail_reply_sync" } });
     return NextResponse.json({ code, error: "Reply ingestion failed; outbound eligibility stays closed until a healthy checkpoint" }, { status: 503 }); }

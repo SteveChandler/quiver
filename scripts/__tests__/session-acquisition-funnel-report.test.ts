@@ -3022,6 +3022,41 @@ describe("session acquisition funnel report", () => {
     expect(report.gaps.join("\n")).toContain("actors hit validation failures");
   });
 
+  it("retains retired wave-height failures from older builds without requiring them in the current form", () => {
+    expect(SESSION_FORM_VALIDATION_ERROR_CODES).not.toContain("wave_height_required");
+
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        eventRow("user-1", "session_log_validation_failed", {
+          created_at: "2026-06-30T12:00:00.000Z",
+          metadata: {
+            _platform: "native-ios",
+            app_version: "1.0.0",
+            app_build: "12",
+            validation_errors: ["wave_height_required"],
+          },
+        }),
+      ],
+      windowSessions: [],
+      lifetimeSessions: [],
+    });
+    const failures = [{
+      code: "wave_height_required",
+      events: 1,
+      actors: 1,
+      platforms: { "native-ios": 1 },
+    }];
+    expect(report.validationFailuresByCode).toEqual(failures);
+    expect(report.recentTelemetry.validationFailuresByCode).toEqual(failures);
+    expect(validateSessionAcquisitionReport(report)).toEqual({ ok: true, blockers: [] });
+    expect(renderSessionAcquisitionReport(report)).toContain(
+      "| wave_height_required | 1 | 1 | native-ios (1) |",
+    );
+  });
+
   it("aggregates validation-failure codes without rendering raw actor data", () => {
     const report = computeSessionAcquisitionReport({
       start: START,
