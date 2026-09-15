@@ -295,7 +295,8 @@ jest.mock('@/lib/services/discovery/window-selector', () => {
       const window = selectBestWindow(args[0]);
       return window ? [window] : [];
     }),
-    scoreWindowConditionScore: jest.fn(() => 70),
+    scoreWindowConditionScore: jest.fn((forecast, _beach, skill, _band, boards = []) =>
+      boards.length > 0 ? 70 : require('@/lib/scoring/native-condition-score').scoreNativeForecastSlot(forecast, skill)),
     getLocalDateStr: jest.fn((date: Date, _tz: string) => {
       return date.toISOString().split('T')[0];
     }),
@@ -3098,6 +3099,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      scoreWindowConditionScore: jest.fn(() => 70),
       selectBestWindow: mockSelectBestWindow,
       selectBestWindows: (...args: any[]) => {
         const window = mockSelectBestWindow(...args);
@@ -3310,6 +3312,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      scoreWindowConditionScore: jest.fn(() => 70),
       selectBestWindow: mockSelectBestWindow,
       selectBestWindows: (...args: any[]) => {
         const window = mockSelectBestWindow(...args);
@@ -3509,6 +3512,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      scoreWindowConditionScore: jest.fn(() => 70),
       selectBestWindow: mockSelectBestWindow,
       selectBestWindows: (...args: any[]) => {
         const window = mockSelectBestWindow(...args);
@@ -3705,6 +3709,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      scoreWindowConditionScore: jest.fn(() => 70),
       selectBestWindow: mockSelectBestWindow,
       selectBestWindows: (...args: any[]) => {
         const window = mockSelectBestWindow(...args);
@@ -3892,6 +3897,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      scoreWindowConditionScore: jest.fn(() => 70),
       selectBestWindow: mockSelectBestWindow,
       selectBestWindows: (...args: any[]) => {
         const window = mockSelectBestWindow(...args);

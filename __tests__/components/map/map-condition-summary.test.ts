@@ -107,7 +107,7 @@ describe("map recommendation labels", () => {
 
   it.each([
     ["Worth it", "linear-gradient(to right, #005B52, #008F7A)"],
-    ["Maybe", "linear-gradient(to right, #8A4A12, #9E5010)"],
+    ["Maybe", "linear-gradient(to right, #315F9B, #315F9B)"],
     ["Skip", "linear-gradient(to right, #334155, #475569)"],
     [null, "linear-gradient(to right, #F4ECD8, #F4ECD8)"],
   ] as const)("uses the canonical %s gradient", (recommendationLabel, gradient) => {

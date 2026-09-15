@@ -216,6 +216,7 @@ jest.mock("@/lib/domains/scoring", () => ({
 }));
 
 jest.mock("@/lib/scoring/native-condition-score", () => ({
+  ...jest.requireActual("@/lib/scoring/native-condition-score"),
   getNativeConditionMatchQuality: jest.fn(() => "excellent"),
   scoreNativeForecastSlot: jest.fn(() => 70),
 }));

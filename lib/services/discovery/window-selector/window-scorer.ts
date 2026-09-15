@@ -193,8 +193,7 @@ function decisionEffectCeiling(
 function isFullBeach(beach: BeachWithThresholds): beach is Beach {
   return (
     Object.prototype.hasOwnProperty.call(beach, "break_type") &&
-    Object.prototype.hasOwnProperty.call(beach, "aspect_deg") &&
-    Object.prototype.hasOwnProperty.call(beach, "bottom_type")
+    Object.prototype.hasOwnProperty.call(beach, "aspect_deg")
   );
 }
 
