@@ -25,7 +25,7 @@ export interface CitySurfReportSummary {
   overallVerdict: "firing" | "good" | "fair" | "poor";
   bestBeach: CityBeachCondition | null;
   beaches: CityBeachCondition[];
-  updatedAt: string;
+  updatedAt: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -150,6 +150,7 @@ async function fetchCitySurfReport(
         `
         beach_id,
         forecast_at,
+        updated_at,
         wave_height,
         wave_period,
         wind_speed,
@@ -191,6 +192,7 @@ async function fetchCitySurfReport(
         wind_speed: string | null;
         wind_direction: string | null;
         forecast_at: string;
+        updated_at: string | null;
         beach: { id: string; name: string; slug: string | null; city: string | null; state: string | null };
       }
     >();
@@ -219,6 +221,7 @@ async function fetchCitySurfReport(
           wind_speed: row.wind_speed,
           wind_direction: row.wind_direction,
           forecast_at: row.forecast_at,
+          updated_at: row.updated_at,
           beach,
         });
       }
@@ -264,11 +267,21 @@ async function fetchCitySurfReport(
       .map(({ condition }) => condition);
     const bestBeach = limited[0] ?? null;
 
+    // Report source freshness, never the time we regenerated the page. Use the
+    // oldest displayed source so one fresh beach cannot mask stale neighbours.
+    const sourceTimes = limited.map(({ beachId }) => {
+      const updatedAt = latestByBeach.get(beachId)?.updated_at;
+      return updatedAt ? Date.parse(updatedAt) : NaN;
+    });
+    const updatedAt = sourceTimes.length > 0 && sourceTimes.every(Number.isFinite)
+      ? new Date(Math.min(...sourceTimes)).toISOString()
+      : null;
+
     return {
       overallVerdict: bestBeach ? scoreToVerdict(bestBeach.score) : "poor",
       bestBeach,
       beaches: limited,
-      updatedAt: new Date().toISOString(),
+      updatedAt,
     };
   } catch (err) {
     console.error("[getCitySurfReport] Unexpected error:", err);
@@ -294,7 +307,7 @@ export async function getCitySurfReport(
 
   const cached = unstable_cache(
     () => fetchCitySurfReport(cityName, stateSlug),
-    [`city-surf-report`, "recent-v2", cityKey, stateSlug],
+    [`city-surf-report`, "source-freshness-v3", cityKey, stateSlug],
     { revalidate: 900, tags: [`city-surf-report-${cityKey}`] },
   );
 

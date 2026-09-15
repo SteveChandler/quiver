@@ -44,6 +44,7 @@ describe("city best-right-now water-quality policy", () => {
           {
             beach_id: "held-beach",
             forecast_at: "2026-08-13T10:00:00.000Z",
+            updated_at: "2026-08-13T08:00:00.000Z",
             wave_height: "6 ft",
             wave_period: "14 s",
             wind_speed: "2 mph",
@@ -59,6 +60,7 @@ describe("city best-right-now water-quality policy", () => {
           {
             beach_id: "safe-beach",
             forecast_at: "2026-08-13T10:00:00.000Z",
+            updated_at: "2026-08-13T08:00:00.000Z",
             wave_height: "3 ft",
             wave_period: "10 s",
             wind_speed: "5 mph",
@@ -91,4 +93,43 @@ describe("city best-right-now water-quality policy", () => {
 
     expect(mockChain.limit).toHaveBeenCalledWith(205);
   });
+});
+
+it("keeps the source timestamp stable across regeneration and preserves forecast TTL", async () => {
+  jest.useFakeTimers();
+  try {
+    const chain = mockChain;
+    for (const key of ["from", "select", "ilike", "gte", "lt", "order", "limit"] as const) chain[key].mockReturnValue(chain);
+    chain.then = (resolve: (value: unknown) => unknown) => resolve({data: [{
+      beach_id: "safe-beach", forecast_at: "2026-09-15T16:00:00Z", updated_at: "2026-09-15T12:00:00Z",
+      wave_height: "3 ft", wave_period: "10 s", wind_speed: "5 mph", wind_direction: "W",
+      beaches: {id: "safe-beach", name: "Safe", slug: "safe", city: "San Diego", state: "CA"},
+    }], error: null});
+    jest.setSystemTime(new Date("2026-09-15T13:00:00Z"));
+    const first = await getCitySurfReport("San Diego", "CA");
+    jest.setSystemTime(new Date("2026-09-15T13:20:00Z"));
+    expect(await getCitySurfReport("San Diego", "CA")).toEqual(first);
+    expect(first?.updatedAt).toBe("2026-09-15T12:00:00.000Z");
+    const { unstable_cache } = await import("next/cache");
+    expect(unstable_cache).toHaveBeenLastCalledWith(expect.any(Function), expect.any(Array), expect.objectContaining({revalidate: 900}));
+  } finally { jest.useRealTimers(); }
+});
+
+it.each([
+  { second: "2026-09-15T11:00:00Z", expected: "2026-09-15T11:00:00.000Z" },
+  { second: null, expected: null },
+  { second: "invalid", expected: null },
+])("uses the oldest displayed source or unknown freshness: $second", async ({second, expected}) => {
+  for (const key of ["from", "select", "ilike", "gte", "lt", "order", "limit"] as const) mockChain[key].mockReturnValue(mockChain);
+  mockChain.then = (resolve: (value: unknown) => unknown) => resolve({data: [
+    {id: "one", updated_at: "2026-09-15T12:00:00Z"}, {id: "two", updated_at: second},
+    {id: "held-beach", updated_at: "2026-09-13T01:00:00Z"},
+  ].map(({id, updated_at}) => ({
+    beach_id: id, forecast_at: "2026-09-15T16:00:00Z", updated_at,
+    wave_height: "3 ft", wave_period: "10 s", wind_speed: "5 mph", wind_direction: "W",
+    beaches: {id, name: id, slug: id, city: "San Diego", state: "CA"},
+  })), error: null});
+  const report = await getCitySurfReport("San Diego", "CA");
+  expect(report?.beaches.map(beach => beach.beachId)).toEqual(["one", "two"]);
+  expect(report?.updatedAt).toBe(expected);
 });
