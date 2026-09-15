@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { gmailFailureCode, syncGmailReplies } from "@/lib/email/gmail-replies";
+import { ensureGmailRepliesFresh, GmailReplyBackoffError, gmailFailureCode, syncGmailReplies } from "@/lib/email/gmail-replies";
 const mockRpc = jest.fn();
 jest.mock("@/lib/email/lifecycle", () => ({ lifecycleRpc: (...args: unknown[]) => mockRpc(...args) }));
 const lease = { lease_id: "11111111-1111-4111-8111-111111111111", history_id: "100" };
@@ -86,4 +86,23 @@ it("sanitizes diagnostics instead of storing provider bodies, credentials or par
   expect(gmailFailureCode(new Error("gmail_read_403 secret"))).toBe("gmail_unexpected_error");
   expect(gmailFailureCode(new TypeError("network secret"))).toBe("gmail_transport_error");
   expect(gmailFailureCode(new Error("gmail_history_expired"))).toBe("gmail_history_expired");
+});
+
+it("honors durable backoff before OAuth, history reads or failure writes", async () => {
+  mockRpc.mockResolvedValue({ status: "backoff", retry_after_seconds: 480 });
+  await expect(syncGmailReplies(fetchMock)).rejects.toMatchObject({
+    message: "gmail_retry_backoff", retryAfterSeconds: 480,
+  });
+  expect(fetchMock).not.toHaveBeenCalled();
+  expect(mockRpc.mock.calls.map(c => c[0])).toEqual(["claim_gmail_reply_sync"]);
+});
+it("outbound freshness checks cannot bypass retry backoff", async () => {
+  mockRpc.mockImplementation(async name => name === "gmail_reply_ingestion_ready" ? false : { status: "backoff", retry_after_seconds: 60 });
+  await expect(ensureGmailRepliesFresh()).rejects.toBeInstanceOf(GmailReplyBackoffError);
+  expect(mockRpc.mock.calls.map(c => c[0])).toEqual(["gmail_reply_ingestion_ready", "claim_gmail_reply_sync"]);
+});
+it.each([0, -1, 901, "60"])("fails closed on malformed retry delay %s", async retry => {
+  mockRpc.mockResolvedValue({ status: "backoff", retry_after_seconds: retry });
+  await expect(syncGmailReplies(fetchMock)).rejects.toThrow();
+  expect(fetchMock).not.toHaveBeenCalled();
 });

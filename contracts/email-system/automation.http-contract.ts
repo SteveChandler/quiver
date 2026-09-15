@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto';
 import { lifecycleRpc } from '@/lib/email/lifecycle';
 import { fulfillProOffer, reconcileProOffers } from '@/lib/subscription/offer-fulfillment';
 import { ownedOffersSchema } from '@/lib/subscription/offer-contract';
-import { syncGmailReplies } from '@/lib/email/gmail-replies';
+import { GmailReplyBackoffError, syncGmailReplies } from '@/lib/email/gmail-replies';
 
 const user = '11111111-1111-4111-8111-111111111111';
 const other = '22222222-2222-4222-8222-222222222222';
@@ -93,6 +93,17 @@ it('keeps missing Gmail messages durable across real RPC checkpoints and resolve
   expect(await (await rest('email_reply_missing_messages?select=message_id,resolution')).json()).toEqual([{message_id:'missing',resolution:null}]);
   expect(await lifecycleRpc('evaluate_email_lifecycle',{p_user_id:other})).toMatchObject({status:'held',reason:'reply_paused'});
   expect((await rest('email_reply_missing_messages','authenticated',user)).status).toBe(403);
+  const deferredProvider=jest.fn();
+  const runsBefore=await (await rest('email_reply_sync_runs?select=id')).json();
+  await expect(syncGmailReplies(deferredProvider)).rejects.toBeInstanceOf(GmailReplyBackoffError);
+  expect(deferredProvider).not.toHaveBeenCalled();
+  expect(await (await rest('email_reply_sync_runs?select=id')).json()).toHaveLength(runsBefore.length);
+  expect(await lifecycleRpc('gmail_reply_ingestion_ready')).toBe(false);
+  // Advance only the disposable fixture's retry deadline; no wall-clock sleep.
+  const aged=await rest('email_reply_sync_runs?status=eq.error','service_role',undefined,{
+    method:'PATCH',body:JSON.stringify({finished_at:new Date(Date.now()-16*60_000).toISOString()}),
+  });
+  expect(aged.status).toBe(204);
   const healthy=jest.fn().mockResolvedValueOnce(json({access_token:'fixture'})).mockResolvedValueOnce(json({emailAddress:'mail@gmail.com'}))
     .mockResolvedValueOnce(json({historyId:'111'})).mockResolvedValueOnce(json({...incoming,id:'missing'}));
   expect(await syncGmailReplies(healthy)).toEqual({processed:1});

@@ -1,7 +1,7 @@
 /** @jest-environment node */
 import { GET } from '@/app/api/cron/email-replies/route';
 import * as Sentry from '@sentry/nextjs';
-import { syncGmailReplies } from '@/lib/email/gmail-replies';
+import { GmailReplyBackoffError, syncGmailReplies } from '@/lib/email/gmail-replies';
 import { validateCronRequest } from '@/lib/middleware/api-wrappers';
 import { completeCronCheckIn } from '@/lib/monitoring/sentry-cron';
 const mockUpdate = jest.fn();
@@ -39,4 +39,15 @@ it('never sends a raw provider error to monitoring or HTTP responses', async () 
   const response=await GET(new Request('http://localhost/api/cron/email-replies'));
   expect(await response.json()).toMatchObject({code:'gmail_unexpected_error'});
   expect(Sentry.captureException).toHaveBeenCalledWith(new Error('gmail_unexpected_error'),expect.anything());
+});
+
+it('returns retry timing without duplicate exception alerts or claiming health', async () => {
+  jest.mocked(syncGmailReplies).mockRejectedValue(new GmailReplyBackoffError(480));
+  const response=await GET(new Request('http://localhost/api/cron/email-replies'));
+  expect(response.status).toBe(503);
+  expect(response.headers.get('Retry-After')).toBe('480');
+  expect(await response.json()).toMatchObject({code:'gmail_retry_backoff'});
+  expect(Sentry.captureException).not.toHaveBeenCalled();
+  expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({status:'error'}));
+  expect(completeCronCheckIn).toHaveBeenLastCalledWith('check-in','email-replies','error');
 });
