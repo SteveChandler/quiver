@@ -4,7 +4,7 @@ import path from "node:path";
 const migrationSQL = readFileSync(
   path.join(
     process.cwd(),
-    "supabase/migrations/20260916190000_add_beach_seo_metadata.sql",
+    "supabase/migrations/20260916210000_add_beach_seo_metadata.sql",
   ),
   "utf8",
 );
