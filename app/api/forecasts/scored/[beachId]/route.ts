@@ -64,6 +64,7 @@ interface TimeSlot {
   waterTemp: string;
   airTemp: string;
   compositeScore: number;
+  generalScore?: number;
   rideableWavesPerHour: number;
   waveFrequencyConfidence: "high" | "medium" | "low";
   swellTrains: number;
@@ -192,6 +193,13 @@ export function scoreForecastSlots(
       boardClasses.length > 0 ? skillLevel : resolveNativeSkillLevel(skillLevel),
       null, boardClasses,
     );
+    const generalScore = scoreWindowConditionDetails(
+      forecast,
+      beach,
+      "beginner",
+      null,
+      [],
+    ).score;
     const boardPick = scoreDetails.boardClass
       ? getConditionBoardPick(
           toForecastForScoring(forecast),
@@ -254,6 +262,7 @@ export function scoreForecastSlots(
       waterTemp,
       airTemp,
       compositeScore: scoreDetails.score,
+      generalScore,
       rideableWavesPerHour,
       waveFrequencyConfidence,
       swellTrains,
@@ -481,6 +490,7 @@ export const GET = withNoStore(withAuth(
       latestObservation,
       plan: isPro ? "pro" : "free",
       boardPicksEnabled,
+      generalProfile: { skill: "beginner", board: null },
     };
     const slotBindings = buildSlotBindings(validBeachId, timeSlots);
     const goldenBindings = buildGoldenBindings(validBeachId, goldenWindows);
