@@ -59,6 +59,13 @@ it("quarantines a missing message, processes accessible replies and checkpoints 
   expect(mockRpc).toHaveBeenCalledWith("note_gmail_reply_missing", { p_lease_id: lease.lease_id, p_message_id: "gone" });
   expect(mockRpc).toHaveBeenCalledWith("finish_gmail_reply_sync", { p_lease_id: lease.lease_id, p_history_id: "104", p_processed: 1 });
 });
+it("skips draft history messages without fetching or quarantining them", async () => {
+  fetchMock.mockReset().mockResolvedValueOnce(json({ access_token: "fixture" })).mockResolvedValueOnce(json({ emailAddress: "mail@gmail.com" }))
+    .mockResolvedValueOnce(json({ historyId: "104", history: [{ messagesAdded: [{ message: { id: "draft", labelIds: ["DRAFT"] } }] }] }));
+  expect(await syncGmailReplies(fetchMock)).toEqual({ processed: 0 });
+  expect(fetchMock).toHaveBeenCalledTimes(3);
+  expect(mockRpc).not.toHaveBeenCalledWith("note_gmail_reply_missing", expect.anything());
+});
 it("retries missing IDs even when the next history page is empty, resolving only after the reply pause", async () => {
   mockRpc.mockImplementation(async name => name === "claim_gmail_reply_sync" ? { ...lease, missing_ids: ["m1"] } : name === "gmail_reply_ingestion_ready" ? true : null);
   fetchMock.mockReset().mockResolvedValueOnce(json({ access_token: "fixture" })).mockResolvedValueOnce(json({ emailAddress: "mail@gmail.com" }))

@@ -3,7 +3,7 @@ import { lifecycleRpc } from "@/lib/email/lifecycle";
 
 const historySchema = z.object({
   historyId: z.string().regex(/^\d+$/), nextPageToken: z.string().optional(),
-  history: z.array(z.object({ messagesAdded: z.array(z.object({ message: z.object({ id: z.string().min(1) }) })).optional() })).optional(),
+  history: z.array(z.object({ messagesAdded: z.array(z.object({ message: z.object({ id: z.string().min(1), labelIds: z.array(z.string()).optional() }) })).optional() })).optional(),
 });
 const messageSchema = z.object({
   id: z.string().min(1), threadId: z.string().min(1), internalDate: z.string().regex(/^\d+$/),
@@ -66,7 +66,9 @@ export async function syncGmailReplies(fetchImpl: typeof fetch = fetch): Promise
       const params = new URLSearchParams({ startHistoryId: lease.history_id, historyTypes: "messageAdded", maxResults: "100" });
       if (pageToken) params.set("pageToken", pageToken);
       const result = historySchema.parse(await gmailGet(`history?${params}`, token, fetchImpl, deadline));
-      for (const history of result.history ?? []) for (const added of history.messagesAdded ?? []) ids.add(added.message.id);
+      for (const history of result.history ?? []) for (const added of history.messagesAdded ?? []) {
+        if (!added.message.labelIds?.includes("DRAFT")) ids.add(added.message.id);
+      }
       if (ids.size > 200) throw new Error("gmail_scan_capacity");
       historyId = result.historyId;
       pageToken = result.nextPageToken;
