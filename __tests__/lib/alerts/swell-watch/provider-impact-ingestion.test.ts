@@ -112,7 +112,7 @@ describe("attested component impact ingestion", () => {
       now: value.now, policy: value.policy, scopes }, { rpc, ...identityReader }))
       .toEqual({ kind: "suppressed", reason: "incomplete_partition", sourcePointId: other,
         derivation: { qualificationRule: "complete_partitions.v1", version: "swell-watch-horizon-derivation.v2", samplingProfile: "ncep_gfswave016.native-1h-to-120h-3h-to-168h.v1",
-          witness: "provider-linear-interpolation.v1", scopes: [id, third].map((sourcePointId) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0 }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } }, events: [] })) },
+          witness: "provider-linear-interpolation.v1", scopes: [id, third].map((sourcePointId) => ({ sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } }, events: [] })) },
         scopeOutcomes: [
           { sourcePointId: id, status: "derived", reason: null },
           { sourcePointId: other, status: "suppressed", reason: "incomplete_partition" },

@@ -45,6 +45,10 @@ query 'CREATE DATABASE study_normalization TEMPLATE postgres'
 node --import tsx "$study_root/scripts/test-swell-watch-normalization.mjs" "$study_container"
 run_file "$study_root/supabase/migrations/20260914190000_amend_swell_watch_study_model_partition_count.sql" >/dev/null
 run_file "$study_root/supabase/migrations/20260914190000_amend_swell_watch_study_model_partition_count.sql" >/dev/null
+run_file "$study_root/supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql" >/dev/null
+run_file "$study_root/supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql" >/dev/null
+epoch5_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex');")
+echo "epoch5 record function hash: $epoch5_hash"
 query 'CREATE DATABASE study_activation TEMPLATE postgres'
 study_database=study_activation
 run_file "$study_root/__tests__/fixtures/swell-watch-study-activation.sql" >/dev/null
@@ -56,6 +60,7 @@ if [ "$activation_before" != "$activation_after" ]; then echo 'Activation retry 
 if [ "$(query "SELECT public.read_swell_watch_study_health()->>'status'")" != active ]; then
   echo 'Exact activation did not produce active study' >&2; exit 1
 fi
+study_database=study_activation
 # Each clone differs only in one revoked validity field, keeping the reviewed config hash.
 for validity_field in not_before expires_at; do
   query "CREATE DATABASE study_revoke_$validity_field TEMPLATE study_activation"

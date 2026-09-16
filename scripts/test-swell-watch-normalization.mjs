@@ -393,7 +393,7 @@ try {
     WHERE provider_batch_id=${q(nativeFirst.completed.provider_batch_id)};`);
   const shifted = (at) => new Date(Date.parse(at) + Date.parse(issuances[0]) - Date.parse(waikiki.issuedAt)).toISOString();
   assert.deepEqual(persistedScopes.find((scope) => scope.sourcePointId === cohort[waikikiIndex].sourcePointId), {
-    sourcePointId: cohort[waikikiIndex].sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0 }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } },
+    sourcePointId: cohort[waikikiIndex].sourcePointId, nativeFrames: 136, interpolatedFrames: 32, partitionCoverage: { s1: { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] }, s2: { observed: 168, unavailable: 0, absent: 0, unavailableNativeFrames: [], absentNativeFrames: [] } },
     events: [{ sourceSlot: "s1", arrivalAt: shifted("2026-09-18T18:00:00.000Z"),
       arrivalWindow: { earliestAt: shifted("2026-09-18T15:00:00.000Z"), latestAt: shifted("2026-09-18T18:00:00.000Z") },
       peakAt: shifted("2026-09-18T18:00:00.000Z"),
@@ -538,7 +538,7 @@ try {
     assert.equal(result.evaluation.status, "evaluated");
     assert.equal(result.evaluation.candidateCount, 1, "Retained Waikiki's completely observed event persists");
     assert.deepEqual(result.evaluation.derivation.scopes[hatterasIndex].partitionCoverage, {
-      s1: { observed: 168, unavailable: 0, absent: 0 }, s2: { observed: 157, unavailable: 11, absent: 0, unavailableNativeFrames: Array.from({ length: 11 }, (_, i) => i + 4), absentNativeFrames: [] },
+      s1: { observed: 168, unavailable: 0, absent: 0, absentNativeFrames: [] }, s2: { observed: 157, unavailable: 11, absent: 0, unavailableNativeFrames: Array.from({ length: 11 }, (_, i) => i + 4), absentNativeFrames: [] },
     });
     assert.equal(result.evaluation.derivation.qualificationRule, partialRule);
     assert.equal(value("SELECT public.read_swell_watch_study_health();").qualifyingDays, index === 3 ? 1 : 0);

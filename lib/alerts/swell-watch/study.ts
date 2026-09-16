@@ -1,4 +1,4 @@
-import { COMPLETE_PARTITIONS_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, type SwellWatchQualificationRule } from "./native-sampling";
+import { COMPLETE_PARTITIONS_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, type SwellWatchQualificationRule } from "./native-sampling";
 import { z } from "zod";
 import { acquisitionConfig } from "./acquisition";
 import { verifySwellWatchPolicy, type SwellWatchPolicy } from "./policy";
@@ -33,7 +33,7 @@ export async function readSwellWatchStudyStatus(
   const result = await reader.rpc("read_swell_watch_study_health");
   if (result.error) throw new Error("Study health unavailable");
   return z.object({ status: z.enum(["active", "complete", "expired", "unconfigured", "blocked"]),
-    qualificationRule: z.enum([COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE]).default(COMPLETE_PARTITIONS_RULE),
+    qualificationRule: z.enum([COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE]).default(COMPLETE_PARTITIONS_RULE),
   }).parse(result.data);
 }
 
