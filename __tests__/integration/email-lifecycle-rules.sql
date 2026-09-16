@@ -114,6 +114,9 @@ BEGIN
  INSERT INTO alert_rules VALUES(u,true,true);
  d:=claim_requested_email_alert(u,'capped','{"to":"surfer@example.com","html":"hello"}');
  ASSERT d->>'reason'='contact_cap',d::text;
+ UPDATE email_contact_controls SET daily_cap=NULL;
+ d:=claim_requested_email_alert(u,'uncapped','{"to":"surfer@example.com","html":"hello"}');
+ ASSERT d->>'reason' IS DISTINCT FROM 'disabled',d::text;
 END $$;
 ROLLBACK;
 BEGIN;
