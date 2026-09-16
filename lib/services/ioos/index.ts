@@ -20,29 +20,26 @@
 export { IOOSService } from "./ioos-service";
 
 // Export types for consumers
-export type { ParsedObservation, CacheEntry, StationVariablesResult } from "./types";
+export type { ParsedObservation,   } from "./types";
 
 // Export data parsing utilities
 export {
-  isoZulu,
+
   buildVariableMap,
   parseObservationRow,
-  parseObservationArray,
-  parseNetwork,
-  rowToObject,
+
+
+
 } from "./data-parser";
 
 // Export URL builders
-export { buildDynamicObservationUrl, buildObservationUrl, buildStationInfoUrl, buildAllDatasetsUrl } from "./url-builder";
+export { buildDynamicObservationUrl,    } from "./url-builder";
 
 // Export API client utilities (for advanced usage)
-export { fetchAllDatasets, fetchObservation, fetchStationInfo, isUnrecognizedVariableError } from "./api-client";
 
 // Export cache class (for advanced usage)
-export { ObservationCache } from "./cache";
 
 // Re-export constants for convenience
-export { NETWORK_PATTERNS, STATION_ID_PATTERN, STATION_FILTERS, ISM_FILTER_WARNING_THRESHOLD, NEARBY_STATIONS_LIMIT } from "./constants";
 
 // Import for singleton
 import { IOOSService as IOOSServiceClass } from "./ioos-service";
@@ -63,7 +60,7 @@ let defaultService: IOOSServiceClass | null = null;
  * const obs = await service.fetchObservation(stationId);
  * ```
  */
-export function getIOOSService(): IOOSServiceClass {
+function getIOOSService(): IOOSServiceClass {
   if (!defaultService) {
     defaultService = new IOOSServiceClass();
   }

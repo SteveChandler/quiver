@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ProfileDTO } from "@/types/profile";
 
-export type ProfileWithHomeBeach = {
+type ProfileWithHomeBeach = {
   id: string;
   full_name: string | null;
   home_beach_id: string | null;

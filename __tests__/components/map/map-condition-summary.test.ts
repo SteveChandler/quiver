@@ -5,6 +5,7 @@ import {
   getConditionMarkerCall,
   getConditionMarkerGradient,
   getWaterTempBadgeColor,
+  getWaterQualityHold,
 } from "@/components/map/map-marker-builder";
 
 const beach = (id: string): Beach =>
@@ -32,7 +33,7 @@ function getMarkerVisual(marker: HTMLElement): HTMLElement {
   return visual;
 }
 
-describe("map condition summaries", () => {
+describe("map recommendation labels", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     global.fetch = jest.fn(async () => ({
@@ -49,16 +50,24 @@ describe("map condition summaries", () => {
           conditionScores: {
             "beach-good": 74,
           },
-          conditionSummaries: {
-            "beach-good": "GOOD",
-            "beach-unknown": "UNKNOWN",
+          recommendationLabels: {
+            "beach-good": "Worth it",
+            "beach-unknown": null,
+          },
+          displaySwell: {
+            "beach-good": {
+              periodSeconds: 12,
+              directionDeg: 205,
+              heightFt: 4,
+              source: "offshore",
+            },
           },
         },
       }),
     }) as Response) as unknown as typeof fetch;
   });
 
-  it("parses bulk condition score and summary maps in the beach loader", async () => {
+  it("parses canonical labels and display swell in the beach loader", async () => {
     const result = await loadBeachesAndWaveHeights(
       32.75,
       -117.25,
@@ -69,8 +78,14 @@ describe("map condition summaries", () => {
     expect(result.waveHeightMap.get("beach-good")).toBe(3.2);
     expect(result.waterTempMap.get("beach-good")).toBe("66");
     expect(result.conditionScoreMap.get("beach-good")).toBe(74);
-    expect(result.conditionSummaryMap.get("beach-good")).toBe("GOOD");
-    expect(result.conditionSummaryMap.get("beach-unknown")).toBe("UNKNOWN");
+    expect(result.recommendationLabelMap.get("beach-good")).toBe("Worth it");
+    expect(result.recommendationLabelMap.get("beach-unknown")).toBeNull();
+    expect(result.displaySwellMap.get("beach-good")).toEqual({
+      periodSeconds: 12,
+      directionDeg: 205,
+      heightFt: 4,
+      source: "offshore",
+    });
   });
 
   it("retains the nearby water-quality hold kind for marker construction", async () => {
@@ -90,36 +105,53 @@ describe("map condition summaries", () => {
     expect(result.locations).toEqual([heldBeach]);
   });
 
-  it("renders wave-height markers with condition semantics and gradients", () => {
+  it.each([
+    ["Worth it", "linear-gradient(to right, #005B52, #008F7A)"],
+    ["Maybe", "linear-gradient(to right, #315F9B, #315F9B)"],
+    ["Skip", "linear-gradient(to right, #334155, #475569)"],
+    [null, "linear-gradient(to right, #F4ECD8, #F4ECD8)"],
+  ] as const)("uses the canonical %s gradient", (recommendationLabel, gradient) => {
+    expect(getConditionMarkerCall({ recommendationLabel })).toMatchObject({
+      label: recommendationLabel ?? "No read",
+      gradient,
+    });
+    expect(getConditionMarkerGradient(recommendationLabel)).toBe(gradient);
+  });
+
+  it.each([false, true])("renders accessible wave-height markers (selected: %s)", (selected) => {
     const marker = createWaveHeightBadge(beach("beach-fair"), 2.0, {
       favoriteBeachIds: new Set(),
-      selectedBeachId: null,
+      selectedBeachId: selected ? "beach-fair" : null,
       hoveredBeachId: null,
       onHoverChange: jest.fn(),
       onSelectChange: jest.fn(),
       router: { push: jest.fn() },
       autoNavigate: false,
       displayMode: "wave-height",
-      conditionSummary: "FAIR",
+      recommendationLabel: "Maybe",
     });
     const badge = getBadge(marker);
     const visual = getMarkerVisual(marker);
-    const markerGradient = getConditionMarkerGradient("FAIR");
+    const markerGradient = getConditionMarkerGradient("Maybe");
 
     expect(badge).toBeInstanceOf(HTMLButtonElement);
+    expect(marker).toHaveAttribute("role", "group");
+    expect(marker).toHaveAttribute("aria-label", "Beach beach-fair");
     expect(badge).toHaveAttribute("type", "button");
     expect(badge).toHaveAttribute(
       "aria-label",
       "View Beach beach-fair conditions"
     );
-    expect(marker).toHaveAttribute("data-condition-summary", "FAIR");
+    expect(marker).toHaveAttribute("data-recommendation-label", "Maybe");
     expect(badge.textContent).toBe("");
     expect(badge).toHaveAttribute("data-marker-gradient", markerGradient);
     expect(markerGradient).toContain("linear-gradient");
     expect(badge).toHaveStyle({ width: "44px", height: "44px" });
+    expect(visual.style.transform).toBe("");
+    expect(visual).toHaveAttribute("aria-hidden", "true");
     expect(visual).toHaveStyle({
-      width: "15px",
-      height: "15px",
+      width: selected ? "21px" : "15px",
+      height: selected ? "21px" : "15px",
       borderRadius: "50%",
     });
   });
@@ -135,13 +167,13 @@ describe("map condition summaries", () => {
       autoNavigate: false,
       displayMode: "water-temp",
       waterTemp: "76",
-      conditionSummary: "GOOD",
+      recommendationLabel: "Worth it",
     });
     const badge = getBadge(marker);
     const visual = getMarkerVisual(marker);
     const markerGradient = getWaterTempBadgeColor("76");
 
-    expect(marker).toHaveAttribute("data-condition-summary", "GOOD");
+    expect(marker).toHaveAttribute("data-recommendation-label", "Worth it");
     expect(badge.textContent).toBe("");
     expect(badge).toHaveAttribute("data-marker-gradient", markerGradient);
     expect(markerGradient).toContain("linear-gradient");
@@ -162,13 +194,13 @@ describe("map condition summaries", () => {
       onSelectChange: jest.fn(),
       router: { push: jest.fn() },
       autoNavigate: false,
-      conditionSummary: "EPIC",
+      recommendationLabel: "Worth it",
       waterQualityHold: "closure",
     });
     const badge = getBadge(marker);
     const markerGradient = getConditionMarkerGradient("closure");
     const call = getConditionMarkerCall({
-      conditionSummary: "EPIC",
+      recommendationLabel: "Worth it",
       waterQualityHold: "closure",
     });
 
@@ -193,4 +225,23 @@ describe("map condition summaries", () => {
   ] as const)("names a %s marker call precisely", (waterQualityHold, label) => {
     expect(getConditionMarkerCall({ waterQualityHold }).label).toBe(label);
   });
+});
+
+test.each([null, "invalid", "2026-08-01", "2099-01-01"])("ignores stale or unverified sample alerts: %s", (sampleDate) => {
+  const pin = { ...beach("sample"), waterQualityHold: "advisory", waterQualityEvidence: { source: "sample", sampleDate } } as unknown as Beach;
+  expect(getWaterQualityHold(pin)).toBeNull();
+  expect(getWaterQualityHold({ ...pin, waterQualityEvidence: { source: "county" } } as unknown as Beach)).toBe("advisory");
+});
+test("retains a recent sample alert", () => {
+  expect(getWaterQualityHold({ ...beach("sample"), waterQualityHold: "advisory", waterQualityEvidence: { source: "sample", sampleDate: new Date().toISOString() } } as unknown as Beach)).toBe("advisory");
+});
+
+test("changes from a sample hold to an unconfirmed warning at seven days", () => {
+  const now = Date.parse("2026-09-06T12:00:00Z");
+  const clock = jest.spyOn(Date, "now").mockReturnValue(now);
+  try {
+    const pin = (age: number): Beach => ({ ...beach("sample"), waterQualityHold: "closure", waterQualityEvidence: { source: "sample", sampleDate: new Date(now - age).toISOString() } } as unknown as Beach);
+    expect(getWaterQualityHold(pin(7 * 86400000 - 1))).toBe("closure");
+    expect(getWaterQualityHold(pin(7 * 86400000))).toBeNull();
+  } finally { clock.mockRestore(); }
 });

@@ -82,6 +82,37 @@ function clientFor(args: {
 }
 
 describe("water-quality recommendation holds", () => {
+  it.each([false, true])("bounds catalog queries and preserves failure status (failed batch: %s)", async (failBatch) => {
+    const ids = Array.from({ length: 250 }, (_, i) => `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, "0")}`);
+    const client = clientFor({});
+    const originalFrom = client.from;
+    const batches: Record<string, string[][]> = {};
+    client.from = (table) => {
+      const original = originalFrom(table);
+      if (table !== "water_quality_held_beaches" && table !== "beach_water_quality") return original;
+      return { select: (columns) => {
+        const query = original.select(columns);
+        query.in = async (_column, batch) => {
+          (batches[table] ??= []).push([...batch]);
+          if (batch.length > 100 || (failBatch && table === "beach_water_quality" && batch.includes(ids[150]))) {
+            return { data: null, error: { message: "batch unavailable" } };
+          }
+          return { data: table === "water_quality_held_beaches" ? batch.map((beach_id) => ({ beach_id })) : [], error: null };
+        };
+        return query;
+      } };
+    };
+    const check = async () => {
+      const result = await resolveWaterQualityHolds(ids.map(candidate), { client });
+      expect(result.state).toBe(failBatch ? "unresolved" : "resolved");
+      expect(result.heldBeachIds).toEqual(ids);
+      expect(batches.water_quality_held_beaches.map((batch) => batch.length)).toEqual([100, 100, 50]);
+      expect(batches.beach_water_quality.every((batch) => batch.length <= 100)).toBe(true);
+    };
+    await check();
+    if (failBatch) expectConsoleErrors([/\[water-quality-hold:query-error\]/]);
+  });
+
   it("ships the five-beach seed manifest, including Silver Strand", () => {
     expect(CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS).toHaveLength(5);
     expect(CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS).toContain(
@@ -97,8 +128,8 @@ describe("water-quality recommendation holds", () => {
           ownerRows: [{ beach_id: BEACH_A }],
           qualityRows: [
             { beach_id: BEACH_A, status: "good", total_samples_30d: 1 },
-            { beach_id: BEACH_B, status: "advisory", total_samples_30d: 2 },
-            { beach_id: BEACH_C, status: "closure", total_samples_30d: 1 },
+            { beach_id: BEACH_B, status: "advisory", total_samples_30d: 2, latest_sample_date: new Date().toISOString() },
+            { beach_id: BEACH_C, status: "closure", total_samples_30d: 1, latest_sample_date: new Date().toISOString() },
           ],
         }),
       },
@@ -338,4 +369,26 @@ describe("water-quality recommendation holds", () => {
     expect(resolution.state).toBe("unresolved");
     expect(resolution.heldBeachIds).toEqual([BEACH_A]);
   });
+});
+
+ test("preserves the actual sample date and distinguishes live county evidence", async () => {
+  const sampleDate = new Date().toISOString();
+  const result = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_B)], { client: clientFor({ qualityRows: [{ beach_id: BEACH_A, status: "advisory", total_samples_30d: 8, latest_sample_date: sampleDate }], liveRows: [{ beach_id: BEACH_B, advisory_type: "advisory", source_site_identifier: "site-b" }] }) });
+  expect(result.waterQualityEvidenceByBeachId).toEqual({ [BEACH_A]: { source: "sample", sampleDate }, [BEACH_B]: { source: "county" } });
+  expect(result.heldBeachIds).toEqual([BEACH_A, BEACH_B]);
+});
+
+ test.each([7, 14, 30])("does not hold a beach for a %i-day-old sample, but retains county and owner holds", async (days) => {
+  const now = new Date();
+  const latest_sample_date = new Date(now.getTime() - days * 86400000).toISOString();
+  const result = await resolveWaterQualityHolds([candidate(BEACH_A), candidate(BEACH_B), candidate(BEACH_C)], {
+    now, client: clientFor({
+      qualityRows: [BEACH_A, BEACH_B, BEACH_C].map(beach_id => ({ beach_id, status: "advisory", total_samples_30d: 8, latest_sample_date })),
+      ownerRows: [{ beach_id: BEACH_C }],
+      liveRows: [{ beach_id: BEACH_B, advisory_type: "closure", source_site_identifier: "site-b" }],
+    }),
+  });
+  expect(result.heldBeachIds).toEqual([BEACH_B, BEACH_C]);
+  expect(result.waterQualityEvidenceByBeachId).toEqual({ [BEACH_A]: { source: "sample", sampleDate: latest_sample_date }, [BEACH_B]: { source: "county" }, [BEACH_C]: { source: "hold" } });
+  expect(result.waterQualityStatusByBeachId).not.toHaveProperty(BEACH_A);
 });

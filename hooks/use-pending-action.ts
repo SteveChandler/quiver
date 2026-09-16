@@ -10,7 +10,7 @@ import {
 const STORAGE_KEY = "pendingAction";
 const EXPIRY_MS = 300_000; // 5 minutes
 
-export interface PendingAction {
+interface PendingAction {
   type: "favorite" | "alert";
   beachId: string;
   beachName: string;

@@ -17,7 +17,7 @@ import {
 } from "@/lib/analytics/signup-conversion-tracking";
 import { formatSwellPeriod } from "@/lib/formatters/surf-data";
 
-export interface HorizonStripProps {
+interface HorizonStripProps {
   /** Array of day summaries to display */
   days: DaySummary[];
   /** Currently selected date (ISO format: YYYY-MM-DD) */
@@ -402,7 +402,7 @@ export function HorizonStrip({
             ? index - (publicGateFromIndex as number)
             : undefined;
           return (
-            <div key={`${day.fullDate}-${index}`} data-day-card className="flex-shrink-0 w-[88px] sm:flex-1 sm:min-w-0">
+            <div key={`${day.fullDate}-${index}`} data-day-card className="flex-shrink-0 w-[88px] sm:flex-1 sm:min-w-[88px]">
               <DayCard
                 day={day}
                 isSelected={day.fullDate === selectedDate}

@@ -11,10 +11,10 @@ const mockUseSurfDiscovery = useSurfDiscovery as jest.MockedFunction<
   typeof useSurfDiscovery
 >;
 
-jest.mock("@/hooks/use-cached-profile", () => ({
-  useCachedProfile: () => ({
+jest.mock("@/context/profile-context", () => ({
+  useProfileContext: () => ({
     profile: { id: "profile-1", experience_level: "intermediate" },
-    profileLoading: false,
+    isLoading: false,
     homeBeach: null,
     refreshProfile: jest.fn(),
   }),

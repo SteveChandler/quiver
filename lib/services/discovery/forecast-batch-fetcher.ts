@@ -21,7 +21,7 @@ export const DEFAULT_FORECAST_WINDOW_HOURS = 48;
 /**
  * Options for batch forecast fetching
  */
-export interface ForecastBatchOptions {
+interface ForecastBatchOptions {
   /** Maximum concurrent requests (unused - batch fetch is single operation) */
   maxConcurrent?: number;
   /** Timeout per request in ms (unused - batch fetch handles internally) */
@@ -32,12 +32,14 @@ export interface ForecastBatchOptions {
   forecastWindowHours?: number;
   /** When true, return stale forecast rows instead of excluding them (default false) */
   allowStale?: boolean;
+  /** Enforce source-aware freshness for every returned forecast row. */
+  requirePerRowFreshness?: boolean;
 }
 
 /**
  * Result of batch forecast fetching
  */
-export interface ForecastBatchResult {
+interface ForecastBatchResult {
   /** Beaches with successful fresh forecasts */
   successful: Array<{ beach: Beach; forecasts: EnhancedForecastEntity[] }>;
   /** Beaches that failed to get forecasts (with reason and stale flag) */
@@ -92,11 +94,18 @@ export async function batchFetchForecasts(
   }
 
   // Fetch all forecasts in 2 queries instead of 2N queries
-  const batchResults = await getBatchFreshForecastsFromCache(
-    beaches.map((b) => b.id),
-    forecastWindowHours,
-    options?.allowStale ?? false
-  );
+  const batchResults = options?.requirePerRowFreshness
+    ? await getBatchFreshForecastsFromCache(
+      beaches.map((b) => b.id),
+      forecastWindowHours,
+      options?.allowStale ?? false,
+      true,
+    )
+    : await getBatchFreshForecastsFromCache(
+      beaches.map((b) => b.id),
+      forecastWindowHours,
+      options?.allowStale ?? false,
+    );
 
   const successful: Array<{ beach: Beach; forecasts: EnhancedForecastEntity[] }> = [];
   const failed: Array<{ beach: Beach; reason: string; stale: boolean }> = [];

@@ -1,6 +1,6 @@
 import type { QuiverStickerKey } from "@/lib/ui/quiver-sticker-assets";
 
-export interface BlogMetric {
+interface BlogMetric {
   label: string;
   value: string;
 }

@@ -1,6 +1,6 @@
 export type EmbedMapSwellLayerId = "combined" | "s1" | "s2" | "wind";
 export type EmbedMapWaterQualityHold = "advisory" | "closure" | "held";
-export const EMBED_MAP_MAX_FORECAST_TIME_INDEX = 7;
+const EMBED_MAP_MAX_FORECAST_TIME_INDEX = 7;
 
 export interface EmbedMapCoordinate {
   lat: number;
@@ -18,12 +18,14 @@ export interface EmbedMapViewport {
   center: EmbedMapCoordinate;
   zoom?: number;
   bounds?: EmbedMapBounds;
+  interactionSource?: "initial" | "programmatic" | "user";
 }
 
 export type EmbedMapCommand =
+  | { type: "setActive"; payload: { active: boolean } }
   | { type: "setViewport"; payload: EmbedMapViewport }
   | { type: "setLayer"; payload: { layerId: EmbedMapSwellLayerId } }
-  | { type: "setForecastTime"; payload: { index: number } }
+  | { type: "setForecastTime"; payload: { index: number; forecastAt?: string; smooth?: boolean } }
   | { type: "setSelectedSpot"; payload: { beachId: string; lat?: number; lon?: number } }
   | { type: "focusSelectedSpot"; payload: { beachId: string } }
   | { type: "startPlacement"; payload?: EmbedMapCoordinate }
@@ -36,6 +38,7 @@ export type EmbedMapCommand =
   | { type: "auth_token"; payload: { accessToken: string | null } };
 
 export type EmbedMapEvent =
+  | { type: "customSpotSelected"; payload: { spotId: string } }
   | { type: "ready"; payload: { viewport: EmbedMapViewport } }
   | { type: "presentationReady"; payload: Record<string, never> }
   | { type: "loadFailed"; payload: { reason: string } }
@@ -53,6 +56,7 @@ export type EmbedMapEvent =
         waveHeight?: string | null;
         swellPeriod?: string | null;
         swellDirection?: string | null;
+        swellLabel?: "Swell" | "Offshore swell" | null;
         isCalibrated?: boolean | null;
         windSpeed?: string | null;
         windDirection?: string | null;
@@ -164,7 +168,13 @@ export function parseEmbedMapCommand(
         ? null
         : {
             type: "setForecastTime",
-            payload: { index: clampForecastTimeIndex(index, maxForecastTimeIndex) },
+            payload: {
+              index: clampForecastTimeIndex(index, maxForecastTimeIndex),
+              ...(typeof payload.smooth === "boolean" ? { smooth: payload.smooth } : {}),
+              ...(typeof payload.forecastAt === "string" && Number.isFinite(Date.parse(payload.forecastAt))
+                ? { forecastAt: new Date(payload.forecastAt).toISOString() }
+                : {}),
+            },
           };
     }
     case "setSelectedSpot": {
@@ -206,6 +216,10 @@ export function parseEmbedMapCommand(
     case "setReducedMotion": {
       if (!isRecord(payload) || typeof payload.enabled !== "boolean") return null;
       return { type: "setReducedMotion", payload: { enabled: payload.enabled } };
+    }
+    case "setActive": {
+      if (!isRecord(payload) || typeof payload.active !== "boolean") return null;
+      return { type: "setActive", payload: { active: payload.active } };
     }
     case "setFieldVisible": {
       if (!isRecord(payload) || typeof payload.visible !== "boolean") return null;

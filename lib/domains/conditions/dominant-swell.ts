@@ -21,9 +21,9 @@ export interface SwellPartition {
   readonly direction: number;
 }
 
-export type DominantSource = 'swell_1' | 'swell_2' | 'wind_wave';
+type DominantSource = 'swell_1' | 'swell_2' | 'wind_wave';
 
-export interface DominantSwell extends SwellPartition {
+interface DominantSwell extends SwellPartition {
   readonly source: DominantSource;
 }
 
@@ -66,7 +66,7 @@ export function pickDominantSwell(parts: SwellPartitions): DominantSwell | null 
  * Energy = height² × period, matching `createSwellComponent`.
  * Returns `null` when only one material partition exists.
  */
-export function pickSecondarySwell(parts: SwellPartitions, dominant: DominantSource): DominantSwell | null {
+function pickSecondarySwell(parts: SwellPartitions, dominant: DominantSource): DominantSwell | null {
   const others: DominantSwell[] = [];
 
   if (dominant !== 'swell_1' && isMaterial(parts.swell_1)) others.push({ ...parts.swell_1, source: 'swell_1' });

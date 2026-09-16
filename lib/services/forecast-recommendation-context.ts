@@ -2,9 +2,14 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { PersonalizedForecastWindow } from "@/types/personalization";
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
-import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
-import { cardinalToDegrees } from "@/lib/services/forecast/forecast-transformer";
 import { degreeToCardinal } from "@/lib/utils/geo-utils";
+import { containsTime, deriveDisplayWindow } from "@/lib/services/discovery/window-authority";
+import {
+  formatDisplaySwellPeriod,
+  resolveDisplaySwell,
+  type DisplaySwellWindow,
+} from "@/lib/domains/conditions/display-swell";
+import { designateCurrentRow } from "@/lib/services/current-conditions/current-row";
 
 export type ForecastRecommendationType =
   | "best_window"
@@ -65,7 +70,7 @@ export interface ForecastConditionDrivers {
   tide: string | null;
 }
 
-export type ForecastContextSource =
+type ForecastContextSource =
   | "notification"
   | "home"
   | "beach-detail"
@@ -143,34 +148,17 @@ function toFiniteNumber(value: unknown): number | null {
   return value;
 }
 
-function formatPeriodSeconds(value: number | null): string | null {
-  if (value == null || value <= 0) return null;
-  const rounded = Math.round(value * 10) / 10;
-  return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}s`;
-}
-
-function directionInBeachWindow(directionDeg: number | null, beach: Beach): boolean | null {
+function displaySwellWindow(beach?: Beach): DisplaySwellWindow | null {
+  if (!beach) return null;
   const center = toFiniteNumber(
     (beach as { swell_window_center_deg?: number | null }).swell_window_center_deg,
   );
   const halfwidth = toFiniteNumber(
     (beach as { swell_window_halfwidth_deg?: number | null }).swell_window_halfwidth_deg,
   );
-  if (directionDeg == null || center == null || halfwidth == null || halfwidth <= 0) return null;
-  const delta = ((directionDeg - center) % 360 + 540) % 360 - 180;
-  return Math.abs(delta) <= halfwidth;
-}
-
-function shouldUseOmSwellContext(row: EnhancedForecastEntity | null, beach?: Beach): boolean {
-  if (!row || !beach) return false;
-  const omDirectionDeg = toFiniteNumber(row.swell_direction_om);
-  const omPeriod = toFiniteNumber(row.swell_period_om);
-  if (omDirectionDeg == null || omPeriod == null) return false;
-
-  const namedDirectionDeg = cardinalToDegrees(row.swell_1_direction ?? row.wave_direction ?? null);
-  const omInWindow = directionInBeachWindow(omDirectionDeg, beach);
-  const namedInWindow = directionInBeachWindow(namedDirectionDeg, beach);
-  return omInWindow === true && namedInWindow !== true;
+  return center === null || halfwidth === null
+    ? null
+    : { centerDeg: center, halfwidthDeg: halfwidth };
 }
 
 function pickSwellPeriod(
@@ -178,18 +166,19 @@ function pickSwellPeriod(
   window?: PersonalizedForecastWindow | null,
   beach?: Beach,
 ): string | null {
-  if (shouldUseOmSwellContext(row, beach)) {
-    return formatPeriodSeconds(toFiniteNumber(row?.swell_period_om));
-  }
-  return normalizePeriod(row?.swell_1_period ?? row?.wave_period ?? window?.wavePeriod ?? null);
+  const period = row
+    ? resolveDisplaySwell(row, displaySwellWindow(beach)).periodSeconds
+    : null;
+  return formatDisplaySwellPeriod(period) ?? normalizePeriod(window?.wavePeriod ?? null);
 }
 
 function pickSwellDirection(row: EnhancedForecastEntity | null, beach?: Beach): string | null {
-  if (shouldUseOmSwellContext(row, beach)) {
-    const omDirectionDeg = toFiniteNumber(row?.swell_direction_om);
-    return omDirectionDeg == null ? null : degreeToCardinal(omDirectionDeg);
-  }
-  return row?.swell_1_direction ?? row?.wave_direction ?? null;
+  if (!row) return null;
+  const direction = resolveDisplaySwell(
+    row,
+    displaySwellWindow(beach),
+  ).directionDeg;
+  return direction === null ? null : degreeToCardinal(direction);
 }
 
 function toIso(value: Date | string | null | undefined): string | null {
@@ -216,87 +205,6 @@ function formatRange(start: Date, end: Date, timezone: string): string {
     return `${startLabel.replace(/\s?(AM|PM)$/i, "")}-${endLabel}`;
   }
   return `${startLabel}-${endLabel}`;
-}
-
-const TIGHT_DISPLAY_WINDOW_MINUTES = 150;
-const DISPLAY_WINDOW_HALF_MINUTES = TIGHT_DISPLAY_WINDOW_MINUTES / 2;
-
-function containsTime(start: Date, end: Date, time: Date): boolean {
-  return start.getTime() <= time.getTime() && time.getTime() <= end.getTime();
-}
-
-function displayWindowAroundPeak(peak: Date, timezone: string): { start: Date; end: Date } {
-  let start = new Date(peak.getTime() - DISPLAY_WINDOW_HALF_MINUTES * 60 * 1000);
-  let end = new Date(peak.getTime() + DISPLAY_WINDOW_HALF_MINUTES * 60 * 1000);
-
-  const localDate = getLocalDateString(peak, timezone);
-  const daylightStart = localDateTimeToUTC(localDate, "06:00:00", timezone);
-  const daylightEnd = localDateTimeToUTC(localDate, "19:00:00", timezone);
-
-  if (containsTime(daylightStart, daylightEnd, peak)) {
-    if (start < daylightStart) {
-      start = daylightStart;
-      end = new Date(start.getTime() + TIGHT_DISPLAY_WINDOW_MINUTES * 60 * 1000);
-    }
-    if (end > daylightEnd) {
-      end = daylightEnd;
-      start = new Date(end.getTime() - TIGHT_DISPLAY_WINDOW_MINUTES * 60 * 1000);
-    }
-  }
-
-  if (!containsTime(start, end, peak)) {
-    return {
-      start: new Date(peak.getTime() - DISPLAY_WINDOW_HALF_MINUTES * 60 * 1000),
-      end: new Date(peak.getTime() + DISPLAY_WINDOW_HALF_MINUTES * 60 * 1000),
-    };
-  }
-
-  return { start, end };
-}
-
-function deriveDisplayWindow({
-  rawStart,
-  rawEnd,
-  peak,
-  timezone,
-}: {
-  rawStart: Date;
-  rawEnd: Date;
-  peak: Date;
-  timezone: string;
-}): { start: Date; end: Date } {
-  const rawDurationMinutes = (rawEnd.getTime() - rawStart.getTime()) / (60 * 1000);
-  const rawContainsPeak = rawDurationMinutes > 0 && containsTime(rawStart, rawEnd, peak);
-
-  if (rawContainsPeak && rawDurationMinutes <= TIGHT_DISPLAY_WINDOW_MINUTES) {
-    return { start: rawStart, end: rawEnd };
-  }
-
-  let display = displayWindowAroundPeak(peak, timezone);
-
-  if (rawContainsPeak) {
-    if (display.start < rawStart) {
-      const shiftMs = rawStart.getTime() - display.start.getTime();
-      display = {
-        start: rawStart,
-        end: new Date(display.end.getTime() + shiftMs),
-      };
-    }
-
-    if (display.end > rawEnd) {
-      const shiftMs = display.end.getTime() - rawEnd.getTime();
-      display = {
-        start: new Date(display.start.getTime() - shiftMs),
-        end: rawEnd,
-      };
-    }
-  }
-
-  if (!containsTime(display.start, display.end, peak)) {
-    return displayWindowAroundPeak(peak, timezone);
-  }
-
-  return display;
 }
 
 function describeWind(windSpeed: string | null | undefined): string | null {
@@ -377,23 +285,6 @@ function swellFields(row: EnhancedForecastEntity | null): {
     secondarySwellPeriod: normalizePeriod(row?.swell_2_period ?? null),
     secondarySwellDirection: row?.swell_2_direction ?? null,
   };
-}
-
-function pickCurrentRow(
-  forecasts: EnhancedForecastEntity[],
-  nowMs: number,
-): EnhancedForecastEntity | null {
-  const sorted = [...forecasts].sort(
-    (a, b) => Date.parse(a.forecast_at) - Date.parse(b.forecast_at),
-  );
-  let current: EnhancedForecastEntity | null = null;
-  for (const row of sorted) {
-    const rowMs = Date.parse(row.forecast_at);
-    if (Number.isNaN(rowMs)) continue;
-    if (rowMs <= nowMs) current = row;
-    else break;
-  }
-  return current;
 }
 
 function pickNextRideableRow(
@@ -482,15 +373,19 @@ export function buildForecastRecommendationContext({
   const nowMs = now.getTime();
 
   if (window) {
-    const sourceForecast = window.sourceForecast ?? null;
     const start = new Date(window.start);
     const end = new Date(window.end);
     const peak = new Date(window.peakTime ?? window.start);
-    const selectedForecast = nearestForecastToTime(forecasts, peak) ?? sourceForecast;
-    const displayWindow =
-      !Number.isNaN(start.getTime()) &&
-      !Number.isNaN(end.getTime()) &&
-      !Number.isNaN(peak.getTime())
+    const providedDisplayStart = new Date(window.displayWindowStart ?? "");
+    const providedDisplayEnd = new Date(window.displayWindowEnd ?? "");
+    const hasValidDisplayWindow = Number.isFinite(providedDisplayStart.getTime())
+      && Number.isFinite(providedDisplayEnd.getTime())
+      && providedDisplayEnd > providedDisplayStart;
+    const displayWindow = hasValidDisplayWindow
+      ? { start: providedDisplayStart, end: providedDisplayEnd }
+      : !Number.isNaN(start.getTime())
+        && !Number.isNaN(end.getTime())
+        && !Number.isNaN(peak.getTime())
         ? deriveDisplayWindow({
           rawStart: start,
           rawEnd: end,
@@ -498,6 +393,17 @@ export function buildForecastRecommendationContext({
           timezone: resolvedTimezone,
         })
         : { start, end };
+    const sampleWindow = containsTime(start, end, peak) ? { start, end } : displayWindow;
+    const belongsToWindow = (row: EnhancedForecastEntity): boolean =>
+      row.beach_id === String(beach.id) && containsTime(sampleWindow.start, sampleWindow.end, new Date(row.forecast_at));
+    const sourceForecast = window.sourceForecast && belongsToWindow(window.sourceForecast)
+      ? window.sourceForecast
+      : null;
+    // Keep the selected source on ties when independently fetched rows disagree.
+    const selectedForecast = nearestForecastToTime(
+      [...(sourceForecast ? [sourceForecast] : []), ...forecasts.filter(belongsToWindow)],
+      peak,
+    );
     const startTime = toIso(start);
     const endTime = toIso(end);
     const displayWindowStart = toIso(displayWindow.start);
@@ -554,7 +460,7 @@ export function buildForecastRecommendationContext({
     };
   }
 
-  const current = pickCurrentRow(forecasts, nowMs);
+  const current = designateCurrentRow(forecasts, now)?.row ?? null;
   if (isRideable(current)) {
     return contextFromRow({
       beach,
@@ -595,7 +501,7 @@ export function buildForecastRecommendationContext({
   return null;
 }
 
-export function logForecastRecommendationContext(args: {
+function logForecastRecommendationContext(args: {
   source: ForecastContextSource;
   beachId?: string | null;
   beachName?: string | null;
@@ -623,7 +529,7 @@ export function logForecastRecommendationContext(args: {
   });
 }
 
-export function logForecastDisplayContext(args: {
+function logForecastDisplayContext(args: {
   component: ForecastContextSource;
   beachId?: string | null;
   beachName?: string | null;

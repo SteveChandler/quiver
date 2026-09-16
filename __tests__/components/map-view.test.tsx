@@ -353,7 +353,7 @@ describe("MapView", () => {
     expect(screen.getByRole("combobox")).toHaveValue("waikiki");
   });
 
-  it("uses the final user move center for timezone without issuing camera or beach loads", () => {
+  it("uses the final user move center for timezone and background beach loading without recentering", () => {
     mockFilteredBeaches = [
       { id: "sd", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles" } as Beach,
       { id: "hi", lat: 21.28, lon: -157.85, timezone: "Pacific/Honolulu" } as Beach,
@@ -388,7 +388,8 @@ describe("MapView", () => {
       "Pacific/Honolulu",
     );
     expect(lastMapContentProps.cameraCommand).toBe(initialCommand);
-    expect(mockLoadNearbyBeaches).not.toHaveBeenCalled();
+    expect(mockLoadNearbyBeaches).toHaveBeenCalledTimes(1);
+    expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(21.29, -157.86, { background: true });
   });
 
   it("shows the field guide trigger but keeps the panel collapsed on the live map", () => {

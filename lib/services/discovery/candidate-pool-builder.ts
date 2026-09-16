@@ -35,9 +35,9 @@ import {
 
 const log = createContextLogger('CandidatePoolBuilder');
 
-export const CANDIDATE_POOL_RADIUS_TIERS_MILES = [25, 60, 100] as const;
+const CANDIDATE_POOL_RADIUS_TIERS_MILES = [25, 60, 100] as const;
 export const CANDIDATE_POOL_LIMIT = 60;
-export const MIN_CANDIDATES = 8;
+const MIN_CANDIDATES = 8;
 export const MAX_CANDIDATE_RADIUS_MILES = 100;
 
 const MILES_TO_METERS = 1609.34;
@@ -46,7 +46,7 @@ const WATER_QUALITY_HOLD_OVERFETCH = 5;
 /**
  * Options for building the candidate pool
  */
-export interface CandidatePoolOptions {
+interface CandidatePoolOptions {
   /** User's current GPS location for nearby beach discovery (required) */
   userLocation: { lat: number; lon: number };
   /** Optional hard outer radius in miles for nearby beach search (max: 100) */
@@ -56,7 +56,7 @@ export interface CandidatePoolOptions {
 /**
  * Result of building the candidate pool
  */
-export interface CandidatePoolResult {
+interface CandidatePoolResult {
   /** Candidate beaches, ordered best-first for pool truncation */
   candidates: Beach[];
   /** User's experience level from their profile (parsed and validated) */

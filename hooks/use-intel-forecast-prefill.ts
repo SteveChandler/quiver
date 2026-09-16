@@ -6,19 +6,19 @@ import type { WindDirection } from '@/components/intel/form';
 /**
  * State tracking for individual prefillable fields
  */
-export type FieldPrefillState = 'empty' | 'prefilled' | 'user-edited';
+type FieldPrefillState = 'empty' | 'prefilled' | 'user-edited';
 
 /**
  * Tracks the prefill state of each condition field
  */
-export type ConditionFieldStates = {
+type ConditionFieldStates = {
   wave_height: FieldPrefillState;
   wind_speed: FieldPrefillState;
   wind_direction: FieldPrefillState;
   water_temp: FieldPrefillState;
 };
 
-export type ConditionFieldKey = keyof ConditionFieldStates;
+type ConditionFieldKey = keyof ConditionFieldStates;
 
 /**
  * Initial field states constant - used for initialization and reset
@@ -75,14 +75,14 @@ function mapWindDirection(direction: string | undefined | null): WindDirection |
 /**
  * Fields that can be prefilled from forecast data
  */
-export type PrefillableField = 'wave_height' | 'wind_speed' | 'wind_direction' | 'water_temp';
+type PrefillableField = 'wave_height' | 'wind_speed' | 'wind_direction' | 'water_temp';
 
 /**
  * Type for prefillable field values
  */
-export type PrefillValue = number | WindDirection | null;
+type PrefillValue = number | WindDirection | null;
 
-export interface UseIntelForecastPrefillOptions {
+interface UseIntelForecastPrefillOptions {
   /** Whether the form modal is open */
   isOpen: boolean;
   /** Beach ID to fetch forecast for */
@@ -93,7 +93,7 @@ export interface UseIntelForecastPrefillOptions {
   setValue: (field: PrefillableField, value: PrefillValue) => void;
 }
 
-export interface UseIntelForecastPrefillResult {
+interface UseIntelForecastPrefillResult {
   /** Whether forecast is currently loading */
   isLoading: boolean;
   /** Call when user edits a field to prevent overwriting */

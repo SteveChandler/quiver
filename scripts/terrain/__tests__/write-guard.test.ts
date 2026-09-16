@@ -164,7 +164,7 @@ describe('terrain write guard', () => {
         },
         NOW
       )
-    ).toThrow('Approval report must declare report_schema_version 1.')
+    ).toThrow('Approval report must declare report_schema_version 2.')
   })
 
   it('blocks approved writes that are not missing-only gap fills', () => {
@@ -659,7 +659,7 @@ function buildApprovalReport({
   verdict,
   horizonBucketProvenanceCount,
   missingHorizonBucketProvenanceCount,
-  reportSchemaVersion = 1,
+  reportSchemaVersion = 2,
 }: {
   beachIds: string[]
   proposedPath: string

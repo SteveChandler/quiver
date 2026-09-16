@@ -5,9 +5,9 @@ import {
 } from "@/lib/alerts/forecast-parsers";
 import { getLocalDateString, getLocalHour } from "@/lib/utils/timezone-utils";
 
-export const SWELL_WATCH_MIN_PEAK_FT = 3;
-export const SWELL_WATCH_MIN_RISE_FT = 2;
-export const SWELL_WATCH_MIN_PERIOD_S = 11;
+const SWELL_WATCH_MIN_PEAK_FT = 3;
+const SWELL_WATCH_MIN_RISE_FT = 2;
+const SWELL_WATCH_MIN_PERIOD_S = 11;
 
 const DAYLIGHT_START_HOUR = 6;
 const DAYLIGHT_END_HOUR = 19;

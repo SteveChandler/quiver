@@ -142,7 +142,7 @@ const RESERVED_PATHS = new Set([
 /**
  * URL pattern types for SEO redirect handling
  */
-export type UrlPatternType =
+type UrlPatternType =
   | "state-only"           // /ca, /nj, /pr
   | "us-city"              // /pr/rincon - city-level pages (for slug normalization)
   | "us-beach"             // /ca/san-diego/blacks
@@ -251,7 +251,7 @@ export function extractBeachSlugFromPath(pathname: string): string | null {
 /**
  * Beach lookup result from database
  */
-export interface BeachLookupResult {
+interface BeachLookupResult {
   slug: string;
   state: string | null;
   city: string | null;

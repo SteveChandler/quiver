@@ -12,7 +12,7 @@ import type { PostgrestFilterBuilder } from "@supabase/postgrest-js";
 /**
  * Options for filtering beach photos
  */
-export interface ApprovedPhotosOptions {
+interface ApprovedPhotosOptions {
   /**
    * Whether to include soft-deleted photos (deleted_at IS NOT NULL)
    * @default false

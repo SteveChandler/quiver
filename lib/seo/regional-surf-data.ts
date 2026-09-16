@@ -5,7 +5,7 @@
  * and climate zone classification for regionalizing intent page content.
  */
 
-export interface RegionalSurfData {
+interface RegionalSurfData {
   waterTempRange: string;
   summerWetsuit: string;
   winterWetsuit: string;

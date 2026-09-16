@@ -13,7 +13,7 @@ import type {
   CanonicalSessionDecision,
 } from "./types";
 
-export interface ResolveCanonicalSessionDecisionInput {
+interface ResolveCanonicalSessionDecisionInput {
   userId: string;
   profileExperience: unknown;
   anchorTime: string;
@@ -23,14 +23,14 @@ export interface ResolveCanonicalSessionDecisionInput {
   discoveryOptions: Omit<SurfDiscoveryOptions, "maxResults">;
 }
 
-export interface CanonicalSessionDecisionServiceDependencies {
+interface CanonicalSessionDecisionServiceDependencies {
   discoverSurfSpots?: (
     userId: string,
     options: SurfDiscoveryOptions,
   ) => Promise<SurfDiscoveryResponse>;
 }
 
-export interface CanonicalSessionDecisionContext {
+interface CanonicalSessionDecisionContext {
   decision: CanonicalSessionDecision;
   discovery: SurfDiscoveryResponse;
 }

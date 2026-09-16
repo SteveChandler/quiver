@@ -1,4 +1,3 @@
-// Minimal mapbox-gl mock: the layer touches MercatorCoordinate during render.
 jest.mock("mapbox-gl", () => {
   class MercatorCoordinate {
     x: number;
@@ -8,15 +7,27 @@ jest.mock("mapbox-gl", () => {
       this.y = y;
     }
     toLngLat(): { lng: number; lat: number } {
-      return { lng: 0, lat: 0 };
+      return {
+        lng: this.x * 360 - 180,
+        lat:
+          (2 * Math.atan(Math.exp((180 - this.y * 360) * Math.PI / 180)) -
+            Math.PI / 2) *
+          180 /
+          Math.PI,
+      };
     }
-    static fromLngLat(): MercatorCoordinate {
-      return new MercatorCoordinate(0.5, 0.5);
+    static fromLngLat({ lng, lat }: { lng: number; lat: number }): MercatorCoordinate {
+      return new MercatorCoordinate(
+        (lng + 180) / 360,
+        (180 - (180 / Math.PI) * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360))) /
+          360,
+      );
     }
   }
   return { __esModule: true, default: { MercatorCoordinate } };
 });
 
+import mapboxgl from "mapbox-gl";
 import {
   PARTICLE_VERTEX_SHADER,
   PARTICLE_FRAGMENT_SHADER,
@@ -30,6 +41,8 @@ import {
   sampleFlowField,
   createSwellParticleLayer,
   shouldAnimateSwellParticles,
+  longitudeFromMercatorX,
+  latitudeFromMercatorY,
 } from "@/components/map/swell-field/swell-particle-layer";
 import type {
   FlowField,
@@ -65,7 +78,7 @@ describe("swell particle layer — pure exports", () => {
 
   it("keeps the desktop count populated but well below a dense blanket", () => {
     expect(PARTICLE_COUNT_DESKTOP).toBe(650);
-    expect(PARTICLE_COUNT_MOBILE).toBe(520);
+    expect(PARTICLE_COUNT_MOBILE).toBe(280);
     // Denser than the first pass (which read too sparse) but still far below the
     // earlier 4000 blanket.
     expect(PARTICLE_COUNT_DESKTOP).toBeLessThanOrEqual(800);
@@ -89,6 +102,16 @@ describe("swell particle layer — pure exports", () => {
     expect(sample.vy).toBeCloseTo(Math.SQRT1_2, 6);
     expect(sample.speed).toBeCloseTo(0.5, 6);
     expect(sample.alpha).toBeCloseTo(0.5, 6);
+  });
+
+  it("round-trips inverse Mercator helpers against Mapbox coordinates", () => {
+    for (const lon of [-180, -120, 0, 75, 180]) {
+      for (const lat of [-80, -45, 0, 45, 80]) {
+        const coordinate = mapboxgl.MercatorCoordinate.fromLngLat({ lng: lon, lat });
+        expect(longitudeFromMercatorX(coordinate.x)).toBeCloseTo(lon, 12);
+        expect(latitudeFromMercatorY(coordinate.y)).toBeCloseTo(lat, 12);
+      }
+    }
   });
 });
 
@@ -159,12 +182,17 @@ describe("createSwellParticleLayer — particle count", () => {
     field?: FlowField;
     fields?: FlowField[];
     captureUploads?: boolean;
+    timestamps?: number[];
+    bounds?: { getWest(): number; getSouth(): number; getEast(): number; getNorth(): number };
+    beforeRender?: (map: import("mapbox-gl").Map, index: number) => void;
   }): {
     mode: number;
     vertexCount: number;
     draws: { mode: number; vertexCount: number }[];
     uploads: number[][];
+    matrix: number[];
     repaintCalls: number;
+    activeCount: number;
     LINES: number;
     POINTS: number;
     TRIANGLES: number;
@@ -205,6 +233,7 @@ describe("createSwellParticleLayer — particle count", () => {
       uniformMatrix4fv: jest.fn(),
       uniform3f: jest.fn(),
       uniform1f: jest.fn(),
+      uniform1i: jest.fn(),
       enable: jest.fn(),
       blendFunc: jest.fn(),
       bindBuffer: jest.fn(),
@@ -221,7 +250,7 @@ describe("createSwellParticleLayer — particle count", () => {
 
     const triggerRepaint = jest.fn();
     const map = {
-      getBounds: () => null,
+      getBounds: () => opts?.bounds ?? null,
       getCanvas: () => ({
         width: 1440,
         getBoundingClientRect: () => ({
@@ -255,9 +284,17 @@ describe("createSwellParticleLayer — particle count", () => {
       dashLengthScale: opts?.dashLengthScale,
     });
 
+    const nowSpy = opts?.timestamps
+      ? jest.spyOn(performance, "now").mockImplementation(() => opts.timestamps?.shift() ?? 0)
+      : null;
     layer.onAdd?.(map, gl);
-    for (let i = 0; i < (opts?.renders ?? 1); i += 1) {
-      layer.render(gl, new Array(16).fill(0));
+    try {
+      for (let i = 0; i < (opts?.renders ?? 1); i += 1) {
+        opts?.beforeRender?.(map, i);
+        layer.render(gl, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+      }
+    } finally {
+      nowSpy?.mockRestore();
     }
     // drawArrays(mode, 0, vertexCount) - capture all calls.
     const draws = (gl.drawArrays as jest.Mock).mock.calls.map((c) => ({
@@ -269,12 +306,60 @@ describe("createSwellParticleLayer — particle count", () => {
       vertexCount: draws[0].vertexCount,
       draws,
       uploads,
+      matrix: Array.from((gl.uniformMatrix4fv as jest.Mock).mock.calls.at(-1)[2] as Float32Array),
       repaintCalls: triggerRepaint.mock.calls.length,
+      activeCount: layer.getActiveParticleCount(),
       LINES,
       POINTS,
       TRIANGLES,
     };
   }
+
+  it("advects north at beach zoom instead of rounding small steps to zero", () => {
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+    try {
+      const { uploads } = renderedDraw({
+        count: 1, markStyle: "dot", captureUploads: true, reducedMotion: false,
+        renders: 61, timestamps: Array.from({ length: 61 }, (_, i) => i * 1000 / 60),
+        bounds: { getWest: () => -157.84, getEast: () => -157.835, getSouth: () => 21.277, getNorth: () => 21.282 },
+        field: { cols: 1, rows: 1, cells: [{ lon: -157.838, lat: 21.279, vx: 0, vy: -1, speed: 0.6, alpha: 1 }] },
+      });
+      expect(uploads[120][1]).toBeLessThan(uploads[0][1] - 1e-7);
+      expect(uploads[120][0]).toBe(uploads[0][0]);
+    } finally { random.mockRestore(); }
+  });
+
+  it("keeps close-up crest widths stable while moving across GPU rounding boundaries", () => {
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+    try {
+      const { uploads } = renderedDraw({
+        count: 1, markStyle: "dash", captureUploads: true, reducedMotion: false,
+        renders: 61, timestamps: Array.from({ length: 61 }, (_, i) => i * 1000 / 60),
+        bounds: { getWest: () => -157.84, getEast: () => -157.835, getSouth: () => 21.277, getNorth: () => 21.282 },
+        field: { cols: 1, rows: 1, cells: [{ lon: -157.838, lat: 21.279, vx: 0, vy: -1, speed: 0.6, alpha: 1 }] },
+      });
+      const widths = uploads.filter((_, i) => i % 2 === 0).map(p => Math.hypot(p[2] - p[0], p[3] - p[1]));
+      expect(Math.min(...widths)).toBeGreaterThan(0);
+      expect(Math.max(...widths) / Math.min(...widths)).toBeLessThan(1.01);
+    } finally { random.mockRestore(); }
+  });
+
+  it("spreads existing particles across the wider viewport after zooming out", () => {
+    const mapbox = require("mapbox-gl").default;
+    const from = jest.spyOn(mapbox.MercatorCoordinate, "fromLngLat").mockImplementation((value: any) => new mapbox.MercatorCoordinate(value.lng, value.lat));
+    const result = renderedDraw({ count: 100, markStyle: "dot", captureUploads: true, renders: 2, reducedMotion: true,
+      field: { cols: 1, rows: 1, cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 0, alpha: 1 }] },
+      beforeRender: (map, index) => {
+        if (index === 0) return;
+        map.getBounds = (() => ({ getWest: () => -1, getSouth: () => -1, getEast: () => 2, getNorth: () => 2 })) as any;
+      },
+    });
+    const positions = result.uploads[2];
+    const xs = positions.filter((_, index) => index % 2 === 0);
+    expect(Math.min(...xs)).toBeLessThan(-0.5);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(2);
+    from.mockRestore();
+  });
 
   /** Backwards-compat helper: just the vertex count for the default dash path. */
   function renderedVertexCount(count?: number): number {
@@ -285,8 +370,71 @@ describe("createSwellParticleLayer — particle count", () => {
     expect(renderedVertexCount()).toBe(PARTICLE_COUNT_DESKTOP * 6);
   });
 
+  it("preserves the legacy trajectory within float rounding after 100 frames", () => {
+    const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.25);
+    const field: FlowField = {
+      cols: 2,
+      rows: 2,
+      cells: [
+        { lon: -180, lat: -85, vx: 1, vy: 0, speed: 0.1, alpha: 1 },
+        { lon: 180, lat: -85, vx: 0, vy: 1, speed: 0.1, alpha: 1 },
+        { lon: -180, lat: 85, vx: -1, vy: 0, speed: 0.1, alpha: 1 },
+        { lon: 180, lat: 85, vx: 0, vy: -1, speed: 0.1, alpha: 1 },
+      ],
+    };
+    try {
+      const result = renderedDraw({
+        count: 4,
+        markStyle: "dot",
+        field,
+        reducedMotion: false,
+        renders: 100,
+        captureUploads: true,
+        timestamps: Array.from({ length: 100 }, (_, i) => i * (1000 / 60)),
+      });
+      const expected = [
+        0.11955291032791138,
+        0.12423904985189438,
+        0.622158944606781,
+        0.12029054760932922,
+        0.1304423063993454,
+        0.6257948875427246,
+        0.6278185844421387,
+        0.6297227144241333,
+      ];
+      const positions = result.uploads.at(-2);
+      expect(positions).toHaveLength(expected.length);
+      positions?.forEach((position, index) => {
+        expect(position + result.matrix[12 + index % 2]).toBeCloseTo(expected[index], 5);
+      });
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
   it("honors an explicit count override (combined-view per-layer budget)", () => {
     expect(renderedVertexCount(500)).toBe(500 * 6);
+  });
+
+  it("reduces sustained-low-fps work and restores it after sustained recovery", () => {
+    const lowTimestamps = Array.from({ length: 180 }, (_, i) => i * 50);
+    const highStart = lowTimestamps[lowTimestamps.length - 1];
+    const highTimestamps = Array.from(
+      { length: 1200 },
+      (_, i) => highStart + (i + 1) * (1000 / 60),
+    );
+    const result = renderedDraw({
+      count: 100,
+      reducedMotion: false,
+      renders: lowTimestamps.length + highTimestamps.length,
+      timestamps: [...lowTimestamps, ...highTimestamps],
+    });
+    const drawnParticleCounts = new Set(
+      result.draws.map(({ vertexCount }) => vertexCount / 6),
+    );
+
+    expect(drawnParticleCounts).toEqual(new Set([100, 75, 50, 40]));
+    expect(result.activeCount).toBe(100);
   });
 
   it("ignores a non-positive override and falls back to the default", () => {

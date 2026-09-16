@@ -12,7 +12,6 @@ import { find as findCanonical } from "geo-tz";
 import { find } from "geo-tz/now";
 import { DEFAULT_TIMEZONE } from "./timezone-constants";
 
-export { DEFAULT_TIMEZONE } from "./timezone-constants";
 export { getLocalHour, isNightHour } from "./timezone-utils.shared";
 
 type ZoneLookup = (lat: number, lon: number) => string[];

@@ -13,7 +13,7 @@ import { resolveMajorEventHoldBoundary } from "./shared";
 const DEFAULT_DAY_BEACH_LIMIT = 5;
 const DEFAULT_SURF_WINDOW_LIMIT = 5;
 
-export type MajorEventHoldRegionalForecastSummary =
+type MajorEventHoldRegionalForecastSummary =
   RegionalForecastSummary & {
     recommendationAvailability: RecommendationAvailability;
   };

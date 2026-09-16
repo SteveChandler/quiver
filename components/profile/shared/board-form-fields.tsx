@@ -11,7 +11,7 @@ import {
 /**
  * Shape of board form values - matches the boardFormSchema used in boards-manager and add-board-dialog
  */
-export interface BoardFormFieldValues {
+interface BoardFormFieldValues {
   name: string;
   board_type: string;
   dimensions: string;

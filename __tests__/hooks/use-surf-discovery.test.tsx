@@ -226,6 +226,108 @@ describe("useSurfDiscovery", () => {
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
+    it.each(["enabled", "immediate"] as const)(
+      "keeps the initial request when %s and profile options become ready together",
+      async (flag) => {
+        jest.useFakeTimers();
+        let finishRequest!: (response: unknown) => void;
+        (global.fetch as jest.Mock).mockImplementation(
+          () => new Promise((resolve) => { finishRequest = resolve; }),
+        );
+        const { result, rerender } = renderHook(
+          ({ ready }) => useSurfDiscovery({
+            [flag]: ready,
+            userLocation: ready
+              ? { lat: 32.75, lon: -117.25 }
+              : { lat: 32.715, lon: -117.161 },
+            userSkillLevel: ready ? "intermediate" : null,
+          }),
+          { initialProps: { ready: false } },
+        );
+        expect(global.fetch).not.toHaveBeenCalled();
+
+        rerender({ ready: true });
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.stringContaining("lat=32.75&lon=-117.25"),
+          expect.objectContaining({ cache: "no-store" }),
+        );
+        await act(async () => { jest.advanceTimersByTime(301); });
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+        expect(result.current.loading).toBe(true);
+
+        await act(async () => {
+          finishRequest({ ok: true, json: async () => ({ data: mockDiscoveryResponse }) });
+        });
+        expect(result.current.loading).toBe(false);
+        expect(result.current.hasRecommendations).toBe(true);
+        expect(result.current.discovery?.recommendations[0].beach.id).toBe("beach-1");
+      },
+    );
+
+    it("rechecks a later location change and rejects the earlier in-flight result", async () => {
+      jest.useFakeTimers();
+      const finishRequests: Array<(response: unknown) => void> = [];
+      (global.fetch as jest.Mock).mockImplementation(
+        () => new Promise((resolve) => { finishRequests.push(resolve); }),
+      );
+      const { result, rerender } = renderHook(
+        ({ ready, lat }) => useSurfDiscovery({
+          enabled: ready,
+          userLocation: { lat, lon: -117.25 },
+        }),
+        { initialProps: { ready: false, lat: 32.715 } },
+      );
+      rerender({ ready: true, lat: 32.75 });
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+
+      rerender({ ready: true, lat: 33 });
+      await act(async () => { jest.advanceTimersByTime(301); });
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        expect.stringContaining("lat=33&lon=-117.25"),
+        expect.objectContaining({ cache: "no-store" }),
+      );
+
+      await act(async () => {
+        finishRequests[0]({ ok: true, json: async () => ({ data: mockDiscoveryResponse }) });
+      });
+      expect(result.current.discovery).toBeNull();
+      expect(result.current.loading).toBe(true);
+
+      await act(async () => {
+        finishRequests[1]({ ok: true, json: async () => ({ data: mockDiscoveryResponse }) });
+      });
+      expect(result.current.loading).toBe(false);
+      expect(result.current.hasRecommendations).toBe(true);
+    });
+
+    it("clears the previous location when an established query is re-enabled elsewhere", async () => {
+      jest.useFakeTimers();
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true, json: async () => ({ data: mockDiscoveryResponse }),
+      });
+      const { result, rerender } = renderHook(
+        ({ enabled, lat }) => useSurfDiscovery({
+          enabled, userLocation: { lat, lon: -117.25 },
+        }),
+        { initialProps: { enabled: true, lat: 32.75 } },
+      );
+      await act(async () => {});
+      expect(result.current.hasRecommendations).toBe(true);
+
+      rerender({ enabled: false, lat: 32.75 });
+      rerender({ enabled: true, lat: 33 });
+      expect(result.current.discovery).toBeNull();
+
+      await act(async () => { jest.advanceTimersByTime(301); });
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        expect.stringContaining("lat=33&lon=-117.25"),
+        expect.objectContaining({ cache: "no-store" }),
+      );
+      expect(result.current.hasRecommendations).toBe(true);
+    });
+
     it("allows manual refetch when immediate is false", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,

@@ -8,5 +8,5 @@ export const COMMUNITY_PHOTO_ACCEPTED_MIME_TYPES = [
   "image/heif",
 ] as const;
 
-export type CommunityPhotoMimeType =
+type CommunityPhotoMimeType =
   (typeof COMMUNITY_PHOTO_ACCEPTED_MIME_TYPES)[number];

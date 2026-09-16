@@ -55,3 +55,11 @@ export const PACIOOS_CONFIG = {
   matchRadiusM: 5000,
   requestTimeoutMs: 30_000,
 } as const;
+
+/** Display policy: old samples cannot establish current water conditions. */
+export function isCurrentWaterQualitySample(sampleDate: unknown, now: number = Date.now()): boolean {
+  if (typeof sampleDate !== "string") return false;
+  const sampledAt = Date.parse(sampleDate);
+  const age = now - sampledAt;
+  return Number.isFinite(age) && age >= 0 && age < 7 * 24 * 60 * 60 * 1000;
+}

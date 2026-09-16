@@ -12,6 +12,8 @@
  * @jest-environment node
  */
 
+import { withApprovedPhotos as approvedPhotos, withNonDeleted as nonDeleted } from "@/lib/supabase/query-builders";
+
 describe("Query Builder Utilities", () => {
   // Mock PostgrestFilterBuilder to test query modifications
   class MockQueryBuilder {
@@ -41,20 +43,8 @@ describe("Query Builder Utilities", () => {
     }
   }
 
-  // Import the functions to test
-  // Note: We need to re-import for each test to ensure isolation
-  let withApprovedPhotos: any;
-  let withNonDeleted: any;
-
-  beforeEach(() => {
-    // Clear module cache to ensure fresh imports
-    jest.resetModules();
-
-    // Import the query builder functions
-    const queryBuilders = require("@/lib/supabase/query-builders");
-    withApprovedPhotos = queryBuilders.withApprovedPhotos;
-    withNonDeleted = queryBuilders.withNonDeleted;
-  });
+  const withApprovedPhotos: any = approvedPhotos;
+  const withNonDeleted: any = nonDeleted;
 
   describe("withApprovedPhotos", () => {
     describe("Default Behavior", () => {

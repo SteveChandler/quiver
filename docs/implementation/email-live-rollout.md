@@ -1,0 +1,12 @@
+# Email lifecycle live rollout — execution plan
+
+User authorized continuing toward live rollout on September 12, 2026. Target web project `v0-prd-design-concept`, Supabase `quiverDB` (`vawdnbbgawichorsjiwe`), and the companion native offer worktree.
+
+1. Verify production migrations, controls, credential presence, branch state and CI. Read-only inspection confirms contact policy exists, its ledger has no recipients, controls are disabled with daily cap 15, and four new lifecycle/reply/offer migrations are absent. Vercel has both RevenueCat secret names; Gmail credentials, RevenueCat project ID and the new lifecycle configuration are absent. No default profile value will be imported as consent.
+2. Create fresh private schema and affected-table backups with the existing production owner connection; validate the migrations against a local copy of the actual production schema. Record artifacts and exact hashes. No production migration before the repository's SHA-specific approval.
+3. Resolve the existing securely stored Gmail OAuth credential location; verify mailbox and provider identity read-only. Prepare exact configuration, a new explicit-opt-in-only first cohort, five-session program budget 25 and a 30-day campaign window. Three-month targeting remains disabled. Do not start from the historical user list without reviewed consent/history.
+4. Review and package the existing verified web/native changes. Preserve prior authorized build/Knip work and unrelated native primary edits. Use feature → main → prod and verify CI plus exact deployed commit/alias. Keep live flags disabled through migration and provider canaries.
+5. After the exact production migration approval, apply only the four hashed files with tracked migration history. Verify new tables, private privileges, RPCs, controls and a no-send dry run. Configure independently visible failure/missed-run monitoring before the three cron schedules.
+6. Enable only the approved bounded path after verified reply ingestion and provider canaries. Native release requires current runtime/store-review verification and device checks; do not publish an incompatible OTA. Verify actual run, delivery/reply and fulfillment evidence before reporting live.
+
+Rollback is feature/program disablement with durable awards, receipts and reply pauses retained. No destructive schema rollback or automatic replay of an ambiguous provider grant.

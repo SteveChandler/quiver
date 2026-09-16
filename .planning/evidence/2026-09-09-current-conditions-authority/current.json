@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "refreshed": false,
+    "refreshAttempted": false,
+    "stale": false,
+    "missing": false,
+    "availability": "fresh",
+    "dataSource": "CDIP",
+    "lastUpdated": "2026-09-10T00:01:44.734+00:00",
+    "reason": null
+  },
+  "current": {
+    "forecast_at": "2026-09-10T00:00:00+00:00",
+    "data_source": "CDIP",
+    "wave_height": "2.7 ft",
+    "wave_period": "8s",
+    "wave_direction": "SW",
+    "wave_direction_om": 219,
+    "swell_1_height": "3 ft",
+    "swell_1_period": "9s",
+    "swell_1_direction": "SW",
+    "swell_2_height": "1.7 ft",
+    "swell_2_period": "16s",
+    "swell_2_direction": "SW",
+    "swell_height_om": 0.68,
+    "swell_period_om": 6.9,
+    "swell_direction_om": 209,
+    "wind_speed": "8 mph",
+    "wind_direction": "SW",
+    "wind_direction_deg": 233,
+    "tide_height": "4.0 ft",
+    "tide_status": "Rising",
+    "water_temp": "76\u00b0F",
+    "confidence_score": 100
+  }
+}

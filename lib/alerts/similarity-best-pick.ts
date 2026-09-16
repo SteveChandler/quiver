@@ -47,7 +47,7 @@ export interface ScoredSlot {
   wave_period_s: number;
 }
 
-export interface PickArgs {
+interface PickArgs {
   scoredSlots: ScoredSlot[];
   scoreThreshold: number;
   rejectStartHourLocal: number;

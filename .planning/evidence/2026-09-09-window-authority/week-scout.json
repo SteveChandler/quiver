@@ -1,0 +1,314 @@
+{
+  "generatedAt": "2026-09-09T22:03:54.035Z",
+  "scorerVersion": "week-scout-v1:discovery-hero-v1",
+  "days": [
+    {
+      "localDate": "2026-09-09",
+      "bestWindowId": null,
+      "exclusionReasons": [
+        "no_recommendable_windows"
+      ],
+      "windows": [
+        {
+          "id": "f92a46869b1e1329edf4741b",
+          "bucket": "evening",
+          "start": "2026-09-10T00:00:00.000Z",
+          "end": "2026-09-10T02:05:22.495Z",
+          "peakTime": "2026-09-10T00:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 62,
+          "rankingScore": 42.611977430555555,
+          "verdict": "skip",
+          "rideable": true,
+          "safe": true
+        }
+      ]
+    },
+    {
+      "localDate": "2026-09-10",
+      "bestWindowId": "de4d141b3f599686b45cb5a7",
+      "exclusionReasons": [],
+      "windows": [
+        {
+          "id": "7ca390d7421f3abfe9f4073c",
+          "bucket": "morning",
+          "start": "2026-09-10T15:00:00.000Z",
+          "end": "2026-09-10T17:00:00.000Z",
+          "peakTime": "2026-09-10T15:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 84,
+          "rankingScore": 59.5,
+          "verdict": "worth_it",
+          "rideable": true,
+          "safe": true
+        },
+        {
+          "id": "515bf805fdec0f9ee31649fd",
+          "bucket": "midday",
+          "start": "2026-09-10T18:00:00.000Z",
+          "end": "2026-09-10T21:00:00.000Z",
+          "peakTime": "2026-09-10T18:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 79,
+          "rankingScore": 59.75,
+          "verdict": "worth_it",
+          "rideable": true,
+          "safe": true
+        },
+        {
+          "id": "de4d141b3f599686b45cb5a7",
+          "bucket": "evening",
+          "start": "2026-09-11T00:00:00.000Z",
+          "end": "2026-09-11T02:04:01.885Z",
+          "peakTime": "2026-09-10T23:30:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 91,
+          "rankingScore": 64.33398784722223,
+          "verdict": "worth_it",
+          "rideable": true,
+          "safe": true
+        }
+      ]
+    },
+    {
+      "localDate": "2026-09-11",
+      "bestWindowId": "9baa1d02b881bac303aea1cf",
+      "exclusionReasons": [],
+      "windows": [
+        {
+          "id": "6a537bb47e7ef68ade88d88c",
+          "bucket": "morning",
+          "start": "2026-09-11T15:00:00.000Z",
+          "end": "2026-09-11T17:00:00.000Z",
+          "peakTime": "2026-09-11T15:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 52,
+          "rankingScore": 34.5,
+          "verdict": "maybe",
+          "rideable": true,
+          "safe": true
+        },
+        {
+          "id": "d82b832a85331d54b9c7dbdd",
+          "bucket": "midday",
+          "start": "2026-09-11T18:00:00.000Z",
+          "end": "2026-09-11T21:00:00.000Z",
+          "peakTime": "2026-09-11T18:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 61,
+          "rankingScore": 50,
+          "verdict": "maybe",
+          "rideable": true,
+          "safe": true
+        },
+        {
+          "id": "9baa1d02b881bac303aea1cf",
+          "bucket": "evening",
+          "start": "2026-09-12T00:05:43.185Z",
+          "end": "2026-09-12T02:02:40.982Z",
+          "peakTime": "2026-09-09T22:03:54.035Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 62,
+          "rankingScore": 53.436735069444445,
+          "verdict": "maybe",
+          "rideable": true,
+          "safe": true
+        }
+      ]
+    },
+    {
+      "localDate": "2026-09-12",
+      "bestWindowId": null,
+      "exclusionReasons": [
+        "no_recommendable_windows"
+      ],
+      "windows": [
+        {
+          "id": "596416a474b77dd88a62aa04",
+          "bucket": "morning",
+          "start": "2026-09-12T15:00:00.000Z",
+          "end": "2026-09-12T17:00:00.000Z",
+          "peakTime": "2026-09-12T15:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 37,
+          "rankingScore": 46.8,
+          "verdict": "skip",
+          "rideable": true,
+          "safe": true
+        },
+        {
+          "id": "4cc7a27e1f1d4ef73c6ad1e7",
+          "bucket": "midday",
+          "start": "2026-09-12T18:00:00.000Z",
+          "end": "2026-09-12T21:00:00.000Z",
+          "peakTime": "2026-09-12T18:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 29,
+          "rankingScore": 43.8,
+          "verdict": "skip",
+          "rideable": true,
+          "safe": true
+        },
+        {
+          "id": "4c7f29e7f2fd9f247e5cb56a",
+          "bucket": "evening",
+          "start": "2026-09-13T00:00:00.000Z",
+          "end": "2026-09-13T02:01:19.816Z",
+          "peakTime": "2026-09-13T00:30:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 26,
+          "rankingScore": 41.827713888888894,
+          "verdict": "skip",
+          "rideable": true,
+          "safe": true
+        }
+      ]
+    },
+    {
+      "localDate": "2026-09-13",
+      "bestWindowId": null,
+      "exclusionReasons": [
+        "no_recommendable_windows"
+      ],
+      "windows": [
+        {
+          "id": "e4894c36b87c86ababf7bf05",
+          "bucket": "morning",
+          "start": "2026-09-13T15:00:00.000Z",
+          "end": "2026-09-13T17:00:00.000Z",
+          "peakTime": "2026-09-13T15:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 37,
+          "rankingScore": 48.6,
+          "verdict": "skip",
+          "rideable": true,
+          "safe": true
+        },
+        {
+          "id": "45268b6ea1b2b6b307be2b1a",
+          "bucket": "midday",
+          "start": "2026-09-13T18:00:00.000Z",
+          "end": "2026-09-13T21:00:00.000Z",
+          "peakTime": "2026-09-13T18:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 29,
+          "rankingScore": 51.575,
+          "verdict": "skip",
+          "rideable": true,
+          "safe": true
+        },
+        {
+          "id": "4c96551b440ff98b2c2bf5fe",
+          "bucket": "evening",
+          "start": "2026-09-13T21:00:00.000Z",
+          "end": "2026-09-14T01:00:00.000Z",
+          "peakTime": "2026-09-14T00:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 31,
+          "rankingScore": 53.1,
+          "verdict": "skip",
+          "rideable": true,
+          "safe": true
+        }
+      ]
+    },
+    {
+      "localDate": "2026-09-14",
+      "bestWindowId": null,
+      "exclusionReasons": [
+        "no_recommendable_windows"
+      ],
+      "windows": [
+        {
+          "id": "205b02e1071f35b6df436674",
+          "bucket": "morning",
+          "start": "2026-09-14T15:00:00.000Z",
+          "end": "2026-09-14T17:00:00.000Z",
+          "peakTime": "2026-09-14T15:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 32,
+          "rankingScore": 48.9,
+          "verdict": "skip",
+          "rideable": true,
+          "safe": true
+        },
+        {
+          "id": "feaabb5a3c9f758504fd7662",
+          "bucket": "midday",
+          "start": "2026-09-14T18:00:00.000Z",
+          "end": "2026-09-14T21:00:00.000Z",
+          "peakTime": "2026-09-14T18:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 32,
+          "rankingScore": 49.975,
+          "verdict": "skip",
+          "rideable": true,
+          "safe": true
+        },
+        {
+          "id": "1a6c54d6cc6150095c3944c3",
+          "bucket": "evening",
+          "start": "2026-09-14T21:00:00.000Z",
+          "end": "2026-09-15T01:00:00.000Z",
+          "peakTime": "2026-09-15T00:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 32,
+          "rankingScore": 50.95,
+          "verdict": "skip",
+          "rideable": true,
+          "safe": true
+        }
+      ]
+    },
+    {
+      "localDate": "2026-09-15",
+      "bestWindowId": "6743e3fbb6431eaf3b0a1667",
+      "exclusionReasons": [],
+      "windows": [
+        {
+          "id": "b8ead8ab1eccbd8043984c00",
+          "bucket": "morning",
+          "start": "2026-09-15T15:00:00.000Z",
+          "end": "2026-09-15T17:00:00.000Z",
+          "peakTime": "2026-09-15T15:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 26,
+          "rankingScore": 60.6,
+          "verdict": "skip",
+          "rideable": false,
+          "safe": true
+        },
+        {
+          "id": "316940865c08d75d6d56e69f",
+          "bucket": "midday",
+          "start": "2026-09-15T18:00:00.000Z",
+          "end": "2026-09-15T21:00:00.000Z",
+          "peakTime": "2026-09-15T18:00:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 30,
+          "rankingScore": 64.15,
+          "verdict": "skip",
+          "rideable": true,
+          "safe": true
+        },
+        {
+          "id": "6743e3fbb6431eaf3b0a1667",
+          "bucket": "evening",
+          "start": "2026-09-16T00:00:00.000Z",
+          "end": "2026-09-16T01:00:00.000Z",
+          "peakTime": "2026-09-16T00:30:00.000Z",
+          "beachId": "15c7337e-5258-4339-9dc3-c435c666926b",
+          "conditionScore": 47,
+          "rankingScore": 52.25,
+          "verdict": "maybe",
+          "rideable": true,
+          "safe": true
+        }
+      ]
+    }
+  ],
+  "sessionDecision": {
+    "verdict": "no",
+    "selection": null
+  }
+}

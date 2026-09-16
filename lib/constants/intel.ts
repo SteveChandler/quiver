@@ -115,7 +115,7 @@ export const INTEL_UI_TEXT = {
 };
 
 // Map configuration
-export const INTEL_MAP_CONFIG = {
+const INTEL_MAP_CONFIG = {
   DEFAULT_ZOOM: 13,
   CLUSTER_MAX_ZOOM: 16,
   PIN_COLORS: {
@@ -134,7 +134,7 @@ export const INTEL_MAP_CONFIG = {
 };
 
 // Filter options
-export const INTEL_FILTERS = {
+const INTEL_FILTERS = {
   RADIUS_OPTIONS: [
     { value: 1, label: "1 mile" },
     { value: 2, label: "2 miles" },
@@ -178,7 +178,7 @@ const INTEL_CONFIRMATION_CONFIG = {
 // Helper functions
 export const getIntelTagConfig = (tag: IntelPostTag) => INTEL_TAGS[tag];
 
-export const getConfidenceLevel = (confirmations: number) => {
+const getConfidenceLevel = (confirmations: number) => {
   if (confirmations >= INTEL_CONFIRMATION_CONFIG.THRESHOLDS.HIGH) return "HIGH";
   if (confirmations >= INTEL_CONFIRMATION_CONFIG.THRESHOLDS.MEDIUM)
     return "MEDIUM";

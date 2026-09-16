@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "__tests__/components/field-guide/quiver-field-guide-landing.test.tsx"
+        ],
+        "createdAt": "2026-09-03T19:49:39.774Z",
+        "reason": "Agent review: intentional Next Image test mock forwards real src through props; not a production broken image."
+      }
+    ]
+  }
+}

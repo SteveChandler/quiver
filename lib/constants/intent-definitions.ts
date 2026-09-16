@@ -13,7 +13,7 @@ export const INTENT_GROUPS = {
   style: 'Style',
 } as const;
 
-export type IntentGroupKey = keyof typeof INTENT_GROUPS;
+type IntentGroupKey = keyof typeof INTENT_GROUPS;
 
 type IntentDefinitionShape = {
   key: string;
@@ -82,7 +82,7 @@ export const INTENTS_BY_GROUP = {
 export const isConditionsIntent = (key: IntentKey): boolean =>
   INTENTS_BY_GROUP.conditions.some(i => i.key === key);
 
-export const isStyleIntent = (key: IntentKey): boolean =>
+const isStyleIntent = (key: IntentKey): boolean =>
   INTENTS_BY_GROUP.style.some(i => i.key === key);
 
 // URL builders - single source of truth

@@ -4,6 +4,7 @@ import {
   validateUuidParam,
   createSuccessResponse,
   createNotFoundError,
+  createValidationError,
   withNoStore,
 } from "@/lib/middleware/api-wrappers";
 import {
@@ -13,7 +14,10 @@ import {
 } from "@/lib/recommendations/major-event-hold/adapters/bulk-forecast";
 import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 import { calculateRideableWaves } from "@/lib/domains/wave-frequency/calculator";
-import { scoreNativeForecastSlot } from "@/lib/scoring/native-condition-score";
+import { resolveNativeSkillLevel } from "@/lib/scoring/native-condition-score";
+import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
+import { fetchUserBoardContext } from "@/lib/services/discovery/surf-discovery-orchestrator";
+import type { BoardClass } from "@/lib/domains/rideability";
 import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
 import { parseWaveHeight } from "@/lib/utils/forecast-parsing";
@@ -159,10 +163,15 @@ function parseWaveHeightRange(text: string | null | undefined): {
 export function scoreForecastSlots(
   forecasts: EnhancedForecastEntity[],
   beach: Beach,
-  skillLevel?: SkillLevel | string | null
+  skillLevel?: SkillLevel | string | null,
+  boardClasses: readonly BoardClass[] = [],
 ): TimeSlot[] {
   return forecasts.map((forecast) => {
-    const compositeScore = scoreNativeForecastSlot(forecast, skillLevel);
+    const compositeScore = scoreWindowConditionScore(
+      forecast, beach,
+      boardClasses.length > 0 ? skillLevel : resolveNativeSkillLevel(skillLevel),
+      null, boardClasses,
+    );
 
     // Wave frequency
     const {
@@ -336,6 +345,11 @@ export const GET = withNoStore(withAuth(
     if ("error" in uuidResult) return uuidResult.error;
     const validBeachId = uuidResult.value;
     const { supabase } = context;
+    const range = request.nextUrl.searchParams.get("range");
+    if (range !== null && range !== "14day") {
+      return createValidationError("range must be 14day when provided");
+    }
+    const extended = range === "14day";
 
     // Fetch beach
     const { data: beach, error: beachError } = await supabase
@@ -348,23 +362,20 @@ export const GET = withNoStore(withAuth(
       return createNotFoundError("Beach");
     }
 
-    // Fetch next 24 hours of enhanced forecasts (8 slots × 3h = 24h) and
-    // the latest live-buoy observation in parallel — both feed the beach
-    // detail UI (forecast slots + LiveBuoyChip).
-    const now = new Date().toISOString();
-    const twentyFourHoursLater = new Date(
-      Date.now() + 24 * 60 * 60 * 1000
-    ).toISOString();
+    // Keep the legacy 24-hour response; native can request its full timeline.
+    const nowMs = Date.now();
+    const startsAt = new Date(nowMs - (extended ? 8 : 0) * 3_600_000).toISOString();
+    const endsAt = new Date(nowMs + (extended ? 14 : 1) * 24 * 3_600_000).toISOString();
 
     const [forecastsResult, latestObservation] = await Promise.all([
       supabase
         .from("enhanced_forecasts")
         .select("*")
         .eq("beach_id", validBeachId)
-        .gte("forecast_at", now)
-        .lt("forecast_at", twentyFourHoursLater)
+        .gte("forecast_at", startsAt)
+        .lt("forecast_at", endsAt)
         .order("forecast_at")
-        .limit(8),
+        .limit(extended ? 344 : 8),
       fetchLatestObservation(supabase, validBeachId),
     ]);
 
@@ -384,7 +395,12 @@ export const GET = withNoStore(withAuth(
       context.user?.id
     );
 
-    const timeSlots = scoreForecastSlots(forecastList, beach as Beach, userSkillLevel);
+    const boardContext = context.user
+      ? await fetchUserBoardContext(supabase, context.user.id, false)
+      : null;
+    const timeSlots = scoreForecastSlots(
+      forecastList, beach as Beach, userSkillLevel, boardContext?.boardClasses,
+    );
 
     // Identify golden windows
     const goldenWindows = identifyGoldenWindows(timeSlots);

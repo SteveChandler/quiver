@@ -1,0 +1,35 @@
+{
+  "checked_at": "2026-09-03T20:12:27.705631+00:00",
+  "results": [
+    {
+      "beach_id": "90df1267-5d2e-51b6-ba06-21e89405166c",
+      "status": 200,
+      "content_type": "image/jpeg",
+      "jpeg": true
+    },
+    {
+      "beach_id": "0922be9c-e437-5f0a-90a8-82588f429564",
+      "status": 200,
+      "content_type": "image/jpeg",
+      "jpeg": true
+    },
+    {
+      "beach_id": "67def85b-7500-5ccb-bd86-7141652da53e",
+      "status": 200,
+      "content_type": "image/jpeg",
+      "jpeg": true
+    },
+    {
+      "beach_id": "75e0bd7d-f25d-54eb-b455-af99eb561200",
+      "status": 200,
+      "content_type": "image/jpeg",
+      "jpeg": true
+    },
+    {
+      "beach_id": "0bc849fa-7e06-5600-8176-d2fda5ecfbf0",
+      "status": 200,
+      "content_type": "image/jpeg",
+      "jpeg": true
+    }
+  ]
+}

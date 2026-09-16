@@ -7,7 +7,7 @@ import type { BeachBasicInfo } from '@/types/database';
 
 export type { BeachBasicInfo };
 
-export interface SaveHomeBeachResult {
+interface SaveHomeBeachResult {
   success: boolean;
   error?: string;
 }

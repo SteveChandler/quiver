@@ -8,14 +8,14 @@ import { WelcomeEmail } from "@/lib/mailer/templates/WelcomeEmail";
 
 export const WELCOME_EMAIL_SUBJECT = "Your forecast is live";
 
-export interface GenerateWelcomeEmailInput {
+interface GenerateWelcomeEmailInput {
   baseUrl: string;
   homeBeachName?: string | null;
   homeBeachSlug?: string | null;
   messageInstanceId: string;
 }
 
-export interface GeneratedWelcomeEmail {
+interface GeneratedWelcomeEmail {
   subject: typeof WELCOME_EMAIL_SUBJECT;
   react: React.ReactElement;
   text: string;

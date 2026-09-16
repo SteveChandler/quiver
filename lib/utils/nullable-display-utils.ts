@@ -17,7 +17,7 @@ const EM_DASH = "—";
  * displayNumber(85, { format: (n) => n.toFixed(1) }) // "85.0"
  * displayNumber(null) // "—"
  */
-export function displayNumber(
+function displayNumber(
   val: number | null | undefined,
   opts?: {
     fallback?: string;
@@ -77,7 +77,7 @@ function displayCount(
  * const scores = [85, null, 90, undefined];
  * const validScores = scores.filter(hasValue); // number[]
  */
-export function hasValue(val: number | null | undefined): val is number {
+function hasValue(val: number | null | undefined): val is number {
   return val !== null && val !== undefined;
 }
 

@@ -23,7 +23,7 @@ export {
 } from "./ccc-sync-service";
 
 export type {
-  NormalizedCCCLocation,
+
   FetchResult,
   UpsertResult,
   MatchResult,

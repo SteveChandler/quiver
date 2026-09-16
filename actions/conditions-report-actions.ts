@@ -138,6 +138,6 @@ export async function getRecentConditionsReports(
 // ---------------------------------------------------------------------------
 // Type export for callers that need the return shape
 // ---------------------------------------------------------------------------
-export type SubmitConditionsReportResult = ServerActionResponse<
+type SubmitConditionsReportResult = ServerActionResponse<
   ActionResult<{ intelPostId: string; sessionId: string | null }>
 >;

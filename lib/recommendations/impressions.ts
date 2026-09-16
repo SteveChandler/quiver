@@ -9,7 +9,7 @@ export const RecommendationImpressionSurfaceSchema = z.enum([
   "session_intelligence",
 ]);
 
-export const RecommendationImpressionModeSchema = z.enum(["log"]);
+const RecommendationImpressionModeSchema = z.enum(["log"]);
 
 export const RecommendationImpressionTimeSlotSchema = z
   .enum([

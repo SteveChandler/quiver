@@ -95,7 +95,7 @@ export function getBeachLocation(beach: Beach): string {
 /**
  * Prepare multiple beach cards data efficiently
  */
-export function prepareMultipleBeachCardData(
+function prepareMultipleBeachCardData(
   beaches: Beach[],
   userLocation?: { lat: number; lon: number } | null,
   reviewStats?: Record<string, ReviewStats>,

@@ -1,3 +1,4 @@
+import { redactSecrets } from "@/lib/monitoring/redact-secrets";
 import { init, captureRouterTransitionStart } from "@sentry/nextjs";
 import { initPostHog } from "@/lib/posthog-client";
 import {
@@ -79,7 +80,7 @@ export async function register(): Promise<void> {
       // Override environment based on hostname
       event.environment = detectedEnv;
 
-      return event;
+      return redactSecrets(event);
     },
 
     beforeSendTransaction(event) {
@@ -90,7 +91,7 @@ export async function register(): Promise<void> {
       }
 
       event.environment = detectedEnv;
-      return event;
+      return redactSecrets(event);
     },
 
     // Replay is lazy-loaded below — keep integrations empty at init time

@@ -1,5 +1,6 @@
 export const FOOTER_LINKS = {
   about: [
+    { name: "Download Quiver", href: "/download" },
     { name: "About Quiver", href: "/about" },
     { name: "Features", href: "/features" },
     { name: "Roadmap", href: "/roadmap" },
@@ -28,6 +29,8 @@ export const FOOTER_LINKS = {
     { name: "Sunset Sessions", href: "/sunset/ca" },
     { name: "Less Crowded", href: "/least-crowded/ca" },
     { name: "Longboard Spots", href: "/longboard/ca" },
+    { name: "Surf Guides", href: "/guides" },
+    { name: "Surf Game", href: "/surf-game" },
     { name: "Surfer's Toolkit", href: "/tools" },
   ],
   legal: [

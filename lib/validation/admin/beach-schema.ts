@@ -77,4 +77,4 @@ export type BeachFormData = z.infer<typeof beachFormSchema>;
 
 // Type for beach updates (all fields optional except those we want to enforce)
 export const beachUpdateSchema = beachFormSchema.partial().required({ name: true, region: true });
-export type BeachUpdateData = z.infer<typeof beachUpdateSchema>;
+type BeachUpdateData = z.infer<typeof beachUpdateSchema>;

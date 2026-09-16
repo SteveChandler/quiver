@@ -7,14 +7,14 @@
 // Types
 export type {
   SwellComponent,
-  WindState,
+
   TideDirection,
-  TideStatus,
-  TideState,
+
+
   ConditionsSnapshot,
-  TrendDirection,
+
   ConditionsWindow,
-  SwellAnalysis,
+
 } from './types';
 
 export { CONDITIONS_CONSTANTS } from './types';
@@ -42,7 +42,7 @@ export {
 export type {
   SwellPartition,
   SwellPartitions,
-  DominantSwell,
-  DominantSource,
+
+
 } from './dominant-swell';
-export { pickDominantSwell, pickSecondarySwell } from './dominant-swell';
+export { pickDominantSwell,  } from './dominant-swell';

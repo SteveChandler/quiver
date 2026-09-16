@@ -1,6 +1,6 @@
 import { findLicensedCamOverride } from "@/lib/media/licensed-cam-overrides";
 
-export type CamEmbedIntent =
+type CamEmbedIntent =
   | { kind: "none" }
   | { kind: "iframe"; src: string; title?: string; allow?: string }
   | { kind: "video"; src: string }
@@ -27,7 +27,7 @@ export function getViewableUrl(url: string | null | undefined): string | null {
 export function toProxiedHlsUrl(url: string): string {
   try {
     const parsed = new URL(url);
-    if (parsed.hostname === "live.hdontap.com") {
+    if (parsed.hostname === "live.hdontap.com" || parsed.hostname === "watch.hdrelay.io") {
       return `/api/hls-proxy/${parsed.hostname}${parsed.pathname}${parsed.search}`;
     }
     return url;
@@ -79,7 +79,7 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       if (u.hostname === "hls.cdn-surfline.com") {
         return { kind: "hls", src: `/api/hls-proxy/${u.hostname}${u.pathname}` };
       }
-      return { kind: "hls", src: href };
+      return { kind: "hls", src: u.hostname === "watch.hdrelay.io" ? toProxiedHlsUrl(href) : href };
     }
 
     if (
@@ -140,6 +140,28 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
         return { kind: "hdontap", pageUrl: licensedOverride.importCameraUrl };
       }
       return { kind: "external", pageUrl: href, provider: "The Surfers View" };
+    }
+
+    if (u.hostname === "marriott.ozolio.com" && u.pathname === "/mauna-kea-beach-hotel/") {
+      return { kind: "external", pageUrl: href, provider: "Mauna Kea Beach Hotel" };
+    }
+
+    // Provider pages stay external until player embedding permission is confirmed.
+    const externalProviders: Record<string, string> = {
+      "flaglersurf.com": "Flagler Surf",
+      "corollalightresort.com": "Corolla Light Resort",
+      "7thstreetsurfshop.com": "7th Street Surf Shop",
+      "hilton.com": "Hilton",
+      "ozolio.com": "Ozolio",
+      "brenneckes.com": "Brennecke’s",
+      "napilisunset.com": "Napili Sunset",
+      "sigward.com": "Muir Beach Webcam",
+      "video.nest.com": "Nest",
+      "vbbound.com": "Virginia Beach Bound",
+    };
+    const hostname = u.hostname.replace(/^www\./, "");
+    if (Object.hasOwn(externalProviders, hostname)) {
+      return { kind: "external", pageUrl: href, provider: externalProviders[hostname] };
     }
 
     // Default iframe attempt (may be blocked)

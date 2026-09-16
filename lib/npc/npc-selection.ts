@@ -36,7 +36,7 @@ export interface NPCProfile {
   is_system_account: boolean;
 }
 
-export interface BeachRecord {
+interface BeachRecord {
   id: string;
   name: string;
   lat: number | null;

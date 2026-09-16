@@ -30,7 +30,7 @@ export interface NearbySpot {
   reasonText?: string;
 }
 
-export interface NearbySpotsProps {
+interface NearbySpotsProps {
   spots: NearbySpot[];
   onViewSpot: (spotId: string) => void;
   loading?: boolean;

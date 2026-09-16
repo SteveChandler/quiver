@@ -1,0 +1,220 @@
+{
+  "capturedAt": "2026-09-11T17:05:55.729Z",
+  "beach": {
+    "id": "badd7986-4609-421a-ab3d-81fcd8409a5b",
+    "name": "Ponto",
+    "timezone": "America/Los_Angeles",
+    "lat": 33.0862,
+    "lon": -117.313404
+  },
+  "rows": [
+    {
+      "forecast_at": "2026-09-11T09:00:00+00:00",
+      "wave_height": "3.5 ft",
+      "wave_period": "17s",
+      "swell_1_period": "18s",
+      "wind_speed": "5 mph",
+      "wind_direction": "SE",
+      "tide_height": "-0.1 ft",
+      "tide_status": "Rising",
+      "data_source": "CDIP",
+      "confidence_score": 100
+    },
+    {
+      "forecast_at": "2026-09-11T12:00:00+00:00",
+      "wave_height": "3.5 ft",
+      "wave_period": "17s",
+      "swell_1_period": "18s",
+      "wind_speed": "4 mph",
+      "wind_direction": "SSE",
+      "tide_height": "2.7 ft",
+      "tide_status": "Rising",
+      "data_source": "CDIP",
+      "confidence_score": 99
+    },
+    {
+      "forecast_at": "2026-09-11T15:00:00+00:00",
+      "wave_height": "3.8 ft",
+      "wave_period": "17s",
+      "swell_1_period": "18s",
+      "wind_speed": "3 mph",
+      "wind_direction": "S",
+      "tide_height": "3.7 ft",
+      "tide_status": "Rising",
+      "data_source": "CDIP",
+      "confidence_score": 100
+    },
+    {
+      "forecast_at": "2026-09-11T18:00:00+00:00",
+      "wave_height": "3.8 ft",
+      "wave_period": "17s",
+      "swell_1_period": "18s",
+      "wind_speed": "13 mph",
+      "wind_direction": "SSW",
+      "tide_height": "4.7 ft",
+      "tide_status": "Falling",
+      "data_source": "CDIP",
+      "confidence_score": 99
+    },
+    {
+      "forecast_at": "2026-09-11T21:00:00+00:00",
+      "wave_height": "3.8 ft",
+      "wave_period": "12s",
+      "swell_1_period": "12s",
+      "wind_speed": "10 mph",
+      "wind_direction": "S",
+      "tide_height": "2.2 ft",
+      "tide_status": "Falling",
+      "data_source": "OPEN_METEO",
+      "confidence_score": 92
+    },
+    {
+      "forecast_at": "2026-09-12T00:00:00+00:00",
+      "wave_height": "3.7 ft",
+      "wave_period": "12s",
+      "swell_1_period": "12s",
+      "wind_speed": "5 mph",
+      "wind_direction": "S",
+      "tide_height": "1.5 ft",
+      "tide_status": "Rising",
+      "data_source": "OPEN_METEO",
+      "confidence_score": 91
+    },
+    {
+      "forecast_at": "2026-09-12T03:00:00+00:00",
+      "wave_height": "3.7 ft",
+      "wave_period": "12s",
+      "swell_1_period": "12s",
+      "wind_speed": "5 mph",
+      "wind_direction": "S",
+      "tide_height": "4 ft",
+      "tide_status": "Rising",
+      "data_source": "OPEN_METEO",
+      "confidence_score": 89
+    },
+    {
+      "forecast_at": "2026-09-12T06:00:00+00:00",
+      "wave_height": "3.3 ft",
+      "wave_period": "12s",
+      "swell_1_period": "12s",
+      "wind_speed": "5 mph",
+      "wind_direction": "S",
+      "tide_height": "4.7 ft",
+      "tide_status": "Falling",
+      "data_source": "OPEN_METEO",
+      "confidence_score": 88
+    },
+    {
+      "forecast_at": "2026-09-12T09:00:00+00:00",
+      "wave_height": "3.3 ft",
+      "wave_period": "12s",
+      "swell_1_period": "12s",
+      "wind_speed": "5 mph",
+      "wind_direction": "S",
+      "tide_height": "2.1 ft",
+      "tide_status": "Falling",
+      "data_source": "OPEN_METEO",
+      "confidence_score": 86
+    },
+    {
+      "forecast_at": "2026-09-12T12:00:00+00:00",
+      "wave_height": "3.2 ft",
+      "wave_period": "12s",
+      "swell_1_period": "12s",
+      "wind_speed": "5 mph",
+      "wind_direction": "S",
+      "tide_height": "1.3 ft",
+      "tide_status": "Rising",
+      "data_source": "OPEN_METEO",
+      "confidence_score": 85
+    },
+    {
+      "forecast_at": "2026-09-12T15:00:00+00:00",
+      "wave_height": "3 ft",
+      "wave_period": "12s",
+      "swell_1_period": "12s",
+      "wind_speed": "5 mph",
+      "wind_direction": "S",
+      "tide_height": "3.8 ft",
+      "tide_status": "Rising",
+      "data_source": "OPEN_METEO",
+      "confidence_score": 83
+    },
+    {
+      "forecast_at": "2026-09-12T18:00:00+00:00",
+      "wave_height": "2.9 ft",
+      "wave_period": "11s",
+      "swell_1_period": "11s",
+      "wind_speed": "5 mph",
+      "wind_direction": "SW",
+      "tide_height": "4.8 ft",
+      "tide_status": "Falling",
+      "data_source": "OPEN_METEO",
+      "confidence_score": 82
+    },
+    {
+      "forecast_at": "2026-09-12T21:00:00+00:00",
+      "wave_height": "2.8 ft",
+      "wave_period": "11s",
+      "swell_1_period": "11s",
+      "wind_speed": "5 mph",
+      "wind_direction": "W",
+      "tide_height": "2.7 ft",
+      "tide_status": "Falling",
+      "data_source": "OPEN_METEO",
+      "confidence_score": 80
+    },
+    {
+      "forecast_at": "2026-09-13T00:00:00+00:00",
+      "wave_height": "2.1 ft",
+      "wave_period": "10s",
+      "swell_1_period": "6s",
+      "wind_speed": "5 mph",
+      "wind_direction": "W",
+      "tide_height": "0.6 ft",
+      "tide_status": "Rising",
+      "data_source": "OPEN_METEO",
+      "confidence_score": 79
+    },
+    {
+      "forecast_at": "2026-09-13T03:00:00+00:00",
+      "wave_height": "2.5 ft",
+      "wave_period": "10s",
+      "swell_1_period": "10s",
+      "wind_speed": "0 mph",
+      "wind_direction": "SW",
+      "tide_height": "2.8 ft",
+      "tide_status": "Rising",
+      "data_source": "OPEN_METEO",
+      "confidence_score": 77
+    },
+    {
+      "forecast_at": "2026-09-13T06:00:00+00:00",
+      "wave_height": "1.8 ft",
+      "wave_period": "10s",
+      "swell_1_period": "6s",
+      "wind_speed": "0 mph",
+      "wind_direction": "SW",
+      "tide_height": "5 ft",
+      "tide_status": "Falling",
+      "data_source": "OPEN_METEO",
+      "confidence_score": 76
+    }
+  ],
+  "cases": [
+    {
+      "now": "2026-09-11T16:57:00.000Z",
+      "start": "2026-09-11T15:00:00.000Z",
+      "end": "2026-09-11T18:00:00.000Z",
+      "score": 89,
+      "clock": "Now until 11:00 AM \u00b7 1 h 3 min left"
+    },
+    {
+      "now": "2026-09-12T16:57:00.000Z",
+      "start": "2026-09-12T15:00:00.000Z",
+      "end": "2026-09-13T00:00:00.000Z",
+      "score": 79,
+      "clock": "Now until 5:00 PM \u00b7 7 h 3 min left"
+    }
+  ]
+}

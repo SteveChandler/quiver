@@ -141,7 +141,7 @@ export function shouldApplyNowcastAnchor(args: {
 }
 
 /** Per-beach tally of how many forecast slots kept the calibrated shoaling path. */
-export interface CalibrationCoverage {
+interface CalibrationCoverage {
   beachId: string;
   calibrated: boolean;
   nowcastEligibleSlots: number;
@@ -222,7 +222,7 @@ export function resolveCdipNowcastPoint(args: {
 /**
  * Interface for injected dependencies (services)
  */
-export interface DataSourceServices {
+interface DataSourceServices {
   getWaveDirectionText: (degrees: number) => string;
   getTideStatusAtTime: (tides: COOPSTideData[], time: Date) => TideStatus;
   getTideHeightAtTime: (tides: COOPSTideData[], time: Date) => number | null;
@@ -361,7 +361,6 @@ async function createDefaultTrustedForecastProjectionStore(): Promise<TrustedFor
   }
 }
 
-export { TrustedForecastLayerError } from "@/lib/errors/forecast-errors";
 
 function hasServiceRoleConfig(): boolean {
   return (
@@ -404,7 +403,7 @@ function readBeachOffsetConfig(beach: Beach): {
  * Returns an empty Map on any failure — the helper short-circuits to identity
  * when no offset row is provided, so the caller is safe to fall through.
  */
-export async function loadHeightOffsetsForBeaches(
+async function loadHeightOffsetsForBeaches(
   beachIds: string[]
 ): Promise<Map<string, BeachHeightOffsetRow>> {
   const out = new Map<string, BeachHeightOffsetRow>();
@@ -1036,6 +1035,9 @@ export class ForecastBuilder {
       beach,
       nowcastAnchor,
     );
+    const replayBase = waveHeightResult.debug.replayInput
+      ? { input: waveHeightResult.debug.replayInput, supported: southOcSanoGuardrail.kind === "noop" }
+      : null;
     let appliedSouthOcSanoGuardrail: SouthOcSanoGuardrailResult | null = null;
 
     if (southOcSanoGuardrail.kind !== "noop") {
@@ -1070,6 +1072,7 @@ export class ForecastBuilder {
         waveHeight: waveHeightResult.value,
         dataSource: timepointDataSource,
         waveHeightSource: waveHeightResult.debug.source,
+        ...(replayBase ? { replay: replayBase } : {}),
       },
     });
     if (handoffStep.metric) {
@@ -1266,6 +1269,14 @@ export class ForecastBuilder {
         display_source: "face-Hs-transformer-v1",
         display_wave_source: waveHeightResult.debug.source,
         display_raw_input_height_m: displayRawInputHeightM,
+        display_replay_context: replayBase ? JSON.parse(JSON.stringify({
+          version: 1, generatedAt: now.toISOString(), forecastAt, base: replayBase,
+          handoff: handoffBlendEnabled ? handoffBlendState.replay ?? null : null,
+          unsupportedReason: (beachOffsetCfgRow.enabled && heightOffset != null) || feedbackCalibrationCandidate != null
+            ? "offset"
+            : handoffBlendEnabled && handoffBlendState.seam && !handoffBlendState.replay
+              ? "missing-handoff" : null,
+        })) : null,
         wave_height_om_m: omHeightM,
         noaa_swell_1_height_m: wavePoint?.swell_1_height ?? null,
         noaa_swell_1_period_s: wavePoint?.swell_1_period ?? null,
@@ -1338,6 +1349,10 @@ export class ForecastBuilder {
       snapshotIndex,
     });
 
+    const sourceSelection = waveHeightResult.debug.source?.startsWith('model_')
+      ? wavePoint?.source_selection : undefined;
+    const effectiveConfidence = sourceSelection?.disagreement
+      ? Math.min(confidenceScore, 40) : confidenceScore;
     return {
       id: `forecast-${beach.id}-${forecastTime.getTime()}`,
       forecast_date: dateString,
@@ -1407,27 +1422,30 @@ export class ForecastBuilder {
       air_temperature: this.getAirTemperature(weatherPoint, beach, forecastTime),
 
       beach_id: beach.id,
-      confidence_score: confidenceScore,
+      confidence_score: effectiveConfidence,
       data_source: timepointDataSource,
       created_at: now.toISOString(),
       updated_at: now.toISOString(),
 
       // Raw forecast metadata
-      raw_forecast: this.buildRawForecast({
-        dataSources,
-        useCDIPData,
-        cdipData,
-        confidenceScore,
-        isFirstOfDay,
-        tideData,
-        now,
-        waveHeightDebug: waveHeightResult.debug,
-        nowcastAnchor: appliedSouthOcSanoGuardrail?.anchor ?? nowcastAnchor,
-        southOcSanoGuardrail:
-          southOcSanoGuardrail.kind !== "noop" ? southOcSanoGuardrail : null,
-        southOcSanoGuardrailHeightFloorApplied:
-          appliedSouthOcSanoGuardrail !== null,
-      }),
+      raw_forecast: {
+        ...this.buildRawForecast({
+          dataSources,
+          useCDIPData,
+          cdipData,
+          confidenceScore: effectiveConfidence,
+          isFirstOfDay,
+          tideData,
+          now,
+          waveHeightDebug: waveHeightResult.debug,
+          nowcastAnchor: appliedSouthOcSanoGuardrail?.anchor ?? nowcastAnchor,
+          southOcSanoGuardrail:
+            southOcSanoGuardrail.kind !== "noop" ? southOcSanoGuardrail : null,
+          southOcSanoGuardrailHeightFloorApplied:
+            appliedSouthOcSanoGuardrail !== null,
+        }),
+        ...(sourceSelection ? { wave_source_selection: sourceSelection } : {}),
+      },
     } as EnhancedForecastWithRawData;
   }
 
@@ -1756,7 +1774,8 @@ export class ForecastBuilder {
                   cardinalToDegrees(wavePoint.swell_1_direction) ?? null,
               }
             : null,
-          wavePoint.swell_2_height > 0 && wavePoint.swell_2_period > 0
+          wavePoint.swell_2_height != null && wavePoint.swell_2_height > 0 &&
+          wavePoint.swell_2_period != null && wavePoint.swell_2_period > 0
             ? {
                 heightFt: wavePoint.swell_2_height * METERS_TO_FEET,
                 periodS: wavePoint.swell_2_period,
@@ -1900,7 +1919,10 @@ export class ForecastBuilder {
   ): { height: number; period: number; direction: number } | null {
     return pickDominantSwell({
       swell_1: { height: wavePoint.swell_1_height, period: wavePoint.swell_1_period, direction: wavePoint.swell_1_direction },
-      swell_2: { height: wavePoint.swell_2_height, period: wavePoint.swell_2_period, direction: wavePoint.swell_2_direction },
+      swell_2: wavePoint.swell_2_height != null &&
+        wavePoint.swell_2_period != null && wavePoint.swell_2_direction != null
+        ? { height: wavePoint.swell_2_height, period: wavePoint.swell_2_period, direction: wavePoint.swell_2_direction }
+        : null,
       wind_wave: { height: wavePoint.wind_wave_height, period: wavePoint.wind_wave_period, direction: wavePoint.wind_wave_direction },
     });
   }
@@ -1984,7 +2006,7 @@ export class ForecastBuilder {
   private getSwell2Direction(wavePoint: WaveWatchData | null): string | null {
     // Gate on height: 0° is a legitimate direction on its own, but if the
     // secondary-swell height is the 0 sentinel the direction is meaningless.
-    if (!wavePoint || wavePoint.swell_2_height == null || wavePoint.swell_2_height === 0) return null;
+    if (!wavePoint || wavePoint.swell_2_height == null || wavePoint.swell_2_height === 0 || wavePoint.swell_2_direction == null) return null;
     return this.services.getWaveDirectionText(wavePoint.swell_2_direction);
   }
 

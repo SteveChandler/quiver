@@ -277,7 +277,7 @@ export function useBeachSearch() {
   }, [state.searchQuery, hasLoadedAllBeaches, loadBeaches]);
 
   const loadNearbyBeaches = useCallback(
-    async (latitude: number, longitude: number) => {
+    async (latitude: number, longitude: number, options?: { background?: boolean }) => {
       const requestId = nearbyRequestIdRef.current + 1;
       nearbyRequestIdRef.current = requestId;
       nearbyAbortControllerRef.current?.abort();
@@ -299,12 +299,14 @@ export function useBeachSearch() {
           generation: presentationGenerationRef.current,
         };
       }
-      filteredBeachesRef.current = [];
-      setState((prev) => ({
-        ...prev,
-        filteredBeaches: [],
-        resultsQuery: "",
-      }));
+      if (!options?.background) {
+        filteredBeachesRef.current = [];
+        setState((prev) => ({
+          ...prev,
+          filteredBeaches: [],
+          resultsQuery: "",
+        }));
+      }
  
       try {
         const result = await getNearbyBeaches(

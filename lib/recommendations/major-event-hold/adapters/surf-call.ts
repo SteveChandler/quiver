@@ -23,7 +23,7 @@ export type AuthorizedSurfCallTier =
   | "advanced"
   | null;
 
-export interface SurfCallCandidateIdentity {
+interface SurfCallCandidateIdentity {
   candidateId: string;
   beachId: string;
   authorizedTier: AuthorizedSurfCallTier;

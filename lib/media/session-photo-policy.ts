@@ -13,11 +13,11 @@ export const SESSION_PHOTO_ACCEPTED_MIME_TYPES = [
 export const SESSION_PHOTO_ACCEPT_ATTRIBUTE =
   SESSION_PHOTO_ACCEPTED_MIME_TYPES.join(",");
 
-export type SessionPhotoValidationError =
+type SessionPhotoValidationError =
   | "invalid_file_type"
   | "file_too_large";
 
-export function isSessionPhotoMimeType(
+function isSessionPhotoMimeType(
   mimeType: string,
 ): mimeType is (typeof SESSION_PHOTO_ACCEPTED_MIME_TYPES)[number] {
   return (SESSION_PHOTO_ACCEPTED_MIME_TYPES as readonly string[]).includes(

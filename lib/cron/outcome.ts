@@ -23,6 +23,8 @@ export interface CronOutcomeOptions<T> {
     result: T,
   ) => CronOutcome["legitimatelyZero"] | undefined;
   failureReason?: (result: T) => string | null;
+  /** Report a failed acknowledgement when callers store operational state in the outcome. */
+  onPersistenceFailure?: (result: T) => void;
 }
 
 type CronOutcomeStatus = "ok" | "failed" | "error";
@@ -74,7 +76,7 @@ function outcomeSummary(
   };
 }
 
-async function persistOutcome(outcome: PersistedOutcome): Promise<void> {
+async function persistOutcome(outcome: PersistedOutcome): Promise<boolean> {
   try {
     const supabase = (await createSupabaseServiceRoleClient()) as unknown as CronRunsClient;
     const { error } = await supabase.from("cron_runs").insert({
@@ -98,6 +100,7 @@ async function persistOutcome(outcome: PersistedOutcome): Promise<void> {
     if (error) {
       throw new Error(error.message ?? "unknown cron outcome insert error");
     }
+    return true;
   } catch (error) {
     // The outcome columns arrive in an unapplied migration. A cron must remain
     // runnable during that deployment gap, with the missing durable row visible
@@ -105,8 +108,9 @@ async function persistOutcome(outcome: PersistedOutcome): Promise<void> {
     console.warn("[cron-outcome] could not persist outcome", {
       job: outcome.job,
       unit: outcome.unit,
-      error: errorMessage(error),
+      error: error instanceof Error ? error.name : "unknown_error",
     });
+    return false;
   }
 }
 
@@ -187,7 +191,7 @@ export async function withCronOutcome<T>(
       ...(reason ? { errorMessage: reason } : {}),
     };
 
-    await persistOutcome(outcome);
+    if (!await persistOutcome(outcome)) options.onPersistenceFailure?.(result);
     if (status === "failed") alertFailedOutcome(outcome, reason);
     return result;
   } catch (error) {

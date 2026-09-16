@@ -561,8 +561,8 @@ describe("POST /api/intel - Required Fields", () => {
       await expectErrorResponse(response, 400, "Description");
     });
 
-    it("should reject description exceeding 1000 characters", async () => {
-      const longDescription = "a".repeat(1001);
+    it("should reject description exceeding 500 characters", async () => {
+      const longDescription = "a".repeat(501);
 
       const request = createMockRequest("POST", "http://localhost/api/intel", {
         body: {

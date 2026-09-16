@@ -1,7 +1,7 @@
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { fetchWithTimeout } from "@/lib/utils/fetch-utils";
 
-export type NDBCStation = {
+type NDBCStation = {
   id: string;
   name: string;
   lat: number;
@@ -10,7 +10,7 @@ export type NDBCStation = {
   data?: string; // "y" = realtime data available, "n" = no data
 };
 
-export type NDBCObservation = {
+type NDBCObservation = {
   ts: string; // ISO
   wave_height_m: number | null; // WVHT meters
   wave_period_s: number | null; // DPD seconds

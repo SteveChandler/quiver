@@ -15,7 +15,7 @@ export type IosAppStoreCampaign =
 /** Canonical campaign label for the default web -> native funnel. */
 export const APP_FIRST_CAMPAIGN = "app_first_v1";
 
-export const IOS_APP_STORE_REDIRECT_PATH = "/app-store";
+const IOS_APP_STORE_REDIRECT_PATH = "/app-store";
 
 interface IosAppStoreCampaignSignals {
   campaign?: string;
@@ -84,7 +84,7 @@ export const IOS_APP_STORE_WEB_REDIRECT_PATH = buildIosAppStoreRedirectPath(
   IOS_APP_STORE_CAMPAIGNS.WEB,
 );
 
-export function normalizeIosAppStoreProviderToken(
+function normalizeIosAppStoreProviderToken(
   providerToken?: string,
 ): string | undefined {
   const normalized = providerToken?.trim();

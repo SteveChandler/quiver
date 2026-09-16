@@ -11,38 +11,14 @@
 export { CDIPService } from "./cdip-service";
 
 // Re-export types for consumers
-export type {
-  CDIPBuoyData,
-  CDIPDataPoint,
-  CDIPDataResponse,
-  CDIPMetaResponse,
-  CDIPStationConfig,
-  CDIPCacheEntry,
-  CDIPSkipReason,
-  CDIPFetchDiagnostic,
-  CDIPWaveDataDiagnostic,
-  CDIPBuoyDataDiagnostic,
-} from "./types";
 
 // Re-export constants for advanced usage
-export {
-  CDIP_STATIONS,
-  SOCAL_PRIMARY_STATIONS,
-  CDIP_API_CONFIG,
-  DATA_QUALITY_THRESHOLDS,
-  getStationConfig,
-  USER_AGENT,
-  DEFAULT_MAX_DISTANCE_KM,
-  MAX_CONCURRENT_REQUESTS,
-  CACHE_TIMEOUT_MS,
-} from "./constants";
 
 // Re-export utilities for testing and advanced usage
 export {
   transformToCDIPBuoyData,
-  transformERDDAPToDataResponse,
-  calculateDataQualityScore,
-  normalizeStationIdForErddap,
+
+
+
 } from "./data-parser";
-export { CDIPCache } from "./cache";
-export { CDIPApiClient } from "./api-client";
+;

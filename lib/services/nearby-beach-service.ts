@@ -3,17 +3,18 @@ import { createPublicReadClient } from "@/lib/supabase/server";
 import { normalizeBeachCountry } from "@/lib/utils/beach-url-utils";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import { rankBeaches } from "@/lib/recommendations/selection";
-import type { WaterQualityHoldStatus } from "@/lib/recommendations/major-event-hold/water-quality";
+import type { WaterQualityEvidence, WaterQualityHoldStatus } from "@/lib/recommendations/major-event-hold/water-quality";
 import type { Beach } from "@/types/database";
 
 export type WaterQualityHoldKind = WaterQualityHoldStatus | "held";
 
 export type MapBeach = Beach & {
   waterQualityHold: WaterQualityHoldKind | null;
+  waterQualityEvidence?: WaterQualityEvidence;
 };
 
-export const MAX_NEARBY_RADIUS_MILES = 50;
-export const MAX_NEARBY_LIMIT = 50;
+const MAX_NEARBY_RADIUS_MILES = 50;
+const MAX_NEARBY_LIMIT = 50;
 const WATER_QUALITY_HOLD_OVERFETCH = 5;
 const MAX_FALLBACK_CANDIDATES = 200;
 const NEARBY_BEACH_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -26,12 +27,12 @@ interface NearbyBeachCacheEntry {
 
 const nearbyBeachCache = new Map<string, NearbyBeachCacheEntry>();
 
-export interface NearbyBeachQuery {
+interface NearbyBeachQuery {
   radiusMiles: number;
   limit: number;
 }
 
-export interface NearbyBeachResult {
+interface NearbyBeachResult {
   success: boolean;
   data?: MapBeach[];
   error?: string;
@@ -118,6 +119,7 @@ async function rankNearbyBeachesForMap<T extends Beach>(
   compare: (left: T, right: T) => number,
   limit: number,
 ): Promise<MapBeach[]> {
+  let waterQualityEvidenceByBeachId: Record<string, WaterQualityEvidence> = {};
   let waterQualityStatusByBeachId: Record<
     string,
     WaterQualityHoldStatus
@@ -126,6 +128,7 @@ async function rankNearbyBeachesForMap<T extends Beach>(
     compare,
     onWaterQualityResolution: (resolution) => {
       waterQualityStatusByBeachId = resolution.waterQualityStatusByBeachId;
+      waterQualityEvidenceByBeachId = resolution.waterQualityEvidenceByBeachId ?? {};
     },
   });
   const safeBeachIds = new Set(
@@ -138,7 +141,7 @@ async function rankNearbyBeachesForMap<T extends Beach>(
       const waterQualityHold = safeBeachIds.has(beachId)
         ? null
         : waterQualityStatusByBeachId[beachId] ?? "held";
-      return { ...beach, waterQualityHold };
+      return { ...beach, waterQualityHold, waterQualityEvidence: waterQualityEvidenceByBeachId[beachId] };
     })
     .sort(compare)
     .slice(0, limit);

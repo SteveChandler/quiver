@@ -10,7 +10,7 @@ import { validateEmail } from "@/lib/auth/auth-utils";
 /**
  * Magic link form view
  */
-export interface MagicLinkFormProps {
+interface MagicLinkFormProps {
   email: string;
   loading: boolean;
   emailInputRef: React.RefObject<HTMLInputElement | null>;

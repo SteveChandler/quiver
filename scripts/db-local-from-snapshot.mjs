@@ -24,8 +24,9 @@ const CONFIG = resolve(REPO, "supabase/config.toml");
 const SCHEMA = resolve(REPO, "supabase/snapshots/schema.sql");
 const CATALOG = resolve(REPO, "supabase/snapshots/catalog.sql");
 const STORAGE = resolve(REPO, "supabase/snapshots/storage-policies.sql");
+const POSTGIS = resolve(REPO, "supabase/snapshots/local-postgis.sql");
 
-for (const [label, p] of [["schema", SCHEMA], ["catalog", CATALOG], ["storage-policies", STORAGE]]) {
+for (const [label, p] of [["schema", SCHEMA], ["catalog", CATALOG], ["storage-policies", STORAGE], ["local-postgis", POSTGIS]]) {
   if (!existsSync(p)) {
     console.error(`Missing ${label} snapshot: ${p}\nRegenerate with: yarn db:snapshot`);
     process.exit(1);
@@ -54,7 +55,7 @@ const patch = (toml) => {
   // point the seed at the snapshots, schema first
   const seed = /(\[db\.seed\][\s\S]*?)^sql_paths\s*=\s*\[[^\]]*\]/m;
   if (!seed.test(out)) throw new Error("could not find [db.seed] sql_paths in config.toml");
-  out = out.replace(seed, `$1sql_paths = ["./snapshots/schema.sql", "./snapshots/storage-policies.sql", "./snapshots/catalog.sql"]`);
+  out = out.replace(seed, `$1sql_paths = ["./snapshots/schema.sql", "./snapshots/local-postgis.sql", "./snapshots/storage-policies.sql", "./snapshots/catalog.sql"]`);
   return out;
 };
 

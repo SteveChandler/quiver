@@ -23,7 +23,7 @@ const e2eResendStub = {
 };
 
 // Lazy, safe access to the Resend client to avoid build-time instantiation
-export const resend: any = new Proxy(
+const provider: any = new Proxy(
   {},
   {
     get(_target, prop) {
@@ -46,17 +46,21 @@ export const resend: any = new Proxy(
   }
 );
 
-export type SendEmailOptions = CreateEmailOptions & {
+type SendEmailOptions = CreateEmailOptions & {
+  purpose?: "requested" | "internal" | "condition_alert";
+  alertContact?: { userId: string; episode: string };
   unsubscribeUrl?: string;
 };
 
 export async function sendEmail(
   options: SendEmailOptions
 ): Promise<CreateEmailResponse> {
-  const { unsubscribeUrl, headers, ...resendOptions } = options;
+  const { unsubscribeUrl, headers, purpose, alertContact, ...resendOptions } = options;
+  if (purpose === "condition_alert") return sendRequestedAlert(options, alertContact);
+  if (!purpose) throw new Error("Unclassified email blocked; use the lifecycle dispatcher");
 
   if (!unsubscribeUrl) {
-    return resend.emails.send({
+    return provider.emails.send({
       ...resendOptions,
       ...(headers ? { headers } : {}),
     });
@@ -75,7 +79,7 @@ export async function sendEmail(
     }
   }
 
-  return resend.emails.send({
+  return provider.emails.send({
     ...resendOptions,
     headers: {
       ...headers,
@@ -102,4 +106,50 @@ export function getBaseUrl(): string {
   const baseUrl = configured.replace(/\/+$/, "");
   if (baseUrl === "https://quiversurf.app") return "https://www.quiversurf.app";
   return baseUrl;
+}
+
+// Kept as a loud failure for old imports; it cannot bypass the policy wrapper.
+export const resend = { emails: { send: async (): Promise<never> => {
+  throw new Error("Direct email sending is retired; use a classified sender");
+} } };
+
+export async function sendReservedLifecycleEmail(attemptId: string, payload: CreateEmailOptions): Promise<string> {
+  const { lifecycleEnabled, lifecycleRpc } = await import("@/lib/email/lifecycle");
+  if (!lifecycleEnabled() || shouldSuppressE2EEmailSends()) return "disabled";
+  if (process.env.EMAIL_REPLY_INGESTION_VERIFIED !== "true") throw new Error("Reply ingestion is not verified");
+  if (payload.cc || payload.bcc || typeof payload.to !== "string") throw new Error("Lifecycle requires one recipient");
+  const begun = await lifecycleRpc("begin_email_lifecycle", { p_attempt_id: attemptId, p_payload: payload });
+  if (begun !== true) return "cancelled";
+  try {
+    const response: CreateEmailResponse = await provider.emails.send(payload, { idempotencyKey: attemptId });
+    if (response.error || !response.data?.id) throw new Error("Provider acceptance unknown");
+    await lifecycleRpc("finish_email_lifecycle", { p_attempt_id: attemptId, p_provider_id: response.data.id });
+    return "accepted";
+  } catch {
+    // Ambiguous attempts remain reserved indefinitely; never mint a retry key.
+    await lifecycleRpc("mark_email_lifecycle_unknown", { p_attempt_id: attemptId });
+    return "unknown";
+  }
+}
+
+async function sendRequestedAlert(options: SendEmailOptions, contact: SendEmailOptions["alertContact"]): Promise<CreateEmailResponse> {
+  const { lifecycleEnabled, lifecycleRpc } = await import("@/lib/email/lifecycle");
+  if (!lifecycleEnabled() || shouldSuppressE2EEmailSends()) throw new Error("Managed alert sending is disabled");
+  if (!contact || typeof options.to !== "string" || options.cc || options.bcc) throw new Error("Invalid alert contact");
+  const { render } = await import("@react-email/render");
+  const { purpose: _purpose, alertContact: _contact, unsubscribeUrl, react, ...rest } = options;
+  const html = react ? await render(react) : options.html;
+  if (!unsubscribeUrl || !html) throw new Error("Missing alert content or unsubscribe");
+  const payload = { ...rest, html, text: options.text ?? await render(react!, { plainText: true }), headers: { ...options.headers, "List-Unsubscribe": `<${unsubscribeUrl}>` } };
+  const claim = await lifecycleRpc("claim_requested_email_alert", { p_user_id: contact.userId, p_episode: contact.episode, p_payload: payload }) as { allowed: boolean; attempt_id?: string; reason?: string };
+  if (!claim.allowed || !claim.attempt_id) return { headers: null, data: null, error: { name: "validation_error", statusCode: 409, message: `Contact held: ${claim.reason ?? "unknown"}` } };
+  try {
+    const response: CreateEmailResponse = await provider.emails.send(payload, { idempotencyKey: claim.attempt_id });
+    if (response.error || !response.data?.id) throw new Error("Alert acceptance unknown");
+    await lifecycleRpc("finish_email_lifecycle", { p_attempt_id: claim.attempt_id, p_provider_id: response.data.id });
+    return response;
+  } catch {
+    await lifecycleRpc("mark_email_lifecycle_unknown", { p_attempt_id: claim.attempt_id });
+    return { headers: null, data: null, error: { name: "application_error", statusCode: 503, message: "Alert handoff unknown; held for reconciliation" } };
+  }
 }

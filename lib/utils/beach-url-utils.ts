@@ -14,7 +14,7 @@ import { slugifyAscii } from "@/lib/utils/text-utils";
 // Hawaii island-specific city helpers (Waimea-only to start)
 // ============================================================================
 
-export type HiIslandSlug = "kauai" | "big-island";
+type HiIslandSlug = "kauai" | "big-island";
 
 const HI_AMBIGUOUS_CITY_SLUGS = new Set(["waimea"]);
 
@@ -106,11 +106,13 @@ export function buildHiCityUrlForBeach(beach: {
 export const US_STATE_SLUG_MAP: Record<string, string> = {
   // US States (2-letter codes)
   CA: "ca",
+  DE: "de",
   FL: "fl",
   GA: "ga",
   HI: "hi",
   MA: "ma",
   ME: "me",
+  MD: "md",
   NC: "nc",
   NH: "nh",
   NJ: "nj",
@@ -125,10 +127,12 @@ export const US_STATE_SLUG_MAP: Record<string, string> = {
 
   // US States (full names) - common surf states
   California: "ca",
+  Delaware: "de",
   Florida: "fl",
   Georgia: "ga",
   Hawaii: "hi",
   Maine: "me",
+  Maryland: "md",
   Massachusetts: "ma",
   "New Hampshire": "nh",
   "New Jersey": "nj",
@@ -534,7 +538,7 @@ export const COASTAL_STATE_SUFFIXES = [
   "ca", "fl", "hi", "nc", "sc", "nj", "ny", "or", "wa", "tx", "ma", "me", "ri", "pr"
 ] as const;
 
-export type CoastalStateSuffix = typeof COASTAL_STATE_SUFFIXES[number];
+type CoastalStateSuffix = typeof COASTAL_STATE_SUFFIXES[number];
 
 // ============================================================================
 // Country Validation

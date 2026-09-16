@@ -12,6 +12,16 @@ import {
   type CronTestEnvironment,
 } from "@/__tests__/setup/cron-test-utils";
 
+const mockOutcomeInsert = jest.fn().mockResolvedValue({ error: null });
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(() => ({
+    from: (table: string) => {
+      if (table !== "cron_runs") throw new Error(`Unexpected persistence table: ${table}`);
+      return { insert: mockOutcomeInsert };
+    },
+  })),
+}));
+
 // Mock the forecast server utils module - must be hoisted before imports
 jest.mock("@/lib/utils/forecast-server-utils", () => ({
   updateAllBeachForecasts: jest.fn(),
@@ -219,6 +229,9 @@ describe("Cron: enhanced-forecast-sync", () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.summary.successful).toBe(48);
+      expect(mockOutcomeInsert).toHaveBeenCalledWith(expect.objectContaining({
+        job: "/api/cron/enhanced-forecast-sync", unit: "forecasts_written", produced: 48,
+      }));
       expect(data.data.summary.failed).toBe(2);
       expect(data.data.message).toContain("48/50 beaches updated");
       expect(mockForecastLogger.cronStart).toHaveBeenCalled();

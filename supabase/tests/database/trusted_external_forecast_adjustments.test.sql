@@ -11,7 +11,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET search_path = public, extensions;
 
-SELECT plan(62);
+SELECT plan(64);
 
 -- ---------------------------------------------------------------------------
 -- Helpers. Running a statement inside a PL/pgSQL exception block gives us the
@@ -285,6 +285,7 @@ INSERT INTO trusted_payload (name, payload) VALUES (
         'forecast_horizon_hours', 6,
         'forecast_horizon_bucket', '0-24h',
         'raw_display_height_m', 0.61,
+        'display_replay_context', jsonb_build_object('version', 1),
         'offset_corrected_display_height_m', 0.61,
         'display_source', 'face-Hs-transformer-v1',
         'model_version', 'face-Hs-transformer-v1'
@@ -741,7 +742,7 @@ SELECT is(
 );
 
 -- ===========================================================================
--- 6. THE HAPPY PATH AND ITS RECEIPT — 7 assertions
+-- 6. THE HAPPY PATH AND ITS RECEIPT — 9 assertions
 -- ===========================================================================
 
 CREATE TEMPORARY TABLE trusted_receipt AS
@@ -805,6 +806,24 @@ SELECT is(
   ),
   1,
   'the missing snapshot was inserted exactly once'
+);
+
+SELECT is(
+  (SELECT display_replay_context FROM public.ml_predictions_log
+   WHERE beach_id = '9a000000-0000-4000-8000-000000000002'),
+  jsonb_build_object('version', 1),
+  'the real trusted RPC preserves the opaque replay context'
+);
+
+SELECT is(
+  pg_temp.raised_sqlstate($call$
+    SELECT * FROM public.persist_trusted_forecast_build(
+      (SELECT jsonb_set(payload, '{snapshots,1,display_replay_context,version}', '2'::jsonb)
+       FROM trusted_payload WHERE name = 'baseline')
+    )
+  $call$),
+  '23505',
+  'changing only replay context collides with the existing build receipt'
 );
 
 SELECT is(

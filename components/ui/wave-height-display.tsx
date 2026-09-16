@@ -323,7 +323,7 @@ export function WaveHeightDisplay({
 }
 
 // Utility hook for consistent wave height formatting
-export function useWaveHeightDisplay() {
+function useWaveHeightDisplay() {
   const formatWaveHeight = (height: string | null | undefined) => {
     if (!height) return "--";
 

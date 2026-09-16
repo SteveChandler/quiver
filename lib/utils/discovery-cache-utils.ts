@@ -11,7 +11,7 @@ import type { TimeSlot } from "@/types/personalization";
 /**
  * Options shape used for cache key generation
  */
-export interface DiscoveryCacheOptions {
+interface DiscoveryCacheOptions {
   userLocation?: { lat: number; lon: number };
   radiusMiles?: number;
   horizonHours?: number;

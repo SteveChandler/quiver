@@ -1,16 +1,15 @@
 import type { Beach } from "@/types/database";
-import type { ConditionSummary } from "@/components/map/map-beach-loader";
+import type { RecommendationLabel } from "@/components/map/map-beach-loader";
 import type { SwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { getConditionMarkerCall } from "@/components/map/map-marker-builder";
 import { degreesToCompass } from "@/components/map/swell-map-theme";
-import type { WaterQualityHoldKind } from "@/lib/services/nearby-beach-service";
+import type { WaterQualityHoldKind, MapBeach } from "@/lib/services/nearby-beach-service";
 
 interface BeachPreviewPopupContentOptions {
   location: Beach;
   waveLabel?: string | null;
-  conditionSummary?: ConditionSummary;
-  conditionScore?: number;
+  recommendationLabel?: RecommendationLabel;
   waterQualityHold?: WaterQualityHoldKind | null;
   partition?: SwellPartition;
 }
@@ -72,8 +71,7 @@ function appendLiveRow(
 export function createBeachPreviewPopupContent({
   location,
   waveLabel,
-  conditionSummary,
-  conditionScore,
+  recommendationLabel,
   waterQualityHold,
   partition,
 }: BeachPreviewPopupContentOptions): HTMLElement {
@@ -102,8 +100,7 @@ export function createBeachPreviewPopupContent({
   root.appendChild(body);
 
   const call = getConditionMarkerCall({
-    conditionSummary,
-    conditionScore,
+    recommendationLabel,
     waterQualityHold,
   });
   // No quality read -> hide the verdict entirely. Showing "No read" next to real
@@ -111,7 +108,10 @@ export function createBeachPreviewPopupContent({
   if (call.label !== "No read") {
     const verdict = document.createElement("span");
     verdict.className = "quiver-beach-preview-popup__verdict";
-    verdict.textContent = call.label;
+    const evidence = (location as Partial<MapBeach>).waterQualityEvidence;
+    verdict.textContent = waterQualityHold && evidence?.source === "sample"
+      ? `Elevated bacteria · sample ${evidence.sampleDate ?? "date unavailable"}`
+      : call.label;
     verdict.style.cssText = `
       display: inline-flex;
       align-items: center;

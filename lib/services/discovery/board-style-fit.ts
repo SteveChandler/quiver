@@ -3,7 +3,7 @@ import {
   type BoardClass,
 } from '@/lib/domains/rideability';
 
-export interface BoardStyleFitResult {
+interface BoardStyleFitResult {
   points: number;
   reason?: string;
   warning?: string;

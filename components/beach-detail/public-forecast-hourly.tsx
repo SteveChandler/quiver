@@ -4,7 +4,7 @@ import type {
   PublicForecastDay,
   PublicForecastHour,
 } from "@/lib/services/spot-surf-report-service";
-import { formatTimeInTimezone } from "@/lib/utils/date-time";
+import { formatTimeInTimezone, formatBeachDateTime } from "@/lib/utils/date-time";
 import { useAuthenticatedForecastDecision } from "@/components/beach-detail/authenticated-forecast-decision";
 import { ForecastDecisionLoginLink } from "@/components/beach-detail/forecast-decision-login-link";
 import type { PublicForecastContextFacts } from "@/lib/utils/public-forecast-facts";
@@ -79,7 +79,7 @@ export function PublicForecastHourly({
         {beachName} Hourly Surf Forecast
       </h2>
       <p className="mt-2 font-mono text-xs text-[#11100D]/70">
-        Times shown in {timezone}.
+        Latest daily forecast · {forecastHours[0]?.forecast_at ? formatBeachDateTime(forecastHours[0].forecast_at, timezone, "EEE, MMM d") : dayLabel} · {timezone}. Separate from the selected day above.
       </p>
       <div className="mt-5 overflow-x-auto">
         <table className="w-full min-w-[720px] border-collapse text-left font-mono text-sm text-[#11100D]">

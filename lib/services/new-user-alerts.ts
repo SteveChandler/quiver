@@ -36,6 +36,7 @@ export async function sendNewUserAlert(data: NewUserAlertData) {
       : "Unknown";
 
     await sendEmail({
+      purpose: "internal",
       from: FROM_ADDRESS,
       to: ADMIN_EMAIL,
       subject: `New signup: ${data.name || data.email} (${data.signupMethod})`,
@@ -61,6 +62,7 @@ export async function sendNewUserAlert(data: NewUserAlertData) {
 export async function sendAuthFailureAlert(data: AuthFailureAlertData) {
   try {
     await sendEmail({
+      purpose: "internal",
       from: FROM_ADDRESS,
       to: ADMIN_EMAIL,
       subject: `AUTH FAILURE: ${data.name || data.email} still seeing CTAs ${data.minutesSinceSignup}min after signup`,

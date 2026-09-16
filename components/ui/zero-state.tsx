@@ -3,14 +3,14 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export interface ZeroStateAction {
+interface ZeroStateAction {
   label: string;
   href?: string;
   onClick?: () => void;
   icon?: LucideIcon;
 }
 
-export interface ZeroStateProps {
+interface ZeroStateProps {
   /** Lucide icon to display */
   icon: LucideIcon;
   /** Main heading text */

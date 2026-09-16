@@ -30,7 +30,7 @@ export interface AppleRecoveryDatabase {
   confirm(input: ConfirmDatabaseInput): Promise<DatabaseResult>;
 }
 
-export type AppleRecoveryAssessment =
+type AppleRecoveryAssessment =
   | { status: "unclaimed" }
   | { status: "already_linked" }
   | { status: "recent_auth_required" }
@@ -51,7 +51,7 @@ export type AppleRecoveryAssessment =
         | "configuration_error";
     };
 
-export type AppleRecoveryConfirmation =
+type AppleRecoveryConfirmation =
   | { status: "already_recovered"; rollbackUntil: string }
   | { status: "recent_auth_required" }
   | { status: "support_required"; supportReference: string }

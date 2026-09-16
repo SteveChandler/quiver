@@ -13,7 +13,7 @@ export type SurfersViewSourceRightsStatus =
   | "public_linkout"
   | LicensedCamRightsStatus;
 
-export interface SurfersViewCamPageInput {
+interface SurfersViewCamPageInput {
   sourcePageUrl: string;
   html: string;
 }
@@ -52,7 +52,7 @@ export interface SurfersViewCamImportRow extends SurfersViewCamRecord {
   candidate_country: string | null;
 }
 
-export interface SurfersViewApplyBatches {
+interface SurfersViewApplyBatches {
   cameraRows: Array<{
     beach_id: string;
     camera_url: string;

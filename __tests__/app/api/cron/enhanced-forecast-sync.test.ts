@@ -9,6 +9,15 @@ import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
 import { readFileSync } from "fs";
 
 // Mock API response utilities
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(() => ({
+    from: (table: string) => {
+      if (table !== "cron_runs") throw new Error(`Unexpected persistence table: ${table}`);
+      return { insert: jest.fn().mockResolvedValue({ error: null }) };
+    },
+  })),
+}));
+
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: jest.fn(() =>

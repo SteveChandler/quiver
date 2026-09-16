@@ -117,6 +117,25 @@ describe("withCronOutcome", () => {
     );
   });
 
+  it.each([false, true])("reports an unacknowledged write once (transport rejection: %s)", async (transportError) => {
+    if (transportError) mockInsert.mockRejectedValue(new Error("private database payload"));
+    else mockInsert.mockResolvedValue({ error: { message: "private database payload" } });
+    const onPersistenceFailure = jest.fn();
+    const value = { produced: 4 };
+    await expect(withCronOutcome({ ...optionsFor(JOBS[0]), onPersistenceFailure }, async () => value)).resolves.toBe(value);
+    expect(onPersistenceFailure).toHaveBeenCalledTimes(1);
+    expect(onPersistenceFailure).toHaveBeenCalledWith(value);
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(consoleWarnSpy.mock.calls)).not.toContain("private database payload");
+  });
+
+  it("does not report persistence failure after an acknowledged outcome", async () => {
+    const onPersistenceFailure = jest.fn();
+    await withCronOutcome({ ...optionsFor(JOBS[0]), onPersistenceFailure }, async () => ({ produced: 1 }));
+    expect(onPersistenceFailure).not.toHaveBeenCalled();
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+  });
+
   it.each(JOBS)("rethrows the handler error for $name", async (job) => {
     const handlerError = new Error(`${job.name} failed`);
 

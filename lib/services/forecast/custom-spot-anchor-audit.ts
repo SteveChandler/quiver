@@ -4,9 +4,9 @@ import {
   haversineDistance,
 } from "@/lib/utils/geo-utils";
 
-export type CustomSpotAnchorAuditStatus = "pass" | "watch" | "critical";
+type CustomSpotAnchorAuditStatus = "pass" | "watch" | "critical";
 
-export type CustomSpotAnchorAuditReasonCode =
+type CustomSpotAnchorAuditReasonCode =
   | "missing_anchor"
   | "anchor_missing_or_deleted"
   | "anchor_too_far"
@@ -14,7 +14,7 @@ export type CustomSpotAnchorAuditReasonCode =
   | "forecast_missing"
   | "forecast_stale";
 
-export type CustomSpotAnchorAuditConfig = {
+type CustomSpotAnchorAuditConfig = {
   maxAnchorDistanceMi: number;
   closerAnchorMinDeltaMi: number;
   closerAnchorMaxDistanceMi: number;
@@ -51,26 +51,26 @@ export type CustomSpotAnchorAuditForecast = {
   dataSource?: string | null;
 };
 
-export type CustomSpotAnchorAuditReason = {
+type CustomSpotAnchorAuditReason = {
   code: CustomSpotAnchorAuditReasonCode;
   status: Exclude<CustomSpotAnchorAuditStatus, "pass">;
   detail: string;
 };
 
-export type CustomSpotAnchorAuditBeachMatch = {
+type CustomSpotAnchorAuditBeachMatch = {
   id: string;
   name: string;
   slug?: string | null;
   distanceMi: number;
 };
 
-export type CustomSpotAnchorAuditForecastSummary = {
+type CustomSpotAnchorAuditForecastSummary = {
   updatedAt: string | null;
   ageHours: number | null;
   dataSource?: string | null;
 };
 
-export type CustomSpotAnchorAuditEvaluation = {
+type CustomSpotAnchorAuditEvaluation = {
   spotId: string;
   spotName: string;
   userId: string;
@@ -82,7 +82,7 @@ export type CustomSpotAnchorAuditEvaluation = {
   forecast: CustomSpotAnchorAuditForecastSummary | null;
 };
 
-export type CustomSpotAnchorAuditSummary = {
+type CustomSpotAnchorAuditSummary = {
   totalCustomSpots: number;
   auditedCustomSpots: number;
   excludedCustomSpots: number;
@@ -93,7 +93,7 @@ export type CustomSpotAnchorAuditSummary = {
   forecastFreshnessHours: number;
 };
 
-export type CustomSpotAnchorAuditResult = {
+type CustomSpotAnchorAuditResult = {
   generatedAt: string;
   summary: CustomSpotAnchorAuditSummary;
   evaluations: CustomSpotAnchorAuditEvaluation[];

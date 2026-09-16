@@ -1,6 +1,6 @@
 import { verifyEmailToken, getEmailTokenSecret, EmailTokenPurpose } from '@/lib/utils/email-token';
 
-export type VerificationResult =
+type VerificationResult =
   | { success: true; userId: string }
   | { success: false; error: string; errorType: 'config' | 'invalid' | 'expired' };
 

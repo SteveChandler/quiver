@@ -8,7 +8,7 @@
 import type { Beach } from '@/types/database';
 import { stateToSlug, cityToSlug } from './beach-url-utils';
 
-export interface BeachMatchParams {
+interface BeachMatchParams {
   stateParam: string;
   cityParam: string;
   beaches: Beach[];

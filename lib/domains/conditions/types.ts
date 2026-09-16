@@ -37,7 +37,7 @@ export type TideDirection = 'rising' | 'falling' | 'slack';
 /**
  * Tide status (more specific than direction).
  */
-export type TideStatus =
+type TideStatus =
   | 'rising'
   | 'falling'
   | 'slack-high'

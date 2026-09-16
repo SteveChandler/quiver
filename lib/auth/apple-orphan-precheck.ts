@@ -22,7 +22,7 @@ export interface AppleOrphanPrecheckDatabase {
   detect(input: PrecheckDatabaseInput): Promise<Record<string, unknown>>;
 }
 
-export type AppleOrphanPrecheckResult =
+type AppleOrphanPrecheckResult =
   | { verdict: Exclude<AppleOrphanPrecheckVerdict, "indeterminate"> }
   | {
       verdict: "indeterminate";

@@ -12,9 +12,9 @@ export type PersonalityType =
   | 'competitor'
   | 'forecaster';
 
-export type ActivityLevel = 'high' | 'medium' | 'low';
+type ActivityLevel = 'high' | 'medium' | 'low';
 
-export interface PostingWindow {
+interface PostingWindow {
   primary: [number, number]; // Start and end hour (0-23)
   secondary: [number, number] | []; // Optional secondary window
   weekendBoost: boolean; // Posts more on weekends

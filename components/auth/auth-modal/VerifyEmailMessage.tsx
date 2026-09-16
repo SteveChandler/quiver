@@ -5,7 +5,7 @@ import { Mail } from "lucide-react";
 /**
  * Email verification message
  */
-export interface VerifyEmailMessageProps {
+interface VerifyEmailMessageProps {
   email: string;
 }
 

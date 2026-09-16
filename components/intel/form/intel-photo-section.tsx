@@ -9,7 +9,7 @@ import { INTEL_CONFIG, INTEL_UI_TEXT } from "@/lib/constants/intel";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export interface IntelPhotoSectionProps {
+interface IntelPhotoSectionProps {
   photoPreview: string | null;
   onPhotoSelect: (file: File) => void;
   onPhotoRemove: () => void;

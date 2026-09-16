@@ -61,12 +61,15 @@ jest.mock("@/lib/logger", () => ({
 // Pin getWaveHeight output to a known string so we can deterministically
 // reason about parser/formatter/offset interactions.
 let mockWaveHeightValue = "3 ft";
+let mockUseRealFormatter = false;
 jest.mock("@/lib/utils/wave-formatters", () => {
   const actual = jest.requireActual("@/lib/utils/unit-conversions");
+  const formatter = jest.requireActual("@/lib/utils/wave-formatters");
   return {
+    ...formatter,
     toFaceHeightFeet: jest.fn(() => mockWaveHeightValue),
     toFaceHeightFeetDecomposed: jest.fn(() => mockWaveHeightValue),
-    toFaceHeightFeetDecomposedWithDebug: jest.fn(() => ({
+    toFaceHeightFeetDecomposedWithDebug: jest.fn((params) => mockUseRealFormatter ? formatter.toFaceHeightFeetDecomposedWithDebug(params) : ({
       value: mockWaveHeightValue,
       debug: {
         source: "model_swell",
@@ -191,6 +194,7 @@ describe("ForecastBuilder per-beach height-offset hook", () => {
   beforeEach(() => {
     delete process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED;
     mockWaveHeightValue = "3 ft";
+    mockUseRealFormatter = false;
     capturedSnapshotRows = [];
     capturedProjectionRows = [];
     insertMock.mockClear();
@@ -291,6 +295,39 @@ describe("ForecastBuilder per-beach height-offset hook", () => {
     expect(forecasts.length).toBeGreaterThan(0);
     for (const f of forecasts) {
       expect(f.wave_height).toBe("3 ft");
+    }
+  });
+
+  it("captures replay inputs through the real builder and preserves issued display", async () => {
+    mockUseRealFormatter = true;
+    const { replayForecastDisplayHeightM } = jest.requireActual("@/lib/utils/forecast-display-replay");
+    const forecasts = await newBuilder().buildForecasts(buildInputs({ heightOffset: null, feedbackCalibrationCandidate: null }));
+    expect(capturedSnapshotRows.length).toBeGreaterThan(0);
+    const byTime = new Map(forecasts.map((f) => [f.forecast_at, f]));
+    for (const row of capturedSnapshotRows) {
+      const ctx = row.display_replay_context;
+      expect(ctx).toMatchObject({ version: 1, forecastAt: row.predicted_at, unsupportedReason: null });
+      expect(ctx.base.input.components[0].periodS).toBe(14);
+      const replayed = replayForecastDisplayHeightM(JSON.parse(JSON.stringify(ctx)));
+      expect(replayed).toBe(row.raw_display_height_m);
+      expect(replayed).toBe(row.offset_corrected_display_height_m);
+      const issuedFt = Number.parseFloat(byTime.get(row.predicted_at)!.wave_height!);
+      expect(replayed).toBe(Math.round(issuedFt / METERS_TO_FEET * 1000) / 1000);
+    }
+  });
+
+  it("retains offset forecasts but excludes their conditional replay", async () => {
+    mockUseRealFormatter = true;
+    const { replayForecastDisplayHeightM } = jest.requireActual("@/lib/utils/forecast-display-replay");
+    await newBuilder().buildForecasts(buildInputs({
+      beach: { ...baseBeach, height_offset_enabled: true } as unknown as Beach,
+      heightOffset: { offset_m: 0.2, sample_count: 60, mae_before_m: 0.4, mae_after_m: 0.1, computed_at: new Date().toISOString() },
+    }));
+    expect(capturedSnapshotRows.length).toBeGreaterThan(0);
+    for (const row of capturedSnapshotRows) {
+      expect(row.display_replay_context.unsupportedReason).toBe("offset");
+      expect(replayForecastDisplayHeightM(row.display_replay_context)).toBeNull();
+      expect(row.raw_display_height_m).toBeGreaterThan(0);
     }
   });
 

@@ -37,6 +37,7 @@ jest.mock("next/headers", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
   notFound: jest.fn(() => {
     const err = new Error("NEXT_NOT_FOUND");
     (err as any).digest = "NEXT_NOT_FOUND";
@@ -462,6 +463,8 @@ describe("GenericBeachDetailPage slug resolution", () => {
       ],
     });
     const forecastResult = freshForecastResult();
+    forecastResult.forecastContext.displayWindowStart = "2026-09-07T15:00:00.000Z";
+    forecastResult.forecastContext.displayWindowEnd = "2026-09-07T17:30:00.000Z";
     (getSpotSurfReportPublic as jest.Mock).mockResolvedValueOnce(forecastResult);
     (getNearbyBeaches as jest.Mock).mockResolvedValueOnce({
       success: true,
@@ -493,13 +496,14 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(html).not.toContain(forecastResult.report.bestWindowEnd);
     expect(html).not.toContain("Sign in to reveal");
     expect(html).toContain("Best window");
-    expect(html).toContain("Nearby backups");
+    expect(html).toContain("8:00 AM–10:30 AM");
+    expect(html).toContain("Nearby spots");
     expect(html).toContain('href="/ca/encinitas/swamis"');
     expect(html).toContain('href="/ca/san-diego/ocean-beach"');
     expect(html).toContain('href="/hi/haleiwa/pipeline"');
     expect(html).not.toContain('href="/ca/malibu/malibu"');
     expect(html.indexOf('data-testid="public-forecast-answer"')).toBeLessThan(
-      html.indexOf("Nearby backups"),
+      html.indexOf("Nearby spots"),
     );
     expect(html).toContain("17s SW");
     expect(html).toContain("3.2 ft · Rising");
@@ -527,7 +531,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     // explain itself rather than render an empty section.
     expect(html).toContain("Current forecast details are temporarily unavailable");
     expect(html).not.toContain("Best window");
-    expect(html).not.toContain("Nearby backups");
+    expect(html).not.toContain("Nearby spots");
   });
 
   it("omits nearby backups without coordinates and skips the nearby lookup", async () => {
@@ -545,7 +549,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     });
 
     expect(getNearbyBeaches).not.toHaveBeenCalled();
-    expect(renderToStaticMarkup(page)).not.toContain("Nearby backups");
+    expect(renderToStaticMarkup(page)).not.toContain("Nearby spots");
   });
 
   it.each([

@@ -49,7 +49,7 @@ export type NotificationMajorEventHoldEvaluator = (
   input: EvaluateMajorEventHoldCandidatesInput,
 ) => Promise<MajorEventHoldCandidateDecision[]>;
 
-export interface NotificationMajorEventHoldDependencies {
+interface NotificationMajorEventHoldDependencies {
   evaluateCandidates?: NotificationMajorEventHoldEvaluator;
 }
 
@@ -300,7 +300,7 @@ function policyContextMatchesPayload(
   return forecastAtMs >= startsAtMs && forecastAtMs < endsAtMs;
 }
 
-export function buildNotificationMajorEventHoldCandidate(
+function buildNotificationMajorEventHoldCandidate(
   input: Pick<
     ResolveNotificationMajorEventHoldInput,
     "eventId" | "type" | "payload"

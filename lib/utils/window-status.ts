@@ -1,6 +1,6 @@
-export type WindowStatusType = "upcoming" | "current" | "passed" | "unknown";
+type WindowStatusType = "upcoming" | "current" | "passed" | "unknown";
 
-export interface WindowStatus {
+interface WindowStatus {
   status: WindowStatusType;
   message: string;
 }

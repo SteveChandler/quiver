@@ -41,7 +41,7 @@ export interface UserSurfPreferences {
   manual_override?: boolean | null;
 }
 
-export interface AvoidancePattern {
+interface AvoidancePattern {
   negative_sample_size: number;
   confidence: number;
   wave_min_ft: number | null;
@@ -55,7 +55,7 @@ export interface AvoidancePattern {
 
 export type AvoidanceByBeach = Record<string, AvoidancePattern>;
 
-export interface AvoidanceForecastInput {
+interface AvoidanceForecastInput {
   wave_height?: number | string | null;
   wave_period?: number | string | null;
   wind_direction?: number | string | null;

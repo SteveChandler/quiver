@@ -27,6 +27,11 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   withRateLimit: (handler: any) => handler,
 }));
 
+const mockDelay = jest.fn();
+jest.mock("node:timers/promises", () => ({
+  setTimeout: (...args: unknown[]) => mockDelay(...args),
+}));
+
 // Mock global fetch
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -82,6 +87,89 @@ function mockUpstreamResponse(
 describe("HLS Proxy Route", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDelay.mockReset().mockResolvedValue(undefined);
+  });
+
+  describe("HDOnTap cold source playlists", () => {
+    const context = () => createContext(["live.hdontap.com", "hls", "cam", "chunklist.m3u8"]);
+    const request = () => createRequest("/api/hls-proxy/live.hdontap.com/hls/cam/chunklist.m3u8");
+    const manifest = (segment: string) => `#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:10,\n${segment}\n`;
+    const edge = "https://edge01.virginia.nginx.hdontap.com/cam/";
+
+    it("replaces an expired HTTP 200 playlist before the browser sees its broken segment", async () => {
+      mockUpstreamResponse(manifest(`${edge}expired.ts`));
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+      mockUpstreamResponse(manifest(`${edge}current.ts`));
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+      const response = await GET(request(), context());
+      expect(response.status).toBe(200);
+      expect(response.headers.get("X-HLS-Proxy-Attempts")).toBe("2");
+      const body = await response.text();
+      expect(body).toContain("current.ts");
+      expect(body).not.toContain("expired.ts");
+      const signal = mockFetch.mock.calls[0][1].signal;
+      expect(mockDelay).toHaveBeenCalledWith(2000, undefined, { signal });
+      expect(mockFetch.mock.calls[1]).toEqual([`${edge}expired.ts`, { method: "HEAD", cache: "no-store", redirect: "error", signal }]);
+      expect(mockFetch.mock.calls[3][1].signal).toBe(signal);
+    });
+
+    it("stops after four expired playlists and returns an uncached source failure", async () => {
+      for (let i = 0; i < 4; i++) {
+        mockUpstreamResponse(manifest(`${edge}expired.ts`));
+        mockFetch.mockResolvedValueOnce({ ok: false, status: 410 });
+      }
+      const response = await GET(request(), context());
+      expect(response.status).toBe(502);
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+      expect(await response.text()).not.toContain("expired.ts");
+      expect(mockFetch).toHaveBeenCalledTimes(8);
+      expect(mockDelay.mock.calls.map(([ms]) => ms)).toEqual([2000, 4000, 6000]);
+    });
+
+    it.each([
+      "https://edge01.nginx.hdontap.com.evil.test/segment.ts",
+      "https://user@edge01.nginx.hdontap.com/segment.ts",
+      "https://127.0.0.1/segment.ts",
+      "https://edge01.nginx.hdontap.com:8443/segment.ts",
+      "http://edge01.nginx.hdontap.com/segment.ts",
+    ])("never probes an untrusted media URL: %s", async (url) => {
+      mockUpstreamResponse(manifest(url));
+      expect((await GET(request(), context())).status).toBe(502);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockDelay).not.toHaveBeenCalled();
+    });
+
+    it("does not retry unrelated source failures", async () => {
+      mockUpstreamResponse(manifest(`${edge}unavailable.ts`));
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 503 });
+      const response = await GET(request(), context());
+      expect(response.status).toBe(502);
+      expect(mockFetch.mock.calls[1][1].redirect).toBe("error");
+      expect(mockDelay).not.toHaveBeenCalled();
+    });
+
+    it.each(["probe", "backoff"])("keeps the original deadline during %s", async (phase) => {
+      jest.useFakeTimers();
+      try {
+        mockUpstreamResponse(manifest(`${edge}expired.ts`));
+        const waitForAbort = (signal: AbortSignal): Promise<never> => new Promise((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(Object.assign(new Error("Aborted"), { name: "AbortError" })), { once: true });
+        });
+        if (phase === "probe") {
+          mockFetch.mockImplementationOnce((_url, { signal }) => waitForAbort(signal));
+        } else {
+          mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+          mockDelay.mockImplementationOnce((_ms, _value, { signal }) => waitForAbort(signal));
+        }
+        const response = GET(request(), context());
+        await jest.advanceTimersByTimeAsync(15000);
+        expect((await response).status).toBe(504);
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -105,11 +193,11 @@ describe("HLS Proxy Route", () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
-    it("should reject requests to non-whitelisted hosts", async () => {
+    it.each(["evil.example.com", "constructor", "__proto__"])("rejects non-whitelisted host %s before fetching", async (hostname) => {
       const request = createRequest(
-        "http://localhost/api/hls-proxy/evil.example.com/steal-data"
+        `http://localhost/api/hls-proxy/${hostname}/steal-data`
       );
-      const context = createContext(["evil.example.com", "steal-data"]);
+      const context = createContext([hostname, "steal-data"]);
 
       const response = await GET(request, context);
       const json = await response.json();
@@ -322,7 +410,7 @@ describe("HLS Proxy Route", () => {
   // Cache-Control policies
   // ---------------------------------------------------------------------------
   describe("Cache-Control Policies", () => {
-    it("should set short cache for manifests (live stream)", async () => {
+    it("must not serve cached live manifests", async () => {
       mockUpstreamResponse("#EXTM3U\n");
 
       const request = createRequest(
@@ -335,8 +423,54 @@ describe("HLS Proxy Route", () => {
 
       const response = await GET(request, context);
       expect(response.headers.get("Cache-Control")).toBe(
-        "public, max-age=2, stale-while-revalidate=5"
+        "no-store"
       );
+    });
+
+    it("refreshes HDOnTap playlists without losing provider query parameters", async () => {
+      jest.useFakeTimers();
+      try {
+        jest.setSystemTime(new Date("2026-09-07T16:10:00Z"));
+        const request = createRequest("/api/hls-proxy/live.hdontap.com/hls/cam/chunklist.m3u8?token=a%2Bb&quality=high");
+        const context = createContext(["live.hdontap.com", "hls", "cam", "chunklist.m3u8"]);
+        mockUpstreamResponse("#EXTM3U\nold.ts");
+        const first = await GET(request, context);
+        jest.advanceTimersByTime(12_000);
+        mockUpstreamResponse("#EXTM3U\nnew.ts");
+        const second = await GET(request, context);
+        const urls = mockFetch.mock.calls.map(([url]) => new URL(url));
+        expect(urls[0].searchParams.get("_quiver_live")).toBe("1788797400000");
+        expect(urls[1].searchParams.get("_quiver_live")).toBe("1788797412000");
+        for (const [url, options] of mockFetch.mock.calls) {
+          expect(new URL(url).searchParams.get("token")).toBe("a+b");
+          expect(new URL(url).searchParams.get("quality")).toBe("high");
+          expect(options.cache).toBe("no-store");
+          expect(options.headers["Cache-Control"]).toBe("no-cache");
+        }
+        expect(await first.text()).toContain("old.ts");
+        expect(await second.text()).toContain("new.ts");
+        expect(second.headers.get("Cache-Control")).toBe("no-store");
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it("times out a source whose headers arrive but body stalls", async () => {
+      jest.useFakeTimers();
+      try {
+        mockFetch.mockImplementationOnce(async (_url, { signal }) => ({
+          ok: true, status: 200, headers: new Headers(),
+          arrayBuffer: () => new Promise((_resolve, reject) => {
+            signal.addEventListener("abort", () => reject(Object.assign(new Error("Aborted"), { name: "AbortError" })), { once: true });
+          }),
+        }));
+        const response = GET(createRequest("/api/hls-proxy/live.hdontap.com/playlist.m3u8"), createContext(["live.hdontap.com", "playlist.m3u8"]));
+        await jest.advanceTimersByTimeAsync(15_000);
+        expect((await response).status).toBe(504);
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it("should set long immutable cache for segments", async () => {
@@ -870,9 +1004,11 @@ describe("HLS Proxy Route", () => {
       await GET(request, context);
 
       const fetchCall = mockFetch.mock.calls[0];
-      expect(fetchCall[0]).toBe(
-        "https://live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc123&e=9999999999"
-      );
+      const upstreamUrl = new URL(fetchCall[0]);
+      expect(upstreamUrl.origin + upstreamUrl.pathname).toBe("https://live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8");
+      expect(upstreamUrl.searchParams.get("t")).toBe("abc123");
+      expect(upstreamUrl.searchParams.get("e")).toBe("9999999999");
+      expect(upstreamUrl.searchParams.get("_quiver_live")).toMatch(/^\d+$/);
     });
 
     it("should not append query string when none is present (Surfline regression)", async () => {
@@ -895,5 +1031,27 @@ describe("HLS Proxy Route", () => {
         "https://hls.cdn-surfline.com/cam/12345/playlist.m3u8"
       );
     });
+  });
+});
+
+
+describe('HDRelay Apple playlist compatibility', () => {
+  beforeEach(() => mockFetch.mockReset());
+  it('rejects non-media HDRelay paths', async () => {
+    const response = await GET(createRequest('/api/hls-proxy/watch.hdrelay.io/api/player'), createContext(['watch.hdrelay.io', 'api', 'player']));
+    expect(response.status).toBe(403);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+  it('keeps complete segments and initialization while dropping low-latency tags', async () => {
+    const manifest = '#EXTM3U\n#EXT-X-VERSION:10\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:10\n#EXT-X-MAP:URI="init.mp4"\n#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES\n#EXT-X-PART-INF:PART-TARGET=0.2\n#EXTINF:2.0,\nsegment.mp4\n#EXT-X-PART:DURATION=0.2,URI="part.mp4"\n#EXT-X-PRELOAD-HINT:TYPE=PART,URI="next.mp4"\n';
+    mockUpstreamResponse(manifest);
+    const response = await GET(createRequest('/api/hls-proxy/watch.hdrelay.io/live/cam/stream.m3u8'), createContext(['watch.hdrelay.io', 'live', 'cam', 'stream.m3u8']));
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(text).toContain('#EXT-X-VERSION:6');
+    expect(text).toContain('#EXT-X-MAP:URI="init.mp4"');
+    expect(text).toContain('#EXT-X-MEDIA-SEQUENCE:10');
+    expect(text).toContain('#EXTINF:2.0,\nsegment.mp4');
+    expect(text).not.toMatch(/EXT-X-(PART|PRELOAD-HINT|SERVER-CONTROL)/);
   });
 });

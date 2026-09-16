@@ -70,7 +70,7 @@ interface HomeBeachPushRunnerOptions<P extends object> {
   outcome?: CronOutcomeOptions<HomeBeachPushRunSummary>;
 }
 
-export interface HomeBeachPushRunSummary {
+interface HomeBeachPushRunSummary {
   skipped: boolean;
   reason?: string;
   evaluated: number;
@@ -99,7 +99,7 @@ function increment(counts: Record<string, number>, key: string): void {
   counts[key] = (counts[key] ?? 0) + 1;
 }
 
-export function parseHomeBeachPushAllowlist(envName: string): Set<string> {
+function parseHomeBeachPushAllowlist(envName: string): Set<string> {
   const raw = process.env[envName] ?? "";
   return new Set(
     raw

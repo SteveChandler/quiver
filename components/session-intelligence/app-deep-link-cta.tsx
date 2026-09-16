@@ -31,7 +31,7 @@ import {
   type SurfWindowTrackingContext,
 } from "./tracking";
 
-export interface AppDeepLinkCTAProps {
+interface AppDeepLinkCTAProps {
   links: SurfWindowLinks;
   className?: string;
   label?: string;

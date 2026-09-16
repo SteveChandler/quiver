@@ -17,7 +17,7 @@ import type { ForecastTimeInfo } from "@/lib/utils/current-forecast-utils";
 import type { LatestObservation } from "@/lib/services/observations/nowcast-anchor.types";
 
 // Metadata interface for forecast transparency
-export interface ForecastMetadata {
+interface ForecastMetadata {
   primarySource: "NOAA_NWS" | "CDIP" | "FALLBACK" | string;
   allSources: string[];
   confidenceScore: number;
@@ -109,7 +109,7 @@ export async function getLatestBeachForecast(beachId: string) {
 }
 
 // Enhanced forecast with metadata interface
-export interface EnhancedForecastWithMetadata extends EnhancedForecastEntity {
+interface EnhancedForecastWithMetadata extends EnhancedForecastEntity {
   metadata: ForecastMetadata;
 }
 

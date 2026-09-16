@@ -54,7 +54,7 @@ export interface EmailLogEntry {
 /**
  * Result of email logging operation
  */
-export interface EmailLogResult {
+interface EmailLogResult {
   success: boolean;
   error?: unknown;
 }

@@ -21,7 +21,7 @@ export const SURF_STYLES = [
 
 // Type exports for TypeScript
 export type ExperienceLevel = typeof EXPERIENCE_LEVELS[number]['value'];
-export type SurfStyle = typeof SURF_STYLES[number]['value'];
+type SurfStyle = typeof SURF_STYLES[number]['value'];
 
 // TIME_PREFERENCES + TimePreference removed in plan E2. Oracle owns
 // session-time selection via `SessionTimePreference` in

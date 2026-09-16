@@ -1,0 +1,52 @@
+{
+  "capturedAt": "2026-09-03T23:38:50.121Z",
+  "gridUrl": "https://api.weather.gov/gridpoints/SGX/53,22",
+  "nwsUpdatedAt": "2026-09-03T20:30:23+00:00",
+  "omIssuedAt": null,
+  "scope": "Unmodified upstream values/intervals covering Sept 5–6 18:00Z; other fields and hours omitted. Not a full API response.",
+  "grid": {
+    "properties": {
+      "waveHeight": { "uom": "wmoUnit:m", "values": [{ "validTime": "2026-09-03T14:00:00+00:00/P3DT10H", "value": 0.9144 }] },
+      "wavePeriod": { "uom": "nwsUnit:s", "values": [
+        { "validTime": "2026-09-05T18:00:00+00:00/P1D", "value": 11 },
+        { "validTime": "2026-09-06T18:00:00+00:00/PT6H", "value": 12 }
+      ] },
+      "waveDirection": { "values": [] },
+      "primarySwellHeight": { "uom": "wmoUnit:m", "values": [{ "validTime": "2026-09-05T12:00:00+00:00/P2D", "value": 0.6096 }] },
+      "primarySwellDirection": { "uom": "wmoUnit:degree_(angle)", "values": [
+        { "validTime": "2026-09-05T00:00:00+00:00/P1DT6H", "value": 280 },
+        { "validTime": "2026-09-06T18:00:00+00:00/PT12H", "value": 290 }
+      ] },
+      "secondarySwellHeight": { "uom": "wmoUnit:m", "values": [
+        { "validTime": "2026-09-05T06:00:00+00:00/P1D", "value": 0.6096 },
+        { "validTime": "2026-09-06T06:00:00+00:00/P1D", "value": 0.9144 }
+      ] },
+      "secondarySwellDirection": { "uom": "wmoUnit:degree_(angle)", "values": [{ "validTime": "2026-09-05T12:00:00+00:00/P1DT12H", "value": 230 }] },
+      "wavePeriod2": { "uom": "nwsUnit:s", "values": [{ "validTime": "2026-09-05T18:00:00+00:00/P1DT6H", "value": 15 }] }
+    }
+  },
+  "marine": {
+    "latitude": 32.875, "longitude": -117.29166, "utc_offset_seconds": 0,
+    "hourly": {
+      "time": ["2026-09-05T18:00", "2026-09-05T19:00", "2026-09-05T20:00", "2026-09-06T18:00", "2026-09-06T19:00", "2026-09-06T20:00"],
+      "wave_height": [1.34, 1.34, 1.36, 1.58, 1.6, 1.6],
+      "wave_direction": [199, 198, 196, 191, 191, 191],
+      "wave_period": [12.95, 12.95, 13, 12.7, 12.7, 12.7],
+      "wave_peak_period": [null, null, null, null, null, null],
+      "swell_wave_height": [1, 1.04, 1.08, 1.56, 1.56, 1.58],
+      "swell_wave_direction": [174, 177, 181, 189, 189, 189],
+      "swell_wave_period": [10.95, 10.9, 10.8, 10.8, 10.8, 10.8],
+      "swell_wave_peak_period": [null, null, null, null, null, null],
+      "wind_wave_height": [0, 0.02, 0.02, 0.02, 0.02, 0.04],
+      "wind_wave_direction": [283, 283, 284, 321, 318, 316],
+      "wind_wave_period": [0, 0.45, 1.1, 1.3, 1.4, 1.35],
+      "wind_wave_peak_period": [null, null, null, null, null, null],
+      "secondary_swell_wave_height": [0.7, 0.68, 0.68, 0.2, 0.2, 0.2],
+      "secondary_swell_wave_period": [11.9, 12.65, 13.6, 7.9, 7.85, 7.85],
+      "secondary_swell_wave_direction": [210, 208, 205, 293, 293, 294],
+      "tertiary_swell_wave_height": [null, null, null, null, null, null],
+      "tertiary_swell_wave_period": [null, null, null, null, null, null],
+      "tertiary_swell_wave_direction": [null, null, null, null, null, null]
+    }
+  }
+}

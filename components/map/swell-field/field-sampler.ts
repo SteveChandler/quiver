@@ -1,3 +1,4 @@
+import { mapSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
 import type { SwellLayerId } from "@/components/map/swell-map-theme";
 import {
   interpolateSwellPartition,
@@ -6,7 +7,7 @@ import {
 
 export { interpolateSwellPartition };
 
-export interface Vec2 {
+interface Vec2 {
   x: number;
   y: number;
 }
@@ -41,6 +42,15 @@ export interface FlowField {
   cells: FlowCell[];
 }
 
+interface FlowCellBeachWeight {
+  beachIndex: number;
+  weight: number;
+}
+
+export interface FlowFieldGrid extends FlowField {
+  beachWeights: FlowCellBeachWeight[][];
+}
+
 export type FlowComponentId = "s1" | "s2" | "wind";
 
 const WIND_PARTICLE_MIN_SCALE = 0.25;
@@ -65,7 +75,7 @@ export function resolveWindParticleCount(
 }
 
 /** Minimal style-layer shape we need to sniff water layers (id only). */
-export interface StyleLayerLike {
+interface StyleLayerLike {
   id: string;
 }
 
@@ -112,14 +122,15 @@ export interface WaterMaskMap {
   ): unknown[];
 }
 
-export interface WaterMaskOptions {
+interface WaterMaskOptions {
   /** Current map canvas size in CSS pixels. */
   width: number;
   height: number;
   /** Basemap layer ids that count as water. */
   waterLayerIds: string[];
-  /** Camera-scoped cell verdicts reused while forecast time changes. */
+  /** Cell verdicts reused while forecast time and camera position change. */
   waterMaskCache?: Map<string, boolean>;
+  zoomBucket?: number;
 }
 
 /**
@@ -130,6 +141,7 @@ export interface WaterMaskOptions {
  *    so a cell isn't blanked just because it's projected off the edge.
  *  - A throw from project/query is treated as water (skip zeroing) so a transient
  *    failure can never blank the whole field.
+ * Returns false when a deferred or untrusted pass needs a retry.
  * No-ops when there are no water layer ids (nothing to query against → err toward
  * leaving the field intact rather than zeroing everything).
  */
@@ -143,9 +155,13 @@ export function maskFieldToWater(
   const pendingLandCells: FlowField["cells"] = [];
   let queriedCellCount = 0;
   let waterHitCount = 0;
+  let queryFailed = false;
   for (const cell of field.cells) {
     if (cell.speed === 0 && cell.alpha === 0) continue; // already dead
-    const cacheKey = `${cell.lon}:${cell.lat}`;
+    const cellKey = `${cell.lon}:${cell.lat}`;
+    const cacheKey = options.zoomBucket === undefined
+      ? cellKey
+      : `${options.zoomBucket}:${cellKey}`;
     const cachedIsWater = options.waterMaskCache?.get(cacheKey);
     if (cachedIsWater !== undefined) {
       if (cachedIsWater) {
@@ -180,7 +196,8 @@ export function maskFieldToWater(
         options.waterMaskCache?.set(cacheKey, true);
       }
     } catch {
-      // Transient projection/query failure → treat as water, leave the cell.
+      // Transient projection/query failure → leave the cell and retry.
+      queryFailed = true;
     }
   }
   // Some Mapbox styles temporarily expose layer ids before their rendered
@@ -189,20 +206,28 @@ export function maskFieldToWater(
   const minimumTrustedWaterHits = queriedCellCount >= 12
     ? Math.max(2, Math.ceil(queriedCellCount * 0.1))
     : 1;
-  if (waterHitCount < minimumTrustedWaterHits) return false;
+  if (waterHitCount < minimumTrustedWaterHits) {
+    return pendingLandCells.length === 0 && !queryFailed && tilesLoaded;
+  }
   for (const cell of pendingLandCells) {
     if (tilesLoaded) {
-      options.waterMaskCache?.set(`${cell.lon}:${cell.lat}`, false);
+      const cellKey = `${cell.lon}:${cell.lat}`;
+      options.waterMaskCache?.set(
+        options.zoomBucket === undefined
+          ? cellKey
+          : `${options.zoomBucket}:${cellKey}`,
+        false,
+      );
     }
     cell.speed = 0;
     cell.alpha = 0;
     cell.vx = 0;
     cell.vy = 0;
   }
-  return tilesLoaded;
+  return tilesLoaded && !queryFailed;
 }
 
-export interface GeoBounds {
+interface GeoBounds {
   west: number;
   south: number;
   east: number;
@@ -210,7 +235,7 @@ export interface GeoBounds {
 }
 
 /** One point of the data footprint used to derive the coastal camera corridor. */
-export interface LatLonPoint {
+interface LatLonPoint {
   lat: number | null | undefined;
   lon: number | null | undefined;
 }
@@ -302,6 +327,13 @@ function alphaFromHeight(heightFt: number): number {
   return Math.max(0.18, Math.min(1, energy));
 }
 
+const FLOW_FIELD_POWER = 1.6;
+const FLOW_FIELD_EPS = 1e-9;
+const FLOW_FIELD_INFLUENCE_RADIUS_DEG = 1.0;
+const FLOW_FIELD_INFLUENCE_RADIUS2 =
+  FLOW_FIELD_INFLUENCE_RADIUS_DEG * FLOW_FIELD_INFLUENCE_RADIUS_DEG;
+const FLOW_FIELD_ALPHA_GAIN = 1.6;
+
 /**
  * Reduce a beach's full partition to the single sample relevant to `layerId`.
  * Returns null when that layer has no usable data at the beach.
@@ -312,6 +344,7 @@ export function partitionToPoint(
   partition: SwellPartition,
   layerId: SwellLayerId
 ): BeachPartitionPoint | null {
+  partition = mapSwellPartition(partition);
   if (layerId === "wind") {
     if (partition.windDir == null || partition.windMph == null) return null;
     // Treat wind like a short-period, height-proxied flow: period from mph, height from mph.
@@ -324,112 +357,115 @@ export function partitionToPoint(
     };
   }
   if (layerId === "s2") {
-    if (partition.s2Dir == null) return null;
+    if (partition.s2Dir == null || !partition.s2PeriodS || !partition.s2HeightFt) return null;
     return {
       lon,
       lat,
       dir: partition.s2Dir,
-      periodS: partition.s2PeriodS ?? 8,
-      heightFt: partition.s2HeightFt ?? 1,
+      periodS: partition.s2PeriodS,
+      heightFt: partition.s2HeightFt,
     };
   }
   // "s1" and "combined" both anchor on the primary swell.
-  const dir = partition.s1Dir ?? partition.swellDirOm;
-  if (dir == null) return null;
+  const dir = partition.s1Dir;
+  if (dir == null || !partition.s1PeriodS || !partition.s1HeightFt) return null;
   return {
     lon,
     lat,
     dir,
-    periodS: partition.s1PeriodS ?? 12,
-    heightFt: partition.s1HeightFt ?? 2,
+    periodS: partition.s1PeriodS,
+    heightFt: partition.s1HeightFt,
   };
 }
 
-/**
- * Build a coarse `resolution x resolution` IDW-interpolated flow field over
- * `bounds`. Pure: no DOM, no GL. `power=2` inverse-distance weighting.
- */
-export function buildFlowField(
-  points: BeachPartitionPoint[],
+export function buildFlowFieldGrid(
+  beachPositions: Pick<BeachPartitionPoint, "lon" | "lat">[],
   bounds: GeoBounds,
   resolution: number
-): FlowField {
+): FlowFieldGrid {
   const cols = Math.max(2, Math.floor(resolution));
   const rows = cols;
-  if (points.length === 0) {
-    return { cols, rows, cells: [] };
+  if (beachPositions.length === 0) {
+    return { cols, rows, cells: [], beachWeights: [] };
   }
 
   const cells: FlowCell[] = [];
+  const beachWeights: FlowCellBeachWeight[][] = [];
   const lonSpan = bounds.east - bounds.west;
   const latSpan = bounds.north - bounds.south;
-  // Gentle falloff so the coastal band stays densely covered between beaches
-  // (Windy reads as a uniform, gridded fill rather than tight blobs at each beach).
-  const POWER = 1.6;
-  const EPS = 1e-9;
-  // A cell more than this far (degrees) from EVERY beach has no nearby data and
-  // emits nothing, so far-off-coast / open-ocean areas stay clean. Widened so the
-  // band between and around beaches fills in densely, Windy-style.
-  const INFLUENCE_RADIUS_DEG = 1.0;
-  const INFLUENCE_RADIUS2 = INFLUENCE_RADIUS_DEG * INFLUENCE_RADIUS_DEG;
-  // Lift the emitted band so the populated coast reads clearly.
-  const ALPHA_GAIN = 1.6;
 
   for (let r = 0; r < rows; r += 1) {
     for (let c = 0; c < cols; c += 1) {
       const lon = bounds.west + (lonSpan * c) / (cols - 1);
       const lat = bounds.south + (latSpan * r) / (rows - 1);
-
-      let wSum = 0;
-      let vx = 0;
-      let vy = 0;
-      let speed = 0;
-      let alpha = 0;
-      let nearest2 = Infinity;
-
-      for (const p of points) {
+      const weights: FlowCellBeachWeight[] = [];
+      for (let beachIndex = 0; beachIndex < beachPositions.length; beachIndex += 1) {
+        const p = beachPositions[beachIndex];
         const dLon = lon - p.lon;
         const dLat = lat - p.lat;
         const dist2 = dLon * dLon + dLat * dLat;
-        if (dist2 < nearest2) nearest2 = dist2;
-        const w = 1 / Math.pow(dist2 + EPS, POWER / 2);
-        const vec = degToVector(p.dir);
-        vx += w * vec.x;
-        vy += w * vec.y;
-        speed += w * speedFromPeriod(p.periodS);
-        alpha += w * alphaFromHeight(p.heightFt);
-        wSum += w;
+        if (dist2 > FLOW_FIELD_INFLUENCE_RADIUS2) continue;
+        weights.push({
+          beachIndex,
+          weight: 1 / Math.pow(dist2 + FLOW_FIELD_EPS, FLOW_FIELD_POWER / 2),
+        });
       }
-
-      // No beach within the influence radius -> dead cell (speed 0 / alpha 0).
-      if (nearest2 > INFLUENCE_RADIUS2 || wSum <= 0) {
-        cells.push({ lon, lat, vx: 0, vy: 0, speed: 0, alpha: 0 });
-        continue;
-      }
-
-      const inv = 1 / wSum;
-      // Re-normalize the blended direction to a unit vector (magnitude carries via speed).
-      let nvx = vx * inv;
-      let nvy = vy * inv;
-      const mag = Math.hypot(nvx, nvy);
-      if (mag > EPS) {
-        nvx /= mag;
-        nvy /= mag;
-      } else {
-        nvx = 0;
-        nvy = 0;
-      }
-
-      cells.push({
-        lon,
-        lat,
-        vx: nvx,
-        vy: nvy,
-        speed: speed * inv,
-        alpha: Math.min(1, alpha * inv * ALPHA_GAIN),
-      });
+      cells.push({ lon, lat, vx: 0, vy: 0, speed: 0, alpha: 0 });
+      beachWeights.push(weights);
     }
   }
 
-  return { cols, rows, cells };
+  return { cols, rows, cells, beachWeights };
+}
+
+export function updateFlowFieldValues(
+  grid: FlowFieldGrid,
+  points: BeachPartitionPoint[]
+): FlowFieldGrid {
+  for (let cellIndex = 0; cellIndex < grid.cells.length; cellIndex += 1) {
+    const cell = grid.cells[cellIndex];
+    const weights = grid.beachWeights[cellIndex];
+    let wSum = 0;
+    let vx = 0;
+    let vy = 0;
+    let speed = 0;
+    let alpha = 0;
+
+    for (const { beachIndex, weight } of weights) {
+      const point = points[beachIndex];
+      if (!point) continue;
+      const vec = degToVector(point.dir);
+      vx += weight * vec.x;
+      vy += weight * vec.y;
+      speed += weight * speedFromPeriod(point.periodS);
+      alpha += weight * alphaFromHeight(point.heightFt);
+      wSum += weight;
+    }
+
+    if (wSum <= 0) {
+      cell.vx = 0;
+      cell.vy = 0;
+      cell.speed = 0;
+      cell.alpha = 0;
+      continue;
+    }
+
+    const inv = 1 / wSum;
+    const magnitude = Math.hypot(vx * inv, vy * inv);
+    cell.vx = magnitude > FLOW_FIELD_EPS ? (vx * inv) / magnitude : 0;
+    cell.vy = magnitude > FLOW_FIELD_EPS ? (vy * inv) / magnitude : 0;
+    cell.speed = speed * inv;
+    cell.alpha = Math.min(1, alpha * inv * FLOW_FIELD_ALPHA_GAIN);
+  }
+
+  return grid;
+}
+
+/** Build a coarse IDW-interpolated field over `bounds`. Pure: no DOM, no GL. */
+export function buildFlowField(
+  points: BeachPartitionPoint[],
+  bounds: GeoBounds,
+  resolution: number
+): FlowField {
+  return updateFlowFieldValues(buildFlowFieldGrid(points, bounds, resolution), points);
 }

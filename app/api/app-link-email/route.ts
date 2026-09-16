@@ -14,7 +14,7 @@ import {
   getBaseUrl,
   MAIL_FROM,
   MAIL_REPLY_TO,
-  resend,
+  sendEmail,
 } from "@/lib/mailer/client";
 import { AppLinkEmail } from "@/lib/mailer/templates/AppLinkEmail";
 import { AppLinkEmailSchema } from "@/lib/validation/schemas";
@@ -88,7 +88,8 @@ export const POST = withBotBlockingAndRateLimit(
     })}`;
 
     try {
-      const { error } = await resend.emails.send({
+      const { error } = await sendEmail({
+      purpose: "requested",
         from: MAIL_FROM,
         replyTo: MAIL_REPLY_TO,
         to: email,

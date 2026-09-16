@@ -1,6 +1,13 @@
 # Manual Backlink Imports
 
-Drop free backlink exports here, or into the active `Brand-Vault/seo-audit/YYYY-MM-DD/` folder, before running `yarn seo:backlink-proxy`.
+**Drop exports here, not in the dated audit folder.** Both locations are searched, but
+`Brand-Vault/seo-audit/YYYY-MM-DD/` changes every week, so a file dropped there is invisible to the
+next run. A file in *this* folder is picked up by every future run.
+
+Append the capture date to the filename — `REFERRING-DOMAINS-2026-08-25.csv`. The stem still has to
+match the allowlist below, and a trailing `-YYYY-MM-DD` is stripped before matching. The date is
+reported as the export's capture date and ages into `lagged`/`stale` in the weekly report's source
+freshness table; without it the file's mtime is used instead.
 
 Auto-discovered filenames include:
 

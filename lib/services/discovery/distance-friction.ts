@@ -1,7 +1,7 @@
 import type { SurfDiscoveryRecommendation } from '@/types/personalization';
 
-export const DISTANCE_FRICTION_HOME_ZONE_MILES = 10;
-export const DISTANCE_FRICTION_PENALTY_PER_MILE = 0.2;
+const DISTANCE_FRICTION_HOME_ZONE_MILES = 10;
+const DISTANCE_FRICTION_PENALTY_PER_MILE = 0.2;
 export const DISTANCE_FRICTION_MAX_PENALTY = 10;
 export const DISTANCE_TIE_BREAKER_POINTS = 3;
 export const WORTH_THE_DRIVE_DISTANCE_MILES = 25;

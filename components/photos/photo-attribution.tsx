@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { stripPublicDomainNotice } from "@/lib/photos/license-notice";
 
-export interface StructuredPhotoAttribution {
+interface StructuredPhotoAttribution {
   kind: "profile" | "community";
   displayName: string;
   profileId: string | null;

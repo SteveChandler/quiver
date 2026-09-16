@@ -5,7 +5,7 @@
 
 import { ApiError } from "@/lib/errors/forecast-errors";
 
-export interface RetryOptions {
+interface RetryOptions {
   maxRetries?: number;
   baseDelay?: number;
   maxDelay?: number;

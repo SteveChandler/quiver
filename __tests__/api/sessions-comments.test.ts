@@ -271,50 +271,40 @@ describe("Session Comments API", () => {
   });
 
   describe("POST /api/sessions/[id]/comments", () => {
-    it("creates a comment with valid data and authentication", async () => {
-      const mockUser = {
-        id: validUserId,
-        email: "user@example.com",
-      };
-
+    beforeEach(() => {
       mockAuthGetUser.mockResolvedValue({
-        data: { user: mockUser },
+        data: { user: { id: validUserId, email: "user@example.com" } },
         error: null,
       });
+    });
 
-      const mockInsert = jest.fn().mockResolvedValue({
-        data: null,
-        error: null,
-      });
-
+    it.each([
+      ["valid content", "This was an amazing surf session!"],
+      ["2000-character boundary", "a".repeat(2000)],
+      ["surrounding whitespace", "  Trimmed content  "],
+    ])("creates a comment with %s", async (_label, content) => {
+      const mockInsert = jest.fn().mockResolvedValue({ data: null, error: null });
       mockExistingSessionThenInsert(mockInsert);
 
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${validSessionId}/comments`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            content: "This was an amazing surf session!",
-          }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
         }
       );
-
       const response = await POST(request, { params: { id: validSessionId } });
       const data = await response.json();
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.message).toBe("Comment created successfully");
-
-      // Verify insert was called with correct data
       expect(mockFrom).toHaveBeenCalledWith("comments");
       expect(mockInsert).toHaveBeenCalledWith({
         session_id: validSessionId,
         user_id: validUserId,
-        content: "This was an amazing surf session!",
+        content: content.trim(),
       });
     });
 
@@ -323,20 +313,14 @@ describe("Session Comments API", () => {
         data: { user: null },
         error: new Error("Not authenticated"),
       });
-
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${validSessionId}/comments`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            content: "This should fail",
-          }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: "This should fail" }),
         }
       );
-
       const response = await POST(request, { params: { id: validSessionId } });
       const data = await response.json();
 
@@ -346,318 +330,90 @@ describe("Session Comments API", () => {
       expect(mockFrom).not.toHaveBeenCalled();
     });
 
-    it("rejects empty content", async () => {
-      const mockUser = {
-        id: validUserId,
-        email: "user@example.com",
-      };
-
-      mockAuthGetUser.mockResolvedValue({
-        data: { user: mockUser },
-        error: null,
-      });
-
+    it.each([
+      { label: "empty content", content: "", error: /empty/i },
+      { label: "null content", content: null, error: /string/i },
+      { label: "whitespace-only content", content: "   ", error: /empty/i },
+      { label: "2001-character content", content: "a".repeat(2001), error: /2000 characters/i },
+    ])("rejects $label before hitting the database", async ({ content, error }) => {
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${validSessionId}/comments`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            content: "",
-          }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
         }
       );
-
       const response = await POST(request, { params: { id: validSessionId } });
       const data = await response.json();
 
       expect(response.status).toBe(400);
       expect(data.success).toBe(false);
-      expect(data.error).toBeDefined();
-    });
-
-    it("rejects whitespace-only content before hitting the database", async () => {
-      const mockUser = {
-        id: validUserId,
-        email: "user@example.com",
-      };
-
-      mockAuthGetUser.mockResolvedValue({
-        data: { user: mockUser },
-        error: null,
-      });
-
-      const request = new NextRequest(
-        `http://localhost:3000/api/sessions/${validSessionId}/comments`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            content: "   ",
-          }),
-        }
-      );
-
-      const response = await POST(request, { params: { id: validSessionId } });
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.success).toBe(false);
-      expect(data.error).toBeDefined();
+      expect(data.error).toMatch(error);
       expect(mockFrom).not.toHaveBeenCalled();
     });
 
-    it("rejects content exceeding max length (2000 characters)", async () => {
-      const mockUser = {
-        id: validUserId,
-        email: "user@example.com",
-      };
-
-      mockAuthGetUser.mockResolvedValue({
-        data: { user: mockUser },
-        error: null,
-      });
-
-      const longContent = "a".repeat(2001); // 2001 characters
-
+    it.each([
+      { label: "wrong Content-Type", contentType: "text/plain", body: JSON.stringify({ content: "Valid comment" }), error: /Content-Type/ },
+      { label: "missing Content-Type", contentType: undefined, body: JSON.stringify({ content: "Valid comment" }), error: /Content-Type/ },
+      { label: "malformed JSON", contentType: "application/json", body: "{ invalid json }", error: /Invalid JSON/ },
+    ])("rejects $label before hitting the database", async ({ contentType, body, error }) => {
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${validSessionId}/comments`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            content: longContent,
-          }),
+          headers: contentType ? { "Content-Type": contentType } : {},
+          body,
         }
       );
-
       const response = await POST(request, { params: { id: validSessionId } });
       const data = await response.json();
 
       expect(response.status).toBe(400);
       expect(data.success).toBe(false);
-      expect(data.error).toBeDefined();
-    });
-
-    it("accepts content at max length boundary (2000 characters)", async () => {
-      const mockUser = {
-        id: validUserId,
-        email: "user@example.com",
-      };
-
-      mockAuthGetUser.mockResolvedValue({
-        data: { user: mockUser },
-        error: null,
-      });
-
-      const mockInsert = jest.fn().mockResolvedValue({
-        data: null,
-        error: null,
-      });
-
-      mockExistingSessionThenInsert(mockInsert);
-
-      const maxContent = "a".repeat(2000); // Exactly 2000 characters
-
-      const request = new NextRequest(
-        `http://localhost:3000/api/sessions/${validSessionId}/comments`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            content: maxContent,
-          }),
-        }
-      );
-
-      const response = await POST(request, { params: { id: validSessionId } });
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-    });
-
-    it("rejects invalid Content-Type header", async () => {
-      const mockUser = {
-        id: validUserId,
-        email: "user@example.com",
-      };
-
-      mockAuthGetUser.mockResolvedValue({
-        data: { user: mockUser },
-        error: null,
-      });
-
-      const request = new NextRequest(
-        `http://localhost:3000/api/sessions/${validSessionId}/comments`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "text/plain",
-          },
-          body: "not json",
-        }
-      );
-
-      const response = await POST(request, { params: { id: validSessionId } });
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.success).toBe(false);
-      expect(data.error).toBeDefined();
-    });
-
-    it("rejects malformed JSON", async () => {
-      const mockUser = {
-        id: validUserId,
-        email: "user@example.com",
-      };
-
-      mockAuthGetUser.mockResolvedValue({
-        data: { user: mockUser },
-        error: null,
-      });
-
-      const request = new NextRequest(
-        `http://localhost:3000/api/sessions/${validSessionId}/comments`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: "{ invalid json }",
-        }
-      );
-
-      const response = await POST(request, { params: { id: validSessionId } });
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data.success).toBe(false);
-      expect(data.error).toBeDefined();
+      expect(data.error).toMatch(error);
+      expect(mockFrom).not.toHaveBeenCalled();
     });
 
     it("validates session ID format", async () => {
-      const mockUser = {
-        id: validUserId,
-        email: "user@example.com",
-      };
-
-      mockAuthGetUser.mockResolvedValue({
-        data: { user: mockUser },
-        error: null,
-      });
-
       const invalidSessionId = "not-a-uuid";
-
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${invalidSessionId}/comments`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            content: "This should fail due to invalid session ID",
-          }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: "Valid comment" }),
         }
       );
-
       const response = await POST(request, { params: { id: invalidSessionId } });
       const data = await response.json();
 
       expect(response.status).toBe(400);
       expect(data.success).toBe(false);
       expect(data.error).toContain("Invalid session format");
+      expect(mockFrom).not.toHaveBeenCalled();
     });
 
     it("handles database insert errors gracefully", async () => {
-      const mockUser = {
-        id: validUserId,
-        email: "user@example.com",
-      };
-
-      mockAuthGetUser.mockResolvedValue({
-        data: { user: mockUser },
-        error: null,
-      });
-
       const mockInsert = jest.fn().mockResolvedValue({
         data: null,
         error: new Error("Foreign key constraint violation"),
       });
-
       mockExistingSessionThenInsert(mockInsert);
-
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${validSessionId}/comments`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            content: "This should fail due to database error",
-          }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: "This should fail due to database error" }),
         }
       );
-
       const response = await POST(request, { params: { id: validSessionId } });
       const data = await response.json();
 
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
       expect(data.error).toContain("Failed to create comment");
-    });
-
-    it("trims whitespace from content", async () => {
-      const mockUser = {
-        id: validUserId,
-        email: "user@example.com",
-      };
-
-      mockAuthGetUser.mockResolvedValue({
-        data: { user: mockUser },
-        error: null,
-      });
-
-      const mockInsert = jest.fn().mockResolvedValue({
-        data: null,
-        error: null,
-      });
-
-      mockExistingSessionThenInsert(mockInsert);
-
-      const request = new NextRequest(
-        `http://localhost:3000/api/sessions/${validSessionId}/comments`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            content: "  Trimmed content  ",
-          }),
-        }
-      );
-
-      const response = await POST(request, { params: { id: validSessionId } });
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(mockInsert).toHaveBeenCalledWith({
-        session_id: validSessionId,
-        user_id: validUserId,
-        content: "Trimmed content", // Should be trimmed
-      });
     });
   });
 

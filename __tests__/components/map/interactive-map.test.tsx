@@ -18,11 +18,14 @@ const mockHasViewportChanged = jest.fn(
 );
 let mockUser: { id: string } | null = null;
 let mockMapCenter = { lat: 32.7493, lng: -117.2511 };
+let mockMapZoom = 13;
 let mockAutoLoadMap = true;
 let mockMapBoundsAvailable = true;
+let mockMapBounds = { west: -117.3, south: 32.7, east: -117.2, north: 32.8 };
 let mockTilesLoaded = true;
 let mockStyleLayers: Array<{ id: string }> = [];
 const mockQueryRenderedFeatures = jest.fn((): unknown[] => [{}]);
+const mockProject = jest.fn((_lngLat: [number, number]) => ({ x: 400, y: 300 }));
 
 jest.mock("mapbox-gl", () => ({
   Map: jest.fn(() => ({
@@ -38,7 +41,7 @@ jest.mock("mapbox-gl", () => ({
       ...mockMapCenter,
       toArray: (): [number, number] => [mockMapCenter.lng, mockMapCenter.lat],
     })),
-    getZoom: jest.fn(() => 13),
+    getZoom: jest.fn(() => mockMapZoom),
     getMaxZoom: jest.fn(() => 22),
     getMinZoom: jest.fn(() => 0),
     setCenter: jest.fn(),
@@ -52,10 +55,10 @@ jest.mock("mapbox-gl", () => ({
     getBounds: jest.fn(() =>
       mockMapBoundsAvailable
         ? {
-            getWest: () => -117.3,
-            getSouth: () => 32.7,
-            getEast: () => -117.2,
-            getNorth: () => 32.8,
+            getWest: () => mockMapBounds.west,
+            getSouth: () => mockMapBounds.south,
+            getEast: () => mockMapBounds.east,
+            getNorth: () => mockMapBounds.north,
           }
         : null,
     ),
@@ -63,7 +66,7 @@ jest.mock("mapbox-gl", () => ({
     getLayer: jest.fn(() => undefined),
     getStyle: jest.fn(() => ({ layers: mockStyleLayers })),
     getCanvas: jest.fn(() => ({ clientWidth: 800, clientHeight: 600 })),
-    project: jest.fn(() => ({ x: 400, y: 300 })),
+    project: mockProject,
     queryRenderedFeatures: mockQueryRenderedFeatures,
     areTilesLoaded: jest.fn(() => mockTilesLoaded),
     addLayer: jest.fn(),
@@ -72,8 +75,10 @@ jest.mock("mapbox-gl", () => ({
     triggerRepaint: jest.fn(),
   })),
   AttributionControl: jest.fn(() => ({ type: "attribution" })),
-  Marker: jest.fn(() => {
+  Marker: jest.fn((options?: { element?: HTMLElement }) => {
+    const element = options?.element ?? document.createElement("div");
     const marker = {
+      getElement: () => element,
       setLngLat: jest.fn().mockReturnThis(),
       addTo: jest.fn().mockReturnThis(),
       remove: jest.fn(),
@@ -119,6 +124,7 @@ jest.mock("@/components/map/map-favorites-loader", () => ({
 
 jest.mock("@/lib/utils/request-cache", () => ({
   createCachedMapFetch: jest.fn(() => mockFetchNearbyBeaches),
+  forecastCache: { get: jest.fn(() => null), set: jest.fn() },
 }));
 
 jest.mock("@/lib/constants/ui", () => ({
@@ -148,11 +154,14 @@ describe("InteractiveMap", () => {
     mockFetchNearbyBeaches.mockResolvedValue({ data: [] });
     mockHasViewportChanged.mockReturnValue(true);
     mockMapCenter = { lat: 32.7493, lng: -117.2511 };
+    mockMapZoom = 13;
     mockAutoLoadMap = true;
     mockMapBoundsAvailable = true;
+    mockMapBounds = { west: -117.3, south: 32.7, east: -117.2, north: 32.8 };
     mockTilesLoaded = true;
     mockStyleLayers = [];
     mockQueryRenderedFeatures.mockImplementation(() => [{}]);
+    mockProject.mockImplementation(() => ({ x: 400, y: 300 }));
     delete (
       window as typeof window & {
         __quiverMapDebugCenter?: { lat: number; lon: number };
@@ -189,7 +198,7 @@ describe("InteractiveMap", () => {
     return Map.mock.results[Map.mock.results.length - 1].value;
   }
 
-  it("allows beach-level zoom while the swell-field leash is active", async () => {
+  it("does not restrict navigation when the swell field is active", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     render(
       <InteractiveMap
@@ -204,7 +213,9 @@ describe("InteractiveMap", () => {
     );
 
     await waitFor(() => {
-      expect(getMapInstance().setMaxZoom).toHaveBeenCalledWith(16);
+      expect((getMapInstance() as unknown as { addLayer: jest.Mock }).addLayer).toHaveBeenCalled();
+      expect(getMapInstance().setMaxZoom).not.toHaveBeenCalled();
+      expect(getMapInstance().setMaxBounds).not.toHaveBeenCalledWith(expect.any(Array));
     });
   });
 
@@ -305,7 +316,7 @@ describe("InteractiveMap", () => {
             data: {
               forecasts: { [beach.id]: 2.5 },
               displayForecasts: { [beach.id]: { label: "2-3ft" } },
-              conditionSummaries: { [beach.id]: "GOOD" },
+              recommendationLabels: { [beach.id]: "Worth it" },
               swellPartitions: {},
             },
           }),
@@ -315,8 +326,8 @@ describe("InteractiveMap", () => {
       expect(mockMarkerInstances).toHaveLength(0);
       await waitFor(() =>
         expect(screen.getByTestId("map-preload-marker")).toHaveAttribute(
-          "data-condition-summary",
-          "GOOD",
+          "data-recommendation-label",
+          "Worth it",
         ),
       );
       expect(screen.getByTestId("map-preload-marker")).toHaveTextContent("2-3ft");
@@ -475,7 +486,7 @@ describe("InteractiveMap", () => {
       phase: "start",
     });
     await waitFor(() => {
-      expect(getMapInstance().setMaxBounds.mock.calls.length).toBeGreaterThan(
+      expect(getMapInstance().setMaxBounds.mock.calls.length).toBe(
         maxBoundsCallsBeforeInterruption,
       );
     });
@@ -519,6 +530,32 @@ describe("InteractiveMap", () => {
     await waitFor(() => {
       expect(map.addLayer.mock.calls.length).toBeGreaterThan(initialAdds);
     });
+  });
+
+  it("retries an overlay mount deferred by tile loading without another style.load", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const { rerender, unmount } = render(<InteractiveMap beaches={[]} showSwellField={false} />);
+    await waitFor(() => expect(mockMapHandlers["style.load"]).toHaveLength(1));
+    const map = getMapInstance() as ReturnType<typeof getMapInstance> & {
+      isStyleLoaded: jest.Mock;
+      getBounds: jest.Mock;
+      addLayer: jest.Mock;
+      off: jest.Mock;
+    };
+    await waitFor(() => expect(map.getBounds).toHaveBeenCalled());
+    map.isStyleLoaded = jest.fn(() => false);
+    rerender(<InteractiveMap beaches={[]} showSwellField swellLayerId="s1" />);
+    expect(map.addLayer).not.toHaveBeenCalled();
+    const retry = mockMapHandlers.data.at(-1)!;
+    act(() => retry());
+    expect(map.addLayer).not.toHaveBeenCalled();
+    map.isStyleLoaded.mockReturnValue(true);
+    act(() => retry());
+    await waitFor(() => expect(map.addLayer).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "quiver-swell-field" }),
+    ));
+    expect(map.off).toHaveBeenCalledWith("data", retry);
+    unmount();
   });
 
   it("resizes Mapbox when its container changes size", async () => {
@@ -582,6 +619,125 @@ describe("InteractiveMap", () => {
       center: { lat: 21.29, lon: -157.86 },
       phase: "end",
     });
+  });
+
+  it("keeps a user viewport when a later command reaches the debounce queue", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onBoundsChange = jest.fn();
+    mockHasViewportChanged.mockReturnValue(false);
+    const { rerender } = render(<InteractiveMap beaches={[]} onBoundsChange={onBoundsChange} />);
+
+    await waitFor(() => expect(mockMapHandlers.moveend).toHaveLength(1));
+    await waitFor(() => expect(onBoundsChange).toHaveBeenCalledWith(
+      { west: -117.3, south: 32.7, east: -117.2, north: 32.8 },
+      { interactionSource: "initial" },
+    ));
+    jest.useFakeTimers();
+    try {
+      onBoundsChange.mockClear();
+      mockMapHandlers.dragstart[0]({ originalEvent: new MouseEvent("mousedown") });
+      mockMapBounds = { west: -117.5, south: 32.6, east: -117.4, north: 32.7 };
+      mockMapHandlers.moveend[0]();
+      rerender(
+        <InteractiveMap
+          beaches={[]}
+          onBoundsChange={onBoundsChange}
+          cameraCommand={{
+            id: 700,
+            source: "region",
+            center: { lat: 33.15, lon: -118.15 },
+          }}
+        />,
+      );
+      await waitFor(() => expect(getMapInstance().flyTo).toHaveBeenCalledWith({
+        center: [-118.15, 33.15],
+        zoom: 13,
+        duration: 800,
+      }));
+      mockMapBounds = { west: -118.2, south: 33.1, east: -118.1, north: 33.2 };
+      mockMapHandlers.moveend[0]();
+
+      expect(onBoundsChange).toHaveBeenCalledWith(
+        { west: -117.5, south: 32.6, east: -117.4, north: 32.7 },
+        { interactionSource: "user" },
+      );
+      act(() => jest.advanceTimersByTime(1_500));
+      const userBounds = onBoundsChange.mock.calls.filter(
+        ([, metadata]) => metadata?.interactionSource === "user",
+      );
+      expect(userBounds).toEqual([[
+        { west: -117.5, south: 32.6, east: -117.4, north: 32.7 },
+        { interactionSource: "user" },
+      ]]);
+      expect(onBoundsChange).toHaveBeenLastCalledWith(
+        { west: -118.2, south: 33.1, east: -118.1, north: 33.2 },
+        { interactionSource: "programmatic" },
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("does not repost a solitary user viewport as programmatic after debounce", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onBoundsChange = jest.fn();
+    mockHasViewportChanged.mockReturnValue(false);
+    render(<InteractiveMap beaches={[]} onBoundsChange={onBoundsChange} />);
+
+    await waitFor(() => expect(mockMapHandlers.moveend).toHaveLength(1));
+    jest.useFakeTimers();
+    try {
+      onBoundsChange.mockClear();
+      mockMapHandlers.dragstart[0]({ originalEvent: new MouseEvent("mousedown") });
+      mockMapBounds = { west: -117.5, south: 32.6, east: -117.4, north: 32.7 };
+      mockMapHandlers.moveend[0]();
+
+      expect(onBoundsChange).toHaveBeenCalledTimes(1);
+      expect(onBoundsChange).toHaveBeenCalledWith(
+        { west: -117.5, south: 32.6, east: -117.4, north: 32.7 },
+        { interactionSource: "user" },
+      );
+
+      act(() => jest.advanceTimersByTime(1_500));
+      expect(onBoundsChange).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("labels the map's ready bounds as initial", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onBoundsChange = jest.fn();
+    render(<InteractiveMap beaches={[]} onBoundsChange={onBoundsChange} />);
+
+    await waitFor(() => expect(onBoundsChange).toHaveBeenCalledWith(
+      { west: -117.3, south: 32.7, east: -117.2, north: 32.8 },
+      { interactionSource: "initial" },
+    ));
+  });
+
+  it("does not infer user provenance from source-less map events", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onBoundsChange = jest.fn();
+    mockHasViewportChanged.mockReturnValue(false);
+    render(<InteractiveMap beaches={[]} onBoundsChange={onBoundsChange} />);
+
+    await waitFor(() => expect(mockMapHandlers.moveend).toHaveLength(1));
+    jest.useFakeTimers();
+    try {
+      onBoundsChange.mockClear();
+      mockMapHandlers.dragstart[0]({});
+      mockMapBounds = { west: -118.2, south: 33.1, east: -118.1, north: 33.2 };
+      mockMapHandlers.moveend[0]();
+      act(() => jest.advanceTimersByTime(1_500));
+      expect(onBoundsChange).toHaveBeenCalledTimes(1);
+      expect(onBoundsChange).toHaveBeenCalledWith(
+        { west: -118.2, south: 33.1, east: -118.1, north: 33.2 },
+        { interactionSource: "programmatic" },
+      );
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("does not reapply stale beach bounds after a cross-region command and drag", async () => {
@@ -681,12 +837,14 @@ describe("InteractiveMap", () => {
         beaches={[{ id: "beach-1", name: "Beach", lat: 32.75, lon: -117.25 } as import("@/types/database").Beach]}
         onHourlyTimelineLoaded={onHourlyTimelineLoaded}
         swellTimelineMode="hourly"
+        swellTimelineStart="2026-07-10T20:00:00.000Z"
       />,
     );
 
     await waitFor(() => {
       expect(onHourlyTimelineLoaded).toHaveBeenCalledWith(timeline);
     });
+    expect((global.fetch as jest.Mock).mock.calls.some(([url]) => new URL(String(url), 'https://example.com').searchParams.get('timelineStart') === '2026-07-10T20:00:00.000Z')).toBe(true);
   });
 
   it("commits current enrichment before the full hourly timeline resolves", async () => {
@@ -738,8 +896,7 @@ describe("InteractiveMap", () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledTimes(1);
     });
-    expect(onDisplayForecastsChange).toHaveBeenCalledTimes(1);
-    expect(onDisplayForecastsChange.mock.calls[0][0].size).toBe(0);
+    expect(onDisplayForecastsChange).not.toHaveBeenCalled();
 
     await act(async () => {
       resolveCurrent({
@@ -760,7 +917,7 @@ describe("InteractiveMap", () => {
         expect.objectContaining({ get: expect.any(Function) }),
       );
     });
-    expect(onDisplayForecastsChange.mock.calls[1][0].get("beach-1")).toEqual({
+    expect(onDisplayForecastsChange.mock.calls[0][0].get("beach-1")).toEqual({
       label: "3-4ft",
     });
     await waitFor(() => {
@@ -779,7 +936,7 @@ describe("InteractiveMap", () => {
     await waitFor(() => {
       expect(onHourlyTimelineLoaded).toHaveBeenCalledWith(timeline);
     });
-    expect(onDisplayForecastsChange).toHaveBeenCalledTimes(2);
+    expect(onDisplayForecastsChange).toHaveBeenCalledTimes(1);
     unmount();
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -788,16 +945,19 @@ describe("InteractiveMap", () => {
   });
 
   it("does not carry a prior hourly frame into a missing absolute timestamp", async () => {
-    const interactiveMapModule = await import("@/components/map/interactive-map");
-    const resolve = (interactiveMapModule as Record<string, unknown>).partitionAtAbsoluteTimelineIndex;
-    const firstFrame = { swell1Height: 2 };
+    const { partitionAtAbsoluteTimelineIndex: resolve } = await import("@/components/map/interactive-map");
+    const firstFrame = {
+      s1Dir: 270, s1PeriodS: 12, s1HeightFt: 2,
+      s2Dir: null, s2PeriodS: null, s2HeightFt: null,
+      windDir: null, windMph: null,
+    };
     const timeline = {
       timestamps: [
         "2026-07-10T20:00:00.000Z",
         "2026-07-10T21:00:00.000Z",
         "2026-07-10T22:00:00.000Z",
       ],
-      partitionsByBeach: { "beach-1": [firstFrame, null, { swell1Height: 4 }] },
+      partitionsByBeach: { "beach-1": [firstFrame, null, { ...firstFrame, s1HeightFt: 4 }] },
       hasMore: false,
       nextStart: null,
     };
@@ -806,6 +966,7 @@ describe("InteractiveMap", () => {
       : firstFrame;
 
     expect(partition).toBeUndefined();
+    expect(resolve(timeline, "beach-1", 0)).toEqual(firstFrame);
 
     const malformedTimestampPartition = typeof resolve === "function"
       ? resolve(
@@ -1394,6 +1555,9 @@ describe("InteractiveMap", () => {
 
       fireMapClick(-117.25, 32.75);
       expect(calloutMarkerCallCount()).toBe(1);
+      const markerConstructor = require("mapbox-gl").Marker as jest.Mock;
+      const calloutElement = markerConstructor.mock.calls.find(([options]) => options.element?.hasAttribute("data-conditions-callout"))[0].element as HTMLElement;
+      const replaceChildren = jest.spyOn(calloutElement, "replaceChildren");
 
       // Playback advances a fractional index every 80ms; ticks that round to the
       // same displayed step must not tear down and rebuild the callout marker.
@@ -1402,14 +1566,18 @@ describe("InteractiveMap", () => {
       rerender(<InteractiveMap {...renderProps(0.24)} />);
       expect(calloutMarkerCallCount()).toBe(1);
 
+      expect(replaceChildren).not.toHaveBeenCalled();
+
       // Crossing the rounding boundary into the next step refreshes exactly once.
       rerender(<InteractiveMap {...renderProps(0.56)} />);
-      expect(calloutMarkerCallCount()).toBe(2);
+      expect(calloutMarkerCallCount()).toBe(1);
+      expect(replaceChildren).toHaveBeenCalledTimes(1);
 
       // Further ticks within the new step stay put again.
       rerender(<InteractiveMap {...renderProps(0.64)} />);
       rerender(<InteractiveMap {...renderProps(0.72)} />);
-      expect(calloutMarkerCallCount()).toBe(2);
+      expect(calloutMarkerCallCount()).toBe(1);
+      expect(replaceChildren).toHaveBeenCalledTimes(1);
     });
 
     it("notifies the embed host when a pin opens, but not when it toggles off", async () => {
@@ -1437,6 +1605,9 @@ describe("InteractiveMap", () => {
       });
 
       fireEvent.click(getBeachMarkerBadge(beach.id));
+      const visual = getBeachMarkerBadge(beach.id).querySelector<HTMLElement>("[data-marker-visual]")!;
+      expect(visual.style.transform).toBe("");
+      expect(visual).toHaveStyle({ width: "25.2px", height: "25.2px" });
       expect(onLocationClick).toHaveBeenCalledTimes(1);
       expect(onLocationClick).toHaveBeenCalledWith(
         expect.objectContaining({ id: beach.id }),
@@ -1448,16 +1619,57 @@ describe("InteractiveMap", () => {
       expect(onLocationClick).toHaveBeenCalledTimes(1);
     });
 
+    it.each(["hourly", "expandable-hourly"] as const)("shows canonical labels for %s partitions", async (mode) => {
+      const { InteractiveMap } = await import("@/components/map/interactive-map");
+      const beaches = Array.from({ length: 21 }, (_, index) => ({
+        ...beach, id: `spot-${index}`, name: `Spot ${index}`, lat: 32.75 + index * 0.001,
+      }));
+      const partition = { conditionScore: 75, recommendationLabel: "Worth it", s1Dir: 190, s1HeightFt: 4, s1PeriodS: 12, s2Dir: null, s2HeightFt: null, s2PeriodS: null, windDir: 90, windMph: 6 };
+      const sampledIds = new Set<string>();
+      global.fetch = jest.fn(async (input: string) => {
+        const params = new URL(input, "https://example.test").searchParams;
+        const ids = (params.get("timelineBeachIds") ?? params.get("beachIds") ?? "").split(",");
+        if (params.has("timelineBeachIds")) ids.forEach((id) => sampledIds.add(id));
+        return { ok: true, status: 200, json: async () => ({ data: {
+          forecasts: {},
+          hourlySwellTimeline: {
+            timestamps: ["2026-09-06T12:00:00.000Z", "2026-09-06T13:00:00.000Z"],
+            partitionsByBeach: Object.fromEntries(ids.map((id) => [id, [partition, { ...partition, s1HeightFt: 5, conditionScore: 30, recommendationLabel: "Skip" }]])),
+            hasMore: false, nextStart: null,
+          },
+        } }) };
+      }) as jest.Mock;
+      const props = { beaches, showSwellField: true, disableBeachClustering: true, showConditionsOnTap: true,
+        autoNavigateOnMarkerClick: false, swellTimelineMode: mode };
+      const view = render(<InteractiveMap {...props} />);
+      await waitFor(() => expect(sampledIds.size).toBe(21));
+      const excluded = beaches[20];
+      await waitFor(() => expect(getBeachMarkerBadge(excluded.id)).toBeInstanceOf(HTMLElement));
+      fireEvent.click(getBeachMarkerBadge(excluded.id));
+      await waitFor(() => {
+        expect(getBeachMarkerBadge(excluded.id).parentElement).toHaveAttribute("data-recommendation-label", "Worth it");
+        const Marker = require("mapbox-gl").Marker;
+        const callout = Marker.mock.calls.filter(([options]: [{ element?: HTMLElement }]) => options.element?.hasAttribute("data-conditions-callout")).at(-1)?.[0].element;
+        expect(callout?.querySelector('[data-callout-banner="s1"]')).not.toBeNull();
+        expect(callout).toHaveAttribute("aria-label", expect.stringContaining("SWELL 4ft, 12s"));
+      });
+      expect(calloutMarkerCallCount()).toBe(1);
+      const badge = getBeachMarkerBadge(excluded.id);
+      expect(badge.querySelector("[data-marker-visual]")).toHaveStyle({ borderStyle: "solid" });
+      const requests = (global.fetch as jest.Mock).mock.calls.length;
+      if (mode === "hourly") view.rerender(<InteractiveMap {...props} swellTimelineIndex={1} />);
+      else fireEvent.change(screen.getByRole("slider", { name: "Forecast time" }), { target: { value: "1" } });
+      await waitFor(() => expect(badge.parentElement).toHaveAttribute("data-recommendation-label", "Skip"));
+      expect(getBeachMarkerBadge(excluded.id)).toBe(badge);
+      expect(global.fetch).toHaveBeenCalledTimes(requests);
+    });
+
     it("passes the displayed spot conditions to the embed host", async () => {
       const { InteractiveMap } = await import(
         "@/components/map/interactive-map"
       );
       const onLocationClick = jest.fn();
       const onDisplayForecastsChange = jest.fn();
-      const heldBeach = {
-        ...beach,
-        waterQualityHold: "advisory",
-      } as typeof beach & { waterQualityHold: "advisory" };
       const partition = {
         s1Dir: 280,
         swellDirOm: 292.5,
@@ -1478,7 +1690,15 @@ describe("InteractiveMap", () => {
             displayForecasts: { [beach.id]: { label: "2-3ft" } },
             waterTemps: {},
             conditionScores: { [beach.id]: 82 },
-            conditionSummaries: { [beach.id]: "GOOD" },
+            recommendationLabels: { [beach.id]: "Maybe" },
+            displaySwell: {
+              [beach.id]: {
+                periodSeconds: 11.7,
+                directionDeg: 205,
+                heightFt: 4.1,
+                source: "offshore",
+              },
+            },
             isCalibrated: { [beach.id]: false },
             swellPartitions: { [beach.id]: partition },
             hourlySwellTimeline: {
@@ -1493,22 +1713,19 @@ describe("InteractiveMap", () => {
 
       render(
         <InteractiveMap
-          beaches={[heldBeach]}
+          beaches={[beach]}
           autoNavigateOnMarkerClick={false}
           disableBeachClustering
           markerDisplay="points"
           showConditionsOnTap
-          swellTimelineMode="hourly"
-          swellTimelineIndex={0}
           onDisplayForecastsChange={onDisplayForecastsChange}
           onLocationClick={onLocationClick}
         />
       );
 
       await waitFor(() => {
-        expect(onDisplayForecastsChange).toHaveBeenCalledWith(
-          expect.objectContaining({ get: expect.any(Function) }),
-        );
+        const forecasts = onDisplayForecastsChange.mock.calls.at(-1)?.[0];
+        expect(forecasts?.get(beach.id)).toMatchObject({ label: "2-3ft" });
         expect(getBeachMarkerBadge(beach.id)).toHaveAttribute(
           "data-marker-badge",
           "true",
@@ -1520,11 +1737,12 @@ describe("InteractiveMap", () => {
       expect(onLocationClick).toHaveBeenCalledWith(
         expect.objectContaining({ id: beach.id }),
         {
-          conditionSummary: "WATER QUALITY ADVISORY",
-          waterQualityHold: "advisory",
+          conditionSummary: "Maybe",
+          waterQualityHold: null,
           waveHeight: "2-3ft",
-          swellPeriod: "14s",
-          swellDirection: "W",
+          swellPeriod: "11.7s",
+          swellDirection: "SSW",
+          swellLabel: "Offshore swell",
           isCalibrated: false,
           windSpeed: "6 mph",
           windDirection: "W",
@@ -1619,7 +1837,7 @@ describe("InteractiveMap", () => {
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
     const requestUrl = String((global.fetch as jest.Mock).mock.calls[0][0]);
-    expect(requestUrl).toContain("timelineHours=48");
+    expect(requestUrl).toContain("timelineHours=240");
     expect(screen.getByTestId("swell-field-loading-note")).toBeInTheDocument();
     expect(screen.queryByTestId("swell-field-empty-note")).not.toBeInTheDocument();
 
@@ -1704,7 +1922,6 @@ describe("InteractiveMap", () => {
 
     // The provisional field build still queries and masks while tiles are stalled.
     await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalled());
-    await waitFor(() => expect(mockMapHandlers.idle.length).toBeGreaterThan(1));
     await waitFor(() => expect(mockMapHandlers["style.load"].length).toBeGreaterThan(1));
     await waitFor(() => expect(mockMapHandlers.sourcedata.length).toBeGreaterThan(0));
     await act(async () => {
@@ -1719,10 +1936,6 @@ describe("InteractiveMap", () => {
       });
     };
 
-    // Stalled idle events cannot complete the owed retry.
-    for (let frame = 0; frame < 5; frame += 1) fire("idle");
-    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterBuild);
-
     // A sourcedata event rebuilds and re-masks once tiles finish, with no idle event.
     mockTilesLoaded = true;
     fire("sourcedata");
@@ -1730,8 +1943,6 @@ describe("InteractiveMap", () => {
       expect(mockQueryRenderedFeatures.mock.calls.length).toBeGreaterThan(queriesAfterBuild),
     );
     const queriesAfterTiles = mockQueryRenderedFeatures.mock.calls.length;
-    for (let frame = 0; frame < 5; frame += 1) fire("idle");
-    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterTiles);
 
     // A style reload invalidates the cached verdicts and owes one more remask.
     fire("style.load");
@@ -1739,16 +1950,186 @@ describe("InteractiveMap", () => {
     act(() => {
       jest.advanceTimersByTime(1_000);
     });
-    fire("idle");
+    fire("data");
     await waitFor(() =>
       expect(mockQueryRenderedFeatures.mock.calls.length).toBeGreaterThan(
         queriesAfterTiles,
       ),
     );
     const queriesAfterStyle = mockQueryRenderedFeatures.mock.calls.length;
-    for (let frame = 0; frame < 5; frame += 1) fire("idle");
-    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterStyle);
+
+    // Loaded tiles can still have no queryable water features until rendered.
+    mockQueryRenderedFeatures.mockReturnValue([]);
+    fire("style.load");
+    act(() => {
+      jest.advanceTimersByTime(1_000);
+    });
+    fire("data");
+    const queriesAfterRejectedPass = mockQueryRenderedFeatures.mock.calls.length;
+    expect(queriesAfterRejectedPass).toBeGreaterThan(queriesAfterStyle);
+    mockQueryRenderedFeatures.mockReturnValue([{}]);
+    act(() => {
+      jest.advanceTimersByTime(1_000);
+    });
+    fire("data");
+    const queriesAfterRecovery = mockQueryRenderedFeatures.mock.calls.length;
+    expect(queriesAfterRecovery).toBeGreaterThan(queriesAfterRejectedPass);
+    fire("data");
+    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(queriesAfterRecovery);
     jest.useRealTimers();
+  });
+
+  it("reuses cached cell verdicts across moveend and queries only missing cells", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    mockStyleLayers = [{ id: "water" }];
+    mockHasViewportChanged.mockReturnValue(false);
+    mockProject.mockImplementation(([lon]: [number, number]) => ({
+      x: lon === -117.2 ? 900 : 400,
+      y: 300,
+    }));
+    const partition = {
+      s1Dir: 250,
+      s1PeriodS: 13,
+      s1HeightFt: 3,
+      s2Dir: null,
+      s2PeriodS: null,
+      s2HeightFt: null,
+      windDir: null,
+      windMph: null,
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          forecasts: {},
+          swellPartitions: { "san-diego": partition },
+        },
+      }),
+    }) as unknown as typeof fetch;
+
+    render(
+      <InteractiveMap
+        beaches={[{
+          id: "san-diego",
+          name: "San Diego",
+          lat: 32.75,
+          lon: -117.25,
+        } as import("@/types/database").Beach]}
+        showSwellField
+        swellLayerId="s1"
+      />,
+    );
+
+    await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(132));
+    mockProject.mockImplementation(() => ({ x: 400, y: 300 }));
+    act(() => {
+      for (const handler of mockMapHandlers.moveend) handler();
+    });
+    await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(144));
+
+    act(() => {
+      for (const handler of mockMapHandlers.moveend) handler();
+    });
+    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(144);
+  });
+
+  it("invalidates cached water verdicts when the integer zoom bucket changes", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    mockStyleLayers = [{ id: "water" }];
+    mockHasViewportChanged.mockReturnValue(false);
+    const partition = {
+      s1Dir: 250,
+      s1PeriodS: 13,
+      s1HeightFt: 3,
+      s2Dir: null,
+      s2PeriodS: null,
+      s2HeightFt: null,
+      windDir: null,
+      windMph: null,
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: { forecasts: {}, swellPartitions: { "san-diego": partition } },
+      }),
+    }) as unknown as typeof fetch;
+
+    render(
+      <InteractiveMap
+        beaches={[{
+          id: "san-diego",
+          name: "San Diego",
+          lat: 32.75,
+          lon: -117.25,
+        } as import("@/types/database").Beach]}
+        showSwellField
+        swellLayerId="s1"
+      />,
+    );
+
+    await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(144));
+    mockMapZoom = 13.9;
+    act(() => {
+      for (const handler of mockMapHandlers.moveend) handler();
+    });
+    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(144);
+
+    mockMapZoom = 14;
+    act(() => {
+      for (const handler of mockMapHandlers.moveend) handler();
+    });
+    await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(288));
+  });
+
+  it("updates a playback field from its cached grid without querying warm mask verdicts", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    mockStyleLayers = [{ id: "water" }];
+    const first = {
+      s1Dir: 250,
+      s1PeriodS: 10,
+      s1HeightFt: 2,
+      s2Dir: null,
+      s2PeriodS: null,
+      s2HeightFt: null,
+      windDir: null,
+      windMph: null,
+    };
+    const second = { ...first, s1PeriodS: 16, s1HeightFt: 5 };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          forecasts: {},
+          swellPartitions: { "san-diego": first },
+          swellPartitionTimeline: { "san-diego": [first, second] },
+        },
+      }),
+    }) as unknown as typeof fetch;
+    const beach = {
+      id: "san-diego",
+      name: "San Diego",
+      lat: 32.75,
+      lon: -117.25,
+    } as import("@/types/database").Beach;
+    const props = (swellTimelineIndex: number) => ({
+      beaches: [beach],
+      showSwellField: true,
+      swellLayerId: "s1" as const,
+      swellTimelineSteps: ["Now", "+3h"],
+      swellTimelineIndex,
+    });
+    const { rerender } = render(<InteractiveMap {...props(0)} />);
+
+    await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(144));
+    rerender(<InteractiveMap {...props(1)} />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(144);
   });
 
   it("throttles repeated owed swell mask retries to once per second", async () => {
@@ -1795,14 +2176,14 @@ describe("InteractiveMap", () => {
 
     await waitFor(() => expect(mockQueryRenderedFeatures).toHaveBeenCalled());
     await waitFor(() => expect(mockMapHandlers.data.length).toBeGreaterThan(0));
-    const fire = (event: "idle" | "data"): void => {
+    const fire = (event: "data" | "sourcedata"): void => {
       act(() => {
         for (const handler of mockMapHandlers[event]) handler();
       });
     };
 
     const queriesAfterBuild = mockQueryRenderedFeatures.mock.calls.length;
-    fire("idle");
+    fire("data");
     await waitFor(() =>
       expect(mockQueryRenderedFeatures.mock.calls.length).toBeGreaterThan(
         queriesAfterBuild,
@@ -1812,7 +2193,7 @@ describe("InteractiveMap", () => {
     jest.useFakeTimers();
 
     for (let event = 0; event < 10; event += 1) {
-      fire(event % 2 === 0 ? "idle" : "data");
+      fire(event % 2 === 0 ? "sourcedata" : "data");
     }
     expect(mockQueryRenderedFeatures).toHaveBeenCalledTimes(
       queriesAfterFirstRetry,
@@ -2324,25 +2705,67 @@ describe("InteractiveMap", () => {
       lat: 32.75,
       lon: -117.25,
     } as import("@/types/database").Beach);
+    const prefix = Array.from({ length: 20 }, (_, i) => beach(`prefix-${i}`));
     const { rerender } = render(
-      <InteractiveMap beaches={[beach("a"), beach("b")]} swellTimelineMode="expandable-hourly" />,
-    );
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
-
-    rerender(
-      <InteractiveMap beaches={[beach("b"), beach("a")]} swellTimelineMode="expandable-hourly" />,
-    );
-    await act(async () => Promise.resolve());
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-
-    rerender(
-      <InteractiveMap beaches={[beach("a"), beach("c")]} swellTimelineMode="expandable-hourly" />,
+      <InteractiveMap beaches={[...prefix, beach("a"), beach("b")]} swellTimelineMode="expandable-hourly" />,
     );
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
-    expect(String((global.fetch as jest.Mock).mock.calls[1][0])).toContain("beachIds=a%2Cc");
+
+    rerender(
+      <InteractiveMap beaches={[...prefix, beach("b"), beach("a")]} swellTimelineMode="expandable-hourly" />,
+    );
+    await act(async () => Promise.resolve());
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+
+    rerender(
+      <InteractiveMap beaches={[...prefix, beach("a"), beach("c")]} swellTimelineMode="expandable-hourly" />,
+    );
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(4));
+    expect(new URL(String((global.fetch as jest.Mock).mock.calls[3][0]), "https://example.test").searchParams.get("beachIds")).toBe("a,c");
   });
 
-  it("reloads the same viewport when the timeline focus beach changes", async () => {
+  it("uses the latest beach scope when a queued pan finishes after region loading", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), "https://example.test");
+      const ids = (url.searchParams.get("beachIds") ?? "").split(",");
+      return {
+        ok: true, status: 200,
+        json: async () => timelineResponse(ids, "2026-07-10T20:00:00.000Z", 8, false),
+      } as Response;
+    });
+    const beach = (id: string) => ({ id, name: id, lat: 32.75, lon: -117.25 } as import("@/types/database").Beach);
+    const { rerender } = render(<InteractiveMap beaches={[beach("old")]} swellTimelineMode="expandable-hourly" />);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockMapHandlers.moveend).toEqual(expect.arrayContaining([expect.any(Function)])));
+    jest.useFakeTimers();
+    act(() => mockMapHandlers.moveend[0]());
+    rerender(<InteractiveMap beaches={[beach("new")]} swellTimelineMode="expandable-hourly" />);
+    await act(async () => { await jest.advanceTimersByTimeAsync(0); });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    await act(async () => { await jest.advanceTimersByTimeAsync(1500); });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(new URL(String((global.fetch as jest.Mock).mock.calls.at(-1)[0]), "https://example.test").searchParams.get("beachIds")).toBe("new");
+  });
+
+  it("retains loaded forecast data when a background refresh fails", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onDisplayForecastsChange = jest.fn();
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true, status: 200,
+      json: async () => ({ data: { forecasts: { a: 3 }, displayForecasts: { a: { label: "3ft" } }, swellPartitions: { a: { s1Dir: 180, s1HeightFt: 3, s1PeriodS: 12, s2Dir: null, s2HeightFt: null, s2PeriodS: null, windDir: null, windMph: null } } } }),
+    }).mockResolvedValue({ ok: false, status: 500 });
+    const a = { id: "a", name: "Osprey", lat: 32.75, lon: -117.25 } as import("@/types/database").Beach;
+    const { rerender } = render(<InteractiveMap beaches={[a]} onDisplayForecastsChange={onDisplayForecastsChange} />);
+    await waitFor(() => expect(onDisplayForecastsChange).toHaveBeenCalledTimes(1));
+    rerender(<InteractiveMap beaches={[a, { ...a, id: "b" }]} onDisplayForecastsChange={onDisplayForecastsChange} />);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    await act(async () => Promise.resolve());
+    expect(onDisplayForecastsChange).toHaveBeenCalledTimes(1);
+    expect(onDisplayForecastsChange.mock.calls[0][0].get("a")).toEqual({ label: "3ft" });
+  });
+
+  it("keeps loaded forecasts when the focused beach or camera changes", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input), "https://example.test");
@@ -2376,11 +2799,16 @@ describe("InteractiveMap", () => {
       />,
     );
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    await act(async () => Promise.resolve());
+    expect(global.fetch).toHaveBeenCalledTimes(1);
     const firstUrl = new URL(String((global.fetch as jest.Mock).mock.calls[0][0]), "https://example.test");
-    const secondUrl = new URL(String((global.fetch as jest.Mock).mock.calls[1][0]), "https://example.test");
-    expect(firstUrl.searchParams.get("timelineBeachIds")?.split(",")).toContain("a0");
-    expect(secondUrl.searchParams.get("timelineBeachIds")?.split(",")).toContain("a9");
+    expect(firstUrl.searchParams.get("timelineBeachIds")?.split(",")).toContain("a9");
+    mockMapCenter = { lat: 32.77, lng: -117.26 };
+    await act(async () => {
+      mockMapHandlers.moveend[0]();
+      await new Promise((resolve) => setTimeout(resolve, 1600));
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   it("tracks bounded scrub, play, and pause actions with local-time horizon metadata and no tick spam", async () => {

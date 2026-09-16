@@ -39,6 +39,14 @@ Vercel automatic Git deployments are intentionally limited in `vercel.json`:
 If a PR needs its own Vercel preview, create it from a `preview/<description>`
 branch. Otherwise, rely on local verification and the `main` preview after merge.
 
+### Keeping deployment costs predictable
+
+- Finish and validate a coherent batch on its feature branch before merging to `main`.
+- Use `preview/**` only when a deployed preview is needed; normal feature branches run local checks and CI.
+- Promote the reviewed batch to `prod` once. Avoid repeated staging/production pushes for small follow-up edits.
+- Keep `VERCEL_GIT_PREVIOUS_SHA` available to the ignored-build check so a docs-only head cannot hide runtime changes earlier in the batch. Missing history builds conservatively.
+- Check `yarn test:unit --runInBand --runTestsByPath __tests__/config/vercel-config.test.js` when changing deployment filters.
+
 ## Promoting to Production
 
 Use a regular merge (not squash) from `main` to `prod` to preserve the audit trail:

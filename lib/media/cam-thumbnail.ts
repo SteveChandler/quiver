@@ -1,3 +1,5 @@
+import { getProxiedImageUrl } from "@/lib/utils/image-utils";
+
 /**
  * Extract a static thumbnail URL from a camera URL.
  * Supports providers with stable public thumbnail patterns.
@@ -197,5 +199,5 @@ export function getDisplayCamThumbnailUrls({
   appendUniqueUrl(urls, fallbackImageUrl);
   appendUniqueUrl(urls, CAM_CARD_FALLBACK_IMAGE_URL);
 
-  return urls;
+  return urls.map(getProxiedImageUrl);
 }

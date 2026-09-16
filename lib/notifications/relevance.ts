@@ -1,6 +1,6 @@
-export type NotificationConfidenceLevel = "high" | "medium" | "low" | "unknown";
+type NotificationConfidenceLevel = "high" | "medium" | "low" | "unknown";
 
-export interface NotificationRelevanceMetadata {
+interface NotificationRelevanceMetadata {
   notification_category: string;
   trigger_source: string;
   relevance_confidence: NotificationConfidenceLevel;

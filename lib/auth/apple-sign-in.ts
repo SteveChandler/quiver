@@ -11,7 +11,7 @@ import {
   storePendingSignupMetadata,
 } from "@/lib/auth/auth-utils";
 
-export interface AppleSignInResult {
+interface AppleSignInResult {
   error?: string;
 }
 

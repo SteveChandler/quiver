@@ -3,7 +3,7 @@ import type { SupabaseServiceClient } from "@/types/supabase";
 
 const SYSTEM_FEED_INSERT_FUNCTION = "try_insert_system_feed_post";
 
-export interface SystemFeedPostInput {
+interface SystemFeedPostInput {
   userId: string;
   beachId: string;
   latitude: number;
@@ -16,14 +16,14 @@ export interface SystemFeedPostInput {
   createdAt: string;
 }
 
-export type SystemFeedPostStatus =
+type SystemFeedPostStatus =
   | "inserted"
   | "duplicate"
   | "daily_cap"
   | "beach_daily_cap"
   | "beach_weekly_cap";
 
-export interface SystemFeedPostResult {
+interface SystemFeedPostResult {
   postId: string | null;
   status: SystemFeedPostStatus;
 }

@@ -11,7 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export interface BuoyStationLinkProps {
+interface BuoyStationLinkProps {
   /**
    * Unique identifier for the buoy station (e.g., "220" for CDIP 220)
    */

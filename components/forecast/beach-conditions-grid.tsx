@@ -35,7 +35,7 @@ import { TrendingUp, TrendingDown, Minus, Waves, Calendar } from "lucide-react";
 /**
  * Props for the BeachConditionsGrid component
  */
-export interface BeachConditionsGridProps {
+interface BeachConditionsGridProps {
   /** Array of beach condition summaries */
   beaches: BeachConditionSummary[];
   /** Region slug for constructing beach links */

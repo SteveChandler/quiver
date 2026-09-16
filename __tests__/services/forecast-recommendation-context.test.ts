@@ -117,6 +117,34 @@ describe("buildForecastRecommendationContext", () => {
     expect(context?.source).toBe("looking_ahead");
   });
 
+  it("uses serialized display bounds verbatim when the window provides them", () => {
+    const window = {
+      start: new Date("2026-05-08T22:30:00.000Z"),
+      end: new Date("2026-05-09T01:30:00.000Z"),
+      tide: "Rising",
+      wind: "5 mph W",
+      waveHeight: "2.7 ft",
+      wavePeriod: "13s",
+      dataSource: "CDIP",
+      confidence: 80,
+      timezone: "America/Los_Angeles",
+      peakTime: new Date("2026-05-08T23:00:00.000Z"),
+      displayWindowStart: "2026-05-08T23:10:00.000Z",
+      displayWindowEnd: "2026-05-09T00:20:00.000Z",
+    } as unknown as PersonalizedForecastWindow;
+
+    const context = buildForecastRecommendationContext({
+      beach: beach(),
+      forecasts: [row({ forecast_at: "2026-05-08T23:00:00.000Z" })],
+      window,
+      now: new Date("2026-05-08T13:00:00.000Z"),
+    });
+
+    expect(context?.displayWindowStart).toBe("2026-05-08T23:10:00.000Z");
+    expect(context?.displayWindowEnd).toBe("2026-05-09T00:20:00.000Z");
+    expect(context?.displayTimeLabel).toBe("Best window: 4:10-5:20 PM");
+  });
+
   it("uses OM south swell context when a named north component is outside the beach swell window", () => {
     const context = buildForecastRecommendationContext({
       beach: beach({
@@ -348,5 +376,96 @@ describe("buildForecastRecommendationContext", () => {
     expectContext(context, "marginal");
     expect(context?.displayTimeLabel).toBe("Now: marginal");
     expect(context?.source).toBe("current_conditions");
+  });
+});
+
+describe('September 4 selected-window contract', () => {
+  const sourceForecast = row({
+    forecast_at: '2026-09-04T23:00:00.000Z',
+    updated_at: '2026-09-04T19:00:00.000Z',
+    wave_height: '2.7 ft',
+    wave_period: '13s',
+    wind_speed: '5 mph',
+  });
+  const selectedWindow: PersonalizedForecastWindow = {
+    start: new Date('2026-09-04T22:30:00.000Z'),
+    end: new Date('2026-09-05T01:00:00.000Z'),
+    peakTime: new Date(sourceForecast.forecast_at),
+    waveHeight: '2.7 ft',
+    wavePeriod: '13s',
+    wind: '5 mph W',
+    tide: 'Rising',
+    timezone: 'America/Los_Angeles',
+    dataSource: 'CDIP',
+    confidence: 80,
+    score: 72,
+    sourceForecast,
+  };
+
+  it.each([
+    '2026-09-04T21:00:00.000Z', // before
+    '2026-09-04T23:00:00.000Z', // during
+    '2026-09-05T02:00:00.000Z', // after, still September 4 locally
+  ])('keeps one window and source revision at %s', (clock) => {
+    const context = buildForecastRecommendationContext({
+      beach: beach(),
+      window: selectedWindow,
+      forecasts: [row({ forecast_at: '2026-09-04T21:00:00.000Z', wave_height: '1.1 ft' })],
+      now: new Date(clock),
+    });
+    expect(context).toMatchObject({
+      localDate: '2026-09-04',
+      selectedRowTime: sourceForecast.forecast_at,
+      sourceDataUpdatedAt: sourceForecast.updated_at,
+      displayWindowStart: '2026-09-04T22:30:00.000Z',
+      displayWindowEnd: '2026-09-05T01:00:00.000Z',
+      waveHeight: '2.7 ft',
+      swellPeriod: '13s',
+      windSpeed: '5 mph',
+      score: 72,
+      confidence: 80,
+    });
+  });
+
+  it('retains the selected source when another revision has the same forecast timestamp', () => {
+    const context = buildForecastRecommendationContext({
+      beach: beach(), window: selectedWindow,
+      forecasts: [row({
+        forecast_at: sourceForecast.forecast_at,
+        updated_at: '2026-09-04T18:00:00.000Z',
+        wave_height: '1.1 ft',
+      })],
+      now: new Date('2026-09-04T21:00:00.000Z'),
+    });
+    expect(context?.sourceDataUpdatedAt).toBe(sourceForecast.updated_at);
+    expect(context?.waveHeight).toBe('2.7 ft');
+  });
+
+  it.each([{ forecasts: [] }, { forecasts: [row({ forecast_at: '2026-09-04T23:00:00.000Z', beach_id: 'other' })] }])(
+    'preserves selected source when independent forecast rows are missing or from another beach',
+    ({ forecasts }) => {
+      const context = buildForecastRecommendationContext({
+        beach: beach(), window: selectedWindow, forecasts,
+        now: new Date('2026-09-04T21:00:00.000Z'),
+      });
+      expect(context?.selectedRowTime).toBe(sourceForecast.forecast_at);
+      expect(context?.sourceDataUpdatedAt).toBe(sourceForecast.updated_at);
+    },
+  );
+
+  it('does not borrow measurements or evidence from outside the window when its source is missing', () => {
+    const context = buildForecastRecommendationContext({
+      beach: beach(), window: { ...selectedWindow, sourceForecast: undefined },
+      forecasts: [row({ forecast_at: '2026-09-04T21:00:00.000Z', wave_height: '1.1 ft' })],
+      now: new Date('2026-09-04T21:00:00.000Z'),
+    });
+    expect(context).toMatchObject({
+      selectedRowTime: sourceForecast.forecast_at,
+      waveHeight: '2.7 ft',
+      windSpeed: null,
+      sourceDataUpdatedAt: null,
+      score: 72,
+      confidence: 80,
+    });
   });
 });

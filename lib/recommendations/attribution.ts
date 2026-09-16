@@ -29,7 +29,7 @@ function normalizeImpressionTimeSlot(
   return parsed.data ?? undefined;
 }
 
-export function getRecommendationId(
+function getRecommendationId(
   recommendation: SurfDiscoveryRecommendation
 ): string {
   if (recommendation.recommendationId) {

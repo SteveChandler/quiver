@@ -36,7 +36,7 @@ import { buildBeachEmailLink } from "@/lib/mailer/email-links";
 
 const KNOTS_TO_MPH = 1.15078;
 
-export interface ConsolidatedAlertEmailProps {
+interface ConsolidatedAlertEmailProps {
   displayName: string | null;
   alertDate: string;
   matches: MatchingWindow[];
@@ -270,7 +270,7 @@ const secondaryLinkStyle: React.CSSProperties = {
   textDecoration: "underline",
 };
 
-export interface FormattedEmailWindow {
+interface FormattedEmailWindow {
   label: "Good Around" | "Good Window";
   text: string;
 }

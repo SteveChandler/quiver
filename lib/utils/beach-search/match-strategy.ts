@@ -41,7 +41,7 @@ export interface MatchStrategy {
 /**
  * Context for beach matching containing normalized data
  */
-export interface BeachMatchContext {
+interface BeachMatchContext {
   beach: Beach;
   normalizedName: string;
   normalizedCity: string;

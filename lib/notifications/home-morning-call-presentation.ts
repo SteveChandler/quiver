@@ -1,7 +1,7 @@
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision/types";
 
-export type HomeMorningCallPresentation = {
+type HomeMorningCallPresentation = {
   title: string;
   body: string;
   label: "Worth it" | "Maybe" | "Skip";

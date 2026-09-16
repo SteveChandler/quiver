@@ -34,6 +34,8 @@ export const WeekendScoutResultSchema = z
     bestWindow: z.object({
       start: IsoTimestampSchema,
       end: IsoTimestampSchema,
+      displayWindowStart: IsoTimestampSchema.optional(),
+      displayWindowEnd: IsoTimestampSchema.optional(),
       peakTime: IsoTimestampSchema,
       localLabel: z.string().min(1),
       waveHeight: z.string().min(1).nullable(),

@@ -503,6 +503,36 @@ test.describe('Intel API Contract', () => {
     });
 
     test.describe('Response Structure', () => {
+      test('returns a newly created post in nearby results', async ({ request }) => {
+        const title = `E2E nearby ${crypto.randomUUID()}`;
+        const response = await request.post(INTEL_ENDPOINT, {
+          data: {
+            latitude: TEST_LOCATION.lat,
+            longitude: TEST_LOCATION.lon,
+            tag: 'conditions',
+            title,
+            description: 'E2E populated geospatial lookup',
+          },
+        });
+        const created = await response.json();
+        expect(response.status()).toBe(200);
+        expect(created.success).toBe(true);
+        expect(created.data.id).toMatch(UUID_REGEX);
+        createdIntelPostIds.push(created.data.id);
+
+        const nearby = await request.get(
+          `${INTEL_ENDPOINT}?lat=${TEST_LOCATION.lat}&lon=${TEST_LOCATION.lon}&radius=1&tag=conditions`
+        );
+        expect(nearby.status()).toBe(200);
+        const json = await nearby.json();
+        expect(json.success).toBe(true);
+        expect(json.data.posts).toEqual(expect.arrayContaining([
+          expect.objectContaining({ id: created.data.id, title, tag: 'conditions' }),
+        ]));
+        const post = json.data.posts.find((item: { id: string }) => item.id === created.data.id);
+        expect(post.distance_miles).toBeCloseTo(0, 3);
+      });
+
       test('should return standard API response structure', async ({ request }) => {
         const response = await request.post(INTEL_ENDPOINT, {
           data: {

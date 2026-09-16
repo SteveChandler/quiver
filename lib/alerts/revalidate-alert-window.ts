@@ -25,7 +25,7 @@ export type EnhancedForecastAlertRow = Record<string, unknown> & {
   tide_status?: string | null;
 };
 
-export interface SelectFreshAlertWindowInput {
+interface SelectFreshAlertWindowInput {
   conditions: AlertConditions;
   forecastRows: EnhancedForecastAlertRow[];
   beach: AlertRevalidationBeachMeta;

@@ -145,6 +145,8 @@ export interface MorningIntelData {
     recommendation: MorningIntelRecommendationSummary;
     conditions?: ConditionsAnalysis;
     bestWindow: string;
+    bestWindowStart?: string;
+    bestWindowEnd?: string;
     confidence: "Low" | "Medium" | "High";
     surf: SurfMetrics;
     tide: TideMetrics & { recommendedTime?: string; optimalRange?: string | null };

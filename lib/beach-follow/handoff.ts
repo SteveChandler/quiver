@@ -51,7 +51,7 @@ const RECOMMENDATION_VERDICTS = new Set<string>(
   Object.values(HandoffRecommendationVerdict),
 );
 
-export interface BuildHandoffContextInput {
+interface BuildHandoffContextInput {
   readonly beachId: string;
   readonly slug: string;
   readonly windowId: string;
@@ -59,12 +59,12 @@ export interface BuildHandoffContextInput {
   readonly priorRecommendation: PriorRecommendationSummary;
 }
 
-export interface BuildHandoffContextOptions {
+interface BuildHandoffContextOptions {
   readonly now?: Date;
   readonly ttlMs?: number;
 }
 
-export interface HandoffResolutionAvailability {
+interface HandoffResolutionAvailability {
   readonly now?: Date;
   readonly beachExists: boolean;
   readonly exactWindowExists: boolean;

@@ -24,7 +24,7 @@ export type {
 export type {
   WeatherPeriod,
   CDIPDataPoint,
-  CDIPBuoyData,
+
 } from "@/types/forecast";
 
 /**

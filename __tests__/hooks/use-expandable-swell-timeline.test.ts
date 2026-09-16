@@ -654,3 +654,19 @@ describe("useExpandableSwellTimeline", () => {
     expect(result.current.index).toBe(1);
   });
 });
+
+ test("keeps the selected hour and playback while moving to a new region", () => {
+  jest.useFakeTimers();
+  const initial = makeTimeline(0, 240, { hasMore: false, nextStart: null });
+  const { result, rerender, unmount } = renderHook(({ scopeKey }) => useExpandableSwellTimeline({
+    scopeKey, initial, timezone: "America/Los_Angeles", loadChunk: jest.fn(), reducedMotion: false,
+  }), { initialProps: { scopeKey: "san-diego" } });
+  act(() => { result.current.setIndex(100); result.current.setPlaying(true); });
+  rerender({ scopeKey: "baja" });
+  expect(result.current.index).toBe(100);
+  expect(result.current.isPlaying).toBe(true);
+  act(() => { jest.advanceTimersByTime(500); });
+  expect(result.current.index).toBe(101);
+  unmount();
+  jest.useRealTimers();
+});

@@ -1,1 +1,1 @@
-export { ShareSheet, type ShareSheetProps } from "./share-sheet";
+export { ShareSheet,  } from "./share-sheet";

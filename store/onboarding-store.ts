@@ -38,7 +38,7 @@ interface OnboardingData {
 }
 
 /** Callback for tracking step transitions */
-export type OnStepChangeCallback = (fromStep: number, toStep: number, stepName: string) => void;
+type OnStepChangeCallback = (fromStep: number, toStep: number, stepName: string) => void;
 
 interface OnboardingStore {
   // State

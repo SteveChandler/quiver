@@ -1,9 +1,9 @@
 export type { BoardClass } from './board-class';
 export {
   BOARD_CLASSES,
-  BOARD_TYPE_TO_BOARD_CLASS,
-  DEFAULT_BOARD_CLASS,
-  getBoardClassOrDefault,
+
+
+
   mapBoardTypeToBoardClass,
   normalizeBoardClass,
   parseBoardClass,
@@ -12,5 +12,4 @@ export {
 export type { RideabilityBand } from './rideability';
 export { getBoardPowerBias, getRideabilityBand } from './rideability';
 
-export type { ResolvedVerdictSkill, SkillSource } from './ability';
-export { boardImpliedSkill, resolveVerdictSkill } from './ability';
+export { boardImpliedSkill,  } from './ability';

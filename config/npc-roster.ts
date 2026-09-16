@@ -5,7 +5,7 @@
  * and regional assignments. Used by migration script and daily activity.
  */
 
-export interface NPCProfile {
+interface NPCProfile {
   oldName: string | null;
   name: string;
   personality: 'rookie' | 'local' | 'traveler' | 'photographer' | 'tactical' | 'competitor' | 'forecaster';

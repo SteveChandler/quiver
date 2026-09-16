@@ -7,13 +7,13 @@ import {
 import type { GscExportInput } from "./agent-workflow/types";
 
 export const GSC_PROTECTION_POLICY_VERSION = 1;
-export const GSC_PROTECTION_THRESHOLDS = {
+const GSC_PROTECTION_THRESHOLDS = {
   minimumClicks: 1,
   minimumImpressions: 100,
   maximumAveragePosition: 20,
 } as const;
 
-export type GscProtectedPageFamily =
+type GscProtectedPageFamily =
   | "beach"
   | "beach-tides"
   | "beach-water-temp"
@@ -44,7 +44,7 @@ export interface GscProtectionSnapshot {
   entries: GscProtectionEntry[];
 }
 
-export interface GscProtectionDiff {
+interface GscProtectionDiff {
   added: string[];
   removed: string[];
 }

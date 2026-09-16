@@ -7,7 +7,7 @@ import {
 const ALGORITHM = "aes-256-gcm";
 const AAD = Buffer.from("quiver:android-tester-roster:v1", "utf8");
 
-export interface TesterIdentity {
+interface TesterIdentity {
   email: string;
   externalMemberId: string;
 }

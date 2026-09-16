@@ -38,7 +38,7 @@ export const MAJOR_EVENT_HOLD_TRIGGER_TYPES = [
   "automatic_official",
   "manual_operator",
 ] as const;
-export type MajorEventHoldTriggerType =
+type MajorEventHoldTriggerType =
   (typeof MAJOR_EVENT_HOLD_TRIGGER_TYPES)[number];
 
 export const MAJOR_EVENT_HOLD_REASON_CODES = [
@@ -56,7 +56,7 @@ export const MAJOR_EVENT_HOLD_AUTHORIZING_ACTORS = [
   "admin_api",
   "official_automation",
 ] as const;
-export type MajorEventHoldAuthorizingActor =
+type MajorEventHoldAuthorizingActor =
   (typeof MAJOR_EVENT_HOLD_AUTHORIZING_ACTORS)[number];
 
 export type RecommendationHoldReasonCode =
@@ -64,13 +64,13 @@ export type RecommendationHoldReasonCode =
   | "water_quality_hold"
   | "hold_state_unavailable";
 
-export const RECOMMENDATION_HOLD_REASON_CODES = [
+const RECOMMENDATION_HOLD_REASON_CODES = [
   "major_event_hold",
   "water_quality_hold",
   "hold_state_unavailable",
 ] as const satisfies readonly RecommendationHoldReasonCode[];
 
-export function isRecommendationHoldReasonCode(
+function isRecommendationHoldReasonCode(
   value: unknown,
 ): value is RecommendationHoldReasonCode {
   return (

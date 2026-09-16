@@ -6,7 +6,7 @@ import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 const INK = "#11100D";
 const STAMP_BLUE = "#0B3A75";
 
-export interface HomeBeachCardProps {
+interface HomeBeachCardProps {
   /** Recommendation row for the user's home beach (from useSurfDiscovery). */
   rec: SurfDiscoveryRecommendation;
   /** Click handler — should navigate to the beach detail page. */

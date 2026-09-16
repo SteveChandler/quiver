@@ -8,7 +8,7 @@ export const DEFAULT_BOT_PATHS = [
   "/ca/encinitas/swamis",
 ] as const;
 
-export interface VercelRawResponses {
+interface VercelRawResponses {
   overview: unknown;
   pages: unknown;
   referrers: unknown;

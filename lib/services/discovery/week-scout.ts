@@ -12,18 +12,22 @@ import {
   type PersonalizationContext,
 } from '@/lib/services/discovery/personalization-layer';
 import {
-  selectBestWindow,
+  selectBestWindows,
   scoreWindowConditionScore,
   getLocalDateStr,
-  getLocalHourFormatter,
 } from '@/lib/services/discovery/window-selector';
+import {
+  daypartForTime,
+  selectBeachDayWindows,
+  type AuthoritativeWindow,
+} from '@/lib/services/discovery/window-authority';
 import {
   beachToSpotProfile,
   createDiscoveryScoringEngine,
   scoreBeachWithEngine,
 } from '@/lib/domains/scoring';
 import { rerankHero, type RerankResult } from '@/lib/services/discovery/hero-ranking';
-import { localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
+import { resolveBeachTimezone } from '@/lib/utils/timezone-utils';
 import {
   getSkillLevelOrDefault,
   type SkillLevel,
@@ -55,6 +59,9 @@ import {
   WORTH_THE_DRIVE_REASON,
 } from '@/lib/services/discovery/distance-friction';
 import { calculateDistanceInMiles } from '@/lib/utils/distance-utils';
+import { getStalenessDetails } from '@/lib/utils/forecast-service-utils';
+import { getDirectionDegrees } from '@/lib/utils/number-parsing';
+import { pickDominantSwell } from '@/lib/domains/conditions';
 import type { Coordinates } from '@/lib/types/coordinates';
 import {
   buildCanonicalSessionDecision,
@@ -62,7 +69,7 @@ import {
   type CanonicalSessionDecision,
 } from '@/lib/recommendations/canonical-decision';
 
-export const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v1:discovery-hero-v1';
+const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v2:day-window-authority-v1';
 const WEEK_SCOUT_RESPONSE_RANK_LIMIT = 8;
 
 export type WeekScoutBucket = 'morning' | 'midday' | 'evening';
@@ -80,6 +87,8 @@ export interface WeekScoutRequest {
   startLocalDate: string;
   dayCount: 7;
   userLocation?: Coordinates;
+  /** Complete-radius routes opt into row-level source freshness enforcement. */
+  requirePerRowFreshness?: boolean;
 }
 
 export interface WeekScoutDaysRequest extends Omit<WeekScoutRequest, 'dayCount'> {
@@ -108,7 +117,26 @@ export interface WeekScoutRankedSpotResponse {
     swellDirection: string | null;
     windSpeed: string | null;
     windDirection: string | null;
+    components?: WeekScoutForecastComponent[];
+    /** Existing scorer's dominant partition, only when all inputs identify one. */
+    scoringComponent?: WeekScoutForecastComponent['kind'] | null;
   };
+}
+
+/**
+ * A source partition from the exact forecast row scored for this window.
+ * This is presentation data only; it must not be used to alter ranking.
+ */
+export interface WeekScoutForecastComponent {
+  kind: 'swell_1' | 'swell_2' | 'wind_sea';
+  height: string | null;
+  period: string | null;
+  direction: string | null;
+  heightUnit: 'ft';
+  periodUnit: 's';
+  directionUnit: null;
+  validAt: string;
+  source: string | null;
 }
 
 export interface WeekScoutWindowResponse {
@@ -116,8 +144,11 @@ export interface WeekScoutWindowResponse {
   bucket: WeekScoutBucket;
   start: string;
   end: string;
+  displayWindowStart: string;
+  displayWindowEnd: string;
   peakTime: string;
   beachId: string;
+  isBeachDayBest: boolean;
   conditionScore: number;
   rankingScore: number;
   verdict: WeekScoutVerdict;
@@ -130,6 +161,9 @@ export interface WeekScoutWindowResponse {
     swellDirection: string | null;
     windSpeed: string | null;
     windDirection: string | null;
+    components?: WeekScoutForecastComponent[];
+    /** Existing scorer's dominant partition, only when all inputs identify one. */
+    scoringComponent?: WeekScoutForecastComponent['kind'] | null;
     waterTemp?: string | null;
     tideHeightFt: number | null;
     tidePhase: string | null;
@@ -143,6 +177,7 @@ export interface WeekScoutDayResponse {
   localDate: string;
   windows: WeekScoutWindowResponse[];
   bestWindowId: string | null;
+  bestDayWindow: WeekScoutWindowResponse | null;
   exclusionReasons: WeekScoutDayExclusionReason[];
 }
 
@@ -153,8 +188,34 @@ export interface WeekScoutResponse {
   days: WeekScoutDayResponse[];
 }
 
+interface WeekScoutCoverageBucket {
+  bucket: WeekScoutBucket;
+  eligible: number;
+  evaluated: number;
+  missing: number;
+  /** Rows reached selection but did not form a viable/daily window. */
+  noWindow: number;
+  /** Filled after hold evaluation; null means the service cannot isolate it. */
+  held: number | null;
+}
+
+interface WeekScoutCoverageDay {
+  localDate: string;
+  eligible: number;
+  evaluated: number;
+  missing: number;
+  excluded: null;
+  buckets: WeekScoutCoverageBucket[];
+}
+
+export interface WeekScoutCoverage {
+  expiresAt: string;
+  days: WeekScoutCoverageDay[];
+}
+
 export type CanonicalWeekScoutResponse = MajorEventHoldWeekScoutResponse & {
   sessionDecision: CanonicalSessionDecision;
+  coverage?: WeekScoutCoverage;
 };
 
 interface GeneratedWeekScoutContext {
@@ -165,6 +226,7 @@ interface GeneratedWeekScoutContext {
   boardClasses: BoardClass[];
   generatedAt: string;
   now: Date;
+  coverage: WeekScoutCoverage;
 }
 
 interface PersonalizationBonus {
@@ -185,6 +247,7 @@ export interface WeekScoutServiceDependencies {
   fetchForecasts: (
     beaches: Beach[],
     forecastWindowHours: number,
+    options?: { requirePerRowFreshness?: boolean },
   ) => Promise<Map<string, EnhancedForecastEntity[]>>;
   fetchSunTimes: (
     beachIds: string[],
@@ -202,15 +265,7 @@ export interface WeekScoutServiceDependencies {
     forecast: EnhancedForecastEntity,
     context: PersonalizationContext,
   ) => PersonalizationBonus;
-  selectBestWindow: (options: {
-    forecasts: EnhancedForecastEntity[];
-    beach: Beach;
-    userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>>;
-    sunTimesCache: Map<string, { sunrises: Date[]; sunsets: Date[] }>;
-    now: Date;
-    userSkillLevel: SkillLevel | null;
-    boardClasses?: readonly BoardClass[];
-  }) => PersonalizedForecastWindow | null;
+  selectBestWindows: typeof selectBestWindows;
   scoreWindowCondition: (
     forecast: EnhancedForecastEntity,
     beach: Beach,
@@ -231,15 +286,7 @@ interface DraftWindow {
   recommendation: SurfDiscoveryRecommendation;
 }
 
-const BUCKETS: ReadonlyArray<{
-  bucket: WeekScoutBucket;
-  startHour: number;
-  endHour: number | null;
-}> = [
-  { bucket: 'morning', startHour: 6, endHour: 10 },
-  { bucket: 'midday', startHour: 10, endHour: 14 },
-  { bucket: 'evening', startHour: 14, endHour: null },
-];
+const BUCKETS: readonly WeekScoutBucket[] = ['morning', 'midday', 'evening'];
 
 function hash(parts: string[]): string {
   return createHash('sha256').update(parts.join('|')).digest('hex');
@@ -249,22 +296,6 @@ function addLocalDays(localDate: string, days: number): string {
   const date = new Date(`${localDate}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
-}
-
-function localHour(date: Date, timezone: string): number | null {
-  try {
-    const hour = Number(getLocalHourFormatter(timezone).format(date));
-    return Number.isFinite(hour) ? hour % 24 : null;
-  } catch {
-    return null;
-  }
-}
-
-function bucketForLocalHour(hour: number): WeekScoutBucket | null {
-  const match = BUCKETS.find(({ startHour, endHour }) => (
-    hour >= startHour && (endHour === null || hour < endHour)
-  ));
-  return match?.bucket ?? null;
 }
 
 function slotKey(localDate: string, bucket: WeekScoutBucket): string {
@@ -288,10 +319,7 @@ function groupForecastsByLocalSlot(
 
   for (const row of forecasts) {
     const date = new Date(row.forecast_at);
-    const hour = localHour(date, timezone);
-    if (hour === null) continue;
-
-    const bucket = bucketForLocalHour(hour);
+    const bucket = daypartForTime(date, timezone);
     if (!bucket) continue;
 
     const key = slotKey(getLocalDateStr(date, timezone), bucket);
@@ -309,6 +337,73 @@ function groupForecastsByLocalSlot(
 function finiteNumber(value: unknown): number | null {
   const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function forecastComponents(forecast: EnhancedForecastEntity): WeekScoutForecastComponent[] {
+  // `data_source` describes the assembled forecast row, not each partition.
+  // Do not fabricate per-component provider provenance from that aggregate.
+  const source = null;
+  const validAt = forecast.forecast_at;
+  const partitions: Array<Pick<WeekScoutForecastComponent, 'kind' | 'height' | 'period' | 'direction'>> = [
+    { kind: 'swell_1', height: forecast.swell_1_height ?? null, period: forecast.swell_1_period ?? null, direction: forecast.swell_1_direction ?? null },
+    { kind: 'swell_2', height: forecast.swell_2_height ?? null, period: forecast.swell_2_period ?? null, direction: forecast.swell_2_direction ?? null },
+    { kind: 'wind_sea', height: forecast.wind_wave_height ?? null, period: forecast.wind_wave_period ?? null, direction: forecast.wind_wave_direction ?? null },
+  ];
+  return partitions
+    .filter((partition) => partition.height !== null || partition.period !== null || partition.direction !== null)
+    .map((partition) => ({ ...partition, heightUnit: 'ft', periodUnit: 's', directionUnit: null, validAt, source }));
+}
+
+function scoringComponentForForecast(
+  forecast: EnhancedForecastEntity,
+): WeekScoutForecastComponent['kind'] | null {
+  const partition = (
+    height: string | number | null | undefined,
+    period: string | number | null | undefined,
+    direction: string | number | null | undefined,
+  ) => {
+    const heightFt = finiteNumber(height);
+    const periodSeconds = finiteNumber(period);
+    const directionDegrees = getDirectionDegrees(direction);
+    if (heightFt === null || periodSeconds === null || directionDegrees === null) return null;
+    return { height: heightFt, period: periodSeconds, direction: directionDegrees };
+  };
+  const dominant = pickDominantSwell({
+    swell_1: partition(forecast.swell_1_height, forecast.swell_1_period, forecast.swell_1_direction),
+    swell_2: partition(forecast.swell_2_height, forecast.swell_2_period, forecast.swell_2_direction),
+    wind_wave: partition(forecast.wind_wave_height, forecast.wind_wave_period, forecast.wind_wave_direction),
+  });
+  if (!dominant) return null;
+  return dominant.source === 'wind_wave' ? 'wind_sea' : dominant.source;
+}
+
+function coverageExpiry(
+  forecastsByBeach: Map<string, EnhancedForecastEntity[]>,
+  generatedAt: string,
+): string {
+  let earliestDeadline: number | null = null;
+  const recordDeadline = (deadline: number): void => {
+    earliestDeadline = earliestDeadline === null ? deadline : Math.min(earliestDeadline, deadline);
+  };
+  for (const rows of forecastsByBeach.values()) {
+    for (const row of rows) {
+      if (typeof row.updated_at === 'string' && Number.isFinite(Date.parse(row.updated_at))) {
+        const details = getStalenessDetails(row.updated_at, row.data_source);
+        recordDeadline(Date.parse(row.updated_at) + details.threshold * 60 * 60 * 1000);
+      }
+      // Open-Meteo's receipt timestamp is a separate cache deadline. It does
+      // not become provider issue/observation freshness in the API contract.
+      if (row.data_source === 'OPEN_METEO' && typeof row.om_fetched_at === 'string' && Number.isFinite(Date.parse(row.om_fetched_at))) {
+        const details = getStalenessDetails(row.om_fetched_at, row.data_source);
+        recordDeadline(Date.parse(row.om_fetched_at) + details.threshold * 60 * 60 * 1000);
+      }
+    }
+  }
+  const generatedMs = Date.parse(generatedAt);
+  // No returned rows means there is no stale forecast to conceal. Keep the
+  // empty/incomplete response readable for one bounded refresh interval.
+  const earliest = earliestDeadline ?? generatedMs + 60 * 1000;
+  return new Date(Math.min(earliest, generatedMs + 60 * 1000)).toISOString();
 }
 
 function verdictForScore(score: number): WeekScoutVerdict {
@@ -354,18 +449,24 @@ function defaultDependencies(now: Date): WeekScoutServiceDependencies {
     now,
     fetchBeaches: async (ids) => {
       const supabase = createSupabaseServiceRoleClient();
-      const { data, error } = await supabase
-        .from('beaches')
-        .select('*')
-        .in('id', ids)
-        .eq('is_private', false);
-      if (error) throw new Error(`Failed to load Week Scout beaches: ${error.message}`);
-
-      const byId = new Map(((data ?? []) as Beach[]).map((candidate) => [candidate.id, candidate]));
+      const rows: Beach[] = [];
+      for (let offset = 0; offset < ids.length; offset += 100) {
+        const { data, error } = await supabase
+          .from('beaches')
+          .select('*')
+          .in('id', ids.slice(offset, offset + 100))
+          .eq('is_private', false);
+        if (error) throw new Error(`Failed to load Week Scout beaches: ${error.message}`);
+        rows.push(...((data ?? []) as Beach[]));
+      }
+      const byId = new Map(rows.map((candidate) => [candidate.id, candidate]));
       return ids.map((id) => byId.get(id)).filter((candidate): candidate is Beach => Boolean(candidate));
     },
-    fetchForecasts: async (beaches, forecastWindowHours) => {
-      const result = await batchFetchForecasts(beaches, { forecastWindowHours });
+    fetchForecasts: async (beaches, forecastWindowHours, options) => {
+      const result = await batchFetchForecasts(beaches, {
+        forecastWindowHours,
+        requirePerRowFreshness: options?.requirePerRowFreshness,
+      });
       return new Map(result.successful.map(({ beach, forecasts }) => [beach.id, forecasts]));
     },
     fetchSunTimes: getBatchSunTimes,
@@ -392,7 +493,7 @@ function defaultDependencies(now: Date): WeekScoutServiceDependencies {
       fetchPersonalizationContext(userId, beachIds)
     ),
     calculatePersonalizationBonus,
-    selectBestWindow,
+    selectBestWindows,
     scoreWindowCondition: (forecast, beach, skillLevel, boardClasses) => (
       scoreWindowConditionScore(forecast, beach, skillLevel, null, boardClasses)
     ),
@@ -420,47 +521,22 @@ function representativeForecast(
   ));
 }
 
-function capWindowEnd(
-  window: PersonalizedForecastWindow,
-  localDate: string,
-  timezone: string,
-  bucketEndHour: number | null,
-): Date {
-  if (bucketEndHour === null) return window.end;
-  const boundary = localDateTimeToUTC(
-    localDate,
-    `${String(bucketEndHour).padStart(2, '0')}:00:00`,
-    timezone,
-  );
-  return window.end > boundary ? boundary : window.end;
-}
-
 function buildDraftWindow(args: {
   beach: Beach;
   bucket: WeekScoutBucket;
   localDate: string;
-  timezone: string;
-  bucketEndHour: number | null;
+  window: AuthoritativeWindow;
+  isBeachDayBest: boolean;
   forecasts: EnhancedForecastEntity[];
-  userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>>;
   userSkillLevel: SkillLevel | null;
   boardClasses: readonly BoardClass[];
-  sunTimes: Map<string, { sunrises: Date[]; sunsets: Date[] }>;
   personalizationContext: PersonalizationContext | null;
   generatedAt: string;
   distanceMiles?: number;
   deps: WeekScoutServiceDependencies;
 }): DraftWindow | null {
-  const window = args.deps.selectBestWindow({
-    forecasts: args.forecasts,
-    beach: args.beach,
-    userPrefs: args.userPrefs,
-    sunTimesCache: args.sunTimes,
-    now: args.deps.now,
-    userSkillLevel: args.userSkillLevel,
-    boardClasses: args.boardClasses,
-  });
-  if (!window) return null;
+  const skillLevel = getSkillLevelOrDefault(args.userSkillLevel);
+  const { window } = args;
 
   const forecast = representativeForecast(args.forecasts, window);
   if (!forecast) return null;
@@ -470,53 +546,59 @@ function buildDraftWindow(args: {
     : { affinityBonus: 0, personalizationBonus: 0, reasons: [] };
   const detailed = args.deps.scoreBeach(args.beach, forecast, {
     affinityBonus: personalization.affinityBonus,
-    userSkillLevel: args.userSkillLevel,
+    userSkillLevel: skillLevel,
     beachSkillLevel: args.beach.skill_level,
   });
   const conditionScore = args.deps.scoreWindowCondition(
     forecast,
     args.beach,
-    args.userSkillLevel,
+    skillLevel,
     args.boardClasses,
   );
   const representativeScore = clampScore(
     conditionScore + personalization.affinityBonus + personalization.personalizationBonus,
   );
-  const end = capWindowEnd(window, args.localDate, args.timezone, args.bucketEndHour);
-  if (end <= window.start) return null;
-
   const id = hash([
     args.beach.id,
     args.localDate,
     args.bucket,
     WEEK_SCOUT_SCORER_VERSION,
   ]).slice(0, 24);
-  const verdict = verdictForScore(representativeScore);
-  const slotScores = args.forecasts
-    .filter((row) => {
-      const time = new Date(row.forecast_at).getTime();
-      return time >= window.start.getTime() && time < end.getTime();
-    })
+  const windowForecasts = args.forecasts.filter((row) => {
+    const time = new Date(row.forecast_at).getTime();
+    return time >= window.start.getTime() && time < window.end.getTime();
+  });
+  const sourcesDisagree = windowForecasts.some((row) =>
+    row.raw_forecast?.wave_source_selection?.disagreement === true,
+  );
+  const verdict = sourcesDisagree ? 'skip' : verdictForScore(representativeScore);
+  const slotScores = windowForecasts
     .map((row) => args.deps.scoreWindowCondition(
       row,
       args.beach,
-      args.userSkillLevel,
+      skillLevel,
       args.boardClasses,
     ));
   const subscores = {
     ...detailed.subscores,
     personalizationBonus: personalization.personalizationBonus,
   };
-  const reasons = [...personalization.reasons, ...detailed.reasons];
+  const reasons = [
+    ...(sourcesDisagree ? ['Wave forecasts disagree; check conditions before choosing this window.'] : []),
+    ...personalization.reasons, ...detailed.reasons,
+  ];
 
   return {
     response: {
       id,
       bucket: args.bucket,
       start: window.start.toISOString(),
-      end: end.toISOString(),
-      peakTime: (window.peakTime ?? window.start).toISOString(),
+      end: window.end.toISOString(),
+      displayWindowStart: window.displayWindowStart.toISOString(),
+      displayWindowEnd: window.displayWindowEnd.toISOString(),
+      peakTime: window.peakTime.toISOString(),
       beachId: args.beach.id,
+      isBeachDayBest: args.isBeachDayBest,
       conditionScore,
       verdict,
       rideable: isRideable(forecast, args.userSkillLevel, args.boardClasses),
@@ -528,6 +610,8 @@ function buildDraftWindow(args: {
         swellDirection: forecast.wave_direction ?? null,
         windSpeed: forecast.wind_speed ?? null,
         windDirection: forecast.wind_direction ?? null,
+        components: forecastComponents(forecast),
+        scoringComponent: scoringComponentForForecast(forecast),
         waterTemp: forecast.water_temp ?? null,
         tideHeightFt: finiteNumber(forecast.tide_height),
         tidePhase: forecast.tide_status ?? null,
@@ -538,7 +622,7 @@ function buildDraftWindow(args: {
     recommendation: {
       recommendationId: id,
       beach: args.beach,
-      window: { ...window, end },
+      window,
       forecast,
       score: representativeScore,
       matchQuality: detailed.matchQuality,
@@ -578,26 +662,30 @@ function rankDrafts(
     }))
     .sort((left, right) =>
       compareWeekScoutWindows(left, right, distanceOf(left.id), distanceOf(right.id)));
-  const rankedSpots = responses.map((window, index): WeekScoutRankedSpotResponse => ({
-    beachId: window.beachId,
-    beachName: draftById.get(window.id)?.recommendation.beach.name ?? '',
-    conditionScore: window.conditionScore,
-    rankingScore: window.rankingScore,
-    verdict: window.verdict,
-    ...(index <= 1
-      && (draftById.get(window.id)?.recommendation.distanceMiles ?? 0)
-        > WORTH_THE_DRIVE_DISTANCE_MILES
-      ? { reason: WORTH_THE_DRIVE_REASON }
-      : {}),
-    // Carry each spot's own conditions through instead of dropping them.
-    forecast: {
-      waveHeight: window.forecast.waveHeight,
-      period: window.forecast.period,
-      swellDirection: window.forecast.swellDirection,
-      windSpeed: window.forecast.windSpeed,
-      windDirection: window.forecast.windDirection,
-    },
-  }));
+  const rankedSpots = responses
+    .filter((window) => window.safe && window.rideable && window.verdict !== 'skip')
+    .map((window, index): WeekScoutRankedSpotResponse => ({
+      beachId: window.beachId,
+      beachName: draftById.get(window.id)?.recommendation.beach.name ?? '',
+      conditionScore: window.conditionScore,
+      rankingScore: window.rankingScore,
+      verdict: window.verdict,
+      ...(index <= 1
+        && (draftById.get(window.id)?.recommendation.distanceMiles ?? 0)
+          > WORTH_THE_DRIVE_DISTANCE_MILES
+        ? { reason: WORTH_THE_DRIVE_REASON }
+        : {}),
+      // Carry each spot's own conditions through instead of dropping them.
+      forecast: {
+        waveHeight: window.forecast.waveHeight,
+        period: window.forecast.period,
+        swellDirection: window.forecast.swellDirection,
+        windSpeed: window.forecast.windSpeed,
+        windDirection: window.forecast.windDirection,
+        components: window.forecast.components,
+        scoringComponent: window.forecast.scoringComponent,
+      },
+    }));
 
   return responses.map((window) => ({ ...window, rankedSpots }));
 }
@@ -652,7 +740,6 @@ function buildWeekScoutCanonicalCandidates(args: {
   response: MajorEventHoldWeekScoutResponse;
   beaches: readonly Beach[];
   forecastsByBeach: ReadonlyMap<string, EnhancedForecastEntity[]>;
-  timezone: string;
 }): CanonicalDecisionCandidate[] {
   const beachById = new Map(args.beaches.map((candidate) => [candidate.id, candidate]));
 
@@ -661,8 +748,10 @@ function buildWeekScoutCanonicalCandidates(args: {
       const beach = beachById.get(window.beachId);
       if (
         !beach
+        || window.isBeachDayBest !== true
         || window.rankingScore === null
         || window.verdict === null
+        || window.verdict === 'skip'
       ) {
         return [];
       }
@@ -678,7 +767,7 @@ function buildWeekScoutCanonicalCandidates(args: {
         beachSkillLevel: beach.skill_level,
         windowStart: window.start,
         windowEnd: window.end,
-        timezone: args.timezone,
+        timezone: resolveBeachTimezone(beach.timezone),
         forecastId: forecast?.id ?? '',
         forecastAt: forecast?.forecast_at ?? '',
         waveHeight: window.forecast.waveHeight,
@@ -705,7 +794,9 @@ function exclusionReasonsForDay(
 ): WeekScoutDayExclusionReason[] {
   if (bestWindowId !== null) return [];
   if (windows.length === 0) return ['no_forecasts'];
-  const safeWindows = windows.filter((window) => window.safe);
+  const dayBestWindows = windows.filter((window) => window.isBeachDayBest);
+  if (dayBestWindows.length === 0) return ['no_recommendable_windows'];
+  const safeWindows = dayBestWindows.filter((window) => window.safe);
   if (safeWindows.length === 0) return ['no_safe_windows'];
   const rideableWindows = safeWindows.filter((window) => window.rideable);
   if (rideableWindows.length === 0) return ['no_rideable_windows'];
@@ -718,29 +809,32 @@ function exclusionReasonsForDay(
   return [];
 }
 
-function compactHeldResponse(
-  response: MajorEventHoldWeekScoutResponse,
-): MajorEventHoldWeekScoutResponse {
+function compactHeldResponse<T extends MajorEventHoldWeekScoutResponse>(
+  response: T,
+  selectedWindowId?: string | null,
+): T {
   return {
     ...response,
     days: response.days.map((day) => {
-      const windows = BUCKETS.flatMap(({ bucket }) => {
+      const windows = BUCKETS.flatMap((bucket) => {
         const bucketWindows = day.windows.filter((window) => window.bucket === bucket);
         const visibleWindows = bucketWindows.filter((window) => window.rankingScore !== null);
         const selected = (
           visibleWindows.length > 0 ? visibleWindows : bucketWindows
         ).slice(0, WEEK_SCOUT_RESPONSE_RANK_LIMIT);
-        const bestWindow = bucketWindows.find((window) => window.id === day.bestWindowId);
-
-        if (
-          bestWindow
-          && !selected.some((window) => window.id === bestWindow.id)
-        ) {
-          selected.splice(
-            Math.max(0, selected.length - 1),
-            selected.length === 0 ? 0 : 1,
-            bestWindow,
-          );
+        const required = bucketWindows.filter((window) => (
+          window.isBeachDayBest === true
+          || window.id === day.bestWindowId
+          || window.id === selectedWindowId
+        ));
+        const missingRequired = required.filter((window) => !selected.some((item) => item.id === window.id));
+        if (missingRequired.length > 0) {
+          const requiredIds = new Set(required.map((window) => window.id));
+          const alreadySelectedRequired = selected.filter((window) => requiredIds.has(window.id));
+          const nonRequired = selected.filter((window) => !requiredIds.has(window.id));
+          const preservedRequired = [...alreadySelectedRequired, ...missingRequired];
+          const availableSlots = Math.max(0, WEEK_SCOUT_RESPONSE_RANK_LIMIT - preservedRequired.length);
+          selected.splice(0, selected.length, ...nonRequired.slice(0, availableSlots), ...preservedRequired);
         }
 
         return selected.map((window) => ({
@@ -754,7 +848,17 @@ function compactHeldResponse(
         windows,
       };
     }),
-  };
+  } as T;
+}
+
+function attachBestDayWindows<T extends MajorEventHoldWeekScoutResponse>(response: T): T {
+  return {
+    ...response,
+    days: response.days.map((day) => ({
+      ...day,
+      bestDayWindow: day.windows.find((window) => window.id === day.bestWindowId) ?? null,
+    })),
+  } as T;
 }
 
 async function generateWeekScoutForecastInternal(
@@ -768,10 +872,16 @@ async function generateWeekScoutForecastInternal(
     { length: request.dayCount },
     (_, index) => addLocalDays(request.startLocalDate, index),
   );
-  const beaches = await deps.fetchBeaches(request.candidateBeachIds);
+  // Canonical order breaks exact ties consistently before shared-setup ranking.
+  const requestedEligibleCount = new Set(request.candidateBeachIds).size;
+  const beaches = [...await deps.fetchBeaches(request.candidateBeachIds)]
+    .sort((left, right) => left.id.localeCompare(right.id));
   const beachIds = beaches.map((candidate) => candidate.id);
+  const forecastRequest = request.requirePerRowFreshness
+    ? deps.fetchForecasts(beaches, 24 * (request.dayCount + 1), { requirePerRowFreshness: true })
+    : deps.fetchForecasts(beaches, 24 * (request.dayCount + 1));
   const [forecastsByBeach, sunTimes, userPrefs, userSkillLevel, personalizationContext, boardClasses] = await Promise.all([
-    deps.fetchForecasts(beaches, 24 * (request.dayCount + 1)),
+    forecastRequest,
     deps.fetchSunTimes(beachIds, localDates),
     deps.fetchPreferences(userId),
     deps.fetchSkill(userId),
@@ -783,7 +893,7 @@ async function generateWeekScoutForecastInternal(
     candidate.id,
     groupForecastsByLocalSlot(
       forecastsByBeach.get(candidate.id) ?? [],
-      request.localTimezone,
+      resolveBeachTimezone(candidate.timezone),
     ),
   ]));
   const distanceByBeachId = new Map(beaches.map((candidate) => {
@@ -798,23 +908,45 @@ async function generateWeekScoutForecastInternal(
     ] as const;
   }));
 
+  const coverageByDate = new Map<string, WeekScoutCoverageDay>();
   const days = localDates.map((localDate): WeekScoutDayResponse => {
-    const windows = BUCKETS.flatMap(({ bucket, endHour }) => {
+    const authoritiesByBeach = new Map(beaches.map((candidate) => [
+      candidate.id,
+      selectBeachDayWindows({
+        forecasts: forecastsByBeach.get(candidate.id) ?? [],
+        beach: candidate,
+        userPrefs,
+        sunTimesCache: sunTimes,
+        now: deps.now,
+        userSkillLevel: getSkillLevelOrDefault(userSkillLevel),
+        boardClasses,
+        localDate,
+        selectWindows: deps.selectBestWindows,
+      }),
+    ]));
+    const bucketCoverage: WeekScoutCoverageBucket[] = [];
+    const windows = BUCKETS.flatMap((bucket) => {
+      let evaluated = 0;
+      let noWindow = 0;
       const drafts = beaches.flatMap((candidate) => {
-        const forecasts = slotsByBeach.get(candidate.id)?.get(slotKey(localDate, bucket)) ?? [];
-        if (forecasts.length === 0) return [];
+        const bucketForecasts = slotsByBeach.get(candidate.id)?.get(slotKey(localDate, bucket)) ?? [];
+        const authority = authoritiesByBeach.get(candidate.id);
+        const window = authority?.dayparts[bucket] ?? null;
+        if (bucketForecasts.length > 0) {
+          evaluated += 1;
+          if (!window) noWindow += 1;
+        }
+        if (!window) return [];
 
         const draft = buildDraftWindow({
           beach: candidate,
           bucket,
           localDate,
-          timezone: request.localTimezone,
-          bucketEndHour: endHour,
-          forecasts,
-          userPrefs,
+          window,
+          isBeachDayBest: window === authority?.bestDayWindow,
+          forecasts: forecastsByBeach.get(candidate.id) ?? [],
           userSkillLevel,
           boardClasses,
-          sunTimes,
           personalizationContext,
           generatedAt,
           distanceMiles: distanceByBeachId.get(candidate.id),
@@ -823,11 +955,23 @@ async function generateWeekScoutForecastInternal(
         return draft ? [draft] : [];
       });
 
+      bucketCoverage.push({
+        bucket,
+        eligible: requestedEligibleCount,
+        evaluated,
+        missing: Math.max(0, requestedEligibleCount - evaluated),
+        noWindow,
+        held: null,
+      });
+
       return rankDrafts(drafts, deps);
     });
     const best = windows
       .filter((candidate) => (
-        candidate.safe && candidate.rideable && candidate.verdict !== 'skip'
+        candidate.isBeachDayBest
+        && candidate.safe
+        && candidate.rideable
+        && candidate.verdict !== 'skip'
       ))
       .reduce<WeekScoutWindowResponse | null>((current, candidate) => (
         !current || compareWeekScoutWindows(
@@ -838,13 +982,33 @@ async function generateWeekScoutForecastInternal(
         ) < 0 ? candidate : current
       ), null);
 
+    coverageByDate.set(localDate, {
+      localDate,
+      eligible: requestedEligibleCount,
+      evaluated: new Set(bucketCoverage.flatMap((coverage) => {
+        const matching = beaches.filter((beach) => (
+          (slotsByBeach.get(beach.id)?.get(slotKey(localDate, coverage.bucket)) ?? []).length > 0
+        ));
+        return matching.map((beach) => beach.id);
+      })).size,
+      missing: 0,
+      excluded: null,
+      buckets: bucketCoverage,
+    });
+    const coverage = coverageByDate.get(localDate)!;
+    coverage.missing = Math.max(0, coverage.eligible - coverage.evaluated);
     return {
       localDate,
       windows,
       bestWindowId: best?.id ?? null,
+      bestDayWindow: null,
       exclusionReasons: exclusionReasonsForDay(windows, best?.id ?? null),
     };
   });
+  const coverage: WeekScoutCoverage = {
+    expiresAt: coverageExpiry(forecastsByBeach, generatedAt),
+    days: localDates.map((localDate) => coverageByDate.get(localDate)!),
+  };
 
   let response: WeekScoutResponse = {
     generatedAt,
@@ -910,11 +1074,28 @@ async function generateWeekScoutForecastInternal(
     profileExperience: userSkillLevel,
     applyWaterQualityHolds: true,
   });
-  const heldResponse = compactHeldResponse(sanitizeWeekScoutForMajorEventHold(
+  const heldResponse = sanitizeWeekScoutForMajorEventHold(
     response,
     candidates,
     decisions,
-  ));
+  );
+  for (const coverageDay of coverage.days) {
+    const before = response.days.find((day) => day.localDate === coverageDay.localDate);
+    const after = heldResponse.days.find((day) => day.localDate === coverageDay.localDate);
+    for (const bucketCoverage of coverageDay.buckets) {
+      const beforeIds = new Set(
+        before?.windows
+          .filter((window) => window.bucket === bucketCoverage.bucket)
+          .map((window) => window.id) ?? [],
+      );
+      const afterIds = new Set(
+        after?.windows
+          .filter((window) => window.bucket === bucketCoverage.bucket)
+          .map((window) => window.id) ?? [],
+      );
+      bucketCoverage.held = [...beforeIds].filter((id) => !afterIds.has(id)).length;
+    }
+  }
 
   return {
     heldResponse,
@@ -924,6 +1105,7 @@ async function generateWeekScoutForecastInternal(
     boardClasses,
     generatedAt,
     now: deps.now,
+    coverage,
   };
 }
 
@@ -941,7 +1123,6 @@ function buildCanonicalWeekScoutResponse(
     response: context.heldResponse,
     beaches: context.beaches,
     forecastsByBeach: context.forecastsByBeach,
-    timezone: request.localTimezone,
   });
   const sessionDecision = buildCanonicalSessionDecision({
     anchorTime: context.generatedAt,
@@ -958,7 +1139,14 @@ function buildCanonicalWeekScoutResponse(
     candidates: canonicalCandidates,
   });
 
-  return applyCanonicalDecisionToWeekScout(context.heldResponse, sessionDecision);
+  const compacted = compactHeldResponse(
+    {
+      ...applyCanonicalDecisionToWeekScout(context.heldResponse, sessionDecision),
+      coverage: context.coverage,
+    },
+    sessionDecision.selection?.candidateId,
+  );
+  return attachBestDayWindows(compacted);
 }
 
 export async function generateWeekScoutForecastForDays(
@@ -978,7 +1166,7 @@ export async function generateWeekScoutRankingForDays(
 ): Promise<MajorEventHoldWeekScoutResponse> {
   validateDayCount(request.dayCount);
   const context = await generateWeekScoutForecastInternal(userId, request, dependencies);
-  return context.heldResponse;
+  return attachBestDayWindows(context.heldResponse);
 }
 
 export async function generateWeekScoutForecast(

@@ -31,6 +31,7 @@ import {
   CDIP_OUTLIER_THRESHOLD,
   MAX_TRUSTED_CDIP_FT,
 } from '@/lib/config/forecast-staleness';
+import type { ForecastReplayInput } from './forecast-display-replay';
 import type { ForecastHandoffBlendMetadata } from './forecast-handoff-blend';
 
 // Re-export for backward compatibility (consumers may import from here)
@@ -395,7 +396,7 @@ export function formatWaveHeightRangeString(low: number, high: number): string {
 /**
  * Wave height source selection input parameters
  */
-export interface WaveHeightSourceParams {
+interface WaveHeightSourceParams {
   /** Explicit nowcast/guardrail observation anchor in meters. Wins over forecast sources. */
   nowcastAnchorM?: number | null;
   cdipSigFt?: number | null;
@@ -409,7 +410,7 @@ export interface WaveHeightSourceParams {
 /**
  * Raw wave height source selection result
  */
-export interface WaveHeightSource {
+interface WaveHeightSource {
   /** Raw height in feet */
   heightFt: number;
   /**
@@ -546,7 +547,7 @@ function isCdipCorroboratedByModelHs(
 /**
  * Parameters for face height transformation
  */
-export interface FaceHeightParams extends WaveHeightSourceParams {
+interface FaceHeightParams extends WaveHeightSourceParams {
   /** Beach terrain configuration for direction factor */
   beach?: BeachTerrainConfig | null;
   /** Wave period in seconds for period amplification */
@@ -691,6 +692,7 @@ export interface WaveHeightDebugInfo {
   calibrationBucketQuarantined?: boolean;
   handoffDiscontinuityFt?: number;
   handoffBlend?: ForecastHandoffBlendMetadata;
+  replayInput?: ForecastReplayInput;
   cdipRejection?: {
     reason: 'cdip_too_large' | 'cdip_outlier_vs_model';
     rawCdipHs: number;
@@ -725,7 +727,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
     };
   }
 
-  const result = transformToFaceHeightDecomposed({
+  const replayInput = {
     components: params.components,
     beach: params.beach ?? {},
     source: source.source,
@@ -733,7 +735,8 @@ export function toFaceHeightFeetDecomposedWithDebug(
     periodS: params.periodS ?? null,
     swellDirectionDeg: params.swellDirectionDeg ?? null,
     allowCalibratedShoaling: params.allowCalibratedShoaling,
-  });
+  };
+  const result = transformToFaceHeightDecomposed(replayInput);
 
   const clamped = clampWaveHeight(result.faceHeightFt);
   const rounded = roundWaveHeight(clamped);
@@ -748,6 +751,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
   return {
     value: `${rounded} ft`,
     debug: {
+      replayInput: JSON.parse(JSON.stringify(replayInput)),
       source: source.source,
       rawHeightFt: source.heightFt,
       provenance: result.provenance,

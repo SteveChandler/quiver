@@ -5,6 +5,10 @@
 import { resolveConfirmNext } from "@/lib/auth/confirm-utils";
 
 describe("/auth/confirm resolveConfirmNext()", () => {
+  it.each(["/auth/sign-up", "/auth/sign-in?redirectTo=/map", "/auth/sign-up/", "/foo/../auth/sign-up"])("does not return authenticated users to %s", (next) => {
+    expect(resolveConfirmNext("signup", next)).toBe("/");
+    expect(resolveConfirmNext("recovery", next)).toBe("/auth/reset");
+  });
   it("defaults signup confirmations to '/' when next is missing", () => {
     expect(resolveConfirmNext("signup", null)).toBe("/");
     expect(resolveConfirmNext("signup", "")).toBe("/");
@@ -26,6 +30,8 @@ describe("/auth/confirm resolveConfirmNext()", () => {
     expect(resolveConfirmNext("signup", "https://evil.com")).toBe("/");
     expect(resolveConfirmNext("signup", "http://evil.com")).toBe("/");
     expect(resolveConfirmNext("signup", "//evil.com")).toBe("/");
+    expect(resolveConfirmNext("signup", "/\\evil.com")).toBe("/");
+    expect(resolveConfirmNext("signup", "/\n/evil.com")).toBe("/");
   });
 
   it("resolves cookie fallback value through resolveConfirmNext safely", () => {
@@ -42,8 +48,6 @@ describe("/auth/confirm resolveConfirmNext()", () => {
     expect(resolveConfirmNext("signup", "//evil.com")).toBe("/");
   });
 });
-
-
 
 
 

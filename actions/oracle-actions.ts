@@ -82,7 +82,7 @@ export async function getLocalActivity(beachId: string) {
 /**
  * Persist the user's preferred session time on their profile.
  */
-export async function updatePreferredSessionTime(time: string) {
+async function updatePreferredSessionTime(time: string) {
   return withAuthenticatedAction(async (user, supabase) => {
     const validTimes = [
       "dawn_patrol",

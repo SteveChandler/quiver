@@ -274,7 +274,9 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
                       toolName="Water Quality Check"
                       beachName={wq.beachName}
                       shareText={
-                        wq.status === WQ_STATUS.GOOD
+                        wq.county_advisory_status === "unavailable"
+                          ? `Current county water quality status could not be verified for ${wq.beachName} — check the county before entering the water`
+                        : wq.status === WQ_STATUS.GOOD
                           ? `Water quality is good at ${wq.beachName} — safe to paddle out`
                           : wq.status === WQ_STATUS.ADVISORY
                             ? `Water quality advisory at ${wq.beachName} — check before you paddle out`
@@ -283,15 +285,22 @@ export default async function WaterQualityPage({ searchParams }: PageProps) {
                               : `Check water quality at ${wq.beachName} on Quiver`
                       }
                     />
-                    <StatusBadge status={wq.status} />
+                    {wq.county_advisory_status === "clear" || wq.county_advisory_status === "unavailable" ? (
+                      <span className="text-sm text-slate-300">{wq.county_advisory_status === "clear" ? "No current county advisory" : "County status unavailable"}</span>
+                    ) : <StatusBadge status={wq.status} />}
                   </div>
                 </div>
                 <div className="mt-4">
-                  <StatusMessage
+                  {wq.county_advisory_status ? (
+                    <p className="text-sm text-slate-300">
+                      <a href="https://www.sdbeachinfo.com/" className="underline">Check current County of San Diego advisories</a>.
+                      {wq.county_checked_at ? ` Checked ${new Date(wq.county_checked_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles" })} Pacific. No advisory does not guarantee safe water.` : " Current status could not be verified. Check before entering the water."}
+                    </p>
+                  ) : <StatusMessage
                     status={wq.status}
                     beachName={wq.beachName}
                     date={wq.latestSampleDate}
-                  />
+                  />}
                 </div>
               </div>
 

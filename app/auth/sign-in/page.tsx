@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { resolveConfirmNext } from "@/lib/auth/confirm-utils";
 
 // Human-friendly copy for common error param values from /auth/callback.
 // Raw error strings from Supabase (e.g. "Sign in failed. Please try again.")
@@ -83,11 +84,7 @@ function SignInPageContent() {
 
   // Handle modal close - redirect to intended destination or home
   const handleClose = () => {
-    if (!redirectTo || redirectTo === "/") {
-      router.push("/");
-    } else {
-      router.push(redirectTo);
-    }
+    router.push(resolveConfirmNext(null, redirectTo ?? null));
   };
 
   return (

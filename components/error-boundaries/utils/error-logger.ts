@@ -1,4 +1,4 @@
-export interface ErrorLogContext {
+interface ErrorLogContext {
   tier?: 'tier_1' | 'tier_2' | 'tier_3' | 'tier_4';
   boundaryType?: 'global' | 'route' | 'feature' | 'component';
   componentName?: string;

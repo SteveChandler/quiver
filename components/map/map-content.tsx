@@ -189,6 +189,8 @@ export function MapContent({
   const mapCenter = mapCenterState.center;
   const showLocationDeniedPrompt =
     !locationDeniedPromptDismissed &&
+    !searchQuery.trim() &&
+    !selectedBeach &&
     usingDefaultLocation &&
     !hasTimedOut &&
     typeof locationError === "string" &&

@@ -10,11 +10,7 @@ jest.mock("@/lib/mailer/client", () => ({
   // Wordmark renders the brand lockup as an absolute-URL <img>, so every
   // template now resolves getBaseUrl at render time.
   getBaseUrl: () => "https://www.quiversurf.app",
-  resend: {
-    emails: {
-      send: mockSend,
-    },
-  },
+  sendEmail: mockSend,
 }));
 
 describe("sendAndroidBetaInstructionsEmail", () => {
@@ -34,6 +30,7 @@ describe("sendAndroidBetaInstructionsEmail", () => {
 
     expect(mockSend).toHaveBeenCalledWith(
       expect.objectContaining({
+        purpose: "requested",
         from: "Quiver <invites@send.quiversurf.app>",
         replyTo: "Quiver <invites@send.quiversurf.app>",
         to: "surfer@example.com",

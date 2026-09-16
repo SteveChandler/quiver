@@ -21,7 +21,7 @@ import type { Json } from "@/types/database.generated";
 /**
  * Shape of a newly recorded milestone returned to the caller.
  */
-export interface NewMilestone {
+interface NewMilestone {
   key: MilestoneKey;
   metadata: Record<string, unknown>;
 }

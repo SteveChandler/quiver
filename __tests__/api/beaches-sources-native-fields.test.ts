@@ -53,6 +53,18 @@ describe("GET /api/beaches/[id]/sources", () => {
     jest.restoreAllMocks();
   });
 
+  it("returns an absolute compatible HLS URL for the native HDRelay player", async () => {
+    const sourceChain = makeChain({ data: { beach_id: VALID_BEACH_UUID, camera_url: "https://watch.hdrelay.io/live/cam/index.m3u8" }, error: null });
+    const dioramaChain = makeChain({ data: null, error: null });
+    mockCreateSupabaseServerClient.mockResolvedValue({ from: jest.fn((table: string) => table === "beach_sources" ? sourceChain : dioramaChain) });
+    const request = { url: "https://www.quiversurf.app/api/beaches/" + VALID_BEACH_UUID + "/sources", nextUrl: new URL("https://www.quiversurf.app/api/beaches/" + VALID_BEACH_UUID + "/sources") };
+    const response = await GET(request as any, { params: Promise.resolve({ id: VALID_BEACH_UUID }) });
+    const body = await response.json();
+    expect(body.data.sources.camera_url).toBe("https://www.quiversurf.app/api/hls-proxy/watch.hdrelay.io/live/cam/index.m3u8");
+    expect(body.data.sources.cam_kind).toBe("hls");
+    expect(body.data.sources.embed_allowed).toBe(true);
+  });
+
   it("uses the shared API wrapper module for response helpers", () => {
     const source = readFileSync(
       join(process.cwd(), "app/api/beaches/[id]/sources/route.ts"),
@@ -103,13 +115,16 @@ describe("GET /api/beaches/[id]/sources", () => {
     });
   });
 
-  it("marks Surfline report cam pages as external link-outs, not embeddable iframes", async () => {
+  it.each([
+    "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
+    "https://flaglersurf.com/webcam/",
+    "https://www.corollalightresort.com/surf-cam/",
+  ])("marks %s as an external link-out", async (cameraUrl) => {
     const sourceChain = makeChain({
       data: {
         beach_id: VALID_BEACH_UUID,
         forecast_source_id: null,
-        camera_url:
-          "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
+        camera_url: cameraUrl,
         thumbnail_url: null,
       },
       error: null,
@@ -133,13 +148,12 @@ describe("GET /api/beaches/[id]/sources", () => {
       }
     );
 
+    expect(response.status).toBe(200);
     const body = await response.json();
 
     expect(body.data.sources).toMatchObject({
-      camera_url:
-        "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
-      cam_open_url:
-        "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
+      camera_url: cameraUrl,
+      cam_open_url: cameraUrl,
       cam_kind: "external",
       embed_allowed: false,
     });

@@ -33,5 +33,5 @@ export const updateIntelContentSchema = z.object({
   tag: intelPostTagSchema,
 });
 
-export type ToggleIntelActiveData = z.infer<typeof toggleIntelActiveSchema>;
-export type UpdateIntelContentData = z.infer<typeof updateIntelContentSchema>;
+type ToggleIntelActiveData = z.infer<typeof toggleIntelActiveSchema>;
+type UpdateIntelContentData = z.infer<typeof updateIntelContentSchema>;

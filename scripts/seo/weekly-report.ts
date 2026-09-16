@@ -128,7 +128,16 @@ function buildSourceFreshness(
     makeFreshness("Competitor deep-dive", dateFromRunId(input.competitor?.runId), reportDate, "run date"),
     makeFreshness("AEO citation baseline", input.aeo?.narrativeBaseline?.reportDate, reportDate, "30-query audit date"),
     makeFreshness("Backlink target report", input.backlink?.narrativeTargets?.reportDate, reportDate, "target report date"),
+    makeFreshness("Backlink manual export", newestManualExportCapture(input), reportDate, "captured"),
   ];
+}
+
+function newestManualExportCapture(input: WeeklySeoReportInput): string | undefined {
+  return (input.backlink?.manualExports ?? [])
+    .map((item) => item.capturedAt)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1);
 }
 
 function makeFreshness(

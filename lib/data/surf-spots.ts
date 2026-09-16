@@ -1493,7 +1493,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
 export type SurfSpotSlug = keyof typeof SURF_SPOTS;
 
 // Array of all spot slugs for static generation
-export const SURF_SPOT_SLUGS = Object.keys(SURF_SPOTS) as SurfSpotSlug[];
+const SURF_SPOT_SLUGS = Object.keys(SURF_SPOTS) as SurfSpotSlug[];
 
 /**
  * Get static spot content by slug for SEO enrichment.

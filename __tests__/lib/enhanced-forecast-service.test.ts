@@ -81,6 +81,14 @@ jest.mock("@/lib/utils/distance-utils", () => ({
 }));
 
 // Sample beach data for testing (cast to any to avoid strict type checking)
+// These baseline/observation tests do not provision private adjustment stores.
+const originalTrustedAdjustments = process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
+beforeEach(() => { process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = "false"; });
+afterAll(() => {
+  if (originalTrustedAdjustments === undefined) delete process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
+  else process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = originalTrustedAdjustments;
+});
+
 const mockBeach: any = {
   id: "462bfb3b-b402-485d-b907-7eedfe5e828e",
   name: "Test Beach",

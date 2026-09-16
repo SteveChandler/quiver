@@ -22,7 +22,7 @@ export interface OfficialSwellAdvisoryEvidence {
   beachIds: string[];
 }
 
-export interface MajorSwellAwarenessShadowResult {
+interface MajorSwellAwarenessShadowResult {
   mode: "shadow";
   automationEnabled: false;
   signal:
@@ -36,7 +36,7 @@ export interface MajorSwellAwarenessShadowResult {
   wouldSuppressCohorts: Array<"beginner" | "intermediate" | "unknown">;
 }
 
-export interface EvaluateMajorSwellAwarenessShadowInput {
+interface EvaluateMajorSwellAwarenessShadowInput {
   beachId: string;
   forecasts: EnhancedForecastEntity[];
   timezone: string;

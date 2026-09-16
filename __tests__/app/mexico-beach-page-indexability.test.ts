@@ -61,6 +61,25 @@ describe("Mexico beach metadata indexability", () => {
     });
   });
 
+  it.each([
+    "Bahia Tortugas (Turtle Bay)",
+    "Acapulquito (Costa Azul)",
+    "California Trailer Park",
+  ])("keeps %s within the title budget including the site suffix", async (name) => {
+    (getBeachBySlugOrId as jest.Mock).mockResolvedValue({ ...beach, name });
+    (getCachedForecastIndexabilitySnapshots as jest.Mock).mockResolvedValue(
+      new Map([[beach.id, FRESH_SNAPSHOT]]),
+    );
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ region: "baja-california", city: "popotla", beachSlug: "alfonsos" }),
+    });
+    expect(typeof metadata.title).toBe("string");
+    expect(`${metadata.title} | Quiver`.length).toBeLessThanOrEqual(60);
+    expect(metadata.title).toContain("Surf Report");
+    expect(metadata.title).not.toContain("Updated Daily");
+    expect(metadata.openGraph?.title).toBe(metadata.title);
+  });
+
   it("keeps a non-canonical route out of the index even with a fresh forecast", async () => {
     (getCachedForecastIndexabilitySnapshots as jest.Mock).mockResolvedValue(
       new Map([[beach.id, FRESH_SNAPSHOT]]),

@@ -235,7 +235,7 @@ export function compositeToDetailedScore(
 /**
  * Options for discovery scoring.
  */
-export interface DiscoveryScoringOptions {
+interface DiscoveryScoringOptions {
   window?: ConditionsWindow | null;
   preferences?: UserPreferences | null;
   affinityBonus?: number;
@@ -327,7 +327,6 @@ export const WAVE_SIZE_SCORING_CONFIG = {
  * Canonical definition lives in user-preferences/skill-level.ts.
  * Re-exported here for backwards compatibility with existing imports.
  */
-export type { SkillWaveRanges };
 export const SKILL_WAVE_RANGES = SKILL_WAVE_RANGES_SOURCE;
 
 // =============================================================================
@@ -337,7 +336,7 @@ export const SKILL_WAVE_RANGES = SKILL_WAVE_RANGES_SOURCE;
 /**
  * Result of checking wave height against skill ceiling.
  */
-export interface SkillCeilingResult {
+interface SkillCeilingResult {
   /** Penalty points (0 if within skill limit) */
   penalty: number;
   /** Warning message if over skill limit */
@@ -381,7 +380,7 @@ export function checkSkillCeiling(
 /**
  * Result of checking wave height against the user's lower-end preference.
  */
-export interface SkillFloorResult {
+interface SkillFloorResult {
   /** Penalty points (0 if wave height is within/above the user's ideal floor) */
   penalty: number;
   /** Warning string if conditions are smaller than the user's usual range */
@@ -430,7 +429,7 @@ export function checkSkillFloor(
 /**
  * Result of checking wave height against a board-aware rideability band.
  */
-export interface BoardFitResult {
+interface BoardFitResult {
   /** Penalty points (0 if board is appropriate for the wave height) */
   penalty: number;
   /** Bonus points (0 unless wave height is in the board's ideal band) */
@@ -488,7 +487,7 @@ export function checkBoardFit(
 /**
  * Result of condition-aware beach skill match scoring.
  */
-export interface BeachSkillMatchResult {
+interface BeachSkillMatchResult {
   /** Score adjustment (positive = bonus, negative = penalty) */
   adjustment: number;
   /** Reason string for the adjustment */

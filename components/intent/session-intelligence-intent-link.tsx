@@ -6,7 +6,7 @@ import { ArrowUpRight, CalendarDays, MapPin, Waves } from "lucide-react";
 
 import { useTrackEvent } from "@/hooks/use-track-event";
 
-export type SessionIntelligenceIntentIcon =
+type SessionIntelligenceIntentIcon =
   | "arrow-up-right"
   | "calendar-days"
   | "map-pin"

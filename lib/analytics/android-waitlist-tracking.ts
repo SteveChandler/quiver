@@ -12,7 +12,7 @@ export const ANDROID_INSTALL_CTA_CLICK_EVENT = "android_install_cta_click";
 
 type InternalCtaEventType = "cta_impression" | "cta_click";
 
-export interface AndroidWaitlistCtaMetadata {
+interface AndroidWaitlistCtaMetadata {
   source: string;
   surface?: string;
   placement?: string;

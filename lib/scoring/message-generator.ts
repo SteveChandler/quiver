@@ -75,7 +75,7 @@ function getEndDescription(reason: WindowBoundaryReason): string {
 /**
  * Input for generating condition summary
  */
-export interface ConditionSummaryInput {
+interface ConditionSummaryInput {
   /** Current wind condition */
   windCondition: 'offshore' | 'light' | 'cross' | 'onshore';
   /** Current tide condition */

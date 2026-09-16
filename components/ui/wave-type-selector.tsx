@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { WAVE_CHARACTERISTICS } from "@/components/session-forms/shared/constants";
 
-export interface WaveType {
+interface WaveType {
   id: string;
   label: string;
   emoji: string;

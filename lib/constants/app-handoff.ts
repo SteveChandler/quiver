@@ -10,7 +10,7 @@ export { APP_FIRST_CAMPAIGN, iosAppStoreUrlWithCampaign };
 export const APP_HANDOFF_PATH = "/app/handoff";
 
 /** Only these keys survive into the handoff URL. Anything else is dropped. */
-export const SAFE_HANDOFF_PARAM_KEYS = [
+const SAFE_HANDOFF_PARAM_KEYS = [
   "source",
   "surface",
   "placement",

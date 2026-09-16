@@ -71,7 +71,7 @@ export function renderSeoRecommendationReport(
   ].join("\n");
 }
 
-export function resolveRecommendationsWithDashboard(
+function resolveRecommendationsWithDashboard(
   dashboard: SeoDashboard,
   recommendations: SeoRecommendation[],
 ): SeoRecommendation[] {

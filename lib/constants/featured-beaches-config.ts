@@ -27,7 +27,7 @@ export const EXCLUDED_BEACH_IDS: readonly string[] = [
  *
  * Order matters: beaches appear in the order listed here.
  */
-export const PRIORITY_BEACH_IDS: readonly string[] = [
+const PRIORITY_BEACH_IDS: readonly string[] = [
   "01330afc-00d3-461b-88f3-b173774766f4", // Blacks Beach - reliable photo, iconic SD surf spot
 ] as const;
 

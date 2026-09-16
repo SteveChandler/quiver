@@ -195,7 +195,7 @@ export function TideNextExtreme({
 /**
  * Compact inline version for mobile or constrained layouts
  */
-export function TideNextExtremeCompact({
+function TideNextExtremeCompact({
   nextHigh,
   nextLow,
   minutesToHigh,
@@ -304,5 +304,3 @@ export function TideNextExtremeRow({
     </div>
   );
 }
-
-export default TideNextExtreme;

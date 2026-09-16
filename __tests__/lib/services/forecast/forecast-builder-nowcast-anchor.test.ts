@@ -22,6 +22,14 @@ import {
 } from "@/lib/services/forecast/south-oc-sano-shadow-guardrail";
 import type { Beach } from "@/types/database";
 
+// These baseline/observation tests do not provision private adjustment stores.
+const originalTrustedAdjustments = process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
+beforeEach(() => { process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = "false"; });
+afterAll(() => {
+  if (originalTrustedAdjustments === undefined) delete process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
+  else process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = originalTrustedAdjustments;
+});
+
 const FROZEN_NOW = new Date("2026-04-19T15:00:00Z").getTime();
 const CALIBRATION_COVERAGE_WARNING = /calibrated_shoaling_coverage_gap/;
 

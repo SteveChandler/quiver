@@ -25,7 +25,7 @@ import {
   TEXT,
 } from "@/lib/mailer/theme";
 
-export interface AppLinkEmailProps {
+interface AppLinkEmailProps {
   /** Absolute /app handoff URL with attribution params. */
   appUrl: string;
 }

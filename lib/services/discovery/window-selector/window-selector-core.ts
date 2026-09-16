@@ -416,20 +416,28 @@ function buildResult(
     now
   );
 
+  // Tide boundaries can move the window hours past its original candidate.
+  // Keep the returned conditions and score on the row the peak will open.
+  const peakForecast = filteredForecasts.reduce((closest, candidate) => (
+    Math.abs(candidate.forecastTime.getTime() - peakTime.getTime())
+      < Math.abs(closest.forecastTime.getTime() - peakTime.getTime())
+      ? candidate : closest
+  ));
+
   return {
     start: bestWindow.start,
     end: bestWindow.end,
-    tide: bestWindow.forecast.tide_status || 'Unknown',
-    wind: `${bestWindow.forecast.wind_speed} ${bestWindow.forecast.wind_direction}`,
-    waveHeight: bestWindow.forecast.wave_height || 'Unknown',
-    wavePeriod: bestWindow.forecast.wave_period || 'Unknown',
-    dataSource: bestWindow.forecast.data_source || 'FALLBACK',
-    confidence: bestWindow.forecast.confidence_score || 50,
+    tide: peakForecast.forecast.tide_status || 'Unknown',
+    wind: `${peakForecast.forecast.wind_speed} ${peakForecast.forecast.wind_direction}`,
+    waveHeight: peakForecast.forecast.wave_height || 'Unknown',
+    wavePeriod: peakForecast.forecast.wave_period || 'Unknown',
+    dataSource: peakForecast.forecast.data_source || 'FALLBACK',
+    confidence: peakForecast.forecast.confidence_score || 50,
     timezone: beachTz,
     usedTideBoundaries: bestWindow.usedTideBoundaries,
-    score: bestWindow.score,
+    score: peakForecast.score,
     peakTime,
-    sourceForecast: bestWindow.forecast,
+    sourceForecast: peakForecast.forecast,
   };
 }
 

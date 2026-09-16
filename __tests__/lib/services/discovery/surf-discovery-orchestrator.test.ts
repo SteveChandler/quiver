@@ -11,6 +11,7 @@
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { SurfDiscoveryRecommendation } from '@/types/personalization';
+import { deriveDisplayWindow } from '@/lib/services/discovery/window-authority';
 
 // Mock beach data
 const mockBeach1: Partial<Beach> = {
@@ -294,7 +295,8 @@ jest.mock('@/lib/services/discovery/window-selector', () => {
       const window = selectBestWindow(args[0]);
       return window ? [window] : [];
     }),
-    scoreWindowConditionScore: jest.fn(() => 70),
+    scoreWindowConditionScore: jest.fn((forecast, _beach, skill, _band, boards = []) =>
+      boards.length > 0 ? 70 : require('@/lib/scoring/native-condition-score').scoreNativeForecastSlot(forecast, skill)),
     getLocalDateStr: jest.fn((date: Date, _tz: string) => {
       return date.toISOString().split('T')[0];
     }),
@@ -848,6 +850,23 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     // Should still return recommendations, just none marked as favorites
     expect(result.recommendations.length).toBeGreaterThan(0);
     expect(result.recommendations.every(r => !r.isFavorite)).toBe(true);
+  });
+
+  test('attaches authoritative display bounds in best-window mode', async () => {
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 1,
+    });
+    const selectedWindow = result.recommendations[0].window;
+    const expected = deriveDisplayWindow({
+      rawStart: selectedWindow.start,
+      rawEnd: selectedWindow.end,
+      peak: selectedWindow.peakTime!,
+      timezone: selectedWindow.timezone,
+    });
+
+    expect(selectedWindow.displayWindowStart).toEqual(expected.start);
+    expect(selectedWindow.displayWindowEnd).toEqual(expected.end);
   });
 
   test('scores only the forecast row nearest a requested forecastAt', async () => {
@@ -2235,6 +2254,23 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     mockState.userPrefs = null;
   });
 
+  test('starts sun-time reads before preferences finish without duplicating preferences', async () => {
+    const { getUserSurfPreferences } = require('@/lib/services/preference-learning-service');
+    let sunReadStartedBeforePreferences = false;
+    getUserSurfPreferences.mockImplementationOnce(async () => {
+      await Promise.resolve();
+      sunReadStartedBeforePreferences = mockSupabaseFrom.mock.calls.some(
+        ([table]) => table === 'sun_times',
+      );
+      return null;
+    });
+
+    await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
+
+    expect(sunReadStartedBeforePreferences).toBe(true);
+    expect(getUserSurfPreferences).toHaveBeenCalledTimes(1);
+  });
+
   test('calls fetchPersonalizationContext with correct arguments', async () => {
     const { fetchPersonalizationContext } = require('@/lib/services/discovery/personalization-layer');
 
@@ -2400,7 +2436,7 @@ describe('discoverSurfSpots - Personalization Integration', () => {
       beach_id: 'beach-1',
       user_id: `user-${index % 4}`,
       status: 'completed',
-      arrival_time: `2026-06-${String((index % 9) + 1).padStart(2, '0')}T14:00:00Z`,
+      arrival_time: new Date(Date.now() - ((index % 9) + 1) * 86_400_000).toISOString(),
       created_at: '2026-06-01T12:00:00Z',
       wave_height_ft: 3,
       wind_speed_mph: 7,
@@ -2647,6 +2683,10 @@ describe('discoverSurfSpots - Now Discovery Mode', () => {
       'beach-2-now',
       'beach-1-now',
     ]);
+    expect(result.recommendations.every(
+      (rec) => rec.window.displayWindowStart === undefined
+        && rec.window.displayWindowEnd === undefined,
+    )).toBe(true);
   });
 
   test('scores custom spots from active nearest-beach forecast buckets in now mode', async () => {
@@ -3059,6 +3099,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      scoreWindowConditionScore: jest.fn(() => 70),
       selectBestWindow: mockSelectBestWindow,
       selectBestWindows: (...args: any[]) => {
         const window = mockSelectBestWindow(...args);
@@ -3271,6 +3312,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      scoreWindowConditionScore: jest.fn(() => 70),
       selectBestWindow: mockSelectBestWindow,
       selectBestWindows: (...args: any[]) => {
         const window = mockSelectBestWindow(...args);
@@ -3470,6 +3512,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      scoreWindowConditionScore: jest.fn(() => 70),
       selectBestWindow: mockSelectBestWindow,
       selectBestWindows: (...args: any[]) => {
         const window = mockSelectBestWindow(...args);
@@ -3666,6 +3709,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      scoreWindowConditionScore: jest.fn(() => 70),
       selectBestWindow: mockSelectBestWindow,
       selectBestWindows: (...args: any[]) => {
         const window = mockSelectBestWindow(...args);
@@ -3853,6 +3897,7 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       })),
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
+      scoreWindowConditionScore: jest.fn(() => 70),
       selectBestWindow: mockSelectBestWindow,
       selectBestWindows: (...args: any[]) => {
         const window = mockSelectBestWindow(...args);

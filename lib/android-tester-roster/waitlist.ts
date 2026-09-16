@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export type AndroidWaitlistSourceKind =
+type AndroidWaitlistSourceKind =
   | "anonymous_lead"
   | "profile_intent"
   | "roster_evidence";

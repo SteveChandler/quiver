@@ -20,7 +20,7 @@ import { DEFAULT_TIMEZONE } from "./timezone-constants";
  * Partial Beach object containing ONLY the fields that can be provided.
  * All other fields will be filled with defaults from getBeachDefaults().
  */
-export type BeachInput = Partial<Beach> & Pick<Beach, "id" | "name">;
+type BeachInput = Partial<Beach> & Pick<Beach, "id" | "name">;
 
 /**
  * Get default values for all nullable/optional Beach fields.

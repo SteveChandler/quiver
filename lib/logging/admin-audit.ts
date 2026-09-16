@@ -10,7 +10,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 /**
  * Admin action types for categorization
  */
-export type AdminAction =
+type AdminAction =
   | "create"
   | "update"
   | "delete"
@@ -24,7 +24,7 @@ export type AdminAction =
 /**
  * Admin entity types that can be modified
  */
-export type AdminEntity =
+type AdminEntity =
   | "beach"
   | "forecast"
   | "photo"
@@ -37,7 +37,7 @@ export type AdminEntity =
 /**
  * Audit log entry interface
  */
-export interface AuditLogEntry {
+interface AuditLogEntry {
   user_id: string;
   entity_type: AdminEntity;
   entity_id?: string;

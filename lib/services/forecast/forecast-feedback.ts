@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-export const FORECAST_FEEDBACK_CONTRACT_VERSION =
+const FORECAST_FEEDBACK_CONTRACT_VERSION =
   "forecast-feedback-context.v1";
-export const FORECAST_FEEDBACK_SCHEMA_VERSION = 1;
+const FORECAST_FEEDBACK_SCHEMA_VERSION = 1;
 
 const contextRecordSchema = z
   .record(z.string(), z.unknown())
@@ -30,7 +30,7 @@ const optionalDateTimeSchema = z
     message: "Must be a parseable datetime",
   });
 
-export const ObservedFaceHeightFtSchema = z
+const ObservedFaceHeightFtSchema = z
   .number()
   .finite()
   .min(0.5)
@@ -90,7 +90,7 @@ export type ForecastFeedbackClientPayload = z.infer<
   typeof ForecastFeedbackClientPayloadSchema
 >;
 
-export interface SeasideForecastFeedbackPayload {
+interface SeasideForecastFeedbackPayload {
   user_id: string | null;
   session_id: string | null;
   anonymous_client_id: string | null;

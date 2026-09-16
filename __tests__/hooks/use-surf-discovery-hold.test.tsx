@@ -153,12 +153,14 @@ function serialized(response: SurfDiscoveryResponse): SurfDiscoveryResponse {
 describe("useSurfDiscovery major-event hold precedence", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    jest.spyOn(document, "hasFocus").mockReturnValue(true);
     global.fetch = jest.fn();
   });
 
   afterEach(() => {
     jest.useRealTimers();
     jest.restoreAllMocks();
+    Reflect.deleteProperty(document, "visibilityState");
   });
 
   it("deletes cached positives and lets fresh explicit none win", async () => {
@@ -476,6 +478,9 @@ describe("useSurfDiscovery major-event hold precedence", () => {
 
     await waitFor(() => expect(result.current.hasRecommendations).toBe(true));
     act(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+      document.dispatchEvent(new Event("visibilitychange"));
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
       document.dispatchEvent(new Event("visibilitychange"));
     });
 
@@ -519,6 +524,7 @@ describe("useSurfDiscovery major-event hold precedence", () => {
 
     await waitFor(() => expect(result.current.hasRecommendations).toBe(true));
     act(() => {
+      window.dispatchEvent(new Event("blur"));
       window.dispatchEvent(new Event("focus"));
     });
 
@@ -598,6 +604,7 @@ describe("useSurfDiscovery major-event hold precedence", () => {
 
     expect(result.current.loading).toBe(true);
     act(() => {
+      window.dispatchEvent(new Event("blur"));
       window.dispatchEvent(new Event("focus"));
     });
 

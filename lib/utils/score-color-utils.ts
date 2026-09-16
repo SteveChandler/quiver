@@ -11,7 +11,7 @@
 /**
  * Color configuration for score-based styling
  */
-export interface ScoreColorConfig {
+interface ScoreColorConfig {
   /** Background color class (e.g., "bg-teal-500") */
   bg: string;
   /** Text color class for score labels (e.g., "text-teal-700 dark:text-teal-300") */

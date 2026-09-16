@@ -21,13 +21,13 @@ export function hashString(str: string): number {
   return hash >>> 0;
 }
 
-export interface BatchResult<T> {
+interface BatchResult<T> {
   item: T;
   success: boolean;
   error?: string;
 }
 
-export interface BatchUpdateOptions {
+interface BatchUpdateOptions {
   batchSize?: number;
   batchDelayMs?: number;
   maxItemsPerRun?: number;

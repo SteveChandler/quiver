@@ -18,7 +18,7 @@ import {
   CACHE_TTL,
 } from "./cache";
 
-export interface IncrementUserXPResult {
+interface IncrementUserXPResult {
   xp_total: number;
   level: number;
   awarded: number;

@@ -45,7 +45,7 @@ export function MapSkeleton() {
   );
 }
 
-export function SelectedBeachCardSkeleton() {
+function SelectedBeachCardSkeleton() {
   return (
     <div className="px-4 py-3 bg-background border-t">
       <div className="border-2 border-muted rounded-lg p-3">
@@ -76,7 +76,7 @@ export function SelectedBeachCardSkeleton() {
   );
 }
 
-export function NearbyBeachScrollSkeleton() {
+function NearbyBeachScrollSkeleton() {
   return (
     <div className="bg-background border-t">
       <div className="p-4">

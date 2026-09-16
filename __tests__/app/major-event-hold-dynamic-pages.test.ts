@@ -2,11 +2,8 @@ import { readFileSync } from "node:fs";
 
 const PUBLIC_SEO_PAGES = [
   "app/[intent]/[city]/page.tsx",
-  "app/[intent]/[city]/[beachSlug]/page.tsx",
-  "app/[intent]/[city]/[beachSlug]/[intlBeachSlug]/page.tsx",
   "app/[intent]/[city]/[beachSlug]/tides/page.tsx",
   "app/[intent]/[city]/[beachSlug]/water-temp/page.tsx",
-  "app/mexico/[region]/[city]/[beachSlug]/page.tsx",
   "app/mexico/[region]/[city]/[beachSlug]/tides/page.tsx",
   "app/mexico/[region]/[city]/[beachSlug]/water-temp/page.tsx",
 ];
@@ -28,6 +25,16 @@ describe("major-event hold-sensitive pages", () => {
       expect(source).not.toContain("export const revalidate = 0");
     },
   );
+
+  it.each([
+    ...CANONICAL_BEACH_DETAIL_PAGES,
+    "app/mexico/[region]/[city]/[beachSlug]/page.tsx",
+  ])("renders current forecast revisions and clock-dependent windows in %s", (page) => {
+    const source = readFileSync(page, "utf8");
+    expect(source).toContain('export const dynamic = "force-dynamic"');
+    expect(source).not.toContain('export const dynamic = "force-static"');
+    expect(source).not.toContain("export const revalidate = 3600");
+  });
 
   it("keeps the Mexico server render cookie-free", () => {
     const source = readFileSync(

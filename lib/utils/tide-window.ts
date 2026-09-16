@@ -5,7 +5,7 @@
  * window duration and "now" marker positioning.
  */
 
-export interface WindowBounds {
+interface WindowBounds {
   /** Start of the visible window (Unix timestamp ms) */
   windowStart: number;
   /** End of the visible window (Unix timestamp ms) */
@@ -18,7 +18,7 @@ export interface WindowBounds {
   bufferEnd: number;
 }
 
-export interface WindowConfig {
+interface WindowConfig {
   /** Total visible hours in the window (default: 18) */
   windowHours?: number;
   /** Position of "now" marker as fraction of window (0 = left, 1 = right, default: 1/3) */

@@ -83,7 +83,7 @@ function matchingHolds(
     .sort((left, right) => left.holdId.localeCompare(right.holdId));
 }
 
-export interface EvaluateMajorEventHoldInput {
+interface EvaluateMajorEventHoldInput {
   mode: MajorEventHoldMode;
   resolutionState: "resolved" | "unresolved";
   holds: readonly ResolvedMajorEventHold[];
@@ -140,7 +140,7 @@ export function evaluateMajorEventHold({
   };
 }
 
-export function evaluateMajorEventHoldCandidateBatch(
+function evaluateMajorEventHoldCandidateBatch(
   inputs: readonly EvaluateMajorEventHoldInput[],
 ): MajorEventHoldEvaluation[] {
   return inputs.map(evaluateMajorEventHold);

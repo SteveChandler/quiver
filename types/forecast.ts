@@ -1,4 +1,5 @@
 // Domain types for the enhanced forecast system
+import type { WaveWatchData } from "@/lib/services/noaa-wavewatch/types";
 // Branded types for better type safety
 
 export type ConfidenceScore = number & { readonly __brand: "ConfidenceScore" };
@@ -232,6 +233,9 @@ export interface EnhancedForecastEntity {
 
   // Optional raw forecast payload for transparency/debugging
   raw_forecast?: {
+    wave_source_selection?: WaveWatchData["source_selection"];
+    /** Offshore input lineage, not CDIP/display provenance or evaluation authority. */
+    offshore_swell_field_sources?: WaveWatchData["swell_field_sources"];
     cdip_data?: any;
     noaa_data?: any;
     data_sources?: string[];
@@ -291,9 +295,9 @@ export interface WavePoint {
   readonly swell1Height: number;
   readonly swell1Period: number;
   readonly swell1Direction: number;
-  readonly swell2Height: number;
-  readonly swell2Period: number;
-  readonly swell2Direction: number;
+  readonly swell2Height: number | null;
+  readonly swell2Period: number | null;
+  readonly swell2Direction: number | null;
   readonly windWaveHeight: number;
   readonly windWavePeriod: number;
   readonly windWaveDirection: number;
@@ -593,6 +597,8 @@ export interface WaveHeightProvenance {
 // Enhanced Forecast with Raw Data
 export interface EnhancedForecastWithRawData extends EnhancedForecastEntity {
   raw_forecast?: {
+    wave_source_selection?: WaveWatchData["source_selection"];
+    offshore_swell_field_sources?: WaveWatchData["swell_field_sources"];
     cdip_data?: CDIPBuoyData | null;
     noaa_data?: any;
     data_sources: string[];

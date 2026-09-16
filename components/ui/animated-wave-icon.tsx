@@ -95,5 +95,3 @@ export function AnimatedWaveIcon({
     </svg>
   );
 }
-
-export default AnimatedWaveIcon;

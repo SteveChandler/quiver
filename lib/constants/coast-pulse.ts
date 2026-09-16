@@ -89,7 +89,7 @@ export const REALTIME = {
 } as const;
 
 /** Intersection observer settings */
-export const OBSERVER = {
+const OBSERVER = {
   /** Root margin for triggering infinite scroll load */
   INFINITE_SCROLL_MARGIN: "200px",
   /** Root margin for triggering visibility-based lazy loading */

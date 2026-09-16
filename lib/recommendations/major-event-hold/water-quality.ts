@@ -1,7 +1,9 @@
+import { isCurrentWaterQualitySample } from "@/lib/constants/water-quality";
 import "server-only";
 
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
@@ -26,7 +28,7 @@ export const CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS = [
 export const WATER_QUALITY_HOLD_PREFETCH_BUFFER =
   CHRONICALLY_IMPACTED_WATER_QUALITY_BEACH_IDS.length;
 
-export const WATER_QUALITY_STATUSES = [
+const WATER_QUALITY_STATUSES = [
   "good",
   "advisory",
   "closure",
@@ -120,14 +122,20 @@ export interface WaterQualityHoldClient {
   };
 }
 
+export interface WaterQualityEvidence {
+  source: "sample" | "county" | "hold";
+  sampleDate?: string;
+}
+
 export interface WaterQualityHoldResolution {
+  waterQualityEvidenceByBeachId?: Record<string, WaterQualityEvidence>;
   state: "resolved" | "unresolved";
   heldBeachIds: string[];
   waterQualityStatusByBeachId: Record<string, WaterQualityHoldStatus>;
   epoch: string;
 }
 
-export interface ResolveWaterQualityHoldsOptions {
+interface ResolveWaterQualityHoldsOptions {
   client?: WaterQualityHoldClient;
   now?: Date;
 }
@@ -314,6 +322,24 @@ async function resolveCountyLiveHolds(
   };
 }
 
+async function readQualityRows(
+  client: WaterQualityHoldClient,
+  table: "water_quality_held_beaches" | "beach_water_quality",
+  columns: string,
+  beachIds: readonly string[],
+): Promise<{ data: unknown; error: unknown }> {
+  const rows: unknown[] = [];
+  // Catalog-wide filters overflow response headers when the upstream echoes the URL.
+  for (let offset = 0; offset < beachIds.length; offset += 100) {
+    const result = await client.from(table).select(columns)
+      .in("beach_id", beachIds.slice(offset, offset + 100));
+    // Never turn a partial hazard read into a successful result.
+    if ((result.error !== null && result.error !== undefined) || !Array.isArray(result.data)) return result;
+    rows.push(...result.data);
+  }
+  return { data: rows, error: null };
+}
+
 /**
  * Resolves owner-directed holds and current sampled advisory/closure status.
  * This is called only by recommendation/discovery surfaces.
@@ -339,14 +365,8 @@ export async function resolveWaterQualityHolds(
     const resolutionSnapshot: string[] = [];
     let unresolved = false;
 
-    const heldQuery = client
-      .from("water_quality_held_beaches")
-      .select("beach_id")
-      .in("beach_id", requestedBeachIds);
-    const qualityQuery = client
-      .from("beach_water_quality")
-      .select(WATER_QUALITY_SELECT)
-      .in("beach_id", requestedBeachIds);
+    const heldQuery = readQualityRows(client, "water_quality_held_beaches", "beach_id", requestedBeachIds);
+    const qualityQuery = readQualityRows(client, "beach_water_quality", WATER_QUALITY_SELECT, requestedBeachIds);
     const qualityResultPromise = Promise.resolve(qualityQuery);
     void qualityResultPromise.catch(() => undefined);
     const { data: heldData, error: heldError } = await heldQuery;
@@ -444,6 +464,13 @@ export async function resolveWaterQualityHolds(
       rowsByBeachId.set(parsed.data.beach_id, parsed.data);
     }
 
+    const effectiveRows = await currentWaterQuality([...rowsByBeachId.values()], client, now);
+    const countyHeld = new Set(effectiveRows
+      .filter((row) => row.county_advisory_status === "advisory" || row.county_advisory_status === "closure")
+      .map((row) => row.beach_id));
+    for (const row of effectiveRows) rowsByBeachId.set(row.beach_id, row);
+
+    const evidence: Record<string, WaterQualityEvidence> = {};
     const heldBeachIds: string[] = [];
     const waterQualityStatusByBeachId: Record<
       string,
@@ -453,6 +480,7 @@ export async function resolveWaterQualityHolds(
     for (const beachId of requestedBeachIds) {
       const row = rowsByBeachId.get(beachId);
       if (ownerHeldBeachIds.has(beachId)) {
+        evidence[beachId] = { source: "hold" };
         heldBeachIds.push(beachId);
         if (row?.status === "advisory" || row?.status === "closure") {
           waterQualityStatusByBeachId[beachId] = row.status;
@@ -461,9 +489,17 @@ export async function resolveWaterQualityHolds(
         continue;
       }
 
+      if (row && (row.status === "advisory" || row.status === "closure")
+        && !countyHeld.has(beachId)
+        && !isCurrentWaterQualitySample(row.latest_sample_date, now.getTime())) {
+        evidence[beachId] = { source: "sample", ...(typeof row.latest_sample_date === "string" ? { sampleDate: row.latest_sample_date } : {}) };
+        snapshot.push(`${beachId}:sample-unconfirmed:${row.latest_sample_date ?? "undated"}`);
+        continue;
+      }
+
       const hasRealData =
         row !== undefined &&
-        row.total_samples_30d > 0 &&
+        ((row.total_samples_30d > 0 && isCurrentWaterQualitySample(row.latest_sample_date, now.getTime())) || countyHeld.has(beachId)) &&
         row.status !== "unknown";
       if (!hasRealData) {
         snapshot.push(`${beachId}:fallback:allow`);
@@ -471,6 +507,8 @@ export async function resolveWaterQualityHolds(
       }
 
       if (row.status === "advisory" || row.status === "closure") {
+        evidence[beachId] = countyHeld.has(beachId) ? { source: "county" }
+          : { source: "sample", ...(typeof row.latest_sample_date === "string" ? { sampleDate: row.latest_sample_date } : {}) };
         heldBeachIds.push(beachId);
         waterQualityStatusByBeachId[beachId] = row.status;
       }
@@ -487,6 +525,9 @@ export async function resolveWaterQualityHolds(
       for (const [beachId, status] of Object.entries(
         liveResolution.waterQualityStatusByBeachId,
       )) {
+        if (status === "closure" || waterQualityStatusByBeachId[beachId] !== "closure") {
+          evidence[beachId] = { source: "county" };
+        }
         waterQualityStatusByBeachId[beachId] =
           moreSevereWaterQualityStatus(
             waterQualityStatusByBeachId[beachId],
@@ -499,7 +540,7 @@ export async function resolveWaterQualityHolds(
       snapshot.push(...liveResolution.snapshot);
     }
 
-    return unresolved
+    const resolution = unresolved
       ? unresolvedResolution(
           heldBeachIds,
           [...resolutionSnapshot, ...snapshot],
@@ -510,6 +551,7 @@ export async function resolveWaterQualityHolds(
           [...resolutionSnapshot, ...snapshot],
           waterQualityStatusByBeachId,
         );
+    return { ...resolution, waterQualityEvidenceByBeachId: evidence };
   } catch (error) {
     console.error("[water-quality-hold:resolution-threw]", {
       beachCount: requestedBeachIds.length,

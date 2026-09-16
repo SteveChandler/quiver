@@ -31,14 +31,11 @@ import type {
   PersonalizedForecastWindow,
 } from '@/types/personalization';
 import type { ConditionBadge } from '@/types/personalization';
+import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
 import {
-  createDiscoveryScoringEngine,
   scoreBeachWithEngine,
   beachToSpotProfile,
-  forecastToSnapshot,
-  getConditionCharacter,
 } from '@/lib/domains/scoring';
-import type { ConditionCharacterCategory } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
 import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability';
@@ -53,7 +50,7 @@ import {
 } from '@/lib/scoring';
 import {
   getNativeConditionMatchQuality,
-  scoreNativeForecastSlot,
+  resolveNativeSkillLevel,
 } from '@/lib/scoring/native-condition-score';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { rankBeaches } from '@/lib/recommendations/selection';
@@ -85,10 +82,12 @@ import { scoreWindowConditionDetails } from './window-selector/window-scorer';
 import {
   enrichWithPhotos,
   generateDiscoverySummary,
-  getRecommendationLabel,
-  getRecommendationLabelGated,
   buildDiscoveryMessage,
 } from './response-formatter';
+import {
+  getDiscoveryScoringEngine,
+  resolveRecommendationLabel,
+} from './recommendation-label';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
 import { applySimilarityLayer } from './similarity-layer';
 import { computeWindowDistinctionReason } from './window-distinction';
@@ -116,6 +115,8 @@ import type { ScoringEngine } from '@/lib/domains/scoring';
 import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
 import { boardStyleFit } from './board-style-fit';
 import { resolveForecastAlignment } from './forecast-alignment';
+import { withDisplayWindow } from './window-authority';
+import { getQualityConfig } from '@/lib/utils/score-color-utils';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -159,12 +160,12 @@ const DEFAULT_OVERALL_TIMEOUT_MS = 12000; // Increased from 8s for more beaches
 const MAX_INCLUDED_BEACH_IDS = 12;
 const MAX_PUBLIC_CUSTOM_SPOTS = 5;
 
-export type SurfDiscoveryOperationalErrorCode =
+type SurfDiscoveryOperationalErrorCode =
   | 'forecast_unavailable'
   | 'timeout'
   | 'internal_error';
 
-export class SurfDiscoveryOperationalError extends Error {
+class SurfDiscoveryOperationalError extends Error {
   readonly retryable = true;
 
   constructor(
@@ -339,21 +340,24 @@ export async function getBatchSunTimes(
     return new Map();
   }
 
-  const { data, error } = await supabase
-    .from('sun_times')
-    .select('beach_id, sunrise_utc, sunset_utc')
-    .in('beach_id', uniqueBeachIds)
-    .in('date', uniqueDates)
-    .order('sunrise_utc', { ascending: true });
-
-  if (error) {
-    log.error('Error fetching sun times:', error);
-    return new Map();
+  const data: Array<{ beach_id: string; sunrise_utc: string | null; sunset_utc: string | null }> = [];
+  for (let offset = 0; offset < uniqueBeachIds.length; offset += 100) {
+    const { data: page, error } = await supabase
+      .from('sun_times')
+      .select('beach_id, sunrise_utc, sunset_utc')
+      .in('beach_id', uniqueBeachIds.slice(offset, offset + 100))
+      .in('date', uniqueDates)
+      .order('sunrise_utc', { ascending: true });
+    if (error) {
+      log.error('Error fetching sun times:', error);
+      return new Map();
+    }
+    data.push(...(page ?? []));
   }
 
   const sunMap = new Map<string, { sunrises: Date[]; sunsets: Date[] }>();
 
-  data?.forEach((row) => {
+  data.forEach((row) => {
     const beachId = row.beach_id;
 
     if (!sunMap.has(beachId)) {
@@ -609,16 +613,6 @@ function toRecommendationV2Candidate(
 // ============================================================================
 // Scoring Engine
 // ============================================================================
-
-// Singleton scoring engine instance for performance
-let _discoveryScoringEngine: ReturnType<typeof createDiscoveryScoringEngine> | null = null;
-
-function getDiscoveryScoringEngine() {
-  if (!_discoveryScoringEngine) {
-    _discoveryScoringEngine = createDiscoveryScoringEngine();
-  }
-  return _discoveryScoringEngine;
-}
 
 function normalizeBoardForPick(row: BoardPickRow): BoardForPick | null {
   if (
@@ -1036,7 +1030,7 @@ function applyWorthTheDriveReasons(
   });
 }
 
-async function fetchUserBoardContext(
+export async function fetchUserBoardContext(
   supabase: Pick<SupabaseClient, 'from'>,
   userId: string,
   isPro: boolean
@@ -1127,9 +1121,11 @@ export function computeWindowSlotScores(
 
   return inWindow.map((f) => {
     try {
-      return boardClasses.length > 0
-        ? scoreWindowConditionScore(f, rec.beach, userSkillLevel, null, boardClasses)
-        : scoreNativeForecastSlot(f, userSkillLevel);
+      return scoreWindowConditionScore(
+        f, rec.beach,
+        boardClasses.length > 0 ? userSkillLevel : resolveNativeSkillLevel(userSkillLevel),
+        null, boardClasses,
+      );
     } catch {
       return 0;
     }
@@ -1188,7 +1184,7 @@ export function composeRankingScore(args: {
   );
 }
 
-function buildDiscoveryDisplayScore(args: {
+export function buildDiscoveryDisplayScore(args: {
   beach: Beach;
   forecast: EnhancedForecastEntity;
   userSkillLevel: SkillLevel | null;
@@ -1198,15 +1194,13 @@ function buildDiscoveryDisplayScore(args: {
   boardStyleFitPoints: number;
   boardClasses: readonly BoardClass[];
 }): DiscoveryDisplayScore {
-  const displayConditionScore = args.boardClasses.length > 0
-    ? scoreWindowConditionScore(
-        args.forecast,
-        args.beach,
-        args.userSkillLevel,
-        null,
-        args.boardClasses,
-      )
-    : scoreNativeForecastSlot(args.forecast, args.userSkillLevel);
+  const displayConditionScore = scoreWindowConditionScore(
+    args.forecast,
+    args.beach,
+    args.boardClasses.length > 0 ? args.userSkillLevel : resolveNativeSkillLevel(args.userSkillLevel),
+    null,
+    args.boardClasses,
+  );
   const nativeMatchQuality = getNativeConditionMatchQuality(displayConditionScore);
 
   return {
@@ -1327,7 +1321,7 @@ async function scoreBeachForDiscovery(args: {
   };
 }
 
-// Immediate discovery ranks the forecast bucket that covers "right now".
+// Immediate discovery anchors the reading to the bucket covering "right now".
 // Keep this separate from daypart window selection so "now" cannot drift into
 // a future best-window scan.
 const IMMEDIATE_FORECAST_BUCKET_MAX_HOURS = 4;
@@ -1382,7 +1376,8 @@ function capImmediateEndAtSunset(
 function findImmediateForecastBucket(
   forecasts: EnhancedForecastEntity[],
   beachTz: string,
-  now: Date
+  now: Date,
+  scoreForecast: (forecast: EnhancedForecastEntity) => number,
 ): ImmediateForecastBucket | null {
   const sortedForecasts = forecasts
     .map((forecast) => ({
@@ -1393,6 +1388,7 @@ function findImmediateForecastBucket(
     .sort((a, b) => a.forecastTime.getTime() - b.forecastTime.getTime());
 
   let activeBucket: ImmediateForecastBucket | null = null;
+  let activeIndex = -1;
   const nowMs = now.getTime();
 
   for (let index = 0; index < sortedForecasts.length; index++) {
@@ -1410,12 +1406,41 @@ function findImmediateForecastBucket(
         : fallbackEnd;
 
     if (current.forecastTime.getTime() <= nowMs && bucketEnd.getTime() > nowMs) {
+      activeIndex = index;
       activeBucket = {
         forecast: current.forecast,
         start: current.forecastTime,
         end: bucketEnd,
       };
     }
+  }
+
+  if (!activeBucket) return null;
+  const hasConditions = (forecast: EnhancedForecastEntity): boolean => [
+    forecast.wave_height,
+    forecast.wind_speed,
+    forecast.swell_1_period ?? forecast.wave_period,
+  ].every((value) => value != null && Number.isFinite(parseFloat(String(value))));
+  if (!hasConditions(activeBucket.forecast)) return activeBucket;
+  const currentScore = scoreForecast(activeBucket.forecast);
+  if (!Number.isFinite(currentScore)) return activeBucket;
+  const threshold = getQualityConfig(currentScore).minScore;
+  if (threshold === 0) return activeBucket;
+
+  // The next timestamp bounds a data bucket, not necessarily the surf window.
+  // Keep the current reading; only extend through supported, contiguous ratings.
+  for (let index = activeIndex + 1; index < sortedForecasts.length; index++) {
+    const previous = sortedForecasts[index - 1];
+    const next = sortedForecasts[index];
+    const gapHours = (next.forecastTime.getTime() - previous.forecastTime.getTime()) / 3_600_000;
+    if (gapHours <= 0) continue;
+    if (gapHours > IMMEDIATE_FORECAST_BUCKET_MAX_HOURS) break;
+    if (getLocalDateStr(next.forecastTime, beachTz) !== getLocalDateStr(now, beachTz)) break;
+
+    activeBucket.end = next.forecastTime;
+    if (!hasConditions(next.forecast)) break;
+    const nextScore = scoreForecast(next.forecast);
+    if (!Number.isFinite(nextScore) || nextScore < threshold) break;
   }
 
   return activeBucket;
@@ -1439,7 +1464,15 @@ function selectImmediateWindow(
   // "Now" means now: no daylight gate. A surfer checking at 4am or after dark
   // still needs the current reading, and gating on local hour left the Now feed
   // empty every evening and every pre-dawn check.
-  const bucket = findImmediateForecastBucket(forecasts, beachTz, now);
+  const scoreForecast = (forecast: EnhancedForecastEntity): number =>
+    scoreWindowConditionScore(
+      forecast,
+      beach,
+      boardClasses.length > 0 ? userSkillLevel : resolveNativeSkillLevel(userSkillLevel),
+      null,
+      boardClasses,
+    );
+  const bucket = findImmediateForecastBucket(forecasts, beachTz, now, scoreForecast);
   if (!bucket) return null;
 
   const end = capImmediateEndAtSunset(bucket.end, now, beachTz, sunTimes);
@@ -1460,13 +1493,7 @@ function selectImmediateWindow(
     confidence: bucket.forecast.confidence_score || 50,
     timezone: beachTz,
     usedTideBoundaries: false,
-    score: scoreWindowConditionScore(
-      bucket.forecast,
-      beach,
-      userSkillLevel,
-      null,
-      boardClasses,
-    ),
+    score: scoreForecast(bucket.forecast),
     peakTime: now,
     sourceForecast: bucket.forecast,
   };
@@ -1687,9 +1714,8 @@ async function discoverSurfSpotsInner(
   const supabase = createSupabaseServiceRoleClient();
   const candidateBeachIds = Array.from(allBeachIds);
 
-  // Fetch user preferences first so we can pass them to fetchPersonalizationContext
-  // (avoids a duplicate getUserSurfPreferences call inside the personalization layer)
-  const userPrefs = await getUserSurfPreferences(userId).catch((err) => {
+  // Only personalization depends on preferences; other reads can start immediately.
+  const userPrefsPromise = getUserSurfPreferences(userId).catch((err) => {
     log.warn('Failed to fetch user surf preferences, continuing without them', err);
     return null;
   });
@@ -1701,15 +1727,17 @@ async function discoverSurfSpotsInner(
     personalizationCtx,
     userBoardContext,
     breakBehaviorRows,
+    userPrefs,
   ] = await Promise.all([
     getBatchSunTimes(Array.from(allBeachIds), uniqueDates),
     supabase
       .from('beach_water_quality')
       .select('beach_id, status')
       .in('beach_id', candidateBeachIds),
-    fetchPersonalizationContext(userId, candidateBeachIds, userPrefs),
+    userPrefsPromise.then((prefs) => fetchPersonalizationContext(userId, candidateBeachIds, prefs)),
     fetchUserBoardContext(supabase, userId, isPro),
     fetchBreakBehaviorSessionRows(supabase, candidateBeachIds, { now }),
+    userPrefsPromise,
   ]);
   const {
     dominantBoardClass,
@@ -1719,7 +1747,7 @@ async function discoverSurfSpotsInner(
   const breakBehaviorRowsByBeach = groupBreakBehaviorRowsByBeach(breakBehaviorRows);
 
   const wqMap = new Map<string, string>();
-  for (const row of wqResult.data ?? []) {
+  for (const row of await currentWaterQuality(wqResult.data ?? [])) {
     wqMap.set(row.beach_id, row.status);
   }
 
@@ -1849,6 +1877,10 @@ async function discoverSurfSpotsInner(
       }
     }
 
+    if (forecastAt || discoveryMode !== 'now') {
+      selectedWindows = selectedWindows.map(withDisplayWindow);
+    }
+
     if (selectedWindows.length === 0) {
       beachesWithNoWindow.push(beach.name);
       log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindows returned no windows (forecasts=${forecasts.length})`);
@@ -1959,36 +1991,14 @@ async function discoverSurfSpotsInner(
     }
     detailedScore.reasons = detailedScore.reasons.slice(0, 5);
 
-    // Compute condition character using the new domain-engine classifier.
-    // Re-runs the engine to obtain a CompositeScore (subscores Map keyed by
-    // 'windQuality' / 'tideFit' on the 0-100 scale that getConditionCharacter
-    // expects). Plugins are pure and the engine instance is a singleton, so
-    // the duplicate score() call is microseconds — cheaper than maintaining
-    // a parallel CompositeScore-bearing return type from scoreBeachForDiscovery
-    // (which still hands back the lossy DetailedScore for the rest of the flow).
-    let conditionCharacter: SurfDiscoveryRecommendation['character'] | undefined;
-    try {
-      const profile = beachToSpotProfile(beach);
-      const snapshot = forecastToSnapshot(bestWindowForecast);
-      const composite = getDiscoveryScoringEngine().score({
-        profile,
-        snapshot,
-        window: null,
-        preferences: null,
-      });
-      const character = getConditionCharacter(snapshot, profile, composite);
-      conditionCharacter = {
-        label: character.label,
-        category: character.category,
-      };
-    } catch {
-      // Non-fatal — character is optional
-    }
-
-    const recommendationLabel = getRecommendationLabelGated(
-      detailedScore.total,
-      (conditionCharacter?.category ?? null) as ConditionCharacterCategory | null,
-    );
+    const {
+      label: recommendationLabel,
+      character: conditionCharacter,
+    } = resolveRecommendationLabel({
+      beach,
+      forecast: bestWindowForecast,
+      score: detailedScore.total,
+    });
     const conditionBoardPick =
       userBoardsForPicks.length > 0
         ? getConditionBoardPick(
@@ -2023,11 +2033,6 @@ async function discoverSurfSpotsInner(
       // Carry the SpotProfile through so hero-ranking's setupSuitability
       // consumes the same window/exposure config the engine just used.
       spotProfile: beachToSpotProfile(beach),
-      // PR 4: gate "Worth it" on character category — a high score with
-      // medium-rough/medium-mixed character now caps at "Maybe" instead of
-      // promoting NOW FIRING on a windy day. Falls back to score-only when
-      // character is unavailable. The cast is safe because getConditionCharacter
-      // produces values from the ConditionCharacterCategory union by construction.
       recommendationLabel,
       subscores: detailedScore.subscores,
       summary: generateDiscoverySummary(beach, responseWindow, detailedScore),
@@ -2113,29 +2118,14 @@ async function discoverSurfSpotsInner(
       }
       customDetailedScore.reasons = customDetailedScore.reasons.slice(0, 5);
 
-      let customConditionCharacter: SurfDiscoveryRecommendation['character'] | undefined;
-      try {
-        const profile = beachToSpotProfile(customBeach);
-        const snapshot = forecastToSnapshot(bestWindowForecast);
-        const composite = getDiscoveryScoringEngine().score({
-          profile,
-          snapshot,
-          window: null,
-          preferences: null,
-        });
-        const character = getConditionCharacter(snapshot, profile, composite);
-        customConditionCharacter = {
-          label: character.label,
-          category: character.category,
-        };
-      } catch {
-        // Non-fatal — character is optional
-      }
-
-      const customRecommendationLabel = getRecommendationLabelGated(
-        customDetailedScore.total,
-        (customConditionCharacter?.category ?? null) as ConditionCharacterCategory | null,
-      );
+      const {
+        label: customRecommendationLabel,
+        character: customConditionCharacter,
+      } = resolveRecommendationLabel({
+        beach: customBeach,
+        forecast: bestWindowForecast,
+        score: customDetailedScore.total,
+      });
       const customBoardPick =
         userBoardsForPicks.length > 0
           ? getConditionBoardPick(

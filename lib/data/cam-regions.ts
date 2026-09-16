@@ -5,7 +5,7 @@
  * Each region groups beaches by geographic proximity and surfing culture.
  */
 
-export interface CamRegion {
+interface CamRegion {
   slug: string;
   name: string;
   /** US state codes included in this region */

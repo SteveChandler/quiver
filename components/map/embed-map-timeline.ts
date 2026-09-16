@@ -9,13 +9,13 @@ export const LEGACY_EMBED_TIMELINE_STEPS = [
   "+21h",
 ] as const;
 
-export const HOURLY_EMBED_TIMELINE_HORIZON_HOURS = 12 * 24;
+const HOURLY_EMBED_TIMELINE_HORIZON_HOURS = 14 * 24 - 1;
 export const HOURLY_EMBED_TIMELINE_STEPS = Array.from(
   { length: HOURLY_EMBED_TIMELINE_HORIZON_HOURS + 1 },
   (_, hourOffset) => hourOffset,
 ) as number[];
 
-export const MAX_HOURLY_EMBED_TIMELINE_INDEX = HOURLY_EMBED_TIMELINE_STEPS.length - 1;
+const MAX_HOURLY_EMBED_TIMELINE_INDEX = HOURLY_EMBED_TIMELINE_STEPS.length - 1;
 const HOUR_MS = 60 * 60 * 1000;
 
 function validForecastAt(value: unknown): value is string {
@@ -169,4 +169,12 @@ export function hourlyEmbedTimelineLabels(
       ? formatAbsoluteHourlyEmbedTimelineLabel(forecastAt, validTimezone)
       : formatEmbedMapTimelineLabel(hourOffset, now);
   });
+}
+
+/** Accept only absolute, hour-aligned starts from the native embed URL. */
+export function embedTimelineStart(value: string | null): string | undefined {
+  if (!value || !/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return undefined;
+  const epoch = Date.parse(value);
+  if (!Number.isFinite(epoch) || epoch % HOUR_MS !== 0) return undefined;
+  return new Date(epoch).toISOString();
 }

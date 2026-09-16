@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { SeoCta, SeoImage } from "@/lib/seo/funnel-pages";
 import { SeoImageFrame } from "./SeoImageFrame";
 
-export interface SeoHeroProps {
+interface SeoHeroProps {
   eyebrow: string;
   title: string;
   description: string;

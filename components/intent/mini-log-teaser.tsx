@@ -35,7 +35,7 @@ function getDefaultBoard(intent: string): string {
   }
 }
 
-export interface MiniLogTeaserProps {
+interface MiniLogTeaserProps {
   /** Intent slug for default board selection */
   intentSlug: string;
   /** City name for display */

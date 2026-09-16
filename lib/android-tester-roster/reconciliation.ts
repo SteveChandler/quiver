@@ -60,7 +60,7 @@ export type RosterObservation =
       observedAt: string;
     };
 
-export interface RosterReconciliationResult {
+interface RosterReconciliationResult {
   complete: boolean;
   observations: RosterObservation[];
   purgeEntryIds: string[];

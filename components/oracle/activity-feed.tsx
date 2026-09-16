@@ -10,7 +10,7 @@ export interface ActivityItem {
   type: "session" | "intel";
 }
 
-export interface ActivityFeedProps {
+interface ActivityFeedProps {
   items: ActivityItem[];
 }
 

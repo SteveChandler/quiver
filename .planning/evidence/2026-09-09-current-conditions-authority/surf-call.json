@@ -1,0 +1,272 @@
+{
+  "report": {
+    "verdict": "NO",
+    "bestWindowStart": null,
+    "bestWindowEnd": null,
+    "windowMinutes": null,
+    "shortWindow": false,
+    "waveHeight": "3.6 ft",
+    "windDescription": "S 5 mph (cross-shore)",
+    "windSpeed": "5 mph",
+    "windCompass": "S",
+    "windType": "cross-shore",
+    "tideDescription": "Rising \u2192 High",
+    "tidePhase": "rising",
+    "tideHeight": "3.7ft",
+    "nextTideType": "High",
+    "nextTideAt": "2026-09-10T17:00:00+00:00",
+    "whySentence": "This break is above your current skill level.",
+    "forecastConfidence": 40,
+    "lowForecastConfidence": false,
+    "score": null,
+    "peakTime": null,
+    "trendTags": [],
+    "updatedAt": "2026-09-10T01:06:58.703Z",
+    "isCalibrated": true,
+    "rideableWavesPerHour": 5,
+    "dominantBeatIntervalS": 71.5,
+    "character": {
+      "category": "medium-clean",
+      "label": "Dialed \u2014 everything's lining up"
+    },
+    "cautions": [],
+    "tiers": null,
+    "userTier": "intermediate",
+    "skillSource": "profile",
+    "recommendationAvailability": {
+      "state": "available",
+      "holdEpoch": "discovery-water-quality-filtered"
+    }
+  },
+  "sessionDecision": {
+    "verdict": "no",
+    "reasonCode": "beach_skill_exceeds_user"
+  },
+  "nowRecommendation": {
+    "recommendationLabel": "Maybe",
+    "score": 64,
+    "window": {
+      "start": "2026-09-10T00:00:00.000Z",
+      "end": "2026-09-10T02:05:22.495Z",
+      "tide": "Rising",
+      "wind": "8 mph SW",
+      "waveHeight": "2.7 ft",
+      "wavePeriod": "8s",
+      "dataSource": "CDIP",
+      "confidence": 100,
+      "timezone": "America/Los_Angeles",
+      "usedTideBoundaries": false,
+      "score": 64,
+      "peakTime": "2026-09-10T01:06:57.952Z"
+    },
+    "forecast": {
+      "id": "3c8d1501-3bd9-4c70-9d35-8bf2e566f070",
+      "beach_id": "15c7337e-5258-4339-9dc3-c435c666926b",
+      "forecast_date": "2026-09-10",
+      "forecast_time": "00:00:00",
+      "wave_height": "2.7 ft",
+      "wave_period": "8s",
+      "wave_direction": "SW",
+      "swell_1_height": "3 ft",
+      "swell_1_period": "9s",
+      "swell_1_direction": "SW",
+      "swell_2_height": "1.7 ft",
+      "swell_2_period": "16s",
+      "swell_2_direction": "SW",
+      "wind_wave_height": "0.8 ft",
+      "wind_wave_period": "5s",
+      "wind_wave_direction": "SW",
+      "water_temp": "76\u00b0F",
+      "air_temperature": "77\u00b0F",
+      "wind_speed": "8 mph",
+      "wind_direction": "SW",
+      "weather_condition": "Sunny",
+      "tide_status": "Rising",
+      "tide_height": "3 ft",
+      "next_tide_time": "09:00 PM",
+      "next_tide_type": "High",
+      "next_tide_height": "6.2 ft",
+      "confidence_score": 100,
+      "data_source": "CDIP",
+      "raw_forecast": {
+        "cdip_data": {
+          "data": [
+            {
+              "timestamp": "2026-09-09T23:30:00.000Z",
+              "swellHeight": 3.0183728,
+              "swellPeriod": 9.166667400000001,
+              "peakWavePeriod": 8.333334,
+              "swellDirection": 217.71875,
+              "windWaveHeight": 0.7545932,
+              "windWavePeriod": 5.0000004,
+              "peakWaveDirection": 217.71875,
+              "windWaveDirection": 217.71875,
+              "significantWaveHeight": 3.772966
+            },
+            {
+              "timestamp": "2026-09-09T23:00:00.000Z",
+              "swellHeight": 2.9658793599999997,
+              "swellPeriod": 9.166667400000001,
+              "peakWavePeriod": 8.333334,
+              "swellDirection": 212.09375,
+              "windWaveHeight": 0.7414698399999999,
+              "windWavePeriod": 5.0000004,
+              "peakWaveDirection": 212.09375,
+              "windWaveDirection": 212.09375,
+              "significantWaveHeight": 3.7073491999999995
+            }
+          ],
+          "stationId": "220",
+          "dataSource": "CDIP",
+          "lastUpdated": "2026-09-10T00:00:51.127Z",
+          "stationName": "Mission Bay West"
+        },
+        "data_sources": [
+          "CDIP",
+          "NOAA_NWS",
+          "NOAA_COOPS"
+        ],
+        "tide_station": {
+          "id": "cached_15c7337e-5258-4339-9dc3-c435c666926b",
+          "name": "Cached Tide Data"
+        },
+        "tide_schedule": [
+          {
+            "time": 1788980400,
+            "type": "high",
+            "height": 3.1
+          },
+          {
+            "time": 1788991200,
+            "type": "low",
+            "height": 1.4
+          },
+          {
+            "time": 1789012800,
+            "type": "high",
+            "height": 6.2
+          },
+          {
+            "time": 1789034400,
+            "type": "low",
+            "height": 0
+          },
+          {
+            "time": 1789059600,
+            "type": "high",
+            "height": 5.1
+          },
+          {
+            "time": 1789077600,
+            "type": "low",
+            "height": 1.1
+          },
+          {
+            "time": 1789099200,
+            "type": "high",
+            "height": 5.8
+          },
+          {
+            "time": 1789124400,
+            "type": "low",
+            "height": -0.1
+          },
+          {
+            "time": 1789146000,
+            "type": "high",
+            "height": 5.5
+          },
+          {
+            "time": 1789167600,
+            "type": "low",
+            "height": 0.6
+          },
+          {
+            "time": 1789189200,
+            "type": "high",
+            "height": 5.6
+          },
+          {
+            "time": 1789210800,
+            "type": "low",
+            "height": 0.6
+          },
+          {
+            "time": 1789236000,
+            "type": "high",
+            "height": 5.4
+          },
+          {
+            "time": 1789257600,
+            "type": "low",
+            "height": 0.6
+          },
+          {
+            "time": 1789279200,
+            "type": "high",
+            "height": 5.1
+          },
+          {
+            "time": 1789300800,
+            "type": "low",
+            "height": 1
+          },
+          {
+            "time": 1789322400,
+            "type": "high",
+            "height": 5.7
+          },
+          {
+            "time": 1789347600,
+            "type": "low",
+            "height": 0.9
+          },
+          {
+            "time": 1789369200,
+            "type": "high",
+            "height": 4.3
+          },
+          {
+            "time": 1789387200,
+            "type": "low",
+            "height": 1.5
+          }
+        ],
+        "quality_scores": {
+          "cdip": 85,
+          "noaa": 75,
+          "overall": 100
+        },
+        "fetch_timestamps": {
+          "cdip": "2026-09-10T00:00:51.127Z",
+          "noaa": "2026-09-10T00:01:44.365Z"
+        },
+        "wave_height_provenance": {
+          "source": "cdip_sig",
+          "provenance": "measured",
+          "station_id": "220",
+          "raw_value_ft": 3.772966,
+          "transform_path": "scalar_calibrated",
+          "components_used": false,
+          "calibrated_shoaling_fired": true
+        }
+      },
+      "created_at": "2026-09-10T00:01:44.365+00:00",
+      "updated_at": "2026-09-10T00:01:44.734+00:00",
+      "next_tide_at": "2026-09-10T04:00:00+00:00",
+      "coops_station_id": "cached_15c7337e-5258-4339-9dc3-c435c666926b",
+      "forecast_at": "2026-09-10T00:00:00+00:00",
+      "wind_direction_deg": 233,
+      "wind_source": "HRRR",
+      "wave_height_om": 1.1,
+      "wave_period_om": 10.7,
+      "wave_direction_om": 219,
+      "swell_height_om": 0.68,
+      "swell_period_om": 6.9,
+      "swell_direction_om": 209,
+      "wind_wave_height_om": 0.1,
+      "om_fetched_at": "2026-09-10T00:01:44.365+00:00",
+      "wind_model_run_at": "2026-09-09T22:00:00+00:00"
+    }
+  }
+}

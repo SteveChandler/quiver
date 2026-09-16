@@ -40,7 +40,7 @@ export interface WeekendScoutCronDependencies {
   enqueue: (args: EnqueueArgs) => Promise<EnqueueResult>;
 }
 
-export interface WeekendScoutRunSummary {
+interface WeekendScoutRunSummary {
   skipped: boolean;
   reason?: string;
   evaluated: number;

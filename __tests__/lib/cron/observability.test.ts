@@ -1,3 +1,4 @@
+/** @jest-environment node */
 // __tests__/lib/cron/observability.test.ts
 import { readFileSync } from "fs";
 import { join } from "path";
@@ -93,7 +94,7 @@ describe("withCronObservability", () => {
     const result = await withCronObservability("/api/cron/test", async () => ({ queued: 3 }));
 
     expect(result).toEqual({ queued: 3 });
-    expect(client._insertMock).toHaveBeenCalledWith({ route: "/api/cron/test", status: "started" });
+    expect(client._insertMock).toHaveBeenCalledWith({ route: "/api/cron/test", job: "/api/cron/test", status: "started" });
     expect(client._updateMock).toHaveBeenCalledWith(
       expect.objectContaining({ status: "ok", summary: { queued: 3 } })
     );
@@ -170,7 +171,7 @@ describe("withCronObservability", () => {
     expect(client._updateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "timeout",
-        error_message: expect.stringContaining("Vercel function killed"),
+        error_message: expect.stringContaining("No completion recorded"),
       })
     );
     expect(client._lastEqArgs).toEqual(expect.arrayContaining([["status", "started"]]));
@@ -225,6 +226,7 @@ describe("withObservedCron", () => {
     );
     const response = await handler(makeAuthorizedRequest());
 
+    expect(client._insertMock).toHaveBeenCalledWith({ route: "/api/cron/test", job: "/api/cron/test", status: "started" });
     expect(response.status).toBe(200);
     const okUpdate = findUpdate(client, (row) => row.status === "ok");
     expect(okUpdate?.[0]).toMatchObject({ status: "ok", error_message: null });
@@ -457,7 +459,7 @@ describe("withObservedCron", () => {
     const sweepUpdate = findUpdate(client, (row) => row.status === "timeout");
     expect(sweepUpdate?.[0]).toMatchObject({
       status: "timeout",
-      error_message: expect.stringContaining("Vercel function killed"),
+      error_message: expect.stringContaining("No completion recorded"),
     });
     expect(client._lastEqArgs).toEqual(expect.arrayContaining([["status", "started"]]));
     expect(client._lastLtArgs[0][0]).toBe("started_at");
@@ -512,9 +514,84 @@ describe("withObservedCron", () => {
     expect(response.status).toBe(200);
     expect(client._insertMock).toHaveBeenCalledWith({
       route: "/api/cron/test",
+      job: "/api/cron/test",
       status: "started",
     });
     expect(startCronCheckIn).not.toHaveBeenCalled();
     expect(completeCronCheckIn).not.toHaveBeenCalled();
+  });
+});
+
+
+describe.each(['response', 'value'] as const)('%s wrapper real PostgREST contract', (kind) => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.replaceProperty(process, 'env', { ...process.env, NODE_ENV: 'production', CRON_SECRET: 'test-cron-secret' });
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each(['none', 'insert', 'sweep', 'update', 'thrown-update', 'client'])(
+    'retains handler success and reports safe ledger failure: %s', async (failure) => {
+      const { createClient } = jest.requireActual<typeof import('@supabase/supabase-js')>('@supabase/supabase-js');
+      const { createSupabaseServiceRoleClient } = require('@/lib/supabase/server');
+      const requests: Record<string, unknown>[] = [];
+      const transport = jest.fn(async (_input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const row = JSON.parse(String(init?.body));
+        requests.push(row);
+        const operation = init?.method === 'POST' ? 'insert' : row.status === 'timeout' ? 'sweep' : 'update';
+        if (failure === 'thrown-update' && operation === 'update') throw new Error('private transport body');
+        if (failure === operation || (operation === 'insert' && !row.job)) {
+          return Response.json({ code: '23502', message: 'private database body', details: 'private row' }, { status: 400 });
+        }
+        return operation === 'insert' ? Response.json({ id: 'run-1' }, { status: 201 }) : new Response(null, { status: 204 });
+      });
+      const client = createClient('https://fixture.supabase.co', 'fixture-key', {
+        global: { fetch: transport }, auth: { persistSession: false, autoRefreshToken: false },
+      });
+      createSupabaseServiceRoleClient.mockImplementation(async () => {
+        if (failure === 'client') throw new Error('private credential config');
+        return client;
+      });
+      const handler = jest.fn(async () => ({ usable: 2 }));
+      const result = kind === 'value'
+        ? await withCronObservability('/api/cron/test', handler)
+        : await (await withObservedCron('/api/cron/test', async (_request: Request) => jsonResponse(await handler()))(makeAuthorizedRequest())).json();
+      expect(result).toEqual({ usable: 2 });
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(requests.filter(row => row.status === 'started')).toEqual(failure === 'client' ? [] : [{
+        route: '/api/cron/test', job: '/api/cron/test', status: 'started',
+      }]);
+      expect(requests.filter(row => row.status === 'ok')).toHaveLength(['insert', 'client'].includes(failure) ? 0 : 1);
+      expect(console.warn).toHaveBeenCalledTimes(failure === 'none' ? 0 : 1);
+      const expectedWarning = expect.objectContaining({
+          operation: failure === 'client' ? 'insert' : failure === 'thrown-update' ? 'update' : failure,
+          code: ['client', 'thrown-update'].includes(failure) ? 'unknown' : '23502', attempt: 1,
+        });
+      expect((console.warn as jest.Mock).mock.calls).toEqual(failure === 'none' ? [] : [[
+        '[cron-observability] ledger write failed', expectedWarning,
+      ]]);
+      expect(JSON.stringify((console.warn as jest.Mock).mock.calls)).not.toContain('private');
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    },
+  );
+
+  it('preserves the original handler exception when completing its ledger also fails', async () => {
+    const { createSupabaseServiceRoleClient } = require('@/lib/supabase/server');
+    const client = mockChain();
+    client._updateMock.mockReturnValue({ eq: () => ({
+      then: (_resolve: unknown, reject: (error: Error) => void) => reject(new Error('private ledger failure')),
+      lt: async () => ({ error: null }),
+    }) });
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+    const original = new Error('handler failure');
+    const handler = async (_request?: Request): Promise<never> => { throw original; };
+    const result = kind === 'value' ? withCronObservability('/api/cron/test', handler)
+      : withObservedCron('/api/cron/test', handler)(makeAuthorizedRequest());
+    await expect(result).rejects.toBe(original);
+    expect(console.warn).toHaveBeenCalledWith('[cron-observability] ledger write failed', expect.objectContaining({
+      job: '/api/cron/test', runId: 'run-1', operation: 'update', attempt: 1, code: 'unknown',
+    }));
+    expect(JSON.stringify((console.warn as jest.Mock).mock.calls)).not.toContain('private');
   });
 });

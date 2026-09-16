@@ -1,4 +1,4 @@
-export type RawMatchScoreState =
+type RawMatchScoreState =
   | "ready"
   | "onboarding"
   | "learned"

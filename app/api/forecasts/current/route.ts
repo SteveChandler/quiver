@@ -99,6 +99,8 @@ async function readCurrentRow(
   beachId: string,
   now: Date,
 ): Promise<CurrentForecastRow | null> {
+  // Database equivalent of designateCurrentRow: latest forecast_at <= now,
+  // expressed as a single-row query so this route does not load the window.
   const { data, error } = await supabase
     .from("enhanced_forecasts")
     .select("*")

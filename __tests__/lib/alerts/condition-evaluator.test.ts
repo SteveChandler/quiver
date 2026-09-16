@@ -37,6 +37,31 @@ const baseForecast: ForecastHour = {
 };
 
 describe("evaluateConditions", () => {
+  it.each(["rising", "falling", "high", "low"] as const)(
+    "matches a %s rule against provider tide casing",
+    (direction) => {
+      const providerStatus = direction[0].toUpperCase() + direction.slice(1);
+      expect(evaluateConditions(
+        { tide_direction: direction },
+        { ...baseForecast, tide_status: providerStatus },
+        mockBeach,
+      )).toBe(true);
+      expect(evaluateConditions(
+        { tide_direction: direction },
+        { ...baseForecast, tide_status: direction === "rising" ? "Falling" : "Rising" },
+        mockBeach,
+      )).toBe(false);
+    },
+  );
+
+  it.each([null, "", "unknown"])("rejects unavailable tide status %s", (tideStatus) => {
+    expect(evaluateConditions(
+      { tide_direction: "rising" },
+      { ...baseForecast, tide_status: tideStatus },
+      mockBeach,
+    )).toBe(false);
+  });
+
   it("returns true when all conditions match", () => {
     const conditions: AlertConditions = {
       swell_height_min: 3,

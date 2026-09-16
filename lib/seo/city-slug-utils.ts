@@ -9,7 +9,7 @@ import { slugifyAscii } from "@/lib/utils/text-utils";
 /**
  * US state abbreviations mapped to slugs.
  */
-export const US_STATE_SLUGS: Record<string, string> = {
+const US_STATE_SLUGS: Record<string, string> = {
   AL: "al", AK: "ak", AZ: "az", AR: "ar", CA: "ca",
   CO: "co", CT: "ct", DE: "de", FL: "fl", GA: "ga",
   HI: "hi", ID: "id", IL: "il", IN: "in", IA: "ia",
@@ -35,7 +35,7 @@ const SLUG_TO_STATE: Record<string, string> = Object.fromEntries(
  */
 const VALID_STATE_SLUGS = new Set(Object.values(US_STATE_SLUGS));
 
-export interface CityStateRecord {
+interface CityStateRecord {
   city: string;
   state: string;
 }
@@ -109,7 +109,7 @@ export function buildCitySlug(
   return baseSlug;
 }
 
-export interface ParsedCitySlug {
+interface ParsedCitySlug {
   /** City name pattern for ILIKE search (spaces instead of hyphens) */
   cityPattern: string;
   /** State abbreviation if suffix detected, null otherwise */

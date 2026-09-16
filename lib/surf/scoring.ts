@@ -12,7 +12,7 @@ import { METERS_TO_FEET } from '@/lib/utils/unit-conversions';
 type Grade = "epic" | "good" | "fair" | "poor";
 
 /** Minimum wind exposure floor (prevents "perfect wind" in extreme shelter) */
-export const MIN_EXPOSURE = 0.15;
+const MIN_EXPOSURE = 0.15;
 
 // Generalized types used by range-based window picker
 export interface BeachMeta {
@@ -40,7 +40,7 @@ export interface HourlyMarine {
   wind_dir_deg: number | null;
 }
 
-export interface HourlyTide {
+interface HourlyTide {
   ts: Date;
   tide_ft: number; // tide height in feet
 }
@@ -287,9 +287,9 @@ export function computeHourScore(arg1: any, arg2?: any, arg3?: any): any {
 export const computeHourScoreBreakdown = computeHourScoreObject;
 
 // Overloaded boardCall
-export function boardCall(score0to100: number): Grade;
-export function boardCall(avgHsFt: number, breakType?: string | null): string;
-export function boardCall(a: number, breakType?: string | null): any {
+function boardCall(score0to100: number): Grade;
+function boardCall(avgHsFt: number, breakType?: string | null): string;
+function boardCall(a: number, breakType?: string | null): any {
   if (breakType === undefined) {
     // Grade variant
     const score0to100 = a;
@@ -317,7 +317,7 @@ export function clamp01(n: number): number {
 // ============================================================================
 
 /** Window refinement configuration constants */
-export const REFINEMENT_CONFIG = {
+const REFINEMENT_CONFIG = {
   /** Duration of one hour in milliseconds */
   HOUR_MS: 60 * 60 * 1000,
   /** Scan resolution for finding eligibility boundaries (5 minutes) */

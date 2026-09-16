@@ -7,7 +7,7 @@
   "locationCapturedAt": "2026-07-24T19:55:00.000Z",
   "timezone": "America/Los_Angeles",
   "qualifyingCount": 3,
-  "scorerVersion": "week-scout-v1:discovery-hero-v1",
+  "scorerVersion": "week-scout-v2:day-window-authority-v1",
   "results": [
     {
       "rank": 1,
@@ -19,6 +19,8 @@
       "bestWindow": {
         "start": "2026-07-25T14:00:00.000Z",
         "end": "2026-07-25T17:00:00.000Z",
+        "displayWindowStart": "2026-07-25T14:00:00.000Z",
+        "displayWindowEnd": "2026-07-25T16:30:00.000Z",
         "peakTime": "2026-07-25T15:00:00.000Z",
         "localLabel": "Saturday morning",
         "waveHeight": "4.2",
@@ -44,6 +46,8 @@
       "bestWindow": {
         "start": "2026-07-25T15:00:00.000Z",
         "end": "2026-07-25T18:00:00.000Z",
+        "displayWindowStart": "2026-07-25T15:00:00.000Z",
+        "displayWindowEnd": "2026-07-25T17:30:00.000Z",
         "peakTime": "2026-07-25T16:00:00.000Z",
         "localLabel": "Saturday morning",
         "waveHeight": "3.6",
@@ -69,6 +73,8 @@
       "bestWindow": {
         "start": "2026-07-26T14:00:00.000Z",
         "end": "2026-07-26T17:00:00.000Z",
+        "displayWindowStart": "2026-07-26T14:00:00.000Z",
+        "displayWindowEnd": "2026-07-26T16:30:00.000Z",
         "peakTime": "2026-07-26T15:00:00.000Z",
         "localLabel": "Sunday morning",
         "waveHeight": "3.1",

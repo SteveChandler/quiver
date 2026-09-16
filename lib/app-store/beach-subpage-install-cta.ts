@@ -2,7 +2,7 @@ import { getIphoneAppBannerDecision } from "@/lib/app-store/iphone-app-banner";
 import { getFirstTouchPlatform } from "@/lib/analytics/web-context";
 import { isBeachSubPageInstallCtaEnabled } from "@/lib/flags/beach-subpage-install-cta";
 
-export interface BeachSubPageInstallCtaInput {
+interface BeachSubPageInstallCtaInput {
   enabled?: boolean;
   userAgent: string;
   pathname: string;

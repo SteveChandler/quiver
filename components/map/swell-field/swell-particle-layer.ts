@@ -1,3 +1,4 @@
+import { drawWaterMask } from "./water-mask";
 import mapboxgl from "mapbox-gl";
 import type {
   FlowCell,
@@ -11,7 +12,7 @@ export interface MercatorBox {
   maxY: number;
 }
 
-export interface ParticleSeed {
+interface ParticleSeed {
   x: number;
   y: number;
   age: number;
@@ -20,11 +21,8 @@ export interface ParticleSeed {
 // Windy-like spacing: sparse + evenly distributed (jittered grid) so water shows
 // between dashes. Lower than the earlier dense random blanket (4000/1400).
 export const PARTICLE_COUNT_DESKTOP = 650;
-// Mobile (incl. the native iOS WebView) reads at a narrow viewport. 300 looked far
-// too sparse on an actual phone — most of the field is open water + land, so the
-// coastal band ends up nearly empty. 520 restores a clearly-alive density while
-// staying well under the old dense-blanket counts.
-export const PARTICLE_COUNT_MOBILE = 520;
+// Leave room between crests on compact native map cards.
+export const PARTICLE_COUNT_MOBILE = 280;
 
 /** Below this CSS width we treat the device as small and cut particle count. */
 const SMALL_SCREEN_PX = 640;
@@ -67,8 +65,12 @@ export const PARTICLE_FRAGMENT_SHADER = `
 precision highp float;
 uniform vec3 u_color;
 uniform float u_alpha;
+uniform sampler2D u_waterMask;
+uniform vec2 u_viewport;
+uniform bool u_maskToWater;
 varying float v_alpha;
 void main() {
+  if (u_maskToWater && texture2D(u_waterMask, vec2(gl_FragCoord.x / u_viewport.x, 1.0 - gl_FragCoord.y / u_viewport.y)).a < 0.99) discard;
   gl_FragColor = vec4(u_color, v_alpha * u_alpha);
 }
 `;
@@ -149,6 +151,126 @@ function hexToRgb(hex: string): [number, number, number] {
 
 const clamp01 = (value: number): number =>
   Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0));
+
+export function longitudeFromMercatorX(x: number): number {
+  return x * 360 - 180;
+}
+
+export function latitudeFromMercatorY(y: number): number {
+  return (
+    (2 * Math.atan(Math.exp((180 - y * 360) * Math.PI / 180)) - Math.PI / 2) *
+    180 /
+    Math.PI
+  );
+}
+
+const mercatorXFromLongitude = (lon: number): number => (lon + 180) / 360;
+const mercatorYFromLatitude = (lat: number): number =>
+  (180 - (180 / Math.PI) * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360))) /
+  360;
+
+interface FlowSample {
+  vx: number;
+  vy: number;
+  speed: number;
+  alpha: number;
+}
+
+interface MercatorFieldBounds {
+  westX: number;
+  eastX: number;
+  southY: number;
+  northY: number;
+  southLat: number;
+  northLat: number;
+  regularGrid: boolean;
+}
+
+const mercatorFieldBounds = new WeakMap<FlowField, MercatorFieldBounds>();
+
+function getMercatorFieldBounds(field: FlowField): MercatorFieldBounds {
+  const cached = mercatorFieldBounds.get(field);
+  if (cached) return cached;
+
+  const west = field.cells[0]?.lon ?? 0;
+  const east = field.cells[field.cols - 1]?.lon ?? west;
+  const south = field.cells[0]?.lat ?? 0;
+  const north = field.cells[(field.rows - 1) * field.cols]?.lat ?? south;
+  const bounds = {
+    westX: mercatorXFromLongitude(west),
+    eastX: mercatorXFromLongitude(east),
+    southY: mercatorYFromLatitude(south),
+    northY: mercatorYFromLatitude(north),
+    southLat: south,
+    northLat: north,
+    regularGrid:
+      field.cols >= 2 &&
+      field.rows >= 2 &&
+      field.cells.length >= field.cols * field.rows &&
+      Number.isFinite(east - west) &&
+      Number.isFinite(north - south) &&
+      Math.abs(east - west) >= 1e-9 &&
+      Math.abs(north - south) >= 1e-9,
+  };
+  mercatorFieldBounds.set(field, bounds);
+  return bounds;
+}
+
+function sampleFlowFieldMercator(
+  field: FlowField,
+  bounds: MercatorFieldBounds,
+  x: number,
+  y: number,
+  sample: FlowSample
+): void {
+  if (!bounds.regularGrid) {
+    if (field.cells.length === 0) {
+      sample.vx = 0;
+      sample.vy = 0;
+      sample.speed = 0;
+      sample.alpha = 0;
+      return;
+    }
+    const lon = longitudeFromMercatorX(x);
+    const lat = latitudeFromMercatorY(y);
+    const cell = nearestFlowCell(field, lon, lat);
+    sample.vx = cell.vx;
+    sample.vy = cell.vy;
+    sample.speed = cell.speed;
+    sample.alpha = cell.alpha;
+    return;
+  }
+
+  const colF =
+    clamp01((x - bounds.westX) / (bounds.eastX - bounds.westX)) * (field.cols - 1);
+  const rowF = y >= bounds.southY
+    ? 0
+    : y <= bounds.northY
+      ? field.rows - 1
+      : clamp01(
+          (latitudeFromMercatorY(y) - bounds.southLat) /
+            (bounds.northLat - bounds.southLat)
+        ) * (field.rows - 1);
+  const col0 = Math.min(field.cols - 2, Math.max(0, Math.floor(colF)));
+  const row0 = Math.min(field.rows - 2, Math.max(0, Math.floor(rowF)));
+  const tx = colF - col0;
+  const ty = rowF - row0;
+  const c00 = field.cells[row0 * field.cols + col0];
+  const c10 = field.cells[row0 * field.cols + col0 + 1];
+  const c01 = field.cells[(row0 + 1) * field.cols + col0];
+  const c11 = field.cells[(row0 + 1) * field.cols + col0 + 1];
+  const w00 = (1 - tx) * (1 - ty);
+  const w10 = tx * (1 - ty);
+  const w01 = (1 - tx) * ty;
+  const w11 = tx * ty;
+  const rawVx = c00.vx * w00 + c10.vx * w10 + c01.vx * w01 + c11.vx * w11;
+  const rawVy = c00.vy * w00 + c10.vy * w10 + c01.vy * w01 + c11.vy * w11;
+  const length = Math.hypot(rawVx, rawVy);
+  sample.vx = length > 1e-6 ? rawVx / length : 0;
+  sample.vy = length > 1e-6 ? rawVy / length : 0;
+  sample.speed = c00.speed * w00 + c10.speed * w10 + c01.speed * w01 + c11.speed * w11;
+  sample.alpha = c00.alpha * w00 + c10.alpha * w10 + c01.alpha * w01 + c11.alpha * w11;
+}
 
 function nearestFlowCell(field: FlowField, lon: number, lat: number): FlowCell {
   if (field.cells.length === 0) {
@@ -247,7 +369,7 @@ export function sampleFlowField(
   return blendFlowCells(c00, c10, c01, c11, tx, ty, lon, lat);
 }
 
-export interface SwellParticleLayerOptions {
+interface SwellParticleLayerOptions {
   id: string;
   /** Returns the current flow field (re-read each frame so timeline scrubs apply). */
   getField: () => FlowField;
@@ -263,6 +385,7 @@ export interface SwellParticleLayerOptions {
    * (keeps the total in budget).
    */
   count?: number;
+  maskToWater?: boolean | (() => boolean);
   /**
    * Mark style for the drawn particle. "dash" (default) renders a crest line
    * (two vertices per particle, GL LINES). "dot" renders a single GL point per
@@ -289,6 +412,10 @@ export interface SwellParticleLayerOptions {
     velocitySmoothing?: number;
     dashLengthScale?: number;
   };
+}
+
+interface SwellParticleLayer extends mapboxgl.CustomLayerInterface {
+  getActiveParticleCount: () => number;
 }
 
 export function shouldAnimateSwellParticles(map: mapboxgl.Map): boolean {
@@ -330,7 +457,7 @@ export function shouldAnimateSwellParticles(map: mapboxgl.Map): boolean {
  */
 export function createSwellParticleLayer(
   options: SwellParticleLayerOptions
-): mapboxgl.CustomLayerInterface {
+): SwellParticleLayer {
   const count =
     options.count != null && options.count > 0
       ? Math.floor(options.count)
@@ -353,6 +480,10 @@ export function createSwellParticleLayer(
   const staticMotionScale = clampMotion(options.motionScale, 1);
   const staticVelocitySmoothing = clampSmoothing(options.velocitySmoothing, 0.16);
   const staticDashLengthScale = clampDashScale(options.dashLengthScale, 1);
+  let waterTexture: WebGLTexture | null = null;
+  let maskCanvas: HTMLCanvasElement | null = null;
+  let maskDirty = true;
+  const invalidateMask = (): void => { maskDirty = true; };
   let program: WebGLProgram | null = null;
   let posBuffer: WebGLBuffer | null = null;
   let alphaBuffer: WebGLBuffer | null = null;
@@ -363,18 +494,24 @@ export function createSwellParticleLayer(
   let uAlphaLoc: WebGLUniformLocation | null = null;
   let uPointSizeLoc: WebGLUniformLocation | null = null;
   let staticRenderedField: FlowField | null = null;
+  let staticRenderedCamera = "";
+  let particleBox: MercatorBox | null = null;
   let mapRef: mapboxgl.Map | null = null;
 
   // Particle state in Mercator unit space [0..1].
-  const px = new Float32Array(count);
-  const py = new Float32Array(count);
+  // Close-up Mercator steps are smaller than Float32 precision; accumulate in doubles.
+  const px = new Float64Array(count);
+  const py = new Float64Array(count);
   const page = new Float32Array(count);
   const life = new Float32Array(count);
   const vxState = new Float32Array(count);
   const vyState = new Float32Array(count);
   // 2 floats per vertex plus one alpha. Dash and streak are both single segments.
-  const vertexPos = new Float32Array(count * verticesPerParticle * 2);
+  const vertexPos = new Float64Array(count * verticesPerParticle * 2);
+  const relativeVertexPos = new Float32Array(vertexPos.length);
+  const relativeMatrix = new Float32Array(16);
   const vertexAlpha = new Float32Array(count * verticesPerParticle);
+  const flowSample: FlowSample = { vx: 0, vy: 0, speed: 0, alpha: 0 };
 
   const rng = Math.random;
   let lastFrameMs: number | null = null;
@@ -385,6 +522,17 @@ export function createSwellParticleLayer(
   const STEP_FRACTION = 0.00055;
   const FRAME_MS = 1000 / 60;
   const MAX_FRAME_STEP = 1.6;
+  const activeCounts = [
+    count,
+    Math.max(1, Math.round(count * 0.75)),
+    Math.max(1, Math.round(count * 0.5)),
+    Math.max(1, Math.ceil(count * 0.4)),
+  ];
+  let activeCountLevel = 0;
+  let activeCount = count;
+  let smoothedFrameMs = FRAME_MS;
+  let slowFrameMs = 0;
+  let fastFrameMs = 0;
   const MIN_LIFE_FRAMES = 300;
   const LIFE_JITTER_FRAMES = 360;
   const BIRTH_FADE_PORTION = 0.08;
@@ -409,7 +557,7 @@ export function createSwellParticleLayer(
     return MIN_LIFE_FRAMES + rng() * LIFE_JITTER_FRAMES;
   }
 
-  function frameStep(): number {
+  function frameStep(adaptParticleCount: boolean): number {
     const now =
       typeof performance !== "undefined" && typeof performance.now === "function"
         ? performance.now()
@@ -418,9 +566,25 @@ export function createSwellParticleLayer(
       lastFrameMs = now;
       return 1;
     }
-    const deltaFrames = (now - lastFrameMs) / FRAME_MS;
+    const deltaMs = now - lastFrameMs;
+    const deltaFrames = deltaMs / FRAME_MS;
     lastFrameMs = now;
     if (!Number.isFinite(deltaFrames) || deltaFrames <= 0) return 1;
+    if (adaptParticleCount) {
+      const measuredFrameMs = Math.min(deltaMs, 100);
+      smoothedFrameMs += (measuredFrameMs - smoothedFrameMs) * 0.1;
+      slowFrameMs = smoothedFrameMs > 1000 / 30 ? slowFrameMs + measuredFrameMs : 0;
+      fastFrameMs = smoothedFrameMs < 1000 / 50 ? fastFrameMs + measuredFrameMs : 0;
+      if (slowFrameMs >= 2000 && activeCountLevel < activeCounts.length - 1) {
+        activeCountLevel += 1;
+        activeCount = activeCounts[activeCountLevel];
+        slowFrameMs = 0;
+      } else if (fastFrameMs >= 5000 && activeCountLevel > 0) {
+        activeCountLevel -= 1;
+        activeCount = activeCounts[activeCountLevel];
+        fastFrameMs = 0;
+      }
+    }
     return Math.min(MAX_FRAME_STEP, deltaFrames);
   }
 
@@ -447,6 +611,7 @@ export function createSwellParticleLayer(
 
   function seedAll(map: mapboxgl.Map): void {
     const box = viewBoxMercator(map);
+    particleBox = box;
     for (let i = 0; i < count; i += 1) {
       // Jittered grid: even, Windy-style spacing instead of a random blanket.
       const s = gridSeedParticle(i, count, box, rng);
@@ -458,12 +623,33 @@ export function createSwellParticleLayer(
       page[i] = rng() * life[i];
     }
     lastFrameMs = null;
+    activeCountLevel = 0;
+    activeCount = count;
+    smoothedFrameMs = FRAME_MS;
+    slowFrameMs = 0;
+    fastFrameMs = 0;
   }
 
-  function advanceAndFill(map: mapboxgl.Map, field: FlowField): void {
+  function advanceAndFill(
+    map: mapboxgl.Map,
+    field: FlowField,
+    adaptParticleCount: boolean
+  ): void {
     const box = viewBoxMercator(map);
+    const fieldBounds = getMercatorFieldBounds(field);
     const span = Math.max(box.maxX - box.minX, 1e-6);
-    const deltaFrames = frameStep();
+    if (particleBox) {
+      const oldWidth = particleBox.maxX - particleBox.minX;
+      const oldHeight = particleBox.maxY - particleBox.minY;
+      if (oldWidth > 0 && oldHeight > 0 && Math.abs(span / oldWidth - 1) > 0.001) {
+        for (let i = 0; i < count; i += 1) {
+          px[i] = box.minX + ((px[i] - particleBox.minX) / oldWidth) * span;
+          py[i] = box.minY + ((py[i] - particleBox.minY) / oldHeight) * (box.maxY - box.minY);
+        }
+      }
+    }
+    particleBox = box;
+    const deltaFrames = frameStep(adaptParticleCount);
     // Read dynamics each frame so the active single layer can retarget without a
     // teardown (falls back to the values fixed at creation, e.g. combined sub-layers).
     const dyn = options.getDynamics?.();
@@ -474,15 +660,15 @@ export function createSwellParticleLayer(
     // consistent on-screen weight regardless of zoom or DPR.
     const canvasWidthPx = map.getCanvas().width || 1;
     const mercPerPx = span / canvasWidthPx;
-    for (let i = 0; i < count; i += 1) {
-      // Convert this particle's Mercator pos back to lng/lat to sample the geo field.
-      const merc = new mapboxgl.MercatorCoordinate(px[i], py[i]);
-      const ll = merc.toLngLat();
-      const cell = sampleFlowField(field, ll.lng, ll.lat);
-      const rawLen = Math.hypot(cell.vx, cell.vy);
-      let flowVx = rawLen > 1e-6 ? cell.vx / rawLen : 0;
-      let flowVy = rawLen > 1e-6 ? cell.vy / rawLen : 0;
-      if (cell.speed > 0 && rawLen > 1e-6) {
+    const { cols: seedCols, rows: seedRows } = gridDimensions(count, box);
+    const seedCellWidth = (box.maxX - box.minX) / seedCols;
+    const seedCellHeight = (box.maxY - box.minY) / seedRows;
+    for (let i = 0; i < activeCount; i += 1) {
+      sampleFlowFieldMercator(field, fieldBounds, px[i], py[i], flowSample);
+      const rawLen = Math.hypot(flowSample.vx, flowSample.vy);
+      let flowVx = rawLen > 1e-6 ? flowSample.vx / rawLen : 0;
+      let flowVy = rawLen > 1e-6 ? flowSample.vy / rawLen : 0;
+      if (flowSample.speed > 0 && rawLen > 1e-6) {
         const previousLen = Math.hypot(vxState[i], vyState[i]);
         if (previousLen <= 1e-6) {
           vxState[i] = flowVx;
@@ -505,7 +691,7 @@ export function createSwellParticleLayer(
       }
       // Drift rate is driven by the swell's celerity (cell.speed by period) - no flat
       // floor, so the motion genuinely reflects how fast each swell is moving.
-      const step = span * STEP_FRACTION * cell.speed * deltaFrames * motionScale;
+      const step = span * STEP_FRACTION * flowSample.speed * deltaFrames * motionScale;
       // Screen-y down maps to +Mercator-y down, so vy sign is consistent.
       px[i] += flowVx * step;
       py[i] += flowVy * step;
@@ -520,17 +706,14 @@ export function createSwellParticleLayer(
       if (out) {
         // Respawn back into THIS particle's own grid cell so even coverage holds as
         // particles drift out-of-box or exceed their life.
-        const s = gridSeedParticle(i, count, box, rng);
-        px[i] = s.x;
-        py[i] = s.y;
+        px[i] = box.minX + (i % seedCols + rng()) * seedCellWidth;
+        py[i] =
+          box.minY + (Math.floor(i / seedCols) % seedRows + rng()) * seedCellHeight;
         vxState[i] = 0;
         vyState[i] = 0;
         // Stronger swell at the spawn point -> a longer-lasting particle.
-        const seedLngLat = new mapboxgl.MercatorCoordinate(px[i], py[i]).toLngLat();
-        const seedStrength = Math.min(
-          1,
-          Math.max(0, sampleFlowField(field, seedLngLat.lng, seedLngLat.lat).alpha)
-        );
+        sampleFlowFieldMercator(field, fieldBounds, px[i], py[i], flowSample);
+        const seedStrength = Math.min(1, Math.max(0, flowSample.alpha));
         life[i] = randomLifeFrames() * (0.55 + seedStrength * 0.9);
         page[i] = 0;
         const baseVertex = i * verticesPerParticle;
@@ -552,7 +735,7 @@ export function createSwellParticleLayer(
       const lifeFade = Math.min(birthFade, deathFade);
       // Wave strength (energy ~ height^2, normalized 0..1) drives the whole look:
       // stronger swell reads bolder, denser, longer; weaker reads faint and sparse.
-      const strength = Math.min(1, Math.max(0, cell.alpha));
+      const strength = Math.min(1, Math.max(0, flowSample.alpha));
       // Stable per-particle cull threshold (golden-ratio sequence, no per-frame
       // flicker): weak cells reveal only the low-threshold particles -> sparser;
       // strong cells clear nearly everyone -> denser.
@@ -563,7 +746,7 @@ export function createSwellParticleLayer(
       const baseAlpha =
         markStyle === "streak" ? 0.22 + strength * 0.6 : 0.3 + strength * 0.7;
       const fade =
-        cell.speed > 0 && visible ? Math.min(1, baseAlpha) * lifeFade : 0;
+        flowSample.speed > 0 && visible ? Math.min(1, baseAlpha) * lifeFade : 0;
 
       if (markStyle === "dot") {
         // One GL point per particle, centered on the particle position.
@@ -646,9 +829,17 @@ export function createSwellParticleLayer(
     id: options.id,
     type: "custom",
     renderingMode: "2d",
+    getActiveParticleCount: () => activeCount,
 
     onAdd(map: mapboxgl.Map, gl: WebGL2RenderingContext) {
       mapRef = map;
+      if (options.maskToWater) {
+        maskCanvas = document.createElement("canvas");
+        waterTexture = gl.createTexture();
+        map.on("move", invalidateMask);
+        map.on("resize", invalidateMask);
+        map.on("sourcedata", invalidateMask);
+      }
       const vs = compileShader(gl, gl.VERTEX_SHADER, PARTICLE_VERTEX_SHADER);
       const fs = compileShader(gl, gl.FRAGMENT_SHADER, PARTICLE_FRAGMENT_SHADER);
       const prog = gl.createProgram();
@@ -681,14 +872,45 @@ export function createSwellParticleLayer(
       const field = options.getField();
       const shouldAnimate =
         !options.reducedMotion && shouldAnimateSwellParticles(mapRef);
-      const shouldRenderStaticFrame = !shouldAnimate && staticRenderedField !== field;
+      const camera = JSON.stringify(viewBoxMercator(mapRef));
+      const shouldRenderStaticFrame = !shouldAnimate && (staticRenderedField !== field || staticRenderedCamera !== camera);
       if (shouldAnimate || shouldRenderStaticFrame) {
-        advanceAndFill(mapRef, field);
+        advanceAndFill(mapRef, field, shouldAnimate);
         staticRenderedField = shouldAnimate ? null : field;
+        staticRenderedCamera = camera;
       }
 
       gl.useProgram(program);
-      gl.uniformMatrix4fv(uMatrixLoc, false, matrix);
+      const maskToWater = typeof options.maskToWater === "function" ? options.maskToWater() : options.maskToWater;
+      gl.uniform1i(gl.getUniformLocation(program, "u_maskToWater"), maskToWater ? 1 : 0);
+      if (options.maskToWater && maskCanvas && waterTexture) {
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, waterTexture);
+        if (maskDirty) {
+          drawWaterMask(mapRef, maskCanvas);
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, maskCanvas);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          maskDirty = false;
+        }
+        gl.uniform1i(gl.getUniformLocation(program, "u_waterMask"), 0);
+        gl.uniform2f(gl.getUniformLocation(program, "u_viewport"), gl.drawingBufferWidth, gl.drawingBufferHeight);
+      }
+      // Preserve subpixel crest widths at beach zoom before converting to GPU floats.
+      const originX = particleBox ? (particleBox.minX + particleBox.maxX) / 2 : 0;
+      const originY = particleBox ? (particleBox.minY + particleBox.maxY) / 2 : 0;
+      for (let i = 0; i < vertexPos.length; i += 2) {
+        relativeVertexPos[i] = vertexPos[i] - originX;
+        relativeVertexPos[i + 1] = vertexPos[i + 1] - originY;
+      }
+      relativeMatrix.set(matrix);
+      for (let row = 0; row < 4; row += 1) {
+        relativeMatrix[12 + row] = matrix[row] * originX + matrix[4 + row] * originY + matrix[12 + row];
+      }
+      gl.uniformMatrix4fv(uMatrixLoc, false, relativeMatrix);
       const [r, g, b] = hexToRgb(options.getColorHex());
       gl.uniform3f(uColorLoc, r, g, b);
       // Near-opaque so the dark dashes read crisply on the light basemap; the static
@@ -705,7 +927,7 @@ export function createSwellParticleLayer(
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
       gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, vertexPos, gl.DYNAMIC_DRAW);
+      gl.bufferData(gl.ARRAY_BUFFER, relativeVertexPos, gl.DYNAMIC_DRAW);
       gl.enableVertexAttribArray(aPosLoc);
       gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, false, 0, 0);
 
@@ -716,14 +938,14 @@ export function createSwellParticleLayer(
 
       if (markStyle === "dot") {
         // One vertex per particle drawn as a GL point.
-        gl.drawArrays(gl.POINTS, 0, count);
+        gl.drawArrays(gl.POINTS, 0, activeCount);
       } else if (markStyle === "streak") {
         // Worm: polyline pairs.
         gl.lineWidth(1);
-        gl.drawArrays(gl.LINES, 0, count * verticesPerParticle);
+        gl.drawArrays(gl.LINES, 0, activeCount * verticesPerParticle);
       } else {
         // Dash: quads (two triangles per particle) for real, controllable width.
-        gl.drawArrays(gl.TRIANGLES, 0, count * verticesPerParticle);
+        gl.drawArrays(gl.TRIANGLES, 0, activeCount * verticesPerParticle);
       }
 
       // Animate only when motion is allowed. When animation is suppressed, draw
@@ -734,6 +956,10 @@ export function createSwellParticleLayer(
     },
 
     onRemove(_map: mapboxgl.Map, gl: WebGL2RenderingContext) {
+      _map.off("move", invalidateMask);
+      _map.off("resize", invalidateMask);
+      _map.off("sourcedata", invalidateMask);
+      if (waterTexture) gl.deleteTexture(waterTexture);
       if (program) gl.deleteProgram(program);
       if (posBuffer) gl.deleteBuffer(posBuffer);
       if (alphaBuffer) gl.deleteBuffer(alphaBuffer);

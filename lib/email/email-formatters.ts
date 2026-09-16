@@ -3,12 +3,12 @@
  * Used by both email templates and email cron handlers.
  */
 
-export interface ConditionLabelData {
+interface ConditionLabelData {
   label: string;
   color: string;
 }
 
-export interface FormattedBestWindow {
+interface FormattedBestWindow {
   start: string;
   end: string;
 }

@@ -1,7 +1,7 @@
 export const SURF_SPECIFIC_SIGNAL_THRESHOLD = 2;
-export const HIGH_INTENT_ACTION_THRESHOLD = 1;
+const HIGH_INTENT_ACTION_THRESHOLD = 1;
 
-export const EXPLICIT_BEACH_INTENTS = [
+const EXPLICIT_BEACH_INTENTS = [
   "surfing",
   "swimming",
   "beach_days",
@@ -33,9 +33,9 @@ export interface LocalBeachIntentEvidence {
   signals: IntentSignals;
 }
 
-export type IntentEvidenceState = "explicit" | "inferred" | "unknown";
+type IntentEvidenceState = "explicit" | "inferred" | "unknown";
 
-export type IntentEvidenceSource =
+type IntentEvidenceSource =
   | "explicit_choice"
   | "spot_comparison"
   | "detailed_surf_conditions"
@@ -45,7 +45,7 @@ export type IntentEvidenceSource =
   | "utility_page"
   | "none";
 
-export type IntentQualificationReason =
+type IntentQualificationReason =
   | "explicit_surfing"
   | "explicit_non_surf"
   | "high_intent_action"
@@ -54,7 +54,7 @@ export type IntentQualificationReason =
   | "utility_only"
   | "no_evidence";
 
-export interface IntentQualification {
+interface IntentQualification {
   state: IntentEvidenceState;
   intent: ExplicitBeachIntent | null;
   evidenceSource: IntentEvidenceSource;

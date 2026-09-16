@@ -3,7 +3,7 @@ import type { ConfidenceLevel, DataFreshness } from "@/types/api/recommendations
 /**
  * Unified confidence level information with colors for UI display.
  */
-export interface ConfidenceInfo {
+interface ConfidenceInfo {
   level: 'high' | 'medium' | 'low' | 'unknown';
   color: 'green' | 'yellow' | 'red' | 'gray';
   bgColor: string;   // Tailwind class like 'bg-green-100'

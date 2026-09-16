@@ -15,7 +15,7 @@ import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
 /**
  * Props for the ScoreBadge component
  */
-export interface ScoreBadgeProps {
+interface ScoreBadgeProps {
   /** Score value from 0-100 */
   score: number;
   /** Badge size variant */

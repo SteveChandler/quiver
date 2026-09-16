@@ -25,7 +25,7 @@ type LastBeachMeta = Coordinates & {
   name?: string;
 };
 
-export type GeolocationErrorType = 'denied' | 'unavailable' | 'timeout' | null;
+type GeolocationErrorType = 'denied' | 'unavailable' | 'timeout' | null;
 type HomeGeolocationRequestTrigger = "auto" | "explicit" | "poll";
 type HomeGeolocationRequestOutcome =
   | Exclude<GeolocationErrorType, null>

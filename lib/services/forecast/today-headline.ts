@@ -16,7 +16,7 @@ export interface ForecastDisplay {
   context: ForecastDisplayContext;
 }
 
-export interface TodayHeadlineResult {
+interface TodayHeadlineResult {
   window: PersonalizedForecastWindow;
   display: ForecastDisplay;
 }

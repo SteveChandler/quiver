@@ -1,0 +1,40 @@
+
+Running 1 test using 1 worker
+
+(node:33355) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:33355) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [guest] › e2e/guest-forecast-decision-journey.spec.ts:17:9 › Forecast decision journey › dated comparison, details, keyboard and back navigation at 768px (8.1s)
+
+
+  1) [guest] › e2e/guest-forecast-decision-journey.spec.ts:17:9 › Forecast decision journey › dated comparison, details, keyboard and back navigation at 768px
+
+    Error: Day cards retain their readable mobile width
+
+    expect(received).toBeGreaterThanOrEqual(expected)
+
+    Expected: >= 88
+    Received:    47
+
+      55 |       await expect(page.getByRole("listbox", { name: "Forecast days - select a day to view details" })).toBeVisible();
+      56 |       for (const day of await page.getByRole("listbox", { name: "Forecast days - select a day to view details" }).getByRole("button").all()) {
+    > 57 |         expect(await day.evaluate(element => (element as HTMLElement).offsetWidth), "Day cards retain their readable mobile width").toBeGreaterThanOrEqual(88);
+         |                                                                                                                                     ^
+      58 |       }
+      59 |       await page.screenshot({ animations: "disabled", path: testInfo.outputPath(`spot-${width}.png`) });
+      60 |       expect((await answer.boundingBox())!.x + (await answer.boundingBox())!.width).toBeLessThanOrEqual(width);
+        at /Users/stevenchandler/Desktop/dev/quiver/.worktrees/forecast-decision-review-main/e2e/guest-forecast-decision-journey.spec.ts:57:133
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/guest-forecast-decision-jo-71ec4-nd-back-navigation-at-768px-guest/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/guest-forecast-decision-jo-71ec4-nd-back-navigation-at-768px-guest/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/guest-forecast-decision-jo-71ec4-nd-back-navigation-at-768px-guest/error-context.md
+
+  1 failed
+    [guest] › e2e/guest-forecast-decision-journey.spec.ts:17:9 › Forecast decision journey › dated comparison, details, keyboard and back navigation at 768px

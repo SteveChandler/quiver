@@ -23,27 +23,27 @@
 export {
   // Types
   type RouteHandler,
-  type RouteContext,
-  type ResolvedParams,
+
+
   type AuthenticatedContext,
   type AuthenticatedHandler,
   type OptionalAuthContext,
-  type OptionalAuthHandler,
-  type WithAuthOptions,
-  type WithErrorHandlerOptions,
-  type CreateApiHandlerOptions,
-  type WithRateLimitOptions,
-  type WithBotBlockingOptions,
-  type ProtectionOptions,
-  type OwnershipResult,
-  type RateLimitKey,
+
+
+
+
+
+
+
+
+
 
   // Admin auth types
   type AdminAuthenticatedContext,
-  type AdminAuthenticatedHandler,
-  type BearerAuthContext,
-  type BearerAuthHandler,
-  type WithAdminAuthOptions,
+
+
+
+
 
   // Core wrappers
   withErrorHandler,
@@ -87,6 +87,6 @@ export {
   createPaginationMeta,
   parsePaginationParams,
   DEFAULT_SECURITY_HEADERS,
-  validateCronAuth,
+
   validateCronRequest,
 } from "./api-wrappers/index";

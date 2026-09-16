@@ -1,0 +1,74 @@
+[
+  {
+    "path": "/nj/belmar/belmar-belmar-nj",
+    "userAgent": "Mozilla/5.0",
+    "result": "200 0.939390 1.340157",
+    "exitCode": 0
+  },
+  {
+    "path": "/nj/belmar/belmar-belmar-nj",
+    "userAgent": "AhrefsBot/7.0",
+    "result": "200 1.132365 1.673352",
+    "exitCode": 0
+  },
+  {
+    "path": "/nj/belmar/belmar-belmar-nj",
+    "userAgent": "GPTBot/1.2",
+    "result": "200 1.081385 1.450929",
+    "exitCode": 0
+  },
+  {
+    "path": "/ca/santa-monica/bay-street-santa-monica-ca/tides",
+    "userAgent": "Mozilla/5.0",
+    "result": "200 0.156637 0.191084",
+    "exitCode": 0
+  },
+  {
+    "path": "/ca/santa-monica/bay-street-santa-monica-ca/tides",
+    "userAgent": "AhrefsBot/7.0",
+    "result": "200 0.257341 0.289052",
+    "exitCode": 0
+  },
+  {
+    "path": "/ca/santa-monica/bay-street-santa-monica-ca/tides",
+    "userAgent": "GPTBot/1.2",
+    "result": "200 0.169934 0.193193",
+    "exitCode": 0
+  },
+  {
+    "path": "/mexico/baja-california-sur/san-jose-del-cabo/acapulquito-costa-azul/water-temp",
+    "userAgent": "Mozilla/5.0",
+    "result": "200 0.815550 0.848460",
+    "exitCode": 0
+  },
+  {
+    "path": "/mexico/baja-california-sur/san-jose-del-cabo/acapulquito-costa-azul/water-temp",
+    "userAgent": "AhrefsBot/7.0",
+    "result": "200 0.188081 0.210614",
+    "exitCode": 0
+  },
+  {
+    "path": "/mexico/baja-california-sur/san-jose-del-cabo/acapulquito-costa-azul/water-temp",
+    "userAgent": "GPTBot/1.2",
+    "result": "200 0.164137 0.187415",
+    "exitCode": 0
+  },
+  {
+    "path": "/ca/carlsbad/carlsbad-state-beach",
+    "userAgent": "Mozilla/5.0",
+    "result": "200 1.190209 1.594964",
+    "exitCode": 0
+  },
+  {
+    "path": "/ca/carlsbad/carlsbad-state-beach",
+    "userAgent": "AhrefsBot/7.0",
+    "result": "200 1.158557 1.755164",
+    "exitCode": 0
+  },
+  {
+    "path": "/ca/carlsbad/carlsbad-state-beach",
+    "userAgent": "GPTBot/1.2",
+    "result": "200 1.369929 1.746736",
+    "exitCode": 0
+  }
+]

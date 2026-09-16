@@ -2,14 +2,14 @@ import { useState, useCallback, useRef } from 'react';
 import { uploadImage } from '@/lib/image-upload';
 import { INTEL_CONFIG, INTEL_UI_TEXT } from '@/lib/constants/intel';
 
-export interface PhotoUploadResult {
+interface PhotoUploadResult {
   /** Public URL of the uploaded photo */
   url: string;
   /** Storage path for deletion purposes */
   storagePath: string;
 }
 
-export interface UseIntelPhotoUploadResult {
+interface UseIntelPhotoUploadResult {
   /** Currently selected photo file */
   selectedPhoto: File | null;
   /** Data URL preview of the selected photo */

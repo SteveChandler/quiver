@@ -18,6 +18,7 @@ import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
+import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
 import {
   buildBeachUrl,
   buildHiCityUrlForBeach,
@@ -58,10 +59,8 @@ import { getCachedForecastIndexabilitySnapshots } from "@/lib/seo/forecast-index
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 
-// Public beach data is cookie-free. Major-event hold transitions explicitly
-// revalidate affected paths, so hourly ISR remains safe between transitions.
-export const dynamic = "force-static";
-export const revalidate = 3600;
+// Forecast revisions and selected windows must reflect this request.
+export const dynamic = "force-dynamic";
 
 const getCachedBeachCandidates = cache(async (slug: string) => {
   const { getBeachesBySlug } =
@@ -203,7 +202,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             .select("*")
             .eq("beach_id", beach.id)
             .maybeSingle();
-          return data as WaterQuality | null;
+          return data ? (await currentWaterQuality([data]))[0] as WaterQuality : null;
         } catch {
           // Gracefully degrade if the table doesn't exist yet
           return null;
@@ -321,12 +320,13 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             heroForecastSlot={
               <PublicForecastAnswer
                 beach={publicBeach}
+                waterQuality={waterQualityResult}
                 report={publicForecastReport}
                 context={publicForecastContext}
                 isTomorrow={surfCallIsTomorrow}
                 publicDecisionWindow={{
-                  start: surfCallReport?.bestWindowStart ?? null,
-                  end: surfCallReport?.bestWindowEnd ?? null,
+                  start: forecastContext?.displayWindowStart ?? surfCallReport?.bestWindowStart ?? null,
+                  end: forecastContext?.displayWindowEnd ?? surfCallReport?.bestWindowEnd ?? null,
                 }}
                 nearbyBeaches={nearbyBeachesRaw}
                 headingLevel="h1"
@@ -334,20 +334,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
               />
             }
             freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
-            beforeTabsContent={
-              forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
-                <ContentPageAppHandoffCta
-                  source={`content-beach-detail-${beachSlug}`}
-                  surface="beach_detail"
-                  placement="above_fold_after_public_answer"
-                  target={`beach:${beachSlug}`}
-                  eyebrow={`Next call · ${beach.name}`}
-                  title={`Watch the next good window at ${beach.name}.`}
-                  description="Today's call is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
-                  ctaLabel="Watch the next window in the app"
-                />
-              ) : null
-            }
             afterTabsContent={
               <div className="pt-2">
                 <PublicForecastHourly
@@ -357,6 +343,18 @@ export default async function GenericBeachDetailPage(props: PageProps) {
                   forecastDay={hourlyForecastDay}
                   returnTo={returnTo}
                 />
+                {forecastContext?.selectedRowTime && forecastContext.waveHeight ? (
+                <ContentPageAppHandoffCta
+                  source={`content-beach-detail-${beachSlug}`}
+                  surface="beach_detail"
+                  placement="after_public_hourly_forecast"
+                  target={`beach:${beachSlug}`}
+                  eyebrow={`Next call · ${beach.name}`}
+                  title={`Watch the next good window at ${beach.name}.`}
+                  description="Today's call is here. Quiver keeps this break on your phone so the next surfable window is easier to catch."
+                  ctaLabel="Watch the next window in the app"
+                />
+              ) : null}
                 {/* One ask here, not two. The home-break signup this used to stack
                     underneath is the same ask the sticky bar already carries, so
                     it read as the page repeating itself. The install section takes

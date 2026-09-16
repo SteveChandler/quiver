@@ -22,7 +22,7 @@ const AVOIDANCE_BODY =
 const DEGRADED_BODY =
   "Forecasts are still available. Retry personal match when you are ready.";
 
-export type MatchState =
+type MatchState =
   | "locked"
   | "starter"
   | "learned"
@@ -31,7 +31,7 @@ export type MatchState =
   | "beta_not_enabled"
   | "degraded";
 
-export type MatchQualityBand =
+type MatchQualityBand =
   | "locked"
   | "starter"
   | "mixed_signal"
@@ -39,13 +39,13 @@ export type MatchQualityBand =
   | "dense_signal"
   | "degraded";
 
-export type MatchSource =
+type MatchSource =
   | "entitlement"
   | "testflight_bypass"
   | "profile_preferences"
   | "session_history";
 
-export type MatchReasonType =
+type MatchReasonType =
   | "starter_preferences"
   | "session_history"
   | "avoidance_learning"
@@ -55,12 +55,12 @@ export type MatchReasonType =
   | "degraded"
   | "locked";
 
-export interface MatchReasonFact {
+interface MatchReasonFact {
   kind: string;
   value: string | number | boolean | null;
 }
 
-export interface MatchScoreForecastInput {
+interface MatchScoreForecastInput {
   beachId: string;
   waveHeight: string;
   wavePeriod: string;
@@ -69,7 +69,7 @@ export interface MatchScoreForecastInput {
   tideHeight: string;
 }
 
-export interface MatchScoreResponse {
+interface MatchScoreResponse {
   state: MatchState;
   fit_label: string;
   reason_bullets: string[];
@@ -108,7 +108,7 @@ interface RawMatchScoreResult {
   prior_dimensions?: string[] | null;
 }
 
-export interface ResolveMatchScoreStateInput {
+interface ResolveMatchScoreStateInput {
   eligibilitySource: PersonalizationEligibilityResult["source"];
   forecast: MatchScoreForecastInput;
   rpcResult: RawMatchScoreResult;
@@ -352,7 +352,7 @@ function betaNotEnabledResponse(): MatchScoreResponse {
   };
 }
 
-export function degradedMatchScoreResponse(
+function degradedMatchScoreResponse(
   sessionCount = 0,
 ): MatchScoreResponse {
   return {

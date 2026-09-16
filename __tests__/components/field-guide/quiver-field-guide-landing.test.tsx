@@ -30,9 +30,11 @@ jest.mock("@/components/app-store/native-app-funnel-cta", () => ({
 // framer-motion resolves reduced-motion from a module-level store, so a late
 // window.matchMedia stub does not reach it. Drive the hook directly instead.
 const mockUseReducedMotion = jest.fn<boolean | null, []>(() => false);
+const mockUseInView = jest.fn<boolean, []>(() => true);
 jest.mock("framer-motion", () => ({
   ...jest.requireActual("framer-motion"),
   useReducedMotion: () => mockUseReducedMotion(),
+  useInView: () => mockUseInView(),
 }));
 
 describe("QuiverFieldGuideLanding", () => {
@@ -45,6 +47,7 @@ describe("QuiverFieldGuideLanding", () => {
       .spyOn(window.HTMLMediaElement.prototype, "play")
       .mockResolvedValue(undefined);
     mockUseReducedMotion.mockReturnValue(false);
+    mockUseInView.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -236,6 +239,19 @@ describe("QuiverFieldGuideLanding", () => {
       "src",
       expect.stringContaining("/images/hero/quiver-landing-hero-poster.jpg"),
     );
+  });
+
+  it("defers the hero source until it enters the viewport", () => {
+    mockUseInView.mockReturnValue(false);
+    const { rerender } = render(<QuiverFieldGuideLanding platform="ios" />);
+    const video = screen.getByTestId("field-guide-hero-video").querySelector("video");
+    expect(video).not.toHaveAttribute("src");
+    expect(play).not.toHaveBeenCalled();
+
+    mockUseInView.mockReturnValue(true);
+    rerender(<QuiverFieldGuideLanding platform="ios" />);
+    expect(video).toHaveAttribute("src", "/videos/quiver-landing-hero-720.mp4");
+    expect(play).toHaveBeenCalled();
   });
 
   it("waits for an explicit play when the viewer prefers reduced motion", () => {

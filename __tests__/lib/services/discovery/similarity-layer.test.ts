@@ -18,6 +18,7 @@ jest.mock("@/lib/logger", () => ({
   }),
 }));
 
+import { waitFor } from "@testing-library/react";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
@@ -641,6 +642,70 @@ describe("applySimilarityLayer", () => {
     expect(rpc).toHaveBeenCalledTimes(2);
     expect(out.recommendations[0].score).toBe(60);
     expect(out.recommendations[1].score).toBe(70);
+  });
+
+  it("bounds RPC concurrency while retaining every result across partial failures", async () => {
+    let active = 0;
+    let peak = 0;
+    const recommendations = Array.from({ length: 23 }, (_, index) =>
+      makeRec({ beachId: `beach-${index}`, score: 60 + index }),
+    );
+    const rpc = jest.fn(async (_fn: string, args: { p_beach_id: string }) => {
+      active++;
+      peak = Math.max(peak, active);
+      try {
+        await Promise.resolve();
+        if (args.p_beach_id === "beach-10") throw new Error("transport unavailable");
+        if (args.p_beach_id === "beach-3") return { data: null, error: { message: "unavailable" } };
+        return {
+          data: [{ slot_idx: 0, result: {
+            state: "ready", score: Number(args.p_beach_id.split("-")[1]),
+            label: "GOOD", sessions_in_profile: 10,
+          } }],
+          error: null,
+        };
+      } finally {
+        active--;
+      }
+    });
+
+    const out = await applySimilarityLayer({
+      recommendations, userId: "user-1", isPro: true, supabase: makeSupabase(rpc),
+    });
+
+    expect(peak).toBeLessThanOrEqual(10);
+    expect(peak).toBeGreaterThan(1);
+    expect(active).toBe(0);
+    expect(rpc).toHaveBeenCalledTimes(23);
+    expect(out.recommendations.map((rec) => rec.beach.id)).toEqual(
+      recommendations.map((rec) => rec.beach.id),
+    );
+    expect(out.recommendations.map((rec) => rec.score)).toEqual(
+      recommendations.map((rec) => rec.score),
+    );
+    expect(out.recommendations.map((rec) =>
+      rec.similarity?.state === "ready" ? rec.similarity.score : null,
+    )).toEqual([0, 1, 2, null, 4, 5, 6, 7, 8, 9, null, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]);
+  });
+
+  it("starts queued beaches without waiting for a slow RPC in the first group", async () => {
+    let releaseFirst!: (value: { data: null; error: null }) => void;
+    const rpc = jest.fn(async (_fn: string, args: { p_beach_id: string }) => {
+      if (args.p_beach_id === "beach-0") {
+        return new Promise((resolve) => { releaseFirst = resolve; });
+      }
+      return { data: null, error: null };
+    });
+    const pending = applySimilarityLayer({
+      recommendations: Array.from({ length: 23 }, (_, index) => makeRec({ beachId: `beach-${index}` })),
+      userId: "user-1", isPro: true, supabase: makeSupabase(rpc),
+    });
+    try {
+      await waitFor(() => expect(rpc).toHaveBeenCalledTimes(23));
+    } finally {
+      releaseFirst({ data: null, error: null });
+    }
+    expect((await pending).recommendations).toHaveLength(23);
   });
 
   it("scores multiple windows for one beach in one batch", async () => {

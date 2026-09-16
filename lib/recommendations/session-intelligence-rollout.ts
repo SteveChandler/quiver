@@ -10,7 +10,7 @@ export type SessionIntelligenceSeoSurface =
   | "best-time"
   | "spot";
 
-export interface SessionIntelligenceSurfacePolicy {
+interface SessionIntelligenceSurfacePolicy {
   surface: SessionIntelligenceSeoSurface;
   fullBestSurfWindows: boolean;
   handoffOnly: boolean;

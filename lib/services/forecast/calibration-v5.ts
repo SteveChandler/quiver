@@ -31,8 +31,8 @@ import { createContextLogger } from "@/lib/logger";
 
 const log = createContextLogger("CalibrationV5");
 
-export type DirectionBucket = "S/SW" | "W" | "NW" | "OTHER";
-export type OmBucket = "<0.5m" | "0.5-1.0m" | "1.0-1.5m" | "1.5m+";
+type DirectionBucket = "S/SW" | "W" | "NW" | "OTHER";
+type OmBucket = "<0.5m" | "0.5-1.0m" | "1.0-1.5m" | "1.5m+";
 
 type Knot = { om_anchor: number; obs: number; n: number };
 type Knots = Record<OmBucket, Knot>;
@@ -162,7 +162,7 @@ function shadowModelVersion(calibrationVersion: string): string {
   return `${V51_FORMULA_ID}.${suffix}`;
 }
 
-export type V5ShadowResult = {
+type V5ShadowResult = {
   v5_shadow_height_m: number;
   v5_model_version: string;
   direction_bucket: DirectionBucket;
@@ -379,7 +379,7 @@ export async function getActiveCalibration(): Promise<CalibrationVersion | null>
  * Test-only: clear the in-process cache. Not exported from a barrel; tests
  * import directly.
  */
-export function __resetCalibrationCacheForTests(): void {
+function __resetCalibrationCacheForTests(): void {
   cachedVersion = null;
   cachedAt = 0;
   cacheLoadInFlight = null;

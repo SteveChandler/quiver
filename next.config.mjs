@@ -37,6 +37,7 @@ const isProd =
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  devIndicators: false,
   // Native dev clients load /embed/map from http://127.0.0.1:<port>; Next 16 blocks
   // dev resources for origins it does not recognize, leaving the WebView on "Loading map".
   allowedDevOrigins: ["127.0.0.1", "localhost"],
@@ -93,6 +94,15 @@ const nextConfig = {
       // Next.js owns immutable caching for build assets under /_next/static.
       // Custom headers there trigger a Next 16 build warning and can interfere
       // with development cache invalidation.
+      // The surf game (public/surf-game): hashed bundles are immutable, sprite atlases a day
+      {
+        source: "/surf-game/assets/(.*)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      {
+        source: "/surf-game/sprites/(.*)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=3600" }],
+      },
       // Cache optimization for images
       {
         source: "/images/(.*)",
@@ -125,6 +135,10 @@ const nextConfig = {
       // user. The ordered rules put their no-store header after the blanket
       // API rule, matching Next's final-matching-header behavior.
       ...apiCacheHeaderRules,
+      ...["/api/offers/:path*", "/api/email/:path*", "/api/cron/swell-watch-acquire", "/api/cron/swell-watch-evaluate"].map((source) => ({
+        source,
+        headers: [{ key: "Cache-Control", value: "private, no-store, no-cache, must-revalidate" }],
+      })),
       {
         source: "/api/forecasts/update-enhanced",
         headers: [

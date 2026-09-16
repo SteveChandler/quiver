@@ -32,7 +32,7 @@ export const RecommendationSessionContextSchema = z.object({
   fallbackHorizonHours: z.number().int().min(1).max(168).nullable().optional(),
 });
 
-export type RecommendationSessionContextPayload = z.infer<
+type RecommendationSessionContextPayload = z.infer<
   typeof RecommendationSessionContextSchema
 >;
 

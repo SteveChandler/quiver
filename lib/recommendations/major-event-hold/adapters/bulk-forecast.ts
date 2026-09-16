@@ -7,6 +7,7 @@ import {
   resolveMajorEventHoldBoundary,
   type MajorEventHoldBoundaryDecision,
 } from "./shared";
+import type { RecommendationLabel } from "@/lib/scoring";
 
 const SCORED_SLOT_DURATION_MS = 3 * 60 * 60 * 1000;
 
@@ -18,13 +19,23 @@ export interface BulkForecastCandidateBinding {
 export interface BulkForecastResponseLike {
   conditionScores: Readonly<Record<string, number | undefined>>;
   conditionSummaries: Readonly<Record<string, string | undefined>>;
+  recommendationLabels: Readonly<
+    Record<string, RecommendationLabel | null | undefined>
+  >;
 }
 
 export type SanitizedBulkForecastResponse<
   TResponse extends BulkForecastResponseLike,
-> = Omit<TResponse, "conditionScores" | "conditionSummaries"> & {
+> = Omit<
+  TResponse,
+  "conditionScores" | "conditionSummaries" | "recommendationLabels"
+> & {
   conditionScores: Record<string, number | undefined>;
   conditionSummaries: Record<string, string | undefined>;
+  recommendationLabels: Record<
+    string,
+    RecommendationLabel | null | undefined
+  >;
   recommendationAvailability: RecommendationAvailability;
 };
 
@@ -39,17 +50,17 @@ export interface ScoredForecastGoldenWindowBinding {
   candidate: MajorEventHoldCandidate;
 }
 
-export interface ScoredForecastSlotLike {
+interface ScoredForecastSlotLike {
   forecastAt: string;
   compositeScore: number;
 }
 
-export interface ScoredForecastGoldenWindowLike {
+interface ScoredForecastGoldenWindowLike {
   startTime: string;
   endTime: string;
 }
 
-export interface ScoredForecastResponseLike {
+interface ScoredForecastResponseLike {
   timeSlots: readonly ScoredForecastSlotLike[];
   goldenWindows: readonly ScoredForecastGoldenWindowLike[];
 }
@@ -61,7 +72,7 @@ type SanitizedScoredForecastSlot<TSlot extends ScoredForecastSlotLike> = Omit<
   compositeScore: number | null;
 };
 
-export type SanitizedScoredForecastResponse<
+type SanitizedScoredForecastResponse<
   TResponse extends ScoredForecastResponseLike,
 > = Omit<TResponse, "timeSlots" | "goldenWindows"> & {
   timeSlots: Array<SanitizedScoredForecastSlot<TResponse["timeSlots"][number]>>;
@@ -157,6 +168,7 @@ export function sanitizeBulkForecastForMajorEventHold<
     : unavailableBoundary(candidates, decisions);
   const conditionScores = { ...response.conditionScores };
   const conditionSummaries = { ...response.conditionSummaries };
+  const recommendationLabels = { ...response.recommendationLabels };
   const clearWholeBoundary =
     boundary.recommendationAvailability.state === "none" &&
     boundary.recommendationAvailability.reasonCode === "hold_state_unavailable";
@@ -169,11 +181,15 @@ export function sanitizeBulkForecastForMajorEventHold<
     for (const beachId of Object.keys(response.conditionSummaries)) {
       conditionSummaries[beachId] = "UNKNOWN";
     }
+    for (const beachId of Object.keys(response.recommendationLabels)) {
+      recommendationLabels[beachId] = null;
+    }
 
     return {
       ...response,
       conditionScores,
       conditionSummaries,
+      recommendationLabels,
       recommendationAvailability: boundary.recommendationAvailability,
     };
   }
@@ -198,10 +214,15 @@ export function sanitizeBulkForecastForMajorEventHold<
     }
   }
 
+  for (const [beachId, summary] of Object.entries(conditionSummaries)) {
+    if (summary === "UNKNOWN") recommendationLabels[beachId] = null;
+  }
+
   return {
     ...response,
     conditionScores,
     conditionSummaries,
+    recommendationLabels,
     recommendationAvailability: boundary.recommendationAvailability,
   };
 }

@@ -7,7 +7,7 @@ const limiter = getCachedRateLimiter(
   RATE_LIMITS["account-recovery"],
 );
 
-export interface AppleOrphanPrecheckRateLimitResult {
+interface AppleOrphanPrecheckRateLimitResult {
   allowed: boolean;
   retryAfterSeconds: number;
 }

@@ -13,7 +13,7 @@ import {
   type SeoStatus,
 } from "./types";
 
-export const DEFAULT_SEO_DASHBOARD_PATH = path.join(
+const DEFAULT_SEO_DASHBOARD_PATH = path.join(
   process.cwd(),
   "docs/seo/seo-dashboard.json",
 );
@@ -78,7 +78,7 @@ export function writeSeoDashboard(
   fs.writeFileSync(filePath, `${JSON.stringify(sortDashboard(dashboard), null, 2)}\n`);
 }
 
-export function sortDashboard(dashboard: SeoDashboard): SeoDashboard {
+function sortDashboard(dashboard: SeoDashboard): SeoDashboard {
   return {
     ...dashboard,
     entries: [...dashboard.entries].sort((a, b) =>

@@ -10,8 +10,8 @@ export type ExperienceLevel =
   | null
   | undefined;
 
-export type SeedPresetType = "mellow_session" | "clean_groundswell";
-export type SeedSchedulePresetType =
+type SeedPresetType = "mellow_session" | "clean_groundswell";
+type SeedSchedulePresetType =
   | "dawn_patrol"
   | "after_work"
   | "weekend_warrior";
@@ -23,7 +23,7 @@ type SeededRule = {
   presetType: string;
 };
 
-export type SeedResult =
+type SeedResult =
   | { seeded: true; rules: SeededRule[] }
   | {
       seeded: false;
@@ -35,7 +35,7 @@ export type SeedResult =
       error?: string;
     };
 
-export interface SeedDefaultRuleParams {
+interface SeedDefaultRuleParams {
   supabase: SupabaseServerClient;
   userId: string;
   beachId: string;

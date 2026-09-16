@@ -154,7 +154,9 @@ export default tseslint.config(
     rules: {
       "jest/no-disabled-tests": "error",
       "jest/no-conditional-expect": "warn",        // 260 pre-existing — fix in batches
-      "jest/expect-expect": "warn",
+      "jest/expect-expect": ["warn", {
+        assertFunctionNames: ["expect", "expectSuccessResponse", "expectErrorResponse"],
+      }],
       "jest/no-standalone-expect": "error",
       "jest/no-restricted-matchers": ["warn", {     // 464 pre-existing — fix in batches
         "toBeDefined": "Use a more specific assertion (toEqual, toMatchObject, etc.)",

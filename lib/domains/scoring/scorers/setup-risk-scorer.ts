@@ -17,7 +17,7 @@ const ENERGETIC_PERIOD_MIN_S = 10;
 const LOW_TIDE_MIN_DIFF_FT = 1;
 const NEGATIVE_TIDE_FT = 0;
 
-export interface SetupRisk {
+interface SetupRisk {
   severity: 'severe';
   warning: typeof LOW_TIDE_HEAVY_SWELL_WARNING;
 }

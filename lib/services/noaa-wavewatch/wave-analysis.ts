@@ -17,7 +17,7 @@ import type { NOAAValueSeries } from "./types";
 
 const log = createContextLogger("NOAAWaveWatch:WaveAnalysis");
 
-export interface NOAAValidTimeInterval {
+interface NOAAValidTimeInterval {
   startMs: number;
   endMs: number;
 }
@@ -163,7 +163,7 @@ export function metersToFeet(meters: number): number {
  * @param feet - Wave height in feet
  * @returns Wave height in meters
  */
-export function feetToMeters(feet: number): number {
+function feetToMeters(feet: number): number {
   return feet * FEET_TO_METERS;
 }
 
@@ -186,7 +186,7 @@ export function getWaveDirectionText(degrees: number): string {
  * @param index - Forecast index (0-based)
  * @returns ISO 8601 timestamp string
  */
-export function getTimestampForIndex(index: number): string {
+function getTimestampForIndex(index: number): string {
   const now = new Date();
   const forecastTime = new Date(now.getTime() + index * 3 * 60 * 60 * 1000);
   return forecastTime.toISOString();

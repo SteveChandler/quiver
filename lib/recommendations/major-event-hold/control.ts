@@ -215,14 +215,14 @@ export interface ManualHoldStore {
   listHoldRecords(): Promise<RegionalRecommendationHoldRecord[]>;
 }
 
-export interface ExecuteManualHoldOptions {
+interface ExecuteManualHoldOptions {
   store: ManualHoldStore;
   operatorUserId: string | null;
   idempotencyKey: string | null;
   now?: Date;
 }
 
-export interface AdminHoldView {
+interface AdminHoldView {
   holdId: string;
   version: number;
   transition: MajorEventHoldTransition;
@@ -246,7 +246,7 @@ export interface AdminHoldView {
   createdAt: string;
 }
 
-export interface ExecuteManualHoldResult {
+interface ExecuteManualHoldResult {
   hold: AdminHoldView;
   outcome: "accepted";
   confirmedRecord: RegionalRecommendationHoldRecord;

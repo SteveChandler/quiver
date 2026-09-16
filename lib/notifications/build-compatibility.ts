@@ -5,7 +5,7 @@ export interface NotificationPresentationCompatibilityInput {
   notificationType: string;
 }
 
-export type NotificationPresentationCompatibilityReason =
+type NotificationPresentationCompatibilityReason =
   | "eligible"
   | "ordinary_notification"
   | "missing_metadata"
@@ -14,7 +14,7 @@ export type NotificationPresentationCompatibilityReason =
   | "old_build"
   | "unknown_build";
 
-export interface NotificationPresentationCompatibilityDecision {
+interface NotificationPresentationCompatibilityDecision {
   eligible: boolean;
   outcome: "eligible_custom" | "legacy_default" | "ordinary_default";
   reason: NotificationPresentationCompatibilityReason;

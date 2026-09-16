@@ -16,7 +16,7 @@ export type SurfIntentSlug =
   | "dawn-patrol"
   | "sunset";
 
-export interface SurfIntentDefinition {
+interface SurfIntentDefinition {
   slug: SurfIntentSlug;
   label: string;
   titleTemplate: (args: { cityName: string }) => string;

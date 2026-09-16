@@ -11,7 +11,7 @@ import {
 import { INTEL_UI_TEXT, INTEL_TAGS } from "@/lib/constants/intel";
 import type { IntelPostTag } from "@/types/database";
 
-export interface IntelTagSelectorProps {
+interface IntelTagSelectorProps {
   value: IntelPostTag;
   onChange: (value: IntelPostTag) => void;
   disabled?: boolean;

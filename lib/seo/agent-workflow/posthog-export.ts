@@ -4,14 +4,14 @@ import type {
   PostHogSeoPageMetric,
 } from "./types";
 
-export interface PostHogWebEventRow {
+interface PostHogWebEventRow {
   event: string;
   timestamp: string;
   sessionKey: string | null;
   path: string | null;
 }
 
-export interface PostHogWebRow {
+interface PostHogWebRow {
   path: string;
   landingSessions: number;
   multiPageRate?: number;
@@ -21,7 +21,7 @@ export interface PostHogWebRow {
   topExitPaths?: Array<{ path: string; count: number }>;
 }
 
-export interface PostHogNativeRow {
+interface PostHogNativeRow {
   platform: "native-ios" | "native-android" | "unknown";
   event: string;
   count: number;
@@ -51,7 +51,7 @@ export function buildPostHogExport(
   };
 }
 
-export function parseHogqlRows(raw: unknown): unknown[][] {
+function parseHogqlRows(raw: unknown): unknown[][] {
   if (!isRecord(raw)) return [];
   if (Array.isArray(raw.results)) return raw.results.filter(Array.isArray);
   if (isRecord(raw.data) && Array.isArray(raw.data.results)) {

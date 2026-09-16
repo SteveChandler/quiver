@@ -1,6 +1,7 @@
 import {
   degToVector,
   buildFlowField,
+  buildFlowFieldGrid,
   computeCoastalBounds,
   detectWaterLayerIds,
   interpolateSwellPartition,
@@ -8,6 +9,7 @@ import {
   waterMaskableFlowComponents,
   partitionToPoint,
   resolveWindParticleCount,
+  updateFlowFieldValues,
   COASTAL_CORRIDOR_LAT_PAD,
   COASTAL_CORRIDOR_LON_PAD,
   COASTAL_CORRIDOR_MIN_SPAN,
@@ -235,6 +237,48 @@ describe("buildFlowField", () => {
     // A 3ft swell would emit alphaFromHeight = 0.09 raw; the gain lifts it well above.
     expect(cell.alpha).toBeGreaterThan(0.12);
     expect(cell.alpha).toBeLessThanOrEqual(1);
+  });
+
+  it("matches a reusable grid updated with the same fixture", () => {
+    const points = [
+      pt(-117.3, 32.7, 270, 14, 4),
+      pt(-117.1, 32.8, 180, 9, 2),
+    ];
+    const bounds = { west: -117.4, south: 32.6, east: -117, north: 32.9 };
+
+    expect(buildFlowField(points, bounds, 4)).toEqual(
+      updateFlowFieldValues(buildFlowFieldGrid(points, bounds, 4), points),
+    );
+  });
+
+  it("updates values without replacing cells", () => {
+    const initial = [pt(-117.2, 32.7, 270, 8, 1)];
+    const grid = updateFlowFieldValues(
+      buildFlowFieldGrid(initial, { west: -117.3, south: 32.6, east: -117.1, north: 32.8 }, 2),
+      initial,
+    );
+    const cells = [...grid.cells];
+    const previousSpeed = grid.cells[0].speed;
+
+    updateFlowFieldValues(grid, [pt(-117.2, 32.7, 180, 16, 5)]);
+
+    expect(grid.cells.every((cell, index) => cell === cells[index])).toBe(true);
+    expect(grid.cells[0].speed).toBeGreaterThan(previousSpeed);
+    expect(grid.cells[0].vy).toBeLessThan(0);
+  });
+
+  it("keeps cells outside every precomputed influence radius dead", () => {
+    const points = [pt(-118, 32, 270, 14, 4)];
+    const grid = buildFlowFieldGrid(
+      points,
+      { west: -118, south: 32, east: -116, north: 34 },
+      3,
+    );
+    const farCell = grid.cells.at(-1);
+
+    updateFlowFieldValues(grid, [pt(-118, 32, 90, 20, 8)]);
+
+    expect(farCell).toMatchObject({ vx: 0, vy: 0, speed: 0, alpha: 0 });
   });
 });
 
@@ -511,12 +555,13 @@ describe("maskFieldToWater", () => {
       queryRenderedFeatures: () => [],
     };
 
-    maskFieldToWater(field, map, {
+    const applied = maskFieldToWater(field, map, {
       width: 800,
       height: 600,
       waterLayerIds: ["water"],
     });
 
+    expect(applied).toBe(false);
     expect(field.cells[0].speed).toBe(0.5);
     expect(field.cells[1].speed).toBe(0.5);
   });
@@ -540,12 +585,13 @@ describe("maskFieldToWater", () => {
       queryRenderedFeatures: ([x]) => (x === 0 ? [{}] : []),
     };
 
-    maskFieldToWater(field, map, {
+    const applied = maskFieldToWater(field, map, {
       width: 800,
       height: 600,
       waterLayerIds: ["water"],
     });
 
+    expect(applied).toBe(false);
     expect(field.cells.every((cell) => cell.speed === 0.5)).toBe(true);
   });
 
@@ -563,7 +609,8 @@ describe("maskFieldToWater", () => {
         return [];
       },
     };
-    maskFieldToWater(field, map, { width: 800, height: 600, waterLayerIds: ["water"] });
+    const applied = maskFieldToWater(field, map, { width: 800, height: 600, waterLayerIds: ["water"] });
+    expect(applied).toBe(true);
     expect(queried).toBe(false);
   });
 

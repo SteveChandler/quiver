@@ -4,33 +4,18 @@
  * Handles scoring and selection of optimal surf session windows.
  * Decomposed from findNextBestWindow (complexity 68) into focused functions.
  *
- * Also includes:
- * - bestWindowHeuristic: Morning-specific window calculation
- * - confidenceHeuristic: Data completeness scoring
- *
- * @deprecated The `bestWindowHeuristic` function is deprecated in favor of
- * `calculateOptimalWindow` from `@/lib/scoring` which uses linear interpolation
- * for precise window boundaries instead of arbitrary hour ranges.
- *
- * Migration guide:
- * - bestWindowHeuristic() → calculateOptimalWindow() from @/lib/scoring
- * - findNextBestWindow() → calculateOptimalWindow() from @/lib/scoring
+ * Also includes confidenceHeuristic for data completeness scoring.
  *
  * Extracted from lib/utils/morning-intel-utils.ts as part of P1 refactoring
  * to reduce cyclomatic complexity and improve maintainability.
  */
 
-import { calculateOnOffshore, windAt } from "@/lib/analyzers/wind-analyzer";
-import { tideAt } from "@/lib/analyzers/tide-analyzer";
+import { calculateOnOffshore } from "@/lib/analyzers/wind-analyzer";
 import {
   DAYLIGHT_END_HOUR,
   DAYLIGHT_START_HOUR,
 } from "@/lib/services/magic-hour/constants";
 import type { ForecastSlice } from "@/types/morning-intel";
-
-// Re-export unified scoring window calculator for forward compatibility
-export { calculateOptimalWindow, formatTimeRange } from "@/lib/scoring";
-export type { OptimalWindow, WindowCalculatorOptions } from "@/lib/scoring";
 
 // Constants for window scoring
 const OFFSHORE_STRONG_SCORE = 40;
@@ -70,7 +55,7 @@ interface LocalTimeParts {
 /**
  * Minimal forecast data required for scoring
  */
-export interface ForecastData {
+interface ForecastData {
   forecast_at?: string;
   forecast_time: string;
   forecast_date: string;
@@ -128,7 +113,7 @@ function localTimeFromForecast(
 /**
  * Result of window finding
  */
-export interface SessionWindow {
+interface SessionWindow {
   startTime: string | null;
   endTime: string | null;
   description: string;
@@ -330,8 +315,6 @@ function buildWindowDescription(
  * 4. Extends window with adjacent good forecasts
  * 5. Builds human-readable description
  * 
- * More flexible than bestWindowHeuristic - works for entire day.
- * 
  * @param forecasts - Array of forecast data points
  * @param currentTime - Current time
  * @param beachAspect - Beach aspect in degrees (default 270 = WSW)
@@ -436,102 +419,6 @@ export function findNextBestWindow(
     description,
     conditions,
   };
-}
-
-/**
- * Calculate best surf window heuristic for morning sessions
- * 
- * Focuses on early morning (6am-10am) window with optimal conditions:
- * - Lower to mid tide (2-5 ft)
- * - Offshore or light winds (< 8 mph)
- * - Period >= 10s
- * 
- * @param forecasts - Array of forecast data points
- * @param tides - Array of tide data points
- * @param timezone - IANA timezone string
- * @returns Human-readable window description (e.g., "08:00–10:00 on the drop; cleaner before onshores")
- * 
- * @example
- * ```typescript
- * const window = bestWindowHeuristic(forecasts, tides, "America/Los_Angeles");
- * // Returns: "08:00–10:00 on the drop; cleaner before onshores"
- * ```
- */
-export function bestWindowHeuristic(
-  forecasts: ForecastSlice["forecasts"],
-  tides: ForecastSlice["tides"],
-  timezone: string
-): string {
-  if (forecasts.length === 0) return "N/A";
-
-  // Factors for best window:
-  // 1. Lower to mid tide (2-5 ft)
-  // 2. Offshore or light winds (< 8 mph)
-  // 3. Period >= 10s
-  // 4. Between 06:00 and 10:00
-
-  const bestForecasts = forecasts.filter((f) => {
-    const localTime = localTimeFromForecast(f, timezone);
-    if (!localTime || localTime.hour < 6 || localTime.hour > 10) return false;
-
-    const windSpeed = f.wind_speed || 999;
-    const period = f.wave_period || f.swell_period || 0;
-    const windDir = f.wind_direction || 0;
-
-    const isWindGood =
-      windSpeed < 8 || calculateOnOffshore(windDir, 270); // 270 = WSW (OB default)
-    const isPeriodGood = period >= 10;
-
-    return isWindGood && isPeriodGood;
-  });
-
-  if (bestForecasts.length === 0) {
-    return "Variable conditions; check throughout the morning";
-  }
-
-  const start = localTimeFromForecast(bestForecasts[0], timezone);
-  const end = localTimeFromForecast(
-    bestForecasts[bestForecasts.length - 1],
-    timezone
-  );
-  if (!start || !end) {
-    return "Variable conditions; check throughout the morning";
-  }
-
-  const startTime = start.label;
-  let endTime = end.label;
-
-  // If only one forecast matches, extend window by 2 hours for a meaningful range
-  if (bestForecasts.length === 1) {
-    const endHour = start.hour + 2;
-    // Cap at 10:00 to stay within morning window
-    const cappedEndHour = Math.min(endHour, 10);
-    endTime = `${padTimePart(cappedEndHour)}:${padTimePart(start.minute)}`;
-  }
-
-  // Validate that we have a meaningful window (start !== end)
-  if (startTime === endTime) {
-    return "Variable conditions; check throughout the morning";
-  }
-
-  // Check tide condition
-  const midForecast = bestForecasts[Math.floor(bestForecasts.length / 2)];
-  const tide = tideAt(midForecast.forecast_time, tides, timezone);
-
-  let tideNote = "";
-  if (tide.direction === "falling" && tide.height > 3) {
-    tideNote = " on the drop";
-  } else if (tide.direction === "rising" && tide.height < 4) {
-    tideNote = " on the push";
-  }
-
-  const wind = windAt(startTime, forecasts, timezone);
-  let windNote = "";
-  if (wind.offshore) {
-    windNote = "; cleaner before onshores";
-  }
-
-  return `${startTime}–${endTime}${tideNote}${windNote}`;
 }
 
 /**

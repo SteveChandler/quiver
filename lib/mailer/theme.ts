@@ -38,7 +38,6 @@ export const INK = "#0F1330"; // dark text on bright chips
 
 // Cut-paper zine panels (cream on twilight). Text on cream uses dark twilight
 // ink, never the cream/muted text colors above.
-export const PAPER = CREAM; // cream panel surface
 export const PAPER_INK = "#1A2150"; // primary text on cream
 export const PAPER_MUTED = "#3A4170"; // secondary text on cream
 

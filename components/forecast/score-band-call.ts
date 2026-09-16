@@ -1,6 +1,6 @@
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
 
-export const SCORE_ACTION_PHRASES = {
+const SCORE_ACTION_PHRASES = {
   EPIC: "Go now!",
   GOOD: "Go surf!",
   FAIR: "Worth a look",
@@ -8,9 +8,9 @@ export const SCORE_ACTION_PHRASES = {
   MEH: "Skip it",
 } as const;
 
-export type ScoreBand = keyof typeof SCORE_ACTION_PHRASES;
+type ScoreBand = keyof typeof SCORE_ACTION_PHRASES;
 
-export interface ScoreCall {
+interface ScoreCall {
   label: ScoreBand;
   action: (typeof SCORE_ACTION_PHRASES)[ScoreBand];
 }

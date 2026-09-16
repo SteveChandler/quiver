@@ -12,6 +12,9 @@ jest.mock("@sentry/nextjs", () => ({
 }));
 
 describe("install attribution response caching", () => {
+  const originalEnv = process.env;
+  beforeEach(() => { process.env = { ...originalEnv, NEXT_PUBLIC_SITE_URL: "http://localhost:3000" }; });
+  afterEach(() => { process.env = originalEnv; });
   it("overrides the blanket API cache for every install attribution response", async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";

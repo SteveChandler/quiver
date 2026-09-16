@@ -30,7 +30,7 @@ export interface SessionDecomposition {
   board_fit?: SessionBoardFitSignal;
 }
 
-export interface SessionDecompositionInput {
+interface SessionDecompositionInput {
   version?: typeof SESSION_DECOMPOSITION_VERSION;
   waves?: boolean;
   crew?: boolean;
@@ -39,7 +39,7 @@ export interface SessionDecompositionInput {
   board_fit?: SessionBoardFitSignal;
 }
 
-export function hasSessionDecompositionSignal(
+function hasSessionDecompositionSignal(
   value: SessionDecompositionInput | null | undefined
 ): boolean {
   if (!value) return false;

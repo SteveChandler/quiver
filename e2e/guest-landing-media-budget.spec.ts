@@ -11,9 +11,8 @@ const HERO_VIDEO_PATH = "/videos/quiver-landing-hero-720.mp4";
 const WALKTHROUGH_VIDEO_PATH = "/videos/buoy-loop.mp4";
 const SCREENSHOT_ROOT = "/images/app-screenshots/";
 const VIDEO_ROOT = "/videos/";
-// Desktop currently spends 4 (hero poster, hero video, walkthrough video,
-// local-intel screenshot); mobile spends 3. Both landing videos autoplay, so
-// they are first-load cost and must stay counted.
+// Only visible video should compete with the hero on first load.
+// Below-fold videos attach their source when scrolled into view.
 const LANDING_MEDIA_REQUEST_BUDGET = 6;
 const ALLOWED_FIRST_LOAD_MEDIA = new Set([
   HERO_POSTER_PATH,
@@ -94,18 +93,21 @@ for (const { name, viewport } of MEDIA_VIEWPORTS) {
       ).toHaveCount(0);
       await expect
         .poll(() =>
-          [HERO_POSTER_PATH, HERO_VIDEO_PATH, WALKTHROUGH_VIDEO_PATH].every(
+          [HERO_POSTER_PATH, HERO_VIDEO_PATH].every(
             (assetPath) => mediaRequests.includes(assetPath),
           ),
         )
         .toBe(true);
 
+      const deferredPreview = page.getByTestId("field-guide-inside-app").locator("video");
+      await expect(deferredPreview).not.toBeInViewport();
+      await expect(deferredPreview).not.toHaveAttribute("src");
+      expect(mediaRequests).not.toContain("/videos/whats-new/home.mp4");
       const uniqueMedia = [...new Set(mediaRequests)];
       expect(uniqueMedia).toEqual(
         expect.arrayContaining([
           HERO_POSTER_PATH,
           HERO_VIDEO_PATH,
-          WALKTHROUGH_VIDEO_PATH,
         ]),
       );
       expect(
@@ -118,6 +120,10 @@ for (const { name, viewport } of MEDIA_VIEWPORTS) {
       // it once, so the raw count swings with the environment and sat exactly on
       // the limit. Distinct assets is the cost this guard is actually about.
       expect(uniqueMedia.length).toBeLessThanOrEqual(LANDING_MEDIA_REQUEST_BUDGET);
+
+      await deferredPreview.scrollIntoViewIfNeeded();
+      await expect.poll(() => mediaRequests.includes("/videos/whats-new/home.mp4")).toBe(true);
+      await expect.poll(() => deferredPreview.evaluate((video: HTMLVideoElement) => !video.paused)).toBe(true);
     });
   });
 }
@@ -152,6 +158,9 @@ test.describe("Guest landing hero media safety gates", () => {
       }),
     ).toBeVisible();
     expect(mediaRequests).not.toContain(HERO_VIDEO_PATH);
+    await page.getByRole("button", { name: "Play demo", exact: true }).click();
+    await expect.poll(() => mediaRequests.includes(HERO_VIDEO_PATH)).toBe(true);
+    await expect.poll(() => page.getByTestId("field-guide-hero-video").locator("video").evaluate((video: HTMLVideoElement) => !video.paused)).toBe(true);
   });
 
   test("does not request autoplay video when Save-Data is enabled", async ({
@@ -175,5 +184,8 @@ test.describe("Guest landing hero media safety gates", () => {
       }),
     ).toBeVisible();
     expect(mediaRequests).not.toContain(HERO_VIDEO_PATH);
+    await page.getByRole("button", { name: "Play demo", exact: true }).click();
+    await expect.poll(() => mediaRequests.includes(HERO_VIDEO_PATH)).toBe(true);
+    await expect.poll(() => page.getByTestId("field-guide-hero-video").locator("video").evaluate((video: HTMLVideoElement) => !video.paused)).toBe(true);
   });
 });

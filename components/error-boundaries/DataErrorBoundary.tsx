@@ -6,7 +6,7 @@ import { DataLoadErrorFallback } from './DataLoadErrorFallback';
 import { retryWithBackoff, RetryStrategy } from './utils/retry-strategies';
 import { categorizeError, ErrorCategory, isChunkLoadError } from './utils/error-categorizer';
 
-export interface DataErrorBoundaryProps {
+interface DataErrorBoundaryProps {
   /**
    * Optional cached/fallback data to display if fetch fails
    */

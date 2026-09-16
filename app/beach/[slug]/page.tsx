@@ -7,6 +7,7 @@ import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-en
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
 import type { Metadata } from "next";
+import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
 import {
   buildPageMetadata,
   buildDynamicBeachMetadata,
@@ -82,7 +83,8 @@ export default async function BeachDetailBySlugPage(
           .maybeSingle(),
       ]);
       amenities = amenitiesResult.data as BeachAmenities | null;
-      waterQuality = waterQualityResult.data as WaterQuality | null;
+      waterQuality = waterQualityResult.data
+        ? (await currentWaterQuality([waterQualityResult.data]))[0] as WaterQuality : null;
     } catch {
       // Gracefully degrade if tables don't exist yet
     }

@@ -9,7 +9,7 @@
  * beaches for weighted NPC selection; the remainder are "secondary".
  */
 
-export interface RegionConfig {
+interface RegionConfig {
   /**
    * Beach slugs matching the `slug` column in the beaches table.
    * First 3-4 slugs = home beaches (highest posting weight).

@@ -6,7 +6,7 @@
 import type { SurfIntentSlug } from "@/lib/data/surf-spots";
 import { getRegionalData } from "@/lib/seo/regional-surf-data";
 
-export interface FAQItem {
+interface FAQItem {
   question: string;
   answer: string;
 }

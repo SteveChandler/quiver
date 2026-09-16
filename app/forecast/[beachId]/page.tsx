@@ -29,13 +29,13 @@ import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
 
 export const revalidate = 900;
-// Allow dynamic params for beach UUIDs (not pre-rendered)
+// Generate regional pages on demand so deploys do not depend on live forecast reads.
 export const dynamicParams = true;
 
 const REGIONAL_FORECAST_DATE_PUBLISHED = "2026-02-10";
 
 export function generateStaticParams(): Array<{ beachId: string }> {
-  return Object.keys(FORECAST_REGIONS).map((beachId) => ({ beachId }));
+  return [];
 }
 
 /**

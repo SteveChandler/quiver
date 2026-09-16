@@ -7,7 +7,7 @@
 
 import type { TideScheduleEntry } from "@/types/forecast";
 
-export interface TideDataPoint {
+interface TideDataPoint {
   time: Date | string | number;
   height: number;
 }
@@ -278,7 +278,7 @@ export function findBracketingPoints(
   return null;
 }
 
-export interface TideWindowOptions {
+interface TideWindowOptions {
   tideSchedule: TideScheduleEntry[];
   minHeight: number;
   maxHeight: number;
@@ -286,7 +286,7 @@ export interface TideWindowOptions {
   afterTime: Date | string | number;
 }
 
-export interface TideExtremum {
+interface TideExtremum {
   time: Date;
   height: number;
   type: "high" | "low";
@@ -420,7 +420,7 @@ function calculateDirectionBasedWindow(
   };
 }
 
-export interface TideWindow {
+interface TideWindow {
   start: Date;
   end: Date;
 }

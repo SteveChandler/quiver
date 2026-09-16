@@ -124,7 +124,18 @@ describe("SwellDayTimeline", () => {
     }
   });
 
-  it("labels a midday current-day segment Today without changing its proportional width", () => {
+  it("measures day labels when forecast data arrives after the loading shell", () => {
+    const bounds = jest.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ width: 600 } as DOMRect);
+    try {
+      const { rerender } = render(<SwellDayTimeline {...createProps({ timestamps: [], daySegments: [], isLoadingMore: true })} />);
+      rerender(<SwellDayTimeline {...createProps()} />);
+      expect(screen.getByTestId("timeline-day-Fri-10-compact")).toHaveClass("hidden");
+    } finally {
+      bounds.mockRestore();
+    }
+  });
+
+  it("gives Today its full day width and aligns the slider with the available hours", () => {
     const middayTimestamps = Array.from({ length: 24 }, (_, index) =>
       new Date(Date.UTC(2026, 6, 10, 12 + index)).toISOString(),
     );
@@ -143,9 +154,29 @@ describe("SwellDayTimeline", () => {
     );
 
     const today = screen.getByTestId("timeline-day-Fri-10");
-    expect(today).toHaveStyle({ width: "50%" });
-    expect(today).toHaveTextContent("Today · 12h left");
-    expect(today).toHaveAttribute("title", "Today · 12h left");
+    expect(today).toHaveStyle({ width: "66.66666666666666%" });
+    const slider = screen.getByRole("slider", { name: "Forecast time" });
+    expect(slider).toHaveStyle({ left: "33.33333333333333%" });
+    expect(slider).toHaveAttribute("min", "0");
+    expect(slider).toHaveAttribute("max", "23");
+    expect(slider).toHaveValue("0");
+    expect(screen.getByTestId("timeline-day-Fri-10-compact")).toHaveTextContent(/^Today$/);
+    expect(screen.getByTestId("timeline-day-Fri-10-compact")).toHaveStyle({ minWidth: "48px", flexShrink: "0" });
+    expect(today).toHaveTextContent("Today");
+    expect(today).toHaveAttribute("title", "Today");
+  });
+
+  it("counts elapsed hours from local midnight across the fall clock change", () => {
+    render(<SwellDayTimeline {...createProps({
+      timestamps: Array.from({ length: 30 }, (_, index) => new Date(Date.UTC(2026, 10, 2, 2 + index)).toISOString()),
+      timezone: "America/Los_Angeles",
+      daySegments: [
+        { key: "2026-11-01", label: "Sun 1", startIndex: 0, endIndex: 5 },
+        { key: "2026-11-02", label: "Mon 2", startIndex: 6, endIndex: 29 },
+      ],
+    })} />);
+    expect(parseFloat(screen.getByRole("slider").style.left)).toBeCloseTo(19 / 49 * 100);
+    expect(parseFloat(screen.getByTestId("timeline-day-Sun-1").style.width)).toBeCloseTo(25 / 49 * 100);
   });
 
   it("exposes the active local forecast time through the native slider", () => {
@@ -261,7 +292,7 @@ describe("SwellDayTimeline", () => {
 
     rerender(<SwellDayTimeline {...createProps({ index: 47 })} />);
     expect(screen.getByTestId("timeline-bubble")).toHaveStyle({
-      left: "100%",
+      left: "97.91666666666666%",
       transform: "translateX(-100%)",
     });
   });
@@ -294,7 +325,7 @@ describe("SwellDayTimeline", () => {
     const { rerender } = render(
       <SwellDayTimeline
         {...createProps({
-          error: "Extension unavailable",
+          error: "Bulk forecast API returned 429",
           isLoadingMore: true,
           isExhausted: true,
           onRetry,
@@ -302,7 +333,7 @@ describe("SwellDayTimeline", () => {
       />,
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("Extension unavailable");
+    expect(screen.getByRole("status")).toHaveTextContent("More forecast hours are temporarily unavailable");
     const retryButton = screen.getByRole("button", { name: "Retry loading forecast hours" });
     expect(retryButton).toHaveClass(
       "h-11",

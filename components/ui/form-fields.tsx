@@ -522,7 +522,7 @@ export function FormSwitch<TFieldValues extends FieldValues = FieldValues>({
  *   )}
  * </CustomFormField>
  */
-export function CustomFormField<
+function CustomFormField<
   TFieldValues extends FieldValues = FieldValues
 >({
   control,

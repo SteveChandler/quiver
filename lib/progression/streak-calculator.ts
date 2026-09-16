@@ -1,4 +1,4 @@
-export interface StreakResult {
+interface StreakResult {
   currentStreak: number;
   bestStreak: number;
   lastSessionDate: string | null;

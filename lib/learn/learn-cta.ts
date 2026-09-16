@@ -1,11 +1,11 @@
 import type { LearnArticle, LearnArticleAppHandoff } from "@/lib/data/learn-articles";
 
-export interface LearnNextPaddleLink {
+interface LearnNextPaddleLink {
   href: string;
   label: string;
 }
 
-export interface ResolvedLearnAppHandoff extends LearnArticleAppHandoff {
+interface ResolvedLearnAppHandoff extends LearnArticleAppHandoff {
   source: string;
   target: string;
 }

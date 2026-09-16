@@ -10,7 +10,7 @@ import * as Sentry from "@sentry/nextjs";
 /**
  * Event data for tide cache monitoring
  */
-export interface TideCacheEvent {
+interface TideCacheEvent {
   /** Beach UUID */
   beachId: string;
   /** Number of rows in the cache */

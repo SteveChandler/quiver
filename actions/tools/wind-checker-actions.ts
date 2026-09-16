@@ -5,7 +5,6 @@ import {
   fetchHourlyWind,
   type OpenMeteoWindPoint,
 } from "@/lib/services/open-meteo-wind-service";
-export type { WindQualityLabel } from "@/lib/utils/wind-quality";
 
 export interface WindCheckerBeach {
   id: string;
@@ -24,7 +23,7 @@ export interface WindCheckerData {
   hasOrientationData: boolean;
 }
 
-export async function getWindCheckerBeach(
+async function getWindCheckerBeach(
   slug: string
 ): Promise<{ success: boolean; data?: WindCheckerBeach; error?: string }> {
   const supabase = createPublicReadClient();

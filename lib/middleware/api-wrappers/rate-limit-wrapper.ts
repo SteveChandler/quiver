@@ -31,7 +31,7 @@ import type { RouteHandler, RouteContext, WithRateLimitOptions } from "./types";
  * @param request - Next.js request object
  * @returns Client IP address or 'unknown'
  */
-export function getClientIdentifier(request: NextRequest): string {
+function getClientIdentifier(request: NextRequest): string {
   // Prefer platform-provided headers when available.
   // `x-vercel-forwarded-for` is set by Vercel's edge and is harder to spoof than
   // client-supplied `x-forwarded-for`.

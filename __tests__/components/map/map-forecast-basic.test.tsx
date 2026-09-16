@@ -213,15 +213,13 @@ describe("Map Forecast Basic Tests", () => {
       background: "#F4EBD8",
       color: "#11100D",
     });
-    expect(screen.queryByText("Go now!")).toBeNull();
+    expect(screen.queryByText("Worth it")).toBeNull();
     fireEvent.click(
       within(legend).getByRole("button", { name: "Expand map legend" }),
     );
-    expect(screen.getByText("Go now!")).toBeInTheDocument();
-    expect(screen.getByText("Go surf!")).toBeInTheDocument();
-    expect(screen.getByText("Worth a look")).toBeInTheDocument();
-    expect(screen.getByText("Slim pickings")).toBeInTheDocument();
-    expect(screen.getByText("Skip it")).toBeInTheDocument();
+    expect(screen.getByText("Worth it")).toBeInTheDocument();
+    expect(screen.getByText("Maybe")).toBeInTheDocument();
+    expect(screen.getByText("Skip")).toBeInTheDocument();
     expect(screen.getByText("No read")).toBeInTheDocument();
     expect(screen.queryByText("EPIC")).toBeNull();
     expect(screen.queryByText("GOOD")).toBeNull();
@@ -362,7 +360,7 @@ describe("Map Forecast Basic Tests", () => {
 
     const legend = screen.getByTestId("map-condition-legend");
 
-    expect(within(legend).queryByText("Go now!")).toBeNull();
+    expect(within(legend).queryByText("Worth it")).toBeNull();
     expect(within(legend).queryByTestId("swell-layer-selector")).toBeNull();
     expect(within(legend).getByTestId("swell-forecast-timeline")).toBeInTheDocument();
     expect(
@@ -373,13 +371,13 @@ describe("Map Forecast Basic Tests", () => {
       within(legend).getByRole("button", { name: "Expand map legend" })
     );
 
-    expect(within(legend).getByText("Go now!")).toBeInTheDocument();
+    expect(within(legend).getByText("Worth it")).toBeInTheDocument();
     expect(within(legend).getByTestId("swell-layer-selector")).toBeInTheDocument();
 
     fireEvent.click(
       within(legend).getByRole("button", { name: "Minimize map legend" }),
     );
-    expect(within(legend).queryByText("Go now!")).toBeNull();
+    expect(within(legend).queryByText("Worth it")).toBeNull();
   });
 
   it("should call Mapbox Map constructor with correct parameters", async () => {
@@ -482,7 +480,7 @@ describe("Map Forecast Basic Tests", () => {
     }, { timeout: 3000 });
   });
 
-  it("should clear the swell-field leash before an explicit camera command without a remount", async () => {
+  it("keeps the swell field geographically unrestricted through explicit camera commands", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     const mockBeaches = [
       { id: "test-1", name: "Test Beach", lat: 32.75, lon: -117.25 },
@@ -496,9 +494,8 @@ describe("Map Forecast Basic Tests", () => {
       />
     );
 
-    await waitFor(() => {
-      expect(mockSetMaxBounds).toHaveBeenCalledWith(expect.any(Array));
-    });
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+    expect(mockSetMaxBounds.mock.calls.some(([bounds]) => Array.isArray(bounds))).toBe(false);
 
     mockFlyTo.mockClear();
     mockSetMaxBounds.mockClear();
@@ -527,8 +524,7 @@ describe("Map Forecast Basic Tests", () => {
     });
 
     expect(mockSetMaxBounds).toHaveBeenCalledWith(null);
-    expect(mockSetMinZoom).toHaveBeenCalledWith(0);
-    expect(mockSetMaxZoom).toHaveBeenCalledWith(22);
+    expect(mockSetMaxBounds.mock.calls.some(([bounds]) => Array.isArray(bounds))).toBe(false);
     expect(mockSetMaxBounds.mock.invocationCallOrder[0]).toBeLessThan(
       mockFlyTo.mock.invocationCallOrder[0]
     );

@@ -19,7 +19,7 @@ type CanonicalSafetyOverrideReason = Extract<
   "water_quality_closure"
 >;
 
-export type BuildCanonicalDecisionFromSurfDiscoveryInput = Omit<
+type BuildCanonicalDecisionFromSurfDiscoveryInput = Omit<
   BuildCanonicalSessionDecisionInput,
   "candidates"
 > & {

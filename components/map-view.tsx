@@ -423,6 +423,7 @@ export function MapView() {
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
       setSelectedBeach(beach);
+      setLocationDeniedPromptDismissed(true);
       if (isFiniteCoord(beach.lat) && isFiniteCoord(beach.lon)) {
         issueCameraCommand(
           { source: "pin", center: { lat: beach.lat, lon: beach.lon } },
@@ -527,11 +528,14 @@ export function MapView() {
     if (interaction.phase === "end") {
       exploredCenterRef.current = interaction.center;
       setExploredCenter(interaction.center);
+      if (interaction.action === "pan" && !searchQuery.trim()) {
+        void loadNearbyBeaches(interaction.center.lat, interaction.center.lon, { background: true });
+      }
       return;
     }
     cameraOwnerRef.current = "user";
     setCameraOwner("user");
-  }, []);
+  }, [loadNearbyBeaches, searchQuery]);
 
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||
@@ -561,7 +565,7 @@ export function MapView() {
         onSearchChange={handleSearchChange}
         searchInputRef={searchInputRef}
         onClearSearch={handleClearSearch}
-        suggestions={filteredBeaches.slice(0, 6)}
+        suggestions={selectedBeach ? [] : filteredBeaches.slice(0, 6)}
         onSuggestionSelect={handleSuggestionSelect}
         onUseMyLocation={handleUseMyLocation}
         filters={filters}

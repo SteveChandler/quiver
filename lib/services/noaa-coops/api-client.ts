@@ -25,7 +25,7 @@ const OPTIONAL_REQUEST_TIMEOUT_MS = 5000;
 /**
  * Options for API client logging
  */
-export interface ApiClientOptions {
+interface ApiClientOptions {
   verbose?: boolean;
   logger?: {
     debug: (message: string, ...args: unknown[]) => void;

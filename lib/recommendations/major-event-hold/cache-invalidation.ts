@@ -82,12 +82,12 @@ export interface MajorEventHoldCacheInvalidationStore {
   loadHoldScopeByRecordId(recordId: string): Promise<unknown>;
 }
 
-export interface MajorEventHoldCacheInvalidationOptions {
+interface MajorEventHoldCacheInvalidationOptions {
   store: MajorEventHoldCacheInvalidationStore;
   revalidatePath?: (path: string) => void | Promise<void>;
 }
 
-export class MajorEventHoldCacheInvalidationError extends Error {
+class MajorEventHoldCacheInvalidationError extends Error {
   readonly code = "cache_invalidation_failed";
 
   constructor() {

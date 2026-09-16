@@ -21,7 +21,7 @@ const VALID_FORMATS = ['origin'] as const;
 /**
  * Transformation options for Supabase Storage images
  */
-export interface ImageTransformOptions {
+interface ImageTransformOptions {
   /** Width in pixels (1-2500) */
   width?: number;
   /** Height in pixels (1-2500) */

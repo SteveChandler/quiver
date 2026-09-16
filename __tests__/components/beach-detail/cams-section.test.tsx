@@ -25,6 +25,20 @@ describe("CamsSection", () => {
     jest.restoreAllMocks();
   });
 
+  it.each([
+    ["Napili Bay Beach", "https://www.napilisunset.com/live-webcam/"],
+    ["Muir Beach", "https://www.sigward.com/"],
+    ["Jenkinson’s Beach", "https://video.nest.com/live/JKTTcsayyN"],
+    ["Kaunaoa Beach", "https://marriott.ozolio.com/mauna-kea-beach-hotel/"],
+    ["Virginia Beach Oceanfront", "https://vbbound.com/webcams/courtyard-virginia-beach-boardwalk-webcam/"],
+  ])("opens the verified %s provider without embedding", (beachName, cameraUrl) => {
+    const { container } = render(
+      <CamsSection sources={{ camera_url: cameraUrl, embed_allowed: false }} beachName={beachName} />
+    );
+    expect(screen.getByRole("link", { name: /open live cam on/i })).toHaveAttribute("href", cameraUrl);
+    expect(container.querySelector("iframe")).toBeNull();
+  });
+
   it("renders YouTube cams as a click-out fallback instead of an iframe", () => {
     const sources: BeachSources = {
       camera_url: "https://www.youtube.com/watch?v=abc123",

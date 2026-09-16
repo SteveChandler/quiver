@@ -20,7 +20,7 @@ export interface WindSnapshot {
   direction: string;
 }
 
-export interface RegionalCallOptions {
+interface RegionalCallOptions {
   dawnWind?: WindSnapshot;
   middayWind?: WindSnapshot;
 }

@@ -54,7 +54,7 @@ export interface BoardPickResult {
   reason: string;
 }
 
-export type BoardPickContext =
+type BoardPickContext =
   | { kind: 'heuristic' }
   | { kind: 'scored'; boardClass: BoardClass | null };
 

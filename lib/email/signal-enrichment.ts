@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { currentWaterQuality } from "@/lib/services/water-quality/current-status";
 import type { Database } from "@/types/database.generated";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -110,7 +111,7 @@ async function fetchWaterQuality(
       console.error(`${CONTEXT_TAG} Failed to load water quality:`, error);
       return null;
     }
-    const status = data?.status;
+    const status = data ? (await currentWaterQuality([{ ...data, beach_id: beachId }]))[0].status : null;
     return status && WATER_QUALITY_STATUSES.has(status)
       ? (status as WaterQualityStatus)
       : null;

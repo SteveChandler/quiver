@@ -12,6 +12,15 @@ import { resolveShardFromTime } from "@/app/api/cron/enhanced-forecast-sync/_sha
 import { NextRequest } from "next/server";
 import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
 
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(() => ({
+    from: (table: string) => {
+      if (table !== "cron_runs") throw new Error(`Unexpected persistence table: ${table}`);
+      return { insert: jest.fn().mockResolvedValue({ error: null }) };
+    },
+  })),
+}));
+
 jest.mock("@/lib/api-utils", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: jest.fn(() =>

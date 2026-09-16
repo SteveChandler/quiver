@@ -10,7 +10,7 @@ import { buildHomepageSurfWindowRecommendations } from "@/lib/recommendations/se
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 
-export interface SessionIntelligenceModuleProps {
+interface SessionIntelligenceModuleProps {
   recommendations: SurfDiscoveryRecommendation[];
   recommendationAvailability?: RecommendationAvailability;
   baseUrl?: string;

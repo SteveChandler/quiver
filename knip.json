@@ -10,7 +10,10 @@
     "context/**/*.{ts,tsx}",
     "e2e/**/*.ts",
     "__tests__/**/*.{ts,tsx}",
-    "scripts/**/*.{ts,tsx,mjs}"
+    "scripts/**/*.{ts,tsx,mjs}",
+    "store/**/*.{ts,tsx}",
+    "config/**/*.{ts,tsx}",
+    "state/**/*.{ts,tsx}"
   ],
   "entry": [
     "app/**/page.tsx",
@@ -20,25 +23,31 @@
     "scripts/**/*.{ts,mjs}"
   ],
   "ignoreDependencies": [
-    "webpack-bundle-analyzer"
+    "server-only",
+    "ansi-regex",
+    "string-width",
+    "strip-ansi"
   ],
   "ignore": [
-    "**/*.d.ts",
     "**/__tests__/**",
-    "**/setup/**",
-    "**/test-utils/**",
-    "**/migrations/**",
     "types/**",
-    "e2e/**",
-    "playwright-report/**",
-    "public/**"
+    "e2e/**"
   ],
   "webpack": true,
-  "eslint": false,
+  "eslint": true,
   "typescript": {
     "tsConfigPath": "tsconfig.json"
   },
   "paths": {
-    "@/*": ["./*"]
-  }
+    "@/*": [
+      "./*"
+    ]
+  },
+  "ignoreBinaries": [
+    "supabase",
+    "psql",
+    "sleep",
+    "pkill",
+    "codex"
+  ]
 }

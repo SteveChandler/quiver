@@ -1,5 +1,5 @@
 {
-  "ignoreCommand": "git diff --quiet \"${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}\" HEAD -- . ':(exclude)*.md' ':(exclude)**/*.md' ':(exclude).github/**' ':(exclude).planning/**' ':(exclude)__tests__/**' ':(exclude)docs/**' ':(exclude)e2e/**' ':(exclude)plans/**'",
+  "ignoreCommand": "test -n \"$VERCEL_GIT_PREVIOUS_SHA\" && git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" HEAD -- . ':(exclude)*.md' ':(exclude).github/**' ':(exclude).planning/**' ':(exclude)__tests__/**' ':(exclude)docs/**' ':(exclude)e2e/**' ':(exclude)plans/**'",
   "git": {
     "deploymentEnabled": {
       "**": false,
@@ -9,6 +9,18 @@
     }
   },
   "crons": [
+    {
+      "path": "/api/cron/email-replies",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/email-lifecycle",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/pro-offer-reconcile",
+      "schedule": "*/15 * * * *"
+    },
     {
       "path": "/api/cron/enhanced-forecast-sync-cdip",
       "schedule": "0 * * * *"
@@ -82,30 +94,6 @@
       "schedule": "0 6 * * 0"
     },
     {
-      "path": "/api/cron/welcome-email",
-      "schedule": "0 */6 * * *"
-    },
-    {
-      "path": "/api/cron/weekly-recap-email",
-      "schedule": "0 2 * * 1"
-    },
-    {
-      "path": "/api/cron/session-prompt-email",
-      "schedule": "30 18 * * *"
-    },
-    {
-      "path": "/api/cron/trial-lifecycle-email",
-      "schedule": "0 16 * * *"
-    },
-    {
-      "path": "/api/cron/trial-invitation-email",
-      "schedule": "30 16 * * *"
-    },
-    {
-      "path": "/api/cron/first-session-nudge",
-      "schedule": "30 */6 * * *"
-    },
-    {
       "path": "/api/cron/ccc-sync?phase=import",
       "schedule": "0 6 1 * *"
     },
@@ -164,6 +152,10 @@
     {
       "path": "/api/cron/swell-watch",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/swell-watch-acquire",
+      "schedule": "15 * * * *"
     },
     {
       "path": "/api/cron/condition-alert-deliver",

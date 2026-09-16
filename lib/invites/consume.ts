@@ -6,7 +6,7 @@ import {
 } from "@/lib/utils/email-token";
 
 export const INVITE_COOKIE_NAME = "invite_token";
-export const INVITE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+const INVITE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 export const INVITE_CONSUME_PATH = "/invite/consume";
 export const SELF_INVITE_REDIRECT_PATH = "/community?tab=friends";
 export const INVITE_EXPIRED_REDIRECT_PATH = "/?invite_expired=1";
@@ -24,7 +24,7 @@ export type InviteAcceptanceFlags = {
   referralExisting: boolean;
 };
 
-export type InviteConsumeResult =
+type InviteConsumeResult =
   | ({ status: "accepted"; inviterId: string } & InviteAcceptanceFlags)
   | { status: "self"; inviterId: string }
   | { status: "invalid" }

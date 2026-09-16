@@ -94,8 +94,10 @@ DataFlow
 
 `spot-surf-report-service.ts` is the canonical server-only entry point for
 cookie-free public spot surf reports. `getSpotSurfReportPublic(beach)` owns the
-15-minute cached forecast read, timezone-aware today/tomorrow selection, surf
+request-scoped forecast read, timezone-aware today/tomorrow selection, surf
 call computation, hourly forecast projection, and major-event hold boundary.
+
+The service requires a live request before reading the clock or database, bypassing page ISR. React memoization deduplicates metadata and body reads within that request only.
 
 The service canonicalizes every beach projection before entering the cache.
 The canonical field set must stay aligned with every beach field read by the

@@ -12,7 +12,7 @@ import {
   trackSignupCtaView,
 } from "@/lib/analytics/signup-conversion-tracking";
 
-export interface MatchScoreTeaserProps {
+interface MatchScoreTeaserProps {
   /** Beach identifier — included in tracking metadata */
   beachId: string;
   /** Beach name shown in the auth modal context message */

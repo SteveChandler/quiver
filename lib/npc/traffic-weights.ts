@@ -1,21 +1,21 @@
 import type { BeachTrafficWeight } from "./beach-selection";
 
-export interface TrafficBeach {
+interface TrafficBeach {
   id: string;
   slug: string | null;
   city: string | null;
   state: string | null;
 }
 
-export interface TrafficEvent {
+interface TrafficEvent {
   eventType: string;
   beachId: string | null;
   metadata: unknown;
 }
 
-export type TrafficAllocationTier = "proven" | "adjacent" | "exploration";
+type TrafficAllocationTier = "proven" | "adjacent" | "exploration";
 
-export interface ComputedTrafficWeight extends BeachTrafficWeight {
+interface ComputedTrafficWeight extends BeachTrafficWeight {
   beachId: string;
   views30d: number;
   weight: number;
@@ -119,7 +119,7 @@ export function computeTrafficWeights(
   });
 }
 
-export function beachesForPath(
+function beachesForPath(
   pathname: string,
   beaches: readonly TrafficBeach[],
 ): TrafficBeach[] {

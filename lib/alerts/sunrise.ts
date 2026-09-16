@@ -1,6 +1,6 @@
 import SunCalc from "suncalc";
 
-export interface DaylightWindow {
+interface DaylightWindow {
   sunrise: Date;
   sunset: Date;
 }

@@ -183,6 +183,8 @@ describe("getBatchFreshForecastsFromCache", () => {
   let getBatchFreshForecastsFromCache: typeof import("@/lib/utils/forecast-service-utils").getBatchFreshForecastsFromCache;
   let latestBatchResult: QueryResult<Array<{ beach_id: string; updated_at: string; data_source: string | null }>>;
   let forecastsBatchResult: QueryResult<any[]>;
+  let forecastPageResults: QueryResult<any[]>[];
+  let forecastRangeCalls: Array<[number, number]>;
   let enhancedForecastsQueried: boolean;
   let latestViewQueried: boolean;
 
@@ -194,6 +196,8 @@ describe("getBatchFreshForecastsFromCache", () => {
 
     latestBatchResult = { data: [], error: null };
     forecastsBatchResult = { data: [], error: null };
+    forecastPageResults = [];
+    forecastRangeCalls = [];
     enhancedForecastsQueried = false;
     latestViewQueried = false;
 
@@ -218,10 +222,13 @@ describe("getBatchFreshForecastsFromCache", () => {
                   gte: jest.fn(() => ({
                     lt: jest.fn(() => ({
                       order: jest.fn(() => ({
-                        order: jest.fn(async () => {
-                          enhancedForecastsQueried = true;
-                          return forecastsBatchResult;
-                        }),
+                        order: jest.fn(() => ({
+                          range: jest.fn(async (from: number, to: number) => {
+                            enhancedForecastsQueried = true;
+                            forecastRangeCalls.push([from, to]);
+                            return forecastPageResults.shift() ?? forecastsBatchResult;
+                          }),
+                        })),
                       })),
                     })),
                   })),
@@ -432,6 +439,59 @@ describe("getBatchFreshForecastsFromCache", () => {
     expect(beach1?.metadata.missing).toBe(true);
     expect(beach1?.metadata.reason).toContain("No forecast rows");
     expect(beach1?.forecasts).toEqual([]);
+  });
+
+  it("pages forecast rows beyond PostgREST's 1,000-row limit", async () => {
+    const oneHourAgoIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    latestBatchResult = {
+      data: [{ beach_id: "beach-1-fresh", updated_at: oneHourAgoIso, data_source: "NOAA_NWS" }],
+      error: null,
+    };
+    const firstPage = Array.from({ length: 1000 }, (_, index) => ({
+      beach_id: "beach-1-fresh",
+      forecast_at: `2026-01-05T${String(index % 24).padStart(2, "0")}:00:00Z`,
+      id: `first-${index}`,
+    }));
+    const secondPage = Array.from({ length: 17 }, (_, index) => ({
+      beach_id: "beach-1-fresh",
+      forecast_at: `2026-01-06T${String(index).padStart(2, "0")}:00:00Z`,
+      id: `second-${index}`,
+    }));
+    forecastPageResults = [
+      { data: firstPage, error: null },
+      { data: secondPage, error: null },
+    ];
+
+    const result = await getBatchFreshForecastsFromCache(["beach-1-fresh"], 48);
+
+    expect(result.get("beach-1-fresh")?.forecasts).toHaveLength(1017);
+    expect(result.get("beach-1-fresh")?.forecasts.map((forecast) => forecast.id)).toEqual([
+      ...firstPage.map((forecast) => forecast.id),
+      ...secondPage.map((forecast) => forecast.id),
+    ]);
+    expect(forecastRangeCalls).toEqual([[0, 999], [1000, 1999]]);
+  });
+
+  it("uses per-row storage age while retaining unknown upstream freshness honestly", async () => {
+    const freshWrite = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const staleWrite = new Date(Date.now() - 13 * 60 * 60 * 1000).toISOString();
+    latestBatchResult = {
+      data: [{ beach_id: 'beach-1-fresh', updated_at: freshWrite, data_source: 'NOAA_NWS' }],
+      error: null,
+    };
+    forecastsBatchResult = {
+      data: [
+        { id: 'fresh-row', beach_id: 'beach-1-fresh', forecast_at: '2026-01-05T16:00:00Z', updated_at: freshWrite, data_source: 'NOAA_NWS' },
+        { id: 'stale-row', beach_id: 'beach-1-fresh', forecast_at: '2026-01-05T17:00:00Z', updated_at: staleWrite, data_source: 'NOAA_NWS' },
+      ],
+      error: null,
+    };
+
+    const result = await getBatchFreshForecastsFromCache(['beach-1-fresh'], 48, false, true);
+
+    expect(result.get('beach-1-fresh')?.forecasts.map((forecast) => forecast.id)).toEqual(['fresh-row']);
+    expect(result.get('beach-1-fresh')?.metadata.freshnessUnknown).toBe(true);
+    expect(result.get('beach-1-fresh')?.metadata.stale).toBe(false);
   });
 });
 

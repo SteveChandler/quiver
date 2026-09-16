@@ -4,7 +4,7 @@ import { formatWaveHeightRangeString } from "@/lib/utils/wave-formatters";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SupabaseServerClient } from "@/types/supabase";
 
-export type DailyIntelWaveHeightLabels = {
+type DailyIntelWaveHeightLabels = {
   current_wave_height_label: string | null;
   best_window_wave_height_label: string | null;
 };

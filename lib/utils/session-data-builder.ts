@@ -70,7 +70,7 @@ export interface SessionPayloadInput {
 }
 
 /** The shape sent to createLoggedSession server actions. */
-export interface SessionPayload {
+interface SessionPayload {
   beach_name: string;
   beach_id?: string;
   arrival_time?: string;

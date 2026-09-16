@@ -14,7 +14,7 @@ const BLUR_PLACEHOLDERS = {
   "OceanBeachSurfers": "data:image/webp;base64,UklGRjIAAABXRUJQVlA4ICYAAACwAQCdASoKAAgABUB8JQBOgCHXgLcAAP6Rn4ILPhB2Bo1Cv8AAAA==",
 } as const;
 
-export type BlurPlaceholderKey = keyof typeof BLUR_PLACEHOLDERS;
+type BlurPlaceholderKey = keyof typeof BLUR_PLACEHOLDERS;
 
 /**
  * Get blur placeholder for an image by filename (without extension)

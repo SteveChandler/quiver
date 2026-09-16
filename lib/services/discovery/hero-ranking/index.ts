@@ -180,11 +180,5 @@ export function rerankHero(
 
 // Re-export so consumers can import everything from one entry point.
 export type { HeroRankingDiagnostic } from "./diagnostics";
-export { computeHeroWindowScore } from "./hero-window-score";
-export type { HeroWindowScoreInput } from "./hero-window-score";
-export {
-  cardinalToDeg,
-  deriveSharedSetupSignal,
-} from "./shared-setup-signal";
-export type { SharedSetupSignal } from "./shared-setup-signal";
-export { computeWindowDurationScore, computeWindowPersistence } from "./window-evidence";
+;
+;

@@ -6,7 +6,7 @@ import type {
   SeoRecommendation,
 } from "./types";
 
-export interface SeoMetadataPageInput {
+interface SeoMetadataPageInput {
   path: string;
   title?: string | null;
   metaDescription?: string | null;

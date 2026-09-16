@@ -10,7 +10,7 @@ export interface ZineMapSceneInput {
   features?: string[] | null;
 }
 
-export interface ZineMapScene {
+interface ZineMapScene {
   oceanSide: "left" | "right";
   oceanPath: string;
   landPath: string;

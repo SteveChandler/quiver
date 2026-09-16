@@ -12,6 +12,8 @@ describe("vercel.json", () => {
     const configPath = path.join(process.cwd(), "vercel.json");
     const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
+    expect(config.ignoreCommand.length).toBeLessThanOrEqual(256);
+
     expect(config.git.deploymentEnabled).toEqual({
       "**": false,
       main: true,
@@ -33,7 +35,7 @@ describe("vercel.json", () => {
     const runIgnoreCommand = (env = {}) =>
       spawnSync(config.ignoreCommand, {
         cwd: repoPath,
-        env: { ...process.env, ...env },
+        env: { ...process.env, VERCEL_GIT_PREVIOUS_SHA: "HEAD^", ...env },
         shell: true,
       }).status;
 
@@ -57,6 +59,11 @@ describe("vercel.json", () => {
       fs.writeFileSync(path.join(repoPath, "README.md"), "docs update\n");
       git("add", "README.md");
       git("commit", "-m", "docs update");
+      expect(runIgnoreCommand()).toBe(0);
+
+      fs.writeFileSync(path.join(repoPath, "components", "README.md"), "nested docs\n");
+      git("add", "components/README.md");
+      git("commit", "-m", "nested docs update");
       expect(runIgnoreCommand()).toBe(0);
 
       fs.mkdirSync(path.join(repoPath, "__tests__"));
@@ -83,6 +90,20 @@ describe("vercel.json", () => {
       expect(
         runIgnoreCommand({ VERCEL_GIT_PREVIOUS_SHA: baselineSha }),
       ).toBe(1);
+      // Missing history must build, never silently skip an unverified change.
+      expect(runIgnoreCommand({ VERCEL_GIT_PREVIOUS_SHA: "" })).toBe(1);
+      expect(runIgnoreCommand({ VERCEL_GIT_PREVIOUS_SHA: "f".repeat(40) })).not.toBe(0);
+
+      fs.writeFileSync(path.join(repoPath, "vercel.json"), '{"crons":[]}\n');
+      git("add", "vercel.json");
+      git("commit", "-m", "change runtime config");
+      expect(runIgnoreCommand()).toBe(1);
+
+      fs.mkdirSync(path.join(repoPath, "new-runtime"));
+      fs.writeFileSync(path.join(repoPath, "new-runtime", "entry.ts"), "export {};\n");
+      git("add", ".");
+      git("commit", "-m", "unrecognized runtime path");
+      expect(runIgnoreCommand()).toBe(1);
     } finally {
       fs.rmSync(repoPath, { force: true, recursive: true });
     }

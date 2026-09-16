@@ -1,7 +1,8 @@
+import { mapSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
 import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
 import type { Beach } from "@/types/database";
 
-export const CONDITIONS_CALLOUT_COLORS = {
+const CONDITIONS_CALLOUT_COLORS = {
   s1: "#F78E42", // Charming Orange (brand)
   s2: "#7AC74F", // green — kept for clear hue separation from S1
   wind: "#00D4AA", // Pacific Teal (brand-sanctioned; never cyan)
@@ -25,11 +26,12 @@ function swellLabel(heightFt: number, periodS: number | null): string {
 }
 
 export function resolveCalloutComponents(p: SwellPartition): CalloutComponent[] {
+  p = mapSwellPartition(p);
   const out: CalloutComponent[] = [];
 
-  const s1Dir = isReal(p.s1Dir) ? p.s1Dir : p.swellDirOm;
+  const s1Dir = p.s1Dir;
   if (isReal(s1Dir) && isReal(p.s1HeightFt) && p.s1HeightFt > 0) {
-    out.push({ kind: "s1", name: "SWELL", bearingDeg: s1Dir, label: swellLabel(p.s1HeightFt, p.s1PeriodS), color: CONDITIONS_CALLOUT_COLORS.s1 });
+    out.push({ kind: "s1", name: p.s1Source === "offshore" ? "OFFSHORE SWELL" : "SWELL", bearingDeg: s1Dir, label: swellLabel(p.s1HeightFt, p.s1PeriodS), color: CONDITIONS_CALLOUT_COLORS.s1 });
   }
   if (isReal(p.s2Dir) && isReal(p.s2HeightFt) && p.s2HeightFt > 0) {
     out.push({ kind: "s2", name: "SWELL 2", bearingDeg: p.s2Dir, label: swellLabel(p.s2HeightFt, p.s2PeriodS), color: CONDITIONS_CALLOUT_COLORS.s2 });
@@ -40,7 +42,7 @@ export function resolveCalloutComponents(p: SwellPartition): CalloutComponent[] 
   return out;
 }
 
-export interface CalloutBounds {
+interface CalloutBounds {
   west: number;
   south: number;
   east: number;

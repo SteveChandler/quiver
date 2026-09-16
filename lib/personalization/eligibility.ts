@@ -21,14 +21,14 @@ export const PERSONALIZATION_RESULT_CODES = {
 export type PersonalizationResultCode =
   (typeof PERSONALIZATION_RESULT_CODES)[keyof typeof PERSONALIZATION_RESULT_CODES];
 
-export interface UserEntitlementRow {
+interface UserEntitlementRow {
   is_pro?: boolean | null;
   is_trialing?: boolean | null;
   billing_issue?: boolean | null;
   expires_at?: string | null;
 }
 
-export interface ResolvePersonalizationEligibilityInput {
+interface ResolvePersonalizationEligibilityInput {
   userId: string;
   entitlementRow?: UserEntitlementRow | null;
   now?: Date;

@@ -210,5 +210,3 @@ export function TideWarningBannerCompact({
     </div>
   );
 }
-
-export default TideWarningBanner;

@@ -1,0 +1,16 @@
+{
+  "artifact": "",
+  "build_number": "",
+  "channel": "Vercel",
+  "notes": "",
+  "platform": "web",
+  "profile": "production",
+  "signing": "",
+  "target": "www.quiversurf.app",
+  "url": "https://www.quiversurf.app",
+  "url_error": "",
+  "url_reachable": true,
+  "url_status": 200,
+  "verdict": "PASS",
+  "version": "87bb6fe69fb92d84572f6ae306b0bfe4c7f9d724"
+}

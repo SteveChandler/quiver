@@ -3,7 +3,7 @@
 import React, { Component, ReactNode, ErrorInfo } from 'react';
 import { ErrorFallback } from './ErrorFallback';
 
-export interface ErrorBoundaryProps {
+interface ErrorBoundaryProps {
   /**
    * Custom fallback UI to display when error occurs
    * Receives error object and reset function

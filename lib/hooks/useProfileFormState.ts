@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 /**
  * Configuration for profile form state management
  */
-export interface ProfileFormStateConfig {
+interface ProfileFormStateConfig {
   /** Initial avatar URL */
   initialAvatarUrl?: string;
   /** Initial home beach text (for edit form) */
@@ -13,7 +13,7 @@ export interface ProfileFormStateConfig {
 /**
  * Return type for the useProfileFormState hook
  */
-export interface ProfileFormState {
+interface ProfileFormState {
   /** Current avatar URL */
   avatarUrl: string;
   /** Update avatar URL */

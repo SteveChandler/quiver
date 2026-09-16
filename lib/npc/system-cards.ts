@@ -14,7 +14,7 @@ export interface SystemForecastSnapshot {
   waterTempF: number | null;
 }
 
-export interface SystemCardObservation {
+interface SystemCardObservation {
   observedAt: string;
   waveHeightFt: number | null;
   waveQuality: number | null;
@@ -31,7 +31,7 @@ export interface SystemCardCandidate {
   materialTransition?: boolean;
 }
 
-export interface SystemCardCopy {
+interface SystemCardCopy {
   title: string;
   description: string;
   contentClass: SystemCardClass;

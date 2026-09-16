@@ -16,7 +16,7 @@ const LOW_CTR_IMPRESSIONS = 100;
 const DECAY_MIN_PRIOR_IMPRESSIONS = 50;
 const DECAY_DROP_RATIO = 0.5;
 
-export interface MergedGscPageRow extends GscPageRow {
+interface MergedGscPageRow extends GscPageRow {
   rawPages: string[];
 }
 
@@ -234,7 +234,7 @@ export function buildLegacyCanonicalPathMap(sitemapPaths: string[]): Map<string,
   return canonicalPathByLegacyPath;
 }
 
-export function canonicalizeGscPath(
+function canonicalizeGscPath(
   page: string,
   legacyCanonicalPathMap: Map<string, string>,
 ): string {

@@ -104,7 +104,7 @@ function BeachThumb({ imageUrl, beachName, index }: BeachThumbProps) {
   );
 }
 
-export interface BestRightNowProps {
+interface BestRightNowProps {
   /**
    * Optional explicit coordinates to scope the leaderboard to the closest
    * region. When provided, bypasses the client-side cookie lookup — used by

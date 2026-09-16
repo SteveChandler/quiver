@@ -10,7 +10,7 @@ export interface EditorialSource {
   retrievedAt: string;
 }
 
-export interface BeachIndexabilityInput {
+interface BeachIndexabilityInput {
   seoIndexable: boolean | null | undefined;
   seoReviewedAt: string | null | undefined;
   seoSources: EditorialSource[] | null | undefined;
@@ -20,7 +20,7 @@ export interface BeachIndexabilityInput {
   bestConditionsProse?: string | null;
 }
 
-export interface BeachEditorialRecord extends Omit<BeachIndexabilityInput, "seoSources"> {
+interface BeachEditorialRecord extends Omit<BeachIndexabilityInput, "seoSources"> {
   editorial_sources?: EditorialSource[] | string | null;
 }
 
@@ -34,7 +34,7 @@ export interface BeachEditorialDatabaseRecord {
   best_conditions_prose?: string | null;
 }
 
-export interface CityIntentEditorialInput {
+interface CityIntentEditorialInput {
   seoIndexable: boolean | null | undefined;
   seoReviewedAt: string | null | undefined;
   seoSources: EditorialSource[] | null | undefined;
@@ -54,7 +54,7 @@ export interface CityEditorialDatabaseRecord {
   seo_local_guidance?: string | null;
 }
 
-export type EditorialQualityReason =
+type EditorialQualityReason =
   | "missing-review"
   | "missing-sources"
   | "missing-local-content"
@@ -73,13 +73,13 @@ export type IndexabilityReason =
   | "invalid-canonical"
   | "forecast-integrity-quarantined";
 
-export interface EditorialQualityResult {
+interface EditorialQualityResult {
   approved: boolean;
   rejected: boolean;
   reason: EditorialQualityReason | null;
 }
 
-export interface IndexabilityContext {
+interface IndexabilityContext {
   canonicalPath: string;
   editorialApproved: boolean;
   editorialRejected: boolean;
@@ -92,7 +92,7 @@ export interface IndexabilityDecision {
   reason: IndexabilityReason;
 }
 
-export interface ForecastIndexabilityInput {
+interface ForecastIndexabilityInput {
   canonicalValid: boolean;
   forecastAvailable: boolean;
   selectedStateComplete: boolean;
@@ -171,7 +171,7 @@ export function cityEditorialKey(
   ].join("/");
 }
 
-export function hasBeachSubstantiveContent(
+function hasBeachSubstantiveContent(
   input: Pick<
     BeachIndexabilityInput,
     "description" | "crowdTips" | "waveTips" | "bestConditionsProse"
@@ -337,7 +337,7 @@ export function evaluateCityEditorialIndexability(
   });
 }
 
-export interface CityDataIntentAvailability {
+interface CityDataIntentAvailability {
   /** The intent's own live dataset resolved to a real value this render. */
   hasIntentData: boolean;
   /** The city has beaches that make the intent meaningful. */
@@ -345,7 +345,7 @@ export interface CityDataIntentAvailability {
 }
 
 /** Intents whose page value is a live measurement, not an editorial recommendation. */
-export const DATA_BACKED_CITY_INTENTS = new Set(["tide", "water-temp"]);
+const DATA_BACKED_CITY_INTENTS = new Set(["tide", "water-temp"]);
 
 export function isDataBackedCityIntent(
   intent: string | null | undefined,
@@ -384,7 +384,7 @@ export function evaluateCityDataIntentIndexability(
   return { indexable: true, reason: "forecast-approved" };
 }
 
-export function isBeachEligibleForIndexing(
+function isBeachEligibleForIndexing(
   beach: BeachEditorialRecord,
   canonicalPath = "/",
 ): boolean {
@@ -402,7 +402,7 @@ export function isBeachEligibleForIndexing(
   ).indexable;
 }
 
-export function isBeachDatabaseRecordEligible(
+function isBeachDatabaseRecordEligible(
   beach: BeachEditorialDatabaseRecord,
   canonicalPath = "/",
 ): boolean {

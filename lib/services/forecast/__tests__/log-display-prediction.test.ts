@@ -182,6 +182,20 @@ describe("logDisplayPredictions", () => {
     });
   });
 
+  it("preserves first-write-wins while falling back without the additive context column", async () => {
+    upsertMock.mockResolvedValueOnce({ data: null, error: {
+      code: "PGRST204", message: "Could not find display_replay_context in schema cache",
+    } }).mockResolvedValueOnce({ data: null, error: null });
+    await logDisplayPredictions([sampleRow()]);
+    expect(upsertMock).toHaveBeenCalledTimes(2);
+    expect(upsertMock.mock.calls[0][0][0]).toHaveProperty("display_replay_context", null);
+    expect(upsertMock.mock.calls[1][0][0]).not.toHaveProperty("display_replay_context");
+    expect(upsertMock.mock.calls[1][0][0].raw_display_height_m).toBe(sampleRow().raw_display_height_m);
+    expect(upsertMock.mock.calls[1][1]).toEqual({
+      onConflict: "beach_id,predicted_at,forecast_horizon_bucket,display_source", ignoreDuplicates: true,
+    });
+  });
+
   it("falls back to the legacy conflict key when the Phase 0 column is not live yet", async () => {
     upsertMock
       .mockResolvedValueOnce({
@@ -411,6 +425,7 @@ describe("logDisplayPredictions", () => {
         height_offset_sample_count: 60,
         display_source: "face-Hs-transformer-v1",
         display_wave_source: "cdip_sig",
+        display_replay_context: null,
         display_raw_input_height_m: 0.9,
       }),
     ]);
@@ -430,6 +445,7 @@ describe("logDisplayPredictions", () => {
       feedback_height_calibration_applied: false,
       display_source: "face-Hs-transformer-v1",
       display_wave_source: "cdip_sig",
+      display_replay_context: null,
       display_raw_input_height_m: 0.9,
       // model_version falls back to display_source so the NOT NULL constraint
       // on ml_predictions_log.model_version is always satisfied.

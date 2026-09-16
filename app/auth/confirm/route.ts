@@ -1,112 +1,118 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import { redirect } from "next/navigation";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
 import { resolveConfirmNext } from "@/lib/auth/confirm-utils";
+import { capturePostHogEvent } from "@/lib/posthog-server";
 
-export async function GET(request: NextRequest) {
+const OTP_TYPES = new Set<string>([
+  "signup", "recovery", "magiclink", "invite", "email_change", "email",
+]);
+
+type FailureReason = "missing_credentials" | "provider_error" | "verification_failed" | "session_missing" | "unexpected_error";
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
+  const code = searchParams.get("code");
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type");
+  const isRecovery = type === "recovery" || searchParams.get("next") === "/auth/reset";
+  const flow = isRecovery ? "recovery" : "confirmation";
+  const credential = code ? "pkce" : "token_hash";
+  const cookiePairs: Array<{ name: string; value: string; options?: CookieOptions }> = [];
+  const redirectWithCookies = (url: URL): NextResponse => {
+    const response = NextResponse.redirect(url);
+    for (const { name, value, options } of cookiePairs) {
+      response.cookies.set({ name, value, ...options });
+    }
+    response.cookies.delete("auth_return_to");
+    return response;
+  };
 
-  // Try URL param first, then fall back to cookie set during signup
+  const fail = (reason: FailureReason): NextResponse => {
+    const properties = { flow, credential, reason, pathname: "/auth/confirm" };
+    Sentry.withScope((scope) => {
+      // Callback URLs and request headers contain authentication credentials.
+      scope.addEventProcessor((event) => ({
+        ...event,
+        request: { url: new URL("/auth/confirm", request.url).href },
+        breadcrumbs: [],
+        user: undefined,
+      }));
+      Sentry.captureMessage("auth.confirm: confirmation failed", {
+        level: "warning",
+        tags: { auth_event: "auth_confirm_failed", ...properties },
+      });
+    });
+    after(() => capturePostHogEvent({
+      distinctId: crypto.randomUUID(),
+      event: "auth_failed",
+      properties: { ...properties, source: "auth_confirm", $process_person_profile: false },
+    }));
+    const errorUrl = new URL("/error", request.url);
+    errorUrl.searchParams.set("reason", "invalid_or_expired_link");
+    errorUrl.searchParams.set("flow", flow);
+    return redirectWithCookies(errorUrl);
+  };
+
+  if (searchParams.has("error")) return fail("provider_error");
+  if (!code && (!token_hash || !type || !OTP_TYPES.has(type))) {
+    return fail("missing_credentials");
+  }
+
   let nextParam = searchParams.get("next");
-  if (!nextParam) {
-    const cookieStore = await cookies();
-    const cookieValue = cookieStore.get("auth_return_to")?.value;
+  if (!nextParam && !isRecovery) {
+    const cookieValue = (await cookies()).get("auth_return_to")?.value;
     if (cookieValue) {
-      nextParam = decodeURIComponent(cookieValue);
+      try {
+        nextParam = decodeURIComponent(cookieValue);
+      } catch {
+        nextParam = null;
+      }
     }
   }
-
-  const next = resolveConfirmNext(type, nextParam);
-
-  if (!token_hash || !type) {
-    redirect("/error?reason=invalid_or_expired_link");
-  }
-
-  // We need a server client that can WRITE session cookies onto the response
-  // (the default createSupabaseServerClient has a no-op setAll to avoid RSC
-  // mutable-cookie errors, which silently drops the session here). Pattern
-  // mirrors app/auth/callback/route.ts (memory: vast-dancing-whale).
-  const cookiePairs: Array<{ name: string; value: string; options?: any }> = [];
+  const next = resolveConfirmNext(isRecovery ? "recovery" : type, nextParam);
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!.trim(),
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!.trim(),
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
+        getAll: () => request.cookies.getAll(),
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookiePairs.push({ name, value, options });
-          });
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          cookiePairs.push(...cookiesToSet);
         },
       },
     }
   );
 
   try {
-    const { data, error } = await supabase.auth.verifyOtp({
-      type: type as any,
-      token_hash,
-    });
+    // Supabase's ConfirmationURL redirects with a PKCE code. Custom email
+    // templates can instead send a token hash for direct OTP verification.
+    const { data, error } = code
+      ? await supabase.auth.exchangeCodeForSession(code)
+      : await supabase.auth.verifyOtp({ type: type as EmailOtpType, token_hash: token_hash! });
 
-    if (error) {
-      console.error("OTP verification failed:", error);
-      redirect("/error?reason=invalid_or_expired_link");
-    }
-
-    // Verify a session actually came out of the exchange. When the link is
-    // opened in a different browser/device/incognito tab from the original
-    // signup, verifyOtp confirms the email at the DB level but no session
-    // ends up in the response — the user becomes a ghost on the destination.
-    // Detected via David Fisher's account: email_confirmed_at set,
-    // last_sign_in_at NULL, never authenticated, bounced.
+    if (error) return fail("verification_failed");
     if (!data.session) {
-      const email = data.user?.email ?? "";
-      // Observability: this branch is the entire reason this fix exists.
-      // We need to know in prod when it fires, who's affected, and where
-      // they were trying to go — both to confirm the fix works and to
-      // measure the cohort. Structured warn lands in Vercel logs;
-      // captureMessage lands in Sentry for alerting.
-      const userId = data.user?.id ?? null;
-      console.warn("[confirm_session_lost]", {
-        userId,
-        email,
-        next,
-        type,
-      });
-      Sentry.captureMessage("auth.confirm: session lost after verifyOtp", {
-        level: "warning",
-        tags: { auth_event: "confirm_session_lost", confirm_type: type },
-        extra: { userId, email, next },
-      });
+      if (isRecovery) return fail("session_missing");
+      fail("session_missing");
       const signInUrl = new URL("/auth/sign-in", request.url);
       signInUrl.searchParams.set("just_confirmed", "1");
-      if (email) signInUrl.searchParams.set("email", email);
-      if (next && next !== "/") signInUrl.searchParams.set("next", next);
-      const response = NextResponse.redirect(signInUrl);
-      response.cookies.delete("auth_return_to");
-      return response;
+      if (data.user?.email) signInUrl.searchParams.set("email", data.user.email);
+      if (next !== "/") signInUrl.searchParams.set("next", next);
+      return redirectWithCookies(signInUrl);
     }
 
-    // Success — redirect to destination, replay session cookies, and clear
-    // the fallback cookie.
-    const redirectUrl = new URL(next, request.url);
-    const response = NextResponse.redirect(redirectUrl);
-    for (const { name, value, options } of cookiePairs) {
-      response.cookies.set({ name, value, ...options });
-    }
-    response.cookies.delete("auth_return_to");
+    const response = redirectWithCookies(new URL(next, request.url));
+    // Match the callback route's Safari auth-state refresh signal.
+    response.cookies.set("auth_callback_completed", "1", {
+      maxAge: 30, path: "/", httpOnly: false, sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
     return response;
-  } catch (error) {
-    console.error("Error verifying OTP:", error);
-    redirect("/error?reason=invalid_or_expired_link");
+  } catch {
+    return fail("unexpected_error");
   }
 }

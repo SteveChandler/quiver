@@ -76,7 +76,7 @@ async function openWaikikiConditions(
 async function expectAvailableMarker(page: Page): Promise<string> {
   const { marker, objectiveSwell } = await openWaikikiConditions(page);
 
-  await expect(marker).toHaveAttribute("data-condition-summary", "GOOD");
+  await expect(marker).toHaveAttribute("data-recommendation-label", "Worth it");
   await expect(marker).toHaveAttribute("data-condition-score", "91");
   return (await objectiveSwell.getAttribute("data-callout-label")) ?? "";
 }
@@ -84,7 +84,7 @@ async function expectAvailableMarker(page: Page): Promise<string> {
 async function expectHeldMarker(page: Page): Promise<string> {
   const { marker, objectiveSwell } = await openWaikikiConditions(page);
 
-  await expect(marker).toHaveAttribute("data-condition-summary", "UNKNOWN");
+  await expect(marker).toHaveAttribute("data-recommendation-label", "No read");
   await expect(marker).not.toHaveAttribute("data-condition-score", /.+/);
   await expect(
     page.locator('[data-testid="beach-marker"][data-condition-score]'),

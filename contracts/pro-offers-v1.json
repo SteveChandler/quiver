@@ -1,0 +1,59 @@
+{
+  "owned": {
+    "contract_version": 1,
+    "enrollment": {
+      "terms_version": "v1"
+    },
+    "offers": [
+      {
+        "award_id": "11111111-1111-4111-8111-111111111111",
+        "program_id": "five_sessions_month",
+        "months": 1,
+        "terms_version": "v1",
+        "state": "enrolled",
+        "earned": false,
+        "claim_requested": false,
+        "completed_sessions": 4,
+        "expires_at": null,
+        "mirror_verified": false
+      }
+    ],
+    "user_id": "11111111-1111-4111-8111-111111111111"
+  },
+  "results": [
+    {
+      "status": "preview",
+      "months": 1,
+      "terms_version": "v1",
+      "state": "enrolled",
+      "completed_sessions": 4
+    },
+    {
+      "status": "verified",
+      "expires_at": "2027-02-28T12:00:00Z",
+      "mirror_verified": false
+    },
+    {
+      "status": "not_earned",
+      "completed_sessions": 4
+    },
+    {
+      "status": "disabled"
+    },
+    {
+      "status": "not_found"
+    },
+    {
+      "status": "busy"
+    },
+    {
+      "status": "paused"
+    },
+    {
+      "status": "held_active_access"
+    },
+    {
+      "status": "reconciliation_required"
+    }
+  ]
+}

@@ -20,7 +20,7 @@ import type { Database } from "@/types/supabase";
 // intel_votes row types (mirrors the DB migration schema)
 // ---------------------------------------------------------------------------
 
-export interface IntelVoteRow {
+interface IntelVoteRow {
   id: string;
   intel_post_id: string;
   user_id: string;
@@ -28,13 +28,13 @@ export interface IntelVoteRow {
   created_at: string;
 }
 
-export interface IntelVoteInsert {
+interface IntelVoteInsert {
   intel_post_id: string;
   user_id: string;
   vote_type: "helpful" | "off" | "confirmed";
 }
 
-export interface IntelVoteUpdate {
+interface IntelVoteUpdate {
   vote_type?: "helpful" | "off" | "confirmed";
 }
 

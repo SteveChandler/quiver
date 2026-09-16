@@ -1,10 +1,12 @@
+import type { ForecastReplaySlot, ForecastReplayHandoff } from './forecast-display-replay';
 import type { WaveHeightSourceTag } from "./wave-height-source";
 
-export const HANDOFF_BLEND_RATIO_MIN = 0.5;
-export const HANDOFF_BLEND_RATIO_MAX = 2.0;
-export const DEFAULT_HANDOFF_BLEND_TAPER_HOURS = 48;
+const HANDOFF_BLEND_RATIO_MIN = 0.5;
+const HANDOFF_BLEND_RATIO_MAX = 2.0;
+const DEFAULT_HANDOFF_BLEND_TAPER_HOURS = 48;
 
-export interface ForecastHandoffBlendSlot {
+interface ForecastHandoffBlendSlot {
+  replay?: ForecastReplaySlot;
   forecastAt: string;
   waveHeight: string | null;
   dataSource: string | null;
@@ -12,6 +14,7 @@ export interface ForecastHandoffBlendSlot {
 }
 
 interface HandoffAnchor {
+  replay?: ForecastReplaySlot;
   forecastAt: string;
   forecastAtMs: number;
   faceFt: number;
@@ -20,6 +23,7 @@ interface HandoffAnchor {
 export interface ForecastHandoffBlendState {
   lastCdip: HandoffAnchor | null;
   seam: ForecastHandoffDiscontinuityMetric | null;
+  replay?: ForecastReplayHandoff;
 }
 
 export interface ForecastHandoffDiscontinuityMetric {
@@ -41,12 +45,12 @@ export interface ForecastHandoffBlendMetadata
   blendedFaceFt: number;
 }
 
-export interface ForecastHandoffBlendAdjustment {
+interface ForecastHandoffBlendAdjustment {
   waveHeight: string;
   metadata: ForecastHandoffBlendMetadata;
 }
 
-export interface ForecastHandoffBlendStep {
+interface ForecastHandoffBlendStep {
   metric: ForecastHandoffDiscontinuityMetric | null;
   adjustment: ForecastHandoffBlendAdjustment | null;
 }
@@ -58,7 +62,7 @@ export function createForecastHandoffBlendState(): ForecastHandoffBlendState {
   };
 }
 
-export function clampHandoffBlendRatio(ratio: number): number {
+function clampHandoffBlendRatio(ratio: number): number {
   return Math.min(
     HANDOFF_BLEND_RATIO_MAX,
     Math.max(HANDOFF_BLEND_RATIO_MIN, ratio),
@@ -100,8 +104,10 @@ export function processForecastHandoffBlendSlot(args: {
       forecastAt: args.slot.forecastAt,
       forecastAtMs,
       faceFt,
+      ...(args.slot.replay ? { replay: args.slot.replay } : {}),
     };
     args.state.seam = null;
+    delete args.state.replay;
     return { metric: null, adjustment: null };
   }
 
@@ -122,6 +128,15 @@ export function processForecastHandoffBlendSlot(args: {
 
   const isNewMetric = args.state.seam == null;
   args.state.seam = metric;
+  if (isNewMetric) {
+    delete args.state.replay;
+    if (args.state.lastCdip?.replay && args.slot.replay) {
+      args.state.replay = {
+        cdip: { ...args.state.lastCdip.replay, forecastAt: metric.cdipForecastAt },
+        model: { ...args.slot.replay, forecastAt: metric.modelForecastAt },
+      };
+    }
+  }
 
   if (!args.enabled) {
     return { metric: isNewMetric ? metric : null, adjustment: null };
@@ -162,6 +177,7 @@ export function processForecastHandoffBlendSlot(args: {
 }
 
 function resetForecastHandoffBlendState(state: ForecastHandoffBlendState): void {
+  delete state.replay;
   state.lastCdip = null;
   state.seam = null;
 }

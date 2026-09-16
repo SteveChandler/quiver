@@ -2,7 +2,7 @@ import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 
 type DisplayScalar = string | number | null | undefined;
 
-export interface CompactSurfSummaryInput {
+interface CompactSurfSummaryInput {
   waveHeight?: DisplayScalar;
   windSpeed?: DisplayScalar;
   windDirection?: string | null;
@@ -14,7 +14,7 @@ export interface CompactSurfSummaryInput {
   why?: string | null;
 }
 
-export interface CompactSurfSummary {
+interface CompactSurfSummary {
   waveHeightHeadline: string | null;
   windSummary: string | null;
   swellSummary: string | null;

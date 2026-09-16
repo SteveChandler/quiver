@@ -134,7 +134,7 @@ export interface ConsolidatedAlertPayload {
   matches: MatchingWindow[];
 }
 
-export interface AlertQueueRow {
+interface AlertQueueRow {
   id: string;
   user_id: string;
   rule_id: string;

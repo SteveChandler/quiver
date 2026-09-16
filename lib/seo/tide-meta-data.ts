@@ -42,7 +42,7 @@ export interface TideHeightRow {
   tide_height_m: number | null;
 }
 
-export interface NextTideExtremes {
+interface NextTideExtremes {
   nextHigh: { ts: string; heightFt: number } | null;
   nextLow: { ts: string; heightFt: number } | null;
 }

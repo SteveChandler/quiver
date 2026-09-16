@@ -12,7 +12,7 @@ import {
 import { getLocalHour } from "@/lib/utils/timezone-utils";
 import type { RideabilityBand } from '@/lib/domains/rideability';
 
-export interface NativeSkillThresholds {
+interface NativeSkillThresholds {
   waveMinFt: number;
   waveMaxFt: number;
   idealMinFt: number;
@@ -20,7 +20,7 @@ export interface NativeSkillThresholds {
   maxWindMph: number;
 }
 
-export interface NativeScoreInputs {
+interface NativeScoreInputs {
   waveHeightFt: number;
   windSpeedMph: number;
   periodSec: number;
@@ -95,7 +95,7 @@ function parseSignedNumber(value: string | number | null | undefined): number | 
   return Number.isFinite(n) ? n : null;
 }
 
-export function nativeScoreInputsFromForecast(
+function nativeScoreInputsFromForecast(
   forecast: EnhancedForecastEntity
 ): NativeScoreInputs {
   return {

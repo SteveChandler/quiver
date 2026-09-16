@@ -13,7 +13,7 @@ const IOS_APP_STORE_CAMPAIGN_URL = IOS_APP_STORE_WEB_REDIRECT_PATH;
 
 type InternalCtaEventType = "cta_impression" | "cta_click";
 
-export interface IosAppCtaMetadata {
+interface IosAppCtaMetadata {
   source: string;
   surface?: string;
   placement?: string;

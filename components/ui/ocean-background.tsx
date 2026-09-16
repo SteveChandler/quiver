@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 /**
  * Props for the OceanBackground component
  */
-export interface OceanBackgroundProps {
+interface OceanBackgroundProps {
   /** Child content to render over the background */
   children: React.ReactNode;
   /** Background variant (default: "ocean") */

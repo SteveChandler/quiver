@@ -73,7 +73,7 @@ export type NotificationEventInsert = Omit<
   last_error?: string | null;
 };
 
-export type NotificationEventUpdate = Partial<NotificationEventRow>;
+type NotificationEventUpdate = Partial<NotificationEventRow>;
 
 export interface NotificationDeliveryAttemptRow {
   id: string;

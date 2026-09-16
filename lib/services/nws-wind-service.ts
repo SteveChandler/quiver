@@ -1,7 +1,7 @@
 import { apiClient } from "@/lib/utils/api-retry";
 import { ApiError, isNoaaInvalidPointError, isNoaaMarineForecastNotSupportedError } from "@/lib/errors/forecast-errors";
 
-export type NwsHourlyWindPoint = {
+type NwsHourlyWindPoint = {
   ts: string; // ISO8601 (period startTime)
   wind_speed_ms: number | null;
   wind_direction_deg: number | null;
