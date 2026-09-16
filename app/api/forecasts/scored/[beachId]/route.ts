@@ -83,6 +83,8 @@ interface TimeSlot {
     period: number;
     wind: number;
     tide: number;
+    windQuality?: number;
+    swellAlignment?: number;
   };
   appliedEffects?: string[];
   boardLift?: boolean;
