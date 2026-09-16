@@ -45,6 +45,20 @@ query 'CREATE DATABASE study_normalization TEMPLATE postgres'
 node --import tsx "$study_root/scripts/test-swell-watch-normalization.mjs" "$study_container"
 run_file "$study_root/supabase/migrations/20260914190000_amend_swell_watch_study_model_partition_count.sql" >/dev/null
 run_file "$study_root/supabase/migrations/20260914190000_amend_swell_watch_study_model_partition_count.sql" >/dev/null
+run_file "$study_root/supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql" >/dev/null
+run_file "$study_root/supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql" >/dev/null
+epoch5_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex');")
+[ "$epoch5_hash" = d1165986abe16e5c177a4d778dfa0f23ddd9d2b7407ee81c07755e39364c9f03 ]
+echo "epoch5 record function hash: $epoch5_hash"
+epoch5_grants=$(query "SELECT proacl::text FROM pg_proc WHERE oid='public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure;")
+run_file "$study_root/docs/operations/swell-watch-study-swell-system-count-rollback.sql" >/dev/null
+epoch4_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex');")
+[ "$epoch4_hash" = d6ce951daa3bb58b6b5228732ce7fcd9263c0cb894863362258d923ad53dc817 ]
+rollback_grants=$(query "SELECT proacl::text FROM pg_proc WHERE oid='public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure;")
+[ "$epoch5_grants" = "$rollback_grants" ]
+run_file "$study_root/supabase/migrations/20260916170000_amend_swell_watch_study_swell_system_count.sql" >/dev/null
+remigrated_hash=$(query "SELECT encode(extensions.digest(pg_get_functiondef('public.record_swell_watch_study_evaluation(uuid,text,jsonb,jsonb)'::regprocedure),'sha256'),'hex');")
+[ "$remigrated_hash" = d1165986abe16e5c177a4d778dfa0f23ddd9d2b7407ee81c07755e39364c9f03 ]
 query 'CREATE DATABASE study_activation TEMPLATE postgres'
 study_database=study_activation
 run_file "$study_root/__tests__/fixtures/swell-watch-study-activation.sql" >/dev/null
@@ -56,6 +70,7 @@ if [ "$activation_before" != "$activation_after" ]; then echo 'Activation retry 
 if [ "$(query "SELECT public.read_swell_watch_study_health()->>'status'")" != active ]; then
   echo 'Exact activation did not produce active study' >&2; exit 1
 fi
+study_database=study_activation
 # Each clone differs only in one revoked validity field, keeping the reviewed config hash.
 for validity_field in not_before expires_at; do
   query "CREATE DATABASE study_revoke_$validity_field TEMPLATE study_activation"

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { resolveNativeSamplingProfile, COMPLETE_PARTITIONS_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, type SwellWatchQualificationRule, type SwellWatchFramePart } from "./native-sampling";
+import { resolveNativeSamplingProfile, COMPLETE_PARTITIONS_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, type SwellWatchQualificationRule, type SwellWatchFramePart } from "./native-sampling";
 import { deriveSwellWatchHorizon } from "./horizon-derivation";
 import { normalizeSwellPartitions } from "./partition-normalizer";
 import { verifySwellWatchPolicy } from "./policy";
@@ -63,7 +63,7 @@ export async function deriveAttestedSwellWatchRun(
     & ReturnType<typeof deriveSwellWatchHorizon>)
 > {
   instant.parse(input.now);
-  z.enum([COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE]).parse(input.qualificationRule);
+  z.enum([COMPLETE_PARTITIONS_RULE, RETAINED_UNAVAILABLE_SECONDARY_RULE, MODEL_REPORTED_PARTITION_COUNT_RULE, MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE]).parse(input.qualificationRule);
   z.object({ swell_window_center_deg: z.number().finite().min(0).lt(360),
     swell_window_halfwidth_deg: z.number().finite().positive().max(180) }).parse(input.beach);
   if (!verifySwellWatchPolicy(input.policy)) throw new Error("Invalid derivation policy");
@@ -73,8 +73,12 @@ export async function deriveAttestedSwellWatchRun(
   if (age > input.policy.policy_values.staleness.maximum_forecast_age_hours) {
     return { kind: "suppressed", reason: "stale_run" };
   }
-  if (run.samples.some((sample) => sample.components.some((part) => part.unavailableReason
-    && (input.qualificationRule === COMPLETE_PARTITIONS_RULE || part.sourceSlot === "s1")))) {
+  if (run.samples.some((sample) => sample.components.some((part) => part.unavailableReason && (
+    input.qualificationRule === COMPLETE_PARTITIONS_RULE
+      || (part.sourceSlot === "s1" && input.qualificationRule !== MODEL_REPORTED_PARTITION_COUNT_RULE
+        && input.qualificationRule !== MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE
+        && !sample.components.some((secondary) => secondary.sourceSlot === "s2" && secondary.unavailableReason))
+  )))) {
     return { kind: "suppressed", reason: "incomplete_partition" };
   }
   try {
@@ -85,11 +89,15 @@ export async function deriveAttestedSwellWatchRun(
         forecastAt: new Date(sample.forecastAt).toISOString(),
       })));
       if (normalized.kind !== "observations") throw new Error("Invalid attested partition");
+      if (input.qualificationRule === MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE && sample.components.every((part) => part.unavailableReason)) {
+        return (["s1", "s2"] as const).map((sourceSlot) => ({ kind: "absent" as const, basis: MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE,
+          sourceSlot, forecastAt: new Date(sample.forecastAt).toISOString() }));
+      }
       return [...normalized.observations, ...sample.components.filter((part) => part.unavailableReason).map(() => {
-        if (input.qualificationRule === MODEL_REPORTED_PARTITION_COUNT_RULE) {
+        if (input.qualificationRule === MODEL_REPORTED_PARTITION_COUNT_RULE || input.qualificationRule === MODEL_REPORTED_SWELL_SYSTEM_COUNT_RULE) {
           // For this pinned model only, a secondary zero tuple alongside a valid primary means
           // Open-Meteo zero-filled WW3's rank-beyond-count UNDEF; it remains non-numeric evidence.
-          return { kind: "absent" as const, basis: MODEL_REPORTED_PARTITION_COUNT_RULE, sourceSlot: "s2" as const,
+          return { kind: "absent" as const, basis: input.qualificationRule, sourceSlot: "s2" as const,
             forecastAt: new Date(sample.forecastAt).toISOString() };
         }
         return { kind: "unavailable" as const, sourceSlot: "s2" as const, forecastAt: new Date(sample.forecastAt).toISOString(),
