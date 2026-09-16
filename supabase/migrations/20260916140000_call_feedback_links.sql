@@ -33,8 +33,9 @@ BEGIN
     ALTER TABLE public.forecast_feedback_contexts
       DROP CONSTRAINT forecast_feedback_contexts_feedback_kind_check;
     EXECUTE format(
-      'ALTER TABLE public.forecast_feedback_contexts ADD CONSTRAINT forecast_feedback_contexts_feedback_kind_check CHECK ((%s) OR feedback_kind = chr(99) || chr(97) || chr(108) || chr(108) || chr(95) || chr(99) || chr(104) || chr(101) || chr(99) || chr(107))',
-      current_check
+      'ALTER TABLE public.forecast_feedback_contexts ADD CONSTRAINT forecast_feedback_contexts_feedback_kind_check CHECK ((%s) OR feedback_kind = %L)',
+      current_check,
+      'call_check'
     );
   END IF;
 END $$;
@@ -54,6 +55,8 @@ ALTER TABLE public.sessions
 DO $$
 DECLARE
   current_check text;
+  event_name text;
+  missing_events text[] := ARRAY[]::text[];
 BEGIN
   SELECT regexp_replace(pg_get_constraintdef(oid), '^CHECK \((.*)\)$', '\1')
     INTO current_check
@@ -65,13 +68,30 @@ BEGIN
     RAISE EXCEPTION 'user_events_event_type_check constraint not found';
   END IF;
 
+  FOREACH event_name IN ARRAY ARRAY[
+    'call_check_prompted',
+    'call_check_answered',
+    'session_linked_to_call'
+  ] LOOP
+    IF current_check !~ format(
+      '(^|[^[:alnum:]_])%s([^[:alnum:]_]|$)',
+      event_name
+    ) THEN
+      missing_events := array_append(missing_events, event_name);
+    END IF;
+  END LOOP;
+
+  IF cardinality(missing_events) = 0 THEN
+    RETURN;
+  END IF;
+
   ALTER TABLE public.user_events
     DROP CONSTRAINT user_events_event_type_check;
 
   EXECUTE format(
     'ALTER TABLE public.user_events ADD CONSTRAINT user_events_event_type_check CHECK ((%s) OR event_type = ANY (%L::text[]))',
     current_check,
-    ARRAY['call_check_prompted', 'call_check_answered', 'session_linked_to_call']
+    missing_events
   );
 END $$;
 

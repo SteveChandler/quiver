@@ -39,6 +39,7 @@ function userEventsCheckMigrationEventTypes(): Set<string> {
     }
 
     for (const formatMatch of content.matchAll(/EXECUTE\s+format\(([\s\S]*?)\);/g)) {
+      if (!formatMatch[1].includes("user_events_event_type_check")) continue;
       for (const name of formatMatch[1].matchAll(/'([a-z][a-z0-9_]+)'/g)) {
         if (/^[a-z][a-z0-9_]+$/.test(name[1])) {
           names.add(name[1]);
