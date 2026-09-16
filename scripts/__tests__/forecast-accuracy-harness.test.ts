@@ -14,6 +14,8 @@ import {
   parseCliArgs,
   predictionSelectColumns,
   resolveBeachScope,
+  classifyDirectionSlice,
+  computeDirectionSliceMetrics,
   type ProfileRow,
   type SessionObservationRow,
 } from "../forecast-accuracy-harness";
@@ -99,6 +101,7 @@ describe("forecast-accuracy-harness", () => {
       failOnUnmeasuredSlices: false,
       minGateSamples: null,
       minSliceSamples: null,
+      directionTerm: false,
     });
   });
 
@@ -144,6 +147,16 @@ describe("forecast-accuracy-harness", () => {
     const options = parseCliArgs(["--group-by", "region"]);
 
     expect(options.groupBy).toBe("region");
+  });
+
+  it("parses the explicit direction-term replay option", () => {
+    expect(parseCliArgs(["--direction-term"]).directionTerm).toBe(true);
+  });
+
+  it("classifies direction slices relative to a beach window", () => {
+    expect(classifyDirectionSlice(280, 280, 100)).toBe("inside-centre");
+    expect(classifyDirectionSlice(331, 280, 100)).toBe("inside-edge");
+    expect(classifyDirectionSlice(20, 280, 100)).toBe("outside");
   });
 
   it("parses report JSON output path", () => {

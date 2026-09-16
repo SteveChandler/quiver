@@ -52,6 +52,30 @@ describe('immutable forecast display replay', () => {
     }
   });
 
+  it('replays the calibrated direction term only when explicitly requested', () => {
+    const context: ForecastDisplayReplayContext = {
+      version: 1,
+      generatedAt,
+      forecastAt: generatedAt,
+      base: {
+        input: {
+          beach: {
+            swell_window_center_deg: 282.5,
+            swell_window_halfwidth_deg: 102.5,
+            swell_access_factors: Array(72).fill(1),
+            shoaling_factors: { version: 1, type: 'period_lookup', buckets: [{ tp_min_s: 0, tp_max_s: 999, factor: 2 }] },
+          },
+          source: 'cdip_sig', rawHeightFt: 2, periodS: 14, swellDirectionDeg: 202, components: [],
+        },
+        supported: true,
+      },
+      handoff: null,
+      unsupportedReason: null,
+    };
+    expect(replayForecastDisplayHeightM(context)).toBe(1.219);
+    expect(replayForecastDisplayHeightM(context, {}, { directionTerm: true })).toBe(0.427);
+  });
+
   it('keeps seam inputs when the current blend ratio equals one', () => {
     const unity: BeachTerrainConfig = { ...beach,
       shoaling_factors: { version: 1, type: 'period_lookup', buckets: [{ tp_min_s: 0, tp_max_s: 999, factor: 0.6 }] },

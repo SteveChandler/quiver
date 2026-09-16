@@ -1009,6 +1009,7 @@ export function transformToFaceHeightDecomposed(params: {
   beach: BeachTerrainConfig;
   source?: WaveHeightSourceTag;
   allowCalibratedShoaling?: boolean;
+  directionScoringEnabled?: boolean;
   // Legacy fallback inputs (used when no components are populated).
   rawHeightFt: number;
   periodS: number | null;
@@ -1019,6 +1020,7 @@ export function transformToFaceHeightDecomposed(params: {
     beach,
     source,
     allowCalibratedShoaling,
+    directionScoringEnabled,
     rawHeightFt,
     periodS,
     swellDirectionDeg,
@@ -1045,6 +1047,7 @@ export function transformToFaceHeightDecomposed(params: {
       beach,
       source,
       allowCalibratedShoaling,
+      directionScoringEnabled,
     });
     return {
       faceHeightFt: legacy.faceHeightFt,
@@ -1138,6 +1141,7 @@ export function transformToFaceHeightDecomposed(params: {
     const legacy = transformToFaceHeightWithMetadata({
       rawHeightFt, periodS, swellDirectionDeg, beach, source,
       allowCalibratedShoaling,
+      directionScoringEnabled,
     });
     return {
       faceHeightFt: legacy.faceHeightFt,
