@@ -3,7 +3,7 @@ import path from "node:path";
 
 const root = process.cwd();
 const migrationSQL = readFileSync(
-  path.join(root, "supabase/migrations/20260916200000_mexico_beach_editorial_copy.sql"),
+  path.join(root, "supabase/migrations/20260916220000_mexico_beach_editorial_copy.sql"),
   "utf8",
 );
 const copy: Record<
